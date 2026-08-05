@@ -177,6 +177,45 @@ public sealed class GrassDrawPassTests : IDisposable {
         Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.CopyBufferToTexture));
     }
 
+    /// <summary>An assigned albedo replaces the default, and an unassigned one does not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because the pass had only ever taken the second.</b>
+    ///         <see cref="GrassDrawPass.Albedo" /> has existed since the pass did and nothing in the
+    ///         engine ever set it — the field on <c>GrassType</c> is what finally can, so what is
+    ///         asserted here is that the setter is actually the binding's source and not a property
+    ///         the descriptor write ignores.
+    ///     </para>
+    ///     <para>
+    ///         Through <see cref="GrassDrawPass.AlbedoOrDefault" /> rather than by reading the
+    ///         descriptor set back: that is the same expression the write uses and the same one the
+    ///         velocity pass borrows, so an assertion on it is an assertion on both bindings at once.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnAssignedAlbedoReplacesTheDefault() {
+        using var pass = Pass();
+
+        var unassigned = pass.AlbedoOrDefault;
+
+        Assert.True(unassigned.IsValid, "the built-in white default is not a view.");
+
+        var assigned = device.CreateTextureView(
+            device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: "blade"))
+        );
+
+        pass.Albedo = assigned;
+
+        Assert.Equal(assigned, pass.AlbedoOrDefault);
+        Assert.NotEqual(unassigned, pass.AlbedoOrDefault);
+
+        // And back, because a rule whose texture reference stopped resolving must return to the
+        // white default rather than keep a view nothing owns any more.
+        pass.Albedo = default;
+
+        Assert.Equal(unassigned, pass.AlbedoOrDefault);
+    }
+
     /// <summary>A pass with no blade records nothing, and says which of the two it is.</summary>
     [Fact]
     public void APassWithNoBladeDrawsNothingAndSaysSo() {

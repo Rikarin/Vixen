@@ -623,6 +623,13 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
         field.Draw.Frame = Lit ? lighting : null;
 
+        // Every frame rather than once when the field was built, because a texture is not resolvable
+        // until its pixels are on the device — asking at build time would answer "not yet" for the
+        // one frame that decided, and leave the field white for the rest of the session. The same
+        // shape TerrainRenderer's layer textures have, and cheap for the same reason: a dictionary
+        // probe against a source that has already uploaded.
+        field.Draw.Albedo = Resolved(field.Type.Albedo);
+
         field.Dispatch.Prepare(
             field.Type,
             new(GrassCellSize),
@@ -798,6 +805,43 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         );
     }
 
+    /// <summary>The view a vegetation rule's texture name resolves to, or none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see langword="default" /> for both "the rule named nothing" and "the rule named
+    ///         something that has not arrived", and the two are deliberately not distinguished
+    ///         here.</b> Both leave the draw pass on its white 1×1, which is the right picture for the
+    ///         first and a temporary one for the second — a texture becomes resolvable a frame or two
+    ///         after it is asked for, and a field that refused to draw until then would flicker in
+    ///         rather than fade in.
+    ///     </para>
+    ///     <para>
+    ///         That is the opposite of what <c>MaterialRenderFeature</c> does with an unresolved map,
+    ///         and the difference is which of the two states is legitimate: a grass field with no
+    ///         texture assigned is a thing to ship, and a material whose map did not arrive is not.
+    ///     </para>
+    /// </remarks>
+    TextureViewHandle Resolved(string reference) =>
+        reference is { Length: > 0 } named && Scene?.Textures is { } textures ? textures.Resolve(named) : default;
+
+    /// <summary>The one albedo a volume's stand binds: the first type in its palette that names one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One for the whole palette, because the pass has one <c>albedoMap</c> binding and draws
+    ///     every type through one descriptor set.</b> See <see cref="FoliageType.Albedo" /> — the field
+    ///     is per type because that is where the authored intent belongs, and this is where the
+    ///     pass's shape narrows it. First rather than, say, the most common: an order somebody can
+    ///     predict from the file beats a rule they would have to work out.
+    /// </remarks>
+    static string AlbedoOf(FoliageVolume volume) {
+        for (var type = 0; type < volume.Palette.Count; type++) {
+            if (volume.Palette[type].Albedo is { Length: > 0 } named) {
+                return named;
+            }
+        }
+
+        return "";
+    }
+
     /// <summary>How many cells one volume's streamer may keep uploaded, or zero for a volume that
     ///     fits its budget and streams nothing — the tier's number, for a test.</summary>
     internal int FoliageCellsOf(FoliageVolume volume) => stands.GetValueOrDefault(volume)?.Streamer?.Cells ?? 0;
@@ -884,6 +928,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         );
 
         stand.Draw.Frame = Lit ? lighting : null;
+        stand.Draw.Albedo = Resolved(AlbedoOf(volume));
 
         var worldView = new TerrainView(view.ViewProjection, view.Position, view.Frustum);
 

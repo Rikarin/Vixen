@@ -195,6 +195,140 @@ public sealed record NormalMapFeature : IMaterialFeature {
     }
 }
 
+/// <summary>Replaces the shading normal from a tangent-space normal map.</summary>
+/// <remarks>
+///     <para>
+///         What <see cref="NormalMapFeature" /> could not be for as long as a feature could not sample.
+///         That one carries a single <see cref="NormalMapFeature.NormalTS" /> constant, which bends a
+///         whole surface one way and is a normal map in name only — useful for a decal or a test and
+///         nothing an artist authored.
+///     </para>
+///     <para>
+///         Same seat as <see cref="TexturedMetalRoughnessFeature" /> and the same conditions: a name
+///         rather than a handle, a device with <c>HasBindless</c>, and a host that paired the name
+///         through <c>MaterialRenderFeature.TextureIndices</c>. Without the pairing the index stays
+///         zero and the surface is shaded by the table's fallback read as a normal, which is why the
+///         fallback being obviously not a surface matters twice over.
+///     </para>
+///     <para>
+///         Composes beside a base surface rather than replacing one: it writes
+///         <c>normalWS</c> and touches nothing else, so a material is a textured base colour
+///         <em>and</em> a textured normal, which is the shape every other feature in the chain has.
+///     </para>
+/// </remarks>
+[DataContract("TexturedNormalMap")]
+public sealed record TexturedNormalMapFeature : IMaterialFeature {
+    /// <summary>What the material calls the tangent-space normal map it wants sampled.</summary>
+    /// <remarks>
+    ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
+    ///     's reason: a host pairs one name with one name, keyed off this default, so a material that
+    ///     renamed its map resolves nothing and takes slot zero.
+    /// </remarks>
+    public string NormalMap { get; init; } = "normalMap";
+
+    /// <summary>How far the normal is bent, where 1 is as authored.</summary>
+    public float Strength { get; init; } = 1f;
+
+    /// <inheritdoc />
+    public string ShaderName => "TexturedNormalMapSurface";
+
+    /// <summary>What the shader calls the slot, under a composition path.</summary>
+    /// <param name="path">
+    ///     The qualified prefix the feature was composed under, as
+    ///     <see cref="MaterialCompilationContext" /> builds it.
+    /// </param>
+    /// <remarks>
+    ///     Exposed for <see cref="TexturedMetalRoughnessFeature.BaseColorIndexParameter" />'s reason:
+    ///     only the compiler knows the path, and a host that wrote the name down would write down one
+    ///     composition's answer.
+    /// </remarks>
+    public static string NormalIndexParameter(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+        return path + "normalIndex";
+    }
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        context.Set("strength", Strength);
+
+        // Zero until a host with a table writes a slot over it, and its presence here is what says
+        // this material reads a map — MaterialRenderFeature.UnresolvedTextureCount counts the ones
+        // that still say so after a level has settled.
+        context.Set("normalIndex", 0u);
+    }
+}
+
+/// <summary>Occlusion, roughness and metalness from one packed map — R, G and B in that order.</summary>
+/// <remarks>
+///     <para>
+///         The packing every pipeline converged on, and it matters beyond tidiness: a streaming pool
+///         is bounded in <em>pages</em>, so three maps per material would spend three times the
+///         residency on the same information. <see cref="OcclusionFeature.OcclusionMap" /> is a
+///         <c>float</c> — the whole of what a material could say about occlusion before this — and
+///         roughness and metalness were constants on the base workflow.
+///     </para>
+///     <para>
+///         ⚠ <b>It reads the base albedo back out of the surface, so the feature before it must leave
+///         its own metalness at zero.</b> At metalness zero the base workflow writes the albedo into
+///         <c>diffuseColor</c> untouched and <c>f0</c> at the dielectric constant, which is
+///         recoverable; at any other value the albedo has already been split between the two channels
+///         by a factor this cannot see. A material that sets metalness on its base feature
+///         <em>and</em> supplies one from a map is asking two things for one channel — the map wins,
+///         and what it multiplies is whatever the split left behind.
+///     </para>
+///     <para>
+///         Same conditions as every other sampling feature: a name rather than a handle, a device
+///         with <c>HasBindless</c>, and a host that paired the name through
+///         <c>MaterialRenderFeature.TextureIndices</c>.
+///     </para>
+/// </remarks>
+[DataContract("TexturedOrm")]
+public sealed record TexturedOrmFeature : IMaterialFeature {
+    /// <summary>What the material calls the packed map it wants sampled.</summary>
+    /// <remarks>
+    ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
+    ///     's reason: a host pairs one name with one name, keyed off this default.
+    /// </remarks>
+    public string OrmMap { get; init; } = "ormMap";
+
+    /// <summary>How much of the map's occlusion is applied, 0 for none.</summary>
+    public float OcclusionStrength { get; init; } = 1f;
+
+    /// <summary>What the map's roughness channel is scaled by.</summary>
+    public float Roughness { get; init; } = 1f;
+
+    /// <summary>And its metalness channel.</summary>
+    public float Metalness { get; init; } = 1f;
+
+    /// <inheritdoc />
+    public string ShaderName => "TexturedOrmSurface";
+
+    /// <summary>What the shader calls the slot, under a composition path.</summary>
+    /// <param name="path">
+    ///     The qualified prefix the feature was composed under, as
+    ///     <see cref="MaterialCompilationContext" /> builds it.
+    /// </param>
+    public static string OrmIndexParameter(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+        return path + "ormIndex";
+    }
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        context.Set("occlusionStrength", OcclusionStrength);
+        context.Set("roughness", Roughness);
+        context.Set("metalness", Metalness);
+
+        // Zero until a host with a table writes a slot over it — see
+        // TexturedMetalRoughnessFeature.Compile for what the zero is and why it is not nothing.
+        context.Set("ormIndex", 0u);
+    }
+}
+
 /// <summary>Adds emitted radiance, unaffected by lighting.</summary>
 [DataContract("Emissive")]
 public sealed record EmissiveFeature : IMaterialFeature {

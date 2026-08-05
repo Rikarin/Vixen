@@ -318,6 +318,21 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
+        EventId = 14059,
+        Level = LogLevel.Information,
+        Message = "Material maps: {Indexed} texture(s) hold a bindless slot, {Unresolved} pairing(s) "
+            + "resolved to slot zero. Unresolved above zero once the level has settled is a map the "
+            + "shader asks for and nothing supplied — a renamed parameter, a texture that failed to "
+            + "load, or a feature nobody paired in WorldRenderer.Paired — and every one of them draws "
+            + "the table's magenta checker. It is magenta and not white for a reason worth keeping: "
+            + "an arena material tints the map it multiplies, so a white fallback renders wall.vxmat "
+            + "at its 1.739× compensation and blows the level out to flat white, which reads as "
+            + "broken lighting rather than as a missing texture. Indexed at zero with unresolved at "
+            + "zero is a level whose materials sample nothing at all."
+    )]
+    public static partial void MaterialTextureSummary(ILogger logger, int indexed, int unresolved);
+
+    [LoggerMessage(
         EventId = 14056,
         Level = LogLevel.Information,
         Message = "VSM: {Marked} page(s) marked by the last serviced frame, {Drawn} drawn this frame, "

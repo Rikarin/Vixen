@@ -64,6 +64,27 @@ public readonly record struct FoliageType {
     /// <summary>The mesh or LOD group this places, by asset name.</summary>
     public string Mesh { get; init; }
 
+    /// <summary>What its instances are textured with, by asset name, or empty for the pass's default.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The seat a foliage texture had nowhere to sit</b>, on
+    ///         <see cref="GrassType.Albedo" />'s terms exactly: <c>Foliage.rvn</c> declares an
+    ///         <c>albedoMap</c> that nothing assigned, so every stand drew through
+    ///         <c>FoliageDrawPass</c>'s white 1×1.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A volume's stand binds one albedo for its whole palette, so the first type that
+    ///         names one supplies it for every type in that volume.</b> That is the draw pass's shape
+    ///         and not this field's: <c>FoliageDrawPass</c> has one <c>albedoMap</c> binding and draws
+    ///         every palette type through one descriptor set, so a pine and a birch in one volume
+    ///         cannot differ here. Splitting them means a texture array or a set per type, and until
+    ///         one exists a volume whose types need different maps is a volume per type. The field is
+    ///         per type rather than per volume because that is where the authored intent belongs, and
+    ///         because it is what the seam will read when it exists.
+    ///     </para>
+    /// </remarks>
+    public string Albedo { get; init; }
+
     /// <summary>Whether its instances are stored or scattered from a rule.</summary>
     public FoliageStorage Storage { get; init; }
 
@@ -158,6 +179,7 @@ public readonly record struct FoliageType {
         new() {
             Name = name,
             Mesh = "",
+            Albedo = "",
             Storage = FoliageStorage.Stored,
             Density = 0.1f,
             Radius = 2f,

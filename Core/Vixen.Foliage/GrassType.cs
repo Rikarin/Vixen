@@ -117,6 +117,27 @@ public readonly record struct GrassType {
     /// <summary>The mesh this scatters, by asset name.</summary>
     public string Mesh { get; init; }
 
+    /// <summary>What its blades are textured with, by asset name, or empty for the pass's default.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The seat a grass texture had nowhere to sit.</b> <c>Grass.rvn</c> has declared an
+    ///         <c>albedoMap</c> since it was written and nothing ever assigned one, so every field in
+    ///         every project drew through <c>GrassDrawPass</c>'s white 1×1.
+    ///     </para>
+    ///     <para>
+    ///         A name rather than a handle, for <see cref="Mesh" />'s reason: a rule is authored and
+    ///         serialised on machines with no device. It resolves through the same texture source the
+    ///         terrain's layers use, so one upload serves however many fields name it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty and unresolvable are the same picture and different mistakes, and neither is
+    ///         magenta.</b> Both leave the white default, because a field with no texture assigned
+    ///         should draw as plain grass — that is a thing to ship, unlike a material whose map did
+    ///         not arrive, which is why the two fall back differently.
+    ///     </para>
+    /// </remarks>
+    public string Albedo { get; init; }
+
     /// <summary>Which terrain layer's weight it reads, or empty to grow anywhere.</summary>
     public string Layer { get; init; }
 
@@ -169,6 +190,7 @@ public readonly record struct GrassType {
         new() {
             Name = name,
             Mesh = "",
+            Albedo = "",
             Layer = "",
             MinWeight = 0.15f,
             MaxWeight = 0.6f,
@@ -214,6 +236,7 @@ public readonly record struct GrassType {
     public FoliageType ToFoliageType() =>
         FoliageType.Of(Name) with {
             Mesh = Mesh,
+            Albedo = Albedo,
             Storage = FoliageStorage.Derived,
             Density = Density,
             Radius = Density > 0f ? 1f / MathF.Sqrt(Density) : 1f,
