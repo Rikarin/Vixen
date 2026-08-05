@@ -210,6 +210,38 @@ the shape blur are a procedural shoreline generator living inside a water body, 
 is a terrain brush an author runs on a layer above — which survives the body being moved, because it
 is in a different layer. That is the gate § D5 says to check the decision against, and it is a test.
 
+## Buoyancy is pontoons, and the rest is measured rather than tuned
+
+[§ D10]. `Buoyancy.Solve` takes a body's pontoons and its placement, asks the evaluator where the
+surface is over each, and produces a force at each pontoon's own world position — which is what makes
+a body pitch when one end is lifted rather than bob without rolling.
+
+**The submerged fraction is the exact spherical cap, not a linear ramp on the depth.** A linear
+approximation is wrong by a third at half submersion, which is precisely where a floating body rests —
+so a crate tuned against it sits at a waterline the arithmetic never predicted. ⚠ It is saturated:
+the expression is exactly one at full submersion only in exact arithmetic, and a fraction above one is
+lift above Archimedes. The property test found that, which is what a property test is for.
+
+⚠ **It reads the simulation's water time and never a frame time.** A force computed from an
+interpolated render-time surface changes when the frame rate does, and in a networked game that is a
+client and a server disagreeing about where a boat is.
+
+⚠ **Jolt's own buoyancy impulse is deliberately not used.** It takes a *plane*, which is exactly the
+approximation a wave surface is not — and using it would put a second definition of the water surface
+inside the physics engine, where the seam test cannot reach it.
+
+⚠ **A current is a drag towards the flow, not a push in its direction.** A constant push accelerates a
+raft for ever and it ends the river faster than the water. The test measures a raft reaching about the
+river's own speed and staying there.
+
+The convergence test ships with its negative control: with the damping removed the same body is still
+moving half a metre a second after five seconds, so the settling is the damping's doing rather than
+the integrator's.
+
+**What is not here is the join.** The `BuoyancyBody` component, the Jolt force application, the debug
+draw and the networked predicted body are W7's device- and world-facing half; § D1 puts the physics
+join in its own assembly rather than a reference from here to Jolt, and it is not built.
+
 ## What is not here
 
 The renderer (`Vixen.Rendering.Water`), the editor (`Vixen.Editor.Water`), the Raven modules, the
