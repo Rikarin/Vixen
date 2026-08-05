@@ -157,7 +157,9 @@ public class SemanticDiagnosticsTests {
 
     [Fact]
     public void Indexing_a_non_indexable_value_is_rejected() =>
-        AssertDiagnostics(InMethod("        var x = flag[0]", "    val flag: bool\n"), "RVN2044");
+        // groupshared, because a plain `val flag: bool` is a binding and a binding cannot hold a
+        // boolean (RVN2137) — which would be a second diagnostic this test is not about.
+        AssertDiagnostics(InMethod("        var x = flag[0]", "    groupshared var flag: bool\n"), "RVN2044");
 
     [Fact]
     public void Iterating_a_non_sequence_is_rejected() =>
@@ -307,6 +309,201 @@ public class SemanticDiagnosticsTests {
         );
 
         Assert.Single(diagnostics);
+    }
+
+    // --- Bindings that a storage class cannot hold -------------------------
+    //
+    // All three found by the `raven` fuzz target against spirv-val, from one-token edits of
+    // Example2.rvn. Each compiled with nothing reported and emitted a module the validator
+    // rejected — which is the class of defect no crash-finder finds, because nothing crashed.
+
+    /// <summary>
+    ///     A boolean binding is refused — <c>RVN2137</c>.
+    /// </summary>
+    /// <remarks>
+    ///     The corpus input is <c>[D] val UseSoftKnee: bool = true</c>: an unrecognised attribute
+    ///     where <c>[Permutation]</c> was written, so the key stopped being folded and became a
+    ///     uniform. SPIR-V allows <c>OpTypeBool</c> only in storage classes that are not externally
+    ///     visible, and the emitted module said
+    ///     <c>%…PerMaterialUniforms = OpVariable %… Uniform</c> over a block containing one.
+    /// </remarks>
+    [Fact]
+    public void A_boolean_binding_is_refused() {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(InMethod("        var x = flag", "    var flag: bool\n"), "RVN2137")
+        );
+
+        Assert.Contains("flag", diagnostic.GetMessage());
+        Assert.Contains("[Permutation]", diagnostic.GetMessage());
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+    }
+
+    /// <summary>
+    ///     A boolean reached through a struct or an array is refused too.
+    /// </summary>
+    /// <remarks>
+    ///     The validator's complaint is about the block, and a <c>bool</c> reaches the block as a
+    ///     member just as easily as by being the field's own type. Checking only the field's type
+    ///     would have left the same invalid module one <c>struct</c> away.
+    /// </remarks>
+    [Theory]
+    [InlineData("    var flags: Flags\n")]
+    [InlineData("    var flags: Flags[4]\n")]
+    public void A_boolean_inside_a_bindings_type_is_refused(string members) =>
+        AssertDiagnostics(
+            $$"""
+              package A
+
+              struct Flags {
+                  var enabled: bool
+              }
+
+              shader S {
+              {{members}}
+                  func Probe() {
+                  }
+              }
+
+              """,
+            "RVN2137"
+        );
+
+    /// <summary>
+    ///     The two places a boolean is still legal: a <c>[Permutation]</c> key and
+    ///     <c>groupshared</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Worth asserting rather than assuming, because the shipped library holds some thirty
+    ///     boolean permutation keys and a rule written one predicate too wide would have refused
+    ///     every one of them. A key is folded at every use and never reaches a storage class;
+    ///     workgroup storage is one of the classes SPIR-V names as allowed.
+    /// </remarks>
+    [Theory]
+    [InlineData("    [Permutation] val Flag: bool = true\n")]
+    [InlineData("    groupshared var flag: bool\n")]
+    public void A_boolean_that_is_not_a_binding_is_allowed(string members) =>
+        AssertNoDiagnostics(
+            $$"""
+              package A
+
+              shader S {
+              {{members}}
+                  func Probe() {
+                  }
+              }
+
+              """
+        );
+
+    // --- Attributes --------------------------------------------------------
+
+    /// <summary>
+    ///     An attribute the compiler does not read is named rather than dropped — <c>RVN2138</c>.
+    /// </summary>
+    /// <remarks>
+    ///     A warning, and the reason it is worth one is the corpus input above: dropping an
+    ///     attribute in silence does not merely fail to add something, it changes what the
+    ///     declaration <em>is</em>. <c>[D]</c> where <c>[Permutation]</c> was meant turns a
+    ///     compile-time key into a uniform, and every variant of the shader collapses into one.
+    /// </remarks>
+    [Fact]
+    public void An_unrecognised_attribute_is_reported() {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(
+                """
+                package A
+
+                shader S {
+                    [Permuation] val Flag: uint = 1u
+
+                    func Probe() {
+                    }
+                }
+
+                """,
+                "RVN2138"
+            )
+        );
+
+        Assert.Contains("Permuation", diagnostic.GetMessage());
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+    }
+
+    /// <summary>An attribute on a parameter is swept too, which is where a [Semantic] is written.</summary>
+    [Fact]
+    public void An_unrecognised_attribute_on_a_parameter_is_reported() =>
+        AssertDiagnostics(
+            """
+            package A
+
+            shader S {
+                func Probe([Semantics("POSITION")] position: float4) {
+                }
+            }
+
+            """,
+            "RVN2138"
+        );
+
+    /// <summary>Every name the compiler does read stays quiet.</summary>
+    [Fact]
+    public void The_recognised_attributes_are_not_reported() =>
+        AssertNoDiagnostics(
+            """
+            package A
+
+            shader S {
+                [Permutation] val Flag: bool = true
+                [PerFrame] var time: float
+                [PushConstant] var offset: float4
+
+                [ComputeShader(8, 8, 1)]
+                func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                }
+            }
+
+            """
+        );
+
+    // --- Calls -------------------------------------------------------------
+
+    /// <summary>
+    ///     Calling a namespace is reported — <c>RVN2030</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The second corpus input, <c>val over = Vixen(1, 1, 1, 1)</c>. It bound with nothing
+    ///         reported because a namespace answers <c>ErrorTypeSymbol</c> when asked for its type —
+    ///         it has no type, and there is nothing else to answer — so <c>BindInvocation</c>'s
+    ///         guard against reporting a callee something has <em>already</em> complained about read
+    ///         it as one.
+    ///     </para>
+    ///     <para>
+    ///         What came out the far end was a <c>val</c> bound to a void-typed value and
+    ///         <c>OpConstantNull %void</c>, which is invalid however it is reached — <c>void</c> is
+    ///         the one type with no null value.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Calling_a_namespace_is_reported() {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(
+                """
+                package Vixen.Test
+
+                shader S {
+                    func Probe() {
+                        val over = Vixen(1, 1, 1, 1)
+                    }
+                }
+
+                """,
+                "RVN2030"
+            )
+        );
+
+        Assert.Contains("Vixen", diagnostic.GetMessage());
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
     }
 
     /// <summary>Wraps a method body in a shader so error cases stay readable.</summary>

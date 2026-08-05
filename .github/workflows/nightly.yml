@@ -58,6 +58,16 @@ jobs:
           key: nuget-fuzz-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
           restore-keys: nuget-fuzz-
 
+      # spirv-tools carries spirv-val, which the `raven` target hands every module it generates. It
+      # is the only oracle in this harness that is not Vixen checking its own work, and it is the
+      # only one that can catch a backend emitting a module that is valid and *wrong*. Absent, that
+      # target goes on generating and validates nothing — so TheSpirvValidatorIsInstalled fails
+      # rather than skips, and this is the step that keeps it green. ci.yml installs it on both of
+      # its legs for the same reason.
+      - name: Install spirv-tools
+        run: sudo apt-get update && sudo apt-get install -y spirv-tools
+        shell: bash
+
       - name: Fuzz
         run: dotnet test Core/Vixen.Net.Fuzz.Tests -c Release
         shell: bash

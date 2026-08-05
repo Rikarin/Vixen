@@ -229,7 +229,7 @@ public class LoweringTests {
                         while (flag) {
                         }
             """,
-            "    var flag: bool\n"
+            "    groupshared var flag: bool\n"
         );
 
         var repeatLoop = LowerBody(
@@ -237,7 +237,7 @@ public class LoweringTests {
                         repeat {
                         } while (flag)
             """,
-            "    var flag: bool\n"
+            "    groupshared var flag: bool\n"
         );
 
         Assert.Contains("before-body", whileLoop);
@@ -255,7 +255,7 @@ public class LoweringTests {
                             other = 2f
                         }
             """,
-            "    var flag: bool\n"
+            "    groupshared var flag: bool\n"
         );
 
         Assert.Contains("if %0", printed);
@@ -323,7 +323,7 @@ public class LoweringTests {
     public void A_conditional_expression_becomes_a_select() {
         var printed = LowerBody(
             "        return flag ? 1f : 2f",
-            "    var flag: bool\n",
+            "    groupshared var flag: bool\n",
             "func Probe(): float"
         );
 

@@ -195,7 +195,6 @@ public class GlslBackendTests {
     }
 
     [Theory]
-    [InlineData("bool", "bool")]
     [InlineData("int", "int")]
     [InlineData("uint", "uint")]
     [InlineData("float", "float")]
@@ -203,7 +202,6 @@ public class GlslBackendTests {
     [InlineData("float3", "vec3")]
     [InlineData("int4", "ivec4")]
     [InlineData("uint2", "uvec2")]
-    [InlineData("bool3", "bvec3")]
     [InlineData("double2", "dvec2")]
     [InlineData("mat3", "mat3")]
     public void Types_map_onto_their_glsl_spelling(string raven, string glsl) {
@@ -213,6 +211,23 @@ public class GlslBackendTests {
         );
 
         Assert.Contains($"{glsl} probe;", code);
+    }
+
+    /// <summary>
+    ///     The boolean spellings, asked of the namer rather than of a uniform block.
+    /// </summary>
+    /// <remarks>
+    ///     Not a row of the theory above, because the theory declares its probe as a binding and a
+    ///     binding cannot hold a boolean — <c>RVN2137</c>. The mapping is still worth pinning, and
+    ///     it is worth pinning <em>here</em>, because a boolean does reach GLSL: as a local, as a
+    ///     <c>groupshared</c>, and as the result of every comparison the language has. Same shape as
+    ///     <see cref="A_matrix_flips_to_glsl_column_major_naming" />, which asks the namer directly
+    ///     for the case a block cannot show either.
+    /// </remarks>
+    [Fact]
+    public void Boolean_types_map_onto_their_glsl_spelling() {
+        Assert.Equal("bool", GlslTypes.Name(IrScalarType.Bool));
+        Assert.Equal("bvec3", GlslTypes.Name(new IrVectorType(IrScalarType.Bool, 3)));
     }
 
     [Fact]
@@ -293,20 +308,25 @@ public class GlslBackendTests {
 
     [Fact]
     public void An_if_statement_survives_as_an_if_statement() {
+        // A uniform `float` compared, rather than the `bool` uniform this used to declare: a binding
+        // cannot hold a boolean (RVN2137). The condition is still a value the compiler cannot fold,
+        // which is the only thing the shape of the branch depends on.
         var code = GeneratePixel(
             """
-                    if (flag) {
+                    if (level > 0f) {
                         return float4(1, 0, 0, 1)
                     } else {
                         return float4(0, 1, 0, 1)
                     }
             """,
-            "    var flag: bool\n"
+            "    var level: float\n"
         );
 
-        // The condition is loaded into a temporary first, as every read is.
-        Assert.Contains("bool _0 = flag;", code);
-        Assert.Contains("if (_0) {", code);
+        // The read is loaded into a temporary first, as every read is, and the comparison into
+        // another — which is what the condition of the `if` then names.
+        Assert.Contains("float _0 = level;", code);
+        Assert.Contains("bool _2 = (_0 > 0.0);", code);
+        Assert.Contains("if (_2) {", code);
         Assert.Contains("} else {", code);
     }
 

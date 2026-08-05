@@ -378,7 +378,7 @@ public class ReflectionTests {
             shader S {
                 var exposure: float = 2.5f
                 var samples: int = 8
-                var enabled: bool = true
+                var enabled: uint = 1u
                 var tint: float4
 
                 [FragmentShader]
@@ -392,7 +392,9 @@ public class ReflectionTests {
 
         Assert.Equal("2.5", Assert.Single(parameters, p => p.Name == "exposure").DefaultValue);
         Assert.Equal("8", Assert.Single(parameters, p => p.Name == "samples").DefaultValue);
-        Assert.Equal("true", Assert.Single(parameters, p => p.Name == "enabled").DefaultValue);
+        // A uint rather than the bool this used to be: a binding cannot hold a boolean (RVN2137),
+        // so the "true"/"false" spelling is a permutation default's business and is asserted there.
+        Assert.Equal("1", Assert.Single(parameters, p => p.Name == "enabled").DefaultValue);
 
         // Nothing written is nothing reported, rather than a zero that looks authored.
         Assert.Equal(string.Empty, Assert.Single(parameters, p => p.Name == "tint").DefaultValue);

@@ -17,7 +17,6 @@ shader ExampleBase {
 protocol CustomShader {
 }
 
-[FooBar, BarFoo]
 shader TestShader : ExampleBase, CustomShader {
     const val Multiplier = 42
     const val Epsilon = 0.0001f
@@ -155,7 +154,6 @@ struct FooBar {
 struct Counter {
     var count: int
 
-    [FooBar(mode: "linear")]
     var observed: float {
         willSet {
             count++

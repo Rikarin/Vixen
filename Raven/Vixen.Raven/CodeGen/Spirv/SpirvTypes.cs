@@ -490,8 +490,28 @@ sealed class SpirvTypes {
         );
 
     /// <summary>The all-zero value of a type, for a constant with no explicit value.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>void</c> is refused rather than nulled, and it is the one type here that has
+    ///         no zero.</b> SPIR-V says so directly — <c>OpConstantNull</c>'s result type must be one
+    ///         that <i>has</i> a null value, and <c>OpTypeVoid</c> does not — so the instruction this
+    ///         would otherwise intern is invalid however it was reached.
+    ///     </para>
+    ///     <para>
+    ///         It was reached by a call to something that is not a function: a namespace named as a
+    ///         callee bound with nothing reported (see <c>Binder.BindInvocation</c>), lowered to a
+    ///         void-typed value, and arrived here through <c>Value</c>'s fallback for a value with no
+    ///         id. That front-end hole is closed, which is what makes this unreachable from source —
+    ///         and is exactly why it is worth a diagnostic rather than a comment: the next lowering
+    ///         defect that produces a void-typed operand should be told to somebody, not quietly
+    ///         turned into a module a driver rejects. Same treatment an unsized array gets in
+    ///         <c>Type</c>: report, then hand back something well-formed so the diagnostic is what
+    ///         stops the build.
+    ///     </para>
+    /// </remarks>
     internal uint ConstantNull(IrType type) =>
         type switch {
+            { IsVoid: true } => Reject(type),
             { Kind: IrTypeKind.Bool } => ConstantBool(false),
             { Kind: IrTypeKind.Int } => ConstantInt(0),
             { Kind: IrTypeKind.UInt } => ConstantUInt(0),
@@ -504,6 +524,13 @@ sealed class SpirvTypes {
                 () => module.AddDeclaration(SpirvOp.ConstantNull, Type(type))
             )
         };
+
+    /// <summary>Reports a type that has no constant, and substitutes one that is well-formed.</summary>
+    uint Reject(IrType type) {
+        unsupported(type, $"a constant of type '{type.Name}'");
+
+        return ConstantInt(0);
+    }
 
     /// <summary>A boxed IR constant as a SPIR-V constant of the given type.</summary>
     internal uint Constant(object? value, IrType type) =>
