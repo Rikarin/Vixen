@@ -125,15 +125,33 @@ public readonly struct Quaternion : IEquatable<Quaternion>, IFormattable, ISpanF
     /// <param name="roll">Rotation about Z, in radians.</param>
     /// <returns>The rotation.</returns>
     /// <remarks>
-    ///     Euler angles exist here because designers think in them and because they serialise
-    ///     readably. Nothing inside the engine stores them: the order is a convention, three
-    ///     different orders give three different rotations from the same numbers, and the ambiguity
-    ///     is exactly why the runtime representation is a quaternion.
+    ///     <para>
+    ///         Euler angles exist here because designers think in them and because they serialise
+    ///         readably. Nothing inside the engine stores them: the order is a convention, three
+    ///         different orders give three different rotations from the same numbers, and the ambiguity
+    ///         is exactly why the runtime representation is a quaternion.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The axes are the body's, not the world's, and the factor order below is the
+    ///         opposite of the order the name reads in.</b> <see cref="Concatenate" /> composes left to
+    ///         right — <c>a * b</c> applies <c>a</c> first — so writing the three factors in the
+    ///         reading order yaw, pitch, roll would turn about three <em>fixed</em> axes: it would
+    ///         pitch about the world's X rather than about the one the yaw just turned. That is the
+    ///         same rotation only while the yaw is zero, which is why it survives every test that
+    ///         varies one angle at a time. What it costs when both are non-zero is a camera that rolls
+    ///         as it turns — the horizon tilts, and the view creeps off the thing it was aimed at.
+    ///     </para>
+    ///     <para>
+    ///         So roll is applied first and yaw last, which composes the intrinsic Y-X-Z rotation that
+    ///         "yaw, pitch, roll" means everywhere else — <c>System.Numerics</c>'s
+    ///         <c>CreateFromYawPitchRoll</c> included. <c>PlayerLook.Forward</c> builds the same
+    ///         direction out of sines and cosines by hand and the two now agree by construction.
+    ///     </para>
     /// </remarks>
     public static Quaternion FromYawPitchRoll(float yaw, float pitch, float roll) =>
-        FromAxisAngle(Vector3.UnitY, yaw)
+        FromAxisAngle(Vector3.UnitZ, roll)
         * FromAxisAngle(Vector3.UnitX, pitch)
-        * FromAxisAngle(Vector3.UnitZ, roll);
+        * FromAxisAngle(Vector3.UnitY, yaw);
 
     /// <summary>The shortest rotation taking one direction to another.</summary>
     /// <param name="from">The starting direction. Normalised internally.</param>

@@ -125,10 +125,21 @@ shader Vignette {
     /// aspect ratio unless `vignetteRoundness` says otherwise — a circular vignette on a 16:9 screen
     /// darkens the sides long before the top, which is right for a lens and wrong for a framing device.
     func VignetteAmount(at: float2): float {
-        var offset = at - vignetteCenter
-        offset.x = offset.x * lerp(aspectRatio, 1f, saturate(vignetteRoundness))
+        val stretch = lerp(aspectRatio, 1f, saturate(vignetteRoundness))
 
-        val distance = length(offset) * 1.41421356f
+        var offset = at - vignetteCenter
+        offset.x = offset.x * stretch
+
+        // ⚠ Normalised by the corner *this* stretch produces, so `distance` is 1 at a corner whatever
+        // the roundness is. The constant here used to be sqrt(2), which is that normalisation for a
+        // stretch of exactly 1 — the circular case — and the default roundness is 0, which stretches
+        // by the aspect ratio instead. On 16:9 that put the whole of both side edges past 1, and
+        // everything past 1 is `vignetteColor` outright: an intensity of 0.4 blacked out a third of
+        // the frame. The picture it gives is a bright ellipse touching the top and bottom edges,
+        // which reads as a lens rather than as a bug, so it survived a long time.
+        val corner = 0.5f * sqrt(stretch * stretch + 1f)
+        val distance = length(offset) / max(corner, Const.Epsilon)
+
         val inner = 1f - saturate(vignetteIntensity)
         return smoothstep(1f, inner + (1f - vignetteSmoothness) * 0.5f, distance)
     }

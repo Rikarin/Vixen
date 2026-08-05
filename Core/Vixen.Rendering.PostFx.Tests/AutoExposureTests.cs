@@ -290,7 +290,9 @@ public class AutoExposureTests : IDisposable {
 
         adapt = h.Exposure.Steps[h.Exposure.PassCount - 1];
 
-        Assert.Equal(0.03f, adapt.Parameters.Get(AutoExposureKeys.MinimumExposure), 5);
+        // The node's own defaults, named rather than transcribed: the floor is EV 17 because it is
+        // the bound on the *brightest* scene and has to reach daylight.
+        Assert.Equal(Photometry.ExposureFromEv100(17f), adapt.Parameters.Get(AutoExposureKeys.MinimumExposure), 9);
         Assert.Equal(8f, adapt.Parameters.Get(AutoExposureKeys.MaximumExposure), 5);
     }
 

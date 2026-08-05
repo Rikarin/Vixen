@@ -124,17 +124,43 @@ public class TransformTests {
         Assert.Equal(1f, result.Length(), 4);
     }
 
+    /// <summary>
+    ///     The Euler angles turn about the body's axes, which is what makes them yaw, pitch and roll.
+    /// </summary>
+    /// <remarks>
+    ///     Asserted against <c>System.Numerics</c> rather than against the three factors written out,
+    ///     which is what this test used to do — and a test that restates the implementation agrees
+    ///     with it whatever it says. It agreed with a composition about three <em>fixed</em> axes for
+    ///     as long as that was what shipped.
+    /// </remarks>
     [Fact]
-    public void Euler_angles_apply_yaw_then_pitch_then_roll() {
+    public void Euler_angles_turn_about_the_body_axes() {
         const float yaw = 0.4f;
         const float pitch = -0.9f;
         const float roll = 1.2f;
 
-        var expected = Quaternion.FromAxisAngle(Vector3.UnitY, yaw)
-            * Quaternion.FromAxisAngle(Vector3.UnitX, pitch)
-            * Quaternion.FromAxisAngle(Vector3.UnitZ, roll);
+        System.Numerics.Quaternion actual = Quaternion.FromYawPitchRoll(yaw, pitch, roll);
+        var expected = System.Numerics.Quaternion.CreateFromYawPitchRoll(yaw, pitch, roll);
 
-        Assert.True(Quaternion.SameRotation(expected, Quaternion.FromYawPitchRoll(yaw, pitch, roll), Tolerance));
+        Assert.Equal(expected.X, actual.X, 5);
+        Assert.Equal(expected.Y, actual.Y, 5);
+        Assert.Equal(expected.Z, actual.Z, 5);
+        Assert.Equal(expected.W, actual.W, 5);
+    }
+
+    /// <summary>Pitching a turned camera keeps its horizon level, which fixed axes would not.</summary>
+    /// <remarks>
+    ///     The regression this exists for: sample 03's orbiting camera aimed itself by yaw and pitch,
+    ///     and drew the sky. A pitch about the world's X axis after a yaw rolls the view — by
+    ///     seventeen degrees at the yaw below — and tips what it was aimed at out of frame. Both
+    ///     angles have to be non-zero to see it, which is why varying one at a time never did.
+    /// </remarks>
+    [Fact]
+    public void Pitching_a_turned_camera_does_not_roll_it() {
+        var rotation = Quaternion.FromYawPitchRoll(2.25f, -0.38f, 0f);
+        var right = Quaternion.Transform(Vector3.UnitX, rotation);
+
+        Assert.Equal(0f, right.Y, 5);
     }
 
     [Fact]

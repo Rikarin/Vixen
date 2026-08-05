@@ -117,7 +117,13 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     public float MiddleGrey { get; set; } = 0.18f;
 
     /// <summary>The lowest exposure the adaptation may settle on.</summary>
-    public float MinimumExposure { get; set; } = 0.03f;
+    /// <remarks>
+    ///     ⚠ <b>EV 17, because the floor is what bounds the brightest scene.</b> See
+    ///     <see cref="AutoExposureAsset.MinimumExposure" /> for the account: at the old 0.03 — EV 4.8,
+    ///     a dim interior — every photometric daylight scene settled on the clamp rather than on its
+    ///     own luminance and tonemapped to flat white.
+    /// </remarks>
+    public float MinimumExposure { get; set; } = Photometry.ExposureFromEv100(17f);
 
     /// <summary>And the highest, so a nearly black frame cannot drive it to infinity.</summary>
     public float MaximumExposure { get; set; } = 8f;
@@ -393,12 +399,25 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         node.Reads.Add(Source);
         node.Writes.Add(Level(0));
-        node.BufferWrites.Add(HistogramResource);
 
-        // ⚠ The resolve is the only step that writes the exposure, and it is also the only one that
-        // reads the histogram — so declaring the write on all three is what orders them. Without it
-        // the graph sees three passes writing one buffer and no reader, which it is entitled to
-        // reorder or to cull.
+        // ⚠ <b>Each step declares what it actually does to the bins, and the resolve's is a read.</b>
+        // Declaring the write on all three did order them — a write-after-write is still a barrier —
+        // but a barrier from one write to the next carries no read access, so the resolve's loads
+        // over the bins were never made visible to it. It worked on the drivers it was tried on and
+        // was one cache policy away from metering a frame off stale bins. It also left the graph
+        // seeing three writers and no reader at all, which is what VX2101 reported every frame and
+        // what entitles the graph to reorder or cull the two that feed the answer.
+        //
+        // The build is a genuine read-modify-write: `atomicAdd` accumulates onto what the clear
+        // zeroed, so it declares both, read first — the shape the graph's lint already understands.
+        if (mode != 2) {
+            node.BufferReads.Add(HistogramResource);
+        }
+
+        if (mode != 4) {
+            node.BufferWrites.Add(HistogramResource);
+        }
+
         if (mode == 4) {
             node.BufferWrites.Add(ExposureResource);
         } else {
