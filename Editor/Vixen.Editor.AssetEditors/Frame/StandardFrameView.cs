@@ -1,0 +1,491 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Globalization;
+using Vixen.Core.Mathematics;
+using Vixen.Ecs;
+using Vixen.Editor.Core;
+using Vixen.Editor.Inspector;
+using Vixen.Editor.SceneView;
+using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
+using Vixen.Ui.HotReload;
+
+namespace Vixen.Editor.AssetEditors.Frame;
+
+/// <summary>Doc 39's editor surface: the knobs, the look, the two resolved stacks, and Explode.</summary>
+/// <remarks>
+///     <para>
+///         <b>Four things that are each a view over something that already exists.</b> The knobs and
+///         the look are inspectors over mirrors of the node's own members; the quality table is
+///         <see cref="ResolvedQualityTable" /> walking the waterfall's own schema; the volume panel
+///         is <see cref="ResolvedVolumes" /> reading the engine's fold. Nothing here computes a
+///         rendering fact of its own, which is the property that keeps the panel from becoming a
+///         second opinion about what the frame is.
+///     </para>
+///     <para>
+///         ⚠ <b>Both stacks say where a number came from, and that is the whole reason they are
+///         panels rather than readouts.</b> The quality waterfall folds per parameter across three
+///         files and the volume fold across four layers, so every number on this screen has a
+///         provenance that is not visible in the number. A table of decided values would answer
+///         "what is it" while the question somebody opens this panel with is always "why is it
+///         that", and sending them to the wrong file to change it is worse than showing nothing.
+///     </para>
+///     <para>
+///         ⚠ <b>Every write re-expands and the facts move with it.</b> The document rebuilds the
+///         expansion on each edit — see <see cref="StandardFrameDocument.Changed" /> — so turning
+///         shadows off takes a stage and two targets out of the count under the form, and a
+///         guardrail refusal arrives on the edit that caused it rather than at the next launch.
+///     </para>
+///     <para>
+///         ⚠ <b>A view is rebuilt on every reopen, so nothing durable lives here.</b> The same rule
+///         <c>CompositorView</c> states, and the same consequence: the subscription to the document
+///         is dropped in <see cref="OnRemoved" />, because a view still listening to a document it
+///         has left writes into elements that are no longer in the tree.
+///     </para>
+/// </remarks>
+public sealed class StandardFrameView : Control {
+    readonly ResolvedVolumes volumes = new();
+
+    StandardFrameDocument? document;
+    bool overriddenOnly;
+
+    /// <inheritdoc />
+    protected override string TagName => "frame-editor";
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>Where custom inspectors are found, so the markup forms are used rather than the rows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Handed in rather than read off <c>EditorRegistry.Default</c>.</b> The static is a
+    ///     different session's in a test run — the reason <c>TerrainModulePanels</c> gives — and a
+    ///     panel that found somebody else's contribution for its own settings type would draw
+    ///     somebody else's form. Null is not a failure: the generated rows are drawn instead, in
+    ///     declaration order, and everything still edits.
+    /// </remarks>
+    public IEditorRegistry? Extensions { get; set; }
+
+    /// <summary>The scene whose volumes the stack panel folds, or null for an editor without one.</summary>
+    public IActiveScene? Scene { get; set; }
+
+    /// <summary>The view the editor is looking through, whose position decides which volumes reach.</summary>
+    public IActiveView? Eye { get; set; }
+
+    /// <summary>The knobs.</summary>
+    public InspectorView Knobs { get; private set; } = null!;
+
+    /// <summary>The look profile the document carries inline.</summary>
+    public InspectorView Look { get; private set; } = null!;
+
+    /// <summary>The button that replaces the node with the graph it stands for.</summary>
+    public Button Explode { get; private set; } = null!;
+
+    /// <summary>What the expansion produced, and what it complained about.</summary>
+    public UiElement Facts { get; private set; } = null!;
+
+    /// <summary>The resolved quality stack.</summary>
+    public UiElement Quality { get; private set; } = null!;
+
+    /// <summary>The resolved volume stack.</summary>
+    public UiElement Stack { get; private set; } = null!;
+
+    /// <summary>What the panel is saying about the document as a whole.</summary>
+    public UiElement Banner { get; private set; } = null!;
+
+    /// <summary>How many quality rows are showing, which is what a test counts.</summary>
+    public int QualityRows { get; private set; }
+
+    /// <summary>And how many volume-parameter rows.</summary>
+    public int StackRows { get; private set; }
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        Banner = Add("frame-banner");
+
+        var scroll = Add<ScrollView>();
+        var body = scroll.Content.Add("frame-sections");
+
+        Title(body, "The frame");
+
+        Knobs = body.Add<InspectorView>();
+        Knobs.EditedDocument = null;
+
+        Title(body, "Look profile");
+
+        Look = body.Add<InspectorView>();
+        Look.EditedDocument = null;
+
+        var verbs = body.Add("verb-row");
+
+        Explode = verbs.Add<Button>();
+        Explode.Label = "Explode to a full document";
+        Explode.Clicked += _ => Eject();
+
+        Title(body, "What it expands to");
+
+        Facts = body.Add("analysis-list");
+
+        Title(body, "Resolved quality");
+
+        var filter = body.Add<CheckBox>();
+
+        filter.Label = "Only what is overridden";
+        filter.CheckedChanged += (_, value) => {
+            overriddenOnly = value;
+            RestateQuality();
+        };
+
+        Quality = body.Add("frame-knobs");
+
+        Title(body, "Volumes reaching the camera");
+
+        var refresh = body.Add<Button>();
+
+        refresh.Label = "Fold again";
+        refresh.Clicked += _ => RestateVolumes();
+
+        Stack = body.Add("frame-knobs");
+    }
+
+    /// <summary>Shows a frame document.</summary>
+    /// <param name="frame">The document.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="frame" /> is null.</exception>
+    public void Show(StandardFrameDocument frame) {
+        ArgumentNullException.ThrowIfNull(frame);
+
+        if (document is { } previous) {
+            previous.Changed -= Restate;
+        }
+
+        document = frame;
+
+        Knobs.Extensions = Extensions ?? Knobs.Extensions;
+        Look.Extensions = Extensions ?? Look.Extensions;
+
+        // ⚠ Written back on every row change rather than on a Save, and that is what "live" means
+        // here: the mirrors are not the document, so a knob that only moved the mirror would show a
+        // resolved stack for a frame nobody is going to get.
+        Knobs.ValueChanged += (_, _) => Applied();
+        Look.ValueChanged += (_, _) => Applied();
+
+        frame.Changed += Restate;
+
+        Restate(frame);
+    }
+
+    /// <inheritdoc />
+    protected override void OnRemoved() {
+        base.OnRemoved();
+
+        if (document is { } frame) {
+            frame.Changed -= Restate;
+            document = null;
+        }
+
+    }
+
+    /// <summary>Rebuilds everything the document decides.</summary>
+    /// <param name="frame">The document.</param>
+    public void Restate(StandardFrameDocument frame) {
+        ArgumentNullException.ThrowIfNull(frame);
+
+        document = frame;
+
+        Clear(Banner);
+
+        // ⚠ The banner is the transition doc 39 asks for. After an explode the file is a full
+        // document and the form over it is gone; a panel that kept drawing knobs would be a form
+        // whose every write was discarded, which is the silent half of "one-way".
+        Banner.Add("text").Text = frame.CanEdit
+            ? $"!StandardFrame — {(frame.TierIsHosts ? "no tier written, so the host decides" : $"tier {frame.Tier}")}"
+            : "A hand-authored document. There is no frame node to turn, so the knobs are hidden and "
+            + "the panel does not write this file.";
+
+        Knobs.Inspect(frame.CanEdit ? [frame.Settings] : []);
+        Look.Inspect(frame.CanEdit ? [frame.Look] : []);
+        Explode.Disabled = !frame.CanExplode;
+
+        RestateFacts(frame);
+        RestateQuality();
+        RestateVolumes();
+    }
+
+    void Applied() {
+        // The document raises `Changed`, which is what restates the panel — so the write path and
+        // the reload path are the same path and cannot drift.
+        document?.Apply();
+    }
+
+    void Eject() {
+        if (document is not { } frame || !frame.CanExplode) {
+            return;
+        }
+
+        try {
+            var kept = frame.Explode();
+
+            Clear(Facts);
+
+            Line(
+                Facts,
+                "exploded",
+                $"The knobs are gone and this file is now hand-authored. What was there is beside it, "
+                + $"as {Path.GetFileName(kept)}."
+            );
+        } catch (InvalidOperationException refusal) {
+            Clear(Facts);
+            Line(Facts, "refused", refusal.Message, "error");
+        }
+    }
+
+    void RestateFacts(StandardFrameDocument frame) {
+        Clear(Facts);
+
+        var expanded = frame.Expanded;
+
+        // Said on success too, for the reason the compositor's own analysis gives: a list that
+        // empties itself when everything is fine is one nobody can tell apart from one that never ran.
+        Line(
+            Facts,
+            "frame",
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"{expanded.Stages.Length} stages, {expanded.Resources.Length} targets, "
+                + $"{expanded.Buffers.Length} buffers."
+            )
+        );
+
+        Line(
+            Facts,
+            "quality",
+            frame.Preset is null
+                ? $"Engine defaults for {frame.Tier}. No {StandardFrameDocument.PresetFile} beside the frame."
+                : $"{StandardFrameDocument.PresetFile} over the engine table, for {frame.Tier}."
+        );
+
+        foreach (var complaint in frame.Diagnostics) {
+            Line(Facts, "refused", complaint, "error");
+        }
+    }
+
+    void RestateQuality() {
+        Clear(Quality);
+        QualityRows = 0;
+
+        if (document is not { } frame) {
+            return;
+        }
+
+        var group = string.Empty;
+
+        foreach (var knob in ResolvedQualityTable.Resolve(frame.Tier, frame.Preset, frame.Node?.Preset)) {
+            if (overriddenOnly && !knob.Overridden) {
+                continue;
+            }
+
+            if (!string.Equals(group, knob.Group, StringComparison.Ordinal)) {
+                group = knob.Group;
+                Quality.Add("frame-group").Text = group;
+            }
+
+            var row = Quality.Add("fact-row");
+
+            row.Add("fact-name").Text = knob.Name;
+            row.Add("fact-value").Text = knob.Value;
+
+            // The provenance, which is the column the panel exists for. Engine values are muted so
+            // that the two that are not read as the exceptions they are.
+            var origin = row.Add("frame-origin");
+
+            origin.Text = knob.Layer switch {
+                QualityLayer.Document => "document",
+                QualityLayer.Project => StandardFrameDocument.PresetFile,
+                _ => "engine"
+            };
+
+            if (knob.Overridden) {
+                origin.AddClass("overridden");
+            }
+
+            QualityRows++;
+        }
+
+        if (QualityRows == 0) {
+            Quality.Add("text").Text = "Nothing above the engine table states a value for this tier.";
+        }
+    }
+
+    void RestateVolumes() {
+        Clear(Stack);
+        StackRows = 0;
+
+        if (document is not { } frame) {
+            return;
+        }
+
+        if (Scene?.Current is not { } scene) {
+            Stack.Add("text").Text = "No scene is open, so there is nothing to fold.";
+            return;
+        }
+
+        // ⚠ The document's own look is laid down as the base layer, because that is what the host
+        // does: `PostEffectFactory` deposits it on the builder and `AppGraphics` hands it to the
+        // fold. A panel that folded volumes without it would show a stack the game never has.
+        volumes.Look = frame.Look.ToSettings();
+        volumes.Camera = Eye?.Current?.Position ?? Vector3.Zero;
+
+        var report = volumes.Fold(scene.World);
+
+        Line(Stack, "camera", Where(volumes.Camera));
+        Line(Stack, "fold", report.Summary);
+
+        if (report.HasLook) {
+            Line(Stack, "look", "The document's look profile is the base layer, at full weight.");
+        }
+
+        if (report.Volumes > report.Contributing) {
+            Line(
+                Stack,
+                "note",
+                $"{report.Volumes - report.Contributing} placed and not reaching: a zero weight, zero "
+                + "extents, a camera outside the blend radius, or a volume that says nothing.",
+                "warning"
+            );
+        }
+
+        foreach (var parameter in report.Parameters) {
+            var row = Stack.Add("fact-row");
+
+            row.Add("fact-name").Text = parameter.Parameter;
+
+            row.Add("fact-value").Text = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{parameter.Value}  ×{parameter.Weight:0.##}"
+            );
+
+            var origin = row.Add("frame-origin");
+
+            origin.Text = parameter.IsContested
+                ? $"{parameter.Winner} (of {parameter.Layers.Count})"
+                : parameter.Winner;
+
+            if (parameter.IsContested) {
+                origin.AddClass("overridden");
+            }
+
+            StackRows++;
+        }
+    }
+
+    static string Where(Vector3 point) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"{point.X:0.##}, {point.Y:0.##}, {point.Z:0.##}"
+    );
+
+    static void Title(UiElement parent, string text) => parent.Add("World-title").Text = text;
+
+    static void Line(UiElement into, string stage, string message, string? kind = null) {
+        var row = into.Add("analysis-row");
+
+        if (kind is not null) {
+            row.AddClass(kind);
+        }
+
+        row.Add("analysis-stage").Text = stage;
+        row.Add("analysis-message").Text = message;
+    }
+
+    static void Clear(UiElement element) {
+        while (element.Children.Count > 0) {
+            element.Children[^1].Remove();
+        }
+    }
+}
+
+/// <summary>Opens a frame document as knobs.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>It claims <c>.vxcompositor</c>, which nothing claimed before it.</b>
+///         <c>CompositorEditorFactory</c> claims <c>.vxcomp</c> — a node graph that <em>compiles
+///         to</em> a frame — and the frame document itself opened in nothing at all: double-clicking
+///         the file a project actually ships did nothing. So this is the editor for the format,
+///         with the knobs as its main view and the resolved stacks shown for a hand-authored
+///         document too.
+///     </para>
+///     <para>
+///         The four last-mile services are properties rather than constructor arguments because the
+///         registry is built before the modules are activated — see <c>AssetEditorsModule</c>, whose
+///         whole job is exactly this kind of binding.
+///     </para>
+/// </remarks>
+public sealed class StandardFrameEditorFactory : IAssetEditorFactory {
+    /// <summary>What this editor is called, which is how the module finds it to bind it.</summary>
+    public const string EditorName = "Frame";
+
+    /// <inheritdoc />
+    public string Name => EditorName;
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Extensions { get; } = [StandardFrameDocument.Extension];
+
+    /// <summary>Where the markup inspectors are registered, or null for the generated rows.</summary>
+    public IEditorRegistry? Contributions { get; set; }
+
+    /// <summary>The scene whose volumes the stack panel folds.</summary>
+    public IActiveScene? Scene { get; set; }
+
+    /// <summary>The view the editor is looking through.</summary>
+    public IActiveView? Eye { get; set; }
+
+    /// <inheritdoc />
+    public EditorDocument Open(AssetEditorRequest request) {
+        ArgumentNullException.ThrowIfNull(request);
+        return new StandardFrameDocument(request.Project, request.Asset, request.Path);
+    }
+
+    /// <inheritdoc />
+    public UiElement CreateView(EditorDocument document, UiElement panel) {
+        ArgumentNullException.ThrowIfNull(panel);
+
+        var view = panel.Add<StandardFrameView>();
+
+        view.Extensions = Contributions;
+        view.Scene = Scene;
+        view.Eye = Eye;
+
+        view.Show((StandardFrameDocument) document);
+
+        return view;
+    }
+
+    /// <summary>The two markup forms, contributed to a registry.</summary>
+    /// <param name="registry">Where they go.</param>
+    /// <param name="reload">The document's reload host, or null for an editor without one.</param>
+    /// <returns>What removes them again.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="registry" /> is null.</exception>
+    /// <remarks>
+    ///     Doc 36 § P4's shape, unchanged from the terrain module's: a <c>.vxml</c> component
+    ///     mounted through the reload host, so changing the markup changes the panel a second later
+    ///     rather than at the next launch.
+    /// </remarks>
+    public static IDisposable[] Contribute(IEditorRegistry registry, HotReloadHost? reload) {
+        ArgumentNullException.ThrowIfNull(registry);
+
+        return [
+            registry.Add(
+                new CustomInspector(
+                    typeof(StandardFrameSettings),
+                    MarkupInspector.Of<StandardFrameInspector>(reload)
+                )
+            ),
+            registry.Add(
+                new CustomInspector(typeof(LookSettings), MarkupInspector.Of<LookInspector>(reload))
+            )
+        ];
+    }
+}

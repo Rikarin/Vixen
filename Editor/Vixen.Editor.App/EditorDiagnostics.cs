@@ -13,6 +13,7 @@ using Vixen.Engine.Transforms;
 using Vixen.Graphics;
 using Vixen.Net.Transport.Local;
 using Vixen.Platform;
+using Vixen.Rendering;
 using Vixen.Ui;
 
 namespace Vixen.Editor.App;
@@ -278,6 +279,17 @@ sealed partial class EditorApplication {
 sealed class ShownScene(EditorApplication editor) : IActiveScene {
     /// <inheritdoc />
     public SceneDocument Current => editor.Shown;
+}
+
+/// <summary>The view the focused pane draws through.</summary>
+/// <remarks>
+///     ⚠ <b><see cref="ShownScene" />'s twin, and asked every time for the same reason.</b> The
+///     focused pane changes as somebody clicks between four of them, so a panel handed a view at
+///     activation would keep answering for whichever pane happened to have focus when it loaded.
+/// </remarks>
+sealed class ShownView(EditorApplication editor) : IActiveView {
+    /// <inheritdoc />
+    public RenderView? Current => editor.Viewport?.View;
 }
 
 /// <summary>Deploying, for the one kind of device this editor can reach.</summary>

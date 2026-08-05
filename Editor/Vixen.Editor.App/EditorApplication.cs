@@ -1997,6 +1997,12 @@ sealed partial class EditorApplication : IDisposable {
             // one at activation would hold the scene that was open when it loaded.
             .Add<IActiveScene>(new ShownScene(this))
 
+            // ⚠ And which eye it is showing it through, which is a separate question with a separate
+            // answer: doc 39's resolved volume stack is per camera, because the volume fold weighs
+            // every volume by how far the camera is from it. A panel with the scene and no view can
+            // only answer for the origin, which is a place nobody is standing.
+            .Add<IActiveView>(new ShownView(this))
+
             // And what Deploy means, for the half of the editor that can build a player.
             .Add<IDeviceDeploy>(new PlayerDeploy(this))
 

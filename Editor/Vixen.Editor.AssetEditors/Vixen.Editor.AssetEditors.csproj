@@ -79,6 +79,15 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
 
         <!--
+            StandardFrameAsset, the quality waterfall and the expansion behind doc 39's frame panel.
+            The node kinds the expansion emits live here, so this is also the only door to it —
+            `PostEffectFactory` is the transformer seam `CompositorBuilder.Build` applies, and a
+            panel that expanded a document any other way would be showing a frame the builder would
+            not have built.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+
+        <!--
             AnimationClipData and the state machine the animation graph compiles to, the mixer the
             audio editor is a view over, and the action model the input editor reads and writes. Each
             is the runtime's own type: an editor-side copy of any of them would be the second
@@ -134,6 +143,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            The VXML compiler, by the same route and for the same reason `Vixen.Editor.Terrain` names
+            it: a PackageReference to Vixen.Ui would bring it and a ProjectReference does not. Doc 36
+            § P4 made markup the authoring path for an inspector, and the frame panel's two forms are
+            written in it rather than by hand.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
@@ -148,5 +167,12 @@
         -->
         <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
     </ItemGroup>
+
+    <!--
+        What a PackageReference to Vixen.Ui would have imported: the **/*.vxml glob and the two
+        properties the generator asks MSBuild for. At the bottom of the file, because the glob has to
+        run after DefaultItemExcludes is final.
+    -->
+    <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 
 </Project>

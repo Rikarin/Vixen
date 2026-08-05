@@ -340,6 +340,42 @@ public static class AssetEditorTheme {
         analysis-stage { width: 72px; flex-shrink: 0; color: var(--text-muted); }
         analysis-message { flex-grow: 1; min-width: 0; }
 
+        /* ── The frame editor (doc 39) ──────────────────────────────────────── */
+        frame-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        frame-editor > scroll-view { flex-grow: 1; min-height: 0px; }
+        frame-sections { flex-direction: column; gap: 6px; }
+
+        frame-banner {
+            flex-direction: column;
+            padding: 6px 8px;
+            border-radius: var(--radius-control, 4px);
+            background-color: var(--surface-sunken);
+            color: var(--text-muted);
+        }
+
+        frame-knobs { flex-direction: column; gap: 1px; }
+
+        /* A group heading inside the resolved table. Sixty-two rows in one column is a wall; nine
+           headings turn it into nine short lists that can be skimmed for the right one. */
+        frame-group {
+            color: var(--text-muted);
+            padding: 6px 4px 2px 4px;
+            font-size: 11px;
+        }
+
+        /* ⚠ The provenance column, and it is muted by default on purpose: `engine` is the answer for
+           most of the table, and a panel that highlighted every row would highlight nothing. What has
+           to be findable at a glance is the handful somebody's own file has taken ownership of. */
+        frame-origin {
+            width: 116px;
+            flex-shrink: 0;
+            text-align: right;
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        frame-origin.overridden { color: var(--accent, #6ba4f2); }
+
         /* ── The behaviour-tree editor ──────────────────────────────────────── */
         behaviortree-editor { flex-direction: column; flex-grow: 1; position: relative; overflow: hidden; }
         behaviortree-body { flex-direction: row; flex-grow: 1; gap: 6px; min-height: 0px; }

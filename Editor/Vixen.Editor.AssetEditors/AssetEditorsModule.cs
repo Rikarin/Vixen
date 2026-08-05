@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.AssetEditors.Frame;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
+using Vixen.Editor.SceneView;
+using Vixen.Ui.HotReload;
 
 namespace Vixen.Editor.AssetEditors;
 
@@ -50,5 +53,61 @@ public sealed class AssetEditorsModule : IEditorPlugin {
 
         editors.Opened += binder.Bind;
         context.OnUnload(() => editors.Opened -= binder.Bind);
+
+        Frames(context, editors);
+    }
+
+    /// <summary>Doc 39's frame panel, bound to the four things it cannot reach for itself.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fifth hook, and it is the same shape as the other four.</b> The frame editor
+    ///         needs the contribution registry to find its own markup forms, the reload host so
+    ///         editing that markup shows up without a restart, the shown scene to fold volumes
+    ///         against, and the focused view to fold them <em>from</em>. All four are published in
+    ///         <c>PluginServices</c>; none of them exists when <see cref="StandardEditors" /> builds
+    ///         the registry, which is why they are properties set here rather than constructor
+    ///         arguments there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Found by name rather than constructed here, because a host may have built its own
+    ///         registry.</b> An editor assembled from a different set of factories should get the
+    ///         binding for the frame editor it has, or no binding at all — not a second frame editor
+    ///         that clashes with the first over <c>.vxcompositor</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every one of the four is optional and the panel degrades honestly without it.</b>
+    ///         No registry means the generated rows in declaration order; no host means the markup
+    ///         does not follow an edit; no scene means the volume panel says there is nothing to
+    ///         fold; no view means it folds from the origin. A required service here would make the
+    ///         whole editor refuse to start in a host that has three of them.
+    ///     </para>
+    /// </remarks>
+    static void Frames(PluginContext context, AssetEditorRegistry editors) {
+        if (!editors.TryGetByName(StandardFrameEditorFactory.EditorName, out var found)
+            || found is not StandardFrameEditorFactory frames) {
+            return;
+        }
+
+        frames.Scene = context.Services.TryGet<IActiveScene>(out var scene) ? scene : null;
+        frames.Eye = context.Services.TryGet<IActiveView>(out var eye) ? eye : null;
+
+        if (!context.Services.TryGet<IEditorRegistry>(out var registry)) {
+            return;
+        }
+
+        frames.Contributions = registry;
+
+        foreach (var contribution in StandardFrameEditorFactory.Contribute(
+            registry,
+            context.Services.TryGet<HotReloadHost>(out var reload) ? reload : null
+        )) {
+            context.Owns(contribution);
+        }
+
+        context.OnUnload(() => {
+            frames.Contributions = null;
+            frames.Scene = null;
+            frames.Eye = null;
+        });
     }
 }

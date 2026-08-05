@@ -9,6 +9,7 @@ using Vixen.Editor.AssetEditors.Code;
 using Vixen.Editor.AssetEditors.Compositor;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.AssetEditors.Fonts;
+using Vixen.Editor.AssetEditors.Frame;
 using Vixen.Editor.AssetEditors.Importing;
 using Vixen.Editor.AssetEditors.Input;
 using Vixen.Editor.AssetEditors.Materials;
@@ -57,6 +58,7 @@ public static class StandardEditors {
             .Add(new MarkupEditorFactory())
             .Add(new AddressableGroupEditorFactory())
             .Add(new CompositorEditorFactory())
+            .Add(new StandardFrameEditorFactory())
             .Add(new ShaderGraphEditorFactory())
             .Add(new VfxEditorFactory())
             .Add(new AnimationClipEditorFactory())
@@ -91,6 +93,7 @@ public static class StandardEditors {
             .Add(new MarkupEditorFactory())
             .Add(new AddressableGroupEditorFactory())
             .Add(new CompositorEditorFactory())
+            .Add(new StandardFrameEditorFactory())
             .Add(new ShaderGraphEditorFactory())
             .Add(new VfxEditorFactory())
             .Add(new AnimationClipEditorFactory())
