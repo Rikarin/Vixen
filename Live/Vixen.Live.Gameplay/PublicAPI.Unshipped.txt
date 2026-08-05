@@ -57,6 +57,36 @@ Vixen.Live.Gameplay.LedgerBridge.Renew(long epoch) -> void
 Vixen.Live.Gameplay.LedgerBridge.Restore(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.DefId asset, long amount) -> bool
 Vixen.Live.Gameplay.LedgerBridge.Settle(Vixen.Live.Persistence.IdempotencyKey key, Vixen.Live.Persistence.LedgerResult result) -> bool
 Vixen.Live.Gameplay.LedgerBridge.Supersede() -> void
+Vixen.Live.Gameplay.LockoutBridge -> sealed class
+Vixen.Live.Gameplay.LockoutBridge : Vixen.Gameplay.Instances.ILockoutStore
+Vixen.Live.Gameplay.LockoutBridge.Cold -> System.Action<Vixen.Gameplay.PlayerId>?
+Vixen.Live.Gameplay.LockoutBridge.ColdReads.get -> int
+Vixen.Live.Gameplay.LockoutBridge.Count.get -> int
+Vixen.Live.Gameplay.LockoutBridge.Drain() -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Gameplay.PendingLockout>
+Vixen.Live.Gameplay.LockoutBridge.Find(Vixen.Gameplay.PlayerId subject, Vixen.Gameplay.DefId instance, string difficulty) -> Vixen.Gameplay.Instances.Lockout?
+Vixen.Live.Gameplay.LockoutBridge.Forget(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Live.Gameplay.LockoutBridge.IsWarm(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Live.Gameplay.LockoutBridge.LockoutBridge(Vixen.Live.Gameplay.IGameplayIdentity identity) -> void
+Vixen.Live.Gameplay.LockoutBridge.Pending.get -> int
+Vixen.Live.Gameplay.LockoutBridge.Purge(double now) -> int
+Vixen.Live.Gameplay.LockoutBridge.Save(Vixen.Gameplay.Instances.Lockout lockout) -> void
+Vixen.Live.Gameplay.LockoutBridge.Settle(Vixen.Live.Gameplay.PendingLockout write) -> bool
+Vixen.Live.Gameplay.LockoutBridge.Warm.get -> int
+Vixen.Live.Gameplay.LockoutBridge.Warmed(Vixen.Gameplay.PlayerId player, System.Collections.Generic.IEnumerable<Vixen.Gameplay.Instances.Lockout> lockouts) -> void
+Vixen.Live.Gameplay.PendingLockout -> readonly struct
+Vixen.Live.Gameplay.PendingLockout : System.IEquatable<Vixen.Live.Gameplay.PendingLockout>
+Vixen.Live.Gameplay.PendingLockout.Completions.get -> int
+Vixen.Live.Gameplay.PendingLockout.Completions.init -> int
+Vixen.Live.Gameplay.PendingLockout.Difficulty.get -> string
+Vixen.Live.Gameplay.PendingLockout.Difficulty.init -> string
+Vixen.Live.Gameplay.PendingLockout.Expires.get -> double
+Vixen.Live.Gameplay.PendingLockout.Expires.init -> double
+Vixen.Live.Gameplay.PendingLockout.Instance.get -> Vixen.Gameplay.DefId
+Vixen.Live.Gameplay.PendingLockout.Instance.init -> Vixen.Gameplay.DefId
+Vixen.Live.Gameplay.PendingLockout.PendingLockout() -> void
+Vixen.Live.Gameplay.PendingLockout.PendingLockout(Vixen.Live.PlayerKey Player, Vixen.Gameplay.DefId Instance, string Difficulty, double Expires, int Completions) -> void
+Vixen.Live.Gameplay.PendingLockout.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Gameplay.PendingLockout.Player.init -> Vixen.Live.PlayerKey
 Vixen.Live.Gameplay.PendingWrite -> readonly struct
 Vixen.Live.Gameplay.PendingWrite : System.IEquatable<Vixen.Live.Gameplay.PendingWrite>
 Vixen.Live.Gameplay.PendingWrite.Detail.get -> string

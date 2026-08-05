@@ -26,6 +26,7 @@
         <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay\Vixen.Gameplay.csproj" />
         <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay.Economy\Vixen.Gameplay.Economy.csproj" />
         <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay.Loot\Vixen.Gameplay.Loot.csproj" />
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay.Instances\Vixen.Gameplay.Instances.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Net\Vixen.Net.csproj" />
     </ItemGroup>
 

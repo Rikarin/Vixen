@@ -7,8 +7,8 @@ Spec: doc 27 § Persistence and ADR-021, doc 28 § Economy.
 
 ## State
 
-**Built: the identity join, the economy on the ledger, the profile container, the checkpoint policy
-and a durable pity store. 44 tests.**
+**Built: the identity join, the economy on the ledger, the profile container, the checkpoint policy,
+a durable pity store and a durable lockout store. 57 tests.**
 
 | | |
 |---|---|
@@ -18,9 +18,33 @@ and a durable pity store. 44 tests.**
 | `IProfileSection` · `ProfileBinder` · `ProfileSections` | The seam a game registers its codecs with. |
 | `CheckpointPolicy` · `CheckpointReason` | When counters are written down. |
 | `ProfilePityStore` | Doc 28's durable pity counters, as a section. |
+| `LockoutBridge` · `PendingLockout` | `ILockoutStore` in the frame, `IInstanceGrain` afterwards. |
 
-**Owed:** durable `ISocialStore` and `ILockoutStore` over their grains, and the remaining section
-codecs — task **#39**.
+**Owed:** a durable `ISocialStore`, and the remaining section codecs — task **#39**.
+
+## A sync store over async truth has a cold-read problem the interface cannot express
+
+`LedgerBridge` and `LockoutBridge` are the same shape for the same reason, and the difference between
+them is worth stating because it is dangerous.
+
+⚠ **An unknown balance reads as zero and refuses a purchase** — annoying, and safe. **An unknown
+lockout reads as `null`, which `ILockoutStore.Find` defines as "not locked"** — so a player whose
+lockouts have not been loaded is admitted to a raid they are already saved to, and the run they get
+is one the fleet cannot take back. Doc 28's whole reason for making lockouts fleet-wide is that *"a
+lockout one shard knew about is a lockout a player evades by zoning"*, and a cold cache is that hole
+reopened from inside.
+
+The interface has no way to say *"I do not know"*, so the mistake is **counted** instead: `IsWarm` is
+what admission checks, and a `Find` for somebody never warmed increments `ColdReads` and raises
+`Cold`. That is `LedgerBridge.Divergences`' posture — a wrong answer the type cannot prevent is made
+loud rather than quiet.
+
+⚠ **Warming with an empty list is meaningful.** "Saved to nothing" and "nobody has asked" are the
+same absence in a cache and must not be the same fact.
+
+⚠ **Purging the view is not releasing a lockout.** It drops what has lifted from a realm's memory;
+what decides it has lifted is the reset the cluster holds, and a realm that could write a release
+would be one that ends a raid lockout by restarting.
 
 ## Assets go in the ledger; counters go in the profile
 
