@@ -359,6 +359,14 @@ shader it edits parses cleanly and zero equals zero. Both are now pinned there b
 from a broken file — and two of the three rows were confirmed to fail with the fix reverted, which is
 the only thing that makes a regression test one.
 
+**A third in the same family is open, past the gate's budget.** At forty thousand cases — the gate runs
+fifteen hundred — three inputs make the incremental reparse build a *structurally different tree*,
+which is a worse failure than losing a diagnostic. The printed text still agrees, so the round-trip
+oracle sees nothing; only the shape comparison catches it. The smallest is forty bytes:
+`return 1\nenum E {\n    Off,\n    On = 5\n}\n`, with the enum's name replaced by the keyword
+`shader`. Filed rather than fixed, and deliberately *not* promoted to the corpus — a committed input
+for an unfixed defect is a red gate, and the rule here is that promotion follows the fix.
+
 **And one found and deliberately not fixed**, because the fix is not this harness's to make: the binder
 writes `null` into a member declared non-nullable. `subAssets: null` in a sidecar produces an
 `AssetMeta` whose `SubAssets` is null although the property is `SubAssetEntry[]` with a non-null
