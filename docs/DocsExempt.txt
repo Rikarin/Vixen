@@ -1297,16 +1297,12 @@ T:Vixen.Editor.Inspector.InspectorReadOnlyAttribute sweep-pending
 T:Vixen.Editor.Inspector.InspectorRegistry sweep-pending
 T:Vixen.Editor.Inspector.InspectorRow sweep-pending
 T:Vixen.Editor.Inspector.InspectorRows sweep-pending
-T:Vixen.Editor.Inspector.InspectorTarget sweep-pending
 T:Vixen.Editor.Inspector.InspectorTheme sweep-pending
 T:Vixen.Editor.Inspector.InspectorView sweep-pending
-T:Vixen.Editor.Inspector.MarkupBinding sweep-pending
-T:Vixen.Editor.Inspector.MarkupInspector sweep-pending
 T:Vixen.Editor.Inspector.MemberReference`2 sweep-pending
 T:Vixen.Editor.Inspector.MultilineAttribute sweep-pending
 T:Vixen.Editor.Inspector.PropertyClipboard sweep-pending
 T:Vixen.Editor.Inspector.PropertyDrawer`2 sweep-pending
-T:Vixen.Editor.Inspector.PropertyField sweep-pending
 T:Vixen.Editor.Inspector.ReflectedDescriptor sweep-pending
 T:Vixen.Editor.Inspector.ReflectedMember sweep-pending
 T:Vixen.Editor.Inspector.SetMembersCommand`2 sweep-pending
@@ -1392,7 +1388,6 @@ T:Vixen.Editor.NodeGraph.SubGraphNode sweep-pending
 T:Vixen.Editor.NodeGraph.SubGraphs sweep-pending
 T:Vixen.Editor.NodeGraph.Texture sweep-pending
 T:Vixen.Editor.Plugin.EditorApi sweep-pending
-T:Vixen.Editor.Plugin.EditorMenuAttribute sweep-pending
 T:Vixen.Editor.Plugin.LoadedPlugin sweep-pending
 T:Vixen.Editor.Plugin.PluginCatalog sweep-pending
 T:Vixen.Editor.Plugin.PluginDescriptor sweep-pending
@@ -1438,7 +1433,6 @@ T:Vixen.Editor.SceneView.AssetInstance sweep-pending
 T:Vixen.Editor.SceneView.AssetInstances sweep-pending
 T:Vixen.Editor.SceneView.BehaviorBridge sweep-pending
 T:Vixen.Editor.SceneView.ComponentBridge`1 sweep-pending
-T:Vixen.Editor.SceneView.ComponentGizmos sweep-pending
 T:Vixen.Editor.SceneView.CreateEntityCommand sweep-pending
 T:Vixen.Editor.SceneView.DestroyEntitiesCommand sweep-pending
 T:Vixen.Editor.SceneView.EditorCamera sweep-pending
@@ -1504,13 +1498,7 @@ T:Vixen.Editor.SceneView.ViewportArrangement sweep-pending
 T:Vixen.Editor.SceneView.ViewportLayout sweep-pending
 T:Vixen.Editor.SceneView.ViewportStats sweep-pending
 T:Vixen.Editor.SceneView.WorldSnapshot sweep-pending
-T:Vixen.Editor.Scripts.EditorScripts sweep-pending
 T:Vixen.Editor.Scripts.ReflectedTypes sweep-pending
-T:Vixen.Editor.Scripts.ScriptBuild sweep-pending
-T:Vixen.Editor.Scripts.ScriptCompiler sweep-pending
-T:Vixen.Editor.Scripts.ScriptDiagnostic sweep-pending
-T:Vixen.Editor.Scripts.ScriptState sweep-pending
-T:Vixen.Editor.Scripts.ScriptsModule sweep-pending
 T:Vixen.Editor.ShaderGraph.IShaderPropertyNode sweep-pending
 T:Vixen.Editor.ShaderGraph.NodeTypes sweep-pending
 T:Vixen.Editor.ShaderGraph.Nodes.AbsoluteNode sweep-pending

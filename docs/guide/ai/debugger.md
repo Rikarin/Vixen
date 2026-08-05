@@ -18,7 +18,7 @@ numbered categories turn parts of it on and off; a breakpoint stops one agent at
 state intact; and `AiDiagnosis` reads a recorded log and says what is visibly wrong with the agents
 in it.
 
-It is one surface rather than three because [D2](../../plan/37-ai-behaviour-trees-utility-and-goap.md)
+It is one surface rather than three because [D2](https://github.com/Rikarin/Vixen/blob/master/docs/plan/37-ai-behaviour-trees-utility-and-goap.md)
 made the agent one shape. A behaviour tree's active path, a utility set's scored candidates and a
 GOAP plan's steps are all *a name, a reading and whether it is the live one* — so they become rows in
 one `AiAgentSnapshot`, and everything downstream reads rows.
@@ -81,7 +81,7 @@ debugger that draws one circle.
 
 Everything lands in a `DebugDraw`'s three lists — world lines, world labels, screen lines — so a test
 reads the geometry directly — no device, no font atlas, no render pass. `ConstraintGizmos` established the
-arrangement and [D20](../../plan/37-ai-behaviour-trees-utility-and-goap.md) adopts it, because an
+arrangement and [D20](https://github.com/Rikarin/Vixen/blob/master/docs/plan/37-ai-behaviour-trees-utility-and-goap.md) adopts it, because an
 overlay that could only be checked by looking at it is one that quietly stops being checked.
 
 ### A debugger must not move the bug
@@ -94,7 +94,7 @@ captures in a row leave the decision count exactly where it was, and there is a 
 ### Breakpoints stop the agent, not the game
 
 ⚠ **A breakpoint on a composite catches anything inside it**, which is the same containment test
-[D6](../../plan/37-ai-behaviour-trees-utility-and-goap.md)'s aborts use and the same one the editor's
+[D6](https://github.com/Rikarin/Vixen/blob/master/docs/plan/37-ai-behaviour-trees-utility-and-goap.md)'s aborts use and the same one the editor's
 abort-scope overlay shades. One rule an author can *see* is worth more than two they have to remember
 apart.
 
