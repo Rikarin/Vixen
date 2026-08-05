@@ -4,7 +4,7 @@ slug: engine/terrain-heightfield
 kind: guide
 area: Engine
 summary: One grid of 16-bit heights over an authored range, a stack of non-destructive edit layers, the paint channels and the hole mask.
-api: [T:Vixen.Terrain.Terrain, T:Vixen.Terrain.TerrainDescription, T:Vixen.Terrain.TerrainRect, T:Vixen.Terrain.TerrainSamples, T:Vixen.Terrain.TerrainEditLayer, T:Vixen.Terrain.TerrainLayerKind, T:Vixen.Terrain.TerrainWeights, T:Vixen.Terrain.TerrainBlend, T:Vixen.Terrain.TerrainHoles, T:Vixen.Terrain.TerrainHeightmap, T:Vixen.Terrain.TerrainHeightmapFormat, T:Vixen.Terrain.TerrainResize, T:Vixen.Physics.Shapes.HeightFieldPlacement, T:Vixen.Terrain.TerrainMips, T:Vixen.Terrain.TerrainHeightmapPng, T:Vixen.Terrain.TerrainHeightmapImage, T:Vixen.Terrain.TerrainStore]
+api: [T:Vixen.Terrain.Terrain, T:Vixen.Terrain.TerrainDescription, T:Vixen.Terrain.TerrainRect, T:Vixen.Terrain.TerrainSamples, T:Vixen.Terrain.TerrainEditLayer, T:Vixen.Terrain.TerrainLayerKind, T:Vixen.Terrain.TerrainWeights, T:Vixen.Terrain.TerrainBlend, T:Vixen.Terrain.TerrainHoles, T:Vixen.Terrain.TerrainHeightmap, T:Vixen.Terrain.TerrainHeightmapFormat, T:Vixen.Terrain.TerrainResize, T:Vixen.Physics.Shapes.HeightFieldPlacement, T:Vixen.Terrain.TerrainMips, T:Vixen.Terrain.TerrainHeightmapPng, T:Vixen.Terrain.TerrainHeightmapImage, T:Vixen.Terrain.TerrainStore, T:Vixen.Terrain.PatchSelector, T:Vixen.Terrain.IPatchSource]
 tags: [terrain, landscape, heightfield, layers]
 since: 0.1
 status: preview
@@ -210,6 +210,23 @@ asked about endianness — and the one place a raw `.r16` always must be.
 ⚠ **A PNG's size overrides the import settings.** That is the whole reason to prefer it over raw:
 somebody who filled the form in for a `.r16` and then imported a `.hmpng` must not get whichever
 answer the form happened to hold.
+
+### One quadtree, and water is its second consumer
+
+`PatchSelector` is the CDLOD descent on its own: a root extent, a depth, a set of ranges, and an
+`IPatchSource` that answers two questions about a square of ground — how tall is it, and is there
+anything there. `TerrainLodTree` is one consumer and `WaterSurfaceMesh` is the other, so the morph,
+the no-crack property and the morph-continuity property are one implementation with two tests rather
+than two of each.
+
+⚠ **`IPatchSource.Covers` must be conservative** — true whenever *any* part of the node is covered.
+Pruning happens before a node's children are visited, so a source that answers from the node's centre
+removes a shoreline running through a corner and the water ends in a straight edge halfway across a
+tile. Over-reporting costs a patch that draws nothing; under-reporting is a hole.
+
+⚠ **Implement it as a `readonly struct`.** `Select` takes it as a generic parameter rather than as an
+interface reference, so a struct source is called through a constrained call and a selection allocates
+nothing.
 
 ## Examples
 

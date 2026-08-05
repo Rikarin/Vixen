@@ -1,6 +1,10 @@
 #nullable enable
 Vixen.Rendering.Water.IWaterSplineSource -> interface
 Vixen.Rendering.Water.IWaterSplineSource.SplineFor(string name, in Vixen.Core.Mathematics.Matrix4x4 placement) -> Vixen.Core.Mathematics.Spline?
+Vixen.Rendering.Water.UnderwaterShape -> sealed class
+Vixen.Rendering.Water.UnderwaterShape : Vixen.Rendering.Ecs.IPostProcessShape
+Vixen.Rendering.Water.UnderwaterShape.Contains(Vixen.Core.Mathematics.Vector3 world, out float distanceOutside) -> bool
+Vixen.Rendering.Water.UnderwaterShape.UnderwaterShape(Vixen.Water.WaterZoneState state, in Vixen.Water.WaterWaveSpectrum spectrum, float waterTime, Vixen.Water.WaterAttenuation attenuation = default(Vixen.Water.WaterAttenuation), float feather = 2) -> void
 Vixen.Rendering.Water.WaterAsset -> sealed record
 Vixen.Rendering.Water.WaterAsset : System.IEquatable<Vixen.Rendering.Water.WaterAsset>
 Vixen.Rendering.Water.WaterAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -67,6 +71,81 @@ Vixen.Rendering.Water.WaterInfoTexture.UploadCount.get -> int
 Vixen.Rendering.Water.WaterInfoTexture.View.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Water.WaterInfoTexture.WaterInfoTexture(Vixen.Graphics.IGraphicsDevice device, in Vixen.Water.WaterZone zone) -> void
 Vixen.Rendering.Water.WaterInfoTexture.Zone.get -> Vixen.Water.WaterZone
+Vixen.Rendering.Water.WaterMeshRenderer -> sealed class
+Vixen.Rendering.Water.WaterMeshRenderer : System.IDisposable
+Vixen.Rendering.Water.WaterMeshRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.Water.WaterMeshRenderer.BuildCount.get -> int
+Vixen.Rendering.Water.WaterMeshRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Water.WaterMeshRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Water.WaterMeshRenderer.Dispose() -> void
+Vixen.Rendering.Water.WaterMeshRenderer.DroppedPatches.get -> int
+Vixen.Rendering.Water.WaterMeshRenderer.EdgeFade.get -> float
+Vixen.Rendering.Water.WaterMeshRenderer.EdgeFade.set -> float
+Vixen.Rendering.Water.WaterMeshRenderer.FarDistance.get -> float
+Vixen.Rendering.Water.WaterMeshRenderer.FarDistance.set -> float
+Vixen.Rendering.Water.WaterMeshRenderer.GridQuads.get -> int
+Vixen.Rendering.Water.WaterMeshRenderer.GridQuads.set -> int
+Vixen.Rendering.Water.WaterMeshRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.Water.WaterMeshRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.Water.WaterMeshRenderer.PatchesDrawn.get -> int
+Vixen.Rendering.Water.WaterMeshRenderer.Ranges.get -> Vixen.Terrain.TerrainLodRanges
+Vixen.Rendering.Water.WaterMeshRenderer.Ranges.set -> Vixen.Terrain.TerrainLodRanges
+Vixen.Rendering.Water.WaterMeshRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.Water.WaterMeshRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.Water.WaterMeshRenderer.Settings.get -> Vixen.Rendering.Water.WaterMeshSettings
+Vixen.Rendering.Water.WaterMeshRenderer.Settings.set -> Vixen.Rendering.Water.WaterMeshSettings
+Vixen.Rendering.Water.WaterMeshRenderer.View.get -> Vixen.Rendering.RenderView?
+Vixen.Rendering.Water.WaterMeshRenderer.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.Water.WaterMeshRenderer.WaterMeshRenderer() -> void
+Vixen.Rendering.Water.WaterMeshRenderer.WaterTime.get -> float
+Vixen.Rendering.Water.WaterMeshRenderer.WaterTime.set -> float
+Vixen.Rendering.Water.WaterMeshRenderer.Zones.get -> Vixen.Rendering.Water.WaterZoneSystem?
+Vixen.Rendering.Water.WaterMeshRenderer.Zones.set -> Vixen.Rendering.Water.WaterZoneSystem?
+Vixen.Rendering.Water.WaterMeshRenderer.ZonesDrawn.get -> int
+Vixen.Rendering.Water.WaterMeshSettings -> readonly struct
+Vixen.Rendering.Water.WaterMeshSettings : System.IEquatable<Vixen.Rendering.Water.WaterMeshSettings>
+Vixen.Rendering.Water.WaterMeshSettings.AttenuationDepth.get -> float
+Vixen.Rendering.Water.WaterMeshSettings.AttenuationDepth.init -> float
+Vixen.Rendering.Water.WaterMeshSettings.FoamCrest.get -> float
+Vixen.Rendering.Water.WaterMeshSettings.FoamCrest.init -> float
+Vixen.Rendering.Water.WaterMeshSettings.FoamDepth.get -> float
+Vixen.Rendering.Water.WaterMeshSettings.FoamDepth.init -> float
+Vixen.Rendering.Water.WaterMeshSettings.RestHeight.get -> float
+Vixen.Rendering.Water.WaterMeshSettings.RestHeight.init -> float
+Vixen.Rendering.Water.WaterMeshSettings.ShoreDepth.get -> float
+Vixen.Rendering.Water.WaterMeshSettings.ShoreDepth.init -> float
+Vixen.Rendering.Water.WaterMeshSettings.WaterMeshSettings() -> void
+Vixen.Rendering.Water.WaterMeshSettings.WaterTime.get -> float
+Vixen.Rendering.Water.WaterMeshSettings.WaterTime.init -> float
+Vixen.Rendering.Water.WaterMeshShaders -> readonly struct
+Vixen.Rendering.Water.WaterMeshShaders : System.IEquatable<Vixen.Rendering.Water.WaterMeshShaders>
+Vixen.Rendering.Water.WaterMeshShaders.Fragment.get -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.Water.WaterMeshShaders.Fragment.init -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.Water.WaterMeshShaders.IsValid.get -> bool
+Vixen.Rendering.Water.WaterMeshShaders.Vertex.get -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.Water.WaterMeshShaders.Vertex.init -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.Water.WaterMeshShaders.WaterMeshShaders() -> void
+Vixen.Rendering.Water.WaterMeshShaders.WaterMeshShaders(Vixen.Graphics.ShaderHandle Vertex, Vixen.Graphics.ShaderHandle Fragment) -> void
+Vixen.Rendering.Water.WaterMeshView -> readonly struct
+Vixen.Rendering.Water.WaterMeshView : System.IEquatable<Vixen.Rendering.Water.WaterMeshView>
+Vixen.Rendering.Water.WaterMeshView.Frustum.get -> Vixen.Core.Mathematics.BoundingFrustum
+Vixen.Rendering.Water.WaterMeshView.Frustum.init -> Vixen.Core.Mathematics.BoundingFrustum
+Vixen.Rendering.Water.WaterMeshView.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Water.WaterMeshView.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Water.WaterMeshView.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.Water.WaterMeshView.ViewProjection.init -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.Water.WaterMeshView.WaterMeshView() -> void
+Vixen.Rendering.Water.WaterMeshView.WaterMeshView(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.BoundingFrustum Frustum, Vixen.Core.Mathematics.Matrix4x4 ViewProjection) -> void
+Vixen.Rendering.Water.WaterNodeRecord -> readonly struct
+Vixen.Rendering.Water.WaterNodeRecord : System.IEquatable<Vixen.Rendering.Water.WaterNodeRecord>
+Vixen.Rendering.Water.WaterNodeRecord.Morph.get -> float
+Vixen.Rendering.Water.WaterNodeRecord.Morph.init -> float
+Vixen.Rendering.Water.WaterNodeRecord.Origin.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Water.WaterNodeRecord.Origin.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Water.WaterNodeRecord.Step.get -> float
+Vixen.Rendering.Water.WaterNodeRecord.Step.init -> float
+Vixen.Rendering.Water.WaterNodeRecord.WaterNodeRecord() -> void
+Vixen.Rendering.Water.WaterNodeRecord.WaterNodeRecord(Vixen.Core.Mathematics.Vector2 Origin, float Step, float Morph) -> void
 Vixen.Rendering.Water.WaterRenderer -> sealed class
 Vixen.Rendering.Water.WaterRenderer : System.IDisposable
 Vixen.Rendering.Water.WaterRenderer : Vixen.Rendering.Compositor.SceneRenderer
@@ -114,6 +193,55 @@ Vixen.Rendering.Water.WaterRendererFactory -> sealed class
 Vixen.Rendering.Water.WaterRendererFactory : Vixen.Rendering.Compositor.ISceneRendererFactory
 Vixen.Rendering.Water.WaterRendererFactory.Create(Vixen.Rendering.Compositor.ISceneRendererAsset declared, Vixen.Rendering.Compositor.CompositorBuilder builder) -> Vixen.Rendering.Compositor.SceneRenderer?
 Vixen.Rendering.Water.WaterRendererFactory.WaterRendererFactory() -> void
+Vixen.Rendering.Water.WaterRendererFactory.WaterTime.get -> float
+Vixen.Rendering.Water.WaterRendererFactory.WaterTime.set -> float
+Vixen.Rendering.Water.WaterRendererFactory.Zones.get -> Vixen.Rendering.Water.WaterZoneSystem?
+Vixen.Rendering.Water.WaterRendererFactory.Zones.set -> Vixen.Rendering.Water.WaterZoneSystem?
+Vixen.Rendering.Water.WaterSurfaceAsset -> sealed record
+Vixen.Rendering.Water.WaterSurfaceAsset : System.IEquatable<Vixen.Rendering.Water.WaterSurfaceAsset>
+Vixen.Rendering.Water.WaterSurfaceAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.Water.WaterSurfaceAsset.EdgeFade.get -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.EdgeFade.init -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.Enabled.get -> bool
+Vixen.Rendering.Water.WaterSurfaceAsset.Enabled.init -> bool
+Vixen.Rendering.Water.WaterSurfaceAsset.FarDistance.get -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.FarDistance.init -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.FoamCrest.get -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.FoamCrest.init -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.FoamDepth.get -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.FoamDepth.init -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.GridQuads.get -> int
+Vixen.Rendering.Water.WaterSurfaceAsset.GridQuads.init -> int
+Vixen.Rendering.Water.WaterSurfaceAsset.LevelCount.get -> int
+Vixen.Rendering.Water.WaterSurfaceAsset.LevelCount.init -> int
+Vixen.Rendering.Water.WaterSurfaceAsset.Name.get -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.Name.init -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.NearRange.get -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.NearRange.init -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.Normal.get -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.Normal.init -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.RestHeight.get -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.RestHeight.init -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.SceneDepth.get -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.SceneDepth.init -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.ShoreDepth.get -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.ShoreDepth.init -> float
+Vixen.Rendering.Water.WaterSurfaceAsset.Surface.get -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.Surface.init -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.View.get -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.View.init -> string
+Vixen.Rendering.Water.WaterSurfaceAsset.WaterSurfaceAsset() -> void
+Vixen.Rendering.Water.WaterSurfacePass -> sealed class
+Vixen.Rendering.Water.WaterSurfacePass : System.IDisposable
+Vixen.Rendering.Water.WaterSurfacePass.Dispose() -> void
+Vixen.Rendering.Water.WaterSurfacePass.Draws.get -> int
+Vixen.Rendering.Water.WaterSurfacePass.DroppedPatches.get -> int
+Vixen.Rendering.Water.WaterSurfacePass.FarPatches.get -> int
+Vixen.Rendering.Water.WaterSurfacePass.IndexCount.get -> int
+Vixen.Rendering.Water.WaterSurfacePass.NearPatches.get -> int
+Vixen.Rendering.Water.WaterSurfacePass.Record(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Rendering.Water.WaterSurfacePass.Upload(Vixen.Water.WaterSurfaceMesh mesh, in Vixen.Rendering.Water.WaterMeshView view, System.ReadOnlySpan<Vixen.Water.GerstnerWave> sea, Vixen.Graphics.TextureViewHandle info, Vixen.Graphics.SamplerHandle sampler, in Vixen.Rendering.Water.WaterMeshSettings settings) -> void
+Vixen.Rendering.Water.WaterSurfacePass.WaterSurfacePass(Vixen.Graphics.IGraphicsDevice device, (Vixen.Rendering.Water.WaterMeshShaders Near, Vixen.Rendering.Water.WaterMeshShaders Far) shaders, System.ReadOnlySpan<Vixen.Graphics.PixelFormat> formats, Vixen.Graphics.PixelFormat depthFormat, int gridQuads = 32) -> void
 Vixen.Rendering.Water.WaterZoneComponent -> struct
 Vixen.Rendering.Water.WaterZoneComponent.AttenuationDepth -> float
 Vixen.Rendering.Water.WaterZoneComponent.CoarsestTexel -> float
@@ -126,20 +254,25 @@ Vixen.Rendering.Water.WaterZoneComponent.Waves -> Vixen.Water.WaterWaveSpectrum
 Vixen.Rendering.Water.WaterZoneSystem -> sealed class
 Vixen.Rendering.Water.WaterZoneSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Water.WaterZoneSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Rendering.Water.WaterZoneSystem : Vixen.Rendering.Ecs.IPostProcessShapeSource
 Vixen.Rendering.Water.WaterZoneSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Rendering.Water.WaterZoneSystem.BodyCount.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.Fold(Vixen.Ecs.World world) -> void
 Vixen.Rendering.Water.WaterZoneSystem.Ground.get -> Vixen.Water.IWaterGround
 Vixen.Rendering.Water.WaterZoneSystem.Ground.set -> Vixen.Water.IWaterGround
 Vixen.Rendering.Water.WaterZoneSystem.RebuiltBodies.get -> int
+Vixen.Rendering.Water.WaterZoneSystem.ShapeFor(Vixen.Core.Entity entity) -> Vixen.Rendering.Ecs.IPostProcessShape?
 Vixen.Rendering.Water.WaterZoneSystem.Splines.get -> Vixen.Rendering.Water.IWaterSplineSource?
 Vixen.Rendering.Water.WaterZoneSystem.Splines.set -> Vixen.Rendering.Water.IWaterSplineSource?
 Vixen.Rendering.Water.WaterZoneSystem.States.get -> System.Collections.Generic.IReadOnlyDictionary<Vixen.Core.Entity, Vixen.Water.WaterZoneState>
 Vixen.Rendering.Water.WaterZoneSystem.UnresolvedBodies.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.View.get -> Vixen.Rendering.RenderView
+Vixen.Rendering.Water.WaterZoneSystem.WaterTime.get -> float
+Vixen.Rendering.Water.WaterZoneSystem.WaterTime.set -> float
 Vixen.Rendering.Water.WaterZoneSystem.WaterZoneSystem(Vixen.Rendering.RenderView view) -> void
 Vixen.Rendering.Water.WaterZoneSystem.ZoneCount.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.ZonelessBodies.get -> int
+Vixen.Rendering.Water.WaterZoneSystem.Zones.get -> System.Collections.Generic.IReadOnlyList<(Vixen.Core.Entity Entity, Vixen.Rendering.Water.WaterZoneComponent Component)>
 Vixen.Shaders.Generated.WaterConstants -> struct
 Vixen.Shaders.Generated.WaterConstants.Absorption -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.WaterConstants.BehindScale -> Vixen.Core.Mathematics.Vector3
@@ -154,7 +287,25 @@ Vixen.Shaders.Generated.WaterConstants.SunDirection -> Vixen.Core.Mathematics.Ve
 Vixen.Shaders.Generated.WaterConstants.SurfaceF0 -> float
 Vixen.Shaders.Generated.WaterConstants.WaterConstants() -> void
 Vixen.Shaders.Generated.WaterKeys -> static class
+Vixen.Shaders.Generated.WaterMeshKeys -> static class
+Vixen.Shaders.Generated.WaterMeshPerFrameConstants -> struct
+Vixen.Shaders.Generated.WaterMeshPerFrameConstants.BufferedWaterWavesWaveCount -> int
+Vixen.Shaders.Generated.WaterMeshPerFrameConstants.WaterMeshPerFrameConstants() -> void
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants -> struct
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.AttenuationDepth -> float
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.EdgeFade -> float
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.FoamCrest -> float
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.FoamDepth -> float
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.RestHeight -> float
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.ShoreDepth -> float
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WaterMeshPerMaterialConstants() -> void
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WaterTime -> float
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WindowExtent -> float
+Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WindowOrigin -> Vixen.Core.Mathematics.Vector2
 const Vixen.Rendering.Water.WaterInfoTexture.Channels = 4 -> int
+const Vixen.Rendering.Water.WaterSurfacePass.MaxPatches = 2048 -> int
+const Vixen.Rendering.Water.WaterSurfacePass.MaxWaves = 32 -> int
 const Vixen.Shaders.Generated.WaterConstants.Size = 192 -> int
 const Vixen.Shaders.Generated.WaterKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.WaterKeys.ConstantBufferSet = 2 -> int
@@ -174,11 +325,40 @@ const Vixen.Shaders.Generated.WaterKeys.WaterNormalBinding = 4 -> uint
 const Vixen.Shaders.Generated.WaterKeys.WaterNormalSet = 2 -> int
 const Vixen.Shaders.Generated.WaterKeys.WaterSurfaceBinding = 3 -> uint
 const Vixen.Shaders.Generated.WaterKeys.WaterSurfaceSet = 2 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.BufferedWaterWavesWavesBinding = 1 -> uint
+const Vixen.Shaders.Generated.WaterMeshKeys.BufferedWaterWavesWavesSet = 0 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.WaterMeshKeys.ConstantBufferSet = 0 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.ConstantBufferSize = 16 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.InfoSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.WaterMeshKeys.InfoSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.NodesBinding = 3 -> uint
+const Vixen.Shaders.Generated.WaterMeshKeys.NodesSet = 2 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.PerFrameBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.WaterMeshKeys.PerFrameBlockSet = 0 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.PerFrameBlockSize = 16 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.PerMaterialBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.WaterMeshKeys.PerMaterialBlockSet = 2 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.PerMaterialBlockSize = 112 -> int
+const Vixen.Shaders.Generated.WaterMeshKeys.ShaderName = "WaterMesh" -> string
+const Vixen.Shaders.Generated.WaterMeshKeys.WaterInfoBinding = 1 -> uint
+const Vixen.Shaders.Generated.WaterMeshKeys.WaterInfoSet = 2 -> int
+const Vixen.Shaders.Generated.WaterMeshPerFrameConstants.Size = 16 -> int
+const Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.Size = 112 -> int
+override Vixen.Rendering.Water.WaterMeshRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Water.WaterRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Water.WaterZoneSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 readonly Vixen.Rendering.Water.WaterBodyComponent.Profile.get -> Vixen.Water.WaterProfilePoint
 readonly Vixen.Rendering.Water.WaterZoneComponent.Zone.get -> Vixen.Water.WaterZone
 readonly Vixen.Shaders.Generated.WaterConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.WaterMeshPerFrameConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.Write(System.Span<byte> buffer) -> void
+required Vixen.Rendering.Water.WaterMeshRenderer.Normal.get -> string
+required Vixen.Rendering.Water.WaterMeshRenderer.Normal.init -> string
+required Vixen.Rendering.Water.WaterMeshRenderer.SceneDepth.get -> string
+required Vixen.Rendering.Water.WaterMeshRenderer.SceneDepth.init -> string
+required Vixen.Rendering.Water.WaterMeshRenderer.Surface.get -> string
+required Vixen.Rendering.Water.WaterMeshRenderer.Surface.init -> string
 required Vixen.Rendering.Water.WaterRenderer.Behind.get -> string
 required Vixen.Rendering.Water.WaterRenderer.Behind.init -> string
 required Vixen.Rendering.Water.WaterRenderer.Normal.get -> string
@@ -191,6 +371,11 @@ required Vixen.Rendering.Water.WaterRenderer.Surface.get -> string
 required Vixen.Rendering.Water.WaterRenderer.Surface.init -> string
 static Vixen.Rendering.Water.WaterBodyComponent.Default.get -> Vixen.Rendering.Water.WaterBodyComponent
 static Vixen.Rendering.Water.WaterInfoTexture.Format(Vixen.Water.WaterInfoPrecision precision) -> Vixen.Graphics.PixelFormat
+static Vixen.Rendering.Water.WaterMeshSettings.Default.get -> Vixen.Rendering.Water.WaterMeshSettings
+static Vixen.Rendering.Water.WaterNodeRecord.Of(in Vixen.Terrain.TerrainLodNode node, Vixen.Core.Mathematics.Vector2 windowOrigin, float metresPerQuad, int gridQuads) -> Vixen.Rendering.Water.WaterNodeRecord
+static Vixen.Rendering.Water.WaterNodeRecord.SizeInBytes.get -> int
+static Vixen.Rendering.Water.WaterSurfacePass.DepthState.get -> Vixen.Graphics.DepthStencilState
+static Vixen.Rendering.Water.WaterSurfacePass.Raster.get -> Vixen.Graphics.RasterizerState
 static Vixen.Rendering.Water.WaterZoneComponent.Default.get -> Vixen.Rendering.Water.WaterZoneComponent
 static readonly Vixen.Shaders.Generated.WaterKeys.Absorption -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.WaterKeys.BehindScale -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
@@ -213,3 +398,21 @@ static readonly Vixen.Shaders.Generated.WaterKeys.SurfaceF0 -> Vixen.Shaders.Par
 static readonly Vixen.Shaders.Generated.WaterKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.WaterKeys.WaterNormal -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.WaterKeys.WaterSurface -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.AttenuationDepth -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.BufferedWaterWavesWaveCount -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.BufferedWaterWavesWaves -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.EdgeFade -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.FarMesh -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.FoamCrest -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.FoamDepth -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.GridQuads -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.InfoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.Nodes -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.RestHeight -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.ShoreDepth -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.WaterInfo -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.WaterTime -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.WindowExtent -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.WaterMeshKeys.WindowOrigin -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
