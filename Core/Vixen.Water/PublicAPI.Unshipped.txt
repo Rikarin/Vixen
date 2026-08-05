@@ -125,6 +125,32 @@ Vixen.Water.WaterCarveProfile.BedLayerStrength.init -> float
 Vixen.Water.WaterCarveProfile.Strength.get -> float
 Vixen.Water.WaterCarveProfile.Strength.init -> float
 Vixen.Water.WaterCarveProfile.WaterCarveProfile() -> void
+Vixen.Water.WaterDisturbance -> readonly struct
+Vixen.Water.WaterDisturbance : System.IEquatable<Vixen.Water.WaterDisturbance>
+Vixen.Water.WaterDisturbance.Height.get -> float
+Vixen.Water.WaterDisturbance.Height.init -> float
+Vixen.Water.WaterDisturbance.Kind.get -> Vixen.Water.WaterDisturbanceKind
+Vixen.Water.WaterDisturbance.Kind.init -> Vixen.Water.WaterDisturbanceKind
+Vixen.Water.WaterDisturbance.Position.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterDisturbance.Position.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterDisturbance.Radius.get -> float
+Vixen.Water.WaterDisturbance.Radius.init -> float
+Vixen.Water.WaterDisturbance.Strength.get -> float
+Vixen.Water.WaterDisturbance.Strength.init -> float
+Vixen.Water.WaterDisturbance.WaterDisturbance() -> void
+Vixen.Water.WaterDisturbance.WaterDisturbance(Vixen.Core.Mathematics.Vector2 Position, float Radius, float Strength, Vixen.Water.WaterDisturbanceKind Kind, float Height) -> void
+Vixen.Water.WaterDisturbanceKind -> enum : int
+Vixen.Water.WaterDisturbanceKind.Splash = 1 -> Vixen.Water.WaterDisturbanceKind
+Vixen.Water.WaterDisturbanceKind.Wake = 0 -> Vixen.Water.WaterDisturbanceKind
+Vixen.Water.WaterDisturbanceKind.WaterDisturbanceKind() -> void
+Vixen.Water.WaterDisturbances -> sealed class
+Vixen.Water.WaterDisturbances.Add(in Vixen.Water.WaterDisturbance disturbance) -> bool
+Vixen.Water.WaterDisturbances.Budget.get -> int
+Vixen.Water.WaterDisturbances.Clear() -> void
+Vixen.Water.WaterDisturbances.Count.get -> int
+Vixen.Water.WaterDisturbances.Overflowed.get -> int
+Vixen.Water.WaterDisturbances.Queued.get -> System.ReadOnlySpan<Vixen.Water.WaterDisturbance>
+Vixen.Water.WaterDisturbances.WaterDisturbances(int budget = 64) -> void
 Vixen.Water.WaterEvaluator -> readonly ref struct
 Vixen.Water.WaterEvaluator.Attenuation.get -> Vixen.Water.WaterAttenuation
 Vixen.Water.WaterEvaluator.Displace(Vixen.Core.Mathematics.Vector2 position, float waterTime, float damping, out Vixen.Core.Mathematics.Vector3 offset, out Vixen.Core.Mathematics.Vector3 normal) -> void
@@ -235,6 +261,7 @@ Vixen.Water.WaterRippleSettings.Validate(float deltaTime) -> string?
 Vixen.Water.WaterRippleSettings.WaterRippleSettings() -> void
 Vixen.Water.WaterRipples -> sealed class
 Vixen.Water.WaterRipples : Vixen.Water.IWaterRipples
+Vixen.Water.WaterRipples.Apply(Vixen.Water.WaterDisturbances queue) -> int
 Vixen.Water.WaterRipples.At(int x, int z) -> float
 Vixen.Water.WaterRipples.Clear() -> void
 Vixen.Water.WaterRipples.Follow(Vixen.Core.Mathematics.Vector2 centre) -> bool

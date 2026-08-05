@@ -4,7 +4,7 @@ slug: rendering/reading-the-frame
 kind: guide
 area: Rendering
 summary: Two ways for a pass to consume its own output — a snapshot of a target inside one frame, and a pair of targets alternating across them — and why both are resources the render graph owns rather than barriers somebody remembers.
-api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource, T:Vixen.Rendering.Water.WaterSurfaceAsset, T:Vixen.Rendering.Water.WaterMeshRenderer, T:Vixen.Rendering.Water.WaterSurfacePass, T:Vixen.Rendering.Water.WaterNodeRecord, T:Vixen.Rendering.Water.WaterMeshShaders, T:Vixen.Rendering.Water.WaterMeshView, T:Vixen.Rendering.Water.WaterMeshSettings, T:Vixen.Rendering.Water.UnderwaterShape, T:Vixen.Rendering.Water.UnderwaterAsset, T:Vixen.Rendering.Water.UnderwaterRenderer, R:Water/Water, R:Water/WaterMesh, R:Water/Underwater, T:Vixen.Shaders.Generated.WaterKeys, T:Vixen.Shaders.Generated.WaterMeshKeys, T:Vixen.Shaders.Generated.UnderwaterKeys]
+api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource, T:Vixen.Rendering.Water.WaterSurfaceAsset, T:Vixen.Rendering.Water.WaterMeshRenderer, T:Vixen.Rendering.Water.WaterSurfacePass, T:Vixen.Rendering.Water.WaterNodeRecord, T:Vixen.Rendering.Water.WaterMeshShaders, T:Vixen.Rendering.Water.WaterMeshView, T:Vixen.Rendering.Water.WaterMeshSettings, T:Vixen.Rendering.Water.UnderwaterShape, T:Vixen.Rendering.Water.UnderwaterAsset, T:Vixen.Rendering.Water.UnderwaterRenderer, R:Water/Water, R:Water/WaterMesh, R:Water/Underwater, T:Vixen.Shaders.Generated.WaterKeys, T:Vixen.Shaders.Generated.WaterMeshKeys, T:Vixen.Shaders.Generated.UnderwaterKeys, T:Vixen.Rendering.Water.WaterRippleSimulation, R:Water/Ripples, T:Vixen.Shaders.Generated.RipplesKeys]
 tags: [rendering, compositor, render-graph, water]
 since: 0.1
 status: stable
@@ -172,6 +172,25 @@ which at the waterline is a band of unlit lake.
 in `!Underwater` it says "the ray leaves the water here", which is what bounds the fog path. Without
 that, a diver looking up is exactly as dark as one looking down at the bed — the failure that reads as
 "underwater is just a blue filter".
+
+**The ripple field is the ping-pong's first consumer.** `WaterRippleSimulation` is one dispatch a
+step over a `PingPongTextures` pair, with the displacement and its rate in one texture's `rg`.
+
+⚠ **`Rgba16Float` and not `Rg16Float`, which is portability rather than waste.** Vulkan's *required*
+storage-image formats are a short list and two-channel half is not on it — a device without
+`StorageImageExtendedFormats` refuses the module outright, which is what the seam fixture found on the
+first machine it ran on.
+
+⚠ **The uniform block is filled at declaration and not inside the pass body.** A graph executes long
+after it is declared and the injection queue is cleared at the bottom of `Record`, so a body that
+described itself would describe an empty queue every time — a device field that is perfectly flat,
+perfectly stable, and wrong by exactly the reference's own amplitude.
+
+⚠ **The descriptor ring is sized by `StepsPerFrame` and not by frames in flight alone.** A set names
+the half of the pair this step reads and the halves swap, so a set rewritten while a submitted command
+list still references it is the race the ping-pong exists to avoid — arriving through the descriptor
+rather than through the texture. One step a frame is the assumption; an accumulator catching up after
+a hitch takes several.
 
 What supplies the water's own planes is a scene: `WaterZoneComponent` and `WaterBodyComponent` on
 ordinary entities, folded by `WaterZoneSystem` into the fields the kernel owns and uploaded by

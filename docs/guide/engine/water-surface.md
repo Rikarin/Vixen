@@ -4,7 +4,7 @@ slug: engine/water-surface
 kind: guide
 area: Engine
 summary: One definition of the water surface — a body from a spline and a profile, a sea state from a spectrum, a field of height, flow and ground, and the evaluator that the renderer, the buoyancy solver and a gameplay query all call.
-api: [T:Vixen.Water.WaterZone, T:Vixen.Water.WaterZoneState, T:Vixen.Water.WaterZoneUpdate, T:Vixen.Water.WaterInfoPrecision, T:Vixen.Water.WaterQuery, T:Vixen.Water.IWaterFieldSource, T:Vixen.Water.WaterEvaluator, T:Vixen.Water.WaterSample, T:Vixen.Water.WaterAttenuation, T:Vixen.Water.IWaterRipples, T:Vixen.Water.WaterBody, T:Vixen.Water.WaterBodyKind, T:Vixen.Water.WaterProfilePoint, T:Vixen.Water.WaterBodyContribution, T:Vixen.Water.WaterField, T:Vixen.Water.WaterFieldDescription, T:Vixen.Water.WaterFieldSample, T:Vixen.Water.IWaterGround, T:Vixen.Water.FlatWaterGround, T:Vixen.Water.WaterWaveSpectrum, T:Vixen.Water.WaterWaveCount, T:Vixen.Water.GerstnerWave, T:Vixen.Water.WaterMath, T:Vixen.Water.WaterSurfaceMesh, T:Vixen.Water.WaterFieldPyramid, T:Vixen.Water.WaterCarve, T:Vixen.Water.WaterCarveProfile, T:Vixen.Water.Buoyancy, T:Vixen.Water.BuoyancyPontoon, T:Vixen.Water.BuoyancySettings, T:Vixen.Water.BuoyancyForce, T:Vixen.Water.WaterRipples, T:Vixen.Water.WaterRippleSettings, T:Vixen.Water.WaterWavesAsset, T:Vixen.Rendering.Water.IWaterWaveSource, T:Vixen.Engine.Renderer.AssetWaterSource]
+api: [T:Vixen.Water.WaterZone, T:Vixen.Water.WaterZoneState, T:Vixen.Water.WaterZoneUpdate, T:Vixen.Water.WaterInfoPrecision, T:Vixen.Water.WaterQuery, T:Vixen.Water.IWaterFieldSource, T:Vixen.Water.WaterEvaluator, T:Vixen.Water.WaterSample, T:Vixen.Water.WaterAttenuation, T:Vixen.Water.IWaterRipples, T:Vixen.Water.WaterBody, T:Vixen.Water.WaterBodyKind, T:Vixen.Water.WaterProfilePoint, T:Vixen.Water.WaterBodyContribution, T:Vixen.Water.WaterField, T:Vixen.Water.WaterFieldDescription, T:Vixen.Water.WaterFieldSample, T:Vixen.Water.IWaterGround, T:Vixen.Water.FlatWaterGround, T:Vixen.Water.WaterWaveSpectrum, T:Vixen.Water.WaterWaveCount, T:Vixen.Water.GerstnerWave, T:Vixen.Water.WaterMath, T:Vixen.Water.WaterSurfaceMesh, T:Vixen.Water.WaterFieldPyramid, T:Vixen.Water.WaterCarve, T:Vixen.Water.WaterCarveProfile, T:Vixen.Water.Buoyancy, T:Vixen.Water.BuoyancyPontoon, T:Vixen.Water.BuoyancySettings, T:Vixen.Water.BuoyancyForce, T:Vixen.Water.WaterRipples, T:Vixen.Water.WaterRippleSettings, T:Vixen.Water.WaterWavesAsset, T:Vixen.Rendering.Water.IWaterWaveSource, T:Vixen.Engine.Renderer.AssetWaterSource, T:Vixen.Water.WaterDisturbance, T:Vixen.Water.WaterDisturbanceKind, T:Vixen.Water.WaterDisturbances]
 tags: [water, ocean, river, buoyancy, gerstner, terrain]
 since: 0.1
 status: preview
@@ -253,6 +253,28 @@ carry the YAML dialect; that is the editor's format. This was the bug in the spl
 `SplineAsset.Points` was a getter-only `IReadOnlyList`, both serialisers skip a member they cannot
 write to, and every curve round-tripped to a name, a closed flag and *no points* — with no error
 anywhere, because everything downstream asks `CanBuild` and draws nothing when the answer is no.
+
+### Wakes and splashes are one event with two consumers
+
+A `WaterDisturbance` says something disturbed the water here, this hard, this wide. A ripple field
+turns it into an injection; `Vixen.Vfx` turns it into a burst of spray. `WaterDisturbances` is the
+bounded queue between them.
+
+⚠ **One event and not two producers**, which is § D2's rule applied once more: two producers is a wake
+whose spray is not where the ripple is, and the frame they stop agreeing on is the frame something
+changed in only one of them.
+
+⚠ **Draining does not empty.** A queue that emptied itself on the first read would give whichever
+system was added second nothing at all — a wake with no spray, or spray with no wake, depending on an
+ordering nobody chose. The step that produced them is what clears it.
+
+⚠ **A strength is a rate, not a displacement.** A source that pushed the height down would carve a
+permanent dent in the lake; one that pushes the rate down makes a depression that springs back past
+its own start.
+
+⚠ **In the kernel, so a dedicated server produces the same events and drops them.** A headless build
+has no particles and still simulates the boat that would have made them; putting the event where the
+renderer is would mean the two builds disagreed about how the hull was moving.
 
 ## Examples
 

@@ -378,6 +378,31 @@ Vixen.Rendering.Water.WaterRendererFactory.Create(Vixen.Rendering.Compositor.ISc
 Vixen.Rendering.Water.WaterRendererFactory.WaterRendererFactory() -> void
 Vixen.Rendering.Water.WaterRendererFactory.Zones.get -> Vixen.Rendering.Water.WaterZoneSystem?
 Vixen.Rendering.Water.WaterRendererFactory.Zones.set -> Vixen.Rendering.Water.WaterZoneSystem?
+Vixen.Rendering.Water.WaterRippleSimulation -> sealed class
+Vixen.Rendering.Water.WaterRippleSimulation : System.IDisposable
+Vixen.Rendering.Water.WaterRippleSimulation.Advance() -> void
+Vixen.Rendering.Water.WaterRippleSimulation.Apply(Vixen.Water.WaterDisturbances queue) -> int
+Vixen.Rendering.Water.WaterRippleSimulation.Clear(Vixen.Graphics.RenderGraph.RenderGraph graph) -> void
+Vixen.Rendering.Water.WaterRippleSimulation.Compute.get -> bool
+Vixen.Rendering.Water.WaterRippleSimulation.Compute.set -> bool
+Vixen.Rendering.Water.WaterRippleSimulation.Describe(float deltaTime) -> Vixen.Shaders.Generated.RipplesConstants
+Vixen.Rendering.Water.WaterRippleSimulation.Description.get -> Vixen.Graphics.TextureDescription
+Vixen.Rendering.Water.WaterRippleSimulation.Dispose() -> void
+Vixen.Rendering.Water.WaterRippleSimulation.Field.get -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.Water.WaterRippleSimulation.HasHistory.get -> bool
+Vixen.Rendering.Water.WaterRippleSimulation.Inject(Vixen.Core.Mathematics.Vector2 position, float radius, float amount) -> bool
+Vixen.Rendering.Water.WaterRippleSimulation.Injections.get -> int
+Vixen.Rendering.Water.WaterRippleSimulation.MoveTo(Vixen.Core.Mathematics.Vector2 origin) -> void
+Vixen.Rendering.Water.WaterRippleSimulation.Origin.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Water.WaterRippleSimulation.Overflowed.get -> int
+Vixen.Rendering.Water.WaterRippleSimulation.ReadbackBytes.get -> int
+Vixen.Rendering.Water.WaterRippleSimulation.Record(Vixen.Graphics.RenderGraph.RenderGraph graph, Vixen.Shaders.EffectSystem effects, Vixen.Rendering.ComputePipelineCache pipelines, float deltaTime) -> bool
+Vixen.Rendering.Water.WaterRippleSimulation.RecordReadback(Vixen.Graphics.ICommandList commands, Vixen.Graphics.BufferHandle into) -> void
+Vixen.Rendering.Water.WaterRippleSimulation.Settings.get -> Vixen.Water.WaterRippleSettings
+Vixen.Rendering.Water.WaterRippleSimulation.StepCount.get -> long
+Vixen.Rendering.Water.WaterRippleSimulation.StepsPerFrame.get -> int
+Vixen.Rendering.Water.WaterRippleSimulation.StepsPerFrame.set -> int
+Vixen.Rendering.Water.WaterRippleSimulation.WaterRippleSimulation(Vixen.Graphics.IGraphicsDevice device, in Vixen.Water.WaterRippleSettings settings, Vixen.Core.Mathematics.Vector2 origin = default(Vixen.Core.Mathematics.Vector2), bool readable = false) -> void
 Vixen.Rendering.Water.WaterStatistics -> readonly struct
 Vixen.Rendering.Water.WaterStatistics : System.IEquatable<Vixen.Rendering.Water.WaterStatistics>
 Vixen.Rendering.Water.WaterStatistics.Bodies.get -> int
@@ -480,6 +505,17 @@ Vixen.Rendering.Water.WaterZoneSystem.Waves.set -> Vixen.Rendering.Water.IWaterW
 Vixen.Rendering.Water.WaterZoneSystem.ZoneCount.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.ZonelessBodies.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.Zones.get -> System.Collections.Generic.IReadOnlyList<(Vixen.Core.Entity Entity, Vixen.Rendering.Water.WaterZoneComponent Component)>
+Vixen.Shaders.Generated.RipplesConstants -> struct
+Vixen.Shaders.Generated.RipplesConstants.Damping -> float
+Vixen.Shaders.Generated.RipplesConstants.DeltaTime -> float
+Vixen.Shaders.Generated.RipplesConstants.EdgeFade -> float
+Vixen.Shaders.Generated.RipplesConstants.InjectionCount -> int
+Vixen.Shaders.Generated.RipplesConstants.Injections -> Vixen.Core.Mathematics.Vector4[]?
+Vixen.Shaders.Generated.RipplesConstants.MetresPerTexel -> float
+Vixen.Shaders.Generated.RipplesConstants.Resolution -> int
+Vixen.Shaders.Generated.RipplesConstants.RipplesConstants() -> void
+Vixen.Shaders.Generated.RipplesConstants.Speed -> float
+Vixen.Shaders.Generated.RipplesKeys -> static class
 Vixen.Shaders.Generated.UnderwaterConstants -> struct
 Vixen.Shaders.Generated.UnderwaterConstants.Absorption -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.UnderwaterConstants.BehindScale -> Vixen.Core.Mathematics.Vector3
@@ -533,8 +569,21 @@ Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WaterTime -> float
 Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WindowExtent -> float
 Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WindowOrigin -> Vixen.Core.Mathematics.Vector2
 const Vixen.Rendering.Water.WaterInfoTexture.Channels = 4 -> int
+const Vixen.Rendering.Water.WaterRippleSimulation.GroupSize = 8 -> int
+const Vixen.Rendering.Water.WaterRippleSimulation.MaxInjections = 32 -> int
 const Vixen.Rendering.Water.WaterSurfacePass.MaxPatches = 2048 -> int
 const Vixen.Rendering.Water.WaterSurfacePass.MaxWaves = 32 -> int
+const Vixen.Shaders.Generated.RipplesConstants.Size = 560 -> int
+const Vixen.Shaders.Generated.RipplesKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.RipplesKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.RipplesKeys.ConstantBufferSize = 560 -> int
+const Vixen.Shaders.Generated.RipplesKeys.PointSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.RipplesKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.RipplesKeys.ShaderName = "Ripples" -> string
+const Vixen.Shaders.Generated.RipplesKeys.StateBinding = 1 -> uint
+const Vixen.Shaders.Generated.RipplesKeys.StateSet = 2 -> int
+const Vixen.Shaders.Generated.RipplesKeys.TargetBinding = 3 -> uint
+const Vixen.Shaders.Generated.RipplesKeys.TargetSet = 2 -> int
 const Vixen.Shaders.Generated.UnderwaterConstants.Size = 224 -> int
 const Vixen.Shaders.Generated.UnderwaterKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.UnderwaterKeys.ConstantBufferSet = 2 -> int
@@ -596,6 +645,7 @@ override Vixen.Rendering.Water.WaterRenderer.Build(Vixen.Rendering.Compositor.Gr
 override Vixen.Rendering.Water.WaterZoneSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 readonly Vixen.Rendering.Water.WaterBodyComponent.Profile.get -> Vixen.Water.WaterProfilePoint
 readonly Vixen.Rendering.Water.WaterZoneComponent.Zone.get -> Vixen.Water.WaterZone
+readonly Vixen.Shaders.Generated.RipplesConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.UnderwaterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.WaterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.WaterMeshPerFrameConstants.Write(System.Span<byte> buffer) -> void
@@ -653,6 +703,18 @@ static Vixen.Rendering.Water.WaterNodeRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Water.WaterSurfacePass.DepthState.get -> Vixen.Graphics.DepthStencilState
 static Vixen.Rendering.Water.WaterSurfacePass.Raster.get -> Vixen.Graphics.RasterizerState
 static Vixen.Rendering.Water.WaterZoneComponent.Default.get -> Vixen.Rendering.Water.WaterZoneComponent
+static readonly Vixen.Shaders.Generated.RipplesKeys.Compute -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.RipplesKeys.Damping -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.RipplesKeys.DeltaTime -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.RipplesKeys.EdgeFade -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.RipplesKeys.InjectionCount -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.RipplesKeys.MetresPerTexel -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.RipplesKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.RipplesKeys.Resolution -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.RipplesKeys.Speed -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.RipplesKeys.State -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.RipplesKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.RipplesKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.UnderwaterKeys.Absorption -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.UnderwaterKeys.BehindScale -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.UnderwaterKeys.CameraPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>

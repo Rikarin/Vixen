@@ -62,6 +62,40 @@ public sealed class BuoyancySystem(PhysicsScene scene, IWaterSurface surface) : 
 
     BuoyancyForce[] forces = new BuoyancyForce[8];
 
+    /// <summary>Where this step's wakes and splashes go, or null to produce none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>[35 § D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry)'s
+    ///         wake and splash hooks, produced where the facts are.</b> A hull's speed, how much of it
+    ///         is under, and the step it first touched water are all here and nowhere else — a system
+    ///         that wanted to make spray would otherwise have to re-derive them from a transform,
+    ///         which is a second opinion about whether a boat is moving.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One event with two consumers, which is § D2's rule applied once more.</b> A ripple
+    ///         field turns a disturbance into an injection and <c>Vixen.Vfx</c> turns it into a burst
+    ///         of spray; two producers would be a wake whose spray is not where the ripple is, and the
+    ///         frame they stop agreeing on is the frame something changed in only one of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Producing them changes no force.</b> The solver reads no ripples — see the class
+    ///         remarks — so a scene with the hooks wired and a scene without them simulate identically,
+    ///         which is what keeps a predicted body predictable.
+    ///     </para>
+    /// </remarks>
+    public WaterDisturbances? Disturbances { get; set; }
+
+    /// <summary>How fast a pontoon has to move through water before it makes a wake, in m/s.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not zero.</b> A hull at rest still has a velocity of a few millimetres a second as the
+    ///     solver settles it, and a wake emitted from that is a boat moored in a harbour throwing
+    ///     spray for ever.
+    /// </remarks>
+    public float WakeSpeed { get; set; } = 0.75f;
+
+    /// <summary>How fast a pontoon has to enter the water before it splashes, in m/s.</summary>
+    public float SplashSpeed { get; set; } = 1.5f;
+
     /// <summary>Where the water is, and the clock it is at.</summary>
     /// <remarks>
     ///     ⚠ <b>Settable, because a dedicated server's answer is not a renderer.</b> On a client this
@@ -214,6 +248,7 @@ public sealed class BuoyancySystem(PhysicsScene scene, IWaterSurface surface) : 
 
         var lift = 0f;
         var submerged = 0f;
+        var was = world.Has<BuoyancyState>(entity) ? world.Read<BuoyancyState>(entity).Wet : 0;
 
         for (var index = 0; index < pontoons.Length; index++) {
             var force = forces[index];
@@ -225,6 +260,7 @@ public sealed class BuoyancySystem(PhysicsScene scene, IWaterSurface surface) : 
             }
 
             lift += force.Force.Y;
+            Disturb(in force, velocity, entered: was == 0);
 
             // At the pontoon's own world position, which is what makes the hull pitch. A force at
             // the centre of mass would be a boat that bobs and never rolls.
@@ -245,6 +281,56 @@ public sealed class BuoyancySystem(PhysicsScene scene, IWaterSurface surface) : 
                 SurfaceHeight = query.Height(new(origin.X, origin.Z), Surface.WaterTime)
             }
         );
+    }
+
+    /// <summary>Queues whatever this pontoon is doing to the surface, if anything.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Scaled by the submerged fraction, so a pontoon skimming the surface makes less
+    ///         than one driving through it.</b> Without that, the loudest wake in a scene is the one
+    ///         from a hull that is barely touching the water — because it is the one whose pontoon is
+    ///         crossing the surface, and crossing is what a wake looks like from the outside.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A splash is the frame a body <em>arrives</em>, which is why the previous state is
+    ///         read.</b> A rule on the vertical speed alone fires again every time a bobbing hull
+    ///         crosses the surface, which is a crate dropped in a lake splashing four times before it
+    ///         settles.
+    ///     </para>
+    /// </remarks>
+    void Disturb(in BuoyancyForce force, Vector3 velocity, bool entered) {
+        if (Disturbances is not { } queue) {
+            return;
+        }
+
+        var lateral = new Vector2(velocity.X, velocity.Z).Length();
+        var falling = -velocity.Y;
+
+        if (entered && falling >= SplashSpeed) {
+            queue.Add(
+                new(
+                    new(force.Position.X, force.Position.Z),
+                    1f,
+                    -falling * force.Submerged,
+                    WaterDisturbanceKind.Splash,
+                    force.SurfaceHeight
+                )
+            );
+
+            return;
+        }
+
+        if (lateral >= WakeSpeed) {
+            queue.Add(
+                new(
+                    new(force.Position.X, force.Position.Z),
+                    0.75f,
+                    -lateral * 0.2f * force.Submerged,
+                    WaterDisturbanceKind.Wake,
+                    force.SurfaceHeight
+                )
+            );
+        }
     }
 
     /// <summary>Records a body no zone reaches, so the readout says "dry" rather than going stale.</summary>

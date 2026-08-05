@@ -109,6 +109,12 @@ public class LibraryReflectionTests {
         // EffectConstants that wrote it as zero would give a waterline that is nowhere at all.
         ("Water", "Underwater"),
 
+        // And § D12's step, the fourth Water module. Published because WaterRippleSimulation binds
+        // its storage image and every one of its simulation numbers by name, and because its `Compute`
+        // permutation is asked for by key — § B5's GL variant is the same arithmetic writing a colour
+        // target, and a permutation nothing can name is a backend that silently gets the wrong one.
+        ("Water", "Ripples"),
+
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see
