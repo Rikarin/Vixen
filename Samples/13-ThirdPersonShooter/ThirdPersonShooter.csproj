@@ -62,6 +62,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Input\Vixen.Input.csproj" />
 
         <!--
+            The ground: TerrainFactory for the document's !Terrain node, TerrainComponent and
+            TerrainGrassComponent for the scene, and Vixen.Terrain for TerrainSeed's own writing of
+            the committed heightfield. Registering the factory is the whole installation — see
+            OnConfigure.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
+
+        <!--
             Not linked into the game — ReferenceOutputAssembly is false — but built before it, so the
             content build above has a tool to run. A shipped game restores the CLI as a dotnet tool
             instead and never references it.

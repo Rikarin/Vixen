@@ -194,9 +194,20 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         var boundIndices = default(BufferHandle);
         var boundIndexFormat = default(IndexFormat);
         var boundRecord = -1;
-        var boundView = false;
-        var boundScene = false;
-        var boundTable = false;
+
+        // ⚠ **The layouts these sets were last bound against, and they used to be three `bool`s.**
+        // The comment below said "once per run because every pipeline in a frame is layout-compatible
+        // up to set 1", and that was an assumption rather than a fact: a material feature composed
+        // into a variant can add a binding to a *low* set, and `MaterialTextures` — which
+        // `TexturedMetalRoughnessSurface` inherits — declares `materialSampler` at `[PerFrame]`,
+        // which is set 0. So a stage drawing one textured object and one untextured one has two
+        // effects whose set 0 differs by a binding, and a set allocated from the first is not bound
+        // at all as far as the second's pipeline is concerned: `uses set 0 but that set is not
+        // bound`, on a set that was just bound. Nothing in the tree mixed the two until a material
+        // named a texture, so the assumption held by having nothing to break it.
+        var boundSceneLayout = default(DescriptorSetLayoutHandle);
+        var boundViewLayout = default(DescriptorSetLayoutHandle);
+        var boundTableLayout = default(DescriptorSetLayoutHandle);
 
         // Whether a run of nodes could become one command at all. Every per-node contributor is a
         // reason it cannot: a sub-feature that pushes this object's world matrix has to be given the
@@ -239,22 +250,30 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
                 boundPipeline = pipeline;
             }
 
-            // After the pipeline and only once. A descriptor set is bound against the layout of
-            // whatever pipeline is current, so this cannot happen before the first one — and it does
-            // not need to happen again, because every pipeline in a frame is layout-compatible up to
-            // set 1 and a bound set survives a change that does not disturb it.
-            if (!boundView && context.ViewConstants is { } view && context.View is { } from) {
+            // After the pipeline, because a descriptor set is bound against the layout of whatever
+            // pipeline is current and so nothing can precede the first one.
+            //
+            // ⚠ **Set 0 before set 1, and both whenever either moved.** Binding a set disturbs every
+            // set above it whose layout the two pipeline layouts do not share, so rebinding set 0
+            // against a new shape invalidates the set 1 under the old one — which would trade "set 0
+            // is not bound" for "set 1 is not bound" and look like the fix not working. The pair
+            // moves together or not at all.
+            var sceneLayout = LayoutFor(effect, context.SceneConstants?.Slot);
+            var viewLayout = LayoutFor(effect, context.ViewConstants?.Slot);
+            var rebind = sceneLayout != boundSceneLayout || viewLayout != boundViewLayout;
+
+            if (rebind && context.SceneConstants is { } scene && scene.Bind(context.CommandList, effect)) {
+                boundSceneLayout = sceneLayout;
+            }
+
+            if (rebind && context.ViewConstants is { } view && context.View is { } from) {
                 // The layout first, because it belongs to the shader and the shader is only in hand
                 // here — see ViewConstants.AdoptLayout. A host that set one is left alone.
                 view.AdoptLayout(effect);
-                boundView = view.Bind(context.CommandList, from, effect);
-            }
 
-            // The frame's set, on the same terms and for the same reason. After the pipeline because
-            // no set can precede one; once per run because every pipeline in a frame is layout-
-            // compatible up to set 1, which covers set 0 as well.
-            if (!boundScene && context.SceneConstants is { } scene) {
-                boundScene = scene.Bind(context.CommandList, effect);
+                if (view.Bind(context.CommandList, from, effect)) {
+                    boundViewLayout = viewLayout;
+                }
             }
 
             // The material table, on the same terms and once. It is not written here and not written
@@ -265,11 +284,19 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             // four-set pipeline layout, and binding a fifth against it is a validation error rather
             // than a harmless extra call — which is exactly the mixed frame this is written for, since
             // the non-bindless variant of the same shader is the one every other device compiles.
-            if (!boundTable
+            //
+            // ⚠ And again whenever the sets under it moved, on the pair above's terms: set 4 sits
+            // over sets 0 and 1, so rebinding either of those disturbs it. Keyed on the effect's own
+            // bindless layout, which is also what makes the mixed case above self-correcting — a
+            // variant with no table has no layout here, so the comparison never re-binds one under a
+            // four-set pipeline.
+            var tableLayout = LayoutFor(effect, DescriptorSetSlot.Bindless);
+
+            if ((rebind || tableLayout != boundTableLayout)
                 && materials.Textures is { Set.IsValid: true } table
                 && HasBindlessSet(effect)) {
                 context.CommandList.BindDescriptorSet(DescriptorSetSlot.Bindless, table.Set);
-                boundTable = true;
+                boundTableLayout = tableLayout;
             }
 
             // Which record of the material buffer this draw reads, pushed rather than bound and
@@ -556,6 +583,21 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         const int slot = (int)DescriptorSetSlot.PerMaterial;
         return effect.SetLayouts.Length == 0
             || (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid);
+    }
+
+    /// <summary>The layout an effect declares for a set, or none where it declares nothing.</summary>
+    /// <remarks>
+    ///     The identity a bound descriptor set has to be re-checked against as the draw loop moves
+    ///     between variants — see the layout locals in <c>Draw</c>. A null slot is a host that
+    ///     supplied no constants for that set, which compares equal to itself and so never asks for a
+    ///     rebind.
+    /// </remarks>
+    static DescriptorSetLayoutHandle LayoutFor(Effect effect, DescriptorSetSlot? slot) {
+        if (slot is not { } wanted || effect.SetLayouts.Length <= (int)wanted) {
+            return default;
+        }
+
+        return effect.SetLayouts[(int)wanted];
     }
 
     /// <summary>Whether an effect declares the bindless table's set.</summary>

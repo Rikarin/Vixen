@@ -264,10 +264,25 @@ public sealed class WorldRenderer : IDisposable {
             // set layouts, which is undefined behaviour that MoltenVK happens to render correctly.
             // The second cost is the pool: a table built to a desktop driver's million-descriptor
             // ceiling reserves hundreds of megabytes to hold a scene's worth of textures.
-            Table = new(device, capacity: BindlessTable.ConventionalCapacity);
+            // ⚠ **The stage mask is the same agreement as the capacity, and it was left at the
+            // constructor's `Fragment` default.** Two descriptor set layouts are compatible only if
+            // they are identically defined, stage flags included — and the effect path builds set 4
+            // from the *reflected* mask, which for `ForwardPlus` is vertex and fragment because
+            // `MaterialTextures.materialTextures` is `[Shared]` across a shader with both stages. A
+            // table built fragment-only is a set the pipeline layout refuses, and the refusal is not
+            // confined to set 4: an incompatible bind disturbs the sets under it, so the validation
+            // that comes out of it is "uses set 0 but that set is not bound" on every draw in the
+            // Main pass. Nothing bound this table until a material carried a texture, which is why a
+            // mismatch this loud sat here unseen.
+            Table = new(
+                device,
+                ShaderStage.Vertex | ShaderStage.Fragment,
+                BindlessTable.ConventionalCapacity
+            );
             Materials.Textures = Table;
 
             Paired(Materials, "ForwardPlus");
+            FilterTextures("ForwardPlus");
         }
     }
 
@@ -784,6 +799,49 @@ public sealed class WorldRenderer : IDisposable {
                 ParameterKeys.New<uint>(TexturedMetalRoughnessFeature.BaseColorIndexParameter(path))
             ] =
             ParameterKeys.New<TextureViewHandle>(new TexturedMetalRoughnessFeature().BaseColorMap);
+    }
+
+    /// <summary>
+    ///     Fills the one per-frame binding the material table's shader half declares.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The table's other half, and nothing wrote it.</b>
+    ///         <c>MaterialTextures</c> declares its array <c>[Bindless]</c> in set 4 <em>and</em> its
+    ///         filter <c>[PerFrame] [Shared] var materialSampler</c> in set 0 — a table is one
+    ///         sampler for every material by construction, which is the cost a table exists to
+    ///         charge. <see cref="Paired" /> above pairs the index and stops there, so a variant
+    ///         composed from <c>TexturedMetalRoughnessSurface</c> declared a set-0 binding with no
+    ///         filler.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And <c>EffectSetWriter</c> fills a set whole or not at all, so that was not a
+    ///         material sampled through a default filter: it was <em>every draw in the shading
+    ///         pass</em> refused, on a frame whose every other counter reported success. Only the
+    ///         textured variants, which is worse than all of them — the untextured half of the level
+    ///         drew and the textured half did not.
+    ///     </para>
+    ///     <para>
+    ///         Anisotropic repeat rather than <see cref="SamplerDescription.LinearRepeat" />: what
+    ///         this filters is surface detail on ground and walls seen at grazing angles, which is
+    ///         the case trilinear alone blurs to nothing. It is one sampler for the whole frame, so
+    ///         the sixteen taps are paid once in state and not once per material.
+    ///     </para>
+    /// </remarks>
+    /// <summary>What the table's filter is called in a shading pass's set 0.</summary>
+    /// <remarks>
+    ///     ⚠ Unqualified by any composition path, unlike the index <see cref="Paired" /> writes.
+    ///     <c>materialSampler</c> is <c>[Shared]</c>, so every feature that samples names the same
+    ///     one and it is hoisted to the pass rather than living under the feature that declared it.
+    ///     Spelling it the other way is a binding nothing writes, which is a set written short.
+    /// </remarks>
+    const string MaterialTexturesSampler = "materialSampler";
+
+    void FilterTextures(string shader) {
+        SceneBlock.Parameters.Set(
+            ParameterKeys.New<SamplerHandle>($"{shader}.{MaterialTexturesSampler}"),
+            Samplers.GetOrCreate(SamplerDescription.LinearRepeat with { Anisotropy = 16f, Name = "MaterialTable" })
+        );
     }
 
     /// <inheritdoc />

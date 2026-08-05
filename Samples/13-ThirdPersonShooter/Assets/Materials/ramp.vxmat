@@ -1,8 +1,19 @@
 # Ramps: galvanised steel plate. Metal, so it is the surface the sky actually shows in.
+#
+# ⚠ At metalness 0.9 the tinted map is very nearly the *specular* colour, not a diffuse one —
+# `Compute` splits the same value into `diffuseColor * (1 - metalness)` and `F0FromMetalness`. So the
+# 6.9 / 6.5 / 5.9 below is not brightening a diffuse surface, it is putting the plate's reflectance
+# back where 0.56 0.57 0.60 had it; metal-panel-albedo is a dark image (mean 0.081 0.088 0.101) and a
+# metal whose F0 is that dark reflects the dusk sky as almost nothing.
 shader: ForwardPlus
 shading: StandardShading
 features:
-  - !MetalRoughness
-    baseColor: 0.56 0.57 0.60
+  - !TexturedMetalRoughness
+    baseColor: 6.946 6.483 5.920
     metalness: 0.9
     roughness: 0.34
+    baseColorMap: baseColorMap
+
+textures:
+  - parameter: baseColorMap
+    texture: vx:327689d4b6864968ba80ee4fdade319b
