@@ -2,14 +2,22 @@
 # ground outside the walls, thin out where the paint does, and are gone by 55 m, which is about where
 # the far hills take over from ground the player could walk on.
 #
-# ⚠ **No texture, and there is nowhere to put one.** `GrassType` carries a mesh reference and no
-# albedo, and nothing in `Vixen.Rendering.Terrain` ever assigns `GrassDrawPass.Albedo` — the binding
-# `Grass.rvn` declares as `albedoMap` is left at the pass's default view. So the committed
-# `grass-blade-albedo.png` has no seat on this rule; the blades draw in the shader's own tint. What
-# this rule does exercise is the half that is wired: the scatter off the weight layer, the slope and
-# weight filters, the wind, and the distance cull.
+# ⚠ **The texture now has a seat, and the blades are green rather than white.** `GrassType.Albedo`
+# is resolved every frame into `GrassDrawPass.Albedo`, so `albedoMap` is this file's map instead of
+# the pass's white 1×1 — which is what the blades were sampling, tinted only by `tintRange` and the
+# shader's own light term.
+#
+# ⚠ **What is still owed is the mesh, not the map.** `grass-blade-albedo.png` is authored as a
+# cutout *card* — seven blades on a transparent background, `make_textures.py`'s `grass_blade` — and
+# the built-in blade `GrassDrawPass.BuildBlade` scatters is a single tapered strip whose texcoord
+# runs 0…1 across that one blade. So the card's seven blades are squeezed across each strip and read
+# as vertical banding rather than as seven blades. It is the right green and the wrong framing, and
+# closing it needs a blade-card mesh whose unwrap matches the atlas — plus an alpha-test discard,
+# which `Grass.rvn` does not have: the fragment writes `sampled.a` into an opaque target, so the
+# card's transparent margin would draw as its background colour rather than as a hole.
 name: Outskirts
 layer: Grass
+albedo: vx:6a17bc2149f845118f5497862fa98c7e
 minWeight: 0.2
 maxWeight: 0.7
 density: 18

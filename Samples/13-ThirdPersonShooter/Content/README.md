@@ -24,19 +24,23 @@ makes resident and nothing samples.
 
 | Material | Maps | Used by | Read by |
 |---|---|---|---|
-| `concrete` | albedo, normal, orm | Walls, pillars, floor | albedo |
-| `metal-panel` | albedo, normal, orm | Ramps — the one metallic surface | albedo |
-| `crate` | albedo, normal, orm | Cover crates | albedo |
+| `concrete` | albedo, normal, orm | Walls, pillars, floor | albedo, normal |
+| `metal-panel` | albedo, normal, orm | Ramps — the one metallic surface | albedo, normal |
+| `crate` | albedo, normal, orm | Cover crates | albedo, normal |
 | `terrain-grass`, `terrain-rock`, `terrain-dirt` | albedo, orm | The terrain's painted layers | albedo; orm bound, unread |
-| `grass-blade` | albedo (alpha), normal | — | nothing |
+| `grass-blade` | albedo (alpha), normal | `Outskirts.vxgrass` | albedo |
 | `bark`, `leaves` | albedo (leaves alpha), normal | — | nothing |
 
-⚠ **A material samples exactly one texture, and it is the base colour.**
-`TexturedMetalRoughnessFeature.BaseColorMap` is the only texture parameter in
-`Core/Vixen.Rendering/Materials/MaterialFeatures.cs`, and `TexturedMetalRoughnessSurface` the only
-surface in `Raven/Library/Material/MaterialSurface.rvn` that reads one — `NormalMapFeature` carries a
-constant `normalTS` and `OcclusionFeature.OcclusionMap` is a `float`. So the arena's `-normal` and
-`-orm` maps are kept as the content a normal-map feature would need and are sampled by nothing today.
+⚠ **A material samples two textures now, and the second one is the normal.**
+`TexturedNormalMapFeature` joined `TexturedMetalRoughnessFeature` in
+`Core/Vixen.Rendering/Materials/MaterialFeatures.cs`, with `TexturedNormalMapSurface` beside
+`TexturedMetalRoughnessSurface` in `Raven/Library/Material/MaterialSurface.rvn`. Each arena material
+carries both features, so the `-normal` maps are read rather than merely resident.
+
+⚠ **The `-orm` maps are still read by nothing.** `OcclusionFeature.OcclusionMap` is a `float`, and
+no feature reads a packed occlusion/roughness/metalness texture — so occlusion, roughness and
+metalness all come from the constants each `.vxmat` sets. That is the remaining half of the gap this
+column was written to record.
 
 ⚠ **The terrain layers ship no normal map at all**, which is the difference between "unread" and
 "unbindable". `TerrainRenderer.ResolveLayerTextures` resolves `Albedo` and `Surface` and stops;
@@ -46,10 +50,20 @@ three quarters of a megabyte into a bundle. Their `-orm` maps *are* bound, into 
 the shader reads one channel of them — `.a`, and only under a height blend — so they are resident
 and unread while `Outskirts.vxterrain`'s layers blend by weight.
 
-⚠ **`grass-blade` and `leaves`/`bark` have no seat.** `GrassType` carries a mesh reference and no
-albedo, and nothing in `Vixen.Rendering.Terrain` ever assigns `GrassDrawPass.Albedo` or
-`FoliageDrawPass.Albedo` — the `albedoMap` binding `Grass.rvn` and `Foliage.rvn` declare is left at
-the pass's default view. They are kept because the gap is in the engine rather than in the content.
+⚠ **`grass-blade` has a seat; what it does not have is a mesh.** `GrassType.Albedo` and
+`FoliageType.Albedo` name a texture, and `TerrainSceneRenderer` resolves both into
+`GrassDrawPass.Albedo` and `FoliageDrawPass.Albedo` every frame — so `Outskirts.vxgrass` names
+`grass-blade-albedo` and the field draws green instead of the pass's white 1×1. But the map is a
+cutout *card* — seven blades on transparent — and the built-in blade is one tapered strip whose
+texcoord runs 0…1 across itself, so the card's seven blades are squeezed across each strip. The
+right green, the wrong framing. Closing it needs a blade-card mesh whose unwrap matches the atlas,
+and an alpha-test discard: `Grass.rvn` writes `sampled.a` into an opaque target, so a transparent
+margin draws as its background colour rather than as a hole.
+
+⚠ **`leaves`/`bark` still have no volume to sit in.** The seat exists — `FoliageType.Albedo` — and
+this sample places no `FoliageVolume`, so there is nothing to assign them to. Note that a stand
+binds **one** albedo for its whole palette, so a volume mixing `bark` and `leaves` would need one
+map or one volume each until the pass can bind a texture per type.
 
 ⚠ **The third map is ORM, not roughness alone**: occlusion in R, roughness in G, metalness in B.
 One texture rather than three is the usual packing, and it matters here beyond tidiness — a
