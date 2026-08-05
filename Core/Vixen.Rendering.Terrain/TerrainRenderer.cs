@@ -887,6 +887,61 @@ public sealed class TerrainRenderer : IDisposable {
         );
     }
 
+    /// <summary>Fills a <c>TerrainVelocity</c> block: this frame's placed matrix and last frame's.</summary>
+    /// <remarks>
+    ///     Here rather than in <see cref="TerrainVelocityPass" /> for <see cref="WriteCasterConstants" />'s
+    ///     reason: every scalar below the matrices is this renderer's private atlas arithmetic, and a
+    ///     second derivation of the tile-block transform is how a velocity pass reads a block its
+    ///     surface was not drawn from.
+    /// </remarks>
+    internal void WriteVelocityConstants(byte[] block, in Matrix4x4 viewProjection, in Matrix4x4 previousViewProjection) {
+        var description = Terrain.Description;
+
+        new TerrainVelocityConstants {
+            PreviousViewProjection = previousViewProjection,
+            ViewProjection = viewProjection,
+            HeightMapSize = new(atlas.Width, atlas.Height),
+            TileSamples = atlas.TileSamples,
+            TileQuads = atlas.TileQuads,
+            AtlasTiles = new(atlas.TilesX, atlas.TilesZ),
+            HeightRange = new(description.MinHeight, description.MaxHeight),
+            MetresPerQuad = description.MetresPerQuad
+        }.Write(block);
+    }
+
+    /// <summary>Writes a velocity descriptor set: the pass's block over this renderer's textures and
+    ///     this frame's own node records.</summary>
+    /// <remarks>
+    ///     The whole set, on <see cref="WriteCasterSet" />'s terms — <c>TerrainVelocity</c> inherits
+    ///     every binding <c>TerrainBase</c> declares, and a set is written wholly or not at all.
+    ///     Unlike the caster's this binds the surface's <em>current</em> node slot: the velocity pass
+    ///     runs after this renderer's own upload, so the records are this frame's camera selection —
+    ///     the same patches, the same morph, and therefore the same depths the depth test compares.
+    /// </remarks>
+    internal void WriteVelocitySet(DescriptorSetHandle set, BufferHandle block) {
+        device.UpdateDescriptorSet(
+            set,
+            [
+                DescriptorWrite.Uniform(TerrainVelocityKeys.ConstantBufferBinding, block),
+                DescriptorWrite.Texture(TerrainVelocityKeys.HeightMapBinding, heightView),
+                DescriptorWrite.Texture(TerrainVelocityKeys.HoleMapBinding, holeView),
+                DescriptorWrite.SamplerAt(TerrainVelocityKeys.HoleSamplerBinding, holeSampler),
+                DescriptorWrite.SamplerAt(TerrainVelocityKeys.HeightSamplerBinding, heightSampler),
+                DescriptorWrite.SamplerAt(TerrainVelocityKeys.WeightSamplerBinding, weightSampler),
+                DescriptorWrite.SamplerAt(TerrainVelocityKeys.LayerSamplerBinding, layerSampler),
+                DescriptorWrite.Storage(TerrainVelocityKeys.NodesBinding, nodes, slot * nodeCapacity, nodeCapacity),
+                DescriptorWrite.Storage(TerrainVelocityKeys.LayerScalesBinding, layerScales),
+                DescriptorWrite.Storage(TerrainVelocityKeys.LayerBlendsBinding, layerBlends),
+                .. Enumerable.Range(0, MaxWeightMaps)
+                    .Select(map => DescriptorWrite.Texture(TerrainVelocityKeys.WeightMapsBinding, weightViews[map], map)),
+                .. Enumerable.Range(0, MaxLayers)
+                    .Select(slot => DescriptorWrite.Texture(TerrainVelocityKeys.LayerMapsBinding, defaultAlbedoView, slot)),
+                .. Enumerable.Range(0, MaxLayers)
+                    .Select(slot => DescriptorWrite.Texture(TerrainVelocityKeys.SurfaceMapsBinding, defaultSurfaceView, slot))
+            ]
+        );
+    }
+
     /// <summary>Fills the lit shader's block: the frame's lighting, then the base surface values.</summary>
     void WriteLitBlock(byte[] block, in TerrainView view) {
         var description = Terrain.Description;

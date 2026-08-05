@@ -204,6 +204,11 @@ public sealed class PbrShowcaseGame : Game {
                     graphics.Renderer.TerrainExtraction?.FoliageCount ?? 0,
                     graphics.Renderer.TerrainExtraction?.RefusedFoliage ?? 0
                 );
+
+                // And the ground's motion vectors, because a TAA frame whose ground stack writes
+                // none ghosts on every pan — active with zero draws is a staging bug, inactive
+                // under TAA is the splice or the shaders missing.
+                SampleLog.GroundMotionReport(log!, ground.MotionVectors, ground.VelocityDraws);
             }
         }
 
