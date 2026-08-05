@@ -316,6 +316,7 @@ Vixen.Rendering.Terrain.ITerrainScene.Terrains() -> System.Collections.Generic.I
 Vixen.Rendering.Terrain.ITerrainTextures -> interface
 Vixen.Rendering.Terrain.ITerrainTextures.Resolve(string reference) -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.ITerrainTileSource -> interface
+Vixen.Rendering.Terrain.ITerrainTileSource.Prepare() -> void
 Vixen.Rendering.Terrain.ITerrainTileSource.ReadAsync(int tileX, int tileZ, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.Terrain.ITerrainTileSource.TileCounts.get -> (int X, int Z)
 Vixen.Rendering.Terrain.ITerrainTileSource.TileSamples.get -> int
@@ -560,6 +561,7 @@ Vixen.Rendering.Terrain.TerrainTilePages.SlotCount.get -> int
 Vixen.Rendering.Terrain.TerrainTilePages.TerrainTilePages(Vixen.Rendering.Terrain.ITerrainTileSource source, int slots) -> void
 Vixen.Rendering.Terrain.TerrainTileSource -> sealed class
 Vixen.Rendering.Terrain.TerrainTileSource : Vixen.Rendering.Terrain.ITerrainTileSource
+Vixen.Rendering.Terrain.TerrainTileSource.Prepare() -> void
 Vixen.Rendering.Terrain.TerrainTileSource.ReadAsync(int tileX, int tileZ, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.Terrain.TerrainTileSource.TerrainTileSource(Vixen.Terrain.Terrain terrain) -> void
 Vixen.Rendering.Terrain.TerrainTileSource.TileCounts.get -> (int X, int Z)

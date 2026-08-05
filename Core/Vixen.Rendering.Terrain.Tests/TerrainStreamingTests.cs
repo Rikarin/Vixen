@@ -226,6 +226,118 @@ public sealed class TerrainStreamingTests : IDisposable {
         Assert.False(pages.Place(new(TerrainStreamer.PageSource, 1), 1, bytes.AsSpan(0, read)));
     }
 
+    /// <summary>Two tiles read at the same time each get their own heights.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The source ran on the thread pool from the day it was written and was written as if
+    ///         it did not.</b> <see cref="PageResidency.Service" /> dispatches up to <c>maxLoads</c>
+    ///         reads through <c>Task.Run</c> with nothing serialising them, so one scratch array
+    ///         belonging to the source is up to eight tiles building their chains into the same memory
+    ///         — and what a person sees is a tile wearing its neighbour's hills, which reads as bad
+    ///         content rather than as a race.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Gated rather than slept, and repeated rather than timed.</b> Both readers wait on
+    ///         one <see cref="TaskCompletionSource" /> so they are released together; the repetition is
+    ///         only there to widen the window a shared buffer would be caught in. Correct code passes on
+    ///         the first pass and every pass, so nothing here can flake.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task TwoTilesReadAtOnceDoNotShareABuffer() {
+        var description = Shape(tiles: 4);
+        var terrain = new TerrainMap(description);
+
+        // Two tiles that could not be mistaken for each other: one raised, one left alone.
+        var layer = terrain.AddLayer("hill");
+
+        foreach (var (x, z) in Samples(description, tileX: 0, tileZ: 0)) {
+            layer.AddDelta(x, z, 4000);
+        }
+
+        terrain.InvalidateAll();
+        terrain.Resolve();
+
+        var source = new TerrainTileSource(terrain);
+        var size = (int)TerrainMips.ChainSamples(description.TileSamples) * sizeof(ushort);
+
+        var raised = new byte[size];
+        var flat = new byte[size];
+
+        await source.ReadAsync(0, 0, raised, TestContext.Current.CancellationToken);
+        await source.ReadAsync(2, 2, flat, TestContext.Current.CancellationToken);
+
+        Assert.False(raised.AsSpan().SequenceEqual(flat), "the two tiles are indistinguishable, so nothing is proved.");
+
+        for (var attempt = 0; attempt < 64; attempt++) {
+            var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var a = new byte[size];
+            var b = new byte[size];
+
+            var first = Task.Run(
+                async () => {
+                    await gate.Task;
+                    await source.ReadAsync(0, 0, a, CancellationToken.None);
+                },
+                TestContext.Current.CancellationToken
+            );
+
+            var second = Task.Run(
+                async () => {
+                    await gate.Task;
+                    await source.ReadAsync(2, 2, b, CancellationToken.None);
+                },
+                TestContext.Current.CancellationToken
+            );
+
+            gate.SetResult();
+
+            await Task.WhenAll(first, second);
+
+            Assert.True(a.AsSpan().SequenceEqual(raised), $"the raised tile came back wrong on attempt {attempt}.");
+            Assert.True(b.AsSpan().SequenceEqual(flat), $"the flat tile came back wrong on attempt {attempt}.");
+        }
+    }
+
+    /// <summary>Compositing is the frame thread's, and a read off the pool does not do it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other half of the same fault.</b> <c>ReadAsync</c> used to call
+    ///     <see cref="TerrainMap.Resolve" />, which writes the composite, the dirty flags and the
+    ///     per-tile height ranges — off the frame, while the renderer's own <c>Upload</c> was calling it
+    ///     too. Moving it to <c>Prepare</c> is only a fix if the streamer actually calls it, and only a
+    ///     fix if the read really has stopped, so both are asserted rather than one.
+    /// </remarks>
+    [Fact]
+    public async Task TheStreamerCompositesAndTheReadDoesNot() {
+        var description = Shape(tiles: 4);
+        var terrain = new TerrainMap(description);
+        var source = new TerrainTileSource(terrain);
+
+        terrain.InvalidateAll();
+
+        var bytes = new byte[(int)TerrainMips.ChainSamples(description.TileSamples) * sizeof(ushort)];
+        await source.ReadAsync(0, 0, bytes, TestContext.Current.CancellationToken);
+
+        Assert.Equal(description.TileCount, terrain.DirtyTileCount);
+
+        using var streamer = new TerrainStreamer(in description, source);
+        streamer.Update([new(new(16f, 0f, 16f), 40f)]);
+
+        Assert.Equal(0, terrain.DirtyTileCount);
+    }
+
+    /// <summary>Every sample of one tile.</summary>
+    static IEnumerable<(int X, int Z)> Samples(TerrainDescription description, int tileX, int tileZ) {
+        var rect = description.SamplesOf(tileX, tileZ);
+
+        for (var z = rect.Z; z < rect.EndZ; z++) {
+            for (var x = rect.X; x < rect.EndX; x++) {
+                yield return (x, z);
+            }
+        }
+    }
+
     /// <summary>The pool is never larger than the terrain it is over.</summary>
     /// <remarks>
     ///     ⚠ <b>A pool of a thousand slots over a sixteen-tile terrain is a budget that describes

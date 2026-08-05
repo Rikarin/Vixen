@@ -375,4 +375,97 @@ public class PageResidencyTests {
 
         Assert.DoesNotContain(new PageKey(0, 0), store.Loaded);
     }
+
+    /// <summary>
+    ///     A store that holds one buffer of its own hands one page another page's bytes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The threading half of <see cref="IPageStore" />, which nothing exercised.</b> Every
+    ///         other store in this file and in <c>StreamingGridTests</c> is pure or delay-only, so a
+    ///         store written as if <see cref="IPageStore.LoadAsync" /> were called one at a time passed
+    ///         every test there was — which is exactly how <c>TerrainTileSource</c> shipped with one
+    ///         scratch array shared by eight concurrent loads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rendezvoused rather than slept.</b> Every load writes its signature, waits until all
+    ///         of them have, and only then reads back; so the overlap is a fact of the test rather than
+    ///         a hope about the scheduler, and the shared buffer holds exactly one signature by the time
+    ///         anybody looks. The wait is an <c>await</c> and not a block, so it needs no pool threads
+    ///         beyond the one running it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Concurrent_loads_each_fill_their_own_destination() {
+        const int concurrency = 6;
+
+        var store = new SharingStore(concurrency) { SlotCount = concurrency };
+        using var residency = new PageResidency(store, (long)concurrency * store.PageSize);
+
+        for (var page = 0; page < concurrency; page++) {
+            residency.Request(new(0, page));
+        }
+
+        // Exactly `concurrency` loads start, which is what the store's rendezvous is waiting for. A
+        // smaller ceiling here would leave it waiting for a load that is never dispatched.
+        residency.Service(concurrency);
+        Settle(residency);
+
+        Assert.Equal(concurrency, store.Placed.Count);
+
+        foreach (var (key, bytes) in store.Placed) {
+            var mine = SharingStore.Signature(key);
+
+            Assert.All(bytes, value => Assert.Equal(mine, value));
+        }
+
+        // And the buffer the store owns did what a shared buffer does: every load read one signature
+        // out of it, and it was not most of theirs. That is the corruption the destinations avoided.
+        Assert.Single(store.SharedReadings.Values.Distinct());
+        Assert.Contains(store.Placed.Keys, key => SharingStore.Signature(key) != store.SharedReadings.Values.First());
+    }
+
+    /// <summary>A store that would corrupt if the destination were not per load.</summary>
+    /// <remarks>
+    ///     It keeps the mistake — one buffer of its own, written by every load — deliberately, so the
+    ///     test can show the hazard is real and that the destination is not subject to it.
+    /// </remarks>
+    sealed class SharingStore(int concurrency) : IPageStore {
+        readonly byte[] shared = new byte[64];
+        readonly TaskCompletionSource everybody = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        int arrived;
+
+        public int PageSize => 64;
+        public int SlotCount { get; init; } = 8;
+
+        public Dictionary<PageKey, byte[]> Placed { get; } = [];
+
+        /// <summary>What each load saw in the shared buffer once every load had written to it.</summary>
+        public System.Collections.Concurrent.ConcurrentDictionary<PageKey, byte> SharedReadings { get; } = [];
+
+        public static byte Signature(PageKey key) => (byte)(0xA0 + key.Index);
+
+        public async ValueTask<int> LoadAsync(PageKey key, Memory<byte> destination, CancellationToken cancellation) {
+            shared.AsSpan().Fill(Signature(key));
+
+            if (Interlocked.Increment(ref arrived) == concurrency) {
+                everybody.TrySetResult();
+            }
+
+            await everybody.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellation).ConfigureAwait(false);
+
+            SharedReadings[key] = shared[0];
+            destination.Span.Fill(Signature(key));
+
+            return PageSize;
+        }
+
+        public bool Place(PageKey key, int slot, ReadOnlySpan<byte> bytes) {
+            Placed[key] = bytes.ToArray();
+
+            return true;
+        }
+
+        public void Evict(PageKey key, int slot) => Placed.Remove(key);
+    }
 }

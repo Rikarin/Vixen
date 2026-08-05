@@ -34,25 +34,51 @@ public interface ITerrainTileSource {
     /// <summary>How many tiles there are along each axis.</summary>
     (int X, int Z) TileCounts { get; }
 
+    /// <summary>Brings whatever <see cref="ReadAsync" /> reads up to date, on the caller's thread.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of the source that is allowed to mutate anything.</b>
+    ///     <see cref="ReadAsync" /> runs on a thread-pool thread — <see cref="PageResidency" /> starts
+    ///     every load through <see cref="Task.Run(Action)" /> — so anything it recomputed there would be
+    ///     a write to shared state racing the frame. <see cref="TerrainStreamer.Update" /> calls this
+    ///     immediately before it services the queue, which is the frame thread, and every load it then
+    ///     dispatches reads state that is already current.
+    /// </remarks>
+    void Prepare();
+
     /// <summary>Reads one tile's whole mip chain, packed level after level.</summary>
     /// <param name="tileX">Its X index.</param>
     /// <param name="tileZ">Its Z index.</param>
     /// <param name="destination">Where to put them; at least the chain's byte count.</param>
     /// <param name="cancellation">Cancelled when the page is no longer wanted.</param>
     /// <returns>How many bytes were written.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Called concurrently, and on threads that are not the frame's.</b> Up to
+    ///     <c>maxLoads</c> reads are in flight at once and none of them is serialised against the
+    ///     others, so an implementation may not write to anything it also owns — see
+    ///     <see cref="IPageStore.LoadAsync" />, whose contract this one inherits. What is per-load is
+    ///     <paramref name="destination" />, which the residency service allocates before it dispatches.
+    /// </remarks>
     ValueTask<int> ReadAsync(int tileX, int tileZ, Memory<byte> destination, CancellationToken cancellation);
 }
 
 /// <summary>A tile source over a terrain that is already in memory.</summary>
 /// <remarks>
-///     ⚠ <b>Synchronous behind an asynchronous signature, and deliberately so.</b> Compositing a
-///     tile's chain is arithmetic over arrays this object already holds; wrapping it in a thread would
-///     add a scheduling hop to a few microseconds of work. What the signature buys is that the
-///     file-backed source can replace this one without <see cref="PageResidency" /> changing.
+///     <para>
+///         ⚠ <b>Synchronous behind an asynchronous signature, and deliberately so.</b> Compositing a
+///         tile's chain is arithmetic over arrays this object already holds; wrapping it in a thread
+///         would add a scheduling hop to a few microseconds of work. What the signature buys is that
+///         the file-backed source can replace this one without <see cref="PageResidency" /> changing.
+///     </para>
+///     <para>
+///         ⚠ <b>Synchronous is not the same as single-threaded.</b> The residency service dispatches
+///         every load through the thread pool whatever the source does with it, so several
+///         <see cref="ReadAsync" /> calls run at once and none of them may touch the terrain's
+///         composite, its dirty flags or a buffer of this object's own. Resolving is
+///         <see cref="Prepare" />'s, and the chain is built straight into the caller's destination.
+///     </para>
 /// </remarks>
 public sealed class TerrainTileSource : ITerrainTileSource {
     readonly TerrainMap terrain;
-    readonly ushort[] chain;
 
     /// <summary>Reads tiles out of a terrain.</summary>
     /// <param name="terrain">The terrain.</param>
@@ -61,7 +87,6 @@ public sealed class TerrainTileSource : ITerrainTileSource {
         ArgumentNullException.ThrowIfNull(terrain);
 
         this.terrain = terrain;
-        chain = new ushort[TerrainMips.ChainSamples(terrain.Description.TileSamples)];
     }
 
     /// <inheritdoc />
@@ -71,20 +96,27 @@ public sealed class TerrainTileSource : ITerrainTileSource {
     public (int X, int Z) TileCounts => (terrain.Description.TilesX, terrain.Description.TilesZ);
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A tile whose edit layers have not been composited reads the last composite</b>, which
+    ///     after a stroke is the ground as it was before it — and a page loaded once and then kept
+    ///     resident would show that for as long as the camera stayed near it. So the resolve has to
+    ///     happen, and the only question was which thread pays for it. This one, because
+    ///     <see cref="TerrainMap.Resolve" /> writes the composite and the frame thread calls it too.
+    /// </remarks>
+    public void Prepare() => terrain.Resolve();
+
+    /// <inheritdoc />
     public ValueTask<int> ReadAsync(int tileX, int tileZ, Memory<byte> destination, CancellationToken cancellation) {
         cancellation.ThrowIfCancellationRequested();
 
-        // ⚠ Resolved first. A tile whose edit layers have not been composited reads the last
-        // composite, which after a stroke is the ground as it was before it — and a page loaded once
-        // and then kept resident would show that for as long as the camera stayed near it.
-        terrain.Resolve();
-
+        // ⚠ Built straight into the destination rather than through a buffer this source owns. Up to
+        // maxLoads reads run at once and a shared scratch array is one tile's heights landing in
+        // another tile's page — which reads as corrupt content rather than as a threading fault. The
+        // destination is per load by construction: PageResidency allocates it before it dispatches.
+        var chain = MemoryMarshal.Cast<byte, ushort>(destination.Span);
         var written = TerrainMips.Build(terrain, tileX, tileZ, chain);
-        var bytes = MemoryMarshal.AsBytes(chain.AsSpan(0, (int)written));
 
-        bytes.CopyTo(destination.Span);
-
-        return ValueTask.FromResult(bytes.Length);
+        return ValueTask.FromResult((int)written * sizeof(ushort));
     }
 }
 
@@ -249,6 +281,7 @@ public sealed class TerrainStreamer : IDisposable {
     public const int PageSource = 0x7E44;
 
     readonly TerrainDescription description;
+    readonly ITerrainTileSource source;
     readonly TerrainTilePages pages;
     readonly PageResidency residency;
     readonly StreamingGrid grid;
@@ -264,6 +297,7 @@ public sealed class TerrainStreamer : IDisposable {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(budget);
 
         this.description = description;
+        this.source = source;
 
         var chainBytes = (int)TerrainMips.ChainSamples(description.TileSamples) * sizeof(ushort);
 
@@ -343,12 +377,24 @@ public sealed class TerrainStreamer : IDisposable {
     /// <param name="maxLoads">How many loads may start this frame.</param>
     /// <returns>How many tiles are in use.</returns>
     /// <remarks>
-    ///     ⚠ <b>Serviced here rather than by the caller, because a grid that requests and nothing that
-    ///     services is a queue that grows for ever</b> — which is exactly the state the grid was left
-    ///     in when it had no consumer at all.
+    ///     <para>
+    ///         ⚠ <b>Serviced here rather than by the caller, because a grid that requests and nothing
+    ///         that services is a queue that grows for ever</b> — which is exactly the state the grid
+    ///         was left in when it had no consumer at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The source is prepared before anything is dispatched, and that ordering is the
+    ///         invariant <see cref="ITerrainTileSource.ReadAsync" /> is written against.</b> Every load
+    ///         <see cref="PageResidency.Service" /> starts runs on a thread-pool thread, so a source
+    ///         that brought itself up to date in the read would be mutating shared state off the frame.
+    ///         Doing it here means it happens once per frame on the thread that owns the terrain,
+    ///         whatever the caller did or did not resolve beforehand.
+    ///     </para>
     /// </remarks>
     public int Update(ReadOnlySpan<StreamingSource> sources, int maxLoads = 8) {
         ObjectDisposedException.ThrowIf(disposed, this);
+
+        source.Prepare();
 
         TouchedTiles = grid.Update(sources, residency);
         residency.Service(maxLoads);

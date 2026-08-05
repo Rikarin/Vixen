@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using Vixen.Graphics;
 using Vixen.Rendering.VirtualGeometry;
 
@@ -39,7 +40,10 @@ public interface IMeshletPageSource {
 ///     changes when it does.
 /// </remarks>
 public sealed class MemoryMeshletPageSource : IMeshletPageSource {
-    readonly Dictionary<int, MeshletPageSet> sources = [];
+    // Concurrent because the two ends are different threads: Add is called while a mesh is being
+    // registered, on the frame's, and the lookup in ReadAsync is on whichever pool thread the load
+    // landed on. A plain Dictionary resized under a reader is a lookup that misses or faults.
+    readonly ConcurrentDictionary<int, MeshletPageSet> sources = [];
 
     /// <summary>Registers a mesh's pages under a source id.</summary>
     /// <param name="source">The id <see cref="PageKey.Source" /> will carry.</param>
@@ -91,7 +95,10 @@ public sealed class MemoryMeshletPageSource : IMeshletPageSource {
 ///     </para>
 /// </remarks>
 public sealed class StreamMeshletPageSource : IMeshletPageSource, IDisposable {
-    readonly Dictionary<int, Blob> sources = [];
+    // Concurrent for MemoryMeshletPageSource's reason: Add and Remove are the frame's and the lookup
+    // in ReadAsync is a pool thread's. The per-blob gate below protects a stream's position; this
+    // protects finding the stream at all.
+    readonly ConcurrentDictionary<int, Blob> sources = [];
     bool disposed;
 
     /// <summary>Registers a mesh's page blob under a source id.</summary>
@@ -113,7 +120,7 @@ public sealed class StreamMeshletPageSource : IMeshletPageSource, IDisposable {
             );
         }
 
-        if (sources.Remove(source, out var replaced)) {
+        if (sources.TryRemove(source, out var replaced)) {
             replaced.Data.Dispose();
         }
 
@@ -124,7 +131,7 @@ public sealed class StreamMeshletPageSource : IMeshletPageSource, IDisposable {
     /// <param name="source">Which one.</param>
     /// <returns>Whether there was one.</returns>
     public bool Remove(int source) {
-        if (!sources.Remove(source, out var blob)) {
+        if (!sources.TryRemove(source, out var blob)) {
             return false;
         }
 

@@ -37,6 +37,18 @@ public readonly record struct PagePlacement(int Slot, long Offset);
 ///         a frame that blocks on a disk. Placing is synchronous because it is a copy into memory the
 ///         pool already owns.
 ///     </para>
+///     <para>
+///         ⚠ <b>Two threading contracts, and they are not the same one.</b>
+///         <see cref="LoadAsync" /> is called on thread-pool threads and several calls are in flight
+///         at once — <see cref="PageResidency.Service" />'s <c>maxLoads</c> is exactly how many — so an
+///         implementation of it has to be safe under concurrency with itself and with the frame.
+///         <see cref="Place" /> and <see cref="Evict" /> are called from
+///         <see cref="PageResidency.Service" />, on the caller's own thread, and need no
+///         synchronisation at all. Writing the whole interface to the second contract is the mistake
+///         this paragraph exists to stop: a load that fills one buffer the store owns looks correct
+///         until two pages are wanted in the same frame, and then it hands one page another page's
+///         bytes — which surfaces as corrupt <em>content</em> rather than as a threading fault.
+///     </para>
 /// </remarks>
 public interface IPageStore {
     /// <summary>How many bytes one page occupies in the pool.</summary>
@@ -50,6 +62,14 @@ public interface IPageStore {
     /// <param name="destination">Where to put them; at least <see cref="PageSize" /> bytes.</param>
     /// <param name="cancellation">Cancelled when the service is disposed, or the page is no longer wanted.</param>
     /// <returns>How many bytes were read, which may be short for the last page of a source.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Invoked concurrently, on thread-pool threads, and never on the frame's.</b> Up to
+    ///     <c>maxLoads</c> of these are outstanding at any moment and the service serialises none of
+    ///     them, so an implementation may not write to state it shares with another load or with the
+    ///     frame — a scratch buffer belonging to the store is the usual way to get this wrong.
+    ///     <paramref name="destination" /> is the one thing that is per call; anything else that has to
+    ///     be written wants a lock, as <c>StreamMeshletPageSource</c>'s per-blob gate is.
+    /// </remarks>
     ValueTask<int> LoadAsync(PageKey key, Memory<byte> destination, CancellationToken cancellation);
 
     /// <summary>Puts a loaded page's bytes into a slot.</summary>
