@@ -84,9 +84,23 @@ public static class YamlSerializer {
         return Emit(value, declared, options ?? YamlSerializerOptions.Default, string.Empty);
     }
 
-    static object? Bind(YamlNode node, Type expected, YamlSerializerOptions options, string path) {
+    /// <summary>Binds one node.</summary>
+    /// <remarks>
+    ///     <paramref name="declaredNullable" /> is what the <i>source</i> said, which the
+    ///     <paramref name="expected" /> <see cref="Type" /> cannot say for itself — see
+    ///     <see cref="MemberDescriptor.IsNullable" />. It only ever narrows: a member declared
+    ///     non-nullable refuses a document's null, and everything reached without a descriptor to ask
+    ///     — a sequence's elements, a dictionary's values, the root — keeps the permissive default.
+    /// </remarks>
+    static object? Bind(
+        YamlNode node,
+        Type expected,
+        YamlSerializerOptions options,
+        string path,
+        bool declaredNullable = true
+    ) {
         var underlying = Nullable.GetUnderlyingType(expected) ?? expected;
-        var nullable = underlying != expected || !expected.IsValueType;
+        var nullable = (underlying != expected || !expected.IsValueType) && declaredNullable;
 
         if (IsNull(node)) {
             // A few types have a null of their own — AssetReference's is a real reference to
@@ -96,9 +110,22 @@ public static class YamlSerializer {
                 return nullConverter.Parse("null");
             }
 
-            return nullable
-                ? null
-                : throw new YamlBindingException(path, $"null cannot be read as {underlying.Name}.");
+            if (nullable) {
+                return null;
+            }
+
+            // Two different refusals wearing one word. A value type has no null at all, and naming it
+            // is the whole message; a reference type has one and this member promised not to hold it —
+            // where naming the type would read as nonsense, because of course an array can be null,
+            // and would send somebody looking at the binder instead of at the declaration. The path
+            // already says which member it was, which is the part they need.
+            throw new YamlBindingException(
+                path,
+                underlying.IsValueType
+                    ? $"null cannot be read as {underlying.Name}."
+                    : "This member is declared without the '?' that would let it be null. Write the empty "
+                    + "value — '[]', '{}', or a quoted '' — or drop the key to keep the default."
+            );
         }
 
         // A member declared as a node takes the subtree as it stands. This is what lets a format
@@ -298,7 +325,7 @@ public static class YamlSerializer {
                 continue;
             }
 
-            member.SetValue(instance, Bind(value, member.MemberType, options, Join(path, key)));
+            member.SetValue(instance, Bind(value, member.MemberType, options, Join(path, key), member.IsNullable));
         }
 
         return instance;

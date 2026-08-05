@@ -863,11 +863,19 @@ sealed partial class EditorApplication {
     ///     harness refuses a plan with no clip and no rig, because a build step that always passes is
     ///     worse than one that says what it is missing — so the two lines an author has to fill in are
     ///     the two the importer complains about, beside the file, the moment it is created.
+    ///     <para>
+    ///         ⚠ <b><c>''</c> rather than a bare <c>clip:</c>, and the quotes are load-bearing.</b> An
+    ///         empty scalar is the document's null, and <see cref="HarnessPlanContent.Clip" /> is
+    ///         declared <c>string</c> — so a bare key is refused by the binder before the importer can
+    ///         reach it, and the author gets a schema complaint instead of the sentence written for
+    ///         them. The error this file is *for* is the importer's, which needs the plan to bind
+    ///         first.
+    ///     </para>
     /// </remarks>
     const string NewHarness = """
         name: New Harness
-        clip:
-        rig:
+        clip: ''
+        rig: ''
         samples: 32
         bodies: [0.85, 1.0, 1.2]
         thresholds:

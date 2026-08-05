@@ -73,10 +73,11 @@ public sealed class HarnessPlanImporter : AssetImporter<HarnessPlanImportSetting
     static bool Check(ImportContext context, HarnessPlanContent plan) {
         var ok = true;
 
-        // ⚠ `IsNullOrWhiteSpace` and not `.Length`, because a key written with no value after it
-        // binds as null rather than as empty — `clip:` on a line of its own is exactly what a
-        // half-filled plan looks like, and a check that threw on it would take the import down
-        // instead of reporting the one thing it is there to report.
+        // ⚠ `IsNullOrWhiteSpace` and not `.Length`, because a half-filled plan is whitespace as often
+        // as it is empty — `clip:  ` with a stray space is what one actually looks like. It no longer
+        // has to survive a *null*: the binder refuses one against `Clip`, which is declared `string`,
+        // so a plan that reaches here has bound. Kept null-tolerant anyway, because this check is the
+        // one thing this importer exists to report and it must not be what takes the import down.
         if (string.IsNullOrWhiteSpace(plan.Clip) || string.IsNullOrWhiteSpace(plan.Rig)) {
             context.Report(
                 ImportSeverity.Error,
