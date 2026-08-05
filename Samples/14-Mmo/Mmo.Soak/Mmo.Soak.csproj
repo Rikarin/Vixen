@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.Mmo.Soak</RootNamespace>
+        <AssemblyName>Mmo.Soak</AssemblyName>
+        <OutputType>Exe</OutputType>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ The realm's *objects*, not the realm's host. See the README: eight engine hosts in one
+            process would measure eight engine hosts, and what the budgets are about is the fleet —
+            conservation across it, the transfer path through it, and what a shard costs per tick to
+            keep a player's durable state straight.
+
+            Vixen.Live.Placement.Process is what turns those objects into eight actual processes when
+            somebody wants that, and it is the same shape doc 27 says: "the boring backend is the one
+            everything is tested against".
+        -->
+        <ProjectReference Include="..\Mmo.Realm\Mmo.Realm.csproj" />
+    </ItemGroup>
+
+</Project>

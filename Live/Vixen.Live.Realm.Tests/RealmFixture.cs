@@ -3,6 +3,7 @@
 
 using System.Text;
 using Vixen.Net.Sessions;
+using Vixen.Net.Transport;
 using Vixen.Net.Transport.Local;
 
 namespace Vixen.Live.Realms.Tests;
@@ -37,7 +38,27 @@ sealed class RealmFixture : IDisposable {
     /// <summary>The realm's clock, which a test moves rather than waits for.</summary>
     public DateTimeOffset Now { get; set; } = new(2026, 8, 4, 12, 0, 0, TimeSpan.Zero);
 
-    public RealmFixture(ShardCapacity? capacity = null, TimeSpan? idleGrace = null) {
+    /// <summary>What the wire does to the packets, on the realm's side and every client's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A clean wire cannot fail the interesting way.</b> Admission is a handshake with a
+    ///     deadline, and a deadline only means anything when something can be late — so every
+    ///     admission test on <c>Perfect</c> proves the two state machines agree with each other and
+    ///     nothing about whether they survive a network. Doc 27 § Testing asks for this leg by name.
+    /// </remarks>
+    public NetworkSimulationProfile Wire { get; }
+
+    /// <summary>The simulation's seed, so a failure is replayable.</summary>
+    public ulong Seed { get; }
+
+    public RealmFixture(
+        ShardCapacity? capacity = null,
+        TimeSpan? idleGrace = null,
+        NetworkSimulationProfile? wire = null,
+        ulong seed = 20260805
+    ) {
+        Wire = wire ?? NetworkSimulationProfile.Perfect;
+        Seed = seed;
+
         Spec = new() {
             Shard = ShardId.New(),
             Key = new("maps/queensdale", "eu", new("0.1.0", 0xC0FFEE)),
@@ -48,7 +69,10 @@ sealed class RealmFixture : IDisposable {
 
         Host = new(
             Spec,
-            admission => new(new LocalTransport(network), Options(), admission, ownsTransport: true),
+            // ⚠ The realm's own stream and each client's are seeded differently — see Connect. One
+            // shared stream drops the same packet on both sides of the same step, which is a
+            // synchronised outage rather than a network.
+            admission => new(Wrap(0), Options(), admission, ownsTransport: true),
             Signer,
             new() {
                 Output = Output.Add,
@@ -81,7 +105,7 @@ sealed class RealmFixture : IDisposable {
     /// <returns>The client's session.</returns>
     public NetworkSession Connect(TransferTicket? ticket) {
         var session = new NetworkSession(
-            new LocalTransport(network),
+            Wrap(clients.Count + 1),
             Options() with {
                 AuthenticationPayload = ticket is null ? [] : Encoding.UTF8.GetBytes(ticket.Encode())
             },
@@ -106,6 +130,19 @@ sealed class RealmFixture : IDisposable {
             }
         }
     }
+
+    /// <summary>Puts the simulation on a transport, or hands the transport straight back.</summary>
+    /// <param name="stream">Which random stream this end gets.</param>
+    /// <returns>The transport.</returns>
+    /// <remarks>
+    ///     ⚠ <b><c>Perfect</c> is not wrapped at all rather than wrapped in a no-op.</b> The
+    ///     simulation queues and re-times every payload even when it drops none, so wrapping the
+    ///     default would change the timing of every existing test in this project for no reason.
+    /// </remarks>
+    ITransport Wrap(int stream) =>
+        Wire == NetworkSimulationProfile.Perfect
+            ? new LocalTransport(network)
+            : new NetworkSimulation(new LocalTransport(network), Wire, Seed + (ulong)stream);
 
     /// <summary>Marks the map up, as the host's startup scene would have.</summary>
     /// <remarks>

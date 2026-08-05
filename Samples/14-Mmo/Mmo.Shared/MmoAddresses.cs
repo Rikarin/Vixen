@@ -66,6 +66,12 @@ public static class MmoAddresses {
     /// <summary>What a hearthstone does.</summary>
     public const string HearthstoneAddress = "travel/hearthstone";
 
+    /// <summary>The primary currency, which the conservation oracle counts.</summary>
+    public const string GoldAddress = "currencies/gold";
+
+    /// <summary>The account-scoped token.</summary>
+    public const string MarchmarksAddress = "currencies/marchmarks";
+
     /// <summary>The starter valley.</summary>
     public static DefId Greenmarch { get; } = DefId.From(GreenmarchAddress);
 
@@ -102,6 +108,12 @@ public static class MmoAddresses {
     /// <summary>The hearthstone.</summary>
     public static DefId Hearthstone { get; } = DefId.From(HearthstoneAddress);
 
+    /// <summary>Gold.</summary>
+    public static DefId Gold { get; } = DefId.From(GoldAddress);
+
+    /// <summary>Marchmarks.</summary>
+    public static DefId Marchmarks { get; } = DefId.From(MarchmarksAddress);
+
     /// <summary>Every address this class names, so a test can check they all resolve.</summary>
     public static IEnumerable<string> All { get; } = [
         GreenmarchAddress,
@@ -115,6 +127,8 @@ public static class MmoAddresses {
         MarksmanAddress,
         CurveAddress,
         ColossusAddress,
-        HearthstoneAddress
+        HearthstoneAddress,
+        GoldAddress,
+        MarchmarksAddress
     ];
 }

@@ -10,10 +10,10 @@ hundred connections, thirty minutes, a rolling upgrade in the middle.
 
 ## State
 
-**Built: the content, the seven projects and the composition. 112 definition files, four maps,
-61 tests.**
+**Built: the content, the seven projects, the composition and the soak. 112 definition files, four
+maps, 61 tests, and a fleet that runs thirty minutes in ten seconds.**
 
-**Owed:** the soak (**#37**), the UI (**#38**).
+**Owed:** the UI (**#38**).
 
 | | Sees | |
 |---|---|---|
@@ -27,6 +27,7 @@ hundred connections, thirty minutes, a rolling upgrade in the middle.
 | `Mmo.Client` | — | Headless: sign in, pick a character, get a ticket, connect. |
 | `Mmo.Content.Tests` | — | The real importer over the real tree, every library's `Problems`, and the cross-references. |
 | `Mmo.Realm.Tests` | — | That twenty libraries actually compose. |
+| `Mmo.Soak` | — | Doc 27 and doc 28's shared exit criterion. [Its own README](Mmo.Soak/README.md) is where the findings are. |
 
 ⚠ **The reference graph is doc 27 § The three assemblies a game writes, and the absences are the
 load-bearing part.** `Mmo.Contracts` has no Orleans, so ADR-017 is mechanical rather than remembered
@@ -163,6 +164,10 @@ dotnet test Samples/14-Mmo/Mmo.Content.Tests/Mmo.Content.Tests.csproj
 
 ```bash
 dotnet test Samples/14-Mmo/Mmo.Realm.Tests/Mmo.Realm.Tests.csproj
+```
+
+```bash
+dotnet run -c Release --project Samples/14-Mmo/Mmo.Soak
 ```
 
 It imports the tree through `DefinitionImporter` — the same code the editor and `vixen import` run —

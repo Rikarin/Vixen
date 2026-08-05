@@ -680,6 +680,7 @@
   <Project Path="Samples/14-Mmo/Mmo.Client/Mmo.Client.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Content.Tests/Mmo.Content.Tests.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Realm.Tests/Mmo.Realm.Tests.csproj" />
+  <Project Path="Samples/14-Mmo/Mmo.Soak/Mmo.Soak.csproj" />
 
 
 </Solution>

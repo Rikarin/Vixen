@@ -192,8 +192,19 @@ public class TransferOracleTests {
 
     // ── Under a network that loses things ───────────────────────────────────────────────────────
     //
-    // ⚠ NOT WRITTEN, and deliberately not written badly. doc 27 § Testing specifies this leg "with
-    // NetworkSimulation" and asks for bounded prediction resets. TransferFleet now installs the
+    // ⚠ HALF WRITTEN, and the half that is missing is named below rather than faked.
+    //
+    // The handshake half landed as AdmissionUnderLossTests: RealmFixture now puts NetworkSimulation
+    // on the realm's transport and on every client's, with a stream apiece, and asserts that a
+    // ticketed client is admitted over Mobile, Awful and a duplicating wire — and, the direction that
+    // matters more, that an unticketed one is still refused over all three. It is mutation-verified:
+    // three pumps fails and four hundred passes, so the loss is real rather than configured.
+    //
+    // What is still missing here is the transfer oracle under the same wire, and the reason is below.
+    // doc 27 § Testing also asks for bounded prediction resets, which neither harness can answer:
+    // there is no prediction loop in either, so a reset counter would read zero for the wrong reason.
+    //
+    // Original note, still accurate about this file: TransferFleet now installs the
     // simulation on every realm's transport — see its `Wire` and `Seed` — and that is scaffolding
     // rather than the test, because **no client ever connects to it**.
     //
