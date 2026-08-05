@@ -186,6 +186,32 @@ public sealed record PostFidelityQuality {
     /// </remarks>
     public bool? VolumetricFog { get; init; }
 
+    /// <summary>Whether the froxels are shadowed against the sun's cascades.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The knob that decides whether the volume draws beams or a glow</b>, and by some way
+    ///         the most expensive thing in the feature: a 3×3 filter per froxel, doubled across a
+    ///         cascade seam, against a grid of 160 × 90 × <see cref="VolumetricSlices" />. The
+    ///         injection and the march are each one cheap pass over the same grid; this is the rest of
+    ///         the bill.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off is not "no fog", and it is not even "no volume".</b> The volume is still
+    ///         filled and still composited — the height gradient and the forward scattering peak both
+    ///         survive. What goes is the one thing an analytic falloff could never do: a shaft, which
+    ///         is the <em>absence</em> of light behind a caster. A tier that switches this off is
+    ///         choosing to pay for marched fog and not for the reason to march it, which is a
+    ///         defensible trade only where the slice count is already low.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ True cannot conjure an atlas. A frame with no shadow node publishes no cascades, and
+    ///         the pass detects that and goes unshadowed regardless — availability is the floor and
+    ///         this is a ceiling under it. Which is why the knob is only worth having now that
+    ///         something answers to it.
+    ///     </para>
+    /// </remarks>
+    public bool? VolumetricShadows { get; init; }
+
     /// <summary>How many depth slices the froxel grid has — <see cref="VolumetricFogAsset.Slices" />.</summary>
     /// <remarks>
     ///     The knob that decides whether a shadow edge crossing the volume reads as an edge or as a
@@ -525,6 +551,9 @@ public sealed record ResolvedQuality {
     /// <summary>See <see cref="PostFidelityQuality.VolumetricFog" />.</summary>
     public required bool VolumetricFog { get; init; }
 
+    /// <summary>See <see cref="PostFidelityQuality.VolumetricShadows" />.</summary>
+    public required bool VolumetricShadows { get; init; }
+
     /// <summary>See <see cref="PostFidelityQuality.VolumetricSlices" />.</summary>
     public required int VolumetricSlices { get; init; }
 
@@ -677,6 +706,7 @@ public static class RenderQuality {
                 TaaVarianceClipping = false,
                 Fog = false,
                 VolumetricFog = false,
+                VolumetricShadows = false,
                 VolumetricSlices = 32,
                 VolumetricFar = 48f,
                 Bloom = false,
@@ -739,6 +769,7 @@ public static class RenderQuality {
                 TaaVarianceClipping = true,
                 Fog = true,
                 VolumetricFog = false,
+                VolumetricShadows = false,
                 VolumetricSlices = 32,
                 VolumetricFar = 48f,
                 Bloom = true,
@@ -801,6 +832,7 @@ public static class RenderQuality {
                 TaaVarianceClipping = true,
                 Fog = true,
                 VolumetricFog = true,
+                VolumetricShadows = true,
                 VolumetricSlices = 64,
                 VolumetricFar = 64f,
                 Bloom = true,
@@ -866,6 +898,7 @@ public static class RenderQuality {
                 TaaVarianceClipping = true,
                 Fog = true,
                 VolumetricFog = true,
+                VolumetricShadows = true,
                 VolumetricSlices = 128,
                 VolumetricFar = 96f,
                 Bloom = true,
@@ -967,6 +1000,7 @@ public static class RenderQuality {
             TaaVarianceClipping = Pick(t => t.PostFidelity, g => g.TaaVarianceClipping, "post.taaVarianceClipping"),
             Fog = Pick(t => t.PostFidelity, g => g.Fog, "post.fog"),
             VolumetricFog = Pick(t => t.PostFidelity, g => g.VolumetricFog, "post.volumetricFog"),
+            VolumetricShadows = Pick(t => t.PostFidelity, g => g.VolumetricShadows, "post.volumetricShadows"),
             VolumetricSlices = Pick(t => t.PostFidelity, g => g.VolumetricSlices, "post.volumetricSlices"),
             VolumetricFar = Pick(t => t.PostFidelity, g => g.VolumetricFar, "post.volumetricFar"),
             Bloom = Pick(t => t.PostFidelity, g => g.Bloom, "post.bloom"),

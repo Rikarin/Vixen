@@ -158,6 +158,15 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
     /// </remarks>
     public SceneConstants? Frame { get; set; }
 
+    /// <summary>Whether the froxels may be shadowed at all — the tier's ceiling.</summary>
+    /// <remarks>
+    ///     ⚠ A ceiling under <see cref="Shadowed" />'s detection and not a second answer to it: false
+    ///     gives a glow where a shaft would have been, and true cannot conjure an atlas a frame never
+    ///     declared. It exists because the taps are the feature's whole cost — see
+    ///     <see cref="PostFidelityQuality.VolumetricShadows" />.
+    /// </remarks>
+    public bool Shadows { get; init; } = true;
+
     /// <summary>Whether the last build found everything a shadowed march needs.</summary>
     /// <remarks>
     ///     Availability and not preference, on <c>TerrainSceneRenderer.DetectMode</c>'s rule: the
@@ -207,7 +216,8 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
         // graph resource the shadow node declared, and the matrices that index into it are
         // parameters it published. An atlas with no cascades cannot be projected into, and cascades
         // with no atlas have nothing to sample.
-        Shadowed = frame.Has(ShadowAtlas)
+        Shadowed = Shadows
+            && frame.Has(ShadowAtlas)
             && Frame is { } constants
             && constants.Parameters.Has(ParameterKeys.New<Matrix4x4>($"{ScenePass}.cascades[0].viewProjection"));
 

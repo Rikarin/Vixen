@@ -869,6 +869,8 @@ Vixen.Rendering.PostFx.PostFidelityQuality.VolumetricFar.get -> float?
 Vixen.Rendering.PostFx.PostFidelityQuality.VolumetricFar.init -> float?
 Vixen.Rendering.PostFx.PostFidelityQuality.VolumetricFog.get -> bool?
 Vixen.Rendering.PostFx.PostFidelityQuality.VolumetricFog.init -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.VolumetricShadows.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.VolumetricShadows.init -> bool?
 Vixen.Rendering.PostFx.PostFidelityQuality.VolumetricSlices.get -> int?
 Vixen.Rendering.PostFx.PostFidelityQuality.VolumetricSlices.init -> int?
 Vixen.Rendering.PostFx.QualityTierOverrides -> sealed record
@@ -1586,6 +1588,8 @@ Vixen.Rendering.PostFx.VolumetricFogAsset.ScenePass.get -> string
 Vixen.Rendering.PostFx.VolumetricFogAsset.ScenePass.init -> string
 Vixen.Rendering.PostFx.VolumetricFogAsset.ShadowAtlas.get -> string
 Vixen.Rendering.PostFx.VolumetricFogAsset.ShadowAtlas.init -> string
+Vixen.Rendering.PostFx.VolumetricFogAsset.Shadows.get -> bool
+Vixen.Rendering.PostFx.VolumetricFogAsset.Shadows.init -> bool
 Vixen.Rendering.PostFx.VolumetricFogAsset.Slices.get -> int
 Vixen.Rendering.PostFx.VolumetricFogAsset.Slices.init -> int
 Vixen.Rendering.PostFx.VolumetricFogAsset.SunColour.get -> Vixen.Core.Mathematics.Vector3
@@ -1643,6 +1647,8 @@ Vixen.Rendering.PostFx.VolumetricFogRenderer.ShadowAtlas.init -> string
 Vixen.Rendering.PostFx.VolumetricFogRenderer.ShadowStandIn.get -> string
 Vixen.Rendering.PostFx.VolumetricFogRenderer.ShadowStandIn.init -> string
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Shadowed.get -> bool
+Vixen.Rendering.PostFx.VolumetricFogRenderer.Shadows.get -> bool
+Vixen.Rendering.PostFx.VolumetricFogRenderer.Shadows.init -> bool
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Steps.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.ComputeRenderer>
 Vixen.Rendering.PostFx.VolumetricFogRenderer.SunColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.VolumetricFogRenderer.SunColour.set -> Vixen.Core.Mathematics.Vector3
@@ -2259,6 +2265,8 @@ required Vixen.Rendering.PostFx.ResolvedQuality.VolumetricFar.get -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.VolumetricFar.init -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.VolumetricFog.get -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.VolumetricFog.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.VolumetricShadows.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.VolumetricShadows.init -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.VolumetricSlices.get -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.VolumetricSlices.init -> int
 required Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Depth.get -> string

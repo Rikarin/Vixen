@@ -49,9 +49,15 @@ The simplest route is the tier. `!StandardFrame` emits the whole arrangement:
   quality: High
 ```
 
-`High` and `Epic` fill the volume; `Low` and `Medium` leave the analytic fog alone. See
-[Choosing how hard the frame works](render-quality.md) for the three knobs — `post.volumetricFog`,
-`post.volumetricSlices` and `post.volumetricFar` — and how a project overrides them.
+`High` and `Epic` fill the volume and shadow it; `Low` and `Medium` leave the analytic fog alone. See
+[Choosing how hard the frame works](render-quality.md) for the four knobs — `post.volumetricFog`,
+`post.volumetricShadows`, `post.volumetricSlices` and `post.volumetricFar` — and how a project
+overrides them.
+
+⚠ `post.volumetricShadows` is the one to reach for when the feature costs too much before dropping
+`post.volumetricFog` altogether — but understand what you are keeping. Off, the volume is still
+filled and still composited, and what goes is the beams. That is a defensible trade only where the
+slice count is already low; otherwise it is paying for the marching and not for the reason to march.
 
 Authored by hand, it is two nodes:
 

@@ -342,6 +342,22 @@ public class StandardFrameTests {
         Assert.Equal(volumetric, names.Contains("Volumetrics"));
     }
 
+    /// <summary>The tier decides whether the volume draws beams or a glow.</summary>
+    /// <remarks>
+    ///     ⚠ Both tiers that fill a volume shadow it today, so this pins the wiring rather than a
+    ///     difference: the knob reaches the node. A tier that switched shadowing off would still get
+    ///     the height gradient and the phase peak — what it would lose is the one thing the analytic
+    ///     falloff could never do, which is why the knob was withheld until something answered to it.
+    /// </remarks>
+    [Theory]
+    [InlineData(QualityTier.High, true)]
+    [InlineData(QualityTier.Epic, true)]
+    public void The_froxel_shadowing_follows_the_tier(QualityTier quality, bool shadows) {
+        var volume = Node<VolumetricFogAsset>(Expand(AllOn with { Quality = quality }), "Volumetrics");
+
+        Assert.Equal(shadows, volume.Shadows);
+    }
+
     /// <summary>
     ///     The dispatches shadow the froxels against the atlas the sun node actually fills.
     /// </summary>

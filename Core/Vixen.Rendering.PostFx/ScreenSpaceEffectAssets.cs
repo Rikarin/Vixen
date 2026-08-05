@@ -317,6 +317,14 @@ public sealed record VolumetricFogAsset : ISceneRendererAsset {
     /// </remarks>
     public string ShadowAtlas { get; init; } = "ShadowAtlas";
 
+    /// <summary>Whether the froxels are shadowed against those cascades at all.</summary>
+    /// <remarks>
+    ///     ⚠ A ceiling under the frame's own answer, not a switch: false gives a glow where a shaft
+    ///     would have been, and true cannot conjure an atlas a frame never declared. See
+    ///     <see cref="PostFidelityQuality.VolumetricShadows" /> for what it buys and costs.
+    /// </remarks>
+    public bool Shadows { get; init; } = true;
+
     /// <summary>Whose published cascades and biases the shadow taps use.</summary>
     public string ScenePass { get; init; } = "ForwardPlus";
 

@@ -1060,6 +1060,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             AmbientColour = declared.AmbientColour,
             ShadowAtlas = declared.ShadowAtlas,
             ScenePass = declared.ScenePass,
+            Shadows = declared.Shadows,
 
             // ⚠ What the shadowing needs, and the only route to it: the cascades are not graph
             // resources and do not travel on an edge. Without this the fog is unshadowed however
