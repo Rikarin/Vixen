@@ -256,6 +256,45 @@ public static class VirtualShadowMap {
         return view * projection;
     }
 
+    /// <summary>A light direction snapped to an angular grid, so a drifting sun refits rarely.</summary>
+    /// <param name="direction">The direction light travels, toward the scene.</param>
+    /// <param name="degrees">The grid's step. Zero or less snaps nothing and only normalizes.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The page snap's missing half.</b> <see cref="ClipmapProjection" /> snaps the
+    ///         <em>centre</em> to a whole page so a camera moving less than one leaves every level's
+    ///         matrix bit-identical — but the light direction enters that matrix raw, so a sun that
+    ///         moves at all changes every level's projection every frame. Each change invalidates every
+    ///         resident page of every level, the redraw budget never catches up, and the table is wiped
+    ///         by the refit before the pages drawn against the previous fit were ever uploaded as
+    ///         sampleable. Measured in sample 13 under its orbiting sun: five hundred and thirty-one
+    ///         pages perpetually owed a draw, forty-eight ever published, and the map answering nothing
+    ///         while allocating sixteen pages a frame — a stall dressed as work.
+    ///     </para>
+    ///     <para>
+    ///         Snapped in azimuth and elevation rather than by component, because the cost being bounded
+    ///         is angular: the step is how far the fitted light may lag the true one, and the refit
+    ///         cadence is how long the budget has to redraw a level before it moves again. Between
+    ///         snaps the pages and the lookup share the fitted matrices, so the shadows stay
+    ///         self-consistent — what the lag costs is the map's shadow direction trailing the shading's
+    ///         by at most the step, which at half a degree is inside what the bias already forgives.
+    ///     </para>
+    /// </remarks>
+    public static Vector3 SnapDirection(Vector3 direction, float degrees) {
+        var unit = Vector3.Normalize(direction);
+
+        if (degrees <= 0f) {
+            return unit;
+        }
+
+        var step = degrees * (MathF.PI / 180f);
+        var azimuth = MathF.Round(MathF.Atan2(unit.Z, unit.X) / step) * step;
+        var elevation = MathF.Round(MathF.Asin(Math.Clamp(unit.Y, -1f, 1f)) / step) * step;
+        var planar = MathF.Cos(elevation);
+
+        return new(MathF.Cos(azimuth) * planar, MathF.Sin(elevation), MathF.Sin(azimuth) * planar);
+    }
+
     /// <summary>A light's own basis, which the camera never enters into.</summary>
     /// <remarks>
     ///     <see cref="ShadowCascades.Fit" />'s, extracted because two places deriving a light basis is

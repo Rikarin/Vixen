@@ -123,6 +123,27 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// <summary>How deep each level's box is along the light, which is its caster range.</summary>
     public float Depthrange { get; set; } = 400f;
 
+    /// <summary>How far the sun may drift before the clipmap refits to it, in degrees.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The knob that keeps a moving sun from being a permanent stall.</b> The light
+    ///         direction enters every level's matrix raw, so without a snap a sun that moves at all —
+    ///         sample 13's orbits deliberately — changes every projection every frame, and
+    ///         <see cref="Fit" /> invalidates every resident page every frame. The budget then redraws
+    ///         sixteen pages a frame that the next frame's refit unpublishes before the table upload
+    ///         ever carried them: pages pile up allocated and owed while the map answers nothing.
+    ///         <see cref="VirtualShadowMap.SnapDirection" /> holds the fitted direction still between
+    ///         steps, so the pages drawn against it stay true and the invalidation happens once per
+    ///         step rather than once per frame.
+    ///     </para>
+    ///     <para>
+    ///         The step is how far the map's shadows may trail the shading's sun — half a degree is
+    ///         under what the bias forgives — and its reciprocal is how often a turning sun rebuilds
+    ///         the map. Zero disables the snap, which is only safe for a sun that never moves.
+    ///     </para>
+    /// </remarks>
+    public float LightSnapDegrees { get; set; } = 0.5f;
+
     /// <summary>How many pages may be allocated per frame.</summary>
     public int PagesPerFrame { get; set; } = 16;
 
@@ -167,7 +188,12 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
             return;
         }
 
-        var sunward = Sun?.Sun is { } star ? star.Direction : LightDirection;
+        // Snapped before anything reads it, so the fit, the page views and their sort hint all share
+        // one direction — see LightSnapDegrees for what an unsnapped sun costs.
+        var sunward = VirtualShadowMap.SnapDirection(
+            Sun?.Sun is { } star ? star.Direction : LightDirection,
+            LightSnapDegrees
+        );
 
         Fit(atlas, camera, sunward);
 
