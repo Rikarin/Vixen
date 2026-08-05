@@ -128,7 +128,9 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
     /// <param name="bundle">The bytes.</param>
     /// <param name="verifyChecksum">Whether to check the payload CRC now. Costs a full read.</param>
     /// <param name="owner">Something to dispose when this is disposed, such as a file mapping.</param>
-    /// <exception cref="SerializationException">It is not a bundle, or the checksum does not match.</exception>
+    /// <exception cref="SerializationException">
+    ///     It is not a bundle, its index does not fit or is not sorted, or the checksum does not match.
+    /// </exception>
     public BundleOdbBackend(ReadOnlyMemory<byte> bundle, bool verifyChecksum = false, IDisposable? owner = null) {
         this.bundle = bundle;
         this.owner = owner;
@@ -144,12 +146,21 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
             throw new SerializationException($"The bundle is version {version} and this build reads version {BundleFormat.Version}.");
         }
 
-        entryCount = (int)BinaryPrimitives.ReadUInt32LittleEndian(span[12..]);
-        payloadStart = BundleFormat.PayloadOffset(entryCount);
+        // ⚠ In 64-bit arithmetic, and narrowed only once the count is known to fit. The count is
+        // unsigned on the wire, so 0x08000000 entries makes HeaderSize + count × EntrySize overflow
+        // to a negative int — which passes a "does this fit" test written in int, and leaves every
+        // index read reaching past the end of a file the constructor has just accepted.
+        var declared = BinaryPrimitives.ReadUInt32LittleEndian(span[12..]);
+        var payload = BundleFormat.HeaderSize + ((long)declared * BundleFormat.EntrySize);
 
-        if (payloadStart > span.Length) {
-            throw new SerializationException($"The bundle claims {entryCount} entries, which do not fit in {span.Length} bytes.");
+        if (payload > span.Length) {
+            throw new SerializationException($"The bundle claims {declared} entries, which do not fit in {span.Length} bytes.");
         }
+
+        entryCount = (int)declared;
+        payloadStart = (int)payload;
+
+        VerifySorted();
 
         if (verifyChecksum) {
             var expected = BinaryPrimitives.ReadUInt32LittleEndian(span[16..]);
@@ -195,14 +206,19 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
         }
 
         var entry = bundle.Span.Slice(BundleFormat.HeaderSize + (index * BundleFormat.EntrySize), BundleFormat.EntrySize);
-        var offset = (int)BinaryPrimitives.ReadUInt32LittleEndian(entry[ObjectId.SizeInBytes..]);
-        var length = (int)BinaryPrimitives.ReadUInt32LittleEndian(entry[(ObjectId.SizeInBytes + 4)..]);
+        var offset = BinaryPrimitives.ReadUInt32LittleEndian(entry[ObjectId.SizeInBytes..]);
+        var length = BinaryPrimitives.ReadUInt32LittleEndian(entry[(ObjectId.SizeInBytes + 4)..]);
 
-        if (payloadStart + offset + length > bundle.Length) {
+        // ⚠ In 64-bit arithmetic and before either is narrowed, which is the whole of the check.
+        // Both are unsigned on the wire: a length of 0x80000000 narrowed to int is negative, the sum
+        // then lands below the file's length, the bounds test passes, and the slice below throws an
+        // ArgumentOutOfRangeException — an exception from inside a decoder rather than the refusal
+        // this method documents.
+        if (payloadStart + (long)offset + length > bundle.Length) {
             throw new SerializationException($"The bundle's entry for {id} points past the end of the file.");
         }
 
-        blob = new Slice(bundle.Slice(payloadStart + offset, length));
+        blob = new Slice(bundle.Slice(payloadStart + (int)offset, (int)length));
         return true;
     }
 
@@ -226,6 +242,33 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
 
     ObjectId IdAt(int index) =>
         ObjectId.FromBytes(bundle.Span.Slice(BundleFormat.HeaderSize + (index * BundleFormat.EntrySize), ObjectId.SizeInBytes));
+
+    /// <summary>Checks the index really is ascending, which is what the lookup assumes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A binary search over an unsorted index does not fail — it answers "not
+    ///         found".</b> So a bundle whose entries were written in the wrong order reports most of
+    ///         its own contents as missing, and the failure arrives somewhere else entirely as an
+    ///         asset that will not load, with a file that opens cleanly and enumerates every id it
+    ///         holds. Refusing at open is the only place the ordering can be established at all.
+    ///     </para>
+    ///     <para>
+    ///         One pass over the index and not over the payload, so it costs twenty-four bytes an
+    ///         entry — the pages the binary search was going to fault in anyway — and leaves the
+    ///         property this class is built around intact: a bundle is opened without reading the
+    ///         chunks nobody asked for.
+    ///     </para>
+    /// </remarks>
+    void VerifySorted() {
+        for (var index = 1; index < entryCount; index++) {
+            if (IdAt(index - 1).CompareTo(IdAt(index)) >= 0) {
+                throw new SerializationException(
+                    $"The bundle's index is not sorted at entry {index} of {entryCount}. A lookup is a binary "
+                    + "search over it, so an unsorted index answers 'not found' for content the file holds."
+                );
+            }
+        }
+    }
 
     int IndexOf(ObjectId id) {
         var low = 0;

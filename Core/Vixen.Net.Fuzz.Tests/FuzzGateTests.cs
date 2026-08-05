@@ -56,7 +56,16 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
         // regression quickly rather than to search deeply. Depth is the nightly's, which is bounded by
         // seconds rather than by cases and gives every target the same ten minutes.
         ["udp"] = 500_000,
-        ["upgrade"] = 400_000
+        ["upgrade"] = 400_000,
+
+        // The content formats, which are the slowest cases here by a distance: a bundle open walks
+        // an index and a CRC over the whole payload, a chunk case runs an LZ4 or Zstd decode, and a
+        // heightmap runs inflate and then an unfilter pass over every row. A hundred thousand of
+        // those is seconds rather than the milliseconds a bit read costs, and the gate's job is to
+        // notice a regression rather than to search — the nightly, bounded by time, searches.
+        ["bundle"] = 150_000,
+        ["chunk"] = 100_000,
+        ["heightmap"] = 60_000
     };
 
     /// <summary>One row per registered target, so a new one cannot be left out.</summary>

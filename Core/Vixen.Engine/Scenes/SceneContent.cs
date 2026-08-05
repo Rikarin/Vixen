@@ -164,8 +164,32 @@ public sealed class SceneContent {
 
         var entities = created.IsEmpty ? new Entity[Count] : created;
 
-        foreach (var block in Blocks) {
-            Fill(world, block, entities, scene);
+        // ⚠ Undone rather than left, and the reason is that the checks above cannot cover this.
+        //
+        // Validate relates the tables to each other and cannot relate a column's *bytes* to its
+        // block — only a binder knows how wide one value is, and only by reading it. So the first
+        // moment a truncated column can be detected is halfway down it, by which point CreateMany
+        // has already run for this block and for every block before it. Without this, a scene that
+        // fails to load leaves the entities it managed to make: a level that is half there, with
+        // components on some of it, and a caller that saw an exception and reasonably believes
+        // nothing happened.
+        //
+        // Cheap because it is the failure path — a successful load never enters the catch, and a
+        // failed one is destroying entities the caller was never given.
+        try {
+            foreach (var block in Blocks) {
+                Fill(world, block, entities, scene);
+            }
+        } catch {
+            foreach (var block in Blocks) {
+                foreach (var index in block.Entities) {
+                    if (world.IsAlive(entities[index])) {
+                        world.Destroy(entities[index]);
+                    }
+                }
+            }
+
+            throw;
         }
 
         for (var index = 0; index < Count; index++) {
@@ -464,10 +488,38 @@ public sealed class SceneContent {
         }
 
         for (var column = 0; column < binders.Length; column++) {
-            var reader = new SerializationReader(block.Columns[column].Data);
+            var data = block.Columns[column].Data;
+            var reader = new SerializationReader(data);
 
-            foreach (var entity in batch) {
-                binders[column].Read(ref reader, world, entity);
+            // ⚠ Wrapped, because the reader's refusal is not this format's. A column shorter than its
+            // block throws SerializationException out of the middle of the walk, naming an offset in
+            // a byte array and neither the component nor the block it came from — and this method is
+            // reached from Instantiate, which documents ArgumentException for an asset that does not
+            // hold together.
+            try {
+                foreach (var entity in batch) {
+                    binders[column].Read(ref reader, world, entity);
+                }
+            } catch (SerializationException failure) {
+                throw new ArgumentException(
+                    $"This scene's '{binders[column].Name}' column is {data.Length} bytes and its block has "
+                    + $"{batch.Length} entities, which ran out after {reader.BytesRead}. The asset is truncated or "
+                    + "was written by something that does not agree with this format.",
+                    failure
+                );
+            }
+
+            // ⚠ And the other direction, which is the one that fails silently. A column with bytes
+            // left over is a column whose entity count disagrees with its block's, and reading the
+            // first n and dropping the rest loads a scene that is wrong rather than one that
+            // refuses — every entity holding a value that belongs to a different entity, with
+            // nothing anywhere reporting a problem.
+            if (reader.Remaining != 0) {
+                throw new ArgumentException(
+                    $"This scene's '{binders[column].Name}' column has {reader.Remaining} bytes left after its "
+                    + $"block's {batch.Length} entities were read. The column and the block disagree about how "
+                    + "many entities there are."
+                );
             }
         }
     }

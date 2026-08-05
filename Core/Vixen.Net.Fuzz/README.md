@@ -28,6 +28,33 @@ anybody who can send a packet, so every one of those is a target.
 | `input` | `InputBuffer.TryReceive` | the other thing a client can make a server do work for, every tick |
 | `udp` | `UdpTransport.Poll` | the code an attacker reaches *first* — below the handshake, on a public port |
 | `upgrade` | `WebSocketUpgrade` | HTTP headers from a stranger, parsed before anything authenticates |
+| `bundle` | `BundleOdbBackend`, opened with the checksum on | a file a content update downloaded |
+| `chunk` | `ChunkFormat.Unpack` and the header behind it | a declared length that is what gets allocated |
+| `heightmap` | `TerrainHeightmapPng.Decode` | a file somebody was handed and dropped on an importer |
+
+**The last three are files rather than packets, and the machinery never required one.** A target is a
+decoder with bytes pushed into it; a bundle, a stored chunk and a heightmap PNG each have a length
+prefix that decides an allocation, which is the only property this harness has ever cared about. The
+name `Vixen.Net.Fuzz` is now narrower than what is in it — see **Naming**, below.
+
+**They also catch their own refusal, where the packet targets catch nothing.** A `Try…` method returns
+false, so "nothing escapes" is checked by catching everything and finding nothing. A content format
+refuses by *throwing*, and that is its contract — so each of these three catches exactly the type its
+layer documents (`SerializationException`, `ArgumentException`) and lets everything else reach the
+oracle. That is the stronger assertion: an `ArgumentOutOfRangeException` from a slice, an
+`OutOfMemoryException` from a length nobody checked, a `ZLibException` out of an inflater are all
+findings, and each was something one of these decoders actually did.
+
+## Naming
+
+**`Vixen.Net.Fuzz` is the wrong name now and renaming it is a separate change.** Nothing in
+`FuzzSession`, `Mutator`, `Corpus` or `IFuzzTarget` is network-specific — the harness is a mutation
+loop, three oracles and a behaviour signature, and it took a content format without a line of change.
+`Vixen.Fuzz`, sitting in `Core` where it already is, is what it should be called.
+
+Not done here because a project rename touches the solution file, every `ProjectReference` to it, the
+workflow and the test project beside it, and this branch is one of several in flight. It is a
+mechanical change worth doing on its own.
 
 ## The three oracles
 
@@ -98,7 +125,7 @@ a rumour.
 
 ## Running it
 
-The gate runs on every build, in `Vixen.Net.Fuzz.Tests` — eleven million cases in about seven seconds,
+The gate runs on every build, in `Vixen.Net.Fuzz.Tests` — eleven million cases in about nine seconds,
 bounded by **case count rather than by the clock**, because a run bounded by time executes a different
 number of cases on a loaded machine than on a laptop and a green build then proves nothing in
 particular.

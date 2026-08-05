@@ -151,6 +151,21 @@ public static class CatalogFormat {
     /// <param name="file">The file's bytes.</param>
     /// <returns>The catalog.</returns>
     /// <exception cref="CatalogFormatException">It is not a catalog, is a version this cannot read, or is damaged.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every count and every table index is checked, and the checksum above is not what
+    ///         makes that unnecessary.</b> A CRC32 says the bytes arrived as they were sent; it says
+    ///         nothing about who sent them, and it is four bytes anybody who edits the file can
+    ///         recompute. So a catalog that reaches this point is intact, not trustworthy — and the
+    ///         counts in it size arrays while the indices in it read one.
+    ///     </para>
+    ///     <para>
+    ///         That distinction is exactly why these checks are easy to leave out: a mutator that
+    ///         flips a byte never reaches them, so the parser looks robust under the one test anybody
+    ///         thinks to run. A count is therefore validated against the bytes that are actually left
+    ///         rather than believed, and an index into the string table against the table's length.
+    ///     </para>
+    /// </remarks>
     public static ContentCatalog Read(ReadOnlySpan<byte> file) {
         if (file.Length < Magic.Length + 4 || !file[..Magic.Length].SequenceEqual(Magic)) {
             throw new CatalogFormatException("This is not a catalog: the eight-byte identifier does not match.");
@@ -180,27 +195,36 @@ public static class CatalogFormat {
             );
         }
 
-        var buildHash = ObjectId.FromBytes(body.Slice(cursor, ObjectId.SizeInBytes));
-        cursor += ObjectId.SizeInBytes;
+        var buildHash = ObjectId.FromBytes(Take(body, ref cursor, ObjectId.SizeInBytes));
 
-        var table = new string[ReadInt32(body, ref cursor)];
+        // A string is a four-byte length and at least no bytes, so a table of n needs 4n behind it.
+        // Sizing the array off the count alone is how eight bytes buy a two-gigabyte allocation.
+        var table = new string[Counted(body, ref cursor, 4, "the string table")];
 
         for (var position = 0; position < table.Length; position++) {
             var length = ReadInt32(body, ref cursor);
+
+            if (length < 0 || length > body.Length - cursor) {
+                throw new CatalogFormatException(
+                    $"This catalog's string {position} claims {length} bytes and {body.Length - cursor} are left."
+                );
+            }
+
             table[position] = Encoding.UTF8.GetString(body.Slice(cursor, length));
             cursor += length;
         }
 
-        var target = table[ReadInt32(body, ref cursor)];
+        var target = table[Index(body, ref cursor, table, "the target")];
 
-        var entries = new CatalogEntry[ReadInt32(body, ref cursor)];
+        // An entry is two indices, an id, a provider byte, a size, a shape, a reference and two
+        // index lists — 61 bytes before either list has an element.
+        var entries = new CatalogEntry[Counted(body, ref cursor, 61, "the entry table")];
 
         for (var position = 0; position < entries.Length; position++) {
-            var address = table[ReadInt32(body, ref cursor)];
-            var id = ObjectId.FromBytes(body.Slice(cursor, ObjectId.SizeInBytes));
-            cursor += ObjectId.SizeInBytes;
-            var bundle = table[ReadInt32(body, ref cursor)];
-            var provider = (ContentProvider)body[cursor++];
+            var address = table[Index(body, ref cursor, table, "an entry's address")];
+            var id = ObjectId.FromBytes(Take(body, ref cursor, ObjectId.SizeInBytes));
+            var bundle = table[Index(body, ref cursor, table, "an entry's bundle")];
+            var provider = (ContentProvider)Take(body, ref cursor, 1)[0];
             var size = ReadInt64(body, ref cursor);
             var shape = ReadUInt64(body, ref cursor);
             var asset = ReadGuid(body, ref cursor);
@@ -221,16 +245,17 @@ public static class CatalogFormat {
             );
         }
 
-        var bundles = new CatalogBundle[ReadInt32(body, ref cursor)];
+        // A bundle is two indices, a hash, a size, a CRC, a compression byte and one index list — 41
+        // bytes before that list has an element.
+        var bundles = new CatalogBundle[Counted(body, ref cursor, 41, "the bundle table")];
 
         for (var position = 0; position < bundles.Length; position++) {
-            var name = table[ReadInt32(body, ref cursor)];
-            var url = table[ReadInt32(body, ref cursor)];
-            var hash = ObjectId.FromBytes(body.Slice(cursor, ObjectId.SizeInBytes));
-            cursor += ObjectId.SizeInBytes;
+            var name = table[Index(body, ref cursor, table, "a bundle's name")];
+            var url = table[Index(body, ref cursor, table, "a bundle's URL")];
+            var hash = ObjectId.FromBytes(Take(body, ref cursor, ObjectId.SizeInBytes));
             var size = ReadInt64(body, ref cursor);
             var crc = ReadUInt32(body, ref cursor);
-            var compression = (CompressionMethod)body[cursor++];
+            var compression = (CompressionMethod)Take(body, ref cursor, 1)[0];
             var dependencies = ReadIndices(body, ref cursor, table);
 
             bundles[position] = new(name, url, hash, size, crc, compression, dependencies);
@@ -252,7 +277,7 @@ public static class CatalogFormat {
     }
 
     static ImmutableArray<string> ReadIndices(ReadOnlySpan<byte> body, ref int cursor, string[] table) {
-        var count = ReadInt32(body, ref cursor);
+        var count = Counted(body, ref cursor, 4, "an index list");
 
         if (count == 0) {
             return [];
@@ -261,10 +286,72 @@ public static class CatalogFormat {
         var values = ImmutableArray.CreateBuilder<string>(count);
 
         for (var position = 0; position < count; position++) {
-            values.Add(table[ReadInt32(body, ref cursor)]);
+            values.Add(table[Index(body, ref cursor, table, "an index list entry")]);
         }
 
         return values.MoveToImmutable();
+    }
+
+    /// <summary>Reads a count and refuses one the remaining bytes could not supply.</summary>
+    /// <param name="body">The file.</param>
+    /// <param name="cursor">Where to read it.</param>
+    /// <param name="each">The fewest bytes one element occupies.</param>
+    /// <param name="what">What is being counted, for the message.</param>
+    /// <returns>The count.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The array is sized from this, so this is where a small file buys a large
+    ///     allocation.</b> Every record in this format has a fixed minimum width, so the bytes left
+    ///     are an upper bound on how many of them there can be — which makes the check exact rather
+    ///     than a guessed cap, and makes the cost of parsing a catalog proportional to its size.
+    /// </remarks>
+    static int Counted(ReadOnlySpan<byte> body, ref int cursor, int each, string what) {
+        var count = ReadInt32(body, ref cursor);
+
+        if (count < 0 || (long)count * each > body.Length - cursor) {
+            throw new CatalogFormatException(
+                $"This catalog says {what} holds {count} things, and {body.Length - cursor} bytes are left — which "
+                + $"is not enough for {each} bytes each. The file is truncated or was not written by this format."
+            );
+        }
+
+        return count;
+    }
+
+    /// <summary>Reads an index into the string table and refuses one that is not in it.</summary>
+    /// <remarks>
+    ///     Raw indexing here is an <c>IndexOutOfRangeException</c> out of a parser whose whole
+    ///     contract is <see cref="CatalogFormatException" />, and it names neither the file nor the
+    ///     field — which is the difference between a report and an afternoon.
+    /// </remarks>
+    static int Index(ReadOnlySpan<byte> body, ref int cursor, string[] table, string what) {
+        var index = ReadInt32(body, ref cursor);
+
+        if ((uint)index >= (uint)table.Length) {
+            throw new CatalogFormatException(
+                $"This catalog's string table holds {table.Length} strings and {what} is index {index}."
+            );
+        }
+
+        return index;
+    }
+
+    /// <summary>Takes a fixed run of bytes, refusing one that runs off the end.</summary>
+    static ReadOnlySpan<byte> Take(ReadOnlySpan<byte> body, ref int cursor, int count) {
+        Room(body, cursor, count);
+
+        var value = body.Slice(cursor, count);
+        cursor += count;
+
+        return value;
+    }
+
+    static void Room(ReadOnlySpan<byte> body, int cursor, int count) {
+        if (cursor < 0 || count > body.Length - cursor) {
+            throw new CatalogFormatException(
+                $"This catalog ends after {body.Length} bytes and a read of {count} at {cursor} runs past it. "
+                + "It arrived truncated."
+            );
+        }
     }
 
     static void WriteInt32(Stream file, int value) {
@@ -298,11 +385,7 @@ public static class CatalogFormat {
         file.Write(buffer);
     }
 
-    static Guid ReadGuid(ReadOnlySpan<byte> body, ref int cursor) {
-        var value = new Guid(body.Slice(cursor, 16), bigEndian: true);
-        cursor += 16;
-        return value;
-    }
+    static Guid ReadGuid(ReadOnlySpan<byte> body, ref int cursor) => new(Take(body, ref cursor, 16), bigEndian: true);
 
     static void WriteInt64(Stream file, long value) {
         Span<byte> buffer = stackalloc byte[8];
@@ -310,27 +393,18 @@ public static class CatalogFormat {
         file.Write(buffer);
     }
 
-    static int ReadInt32(ReadOnlySpan<byte> body, ref int cursor) {
-        var value = BinaryPrimitives.ReadInt32LittleEndian(body[cursor..]);
-        cursor += 4;
-        return value;
-    }
+    // Through Take rather than off a raw slice: a read past the end here is a truncated catalog,
+    // which is the case the trailing checksum exists to name, and the bare slice reports it as an
+    // ArgumentOutOfRangeException from BinaryPrimitives with nothing in it about a catalog.
+    static int ReadInt32(ReadOnlySpan<byte> body, ref int cursor) =>
+        BinaryPrimitives.ReadInt32LittleEndian(Take(body, ref cursor, 4));
 
-    static uint ReadUInt32(ReadOnlySpan<byte> body, ref int cursor) {
-        var value = BinaryPrimitives.ReadUInt32LittleEndian(body[cursor..]);
-        cursor += 4;
-        return value;
-    }
+    static uint ReadUInt32(ReadOnlySpan<byte> body, ref int cursor) =>
+        BinaryPrimitives.ReadUInt32LittleEndian(Take(body, ref cursor, 4));
 
-    static long ReadInt64(ReadOnlySpan<byte> body, ref int cursor) {
-        var value = BinaryPrimitives.ReadInt64LittleEndian(body[cursor..]);
-        cursor += 8;
-        return value;
-    }
+    static long ReadInt64(ReadOnlySpan<byte> body, ref int cursor) =>
+        BinaryPrimitives.ReadInt64LittleEndian(Take(body, ref cursor, 8));
 
-    static ulong ReadUInt64(ReadOnlySpan<byte> body, ref int cursor) {
-        var value = BinaryPrimitives.ReadUInt64LittleEndian(body[cursor..]);
-        cursor += 8;
-        return value;
-    }
+    static ulong ReadUInt64(ReadOnlySpan<byte> body, ref int cursor) =>
+        BinaryPrimitives.ReadUInt64LittleEndian(Take(body, ref cursor, 8));
 }
