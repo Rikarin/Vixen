@@ -43,6 +43,9 @@ public sealed partial class WaterModule : IEditorPlugin {
     /// <summary>What a plugin-management panel calls it.</summary>
     public const string ModuleName = "Water";
 
+    /// <summary>What the Create ▸ entry for a sea state is registered as.</summary>
+    public const string CreateWavesCommand = "water.create-waves";
+
     readonly WaterMode water = new();
 
     EditorProject project = null!;
@@ -81,6 +84,28 @@ public sealed partial class WaterModule : IEditorPlugin {
         water.Drawn += Placed;
 
         context.OnUnload(() => water.Drawn -= Placed);
+
+        // ⚠ Doc 35 § D6's one new asset kind, and the Create ▸ entry is what makes it reachable at
+        // all. A `.vxwaves` has an importer and a runtime source; without a way to make one, the only
+        // route to a shared sea state is typing YAML by hand, which is the shape of a feature that is
+        // built and not yet reachable.
+        //
+        // ⚠ `Build` rather than `Contents`, so the template is the panel's *current* sea state rather
+        // than the one it held when the module loaded — see `NewAssetKind.Build`. An author who has
+        // spent a minute finding a sea they like and then presses this means that sea.
+        context.Owns(
+            context.Services.Require<IEditorRegistry>().Add(
+                new NewAssetKind(
+                    CreateWavesCommand,
+                    "Sea state",
+                    WaterWavesAsset.Extension,
+                    "New Sea State",
+                    Opens: false
+                ) {
+                    Build = () => YamlWriter.Write(YamlSerializer.Serialize(Mode.Zone.Asset))
+                }
+            )
+        );
 
         WaterPanels();
 

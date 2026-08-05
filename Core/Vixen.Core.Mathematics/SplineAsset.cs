@@ -30,7 +30,7 @@ namespace Vixen.Core.Mathematics;
 /// </remarks>
 [DataContract]
 public sealed class SplineAsset {
-    readonly List<SplinePoint> points = [];
+    List<SplinePoint> points = [];
 
     /// <summary>An empty asset.</summary>
     public SplineAsset() { }
@@ -52,7 +52,31 @@ public sealed class SplineAsset {
     public bool IsClosed { get; set; }
 
     /// <summary>The control points, in order.</summary>
-    public IReadOnlyList<SplinePoint> Points => points;
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Settable, and it has to be, because this is the one member that makes the asset an
+    ///         asset.</b> It was a getter-only <c>IReadOnlyList</c>, and both serialisers skip a member
+    ///         they cannot write to — so a <c>.vxspline</c> round-tripped to a name, a closed flag and
+    ///         <em>no curve</em>. Nothing caught it because everything downstream asks
+    ///         <see cref="CanBuild" /> first and draws nothing when the answer is no: a road that never
+    ///         appeared and a lake that never appeared, with no error anywhere.
+    ///     </para>
+    ///     <para>
+    ///         Mutating the returned list is the same as mutating the asset, deliberately — the
+    ///         invariants this type has are all checked in <see cref="Validate" /> rather than
+    ///         maintained per operation, so there is nothing for an accessor to protect.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Third in declaration order, and it must stay there.</b> The generated serializer
+    ///         reads members by position under a count guard, so this appends and older data still
+    ///         reads; moving it above <see cref="IsClosed" /> would make every asset written before it
+    ///         read its closed flag as a list of points.
+    ///     </para>
+    /// </remarks>
+    public List<SplinePoint> Points {
+        get => points;
+        set => points = value ?? [];
+    }
 
     /// <summary>How many there are.</summary>
     public int Count => points.Count;

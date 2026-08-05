@@ -1,0 +1,48 @@
+#nullable enable
+Vixen.Water.Physics.BuoyancyBody -> struct
+Vixen.Water.Physics.BuoyancyBody.BuoyancyBody() -> void
+Vixen.Water.Physics.BuoyancyBody.Coefficient -> float
+Vixen.Water.Physics.BuoyancyBody.Damping -> float
+Vixen.Water.Physics.BuoyancyBody.FlowDrag -> float
+Vixen.Water.Physics.BuoyancyBody.MaximumForce -> float
+Vixen.Water.Physics.BuoyancyBody.Pontoons -> Vixen.Water.BuoyancyPontoon[]
+Vixen.Water.Physics.BuoyancyBody.QuadraticDamping -> float
+Vixen.Water.Physics.BuoyancyDebugDraw -> sealed class
+Vixen.Water.Physics.BuoyancyDebugDraw.BuoyancyDebugDraw() -> void
+Vixen.Water.Physics.BuoyancyDebugDraw.Draw(Vixen.Engine.Diagnostics.DebugDraw into, Vixen.Ecs.World world, Vixen.Water.Physics.BuoyancySystem buoyancy) -> void
+Vixen.Water.Physics.BuoyancyDebugDraw.Enabled.get -> bool
+Vixen.Water.Physics.BuoyancyDebugDraw.Enabled.set -> bool
+Vixen.Water.Physics.BuoyancyDebugDraw.ForceScale.get -> float
+Vixen.Water.Physics.BuoyancyDebugDraw.ForceScale.set -> float
+Vixen.Water.Physics.BuoyancyState -> struct
+Vixen.Water.Physics.BuoyancyState.BuoyancyState() -> void
+Vixen.Water.Physics.BuoyancyState.Lift -> float
+Vixen.Water.Physics.BuoyancyState.Submerged -> float
+Vixen.Water.Physics.BuoyancyState.SurfaceHeight -> float
+Vixen.Water.Physics.BuoyancyState.Total -> int
+Vixen.Water.Physics.BuoyancyState.Wet -> int
+Vixen.Water.Physics.BuoyancySystem -> sealed class
+Vixen.Water.Physics.BuoyancySystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Water.Physics.BuoyancySystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Water.Physics.BuoyancySystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Water.Physics.BuoyancySystem.BuoyancySystem(Vixen.Physics.Ecs.PhysicsScene scene, Vixen.Water.IWaterSurface surface) -> void
+Vixen.Water.Physics.BuoyancySystem.Disturbances.get -> Vixen.Water.WaterDisturbances?
+Vixen.Water.Physics.BuoyancySystem.Disturbances.set -> Vixen.Water.WaterDisturbances?
+Vixen.Water.Physics.BuoyancySystem.Floating.get -> int
+Vixen.Water.Physics.BuoyancySystem.Forces.get -> System.ReadOnlySpan<Vixen.Water.BuoyancyForce>
+Vixen.Water.Physics.BuoyancySystem.LastCount.get -> int
+Vixen.Water.Physics.BuoyancySystem.Pontoons.get -> int
+Vixen.Water.Physics.BuoyancySystem.SplashSpeed.get -> float
+Vixen.Water.Physics.BuoyancySystem.SplashSpeed.set -> float
+Vixen.Water.Physics.BuoyancySystem.Step(Vixen.Ecs.World world) -> void
+Vixen.Water.Physics.BuoyancySystem.Surface.get -> Vixen.Water.IWaterSurface
+Vixen.Water.Physics.BuoyancySystem.Surface.set -> Vixen.Water.IWaterSurface
+Vixen.Water.Physics.BuoyancySystem.WakeSpeed.get -> float
+Vixen.Water.Physics.BuoyancySystem.WakeSpeed.set -> float
+Vixen.Water.Physics.BuoyancySystem.WetPontoons.get -> int
+override Vixen.Water.Physics.BuoyancySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+readonly Vixen.Water.Physics.BuoyancyBody.Settings.get -> Vixen.Water.BuoyancySettings
+readonly Vixen.Water.Physics.BuoyancyState.IsFloating.get -> bool
+static Vixen.Water.Physics.BuoyancyBody.Default.get -> Vixen.Water.Physics.BuoyancyBody
+static Vixen.Water.Physics.BuoyancyBody.Raft(float halfLength, float halfWidth, float radius, float height = 0) -> Vixen.Water.Physics.BuoyancyBody
+static Vixen.Water.Physics.BuoyancyBody.Sphere(float radius) -> Vixen.Water.Physics.BuoyancyBody

@@ -2,8 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Graphics;
+using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.PostFx;
+using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Xunit;
 
 namespace Tests;
@@ -26,7 +33,55 @@ namespace Tests;
 ///         the failure a slice count change would otherwise hide.
 ///     </para>
 /// </remarks>
-public class VolumetricFogIntegrationTests {
+public class VolumetricFogIntegrationTests : IDisposable {
+    readonly NullDevice device = new(new() { Record = true, FramesInFlight = 2 });
+    readonly EffectSystem effects = new();
+    readonly DescriptorAllocator allocator;
+    readonly SamplerCache samplers;
+    readonly ComputePipelineCache pipelines;
+    readonly Dictionary<string, DescriptorSetLayoutHandle> layouts = [];
+
+    public VolumetricFogIntegrationTests() {
+        allocator = new(device);
+        samplers = new(device);
+        pipelines = new(device);
+
+        // Set 2 in the shape the reflection reports, with the indices taken from the generated
+        // constants rather than written down: a binding index is declaration order, so a resource
+        // added above another renumbers everything below it.
+        Declare(
+            VolumetricFogInjectKeys.ShaderName,
+            new(VolumetricFogInjectKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Compute),
+            new(VolumetricFogInjectKeys.TargetBinding, DescriptorKind.StorageTexture, ShaderStage.Compute)
+        );
+
+        Declare(
+            VolumetricFogKeys.ShaderName,
+            new(VolumetricFogKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Compute),
+            new(VolumetricFogKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
+            new(VolumetricFogKeys.ShadowMapBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
+            new(VolumetricFogKeys.HistoryBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
+            new(VolumetricFogKeys.VolumeSamplerBinding, DescriptorKind.Sampler, ShaderStage.Compute),
+            new(VolumetricFogKeys.ShadowSamplerBinding, DescriptorKind.Sampler, ShaderStage.Compute),
+            new(VolumetricFogKeys.LightBufferBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+            new(VolumetricFogKeys.ClustersBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+            new(VolumetricFogKeys.TargetBinding, DescriptorKind.StorageTexture, ShaderStage.Compute)
+        );
+
+        effects.AddProvider(new AlwaysCompiles(layouts));
+    }
+
+    void Declare(string shader, params DescriptorBinding[] bindings) =>
+        layouts[shader] = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerMaterial, bindings, shader));
+
+    /// <inheritdoc />
+    public void Dispose() {
+        samplers.Dispose();
+        allocator.Dispose();
+        device.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
     /// <summary>The grid's Z distribution — <c>FroxelGrid.SliceDepth</c>, and <c>ClusterGrid</c>'s.</summary>
     static float SliceDepth(int slice, int slices, float near, float far) =>
         near * MathF.Pow(far / near, slice / (float)slices);
@@ -356,5 +411,510 @@ public class VolumetricFogIntegrationTests {
 
         Assert.True(first < 0.1f, $"the first slice is {first} deep");
         Assert.True(last > 20f * first, $"the last slice is only {last / first} times the first");
+    }
+
+    // --- The frame's lamps in the air ------------------------------------------
+
+    /// <summary><c>FrameClusters.Of</c>, restated — the lookup a froxel finds its light list by.</summary>
+    static int ClusterOf(Vector3 positionVS, Vector2 tanHalfFov, float near, float far) {
+        const int TilesX = 16;
+        const int TilesY = 9;
+        const int Slices = 24;
+
+        var depth = MathF.Max(-positionVS.Z, 1e-6f);
+        var ndc = new Vector2(positionVS.X / (depth * tanHalfFov.X), positionVS.Y / (depth * tanHalfFov.Y));
+        var uv = Vector2.Clamp(ndc * 0.5f + new Vector2(0.5f), Vector2.Zero, Vector2.One);
+
+        var ratio = MathF.Log(MathF.Max(depth, near) / near) / MathF.Max(MathF.Log(far / near), 1e-6f);
+        var slice = Math.Clamp((int)(ratio * Slices), 0, Slices - 1);
+
+        var x = Math.Clamp((int)(uv.X * TilesX), 0, TilesX - 1);
+        var y = Math.Clamp((int)(uv.Y * TilesY), 0, TilesY - 1);
+
+        return x + (y * TilesX) + (slice * TilesX * TilesY);
+    }
+
+    /// <summary>
+    ///     A froxel's cluster comes from the <em>camera's</em> planes, and the fog's own would name a
+    ///     different one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The trap this pass is one line away from at all times.</b> The shader already holds
+    ///         a near and a far — <c>fogNear</c> and <c>fogFar</c>, the grid it owns — and the cluster
+    ///         lookup wants the two the <em>culler</em> cut its slices by, which are the camera's. Both
+    ///         pairs are floats called near and far, both produce a cluster index in range, and the
+    ///         wrong one reads a plausible list culled for somewhere else entirely.
+    ///     </para>
+    ///     <para>
+    ///         Asserted as a disagreement rather than against a table of expected indices, because what
+    ///         has to hold is that the two answers are not interchangeable — a test that pinned one
+    ///         number would pass just as well if both pairs happened to agree at the depth chosen.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_cluster_a_froxel_reads_is_cut_by_the_cameras_planes_and_not_the_fogs() {
+        var tangents = new Vector2(MathF.Tan(MathF.PI / 6f) * (16f / 9f), MathF.Tan(MathF.PI / 6f));
+
+        // Ten metres in front of the camera, off to one side — well inside both ranges.
+        var froxel = new Vector3(1.5f, -0.5f, -10f);
+
+        var correct = ClusterOf(froxel, tangents, 0.1f, 1000f);
+        var wrong = ClusterOf(froxel, tangents, 0.5f, 64f);
+
+        Assert.NotEqual(correct, wrong);
+
+        // And the disagreement is entirely in the slice: the tile is a projection and does not know
+        // about either pair, which is why the failure is invisible on screen and total in depth.
+        Assert.Equal(correct % (16 * 9), wrong % (16 * 9));
+    }
+
+    /// <summary>
+    ///     A lamp's contribution to a froxel is phase-weighted, and the phase carries no cosine.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <c>TerrainLit.Punctual</c> multiplies by <c>saturate(dot(n, l))</c> because a surface
+    ///     receives light across a tilted face. A froxel has no face — the same argument
+    ///     <c>SunVisibility</c> makes about passing <c>NdotL</c> as one — so what replaces the cosine
+    ///     is the phase function, which is a property of the medium rather than of a geometry the air
+    ///     does not have. The check is that the phase integrates to one over the sphere: a lamp gives
+    ///     the medium the same total energy whatever <c>phaseG</c> redistributes it to.
+    /// </remarks>
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(0.3f)]
+    [InlineData(0.7f)]
+    [InlineData(-0.4f)]
+    public void The_phase_a_lamp_is_weighted_by_integrates_to_one_over_the_sphere(float g) {
+        // WaterVolume.Phase — Henyey–Greenstein, the same eight lines the sun's term uses.
+        static float Phase(float cosTheta, float anisotropy) {
+            var squared = anisotropy * anisotropy;
+            var denominator = 1f + squared - (2f * anisotropy * cosTheta);
+
+            return (1f - squared) / (4f * MathF.PI * MathF.Max(MathF.Pow(denominator, 1.5f), 1e-6f));
+        }
+
+        // ∫ p(cosθ) dΩ = 2π ∫ p(μ) dμ over μ ∈ [−1, 1], by the midpoint rule.
+        const int Steps = 20000;
+
+        var total = 0f;
+
+        for (var i = 0; i < Steps; i++) {
+            total += Phase((((i + 0.5f) / Steps) * 2f) - 1f, g) * (2f / Steps);
+        }
+
+        Assert.Equal(1f, total * 2f * MathF.PI, 3);
+    }
+
+    /// <summary>
+    ///     With nothing published, the fog is unclustered and both light slots carry the stand-in.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the ordinary frame, not the degenerate one.</b> The Standard Frame emits no
+    ///     cluster node, so the absent case is the one almost every document takes — and it still has
+    ///     to write a complete set, because a permutation does not fold a binding away. The assertion
+    ///     that both slots hold the <em>same</em> handle is what pins the stand-in as one buffer
+    ///     rather than a pair that would have to be kept in step.
+    /// </remarks>
+    [Fact]
+    public void A_frame_that_culled_nothing_binds_the_stand_in_into_both_light_slots() {
+        using var h = Build();
+        Frame(h);
+
+        Assert.False(h.Fog.Clustered);
+
+        foreach (var step in new[] { h.Fog.Steps[1], h.Fog.Steps[2] }) {
+            Assert.False(step.Parameters.Get(VolumetricFogKeys.UseClusteredLights));
+
+            var lights = Binding(step, VolumetricFogKeys.LightBufferBinding);
+            var lists = Binding(step, VolumetricFogKeys.ClustersBinding);
+
+            Assert.True(lights.Buffer.IsValid);
+            Assert.Equal(lights.Buffer, lists.Buffer);
+        }
+    }
+
+    /// <summary>Both published buffers turn it on, and either one alone does not.</summary>
+    /// <remarks>
+    ///     ⚠ Both halves, because they are published by different things: the light list by the
+    ///     lighting feature and the cluster lists by the shading pass's own <c>SceneBuffers</c> line.
+    ///     A frame with a light list and no lists would index a cluster nothing filled, which is not a
+    ///     dimmer picture — it is thirty-two arbitrary indices into a real buffer.
+    /// </remarks>
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, false)]
+    public void Clustering_is_detected_from_both_published_buffers(bool lights, bool lists, bool expected) {
+        using var h = Build();
+
+        var light = device.CreateBuffer(new(1024, BufferUsage.Storage, MemoryAccess.DeviceLocal, "Lights"));
+        var cluster = device.CreateBuffer(new(1024, BufferUsage.Storage, MemoryAccess.DeviceLocal, "Clusters"));
+
+        if (lights) {
+            h.Frame.Parameters.Set(ParameterKeys.New<BufferHandle>("ForwardPlus.lightBuffer"), light);
+        }
+
+        if (lists) {
+            h.Frame.Parameters.Set(ParameterKeys.New<BufferHandle>("ForwardPlus.clusters"), cluster);
+        }
+
+        Frame(h);
+
+        Assert.Equal(expected, h.Fog.Clustered);
+        Assert.Equal(expected, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.UseClusteredLights));
+
+        if (expected) {
+            Assert.Equal(light, Binding(h.Fog.Steps[1], VolumetricFogKeys.LightBufferBinding).Buffer);
+            Assert.Equal(cluster, Binding(h.Fog.Steps[1], VolumetricFogKeys.ClustersBinding).Buffer);
+        }
+
+        device.Destroy(light);
+        device.Destroy(cluster);
+    }
+
+    /// <summary>
+    ///     The cluster range reaching the shader is the camera's, and the fog's own is a different
+    ///     pair.
+    /// </summary>
+    /// <remarks>
+    ///     The host half of the arithmetic above. Both numbers are on this node — <c>Near</c> and
+    ///     <c>Far</c> are the froxel grid's — so the two pairs are one substitution apart at the call
+    ///     site as well as in the shader.
+    /// </remarks>
+    [Fact]
+    public void The_cluster_planes_are_the_cameras_and_the_grids_are_the_fogs() {
+        using var h = Build();
+        Frame(h);
+
+        var step = h.Fog.Steps[1];
+
+        Assert.Equal(0.1f, step.Parameters.Get(VolumetricFogKeys.ClusterNear), 5);
+        Assert.Equal(1000f, step.Parameters.Get(VolumetricFogKeys.ClusterFar), 5);
+        Assert.Equal(0.5f, step.Parameters.Get(VolumetricFogKeys.FogNear), 5);
+        Assert.Equal(64f, step.Parameters.Get(VolumetricFogKeys.FogFar), 5);
+    }
+
+    // --- The volume's own temporal work ----------------------------------------
+
+    /// <summary>
+    ///     The reprojection's slice coordinate lands exactly on the texel a froxel was written to.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half-texel question, answered rather than assumed.</b> A froxel's radiance is
+    ///         stored at texel <c>z</c>, whose centre is at <c>(z + 0.5) / GridZ</c> in texture
+    ///         coordinates — and the depth it was <em>evaluated</em> at is
+    ///         <c>CentreDepth(z)</c>, the geometric midpoint. So the question is whether
+    ///         <c>SliceOf(CentreDepth(z)) / GridZ</c> is that texel centre or half a texel off it. If
+    ///         it were off, every reprojected read would blend two slices that are not the one being
+    ///         written, and the volume would very gradually smear itself along its own depth axis —
+    ///         which reads as haze, not as a bug.
+    ///     </para>
+    ///     <para>
+    ///         It lands exactly, because <c>CentreDepth</c>'s half-power and <c>SliceOf</c>'s
+    ///         logarithm are inverses. That is a fact about those two functions and not a coincidence
+    ///         about the numbers, but it is one line from being untrue in either of them.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(31)]
+    [InlineData(63)]
+    public void The_reprojected_slice_lands_on_the_texel_the_froxel_was_written_to(int z) {
+        const int Slices = 64;
+        const float Near = 0.5f;
+        const float Far = 64f;
+
+        // FroxelGrid.CentreDepth at zero jitter — the geometric midpoint of slice z.
+        var depth = SliceDepth(z, Slices, Near, Far) * MathF.Pow(Far / Near, 0.5f / Slices);
+
+        // FroxelGrid.SliceOf, divided by the slice count, which is what Reprojected uses for w.
+        var ratio = MathF.Log(MathF.Max(depth, Near) / Near) / MathF.Max(MathF.Log(Far / Near), 1e-6f);
+
+        Assert.Equal((z + 0.5f) / Slices, ratio, 5);
+    }
+
+    /// <summary>The jitter is centred on the froxel and never leaves it.</summary>
+    /// <remarks>
+    ///     ⚠ Centred, so that the average of the sequence is the froxel's own centre — an offset
+    ///     sequence biased to one side would converge on a grid shifted half a froxel from the one the
+    ///     composite reads. And bounded by ±½ so a sample never lands in the neighbour's cell, which
+    ///     would be averaging two froxels rather than sampling one more finely.
+    /// </remarks>
+    [Fact]
+    public void The_jitter_is_centred_on_the_froxel_and_stays_inside_it() {
+        const int Samples = 1024;
+
+        var sum = Vector3.Zero;
+
+        for (var i = 0; i < Samples; i++) {
+            var offset = VolumetricFogRenderer.Jitter(i);
+
+            Assert.InRange(offset.X, -0.5f, 0.5f);
+            Assert.InRange(offset.Y, -0.5f, 0.5f);
+            Assert.InRange(offset.Z, -0.5f, 0.5f);
+
+            sum += offset;
+        }
+
+        // ⚠ Over a long run rather than over the first handful. A Halton prefix is only balanced at
+        // the lengths its radix divides — the base-5 axis is visibly off centre at 64 terms and
+        // converges from there — so a short window here would be asserting the radix rather than the
+        // centring. What has to hold is that the sequence has no bias, which is a limit.
+        Assert.Equal(0f, sum.X / Samples, 2);
+        Assert.Equal(0f, sum.Y / Samples, 2);
+        Assert.Equal(0f, sum.Z / Samples, 2);
+    }
+
+    /// <summary>The injection and the lighting pass sample the same point, and it moves each frame.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves.</b> Equal, because a density written for one point in a froxel and lit at
+    ///     another is <c>FroxelGrid.Centre</c>'s own recorded failure — and the averaging would then
+    ///     bake it in rather than reveal it. Different frame to frame, because an offset that never
+    ///     moves is a grid shifted off centre rather than a finer one.
+    /// </remarks>
+    [Fact]
+    public void Both_dispatches_are_handed_one_offset_and_it_moves() {
+        using var h = Build();
+
+        Frame(h);
+
+        var first = h.Fog.Steps[0].Parameters.Get(VolumetricFogInjectKeys.Jitter);
+
+        Assert.Equal(first, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Jitter));
+
+        Frame(h);
+
+        var second = h.Fog.Steps[0].Parameters.Get(VolumetricFogInjectKeys.Jitter);
+
+        Assert.Equal(second, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Jitter));
+        Assert.NotEqual(first, second);
+    }
+
+    /// <summary>
+    ///     The first frame blends nothing, and the second blends at the authored feedback.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Zero and not "a small amount". The pair is freshly allocated memory, and
+    ///     <c>lerp</c> against whatever was in it at a weight of zero is still that value if it happens
+    ///     to be a NaN — which is why the shader branches on the weight rather than trusting the
+    ///     arithmetic. This is the host half of that contract.
+    /// </remarks>
+    [Fact]
+    public void The_first_frame_has_no_history_and_the_second_one_does() {
+        using var h = Build();
+
+        Frame(h);
+
+        Assert.True(h.Fog.Reprojects);
+        Assert.Equal(0f, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.HistoryBlend), 5);
+
+        Frame(h);
+
+        Assert.True(h.Fog.HasHistory);
+        Assert.Equal(h.Fog.Feedback, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.HistoryBlend), 5);
+    }
+
+    /// <summary>Two volumes, alternating, and the march is not part of it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two and not three, and imported rather than declared.</b> A resource the graph
+    ///         declares lives for one frame and goes back to the pool, so a history the graph owned
+    ///         would be aliased over something in the frame that reads it — which is the finding
+    ///         <c>AutoExposureRenderer</c> records about its own buffer. Alternation is the only place
+    ///         that is visible, because both are published under the same two names every frame.
+    ///     </para>
+    ///     <para>
+    ///         The march's half is the other claim: it reprojects nothing, because it runs over a
+    ///         volume the blend already averaged.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_two_volumes_alternate_and_the_march_reprojects_nothing() {
+        using var h = Build();
+
+        Frame(h);
+
+        var first = h.Fog.ScatteringHistory;
+        var second = h.Fog.ScatteringTarget;
+
+        Assert.True(first.IsValid);
+        Assert.NotEqual(first, second);
+
+        Assert.True(h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Reproject));
+        Assert.False(h.Fog.Steps[2].Parameters.Get(VolumetricFogKeys.Reproject));
+
+        Frame(h);
+
+        Assert.Equal(first, h.Fog.ScatteringTarget);
+        Assert.Equal(second, h.Fog.ScatteringHistory);
+    }
+
+    /// <summary>
+    ///     A document that names the scattering volume itself gets no reprojection, and no jitter with
+    ///     it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The jitter half is the one that would be easy to lose.</b> An offset sample is only
+    ///     detail if something averages the offsets back out; without a history it is the same coarse
+    ///     grid asking a different wrong question every frame, which is the crawl this feature exists
+    ///     to remove rather than a cheaper way of removing it. So the two switch off together.
+    /// </remarks>
+    [Fact]
+    public void A_document_that_declares_the_volume_itself_gets_neither_history_nor_jitter() {
+        using var h = Build(declared: true);
+
+        Frame(h);
+
+        Assert.False(h.Fog.Reprojects);
+        Assert.False(h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Reproject));
+        Assert.Equal(Vector3.Zero, h.Fog.Steps[0].Parameters.Get(VolumetricFogInjectKeys.Jitter));
+        Assert.Equal(Vector3.Zero, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Jitter));
+    }
+
+    /// <summary>A frame with no shadow atlas builds, dispatches, and marches unshadowed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This path had never run anywhere, and it did not work.</b> Every tier that fills a
+    ///         volume also shadows it, so <c>Shadowed == false</c> was reachable only through a
+    ///         hand-authored document nobody had authored — and the first thing that took it threw
+    ///         out of <c>RenderGraph.Compile</c>: the march declares a read of whatever fills the
+    ///         shadow slot, and the stand-in was a texture the graph created and no pass wrote.
+    ///         "The contents it would read are whatever was in that memory last frame" is exactly the
+    ///         right refusal and exactly what a placeholder is, so the stand-in became an import this
+    ///         node owns.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through a whole frame rather than on the node's fields, because the fields
+    ///         were never the part that was broken.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_frame_with_no_atlas_marches_the_volume_unshadowed() {
+        using var h = Build();
+        Frame(h);
+
+        Assert.False(h.Fog.Shadowed);
+
+        foreach (var step in new[] { h.Fog.Steps[1], h.Fog.Steps[2] }) {
+            Assert.False(step.Parameters.Get(VolumetricFogKeys.Shadowed));
+            Assert.Equal(h.Fog.ShadowStandIn, Binding(step, VolumetricFogKeys.ShadowMapBinding).Resource);
+        }
+
+        // The three dispatches all ran: the injection, the lighting and the march.
+        Assert.Equal(3, device.Recorder!.CountOf(RecordedCommandKind.Dispatch));
+    }
+
+    static ResourceBinding Binding(ComputeRenderer step, uint binding) =>
+        Assert.Single(step.Descriptors.Bindings, entry => entry.Binding == binding);
+
+    sealed class Harness : IDisposable {
+        public required RenderSystem System { get; init; }
+
+        public required GraphicsCompositor Compositor { get; init; }
+
+        public required RenderGraph Graph { get; init; }
+
+        public required VolumetricFogRenderer Fog { get; init; }
+
+        public required SceneConstants Frame { get; init; }
+
+        public void Dispose() {
+            Fog.Dispose();
+            Frame.Dispose();
+            Graph.DisposePool();
+            System.Dispose();
+        }
+    }
+
+    Harness Build(bool declared = false) {
+        var size = new Int2(320, 180);
+        var system = new RenderSystem();
+        var constants = new SceneConstants(device, "Scene");
+
+        var view = new RenderView("Main") { Camera = RenderCamera.Default };
+
+        var fog = new VolumetricFogRenderer {
+            Name = "Volumetrics",
+            View = view,
+            Frame = constants,
+            Samplers = samplers,
+            Pipelines = pipelines,
+            Allocator = allocator,
+            Device = device
+        };
+
+        var compositor = new GraphicsCompositor(system) { FrameSize = size };
+        compositor.Game = fog;
+
+        // ⚠ The marched volume stands in for the composite that would read it. Without a consumer the
+        // graph culls the march — correctly, it writes a transient nothing reads — and the fixture
+        // would then be asserting two dispatches while believing it had asserted three.
+        compositor.Imports[fog.Volume] = Volume(fog.Volume, fog.Resolution);
+
+        // A hand-authored document re-pointing the scattering volume at a resource of its own, which
+        // is what `GraphicsCompositor`'s rule about a declaration an import already covers looks like
+        // from the node's side.
+        if (declared) {
+            compositor.Imports[fog.Scattered] = Volume(fog.Scattered, fog.Resolution);
+        }
+
+        return new() {
+            System = system,
+            Compositor = compositor,
+            Graph = new(device),
+            Fog = fog,
+            Frame = constants
+        };
+    }
+
+    ImportedTexture Volume(string name, Int3 size) {
+        var description = new TextureDescription(
+            PixelFormat.Rgba16Float,
+            size.X,
+            size.Y,
+            TextureUsage.Storage | TextureUsage.Sampled,
+            size.Z,
+            Dimension: TextureDimension.Texture3D,
+            Name: name
+        );
+
+        var texture = device.CreateTexture(description);
+
+        return new(texture, device.CreateTextureView(texture), description);
+    }
+
+    /// <summary>An effect for whatever is asked for, with the layout its shader declared.</summary>
+    /// <remarks>
+    ///     Copied rather than shared with <c>AutoExposureTests</c>, which is what that fixture already
+    ///     records about <c>BloomTests</c>: it is five lines of stub, and a fixture reaching into
+    ///     another fixture makes one test class's private shape part of another's contract.
+    /// </remarks>
+    static Effect Compiled(EffectKey key, DescriptorSetLayoutHandle layout) =>
+        new() {
+            Key = key,
+            Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
+            SetLayouts = [default, default, layout, default],
+            ConstantBufferSize = 512
+        };
+
+    sealed class AlwaysCompiles(Dictionary<string, DescriptorSetLayoutHandle> layouts) : IEffectProvider {
+        public Effect? TryGet(EffectKey key) =>
+            Compiled(key, layouts.TryGetValue(key.ShaderName, out var layout) ? layout : default);
+    }
+
+    void Frame(Harness h) {
+        var list = device.BeginCommandList();
+
+        allocator.BeginFrame();
+        h.Graph.Reset();
+        h.Compositor.Build(h.Graph, effects, device);
+        h.Graph.Execute(list);
+
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
     }
 }

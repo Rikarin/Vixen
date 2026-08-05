@@ -214,8 +214,19 @@ public sealed record PostFidelityQuality {
 
     /// <summary>How many depth slices the froxel grid has — <see cref="VolumetricFogAsset.Slices" />.</summary>
     /// <remarks>
-    ///     The knob that decides whether a shadow edge crossing the volume reads as an edge or as a
-    ///     staircase, and the one that costs the most: the march is serial in this.
+    ///     <para>
+    ///         The knob that decides whether a shadow edge crossing the volume reads as an edge or as a
+    ///         staircase, and the one that costs the most: the march is serial in this.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The only grid axis a tier moves, and the arithmetic says it should stay that
+    ///         way.</b> A froxel at view depth <c>d</c> is <c>d · 2·tan(fovX/2) / 160</c> wide and
+    ///         <c>d · ((far/near)^(1/slices) − 1)</c> deep. At 91° horizontal that is 0.013 d against
+    ///         0.079 d at 64 slices, 0.042 d at 128, and 0.153 d at 32 — so the depth axis is between
+    ///         three and twelve times the coarser one at every tier this ships, and it is where a
+    ///         staircase comes from. Tiering the screen axes instead would sharpen what is already
+    ///         fine, and now costs four volumes rather than three because the scattering one is a pair.
+    ///     </para>
     /// </remarks>
     public int? VolumetricSlices { get; init; }
 

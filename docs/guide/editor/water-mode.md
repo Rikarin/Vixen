@@ -4,7 +4,7 @@ slug: editor/water-mode
 kind: guide
 area: Editor
 summary: One mode and three verbs — draw a body's curve on the ground, drag its profile handles, and preview what its carve did to the terrain — plus the zone panel that turns a resolution into metres.
-api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics]
+api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics, T:Vixen.Editor.Assets.Water.WaterWavesImporter, T:Vixen.Editor.Assets.Water.WaterWavesImportSettings]
 tags: [editor, water, mode, river, lake, undo]
 since: 0.1
 status: preview
@@ -86,11 +86,21 @@ The derived half is the point of it. A resolution is meaningless and a metre per
 
 | Readout | Why it is there |
 |---|---|
+| Sea state | Which spectrum this zone actually draws — the named `.vxwaves` or the panel's own |
 | Metres per texel | Whether a shoreline can be resolved at all — a two-metre falloff at two metres a texel is neither a ramp nor a cut |
 | Info texture | What a resolution costs, in megabytes, before somebody types one |
 | Vertices, full window | What the surface mesh draws at its finest, which is one vertex per texel by construction |
 | Height quantum | What half precision does to a horizon, stated in centimetres rather than left to be discovered as a stepped sea |
 | Maximum amplitude | It decides the node error metric, the far-mesh cut *and* the collision bounds |
+
+⚠ **Naming a `.vxwaves` does not grey out the four sea-state fields below it.** The inline spectrum
+is what the zone falls back to while the asset loads and what it keeps if the name is wrong, so a
+panel that hid it would be hiding the sea that is actually on screen. `stat water`'s `no waves` row —
+in *warning* rather than in red, because that water is drawing — is what says which one won.
+
+⚠ **Create ▸ Sea state writes the panel's current spectrum, not the default one.** An author who has
+spent a minute finding a sea they like and then presses it means *that* sea; a template that threw it
+away would make the shared asset the slower route to the thing they already had.
 
 ⚠ **The arithmetic is the kernel's.** `WaterZone.MetresPerTexel`, `Bytes` and `HeightQuantum` are the
 same properties the renderer sizes its texture from, and `Validate` is the same rule it refuses by —
@@ -122,9 +132,24 @@ first-party debug tooling in any engine, and there is no credit in inventing wor
 an unresolved one is an asset name or an asset that has not loaded. One number for both sends an
 author to the wrong place.
 
-⚠ **The six `show` verbs are flags and the drawing they switch on is not built.** They cost a branch;
-what would read them is a viewport line pass water has no seam into yet. Shipping the switches with
-nothing behind them would be worse than shipping neither, so this says so.
+The six `show` verbs draw through `DebugDraw`, which turned out to be the seam water was said to be
+missing: it is an *accumulator* rather than a renderer, so `Vixen.Rendering.Water` draws into it
+without knowing what a line pass is.
+
+⚠ **Five of the six are `WaterDebugDraw`'s and the sixth is `BuoyancyDebugDraw`'s.** The pontoons and
+the forces belong to `Vixen.Water.Physics`, which the renderer must not reference — § D1 puts the
+physics join in its own assembly precisely so that nothing linking Jolt is linked by a renderer. The
+flag is with the console verb; the drawing is with the data, and a host copies one across.
+
+⚠ **`showTiles` colours a patch by what is under it, using the contribution and not the containment
+test.** `WaterBody.Contains` is an even-odd test on a closed boundary and answers *false* for every
+open body — so a colour rule written on it paints every river as open sea, which is precisely the case
+the verb exists for.
+
+⚠ **`showLod` draws two rings per level and not one.** A level's range is where it takes over; its
+morph band is where it has already begun degenerating onto its parent's grid. A pop at the outer ring
+is a range that is too near; one inside the band is a morph that is not reaching zero, and they have
+different fixes.
 
 ## Examples
 

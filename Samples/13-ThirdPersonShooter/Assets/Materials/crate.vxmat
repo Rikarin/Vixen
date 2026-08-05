@@ -14,6 +14,24 @@ features:
     roughness: 0.82
     baseColorMap: baseColorMap
 
+  # The plank seams, which is the whole of what a crate's normal map is for: the geometry is a box
+  # and the map is the only thing that says it is made of boards.
+  - !TexturedNormalMap
+    normalMap: normalMap
+    strength: 1
+
+  # crate-orm's green is 0.62…0.87 around the 0.82 authored above, so the knots read as slightly
+  # glossier than the grain — which is what a knot in varnished timber does.
+  - !TexturedOrm
+    ormMap: ormMap
+    occlusionStrength: 1
+    roughness: 1
+    metalness: 1
+
 textures:
   - parameter: baseColorMap
     texture: vx:3a607ea677194091bb56deab8c7ace25
+  - parameter: normalMap
+    texture: vx:88e0e514dc944772bf20f75f28802c92
+  - parameter: ormMap
+    texture: vx:b2d3b18039c445b1831066b5208ed74e

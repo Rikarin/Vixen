@@ -119,7 +119,17 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
 
         try {
             var seed = Corpus.Fingerprint(Encoding.UTF8.GetBytes(name));
-            var session = new FuzzSession(target, seed) { RegressionDirectory = Regressions };
+
+            var session = new FuzzSession(target, seed) {
+                RegressionDirectory = Regressions,
+
+                // The same directory Keep writes to, given to the session as well, because the one
+                // finding Keep can never write is the one that stops this method returning — a case
+                // that does not come back. The guard writes that one from its own thread while the
+                // case is still running.
+                FindingDirectory = Findings
+            };
+
             var seconds = Seconds;
             var outcome = seconds is null ? session.Run(cases) : session.RunFor(seconds.Value);
 
@@ -242,23 +252,6 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
             + "Install spirv-tools (brew install spirv-tools, or apt-get install spirv-tools)."
         );
 
-    /// <summary>The validity oracle is switched off, and this is the note saying so out loud.</summary>
-    /// <remarks>
-    ///     ⚠ <b>It works, and it is off because of what it found.</b> Two one-token edits of
-    ///     <c>Example2.rvn</c> compile with no diagnostic at all and emit modules a driver would
-    ///     reject — a <c>bool</c> where SPIR-V forbids one, and an <c>OpConstantNull</c> of
-    ///     <c>void</c>. Both are committed under <c>Corpus/raven</c> and both replay the moment
-    ///     <c>VIXEN_FUZZ_SPIRV</c> is set. This test is here so that "off" is a fact somebody reads
-    ///     rather than a silence, and it is <b>meant to be deleted</b> along with
-    ///     <see cref="Spirv.Enabled" /> when the two are fixed.
-    /// </remarks>
-    [Fact]
-    public void TheValidityOracleIsQuarantinedNotForgotten() =>
-        Assert.SkipWhen(
-            Spirv.Enabled,
-            "VIXEN_FUZZ_SPIRV is set, so modules are being validated — delete this test and the switch."
-        );
-
     /// <summary>Every registered target has a case budget somebody chose.</summary>
     /// <remarks>
     ///     The other half of running every target: one that runs on a default budget is one nobody
@@ -315,12 +308,14 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
             return;
         }
 
-        var directory = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "fuzz-findings");
-
         foreach (var finding in outcome.Findings) {
-            Corpus.WriteRegression(directory, finding.Target, finding.Input);
+            Corpus.WriteRegression(Findings, finding.Target, finding.Input);
         }
     }
+
+    /// <summary>Where the inputs that broke something go, for the workflow to upload.</summary>
+    static string Findings =>
+        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "fuzz-findings");
 
     /// <summary>Where the committed crashers live, next to this test.</summary>
     static string Regressions => Path.Combine(AppContext.BaseDirectory, "Corpus");

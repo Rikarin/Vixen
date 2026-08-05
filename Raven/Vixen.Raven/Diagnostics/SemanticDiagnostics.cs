@@ -1167,4 +1167,69 @@ public static class SemanticDiagnostics {
         Shader,
         DiagnosticSeverity.Error
     );
+
+    // --- Bindings that a storage class cannot hold -------------------------
+
+    /// <summary>A binding whose type contains a <c>bool</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>SPIR-V forbids it outright</strong>: <c>OpTypeBool</c> is only legal in the
+    ///         storage classes that are not externally visible — <c>Workgroup</c>, <c>Private</c>,
+    ///         <c>Function</c>, <c>Input</c>, <c>Output</c> and the ray-tracing payloads — and a
+    ///         binding is in <c>Uniform</c>, <c>StorageBuffer</c> or <c>PushConstant</c>. The reason
+    ///         is the same one <c>StageInterface.CanCarry</c> refuses a boolean varying for:
+    ///         a bool has no size a host can write, because how many bytes it occupies and which of
+    ///         them mean true is the implementation's business and not the module's.
+    ///     </para>
+    ///     <para>
+    ///         Refused rather than widened to a <c>uint</c>, which is what HLSL and GLSL do. Widening
+    ///         is not a lowering detail here — it is a host-side ABI rule, because the engine writes
+    ///         these buffers from the reflection and would have to be told that this member is four
+    ///         bytes holding 0 or 1 rather than the <c>bool</c> the shader declares. Nothing wanted
+    ///         it: every <c>bool</c> at shader scope in the shipped library is a
+    ///         <c>[Permutation]</c> key, which is the honest spelling of a flag that is constant for
+    ///         a draw, and a flag that really does vary per draw is a <c>uint</c> the author can see
+    ///         the width of.
+    ///     </para>
+    ///     <para>
+    ///         Reported at the declaration on the <c>RVN2126</c> principle — the declaration is what
+    ///         has to change, and there are exactly two ways to change it.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor BindingCannotBeBoolean = new(
+        "RVN2137",
+        "Binding cannot contain a boolean",
+        "'{0}' is a binding of type '{1}', and a boolean has no representation a host can write: "
+        + "SPIR-V allows 'bool' only in storage classes that are not externally visible. Mark it "
+        + "'[Permutation]' if it is constant for a draw, or declare it 'uint'",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    // --- Attributes --------------------------------------------------------
+
+    /// <summary>An attribute whose name is not one the compiler reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         On the <c>RVN2091</c> policy, and it is the member of that family with the sharpest
+    ///         teeth. An attribute Raven does not know is dropped in silence, and dropping one
+    ///         <em>changes what the declaration means</em> rather than merely failing to add to it:
+    ///         a <c>[Permutaton]</c> with a letter missing stops being a compile-time key and becomes
+    ///         an ordinary uniform, so a branch the author expected to be eliminated is now
+    ///         predicated on host data, and every variant of the shader collapses into one.
+    ///     </para>
+    ///     <para>
+    ///         A warning rather than an error because Raven's attributes are pure syntax — they are
+    ///         read off the tree by name and never resolved to a symbol, so there is no declaration
+    ///         an author could add to make an unknown one legal, and nothing else in the file
+    ///         depends on it. The name is what has to change, which is what a warning says.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor AttributeNotRecognised = new(
+        "RVN2138",
+        "Attribute is not recognised",
+        "'{0}' is not an attribute Raven reads, so it is ignored. One of: {1}",
+        Declaration,
+        DiagnosticSeverity.Warning
+    );
 }

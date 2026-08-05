@@ -435,6 +435,7 @@ sealed class VegetationPresenter : IDisposable {
             // wind did not survive the trip, so the preview takes a new rule's defaults for both.
             var type = GrassType.Of(entry.Name) with {
                 Mesh = entry.Mesh,
+                Albedo = entry.Albedo,
                 Layer = entry.LayerFilter,
                 MinWeight = entry.LayerThreshold,
                 MaxWeight = MathF.Max(entry.LayerThreshold, 1f),

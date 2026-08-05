@@ -137,9 +137,25 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.05"
+            },
+            {
+              "Name": "jitter",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 128,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
-          "Size": 128,
+          "Size": 144,
           "IsWritable": false
         },
         {
@@ -354,6 +370,24 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "0.05"
+    },
+    {
+      "Name": "jitter",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 128,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
     }
   ],
   "RequiredCapabilities": [

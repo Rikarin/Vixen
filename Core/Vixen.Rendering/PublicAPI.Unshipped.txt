@@ -475,6 +475,8 @@ Vixen.Rendering.Compositor.FullScreenRenderer.Device.get -> Vixen.Graphics.IGrap
 Vixen.Rendering.Compositor.FullScreenRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.FullScreenRenderer.Dispose() -> void
 Vixen.Rendering.Compositor.FullScreenRenderer.FullScreenRenderer() -> void
+Vixen.Rendering.Compositor.FullScreenRenderer.Instances.get -> int
+Vixen.Rendering.Compositor.FullScreenRenderer.Instances.set -> int
 Vixen.Rendering.Compositor.FullScreenRenderer.Load.get -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.FullScreenRenderer.Load.set -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.FullScreenRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
@@ -489,6 +491,8 @@ Vixen.Rendering.Compositor.FullScreenRenderer.Samplers.set -> Vixen.Rendering.Sa
 Vixen.Rendering.Compositor.FullScreenRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.FullScreenRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.FullScreenRenderer.UploadCount.get -> int
+Vixen.Rendering.Compositor.FullScreenRenderer.Vertices.get -> int
+Vixen.Rendering.Compositor.FullScreenRenderer.Vertices.set -> int
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.get -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.set -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.GlobalDistanceFieldAsset -> sealed record
@@ -909,6 +913,8 @@ Vixen.Rendering.Compositor.RenderStageAsset.SortMode.init -> Vixen.Rendering.Ren
 Vixen.Rendering.Compositor.ResourceBinding -> sealed class
 Vixen.Rendering.Compositor.ResourceBinding.Binding.get -> uint
 Vixen.Rendering.Compositor.ResourceBinding.Binding.init -> uint
+Vixen.Rendering.Compositor.ResourceBinding.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Compositor.ResourceBinding.Buffer.init -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.Compositor.ResourceBinding.Kind.get -> Vixen.Graphics.DescriptorKind
 Vixen.Rendering.Compositor.ResourceBinding.Kind.init -> Vixen.Graphics.DescriptorKind
 Vixen.Rendering.Compositor.ResourceBinding.Name.get -> string?
@@ -1782,6 +1788,7 @@ Vixen.Rendering.Features.MaterialRenderFeature.SortGroupOf(Vixen.Rendering.Rende
 Vixen.Rendering.Features.MaterialRenderFeature.TextureIndices.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.ParameterKey<uint>, Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>>
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.get -> Vixen.Graphics.BindlessTable?
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.set -> Vixen.Graphics.BindlessTable?
+Vixen.Rendering.Features.MaterialRenderFeature.UnresolvedTextureCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UploadCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UploadedRecordCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UseRecords.get -> bool
@@ -3350,6 +3357,30 @@ Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.get -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.init -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.TexturedMetalRoughnessFeature() -> void
+Vixen.Rendering.Materials.TexturedNormalMapFeature -> sealed record
+Vixen.Rendering.Materials.TexturedNormalMapFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedNormalMapFeature>
+Vixen.Rendering.Materials.TexturedNormalMapFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedNormalMapFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalMap.get -> string
+Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalMap.init -> string
+Vixen.Rendering.Materials.TexturedNormalMapFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.get -> float
+Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.init -> float
+Vixen.Rendering.Materials.TexturedNormalMapFeature.TexturedNormalMapFeature() -> void
+Vixen.Rendering.Materials.TexturedOrmFeature -> sealed record
+Vixen.Rendering.Materials.TexturedOrmFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedOrmFeature>
+Vixen.Rendering.Materials.TexturedOrmFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedOrmFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedOrmFeature.Metalness.get -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.Metalness.init -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.OcclusionStrength.get -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.OcclusionStrength.init -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.OrmMap.get -> string
+Vixen.Rendering.Materials.TexturedOrmFeature.OrmMap.init -> string
+Vixen.Rendering.Materials.TexturedOrmFeature.Roughness.get -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.Roughness.init -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedOrmFeature.TexturedOrmFeature() -> void
 Vixen.Rendering.MemoryMeshletPageSource -> sealed class
 Vixen.Rendering.MemoryMeshletPageSource : Vixen.Rendering.IMeshletPageSource
 Vixen.Rendering.MemoryMeshletPageSource.Add(int source, Vixen.Rendering.VirtualGeometry.MeshletPageSet pages) -> void
@@ -6207,6 +6238,8 @@ static Vixen.Rendering.Materials.MaterialSurface.Default.get -> Vixen.Rendering.
 static Vixen.Rendering.Materials.MaterialSurface.Of(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.IMaterialFeature>? features) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.MaterialSurface.Of(Vixen.Rendering.Materials.MaterialContent? content) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorIndexParameter(string path) -> string
+static Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalIndexParameter(string path) -> string
+static Vixen.Rendering.Materials.TexturedOrmFeature.OrmIndexParameter(string path) -> string
 static Vixen.Rendering.MeshInstance.NormalMatrix(in Vixen.Core.Mathematics.Matrix4x4 transform) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4), Vixen.Rendering.Materials.MaterialSurface? surface = null, float checker = 0, float tint = 0) -> Vixen.Rendering.MeshInstance
 static Vixen.Rendering.MeshInstance.Packed(Vixen.Rendering.Materials.MaterialSurface surface, float checker = 0, float tint = 0) -> Vixen.Core.Mathematics.Vector4

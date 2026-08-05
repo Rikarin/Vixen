@@ -122,6 +122,31 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
     /// <summary>How many frames have declared the pass.</summary>
     public int BuildCount { get; private set; }
 
+    /// <summary>What one zone drew last frame, for a debug overlay to walk.</summary>
+    /// <param name="Entity">Which zone.</param>
+    /// <param name="Mesh">Its quadtree, which is what turns a node into world coordinates.</param>
+    /// <param name="Pass">The draw, whose <see cref="WaterSurfacePass.Selected" /> is the patches.</param>
+    /// <remarks>
+    ///     ⚠ <b>The frame's own selection, not a second one.</b> A debug draw that descended the
+    ///     quadtree again would be drawing its own answer — which agrees with the frame's until the
+    ///     moment it stops, and that moment is exactly the bug somebody turned the overlay on to find.
+    /// </remarks>
+    public readonly record struct WaterZoneDraw(Entity Entity, WaterSurfaceMesh Mesh, WaterSurfacePass Pass);
+
+    /// <summary>What each zone drew last frame.</summary>
+    /// <remarks>
+    ///     Published for <c>water.showTiles</c>, <c>water.showLod</c> and <c>water.showFlow</c>. It is
+    ///     whatever the last <see cref="Build" /> left behind, which for a frame that built nothing —
+    ///     no device, no zones — is empty rather than stale.
+    /// </remarks>
+    public IEnumerable<WaterZoneDraw> Draws {
+        get {
+            foreach (var (entity, zone) in drawn) {
+                yield return new(entity, zone.Mesh, zone.Pass);
+            }
+        }
+    }
+
     /// <summary>What one zone needs on the device.</summary>
     sealed record Zone(
         WaterInfoTexture Info,

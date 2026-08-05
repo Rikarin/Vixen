@@ -63,9 +63,26 @@ public sealed class WaterZoneSettings {
     [Range(0f, 64f)]
     public float CoarsestTexel { get; set; }
 
-    /// <summary>How hard the wind blows, in metres a second.</summary>
+    /// <summary>Which <c>.vxwaves</c> the sea state comes from, or empty for the one below.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Naming one does not grey out the four fields under it, and that is deliberate.</b>
+    ///         The inline spectrum is what the zone falls back to while the asset is loading and what
+    ///         it keeps if the name is wrong — see <see cref="WaterZoneComponent.WaveAsset" /> — so a
+    ///         panel that hid it would be hiding the sea that is actually on screen. What says which
+    ///         one won is the <c>no waves</c> row of <c>stat water</c>.
+    ///     </para>
+    ///     <para>
+    ///         A name and not a path: it is the asset's own <see cref="WaterWavesAsset.Name" />, which
+    ///         an importer defaults to the file's stem.
+    ///     </para>
+    /// </remarks>
     [Inspector]
     [Header("Sea state")]
+    public string WaveAsset { get; set; } = string.Empty;
+
+    /// <summary>How hard the wind blows, in metres a second.</summary>
+    [Inspector]
     [Range(0f, 40f)]
     public float WindSpeed { get; set; } = 8f;
 
@@ -122,8 +139,19 @@ public sealed class WaterZoneSettings {
             ScrollThreshold = ScrollThreshold,
             CoarsestTexel = CoarsestTexel,
             Waves = Spectrum,
-            AttenuationDepth = AttenuationDepth
+            AttenuationDepth = AttenuationDepth,
+            WaveAsset = WaveAsset ?? string.Empty
         };
+
+    /// <summary>The sea state this asset would hold, for the Create ▸ entry that writes one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The panel's own numbers rather than <see cref="WaterWaveSpectrum.Default" />.</b> An
+    ///     author who has spent a minute finding a sea they like and then presses "New sea state"
+    ///     means <em>this</em> sea, and a template that threw it away would make the asset the slower
+    ///     route to the thing they already had.
+    /// </remarks>
+    public WaterWavesAsset Asset =>
+        new() { Name = WaveAsset ?? string.Empty, Spectrum = Spectrum };
 
     /// <summary>Why this zone cannot be created, or <see langword="null" /> if it can.</summary>
     /// <remarks>
@@ -162,6 +190,14 @@ public sealed class WaterZoneSettings {
             Precision == WaterInfoPrecision.Half
                 ? $"{zone.HeightQuantum * 100f:0.##} cm  (half precision)"
                 : "exact  (full precision)"
+        );
+
+        // ⚠ Which sea state, before what it costs. The numbers under this line are the *panel's*
+        // spectrum, and a zone naming an asset draws a different one — so a reader who skipped this
+        // row would be reading a maximum amplitude that is not the one bounding their patches.
+        yield return (
+            "Sea state",
+            WaveAsset is { Length: > 0 } named ? $"{named}  (asset; below is the fallback)" : "inline"
         );
 
         Span<GerstnerWave> waves = stackalloc GerstnerWave[(int)WaveCount];

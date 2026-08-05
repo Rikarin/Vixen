@@ -15,7 +15,8 @@ namespace Vixen.Rendering.Compositor;
 ///     <para>
 ///         The edge between "the compositor can express a bloom chain" and "the compositor has one".
 ///         Everything else in the tree draws <em>objects</em> — a stage's sorted list, a shadow
-///         cascade's casters — and no post effect has any. This draws three vertices and nothing else.
+///         cascade's casters — and no post effect has any. This draws three vertices and nothing else,
+///         unless <see cref="Vertices" /> and <see cref="Instances" /> say otherwise.
 ///     </para>
 ///     <para>
 ///         <strong>A triangle, and no vertex buffer at all.</strong> The positions come out of
@@ -84,6 +85,34 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
 
     /// <summary>The viewport, or null for the whole target.</summary>
     public Viewport? Viewport { get; set; }
+
+    /// <summary>How many vertices the draw is, and how many instances of them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Three and one, which is the triangle this type is named for and what every post effect
+    ///         in the engine leaves alone. They exist for the one pass that covers <em>part</em> of the
+    ///         screen: <c>docs/plan/35 § D8</c>'s tile classification draws two triangles per screen
+    ///         tile and one instance per tile, so that the most expensive fragment shader in the frame
+    ///         runs over the tiles that have water in them instead of over the frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing here says <em>where</em> those instances go</b> — that is the shader's, out
+    ///         of <c>SV_InstanceID</c> and whatever the classification wrote, exactly as the triangle's
+    ///         own corners come out of <c>SV_VertexID</c>. This node still binds no vertex buffer and
+    ///         no index buffer, which is what keeps a tiled pass the same node as an untiled one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A partial-coverage draw wants <see cref="Load" /> set to
+    ///         <see cref="LoadAction.Load" /></b>, and the default is <see cref="LoadAction.DontCare" />
+    ///         because a full-screen pass writes every pixel. Left alone, the pixels no instance
+    ///         covered hold whatever the allocator handed over — which on most drivers is the previous
+    ///         frame and reads as smearing rather than as an uninitialised target.
+    ///     </para>
+    /// </remarks>
+    public int Vertices { get; set; } = 3;
+
+    /// <inheritdoc cref="Vertices" />
+    public int Instances { get; set; } = 1;
 
     /// <summary>What fills the shader's compose slots, for a pass that has any.</summary>
     /// <remarks>
@@ -249,6 +278,11 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
             }
             : [];
 
+        // Read here rather than in the body, with everything else the body closes over: a graph is
+        // declared long before it runs, and a count taken at execution time would be next frame's.
+        var vertices = Math.Max(Vertices, 0);
+        var instances = Math.Max(Instances, 0);
+
         frame.Graph.AddPass(
             ToString(),
             pass => {
@@ -283,9 +317,11 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
 
                         bound?.Bind(context, extra);
 
-                        // Three vertices, no vertex buffer and no index buffer. The whole reason the
-                        // triangle is generated from the vertex index rather than read from memory.
-                        context.CommandList.Draw(3, 1);
+                        // No vertex buffer and no index buffer, whatever the counts are. The whole
+                        // reason the corners are generated from the vertex index rather than read
+                        // from memory — and what lets a tiled pass be this node with a count on it
+                        // rather than a second node.
+                        context.CommandList.Draw(vertices, instances);
                     }
                 );
             }

@@ -66,4 +66,42 @@ public class RecoveryTests {
         var compilation = Compilation.Create("Broken", tree);
         _ = compilation.GetDiagnostics();
     }
+
+    /// <summary>Seven characters that used to take the machine, not the parse.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Recovery has to make progress, and one loop did not.</b> An accessor list accepts
+    ///         <c>[</c> because an accessor may carry attributes — but whether the bracket <i>is</i> an
+    ///         attribute list is decided further in, by a scan that resets the position when it says
+    ///         no, and every step under that then fabricates rather than consumes. So the bracket
+    ///         stayed exactly where it was and the loop added a fabricated accessor for it for ever,
+    ///         keeping every one. Half a gigabyte in under two seconds, climbing until the operating
+    ///         system took the machine away.
+    ///     </para>
+    ///     <para>
+    ///         Found by the fuzzer at about a quarter of a million <c>raven</c> cases, and only
+    ///         findable at all once <c>Vixen.Fuzz</c> grew an oracle that watches a case while it
+    ///         is still running — every other one is computed after <c>Run</c> returns, and this parse
+    ///         does not return. The 2,872-byte mutant it arrived as is committed as
+    ///         <c>Corpus/raven/f3680f7e77d7d18b.bin</c>; the seven characters are the whole of it.
+    ///     </para>
+    ///     <para>
+    ///         The theory rows are the shapes that separate the cause from its neighbours: the loop is
+    ///         only entered from <c>var</c>, only on <c>[</c>, and what follows the bracket never
+    ///         mattered. Each hangs with the guard removed.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("var t{[")]
+    [InlineData("var t {[")]
+    [InlineData("var t{ [")]
+    [InlineData("var t{[]")]
+    [InlineData("var t{[)")]
+    [InlineData("package P\nvar t{[")]
+    public void A_bracket_an_accessor_list_cannot_use_still_ends_the_parse(string source) {
+        var tree = SyntaxTree.ParseText(source);
+
+        Assert.NotEmpty(tree.Diagnostics);
+        Assert.Equal(source, tree.GetRoot().ToFullString());
+    }
 }

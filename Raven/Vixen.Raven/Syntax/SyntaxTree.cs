@@ -80,7 +80,11 @@ public sealed class SyntaxTree : ISyntaxTree {
             return this;
         }
 
-        var blender = new Blender(MemberCandidates(root, diagnostics, oldText), changes, tokens);
+        var blender = new Blender(
+            MemberCandidates(root, ReuseContext.MemberList, diagnostics, oldText),
+            changes,
+            tokens
+        );
         return ParseText(newText.ToString(), Options, FilePath, Encoding, blender);
     }
 
@@ -105,28 +109,53 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///         diagnostic counts match and did not catch it, because every shader it edits parses
     ///         cleanly and zero equals zero. VXML's front end has had this gate from the start.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every candidate is also tagged with the loop that parsed it</b>, because
+    ///         <see cref="MemberDeclarationSyntax" /> is the base of two grammars and not one.
+    ///         <see cref="EnumMemberDeclarationSyntax" /> derives from it, but the only thing that
+    ///         parses one is <c>ParseEnumDeclaration</c>'s comma-separated loop — never
+    ///         <c>ParseMemberDeclaration</c>, which is what both reuse sites run. Offering an enum
+    ///         member untagged put it within reach of a member list, and an edit only has to
+    ///         dissolve the <c>enum</c> header above it for that to happen: the members' own text is
+    ///         untouched, lexes identically, and now begins at a member boundary, so neither the
+    ///         span test nor the token comparison has anything to object to. What a full parse does
+    ///         with those characters is skip them.
+    ///     </para>
     /// </remarks>
-    static IEnumerable<SyntaxNode> MemberCandidates(
+    static IEnumerable<ReuseCandidate> MemberCandidates(
         SyntaxNode node,
+        int context,
         IReadOnlyList<Diagnostic> reported,
         SourceText text
     ) {
         foreach (var child in node.ChildNodesAndTokens()) {
             if (child is MemberDeclarationSyntax member) {
                 if (Clean(member, reported, text)) {
-                    yield return member;
+                    yield return new(member, context);
                 }
 
-                foreach (var nested in MemberCandidates(member, reported, text)) {
+                foreach (var nested in MemberCandidates(member, Inside(member), reported, text)) {
                     yield return nested;
                 }
             } else if (child is CompilationUnitSyntax or SyntaxListNode) {
-                foreach (var nested in MemberCandidates(child, reported, text)) {
+                foreach (var nested in MemberCandidates(child, context, reported, text)) {
                     yield return nested;
                 }
             }
         }
     }
+
+    /// <summary>The loop that parses a member's own members.</summary>
+    /// <remarks>
+    ///     An enum's body is the one member list this grammar reads with a rule of its own; every
+    ///     other declaration that has members fills them with <c>ParseMemberDeclaration</c>. Nothing
+    ///     asks the blender for <see cref="ReuseContext.EnumBody" /> today — the enum loop parses
+    ///     its members outright — so those candidates sit unclaimed, which is the point: the tag is
+    ///     what keeps them out of the member list, and it is already right on the day the enum loop
+    ///     learns to ask.
+    /// </remarks>
+    static int Inside(MemberDeclarationSyntax member) =>
+        member is EnumDeclarationSyntax ? ReuseContext.EnumBody : ReuseContext.MemberList;
 
     /// <summary>Whether a node's parse ran to the end without complaining.</summary>
     /// <remarks>

@@ -175,6 +175,8 @@ Vixen.Foliage.FoliageType -> readonly struct
 Vixen.Foliage.FoliageType : System.IEquatable<Vixen.Foliage.FoliageType>
 Vixen.Foliage.FoliageType.ActivationRadius.get -> float
 Vixen.Foliage.FoliageType.ActivationRadius.init -> float
+Vixen.Foliage.FoliageType.Albedo.get -> string
+Vixen.Foliage.FoliageType.Albedo.init -> string
 Vixen.Foliage.FoliageType.AlignToNormal.get -> float
 Vixen.Foliage.FoliageType.AlignToNormal.init -> float
 Vixen.Foliage.FoliageType.CandidatesFor(float brushRadius) -> int
@@ -290,6 +292,8 @@ Vixen.Foliage.GrassSlot.Slot.get -> int
 Vixen.Foliage.GrassSlot.Slot.init -> int
 Vixen.Foliage.GrassType -> readonly struct
 Vixen.Foliage.GrassType : System.IEquatable<Vixen.Foliage.GrassType>
+Vixen.Foliage.GrassType.Albedo.get -> string
+Vixen.Foliage.GrassType.Albedo.init -> string
 Vixen.Foliage.GrassType.AlignToNormal.get -> float
 Vixen.Foliage.GrassType.AlignToNormal.init -> float
 Vixen.Foliage.GrassType.CandidatesFor(float cellSize) -> int

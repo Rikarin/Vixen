@@ -20,9 +20,37 @@ features:
     roughness: 0.78
     baseColorMap: baseColorMap
 
-# What the name is bound to. `parameter` is the feature's map name above and `texture` is the asset,
+  # ⚠ A second feature and not a second map on the first one. A feature's parameters belong to its
+  # shader, and the chain composes one shader per slot — so "a textured base colour and a textured
+  # normal" is two features, which is why adding the second one needed no change to the first.
+  #
+  # ⚠ And it changes shading, not albedo. `baseColor` above is still the whole of what this surface
+  # reflects, so the frame's mean is unchanged: what arrives is the block's mortar catching the low
+  # sun across it. A normal map that made the level lighter or darker overall would be one whose
+  # tangent basis is wrong.
+  - !TexturedNormalMap
+    normalMap: normalMap
+    strength: 1
+
+  # ⚠ This overrides the `roughness: 0.78` above rather than modulating it — the map's green channel
+  # is the roughness now, and `roughness` here is a multiplier on it. concrete-orm's green runs
+  # 0.72…0.90 around the 0.78 that was authored, so what changes is that the value varies across the
+  # surface instead of being one number for the whole wall. Its blue is zero, which agrees with the
+  # `metalness: 0` above; that agreement is required rather than incidental — see the feature's
+  # remarks on reading the base albedo back.
+  - !TexturedOrm
+    ormMap: ormMap
+    occlusionStrength: 1
+    roughness: 1
+    metalness: 1
+
+# What the names are bound to. `parameter` is the feature's map name above and `texture` is the asset,
 # which is what makes the PNG both a bindless slot at run time and a dependency of this file — the
 # second is why editing the image re-imports the material instead of leaving its artefact stale.
 textures:
   - parameter: baseColorMap
     texture: vx:bec393cb4c61452198c3af4408818204
+  - parameter: normalMap
+    texture: vx:9741806c7d834c58bdd5347a050e8758
+  - parameter: ormMap
+    texture: vx:6d2b8e37a0744f69b8eef36708982e96

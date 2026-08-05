@@ -143,14 +143,14 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///     An element that is itself clean is offered whole; one that is not still offers the clean
     ///     children inside it, which is what keeps a typo in one attribute from reparsing the file.
     /// </remarks>
-    static IEnumerable<SyntaxNode> Candidates(SyntaxNode node, IReadOnlyList<Diagnostic> reported) {
+    static IEnumerable<ReuseCandidate> Candidates(SyntaxNode node, IReadOnlyList<Diagnostic> reported) {
         foreach (var child in node.ChildNodesAndTokens()) {
             if (child is not SyntaxNode inner || child is SyntaxToken) {
                 continue;
             }
 
             if (inner is MarkupSyntax && Clean(inner, reported)) {
-                yield return inner;
+                yield return new(inner, VxmlParser.ContentContext);
                 continue;
             }
 

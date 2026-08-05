@@ -231,6 +231,40 @@ public sealed class TerrainAssetImporterTests {
         Assert.False(result.Succeeded);
     }
 
+    /// <summary>A spline document is compiled to the record <c>AssetWaterSource</c> opens.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This shipped as a text chunk, and the importer's own remarks said it would "stay text
+    ///     until a runtime consumer exists".</b> One does: docs/plan/35 § D6 makes a water body a
+    ///     spline reference, so a <c>.vxspline</c> is now read by a game and a game does not carry the
+    ///     YAML dialect. A text chunk here is a lake that quietly never appears — the failure this
+    ///     asserts against by reading the artefact back the way the runtime does.
+    /// </remarks>
+    [Fact]
+    public async Task ASplineChunkIsTheSerializedRecord() {
+        var (_, result) = await Import(
+            "river.vxspline",
+            """
+            name: River
+            isClosed: false
+            points:
+              - position: 0 1 0
+              - position: 10 1 4
+              - position: 20 1 0
+            """
+        );
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(entry => entry.Message)));
+
+        var artefact = Assert.Single(result.Artifacts);
+        var written = Serializer.Read<Vixen.Core.Mathematics.SplineAsset>(artefact.Content.Span);
+
+        Assert.Equal("SplineAsset", artefact.Type);
+        Assert.Equal("River", written.Name);
+        Assert.Equal(3, written.Count);
+        Assert.True(written.CanBuild);
+        Assert.Equal(20f, written[2].Position.X);
+    }
+
     [Fact]
     public async Task BrokenYamlIsReportedRatherThanThrown() {
         var (_, result) = await Import("gravel.vxlayer", "name: [unclosed\n");

@@ -109,10 +109,79 @@ is over the line within a millisecond.
 is proportionate and passes every ratio, and a hundred bytes that are never given back is a server that
 dies on the second day. Targets that accumulate declare what they are holding and what the bound is.
 
-A fourth thing — that a case finishes quickly — is checked after the fact rather than enforced. A
-decoder that can be made to loop for ever hangs the run, which is a legible failure with the offending
-frame sitting in the stack trace, and cancelling it would mean running decoders on another thread when
-their whole contract is about what they do on the frame's.
+**Nothing takes long.** A case that finished slowly is measured after the fact, per thread and exactly,
+because that is the reading worth reporting precisely — a decode that took four milliseconds on forty
+bytes is a number somebody can act on.
+
+## The fifth oracle, which is the only one watched from outside the call
+
+⚠ **All four of the above are computed after `IFuzzTarget.Run` returns, and for a whole class of input
+it never does.** A case that loops, or that grows the heap without bound, is never measured by any of
+them: the second reading is never taken, no finding is recorded, no result is written, and the run ends
+when the operating system decides the machine has had enough. That is not a hypothetical. It happened —
+a developer's Mac died of memory pressure with nothing on disk to say which input had done it, which is
+the same failure `Corpus.MaxEntries` records one layer down. There it was the *corpus* that was
+unbounded; here it is the *case*.
+
+`CaseGuard` watches the case that is running now, from a second thread, and reports
+`FuzzFailure.RanAway` against three ceilings:
+
+| Ceiling | Read as | Default | What it is for |
+|---|---|---|---|
+| wall clock | the run's own `Stopwatch` | 30 s | a case that is not coming back |
+| allocation | `GC.GetTotalAllocatedBytes(false)` | 1 GiB | churn: a case allocating in a loop |
+| retention | `GC.GetTotalMemory(false)` | 512 MiB | the heap growing, which is what kills a host |
+
+**The two allocation figures are two different questions and only one of them describes a dying
+machine.** A loop that allocates a kilobyte and drops it never grows the heap, because the collector
+keeps up; it costs a core, not the host. A loop that *keeps* what it allocates grows the heap until
+there is none left. Churn is a performance finding, retention is the emergency, and the guard treats
+them differently for exactly that reason.
+
+**`GC.GetAllocatedBytesForCurrentThread` — the counter the `Allocated` oracle uses — is thread-local
+and therefore unreadable by a watchdog**, and making the worker poll its own counter puts the check
+back inside the call that never returns. The two process-wide counters are what a second thread can
+actually see. They are coarse and they include whatever else the process is doing; that is paid for
+with ceilings orders of magnitude above anything healthy, and by requiring a breach to persist across
+consecutive samples of the *same* case.
+
+**It costs the healthy path nothing measurable, which was the constraint.** Per case the worker
+publishes two release stores, a `long` it had already read off the clock and a reference it already
+held. Every measurement — the clock, both counters — is taken on the watchdog's thread. A case that
+finishes inside one 16 ms poll is never sampled at all, which is the entire healthy population; the
+baselines are taken at the first sample rather than at the call, so the window measured is a subset of
+the case and the oracle rounds towards saying nothing.
+
+### What survives a runaway, and what does not
+
+**.NET cannot safely abort a thread**, and a case wedged inside a decoder stays wedged — so the list of
+what this buys is short and worth reading rather than assuming. What the guard can do:
+
+- **name the input**, with its length, its fingerprint and the ceiling it went past;
+- **write the bytes to disk** — from the watchdog, while the case is still running, because the caller
+  that normally writes findings out of a `FuzzOutcome` may never get one;
+- **print the same thing to stderr**, for the same reason;
+- **stop the run scheduling anything else**, and fail it, if the case ever does return.
+
+What it cannot do is reclaim the thread. A case that keeps growing goes on growing. So for the one
+breach that cannot be outlived — retention, over sixteen consecutive samples, while the same case is
+still in flight — the guard calls `Environment.FailFast` after the input is on disk. That is not a
+recovery and is not dressed up as one: it is the same ending the OOM killer was going to impose, taken
+sixteen samples earlier, deliberately, with a culprit named. `FailFast` rather than `Environment.Exit`
+because exit waits for foreground threads and one of them is by definition the thread that will not
+stop. Set `FuzzSession.AbandonProcessOnRunaway = false` to have the hang instead, which is what a
+debugger wants and what the tests below use.
+
+The honest summary: **a machine that dies with a named input on disk is categorically better than one
+that dies silently**, and that — not survival — is what this buys.
+
+**And one runaway it cannot report at all: a stack overflow.** The CLR takes the process down at the
+overflow, in the time it takes to touch a guard page — no exception, no handler, no finally, nothing
+scheduled on any other thread. A watchdog that samples every 16 ms is several thousand samples too
+late, and there is no version of it that is not. The second `raven` defect below is exactly that shape,
+and the only mechanism that would catch it is running each case in a **child process**, which is what
+`SharpFuzz` over libFuzzer does and is already in **Owed** for a different reason. Until then, a deep
+recursion in a compiler is a defect this harness can provoke and cannot name.
 
 ## How it finds anything
 
@@ -209,26 +278,29 @@ tells the backend nothing it did not already know.
 Absence of the validator is **not** a silent skip: `TheSpirvValidatorIsInstalled` fails, for the same
 reason `SpirvBackendTests` has that test. CI installs `spirv-tools` on both legs.
 
-**It is switched off in the gate today, and what switched it off is what it found.** Two one-token
-edits of `Example2.rvn` compile with *no diagnostic at all* and emit modules a driver would reject:
+**Its first run found two, and they are the reason to have written it.** Two one-token edits of
+`Example2.rvn` compiled with *no diagnostic at all* and emitted modules a driver would reject:
 
-- `[Permutation] val UseSoftKnee: bool = true` → `[D] …`. The unknown attribute is accepted in
-  silence, so the value stops being a permutation key and becomes an ordinary uniform member — and
+- `[Permutation] val UseSoftKnee: bool = true` → `[D] …`. The unknown attribute was accepted in
+  silence, so the value stopped being a permutation key and became an ordinary uniform member — and
   SPIR-V forbids `OpTypeBool` in an externally-visible storage class.
-- `val over = max(value - threshold, 0f)` → `val over = Vixen(1, 1, 1, 1)`. Calling a *package* is
-  accepted, the `val` binds to a void-typed expression, and the emitter materialises
+- `val over = max(value - threshold, 0f)` → `val over = Vixen(1, 1, 1, 1)`. Calling a *package* was
+  accepted, the `val` bound to a void-typed expression, and the emitter materialised
   `OpConstantNull` of `void`.
 
 Both are exactly the shape the oracle exists for — a compile that looks entirely successful and an
 output that is not a program. Neither was reachable by anything else here: nothing threw, nothing
 amplified, the round-trip held and the reparse agreed.
 
-They are quarantined rather than left red, because a gate that fails on a defect nobody is fixing
-today is a gate people learn to ignore, and the next real regression then arrives into a build that
-was already failing. The inputs are committed under `Corpus/raven`, so `VIXEN_FUZZ_SPIRV=1` reproduces
-both from disk in seconds. Everything up to and including `SpirvBackend.Generate` still runs in the
-gate — lowering, verification and emission must still not throw. Deleting `Spirv.Enabled` and
-`TheValidityOracleIsQuarantinedNotForgotten` is the last step of fixing them.
+Both are fixed in the front end, which is where each of them belonged. A binding cannot contain a
+boolean (`RVN2137`), an unrecognised attribute is named rather than dropped (`RVN2138`), and a
+namespace cannot be called (`RVN2030` — the guard that suppresses a cascade from an already-reported
+callee used to swallow it, because a namespace answers `ErrorTypeSymbol` when asked for a type it
+does not have). The SPIR-V emitter refuses `OpConstantNull` of `void` as well, since `void` is the
+one type with no null value however that request is reached.
+
+The two inputs are committed under `Corpus/raven` and replay on every build. There is no switch to
+turn the oracle on: an oracle with an off position is an oracle somebody turns off.
 
 ### And guidance, which such a target should turn off
 
@@ -279,6 +351,47 @@ That is what `.github/workflows/nightly.yml` does at three in the morning — th
 seeds, the same generator, given ten minutes a target rather than a second, which is roughly six
 hundred times as many cases. Anything it finds is written to `artifacts/fuzz-findings` and uploaded,
 because a finding whose bytes only exist in an assertion message is one somebody has to retype.
+
+### ⚠ `raven` had never had a clean time-bounded run, and now the reason is known
+
+**Nobody had seen this target finish a `VIXEN_FUZZ_SECONDS` run.** One went past 600 s and was killed
+without a diagnosis. The shape of that said the cause was an *input* rather than general slowness —
+40,000 cases finish in 37 s and a 50 KB shader compiles in 31 ms, neither of which leaves room for a
+run that does not end.
+
+It was `var t{[`, above: a parse that never returns, reachable at roughly a quarter of a million cases
+and therefore past every run the gate has ever done. The first time-bounded run under the guard named
+it in nine minutes, wrote it out, and ended the process deliberately at 678 MB instead of being killed
+at whatever the host gave up at.
+
+⚠ **It still has not had a clean one.** With that fixed, the next 600 s run got four minutes further
+and died of the stack overflow above — a second defect the first had been standing in front of, and one
+the guard cannot report. So the honest state of this target is: **two known reasons a time-bounded run
+ends early, one fixed and one open**, and no evidence yet about what is behind the second.
+
+Three things follow:
+
+- **`raven` should be looked at before the nightly is trusted with it.** A target that can spend its
+  whole ten minutes on one case reports nothing about itself, and one that overflows the stack takes
+  the job's other nineteen targets with it. Dropping it from the nightly until the binder recursion is
+  bounded is defensible; so is leaving it in and reading the artifacts. What is not defensible is the
+  state before this change, where it hung and nobody could say why.
+- **A time-bounded run is the mode that finds this class and the mode that cannot survive it.** That is
+  not a reason to stop doing it — it is the reason the guard exists and the reason out-of-process
+  execution is owed.
+- **The gate's fifteen hundred cases are not a search and were never meant to be.** Two of the open
+  `raven` findings needed forty thousand cases and the parser hang needed six times that. Depth is the
+  nightly's; what the gate owes is that the pipeline still runs.
+
+### ⚠ The nightly's arithmetic does not add up
+
+`nightly.yml` sets `VIXEN_FUZZ_SECONDS: 600` and caps the job at `timeout-minutes: 180`. There are
+**twenty** targets, so the fuzzing alone is 200 minutes before the build, and the comment beside the cap
+still says fifteen targets. The job is over its own backstop by twenty minutes and has been since the
+nineteenth and twentieth targets were added. Flagged rather than changed here — the queued
+`Vixen.Net.Fuzz` → `Vixen.Fuzz` rename touches that workflow anyway, and the right fix is a decision
+between raising the cap, lowering the seconds and cutting the target list, not a number nudged in
+passing.
 
 ## What it found
 
@@ -372,6 +485,55 @@ oracle sees nothing; only the shape comparison catches it. The smallest is forty
 `shader`. Filed rather than fixed, and deliberately *not* promoted to the corpus — a committed input
 for an unfixed defect is a red gate, and the rule here is that promotion follows the fix.
 
+And then the one the fifth oracle was written for, which no other oracle here could have reported.
+
+- **Seven characters hang the Raven parser and take the machine with them.** `var t{[` — a `var`
+  member whose type position is an open brace, followed by a bracket — makes `SyntaxTree.ParseText`
+  grow the managed heap without bound: 537 MB in 1.9 s, 2.1 GB in 11 s, climbing until the operating
+  system decides. An accessor list accepts `[` because an accessor may carry attributes, but whether
+  the bracket *is* an attribute list is decided further in by `ScanAttributeList`, which **resets the
+  position** when it says no — and every step below it fabricates rather than consumes. So the bracket
+  stayed where it was and `ParseAccessorList` added a fabricated accessor for it for ever, keeping
+  every one. It was the only loop of its kind in that parser without the no-progress guard the member
+  and statement loops all keep; the fix is that guard. Pinned by
+  `RecoveryTests.A_bracket_an_accessor_list_cannot_use_still_ends_the_parse`, and both inputs are in
+  the corpus — `raven/f3680f7e77d7d18b.bin`, the 2,872-byte mutant of `Example2.rvn` it arrived as,
+  and `raven/054deec5ae05ddc8.bin`, the seven characters it reduces to.
+
+  **This is what a fuzz harness with only post-hoc oracles cannot find, and it is not a small class.**
+  Nothing threw, nothing was reported, the tree was never built, and no reading was ever taken on the
+  far side of `Run` — because there is no far side. It took about a quarter of a million `raven` cases,
+  which is why the gate's fifteen hundred never saw it and why `raven` had never once completed a
+  `VIXEN_FUZZ_SECONDS` run: every attempt had been hitting this and being killed by whatever ran out
+  first. A developer's Mac was one of those.
+
+**And immediately behind it, a second one the first had been hiding — which this harness can provoke
+and cannot name.** The very next time-bounded run got four minutes further and died of a **stack
+overflow** in the binder:
+
+```
+package P
+
+shader S {
+    func F(): float[F()] {
+        return 1f
+    }
+}
+```
+
+`SourceMethodSymbol.ResolveReturnType` → `BindType` → `BindArraySize` → `BindValue` → `BindInvocation`
+→ `BoundInvocationExpression.Type` → `SourceMethodSymbol.ReturnType` → and round again. A member
+function whose return type is an array sized by a call to itself; nothing on that path asks whether it
+is already resolving the symbol it is being asked for. Reproduces in 40 ms from the seven lines above.
+Only inside a `shader` — the same shape at the top level binds fine, so the two symbol paths do not
+agree about cycles.
+
+Open, and **deliberately not in the corpus**: an input that overflows the stack takes the test host
+with it on every build, and the rule here is that promotion follows the fix. It is also the honest
+edge of the guard — see *What survives a runaway*: the CLR ends the process at the overflow, so there
+is no thread left to write a finding and no sample early enough to have taken one. A depth bound on
+the resolution, of the kind `RavenTargets.Shape` already keeps for tree recursion, is what this wants.
+
 **And one found and deliberately not fixed**, because the fix is not this harness's to make: the binder
 writes `null` into a member declared non-nullable. `subAssets: null` in a sidecar produces an
 `AssetMeta` whose `SubAssets` is null although the property is `SubAssetEntry[]` with a non-null
@@ -394,6 +556,13 @@ without it.
 
 ## Owed
 
+- **A case per child process, for the one runaway nothing in-process can report.** A stack overflow
+  ends the CLR at the overflow — no exception, no handler, no other thread given a chance — so
+  `CaseGuard` provokes that class and cannot name it, which the second `raven` finding demonstrates.
+  Running a case out of process, writing the input before it starts and reading the child's exit code
+  after, catches it for the price of a fork per case. That is affordable only for a *replay* of
+  suspect inputs rather than for the eleven million the gate runs, which is the shape the answer
+  should take. `SharpFuzz` below is the same machinery arriving for a different reason.
 - **`SharpFuzz`, for coverage this cannot have.** The nightly exists; what it runs is still this
   harness, whose guidance is a behaviour signature rather than edge coverage.
   [docs/plan/12](../../docs/plan/12-build-ci-and-testing.md) § Test infrastructure asks for `SharpFuzz`

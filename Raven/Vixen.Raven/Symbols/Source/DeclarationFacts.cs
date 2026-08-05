@@ -33,6 +33,38 @@ public static class DeclarationFacts {
         ["Bindless"] = ResourceSet.Bindless
     };
 
+    /// <summary>
+    ///     Attribute names that carry no set and no stage, read one at a time by the predicates
+    ///     below.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than only at each <c>== "Permutation"</c> site, because the set of names the
+    ///     compiler reads is a fact about the language that nothing could previously ask for. An
+    ///     unrecognised attribute was dropped in silence — see <c>RVN2138</c> — and the check that
+    ///     ended that had to be able to enumerate what "recognised" means.
+    /// </remarks>
+    static readonly string[] MarkerAttributes =
+        ["Permutation", "PushConstant", "Shared", "MaterialIndex", "Format", "Semantic"];
+
+    /// <summary>Every attribute name Raven reads, in the order the message lists them.</summary>
+    public static IReadOnlyList<string> KnownAttributeNames { get; } =
+        [.. StageAttributes.Keys, .. SetAttributes.Keys, .. MarkerAttributes];
+
+    /// <summary>The recognised names as one comma-separated string, for a diagnostic.</summary>
+    public static string KnownAttributeNamesText { get; } = string.Join(", ", KnownAttributeNames);
+
+    /// <summary>Whether the compiler reads an attribute of this name anywhere.</summary>
+    /// <remarks>
+    ///     ⚠ Name only, and deliberately not <em>where it stands</em>. A <c>[Semantic]</c> on a
+    ///     shader means nothing, but saying so is a different diagnostic from this one and several
+    ///     of the existing checks already say it — <c>RVN2091</c> for a misplaced set marker,
+    ///     <c>RVN2125</c> for a <c>[Format]</c> off an image, <c>RVN2052</c> for a stage attribute
+    ///     outside a shader. This one answers the question none of those could: whether the name is
+    ///     a name at all.
+    /// </remarks>
+    public static bool IsKnownAttributeName(string name) =>
+        StageAttributes.ContainsKey(name) || SetAttributes.ContainsKey(name) || MarkerAttributes.Contains(name);
+
     public static bool Has(SyntaxList<SyntaxToken> modifiers, SyntaxKind kind) {
         foreach (var modifier in modifiers) {
             if (modifier.Kind == kind) {

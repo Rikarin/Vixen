@@ -185,9 +185,41 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.9, 0.93, 0.95"
+            },
+            {
+              "Name": "tileCount",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 192,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1, 1"
+            },
+            {
+              "Name": "targetSize",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 200,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1, 1"
             }
           ],
-          "Size": 192,
+          "Size": 208,
           "IsWritable": false
         },
         {
@@ -259,6 +291,33 @@
           "Members": [],
           "Size": 0,
           "IsWritable": false
+        },
+        {
+          "Binding": 8,
+          "Name": "waterTiles",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Vertex, Fragment",
+          "Members": [
+            {
+              "Name": "waterTiles",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 4,
+          "IsWritable": false
         }
       ]
     }
@@ -305,6 +364,18 @@
         "IsStruct": false
       },
       "DefaultValue": "true"
+    },
+    {
+      "Name": "Tiled",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
     }
   ],
   "ValueParameters": [],
@@ -506,12 +577,67 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "0.9, 0.93, 0.95"
+    },
+    {
+      "Name": "tileCount",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 192,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1, 1"
+    },
+    {
+      "Name": "targetSize",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 200,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1, 1"
+    },
+    {
+      "Name": "waterTiles",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 8,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
     }
   ],
   "RequiredCapabilities": [],
   "UsedPermutationKeys": [
     "Foam",
-    "Reflections"
+    "Reflections",
+    "Tiled"
   ],
   "Stages": [
     "Vertex",
