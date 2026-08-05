@@ -243,6 +243,31 @@ public sealed record FogAsset : ISceneRendererAsset {
 
     /// <summary>Where linear fog is total, in metres.</summary>
     public float End { get; init; } = 200f;
+
+    /// <summary>The altitude the authored density holds at, in world units.</summary>
+    /// <remarks>
+    ///     ⚠ Appended, and it has to be — a <c>[DataContract]</c> is serialised in declaration order,
+    ///     so a member inserted above re-reads every later one from the wrong offset. See
+    ///     <see cref="DistanceFieldAoAsset.View" /> for the same note and the same reason.
+    /// </remarks>
+    public float Height { get; init; }
+
+    /// <summary>How fast density thins above <see cref="Height" />, per world unit.</summary>
+    public float HeightFalloffRate { get; init; } = 0.05f;
+
+    /// <summary>Which way the light travels.</summary>
+    /// <remarks>
+    ///     ⚠ On <c>WaterAsset.SunDirection</c>'s terms. Left at the default the fog brightens toward
+    ///     straight up, which is a scattering peak in a place no sky puts one — fog lit from a
+    ///     different day than the sky in the same document.
+    /// </remarks>
+    public Vector3 SunDirection { get; init; } = new(0f, -1f, 0f);
+
+    /// <summary>The colour the forward-scattering peak goes toward.</summary>
+    public Vector3 SunColour { get; init; } = new(1f, 0.9f, 0.7f);
+
+    /// <summary>Henyey–Greenstein anisotropy. Air is forward-scattering, around 0.7.</summary>
+    public float SunAnisotropy { get; init; } = 0.7f;
 }
 
 /// <summary>Outlines from depth and normal discontinuities.</summary>

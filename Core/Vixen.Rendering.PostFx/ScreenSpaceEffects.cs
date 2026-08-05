@@ -327,6 +327,31 @@ public sealed class FogRenderer() : PostEffectRenderer(
     /// <summary>Where it is fully opaque, for the linear mode.</summary>
     public float End { get; set; } = 200f;
 
+    /// <summary>The altitude the authored density holds at.</summary>
+    public float Height { get; set; }
+
+    /// <summary>How fast density thins above <see cref="Height" />, per world unit.</summary>
+    /// <remarks>
+    ///     Distinct from <see cref="HeightFalloff" />, which is <em>whether</em> altitude thins the
+    ///     fog at all. The shader spells the two apart for the same reason. ⚠ Zero is not "off" — it
+    ///     is a fog of uniform density at every altitude, which is what <see cref="HeightFalloff" />
+    ///     being false already means, more cheaply.
+    /// </remarks>
+    public float HeightFalloffRate { get; set; } = 0.05f;
+
+    /// <summary>Which way the light travels.</summary>
+    /// <remarks>
+    ///     ⚠ The scattering peak lands where this points away from. Left at the default the fog
+    ///     brightens toward straight up rather than toward whatever lights the scene.
+    /// </remarks>
+    public Vector3 SunDirection { get; set; } = new(0f, -1f, 0f);
+
+    /// <summary>The colour the peak goes toward.</summary>
+    public Vector3 SunColour { get; set; } = new(1f, 0.9f, 0.7f);
+
+    /// <summary>Henyey–Greenstein anisotropy, 0 isotropic to just under 1 sharply forward.</summary>
+    public float SunAnisotropy { get; set; } = 0.7f;
+
     /// <inheritdoc />
     protected override void Configure(
         CompositorFrame frame,
@@ -354,6 +379,11 @@ public sealed class FogRenderer() : PostEffectRenderer(
         parameters.Set(FogKeys.Density, applied.FogDensity?.Over(Density) ?? Density);
         parameters.Set(FogKeys.FogStart, Start);
         parameters.Set(FogKeys.FogEnd, End);
+        parameters.Set(FogKeys.FogHeight, Height);
+        parameters.Set(FogKeys.HeightFalloffRate, HeightFalloffRate);
+        parameters.Set(FogKeys.SunDirection, SunDirection);
+        parameters.Set(FogKeys.SunColor, SunColour);
+        parameters.Set(FogKeys.SunAnisotropy, SunAnisotropy);
 
         Read(bindings, FogKeys.SourceBinding, Source);
         Read(bindings, FogKeys.DepthBufferBinding, Depth);
