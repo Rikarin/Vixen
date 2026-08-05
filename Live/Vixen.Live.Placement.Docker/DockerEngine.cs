@@ -28,15 +28,30 @@ public sealed record DockerContainer(string Id, IReadOnlyDictionary<string, stri
 /// <param name="Labels">Labels to put on it, including the shard id.</param>
 /// <param name="Environment">Variables to set.</param>
 /// <param name="Port">The UDP port to publish, host and container alike.</param>
+/// <remarks>
+///     ⚠ <b><paramref name="Arguments" /> is the container's <c>Cmd</c>, which is not the whole
+///     command.</b> Docker execs the image's <c>ENTRYPOINT</c> with <c>Cmd</c> appended, so these are
+///     the realm's arguments only — and only when the image has an entrypoint to append them to. An
+///     image without one turns <c>Arguments[0]</c> into the program, which is how a container comes up
+///     dead saying <c>--realm-spec: executable file not found</c>.
+/// </remarks>
 public sealed record DockerCreate(
     string Image,
     IReadOnlyList<string> Arguments,
     IReadOnlyDictionary<string, string> Labels,
     IReadOnlyDictionary<string, string> Environment,
     int Port
-);
+) {
+    /// <summary>The program to run, or empty for the image's own entrypoint.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty means "leave the image's alone", and it is sent as nothing at all.</b> An
+    ///     entrypoint of <c>[]</c> is a different instruction to the daemon — it <em>clears</em> the
+    ///     image's — and clearing it is what turns the first argument into the program.
+    /// </remarks>
+    public IReadOnlyList<string> Entrypoint { get; init; } = [];
+}
 
-/// <summary>The six calls, hand-written. ADR-019.</summary>
+/// <summary>The eight calls, hand-written. ADR-019.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>A <c>SocketsHttpHandler</c> with a <c>ConnectCallback</c>, and the rest is JSON.</b> The
@@ -130,6 +145,11 @@ public sealed class DockerEngine : IDisposable {
 
         var body = new CreateRequest {
             Image = create.Image,
+
+            // Null, not empty, when nothing was asked for: an entrypoint of `[]` clears the image's
+            // rather than leaving it alone, and a cleared entrypoint is what promotes the first
+            // argument to the program. `WhenWritingNull` is what drops the field entirely.
+            Entrypoint = create.Entrypoint.Count > 0 ? [.. create.Entrypoint] : null,
             Cmd = [.. create.Arguments],
             Labels = create.Labels.ToDictionary(StringComparer.Ordinal),
             Env = [.. create.Environment.Select(entry => $"{entry.Key}={entry.Value}")],
@@ -165,6 +185,64 @@ public sealed class DockerEngine : IDisposable {
 
         return created?.Id
             ?? throw new InvalidOperationException("The daemon created a container and did not say which.");
+    }
+
+    /// <summary>Asks an image what program it runs.</summary>
+    /// <param name="image">The image, by name and tag or by digest.</param>
+    /// <param name="cancellation">Gives up.</param>
+    /// <returns>Its <c>ENTRYPOINT</c>, or empty when it has none.</returns>
+    /// <exception cref="InvalidOperationException">The daemon refused, or has no such image.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The call that makes a dead container diagnosable.</b> A realm's arguments are appended
+    ///     to the image's entrypoint, so an image with no entrypoint runs
+    ///     <c><see cref="RealmSpec.ArgumentName" /></c> as a program and the daemon's complaint is
+    ///     about a missing executable rather than a missing entrypoint. Asking beforehand is one round
+    ///     trip against a container start, and it turns that into a sentence naming the image.
+    /// </remarks>
+    public async Task<IReadOnlyList<string>> InspectEntrypointAsync(string image, CancellationToken cancellation) {
+        using var response = await client.GetAsync(Url($"images/{image}/json"), cancellation).ConfigureAwait(false);
+
+        await Refuse(response, $"inspect {image}", cancellation).ConfigureAwait(false);
+
+        var inspected = await response.Content
+            .ReadFromJsonAsync<InspectResponse>(Json, cancellation)
+            .ConfigureAwait(false);
+
+        return inspected?.Config?.Entrypoint ?? [];
+    }
+
+    /// <summary>Fetches an image the daemon does not have yet.</summary>
+    /// <param name="image">The image, by name and tag or by digest.</param>
+    /// <param name="cancellation">Gives up.</param>
+    /// <returns>When the image is there.</returns>
+    /// <exception cref="InvalidOperationException">The daemon refused, or the pull failed.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Not called by <see cref="DockerPlacement" />, and that is a policy decision rather than
+    ///     an omission.</b> Whether a node pulls on every placement, only when the image is absent, or
+    ///     never — because a deployment pre-warms its nodes — is the orchestrator's to make. What this
+    ///     backend owes it is the ability to.
+    /// </remarks>
+    public async Task PullAsync(string image, CancellationToken cancellation) {
+        var (name, tag) = Reference(image);
+
+        using var response = await client
+            .PostAsync(
+                Url($"images/create?fromImage={Uri.EscapeDataString(name)}&tag={Uri.EscapeDataString(tag)}"),
+                content: null,
+                cancellation
+            )
+            .ConfigureAwait(false);
+
+        await Refuse(response, $"pull {image}", cancellation).ConfigureAwait(false);
+
+        // ⚠ Reading the body to the end is what makes this call mean "the image is here" rather than
+        // "the pull has begun" — the daemon answers 200 and then streams progress, and a layer it
+        // could not fetch is reported inside that stream and not by the status code.
+        var progress = await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false);
+
+        if (progress.Contains("\"errorDetail\"", StringComparison.Ordinal)) {
+            throw new InvalidOperationException($"Docker would not pull {image}: {progress.Trim()}");
+        }
     }
 
     /// <summary>Starts one.</summary>
@@ -322,6 +400,21 @@ public sealed class DockerEngine : IDisposable {
 
     static string Url(string path) => $"/{ApiVersion}/{path}";
 
+    static (string Name, string Tag) Reference(string image) {
+        // A digest is asked for whole: `fromImage=repo@sha256:…` with no tag beside it.
+        if (image.Contains('@', StringComparison.Ordinal)) {
+            return (image, "");
+        }
+
+        var colon = image.LastIndexOf(':');
+
+        // A colon before the last slash is a registry's port, not a tag. And an untagged image must
+        // still be asked for by one, because the Engine reads an empty `tag` as "every tag there is".
+        return colon > 0 && image.IndexOf('/', colon) < 0
+            ? (image[..colon], image[(colon + 1)..])
+            : (image, "latest");
+    }
+
     static async Task Refuse(HttpResponseMessage response, string what, CancellationToken cancellation) {
         if (response.IsSuccessStatusCode) {
             return;
@@ -373,6 +466,8 @@ public sealed class DockerEngine : IDisposable {
     sealed class CreateRequest {
         public string? Image { get; set; }
 
+        public List<string>? Entrypoint { get; set; }
+
         public List<string>? Cmd { get; set; }
 
         public Dictionary<string, string>? Labels { get; set; }
@@ -414,5 +509,13 @@ public sealed class DockerEngine : IDisposable {
 
     sealed class WaitResponse {
         public int StatusCode { get; set; }
+    }
+
+    sealed class InspectResponse {
+        public InspectConfig? Config { get; set; }
+    }
+
+    sealed class InspectConfig {
+        public List<string>? Entrypoint { get; set; }
     }
 }
