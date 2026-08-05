@@ -38,6 +38,47 @@ public sealed class BuildPlannerTests {
     }
 
     /// <summary>
+    ///     A group's labels reach everything in it, which is how "all of these are definitions" is
+    ///     said once rather than in five hundred sidecars.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Not the folder inheritance <see cref="BuildPlanner" /> refuses, and the difference is
+    ///     that a group is joined explicitly per asset — so "all of these except that one" is
+    ///     answered by moving that one to another group, which already decides its packing and its
+    ///     load path.
+    /// </remarks>
+    [Fact]
+    public void AGroupsLabelsReachEverythingInIt() {
+        var project = new PlannedProject();
+        project.Add("Content/sword.vxdef", address: "items/sword", group: "Definitions");
+        project.Add("Content/quest.vxdef", address: "quests/errand", group: "Definitions");
+        project.Add("Textures/hero.png", address: "ui/hero", group: "UiCore");
+        project.Group("Definitions", labels: ["definitions"]);
+        project.Group("UiCore");
+
+        var plan = project.Plan();
+
+        Assert.True(plan.Succeeded);
+        Assert.Equal(["definitions"], plan.Assets.Single(asset => asset.Address == "items/sword").Labels);
+        Assert.Equal(["definitions"], plan.Assets.Single(asset => asset.Address == "quests/errand").Labels);
+        Assert.Empty(plan.Assets.Single(asset => asset.Address == "ui/hero").Labels);
+    }
+
+    /// <summary>An asset keeps its own labels and gains the group's, and a shared one is not doubled.</summary>
+    [Fact]
+    public void AnAssetsOwnLabelsAndItsGroupsAreUnioned() {
+        var project = new PlannedProject();
+        project.Add("Content/sword.vxdef", address: "items/sword", group: "Definitions", labels: ["weapons", "definitions"]);
+        project.Group("Definitions", labels: ["definitions"]);
+
+        var asset = Assert.Single(project.Plan().Assets);
+
+        // Its own order first, and "definitions" once rather than twice — a label named in both
+        // places must not put an asset in a bundle twice.
+        Assert.Equal(["weapons", "definitions"], asset.Labels);
+    }
+
+    /// <summary>
     ///     Most files in a project are not addressable, and that is not a mistake. A source texture
     ///     only a material refers to is reached through the chunk graph and never asked for by name.
     /// </summary>
@@ -711,8 +752,12 @@ public sealed class BuildPlannerTests {
             metas[path] = null;
         }
 
-        public void Group(string name, BundlePacking packing = BundlePacking.PackTogether) =>
-            groups.Add(new() { Name = name, Packing = packing });
+        public void Group(
+            string name,
+            BundlePacking packing = BundlePacking.PackTogether,
+            string[]? labels = null
+        ) =>
+            groups.Add(new() { Name = name, Packing = packing, Labels = [.. labels ?? []] });
 
         public ObjectId ArtifactOf(string path) => artifactOf[path];
 

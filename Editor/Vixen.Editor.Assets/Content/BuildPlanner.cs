@@ -241,7 +241,18 @@ public static class BuildPlanner {
             // Labels are the asset's, and its parts carry them too: a label is a query over shipped
             // content, so "everything labelled level1" has to reach a labelled model's meshes, and a
             // group that packs by label has to put an asset's parts in the bundle it is in.
-            var labels = ImmutableArray.CreateRange(asset.Meta.Addressable?.Labels ?? []);
+            //
+            // The group's own labels are unioned in — see AddressableGroup.Labels for why that is not
+            // the folder inheritance this type's header refuses. De-duplicated, because a label named
+            // in both places must not put an asset in a bundle twice; deliberately *not* sorted,
+            // because the asset's own order is observable and ContentBuilder already sorts at the one
+            // place order decides anything, which is packing by label.
+            var labels = ImmutableArray.CreateRange(
+                (asset.Meta.Addressable?.Labels ?? [])
+                    .Concat(used[group].Labels)
+                    .Where(label => label.Length > 0)
+                    .Distinct(StringComparer.Ordinal)
+            );
 
             // The main object depends on its own parts, which is what mounts their bundles and
             // deserialises them first — a chunk's reference to another resolves only once the thing

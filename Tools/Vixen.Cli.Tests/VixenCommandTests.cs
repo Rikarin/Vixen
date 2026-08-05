@@ -525,6 +525,81 @@ public sealed class VixenCommandTests : IDisposable {
     public void EveryVerbTheRoadmapNamesIsPresent(string verb) =>
         Assert.Contains(VixenCommand.Create().Subcommands, command => command.Name == verb);
 
+
+    // ── Address constants ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     Written by `import` rather than by `content build`, and the ordering is the whole point:
+    ///     Vixen.Sdk runs the import BeforeTargets=CoreCompile precisely so that generated C# exists
+    ///     before the compiler reads its inputs. A constant emitted after the build is one build out
+    ///     of date, every build.
+    /// </summary>
+    [Fact]
+    public async Task ImportingWritesTheAddressConstantsWhenAskedTo() {
+        Asset("sword.txt", "sword", address: "items/weapons/flamebrand", group: "Core");
+        Asset("map.txt", "map", address: "maps/greenmarch", group: "Core");
+        Group("Core");
+
+        var into = Path.Combine(root, "obj", "Addresses.g.cs");
+        var (code, _) = await Run("import", "--addresses", into, "--addresses-namespace", "MyGame");
+
+        Assert.Equal(ExitCode.Success, code);
+
+        var source = await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken);
+
+        Assert.Contains("namespace MyGame;", source, StringComparison.Ordinal);
+        Assert.Contains("public const string Address = \"items/weapons/flamebrand\";", source, StringComparison.Ordinal);
+        Assert.Contains("public const string Address = \"maps/greenmarch\";", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>Nothing is written unless asked, because most projects are not gameplay projects.</summary>
+    [Fact]
+    public async Task ImportingWritesNoConstantsByDefault() {
+        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Group("Core");
+
+        var (code, _) = await Run("import");
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.False(Directory.Exists(Path.Combine(root, "obj")));
+    }
+
+    /// <summary>
+    ///     ⚠ Rewritten only when it changed. An unconditional write makes MSBuild rebuild the whole
+    ///     project on every build, which is how an incremental build stops being one.
+    /// </summary>
+    [Fact]
+    public async Task ASecondImportDoesNotTouchAnUnchangedFile() {
+        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Group("Core");
+
+        var into = Path.Combine(root, "obj", "Addresses.g.cs");
+
+        await Run("import", "--addresses", into);
+
+        var first = File.GetLastWriteTimeUtc(into);
+
+        await Task.Delay(20, TestContext.Current.CancellationToken);
+        await Run("import", "--addresses", into);
+
+        Assert.Equal(first, File.GetLastWriteTimeUtc(into));
+    }
+
+    /// <summary>The DefId half is opt-in, or a game that declined doc 28 gets a file it cannot compile.</summary>
+    [Fact]
+    public async Task TheDefIdHalfIsOptIn() {
+        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Group("Core");
+
+        var into = Path.Combine(root, "obj", "Addresses.g.cs");
+
+        await Run("import", "--addresses", into);
+        Assert.DoesNotContain("Vixen.Gameplay", await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken), StringComparison.Ordinal);
+
+        await Run("import", "--addresses", into, "--address-ids");
+        Assert.Contains("using Vixen.Gameplay;", await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
+
     string Build() => Path.Combine(root, "Build", Project.HostTarget.Replace('/', '-'));
 
     /// <summary>Builds a project of its own, under its own name, and returns what it wrote.</summary>

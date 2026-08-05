@@ -6,6 +6,23 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <IsAotCompatible>true</IsAotCompatible>
         <IsTrimmable>true</IsTrimmable>
+
+        <!--
+            The content's addresses, as C# constants, so `Addresses.Maps.Greenmarch.Address` is a
+            compile error when it is wrong and a magic string never is. Written into obj/ by the
+            import step before the compiler runs, and regenerated whenever the content changes.
+
+            Here rather than in the realm or the client because both of them reference this project
+            and neither should hold its own copy — which is the same argument the block below makes
+            about the rules.
+
+            VixenAddressIds adds a DefId beside each address. It needs Vixen.Gameplay, so it is a
+            second opt-in: a game that declined doc 28's libraries still gets its addresses.
+        -->
+        <VixenAddressConstants>true</VixenAddressConstants>
+        <VixenAddressNamespace>VixenMmo1</VixenAddressNamespace>
+        <VixenAddressIds>false</VixenAddressIds>
+        <VixenProjectDirectory>$(MSBuildThisFileDirectory)../VixenMmo1.Content</VixenProjectDirectory>
     </PropertyGroup>
 
     <ItemGroup>

@@ -6,6 +6,7 @@ using System.Globalization;
 using Vixen.ContentServer;
 using Vixen.Core.IO;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Assets.Gameplay;
 using Vixen.Editor.Core;
 using Vixen.Live;
 
@@ -227,13 +228,35 @@ public static class VixenCommand {
             Description = "Run importers in worker processes, so a crash in one fails that asset instead of the run."
         };
 
+        // Written here rather than by `content build`, and the ordering is the reason: Vixen.Sdk runs
+        // the import BeforeTargets=CoreCompile precisely so generated C# exists before the compiler
+        // reads its inputs, and the content build AfterTargets=Build. A constant emitted by the
+        // second is one build out of date, every build.
+        var addresses = new Option<string?>("--addresses") {
+            Description = "Write the project's addresses as C# constants to this file."
+        };
+
+        var addressNamespace = new Option<string?>("--addresses-namespace") {
+            Description = "What namespace the address constants go in. Default: the project's name."
+        };
+
+        // Off by default: the generated file would otherwise reference Vixen.Gameplay, and a game
+        // that declined the gameplay libraries would get a file it cannot compile from a build step
+        // it did not know it had turned on.
+        var addressIds = new Option<bool>("--address-ids") {
+            Description = "Emit a DefId beside each address. Needs the project to reference Vixen.Gameplay."
+        };
+
         var command = new Command("import", "Import everything in the project that has changed.") {
             project,
             target,
             format,
             verbose,
             isolated,
-            assemblies
+            assemblies,
+            addresses,
+            addressNamespace,
+            addressIds
         };
 
         command.SetAction(async (parseResult, cancellationToken) => {
@@ -264,7 +287,26 @@ public static class VixenCommand {
                     .ConfigureAwait(false);
 
                 ImportRunner.Report(summary, diagnostics);
-                return (int)(summary.Failed > 0 ? ExitCode.Failed : ExitCode.Success);
+
+                if (summary.Failed > 0) {
+                    return (int)ExitCode.Failed;
+                }
+
+                // After the import, because an address is a property of an asset that imported.
+                if (parseResult.GetValue(addresses) is { Length: > 0 } into
+                    && !AddressRunner.Run(
+                        opened,
+                        Path.GetFullPath(into),
+                        parseResult.GetValue(addressNamespace) is { Length: > 0 } named
+                            ? named
+                            : AddressConstants.Identifier(Path.GetFileName(opened.Paths.Root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))),
+                        parseResult.GetValue(addressIds),
+                        diagnostics
+                    )) {
+                    return (int)ExitCode.Failed;
+                }
+
+                return (int)ExitCode.Success;
             }
         );
 

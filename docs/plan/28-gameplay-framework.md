@@ -146,11 +146,13 @@ get"), applied one level up.
 ```
 Gameplay/                               # ── a top level of its own; see below ──
 ├── Vixen.Gameplay/                     # ✅ KERNEL — tags, defs, attributes, effects, requirements, RNG
-├── Vixen.Gameplay.Generators/          # ⚠ SHRUNK — see below. Definition codecs and the !Tag registry
-│                                       #   turned out to be Vixen.Core.Serialization.Generator's and
-│                                       #   Vixen.Core.Reflection.Generator's already; what is left is
-│                                       #   DefId constants for authored addresses, which needs the
-│                                       #   content build's address list and is therefore editor-time
+├── (Vixen.Gameplay.Generators/)        # ✅ SHRUNK TO NOTHING, and never became a project. Definition
+│                                       #   codecs and the !Tag registry were Core's generators
+│                                       #   already; DefId constants for authored addresses are
+│                                       #   AddressConstants in Vixen.Editor.Assets, written by
+│                                       #   `vixen import` before CoreCompile — a Roslyn generator
+│                                       #   sees the compilation, and an address list is the content
+│                                       #   build's
 │
 ├── Vixen.Gameplay.Content/             # ✅ labelled addresses → one DefinitionCatalog; the kernel
 │                                       #   links no asset system, so this is where Vixen.Assets is

@@ -135,11 +135,13 @@ a damage-over-time effect that does double damage to anyone who refreshes it.
   depends on the kernel. Doc 28 § Definitions' third consequence also turned out to be wrong about
   the shape: definitions are copied out of their bundle and held whole rather than ref-counted
   individually, because a `DefId` that sometimes resolves is worse than one that never does.
-- **`Vixen.Gameplay.Generators`.** Doc 28's library list gives it three jobs; two of them —
-  definition codecs and the type registry a `!Tag` resolves through — are already done by
-  `Vixen.Core.Serialization.Generator` and `Vixen.Core.Reflection.Generator`, which this library
-  simply references. What is left is `DefId` constants for authored addresses, and that needs the
-  content build's address list, so it is an editor-time generator rather than a compile-time one.
+- ~~**`Vixen.Gameplay.Generators`.**~~ **Built**, and it is not a generators project. Doc 28's
+  library list gave it three jobs; two — definition codecs and the type registry a `!Tag` resolves
+  through — were already `Vixen.Core.Serialization.Generator`'s and `Vixen.Core.Reflection.Generator`'s,
+  which this library simply references. The third, `DefId` constants for authored addresses, is
+  `AddressConstants` in `Vixen.Editor.Assets`, written by `vixen import` before the compiler runs:
+  the address list is a property of the *content* build, and a Roslyn generator sees the compilation
+  and nothing else.
 - **An ECS component.** Nothing here goes on an entity yet: `GameplaySubject` holds three growable
   collections and an archetype ECS stores fixed-size rows, so what goes on an entity is a handle into
   whatever owns these. Which component that is belongs to the library that needs it first.

@@ -104,4 +104,23 @@ public sealed record AddressableGroup {
     ///     application already knows where its own files are.
     /// </remarks>
     public string RemoteUrl { get; init; } = string.Empty;
+
+    /// <summary>Labels every asset in the group carries, on top of its own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is not the folder inheritance <see cref="BuildPlanner" /> refuses, and the
+    ///         difference is what makes it safe.</b> That note is about a folder's labels reaching its
+    ///         descendants, and its objection is that a label is a query — <em>"the thing you most
+    ///         want to be able to say 'all of these except that one' about"</em> — and inherited
+    ///         labels cannot be removed from one file. A group is joined explicitly, per asset, so
+    ///         "except that one" is answered by putting that one in another group, which is already
+    ///         how packing and load path are decided.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it is for.</b> "Everything in this group is a gameplay definition" is the whole
+    ///         of how a runtime finds its content, and the alternative is the same line in five
+    ///         hundred sidecars.
+    ///     </para>
+    /// </remarks>
+    public List<string> Labels { get; init; } = [];
 }

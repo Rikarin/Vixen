@@ -113,6 +113,20 @@
             imported, and be told so by an error about every addressable asset it has.
         -->
         <VixenSkipImportFlag Condition="'$(VixenImportOnBuild)' == 'true'">--no-import</VixenSkipImportFlag>
+
+        <!--
+            The address constants. Into obj/ rather than into the project directory, because the file
+            is a build output: it is regenerated from the content on every build, nothing should
+            merge it, and a game that deletes obj/ should lose nothing it wrote.
+
+            Off by default. Most projects are not gameplay projects and a game that never names an
+            address in C# should not have a generated file appear in its compile items — and the
+            DefId half is a second opt-in on top, because that file references Vixen.Gameplay and a
+            game that declined doc 28's libraries could not compile it.
+        -->
+        <VixenAddressConstants Condition="'$(VixenAddressConstants)' == ''">false</VixenAddressConstants>
+        <VixenAddressNamespace Condition="'$(VixenAddressNamespace)' == ''">$(RootNamespace)</VixenAddressNamespace>
+        <VixenAddressIds Condition="'$(VixenAddressIds)' == ''">false</VixenAddressIds>
     </PropertyGroup>
 
     <!--
@@ -171,14 +185,38 @@
             -->
             <VixenImportIsAdvisory>false</VixenImportIsAdvisory>
             <VixenImportIsAdvisory Condition="'$(VixenGameAssembly)' != '' AND !Exists('$(VixenGameAssembly)')">true</VixenImportIsAdvisory>
+
+            <!--
+                Absolute, and computed here for the same ordering reason as VixenGameAssembly above:
+                IntermediateOutputPath is defined by Microsoft.NET.Sdk's targets, which are imported
+                after this file, so a property group at the top would read it as empty. It also has
+                to be absolute because the Exec below runs in the *project* directory, which is not
+                necessarily the directory the csproj is in.
+            -->
+            <VixenAddressFile Condition="'$(VixenAddressFile)' == ''">$(IntermediateOutputPath)Vixen/Addresses.g.cs</VixenAddressFile>
+            <VixenAddressFullPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/$(VixenAddressFile)'))</VixenAddressFullPath>
+
+            <VixenAddressFlags Condition="'$(VixenAddressConstants)' == 'true'">--addresses "$(VixenAddressFullPath)" --addresses-namespace $(VixenAddressNamespace)</VixenAddressFlags>
+            <VixenAddressFlags Condition="'$(VixenAddressConstants)' == 'true' AND '$(VixenAddressIds)' == 'true'">$(VixenAddressFlags) --address-ids</VixenAddressFlags>
         </PropertyGroup>
 
         <Message Importance="normal" Text="Vixen: importing $(VixenProjectDirectory) for $(VixenTarget)" />
 
-        <Exec Command="$(VixenToolCommand) import --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --format msbuild $(VixenAssemblyFlags)"
+        <Exec Command="$(VixenToolCommand) import --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --format msbuild $(VixenAssemblyFlags) $(VixenAddressFlags)"
               WorkingDirectory="$(VixenProjectDirectory)"
               ContinueOnError="$(VixenImportIsAdvisory)"
               StandardOutputImportance="high" />
+
+        <!--
+            ⚠ Added here rather than in an ItemGroup above, and that is the whole reason this target
+            runs BeforeTargets=CoreCompile. The SDK's default Compile glob was evaluated long before
+            this ran, so a file that did not exist then is not in it — an item added inside the target
+            is, because CoreCompile reads the items when it executes.
+        -->
+        <ItemGroup Condition="'$(VixenAddressConstants)' == 'true' AND Exists('$(VixenAddressFullPath)')">
+            <Compile Include="$(VixenAddressFullPath)" Visible="false" />
+            <FileWrites Include="$(VixenAddressFullPath)" />
+        </ItemGroup>
     </Target>
 
     <!--

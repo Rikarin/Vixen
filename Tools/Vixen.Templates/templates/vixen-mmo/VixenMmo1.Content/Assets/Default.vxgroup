@@ -2,3 +2,8 @@ name: Default
 loadPath: Local
 packing: PackTogether
 bundleNaming: FilenameHash
+
+# Everything in this group is a gameplay definition, said once rather than in every sidecar.
+# Vixen.Gameplay.Content.LoadAsync looks for exactly this label at boot.
+labels:
+  - definitions
