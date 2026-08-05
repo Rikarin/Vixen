@@ -178,6 +178,16 @@ jobs:
           key: nuget-checks-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
           restore-keys: nuget-checks-
 
+      # ⚠ Because CheckApi *builds*, and building a sample runs its content build, and a content
+      # build imports models through Assimp. The test job installs this for the same reason its own
+      # comment gives — the Silk.NET loader does not look in runtimes/linux-x64/native on Linux — and
+      # this leg needs it the moment any sample ships a mesh. Without it every `.obj` under Samples/
+      # fails to import, the content build exits 1, and the leg dies before a single gate runs, which
+      # reads as "CheckArchitecture failed" and is nothing of the kind. Version 5 for the ABI reason
+      # the test job records.
+      - name: Install Assimp
+        run: sudo apt-get update && sudo apt-get install -y libassimp5
+
       # CheckApi builds — it reads the assemblies rather than the source — which is why this leg
       # takes longer than the other two checks put together and why it is worth having: the diff it
       # fails on is the one nobody would have looked at otherwise.

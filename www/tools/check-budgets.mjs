@@ -29,9 +29,18 @@ const FILES_PER_VERSION = 5_000;
 /** No page is this big. A file that is, is a generator bug that would ship inside the image. */
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
-/** § Part 7's two tiers, Brotli. The builder fails on them too; this is what reads them back. */
+/**
+ * § Part 7's two tiers, Brotli, and this file is the only place that holds them to a number — the
+ * builder reports and no longer exits on them, which is what Part 7 asked for in the first place.
+ *
+ * ⚠ The lazy ceiling is 4 MB rather than Part 7's original 2 MB, and the reason is load time rather
+ * than hosting: it is fetched in a Web Worker on the *first query*, off the path of every keystroke
+ * before it, so the cost of an extra megabyte is paid once by a reader who has already decided to
+ * search. The eager tier keeps 300 kB untouched, because that one is on the first keystroke and is
+ * the only one of the two a reader can feel.
+ */
 const EAGER_BUDGET = 300 * 1024;
-const LAZY_BUDGET = 2 * 1024 * 1024;
+const LAZY_BUDGET = 4 * 1024 * 1024;
 
 const directory = process.argv[2] ?? 'dist/vixen-docs/browser';
 

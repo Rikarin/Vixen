@@ -57,6 +57,14 @@ public sealed class AddressableGroupEdits {
     [Inspector]
     [Tooltip("A prefix the bundle's file name is appended to. Empty for a local group.")]
     public string RemoteUrl { get; set; } = string.Empty;
+
+    /// <summary>Labels every asset in the group carries, on top of its own.</summary>
+    /// <remarks>
+    ///     ⚠ Not <c>[Inspector]</c>: nothing draws a list of strings yet. It is mirrored anyway because
+    ///     a member the mirror omits is a member <see cref="AddressableGroupDocument.ToGroup" /> writes
+    ///     back as empty — opening a group and saving it would delete labels the author never saw.
+    /// </remarks>
+    public List<string> Labels { get; set; } = [];
 }
 
 /// <summary>One addressable group's policy, open for editing.</summary>
@@ -119,7 +127,8 @@ public sealed class AddressableGroupDocument : EditorDocument {
             BundleNaming = group.BundleNaming,
             IncludeInBuild = group.IncludeInBuild,
             UpdateRestriction = group.UpdateRestriction,
-            RemoteUrl = group.RemoteUrl
+            RemoteUrl = group.RemoteUrl,
+            Labels = [..group.Labels]
         };
     }
 
@@ -133,7 +142,8 @@ public sealed class AddressableGroupDocument : EditorDocument {
         BundleNaming = Policy.BundleNaming,
         IncludeInBuild = Policy.IncludeInBuild,
         UpdateRestriction = Policy.UpdateRestriction,
-        RemoteUrl = Policy.RemoteUrl
+        RemoteUrl = Policy.RemoteUrl,
+        Labels = [..Policy.Labels]
     };
 
     /// <summary>The file as this document would write it, without writing it.</summary>

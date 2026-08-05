@@ -8,7 +8,7 @@ api: [T:Vixen.Gameplay.Pvp.MatchKind, T:Vixen.Gameplay.Pvp.PvpObjectiveKind, T:V
 tags: [gameplay, pvp, arena, battleground, objectives, mmo]
 since: 0.1
 status: preview
-related: [gameplay/instances, gameplay/combat, gameplay/tags]
+related: [gameplay/instances, gameplay/combat, gameplay/tags, live/matchmaking]
 ---
 
 ## What it is

@@ -8,7 +8,7 @@ api: [T:Vixen.Gameplay.Loot.LootTableDefinition, T:Vixen.Gameplay.Loot.LootEntry
 tags: [gameplay, loot, drops, pity, random]
 since: 0.1
 status: preview
-related: [gameplay/items, gameplay/inventory, gameplay/randomness, gameplay/loot-editor]
+related: [gameplay/items, gameplay/inventory, gameplay/randomness, gameplay/loot-editor, gameplay/interaction]
 ---
 
 ## What it is

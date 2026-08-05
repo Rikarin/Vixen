@@ -117,7 +117,7 @@ static class Payout {
         return paid;
     }
 
-    static void Give(ulong participant, QuestReward reward) { }
+    static void Give(PlayerId participant, QuestReward reward) { }
 }
 ```
 
