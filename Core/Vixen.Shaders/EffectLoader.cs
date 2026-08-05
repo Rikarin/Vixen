@@ -53,7 +53,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     public int LayoutCount => layouts.Count;
 
     /// <summary>
-    ///     How many descriptors an unbounded binding in set 4 holds.
+    ///     How many descriptors an unbounded binding holds.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -71,6 +71,12 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///         thousand. A project that genuinely needs more says so here and builds its table to
     ///         match.
     ///     </para>
+    ///     <para>
+    ///         An <em>ask</em> rather than the answer: what a variant's layouts actually state is
+    ///         this, clamped so the whole pipeline layout fits the device — see
+    ///         <see cref="CapacityFor" /> for the arithmetic and the terrain shaders for why the
+    ///         clamp exists.
+    ///     </para>
     /// </remarks>
     public int BindlessCapacity { get; set; } = 4096;
 
@@ -84,9 +90,10 @@ public sealed class EffectLoader(IGraphicsDevice device) {
             : SetCount;
 
         var sets = new DescriptorSetLayoutHandle[count];
+        var capacity = CapacityFor(data);
 
         for (var slot = 0; slot < count; slot++) {
-            sets[slot] = LayoutOf(data, (DescriptorSetSlot)slot, key.ShaderName);
+            sets[slot] = LayoutOf(data, (DescriptorSetSlot)slot, key.ShaderName, capacity);
         }
 
         var stages = ImmutableArray.CreateBuilder<EffectStage>(data.Stages.Length);
@@ -182,6 +189,60 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     public void Clear() => layouts.Clear();
 
     /// <summary>
+    ///     How many descriptors one variant's unbounded bindings each get: the ask, clamped to fit
+    ///     the device.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Every unbounded binding in the variant gets this many, and the total is what
+    ///         the device judges.</strong> Update-after-bind sampled images are budgeted per
+    ///         <em>pipeline layout</em> — <c>maxPerStageDescriptorUpdateAfterBindSampledImages</c> and
+    ///         its whole-set sibling, which
+    ///         <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" /> already reports as one
+    ///         number. A shader with three unbounded arrays that were each handed the full ceiling
+    ///         asks for three ceilings, and <c>vkCreatePipelineLayout</c> refuses — which is exactly
+    ///         what the terrain shaders did on MoltenVK, where the ceiling is a million: three
+    ///         million-entry splat arrays and two ordinary textures came to 3,000,002 against a limit
+    ///         of 1,000,000.
+    ///     </para>
+    ///     <para>
+    ///         So the budget is shared: the ceiling, less the bounded sampled images the same variant
+    ///         binds beside the arrays, split evenly across the unbounded bindings, and never more
+    ///         than <see cref="BindlessCapacity" /> each. On a desktop driver the clamp is invisible —
+    ///         a million split three ways still dwarfs the ask — and on the device where it bites, the
+    ///         alternative was a layout the driver refuses. A write past the clamped length is refused
+    ///         by <see cref="IGraphicsDevice.UpdateDescriptorSet" /> with the length in the message,
+    ///         so a project that outgrows the number finds it at the write, not by wrapping.
+    ///     </para>
+    /// </remarks>
+    int CapacityFor(EffectData data) {
+        var unbounded = 0;
+        var bounded = 0;
+
+        foreach (var binding in data.Bindings) {
+            // The same reading DescriptorBindingExtensions.IsUnbounded makes: zero on a texture or a
+            // sampler is an unbounded array, zero on a buffer is a runtime-sized block and one
+            // descriptor.
+            if (new DescriptorBinding(binding.Binding, binding.Kind, binding.Stages, binding.Count).IsUnbounded()) {
+                unbounded++;
+            } else if (binding.Kind == DescriptorKind.SampledTexture) {
+                bounded += Math.Max(1, binding.Count);
+            }
+        }
+
+        // No unbounded binding means the number reaches no layout at all; without the capability the
+        // device refuses the layout with the capability's name, which says more than a zero here
+        // would.
+        if (unbounded == 0 || Device.Features.MaxBindlessDescriptors <= 0) {
+            return BindlessCapacity;
+        }
+
+        var budget = Math.Max(1, (Device.Features.MaxBindlessDescriptors - bounded) / unbounded);
+
+        return Math.Min(BindlessCapacity, budget);
+    }
+
+    /// <summary>
     ///     The layout for one set, created once per distinct shape.
     /// </summary>
     /// <remarks>
@@ -190,7 +251,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///     and a pipeline layout that skipped the two empty ones would put it at index zero and every
     ///     descriptor set in the frame would land in the wrong place.
     /// </remarks>
-    DescriptorSetLayoutHandle LayoutOf(EffectData data, DescriptorSetSlot slot, string shaderName) {
+    DescriptorSetLayoutHandle LayoutOf(EffectData data, DescriptorSetSlot slot, string shaderName, int capacity) {
         List<DescriptorBinding> bindings = [];
 
         foreach (var binding in data.Bindings) {
@@ -201,16 +262,19 @@ public sealed class EffectLoader(IGraphicsDevice device) {
 
         bindings.Sort(static (left, right) => left.Binding.CompareTo(right.Binding));
 
-        // Only where an unbounded binding could be, so the cache key of every other set is what it
-        // has always been and the shapes a project already shares keep sharing.
-        var capacity = slot == DescriptorSetSlot.Bindless ? BindlessCapacity : 0;
-        var shape = Shape(slot, bindings, capacity);
+        // Only where an unbounded binding actually is, so the cache key of every other set is what
+        // it has always been and the shapes a project already shares keep sharing. Any slot, not
+        // just the table's: the terrain shaders declare unsized splat arrays in the per-material
+        // set, and a set whose capacity nobody states falls back to the device's ceiling — once per
+        // array, which is how three arrays came to ask for three ceilings.
+        var stated = bindings.Any(static binding => binding.IsUnbounded()) ? capacity : 0;
+        var shape = Shape(slot, bindings, stated);
 
         if (layouts.TryGetValue(shape, out var existing)) {
             return existing;
         }
 
-        var description = new DescriptorSetLayoutDescription(slot, [.. bindings], $"{shaderName}.{slot}", capacity);
+        var description = new DescriptorSetLayoutDescription(slot, [.. bindings], $"{shaderName}.{slot}", stated);
         description.Validate();
 
         var created = Device.CreateDescriptorSetLayout(description);
