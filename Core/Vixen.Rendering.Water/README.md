@@ -89,7 +89,7 @@ that is **off screen**, which is the single most common reflection failure in ev
 implementation and the one that makes water look like a mirror bolted to the ground. Leave
 `reflections:` empty and the pass compiles the variant without it.
 
-## Two places this diverges from § D8, both deliberate
+## Where this diverges from § D8, deliberately
 
 **The surface plane carries coverage, not a shading-model id.** The doc says to classify from the
 G-buffer's shading-model id "which already exists" — it does not: the deferred path is ⬜ and this
@@ -97,9 +97,41 @@ engine is Forward+. The surface pass writes a one-channel mask, which is exactly
 would have produced, and when the deferred path lands that binding becomes the comparison with nothing
 else changing.
 
-**Tile classification is not built.** § D8 keeps it "for its actual reason: the water pass is
-expensive per pixel and covers a small fraction of most frames" — that reason is still true and it is
-an optimisation over a correct pass, so it lands after the look is proven rather than before.
+**The tile list is a flag per tile and not a compacted list, so the draw is instanced rather than
+indirect.** § D8 got the shape from Unreal, which classifies tiles so that an *indirect* draw runs over
+the ones it found — and an indirect draw needs the count on the device. `ICommandList` has
+`DrawIndexedIndirect` and no non-indexed `DrawIndirect`, so an indirect path here is either a
+three-entry index buffer for a triangle that has no vertex buffer, or the count coming back to the host
+— a stall a frame long, every frame, to avoid a pass over tiles that are mostly empty. That is the cost
+the feature exists to remove, paid the other way round.
+
+So the classification writes one word per tile, the draw is `Draw(6, tiles)`, and a dry tile collapses
+to a degenerate rectangle in the vertex stage. At 1080p that is thirty-two thousand instances the setup
+engine discards — against a full-screen pass of the most expensive fragment shader in the frame, which
+is what it replaces.
+
+## § D8's tile classification
+
+`!Water` is a `FullScreenRenderer` with a count on it. `Tiled` puts a compute dispatch ahead of the
+draw — `WaterTiles.rvn`, one workgroup per 8×8 tile and one lane per pixel — which reads the coverage
+mask **exactly the way the fragment stage reads it**: point sampled, at the centre of a target pixel.
+That is what makes the claim conservative by construction rather than by argument. A classifier that
+walked the surface plane's own texels would agree only while the two planes were the same size, and
+would silently drop water the day one of them was not.
+
+⚠ **A tiled pass loads its target and leaves a dry tile alone**, where the untiled one writes every
+pixel of the frame — the scene colour back, with a zero mask in alpha. Those are the same picture only
+where the target already holds what `behind:` is a copy of, which is what § B1's `!Copy` arranges: it
+filled `behind:` from this very target. That is why `WaterAsset.Tiled` is on for a document and
+`WaterRenderer.Tiled` is off for a node somebody wired by hand.
+
+⚠ **And what a dry tile no longer writes is the alpha mask.** § D9's composite does not read it —
+`Underwater.rvn` reads the surface plane's own coverage, for the reason its remarks give — so the
+pass's alpha remains the mask everywhere the pass ran.
+
+`WaterPassImageTests` renders the frame both ways and compares them: identical where there is water,
+and where there is none the tiled render still holds a colour the fixture primed the target with, which
+is the difference between "the optimisation is harmless" and "the optimisation happened".
 
 ## The zone, on the device
 

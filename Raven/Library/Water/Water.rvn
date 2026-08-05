@@ -43,6 +43,20 @@ shader Water {
     /// Whether to blend foam over the result.
     [Permutation] val Foam: bool = true
 
+    /// Whether the draw is one instance per screen tile rather than one triangle over the screen.
+    ///
+    /// § D8's tile classification — see `WaterTiles.rvn`, which is what fills `waterTiles`. Off, the
+    /// vertex stage is the ordinary full-screen triangle and every pixel of the frame runs the fragment
+    /// stage, most of them only to return what was behind. On, the draw is `Draw(6, tileCount.x *
+    /// tileCount.y)` and a tile with no water in it collapses to nothing in the vertex stage.
+    ///
+    /// ⚠ **What the two paths write differs outside the water, and the difference is the point.** The
+    /// untiled pass writes every pixel — the scene colour back with a zero mask in alpha — and the tiled
+    /// one leaves a dry tile's pixels exactly as it found them. Those are the same picture *only* where
+    /// the target already holds what `sceneColourCopy` is a copy of, which is what `!Copy` arranges and
+    /// what `WaterRenderer.Tiled` says out loud.
+    [Permutation] val Tiled: bool = false
+
     /// A copy of the frame so far — what is *behind* the water. See `!Copy` and § B1.
     var sceneColourCopy: Texture2D
 
@@ -64,6 +78,14 @@ shader Water {
 
     /// Traced reflections — radiance in `rgb`, validity in `a`. Doc 19 § L5's plane.
     var reflectionPlane: Texture2D
+
+    /// One word per screen tile, non-zero where there is water — `WaterTiles.rvn`'s answer.
+    ///
+    /// ⚠ **Bound whether or not `Tiled` is on**, because a descriptor set is written wholly or not at
+    /// all: a shader's bindings come from its declarations and not from the variant, so an unbound slot
+    /// here is a driver refusing the set in the *untiled* path. The same rule `reflectionPlane` follows,
+    /// and `WaterRenderer` binds a one-word placeholder when there is nothing to classify.
+    var waterTiles: Buffer<uint>
 
     var pointSampler: Sampler
     var linearSampler: Sampler
@@ -101,13 +123,53 @@ shader Water {
     /// What foam is, where the surface pass said there is some.
     var foamColour: float3 = float3(0.9f, 0.93f, 0.95f)
 
+    /// How many tiles cover the target, in x and y — `Tiled` only.
+    var tileCount: int2 = int2(1, 1)
+
+    /// And how many pixels the target is, which is what a tile's corner becomes a UV against.
+    var targetSize: int2 = int2(1, 1)
+
     stream var uv: float2
 
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+    func Vertex(
+        [Semantic("SV_VertexID")] vertexIndex: int,
+        [Semantic("SV_InstanceID")] instanceIndex: int
+    ): float4 {
+        if (Tiled) {
+            return TileVertex(vertexIndex, instanceIndex)
+        }
+
         uv = Fullscreen.Uv(vertexIndex)
         return Fullscreen.Position(vertexIndex)
+    }
+
+    /// One instance's corner of its own tile, or nothing at all where that tile has no water.
+    ///
+    /// ⚠ **A dry tile collapses rather than discarding.** Every vertex of it goes to one point off the
+    /// left of the screen, so the rasterizer covers no pixel centre — which is true whatever the cull
+    /// mode, and the full-screen pipeline culls nothing. A `discard` in the fragment stage would be a
+    /// fragment stage that ran, which is the cost this whole path exists to avoid.
+    func TileVertex(vertexIndex: int, instanceIndex: int): float4 {
+        uv = float2(0f)
+
+        if (waterTiles[instanceIndex] == 0u) {
+            return float4(-2f, -2f, 0f, 1f)
+        }
+
+        val tile = WaterTile.Unindex(instanceIndex, tileCount)
+        val corner = WaterTile.Corner(vertexIndex)
+        val pixel = (float2(float(tile.x), float(tile.y)) + corner) * float(WaterTile.Size)
+
+        // Against the target's size and not the tiling's, so the last tile of a row — which hangs over
+        // the right edge when the target is not a multiple of the tile size — lands past a UV of one
+        // and is clipped there rather than stretching the frame's last column across it.
+        uv = pixel / float2(float(targetSize.x), float(targetSize.y))
+
+        val ndc = Transform.UvToNdc(uv)
+
+        return float4(ndc.x, ndc.y, 0f, 1f)
     }
 
     [FragmentShader]

@@ -61,6 +61,14 @@ public sealed class WaterPassImageTests {
     /// </remarks>
     static readonly Vector3 Floor = new(0.9f, 0.8f, 0.7f);
 
+    /// <summary>A colour nothing else in the frame has, for the target a tiled pass may not touch.</summary>
+    /// <remarks>
+    ///     ⚠ Deliberately not what <c>Behind</c> holds. In a document the two are the same bytes —
+    ///     § B1's <c>!Copy</c> filled one from the other — and making them differ here is what turns
+    ///     "the pass skipped a tile" from an inference into a measurement.
+    /// </remarks>
+    static readonly Vector3 Sentinel = new(0.1f, 0.2f, 0.95f);
+
     /// <summary>
     ///     ⚠ Where there is no water the frame passes through untouched.
     /// </summary>
@@ -235,18 +243,140 @@ public sealed class WaterPassImageTests {
         Assert.True(dry.X - wet.X > 0.2f, $"the covered half looks like the dry half: {wet} against {dry}");
     }
 
+    /// <summary>
+    ///     ⚠ § D8's tiling changes nothing where there is water.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole claim the optimisation rests on, and the only way to check it is to render
+    ///         it both ways.</b> Every other assertion in this file is about what the pass computes; this
+    ///         one is about a <em>draw</em> — two triangles mapped onto a tile out of an instance id
+    ///         against one triangle mapped onto the screen out of a vertex id — and an arithmetic test
+    ///         cannot see a rectangle in the wrong place.
+    ///     </para>
+    ///     <para>
+    ///         Split at 64, which is a whole number of tiles: the left half is water and the right half
+    ///         is not, so no tile is partly covered and the two paths have nothing to disagree about at
+    ///         the boundary except which one drew it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Within a code value rather than exactly, and the difference is real.</b> The two
+    ///         paths interpolate the same UV from different clip-space triangles, so the last bits of a
+    ///         pixel's UV are not bit-identical — which is the whole of the tolerance. A tiling that put
+    ///         a tile at the wrong offset would be out by tiles, not by a code.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Tiling_draws_the_same_water() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var plain = Render(owned, coverage: 1f, waterDepth: 3f, splitAt: 64, prime: Sentinel);
+        var tiled = Render(owned, coverage: 1f, waterDepth: 3f, splitAt: 64, prime: Sentinel, tiled: true);
+
+        var worst = 0f;
+        var at = (X: -1, Y: -1);
+
+        for (var y = 0; y < Fixture.Side; y++) {
+            for (var x = 0; x < 64; x++) {
+                var difference = Vector3.Abs(Pixel(plain, x, y) - Pixel(tiled, x, y));
+                var largest = Math.Max(difference.X, Math.Max(difference.Y, difference.Z));
+
+                if (largest > worst) {
+                    worst = largest;
+                    at = (x, y);
+                }
+            }
+        }
+
+        // ⚠ Guarded, because everything above is a loop over a frame that may be empty. A pass that
+        // drew nothing at all would agree with another pass that drew nothing at all, perfectly.
+        Assert.True(Pixel(plain, 32, 64).X > 0.01f, "the untiled pass drew nothing where there is water");
+        Assert.True(Pixel(tiled, 32, 64).X > 0.01f, "the tiled pass drew nothing where there is water");
+
+        Assert.True(worst <= 2f / 255f, $"the tiled pass differs by {worst:F4} at {at}, which is not interpolation");
+    }
+
+    /// <summary>
+    ///     ⚠ And a tile with no water in it is not drawn at all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half, and the one that says the optimisation is real rather than merely
+    ///         harmless.</b> The target is primed with a colour nothing else in the frame has. The
+    ///         untiled pass writes every pixel of the screen, so the dry half comes back as what was
+    ///         behind the water; the tiled pass never rasterises a dry tile, so the dry half comes back
+    ///         as the priming.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is also the precondition stated out loud.</b> The two paths are the same
+    ///         picture only where the target already holds what <c>Behind</c> is a copy of — in a
+    ///         document, because § B1's <c>!Copy</c> filled it from this very target. A fixture that
+    ///         primes the target with something else is showing what a host that skipped the copy would
+    ///         see, which is why <see cref="WaterRenderer.Tiled" /> is off for a hand-wired node.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_tile_with_no_water_in_it_is_never_rasterised() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var plain = Render(owned, coverage: 1f, waterDepth: 3f, splitAt: 64, prime: Sentinel);
+        var tiled = Render(owned, coverage: 1f, waterDepth: 3f, splitAt: 64, prime: Sentinel, tiled: true);
+
+        var dry = (X: 96, Y: 64);
+
+        // The untiled pass ran there and handed the frame through, which is what it is for.
+        Assert.Equal(Floor.X, Pixel(plain, dry.X, dry.Y).X, 0.01f);
+
+        // The tiled pass did not run there at all, so the priming survived.
+        Assert.Equal(Sentinel.X, Pixel(tiled, dry.X, dry.Y).X, 0.01f);
+        Assert.Equal(Sentinel.Y, Pixel(tiled, dry.X, dry.Y).Y, 0.01f);
+        Assert.Equal(Sentinel.Z, Pixel(tiled, dry.X, dry.Y).Z, 0.01f);
+
+        // ⚠ And the boundary is where the tiling says, not near it. 63 is the last column of the last
+        // wet tile and 64 is the first of the first dry one, so an off-by-one in the instance-to-tile
+        // arithmetic moves this edge by eight pixels and nothing else in the frame changes.
+        Assert.Equal(Pixel(plain, 63, dry.Y).Z, Pixel(tiled, 63, dry.Y).Z, 0.01f);
+        Assert.True(
+            Math.Abs(Pixel(tiled, 63, dry.Y).Z - Sentinel.Z) > 0.1f,
+            "the last wet column still holds the priming, so the last wet tile was never drawn"
+        );
+
+        Assert.Equal(Sentinel.Z, Pixel(tiled, 64, dry.Y).Z, 0.01f);
+    }
+
     /// <summary>Builds one frame of the pass and reads the picture back.</summary>
     /// <remarks>
     ///     ⚠ <b>The planes are uploaded, so every depth below is exact.</b> Device depth is written
     ///     under the engine's reversed-Z convention — near is one, far is zero — which is the
     ///     convention two passes in this directory have already been caught getting backwards.
     /// </remarks>
+    /// <param name="fixture">The device.</param>
+    /// <param name="coverage">What the surface plane's mask says, where it says anything.</param>
+    /// <param name="waterDepth">How far the floor is below the surface, in metres.</param>
+    /// <param name="reflect">Whether to bind doc 19 § L5's plane.</param>
+    /// <param name="splitAt">The column the coverage stops at, or −1 for a covered frame.</param>
+    /// <param name="tiled">Whether to run § D8's classification and draw over tiles.</param>
+    /// <param name="prime">
+    ///     A colour to fill the target with before the frame, or null to leave it undefined.
+    ///     ⚠ Needed by any tiled render: a pass covering part of the screen leaves the rest as it found
+    ///     it, and "as it found it" for an untouched target is whatever the allocator handed over.
+    /// </param>
     static Bitmap Render(
         Fixture fixture,
         float coverage,
         float waterDepth,
         bool reflect = false,
-        int splitAt = -1
+        int splitAt = -1,
+        bool tiled = false,
+        Vector3? prime = null
     ) {
         var device = fixture.Device;
 
@@ -274,7 +404,18 @@ public sealed class WaterPassImageTests {
         // A colour nothing else in the frame has, so its arrival is unambiguous.
         var reflections = fixture.Sampled("reflections", Fixture.Side, Fill(_ => Encode(new Vector3(0f, 1f, 0f), 1f)));
 
-        var display = fixture.Owned("display", TextureUsage.ColourTarget | TextureUsage.CopySource);
+        var display = fixture.Owned(
+            "display",
+            TextureUsage.ColourTarget
+            | TextureUsage.CopySource
+            | (prime is null ? TextureUsage.None : TextureUsage.CopyDestination)
+        );
+
+        // A colour nothing else in the frame has, staged for the copy that runs ahead of the graph —
+        // see Fixture.Render's `before`, and this method's own `prime`.
+        var priming = prime is { } colour
+            ? fixture.Buffer<byte>(Fill(_ => Encode(colour, 0.5f)), BufferUsage.CopySource)
+            : default;
 
         using var allocator = new DescriptorAllocator(device);
         using var samplers = new SamplerCache(device);
@@ -312,6 +453,8 @@ public sealed class WaterPassImageTests {
             InverseViewProjection = Orthographic(),
             CameraPosition = Vector3.Zero,
             Foam = true,
+            Tiled = tiled,
+            Pipelines = tiled ? new(device) : null,
             Modules = describer,
             Device = device,
             Samplers = samplers,
@@ -329,11 +472,14 @@ public sealed class WaterPassImageTests {
         compositor.Imports["WaterNormal"] = Import(normal, "waterNormal");
         compositor.Imports["Reflections"] = Import(reflections, "reflections");
 
+        // ⚠ The entry state is where the priming copy left it, and not Undefined. A graph told the
+        // image is undefined is a graph allowed to discard what is in it, which is exactly what a
+        // tiled pass is relying on being there.
         compositor.Imports["Display"] = new(
             display.Texture,
             display.View,
             display.Description,
-            ResourceState.Undefined,
+            prime is null ? ResourceState.Undefined : ResourceState.CopyDestination,
             ResourceState.CopySource
         );
 
@@ -350,6 +496,19 @@ public sealed class WaterPassImageTests {
         return fixture.Render(
             frame.Texture("harness", "Display"),
             commands => {
+                if (priming.IsValid) {
+                    commands.Barrier(
+                        new([], [new(display.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                    );
+
+                    commands.CopyBufferToTexture(
+                        priming,
+                        0,
+                        new(display.Texture),
+                        new(Fixture.Side, Fixture.Side, 1)
+                    );
+                }
+
                 Upload(commands, copy);
                 Upload(commands, depth);
                 Upload(commands, surface);

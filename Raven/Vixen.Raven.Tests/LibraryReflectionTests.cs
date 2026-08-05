@@ -115,6 +115,13 @@ public class LibraryReflectionTests {
         // target, and a permutation nothing can name is a backend that silently gets the wrong one.
         ("Water", "Ripples"),
 
+        // And § D8's classification, the fifth. Published because WaterRenderer binds its surface, its
+        // tile buffer and both of its sizes by name, and because the tile buffer is the one binding two
+        // shaders have to agree about: `Water.rvn`'s vertex stage indexes what this one wrote, so a
+        // renumbering that reached only one of them is a draw reading a buffer of coverage as a buffer
+        // of tiles.
+        ("Water", "WaterTiles"),
+
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see

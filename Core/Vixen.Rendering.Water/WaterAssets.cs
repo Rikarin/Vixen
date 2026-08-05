@@ -88,6 +88,22 @@ public sealed record WaterAsset : ISceneRendererAsset {
 
     /// <summary>Whether foam is blended over the result at all.</summary>
     public bool Foam { get; init; } = true;
+
+    /// <summary>Whether the pass runs over the tiles that have water rather than over the screen.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         § D8's tile classification — see <see cref="WaterRenderer.Tiled" /> for what it does and
+    ///         what it needs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On here and off on the node, and the difference is <see cref="Behind" />.</b> Tiling
+    ///         leaves a dry tile's pixels as it found them, which is the same picture only where
+    ///         <see cref="Output" /> already holds what <see cref="Behind" /> is a copy of. A document
+    ///         guarantees that — the <c>!Copy</c> § B1 requires is what filled it, from this very target
+    ///         — and a node somebody wired by hand does not.
+    ///     </para>
+    /// </remarks>
+    public bool Tiled { get; init; } = true;
 }
 
 /// <summary>The water surface mesh, as a document names it.</summary>
@@ -336,6 +352,12 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
 
     static WaterRenderer Water(WaterAsset declared, CompositorBuilder builder) =>
         new() {
+            Tiled = declared.Tiled,
+
+            // Its own, like every other compute node a document places — see CompositorBuilder's
+            // !Compute. A cache is keyed by effect and costs a dictionary; sharing one would be a
+            // lifetime shared between nodes that are disposed separately.
+            Pipelines = builder.Device is { } device ? new(device) : null,
             Name = declared.Name,
             Enabled = declared.Enabled,
             Output = declared.Output,
