@@ -231,6 +231,13 @@ public sealed class AppConfig {
         Arguments = arguments.Remaining;
         UnrecognisedArguments = arguments.Unrecognised;
 
+        // ⚠ Only ever turned on from here, never off. `Apply` runs before `Game.OnConfigure`, so a
+        // game that wants its own frame timing sets the option there and the absence of the flag
+        // must not undo it.
+        if (arguments.GpuProfiling) {
+            Graphics.GpuProfiling = true;
+        }
+
         if (arguments.WorkerCount is { } workers) {
             WorkerCount = workers;
         }

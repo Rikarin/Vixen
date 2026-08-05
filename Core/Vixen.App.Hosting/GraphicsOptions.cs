@@ -215,4 +215,28 @@ public sealed class GraphicsOptions {
     ///     which every backend refuses.
     /// </remarks>
     public Int2 WindowlessSize { get; set; } = new(1280, 720);
+
+    /// <summary>Whether each of the frame's passes is timed on the GPU.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Attaches a <see cref="GpuProfiler" /> to the render graph, which then brackets every
+    ///         pass it runs with a timestamp pair named after the pass. <c>AppGraphics.GpuFrame</c>
+    ///         is where the readings arrive, a few frames late — a GPU profiler that reported the
+    ///         frame it was recording would be lying.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off, and it has to be.</b> A timestamp pair is a GPU write, and on tile-based
+    ///         hardware — every Apple GPU, every mobile GPU — a query write can force a tile resolve,
+    ///         so an always-on instrument changes the timings it reports. The number this yields is
+    ///         a measurement of a profiled frame, which is near but not equal to the frame that
+    ///         ships; leaving it on to "keep an eye on things" is how a renderer acquires a cost
+    ///         nobody can find.
+    ///     </para>
+    ///     <para>
+    ///         Ignored on a device that reports no timestamp queries, which the host logs rather
+    ///         than failing over: a run that refused to start because it could not be profiled would
+    ///         be worse than one that draws.
+    ///     </para>
+    /// </remarks>
+    public bool GpuProfiling { get; set; }
 }

@@ -373,4 +373,51 @@ static partial class SampleLog {
         string mirrors,
         int ring
     );
+
+    /// <summary>
+    ///     What the frame cost on the GPU, pass by pass, when <c>--vixen-gpu-profile</c> asked for
+    ///     it. A game has no profiler panel — that is the editor's — so this is what "open the
+    ///     timeline" means at a command line, and it is read straight off
+    ///     <c>AppGraphics.GpuFrame</c>, which is the same object the editor's timeline draws.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14060,
+        Level = LogLevel.Information,
+        Message = "GPU frame {Frame}: {Milliseconds:0.###} ms across {Passes} pass(es), "
+            + "{Attributed:0.###} ms attributed."
+    )]
+    public static partial void GpuFrameSummary(
+        ILogger logger,
+        int frame,
+        double milliseconds,
+        int passes,
+        double attributed
+    );
+
+    /// <summary>One pass's share of the frame, most expensive first.</summary>
+    [LoggerMessage(
+        EventId = 14061,
+        Level = LogLevel.Information,
+        Message = "  {Rank,2}. {Name,-28} {Milliseconds,8:0.###} ms  {Share,5:0.#}%"
+    )]
+    public static partial void GpuPassCost(
+        ILogger logger,
+        int rank,
+        string name,
+        double milliseconds,
+        double share
+    );
+
+    /// <summary>
+    ///     ⚠ Said when the frame's passes do not account for the frame's span. A large remainder is
+    ///     not a slow GPU — it is work the graph ran outside any pass, or a pass that dropped off the
+    ///     end of the profiler's capacity, and either way the timeline above is incomplete.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14062,
+        Level = LogLevel.Warning,
+        Message = "GPU frame has {Unattributed:0.###} ms ({Share:0.#}%) outside any pass — the "
+            + "timeline is missing work."
+    )]
+    public static partial void GpuUnattributed(ILogger logger, double unattributed, double share);
 }

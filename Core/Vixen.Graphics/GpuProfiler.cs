@@ -1,12 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Graphics;
-
-namespace Vixen.Editor.Profiler;
+namespace Vixen.Graphics;
 
 /// <summary>One timed region of a frame on the GPU.</summary>
-/// <param name="Name">What it is called — the pass's name, in practice.</param>
+/// <param name="Name">What it is called — the render-graph pass's name, in practice.</param>
 /// <param name="Level">How deeply nested it is, for drawing.</param>
 /// <param name="BeginTicks">The GPU clock at its start.</param>
 /// <param name="EndTicks">The GPU clock at its end.</param>
@@ -76,6 +74,46 @@ public sealed record GpuFrame(int FrameIndex, IReadOnlyList<GpuScope> Scopes, fl
     }
 }
 
+/// <summary>Something that turns a named region of a command list into a timed scope.</summary>
+/// <remarks>
+///     <para>
+///         <b>The seam that lets the render graph time its passes without knowing what a profiler
+///         is.</b> A graph holds one of these or holds nothing; when it holds nothing the emission is
+///         a null check per pass and no GPU work at all, which is the only way a per-pass timestamp
+///         pair can be the default-off feature it has to be.
+///     </para>
+///     <para>
+///         ⚠ <b>Off by default is not caution, it is correctness on a tiler.</b> MoltenVK is the
+///         development target here, and on tile-based hardware a query write can force the tile to be
+///         resolved — so an always-on timestamp pair around every pass changes the very timings it
+///         reports. A frame profiled and a frame shipped have to be the same frame, and that is only
+///         true when the instrument can be taken out.
+///     </para>
+///     <para>
+///         An interface rather than the concrete <see cref="GpuProfiler" /> because a timestamp pool
+///         is one way to answer this and not the only one: a Tracy or PIX sink emits markers a host
+///         tool timestamps for it, and would implement this without a
+///         <see cref="QueryPoolHandle" /> anywhere in sight.
+///     </para>
+/// </remarks>
+public interface IGpuScopeSink {
+    /// <summary>Opens a named region.</summary>
+    /// <param name="commands">The list the region's work is recorded into.</param>
+    /// <param name="name">What to call it.</param>
+    /// <returns>A token for <see cref="Close" />, or <see langword="null" /> when nothing was opened.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Returning <see langword="null" /> rather than throwing is part of the contract.</b> A
+    ///     frame with one pass more than the sink can hold is a timeline missing a bar; a frame that
+    ///     threw is a renderer that stops drawing because a diagnostic is attached.
+    /// </remarks>
+    int? Begin(ICommandList commands, string name);
+
+    /// <summary>Closes a region.</summary>
+    /// <param name="commands">The list the region's work was recorded into.</param>
+    /// <param name="token">What <see cref="Begin" /> returned. <see langword="null" /> does nothing.</param>
+    void Close(ICommandList commands, int? token);
+}
+
 /// <summary>
 ///     Records a frame's passes into a device's query pools and reads them back once the GPU has
 ///     caught up.
@@ -87,6 +125,13 @@ public sealed record GpuFrame(int FrameIndex, IReadOnlyList<GpuScope> Scopes, fl
 ///         <c>WriteTimestamp</c> and a resolve path; what this class owns is the part above them —
 ///         which pool a frame writes into, when it is safe to read one back, and how a pair of
 ///         readings becomes a named region.
+///     </para>
+///     <para>
+///         ⚠ <b>It lives beside the RHI and not in the editor, because the thing being measured is a
+///         game's frame.</b> A profiler a game cannot reference is a profiler that can only ever
+///         report on the editor, and the editor's frame is not the frame anybody ships. The panels
+///         that draw a <see cref="GpuFrame" /> stay in <c>Vixen.Editor.Profiler</c>; what moved down
+///         here is only the instrument.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>One pool per frame in flight, and it is not an optimisation.</b> A single pool
@@ -103,15 +148,23 @@ public sealed record GpuFrame(int FrameIndex, IReadOnlyList<GpuScope> Scopes, fl
 ///         <see cref="Latest" /> starts empty.
 ///     </para>
 /// </remarks>
-public sealed class GpuProfiler : IDisposable {
+public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
     /// <summary>How many regions one frame may record when no ceiling is given.</summary>
     /// <remarks>
-    ///     Sixty-four passes is more than any frame this engine records and two queries each is a
-    ///     pool of 128 — which is a few hundred bytes on the device. Sizing it to the frame would
-    ///     mean recreating pools mid-flight, which is the one thing the frames-in-flight rule above
-    ///     exists to avoid.
+    ///     <para>
+    ///         Two queries each, so this is a pool of 512 — a couple of kilobytes on the device.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Raised from 64 when the render graph started emitting a scope per pass.</b>
+    ///         Sixty-four was "more than any frame this engine records" while the only caller was a
+    ///         host timing one region by hand; sample 13's standard frame declares far more passes
+    ///         than that, and a ceiling reached is a timeline that silently stops halfway through the
+    ///         frame — the bars that are there look right, and the expensive pass you opened the
+    ///         panel for is simply absent. Sizing it to the frame is not an option: the pools cannot
+    ///         be recreated mid-flight without racing the frames still reading them.
+    ///     </para>
     /// </remarks>
-    public const int DefaultScopeCapacity = 64;
+    public const int DefaultScopeCapacity = 256;
 
     readonly IGraphicsDevice device;
     readonly QueryPoolHandle[] pools;
@@ -178,6 +231,15 @@ public sealed class GpuProfiler : IDisposable {
     /// <summary>How many frames were recorded but never read, because the panel closed first.</summary>
     public int Abandoned { get; private set; }
 
+    /// <summary>How many regions the frame being recorded asked for beyond <see cref="ScopeCapacity" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The number that says a timeline is lying by omission.</b> Overflow drops a region
+    ///     rather than throwing, which is the right trade in a frame and the wrong one to keep quiet
+    ///     about: a timeline whose last third is missing looks exactly like a frame whose last third
+    ///     is free. Non-zero means raise <see cref="ScopeCapacity" />.
+    /// </remarks>
+    public int Dropped { get; private set; }
+
     /// <summary>Starts recording a frame's regions into the next pool.</summary>
     /// <param name="commands">The list the frame's passes are recorded into.</param>
     /// <param name="frameIndex">Which frame this is, for labelling.</param>
@@ -200,6 +262,7 @@ public sealed class GpuProfiler : IDisposable {
         pending[slot].Clear();
         frames[slot] = frameIndex;
         open = 0;
+        Dropped = 0;
 
         commands.ResetQueries(pools[slot], 0, ScopeCapacity * 2);
     }
@@ -208,14 +271,15 @@ public sealed class GpuProfiler : IDisposable {
     /// <param name="commands">The list the region's work is recorded into.</param>
     /// <param name="name">What to call it.</param>
     /// <returns>
-    ///     A token for <see cref="End" />, or <see langword="null" /> when the frame has already
+    ///     A token for <see cref="Close" />, or <see langword="null" /> when the frame has already
     ///     recorded <see cref="ScopeCapacity" /> regions.
     /// </returns>
     /// <exception cref="ArgumentNullException">Either argument is null.</exception>
     /// <remarks>
     ///     ⚠ <b>Running out of capacity drops the region rather than throwing.</b> A frame with one
     ///     pass too many is a timeline missing a bar; a frame that threw is a renderer that stops
-    ///     drawing because a diagnostic panel is open, which is a much worse trade.
+    ///     drawing because a diagnostic panel is open, which is a much worse trade. What was dropped
+    ///     is counted in <see cref="Dropped" /> rather than lost silently.
     /// </remarks>
     public int? Begin(ICommandList commands, string name) {
         ArgumentNullException.ThrowIfNull(commands);
@@ -223,6 +287,7 @@ public sealed class GpuProfiler : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         if (pending[slot].Count >= ScopeCapacity) {
+            Dropped++;
             return null;
         }
 
@@ -237,7 +302,7 @@ public sealed class GpuProfiler : IDisposable {
     /// <param name="commands">The list the region's work was recorded into.</param>
     /// <param name="token">What <see cref="Begin" /> returned. <see langword="null" /> does nothing.</param>
     /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
-    public void End(ICommandList commands, int? token) {
+    public void Close(ICommandList commands, int? token) {
         ArgumentNullException.ThrowIfNull(commands);
         ObjectDisposedException.ThrowIf(disposed, this);
 

@@ -10,6 +10,7 @@ using Vixen.Engine.Frames;
 using Vixen.Engine.Renderer;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
+using Vixen.Graphics;
 using Vixen.Physics;
 using Vixen.Physics.Ecs;
 using Vixen.Physics.Shapes;
@@ -1096,6 +1097,8 @@ public sealed class Arena : IDisposable {
             SampleLog.SceneSetMissing(logger, binding);
         }
 
+        ReportGpuFrame(graphics.GpuFrame);
+
         // ⚠ The third thing a black frame can be, after "no variant" and "no set 0": a camera that
         // was never filled. Every counter above is true of a frame drawn through an identity
         // view-projection, in which the whole level sits outside the unit cube and clips away.
@@ -1284,6 +1287,54 @@ public sealed class Arena : IDisposable {
             graphics.Renderer.Materials.IndexedTextureCount,
             graphics.Renderer.Materials.UnresolvedTextureCount
         );
+    }
+
+    /// <summary>The frame's GPU cost, pass by pass, most expensive first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Sorted by cost rather than shown in declaration order, because the question this
+    ///         is opened with is "what is the frame spending its time on".</b> The declaration order
+    ///         is what the editor's timeline draws — a bar per pass along a time axis — and reading
+    ///         it off a log would mean counting rows. The rank makes the answer the first line.
+    ///     </para>
+    ///     <para>
+    ///         The remainder is the part worth watching. Passes are timed as a span each and the
+    ///         frame is the span from the first begin to the last end, so the two agree only if every
+    ///         piece of GPU work the frame does happens inside a pass the graph ran. A large gap
+    ///         means the timeline is not describing the whole frame.
+    ///     </para>
+    /// </remarks>
+    void ReportGpuFrame(GpuFrame frame) {
+        if (frame.Scopes.Count == 0) {
+            return;
+        }
+
+        var attributed = 0d;
+
+        foreach (var scope in frame.Scopes) {
+            attributed += frame.MillisecondsOf(scope);
+        }
+
+        var total = frame.Milliseconds;
+
+        SampleLog.GpuFrameSummary(logger, frame.FrameIndex, total, frame.Scopes.Count, attributed);
+
+        var ranked = new List<GpuScope>(frame.Scopes);
+        ranked.Sort((left, right) => frame.MillisecondsOf(right).CompareTo(frame.MillisecondsOf(left)));
+
+        for (var index = 0; index < ranked.Count; index++) {
+            var cost = frame.MillisecondsOf(ranked[index]);
+
+            SampleLog.GpuPassCost(logger, index + 1, ranked[index].Name, cost, total > 0d ? cost / total * 100d : 0d);
+        }
+
+        // ⚠ Passes can overlap on a GPU that runs them concurrently, so `attributed` may exceed the
+        // frame's span and a negative remainder is not a bug. Only a shortfall is reported.
+        var unattributed = total - attributed;
+
+        if (total > 0d && unattributed > total * 0.05d) {
+            SampleLog.GpuUnattributed(logger, unattributed, unattributed / total * 100d);
+        }
     }
 
     /// <summary>How many entities a query matches.</summary>

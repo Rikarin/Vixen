@@ -56,6 +56,7 @@ public sealed class AppGraphics : IDisposable {
 
     ISwapChain? swapChain;
     ICommandList? commands;
+    GpuProfiler? gpu;
 
     /// <summary>The framebuffer size the swapchain was last built for.</summary>
     /// <remarks>
@@ -111,6 +112,19 @@ public sealed class AppGraphics : IDisposable {
         }
 
         Renderer = new(device, Effects, options.VertexCapacity, options.IndexCapacity);
+
+        // ⚠ Attached once, here, and never per frame. The graph reads its sink at Execute and the
+        // sink's pools are sized at construction, so a profiler swapped mid-run would be one whose
+        // pools the frames in flight are still writing into. Off unless asked for, and refused
+        // rather than faked on a device with no clock — see GraphicsOptions.GpuProfiling.
+        if (options.GpuProfiling) {
+            if (device.Features.HasTimestampQueries) {
+                gpu = new(device);
+                Renderer.Host.Graph.Profiler = gpu;
+            }
+
+            HostLog.GpuProfiling(logger, gpu is not null, device.Adapter.Name);
+        }
 
         // Before Load, because the builder binds a document's `view:` by name as it builds the nodes,
         // and a view added afterwards is one nothing refers to.
@@ -387,6 +401,21 @@ public sealed class AppGraphics : IDisposable {
     /// <summary>How many frames have been recorded.</summary>
     public int FrameCount => Renderer.Host.FrameCount;
 
+    /// <summary>The most recent frame whose passes the GPU has finished timing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="GpuFrame.Empty" /> unless <see cref="GraphicsOptions.GpuProfiling" /> is
+    ///         on, and for the first few frames after it is — the readings are a few submissions
+    ///         behind, which is a property of the measurement rather than of this property.
+    ///     </para>
+    ///     <para>
+    ///         One scope per surviving render-graph pass, named after the pass and in the order the
+    ///         document declared them. This is what a game reads to draw its own overlay, and what
+    ///         the editor's timeline panel is handed when the editor is the host.
+    ///     </para>
+    /// </remarks>
+    public GpuFrame GpuFrame { get; private set; } = GpuFrame.Empty;
+
     /// <summary>
     ///     The frame a project gets before it authors one: one lit pass, into the window.
     /// </summary>
@@ -474,6 +503,11 @@ public sealed class AppGraphics : IDisposable {
 
         commands = Device.BeginCommandList(QueueKind.Graphics, "frame");
 
+        // ⚠ Before anything is recorded, because what it records is the pool reset — which Vulkan
+        // will not allow inside a render pass, and which has to be on the same list as the writes it
+        // is resetting for.
+        gpu?.BeginFrame(commands, FrameCount);
+
         // Renderer.Draw rather than Host.Draw: the texture copies a material's maps need go on the
         // list before anything samples them, and a host that skips them leaves every textured
         // material sampling the table's fallback for ever — which reads as "all my materials are the
@@ -505,6 +539,14 @@ public sealed class AppGraphics : IDisposable {
         list.Finish();
         Device.GraphicsQueue.Submit([list]);
         list.Dispose();
+
+        // ⚠ After the submit, and what it reads is a frame from several submissions ago rather than
+        // the one just sent. `TryResolveQueries` never waits — a resolve that blocked would stall
+        // the frame thread once per frame and halve the rate it is reporting — so the first frames
+        // after a run starts yield nothing, and `GpuFrame` stays empty until the GPU has retired one.
+        if (gpu is not null && gpu.Resolve()) {
+            GpuFrame = gpu.Latest;
+        }
 
         Device.EndFrame();
 
@@ -646,6 +688,12 @@ public sealed class AppGraphics : IDisposable {
 
         swapChain?.Dispose();
         swapChain = null;
+
+        // Detached before it is destroyed: the graph outlives this only in a test that kept a
+        // reference, and a sink whose pools have been returned is a use-after-free on the next frame.
+        Renderer.Host.Graph.Profiler = null;
+        gpu?.Dispose();
+        gpu = null;
 
         Renderer.Dispose();
 
