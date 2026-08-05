@@ -7,18 +7,35 @@
 
         <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
         <OutputType>Exe</OutputType>
+
+        <!--
+            The same opt-out Vixen.DocGen makes, for the same shape of reason. This project needs
+            Roslyn as a library (TemplateCompiler) *and* Vixen.Cli, whose Vixen.Live.Cluster
+            reference brings Microsoft.Orleans.Sdk 10.2.2, which requires
+            Microsoft.CodeAnalysis.Common >= 5.0.0 — while Directory.Packages.props pins
+            Microsoft.CodeAnalysis.CSharp at 4.11.0 for the generators, which target the compiler
+            and must not be dragged forward by a test host. CentralPackageVersionOverrideEnabled is
+            false, so VersionOverride is not available: this project opts out of central versions
+            entirely. Nothing references it and nothing ships it, so the opt-out costs four inline
+            versions and the alternative costs the generators.
+        -->
+        <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="xunit.v3" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" />
-        <PackageReference Include="xunit.runner.visualstudio">
+        <PackageReference Include="xunit.v3" Version="3.2.2" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
 
-        <!-- What compiles a scaffolded project without building one. See TemplateCompiler. -->
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+        <!-- What compiles a scaffolded project without building one. See TemplateCompiler. 5.0.0
+             rather than the central 4.11.0 because Orleans (above) needs >= 5.0.0 — and exactly
+             5.0.0 rather than DocGen's 5.6.0 because Orleans also brings
+             Microsoft.CodeAnalysis.Workspaces.Common 5.0.0, whose dependency on
+             Microsoft.CodeAnalysis.Common is an exact pin (NU1608 as error otherwise). -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     </ItemGroup>
 
     <ItemGroup>
