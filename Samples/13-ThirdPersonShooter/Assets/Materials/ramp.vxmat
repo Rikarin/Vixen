@@ -14,6 +14,15 @@ features:
     roughness: 0.34
     baseColorMap: baseColorMap
 
+  # ⚠ The one that shows most, because this is the level's only metal: a normal map bends the
+  # specular lobe, and at roughness 0.34 the lobe is tight enough for the plate's ribs to break the
+  # sky's reflection into bands rather than smearing it.
+  - !TexturedNormalMap
+    normalMap: normalMap
+    strength: 1
+
 textures:
   - parameter: baseColorMap
     texture: vx:327689d4b6864968ba80ee4fdade319b
+  - parameter: normalMap
+    texture: vx:b25f291775fd4b88a02bc3a3ef2c5b00

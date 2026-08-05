@@ -14,6 +14,14 @@ features:
     roughness: 0.82
     baseColorMap: baseColorMap
 
+  # The plank seams, which is the whole of what a crate's normal map is for: the geometry is a box
+  # and the map is the only thing that says it is made of boards.
+  - !TexturedNormalMap
+    normalMap: normalMap
+    strength: 1
+
 textures:
   - parameter: baseColorMap
     texture: vx:3a607ea677194091bb56deab8c7ace25
+  - parameter: normalMap
+    texture: vx:88e0e514dc944772bf20f75f28802c92
