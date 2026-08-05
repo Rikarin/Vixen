@@ -1056,6 +1056,78 @@ public class CompositorAssetTests : IDisposable {
         Assert.Equal(height, description.Height);
     }
 
+    /// <summary>A volume is a resource the document can name, extent and shape and all.</summary>
+    /// <remarks>
+    ///     ⚠ The depth takes no <see cref="RenderResourceAsset.Scale" />: a froxel grid's slice count
+    ///     is how finely the frustum is cut, which does not change when the window does. The other
+    ///     two axes still scale, so a volume authored against the frame stays proportional.
+    /// </remarks>
+    [Fact]
+    public void A_declared_volume_keeps_its_depth_and_its_shape() {
+        var declared = new RenderResourceAsset {
+            Name = "FogMedia",
+            Format = PixelFormat.Rgba16Float,
+            Usage = TextureUsage.Storage | TextureUsage.Sampled,
+            Width = 160,
+            Height = 90,
+            Depth = 64,
+            Dimension = TextureDimension.Texture3D
+        };
+
+        var description = declared.Describe(new(512, 512));
+
+        Assert.Equal(160, description.Width);
+        Assert.Equal(90, description.Height);
+        Assert.Equal(64, description.Depth);
+        Assert.Equal(TextureDimension.Texture3D, description.Dimension);
+
+        // A plane is what it always was: one deep, and 2D.
+        var plane = new RenderResourceAsset { Name = "Bloom" }.Describe(new(512, 512));
+
+        Assert.Equal(1, plane.Depth);
+        Assert.Equal(TextureDimension.Texture2D, plane.Dimension);
+    }
+
+    /// <summary>
+    ///     And a node can read the extent back, rather than carrying its own copy of the numbers.
+    /// </summary>
+    /// <remarks>
+    ///     Two derivations of one quantity is how a dispatch ends up covering part of a volume and
+    ///     leaving the rest at whatever the previous frame put there.
+    /// </remarks>
+    [Fact]
+    public void The_frame_reports_what_a_resource_was_declared_as() {
+        using var h = Build();
+
+        var declared = new RenderResourceAsset {
+            Name = "FogMedia",
+            Format = PixelFormat.Rgba16Float,
+            Usage = TextureUsage.Storage | TextureUsage.Sampled,
+            Width = 160,
+            Height = 90,
+            Depth = 64,
+            Dimension = TextureDimension.Texture3D
+        }.Describe(new(512, 512));
+
+        var frame = new CompositorFrame { Graph = h.Graph, Effects = effects, Device = device };
+
+        frame.Add("FogMedia", h.Graph.CreateTexture(declared), declared);
+        frame.Add("Plain", h.Graph.CreateTexture(declared), declared.Format);
+
+        var description = frame.DescriptionOf("test", "FogMedia");
+
+        Assert.NotNull(description);
+        Assert.Equal(160, description!.Value.Width);
+        Assert.Equal(90, description.Value.Height);
+        Assert.Equal(64, description.Value.Depth);
+        Assert.Equal(TextureDimension.Texture3D, description.Value.Dimension);
+
+        // ⚠ Null and not a 1×1×1 stand-in. "Nobody recorded one" and "it is one texel" are different
+        // answers, and a dispatch sized from the second covers one froxel.
+        Assert.Null(frame.DescriptionOf("test", "Plain"));
+        Assert.Equal(PixelFormat.Rgba16Float, frame.FormatOf("test", "Plain"));
+    }
+
     /// <summary>A node naming a stage that the document does not declare is refused too.</summary>
     [Fact]
     public void A_stage_the_document_never_declared_is_refused() {

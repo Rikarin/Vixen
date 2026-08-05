@@ -326,9 +326,11 @@ Vixen.Rendering.Compositor.CompositorBuilder.Visibility.set -> Vixen.Rendering.G
 Vixen.Rendering.Compositor.CompositorFrame -> sealed class
 Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphBuffer buffer, in Vixen.Graphics.BufferDescription description) -> void
 Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphTexture texture, Vixen.Graphics.PixelFormat format) -> void
+Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphTexture texture, in Vixen.Graphics.TextureDescription description) -> void
 Vixen.Rendering.Compositor.CompositorFrame.Buffer(string node, string name) -> Vixen.Graphics.RenderGraph.GraphBuffer
 Vixen.Rendering.Compositor.CompositorFrame.CompositorFrame() -> void
 Vixen.Rendering.Compositor.CompositorFrame.DescribeBuffer(string node, string name) -> Vixen.Graphics.BufferDescription
+Vixen.Rendering.Compositor.CompositorFrame.DescriptionOf(string node, string name) -> Vixen.Graphics.TextureDescription?
 Vixen.Rendering.Compositor.CompositorFrame.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorFrame.Device.init -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorFrame.FormatOf(string node, string name) -> Vixen.Graphics.PixelFormat
@@ -861,7 +863,11 @@ Vixen.Rendering.Compositor.RenderPassRenderer.Viewport.get -> Vixen.Core.Mathema
 Vixen.Rendering.Compositor.RenderPassRenderer.Viewport.set -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.RenderResourceAsset -> sealed record
 Vixen.Rendering.Compositor.RenderResourceAsset : System.IEquatable<Vixen.Rendering.Compositor.RenderResourceAsset>
+Vixen.Rendering.Compositor.RenderResourceAsset.Depth.get -> int
+Vixen.Rendering.Compositor.RenderResourceAsset.Depth.init -> int
 Vixen.Rendering.Compositor.RenderResourceAsset.Describe(Vixen.Core.Mathematics.Int2 frameSize) -> Vixen.Graphics.TextureDescription
+Vixen.Rendering.Compositor.RenderResourceAsset.Dimension.get -> Vixen.Graphics.TextureDimension
+Vixen.Rendering.Compositor.RenderResourceAsset.Dimension.init -> Vixen.Graphics.TextureDimension
 Vixen.Rendering.Compositor.RenderResourceAsset.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.Compositor.RenderResourceAsset.Format.init -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.Compositor.RenderResourceAsset.Height.get -> int
