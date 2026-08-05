@@ -79,6 +79,12 @@ public static class WebGpuCapabilities {
             HasAnisotropicFiltering = true,
             HasDepthClamp = hasFeature(WgpuFeatureName.DepthClipControl),
 
+            // Optional here in a way it is not on the explicit APIs: WebGPU's core validation rejects
+            // a non-zero `firstInstance` in an indirect command outright, and this feature is the
+            // permission. `Wanted` has always asked for it; until this line nothing read the answer,
+            // so a pass that patches the field had no way to find out it could not.
+            HasDrawIndirectFirstInstance = hasFeature(WgpuFeatureName.IndirectFirstInstance),
+
             // An integrated GPU shares the CPU's memory pool, so staging through an upload buffer is
             // pure overhead there. A browser reports Unknown for everything — fingerprinting — so the
             // web answer is "assume not", which costs a copy and is never wrong in the unsafe

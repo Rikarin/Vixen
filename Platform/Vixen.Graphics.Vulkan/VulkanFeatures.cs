@@ -174,6 +174,13 @@ static class VulkanFeatures {
 
             HasMultiDrawIndirect = features.MultiDrawIndirect,
 
+            // Optional in core Vulkan at every version, and genuinely absent on some hardware:
+            // VP_ANDROID_baseline_2022 does not require it, while VP_KHR_roadmap_2022 and
+            // VP_ANDROID_15_minimums both do. MoltenVK reports it — Metal's indirect argument struct
+            // has a baseInstance field — so the Apple targets have it. VulkanDevice enables the bit
+            // it finds here; a reader that skipped this check would get no message of any kind.
+            HasDrawIndirectFirstInstance = features.DrawIndirectFirstInstance,
+
             // The extension, at every version. It is core from 1.2 and gated there behind
             // VkPhysicalDeviceVulkan12Features::drawIndirectCount, which this backend does not query
             // — and every driver that promoted it still advertises it, so asking for the extension

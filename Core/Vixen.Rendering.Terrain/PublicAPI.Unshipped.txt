@@ -502,6 +502,7 @@ Vixen.Rendering.Terrain.TerrainSceneRenderer.TerrainSceneRenderer() -> void
 Vixen.Rendering.Terrain.TerrainSceneRenderer.TerrainsDrawn.get -> int
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Vegetation.get -> Vixen.Rendering.Terrain.TerrainVegetationQuality
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Vegetation.set -> Vixen.Rendering.Terrain.TerrainVegetationQuality
+Vixen.Rendering.Terrain.TerrainSceneRenderer.VegetationUnsupported.get -> bool
 Vixen.Rendering.Terrain.TerrainSceneRenderer.VelocityDraws.get -> int
 Vixen.Rendering.Terrain.TerrainSceneRenderer.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.View.set -> Vixen.Rendering.RenderView?

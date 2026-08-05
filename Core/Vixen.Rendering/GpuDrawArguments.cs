@@ -363,6 +363,22 @@ public sealed class GpuDrawArguments : IDisposable {
             );
         }
 
+        // ⚠ The one thing a device can refuse that nothing would report. Without
+        // GraphicsDeviceFeatures.HasDrawIndirectFirstInstance every command in an indirect buffer has
+        // to carry zero in `firstInstance`, and the shader copies the templates' value through
+        // untouched — so a device that lacks it and a source that filled a batch start or a record
+        // index is illegal usage the layers cannot see, drawing every object with the *first*
+        // object's transforms. Scanned rather than assumed because the answer depends on the frame:
+        // a scene with no instancing and no records fills zero everywhere and is legal anywhere, and
+        // refusing that outright would cost every device without the bit its whole GPU-driven path.
+        //
+        // Falling back rather than throwing, the `compacting` stance above: false here leaves
+        // IsFilled false, and MeshRenderFeature draws directly — where a non-zero first instance is a
+        // plain draw argument every device has always accepted.
+        if (!device.Features.HasDrawIndirectFirstInstance && NeedsFirstInstance(packed.AsSpan(0, objectCount))) {
+            return false;
+        }
+
         ObjectCount = objectCount;
         ViewCount = viewCount;
 
@@ -463,6 +479,26 @@ public sealed class GpuDrawArguments : IDisposable {
         IsCompacted = compacting;
         IsFilled = true;
         return true;
+    }
+
+    /// <summary>
+    ///     Whether any template names an instance other than the first — the question a device
+    ///     without <see cref="GraphicsDeviceFeatures.HasDrawIndirectFirstInstance" /> has to be asked
+    ///     before this pass runs.
+    /// </summary>
+    /// <remarks>
+    ///     Only ever called on such a device, so its cost is paid by the machines that need the
+    ///     answer and by nothing else. One pass over the templates, and it stops at the first slot
+    ///     that would make the buffer illegal.
+    /// </remarks>
+    static bool NeedsFirstInstance(ReadOnlySpan<DrawCommand> templates) {
+        foreach (ref readonly var command in templates) {
+            if (command.FirstInstance != 0u) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

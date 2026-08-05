@@ -287,6 +287,7 @@ public sealed class NullDevice : IGraphicsDevice {
         HasMeshShaders = true,
         HasBindless = true,
         HasMultiDrawIndirect = true,
+        HasDrawIndirectFirstInstance = true,
         HasDrawIndirectCount = true,
         HasTimelineSemaphores = true,
         HasAsyncCompute = true,

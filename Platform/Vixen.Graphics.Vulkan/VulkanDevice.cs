@@ -886,12 +886,21 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
         // Only what the device reported it has. Asking for a feature a device lacks fails device
         // creation outright, so the request is the intersection of what we want and what it offers.
+        //
+        // ⚠ An intersection is a *request*, not a guarantee, and every bit here has a reader that has
+        // to ask GraphicsDeviceFeatures before it acts. DrawIndirectFirstInstance is the one where
+        // forgetting costs nothing visible: without it, VUID-…-firstInstance-00530 requires every
+        // indirect command in the buffer to carry zero there, the validation layers cannot see a
+        // number a compute pass wrote into a device buffer, and the picture is every draw taking the
+        // first run rather than its own. Three passes patch that field — GpuDrawArguments, and the
+        // terrain's GrassScatter.rvn and FoliageCull.rvn — and all three gate on the capability.
         var enabled = new PhysicalDeviceFeatures {
             SamplerAnisotropy = adapter.Supported.SamplerAnisotropy,
             FillModeNonSolid = adapter.Supported.FillModeNonSolid,
             DepthClamp = adapter.Supported.DepthClamp,
             IndependentBlend = adapter.Supported.IndependentBlend,
             MultiDrawIndirect = adapter.Supported.MultiDrawIndirect,
+            DrawIndirectFirstInstance = adapter.Supported.DrawIndirectFirstInstance,
             GeometryShader = adapter.Supported.GeometryShader,
             TessellationShader = adapter.Supported.TessellationShader,
             ShaderFloat64 = adapter.Supported.ShaderFloat64,

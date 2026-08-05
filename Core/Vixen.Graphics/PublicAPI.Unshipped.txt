@@ -458,6 +458,8 @@ Vixen.Graphics.GraphicsDeviceFeatures.HasDepthClamp.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDepthClamp.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDrawIndirectCount.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDrawIndirectCount.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDrawIndirectFirstInstance.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDrawIndirectFirstInstance.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDynamicRendering.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDynamicRendering.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasFloat64.get -> bool
