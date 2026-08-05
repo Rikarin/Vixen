@@ -266,6 +266,14 @@ sealed class SceneComponentBinder<T> : ISceneComponentBinder {
 ///         is stored as three columns of the scene's own rather than as a component somebody could
 ///         also list, which would let a file say two different things about where an entity is.
 ///     </para>
+///     <para>
+///         <b>A binder also carries what a freshly created one holds</b>, for the components that
+///         declare an <see cref="IDefaultComponent{TSelf}" />. It is stored here because this is
+///         already the one map from a component type to everything an editor needs to know about it,
+///         and because it is already evicted with the assembly that declared it — a second registry
+///         would have had to solve the deferral and the unload again. Nothing is stored for a
+///         component that declares nothing, which is nearly all of them.
+///     </para>
 /// </remarks>
 public static class SceneComponentRegistry {
     static readonly ConcurrentDictionary<string, ISceneComponentBinder> ByAlias = new(StringComparer.Ordinal);
@@ -330,7 +338,7 @@ public static class SceneComponentRegistry {
     ///     <para>
     ///         <b>The other call the generated <c>[ModuleInitializer]</c> makes, and the only place the
     ///         value can be reached from.</b> <see cref="Register{T}()" /> closes its generic over an
-    ///         unconstrained <c>T</c>, so <c>T.Default</c> cannot be named there at all; the
+    ///         unconstrained <c>T</c>, so <c>T.DefaultValue</c> cannot be named there at all; the
     ///         constraint here is what lets the compiler bind it, which is why a declared default
     ///         costs no reflection and survives trimming and NativeAOT along with everything else the
     ///         generator emits.

@@ -46,6 +46,15 @@ sealed record ComponentModel(string QualifiedName, bool IsContract, bool HasDefa
 ///         is deliberately a no-op rather than an error: the day it grows a reference, its components
 ///         register with nothing else asked of anybody.
 ///     </para>
+///     <para>
+///         <b>A component implementing <c>IDefaultComponent&lt;itself&gt;</c> gets the other
+///         declaration, and that is the whole of how a default reaches the editor.</b> The value
+///         lives behind a <c>static abstract</c> member, which can only be named where the type
+///         argument carries the constraint — so the registry cannot fetch it from its own
+///         unconstrained generic and this is the one place the call can be written. A component that
+///         declares nothing emits exactly what it emitted before, which is what makes the feature
+///         free for the components that do not want it.
+///     </para>
 /// </remarks>
 [Generator(LanguageNames.CSharp)]
 public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
@@ -99,15 +108,16 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
     /// <param name="type">The component.</param>
     /// <returns>Whether it does.</returns>
     /// <remarks>
-    ///     ⚠ <b>Closed over itself specifically, not merely implementing the interface.</b> The
-    ///     constraint on <c>IDefaultComponent&lt;TSelf&gt;</c> already makes anything else
-    ///     uncompilable, so a type reaching here with a different argument does not exist — but the
-    ///     generated call is constrained the same way, and matching the argument is what makes it
-    ///     impossible for this to emit source that does not compile.
+    ///     ⚠ <b>Matched by full name and closed over itself, both of which are load-bearing.</b> The
+    ///     emitted call carries the same constraint the interface does, so anything this answers yes
+    ///     to has to satisfy it — and a game with an <c>IDefaultComponent&lt;T&gt;</c> of its own in
+    ///     another namespace is the one way that could fail. It would emit a call the compiler then
+    ///     rejects, reporting a constraint violation against generated source the author never wrote.
     /// </remarks>
     static bool HasDefault(INamedTypeSymbol type) =>
         type.AllInterfaces.Any(
             candidate => candidate.Name == "IDefaultComponent"
+                && candidate.ContainingNamespace?.ToDisplayString() == "Vixen.Ecs"
                 && candidate.TypeArguments.Length == 1
                 && SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[0], type)
         );
@@ -153,7 +163,7 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
         foreach (var component in valid) {
             // ⚠ Two methods rather than one with an optional factory, because the factory can only be
             // written where the type argument carries the constraint. `DeclareWithDefault` is where
-            // `T.Default` resolves, statically — which is why a component that declares one costs no
+            // `T.DefaultValue` resolves, statically — so a component that declares one costs no
             // reflection and one that does not costs nothing at all.
             var method = component.HasDefault ? "DeclareWithDefault" : "Declare";
 
