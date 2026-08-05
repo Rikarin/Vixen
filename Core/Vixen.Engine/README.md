@@ -457,4 +457,41 @@ pushed in by the host, because which device produces a character — and whether
 seeing it — is a platform's question. `IsCapturingInput` is what a host polls to know that typing
 `reload` must not also make the player reload.
 
+### ⚠ Nothing constructs the block above
+
+`DiagnosticOverlaySystem` is referenced by its own tests and by nothing else in the tree. Every
+overlay here is written, tested and unreachable in a running game, for the same reason the GPU
+timeline drew an empty frame for months: **the consumer is complete and no producer is wired to it.**
+
+A note from the work that fixed the GPU half, because the two are the same question and the answer
+found there constrains the answer here.
+
+**What that seam turned out to be.** Three joins, in this order, and none of them is a new
+abstraction:
+
+1. **The instrument moves to where a game can reference it.** `GpuProfiler` was in
+   `Vixen.Editor.Profiler`; it is now in `Vixen.Graphics`, with the *panels* left in the editor. The
+   equivalent here is already right — `DiagnosticOverlays` is in `Vixen.Engine` — so this step is
+   done, and it is why the remaining two are the whole job.
+2. **The framework emits, not the caller.** One loop in `RenderGraph.Execute` gave forty renderers
+   scopes at once. `DebugDraw` has the same property: the accumulator is already reached by
+   `Vixen.Physics`, `Vixen.Navigation` and `Vixen.Audio` without any of them linking a graphics API.
+   What is missing is not emission, it is the *host* line.
+3. **The host owns the switch, and it is off by default.** `AppGraphics` constructs the profiler when
+   `GraphicsOptions.GpuProfiling` says so, and `--vixen-gpu-profile` is how an operator says so
+   without editing a game. `AppGraphics`/`AppBuilder` is where a `DiagnosticOverlaySystem`
+   registration belongs, under a `GraphicsOptions` flag beside `GpuProfiling` and a
+   `--vixen-overlays` beside `--vixen-gpu-profile`.
+
+**And the readings are already there for it.** `AppGraphics.GpuFrame` is public and populated — one
+scope per render-graph pass, named, in declaration order. A `GpuOverlay` beside `FrameStatsOverlay`
+is a rows-of-text panel over that property and needs nothing new from the graphics layer. That is the
+overlap the two tasks share; it is one flag and one `loop.Add` apart.
+
+**One trap, found the expensive way.** `EditorApplication` held a `DiagnosticsModule` of its own
+while the plugin system registered a different one, so the host wrote the device and the resolved
+frame into an object no panel read — and the panel reported "No graphics device" beside a window a
+Vulkan device was drawing. Whatever hosts these overlays must hold *the same* `DiagnosticOverlays`
+the systems push into. A second instance fails silently and reads as a platform limitation.
+
 Licensed under Apache-2.0.
