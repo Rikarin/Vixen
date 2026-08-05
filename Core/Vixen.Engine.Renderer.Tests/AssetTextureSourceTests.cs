@@ -160,6 +160,78 @@ public sealed class AssetTextureSourceTests : IDisposable {
         Assert.Fail($"the material was never painted in {Patience}");
     }
 
+    /// <summary>
+    ///     A material's texture parameter is re-asserted on every update, not written once.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The assertion is that painting is not a one-shot queue, and streaming is why.</b>
+    ///         <see cref="AssetTextureSource" /> replaces a streamed texture's view whenever its
+    ///         resident resolution changes — a whole new image, with the old pair destroyed — and its
+    ///         own remarks warn that a caller holding a cached view is holding a destroyed one. A
+    ///         source that painted a material once and dropped it from its work list was exactly that
+    ///         caller: the material went on naming an image that no longer existed,
+    ///         <c>MaterialRenderFeature.Index</c> saw an unchanged handle and left the bindless slot
+    ///         pointing at it, and the shader sampled a dead descriptor. That is black albedo on
+    ///         whichever surfaces the streamer re-sized after their first paint, which is the large
+    ///         ones — sample 13's arena floor and walls, with the crates beside them correct.
+    ///     </para>
+    ///     <para>
+    ///         Simulated by clearing the parameter rather than by driving a swap, deliberately: what
+    ///         is being pinned is that <see cref="AssetMaterialSource.Update" /> writes what the
+    ///         texture source currently answers every time it is called, which is the property a swap
+    ///         needs and the one the old code did not have. Making a real tail swap happen needs a
+    ///         multi-level container and a pool under pressure, and would assert this same line
+    ///         through two systems that have their own tests.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMaterialsTextureIsReassertedOnEveryUpdateSoAStreamedSwapReachesIt() {
+        var assets = Content();
+
+        using var textures = new AssetTextureSource(device, assets);
+        using var materials = new AssetMaterialSource(assets, textures);
+
+        var key = ParameterKeys.New<TextureViewHandle>("baseColorMap");
+        var waited = Stopwatch.StartNew();
+        Material material = null!;
+
+        while (waited.Elapsed < Patience) {
+            if (material is null && !materials.TryGet(Hero, out material!)) {
+                Thread.Sleep(5);
+                continue;
+            }
+
+            var commands = device.BeginCommandList();
+
+            materials.Update(commands);
+            commands.Finish();
+
+            if (material.Parameters.Has(key)) {
+                break;
+            }
+
+            Thread.Sleep(5);
+        }
+
+        Assert.NotNull(material);
+        Assert.True(material.Parameters.Has(key), $"the material was never painted in {Patience}");
+
+        var painted = material.Parameters.Get(key);
+
+        // What a swap leaves behind: the material's view is no longer the one the source answers
+        // with. Cleared rather than replaced, because a handle a test invented is not one the source
+        // could ever hand back and the difference would be untestable.
+        material.Parameters.Set(key, default);
+
+        var second = device.BeginCommandList();
+
+        materials.Update(second);
+        second.Finish();
+
+        Assert.Equal(painted, material.Parameters.Get(key));
+    }
+
     static readonly AssetReference Hero = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
 
     /// <summary>
