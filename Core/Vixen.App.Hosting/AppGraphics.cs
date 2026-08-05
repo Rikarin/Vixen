@@ -143,6 +143,7 @@ public sealed class AppGraphics : IDisposable {
         // WaterZoneSystem.WaterTime — so the surface, the underwater volume and a buoyancy solver all
         // read the same number rather than three that agree until the frame rate changes.
         Water = new(View);
+        WaterClock = new(Water);
 
         // Also before Load, and for a stricter version of the same reason: a node kind nothing has
         // bound is not a warning, it is a CompositorBindingException from inside the build. This is
@@ -259,6 +260,16 @@ public sealed class AppGraphics : IDisposable {
             // the water was — which at a shoreline is the grade coming on a frame early. The phase
             // and the declared access are what actually order them; adding it here says why.
             engine.Add(Water);
+
+            // ⚠ The one thing that advances the water clock, and it is a second system rather than a
+            // line in the one above because of a phase. The fold has to be in PreRender — a body is
+            // rasterised where TransformSystem has just put it — and FixedUpdate, where a buoyancy
+            // solver runs, is *earlier in the same frame*. A clock advanced during the fold reaches a
+            // solver a frame late, which is a boat exactly one frame of swell behind the water drawn
+            // under it: constant, small, and invisible until the frame rate changes. EarlyUpdate is
+            // before everything that reads it.
+            engine.Add(WaterClock);
+
             engine.Add(Volumes);
             Renderer.Register(engine, Stages, ParticleStages);
         }
@@ -309,6 +320,16 @@ public sealed class AppGraphics : IDisposable {
     ///     </para>
     /// </remarks>
     public Vixen.Rendering.Water.WaterZoneSystem Water { get; }
+
+    /// <summary>What advances the water clock, in <c>EarlyUpdate</c>, before anything reads it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Separate from <see cref="Water" /> because of a phase, not because of tidiness.</b>
+    ///     The fold runs in <c>PreRender</c> and a buoyancy solver runs in <c>FixedUpdate</c>, which is
+    ///     earlier in the same frame — so a clock advanced during the fold hands the solver last
+    ///     frame's time while the vertex stage draws this frame's. Exposed so a cinematic can slow the
+    ///     sea with <c>Rate</c>, or a test pin <c>Water.WaterTime</c> and simply not add this.
+    /// </remarks>
+    public Vixen.Rendering.Water.WaterClockSystem WaterClock { get; }
 
     /// <summary>The post-process volumes the camera is inside, folded into one overlay.</summary>
     /// <remarks>

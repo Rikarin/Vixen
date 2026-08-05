@@ -97,7 +97,8 @@ public interface IWaterWaveSource {
 /// </remarks>
 /// <param name="view">The view whose position the windows are centred on.</param>
 [UpdateInGroup(SystemPhase.PreRender)]
-public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAccess, IPostProcessShapeSource {
+public sealed class WaterZoneSystem(RenderView view)
+    : SystemBase, IDeclaredAccess, IPostProcessShapeSource, IWaterSurface {
     // ⚠ Zones carry no transform requirement because nothing about a zone reads one: the window and
     // its claim both follow the view — see Reaches — and the entity's transform only places it in
     // the hierarchy. Bodies do require one, because a body is rasterised where its spline is.
@@ -106,6 +107,11 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
 
     readonly Dictionary<Entity, WaterZoneState> states = [];
     readonly Dictionary<Entity, Built> built = [];
+
+    // ⚠ One query per zone, rebuilt only when its sea state changed. A WaterQuery sums a spectrum in
+    // its constructor and QueryAt is asked once per pontoon per fixed step, which for a river of
+    // crates is thousands of times a second — see QueryAt.
+    readonly Dictionary<Entity, (WaterWaveSpectrum Spectrum, float Attenuation, WaterQuery Query)> queries = [];
     readonly List<(Entity Entity, WaterZoneComponent Component)> zones = [];
     readonly List<WaterBody> resolved = [];
     readonly List<WaterBody> claimed = [];
@@ -224,11 +230,76 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     ///         running while the game was paused.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>Written by <see cref="WaterClockSystem" /> and by nothing else, which is the rule
+    ///         made structural rather than asked for in a comment.</b> This system folds in
+    ///         <see cref="SystemPhase.PreRender" /> because a body has to be rasterised where
+    ///         <c>TransformSystem</c> has just put it — and <see cref="SystemPhase.FixedUpdate" />,
+    ///         where a buoyancy solver runs, is <em>earlier in the same frame</em>. Advancing the clock
+    ///         here would hand the solver last frame's value while the vertex stage drew this one's,
+    ///         which is a boat exactly one frame of swell behind the water under it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Left at zero if no clock system runs, which is a still sea and is meant to be
+    ///         obvious.</b> The alternative — a fallback advance in this system's own
+    ///         <see cref="Update" /> — is a second writer, and a second writer is what the whole rule
+    ///         is against.
+    ///     </para>
+    ///     <para>
     ///         Settable so a test, a tool or a cinematic can pin it. <see cref="Fold" /> does not
-    ///         touch it — the seam that does is <see cref="Update" />.
+    ///         touch it.
     ///     </para>
     /// </remarks>
     public float WaterTime { get; set; }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>What lets <c>Vixen.Water.Physics</c> exist without linking a device</b> — see
+    ///         <see cref="IWaterSurface" />. A buoyancy solver holds this interface and never learns
+    ///         that the thing answering it also uploads textures.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first zone whose window contains the place wins, and overlapping zones are
+    ///         not blended.</b> Two zones over one lake is an authoring mistake rather than a case to
+    ///         resolve — they would each rasterise the same bodies at different resolutions, and a
+    ///         solver averaging two surfaces would float a boat between them. Bodies are what
+    ///         overlap and are resolved by priority; zones are windows, and a window is one or none.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The query is cached per zone rather than built per ask.</b>
+    ///         <see cref="WaterZoneState.Query" /> allocates and sums the spectrum, and this is asked
+    ///         once per pontoon per fixed step — which for a river of crates is thousands of times a
+    ///         second. The cache is refreshed in <see cref="Fold" />, so a sea state an author is
+    ///         dragging reaches the boats on the next fold rather than the next ask.
+    ///     </para>
+    /// </remarks>
+    public WaterQuery? QueryAt(Vector2 position) {
+        foreach (var (entity, _) in zones) {
+            if (!states.TryGetValue(entity, out var state) || state.Field is null) {
+                continue;
+            }
+
+            // ⚠ The window's own corner and extent, not the component's. A window slides and snaps —
+            // see WaterZoneState.Update — so a containment test against the authored extent about
+            // some other centre answers for a rectangle the field is not in.
+            var window = state.Window;
+            var low = window.Origin;
+
+            if (position.X < low.X || position.X > low.X + window.Extent) {
+                continue;
+            }
+
+            if (position.Y < low.Y || position.Y > low.Y + window.Extent) {
+                continue;
+            }
+
+            if (queries.TryGetValue(entity, out var cached)) {
+                return cached.Query;
+            }
+        }
+
+        return null;
+    }
 
     /// <inheritdoc />
     /// <remarks>
@@ -276,13 +347,14 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The clock first, because everything the fold produces is read at it: a window rasterised
-    ///     against last frame's time and a surface drawn at this one's disagree by a frame, which at
-    ///     the shoreline is a texel of coverage flickering.
+    ///     ⚠ <b>It does not touch <see cref="WaterTime" />, and that is the fix rather than an
+    ///     omission.</b> It used to, and the consequence was one frame of drift the wrong way: this
+    ///     runs in <see cref="SystemPhase.PreRender" /> and a buoyancy solver runs in
+    ///     <see cref="SystemPhase.FixedUpdate" />, which is <em>earlier in the same frame</em> — so a
+    ///     solver reading a clock advanced here read last frame's value while the vertex stage drew
+    ///     this one's. <see cref="WaterClockSystem" /> advances it before anything reads it.
     /// </remarks>
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-        WaterTime = (float)context.Time.TotalSeconds;
-
         Fold(context.World);
 
         return dependency;
@@ -339,7 +411,54 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
             }
 
             state.Update(eye, Ground);
+
+            Requery(entity, state, component);
         }
+
+        // ⚠ Zones whose entity has gone take their query with them, on GatherZones' terms: a
+        // dictionary that only ever grew would hold a summed spectrum per zone for as long as the
+        // world lived, and a level streaming regions in and out would do that once per region.
+        stale.Clear();
+
+        foreach (var (entity, _) in queries) {
+            if (!states.ContainsKey(entity)) {
+                stale.Add(entity);
+            }
+        }
+
+        foreach (var entity in stale) {
+            queries.Remove(entity);
+        }
+    }
+
+    /// <summary>Brings a zone's cached query into line with its sea state.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Rebuilt only when the spectrum or the attenuation actually changed.</b> The
+    ///     constructor sums the spectrum into up to thirty-two waves, and a fold that rebuilt every
+    ///     frame would do that per zone per frame for a number that changes when somebody drags a
+    ///     slider. The field is not part of the key: the query holds the <em>state</em> rather than
+    ///     the field, so a window that scrolled or a reshape that built a new field is one the boats
+    ///     floating on it see — see <see cref="WaterZoneState.Query" />.
+    /// </remarks>
+    void Requery(Entity entity, WaterZoneState state, in WaterZoneComponent component) {
+        var attenuation = component.AttenuationDepth > 0f
+            ? component.AttenuationDepth
+            : WaterAttenuation.Default.Depth;
+
+        if (queries.TryGetValue(entity, out var cached)
+            && cached.Spectrum.Equals(component.Waves)
+            && cached.Attenuation.Equals(attenuation)) {
+            return;
+        }
+
+        // An unsummable spectrum would throw from the constructor, which in a per-frame fold is a
+        // frame that does not happen. A zone in that state keeps whatever query it had; the renderer
+        // already draws it flat, and UnresolvedWaves is what says so.
+        if (component.Waves.Validate() is not null) {
+            return;
+        }
+
+        queries[entity] = (component.Waves, attenuation, state.Query(component.Waves, new(attenuation)));
     }
 
     void GatherZones(World world) {

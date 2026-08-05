@@ -4,9 +4,9 @@
 using Vixen.Audio.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
-using Vixen.Ecs;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;

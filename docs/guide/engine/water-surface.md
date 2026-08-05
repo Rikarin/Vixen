@@ -8,7 +8,7 @@ api: [T:Vixen.Water.WaterZone, T:Vixen.Water.WaterZoneState, T:Vixen.Water.Water
 tags: [water, ocean, river, buoyancy, gerstner, terrain]
 since: 0.1
 status: preview
-related: [engine/splines, engine/terrain-heightfield, engine/character-movement]
+related: [engine/splines, engine/terrain-heightfield, engine/character-movement, engine/buoyancy]
 ---
 
 ## What it is

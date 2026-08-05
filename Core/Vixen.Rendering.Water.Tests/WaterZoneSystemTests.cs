@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Ecs.Systems;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Vixen.Rendering.Water;
@@ -608,5 +610,126 @@ public sealed class WaterZoneSystemTests : IDisposable {
 
         Assert.Equal(0, sea.Calls);
         Assert.Equal(0, system.UnresolvedWaves);
+    }
+
+    // --- The surface seam, and the clock — docs/plan/35 § D1 and § D2 ---------
+
+    /// <summary>A place inside a zone's window answers a query; a place outside answers nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Null is dry and is not an error.</b> It is what a boat outside every window gets, and
+    ///     a solver leaves it to gravity rather than guessing — the same answer
+    ///     <see cref="WaterZoneSystem.ZonelessBodies" /> counts for a body.
+    /// </remarks>
+    [Fact]
+    public void A_place_inside_a_window_has_a_query_and_a_place_outside_does_not() {
+        Zone(WaterZoneComponent.Default with { Extent = 256f });
+
+        Body(new(0f, 2f, 0f));
+
+        var system = System();
+
+        system.Fold(world);
+
+        Assert.NotNull(system.QueryAt(Vector2.Zero));
+        Assert.Null(system.QueryAt(new(5_000f, 0f)));
+    }
+
+    /// <summary>
+    ///     ⚠ The same query object twice, because it is asked once per pontoon per fixed step.
+    /// </summary>
+    /// <remarks>
+    ///     A <see cref="WaterQuery" /> sums its spectrum into up to thirty-two waves in its
+    ///     constructor. Building one per ask is that sum per pontoon per step, which for a river of
+    ///     crates is thousands of times a second — invisible in a picture and plainly visible in a
+    ///     profile, which is the wrong order to find it in.
+    /// </remarks>
+    [Fact]
+    public void The_query_is_cached_per_zone_rather_than_built_per_ask() {
+        Zone(WaterZoneComponent.Default);
+
+        Body(new(0f, 2f, 0f));
+
+        var system = System();
+
+        system.Fold(world);
+
+        var first = system.QueryAt(Vector2.Zero);
+
+        Assert.NotNull(first);
+        Assert.Same(first, system.QueryAt(new(4f, 4f)));
+
+        // And a fold that changed nothing does not rebuild it either — the sea state is the key.
+        system.Fold(world);
+
+        Assert.Same(first, system.QueryAt(Vector2.Zero));
+    }
+
+    /// <summary>A resolved sea state reaches the query a boat floats on, not just the vertex stage.</summary>
+    /// <remarks>
+    ///     The other half of "the name becomes a value in exactly one place": if the substitution
+    ///     happened only in what <see cref="WaterZoneSystem.Zones" /> publishes, the renderer would
+    ///     draw the named sea and a solver would float boats on the inline one.
+    /// </remarks>
+    [Fact]
+    public void A_named_sea_state_reaches_the_query_too() {
+        var gale = WaterWaveSpectrum.Default with { WindSpeed = 24f, Count = WaterWaveCount.ThirtyTwo };
+
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "NorthSea" });
+        Body(new(0f, 2f, 0f));
+
+        var system = System();
+
+        system.Waves = new Sea("NorthSea", gale);
+        system.Fold(world);
+
+        var query = system.QueryAt(Vector2.Zero);
+
+        Assert.NotNull(query);
+        Assert.Equal(32, query.Waves.Length);
+        Assert.Equal(24f, query.Spectrum.WindSpeed);
+    }
+
+    /// <summary>
+    ///     ⚠ The fold does not advance the clock. <see cref="WaterClockSystem" /> does, in a phase
+    ///     early enough for the fixed step.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A regression test for a one-frame drift that shipped.</b> The zone system folds in
+    ///         <see cref="SystemPhase.PreRender" /> — it has to, because a body is rasterised where
+    ///         <c>TransformSystem</c> has just put it — and <see cref="SystemPhase.FixedUpdate" />,
+    ///         where a buoyancy solver runs, is <em>earlier in the same frame</em>. A clock advanced
+    ///         during the fold therefore handed the solver last frame's water time while the vertex
+    ///         stage drew this frame's, and a boat sat exactly one frame of swell behind the water
+    ///         underneath it.
+    ///     </para>
+    ///     <para>
+    ///         Small, constant, and invisible until the frame rate changed — which is the drift § D2's
+    ///         whole seam test exists to prevent, arriving through the back door of a phase order.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_fold_does_not_touch_the_clock_and_the_phases_say_why() {
+        var system = System();
+
+        system.WaterTime = 12.5f;
+        system.Fold(world);
+
+        Assert.Equal(12.5f, system.WaterTime);
+
+        // And the phases, which is the reason the clock is a second system rather than a line in the
+        // fold: EarlyUpdate < FixedUpdate < PreRender, so the writer is before every reader.
+        Assert.Equal(
+            SystemPhase.EarlyUpdate,
+            typeof(WaterClockSystem).GetCustomAttribute<UpdateInGroupAttribute>()!.Phase
+        );
+
+        Assert.Equal(
+            SystemPhase.PreRender,
+            typeof(WaterZoneSystem).GetCustomAttribute<UpdateInGroupAttribute>()!.Phase
+        );
+
+        Assert.True(SystemPhase.EarlyUpdate < SystemPhase.FixedUpdate);
+        Assert.True(SystemPhase.FixedUpdate < SystemPhase.PreRender);
     }
 }

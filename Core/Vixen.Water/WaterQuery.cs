@@ -19,6 +19,40 @@ public interface IWaterFieldSource {
     WaterField? Field { get; }
 }
 
+/// <summary>Every zone's water, as a simulation asks about it.</summary>
+/// <remarks>
+///     <para>
+///         <b>The seam that lets the physics join exist at all</b> —
+///         [35 § D1](../../docs/plan/35-water.md#d1-three-assemblies-and-the-kernel-touches-no-device).
+///         <c>Vixen.Water.Physics</c> is a separate small assembly precisely so that nothing linking
+///         Jolt has to link a graphics device, and the thing that folds a world's zones —
+///         <c>WaterZoneSystem</c> — lives in the renderer. Without a seam here, a buoyancy solver
+///         would have to reference the renderer to find out where the water is, and a dedicated
+///         server could not run it.
+///     </para>
+///     <para>
+///         ⚠ <b>The clock is on this interface and it is read-only, which is the whole "one water
+///         clock" rule made structural.</b> A solver that reached for its own frame time would be a
+///         force that changes when the frame rate does, and a solver a frame behind the vertex stage
+///         is a boat that hovers — invisible until the frame rate changes. Whoever implements this
+///         owns the number; everybody else reads it.
+///     </para>
+/// </remarks>
+public interface IWaterSurface {
+    /// <summary>The simulation's water time, in seconds.</summary>
+    float WaterTime { get; }
+
+    /// <summary>The query covering a place, or <see langword="null" /> where no zone reaches.</summary>
+    /// <param name="position">Where, on the ground plane — world X and Z.</param>
+    /// <returns>The query, or null.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Null is dry, and it is not an error.</b> A boat outside every zone's window is a boat
+    ///     on ground the water stack has not rasterised; the solver leaves it to gravity rather than
+    ///     guessing, which is the same answer <c>WaterZoneSystem.ZonelessBodies</c> counts.
+    /// </remarks>
+    WaterQuery? QueryAt(Vector2 position);
+}
+
 /// <summary>
 ///     The surface, as everything outside this assembly asks about it.
 /// </summary>

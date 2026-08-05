@@ -61,6 +61,12 @@ Vixen.Rendering.Water.WaterBodyComponent.Spline -> string
 Vixen.Rendering.Water.WaterBodyComponent.SurfaceHeight -> float
 Vixen.Rendering.Water.WaterBodyComponent.Velocity -> float
 Vixen.Rendering.Water.WaterBodyComponent.WaterBodyComponent() -> void
+Vixen.Rendering.Water.WaterClockSystem -> sealed class
+Vixen.Rendering.Water.WaterClockSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Rendering.Water.WaterClockSystem.Rate.get -> float
+Vixen.Rendering.Water.WaterClockSystem.Rate.set -> float
+Vixen.Rendering.Water.WaterClockSystem.WaterClockSystem(Vixen.Rendering.Water.WaterZoneSystem zones) -> void
+Vixen.Rendering.Water.WaterClockSystem.WaterTime.get -> float
 Vixen.Rendering.Water.WaterDebug -> static class
 Vixen.Rendering.Water.WaterInfoTexture -> sealed class
 Vixen.Rendering.Water.WaterInfoTexture : System.IDisposable
@@ -316,11 +322,13 @@ Vixen.Rendering.Water.WaterZoneSystem -> sealed class
 Vixen.Rendering.Water.WaterZoneSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Water.WaterZoneSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Rendering.Water.WaterZoneSystem : Vixen.Rendering.Ecs.IPostProcessShapeSource
+Vixen.Rendering.Water.WaterZoneSystem : Vixen.Water.IWaterSurface
 Vixen.Rendering.Water.WaterZoneSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Rendering.Water.WaterZoneSystem.BodyCount.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.Fold(Vixen.Ecs.World world) -> void
 Vixen.Rendering.Water.WaterZoneSystem.Ground.get -> Vixen.Water.IWaterGround
 Vixen.Rendering.Water.WaterZoneSystem.Ground.set -> Vixen.Water.IWaterGround
+Vixen.Rendering.Water.WaterZoneSystem.QueryAt(Vixen.Core.Mathematics.Vector2 position) -> Vixen.Water.WaterQuery?
 Vixen.Rendering.Water.WaterZoneSystem.RebuiltBodies.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.ShapeFor(Vixen.Core.Entity entity) -> Vixen.Rendering.Ecs.IPostProcessShape?
 Vixen.Rendering.Water.WaterZoneSystem.Splines.get -> Vixen.Rendering.Water.IWaterSplineSource?
@@ -409,6 +417,7 @@ const Vixen.Shaders.Generated.WaterMeshKeys.WaterInfoBinding = 1 -> uint
 const Vixen.Shaders.Generated.WaterMeshKeys.WaterInfoSet = 2 -> int
 const Vixen.Shaders.Generated.WaterMeshPerFrameConstants.Size = 16 -> int
 const Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.Size = 112 -> int
+override Vixen.Rendering.Water.WaterClockSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Water.WaterMeshRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Water.WaterRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Water.WaterZoneSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle

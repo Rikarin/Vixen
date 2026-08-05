@@ -64,6 +64,9 @@ Vixen.Water.IWaterGround -> interface
 Vixen.Water.IWaterGround.HeightAt(Vixen.Core.Mathematics.Vector2 ground) -> float
 Vixen.Water.IWaterRipples -> interface
 Vixen.Water.IWaterRipples.TryDisplacement(Vixen.Core.Mathematics.Vector2 position, out float displacement) -> bool
+Vixen.Water.IWaterSurface -> interface
+Vixen.Water.IWaterSurface.QueryAt(Vixen.Core.Mathematics.Vector2 position) -> Vixen.Water.WaterQuery?
+Vixen.Water.IWaterSurface.WaterTime.get -> float
 Vixen.Water.WaterAttenuation -> readonly struct
 Vixen.Water.WaterAttenuation : System.IEquatable<Vixen.Water.WaterAttenuation>
 Vixen.Water.WaterAttenuation.At(float depth) -> float
