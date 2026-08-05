@@ -92,7 +92,7 @@ something to satisfy by memory.
 ```
 .github/workflows/
 ├── ci.yml               # PR + push to main: the matrix below
-├── nightly.yml          # physical-device suites, long benchmarks, fuzzing, full golden sweep
+├── nightly.yml          # physical-device suites, long benchmarks, fuzzing (a job per target), full golden sweep
 ├── release.yml          # tag-triggered: Release target, signed artefacts, NuGet push
 └── docs.yml             # Docs + CheckDocs → GHCR image on master and on tags; pr-<n> tag per PR (25)
 ```
@@ -265,7 +265,20 @@ exact allocation via a `GCHeapAllocationEventSource` listener in the failure mes
   The input is `Corpus/raven/70ae34e20b4880ee.bin` now — it had been kept out deliberately, because one
   that overflows the stack takes the test host down on every build, and the rule in that harness is
   that promotion follows the fix. With it fixed, `raven` is back in the nightly and `VIXEN_FUZZ_SKIP`
-  is empty; the cap moved from 240 to 255 for the twentieth target.
+  is empty.
+
+  **And the nightly is a job per target rather than a job**, which is what makes the skip a hand
+  override rather than the mechanism. One `strategy: matrix` leg over `FuzzTargets.Names`,
+  `fail-fast: false`, each job with its own budget, its own `timeout-minutes` derived from that budget
+  and its own `fuzz-findings-<target>` artifact. Three things go away with the single job: a cap that
+  was target-count arithmetic done by hand and went stale twice; a target that ends its own process
+  costing the other nineteen their results, which is precisely what `raven` did and why it was skipped
+  at all; and one wall clock shared by twenty targets, so the deepest one could have no more time than
+  the shallowest. The budgets are `Core/Vixen.Fuzz/nightly-budgets.json` — five minutes for a grammar
+  that saturates in seconds, two hours for `raven` at 465 cases/s — and
+  `FuzzGateTests.TheNightlyMatrixIsTheRegistry` fails on every build if that file stops being the
+  target list, because a list of names in a YAML file is the drift this replaced wearing a different
+  hat.
 
 ### Optional external tools
 
