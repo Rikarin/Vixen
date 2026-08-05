@@ -1,7 +1,8 @@
 # Vixen.Core.Yaml
 
-The dialect Vixen's `.meta` and `.vxasset` files are written in: a node model that remembers how it
-was written, a reader, and an emitter that reproduces what it read byte for byte.
+The dialect Vixen's own text assets are written in — `.meta`, `.vxmat`, `.vxscene`, `.vxgroup`,
+`.vxdef` and the rest: a node model that remembers how it was written, a reader, and an emitter that
+reproduces what it read byte for byte.
 
 Spec: [docs/plan/08](../../docs/plan/08-asset-pipeline-and-addressables.md) § "The `.meta` file".
 

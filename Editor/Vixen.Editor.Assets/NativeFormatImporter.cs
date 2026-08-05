@@ -52,8 +52,24 @@ public sealed record NativeFormatImportSettings : IImportSettings {
 ///         left here are the formats whose compiler genuinely has nothing to do — a group, an input
 ///         map — and nothing whose compiler is still owed.
 ///     </para>
+///     <para>
+///         ⚠ <b>Which is why the artefact's type is one of exactly two names, and never the
+///         document's own tag.</b> This used to claim a third extension, <c>.vxasset</c>, and to write
+///         the text under whatever type the document tagged itself: <c>!PhysicsMaterial</c> produced a
+///         chunk labelled <c>PhysicsMaterial</c> whose bytes were YAML. That is the <c>.vxgrass</c>
+///         bug with the file renamed — see <c>TerrainAssetImporter.WriteGrass</c>, where the fix was
+///         to write the record the runtime reader actually opens, because a game does not link the
+///         YAML dialect. There is no way to write the right bytes for a type named by a tag, since
+///         which reader opens them is not known until a game asks; a self-describing payload does not
+///         help either, because <see cref="Gameplay.DefinitionImporter" />'s framing works only where
+///         one reader unwraps every artefact of one type, and here no reader exists at all. So a file
+///         that is not a group or an input map is no longer this importer's, and falls to
+///         <see cref="RawImporter" /> — where it becomes a <c>Blob</c>, which is a name no typed
+///         reader resolves and therefore a mismatch the asset manager throws about, rather than a
+///         deserializer quietly reading YAML as a record.
+///     </para>
 /// </remarks>
-[Importer(".vxgroup", ".vxinput", ".vxasset")]
+[Importer(".vxgroup", ".vxinput")]
 public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSettings> {
     /// <inheritdoc />
     public override int Version => 1;
@@ -109,16 +125,22 @@ public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSetti
             return context.Finish();
         }
 
-        // The type comes from the document's own tag when it has one, and from the extension when it
-        // does not. A .vxgroup carries no tag — it is bound as one known type — and inventing one for
-        // it here would put a second spelling of "AddressableGroup" in the artefact record.
-        var type = root.Tag is { Length: > 0 } tag ? tag.TrimStart('!') : TypeOf(context.SourcePath.ToString());
+        // The type comes from the extension, and only from the extension. Both of these formats are
+        // bound as one known type each and carry no tag; a document that tags itself anyway is
+        // ignored rather than obeyed, because the tag decides which runtime reader opens the chunk
+        // and the bytes here are text no runtime reader can read.
+        var type = TypeOf(context.SourcePath.ToString());
 
         context.Write(SubAssetId.Main, type, System.Text.Encoding.UTF8.GetBytes(text));
         return context.Finish();
     }
 
-    /// <summary>What kind of thing an extension holds, when the document does not say.</summary>
+    /// <summary>What kind of thing an extension holds.</summary>
+    /// <remarks>
+    ///     The registry hands this importer nothing but the two extensions it claims, so the default
+    ///     arm is unreachable rather than a fallback — and it is deliberately not the document's tag,
+    ///     for the reason the class remarks give at length.
+    /// </remarks>
     static string TypeOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch {
         ".vxgroup" => "AddressableGroup",
 

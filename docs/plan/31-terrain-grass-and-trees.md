@@ -352,7 +352,7 @@ to reconcile. The cost is sixteen bytes per instance whether used or not; the al
 of bug whose symptom is one forest wearing another tree's wind. `Neutral` is deliberately not
 `default`: scale and fade are 1, so a forgotten record draws something rather than nothing of no size.
 
-### B4. ~~`MeshData` has one UV set and no colour channel~~ ✅
+### B4. `MeshData` has one UV set and no colour channel ⬜
 
 `Positions`, `Normals`, `Tangents`, `TexCoords`, `Indices`, `BoneIndices`, `BoneWeights`. A tree
 imported from a DCC carries its wind weights in vertex colour and its lightmap or detail coordinates
@@ -362,15 +362,35 @@ tree whose branches should lag its trunk. **Not a blocker for the first four pha
 blocker for trees looking right, and it is doc 24's owed item, not a new one.
 
 
-✅ **Built.** `MeshData.Colors` and `MeshData.TexCoords1`, filled by `ModelReader` from Assimp's
-channel 0 and UV set 1, and absent when the file has neither — asserted, because an array of zeros
-would read as "colours, all black".
+🟡 **Built, then taken out again, and the round trip is the finding.** `MeshData.Colors` and
+`MeshData.TexCoords1` were added here — filled by `ModelReader` from Assimp's channel 0 and UV set 1,
+serialized, round-trip tested — with the honest note that they were *carried, not yet drawn*: the
+consumer was to be a foliage vertex layout in [T5](#t5--foliage-instances--20-em). T5 closed without
+building one. So did [T0](#t0--unblockers--10-em---built), which had said the same thing. Two phases
+pointed at it and neither absorbed it, and what was left was a channel an importer read, a serializer
+wrote and `SurfaceGeometry.Pack` dropped — which costs bytes in every mesh chunk, reads as support in
+the type's signature, and fails silently, because a colour that never arrives looks exactly like a
+mesh nobody painted. Both members are gone; `MeshData`'s own remarks carry the argument so the next
+attempt is deliberate.
 
-⚠ **Carried, not yet drawn**, and that is the honest state. `SurfaceVertex` has no colour attribute,
-so the channel reaches `ModelCompiler` and stops. Widening the shared vertex format costs sixteen
-bytes on every mesh in the engine to serve the ones that use it, so the consumer is a foliage vertex
-layout of its own in [T5](#t5--foliage-instances--20-em) — and the importer half had to land first,
-because an importer that discarded the data leaves nothing to consume.
+⚠ **The sixteen-byte objection above was wrong, and correcting it is what showed the change is not
+small.** `VertexFormat.UNorm8X4` is four bytes, is documented "vertex colours and bone weights", and
+translates on Vulkan, OpenGL and WebGPU alike — so the per-vertex cost was never the obstacle. The
+obstacle is that the interleaved `SurfaceVertex` stream is one of *three* ways an attribute reaches a
+shader, and the other two — `ModelCompiler.PageAttributes` and `VisibilityResolve`'s fetch out of the
+cluster pages — pack their own records. A colour in the interleaved stream alone is a mesh tinted
+until it clusters and untinted after. The zero-cost second stream is not available either:
+`VertexChannel` carries no binding index and a `VertexSchema` has one stride, so `VertexSchema.Layout`
+returns one buffer by construction, and `MeshInstanceRenderer` and `ParticleRenderFeature` bind their
+second stream from a hand-built `VertexBufferLayout[]` rather than through a schema.
+
+**Which is exactly B3's point, and B3's own
+text said so before either landed**: this is the same class of change to the same paths, and the two
+should land together rather than twice. B3 landed alone. The next attempt is a multi-stream
+`VertexSchema` and a colour reaching all three paths at once — with [24 § P5](24-blockout-tools.md)'s
+blockout painting as the second caller, which is what makes it worth doing rather than a foliage
+detail. The second coordinate set does not come back with it: its headline consumer was a lightmap,
+and this engine's global illumination is dynamic by decision.
 
 ### B5. ~~There is no spline~~ ✅
 
@@ -979,9 +999,10 @@ states what stopping there leaves.
 `ShapeKind.HeightField` and its Jolt binding
 ([B1](#b1-there-is-no-heightfield-collider-)) — **the ECS bridge turned out not to need touching**,
 because `Collider` holds an opaque `ShapeId`. The per-instance parameters beside the transform in
-`InstancingRenderFeature`, with `MeshData.Colors` and a second UV set landing at the same time
-([B3](#b3-there-is-no-per-instance-data-beyond-a-transform-), [B4](#b4-meshdata-has-one-uv-set-and-no-colour-channel-))
-— which also closes [24 § P5](24-blockout-tools.md)'s owed vertex colours. `TerrainBrush` in
+`InstancingRenderFeature` ([B3](#b3-there-is-no-per-instance-data-beyond-a-transform-)). ⚠ **The
+vertex channels that were to land at the same time did not, and have since been removed** —
+[B4](#b4-meshdata-has-one-uv-set-and-no-colour-channel-) records what happened and why they are back
+open, so **[24 § P5](24-blockout-tools.md)'s owed vertex colours are still owed**. `TerrainBrush` in
 `Core/Vixen.Terrain` with all four falloffs and all three shapes, and its property tests
 ([D12](#d12-the-brush-is-one-service)).
 
@@ -995,9 +1016,10 @@ wrong brushes, and false of a right one whenever the falloff fraction changes. W
 monotonicity plus the two endpoints, as a property over every radius and strength, because that is
 what every consumer assumes and none of them checks.
 
-**If you stop here** you have closed two owed items from doc 24, given the physics layer the one
-shape it is missing, and put the spline both this document and [26](26-virtual-cameras.md) were
-waiting on into `Vixen.Core.Mathematics`. Nothing is wasted.
+**If you stop here** you have closed one owed item from doc 24 — ⚠ **one, not the two originally
+claimed; the vertex colours are still owed, see B4** — given the physics layer the one shape it is
+missing, and put the spline both this document and [26](26-virtual-cameras.md) were waiting on into
+`Vixen.Core.Mathematics`. Nothing is wasted.
 
 ### T1 — The heightfield kernel · 2.0 EM · ✅ built
 
@@ -1935,7 +1957,7 @@ terrain renderers acquire skirts they do not need and then keep them for ever.
 
 | Risk | Mitigation |
 |---|---|
-| **16 EM, and it reads as a second engine** | The cut line is real and stated per phase. T0 alone closes two owed items from doc 24; T0–T3 (7 EM) is a terrain an artist builds a level on; T0–T6 (12.5 EM) is the whole consensus feature set. Nothing after T6 blocks anything |
+| **16 EM, and it reads as a second engine** | The cut line is real and stated per phase. T0 alone closes an owed item from doc 24 (⚠ two were claimed; the vertex colours were not among them in the end — see B4); T0–T3 (7 EM) is a terrain an artist builds a level on; T0–T6 (12.5 EM) is the whole consensus feature set. Nothing after T6 blocks anything |
 | **There is no world streaming, and terrain is the feature that needs it** ([B6](#b6-there-is-no-world-streaming-)) | Structural rather than aspirational: the tile is the unit of load and `PageResidency` already serves pages, so terrain *data* streams. Scene-level streaming — cells of instances, a streaming source, a grid — is named here as the dependency it is and is a document of its own. ⚠ **The honest failure mode is a project that builds a 16 km² world and discovers the instances do not stream.** The create dialog's derived readout is the early warning, and it should say so in words rather than only in megabytes |
 | **The generated splat material's permutations multiply against everything else** | Quantised to four layer counts, and the layer loop is bounded rather than unrolled per layer. The permutation axis is one integer, not one flag per layer — which is the mistake that would produce 2¹⁶ variants |
 | **Foliage instance memory** | An instance is a transform plus a `float4` — 80 bytes, so a million instances is 80 MB and that is a real budget. Stated in the palette panel as a derived readout per type, in the same style as the create dialog, and the derived/stored distinction in [D8](#d8-grass-is-derived-trees-are-stored-and-the-distinction-is-the-density) is what keeps grass out of that number entirely |
@@ -1955,7 +1977,7 @@ terrain renderers acquire skirts they do not need and then keep them for ever.
 | [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode` gains its third and fourth consumers, and the example in [guide/editor/modes.md](../guide/editor/modes.md) — which is literally `TerrainPlugin` / `SculptMode` — stops being hypothetical |
 | [06 § Geometry and materials](06-rendering-pipeline.md) | **Terrain** is promoted, with *clipmap* rejected on the merits ([D3](#d3-a-quadtree-with-a-morph-not-a-clipmap)) and *virtual texture* deferred with arithmetic ([D7](#d7-no-virtual-texture-in-the-first-pass-and-the-loop-is-why)). **Impostors / billboards** is promoted and given its consumer ([T7](#t7--impostors-and-the-far-field--10-em---mostly-built)) |
 | [26 § What is deliberately not built](26-virtual-cameras.md) | The dolly track's blocker — "wants a spline *asset*… the largest owed item and the one most worth doing" — is [T8](#t8--splines--15-em---built). One asset, two consumers, built once |
-| [24 § P5](24-blockout-tools.md) | Vertex colours, recorded there as owed against `MeshData`, land in [T0](#t0--unblockers--10-em---built) alongside the per-instance data that needs the same change |
+| [24 § P5](24-blockout-tools.md) | Vertex colours, recorded there as owed against `MeshData`, were to land in [T0](#t0--unblockers--10-em---built) alongside the per-instance data that needs the same change. ⚠ **They did not**: T0 landed the per-instance record and T5 closed without the vertex layout that was to draw the channel, so the two members were removed rather than left carried-and-dropped — [B4](#b4-meshdata-has-one-uv-set-and-no-colour-channel-) has the argument, and doc 24's row stays owed |
 | [02](02-repository-layout.md) | Four assemblies with their tests: `Core/Vixen.Terrain`, `Core/Vixen.Foliage`, `Core/Vixen.Rendering.Terrain`, `Editor/Vixen.Editor.Terrain` |
 | [08](08-asset-pipeline-and-addressables.md) | Four asset kinds and their importers: `.vxterrain`, `.vxlayer`, `.vxfoliage`, `.vxgrass`, plus 16-bit PNG and raw `r16` heightmap import through `Vixen.Core.Imaging` |
 | [22 § improvement 6](22-virtualized-geometry.md) | "One residency manager for geometry, textures and shadow pages" gains its second real customer, and `PageKey.Source`'s deliberate opacity gets to pay off |

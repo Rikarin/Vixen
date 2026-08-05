@@ -349,22 +349,12 @@ public static class ModelReader {
             uvs[index] = new(coordinate.X, coordinate.Y);
         }
 
-        // The second set and the colours are read only when the file has them, so a mesh without
-        // either carries two empty arrays rather than two arrays of zeros — which MeshData's own
-        // remarks make the difference between "no colours" and "colours, all black".
-        var uvs1 = mesh->MTextureCoords[1] is null ? [] : new Vector2[count];
-
-        for (var index = 0; index < uvs1.Length; index++) {
-            var coordinate = mesh->MTextureCoords[1][index];
-            uvs1[index] = new(coordinate.X, coordinate.Y);
-        }
-
-        var colors = mesh->MColors[0] is null ? [] : new Vector4[count];
-
-        for (var index = 0; index < colors.Length; index++) {
-            var color = mesh->MColors[0][index];
-            colors[index] = new(color.X, color.Y, color.Z, color.W);
-        }
+        // ⚠ Assimp's second coordinate set and its colour channel are deliberately not read.
+        // MeshData carried both for a while and nothing ever drew either — SurfaceGeometry.Pack
+        // dropped them on the way to the only vertex layout the engine has — and its own remarks
+        // record why they come back with the change that draws them rather than ahead of it. Reading
+        // them here is ten lines; carrying them is bytes in every mesh chunk and a signature that
+        // reads as support.
 
         // Tangents need the bitangent to recover the handedness, and Assimp produces both together
         // or neither. The sign is cross(normal, tangent) · bitangent, which is ±1 for an orthonormal
@@ -405,8 +395,6 @@ public static class ModelReader {
             Normals = normals,
             Tangents = tangents,
             TexCoords = uvs,
-            TexCoords1 = uvs1,
-            Colors = colors,
             Indices = [.. indices],
             BoneIndices = boneIndices,
             BoneWeights = boneWeights,

@@ -27,6 +27,13 @@ public sealed class NativeFormatImporterTests {
         Assert.DoesNotContain(".vxscene", importer.Extensions);
         Assert.DoesNotContain(".vxprefab", importer.Extensions);
         Assert.DoesNotContain(".vxmat", importer.Extensions);
+
+        // And not .vxasset, which is the point of the two above being the whole list. An extension
+        // that took any type tag could name any runtime type, and what it wrote under that name was
+        // YAML text — so a file nothing else claims falls to RawImporter and becomes a Blob, a name
+        // no typed reader resolves.
+        Assert.DoesNotContain(".vxasset", importer.Extensions);
+        Assert.Equal(2, importer.Extensions.Count);
     }
 
     /// <summary>
@@ -37,7 +44,7 @@ public sealed class NativeFormatImporterTests {
     [Fact]
     public async Task EveryReferenceInTheDocumentBecomesADeclaredDependency() {
         var (context, result) = await Import(
-            "hero.vxasset",
+            "hero.vxgroup",
             """
             shader: Standard
             parameters:
@@ -62,7 +69,7 @@ public sealed class NativeFormatImporterTests {
     [Fact]
     public async Task AReferenceShapedStringInsideACommentIsNotADependency() {
         var (context, result) = await Import(
-            "hero.vxasset",
+            "hero.vxgroup",
             """
             # replaces vx:9e8a44c9930c64e388ca034c5fe4c426
             shader: Standard
@@ -77,7 +84,7 @@ public sealed class NativeFormatImporterTests {
     [Fact]
     public async Task ReferencesNestedInSequencesAreFoundToo() {
         var (context, result) = await Import(
-            "props.vxasset",
+            "props.vxgroup",
             """
             entities:
               - name: Player
@@ -97,7 +104,7 @@ public sealed class NativeFormatImporterTests {
 
     [Fact]
     public async Task AnExplicitlyUnsetReferenceIsNotADependency() {
-        var (context, result) = await Import("hero.vxasset", "albedo: null\nnormal: ~\n");
+        var (context, result) = await Import("hero.vxgroup", "albedo: null\nnormal: ~\n");
 
         Assert.True(result.Succeeded);
         Assert.Empty(context.AssetDependencies);
@@ -110,7 +117,7 @@ public sealed class NativeFormatImporterTests {
     /// </summary>
     [Fact]
     public async Task AMalformedReferenceFailsTheImportRatherThanBeingIgnored() {
-        var (_, result) = await Import("hero.vxasset", "albedo: vx:notaguid\n");
+        var (_, result) = await Import("hero.vxgroup", "albedo: vx:notaguid\n");
 
         Assert.False(result.Succeeded);
         Assert.Empty(result.Artifacts);
@@ -119,7 +126,7 @@ public sealed class NativeFormatImporterTests {
 
     [Fact]
     public async Task YamlThatDoesNotParseIsReportedRatherThanThrown() {
-        var (_, result) = await Import("hero.vxasset", "shader: Standard\n  bad: indentation\n\t tab: here\n");
+        var (_, result) = await Import("hero.vxgroup", "shader: Standard\n  bad: indentation\n\t tab: here\n");
 
         Assert.False(result.Succeeded);
         Assert.Equal(ImportSeverity.Error, Assert.Single(result.Diagnostics).Severity);
@@ -127,7 +134,7 @@ public sealed class NativeFormatImporterTests {
 
     [Fact]
     public async Task ADocumentThatIsNotAMappingIsRefused() {
-        var (_, result) = await Import("hero.vxasset", "- one\n- two\n");
+        var (_, result) = await Import("hero.vxgroup", "- one\n- two\n");
 
         Assert.False(result.Succeeded);
         Assert.Contains("sequence", Assert.Single(result.Diagnostics).Message, StringComparison.Ordinal);
@@ -140,7 +147,7 @@ public sealed class NativeFormatImporterTests {
     /// </summary>
     [Fact]
     public async Task AnEmptyDocumentIsCarriedForwardWithAWarning() {
-        var (_, result) = await Import("hero.vxasset", "");
+        var (_, result) = await Import("hero.vxgroup", "");
 
         Assert.True(result.Succeeded);
         Assert.Single(result.Artifacts);
@@ -150,7 +157,7 @@ public sealed class NativeFormatImporterTests {
     [Fact]
     public async Task TheDocumentIsCarriedForwardVerbatim() {
         const string Text = "shader: Standard\nmetallic: 0.5\n";
-        var (_, result) = await Import("hero.vxasset", Text);
+        var (_, result) = await Import("hero.vxgroup", Text);
 
         var artifact = Assert.Single(result.Artifacts);
         Assert.Equal(Text, Encoding.UTF8.GetString(artifact.Content.Span));
@@ -166,11 +173,18 @@ public sealed class NativeFormatImporterTests {
         Assert.Equal("AddressableGroup", Assert.Single(group.Artifacts).Type);
     }
 
+    /// <summary>
+    ///     The escape hatch that used to be here, held shut. A document tagging itself
+    ///     <c>!PhysicsMaterial</c> once produced a chunk labelled <c>PhysicsMaterial</c> whose bytes
+    ///     were YAML text — the <c>.vxgrass</c> bug with the file renamed, since the runtime reader
+    ///     that resolves that type name hands what it opens to the binary serializer and a game does
+    ///     not link the YAML dialect. The type now comes from the extension and nowhere else.
+    /// </summary>
     [Fact]
-    public async Task ADocumentThatTagsItselfIsTakenAtItsWord() {
-        var (_, result) = await Import("thing.vxasset", "!PhysicsMaterial\nfriction: 0.6\n");
+    public async Task ADocumentThatTagsItselfIsNotTakenAtItsWord() {
+        var (_, result) = await Import("thing.vxgroup", "!PhysicsMaterial\nfriction: 0.6\n");
 
-        Assert.Equal("PhysicsMaterial", Assert.Single(result.Artifacts).Type);
+        Assert.Equal("AddressableGroup", Assert.Single(result.Artifacts).Type);
     }
 
     static async Task<(ImportContext Context, ImportResult Result)> Import(string name, string text) {

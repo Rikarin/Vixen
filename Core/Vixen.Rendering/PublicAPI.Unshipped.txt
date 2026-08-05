@@ -3402,10 +3402,6 @@ Vixen.Rendering.MeshData.ClusterPages.get -> Vixen.Core.AssetReference
 Vixen.Rendering.MeshData.ClusterPages.set -> Vixen.Core.AssetReference
 Vixen.Rendering.MeshData.Clusters.get -> Vixen.Core.AssetReference
 Vixen.Rendering.MeshData.Clusters.set -> Vixen.Core.AssetReference
-Vixen.Rendering.MeshData.Colors.get -> Vixen.Core.Mathematics.Vector4[]
-Vixen.Rendering.MeshData.Colors.set -> Vixen.Core.Mathematics.Vector4[]
-Vixen.Rendering.MeshData.HasColors.get -> bool
-Vixen.Rendering.MeshData.HasTexCoords1.get -> bool
 Vixen.Rendering.MeshData.Indices.get -> int[]
 Vixen.Rendering.MeshData.Indices.set -> int[]
 Vixen.Rendering.MeshData.IsClustered.get -> bool
@@ -3423,8 +3419,6 @@ Vixen.Rendering.MeshData.Tangents.get -> Vixen.Core.Mathematics.Vector4[]
 Vixen.Rendering.MeshData.Tangents.set -> Vixen.Core.Mathematics.Vector4[]
 Vixen.Rendering.MeshData.TexCoords.get -> Vixen.Core.Mathematics.Vector2[]
 Vixen.Rendering.MeshData.TexCoords.set -> Vixen.Core.Mathematics.Vector2[]
-Vixen.Rendering.MeshData.TexCoords1.get -> Vixen.Core.Mathematics.Vector2[]
-Vixen.Rendering.MeshData.TexCoords1.set -> Vixen.Core.Mathematics.Vector2[]
 Vixen.Rendering.MeshData.TriangleCount.get -> int
 Vixen.Rendering.MeshData.VertexCount.get -> int
 Vixen.Rendering.MeshDraw -> struct

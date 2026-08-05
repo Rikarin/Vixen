@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.MeshData, T:Vixen.Rendering.MeshDraw, T:Vixen.Rendering.
 tags: [rendering, materials, meshes, assets, naming]
 since: 0.1
 status: stable
-related: [rendering/lit-path, ecs/components, assets/content-in-a-game]
+related: [rendering/lit-path, rendering/texture-streaming, ecs/components, assets/content-in-a-game]
 ---
 
 ## What it is

@@ -48,8 +48,12 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     Six since the cluster artefacts became two addressable sub-assets that the mesh points at: a
     ///     version-five model wrote three chunks under one sub-asset id, which a content build refuses
     ///     outright, so those artefacts were never addressable and no runtime could load one.
+    ///     Eight since <c>MeshData</c> stopped carrying a colour channel and a second coordinate set:
+    ///     two members left the middle of a positional record, so a version-seven mesh chunk read by
+    ///     this build would give <c>Indices</c> a coordinate array. The generated reader's member
+    ///     count refuses it outright, and this bump is what regenerates it before anything asks.
     /// </remarks>
-    public override int Version => 7;
+    public override int Version => 8;
 
     /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
     /// <remarks>
