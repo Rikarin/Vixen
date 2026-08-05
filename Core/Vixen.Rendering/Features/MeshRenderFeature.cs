@@ -195,7 +195,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         var boundIndexFormat = default(IndexFormat);
         var boundRecord = -1;
 
-        // ⚠ **The layouts these sets were last bound against, and they used to be three `bool`s.**
+        // ⚠ **What sets 0 and 1 were last bound for, and they used to be three `bool`s.**
         // The comment below said "once per run because every pipeline in a frame is layout-compatible
         // up to set 1", and that was an assumption rather than a fact: a material feature composed
         // into a variant can add a binding to a *low* set, and `MaterialTextures` — which
@@ -205,9 +205,20 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         // at all as far as the second's pipeline is concerned: `uses set 0 but that set is not
         // bound`, on a set that was just bound. Nothing in the tree mixed the two until a material
         // named a texture, so the assumption held by having nothing to break it.
-        var boundSceneLayout = default(DescriptorSetLayoutHandle);
-        var boundViewLayout = default(DescriptorSetLayoutHandle);
-        var boundTableLayout = default(DescriptorSetLayoutHandle);
+        //
+        // ⚠ **The effect is what carries "these sets are bound"; the layouts only say when a
+        // *different* effect may keep them.** Comparing layouts alone cannot express "nothing has
+        // been bound yet", because the value that means it — no handle — is the same value
+        // `LayoutFor` answers for an effect that declares no layout at that set. A shadow caster
+        // built from a host-supplied pipeline layout answers that for every set, so the first node of
+        // the pass compared equal to the initial state and the pass bound nothing at all:
+        // `[DepthOnly/ShadowCaster] statically uses descriptor set 1, but ... a descriptor was never
+        // bound`. A null layout is now "this loop cannot prove the bound set survives", never "there
+        // is nothing to bind".
+        var boundFor = default(Effect);
+        var boundSceneLayout = default(DescriptorSetLayoutHandle?);
+        var boundViewLayout = default(DescriptorSetLayoutHandle?);
+        var boundTableLayout = default(DescriptorSetLayoutHandle?);
 
         // Whether a run of nodes could become one command at all. Every per-node contributor is a
         // reason it cannot: a sub-feature that pushes this object's world matrix has to be given the
@@ -260,20 +271,40 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             // moves together or not at all.
             var sceneLayout = LayoutFor(effect, context.SceneConstants?.Slot);
             var viewLayout = LayoutFor(effect, context.ViewConstants?.Slot);
-            var rebind = sceneLayout != boundSceneLayout || viewLayout != boundViewLayout;
 
-            if (rebind && context.SceneConstants is { } scene && scene.Bind(context.CommandList, effect)) {
-                boundSceneLayout = sceneLayout;
-            }
+            // ⚠ **The invariant: every effect gets these sets bound for it, unless it is provably the
+            // same shape as the effect they are already bound for.** Both halves are load-bearing.
+            // Nothing bound yet is a rebind whatever the layouts say — a caster whose effect declares
+            // no set layouts answers "no layout" for both, which the previous comparison read as
+            // "unchanged since the start of the pass" and so bound neither set. And an effect that
+            // declares nothing at a set cannot be proven compatible with one that does or with
+            // another that does not, because what it will actually be bound against is a layout this
+            // loop cannot see — `ViewConstants` falls back to the host's — so a null asks for the
+            // rebind rather than skipping it. The same effect is the one case that needs no proof.
+            var rebind = boundFor is null
+                || (!ReferenceEquals(effect, boundFor)
+                    && (sceneLayout is null
+                        || viewLayout is null
+                        || sceneLayout != boundSceneLayout
+                        || viewLayout != boundViewLayout));
 
-            if (rebind && context.ViewConstants is { } view && context.View is { } from) {
-                // The layout first, because it belongs to the shader and the shader is only in hand
-                // here — see ViewConstants.AdoptLayout. A host that set one is left alone.
-                view.AdoptLayout(effect);
+            if (rebind) {
+                context.SceneConstants?.Bind(context.CommandList, effect);
 
-                if (view.Bind(context.CommandList, from, effect)) {
-                    boundViewLayout = viewLayout;
+                if (context.ViewConstants is { } view && context.View is { } from) {
+                    // The layout first, because it belongs to the shader and the shader is only in
+                    // hand here — see ViewConstants.AdoptLayout. A host that set one is left alone.
+                    view.AdoptLayout(effect);
+                    view.Bind(context.CommandList, from, effect);
                 }
+
+                // Recorded whether or not either bind answered true. False is "this effect reads
+                // nothing at that set" as often as it is a failure — `SceneConstants.Bind` says so
+                // for every caster-shaped pass — and treating it as "still unbound" would leave the
+                // state describing an effect that is no longer current.
+                boundFor = effect;
+                boundSceneLayout = sceneLayout;
+                boundViewLayout = viewLayout;
             }
 
             // The material table, on the same terms and once. It is not written here and not written
@@ -585,19 +616,28 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             || (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid);
     }
 
-    /// <summary>The layout an effect declares for a set, or none where it declares nothing.</summary>
+    /// <summary>The layout an effect declares for a set, or null where it declares none.</summary>
     /// <remarks>
-    ///     The identity a bound descriptor set has to be re-checked against as the draw loop moves
-    ///     between variants — see the layout locals in <c>Draw</c>. A null slot is a host that
-    ///     supplied no constants for that set, which compares equal to itself and so never asks for a
-    ///     rebind.
+    ///     <para>
+    ///         The identity a bound descriptor set is re-checked against as the draw loop moves
+    ///         between variants — see the layout locals in <c>Draw</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is "unknown", and it is never equal to another null.</b> Two effects that
+    ///         both declare nothing here are not thereby the same shape: an effect with no reflected
+    ///         set layouts is one whose pipeline layout was built by its host — every device fixture,
+    ///         and any stage that overrode the shader — so what its set would be bound against is not
+    ///         visible from here at all. The caller treats null as a reason to rebind rather than as a
+    ///         value to compare, which is why this returns a nullable and not a default handle. An
+    ///         invalid handle counts as none for the same reason.
+    ///     </para>
     /// </remarks>
-    static DescriptorSetLayoutHandle LayoutFor(Effect effect, DescriptorSetSlot? slot) {
+    static DescriptorSetLayoutHandle? LayoutFor(Effect effect, DescriptorSetSlot? slot) {
         if (slot is not { } wanted || effect.SetLayouts.Length <= (int)wanted) {
-            return default;
+            return null;
         }
 
-        return effect.SetLayouts[(int)wanted];
+        return effect.SetLayouts[(int)wanted] is { IsValid: true } layout ? layout : null;
     }
 
     /// <summary>Whether an effect declares the bindless table's set.</summary>
