@@ -40,6 +40,20 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
 
         <!--
+          The four assemblies whose components a scene with water names. Referenced by the *tests* and
+          not by Vixen.Editor.Assets, which reads the water kernel only — a scene compiler binds a
+          component through SceneComponentRegistry and never names its type, so the assembly that
+          declares one has to be loaded by whoever is asking. That is the caveat SceneWaterComponentTests'
+          constructor makes explicit, and referencing them here is what lets it.
+
+          ⚠ Vixen.Rendering.Water and Vixen.Water.Physics also happen to be the two that were missing
+          Vixen.Engine.Generators, which is what made a scene carrying water fail to load at all. This
+          reference is what turns that from an unobservable omission into a test.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Water.Physics\Vixen.Water.Physics.csproj" />
+
+        <!--
           Analyzers do not flow transitively through a ProjectReference. The fixture importer settings
           here are [DataContract] types the binder has to describe, and the end-to-end test writes a
           real chunk and loads it back, which needs a real serializer — so both generators are named.

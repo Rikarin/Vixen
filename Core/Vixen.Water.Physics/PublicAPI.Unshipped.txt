@@ -1,5 +1,6 @@
 #nullable enable
 Vixen.Water.Physics.BuoyancyBody -> struct
+Vixen.Water.Physics.BuoyancyBody : Vixen.Ecs.IDefaultComponent<Vixen.Water.Physics.BuoyancyBody>
 Vixen.Water.Physics.BuoyancyBody.BuoyancyBody() -> void
 Vixen.Water.Physics.BuoyancyBody.Coefficient -> float
 Vixen.Water.Physics.BuoyancyBody.Damping -> float

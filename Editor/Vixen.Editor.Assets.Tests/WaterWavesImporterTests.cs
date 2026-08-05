@@ -28,6 +28,33 @@ public sealed class WaterWavesImporterTests {
         Assert.Equal("WaterWavesAsset", WaterWavesImporter.WavesType);
     }
 
+    /// <summary>And that the build's own registry hands a <c>.vxwaves</c> to it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The gap every other test in this file stepped over.</b> They construct the importer
+    ///         and drive it, which asserts that it works and nothing about whether anything reaches it —
+    ///         and <c>[Importer]</c> is a declaration the registry does not scan for.
+    ///         <see cref="BuiltInImporters.Create()" /> is a hand-written list, water was not in it, and
+    ///         a <c>.vxwaves</c> in a project fell through to <c>RawImporter</c>: a byte blob under a
+    ///         name no runtime reader resolves, with no error anywhere, which is
+    ///         <c>WaterZoneSystem.UnresolvedWaves</c> and a zone drawing its inline spectrum.
+    ///     </para>
+    ///     <para>
+    ///         The importer that claimed it is what is asserted, and not that an artefact appeared —
+    ///         <c>RawImporter</c> produces one of those too.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBuildsOwnRegistryHandsAWavesFileToIt() {
+        // ⚠ A contribution set of its own, not ImporterContributions.Default: the default is
+        // process-wide and ImporterContributionTests mutates it, so reading it here would race.
+        var registry = BuiltInImporters.Create(new ImporterContributions());
+
+        Assert.True(registry.TryGetForFile("Assets/Seas/northsea.vxwaves", out var importer));
+        Assert.Equal("WaterWavesImporter", importer.Name);
+        Assert.IsType<WaterWavesImporter>(importer);
+    }
+
     /// <summary>A sea state is compiled to the record <c>AssetWaterSource</c> opens.</summary>
     /// <remarks>
     ///     ⚠ <b>The trap the grass and foliage chunks closed, one asset kind over.</b> A game does not

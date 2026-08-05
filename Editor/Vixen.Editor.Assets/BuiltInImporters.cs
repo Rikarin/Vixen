@@ -65,6 +65,13 @@ public static class BuiltInImporters {
                 .Add(new Compositors.CompositorImporter())
                 .Add(new Terrain.TerrainAssetImporter())
                 .Add(new Terrain.HeightmapImporter())
+
+                // ⚠ [Importer] is a declaration nothing scans for, so an importer absent from this
+                // list is not an error anywhere — a .vxwaves fell through to RawImporter and became a
+                // byte blob under a type name no runtime reader resolves. The zone naming it then
+                // fell back to its inline spectrum and counted into WaterZoneSystem.UnresolvedWaves,
+                // which is water that draws and is not the sea anybody authored.
+                .Add(new Water.WaterWavesImporter())
                 .Add(new Animation.AnimationClipImporter())
                 .Add(new Animation.ShapeVocabularyImporter())
                 .Add(new Animation.ProxyShapeSetImporter())

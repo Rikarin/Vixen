@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Ecs;
 using Vixen.Water;
 
 namespace Vixen.Rendering.Water;
@@ -34,7 +35,7 @@ namespace Vixen.Rendering.Water;
 /// </remarks>
 [Component]
 [DataContract]
-public struct WaterZoneComponent {
+public struct WaterZoneComponent : IDefaultComponent<WaterZoneComponent> {
     /// <summary>How wide and deep the window is, in metres.</summary>
     public float Extent;
 
@@ -131,6 +132,14 @@ public struct WaterZoneComponent {
             WaveAsset = string.Empty
         };
 
+    /// <remarks>
+    ///     ⚠ <b>A zeroed zone is not a small one, it is an invalid one</b> — <see cref="WaterZone.Validate" />
+    ///     refuses an extent of zero and a resolution that is not a power of two plus one. So this is
+    ///     not the convenience it is for a component whose zero is merely dull: without it, a zone
+    ///     added from the inspector arrives in a state the renderer throws on.
+    /// </remarks>
+    static WaterZoneComponent IDefaultComponent<WaterZoneComponent>.DefaultValue => Default;
+
     /// <summary>This component as the kernel's own description.</summary>
     /// <remarks>
     ///     The seam where an unset <see cref="ScrollThreshold" /> becomes the default rather than a
@@ -171,7 +180,7 @@ public struct WaterZoneComponent {
 /// </remarks>
 [Component]
 [DataContract]
-public struct WaterBodyComponent {
+public struct WaterBodyComponent : IDefaultComponent<WaterBodyComponent> {
     /// <summary>What kind of water it is.</summary>
     public WaterBodyKind Kind;
 
@@ -252,6 +261,14 @@ public struct WaterBodyComponent {
             Velocity = 0f,
             AudioIntensity = 0.1f
         };
+
+    /// <remarks>
+    ///     ⚠ <b><see cref="Depth" /> and <see cref="ShoreFalloff" /> of zero are a body with no water
+    ///     in it</b>, which is indistinguishable from the whole subsystem being unwired. The value is
+    ///     <see cref="Default" />'s and is not written a second time here — one place a default is
+    ///     stated, and this is only the wiring that says which one a fresh component takes.
+    /// </remarks>
+    static WaterBodyComponent IDefaultComponent<WaterBodyComponent>.DefaultValue => Default;
 
     /// <summary>The profile a body with no per-control-point one uses.</summary>
     public readonly WaterProfilePoint Profile =>
