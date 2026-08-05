@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using Vixen.Core;
 using Vixen.Core.Yaml.Meta;
 using Xunit;
@@ -396,6 +397,43 @@ public sealed class MetaTests {
 
         Assert.Contains("source: ''", written, StringComparison.Ordinal);
         Assert.Equal(string.Empty, Assert.Single(AssetMetaFile.Read(written).SubAssets).Source);
+    }
+
+    /// <summary>
+    ///     The exact sidecar the nightly <c>meta</c> fuzz found, kept byte for byte so that the refusal
+    ///     is guarded without a fuzz run.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What it is:</b> <c>-torter: !!Te]V 1</c> and then some high bytes. The interesting
+    ///         part is the tag — <c>!!Te]V</c> expands to <c>tag:yaml.org,2002:Te]V</c>, which is not a
+    ///         URI, so YamlDotNet's <c>TagName</c> constructor threw <see cref="ArgumentException" />
+    ///         from inside <c>Parser.MoveNext</c>. That is not one of the three failures
+    ///         <see cref="AssetMetaFile.Read" /> documents, so it went straight past both production
+    ///         <c>when</c> filters and out of the editor.
+    ///     </para>
+    ///     <para>
+    ///         Held as hex rather than as a string literal because that is what the finding reported and
+    ///         because the bytes after the newline do not survive being retyped.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheSidecarWithAMalformedTagIsAParseErrorRatherThanAnArgumentException() {
+        var text = Encoding.UTF8.GetString(
+            Convert.FromHexString(
+                "2D746F727465723A20212154655D5620310A696D706F72746572808080808080808080808080"
+                + "80C42CD4546501010101010101010101010105F518F2FA09EB"
+            )
+        );
+
+        var failure = Assert.Throws<YamlParseException>(() => AssetMetaFile.Read(text));
+
+        Assert.Equal(1, failure.Line);
+        Assert.Contains("malformed", failure.Message, StringComparison.Ordinal);
+
+        // And the scanner, which has no failure channel at all, still declines the same file rather
+        // than reporting an envelope the parser will never agree with.
+        Assert.False(MetaScanner.TryScan(text, out _));
     }
 }
 

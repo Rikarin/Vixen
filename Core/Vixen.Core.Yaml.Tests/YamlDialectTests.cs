@@ -250,6 +250,51 @@ public sealed class YamlDialectTests {
         Assert.Throws<YamlParseException>(() => YamlReader.Read(text));
 
     /// <summary>
+    ///     The third escape, and the one the filter above could not simply be widened to take: a tag
+    ///     whose expansion is not a URI reaches <c>TagName</c>'s constructor, which validates it and
+    ///     throws <see cref="ArgumentException" />. Every position a tag can appear in reaches it, and
+    ///     so does a <c>%TAG</c> directive declaring a bad prefix — one document nobody can open, in a
+    ///     dozen spellings.
+    ///     <para>Found by <c>Vixen.Fuzz</c>'s <c>meta</c> target; see <c>YamlReader.GuardedParser</c>.</para>
+    /// </summary>
+    [Theory]
+    // The shorthand, whose '!!' expands to 'tag:yaml.org,2002:' and then to something with a ']' in it.
+    [InlineData("a: !!Te]V 1\n")]
+    [InlineData("!!Te]V\n")]
+    [InlineData("!!Te]V: 1\n")]
+    [InlineData("- !!Te]V 1\n")]
+    [InlineData("{ a: !!Te]V 1 }\n")]
+    [InlineData("[ !!Te]V ]\n")]
+    [InlineData("? !!Te]V\n: 1\n")]
+    // A verbatim tag that expands to nothing, which is the same constructor's other refusal.
+    [InlineData("a: !<> 1\n")]
+    // And the prefix itself, declared by a directive, for each of the three handles.
+    [InlineData("%TAG !! ]]]]\n---\na: !!x 1\n")]
+    [InlineData("%TAG ! ]]]]\n---\na: !x 1\n")]
+    [InlineData("%TAG !e! ]]]]\n---\na: !e!x 1\n")]
+    public void ATagThatIsNotAUriIsAParseErrorRatherThanAnArgumentException(string text) {
+        var failure = Assert.Throws<YamlParseException>(() => YamlReader.Read(text));
+
+        Assert.Contains("malformed", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And the tags either side of that line still work, because a guard that refused them would be
+    ///     the same outage with a nicer message. A local tag is how <c>importer: !TextureImporter</c>
+    ///     names its settings type, and a declared prefix is legal YAML this dialect has no reason to
+    ///     mind.
+    /// </summary>
+    [Theory]
+    [InlineData("a: !TextureImporter\n  version: 3\n", "TextureImporter")]
+    [InlineData("a: !!foo bar\n", "tag:yaml.org,2002:foo")]
+    [InlineData("%TAG !e! tag:example.com,2000:\n---\na: !e!x 1\n", "tag:example.com,2000:x")]
+    public void ATagThatIsWellFormedStillReachesTheNode(string text, string tag) {
+        var root = Assert.IsType<YamlMapping>(YamlReader.Read(text));
+
+        Assert.Equal(tag, root["a"]!.Tag);
+    }
+
+    /// <summary>
     ///     Key order is the schema's — the C# record's declaration order — and replacing a value
     ///     keeps the key where it was. Moving it would be a diff nobody asked for.
     /// </summary>
