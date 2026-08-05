@@ -119,6 +119,43 @@ exists to prevent.
 is. That is what the metres-per-texel readout is for: an eight-metre falloff at one metre a texel is a
 ramp, and a two-metre falloff at the same rate is two texels, which is neither a ramp nor a cut.
 
+### The surface mesh, and the three things it shares with the terrain
+
+```csharp no-compile="the shape of a mesh, not a compiling scene"
+var mesh = new WaterSurfaceMesh(state.Window, TerrainLodRanges.Default) { FarDistance = 8000f };
+var reduced = new WaterFieldPyramid(state.Window.Resolution);
+
+reduced.Build(state.Field!);
+mesh.Update(reduced, query.MaximumAmplitude);   // ⚠ the amplitude, or crests get culled away
+
+var patches = new List<TerrainLodNode>();
+
+mesh.SelectFar(frustum, restHeight, patches);            // the skirt first — see below
+mesh.Select(camera, frustum, patches);                   // then the window
+```
+
+The descent is `PatchSelector`, which is `TerrainLodTree`'s with the terrain taken out of it — so the
+morph, the no-crack property and the continuity property are one implementation with two consumers
+rather than Unreal's two of each. The finest node's vertex spacing *is* the field's texel spacing, by
+construction: a 512 m window at 257 texels gives 256 quads at two metres, one vertex per texel.
+
+⚠ **A node's bounding box is grown by the sea state's maximum amplitude.** A node bounded by its rest
+height is one culled away while a crest is still in front of the camera, and the symptom is a strip of
+missing sea that appears only when the wind rises. `WaterFieldPyramid` is what makes the question
+cheap — a reduction of coverage and surface range, so "is any of this 128-metre square wet, and how
+tall does it get" is nine lookups whatever the node's size.
+
+⚠ **The far mesh is selected first and drawn first**, and the order is load-bearing: the surface tests
+depth without writing it, so nothing arbitrates between two fragments at one pixel except which came
+last — and the near mesh is the one with a field under it.
+
+⚠ **`EdgeFade` is the one place the drawn surface is deliberately not the queried one.** The skirt has
+no field under it and so no waves; meeting the window's full-height waves directly puts a step the
+height of a crest along a straight line at the horizon, in every frame. The amplitude ramps to zero
+across the band instead. It is in the mesh and not in the evaluator, because in the evaluator it would
+make a buoyancy query depend on where the *camera* is — a raft that rides differently depending on
+where somebody is looking.
+
 ### ⚠ Depth is computed, never stored
 
 `WaterField` carries surface height, flow, ground and coverage. How deep the water is at a place is

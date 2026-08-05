@@ -150,6 +150,38 @@ That is a real constraint on an author and the reason the panel shows metres per
 falloff at one metre a texel is a ramp, and a two-metre falloff at the same rate is two texels, which
 is neither a ramp nor a cut.
 
+## The surface mesh is the terrain's quadtree
+
+[§ D4]. `WaterSurfaceMesh` selects patches through `PatchSelector` — the *same* descent
+`TerrainLodTree` uses, extracted rather than copied — so the no-crack property, the morph and their
+two tests are written once. The only difference between the two consumers is what the vertex stage
+samples for height.
+
+⚠ **Water makes a crack worse than a terrain does, not better.** A crack in a terrain shows a sliver
+of skybox for a frame; a crack in a flat specular surface shows a bright line that reads as a
+rendering artefact from four hundred metres. Which is why `WaterSurfaceMeshTests` is written before
+the renderer rather than after the first screenshot.
+
+**The finest node's vertex spacing is the field's texel spacing, by construction.** The root spans the
+window's `Resolution − 1` quads rounded up to whole patches, so a 512 m window at 257 texels gives
+256 quads at two metres — one vertex per texel at level zero. Any other choice makes the surface
+either carry detail the field cannot supply or throw away detail it can.
+
+⚠ **A node's box is grown by the sea state's maximum amplitude.** A node bounded by its rest height is
+one culled away while a crest is still in front of the camera, and the symptom is a strip of missing
+sea that appears only when the wind rises. `WaterFieldPyramid` is what makes asking cheap: a reduction
+of the field's coverage and surface range, so "is any of this 128-metre square wet, and how tall does
+it get" is nine lookups whatever the node's size, rather than a scan.
+
+⚠ **The far mesh and the edge fade are one decision.** The skirt to the horizon has no field under it
+and so no waves; meeting the window's full-height waves directly puts a step the height of a crest
+along a straight line at the horizon, in every frame. So the amplitude ramps to zero across
+`EdgeFade` and the two agree exactly where they meet — **which is the one place the drawn surface is
+deliberately not the queried one.** The fade is in the mesh rather than in the evaluator, because in
+the evaluator it would make every buoyancy query depend on where the *camera* is: a raft that rides
+differently depending on where somebody is looking, which is § D2's seam broken in the worst way.
+Here the disagreement is confined to a band the view is half a window from.
+
 ## What is not here
 
 The renderer (`Vixen.Rendering.Water`), the editor (`Vixen.Editor.Water`), the Raven modules, the

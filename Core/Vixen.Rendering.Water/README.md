@@ -15,13 +15,42 @@ resources:
   - name: SceneColourCopy
     format: Rgba16Float
     usage: Sampled, CopyDestination
+  - name: WaterSurface
+    format: Rgba16Float
+    usage: ColourTarget, Sampled
+  - name: WaterNormal
+    format: Rgba16Float
+    usage: ColourTarget, Sampled
 
 game: !Sequence
   children:
-    # … the lit pass, then the water surface pass writing WaterSurface and WaterNormal …
-    - !Copy   { source: SceneColour, destination: SceneColourCopy }
-    - !Water  { behind: SceneColourCopy, output: SceneColour, view: Camera }
+    # … the lit pass …
+    - !WaterSurface { surface: WaterSurface, normal: WaterNormal, sceneDepth: SceneDepth, view: Camera }
+    - !Copy         { source: SceneColour, destination: SceneColourCopy }
+    - !Water        { behind: SceneColourCopy, output: SceneColour, view: Camera }
 ```
+
+⚠ **All three, in that order, or there is no wet pixel.** `!WaterSurface` is what draws the geometry;
+without it `!Water` reads a cleared mask, finds no coverage anywhere and passes the frame through
+unchanged — a water stack that is wired, tested and invisible. And the copy has to be taken *after*
+everything the water will be composited over.
+
+## The surface is a mesh, and it is the terrain's quadtree
+
+§ D4. `!WaterSurface` draws every zone's patches — the same instanced 33² grid, morphed the same way,
+sharing the terrain's index buffer because the lattice is the same lattice — and writes two planes
+rather than a lit pixel: a coverage mask carrying the surface's device depth, and the surface's world
+normal carrying its foam. Splitting them that way is what lets the volume integration be one
+full-screen pass over the pixels that *have* water rather than a per-fragment loop over the ones that
+draw it.
+
+⚠ **Depth is tested and never written, and that is what makes the pass above possible at all.** The
+composite unprojects the *scene* depth to find what is behind the water; a surface that wrote depth
+would put itself there, and the water would be integrated against itself — clear everywhere, at every
+depth, with nothing in a capture to say why.
+
+⚠ **The far skirt is drawn before the window.** With depth writes off nothing arbitrates between two
+fragments at one pixel except which came last, and the near mesh is the one with a field under it.
 
 ## The copy is the blocker, not the pass
 
@@ -68,7 +97,7 @@ engine is Forward+. The surface pass writes a one-channel mask, which is exactly
 would have produced, and when the deferred path lands that binding becomes the comparison with nothing
 else changing.
 
-**Tile classification is not built yet.** § D8 keeps it "for its actual reason: the water pass is
+**Tile classification is not built.** § D8 keeps it "for its actual reason: the water pass is
 expensive per pixel and covers a small fraction of most frames" — that reason is still true and it is
 an optimisation over a correct pass, so it lands after the look is proven rather than before.
 

@@ -47,6 +47,14 @@
         <ProjectReference Include="..\Vixen.Water\Vixen.Water.csproj" />
 
         <!--
+          The terrain's renderer, for its grid patch and nothing else — docs/plan/35 § D4's last line:
+          "one draw call for all the water in a zone, sharing the terrain's patch vertex buffer". The
+          lattice is the same 33² regular grid with the same alternating diagonal and the same winding,
+          and a second copy of it would be a second place for the winding to be wrong.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
+
+        <!--
           The node kind is a [DataContract] record of this assembly's own — a document names !Water —
           so it runs the descriptor generators over itself. Analyzers do not flow through a
           ProjectReference, so a contract name generated in Vixen.Rendering is not generated here.
@@ -72,6 +80,7 @@
 
     <ItemGroup>
         <AdditionalFiles Include="..\..\Raven\Library\Water\Water.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Water\WaterMesh.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

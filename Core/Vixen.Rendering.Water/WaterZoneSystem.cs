@@ -138,6 +138,15 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     /// <summary>The state of a zone, by the entity carrying it.</summary>
     public IReadOnlyDictionary<Entity, WaterZoneState> States => states;
 
+    /// <summary>What each zone entity said, as the last fold read it.</summary>
+    /// <remarks>
+    ///     Beside <see cref="States" /> rather than folded into it, because the two are different
+    ///     things: a <see cref="WaterZoneState" /> is the kernel's — a window, a field and when it was
+    ///     last right — and the component is the document's, carrying the sea state and the
+    ///     attenuation that the <em>renderer</em> needs and the kernel has no use for.
+    /// </remarks>
+    public IReadOnlyList<(Entity Entity, WaterZoneComponent Component)> Zones => zones;
+
     /// <inheritdoc />
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
         Fold(context.World);

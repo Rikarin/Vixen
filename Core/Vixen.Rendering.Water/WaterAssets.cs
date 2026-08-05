@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering.Compositor;
+using Vixen.Terrain;
 
 namespace Vixen.Rendering.Water;
 
@@ -89,6 +90,68 @@ public sealed record WaterAsset : ISceneRendererAsset {
     public bool Foam { get; init; } = true;
 }
 
+/// <summary>The water surface mesh, as a document names it.</summary>
+/// <remarks>
+///     <para>
+///         <b>[35 § D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source),
+///         and the node without which <c>!Water</c> has nothing to composite.</b> It draws every
+///         zone's quadtree into the two planes — a coverage mask with the surface's device depth, and
+///         the surface's normal with its foam — and writes no colour of its own.
+///     </para>
+///     <para>
+///         ⚠ <b>It goes after the opaque pass and before <c>!Copy</c>.</b> The surface is rasterised
+///         against the scene's own depth so a lake behind a hill does not draw over it, and the copy
+///         has to be taken after everything the water will be composited <em>over</em>.
+///     </para>
+/// </remarks>
+[DataContract("WaterSurface")]
+public sealed record WaterSurfaceAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The surface plane it writes: device depth in <c>r</c>, coverage in <c>g</c>.</summary>
+    public string Surface { get; init; } = "WaterSurface";
+
+    /// <summary>The normal plane: the world normal in <c>xyz</c> and the foam in <c>a</c>.</summary>
+    public string Normal { get; init; } = "WaterNormal";
+
+    /// <summary>The opaque scene's depth, tested against and never written.</summary>
+    public string SceneDepth { get; init; } = "SceneDepth";
+
+    /// <summary>Which view the patches are selected for.</summary>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>How many quads the shared grid patch spans.</summary>
+    public int GridQuads { get; init; } = PatchSelector.DefaultGridQuads;
+
+    /// <summary>How far level 0 reaches, in metres.</summary>
+    public float NearRange { get; init; } = 64f;
+
+    /// <summary>How many levels of detail the descent may use.</summary>
+    public int LevelCount { get; init; } = 5;
+
+    /// <summary>How far past a window the far skirt reaches, in metres.</summary>
+    public float FarDistance { get; init; } = 8000f;
+
+    /// <summary>How wide the band is over which the waves fade at a window's edge, in metres.</summary>
+    public float EdgeFade { get; init; } = 32f;
+
+    /// <summary>Where the open surface sits, for the far skirt, in world units.</summary>
+    public float RestHeight { get; init; }
+
+    /// <summary>How deep the water has to be before it is fully opaque water, in metres.</summary>
+    public float ShoreDepth { get; init; } = 0.25f;
+
+    /// <summary>How shallow it has to be before it foams, in metres.</summary>
+    public float FoamDepth { get; init; } = 0.4f;
+
+    /// <summary>How far above the rest height a crest has to rise before it foams, in metres.</summary>
+    public float FoamCrest { get; init; } = 0.5f;
+}
+
 /// <summary>Builds this assembly's node kinds for a document that names them.</summary>
 /// <remarks>
 ///     Registered on <c>CompositorBuilder.Factories</c>, which is asked <em>after</em> the built-ins —
@@ -99,8 +162,59 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
     public SceneRenderer? Create(ISceneRendererAsset declared, CompositorBuilder builder) {
         ArgumentNullException.ThrowIfNull(builder);
 
-        return declared is WaterAsset water ? Water(water, builder) : null;
+        return declared switch {
+            WaterAsset water => Water(water, builder),
+            WaterSurfaceAsset mesh => Mesh(mesh, builder),
+            _ => null
+        };
     }
+
+    /// <summary>Where the zones the surface node draws come from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A factory-level property rather than something a document names, because a system
+    ///         is not a document's to reference.</b> A <c>.vxcompositor</c> describes a frame; which
+    ///         world is running is the host's business, and <c>AppGraphics</c> is what has both in its
+    ///         hands. Left unset, a <c>!WaterSurface</c> node builds and draws nothing — a frame with
+    ///         no water rather than an exception, on <c>!ScreenProbeGather</c>'s terms.
+    ///     </para>
+    /// </remarks>
+    public WaterZoneSystem? Zones { get; set; }
+
+    /// <summary>The simulation's water time the surface is displaced at, in seconds.</summary>
+    /// <remarks>
+    ///     ⚠ Not a frame time — see [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test).
+    ///     The host advances this from the same clock the fixed step reads.
+    /// </remarks>
+    public float WaterTime { get; set; }
+
+    WaterMeshRenderer Mesh(WaterSurfaceAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Surface = declared.Surface,
+            Normal = declared.Normal,
+            SceneDepth = declared.SceneDepth,
+            View = declared.View is { Length: > 0 } name ? builder.Views.GetValueOrDefault(name) : null,
+            Zones = Zones,
+            WaterTime = WaterTime,
+            GridQuads = declared.GridQuads,
+            Ranges = TerrainLodRanges.Default with {
+                NearRange = declared.NearRange,
+                LevelCount = declared.LevelCount
+            },
+            FarDistance = declared.FarDistance,
+            EdgeFade = declared.EdgeFade,
+            Settings = WaterMeshSettings.Default with {
+                RestHeight = declared.RestHeight,
+                ShoreDepth = declared.ShoreDepth,
+                FoamDepth = declared.FoamDepth,
+                FoamCrest = declared.FoamCrest
+            },
+            Modules = builder.Modules,
+            Samplers = builder.Samplers,
+            Device = builder.Device
+        };
 
     static WaterRenderer Water(WaterAsset declared, CompositorBuilder builder) =>
         new() {

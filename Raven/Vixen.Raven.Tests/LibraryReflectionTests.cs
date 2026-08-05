@@ -91,6 +91,12 @@ public class LibraryReflectionTests {
         // it as zero, and the frame behind the water would be perfectly black — which reads as
         // "the water is opaque" rather than as a parameter nobody set.
         ("Water", "Water"),
+
+        // And § D4's surface — the quadtree's draw, which writes the two planes the pass above reads.
+        // Published on Terrain's terms: WaterMeshRenderer binds its node buffer, its info texture and
+        // every one of its window numbers by name, and a binding index comes from declaration order
+        // within a set — so adding a texture above another renumbers it silently.
+        ("Water", "WaterMesh"),
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see
