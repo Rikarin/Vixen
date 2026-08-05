@@ -67,6 +67,7 @@ Vixen.Engine.Renderer.AssetVirtualGeometrySource : Vixen.Rendering.Ecs.IVirtualG
 Vixen.Engine.Renderer.AssetVirtualGeometrySource.AssetVirtualGeometrySource(Vixen.Assets.AssetManager assets, Vixen.Rendering.VirtualGeometrySystem geometry) -> void
 Vixen.Engine.Renderer.AssetVirtualGeometrySource.Dispose() -> void
 Vixen.Engine.Renderer.AssetVirtualGeometrySource.Registered.get -> int
+Vixen.Engine.Renderer.AssetVirtualGeometrySource.Release(Vixen.Core.AssetReference reference) -> bool
 Vixen.Engine.Renderer.AssetVirtualGeometrySource.Requested.get -> int
 Vixen.Engine.Renderer.AssetVirtualGeometrySource.TryGet(Vixen.Core.AssetReference reference, out int mesh, out Vixen.Core.Mathematics.BoundingSphere bounds) -> Vixen.Rendering.Ecs.ClusterState
 Vixen.Engine.Renderer.DebugDrawRenderer -> sealed class
