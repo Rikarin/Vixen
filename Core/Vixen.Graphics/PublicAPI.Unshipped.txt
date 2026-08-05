@@ -615,6 +615,7 @@ Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> v
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.TextureViewHandle handle) -> void
 Vixen.Graphics.IGraphicsDevice.EndFrame() -> void
 Vixen.Graphics.IGraphicsDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
+Vixen.Graphics.IGraphicsDevice.FrameCount.get -> long
 Vixen.Graphics.IGraphicsDevice.FramesInFlight.get -> int
 Vixen.Graphics.IGraphicsDevice.GetAccelerationStructureAddress(Vixen.Graphics.AccelerationStructureHandle handle) -> ulong
 Vixen.Graphics.IGraphicsDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes

@@ -180,6 +180,31 @@ public interface IGraphicsDevice : IDisposable {
     /// <summary>How many frames may be recorded before the first has to have finished.</summary>
     int FramesInFlight { get; }
 
+    /// <summary>
+    ///     How many frames this device has been through, which never goes backwards and changes
+    ///     exactly once per frame.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The frame's identity, for the per-frame pools that had no way to ask for it.</b>
+    ///         <see cref="DescriptorAllocator" /> and <see cref="BindlessTable" /> both have a ring
+    ///         <see cref="FramesInFlight" /> deep, and both state their correctness in terms of this
+    ///         number — "a set written for frame <c>f</c> is still being read while the CPU records
+    ///         <c>f + 1</c>" — while having no way to see it. The consequence was that a host which
+    ///         simply never told them a frame had begun was indistinguishable, from inside them, from
+    ///         one that did, and the failure is a cache of handles naming memory the next frame's
+    ///         graph has already given to something else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it counts <em>from</em> is a backend's own business.</b> Some increment on
+    ///         <see cref="BeginFrame" /> and some on <see cref="EndFrame" />, so this is not a
+    ///         portable frame ordinal and nothing should compare it against a number from elsewhere.
+    ///         What every backend guarantees is the only thing anybody needs: two reads within one
+    ///         frame agree, and two reads either side of a frame boundary do not.
+    ///     </para>
+    /// </remarks>
+    long FrameCount { get; }
+
     /// <summary>Creates a buffer.</summary>
     /// <param name="description">What to create.</param>
     BufferHandle CreateBuffer(in BufferDescription description);

@@ -648,6 +648,8 @@ Vixen.Rendering.PostFx.LocalExposureAsset.Enabled.get -> bool
 Vixen.Rendering.PostFx.LocalExposureAsset.Enabled.init -> bool
 Vixen.Rendering.PostFx.LocalExposureAsset.Ev100.get -> float
 Vixen.Rendering.PostFx.LocalExposureAsset.Ev100.init -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.ExposureBuffer.get -> string
+Vixen.Rendering.PostFx.LocalExposureAsset.ExposureBuffer.init -> string
 Vixen.Rendering.PostFx.LocalExposureAsset.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.PostFx.LocalExposureAsset.Format.init -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.PostFx.LocalExposureAsset.HighlightContrast.get -> float
@@ -683,6 +685,9 @@ Vixen.Rendering.PostFx.LocalExposureRenderer.EdgeRange.get -> float
 Vixen.Rendering.PostFx.LocalExposureRenderer.EdgeRange.set -> float
 Vixen.Rendering.PostFx.LocalExposureRenderer.Ev100.get -> float
 Vixen.Rendering.PostFx.LocalExposureRenderer.Ev100.set -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.Exposure.get -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.ExposureBuffer.get -> string
+Vixen.Rendering.PostFx.LocalExposureRenderer.ExposureBuffer.init -> string
 Vixen.Rendering.PostFx.LocalExposureRenderer.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.PostFx.LocalExposureRenderer.Format.set -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.PostFx.LocalExposureRenderer.HighlightContrast.get -> float
@@ -696,7 +701,6 @@ Vixen.Rendering.PostFx.LocalExposureRenderer.Output.get -> string
 Vixen.Rendering.PostFx.LocalExposureRenderer.Output.init -> string
 Vixen.Rendering.PostFx.LocalExposureRenderer.PassCount.get -> int
 Vixen.Rendering.PostFx.LocalExposureRenderer.Passes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.FullScreenRenderer>
-Vixen.Rendering.PostFx.LocalExposureRenderer.Pivot.get -> float
 Vixen.Rendering.PostFx.LocalExposureRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.LocalExposureRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.LocalExposureRenderer.ShadowContrast.get -> float
@@ -2112,6 +2116,7 @@ override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Configure(Vixen.Ren
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.DeclareOutput(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Core.Mathematics.Int2 size) -> void
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Dispose(bool disposing) -> void
 override Vixen.Rendering.PostFx.TonemapRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.TonemapRenderer.Dispose(bool disposing) -> void
 override Vixen.Rendering.PostFx.VignetteRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.VolumetricFogRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 readonly Vixen.Shaders.Generated.AmbientCombineConstants.Write(System.Span<byte> buffer) -> void

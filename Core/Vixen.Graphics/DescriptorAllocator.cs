@@ -49,6 +49,15 @@ namespace Vixen.Graphics;
 ///         something else. A cache that persisted would be correct exactly until two frames' graphs
 ///         differed.
 ///     </para>
+///     <para>
+///         ⚠ <b>Which is why a missed <see cref="BeginFrame" /> throws rather than merely leaking.</b>
+///         Everything above is a contract this type could state and not check, and a host that never
+///         called it was indistinguishable from one that did — the sets came out, the draws recorded,
+///         nothing complained, and the frame was wrong only in a way that depends on whether the graph
+///         happened to hand the same memory back. <see cref="IGraphicsDevice.FrameCount" /> is the
+///         clock that makes the contract checkable; <see cref="Allocate" /> refuses once the device
+///         has moved on without this being told.
+///     </para>
 /// </remarks>
 public sealed class DescriptorAllocator : IDisposable {
     readonly IGraphicsDevice device;
@@ -62,6 +71,7 @@ public sealed class DescriptorAllocator : IDisposable {
 
     int slot;
     bool disposed;
+    long begun;
 
     /// <summary>Creates an allocator for a device.</summary>
     /// <param name="device">The device its sets come from.</param>
@@ -71,6 +81,7 @@ public sealed class DescriptorAllocator : IDisposable {
 
         this.device = device;
         this.name = name;
+        begun = device.FrameCount;
         FramesInFlight = Math.Max(1, device.FramesInFlight);
         retiring = new List<Retired>[FramesInFlight];
 
@@ -107,15 +118,22 @@ public sealed class DescriptorAllocator : IDisposable {
 
     /// <summary>Starts a frame, taking back what the frame <see cref="FramesInFlight" /> ago used.</summary>
     /// <remarks>
-    ///     Call after <see cref="IGraphicsDevice.BeginFrame" /> and before the frame's first
-    ///     <see cref="Allocate" />. Calling it late is not a subtle bug: the sets recycled by it are
-    ///     the ones the frame is about to hand out, so a missed call leaks a frame's worth of sets and
-    ///     an early one recycles sets the GPU is still reading.
+    ///     <para>
+    ///         Call after <see cref="IGraphicsDevice.BeginFrame" /> and before the frame's first
+    ///         <see cref="Allocate" />. Calling it late is not a subtle bug: the sets recycled by it
+    ///         are the ones the frame is about to hand out, so a missed call leaks a frame's worth of
+    ///         sets and an early one recycles sets the GPU is still reading.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not calling it at all is the one this is checked for</b>, because it is the only
+    ///         mistake here that looks like health. See <see cref="Allocate" />.
+    ///     </para>
     /// </remarks>
     public void BeginFrame() {
         lock (gate) {
             ObjectDisposedException.ThrowIf(disposed, this);
 
+            begun = device.FrameCount;
             slot = (slot + 1) % FramesInFlight;
             Recycle(retiring[slot]);
 
@@ -133,6 +151,21 @@ public sealed class DescriptorAllocator : IDisposable {
     ///     <see cref="BeginFrame" />. It may be shared with another caller that asked for the same
     ///     thing, so treat it as read-only.
     /// </returns>
+    /// <exception cref="InvalidOperationException">
+    ///     The device has begun a frame since this allocator last did, which means nothing is calling
+    ///     <see cref="BeginFrame" />.
+    /// </exception>
+    /// <remarks>
+    ///     ⚠ <b>Refuses outright where the frame boundary went by unannounced, and that is the whole
+    ///     point of it being loud.</b> A missed <see cref="BeginFrame" /> is invisible from every
+    ///     direction that matters: the sets are handed out, the pipelines bind them, the draws record,
+    ///     the validation layers say nothing — and the frame is wrong only because the cache is
+    ///     content-addressed over handles that name transient graph memory, so <c>f + 1</c> gets back
+    ///     a set still pointing at <c>f</c>'s attachments. Whether that is visible depends on whether
+    ///     the graph happened to hand the same memory back, which means it survives every test and
+    ///     appears the day an allocation order changes. Correct code calls <see cref="BeginFrame" />
+    ///     once per device frame and never sees this.
+    /// </remarks>
     public DescriptorSetHandle Allocate(DescriptorSetLayoutHandle layout, ReadOnlySpan<DescriptorWrite> writes) {
         if (!layout.IsValid) {
             throw new ArgumentException("A descriptor set cannot be allocated without a layout.", nameof(layout));
@@ -140,6 +173,19 @@ public sealed class DescriptorAllocator : IDisposable {
 
         lock (gate) {
             ObjectDisposedException.ThrowIf(disposed, this);
+
+            // Compared against the device rather than counted here, because an allocator has no clock
+            // of its own — its ring is defined against the device's frame and it could not see one.
+            if (device.FrameCount != begun) {
+                throw new InvalidOperationException(
+                    $"The descriptor allocator '{name}' was last told a frame began at device frame "
+                    + $"{begun} and the device is now on {device.FrameCount}, so nothing is calling "
+                    + "BeginFrame. Its cache is keyed on handles naming transient graph memory the "
+                    + "frames since have been free to reuse, so a set returned now may point at an "
+                    + "attachment that is no longer there. Call BeginFrame once per frame, after "
+                    + "IGraphicsDevice.BeginFrame and before the frame's first allocation."
+                );
+            }
 
             var probe = new SetProbe(layout, writes);
 
@@ -167,6 +213,11 @@ public sealed class DescriptorAllocator : IDisposable {
     public void Reset() {
         lock (gate) {
             ObjectDisposedException.ThrowIf(disposed, this);
+
+            // Re-synchronised, because this *is* a frame boundary — a harder one than BeginFrame's.
+            // A resize or a level teardown that took everything back and then tripped the guard on
+            // the next allocation would be reporting the one case that cannot be stale.
+            begun = device.FrameCount;
 
             foreach (var frame in retiring) {
                 Recycle(frame);

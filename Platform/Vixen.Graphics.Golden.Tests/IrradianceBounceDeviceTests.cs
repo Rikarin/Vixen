@@ -309,10 +309,18 @@ public sealed class IrradianceBounceDeviceTests {
                     views[(int)face].ViewProjection = ShadowProjections.Cube(position, face, 100f, 0.01f);
                 }
 
+                // ⚠ Before the draw and not after it, which is what this was. `system.Draw` is where
+                // the frame's first allocation happens — `MaterialRenderFeature.Prepare` binds a set
+                // per material — so beginning the descriptor frame afterwards recycled the sets that
+                // capture had just been handed and left its cache holding the previous capture's.
+                // Every bounce past the first therefore shaded through descriptors written for a
+                // graph that no longer existed, which is precisely what this test's second pass is
+                // supposed to be measuring. `DescriptorAllocator.Allocate` refuses it now.
+                allocator.BeginFrame();
+
                 // Everything a frame does before it records: extract, cull, prepare, sort. Six views
                 // at once, which is what makes one command list enough for a whole cube.
                 system.Draw();
-                allocator.BeginFrame();
                 VulkanDiagnostics.Reset();
             },
 
