@@ -2,6 +2,7 @@ package Vixen.Shaders.Terrain
 
 import Vixen.Shaders.Core
 import Vixen.Shaders.Geometry
+import Vixen.Shaders.Shading
 
 // The terrain surface: one instanced grid patch, morphed into its parent, sampling a heightfield.
 //
@@ -14,6 +15,12 @@ import Vixen.Shaders.Geometry
 // so a boundary between two levels has no gap to hide. The arithmetic is `TerrainLodTree.MorphIndex`
 // in `Vixen.Terrain`, and `TerrainShaderParityTests` holds this against it, because a shader cannot
 // be asked whether two patches agree and a function can.
+//
+// **Three shaders share one base.** `TerrainBase` owns the geometry and the splat — the bindings,
+// the streams and every function — and declares no entry point, which is `ClusteredShading`'s
+// arrangement for the same reason: two passes that must agree call one copy of the code. `Terrain`
+// is the preview the editor embeds, lit by a hard-coded direction; `TerrainLit` is the frame's, lit
+// by the sun, the cascade atlas and the culled cluster lists the scene pass reads.
 
 /// One patch of terrain a frame draws.
 ///
@@ -45,7 +52,26 @@ struct TerrainNode {
     var padding0: float
 }
 
-shader Terrain {
+/// The split pass's three answers, in attachment order — `ForwardTargets`' arrangement.
+///
+/// Declaration order is target order. With `SplitOutputs` off only `color` is ever written, and a
+/// target nothing writes is not an output — so the default lit variant still presents the single
+/// attachment the preview does.
+struct TerrainTargets {
+    /// Direct light, and ambient where the frame does not split.
+    var color: float4
+
+    /// Diffuse albedo, occlusion in `a` — 1, the ground carries no occlusion term of its own.
+    var albedo: float4
+
+    /// The surface normal in world space, **raw and signed** — `SceneNormals`' convention, where
+    /// zero is the sky and a `*0.5+0.5` encode is every downstream reader misled. Perceptual
+    /// roughness rides in `a`; the splat has no roughness authoring yet, so it is 1 — fully rough
+    /// ground, which is what the combine's specular terms should assume of dirt.
+    var normal: float4
+}
+
+shader TerrainBase {
     /// How many quads the shared grid patch spans. A compile-time constant so the morph can fold.
     [Permutation] val GridQuads: int = 32
 
@@ -121,17 +147,16 @@ shader Terrain {
     stream var normalWS: float3
     stream var sampleCoord: float2
 
-    /// The vertex stage.
+    /// The shared vertex arithmetic — the morph, the heightfield read, the streams.
     ///
     /// `SV_VertexID` rather than a vertex buffer: the grid patch is a regular lattice, so its
     /// positions are two divisions of the index and uploading 33² of them per frame would be sending
     /// the shader something it can count. What *is* uploaded is one `TerrainNode` per patch.
-    [VertexShader]
-    [Semantic("SV_Position")]
-    func Vertex(
-        [Semantic("SV_VertexID")] vertex: int,
-        [Semantic("SV_InstanceID")] instance: int
-    ): float4 {
+    ///
+    /// A function rather than the entry point itself, because the entry points are the derived
+    /// shaders' — the preview and the lit pass place identical geometry, and identical is only a
+    /// property code can have by being the same code.
+    func PatchVertex(vertex: int, instance: int): float4 {
         val node = nodes[instance]
         val side = GridQuads + 1
 
@@ -350,6 +375,18 @@ shader Terrain {
 
         return texel.a
     }
+}
+
+shader Terrain : TerrainBase {
+    /// The vertex stage — the shared patch arithmetic, and nothing of its own.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("SV_VertexID")] vertex: int,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        return PatchVertex(vertex, instance)
+    }
 
     [FragmentShader]
     [Semantic("SV_Target")]
@@ -370,10 +407,212 @@ shader Terrain {
         val normal = Math.SafeNormalize(normalWS)
         val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
 
-        // A directional term and nothing else. The lit path is `ForwardPlus`'s and composing it here
-        // would make this shader carry a material's whole feature chain; what this file is for is the
-        // geometry — the morph, the heightfield read and the splat — and `docs/plan/31 § T2` puts the
-        // generated material's shading above it.
+        // A directional term and nothing else — the preview the editor embeds, and the default a
+        // frame that publishes no lighting falls back to. The frame's own look is `TerrainLit`
+        // below, which is the same geometry lit on the scene pass's terms.
         return float4(Albedo() * (0.25f + 0.75f * light), 1f)
+    }
+}
+
+shader TerrainLit : TerrainBase {
+    /// Whether the frame splits its outputs — `ForwardPlus.SplitOutputs`, on the terrain's terms.
+    ///
+    /// On, direct light goes to the first target and the surface's albedo and raw world normal to
+    /// the split planes, and the diffuse ambient term is **withheld** — the ambient combine at the
+    /// other end of the frame rebuilds it from real irradiance and real occlusion, and a terrain
+    /// that added its own would count the sky twice.
+    [Permutation] val SplitOutputs: bool = false
+
+    /// Whether the frame culled its lights into clusters this pass can read.
+    ///
+    /// Off, the ground is lit by the sun alone. There is no uniform-array fallback on purpose: the
+    /// per-object light list is chosen per *object* by the lighting feature, and a terrain is the
+    /// biggest object in any frame — the exact shape the per-object list reorders worst on. A frame
+    /// that wants lamps on its ground runs the cluster cull, which is the path built for surfaces
+    /// every light can reach.
+    [Permutation] val UseClusteredLights: bool = false
+
+    /// Where the terrain's low corner is, in world space.
+    ///
+    /// The placement rides `viewProjection`, so `positionWS` is terrain-local — right for every
+    /// sample the surface takes of itself, and wrong for the frame's lighting, whose cascade
+    /// matrices and light positions are world. This is the difference, added back per fragment.
+    var originWS: float3
+
+    /// The frame's shadow bias, in metres — `ShadowMapRenderer.Publish`'s value, not a private one.
+    var shadowConstantBias: float
+
+    /// The direction light travels — away from the sun. The scene pass's own uniform, verbatim.
+    var lightDirection: float3
+
+    var shadowSlopeBias: float
+
+    /// The sun's radiance, premultiplied by intensity.
+    var lightColor: float3
+
+    /// Over what distance shadows fade out at the last cascade's end.
+    var shadowFadeRange: float
+
+    /// Where the camera is, in world space — what a shaped light's highlight measures against.
+    var viewPosition: float3
+
+    /// The sky's ambient scale — `EnvironmentLight.Intensity`, the same number the scene pass gets.
+    var ambientIntensity: float
+
+    /// World to view, for the cascade selection's view depth and the froxel lookup.
+    ///
+    /// The frame camera's matrix, not the terrain's placed one: the cluster grid was built in the
+    /// camera's view space and the cascades were split along its depth, so any other matrix reads
+    /// someone else's slice.
+    var view: mat4
+
+    /// The sun's cascades, near first, each mapping into its own tile of the atlas.
+    ///
+    /// ⚠ **Always four — `FrameShadow`'s fixed count.** A frame that fitted fewer pads the tail
+    /// with degenerate matrices whose `w` row is zero, which `FrameShadow.Containing` can never
+    /// select, and repeats the last real split so the fade-out distance stays the frame's.
+    var cascades: ShadowCascade[4]
+
+    /// The sky's diffuse irradiance, projected into nine coefficients — the frame's own values.
+    var environmentSh: ShCoefficients
+
+    var shadowTexelSize: float2
+
+    /// The camera parameters that place a fragment in the froxel grid — the culler's own numbers.
+    var tanHalfFov: float2
+
+    var nearPlane: float
+
+    var farPlane: float
+
+    /// The cascade atlas the frame rendered. Sampled unfiltered; the PCF supplies the softness.
+    var shadowMap: Texture2D
+    var shadowSampler: Sampler
+
+    /// The scene's whole light list — the same buffer the cluster cull indexed.
+    var lightBuffer: Buffer<PunctualLight>
+
+    /// One list per cluster, as the frame's culling pass wrote it.
+    var clusters: Buffer<FrameClusterLights>
+
+    /// The vertex stage — the shared patch arithmetic, and nothing of its own.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("SV_VertexID")] vertex: int,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        return PatchVertex(vertex, instance)
+    }
+
+    /// Every clustered lamp that reaches this fragment, unshadowed.
+    ///
+    /// The loop is `ClusteredShading.Clustered`'s, over a Lambertian ground: the splat has no
+    /// roughness or metalness authoring yet, so the BRDF is the diffuse term alone and the lamps'
+    /// speculars are owed with the surface textures. Unshadowed because the punctual atlas is a
+    /// composed feature of the scene pass and the ground composes nothing — the sun, which is the
+    /// light terrain lives under, is the shadowed one.
+    func Punctual(world: float3, viewSpace: float3, n: float3, albedo: float3): float3 {
+        var total = float3(0f, 0f, 0f)
+
+        if (!UseClusteredLights) {
+            return total
+        }
+
+        val cluster = FrameClusters.Of(viewSpace, tanHalfFov, nearPlane, farPlane)
+
+        if (cluster >= clusters.Length) {
+            return total
+        }
+
+        val list = clusters[cluster]
+        val v = Math.SafeNormalize(viewPosition - world)
+        val reflected = reflect(-v, n)
+
+        for (i in 0 .. FrameClusters.Capacity - 1) {
+            if (uint(i) >= list.count) {
+                break
+            }
+
+            val index = int(list.indices[i])
+
+            // The culler and this pass see the same buffer, so an index out of range means they
+            // were given different ones — a host mistake that would otherwise read past the end.
+            if (index < lightBuffer.Length) {
+                val sample = Lighting.Resolve(lightBuffer[index], world, 1f, reflected)
+                val NdotL = saturate(dot(n, sample.l))
+
+                total += albedo * Const.InvPi * sample.radiance * NdotL
+            }
+        }
+
+        return total
+    }
+
+    [FragmentShader]
+    func Fragment(): TerrainTargets {
+        // The same discard the preview takes, for the same three-places-agree reason.
+        if (Hole(sampleCoord)) {
+            discard
+        }
+
+        val n = Math.SafeNormalize(normalWS)
+        val albedo = Albedo()
+
+        // Back into the frame's spaces: the world position the cascades and the lamps live in, and
+        // the view-space position the froxel grid and the cascade splits were built in.
+        val world = positionWS + originWS
+        val viewSpace = Math.TransformPoint(view, world)
+        val viewDepth = FrameClusters.DepthOf(viewSpace)
+
+        val sun = Lighting.Directional(lightDirection, lightColor)
+        val NdotL = saturate(dot(n, sun.l))
+
+        // Shadowed only where the surface faces the light — a fragment facing away is in shadow by
+        // geometry, and the cascade lookup is worth skipping.
+        var visibility = 1f
+
+        if (NdotL > 0f) {
+            visibility = FrameShadow.Term(
+                shadowMap,
+                shadowSampler,
+                cascades,
+                world,
+                n,
+                NdotL,
+                viewDepth,
+                shadowTexelSize,
+                shadowConstantBias,
+                shadowSlopeBias,
+                shadowFadeRange
+            )
+        }
+
+        // Lambert over the splat: the ground is diffuse until the surface textures teach it
+        // otherwise, and `Const.InvPi` is what keeps its exposure on the scene pass's scale.
+        var colour = albedo * Const.InvPi * sun.radiance * NdotL * visibility
+
+        colour += Punctual(world, viewSpace, n, albedo)
+
+        var targets: TerrainTargets
+
+        if (SplitOutputs) {
+            // Diffuse ambient is the combine's job now — `ClusteredShading.AmbientSpecular`'s note.
+            // The ground has no specular term to hold back, so what leaves here is direct light
+            // alone, with the surface's facts on the split planes beside it.
+            targets.color = float4(colour, 1f)
+            targets.albedo = float4(albedo, 1f)
+            targets.normal = float4(n, 1f)
+        } else {
+            // The sky's spherical harmonics, exactly as the unsplit scene pass adds them — so a
+            // terrain in shadow is lit by the same sky as the wall beside it.
+            val irradiance = Ibl.IrradianceSh9(n, environmentSh)
+
+            colour += Ibl.Diffuse(irradiance, albedo, 1f) * ambientIntensity
+
+            targets.color = float4(colour, 1f)
+        }
+
+        return targets
     }
 }

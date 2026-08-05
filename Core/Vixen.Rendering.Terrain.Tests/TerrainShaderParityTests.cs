@@ -28,20 +28,22 @@ namespace Vixen.Rendering.Terrain.Tests;
 ///     </para>
 /// </remarks>
 public sealed class TerrainShaderParityTests {
-    static string Source() {
+    static string Source() => Source(Path.Combine("Terrain", "Terrain.rvn"));
+
+    static string Source(string relative) {
         var directory = AppContext.BaseDirectory;
 
         // Walk up to the repository root, which is the directory holding Raven/. The test binary
         // lives several levels below it and the depth differs between configurations.
         for (var at = new DirectoryInfo(directory); at is not null; at = at.Parent) {
-            var candidate = Path.Combine(at.FullName, "Raven", "Library", "Terrain", "Terrain.rvn");
+            var candidate = Path.Combine(at.FullName, "Raven", "Library", relative);
 
             if (File.Exists(candidate)) {
                 return File.ReadAllText(candidate);
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/Terrain/Terrain.rvn was not found above {directory}.");
+        throw new FileNotFoundException($"Raven/Library/{relative} was not found above {directory}.");
     }
 
     [Fact]
@@ -204,5 +206,75 @@ public sealed class TerrainShaderParityTests {
                 Assert.Equal(TerrainLodTree.MorphIndex(gridZ, morph), shaderZ, 5);
             }
         }
+    }
+
+    // ------------------------------------------------------------------ the lit path
+
+    /// <summary>The shadow bias is added, which under reverse-Z is toward the light.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Subtracting it is the conventional-Z habit, and it answers backwards here</b>: near
+    ///     maps to 1 and far to 0, so moving a receiver toward the light moves it numerically up.
+    ///     The compare itself — <c>depth &gt;= stored</c> — lives in <c>Lighting.ShadowTap</c>,
+    ///     which the lit ground calls rather than copies; the bias line is the half it owns.
+    /// </remarks>
+    [Fact]
+    public void TheLitShadowBiasIsAddedNotSubtracted() {
+        var shared = Source(Path.Combine("Terrain", "FrameLit.rvn"));
+
+        Assert.Matches(new Regex(@"ndc\.z\s*\+\s*bias"), shared);
+        Assert.DoesNotMatch(new Regex(@"ndc\.z\s*-\s*bias"), shared);
+
+        // And the tap it hands that depth to is still the reverse-Z compare.
+        var lighting = Source(Path.Combine("Shading", "Lighting.rvn"));
+
+        Assert.Matches(new Regex(@"depth\s*>=\s*stored"), lighting);
+    }
+
+    /// <summary>The split normal plane takes the raw signed world normal, never an encode.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>SceneNormals</c> is raw signed in <c>Rgba16Float</c>, where zero is the sky.</b>
+    ///     A <c>*0.5+0.5</c> encode is every downstream reader — the probe gather, both occlusion
+    ///     passes, the combine — fed normals folded into one hemisphere, which draws as 16-pixel
+    ///     squares on the floor rather than as anything traceable to a normal.
+    /// </remarks>
+    [Fact]
+    public void TheSplitNormalIsRawAndSigned() {
+        var terrain = Source();
+        var grass = Source(Path.Combine("Terrain", "Grass.rvn"));
+
+        Assert.Matches(new Regex(@"targets\.normal\s*=\s*float4\(n,"), terrain);
+        Assert.Matches(new Regex(@"targets\.normal\s*=\s*float4\(n,"), grass);
+        Assert.DoesNotContain("0.5f + 0.5f", terrain, StringComparison.Ordinal);
+        Assert.DoesNotContain("0.5f + 0.5f", grass, StringComparison.Ordinal);
+    }
+
+    /// <summary>The transliterated froxel grid still has the culler's shape.</summary>
+    /// <remarks>
+    ///     <c>FrameClusters</c> is <c>ClusterGrid</c> written twice — the Terrain package cannot
+    ///     import the pipeline package without dragging its unbound compose slots into the editor's
+    ///     standalone compilation — and a fragment that derives its cluster differently reads the
+    ///     list that was culled for somewhere else.
+    /// </remarks>
+    [Fact]
+    public void TheTransliteratedClusterGridEqualsTheCullers() {
+        var shared = Source(Path.Combine("Terrain", "FrameLit.rvn"));
+
+        Assert.Contains($"const val TilesX = {Vixen.Rendering.ClusterGrid.TilesX}", shared, StringComparison.Ordinal);
+        Assert.Contains($"const val TilesY = {Vixen.Rendering.ClusterGrid.TilesY}", shared, StringComparison.Ordinal);
+        Assert.Contains($"const val Slices = {Vixen.Rendering.ClusterGrid.Slices}", shared, StringComparison.Ordinal);
+        Assert.Contains($"const val Capacity = {Vixen.Rendering.ClusterGrid.Capacity}", shared, StringComparison.Ordinal);
+        Assert.Contains($"indices: uint[{Vixen.Rendering.ClusterGrid.Capacity}]", shared, StringComparison.Ordinal);
+    }
+
+    /// <summary>The lit terrain returns to world space before it asks the frame anything.</summary>
+    /// <remarks>
+    ///     The placement rides <c>viewProjection</c>, so <c>positionWS</c> is terrain-local — and a
+    ///     cascade matrix given a local position shadows the terrain with a copy of the world
+    ///     standing at the origin, which reads as shadows sliding off by exactly the terrain's
+    ///     placement.
+    /// </remarks>
+    [Fact]
+    public void TheLitTerrainRestoresItsWorldPlacement() {
+        Assert.Matches(new Regex(@"positionWS\s*\+\s*originWS"), Source());
     }
 }

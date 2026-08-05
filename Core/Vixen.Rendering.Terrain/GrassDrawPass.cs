@@ -53,6 +53,16 @@ public sealed class GrassDrawPass : IDisposable {
     readonly int slots;
     readonly long constantStride;
 
+    // Which shader the set is written for — TerrainRenderer's arrangement, for its reason: the
+    // preview and the lit shader bind the same resources under different indices.
+    readonly bool lit;
+    readonly int blockSize;
+    readonly uint constantBinding;
+    readonly uint albedoMapBinding;
+    readonly uint albedoSamplerBinding;
+    readonly uint bladesBinding;
+    readonly SamplerHandle shadowSampler;
+
     readonly BufferHandle constants;
     readonly BufferHandle defaultStaging;
     readonly SamplerHandle albedoSampler;
@@ -77,7 +87,16 @@ public sealed class GrassDrawPass : IDisposable {
     /// <param name="output">What it renders into.</param>
     /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
     /// <exception cref="ArgumentException">The shaders are not both real.</exception>
-    public GrassDrawPass(IGraphicsDevice device, TerrainShaders shaders, RenderOutput output) {
+    public GrassDrawPass(IGraphicsDevice device, TerrainShaders shaders, RenderOutput output)
+        : this(device, shaders, output, lit: false) { }
+
+    /// <summary>Creates a pass whose set is written for <c>GrassLit</c> rather than the preview.</summary>
+    /// <remarks>
+    ///     Internal for <see cref="TerrainRenderer" />'s reason: the lit contract is
+    ///     <see cref="TerrainSceneRenderer" />'s, and the frame's values arrive through
+    ///     <see cref="Frame" /> before every <see cref="Prepare" />.
+    /// </remarks>
+    internal GrassDrawPass(IGraphicsDevice device, TerrainShaders shaders, RenderOutput output, bool lit) {
         ArgumentNullException.ThrowIfNull(device);
 
         if (!shaders.IsValid) {
@@ -85,12 +104,19 @@ public sealed class GrassDrawPass : IDisposable {
         }
 
         this.device = device;
+        this.lit = lit;
         slots = Math.Max(1, device.FramesInFlight);
+
+        blockSize = lit ? GrassLitKeys.ConstantBufferSize : GrassKeys.ConstantBufferSize;
+        constantBinding = lit ? GrassLitKeys.ConstantBufferBinding : GrassKeys.ConstantBufferBinding;
+        albedoMapBinding = lit ? GrassLitKeys.AlbedoMapBinding : GrassKeys.AlbedoMapBinding;
+        albedoSamplerBinding = lit ? GrassLitKeys.AlbedoSamplerBinding : GrassKeys.AlbedoSamplerBinding;
+        bladesBinding = lit ? GrassLitKeys.BladesBinding : GrassKeys.BladesBinding;
 
         // ⚠ One block per frame in flight, because `device.Write` is an immediate memcpy: a single
         // block rewritten each Prepare is the constants a frame still in flight is reading. The
         // stride is aligned up because a uniform binding's offset has a device-imposed granularity.
-        constantStride = ((GrassKeys.ConstantBufferSize + SlotAlignment - 1) / SlotAlignment) * SlotAlignment;
+        constantStride = ((blockSize + SlotAlignment - 1) / SlotAlignment) * SlotAlignment;
 
         constants = device.CreateBuffer(
             new(constantStride * slots, BufferUsage.Uniform, MemoryAccess.HostUpload, "grass constants")
@@ -118,39 +144,54 @@ public sealed class GrassDrawPass : IDisposable {
 
         device.Write(defaultStaging, 0, [255, 255, 255, 255]);
 
+        var bindings = new List<DescriptorBinding> {
+            new(constantBinding, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
+            new(albedoMapBinding, DescriptorKind.SampledTexture, ShaderStage.Vertex | ShaderStage.Fragment),
+            new(albedoSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
+            new(bladesBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex | ShaderStage.Fragment)
+        };
+
+        if (lit) {
+            // The cascade atlas, on TerrainRenderer's terms: unfiltered and clamped, because the
+            // tap compares after sampling and the PCF supplies the softness itself.
+            bindings.Add(new(GrassLitKeys.ShadowMapBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment));
+            bindings.Add(new(GrassLitKeys.ShadowSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment));
+
+            shadowSampler = device.CreateSampler(SamplerDescription.PointClamp);
+        }
+
         setLayout = device.CreateDescriptorSetLayout(
-            new(
-                DescriptorSetSlot.PerMaterial,
-                [
-                    new(GrassKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(GrassKeys.AlbedoMapBinding, DescriptorKind.SampledTexture, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(GrassKeys.AlbedoSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(GrassKeys.BladesBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex | ShaderStage.Fragment)
-                ],
-                "grass"
-            )
+            new(DescriptorSetSlot.PerMaterial, [.. bindings], "grass")
         );
 
         layout = device.CreatePipelineLayout(new([setLayout], [], "grass"));
+
+        // Every colour format the output declares — TerrainRenderer's reason: a split frame hands
+        // the lit shader three targets, and a pipeline declaring fewer is refused at the draw.
+        var attachments = new ColourTargetState[Math.Max(output.ColourCount, 1)];
+
+        for (var target = 0; target < attachments.Length; target++) {
+            attachments[target] = new(
+                output.ColourCount > 0 ? output.ColourFormats[target] : PixelFormat.Rgba8UNorm,
+                BlendState.Opaque
+            );
+        }
 
         pipeline = device.CreateGraphicsPipeline(
             new(
                 shaders.Vertex,
                 shaders.Fragment,
                 layout,
-                [
-                    new(
-                        output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm,
-                        BlendState.Opaque
-                    )
-                ],
+                attachments,
                 [
                     new(
                         BladeVertex.SizeInBytes,
                         [
-                            new(GrassKeys.PositionLocation, VertexFormat.Float32X3, 0),
-                            new(GrassKeys.NormalLocation, VertexFormat.Float32X3, 12),
-                            new(GrassKeys.TexcoordLocation, VertexFormat.Float32X2, 24)
+                            // The lit shader's extra streams shift its input locations — a location
+                            // comes from declaration order, the same way a binding index does.
+                            new(lit ? GrassLitKeys.PositionLocation : GrassKeys.PositionLocation, VertexFormat.Float32X3, 0),
+                            new(lit ? GrassLitKeys.NormalLocation : GrassKeys.NormalLocation, VertexFormat.Float32X3, 12),
+                            new(lit ? GrassLitKeys.TexcoordLocation : GrassKeys.TexcoordLocation, VertexFormat.Float32X2, 24)
                         ]
                     )
                 ],
@@ -262,9 +303,80 @@ public sealed class GrassDrawPass : IDisposable {
             );
         }
 
-        var block = new byte[GrassKeys.ConstantBufferSize];
+        var block = new byte[blockSize];
 
-        new GrassConstants {
+        if (lit) {
+            WriteLitBlock(block, view, wind, time, tint, fade);
+        } else {
+            new GrassConstants {
+                ViewProjection = view.ViewProjection,
+                ViewPosition = view.Position,
+                Time = time,
+                WindDirection = wind.Direction,
+                WindStrength = wind.Strength,
+                WindFrequency = wind.Frequency,
+                WindSpeed = wind.Speed,
+                WindFlutter = wind.Flutter,
+                WindHeight = wind.Height,
+                TintRange = tint == default ? new(0.85f, 1.1f) : tint,
+                FadeRange = fade == default ? new(60f, 80f) : fade
+            }.Write(block);
+        }
+
+        device.Write(constants, slot * constantStride, block);
+
+        List<DescriptorWrite> writes = [
+            DescriptorWrite.Uniform(constantBinding, constants, slot * constantStride, blockSize),
+            DescriptorWrite.Texture(albedoMapBinding, Albedo.IsValid ? Albedo : defaultAlbedoView),
+            DescriptorWrite.SamplerAt(albedoSamplerBinding, albedoSampler),
+            DescriptorWrite.Storage(bladesBinding, dispatch.Instances)
+        ];
+
+        if (lit) {
+            // The frame's atlas, or the white default while nothing has resolved it — the same
+            // whole-set argument TerrainRenderer.BindFrameResources makes.
+            var atlas = Frame is { ShadowAtlas.IsValid: true } present ? present.ShadowAtlas : defaultAlbedoView;
+
+            writes.Add(DescriptorWrite.Texture(GrassLitKeys.ShadowMapBinding, atlas));
+            writes.Add(DescriptorWrite.SamplerAt(GrassLitKeys.ShadowSamplerBinding, shadowSampler));
+        }
+
+        device.UpdateDescriptorSet(descriptors[slot], CollectionsMarshal.AsSpan(writes));
+    }
+
+    /// <summary>The frame's lighting, filled by <see cref="TerrainSceneRenderer" /> before every prepare.</summary>
+    /// <remarks>The same instance the terrains read — see <see cref="TerrainRenderer.Frame" />.</remarks>
+    internal TerrainFrameLighting? Frame { get; set; }
+
+    /// <summary>Fills the lit shader's block: the frame's lighting, then the preview's own values.</summary>
+    void WriteLitBlock(
+        byte[] block,
+        in TerrainView view,
+        in GrassWind wind,
+        float time,
+        Vector2 tint,
+        Vector2 fade
+    ) {
+        var frame = Frame;
+
+        new GrassLitConstants {
+            LightDirection = frame?.LightDirection ?? Vector3.Zero,
+            ShadowConstantBias = frame?.ShadowConstantBias ?? 0f,
+            LightColor = frame?.LightColor ?? Vector3.Zero,
+            ShadowSlopeBias = frame?.ShadowSlopeBias ?? 0f,
+            ShadowFadeRange = frame?.ShadowFadeRange ?? 1f,
+            AmbientIntensity = frame?.AmbientIntensity ?? 0f,
+            View = frame?.View ?? Matrix4x4.Identity,
+            EnvironmentShL00 = frame?.EnvironmentSh.L00 ?? Vector3.Zero,
+            EnvironmentShL1m1 = frame?.EnvironmentSh.L1m1 ?? Vector3.Zero,
+            EnvironmentShL10 = frame?.EnvironmentSh.L10 ?? Vector3.Zero,
+            EnvironmentShL11 = frame?.EnvironmentSh.L11 ?? Vector3.Zero,
+            EnvironmentShL2m2 = frame?.EnvironmentSh.L2m2 ?? Vector3.Zero,
+            EnvironmentShL2m1 = frame?.EnvironmentSh.L2m1 ?? Vector3.Zero,
+            EnvironmentShL20 = frame?.EnvironmentSh.L20 ?? Vector3.Zero,
+            EnvironmentShL21 = frame?.EnvironmentSh.L21 ?? Vector3.Zero,
+            EnvironmentShL22 = frame?.EnvironmentSh.L22 ?? Vector3.Zero,
+            ShadowTexelSize = frame?.ShadowTexelSize ?? new Vector2(1f, 1f),
             ViewProjection = view.ViewProjection,
             ViewPosition = view.Position,
             Time = time,
@@ -278,22 +390,19 @@ public sealed class GrassDrawPass : IDisposable {
             FadeRange = fade == default ? new(60f, 80f) : fade
         }.Write(block);
 
-        device.Write(constants, slot * constantStride, block);
+        if (frame is null) {
+            return;
+        }
 
-        device.UpdateDescriptorSet(
-            descriptors[slot],
-            [
-                DescriptorWrite.Uniform(
-                    GrassKeys.ConstantBufferBinding,
-                    constants,
-                    slot * constantStride,
-                    GrassKeys.ConstantBufferSize
-                ),
-                DescriptorWrite.Texture(GrassKeys.AlbedoMapBinding, Albedo.IsValid ? Albedo : defaultAlbedoView),
-                DescriptorWrite.SamplerAt(GrassKeys.AlbedoSamplerBinding, albedoSampler),
-                DescriptorWrite.Storage(GrassKeys.BladesBinding, dispatch.Instances)
-            ]
-        );
+        for (var cascade = 0; cascade < GrassLitCascadesElement.Count; cascade++) {
+            // The lit terrain and the lit grass carry the same four records; the two generated
+            // element types differ only in the block offset each bakes.
+            new GrassLitCascadesElement {
+                ViewProjection = frame.Cascades[cascade].ViewProjection,
+                Split = frame.Cascades[cascade].Split,
+                DepthScale = frame.Cascades[cascade].DepthScale
+            }.Write(block, cascade);
+        }
     }
 
     /// <summary>Binds everything the draw needs and issues it.</summary>
@@ -398,6 +507,10 @@ public sealed class GrassDrawPass : IDisposable {
         }
 
         disposed = true;
+
+        if (shadowSampler.IsValid) {
+            device.Destroy(shadowSampler);
+        }
 
         foreach (var set in descriptors) {
             device.Destroy(set);

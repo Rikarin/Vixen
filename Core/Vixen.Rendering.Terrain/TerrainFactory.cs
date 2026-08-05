@@ -56,9 +56,19 @@ public sealed class TerrainFactory : ISceneRendererFactory {
             Enabled = terrain.Enabled,
             Output = terrain.Output,
             Depth = terrain.Depth,
+            Albedo = terrain.Albedo,
+            Normals = terrain.Normals,
+            ShadowAtlas = terrain.ShadowAtlas,
+            ScenePass = terrain.ScenePass,
             View = view,
             Grass = terrain.Grass,
             Scene = Scene,
+
+            // The frame's set-0 state — the same instance every shading pass binds through, whose
+            // parameters carry the published cascades and cluster buffers and whose SceneLighting
+            // carries the sun and the camera. Null in a builder with no frame wired, which is the
+            // preview.
+            Frame = builder.SceneConstants,
             Vegetation = Vegetation with {
                 GrassDensityScale = terrain.GrassDensityScale ?? Vegetation.GrassDensityScale,
                 GrassCullDistanceScale = terrain.GrassCullDistanceScale ?? Vegetation.GrassCullDistanceScale,

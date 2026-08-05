@@ -1,0 +1,212 @@
+package Vixen.Shaders.Terrain
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.Shading
+
+// The frame's lighting, reachable from the ground's own descriptor set.
+//
+// `TerrainLit` and `GrassLit` light with the same sun, the same cascade atlas and the same culled
+// cluster lists the scene's `ForwardPlus` pass reads — and they cannot inherit that pass's code,
+// because `ClusteredShading` declares its bindings in set 0 and the terrain stack is deliberately
+// self-contained in set 2: its host fills one set by hand, with ring-offset node buffers
+// `EffectSetWriter` cannot express, and owes the frame's machinery nothing. So the *arithmetic* lives
+// here as plain struct functions taking every resource as a parameter, and each ground shader
+// declares the bindings in its own set and hands them in.
+//
+// ⚠ **`ClusteredShading.rvn` is the reference, and these are transliterations, not variations.** The
+// cascade selection, the edge blend and the bias arithmetic must answer exactly what the scene pass
+// answers, or the ground's shadows part company with every wall's at the terrain boundary. The
+// shared pieces — `Lighting.ShadowBias`, `Lighting.ShadowPcf3x3`, `Lighting.NormalOffset`,
+// `Lighting.CascadeFade` — are called rather than copied, so what is duplicated is only the
+// selection; `TerrainShaderParityTests` holds the load-bearing lines against drift.
+//
+// ⚠ **Four cascades, fixed.** `ClusteredShading` sizes its array by a permutation because a block's
+// size is per variant; a struct function's parameter cannot be, so the array is
+// `ShadowCascades.MaxCascades` and a frame that fitted fewer fills the tail with degenerate
+// matrices — `clip.w == 0` fails `Containing`'s depth test, so a padded slot can never be selected.
+
+/// One cluster's light list, byte-for-byte `ClusterLights` in `Pipeline/ClusterCulling.rvn`.
+///
+/// Declared here as well as there for `GrassDrawCommand`'s reason: the layout is the GPU buffer's,
+/// written by the culling pass and read by whoever binds it, and this package cannot reach into
+/// `Vixen.Shaders.Pipeline` without dragging the whole pipeline library — unbound `compose` slots
+/// and all — into the editor's standalone terrain compilation. Four bytes of count and
+/// `FrameClusters.Capacity` indices; drift here reads someone else's lights.
+struct FrameClusterLights {
+    var count: uint
+    var indices: uint[32]
+}
+
+/// The froxel grid's shape and lookup, transliterated from `ClusterGrid` in `ClusterCulling.rvn`.
+///
+/// The same four constants and the same arithmetic, because a fragment that derives its cluster
+/// differently reads the list that was culled for somewhere else — `ClusterGrid.UvOf`'s own warning.
+/// The grid is the *frame's*: the culling pass binned lights with these numbers, and the ground is
+/// one more consumer of the same buffer.
+struct FrameClusters {
+    const val TilesX = 16
+    const val TilesY = 9
+    const val Slices = 24
+
+    /// How many lights one cluster can hold. `ClusterGrid.Capacity`, and it sizes
+    /// `FrameClusterLights.indices` — the two must move together.
+    const val Capacity = 32
+
+    /// How far in front of the camera a view-space position is. `ClusterGrid.DepthOf`.
+    static func DepthOf(positionVS: float3): float => -positionVS.z
+
+    /// Which slice a view-space depth falls in. `ClusterGrid.SliceOf`.
+    static func SliceOf(viewDepth: float, near: float, far: float): int {
+        val ratio = log(max(viewDepth, near) / near) / max(log(far / near), Const.Epsilon)
+
+        return clamp(int(ratio * float(Slices)), 0, Slices - 1)
+    }
+
+    /// The grid UV a view-space position projects to. `ClusterGrid.UvOf` — no y flip, deliberately:
+    /// this "uv" samples no image, it inverts the ray the culler built its boxes from.
+    static func UvOf(positionVS: float3, tanHalfFov: float2): float2 {
+        val depth = max(DepthOf(positionVS), Const.Epsilon)
+        val ndc = float2(positionVS.x / (depth * tanHalfFov.x), positionVS.y / (depth * tanHalfFov.y))
+
+        return ndc * 0.5f + 0.5f
+    }
+
+    /// The cluster a shaded fragment belongs to. `ClusterGrid.Of` over `ClusterGrid.Index`.
+    static func Of(positionVS: float3, tanHalfFov: float2, near: float, far: float): int {
+        val uv = saturate(UvOf(positionVS, tanHalfFov))
+        val x = clamp(int(uv.x * float(TilesX)), 0, TilesX - 1)
+        val y = clamp(int(uv.y * float(TilesY)), 0, TilesY - 1)
+
+        return x + y * TilesX + SliceOf(DepthOf(positionVS), near, far) * TilesX * TilesY
+    }
+}
+
+/// The sun's cascaded shadow term, transliterated from `ClusteredShading`'s cascade functions.
+///
+/// What is *not* here is the virtual shadow map: `ClusteredShading.Shadow` consults a composed
+/// virtual lookup first and falls through to the cascades, and the ground has no composition to hang
+/// one on — so a frame running virtual shadows shadows its terrain from the cascades alone, which is
+/// the same picture every pass drew before phase 7 and is owed rather than wrong.
+struct FrameShadow {
+    /// Where cascade `index` sits in the atlas: offset in `xy`, size in `zw`.
+    ///
+    /// `ClusteredShading.CascadeTile` at a count of four — the fold has always been two columns,
+    /// which is the arithmetic `ShadowCascades.AtlasTile` owns on the host.
+    static func Tile(index: int): float4 {
+        return float4(float(index % 2) * 0.5f, float(index / 2) * 0.5f, 0.5f, 0.5f)
+    }
+
+    /// The finest cascade whose tile actually contains a point, or −1 when none does.
+    ///
+    /// ⚠ **Containment, not depth** — `ClusteredShading.CascadeContaining`'s hard-won distinction.
+    /// A fragment at the right distance but off to the side is outside its cascade's box, and
+    /// sampling anyway reads a *neighbouring* cascade's texels through the folded matrix.
+    static func Containing(cascades: ShadowCascade[4], offset: float3): int {
+        var found = -1
+
+        for (i in 0 .. 3) {
+            val clip = cascades[i].viewProjection * float4(offset, 1f)
+            val ndc = Math.ClipToNdc(clip)
+            val uv = Transform.NdcToUv(ndc)
+            val tile = Tile(i)
+            val low = tile.xy
+            val high = tile.xy + tile.zw
+
+            val depthInside = clip.w > 0f && ndc.z >= 0f && ndc.z <= 1f
+            val horizontal = uv.x >= low.x && uv.x <= high.x
+            val vertical = uv.y >= low.y && uv.y <= high.y
+
+            if (found < 0 && depthInside && horizontal && vertical) {
+                found = i
+            }
+        }
+
+        return found
+    }
+
+    /// One cascade's shadow term at a point already known to be inside it.
+    ///
+    /// `ClusteredShading.SampleCascade`: the bias is a distance scaled by the cascade's own depth
+    /// scale, and it is **added** — under reverse-Z a larger depth is nearer the light, so moving
+    /// the receiver toward the light moves it numerically up. `Lighting.ShadowTap` holds the
+    /// `depth >= stored` compare itself.
+    static func Sample(
+        map: Texture2D,
+        s: Sampler,
+        cascades: ShadowCascade[4],
+        index: int,
+        offset: float3,
+        NdotL: float,
+        texel: float2,
+        constantBias: float,
+        slopeBias: float
+    ): float {
+        val clip = cascades[index].viewProjection * float4(offset, 1f)
+        val ndc = Math.ClipToNdc(clip)
+        val uv = Transform.NdcToUv(ndc)
+        val tile = Tile(index)
+
+        val bias = Lighting.ShadowBias(NdotL, constantBias, slopeBias) * cascades[index].depthScale
+
+        // A texel and a half inside, so the filter cannot step across the seam into the next tile.
+        val margin = texel * 1.5f
+        val tap = clamp(uv, tile.xy + margin, tile.xy + tile.zw - margin)
+
+        return Lighting.ShadowPcf3x3(map, s, tap, ndc.z + bias, texel)
+    }
+
+    /// How far into a cascade's outer band a point is: zero well inside, one at the very edge.
+    static func Edge(cascades: ShadowCascade[4], index: int, offset: float3): float {
+        val clip = cascades[index].viewProjection * float4(offset, 1f)
+        val ndc = Math.ClipToNdc(clip)
+        val tile = Tile(index)
+        val local = (Transform.NdcToUv(ndc) - tile.xy) / max(tile.zw, float2(Const.Epsilon, Const.Epsilon))
+        val fromCentre = abs(local - float2(0.5f, 0.5f)) * 2f
+
+        return saturate((max(fromCentre.x, fromCentre.y) - 0.8f) / 0.2f)
+    }
+
+    /// The whole term: select, blend across the last tenth, fade out at the shadow distance.
+    ///
+    /// `ClusteredShading.Shadow` minus the virtual map, on the same offsets: the normal offset moves
+    /// the *sample* rather than the comparison, and the edge blend is what stops the cascade seam
+    /// drawing itself as a line across open ground.
+    static func Term(
+        map: Texture2D,
+        s: Sampler,
+        cascades: ShadowCascade[4],
+        positionWS: float3,
+        n: float3,
+        NdotL: float,
+        viewDepth: float,
+        texel: float2,
+        constantBias: float,
+        slopeBias: float,
+        fadeRange: float
+    ): float {
+        val offset = Lighting.NormalOffset(positionWS, n, NdotL, texel.x * 64f)
+        val index = Containing(cascades, offset)
+
+        var shadow = 1f
+
+        if (index >= 0) {
+            shadow = Sample(map, s, cascades, index, offset, NdotL, texel, constantBias, slopeBias)
+
+            val edge = Edge(cascades, index, offset)
+
+            if (edge > 0f && index + 1 < 4) {
+                val next = Sample(map, s, cascades, index + 1, offset, NdotL, texel, constantBias, slopeBias)
+                shadow = lerp(shadow, next, edge)
+            }
+
+            if (edge > 0f && index + 1 >= 4) {
+                shadow = lerp(shadow, 1f, edge)
+            }
+        }
+
+        val fade = Lighting.CascadeFade(viewDepth, cascades[3].split, fadeRange)
+
+        return lerp(1f, shadow, fade)
+    }
+}

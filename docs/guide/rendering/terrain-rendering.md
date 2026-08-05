@@ -4,7 +4,7 @@ slug: rendering/terrain-rendering
 kind: guide
 area: Rendering
 summary: A quadtree with a vertex morph, one instanced grid patch, no vertex buffer, and one draw call however many patches it takes.
-api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures, T:Vixen.Rendering.Terrain.TerrainStreamer, T:Vixen.Rendering.Terrain.TerrainTilePages, T:Vixen.Rendering.Terrain.TerrainTileSource, T:Vixen.Rendering.Terrain.ITerrainTileSource, T:Vixen.Rendering.Terrain.TerrainTileHandler, T:Vixen.Engine.Renderer.AssetTerrainTextures, T:Vixen.Rendering.Terrain.TerrainNodeAsset, T:Vixen.Rendering.Terrain.TerrainFactory, T:Vixen.Rendering.Terrain.TerrainSceneRenderer, T:Vixen.Rendering.Terrain.TerrainSceneSource, T:Vixen.Rendering.Terrain.TerrainSceneEntry, T:Vixen.Rendering.Terrain.ITerrainAssetSource, T:Vixen.Rendering.Terrain.TerrainExtractionSystem, T:Vixen.Rendering.Terrain.TerrainVegetationQuality, T:Vixen.Engine.Renderer.AssetTerrainSource]
+api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, T:Vixen.Shaders.Generated.TerrainLitKeys, T:Vixen.Shaders.Generated.TerrainLitConstants, T:Vixen.Shaders.Generated.TerrainLitCascadesElement, R:Terrain/Terrain, R:Terrain/TerrainLit, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures, T:Vixen.Rendering.Terrain.TerrainStreamer, T:Vixen.Rendering.Terrain.TerrainTilePages, T:Vixen.Rendering.Terrain.TerrainTileSource, T:Vixen.Rendering.Terrain.ITerrainTileSource, T:Vixen.Rendering.Terrain.TerrainTileHandler, T:Vixen.Engine.Renderer.AssetTerrainTextures, T:Vixen.Rendering.Terrain.TerrainNodeAsset, T:Vixen.Rendering.Terrain.TerrainFactory, T:Vixen.Rendering.Terrain.TerrainSceneRenderer, T:Vixen.Rendering.Terrain.TerrainSceneSource, T:Vixen.Rendering.Terrain.TerrainSceneEntry, T:Vixen.Rendering.Terrain.ITerrainAssetSource, T:Vixen.Rendering.Terrain.TerrainExtractionSystem, T:Vixen.Rendering.Terrain.TerrainVegetationQuality, T:Vixen.Engine.Renderer.AssetTerrainSource]
 tags: [terrain, rendering, lod, cdlod, instancing]
 since: 0.1
 status: preview
@@ -281,11 +281,44 @@ the quality waterfall's seam: a written value is the document deciding, null fal
 `TerrainFactory.Vegetation`, which is where a host lays down the numbers its resolved tier chose,
 and the defaults are the engine table's High tier.
 
-⚠ **The shading is preview-grade, and deliberately so.** `Terrain.rvn` lights with its own
-hard-coded sun and the node resolves the default four-layer permutation — the same variant the
-editor's viewport embeds. Frame-lit shading, shadow casting (`TerrainComponent.CastShadows` is
-carried, not yet consumed, as is `LodBias`) and motion vectors are tracked work; what this node
-settles is reachability and placement.
+## Frame-lit shading
+
+The node picks between two shaders, and **what the frame provides is the switch — there is no
+toggle**. `Terrain` is the preview: a hard-coded sun over the splat, the variant the editor's
+viewport embeds, and what any frame that publishes no lighting gets. `TerrainLit` is the same
+geometry — one base shader, so the two cannot place a vertex differently — lit on the scene pass's
+own terms, and the node chooses it exactly when the frame provides what it needs:
+
+- a `SceneConstants` with a scene camera (`TerrainFactory` wires the builder's own instance);
+- the cascade constants `ShadowMapRenderer.Publish` writes under the scene pass's name
+  (`ForwardPlus.cascades[0].viewProjection` and its siblings — `scenePass:` renames the prefix);
+- the cascade atlas as a declared resource (`shadowAtlas:`, canonically `ShadowAtlas`), which the
+  node also declares a read on so the graph fences the shadow passes before the ground samples them.
+
+What the lit ground then does, per fragment: the frame's sun direction and radiance, Lambert over
+the splat albedo; the cascade shadow term — containment-based selection, edge blend, distance fade,
+the bias **added** because under reverse-Z toward the light is numerically up; the sky's spherical
+harmonics for ambient; and, when the frame publishes its culled cluster buffers
+(`ForwardPlus.lightBuffer` and `ForwardPlus.clusters`), every clustered lamp that reaches the
+fragment. `GrassLit` takes the sun, the cascades and the sky on the same terms, and lights blades by
+their rotated up axis — a field is the ground, slightly furred, not thousands of tiny walls.
+
+⚠ **No per-object light fallback, deliberately.** A frame that culls no lights gets a sun-and-sky
+terrain: the eight-light per-object list is chosen per object, and a terrain is the biggest object
+in any frame — the exact shape that list reorders worst on.
+
+⚠ **The split planes follow the frame.** When the document declares `SceneAlbedo` and `SceneNormals`
+(`albedo:` / `normals:` rename them), the node binds them as its second and third targets, loaded,
+and the lit shaders write raw albedo and the **raw signed world normal** — `SceneNormals`' own
+convention, where zero is the sky — while withholding diffuse ambient, which the `!AmbientCombine`
+at the other end of the frame rebuilds from real irradiance and real occlusion. Screen-space GI, AO
+and the combine then see the ground exactly as they see everything else.
+
+⚠ **Still owed:** terrain and grass as shadow *casters* (`TerrainComponent.CastShadows` is carried,
+not yet consumed, as is `LodBias`), motion vectors, punctual shadow atlas sampling for the lamps,
+the virtual shadow map (a frame running it shadows its ground from the cascades underneath), and
+per-layer surface roughness reaching the lit BRDF — the splat stays diffuse until the surface
+textures teach it otherwise.
 
 ## See also
 
