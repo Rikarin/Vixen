@@ -1,0 +1,16 @@
+guid: 035fb27fd0e2477784c28cfcf76b9a47
+metaVersion: 1
+importer: !ModelImporter
+  version: 7
+  sourceHash: 47912e6511dfffee8e7f6e63e45c4207
+subAssets:
+  - id: da5e37d2
+    name: PineTree Clusters
+    type: Clusters
+  - id: 9d88dcdd
+    name: PineTree Pages
+    type: ClusterPages
+  - { id: 1323b116, name: PineTree, type: Mesh }
+  - id: d2f03ab2
+    name: PineTree Field
+    type: DistanceField

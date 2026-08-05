@@ -36,6 +36,8 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
     readonly AssetManager assets;
     readonly Dictionary<string, TerrainEntry> terrains = [];
     readonly Dictionary<string, GrassEntry> grasses = [];
+    readonly Dictionary<string, FoliageEntry> foliage = [];
+    readonly Dictionary<string, VolumeEntry> volumes = [];
 
     /// <summary>Builds a source over a content manager.</summary>
     /// <param name="assets">Where the bytes come from.</param>
@@ -46,7 +48,7 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
     }
 
     /// <summary>How many references have been asked for.</summary>
-    public int Requested => terrains.Count + grasses.Count;
+    public int Requested => terrains.Count + grasses.Count + foliage.Count + volumes.Count;
 
     /// <summary>How many of them will never arrive.</summary>
     /// <remarks>
@@ -66,6 +68,18 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
             }
 
             foreach (var entry in grasses.Values) {
+                if (entry.Failed) {
+                    count++;
+                }
+            }
+
+            foreach (var entry in foliage.Values) {
+                if (entry.Failed) {
+                    count++;
+                }
+            }
+
+            foreach (var entry in volumes.Values) {
                 if (entry.Failed) {
                     count++;
                 }
@@ -165,6 +179,120 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
         return null;
     }
 
+    /// <inheritdoc />
+    public FoliageType? Foliage(string reference) {
+        if (string.IsNullOrEmpty(reference)) {
+            return null;
+        }
+
+        if (!foliage.TryGetValue(reference, out var entry)) {
+            foliage[reference] = entry = new() { Loading = LoadFoliage(reference) };
+        }
+
+        if (entry.Type is { } type) {
+            return type;
+        }
+
+        if (entry.Failed) {
+            return null;
+        }
+
+        if (entry.Loading is null) {
+            entry.Failed = true;
+            return null;
+        }
+
+        if (!entry.Loading.IsCompleted) {
+            return null;
+        }
+
+        var loading = entry.Loading;
+
+        entry.Loading = null;
+
+        if (loading.IsCompletedSuccessfully) {
+            entry.Type = loading.Result;
+            return loading.Result;
+        }
+
+        // The grass path's own outcome, one asset kind over: text out of an older build, some other
+        // record's bytes — a content problem retrying cannot fix.
+        _ = loading.Exception;
+        entry.Failed = true;
+
+        return null;
+    }
+
+    /// <inheritdoc />
+    public FoliageVolume? Volume(string reference, IReadOnlyList<FoliageType> palette) {
+        ArgumentNullException.ThrowIfNull(palette);
+
+        if (string.IsNullOrEmpty(reference)) {
+            return null;
+        }
+
+        if (!volumes.TryGetValue(reference, out var entry)) {
+            volumes[reference] = entry = new() { Loading = LoadVolume(reference) };
+        }
+
+        if (entry.Failed) {
+            return null;
+        }
+
+        if (entry.Bytes is null) {
+            if (entry.Loading is null) {
+                entry.Failed = true;
+                return null;
+            }
+
+            if (!entry.Loading.IsCompleted) {
+                return null;
+            }
+
+            var loading = entry.Loading;
+
+            entry.Loading = null;
+
+            if (!loading.IsCompletedSuccessfully) {
+                _ = loading.Exception;
+                entry.Failed = true;
+
+                return null;
+            }
+
+            entry.Bytes = loading.Result;
+        }
+
+        // Rebuilt only when the palette's content moved — the volume's identity is what the
+        // compositor node keys its device state by, so a rebuild per ask would rebuild all of it
+        // per frame. The copy is the cache's own: the caller's list is a scratch it refills.
+        if (entry.Volume is { } built && entry.Palette is { } dressed && dressed.SequenceEqual(palette)) {
+            return built;
+        }
+
+        var volume = new FoliageVolume(new(32f));
+
+        foreach (var type in palette) {
+            volume.AddType(type);
+        }
+
+        try {
+            FoliageStore.Read(volume, entry.Bytes);
+        } catch (ArgumentException failure) {
+            // Bytes that are not a foliage file — the store refuses rather than interprets, and so
+            // does this. The refusal reads once, not per frame.
+            _ = failure;
+            entry.Failed = true;
+
+            return null;
+        }
+
+        entry.Volume = volume;
+        entry.Palette = [.. palette];
+
+        return volume;
+    }
+
     /// <summary>Starts one terrain's read, off the frame's thread.</summary>
     Task<TerrainMap?>? LoadTerrain(string reference) {
         var address = AddressOf(reference);
@@ -221,6 +349,47 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
         }
     }
 
+    /// <summary>Starts one foliage type's read, on the grass rule's terms.</summary>
+    Task<FoliageType>? LoadFoliage(string reference) {
+        var address = AddressOf(reference);
+
+        if (address is null) {
+            return null;
+        }
+
+        return Task.Run(async () => {
+            await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
+
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory).ConfigureAwait(false);
+
+            return Serializer.Read<FoliageType>(memory.ToArray());
+        });
+    }
+
+    /// <summary>Starts one volume's read: raw bytes, because the palette arrives separately.</summary>
+    /// <remarks>
+    ///     The bytes rather than the volume, deliberately: <see cref="FoliageStore.Read" /> drops
+    ///     chunks past the palette, and the palette is the caller's — resolved from its own
+    ///     references on its own schedule — so the build happens at the ask that has both.
+    /// </remarks>
+    Task<byte[]>? LoadVolume(string reference) {
+        var address = AddressOf(reference);
+
+        if (address is null) {
+            return null;
+        }
+
+        return Task.Run(async () => {
+            await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
+
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory).ConfigureAwait(false);
+
+            return memory.ToArray();
+        });
+    }
+
     sealed class TerrainEntry {
         public Task<TerrainMap?>? Loading;
         public TerrainMap? Map;
@@ -230,6 +399,20 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
     sealed class GrassEntry {
         public Task<GrassType>? Loading;
         public GrassType? Type;
+        public bool Failed;
+    }
+
+    sealed class FoliageEntry {
+        public Task<FoliageType>? Loading;
+        public FoliageType? Type;
+        public bool Failed;
+    }
+
+    sealed class VolumeEntry {
+        public Task<byte[]>? Loading;
+        public byte[]? Bytes;
+        public FoliageVolume? Volume;
+        public FoliageType[]? Palette;
         public bool Failed;
     }
 }

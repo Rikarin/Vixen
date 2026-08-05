@@ -193,6 +193,17 @@ public sealed class PbrShowcaseGame : Game {
                     graphics.Renderer.TerrainExtraction?.Waiting ?? 0,
                     graphics.Renderer.TerrainExtraction?.RefusedGrass ?? 0
                 );
+
+                // And the pines beside it, on the same terms: drawn zero with meshes missing is
+                // content that never arrived, drawn zero with volumes refused is a broken palette —
+                // different bugs, one line.
+                SampleLog.FoliageReport(
+                    log!,
+                    ground.FoliageVolumesDrawn,
+                    ground.FoliageMeshesMissing,
+                    graphics.Renderer.TerrainExtraction?.FoliageCount ?? 0,
+                    graphics.Renderer.TerrainExtraction?.RefusedFoliage ?? 0
+                );
             }
         }
 
@@ -254,6 +265,16 @@ public sealed class PbrShowcaseGame : Game {
 
         scene.Add(ground, Rendering.Terrain.TerrainComponent.Of(TerrainSeed.TerrainPath));
         scene.Add(ground, Rendering.Terrain.TerrainGrassComponent.Of("Assets/Terrain/Meadow.vxgrass"));
+
+        // The pines on the hills: a foliage volume beside the terrain, drawn through the same
+        // !Terrain node by the GPU cull — the instances world-space in the committed .vxfol, so the
+        // volume's entity sits at the origin rather than at the terrain's corner.
+        var pines = Hierarchy.CreateTransform(scene, LocalTransform.At(Vector3.Zero));
+
+        scene.Add(
+            pines,
+            Rendering.Terrain.FoliageVolumeComponent.Of(TerrainSeed.FoliagePath, TerrainSeed.FoliageTypePath)
+        );
 
         // One sun, aimed along the direction the sky was baked from, with its illuminance and tint
         // read off that same sky — so the shadows, the disc and the ambient are one account of one

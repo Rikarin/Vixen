@@ -26,9 +26,11 @@ Vixen.Engine.Renderer.AssetTerrainSource -> sealed class
 Vixen.Engine.Renderer.AssetTerrainSource : Vixen.Rendering.Terrain.ITerrainAssetSource
 Vixen.Engine.Renderer.AssetTerrainSource.AssetTerrainSource(Vixen.Assets.AssetManager assets) -> void
 Vixen.Engine.Renderer.AssetTerrainSource.Failed.get -> int
+Vixen.Engine.Renderer.AssetTerrainSource.Foliage(string reference) -> Vixen.Foliage.FoliageType?
 Vixen.Engine.Renderer.AssetTerrainSource.Grass(string reference) -> Vixen.Foliage.GrassType?
 Vixen.Engine.Renderer.AssetTerrainSource.Requested.get -> int
 Vixen.Engine.Renderer.AssetTerrainSource.Terrain(string reference) -> Vixen.Terrain.Terrain?
+Vixen.Engine.Renderer.AssetTerrainSource.Volume(string reference, System.Collections.Generic.IReadOnlyList<Vixen.Foliage.FoliageType> palette) -> Vixen.Foliage.FoliageVolume?
 Vixen.Engine.Renderer.AssetTerrainTextures -> sealed class
 Vixen.Engine.Renderer.AssetTerrainTextures : Vixen.Rendering.Terrain.ITerrainTextures
 Vixen.Engine.Renderer.AssetTerrainTextures.AssetTerrainTextures(Vixen.Engine.Renderer.AssetTextureSource source) -> void

@@ -36,6 +36,24 @@ public interface ITerrainAssetSource {
     /// <param name="reference">The component's reference.</param>
     /// <returns>The type, or null.</returns>
     GrassType? Grass(string reference);
+
+    /// <summary>The foliage type a <c>.vxfoliage</c> reference names, or null on the same terms.</summary>
+    /// <param name="reference">The component's reference.</param>
+    /// <returns>The type, or null.</returns>
+    FoliageType? Foliage(string reference);
+
+    /// <summary>The instance volume a <c>.vxfol</c> reference names, or null on the same terms.</summary>
+    /// <param name="reference">The component's reference.</param>
+    /// <param name="palette">The resolved palette, in the component's order.</param>
+    /// <returns>The volume, with the palette applied, or null.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The palette rides the ask, because the bytes cannot be read without it.</b>
+    ///     <see cref="Vixen.Foliage.FoliageStore.Read" /> drops any chunk whose type index is past
+    ///     the palette — deliberately — so a volume read first and dressed later would arrive
+    ///     empty. The implementation caches the built volume per reference and rebuilds only when
+    ///     the palette's content changes.
+    /// </remarks>
+    FoliageVolume? Volume(string reference, IReadOnlyList<FoliageType> palette);
 }
 
 /// <summary>One terrain the frame draws: the heightfield, its placement, and its rules.</summary>
@@ -56,6 +74,19 @@ public readonly record struct TerrainSceneEntry(
     float GrassRange
 );
 
+/// <summary>One foliage volume the frame draws: the instances, their placement, and their reach.</summary>
+/// <param name="Volume">The instances, palette applied — the same object frame over frame.</param>
+/// <param name="Origin">Where the volume's origin stands, in world space — the entity's translation.</param>
+/// <param name="Range">How far cells stay uploaded, in metres. Zero takes the node's default.</param>
+/// <remarks>
+///     ⚠ <b>The volume's identity is the entry's identity.</b> The compositor node keys its device
+///     state — the cull pass, the streamer, the uploaded meshes — by the volume object, so an asset
+///     source that rebuilt the volume every frame would rebuild all of it every frame.
+///     <c>CastShadows</c> is not carried here: it is per type, readable off
+///     <see cref="FoliageVolume.Palette" />, which is where the shadow caster task consumes it.
+/// </remarks>
+public readonly record struct FoliageSceneEntry(FoliageVolume Volume, Vector3 Origin, float Range);
+
 /// <summary>The frame's terrains, written by the extraction system and read by the compositor node.</summary>
 /// <remarks>
 ///     <para>
@@ -75,6 +106,19 @@ public readonly record struct TerrainSceneEntry(
 public sealed class TerrainSceneSource {
     /// <summary>This frame's terrains, in extraction order.</summary>
     public List<TerrainSceneEntry> Terrains { get; } = [];
+
+    /// <summary>And its foliage volumes, on the same terms.</summary>
+    public List<FoliageSceneEntry> Foliage { get; } = [];
+
+    /// <summary>What turns a foliage type's mesh reference into geometry, or null.</summary>
+    /// <remarks>
+    ///     On <see cref="Textures" />' terms: it exists once content is mounted, and the node built
+    ///     from a document that loaded first asks every frame until it does. Null draws no foliage —
+    ///     a mesh has no honest white default the way a texture does — and
+    ///     <c>TerrainSceneRenderer</c>'s counters are where a person sees the difference between
+    ///     "not mounted" and "not loaded yet".
+    /// </remarks>
+    public Vixen.Rendering.Ecs.IMeshSource? Meshes { get; set; }
 
     /// <summary>What turns a layer's texture reference into something to sample, or null.</summary>
     /// <remarks>

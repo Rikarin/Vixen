@@ -66,9 +66,10 @@ Vixen.Rendering.Terrain.FoliageCullPass.FoliageCullPass(Vixen.Graphics.IGraphics
 Vixen.Rendering.Terrain.FoliageCullPass.Groups.get -> int
 Vixen.Rendering.Terrain.FoliageCullPass.InstanceCapacity.get -> int
 Vixen.Rendering.Terrain.FoliageCullPass.InstanceCount.get -> int
+Vixen.Rendering.Terrain.FoliageCullPass.Instances.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.Terrain.FoliageCullPass.Occluding.get -> bool
 Vixen.Rendering.Terrain.FoliageCullPass.Parameters.get -> Vixen.Graphics.BufferHandle
-Vixen.Rendering.Terrain.FoliageCullPass.Prepare(in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 viewPosition, float densityScale = 1, Vixen.Rendering.Terrain.FoliageOccluders occluders = default(Vixen.Rendering.Terrain.FoliageOccluders)) -> int
+Vixen.Rendering.Terrain.FoliageCullPass.Prepare(in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 viewPosition, float densityScale = 1, Vixen.Rendering.Terrain.FoliageOccluders occluders = default(Vixen.Rendering.Terrain.FoliageOccluders), float distanceScale = 1) -> int
 Vixen.Rendering.Terrain.FoliageCullPass.Record(Vixen.Graphics.ICommandList commandList) -> int
 Vixen.Rendering.Terrain.FoliageCullPass.Refused.get -> int
 Vixen.Rendering.Terrain.FoliageCullPass.RunOf(int batch) -> (int First, int Length)
@@ -76,7 +77,8 @@ Vixen.Rendering.Terrain.FoliageCullPass.Skipped.get -> int
 Vixen.Rendering.Terrain.FoliageCullPass.Streaming.get -> Vixen.Rendering.Terrain.FoliageStreamer?
 Vixen.Rendering.Terrain.FoliageCullPass.Streaming.set -> Vixen.Rendering.Terrain.FoliageStreamer?
 Vixen.Rendering.Terrain.FoliageCullPass.Survivors.get -> Vixen.Graphics.BufferHandle
-Vixen.Rendering.Terrain.FoliageCullPass.Upload(Vixen.Foliage.FoliageVolume volume, System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Terrain.FoliageDraw> draws) -> int
+Vixen.Rendering.Terrain.FoliageCullPass.TypeOf(int batch) -> int
+Vixen.Rendering.Terrain.FoliageCullPass.Upload(Vixen.Foliage.FoliageVolume volume, System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Terrain.FoliageDraw> draws, Vixen.Core.Mathematics.Vector3 origin = default(Vixen.Core.Mathematics.Vector3)) -> int
 Vixen.Rendering.Terrain.FoliageCullPass.VisibleBatches.get -> int
 Vixen.Rendering.Terrain.FoliageCullViewRecord -> struct
 Vixen.Rendering.Terrain.FoliageCullViewRecord.FoliageCullViewRecord() -> void
@@ -99,6 +101,27 @@ Vixen.Rendering.Terrain.FoliageDraw.Levels.get -> Vixen.Rendering.DrawCommand[]
 Vixen.Rendering.Terrain.FoliageDraw.Levels.init -> Vixen.Rendering.DrawCommand[]
 Vixen.Rendering.Terrain.FoliageDraw.Type.get -> int
 Vixen.Rendering.Terrain.FoliageDraw.Type.init -> int
+Vixen.Rendering.Terrain.FoliageDrawPass -> sealed class
+Vixen.Rendering.Terrain.FoliageDrawPass : System.IDisposable
+Vixen.Rendering.Terrain.FoliageDrawPass.Albedo.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Terrain.FoliageDrawPass.Albedo.set -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Terrain.FoliageDrawPass.Dispose() -> void
+Vixen.Rendering.Terrain.FoliageDrawPass.Draws.get -> int
+Vixen.Rendering.Terrain.FoliageDrawPass.FoliageDrawPass(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.Terrain.TerrainShaders shaders, Vixen.Rendering.RenderOutput output) -> void
+Vixen.Rendering.Terrain.FoliageDrawPass.MissingMeshes.get -> int
+Vixen.Rendering.Terrain.FoliageDrawPass.Prepare(Vixen.Graphics.ICommandList commands, Vixen.Rendering.Terrain.FoliageCullPass cull, in Vixen.Rendering.Terrain.TerrainView view, Vixen.Core.Mathematics.Vector2 tint = default(Vixen.Core.Mathematics.Vector2)) -> void
+Vixen.Rendering.Terrain.FoliageDrawPass.Record(Vixen.Graphics.ICommandList commands, Vixen.Rendering.Terrain.FoliageCullPass cull, System.Collections.Generic.IReadOnlyDictionary<int, Vixen.Rendering.Terrain.FoliageMesh> meshes) -> int
+Vixen.Rendering.Terrain.FoliageMesh -> readonly struct
+Vixen.Rendering.Terrain.FoliageMesh : System.IEquatable<Vixen.Rendering.Terrain.FoliageMesh>
+Vixen.Rendering.Terrain.FoliageMesh.FoliageMesh() -> void
+Vixen.Rendering.Terrain.FoliageMesh.FoliageMesh(Vixen.Graphics.BufferHandle Vertices, Vixen.Graphics.BufferHandle Indices, int IndexCount) -> void
+Vixen.Rendering.Terrain.FoliageMesh.IndexCount.get -> int
+Vixen.Rendering.Terrain.FoliageMesh.IndexCount.init -> int
+Vixen.Rendering.Terrain.FoliageMesh.Indices.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Terrain.FoliageMesh.Indices.init -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Terrain.FoliageMesh.IsValid.get -> bool
+Vixen.Rendering.Terrain.FoliageMesh.Vertices.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Terrain.FoliageMesh.Vertices.init -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.Terrain.FoliageOccluders -> readonly struct
 Vixen.Rendering.Terrain.FoliageOccluders : System.IEquatable<Vixen.Rendering.Terrain.FoliageOccluders>
 Vixen.Rendering.Terrain.FoliageOccluders.FoliageOccluders() -> void
@@ -121,6 +144,16 @@ Vixen.Rendering.Terrain.FoliageRenderer.InstancesConsidered.get -> int
 Vixen.Rendering.Terrain.FoliageRenderer.InstancesDrawn.get -> int
 Vixen.Rendering.Terrain.FoliageRenderer.Parameters.get -> System.ReadOnlySpan<Vixen.Rendering.Features.InstanceParameters>
 Vixen.Rendering.Terrain.FoliageRenderer.Transforms.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4>
+Vixen.Rendering.Terrain.FoliageSceneEntry -> readonly struct
+Vixen.Rendering.Terrain.FoliageSceneEntry : System.IEquatable<Vixen.Rendering.Terrain.FoliageSceneEntry>
+Vixen.Rendering.Terrain.FoliageSceneEntry.FoliageSceneEntry() -> void
+Vixen.Rendering.Terrain.FoliageSceneEntry.FoliageSceneEntry(Vixen.Foliage.FoliageVolume Volume, Vixen.Core.Mathematics.Vector3 Origin, float Range) -> void
+Vixen.Rendering.Terrain.FoliageSceneEntry.Origin.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Terrain.FoliageSceneEntry.Origin.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Terrain.FoliageSceneEntry.Range.get -> float
+Vixen.Rendering.Terrain.FoliageSceneEntry.Range.init -> float
+Vixen.Rendering.Terrain.FoliageSceneEntry.Volume.get -> Vixen.Foliage.FoliageVolume
+Vixen.Rendering.Terrain.FoliageSceneEntry.Volume.init -> Vixen.Foliage.FoliageVolume
 Vixen.Rendering.Terrain.FoliageStreamer -> sealed class
 Vixen.Rendering.Terrain.FoliageStreamer : System.IDisposable
 Vixen.Rendering.Terrain.FoliageStreamer.Accept() -> void
@@ -133,6 +166,11 @@ Vixen.Rendering.Terrain.FoliageStreamer.IsResident(Vixen.Foliage.FoliageCellKey 
 Vixen.Rendering.Terrain.FoliageStreamer.Rebuild(Vixen.Foliage.FoliageVolume volume) -> void
 Vixen.Rendering.Terrain.FoliageStreamer.Residency.get -> Vixen.Rendering.PageResidency
 Vixen.Rendering.Terrain.FoliageStreamer.Update(System.ReadOnlySpan<Vixen.Rendering.StreamingSource> sources, int maxLoads = 64) -> int
+Vixen.Rendering.Terrain.FoliageVolumeComponent -> struct
+Vixen.Rendering.Terrain.FoliageVolumeComponent.FoliageVolumeComponent() -> void
+Vixen.Rendering.Terrain.FoliageVolumeComponent.Palette -> string[]
+Vixen.Rendering.Terrain.FoliageVolumeComponent.Range -> float
+Vixen.Rendering.Terrain.FoliageVolumeComponent.Volume -> string
 Vixen.Rendering.Terrain.GrassBatch -> readonly struct
 Vixen.Rendering.Terrain.GrassBatch : System.IEquatable<Vixen.Rendering.Terrain.GrassBatch>
 Vixen.Rendering.Terrain.GrassBatch.Cell.get -> Vixen.Foliage.FoliageCellKey
@@ -269,8 +307,10 @@ Vixen.Rendering.Terrain.GrassTerrainSource.WeightMap.init -> Vixen.Graphics.Text
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightSampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightSampler.init -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Terrain.ITerrainAssetSource -> interface
+Vixen.Rendering.Terrain.ITerrainAssetSource.Foliage(string reference) -> Vixen.Foliage.FoliageType?
 Vixen.Rendering.Terrain.ITerrainAssetSource.Grass(string reference) -> Vixen.Foliage.GrassType?
 Vixen.Rendering.Terrain.ITerrainAssetSource.Terrain(string reference) -> Vixen.Terrain.Terrain?
+Vixen.Rendering.Terrain.ITerrainAssetSource.Volume(string reference, System.Collections.Generic.IReadOnlyList<Vixen.Foliage.FoliageType> palette) -> Vixen.Foliage.FoliageVolume?
 Vixen.Rendering.Terrain.ITerrainScene -> interface
 Vixen.Rendering.Terrain.ITerrainScene.Terrains() -> System.Collections.Generic.IReadOnlyList<(Vixen.Terrain.Terrain Terrain, Vixen.Core.Mathematics.Vector3 Origin)>
 Vixen.Rendering.Terrain.ITerrainTextures -> interface
@@ -298,6 +338,8 @@ Vixen.Rendering.Terrain.TerrainExtractionSystem.Access.get -> Vixen.Ecs.Systems.
 Vixen.Rendering.Terrain.TerrainExtractionSystem.Assets.get -> Vixen.Rendering.Terrain.ITerrainAssetSource?
 Vixen.Rendering.Terrain.TerrainExtractionSystem.Assets.set -> Vixen.Rendering.Terrain.ITerrainAssetSource?
 Vixen.Rendering.Terrain.TerrainExtractionSystem.Extract(Vixen.Ecs.World world) -> void
+Vixen.Rendering.Terrain.TerrainExtractionSystem.FoliageCount.get -> int
+Vixen.Rendering.Terrain.TerrainExtractionSystem.RefusedFoliage.get -> int
 Vixen.Rendering.Terrain.TerrainExtractionSystem.RefusedGrass.get -> int
 Vixen.Rendering.Terrain.TerrainExtractionSystem.TerrainCount.get -> int
 Vixen.Rendering.Terrain.TerrainExtractionSystem.TerrainExtractionSystem(Vixen.Rendering.Terrain.TerrainSceneSource scene) -> void
@@ -415,6 +457,8 @@ Vixen.Rendering.Terrain.TerrainSceneRenderer.ClusteredLights.get -> bool
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Dispose() -> void
+Vixen.Rendering.Terrain.TerrainSceneRenderer.FoliageMeshesMissing.get -> int
+Vixen.Rendering.Terrain.TerrainSceneRenderer.FoliageVolumesDrawn.get -> int
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Frame.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Frame.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Grass.get -> bool
@@ -443,6 +487,9 @@ Vixen.Rendering.Terrain.TerrainSceneRenderer.View.get -> Vixen.Rendering.RenderV
 Vixen.Rendering.Terrain.TerrainSceneRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.WaitingForShaders.get -> bool
 Vixen.Rendering.Terrain.TerrainSceneSource -> sealed class
+Vixen.Rendering.Terrain.TerrainSceneSource.Foliage.get -> System.Collections.Generic.List<Vixen.Rendering.Terrain.FoliageSceneEntry>
+Vixen.Rendering.Terrain.TerrainSceneSource.Meshes.get -> Vixen.Rendering.Ecs.IMeshSource?
+Vixen.Rendering.Terrain.TerrainSceneSource.Meshes.set -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Rendering.Terrain.TerrainSceneSource.TerrainSceneSource() -> void
 Vixen.Rendering.Terrain.TerrainSceneSource.Terrains.get -> System.Collections.Generic.List<Vixen.Rendering.Terrain.TerrainSceneEntry>
 Vixen.Rendering.Terrain.TerrainSceneSource.Textures.get -> Vixen.Rendering.Terrain.ITerrainTextures?
@@ -542,7 +589,39 @@ Vixen.Rendering.Terrain.TerrainView.TerrainView() -> void
 Vixen.Rendering.Terrain.TerrainView.TerrainView(Vixen.Core.Mathematics.Matrix4x4 ViewProjection, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.BoundingFrustum Frustum) -> void
 Vixen.Rendering.Terrain.TerrainView.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Terrain.TerrainView.ViewProjection.init -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.FoliageConstants -> struct
+Vixen.Shaders.Generated.FoliageConstants.FoliageConstants() -> void
+Vixen.Shaders.Generated.FoliageConstants.TintRange -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.FoliageConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.FoliageCullKeys -> static class
+Vixen.Shaders.Generated.FoliageKeys -> static class
+Vixen.Shaders.Generated.FoliageLitCascadesElement -> struct
+Vixen.Shaders.Generated.FoliageLitCascadesElement.DepthScale -> float
+Vixen.Shaders.Generated.FoliageLitCascadesElement.FoliageLitCascadesElement() -> void
+Vixen.Shaders.Generated.FoliageLitCascadesElement.Split -> float
+Vixen.Shaders.Generated.FoliageLitCascadesElement.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.FoliageLitConstants -> struct
+Vixen.Shaders.Generated.FoliageLitConstants.AmbientIntensity -> float
+Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL00 -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL10 -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL11 -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL1m1 -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL20 -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL21 -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL22 -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL2m1 -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL2m2 -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.FoliageLitConstants() -> void
+Vixen.Shaders.Generated.FoliageLitConstants.LightColor -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.LightDirection -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FoliageLitConstants.ShadowConstantBias -> float
+Vixen.Shaders.Generated.FoliageLitConstants.ShadowFadeRange -> float
+Vixen.Shaders.Generated.FoliageLitConstants.ShadowSlopeBias -> float
+Vixen.Shaders.Generated.FoliageLitConstants.ShadowTexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.FoliageLitConstants.TintRange -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.FoliageLitConstants.View -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.FoliageLitConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.FoliageLitKeys -> static class
 Vixen.Shaders.Generated.GrassConstants -> struct
 Vixen.Shaders.Generated.GrassConstants.FadeRange -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.GrassConstants.GrassConstants() -> void
@@ -673,15 +752,18 @@ Vixen.Shaders.Generated.TerrainLitConstants.ViewProjection -> Vixen.Core.Mathema
 Vixen.Shaders.Generated.TerrainLitKeys -> static class
 const Vixen.Rendering.Terrain.FoliageCullPass.GroupSize = 64 -> int
 const Vixen.Rendering.Terrain.FoliageCullPass.MaxLevels = 4 -> int
+const Vixen.Rendering.Terrain.FoliageDrawPass.VertexBytes = 32 -> int
 const Vixen.Rendering.Terrain.FoliageStreamer.PageSource = 32325 -> int
 const Vixen.Rendering.Terrain.GrassDispatch.GroupSize = 8 -> int
 const Vixen.Rendering.Terrain.TerrainRenderer.MaxLayers = 16 -> int
 const Vixen.Rendering.Terrain.TerrainRenderer.MaxWeightMaps = 4 -> int
+const Vixen.Rendering.Terrain.TerrainSceneRenderer.DefaultFoliageRange = 320 -> float
 const Vixen.Rendering.Terrain.TerrainSceneRenderer.DefaultGrassRange = 160 -> float
 const Vixen.Rendering.Terrain.TerrainSceneRenderer.GrassCellSize = 32 -> float
 const Vixen.Rendering.Terrain.TerrainSplat.LayersPerWeightMap = 4 -> int
 const Vixen.Rendering.Terrain.TerrainSplat.MaxLayerSlots = 16 -> int
 const Vixen.Rendering.Terrain.TerrainStreamer.PageSource = 32324 -> int
+const Vixen.Shaders.Generated.FoliageConstants.Size = 80 -> int
 const Vixen.Shaders.Generated.FoliageCullKeys.BatchesBinding = 3 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.BatchesSet = 2 -> int
 const Vixen.Shaders.Generated.FoliageCullKeys.CommandsBinding = 9 -> uint
@@ -703,6 +785,50 @@ const Vixen.Shaders.Generated.FoliageCullKeys.SurvivorsBinding = 7 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.SurvivorsSet = 2 -> int
 const Vixen.Shaders.Generated.FoliageCullKeys.ViewsBinding = 4 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.ViewsSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageKeys.AlbedoMapBinding = 1 -> uint
+const Vixen.Shaders.Generated.FoliageKeys.AlbedoMapSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageKeys.AlbedoSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.FoliageKeys.AlbedoSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.FoliageKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageKeys.ConstantBufferSize = 80 -> int
+const Vixen.Shaders.Generated.FoliageKeys.InstancesBinding = 3 -> uint
+const Vixen.Shaders.Generated.FoliageKeys.InstancesSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageKeys.NormalLocation = 5 -> uint
+const Vixen.Shaders.Generated.FoliageKeys.ParametersBinding = 5 -> uint
+const Vixen.Shaders.Generated.FoliageKeys.ParametersSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageKeys.PositionLocation = 4 -> uint
+const Vixen.Shaders.Generated.FoliageKeys.ShaderName = "Foliage" -> string
+const Vixen.Shaders.Generated.FoliageKeys.SurvivorsBinding = 4 -> uint
+const Vixen.Shaders.Generated.FoliageKeys.SurvivorsSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageKeys.TexcoordLocation = 6 -> uint
+const Vixen.Shaders.Generated.FoliageKeys.VertexAttributeCount = 3 -> int
+const Vixen.Shaders.Generated.FoliageLitCascadesElement.BaseOffset = 112 -> int
+const Vixen.Shaders.Generated.FoliageLitCascadesElement.Count = 4 -> int
+const Vixen.Shaders.Generated.FoliageLitCascadesElement.Stride = 80 -> int
+const Vixen.Shaders.Generated.FoliageLitConstants.Size = 672 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.AlbedoMapBinding = 2 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.AlbedoMapSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.AlbedoSamplerBinding = 4 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.AlbedoSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.ConstantBufferSize = 672 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.InstancesBinding = 5 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.InstancesSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.NormalLocation = 5 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.ParametersBinding = 7 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.ParametersSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.PositionLocation = 4 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.ShaderName = "FoliageLit" -> string
+const Vixen.Shaders.Generated.FoliageLitKeys.ShadowMapBinding = 1 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.ShadowMapSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.ShadowSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.ShadowSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.SurvivorsBinding = 6 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.SurvivorsSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageLitKeys.TexcoordLocation = 6 -> uint
+const Vixen.Shaders.Generated.FoliageLitKeys.VertexAttributeCount = 3 -> int
 const Vixen.Shaders.Generated.GrassConstants.Size = 128 -> int
 const Vixen.Shaders.Generated.GrassKeys.AlbedoMapBinding = 1 -> uint
 const Vixen.Shaders.Generated.GrassKeys.AlbedoMapSet = 2 -> int
@@ -850,6 +976,9 @@ const Vixen.Shaders.Generated.TerrainLitKeys.WeightSamplerSet = 2 -> int
 override Vixen.Rendering.Terrain.TerrainExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Terrain.TerrainSceneRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Terrain.TerrainSceneRenderer.ToString() -> string
+readonly Vixen.Shaders.Generated.FoliageConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.FoliageLitCascadesElement.Write(System.Span<byte> buffer, int index) -> void
+readonly Vixen.Shaders.Generated.FoliageLitConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.GrassConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.GrassLitCascadesElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.GrassLitConstants.Write(System.Span<byte> buffer) -> void
@@ -872,6 +1001,8 @@ static Vixen.Rendering.Terrain.FoliageCullInstanceRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.FoliageCullPass.DrawCommandBytes.get -> int
 static Vixen.Rendering.Terrain.FoliageCullViewRecord.Of(in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 position, Vixen.Rendering.Terrain.FoliageOccluders occluders = default(Vixen.Rendering.Terrain.FoliageOccluders)) -> Vixen.Rendering.Terrain.FoliageCullViewRecord
 static Vixen.Rendering.Terrain.FoliageCullViewRecord.SizeInBytes.get -> int
+static Vixen.Rendering.Terrain.FoliageDrawPass.UploadMesh(Vixen.Graphics.IGraphicsDevice device, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2> texcoords, System.ReadOnlySpan<int> indices, string name = "foliage mesh") -> Vixen.Rendering.Terrain.FoliageMesh
+static Vixen.Rendering.Terrain.FoliageVolumeComponent.Of(string volume, params string[] palette) -> Vixen.Rendering.Terrain.FoliageVolumeComponent
 static Vixen.Rendering.Terrain.GrassCellRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.GrassDispatch.DrawCommandBytes.get -> int
 static Vixen.Rendering.Terrain.GrassInstanceRecord.Of(in Vixen.Foliage.GrassBlade blade) -> Vixen.Rendering.Terrain.GrassInstanceRecord
@@ -903,6 +1034,44 @@ static readonly Vixen.Shaders.Generated.FoliageCullKeys.Place -> Vixen.Shaders.P
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Survivors -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Views -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.FoliageKeys.AlbedoMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.FoliageKeys.AlbedoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.FoliageKeys.CrossFade -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.FoliageKeys.Instances -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.FoliageKeys.Parameters -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.FoliageKeys.Survivors -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.FoliageKeys.TintRange -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.FoliageKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.FoliageKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.AlbedoMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.AlbedoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.AmbientIntensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.CrossFade -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL00 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL10 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL11 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL1m1 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL20 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL21 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL22 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL2m1 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL2m2 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.Instances -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.LightColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.LightDirection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.Parameters -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.ShadowConstantBias -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.ShadowFadeRange -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.ShadowMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.ShadowSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.ShadowSlopeBias -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.ShadowTexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.SplitOutputs -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.Survivors -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.TintRange -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.View -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.GrassKeys.AlbedoMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.GrassKeys.AlbedoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.GrassKeys.Blades -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>

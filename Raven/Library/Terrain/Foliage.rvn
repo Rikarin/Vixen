@@ -1,0 +1,250 @@
+package Vixen.Shaders.Terrain
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.Shading
+
+// Drawing what `FoliageCull.rvn` compacted: one instanced mesh per surviving tree or rock.
+//
+// `docs/plan/31 § T5`'s draw half. The cull's placing phase wrote three things this reads and nothing
+// travels through host memory between them: `survivors` holds the indices of the instances that made
+// it, `parameters` their per-instance numbers at the same slots, and the indirect command's
+// `firstInstance` points `SV_InstanceID` at the batch's own run — so the instance id *is* the
+// survivor slot, on the same contract `Grass.rvn`'s blades ride the scatter's counts.
+//
+// **The survivors are indices, not transforms** — `FoliageCull.rvn` says why — so the vertex stage
+// makes one extra buffer read: survivor slot to instance index to the thirty-two-byte record the
+// volume uploaded. That indirection is the whole design: the instance buffer never moves after
+// upload, and a frame's cull re-aims the draws at a subset of it.
+//
+// **The fade is the cull's, not remeasured here.** `FoliageCullParameters.fade` was computed from the
+// same distance the cull binned the instance by, and a draw that measured its own would disagree with
+// the cull at exactly the distance where disagreement is visible — an instance culled while still
+// partly opaque. The stipple pattern is the grass's, so a foliage LOD dissolving and a grass blade
+// fading composite identically.
+//
+// **Two shaders share one base**, on `Terrain.rvn`'s arrangement: `FoliageBase` owns the bindings,
+// the streams and the placement, `Foliage` is the editor's preview lit by a hard-coded direction,
+// and `FoliageLit` is the frame's — the same sun and the same cascade atlas the terrain under it
+// reads, through `FrameLit.rvn`'s transliterations.
+
+shader FoliageBase {
+    /// Whether instances stipple out over the band before their cull distance.
+    ///
+    /// A permutation because the alternative is a `discard` in every fragment of a forest that never
+    /// fades, and a shader with no discard can keep early depth.
+    [Permutation] val CrossFade: bool = true
+
+    var viewProjection: mat4
+
+    /// What a `tint` of 0 and 1 mean, as a multiplier on the albedo.
+    ///
+    /// The cull writes every survivor's tint as 0 for now, so the low end is what a forest wears;
+    /// carried anyway so the day the cull rolls per-instance variation the draw already reads it.
+    var tintRange: float2
+
+    /// Every instance of every batch, exactly as `FoliageCullPass.Upload` wrote them.
+    ///
+    /// ⚠ **The cull's own buffer, indexed through `survivors` rather than copied.** A compacted
+    /// transform buffer would be sixty-four bytes an instance where the indirection is four — and
+    /// the indirection is unavoidable anyway, because `firstInstance` indexes *something*.
+    var instances: Buffer<FoliageCullInstance>
+
+    /// The survivors' indices into `instances`, grouped by level within each batch's run.
+    ///
+    /// ⚠ **Written by the placing dispatch and read here with nothing in between.** The count comes
+    /// from the indirect command the same dispatch patched, so a frame in which fewer survived draws
+    /// fewer — rather than drawing last frame's tail out of a buffer nobody cleared.
+    var survivors: Buffer<uint>
+
+    /// And their per-instance numbers, at the same slots.
+    var parameters: Buffer<FoliageCullParameters>
+
+    /// The mesh's albedo, or the pass's white default while no material path exists.
+    var albedoMap: Texture2D
+    var albedoSampler: Sampler
+
+    stream var uv: float2
+    stream var normalWS: float3
+    stream var positionWS: float3
+    stream var fade: float
+
+    /// The shared vertex arithmetic: find the survivor, place the mesh, fill the streams.
+    ///
+    /// A function rather than the entry point, for `TerrainBase.PatchVertex`'s reason — the preview
+    /// and the lit pass must place identical instances, and identical is a property only shared code
+    /// has. `instance` is `SV_InstanceID`, which the indirect command's patched `firstInstance` has
+    /// already aimed at this batch's slot of this level's run.
+    func PlantVertex(position: float3, normal: float3, texcoord: float2, instance: int): float4 {
+        val survivor = int(survivors[instance])
+        val plant = instances[survivor]
+        val record = parameters[instance]
+
+        val scaled = position * (plant.scale * record.scale)
+        val world = plant.position + Instancing.RotateByQuaternion(plant.rotation, scaled)
+
+        uv = texcoord
+        normalWS = Math.SafeNormalize(Instancing.RotateByQuaternion(plant.rotation, normal))
+        positionWS = world
+        fade = record.fade
+
+        return viewProjection * float4(world, 1f)
+    }
+
+    /// The stipple threshold at a pixel, 0…1 — the grass's interleaved gradient noise, verbatim.
+    ///
+    /// The same three constants deliberately: a tree's far LOD dissolving over grass that is fading
+    /// must dissolve against the same pattern, or the two dithers interfere as a visible weave.
+    func Stipple(pixel: float2): float {
+        return frac(52.9829189f * frac(dot(pixel, float2(0.06711056f, 0.00583715f))))
+    }
+}
+
+shader Foliage : FoliageBase {
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("POSITION")] position: float3,
+        [Semantic("NORMAL")] normal: float3,
+        [Semantic("TEXCOORD0")] texcoord: float2,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        return PlantVertex(position, normal, texcoord, instance)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
+        val sampled = albedoMap.Sample(albedoSampler, uv)
+
+        // ⚠ Stippled, not blended — the grass fragment's argument, which is worse here: a forest's
+        // canopies overlap far deeper than blades do, and translucency would sort all of them.
+        if (CrossFade && Stipple(fragment.xy) >= fade) {
+            discard
+        }
+
+        val shade = tintRange.x
+        val normal = Math.SafeNormalize(normalWS)
+        val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
+
+        return float4(sampled.rgb * shade * (0.25f + 0.75f * light), sampled.a)
+    }
+}
+
+shader FoliageLit : FoliageBase {
+    /// Whether the frame splits its outputs — `TerrainLit.SplitOutputs`, for the trees.
+    [Permutation] val SplitOutputs: bool = false
+
+    /// The direction light travels — away from the sun. The scene pass's uniform, verbatim.
+    var lightDirection: float3
+
+    /// The frame's shadow bias, in metres — `ShadowMapRenderer.Publish`'s value.
+    var shadowConstantBias: float
+
+    /// The sun's radiance, premultiplied by intensity.
+    var lightColor: float3
+
+    var shadowSlopeBias: float
+
+    var shadowFadeRange: float
+
+    /// The sky's ambient scale — `EnvironmentLight.Intensity`, the scene pass's own number.
+    var ambientIntensity: float
+
+    /// World to view, for the cascade selection's view depth. The frame camera's matrix.
+    var view: mat4
+
+    /// The sun's cascades — `TerrainLit.cascades`' terms: always four, tail padded degenerate.
+    var cascades: ShadowCascade[4]
+
+    /// The sky's diffuse irradiance, projected into nine coefficients — the frame's own values.
+    var environmentSh: ShCoefficients
+
+    var shadowTexelSize: float2
+
+    /// The cascade atlas the frame rendered.
+    var shadowMap: Texture2D
+    var shadowSampler: Sampler
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("POSITION")] position: float3,
+        [Semantic("NORMAL")] normal: float3,
+        [Semantic("TEXCOORD0")] texcoord: float2,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        return PlantVertex(position, normal, texcoord, instance)
+    }
+
+    /// ⚠ Lit and reported with the *mesh's* normal, where the grass deliberately uses the ground's.
+    ///
+    /// A blade is optically the meadow it covers; a trunk is a cylinder the sun goes behind, and a
+    /// rock's shading is its facets. The same raw signed vector goes to `SceneNormals` under a split
+    /// frame — `TerrainTargets.normal`'s own convention — so AO and GI see the canopy's shape.
+    ///
+    /// The shadow is looked up per fragment rather than at the instance's root: a tree spans many
+    /// cascade texels, and a canopy shadowed by its own trunk's answer would flatten every crown to
+    /// one term. The grass samples at the root because a blade spans a fraction of one texel; a tree
+    /// is the opposite case.
+    [FragmentShader]
+    func Fragment([Semantic("SV_Position")] fragment: float4): TerrainTargets {
+        val sampled = albedoMap.Sample(albedoSampler, uv)
+
+        // The same stipple the preview takes — the fade must not change with the lighting.
+        if (CrossFade && Stipple(fragment.xy) >= fade) {
+            discard
+        }
+
+        val albedo = sampled.rgb * tintRange.x
+        val n = Math.SafeNormalize(normalWS)
+
+        val world = positionWS
+        val viewDepth = FrameClusters.DepthOf(Math.TransformPoint(view, world))
+
+        val sun = Lighting.Directional(lightDirection, lightColor)
+        val NdotL = saturate(dot(n, sun.l))
+
+        var visibility = 1f
+
+        if (NdotL > 0f) {
+            visibility = FrameShadow.Term(
+                shadowMap,
+                shadowSampler,
+                cascades,
+                world,
+                n,
+                NdotL,
+                viewDepth,
+                shadowTexelSize,
+                shadowConstantBias,
+                shadowSlopeBias,
+                shadowFadeRange
+            )
+        }
+
+        // The sun and the sky, and no clustered lamps — the grass's trade, made for a different
+        // reason: a lamp against a tree wants the per-object list the forward pass has and this
+        // stack deliberately does not, and the sun is what a forest is lit by. Owed with the
+        // impostors, which need the same answer.
+        var colour = albedo * Const.InvPi * sun.radiance * NdotL * visibility
+
+        var targets: TerrainTargets
+
+        if (SplitOutputs) {
+            targets.color = float4(colour, sampled.a)
+            targets.albedo = float4(albedo, 1f)
+
+            // Raw and signed — `SceneNormals`' convention, where an encode misleads every reader.
+            targets.normal = float4(n, 1f)
+        } else {
+            val irradiance = Ibl.IrradianceSh9(n, environmentSh)
+
+            colour += Ibl.Diffuse(irradiance, albedo, 1f) * ambientIntensity
+
+            targets.color = float4(colour, sampled.a)
+        }
+
+        return targets
+    }
+}

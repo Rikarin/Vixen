@@ -49,16 +49,24 @@ public sealed record TerrainAssetImportSettings : IImportSettings {
 ///         a build over a file somebody is in the middle of.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three of the four are written forward as the document; the grass type is written as
-///         its serialized record, because it is the one with a runtime reader.</b>
-///         <c>AssetTerrainSource</c> opens a <c>.vxgrass</c> chunk and hands it to the binary
-///         serializer — a game does not carry the YAML dialect, which is the editor's format — so a
-///         text chunk is ground that quietly never grows. The layer, foliage and spline documents
-///         have no runtime consumer yet (a layer rides inside its <c>.vxterrain</c>), and they stay
-///         text until one exists, on <c>MaterialImporter</c>'s precedent for the split.
+///         ⚠ <b>The layer and the spline are written forward as their documents; the grass and
+///         foliage types as their serialized records, because those two have runtime readers.</b>
+///         <c>AssetTerrainSource</c> opens a <c>.vxgrass</c> or <c>.vxfoliage</c> chunk and hands it
+///         to the binary serializer — a game does not carry the YAML dialect, which is the editor's
+///         format — so a text chunk is ground that quietly never grows and a forest that quietly
+///         never stands. The layer and spline documents have no runtime consumer yet (a layer rides
+///         inside its <c>.vxterrain</c>), and they stay text until one exists, on
+///         <c>MaterialImporter</c>'s precedent for the split.
+///     </para>
+///     <para>
+///         ⚠ <b>The fifth kind is not YAML at all.</b> A <c>.vxfol</c> is
+///         <see cref="FoliageStore" />'s packed instances — binary beside the scene for the
+///         merge-conflict reason a heightfield is — so it is carried forward as its bytes with the
+///         magic number checked: the check is what turns "a million trees at random coordinates"
+///         into a message beside the file that caused it.
 ///     </para>
 /// </remarks>
-[Importer(LayerExtension, FoliageExtension, GrassExtension, SplineExtension)]
+[Importer(LayerExtension, FoliageExtension, GrassExtension, SplineExtension, VolumeExtension)]
 public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSettings> {
     /// <summary>The vector forms these documents write — a wind direction, a spline point.</summary>
     /// <remarks>On <c>MaterialImporter</c>'s terms: registered from a static constructor rather
@@ -78,6 +86,9 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
     /// <summary>What a spline is written as.</summary>
     public const string SplineExtension = ".vxspline";
 
+    /// <summary>What a foliage volume's instances are written as.</summary>
+    public const string VolumeExtension = ".vxfol";
+
     /// <inheritdoc />
     public override int Version => 1;
 
@@ -96,6 +107,7 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
             FoliageExtension => nameof(FoliageType),
             GrassExtension => nameof(GrassType),
             SplineExtension => nameof(SplineAsset),
+            VolumeExtension => nameof(FoliageVolume),
             _ => null
         };
 
@@ -105,6 +117,13 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
         TerrainAssetImportSettings settings,
         CancellationToken cancellationToken
     ) {
+        // The instances first, because they are the one kind that is not text — reading them
+        // through a StreamReader would decode packed floats as UTF-8 and refuse its own magic.
+        if (Path.GetExtension(context.SourcePath.ToString())
+                .Equals(VolumeExtension, StringComparison.OrdinalIgnoreCase)) {
+            return await ImportVolumeAsync(context, cancellationToken).ConfigureAwait(false);
+        }
+
         string text;
 
         await using (var source = await context.OpenSourceAsync(cancellationToken).ConfigureAwait(false)) {
@@ -156,14 +175,48 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
             return context.Finish();
         }
 
-        // The grass type is compiled to the record the runtime reads back — the class remarks say
-        // why it alone is — and the other three are carried forward as their documents.
+        // The grass and foliage types are compiled to the records the runtime reads back — the
+        // class remarks say why those two are — and the layer and spline are carried forward as
+        // their documents.
         if (extension.Equals(GrassExtension, StringComparison.OrdinalIgnoreCase)) {
             WriteGrass(root, text, context);
+        } else if (extension.Equals(FoliageExtension, StringComparison.OrdinalIgnoreCase)) {
+            WriteFoliage(root, text, context);
         } else {
             Inspect(extension, root, context);
             context.Write(SubAssetId.Main, alias, System.Text.Encoding.UTF8.GetBytes(text));
         }
+
+        return context.Finish();
+    }
+
+    /// <summary>Carries a volume's instances forward as bytes, refusing what the store would.</summary>
+    /// <remarks>
+    ///     The check is the store's own magic-and-version gate rather than a full parse: an importer
+    ///     that walked every chunk would be a second reader to keep in step with
+    ///     <see cref="FoliageStore.Read" />, and the store already refuses a truncated file at load
+    ///     with a sentence naming the chunk.
+    /// </remarks>
+    static async ValueTask<ImportResult> ImportVolumeAsync(ImportContext context, CancellationToken cancellationToken) {
+        byte[] bytes;
+
+        await using (var source = await context.OpenSourceAsync(cancellationToken).ConfigureAwait(false)) {
+            using var memory = new MemoryStream();
+            await source.CopyToAsync(memory, cancellationToken).ConfigureAwait(false);
+            bytes = memory.ToArray();
+        }
+
+        if (bytes.Length < FoliageStore.Magic.Length || !bytes.AsSpan(0, FoliageStore.Magic.Length).SequenceEqual(FoliageStore.Magic)) {
+            context.Report(
+                ImportSeverity.Error,
+                "It does not begin with a foliage file's magic number. Reading it as instances "
+                + "would produce a million trees at random coordinates rather than an error."
+            );
+
+            return context.Finish();
+        }
+
+        context.Write(SubAssetId.Main, nameof(FoliageVolume), bytes);
 
         return context.Finish();
     }
@@ -204,6 +257,37 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
         context.Write(SubAssetId.Main, nameof(GrassType), Serializer.ToBytes(grass));
     }
 
+    /// <summary>Writes a foliage document as the serialized record <c>AssetTerrainSource</c> opens.</summary>
+    /// <remarks>On <see cref="WriteGrass" />'s terms exactly, one asset kind over — including the
+    ///     text fallback for a document this build cannot read, and the warning that is how somebody
+    ///     learns which build wrote it.</remarks>
+    static void WriteFoliage(YamlMapping root, string text, ImportContext context) {
+        FoliageType type;
+
+        try {
+            type = YamlSerializer.Deserialize<FoliageType>(root);
+        } catch (Exception failure) when (failure is not OperationCanceledException) {
+            context.Report(
+                ImportSeverity.Warning,
+                $"It could not be read as a {nameof(FoliageType)}: {failure.Message}. The file is "
+                + "still imported, because a field this build does not know is what an asset written "
+                + "by a newer editor looks like."
+            );
+
+            context.Write(SubAssetId.Main, nameof(FoliageType), System.Text.Encoding.UTF8.GetBytes(text));
+
+            return;
+        }
+
+        if (type.Validate() is { } problem) {
+            // A warning rather than an error — an author part-way through a file is a legal state,
+            // and the extraction system drops the volume where a person can see the count.
+            context.Report(ImportSeverity.Warning, problem);
+        }
+
+        context.Write(SubAssetId.Main, nameof(FoliageType), Serializer.ToBytes(type));
+    }
+
     /// <summary>Reads the document as its own type and reports what the type says about itself.</summary>
     /// <remarks>
     ///     ⚠ <b>A deserialisation failure is a warning rather than an error, and that is the awkward
@@ -216,7 +300,6 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
         try {
             var problem = extension.ToLowerInvariant() switch {
                 LayerExtension => YamlSerializer.Deserialize<TerrainLayerDescription>(root).Validate(),
-                FoliageExtension => YamlSerializer.Deserialize<FoliageType>(root).Validate(),
                 SplineExtension => YamlSerializer.Deserialize<SplineAsset>(root).Validate(),
                 _ => null
             };

@@ -65,4 +65,12 @@ static partial class SampleLog {
         int waiting,
         int refused
     );
+
+    [LoggerMessage(
+        EventId = 14017,
+        Level = LogLevel.Information,
+        Message = "The pines: {Volumes} foliage volume(s) drawn in the last frame, {Missing} mesh(es) still "
+            + "missing; extraction saw {Extracted} volume(s), {Refused} refused."
+    )]
+    public static partial void FoliageReport(ILogger logger, int volumes, int missing, int extracted, int refused);
 }

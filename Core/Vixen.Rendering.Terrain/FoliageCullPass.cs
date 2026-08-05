@@ -253,6 +253,7 @@ public sealed class FoliageCullPass : IDisposable {
     readonly TextureViewHandle defaultOccludersView;
 
     readonly List<FoliageChunk> chunks = [];
+    readonly List<BoundingBox> bounds = [];
     readonly List<FoliageDraw> templates = [];
     readonly List<FoliageType> settings = [];
 
@@ -540,6 +541,14 @@ public sealed class FoliageCullPass : IDisposable {
     /// </remarks>
     public int Skipped { get; private set; }
 
+    /// <summary>The buffer holding every uploaded instance, which the draw indexes through the survivors.</summary>
+    /// <remarks>
+    ///     Exposed for <see cref="FoliageDrawPass" />'s reason: the survivors are indices and
+    ///     <c>firstInstance</c> indexes something, so the draw needs the same buffer the cull read —
+    ///     a copy would be sixty-four bytes an instance to avoid a four-byte indirection.
+    /// </remarks>
+    public BufferHandle Instances => instances;
+
     /// <summary>The buffer the draw reads its survivors' indices from.</summary>
     public BufferHandle Survivors => survivors;
 
@@ -563,15 +572,24 @@ public sealed class FoliageCullPass : IDisposable {
     /// <summary>Uploads a volume's instances. Call when the volume changes, not every frame.</summary>
     /// <param name="volume">The instances.</param>
     /// <param name="draws">One entry per type that is drawn. Types not listed are skipped.</param>
+    /// <param name="origin">Where the volume's origin stands in the world, for a placed volume.</param>
     /// <returns>How many instances were uploaded.</returns>
     /// <exception cref="ArgumentNullException">There is no volume or no draw list.</exception>
     /// <exception cref="ObjectDisposedException">The pass is gone.</exception>
-    public int Upload(FoliageVolume volume, IReadOnlyList<FoliageDraw> draws) {
+    /// <remarks>
+    ///     ⚠ <b>The origin is folded into the uploaded positions, not carried to the shader.</b> The
+    ///     cull and the draw both work in world space — the view record's distances, the frustum, the
+    ///     shadow lookup — so translating here, where every record is being copied anyway, keeps
+    ///     every consumer below this line origin-blind. An editor volume painted in world space
+    ///     passes the default.
+    /// </remarks>
+    public int Upload(FoliageVolume volume, IReadOnlyList<FoliageDraw> draws, Vector3 origin = default) {
         ArgumentNullException.ThrowIfNull(volume);
         ArgumentNullException.ThrowIfNull(draws);
         ObjectDisposedException.ThrowIf(disposed, this);
 
         chunks.Clear();
+        bounds.Clear();
         templates.Clear();
         settings.Clear();
 
@@ -617,11 +635,16 @@ public sealed class FoliageCullPass : IDisposable {
             var first = InstanceCount;
 
             for (var index = 0; index < chunk.Count; index++) {
-                scratch[first + index] = FoliageCullInstanceRecord.Of(chunk.Instances[index]);
+                var record = FoliageCullInstanceRecord.Of(chunk.Instances[index]);
+
+                record.Position += origin;
+
+                scratch[first + index] = record;
                 ownerScratch[first + index] = (uint)BatchCount;
             }
 
             chunks.Add(chunk);
+            bounds.Add(new(chunk.Bounds.Minimum + origin, chunk.Bounds.Maximum + origin));
             templates.Add(draw);
             settings.Add(volume.Palette[chunk.Type]);
 
@@ -651,6 +674,12 @@ public sealed class FoliageCullPass : IDisposable {
     /// <param name="viewPosition">Where it is.</param>
     /// <param name="densityScale">How much of the foliage to draw, 0…1.</param>
     /// <param name="occluders">Last frame's depth pyramid, or <see langword="default" /> for none.</param>
+    /// <param name="distanceScale">
+    ///     A multiplier over every type's authored cull distances — the quality tier's
+    ///     <c>FoliageCullDistanceScale</c>, on the grass path's terms. The LOD thresholds are left
+    ///     alone: a tier that pulls the horizon in should not also reshuffle which mesh a nearby
+    ///     tree draws as.
+    /// </param>
     /// <returns>How many batches survived the first stage.</returns>
     /// <exception cref="ObjectDisposedException">The pass is gone.</exception>
     /// <remarks>
@@ -663,7 +692,8 @@ public sealed class FoliageCullPass : IDisposable {
         in BoundingFrustum frustum,
         Vector3 viewPosition,
         float densityScale = 1f,
-        FoliageOccluders occluders = default
+        FoliageOccluders occluders = default,
+        float distanceScale = 1f
     ) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -688,12 +718,13 @@ public sealed class FoliageCullPass : IDisposable {
         );
 
         var density = Math.Clamp(densityScale, 0f, 1f);
+        var distances = MathF.Max(distanceScale, 0f);
         var view = frustum;
 
         for (var index = 0; index < BatchCount; index++) {
             var type = settings[index];
             var draw = templates[index];
-            var visible = view.Intersects(chunks[index].Bounds);
+            var visible = view.Intersects(bounds[index]);
 
             if (visible) {
                 VisibleBatches++;
@@ -705,8 +736,8 @@ public sealed class FoliageCullPass : IDisposable {
             // here to ask how big it is, and a radius that is too small culls an instance while part
             // of it is still on screen.
             records[index].Radius = MathF.Max(type.Radius, 0.5f);
-            records[index].StartCullDistance = type.StartCullDistance;
-            records[index].EndCullDistance = type.EndCullDistance;
+            records[index].StartCullDistance = type.StartCullDistance * distances;
+            records[index].EndCullDistance = type.EndCullDistance * distances;
             records[index].DensityScale = density;
 
             records[index].Lod0 = LevelDistance(draw, 0);
@@ -832,6 +863,17 @@ public sealed class FoliageCullPass : IDisposable {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(batch, BatchCount);
 
         return ((int)records[batch].FirstInstance, (int)records[batch].InstanceCount);
+    }
+
+    /// <summary>Which palette type a batch's instances are, for the draw that binds their mesh.</summary>
+    /// <param name="batch">Which batch.</param>
+    /// <returns>The palette index the batch's chunk was filed under.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such batch.</exception>
+    public int TypeOf(int batch) {
+        ArgumentOutOfRangeException.ThrowIfNegative(batch);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(batch, BatchCount);
+
+        return chunks[batch].Type;
     }
 
     /// <summary>The batch record a batch has, as the frame's last <see cref="Prepare" /> left it.</summary>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Foliage;
 using Vixen.Graphics;
@@ -56,8 +57,16 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// <summary>How far grass cells stay resident when neither component nor document says.</summary>
     public const float DefaultGrassRange = 160f;
 
+    /// <summary>How far foliage cells stay uploaded when neither component nor document says.</summary>
+    /// <remarks>Wider than the grass's, because a tree is visible from further than a blade — the
+    ///     default type's cull distance is 250 m and a residency inside it uploads cells only to
+    ///     cull every instance in them.</remarks>
+    public const float DefaultFoliageRange = 320f;
+
     readonly Dictionary<TerrainMap, TerrainDrawSet?> sets = [];
     readonly List<(TerrainDrawSet Set, TerrainSceneEntry Entry)> drawn = [];
+    readonly Dictionary<FoliageVolume, FoliageStand?> stands = [];
+    readonly List<(FoliageStand Stand, FoliageSceneEntry Entry)> foliageDrawn = [];
     readonly HashSet<TerrainMap> placed = [];
     readonly Stopwatch clock = Stopwatch.StartNew();
     readonly TerrainFrameLighting lighting = new();
@@ -148,6 +157,18 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// <summary>How many grass fields named a weight layer their terrain does not have.</summary>
     public int GrassLayersMissing { get; private set; }
 
+    /// <summary>How many foliage volumes the last frame culled and drew.</summary>
+    public int FoliageVolumesDrawn { get; private set; }
+
+    /// <summary>How many palette types drew nothing because their mesh has not resolved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The difference between "not loaded yet" and "not in the level".</b> A number that
+    ///     falls to zero over a level's first frames is content arriving; one that stays up is a
+    ///     <c>.vxfoliage</c> whose mesh reference nothing can resolve — an unparseable name, a
+    ///     deleted asset, or a mesh with no geometry — and only the first fixes itself.
+    /// </remarks>
+    public int FoliageMeshesMissing { get; private set; }
+
     /// <summary>Whether the last build was still waiting for a shader to resolve.</summary>
     /// <remarks>
     ///     True for the first frames of a development run while the compiler works, and for ever on
@@ -192,6 +213,8 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         TerrainsDrawn = 0;
         GrassFieldsDrawn = 0;
         SharedPlacements = 0;
+        FoliageVolumesDrawn = 0;
+        FoliageMeshesMissing = 0;
         WaitingForShaders = false;
 
         // A node built without a device declines to draw — an editor opening a document before it
@@ -200,7 +223,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             return;
         }
 
-        if (scene.Terrains.Count == 0) {
+        if (scene.Terrains.Count == 0 && scene.Foliage.Count == 0) {
             // No terrain in the world is the ordinary case for most projects, and it costs nothing.
             return;
         }
@@ -218,7 +241,14 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                 set?.Dispose();
             }
 
+            // The foliage stands with them, for the same reason — the draw pass's pipeline and set
+            // layout are the mode's. The instance re-upload a rebuild costs is the first frame's.
+            foreach (var stand in stands.Values) {
+                stand?.Dispose();
+            }
+
             sets.Clear();
+            stands.Clear();
             terrainShaders = default;
             shaderMode = mode;
         }
@@ -257,7 +287,21 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             drawn.Add((set, entry));
         }
 
-        if (drawn.Count == 0) {
+        foliageDrawn.Clear();
+
+        if (scene.Foliage.Count > 0) {
+            if (ResolveFoliageShaders(frame) is { } foliageShaders) {
+                foreach (var entry in scene.Foliage) {
+                    if (StandFor(entry, output, foliageShaders) is { } stand) {
+                        foliageDrawn.Add((stand, entry));
+                    }
+                }
+            } else {
+                WaitingForShaders = true;
+            }
+        }
+
+        if (drawn.Count == 0 && foliageDrawn.Count == 0) {
             return;
         }
 
@@ -292,6 +336,10 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
                         foreach (var (set, entry) in drawn) {
                             Upload(context.CommandList, set, entry, view, time);
+                        }
+
+                        foreach (var (stand, entry) in foliageDrawn) {
+                            UploadFoliage(context.CommandList, stand, entry, view);
                         }
                     }
                 );
@@ -330,6 +378,11 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                                 field.Draw.Record(context.CommandList, field.Dispatch);
                                 GrassFieldsDrawn++;
                             }
+                        }
+
+                        foreach (var (stand, _) in foliageDrawn) {
+                            stand.Draw.Record(context.CommandList, stand.Cull, stand.Meshes);
+                            FoliageVolumesDrawn++;
                         }
                     }
                 );
@@ -625,6 +678,263 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         );
     }
 
+    /// <summary>How many cells one volume's streamer may keep uploaded, or zero for a volume that
+    ///     fits its budget and streams nothing — the tier's number, for a test.</summary>
+    internal int FoliageCellsOf(FoliageVolume volume) => stands.GetValueOrDefault(volume)?.Streamer?.Cells ?? 0;
+
+    /// <summary>The device state for one volume, made on the frame the volume first appears.</summary>
+    /// <remarks>
+    ///     Keyed by the volume object, on <see cref="SetFor" />'s terms: the extraction bridge hands
+    ///     back the same instance frame over frame, and the cull pass's instance buffer is the cost
+    ///     a rebuild would re-pay.
+    /// </remarks>
+    FoliageStand? StandFor(in FoliageSceneEntry entry, in RenderOutput output, in FoliageShaders shaders) {
+        if (stands.TryGetValue(entry.Volume, out var existing)) {
+            // Refused once is refused always — the terrain path's own trade, for its reason.
+            return existing;
+        }
+
+        FoliageStand stand;
+
+        try {
+            var cull = new FoliageCullPass(Device!, shaders.Count, shaders.Place);
+            var budget = Math.Max(1, Vegetation.FoliageCellBudget);
+
+            // ⚠ A streamer only where the tier's budget bites — the terrain surface's own line for
+            // "fits by construction". A volume inside the budget uploads whole, at once, with no
+            // first-frames hole while pages land; a bigger one uploads the cells around the camera
+            // and the budget is what FoliageCellBudget means.
+            FoliageStreamer? streamer = entry.Volume.CellCount > budget
+                ? new FoliageStreamer(entry.Volume, budget)
+                : null;
+
+            cull.Streaming = streamer;
+
+            stand = new(Device!, cull, new(Device!, shaders.Draw, output, lit: Lit), streamer);
+        } catch (ArgumentException) {
+            // A volume the pass refuses is one shape of asset, not the whole frame — the terrain
+            // path's own trade. Extraction validates the palette, so this is belt over braces.
+            stands[entry.Volume] = null;
+
+            return null;
+        }
+
+        stands[entry.Volume] = stand;
+
+        return stand;
+    }
+
+    /// <summary>Stages one volume's frame: residency, meshes, the cull's tables, and its dispatches.</summary>
+    void UploadFoliage(ICommandList commands, FoliageStand stand, in FoliageSceneEntry entry, RenderView view) {
+        var volume = entry.Volume;
+        var range = entry.Range > 0f ? entry.Range : DefaultFoliageRange;
+
+        // The residency is decided in volume space — the streamer's window was derived from the
+        // volume's own cells — so the camera steps out of the world by the entry's origin.
+        stand.Streamer?.Update([new StreamingSource(view.Position - entry.Origin, range)]);
+
+        SyncFoliageMeshes(stand, volume);
+
+        // Re-uploaded when something moved: a cell entered or left residency, a mesh arrived and
+        // its type joined the draw list, or the volume itself grew. Everything else is the steady
+        // state, and the steady state uploads nothing — which is the point of the whole pass.
+        if (stand.Streamer is { Changed: true }
+            || stand.UploadedDraws != stand.DrawList.Count
+            || stand.UploadedInstances != volume.InstanceCount) {
+            stand.Cull.Upload(volume, stand.DrawList, entry.Origin);
+            stand.Streamer?.Accept();
+
+            stand.UploadedDraws = stand.DrawList.Count;
+            stand.UploadedInstances = volume.InstanceCount;
+        }
+
+        // The instances were uploaded in world space, so the cull answers the camera's own view —
+        // no origin-shifted frustum, unlike the terrain's sample-space placement.
+        stand.Cull.Prepare(
+            view.Frustum,
+            view.Position,
+            Math.Clamp(Vegetation.FoliageDensityScale, 0f, 1f),
+            default,
+            MathF.Max(Vegetation.FoliageCullDistanceScale, 0f)
+        );
+
+        stand.Draw.Frame = Lit ? lighting : null;
+
+        var worldView = new TerrainView(view.ViewProjection, view.Position, view.Frustum);
+
+        stand.Draw.Prepare(commands, stand.Cull, in worldView);
+        stand.Cull.Record(commands);
+
+        FoliageMeshesMissing += stand.Missing.Count;
+    }
+
+    /// <summary>Turns arrived mesh assets into device buffers and draw templates, one type at a time.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A type is drawn only once its mesh is real</b> — there is no honest stand-in for a
+    ///     tree. Until then its chunks are not uploaded at all (<see cref="FoliageCullPass.Upload" />
+    ///     skips types with no draw entry), and <see cref="FoliageMeshesMissing" /> is where the wait
+    ///     is visible.
+    ///     Asking is what starts the load — <c>IMeshSource</c>'s contract — so the miss is the ask.
+    /// </remarks>
+    void SyncFoliageMeshes(FoliageStand stand, FoliageVolume volume) {
+        if (Scene?.Meshes is not { } meshes) {
+            // No source is a host that has not mounted content; every stored type is missing and
+            // says so, rather than a forest that is quietly not there.
+            for (var type = 0; type < volume.Palette.Count; type++) {
+                if (volume.Palette[type].Storage == FoliageStorage.Stored) {
+                    stand.Missing.Add(type);
+                }
+            }
+
+            return;
+        }
+
+        for (var type = 0; type < volume.Palette.Count; type++) {
+            if (stand.Meshes.ContainsKey(type)) {
+                continue;
+            }
+
+            var settings = volume.Palette[type];
+
+            // Derived types are the grass path's — nothing about them is in any file, and a .vxfol
+            // holds only stored chunks. A derived palette entry here simply has nothing to draw.
+            if (settings.Storage != FoliageStorage.Stored) {
+                continue;
+            }
+
+            if (settings.Mesh is not { Length: > 0 } name
+                || !AssetReference.TryParse(name, null, out var reference)
+                || reference.IsNull) {
+                // An unparseable or absent reference never resolves; it stays in Missing for ever,
+                // which is the counter's job — see FoliageMeshesMissing's remarks.
+                stand.Missing.Add(type);
+                continue;
+            }
+
+            if (!meshes.TryGet(reference, out var data)) {
+                stand.Missing.Add(type);
+                continue;
+            }
+
+            if (data.Positions.Length == 0 || data.Indices.Length == 0) {
+                stand.Missing.Add(type);
+                continue;
+            }
+
+            stand.Meshes[type] = FoliageDrawPass.UploadMesh(
+                Device!,
+                data.Positions,
+                data.Normals,
+                data.TexCoords,
+                data.Indices,
+                settings.Name
+            );
+
+            stand.Missing.Remove(type);
+
+            // One level until the LOD-group seam exists: the whole index buffer, no distances. The
+            // cull bins everything into level 0 and the other three commands stay zero-count.
+            stand.DrawList.Add(new(type, [new() { IndexCount = (uint)stand.Meshes[type].IndexCount }], []));
+        }
+    }
+
+    /// <summary>Resolves the cull's two compute phases and the draw pair the mode names.</summary>
+    /// <remarks>
+    ///     The non-occluding cull variants, deliberately: the frame publishes no depth pyramid for
+    ///     the ground stack yet, and compiling the Hi-Z pair for a binding nothing fills would be a
+    ///     variant no dispatch can run. The occlusion seam is
+    ///     <see cref="FoliageCullPass.Prepare" />'s <c>occluders</c> parameter, waiting.
+    /// </remarks>
+    FoliageShaders? ResolveFoliageShaders(CompositorFrame frame) {
+        var countKey = EffectKey.Of(
+            "FoliageCull",
+            [KeyValuePair.Create("Place", "false"), KeyValuePair.Create("Occlusion", "false")]
+        );
+
+        var placeKey = EffectKey.Of(
+            "FoliageCull",
+            [KeyValuePair.Create("Place", "true"), KeyValuePair.Create("Occlusion", "false")]
+        );
+
+        // The draw follows the surface's mode, on the grass's terms: the lit instances take the
+        // split decision with them, and the cull is mode-blind.
+        var drawKey = Lit
+            ? EffectKey.Of("FoliageLit", [KeyValuePair.Create("SplitOutputs", Split ? "true" : "false")])
+            : EffectKey.Of("Foliage");
+
+        if (frame.Effects.Resolve(countKey) is not { } countEffect
+            || frame.Effects.Resolve(placeKey) is not { } placeEffect
+            || frame.Effects.Resolve(drawKey) is not { } drawEffect) {
+            return null;
+        }
+
+        var count = Modules!.ModuleOf(countEffect, ShaderStage.Compute);
+        var place = Modules.ModuleOf(placeEffect, ShaderStage.Compute);
+
+        var draw = new TerrainShaders(
+            Modules.ModuleOf(drawEffect, ShaderStage.Vertex),
+            Modules.ModuleOf(drawEffect, ShaderStage.Fragment)
+        );
+
+        if (!count.IsValid || !place.IsValid || !draw.IsValid) {
+            return null;
+        }
+
+        return new(count, place, draw);
+    }
+
+    readonly record struct FoliageShaders(ShaderHandle Count, ShaderHandle Place, TerrainShaders Draw);
+
+    /// <summary>Everything one foliage volume draws with, kept across frames.</summary>
+    /// <remarks>
+    ///     Per volume rather than per frame because the cull pass owns the uploaded instance table
+    ///     — <see cref="TerrainDrawSet" />'s argument, with megabytes of records for an atlas.
+    /// </remarks>
+    sealed class FoliageStand : IDisposable {
+        readonly IGraphicsDevice device;
+
+        public FoliageStand(IGraphicsDevice device, FoliageCullPass cull, FoliageDrawPass draw, FoliageStreamer? streamer) {
+            this.device = device;
+            Cull = cull;
+            Draw = draw;
+            Streamer = streamer;
+        }
+
+        public FoliageCullPass Cull { get; }
+
+        public FoliageDrawPass Draw { get; }
+
+        /// <summary>The cell streamer, or null for a volume that fits the tier's budget whole.</summary>
+        public FoliageStreamer? Streamer { get; }
+
+        /// <summary>Each resolved type's device mesh, by palette index.</summary>
+        public Dictionary<int, FoliageMesh> Meshes { get; } = [];
+
+        /// <summary>One draw template per resolved type, in arrival order.</summary>
+        public List<FoliageDraw> DrawList { get; } = [];
+
+        /// <summary>The types still waiting for a mesh, or holding one nothing can resolve.</summary>
+        public HashSet<int> Missing { get; } = [];
+
+        /// <summary>How many draw templates the last upload covered. Negative forces the first.</summary>
+        public int UploadedDraws { get; set; } = -1;
+
+        /// <summary>And how many instances the volume held then.</summary>
+        public int UploadedInstances { get; set; } = -1;
+
+        public void Dispose() {
+            foreach (var mesh in Meshes.Values) {
+                device.Destroy(mesh.Indices);
+                device.Destroy(mesh.Vertices);
+            }
+
+            Meshes.Clear();
+            Draw.Dispose();
+            Cull.Dispose();
+            Streamer?.Dispose();
+        }
+    }
+
     /// <summary>The weight layer a name refers to, or negative for none.</summary>
     static int LayerOf(TerrainMap terrain, string? name) {
         if (name is not { Length: > 0 }) {
@@ -796,8 +1106,14 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             set?.Dispose();
         }
 
+        foreach (var stand in stands.Values) {
+            stand?.Dispose();
+        }
+
         sets.Clear();
+        stands.Clear();
         drawn.Clear();
+        foliageDrawn.Clear();
     }
 
     /// <inheritdoc />
