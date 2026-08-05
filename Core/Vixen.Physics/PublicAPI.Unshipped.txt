@@ -131,6 +131,7 @@ Vixen.Physics.Characters.CharacterMoveMode -> enum : byte
 Vixen.Physics.Characters.CharacterMoveMode.CharacterMoveMode() -> void
 Vixen.Physics.Characters.CharacterMoveMode.Falling = 1 -> Vixen.Physics.Characters.CharacterMoveMode
 Vixen.Physics.Characters.CharacterMoveMode.Flying = 2 -> Vixen.Physics.Characters.CharacterMoveMode
+Vixen.Physics.Characters.CharacterMoveMode.Swimming = 3 -> Vixen.Physics.Characters.CharacterMoveMode
 Vixen.Physics.Characters.CharacterMoveMode.Walking = 0 -> Vixen.Physics.Characters.CharacterMoveMode
 Vixen.Physics.Characters.CharacterMovement -> struct
 Vixen.Physics.Characters.CharacterMovement : Vixen.Ecs.IDefaultComponent<Vixen.Physics.Characters.CharacterMovement>
@@ -149,12 +150,20 @@ Vixen.Physics.Characters.CharacterMovement.Layer -> Vixen.Physics.PhysicsLayer
 Vixen.Physics.Characters.CharacterMovement.Shape -> Vixen.Physics.Shapes.ShapeId
 Vixen.Physics.Characters.CharacterMovement.ShapeOffset -> Vixen.Core.Mathematics.Vector3
 Vixen.Physics.Characters.CharacterMovement.SprintSpeed -> float
+Vixen.Physics.Characters.CharacterMovement.SwimAcceleration -> float
+Vixen.Physics.Characters.CharacterMovement.SwimDrag -> float
+Vixen.Physics.Characters.CharacterMovement.SwimRestImmersion -> float
+Vixen.Physics.Characters.CharacterMovement.SwimSpeed -> float
+Vixen.Physics.Characters.CharacterMovement.SwimThreshold -> float
 Vixen.Physics.Characters.CharacterMovement.TurnWithAim -> bool
+Vixen.Physics.Characters.CharacterMovement.WadeSpeedScale -> float
+Vixen.Physics.Characters.CharacterMovement.WadeThreshold -> float
 Vixen.Physics.Characters.CharacterMovement.WalkSpeed -> float
 Vixen.Physics.Characters.CharacterState -> struct
 Vixen.Physics.Characters.CharacterState.CharacterState() -> void
 Vixen.Physics.Characters.CharacterState.CoyoteRemaining -> float
 Vixen.Physics.Characters.CharacterState.Ground -> Vixen.Physics.Characters.CharacterGround
+Vixen.Physics.Characters.CharacterState.Immersion -> float
 Vixen.Physics.Characters.CharacterState.IsCrouching -> bool
 Vixen.Physics.Characters.CharacterState.JumpBufferRemaining -> float
 Vixen.Physics.Characters.CharacterState.JumpHeld -> bool
@@ -688,6 +697,7 @@ override Vixen.Physics.PhysicsLayerMask.ToString() -> string
 override Vixen.Physics.Shapes.ShapeDescription.ToString() -> string
 override Vixen.Physics.Shapes.ShapeId.ToString() -> string
 readonly Vixen.Physics.Characters.CharacterState.IsGrounded.get -> bool
+readonly Vixen.Physics.Characters.CharacterState.IsSwimming.get -> bool
 static Vixen.Physics.Bodies.BodyDescription.Create() -> Vixen.Physics.Bodies.BodyDescription
 static Vixen.Physics.Bodies.BodyDescription.Dynamic(Vixen.Physics.Shapes.ShapeId shape, Vixen.Core.Mathematics.Vector3 position) -> Vixen.Physics.Bodies.BodyDescription
 static Vixen.Physics.Bodies.BodyDescription.Kinematic(Vixen.Physics.Shapes.ShapeId shape, Vixen.Core.Mathematics.Vector3 position) -> Vixen.Physics.Bodies.BodyDescription
@@ -697,6 +707,7 @@ static Vixen.Physics.Bodies.BodyHandle.None.get -> Vixen.Physics.Bodies.BodyHand
 static Vixen.Physics.Characters.CharacterMotion.MoveTowards(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to, float maximum) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Physics.Characters.CharacterMotion.Step(in Vixen.Physics.Characters.CharacterMovement settings, ref Vixen.Physics.Characters.CharacterState state, in Vixen.Engine.Players.MoveIntent intent, Vixen.Physics.Characters.CharacterGround ground, float deltaTime) -> void
 static Vixen.Physics.Characters.CharacterMotion.TopSpeed(in Vixen.Physics.Characters.CharacterMovement settings, in Vixen.Physics.Characters.CharacterState state, in Vixen.Engine.Players.MoveIntent intent) -> float
+static Vixen.Physics.Characters.CharacterMotion.WadeScale(in Vixen.Physics.Characters.CharacterMovement settings, float immersion) -> float
 static Vixen.Physics.Characters.CharacterMotion.WantedVelocity(in Vixen.Physics.Characters.CharacterMovement settings, in Vixen.Physics.Characters.CharacterState state, in Vixen.Engine.Players.MoveIntent intent) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Physics.Characters.CharacterMovement.Default.get -> Vixen.Physics.Characters.CharacterMovement
 static Vixen.Physics.Characters.CharacterMovement.JumpSpeedForHeight(float height, float gravity) -> float

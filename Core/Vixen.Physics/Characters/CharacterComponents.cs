@@ -17,8 +17,9 @@ namespace Vixen.Physics.Characters;
 ///         four places for a transition to be forgotten.
 ///     </para>
 ///     <para>
-///         Swimming is deliberately absent. It needs water volumes, which do not exist — and a mode
-///         that could never be entered would be a promise in an enum.
+///         ⚠ <b>Appended, never reordered.</b> This is a <c>byte</c> in a component and therefore in
+///         every saved scene and on the wire; inserting a member renumbers the ones after it, and a
+///         scene saved before the change loads with its characters flying.
 ///     </para>
 /// </remarks>
 public enum CharacterMoveMode : byte {
@@ -29,7 +30,31 @@ public enum CharacterMoveMode : byte {
     Falling,
 
     /// <summary>No gravity, and the look pitch steers. A noclip camera, a drone, a jetpack.</summary>
-    Flying
+    Flying,
+
+    /// <summary>In water: buoyancy replaces gravity, and the look pitch steers the dive.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fourth member, and the row
+    ///         [29 § Where this stops](../../../docs/plan/29-players-and-possession.md) left open.</b>
+    ///         That row said "no swimming — it needs water volumes, which do not exist, and a mode that
+    ///         could never be entered would be a promise in an enum". They exist now
+    ///         ([35 § D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)),
+    ///         so the promise is kept rather than made.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Entered and left on two thresholds with a gap, never one.</b> A character standing
+    ///         in chest-deep water with a 30 cm swell crosses any single threshold twice a second, and
+    ///         the symptom is an animation state machine that stutters between wade and swim — see
+    ///         <see cref="CharacterMovement.SwimThreshold" />.
+    ///     </para>
+    ///     <para>
+    ///         <b><c>MoveIntent</c> is unchanged, and that is the point.</b> A swimming character
+    ///         produces the same intent a walking one does, so nothing about the network path changes —
+    ///         which is what a good seam is for. Diving is the existing vertical axis.
+    ///     </para>
+    /// </remarks>
+    Swimming
 }
 
 /// <summary>How a character walks. The authored half.</summary>
@@ -159,6 +184,64 @@ public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
     /// </remarks>
     public bool TurnWithAim;
 
+    /// <summary>Top speed in water, in metres a second.</summary>
+    public float SwimSpeed;
+
+    /// <summary>How hard the character accelerates towards its wanted speed in water, in m/s².</summary>
+    /// <remarks>
+    ///     Between the ground's and the air's, and closer to the air's: water resists, and a swimmer
+    ///     who could change direction as sharply as a walker reads as a fish rather than as a person.
+    /// </remarks>
+    public float SwimAcceleration;
+
+    /// <summary>How submerged the character has to be to start swimming, 0…1 of the capsule.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Paired with <see cref="WadeThreshold" />, and the gap between them is the whole
+    ///         mechanism</b>
+    ///         ([35 § D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)).
+    ///         A character standing in chest-deep water with a 30 cm swell crosses any single
+    ///         threshold twice a second; two thresholds with a gap mean it has to <em>rise</em> a
+    ///         stated amount to swim and <em>fall</em> a stated amount to wade. The gap should be at
+    ///         least the local wave amplitude the evaluator already reports, expressed as a fraction
+    ///         of the capsule.
+    ///     </para>
+    ///     <para>
+    ///         The default pair — swim at 0.8, wade at 0.6 — is a fifth of a 1.8 m capsule, which is
+    ///         36 cm of swell before it stutters.
+    ///     </para>
+    /// </remarks>
+    public float SwimThreshold;
+
+    /// <summary>How far the immersion has to fall before a swimmer wades again, 0…1.</summary>
+    /// <remarks>See <see cref="SwimThreshold" />; below this, the character walks or falls.</remarks>
+    public float WadeThreshold;
+
+    /// <summary>How submerged a floating character settles at, 0…1 of the capsule.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Where buoyancy exactly cancels gravity, which is what makes it a rest and not a
+    ///     bounce.</b> Above it the character sinks, below it the character rises, and at it nothing
+    ///     happens — Archimedes as a lerp on one number rather than a spring with a stiffness and a
+    ///     damping somebody has to tune together. The default puts a head above the water.
+    /// </remarks>
+    public float SwimRestImmersion;
+
+    /// <summary>How fast the water damps a swimmer's vertical motion, per second.</summary>
+    /// <remarks>
+    ///     Without it the restoring force is a spring with no losses, and a character dropped into a
+    ///     lake oscillates about the surface for ever. Applied as a linear per-step fraction so a step
+    ///     at 60 Hz and one at 120 agree.
+    /// </remarks>
+    public float SwimDrag;
+
+    /// <summary>How much slower wading is at the wade threshold, 0…1 of the walk speed.</summary>
+    /// <remarks>
+    ///     § D11's "walking, with a speed multiplier from the depth". Interpolated from one at dry
+    ///     land to this at the point the character starts swimming, so there is no step in speed at
+    ///     the moment the mode changes.
+    /// </remarks>
+    public float WadeSpeedScale;
+
     /// <summary>
     ///     A human: 4 m/s walking, 7 sprinting, 2 crouched, jumping about 1.1 m under doubled gravity.
     /// </summary>
@@ -185,7 +268,14 @@ public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
         CoyoteTime = 0.12f,
         JumpBufferTime = 0.12f,
         JumpCutSpeed = 2f,
-        TurnWithAim = false
+        TurnWithAim = false,
+        SwimSpeed = 2.5f,
+        SwimAcceleration = 12f,
+        SwimThreshold = 0.8f,
+        WadeThreshold = 0.6f,
+        SwimRestImmersion = 0.85f,
+        SwimDrag = 4f,
+        WadeSpeedScale = 0.45f
     };
 
     /// <summary>The <see cref="JumpSpeed" /> that reaches a given apex under a given gravity.</summary>
@@ -252,8 +342,34 @@ public struct CharacterState {
     /// <summary>Whether the character is crouched — which may be because it cannot stand up.</summary>
     public bool IsCrouching;
 
+    /// <summary>How much of the capsule is under the water surface, 0…1.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The only new number swimming needs</b>
+    ///         ([35 § D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)),
+    ///         and every rule about wading, swimming and climbing out is a threshold on it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>State rather than an argument to <see cref="CharacterMotion.Step" />, and that is
+    ///         [16](../../../docs/plan/16-networking.md)'s requirement rather than a convenience.</b>
+    ///         A predicted step is re-simulated whenever a snapshot disagrees, so everything the rules
+    ///         read has to be part of what a rollback restores. An immersion passed in would be
+    ///         whatever the water happened to say at correction time, and the correction itself would
+    ///         then be wrong.
+    ///     </para>
+    ///     <para>
+    ///         Written by whatever knows where the water is — <c>WaterQuery.Immersion</c> is the one
+    ///         definition, and it is monotone in the capsule's height by construction, which is what
+    ///         lets the hysteresis below work at all.
+    ///     </para>
+    /// </remarks>
+    public float Immersion;
+
     /// <summary>Whether it is on ground it can stand on.</summary>
     public readonly bool IsGrounded => Ground == CharacterGround.Grounded;
+
+    /// <summary>Whether it is in water deep enough to swim in.</summary>
+    public readonly bool IsSwimming => Mode == CharacterMoveMode.Swimming;
 }
 
 /// <summary>The character controller an entity has been given.</summary>

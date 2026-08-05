@@ -76,6 +76,13 @@
         -->
         <ProjectReference Include="..\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
 
+        <!--
+          Water's device half, for the same reason the terrain factory is recognised in AppGraphics: a
+          !WaterSurface node reads the zones an ECS system folds, and the system does not exist when
+          OnConfigure registers the factory. This is where the two meet — docs/plan/35 § D3.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+
         <!-- The action system. Named here rather than taken transitively through Vixen.Engine,
              because PlatformInput is what joins it to Vixen.Platform and that seam is this
              assembly's own — see PlatformInput.cs. -->

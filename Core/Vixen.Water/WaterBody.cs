@@ -429,6 +429,40 @@ public sealed class WaterBody {
         }
     }
 
+    /// <summary>Everything this body can touch on the ground plane, its shore falloff included.</summary>
+    /// <returns>The low and high corners, in world X and Z.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Built from the <em>flattened</em> curve rather than from the control points, which is
+    ///         the same correction <c>TerrainSpline.RectOf</c> makes: a Hermite segment leaves the hull
+    ///         of its two endpoints whenever the tangents are long, and a lake whose box stopped at its
+    ///         control points would have its bends cut off — carved as a straight edge where the water
+    ///         is drawn as a curve.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Grown by <see cref="Reach" /> and not by the half-width alone</b>, because the
+    ///         shore falloff is where the carve feathers back into the ground somebody sculpted. A box
+    ///         that stopped at the boundary would cut the bank off at the waterline.
+    ///     </para>
+    /// </remarks>
+    public (Vector2 Low, Vector2 High) Bounds() {
+        var low = new Vector2(float.PositiveInfinity);
+        var high = new Vector2(float.NegativeInfinity);
+
+        foreach (var point in boundary) {
+            low = Vector2.Min(low, point);
+            high = Vector2.Max(high, point);
+        }
+
+        if (low.X > high.X) {
+            return (Vector2.Zero, Vector2.Zero);
+        }
+
+        var reach = new Vector2(Reach);
+
+        return (low - reach, high + reach);
+    }
+
     /// <summary>How far a place is from the curve on the ground plane, and where along it.</summary>
     /// <remarks>
     ///     <para>

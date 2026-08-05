@@ -7,6 +7,7 @@ using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Transforms;
+using Vixen.Rendering.Ecs;
 using Vixen.Water;
 
 namespace Vixen.Rendering.Water;
@@ -66,7 +67,7 @@ public interface IWaterSplineSource {
 /// </remarks>
 /// <param name="view">The view whose position the windows are centred on.</param>
 [UpdateInGroup(SystemPhase.PreRender)]
-public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAccess {
+public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAccess, IPostProcessShapeSource {
     // ⚠ Zones carry no transform requirement because nothing about a zone reads one: the window and
     // its claim both follow the view — see Reaches — and the entity's transform only places it in
     // the hierarchy. Bodies do require one, because a body is rasterised where its spline is.
@@ -138,9 +139,94 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     /// <summary>The state of a zone, by the entity carrying it.</summary>
     public IReadOnlyDictionary<Entity, WaterZoneState> States => states;
 
+    /// <summary>What each zone entity said, as the last fold read it.</summary>
+    /// <remarks>
+    ///     Beside <see cref="States" /> rather than folded into it, because the two are different
+    ///     things: a <see cref="WaterZoneState" /> is the kernel's — a window, a field and when it was
+    ///     last right — and the component is the document's, carrying the sea state and the
+    ///     attenuation that the <em>renderer</em> needs and the kernel has no use for.
+    /// </remarks>
+    public IReadOnlyList<(Entity Entity, WaterZoneComponent Component)> Zones => zones;
+
+    /// <summary>The simulation's water time, in seconds — the one clock the whole stack reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>[§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)'s
+    ///         first consequence, and there is exactly one of it in a running game.</b> The vertex
+    ///         stage reads it through <see cref="WaterMeshRenderer.WaterTime" />, the underwater
+    ///         volume reads it through <see cref="ShapeFor" />, and a buoyancy solver reads it
+    ///         directly. A second place to write it is a vertex stage a frame ahead of a solver, which
+    ///         is a boat that hovers — invisible until the frame rate changes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Advanced from <c>GameTime.Total</c> and not from a delta this accumulates.</b> The
+    ///         fixed-step simulation and the render both read the same accumulated clock, which is
+    ///         what the doc means by "a value derived from the same clock"; a system summing its own
+    ///         deltas would drift from the physics step by exactly the rounding, and would keep
+    ///         running while the game was paused.
+    ///     </para>
+    ///     <para>
+    ///         Settable so a test, a tool or a cinematic can pin it. <see cref="Fold" /> does not
+    ///         touch it — the seam that does is <see cref="Update" />.
+    ///     </para>
+    /// </remarks>
+    public float WaterTime { get; set; }
+
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>[§ D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part),
+    ///         and it is why [32](../../docs/plan/32-post-process-volumes.md)'s shape interface exists.</b>
+    ///         Put a <see cref="PostProcessVolume" /> with
+    ///         <see cref="PostProcessShapeKind.Custom" /> on the same entity as a
+    ///         <see cref="WaterZoneComponent" />, wire this into
+    ///         <c>PostProcessVolumeSystem.Shapes</c>, and the underwater grade applies exactly where
+    ///         the water is — waves included.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A zone with no field answers <see langword="null" />, which reaches nothing.</b>
+    ///         That is <c>PostProcessVolumeSystem.Reach</c>'s stated behaviour and the right one: the
+    ///         alternative — falling back to the volume's box — would grade a rectangle around the
+    ///         lake while the inspector looked correct.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Allocates one shape per asking entity per frame, which is a decision rather than
+    ///         an oversight.</b> The surface moves, so a cached shape is one testing against last
+    ///         frame's waves; the fold runs once a frame over the handful of entities that carry an
+    ///         underwater volume, and an object per zone per frame is cheaper than the wave sum it
+    ///         wraps.
+    ///     </para>
+    /// </remarks>
+    public IPostProcessShape? ShapeFor(Entity entity) {
+        if (!states.TryGetValue(entity, out var state) || state.Field is null) {
+            return null;
+        }
+
+        foreach (var (candidate, component) in zones) {
+            if (candidate == entity) {
+                return new UnderwaterShape(
+                    state,
+                    component.Waves,
+                    WaterTime,
+                    new(component.AttenuationDepth)
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The clock first, because everything the fold produces is read at it: a window rasterised
+    ///     against last frame's time and a surface drawn at this one's disagree by a frame, which at
+    ///     the shoreline is a texel of coverage flickering.
+    /// </remarks>
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+        WaterTime = (float)context.Time.TotalSeconds;
+
         Fold(context.World);
+
         return dependency;
     }
 

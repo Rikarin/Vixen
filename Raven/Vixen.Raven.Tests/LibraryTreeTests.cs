@@ -952,10 +952,16 @@ public class LibraryTreeTests {
 
         // Slot names only: which shader declares which is the engine's business, and qualifying them
         // here would make this fail every time a shader is renamed for reasons nothing depends on.
+        //
+        // ⚠ `waves` is the one slot with no entry in MaterialCompiler.OptionalSlots, and that is the
+        // decision this test exists to force somebody to make rather than an omission. Nothing
+        // compiles a *material* against `WaterMesh` — it is a pass of its own, composed by
+        // WaterMeshRenderer — so the material compiler has nothing to say about it, and the slot's
+        // own library default (`BufferedWaterWaves`) is what a compilation that says nothing gets.
         string[] expected = [
             "directionalShadow", "distanceField", "eighth", "fifth", "first", "fourth", "irradiance", "miss",
             "over", "punctualShadow", "second", "seventh", "shading", "sixth", "surface", "surfaceCache",
-            "third", "under"
+            "third", "under", "waves"
         ];
 
         Assert.Equal(

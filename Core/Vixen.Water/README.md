@@ -150,6 +150,138 @@ That is a real constraint on an author and the reason the panel shows metres per
 falloff at one metre a texel is a ramp, and a two-metre falloff at the same rate is two texels, which
 is neither a ramp nor a cut.
 
+## The surface mesh is the terrain's quadtree
+
+[§ D4]. `WaterSurfaceMesh` selects patches through `PatchSelector` — the *same* descent
+`TerrainLodTree` uses, extracted rather than copied — so the no-crack property, the morph and their
+two tests are written once. The only difference between the two consumers is what the vertex stage
+samples for height.
+
+⚠ **Water makes a crack worse than a terrain does, not better.** A crack in a terrain shows a sliver
+of skybox for a frame; a crack in a flat specular surface shows a bright line that reads as a
+rendering artefact from four hundred metres. Which is why `WaterSurfaceMeshTests` is written before
+the renderer rather than after the first screenshot.
+
+**The finest node's vertex spacing is the field's texel spacing, by construction.** The root spans the
+window's `Resolution − 1` quads rounded up to whole patches, so a 512 m window at 257 texels gives
+256 quads at two metres — one vertex per texel at level zero. Any other choice makes the surface
+either carry detail the field cannot supply or throw away detail it can.
+
+⚠ **A node's box is grown by the sea state's maximum amplitude.** A node bounded by its rest height is
+one culled away while a crest is still in front of the camera, and the symptom is a strip of missing
+sea that appears only when the wind rises. `WaterFieldPyramid` is what makes asking cheap: a reduction
+of the field's coverage and surface range, so "is any of this 128-metre square wet, and how tall does
+it get" is nine lookups whatever the node's size, rather than a scan.
+
+⚠ **The far mesh and the edge fade are one decision.** The skirt to the horizon has no field under it
+and so no waves; meeting the window's full-height waves directly puts a step the height of a crest
+along a straight line at the horizon, in every frame. So the amplitude ramps to zero across
+`EdgeFade` and the two agree exactly where they meet — **which is the one place the drawn surface is
+deliberately not the queried one.** The fade is in the mesh rather than in the evaluator, because in
+the evaluator it would make every buoyancy query depend on where the *camera* is: a raft that rides
+differently depending on where somebody is looking, which is § D2's seam broken in the worst way.
+Here the disagreement is confined to a band the view is half a window from.
+
+## Carving is a reserved edit layer, and the machinery existed
+
+[§ D5]. `WaterCarve` writes into the terrain's reserved `Water` layer, alongside Splines and Scatter,
+on [31 § D4]'s contract and with **no change to it** — which is the evidence doc 35 claims it is: the
+feature that most obviously wants non-destructive terrain deformation was not in scope when the
+mechanism was designed, and needed nothing added to it.
+
+**The bed a body carves is the bed the field rasterises, by construction.** Both read
+`WaterBody.Sample` — the surface height minus the coverage-weighted bed depth — so the shoreline the
+terrain is cut to and the shoreline the water is drawn at cannot disagree. That is § D2's argument
+applied to the ground rather than to the surface, and it is why `WaterCarve` takes a `WaterBody`
+rather than a `TerrainSplineProfile`.
+
+⚠ **A carve only ever cuts, and a raise only ever raises.** The bed is where a body *wants* the
+ground, not where it insists on it: ground already deeper than the bed is a trench somebody dug on
+purpose, and a lake whose surface sits above a valley floor would otherwise fill the valley in.
+
+⚠ **`Regenerate` resolves every body at each sample and combines by min and max — it does not carve
+them in turn.** Carving in turn is order-dependent twice over: a later body's clear erases an
+earlier one's bed wherever the two rects overlap, and even without that the last writer wins. The
+symptom is a lake that gets shallower when an unrelated body is moved.
+
+⚠ **The carve profile has three numbers where Unreal's brush has twenty.** The channel depth, the ramp
+and the outward falloff are the *body's*, not the carve's. The terracing, the two octaves of curl and
+the shape blur are a procedural shoreline generator living inside a water body, and every one of them
+is a terrain brush an author runs on a layer above — which survives the body being moved, because it
+is in a different layer. That is the gate § D5 says to check the decision against, and it is a test.
+
+## Buoyancy is pontoons, and the rest is measured rather than tuned
+
+[§ D10]. `Buoyancy.Solve` takes a body's pontoons and its placement, asks the evaluator where the
+surface is over each, and produces a force at each pontoon's own world position — which is what makes
+a body pitch when one end is lifted rather than bob without rolling.
+
+**The submerged fraction is the exact spherical cap, not a linear ramp on the depth.** A linear
+approximation is wrong by a third at half submersion, which is precisely where a floating body rests —
+so a crate tuned against it sits at a waterline the arithmetic never predicted. ⚠ It is saturated:
+the expression is exactly one at full submersion only in exact arithmetic, and a fraction above one is
+lift above Archimedes. The property test found that, which is what a property test is for.
+
+⚠ **It reads the simulation's water time and never a frame time.** A force computed from an
+interpolated render-time surface changes when the frame rate does, and in a networked game that is a
+client and a server disagreeing about where a boat is.
+
+⚠ **Jolt's own buoyancy impulse is deliberately not used.** It takes a *plane*, which is exactly the
+approximation a wave surface is not — and using it would put a second definition of the water surface
+inside the physics engine, where the seam test cannot reach it.
+
+⚠ **A current is a drag towards the flow, not a push in its direction.** A constant push accelerates a
+raft for ever and it ends the river faster than the water. The test measures a raft reaching about the
+river's own speed and staying there.
+
+The convergence test ships with its negative control: with the damping removed the same body is still
+moving half a metre a second after five seconds, so the settling is the damping's doing rather than
+the integrator's.
+
+**What is not here is the join.** The `BuoyancyBody` component, the Jolt force application, the debug
+draw and the networked predicted body are W7's device- and world-facing half; § D1 puts the physics
+join in its own assembly rather than a reference from here to Jolt, and it is not built.
+
+## Ripples are a sliding window, and every number in it is a bound
+
+[§ D12]. `WaterRipples` is a height field and its velocity, advanced by an explicit wave-equation step,
+with entities injecting into it — and the evaluator adds it, so a second boat rides the first one's
+wake and the buoyancy solver feels it.
+
+⚠ **This runs on the CPU even when a GPU simulation is running, and that is stated behaviour rather
+than duplication.** Buoyancy sampling a GPU texture cannot see the current frame's step without a
+stall. So the same injections are simulated here at a lower resolution, and the two are compared at a
+**stated tolerance that is not exact** — unlike everything else in this assembly. That asymmetry is
+why the ripple contribution is a separate argument to the evaluator: the closed-form part is exact and
+answerable at any past time, the simulated part is neither, and the network path asks for the first
+alone by passing no ripples at all.
+
+⚠ **An injection goes into the velocity, not the height.** Writing the height holds the surface at a
+shape until something else moves it, so a boat sitting still would carve a permanent hole in the lake;
+a velocity impulse propagates away as a ring, which is what a splash is.
+
+⚠ **The Courant limit is refused rather than discovered.** Past `c ≤ Δx ⁄ (Δt√2)` an explicit wave
+equation does not look wrong — it grows without bound in a few dozen steps and every consumer
+downstream reads a NaN. `WaterRippleSettings.Validate` is where that becomes a message.
+
+⚠ **The edge is damped to nothing rather than clamped**, or the boundary is a mirror and a wake
+returns to meet itself a second later — which reads as the lake having invisible walls exactly as far
+away as the window is wide. The test measures that against a mirrored control.
+
+⚠ **The window scrolls by shifting its contents, unlike `WaterField`, which forgets them.** A field is
+a function of bodies and ground that can be recomputed; a simulation's state *is* its history. The
+shift is by whole texels, which is why the origin snaps: a window moving by a fraction of a texel
+resamples its own state every step, and a resampling filter applied repeatedly is a low-pass filter —
+the wake would blur away while walking and be sharp again the moment the camera stopped.
+
+**The injection budget is spent in arrival order and the overflow is a number.** A scene over budget
+has *arbitrary* ripples rather than merely fewer, and a budget nobody can see is one nobody raises
+before shipping.
+
+**What is not here is the device half.** The compute dispatch over W0's ping-pong pair, the CPU/GPU
+seam test at its stated non-exact tolerance, and the wake and splash hooks for `Vixen.Vfx` are W8's
+other half and are not built.
+
 ## What is not here
 
 The renderer (`Vixen.Rendering.Water`), the editor (`Vixen.Editor.Water`), the Raven modules, the

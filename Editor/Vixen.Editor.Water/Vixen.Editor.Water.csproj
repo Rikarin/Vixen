@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Water</RootNamespace>
+        <Description>
+            The water toolset's editor half: one viewport mode, the draw gesture that lays a body's
+            curve on the ground, the profile handles a river's width and depth are dragged by, the
+            zone panel's derived readouts, and the commands that make each of them one undo entry.
+            The kernel it edits is Core/Vixen.Water and is not this.
+        </Description>
+        <PackageTags>editor;water;ocean;river;mode;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            IEditorMode, the command registry and the keymap: the shell's vocabulary, which is what a
+            mode is expressed in.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+
+        <!--
+            The viewport, for Vixen.Editor.Terrain's reason: a gesture has to know which pane the
+            pointer is in to turn it into a ray, and none of that is on a PointerEvent.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
+
+        <!--
+            [Inspector] and [Header]. The zone panel is a settings object rather than dialog code —
+            docs/plan/35 § Part 2 — so the attributes are the panel, and the derived readouts beside
+            them are what a resolution means in metres.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
+
+        <!--
+            The project model and the plugin contract the toolset registers itself through. Doc 36
+            § P3: a toolset that was a partial of the editor's application could only exist in an
+            editor compiled with it.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+
+        <!--
+            The YAML writer, for the one file this toolset produces: a drawn curve is written beside
+            the scene as a .vxspline, because a body names its curve by *name* — docs/plan/35 § D6 —
+            and a curve that existed only in the editor's memory is a lake that disappears when the
+            project is reopened.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!-- The kernel: the bodies, the spectrum, the field, the carve. -->
+        <ProjectReference Include="..\..\Core\Vixen.Water\Vixen.Water.csproj" />
+
+        <!-- And WaterZoneComponent / WaterBodyComponent, which is what a scene says about one. -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            [Inspector] members of its own — which both settings types here do — has to name the
+            generator.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Water.Tests" />
+    </ItemGroup>
+
+</Project>

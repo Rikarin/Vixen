@@ -49,7 +49,7 @@ public static class CharacterMotion {
         state.Ground = ground;
 
         Crouch(settings, ref state, intent);
-        Mode(ref state);
+        Mode(settings, ref state);
         Jump(settings, ref state, intent, deltaTime);
         Fall(settings, ref state, deltaTime);
         Steer(settings, ref state, intent, deltaTime);
@@ -66,10 +66,42 @@ public static class CharacterMotion {
     static void Crouch(in CharacterMovement settings, ref CharacterState state, in MoveIntent intent) =>
         state.IsCrouching = !settings.CrouchShape.IsNone && intent.IsHeld(MoveButtons.Crouch);
 
-    static void Mode(ref CharacterState state) {
+    /// <summary>
+    ///     Which mode the character is in, with the water thresholds resolved before the ground.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two thresholds with a gap, and the gap is the whole mechanism</b>
+    ///         ([35 § D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)).
+    ///         Entering needs <see cref="CharacterMovement.SwimThreshold" /> and leaving needs the
+    ///         immersion to fall all the way back to <see cref="CharacterMovement.WadeThreshold" />, so
+    ///         a character standing in chest-deep water with a swell has to actually rise or fall
+    ///         rather than be caught by a wave crossing one line. With a single threshold the symptom
+    ///         is an animation state machine stuttering between wade and swim twice a second.
+    ///     </para>
+    ///     <para>
+    ///         <b>Water beats the ground, and that is the right precedence.</b> A character wading out
+    ///         of its depth is still standing on the bed at the moment it starts to swim; asking the
+    ///         ground first would keep it walking along the bottom of a lake. Coming back the other
+    ///         way, an immersion below the wade threshold falls through to the ordinary ground test —
+    ///         which is § D11's "exit if there is ground within a step height", answered by the probe
+    ///         the walk mode already does rather than by a second one.
+    ///     </para>
+    /// </remarks>
+    static void Mode(in CharacterMovement settings, ref CharacterState state) {
         if (state.Mode == CharacterMoveMode.Flying) {
             // Flight is entered and left by whatever granted it, never by the ground: a drone that
             // landed and silently became a walker is a drone that cannot take off again.
+            return;
+        }
+
+        var swim = MathF.Max(settings.SwimThreshold, 0f);
+        var wade = Math.Clamp(settings.WadeThreshold, 0f, swim);
+
+        if (swim > 0f
+            && (state.Immersion >= swim || (state.Mode == CharacterMoveMode.Swimming && state.Immersion > wade))) {
+            state.Mode = CharacterMoveMode.Swimming;
+
             return;
         }
 
@@ -101,7 +133,10 @@ public static class CharacterMotion {
 
         state.JumpBufferRemaining = MathF.Max(0f, state.JumpBufferRemaining - deltaTime);
 
-        if (state.Mode != CharacterMoveMode.Flying
+        // ⚠ Swimming joins flying in having no jump. There is nothing to push off, and a buffered
+        // press that fired the moment a swimmer's feet found the bed would launch them out of the
+        // lake — which is the bug the buffer exists to avoid at the other end.
+        if (state.Mode is not (CharacterMoveMode.Flying or CharacterMoveMode.Swimming)
             && state.JumpBufferRemaining > 0f
             && state.CoyoteRemaining > 0f) {
             state.Velocity = WithY(state.Velocity, settings.JumpSpeed);
@@ -140,9 +175,40 @@ public static class CharacterMotion {
                 // would hold 0.67 for ever and be slower the faster the simulation ran.
                 break;
 
+            case CharacterMoveMode.Swimming:
+                Float(settings, ref state, deltaTime);
+                break;
+
             default:
                 break;
         }
+    }
+
+    /// <summary>Buoyancy and drag, which is what replaces gravity for a swimmer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Archimedes as a lerp on one number.</b> The lift exactly cancels gravity at
+    ///         <see cref="CharacterMovement.SwimRestImmersion" />, is stronger below it and weaker
+    ///         above — so a character dropped into a lake settles at a stated immersion instead of
+    ///         bobbing about a spring somebody had to tune a stiffness and a damping for together.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The drag is what makes the rest a rest rather than an oscillation.</b> A restoring
+    ///         force with no losses is a pendulum: a character dropped in from a height would rise
+    ///         above the surface, fall back through it and keep going, for ever. Applied as a linear
+    ///         per-step fraction and clamped, so a step at 60 Hz and one at 120 agree and neither can
+    ///         overshoot into a reversal.
+    ///     </para>
+    /// </remarks>
+    static void Float(in CharacterMovement settings, ref CharacterState state, float deltaTime) {
+        var rest = MathF.Max(settings.SwimRestImmersion, 1e-3f);
+        var lift = -settings.Gravity * (state.Immersion / rest);
+
+        var vertical = state.Velocity.Y + ((settings.Gravity + lift) * deltaTime);
+
+        vertical -= vertical * Math.Clamp(settings.SwimDrag * deltaTime, 0f, 1f);
+
+        state.Velocity = WithY(state.Velocity, vertical);
     }
 
     static void Steer(
@@ -156,6 +222,7 @@ public static class CharacterMotion {
         var acceleration = state.Mode switch {
             CharacterMoveMode.Walking => settings.Acceleration,
             CharacterMoveMode.Flying => settings.Acceleration,
+            CharacterMoveMode.Swimming => settings.SwimAcceleration,
             _ => settings.AirAcceleration
         };
 
@@ -163,6 +230,27 @@ public static class CharacterMotion {
 
         if (state.Mode == CharacterMoveMode.Flying) {
             state.Velocity = MoveTowards(state.Velocity, wanted, step);
+            return;
+        }
+
+        if (state.Mode == CharacterMoveMode.Swimming) {
+            // ⚠ **The vertical is steered only when it is asked for, and left to Float otherwise.**
+            // Moving the whole vector towards a wanted of zero — which is what no stick input is —
+            // would damp the buoyant rise as well, and a swimmer who let go of the controls would
+            // hang wherever they were instead of surfacing. Diving is the existing vertical axis:
+            // WantedVelocity pitches the direction, exactly as it does for a flier.
+            var swum = MoveTowards(
+                new Vector3(state.Velocity.X, 0f, state.Velocity.Z),
+                new Vector3(wanted.X, 0f, wanted.Z),
+                step
+            );
+
+            var climb = wanted.Y != 0f
+                ? MoveTowards(new Vector3(0f, state.Velocity.Y, 0f), new Vector3(0f, wanted.Y, 0f), step).Y
+                : state.Velocity.Y;
+
+            state.Velocity = new(swum.X, climb, swum.Z);
+
             return;
         }
 
@@ -195,7 +283,7 @@ public static class CharacterMotion {
     ) {
         var speed = TopSpeed(settings, in state, intent);
 
-        if (state.Mode != CharacterMoveMode.Flying) {
+        if (state.Mode is not (CharacterMoveMode.Flying or CharacterMoveMode.Swimming)) {
             // MoveIntent.WorldDirection is the yaw's frame and never the pitch's, so a character
             // walking forward while looking at the sky walks along the ground.
             return intent.WorldDirection() * speed;
@@ -207,8 +295,8 @@ public static class CharacterMotion {
             return Vector3.Zero;
         }
 
-        // Flying is the one mode the pitch steers, which is what makes a drone able to climb without
-        // a second axis nobody has bound.
+        // Flying and swimming are the two modes the pitch steers, which is what makes a drone able to
+        // climb and a swimmer able to dive without a second axis nobody has bound.
         var pitched = new Vector3(direction.X, MathF.Sin(intent.Pitch), direction.Z);
         var length = pitched.Length();
 
@@ -226,11 +314,43 @@ public static class CharacterMotion {
     ///     knee height — plainly does not.
     /// </remarks>
     public static float TopSpeed(in CharacterMovement settings, in CharacterState state, in MoveIntent intent) {
-        if (state.IsCrouching) {
-            return settings.CrouchSpeed;
+        if (state.Mode == CharacterMoveMode.Swimming) {
+            return settings.SwimSpeed;
         }
 
-        return intent.IsHeld(MoveButtons.Sprint) ? settings.SprintSpeed : settings.WalkSpeed;
+        var ground = state.IsCrouching
+            ? settings.CrouchSpeed
+            : intent.IsHeld(MoveButtons.Sprint) ? settings.SprintSpeed : settings.WalkSpeed;
+
+        return ground * WadeScale(settings, state.Immersion);
+    }
+
+    /// <summary>How much of its speed a character keeps at a given immersion, 0…1.</summary>
+    /// <param name="settings">How the character walks.</param>
+    /// <param name="immersion">How much of the capsule is under the surface, 0…1.</param>
+    /// <returns>The multiplier.</returns>
+    /// <remarks>
+    ///     ⚠ <b>It reaches its slowest exactly where swimming starts, which is why there is no step in
+    ///     speed at the transition.</b> § D11 asks for "walking, with a speed multiplier from the
+    ///     depth"; a multiplier that bottomed out anywhere else would make the moment a character
+    ///     begins to swim a moment it also visibly changes pace, and the two would be blamed on each
+    ///     other.
+    /// </remarks>
+    public static float WadeScale(in CharacterMovement settings, float immersion) {
+        var swim = MathF.Max(settings.SwimThreshold, 0f);
+
+        if (!(swim > 0f) || immersion <= 0f) {
+            return 1f;
+        }
+
+        // ⚠ Zero takes the default rather than meaning "stops dead in the shallows". A component is
+        // a struct in a zeroed column, so a scene that names SwimThreshold and nothing else would
+        // otherwise have characters that cannot move at chest depth — a bug nobody typed.
+        var slowest = settings.WadeSpeedScale == 0f
+            ? CharacterMovement.Default.WadeSpeedScale
+            : Math.Clamp(settings.WadeSpeedScale, 0f, 1f);
+
+        return float.Lerp(1f, slowest, Math.Clamp(immersion / swim, 0f, 1f));
     }
 
     /// <summary>The same vector with a different vertical component.</summary>

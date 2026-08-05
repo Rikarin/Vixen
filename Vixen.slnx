@@ -431,6 +431,14 @@
     heightfield kernel it edits is Core/Vixen.Terrain, deliberately not under Editor/, for the
     reason Core/Vixen.Geometry is not: arithmetic with no document, no selection and no device.
 
+    Vixen.Editor.Water is doc 35 § W9, and the smallest of these three by a long way — for a
+    stated reason rather than by luck. Doc 35 § "One mode, not two" says water needs one mode and
+    most of the time not even that: placing a lake is placing an entity and editing its shape is
+    editing a spline, both of which the existing tools already do. What is left is the three verbs
+    that are not entity editing — draw a body's curve on the ground, drag its profile handles, and
+    preview what its carve did to the terrain — plus the zone panel, whose whole job is turning a
+    resolution into metres per texel and megabytes before somebody types one.
+
     Vixen.Editor.Plugin is the contract a third party writes against, and the only
     project under Editor/ whose public surface is checked against a baseline — doc 11
     asks for a stricter promise there than anywhere else in the editor. It references
@@ -480,6 +488,8 @@
     <Project Path="Editor/Vixen.Editor.Blockout.Tests/Vixen.Editor.Blockout.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Terrain/Vixen.Editor.Terrain.csproj" />
     <Project Path="Editor/Vixen.Editor.Terrain.Tests/Vixen.Editor.Terrain.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Water/Vixen.Editor.Water.csproj" />
+    <Project Path="Editor/Vixen.Editor.Water.Tests/Vixen.Editor.Water.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors/Vixen.Editor.AssetEditors.csproj" />

@@ -10,6 +10,29 @@ using Xunit;
 
 namespace Vixen.Editor.App.Tests;
 
+/// <summary>The tests that contribute a drawer to the process-wide <c>DrawerRegistry.Default</c>.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>xunit runs test classes in parallel and the drawer registry is a global.</b> Both
+///         classes in this collection stand an editor up, register a drawer for <c>decimal</c> and
+///         assert which one resolves — so two of them running at once each see the other's, and the
+///         failure is <c>"MoneyDrawer" != "SampleDrawer"</c> in whichever lost the race. The plugin
+///         contract is working exactly as designed in both; what is shared is a static neither test
+///         owns.
+///     </para>
+///     <para>
+///         ⚠ <b>Latent rather than new.</b> The pair happened to interleave harmlessly until the
+///         editor grew a fifth mode and the timing shifted, and then it went red in a change that had
+///         nothing to do with inspectors — which is the worst way to meet a race. Same treatment, and
+///         the same reason, as <c>SharedTypeRegistry</c> in <c>Vixen.Ui.Controls.Advanced.Tests</c>.
+///     </para>
+/// </remarks>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class SharedDrawerRegistry {
+    /// <summary>What the two classes name.</summary>
+    public const string Name = "DrawerRegistry";
+}
+
 /// <summary>Doc 36 § D3's attributes, in a project script and in a plugin, identically.</summary>
 /// <remarks>
 ///     <para>
@@ -34,6 +57,7 @@ namespace Vixen.Editor.App.Tests;
 ///         testing the attributes against one would be testing a configuration nobody ships.
 ///     </para>
 /// </remarks>
+[Collection(SharedDrawerRegistry.Name)]
 public class DeclaredContributionTests {
     /// <summary>One file declaring all seven, which is the whole surface in one place.</summary>
     const string Declarations = """

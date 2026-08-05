@@ -29,6 +29,15 @@
         -->
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
 
+        <!--
+            The quadtree, and only the quadtree — docs/plan/35 § D4: "one quadtree, not two". Unreal
+            has a landscape LOD system and a water LOD system, with two morphs, two sets of bias cvars
+            and two ways to get a crack; PatchSelector is the descent both consumers share, and the
+            no-crack and morph-continuity tests are written once because of it. Vixen.Terrain opens no
+            device either, so this costs the kernel nothing it was promising not to have.
+        -->
+        <ProjectReference Include="..\Vixen.Terrain\Vixen.Terrain.csproj" />
+
         <!-- What the generated descriptors are registered into. -->
         <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
 

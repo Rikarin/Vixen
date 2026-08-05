@@ -31,6 +31,9 @@
         <!-- The modules this editor ships, which is the only reason these references are here. -->
         <ProjectReference Include="..\Vixen.Editor.Blockout\Vixen.Editor.Blockout.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
+
+        <!-- Doc 35 § W9's toolset, on exactly the terrain module's terms. -->
+        <ProjectReference Include="..\Vixen.Editor.Water\Vixen.Editor.Water.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Diagnostics\Vixen.Editor.Diagnostics.csproj" />
         <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Scripts\Vixen.Editor.Scripts.csproj" />

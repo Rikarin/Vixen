@@ -4,7 +4,7 @@ slug: rendering/reading-the-frame
 kind: guide
 area: Rendering
 summary: Two ways for a pass to consume its own output — a snapshot of a target inside one frame, and a pair of targets alternating across them — and why both are resources the render graph owns rather than barriers somebody remembers.
-api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource]
+api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource, T:Vixen.Rendering.Water.WaterSurfaceAsset, T:Vixen.Rendering.Water.WaterMeshRenderer, T:Vixen.Rendering.Water.WaterSurfacePass, T:Vixen.Rendering.Water.WaterNodeRecord, T:Vixen.Rendering.Water.WaterMeshShaders, T:Vixen.Rendering.Water.WaterMeshView, T:Vixen.Rendering.Water.WaterMeshSettings, T:Vixen.Rendering.Water.UnderwaterShape, R:Water/Water, R:Water/WaterMesh, T:Vixen.Shaders.Generated.WaterKeys, T:Vixen.Shaders.Generated.WaterMeshKeys]
 tags: [rendering, compositor, render-graph, water]
 since: 0.1
 status: stable
@@ -127,7 +127,8 @@ declared for storage alone is refused by name rather than left dirty.
 ```yaml
 game: !Sequence
   children:
-    # … the lit pass, then the water surface pass writing WaterSurface and WaterNormal …
+    # … the lit pass …
+    - !WaterSurface { surface: WaterSurface, normal: WaterNormal, sceneDepth: SceneDepth, view: Camera }
     - !Copy   { source: SceneColour, destination: SceneColourCopy }
     - !Water  { behind: SceneColourCopy, output: SceneColour, view: Camera }
 ```
@@ -140,6 +141,23 @@ on one driver and not another.
 ⚠ **Its alpha is the waterline mask, not an opacity.** A camera straddling the surface needs two
 treatments in one frame divided by a curve a post-process volume's single per-frame weight cannot
 express, and the pass already knows per pixel which side it is on.
+
+⚠ **All three nodes, in that order, or there is no wet pixel.** `!WaterSurface` is what draws the
+geometry — `WaterMeshRenderer` over `WaterSurfacePass`, one instanced draw of the terrain's own grid
+patch per zone plus a second for the far skirt. Without it `!Water` reads a cleared mask, finds no
+coverage anywhere and passes the frame through unchanged, which is a water stack that is wired, tested
+and invisible.
+
+⚠ **The surface tests depth and never writes it.** The composite unprojects the *scene* depth to find
+what is behind the water; a surface that wrote depth would put itself there and the water would be
+integrated against itself — clear at every depth, with nothing in a capture to say why. And the far
+skirt is drawn *first*, because with depth writes off nothing arbitrates between two fragments at one
+pixel except which came last.
+
+**Underwater is a volume rather than a node.** `UnderwaterShape` is doc 32's `IPostProcessShape`, and
+`WaterZoneSystem` is the source that supplies it — per zone rather than per body, because the field
+has already resolved a river mouth into one place. What it does *not* answer is the waterline: that is
+the mask `!Water` writes in alpha, and the composite that reads it is not built.
 
 What supplies the water's own planes is a scene: `WaterZoneComponent` and `WaterBodyComponent` on
 ordinary entities, folded by `WaterZoneSystem` into the fields the kernel owns and uploaded by

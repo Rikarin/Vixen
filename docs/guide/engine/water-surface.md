@@ -4,7 +4,7 @@ slug: engine/water-surface
 kind: guide
 area: Engine
 summary: One definition of the water surface — a body from a spline and a profile, a sea state from a spectrum, a field of height, flow and ground, and the evaluator that the renderer, the buoyancy solver and a gameplay query all call.
-api: [T:Vixen.Water.WaterZone, T:Vixen.Water.WaterZoneState, T:Vixen.Water.WaterZoneUpdate, T:Vixen.Water.WaterInfoPrecision, T:Vixen.Water.WaterQuery, T:Vixen.Water.IWaterFieldSource, T:Vixen.Water.WaterEvaluator, T:Vixen.Water.WaterSample, T:Vixen.Water.WaterAttenuation, T:Vixen.Water.IWaterRipples, T:Vixen.Water.WaterBody, T:Vixen.Water.WaterBodyKind, T:Vixen.Water.WaterProfilePoint, T:Vixen.Water.WaterBodyContribution, T:Vixen.Water.WaterField, T:Vixen.Water.WaterFieldDescription, T:Vixen.Water.WaterFieldSample, T:Vixen.Water.IWaterGround, T:Vixen.Water.FlatWaterGround, T:Vixen.Water.WaterWaveSpectrum, T:Vixen.Water.WaterWaveCount, T:Vixen.Water.GerstnerWave, T:Vixen.Water.WaterMath]
+api: [T:Vixen.Water.WaterZone, T:Vixen.Water.WaterZoneState, T:Vixen.Water.WaterZoneUpdate, T:Vixen.Water.WaterInfoPrecision, T:Vixen.Water.WaterQuery, T:Vixen.Water.IWaterFieldSource, T:Vixen.Water.WaterEvaluator, T:Vixen.Water.WaterSample, T:Vixen.Water.WaterAttenuation, T:Vixen.Water.IWaterRipples, T:Vixen.Water.WaterBody, T:Vixen.Water.WaterBodyKind, T:Vixen.Water.WaterProfilePoint, T:Vixen.Water.WaterBodyContribution, T:Vixen.Water.WaterField, T:Vixen.Water.WaterFieldDescription, T:Vixen.Water.WaterFieldSample, T:Vixen.Water.IWaterGround, T:Vixen.Water.FlatWaterGround, T:Vixen.Water.WaterWaveSpectrum, T:Vixen.Water.WaterWaveCount, T:Vixen.Water.GerstnerWave, T:Vixen.Water.WaterMath, T:Vixen.Water.WaterSurfaceMesh, T:Vixen.Water.WaterFieldPyramid, T:Vixen.Water.WaterCarve, T:Vixen.Water.WaterCarveProfile, T:Vixen.Water.Buoyancy, T:Vixen.Water.BuoyancyPontoon, T:Vixen.Water.BuoyancySettings, T:Vixen.Water.BuoyancyForce, T:Vixen.Water.WaterRipples, T:Vixen.Water.WaterRippleSettings]
 tags: [water, ocean, river, buoyancy, gerstner, terrain]
 since: 0.1
 status: preview
@@ -119,6 +119,43 @@ exists to prevent.
 is. That is what the metres-per-texel readout is for: an eight-metre falloff at one metre a texel is a
 ramp, and a two-metre falloff at the same rate is two texels, which is neither a ramp nor a cut.
 
+### The surface mesh, and the three things it shares with the terrain
+
+```csharp no-compile="the shape of a mesh, not a compiling scene"
+var mesh = new WaterSurfaceMesh(state.Window, TerrainLodRanges.Default) { FarDistance = 8000f };
+var reduced = new WaterFieldPyramid(state.Window.Resolution);
+
+reduced.Build(state.Field!);
+mesh.Update(reduced, query.MaximumAmplitude);   // ⚠ the amplitude, or crests get culled away
+
+var patches = new List<TerrainLodNode>();
+
+mesh.SelectFar(frustum, restHeight, patches);            // the skirt first — see below
+mesh.Select(camera, frustum, patches);                   // then the window
+```
+
+The descent is `PatchSelector`, which is `TerrainLodTree`'s with the terrain taken out of it — so the
+morph, the no-crack property and the continuity property are one implementation with two consumers
+rather than Unreal's two of each. The finest node's vertex spacing *is* the field's texel spacing, by
+construction: a 512 m window at 257 texels gives 256 quads at two metres, one vertex per texel.
+
+⚠ **A node's bounding box is grown by the sea state's maximum amplitude.** A node bounded by its rest
+height is one culled away while a crest is still in front of the camera, and the symptom is a strip of
+missing sea that appears only when the wind rises. `WaterFieldPyramid` is what makes the question
+cheap — a reduction of coverage and surface range, so "is any of this 128-metre square wet, and how
+tall does it get" is nine lookups whatever the node's size.
+
+⚠ **The far mesh is selected first and drawn first**, and the order is load-bearing: the surface tests
+depth without writing it, so nothing arbitrates between two fragments at one pixel except which came
+last — and the near mesh is the one with a field under it.
+
+⚠ **`EdgeFade` is the one place the drawn surface is deliberately not the queried one.** The skirt has
+no field under it and so no waves; meeting the window's full-height waves directly puts a step the
+height of a crest along a straight line at the horizon, in every frame. The amplitude ramps to zero
+across the band instead. It is in the mesh and not in the evaluator, because in the evaluator it would
+make a buoyancy query depend on where the *camera* is — a raft that rides differently depending on
+where somebody is looking.
+
 ### ⚠ Depth is computed, never stored
 
 `WaterField` carries surface height, flow, ground and coverage. How deep the water is at a place is
@@ -145,6 +182,45 @@ driver. It shows up in the phase, so it is linear in it: a millionth of a metre 
 a twentieth of a millimetre at five thousand. A tenth of a millimetre on a surface whose crests are
 metres, and it does not accumulate over a session because the surface is a closed form rather than a
 simulation.
+
+### Carving, buoyancy and ripples
+
+Three more things read the same field and the same evaluator, which is § D2's whole return.
+
+```csharp no-compile="the three seams, not a compiling scene"
+// The bed a body wants, cut into the terrain's reserved Water layer. Regenerated wholesale, so
+// moving a river restores the old bank and cuts the new one in one operation.
+WaterCarve.Regenerate(terrain, WaterCarve.LayerOf(terrain), [(river, WaterCarveProfile.Default)]);
+
+// A crate floating. The force comes back at each pontoon's own world position, which is what makes
+// a body pitch when one end is lifted.
+Buoyancy.Solve(in evaluator, pontoons, in placement, velocity, gravity, in settings, waterTime, forces);
+
+// And a wake, which the evaluator adds — so a second boat rides the first one's.
+ripples.Inject(hullPosition, 1.5f, -3f);
+ripples.Step(fixedStep);
+var surface = query.Sample(position, waterTime, ripples);
+```
+
+⚠ **A carve only ever cuts.** The bed is where a body *wants* the ground, not where it insists on it:
+ground already deeper is a trench somebody dug on purpose, and a lake whose surface sits above a
+valley floor would otherwise fill the valley in. `WaterCarve.Regenerate` resolves every body at each
+sample and combines by min and max rather than carving them in turn, because carving in turn gives a
+different answer depending on the order a scene walked its entities in.
+
+⚠ **The submerged fraction is the exact spherical cap.** A linear ramp on the depth is wrong by a
+third at half submersion, which is precisely where a floating body rests — so a crate tuned against
+one sits at a waterline the arithmetic never predicted. `Buoyancy.RestDisplacement` is the analytic
+answer the convergence test measures the solver against.
+
+⚠ **A ripple injection goes into the velocity, not the height**, or a boat sitting still carves a
+permanent hole in the lake. And `WaterRippleSettings.Validate` refuses a speed above the Courant
+limit rather than letting it be discovered: past it an explicit wave equation does not look wrong, it
+grows without bound in a few dozen steps and everything downstream reads a NaN.
+
+⚠ **The ripple window shifts its contents when it scrolls, unlike the info field, which forgets
+them.** A field can be recomputed from bodies and ground; a simulation's state *is* its history, and
+throwing it away when the camera walks would delete every wake in the scene.
 
 ## Examples
 
