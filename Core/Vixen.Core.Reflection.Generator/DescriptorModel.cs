@@ -41,7 +41,13 @@ readonly record struct DescribedMember(
     ///     Rendered argument lists for <c>CollectionFactory.Register</c>, one per collection type
     ///     reachable from this member's declared type. Empty for everything that is not a collection.
     /// </summary>
-    ImmutableArray<string> CollectionFactories
+    ImmutableArray<string> CollectionFactories,
+    /// <summary>
+    ///     Whether the member may hold <see langword="null" />, as the <i>source</i> declared it. This
+    ///     is the one fact about a member that does not survive into its <c>Type</c> — every reference
+    ///     type is nullable to the CLR — so a binder has no other way to ask it.
+    /// </summary>
+    bool IsNullable
 );
 
 /// <summary>One described type.</summary>

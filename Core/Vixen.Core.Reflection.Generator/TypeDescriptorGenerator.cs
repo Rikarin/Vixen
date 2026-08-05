@@ -200,11 +200,36 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                     canRead,
                     canWrite,
                     isInitOnly,
-                    factories.ToImmutable()
+                    factories.ToImmutable(),
+                    IsNullable(memberType)
                 )
             );
         }
     }
+
+    /// <summary>Whether the source declared the member as something that may be null.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The annotation, because the <c>Type</c> cannot carry it.</b> Every reference type is
+    ///         nullable to the CLR, so <c>SubAssetEntry[]</c> and <c>SubAssetEntry[]?</c> reach a
+    ///         binder as the same <c>Type</c> and it has no way to tell that one of them was a promise.
+    ///         Here the declaration is still a symbol, so the promise is still readable — which is the
+    ///         same reason the rest of this generator exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Oblivious counts as nullable.</b> <see cref="NullableAnnotation.None" /> is what a
+    ///         member declared in a <c>#nullable disable</c> file reports, and it means "nobody said",
+    ///         not "not null". Reading it as a promise would make the binder refuse documents that
+    ///         were legal before anyone had annotated the type they bind to.
+    ///     </para>
+    ///     <para>
+    ///         A value type is left permissive and decided by its <c>Type</c> instead: <c>int</c>
+    ///         against <c>int?</c> is a distinction the CLR already keeps, so there is nothing here to
+    ///         add and a second opinion could only disagree with the first.
+    ///     </para>
+    /// </remarks>
+    static bool IsNullable(ITypeSymbol type) =>
+        type.IsValueType || type.NullableAnnotation != NullableAnnotation.NotAnnotated;
 
     /// <summary>
     ///     Writes out the constructor for every collection type reachable from a member's declared
@@ -283,7 +308,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         bool canRead,
         bool canWrite,
         bool isInitOnly,
-        ImmutableArray<string> collectionFactories
+        ImmutableArray<string> collectionFactories,
+        bool isNullable
     ) {
         string? category = null;
         string? displayName = null;
@@ -389,7 +415,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             assetType,
             allowsNull,
             serialized,
-            collectionFactories
+            collectionFactories,
+            isNullable
         );
     }
 
@@ -567,7 +594,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             );
 
             source.AppendLine($"                    {Lower(member.IsInitOnly)},");
-            source.AppendLine($"                    {Lower(member.IsSerialized)}");
+            source.AppendLine($"                    {Lower(member.IsSerialized)},");
+            source.AppendLine($"                    {Lower(member.IsNullable)}");
             source.AppendLine("                ),");
         }
 

@@ -148,6 +148,30 @@ public sealed class MemberDescriptor {
     /// </remarks>
     public bool IsSerialized { get; }
 
+    /// <summary>Whether the member may hold <see langword="null" />, as its source declared it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one fact about a member that <see cref="MemberType" /> cannot carry.</b> Every
+    ///         reference type is nullable to the CLR, so a <c>SubAssetEntry[]</c> and a
+    ///         <c>SubAssetEntry[]?</c> arrive as the same <see cref="Type" /> — and a deserializer
+    ///         reading a document's <c>null</c> into the first of those produces an object that breaks
+    ///         its own declaration, with nothing thrown at the point where the file was to blame. The
+    ///         reflection generator reads the annotation while it is still a symbol and puts it here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>About the member, not about what is inside it.</b> A <c>string?[]</c> is a
+    ///         non-nullable member whose elements are nullable, and only the outer answer is recorded;
+    ///         a binder filling a sequence has an element <see cref="Type" /> and no descriptor to ask.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see langword="true" /> is the permissive default, deliberately.</b> A
+    ///         hand-written descriptor that does not pass it gets the behaviour that existed before
+    ///         this flag did, so adding it refuses nothing that used to be accepted — only what a
+    ///         generator has positively said is a promise.
+    ///     </para>
+    /// </remarks>
+    public bool IsNullable { get; }
+
     /// <summary>Describes a member.</summary>
     /// <param name="name">Its name.</param>
     /// <param name="memberType">What it holds.</param>
@@ -157,6 +181,7 @@ public sealed class MemberDescriptor {
     /// <param name="presentation">How it should be presented.</param>
     /// <param name="isInitOnly">Whether the setter is <c>init</c>-only.</param>
     /// <param name="isSerialized">Whether it is part of the type's data.</param>
+    /// <param name="isNullable">Whether it may hold <see langword="null" />.</param>
     public MemberDescriptor(
         string name,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] Type memberType,
@@ -165,10 +190,12 @@ public sealed class MemberDescriptor {
         Action<object, object?>? setter,
         MemberPresentation presentation = default,
         bool isInitOnly = false,
-        bool isSerialized = true
+        bool isSerialized = true,
+        bool isNullable = true
     ) {
         IsInitOnly = isInitOnly;
         IsSerialized = isSerialized;
+        IsNullable = isNullable;
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(memberType);
         Name = name;

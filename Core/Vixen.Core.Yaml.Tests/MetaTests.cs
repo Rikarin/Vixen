@@ -327,6 +327,76 @@ public sealed class MetaTests {
             YamlSerializer.ToYaml(read)
         );
     }
+
+    /// <summary>
+    ///     A document's <c>null</c> against a member that promised not to be null is refused, rather
+    ///     than bound and left for somebody else to trip over.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The point is <i>where</i> this throws.</b> Binding it produced an
+    ///         <see cref="AssetMeta" /> that broke its own declaration — <c>SubAssets</c> null despite
+    ///         being <c>SubAssetEntry[]</c> with <c>[]</c> for a default — and nothing failed until the
+    ///         content pipeline or the GUID index came to iterate it, a stack trace and a component
+    ///         away from the committed <c>.meta</c> that caused it. Refusing here makes it one of the
+    ///         three failures <see cref="AssetMetaFile.Read" /> documents, which is what both
+    ///         production <c>when</c> filters already catch.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("subAssets: null\n", "subAssets")]
+    [InlineData("extensions: null\n", "extensions")]
+    [InlineData("addressable:\n  labels: null\n", "addressable.labels")]
+    public void ANullAgainstANonNullableMemberIsRefused(string text, string path) {
+        var failure = Assert.Throws<YamlBindingException>(() => AssetMetaFile.Read(text));
+
+        Assert.Equal(path, failure.Path);
+    }
+
+    /// <summary>
+    ///     And a member that <i>is</i> declared nullable still takes it, which is the half a rule about
+    ///     collection types would have got wrong.
+    /// </summary>
+    [Fact]
+    public void ANullAgainstANullableMemberIsStillBound() {
+        var meta = AssetMetaFile.Read("importer: null\naddressable: null\n");
+
+        Assert.Null(meta.Importer);
+        Assert.Null(meta.Addressable);
+
+        // Untouched keys keep their defaults, which is the state this is not allowed to disturb.
+        Assert.Empty(meta.SubAssets);
+        Assert.Empty(meta.Extensions);
+    }
+
+    /// <summary>
+    ///     The empty value is what the refusal points at, so it has to be accepted where null is not.
+    /// </summary>
+    [Fact]
+    public void TheEmptyCollectionIsAcceptedWhereNullIsNot() {
+        var meta = AssetMetaFile.Read("subAssets: []\nextensions: {}\n");
+
+        Assert.Empty(meta.SubAssets);
+        Assert.Empty(meta.Extensions);
+    }
+
+    /// <summary>An empty string survives a round trip, which is the sharpest edge of that refusal.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A bare empty scalar and <c>''</c> are the same value to YAML and different ones here.</b>
+    ///     The binder reads an unquoted empty as the document's null — so a non-nullable
+    ///     <see cref="SubAssetEntry.Source" /> now refuses it — and the writer quotes an empty string
+    ///     for exactly that reason. The two halves have to agree or writing a defaulted sidecar would
+    ///     produce a file the next read rejects, which is a far worse bug than the one being fixed.
+    /// </remarks>
+    [Fact]
+    public void AnEmptyStringIsWrittenSoThatItReadsBackAsOne() {
+        var written = AssetMetaFile.Write(
+            new() { SubAssets = [new() { Name = "hero", Type = "Texture", Source = string.Empty }] }
+        );
+
+        Assert.Contains("source: ''", written, StringComparison.Ordinal);
+        Assert.Equal(string.Empty, Assert.Single(AssetMetaFile.Read(written).SubAssets).Source);
+    }
 }
 
 /// <summary>An asset that references others, which is what the <c>vx:</c> scalar exists for.</summary>
