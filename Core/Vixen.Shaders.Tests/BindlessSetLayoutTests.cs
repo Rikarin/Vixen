@@ -124,6 +124,83 @@ public class BindlessSetLayoutTests {
         );
     }
 
+    /// <summary>
+    ///     An unbounded array in an ordinary set is sized by the loader too, not by the device's
+    ///     ceiling.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The terrain bug, pinned. <c>Terrain.rvn</c> declares three unsized splat arrays in the
+    ///         per-material set — not the bindless slot — and the loader used to state a capacity
+    ///         only for slot 4, so each array fell back to
+    ///         <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" />. Three ceilings and two
+    ///         ordinary textures came to 3,000,002 update-after-bind sampled images on MoltenVK,
+    ///         against a limit of 1,000,000 — refused at <c>vkCreatePipelineLayout</c>, once per
+    ///         terrain effect, on every run of a sample with ground in it.
+    ///     </para>
+    ///     <para>
+    ///         Observed through a write, the way the slot-4 test observes it, because a write is what
+    ///         the capacity is for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Unbounded_arrays_outside_the_bindless_slot_are_the_loaders_size_too() {
+        using var device = new NullDevice();
+
+        var loader = new EffectLoader(device) { BindlessCapacity = 64 };
+        var effect = loader.Load(Data(Splat(2), Splat(3), Splat(5), Bounded(1), Bounded(4)));
+        var set = device.CreateDescriptorSet(effect.SetLayouts[(int)DescriptorSetSlot.PerMaterial]);
+        var view = View(device);
+
+        device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(2, view) with { ArrayIndex = 63 }]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(2, view) with { ArrayIndex = 64 }])
+        );
+
+        // And the device would have allowed vastly more — the ceiling this used to fall back to.
+        Assert.True(device.Features.MaxBindlessDescriptors > 64);
+    }
+
+    /// <summary>
+    ///     Where the arrays together would outgrow the device, each one is clamped so the sum fits.
+    /// </summary>
+    /// <remarks>
+    ///     The budget is the pipeline layout's, not the binding's: once any set is update-after-bind,
+    ///     every sampled image in the layout counts against one limit. So the loader shares it —
+    ///     the ceiling, less the bounded textures bound beside the arrays, split across the unbounded
+    ///     bindings. Here that is (100 − 2) / 3 = 32 each: 31 writes, 32 refuses, and the layout's
+    ///     total of 98 is under the device's 100 where three full asks would have been triple it.
+    /// </remarks>
+    [Fact]
+    public void The_arrays_share_the_devices_budget_rather_than_each_taking_it() {
+        using var device = new NullDevice(
+            new() {
+                Features = GraphicsDeviceFeatures.Minimum with { HasBindless = true, MaxBindlessDescriptors = 100 }
+            }
+        );
+
+        var effect = new EffectLoader(device).Load(Data(Splat(2), Splat(3), Splat(5), Bounded(1), Bounded(4)));
+        var set = device.CreateDescriptorSet(effect.SetLayouts[(int)DescriptorSetSlot.PerMaterial]);
+        var view = View(device);
+
+        device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(3, view) with { ArrayIndex = 31 }]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(3, view) with { ArrayIndex = 32 }])
+        );
+    }
+
+    /// <summary>An unsized texture array in the per-material set, as the terrain splat reflects.</summary>
+    static EffectBindingData Splat(uint binding) =>
+        new("splat", DescriptorSetSlot.PerMaterial, binding, DescriptorKind.SampledTexture, ShaderStage.Fragment) {
+            Count = 0
+        };
+
+    /// <summary>An ordinary texture beside the arrays — the height map, the hole map.</summary>
+    static EffectBindingData Bounded(uint binding) =>
+        new("map", DescriptorSetSlot.PerMaterial, binding, DescriptorKind.SampledTexture, ShaderStage.Fragment);
+
     /// <summary>Something for a table to hold.</summary>
     static TextureViewHandle View(NullDevice device) =>
         device.CreateTextureView(
