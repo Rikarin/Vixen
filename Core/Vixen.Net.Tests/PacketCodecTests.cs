@@ -264,7 +264,7 @@ public sealed class PacketCodecTests {
 
     [Fact]
     public void NoSequenceOfBytesMakesTheReaderThrow() {
-        // The fuzz harness in Vixen.Net.Fuzz is the thorough version of this and drives every read
+        // The fuzz harness in Vixen.Fuzz is the thorough version of this and drives every read
         // in a sequence the input chooses. This is the cheap version that stays here next to the
         // codec: ten thousand random packets, decoded as if they were the real thing, asserting
         // only that the process survives having read them.

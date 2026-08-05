@@ -293,8 +293,8 @@
     <Project Path="Core/Vixen.Net.Physics.Tests/Vixen.Net.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
     <Project Path="Core/Vixen.Net.Telemetry.Tests/Vixen.Net.Telemetry.Tests.csproj" />
-    <Project Path="Core/Vixen.Net.Fuzz/Vixen.Net.Fuzz.csproj" />
-    <Project Path="Core/Vixen.Net.Fuzz.Tests/Vixen.Net.Fuzz.Tests.csproj" />
+    <Project Path="Core/Vixen.Fuzz/Vixen.Fuzz.csproj" />
+    <Project Path="Core/Vixen.Fuzz.Tests/Vixen.Fuzz.Tests.csproj" />
   </Folder>
 
   <!--

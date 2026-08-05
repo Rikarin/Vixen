@@ -6,7 +6,7 @@ using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Terrain;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>The content formats: files rather than packets, and the same problem.</summary>
 /// <remarks>

@@ -6,7 +6,7 @@ using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>An importer's settings, so that the seeds can carry a type tag.</summary>
 /// <remarks>

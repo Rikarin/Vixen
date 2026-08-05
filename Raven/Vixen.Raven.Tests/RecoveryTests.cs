@@ -80,7 +80,7 @@ public class RecoveryTests {
     ///     </para>
     ///     <para>
     ///         Found by the fuzzer at about a quarter of a million <c>raven</c> cases, and only
-    ///         findable at all once <c>Vixen.Net.Fuzz</c> grew an oracle that watches a case while it
+    ///         findable at all once <c>Vixen.Fuzz</c> grew an oracle that watches a case while it
     ///         is still running — every other one is computed after <c>Run</c> returns, and this parse
     ///         does not return. The 2,872-byte mutant it arrived as is committed as
     ///         <c>Corpus/raven/f3680f7e77d7d18b.bin</c>; the seven characters are the whole of it.

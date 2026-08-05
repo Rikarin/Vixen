@@ -224,7 +224,7 @@ public sealed class YamlDialectTests {
     ///     <i>caller's</i> contract — a migration that computed a key and got nothing back — and a
     ///     key read out of a file has no caller to blame, so letting it fire turned a one-byte
     ///     document into an <c>ArgumentException</c> naming a parameter nobody passed.
-    ///     <para>Found by <c>Vixen.Net.Fuzz</c>'s <c>meta</c> target; the shortest input in its corpus.</para>
+    ///     <para>Found by <c>Vixen.Fuzz</c>'s <c>meta</c> target; the shortest input in its corpus.</para>
     /// </summary>
     [Fact]
     public void AnEmptyKeyIsAParseErrorRatherThanAnArgumentException() {
@@ -239,7 +239,7 @@ public sealed class YamlDialectTests {
     ///     byte comes back an <c>EndOfStreamException</c> and an unterminated plain scalar comes back
     ///     an <c>InvalidOperationException</c> — neither is a caller's mistake, and both were
     ///     reaching callers whose <c>when</c> filters could not name a type nobody knew was thrown.
-    ///     <para>Both found by <c>Vixen.Net.Fuzz</c>'s <c>meta</c> target on its first run.</para>
+    ///     <para>Both found by <c>Vixen.Fuzz</c>'s <c>meta</c> target on its first run.</para>
     /// </summary>
     [Theory]
     // The escape is what a UTF-8 decode makes of the stray byte the fuzzer actually found.

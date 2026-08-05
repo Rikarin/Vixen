@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using System.Globalization;
 
-namespace Vixen.Net.Fuzz;
+namespace Vixen.Fuzz;
 
 /// <summary>Which promise an input broke.</summary>
 public enum FuzzFailure {

@@ -6,7 +6,7 @@ using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Text;
 using Vixen.Ui.Markup.Syntax;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>A <c>.vxml</c> file, parsed, printed, and reparsed after an edit.</summary>
 /// <remarks>

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-namespace Vixen.Net.Fuzz;
+namespace Vixen.Fuzz;
 
 /// <summary>How one target's inputs are made, when bytes are the wrong thing to mutate.</summary>
 /// <remarks>

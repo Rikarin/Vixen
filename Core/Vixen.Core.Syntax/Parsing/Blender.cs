@@ -45,7 +45,7 @@ namespace Vixen.Core.Syntax.Parsing;
 ///         is standing in. An edit that dissolves an <c>enum</c> header leaves its members' text
 ///         untouched and lexing identically at what is now a member boundary, and without the
 ///         context the blender would hand an enum member to the member loop, which is a tree no
-///         full parse can produce. Found by <c>Vixen.Net.Fuzz</c>'s <c>raven</c> target; the smallest
+///         full parse can produce. Found by <c>Vixen.Fuzz</c>'s <c>raven</c> target; the smallest
 ///         case renames an enum to a keyword and is a row in <c>IncrementalParseTests</c>.
 ///     </para>
 /// </remarks>

@@ -3,11 +3,11 @@
 
 using System.Globalization;
 using System.Text;
-using Vixen.Net.Fuzz.Targets;
+using Vixen.Fuzz.Targets;
 using Vixen.Ui.Markup.Syntax;
 using Xunit;
 
-namespace Vixen.Net.Fuzz.Tests;
+namespace Vixen.Fuzz.Tests;
 
 /// <summary>The fuzzing exit criterion, run on every build.</summary>
 /// <remarks>
@@ -115,6 +115,14 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
     [Theory]
     [MemberData(nameof(Targets))]
     public void NothingEscapes(string name, long cases) {
+        // Only the clock-bounded leg can be hung by a target, so only it honours the exclusion. The
+        // per-build run is bounded by cases and finishes whatever it starts.
+        Assert.SkipWhen(
+            Seconds is not null && Excluded.Contains(name),
+            $"{name} is named in VIXEN_FUZZ_SKIP, so this clock-bounded run leaves it out. It still "
+            + "runs on every build, where the budget is a case count."
+        );
+
         var target = FuzzTargets.Named(name);
 
         try {
@@ -252,6 +260,36 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
             + "Install spirv-tools (brew install spirv-tools, or apt-get install spirv-tools)."
         );
 
+    /// <summary>The committed crashers are on disk where the session looks for them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A corpus that stops resolving turns this whole gate green by finding nothing.</b>
+    ///         <see cref="Corpus.ReadRegressions" /> returns an empty list for a directory that is not
+    ///         there, which is right for a target nobody has broken yet and indistinguishable from a
+    ///         path that has gone stale — a renamed project, a dropped <c>CopyToOutputDirectory</c>, a
+    ///         publish layout that flattens the tree. Every replay then silently does not happen while
+    ///         the run goes on printing "clean". Written when this project was renamed out of
+    ///         <c>Vixen.Net.Fuzz</c>, which is exactly the move that could have done it.
+    ///     </para>
+    ///     <para>
+    ///         The equality is the second half and catches the other direction: a <c>Corpus/</c>
+    ///         subdirectory named after a target that has since been renamed is a set of regressions
+    ///         nothing replays, and that is invisible from a count alone.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheCommittedCorpusIsFound() {
+        var onDisk = Directory.Exists(Regressions)
+            ? Directory.GetFiles(Regressions, "*.bin", SearchOption.AllDirectories).Length
+            : 0;
+
+        Assert.True(onDisk > 0, $"No committed corpus under {Regressions} — nothing is being replayed.");
+
+        var replayed = FuzzTargets.Names.Sum(name => Corpus.ReadRegressions(Regressions, name).Count);
+
+        Assert.Equal(onDisk, replayed);
+    }
+
     /// <summary>Every registered target has a case budget somebody chose.</summary>
     /// <remarks>
     ///     The other half of running every target: one that runs on a default budget is one nobody
@@ -319,6 +357,35 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
 
     /// <summary>Where the committed crashers live, next to this test.</summary>
     static string Regressions => Path.Combine(AppContext.BaseDirectory, "Corpus");
+
+    /// <summary>Targets a clock-bounded run leaves out, named in <c>VIXEN_FUZZ_SKIP</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A target that cannot finish a time-bounded run takes the whole nightly with it.</b>
+    ///         <c>CaseGuard</c> names a runaway and writes its bytes out, and for the breach that
+    ///         cannot be outlived it ends the process deliberately — but a nightly that ends
+    ///         deliberately still reports nothing for the nineteen targets that were fine, and a stack
+    ///         overflow is not something any watchdog gets to report at all.
+    ///     </para>
+    ///     <para>
+    ///         <c>raven</c> is that target today, and this is the only place the exclusion lives: one
+    ///         cause of its overruns is fixed and a second — a binder recursion on
+    ///         <c>func F(): float[F()]</c> — is open, deliberately not in the corpus because replaying
+    ///         it would take the test host down on every build.
+    ///     </para>
+    ///     <para>
+    ///         <b>A skip rather than a deleted row, because a skip is visible in the results.</b>
+    ///         Filtering it off the command line would be a target that stops running with nothing
+    ///         saying so — which is the same silence the generated theory rows were introduced to end.
+    ///         This is meant to be emptied: see <c>Core/Vixen.Fuzz/README.md</c> § Running it.
+    ///     </para>
+    /// </remarks>
+    static HashSet<string> Excluded { get; } =
+        new(
+            (Environment.GetEnvironmentVariable("VIXEN_FUZZ_SKIP") ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            StringComparer.Ordinal
+        );
 
     /// <summary>
     ///     How long a nightly run gets, or null for the fixed per-build budget above.

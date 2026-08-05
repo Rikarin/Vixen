@@ -3,7 +3,7 @@
 
 using System.Globalization;
 
-namespace Vixen.Net.Fuzz;
+namespace Vixen.Fuzz;
 
 /// <summary>The inputs worth keeping for one target.</summary>
 /// <remarks>

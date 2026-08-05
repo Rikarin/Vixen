@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
-        <RootNamespace>Vixen.Net.Fuzz</RootNamespace>
+        <RootNamespace>Vixen.Fuzz</RootNamespace>
 
         <!--
             Test infrastructure, not a shipped library. It exists to be run against Vixen.Net's

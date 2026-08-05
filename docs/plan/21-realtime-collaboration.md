@@ -130,7 +130,7 @@ Tools/Vixen.CollabServer              headless relay and lock authority; dev-gra
 operations described by another machine. That is a remote-code-execution surface if the codec is
 sloppy, which is why every command decoder goes through `PacketReader` — never believing a length,
 never allocating on one it was told, never throwing — and why the decoders belong in the nightly
-`Vixen.Net.Fuzz` harness from the first commit rather than after the first incident. The server is
+`Vixen.Fuzz` harness from the first commit rather than after the first incident. The server is
 LAN-and-trusted like `Vixen.ContentServer`: no TLS, no relay, authentication via `ISessionAuthenticator`
 and nothing more. Sessions across the open internet want a relay and a transport story that this plan
 does not have, and pretending otherwise in a README is how people get hurt.
@@ -250,7 +250,7 @@ persisting writes it once, on one machine, and the other editors report themselv
 | **Two editors over `LocalTransport`** | The whole feature, in a unit test, with no socket and no second process — the reason doc 16 took `Local` wholesale |
 | **Seeded `NetworkSimulation`** | Loss, jitter and reordering as a repeatable input. The same seed produces the same deliveries on every machine |
 | **Byte-identical convergence** | The exit criterion for C1 and C2 both. The repo already gates bit-exact serialization on three OSes and two architectures; this reuses the standard rather than inventing a weaker one |
-| **Fuzzing the command decoders** | They parse bytes from a machine we do not control. `Vixen.Net.Fuzz`'s nightly harness runs 10 min/target |
+| **Fuzzing the command decoders** | They parse bytes from a machine we do not control. `Vixen.Fuzz`'s nightly harness runs 10 min/target |
 | **The registry gate** | A test that walks every `IEditorCommand` type in the editor assemblies and asserts each is either registered with a codec or explicitly attributed local-only. Doc 20's Part F found five menu lines naming commands nobody registered with a fifteen-line test of the same shape; this is that test for a case where the failure is silent divergence instead of a dead menu item |
 | **Golden screenshots with presence** | An avatar that draws in the wrong place is invisible to every behavioural test, which is the lesson `Vixen.Editor.Ui`'s README already paid for |
 

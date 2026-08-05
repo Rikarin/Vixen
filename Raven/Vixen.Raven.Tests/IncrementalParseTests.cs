@@ -183,7 +183,7 @@ public class IncrementalParseTests {
     ///         ⚠ <b>Every test above asserts the diagnostic counts match and none of them caught
     ///         it</b>, because they all edit a shader that parses cleanly and zero equals zero. That
     ///         is the whole reason this one starts from a broken file. Found by
-    ///         <c>Vixen.Net.Fuzz</c>'s <c>raven</c> target, which reported it thirty-two ways in four
+    ///         <c>Vixen.Fuzz</c>'s <c>raven</c> target, which reported it thirty-two ways in four
     ///         hundred cases.
     ///     </para>
     ///     <para>
@@ -237,7 +237,7 @@ public class IncrementalParseTests {
     ///         ⚠ <b>The printed text still matches</b>, which is why the round-trip half of the fuzz
     ///         oracle ran over these for months without a word — <c>ToFullString()</c> is equal for
     ///         both trees and only <c>SyntaxDumper.Dump</c> tells them apart. Found by
-    ///         <c>Vixen.Net.Fuzz</c>'s <c>raven</c> target at forty thousand cases, past the fifteen
+    ///         <c>Vixen.Fuzz</c>'s <c>raven</c> target at forty thousand cases, past the fifteen
     ///         hundred the per-build gate runs; both inputs are now in that target's corpus, so they
     ///         replay on every build as well as here.
     ///     </para>

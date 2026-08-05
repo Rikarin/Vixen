@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using System.Globalization;
 
-namespace Vixen.Net.Fuzz;
+namespace Vixen.Fuzz;
 
 /// <summary>Watches the case that is running now, rather than the one that finished.</summary>
 /// <remarks>

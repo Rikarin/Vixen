@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using Xunit;
 
-namespace Vixen.Net.Fuzz.Tests;
+namespace Vixen.Fuzz.Tests;
 
 /// <summary>The oracle that has to work while the case is still running.</summary>
 /// <remarks>

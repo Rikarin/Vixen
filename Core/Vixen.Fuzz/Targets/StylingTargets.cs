@@ -4,7 +4,7 @@
 using System.Text;
 using Vixen.Ui.Styling;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>The VCSS readers: text rather than bytes, and the same problem again.</summary>
 /// <remarks>

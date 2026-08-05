@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Net;
 using Vixen.Net.Engine;
 using Vixen.Net.Messaging;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
 using Vixen.Net.Sessions;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>The remote-call router, taking calls from a client that is not to be trusted.</summary>
 /// <remarks>

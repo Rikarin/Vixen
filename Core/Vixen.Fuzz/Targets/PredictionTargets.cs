@@ -4,7 +4,7 @@
 using Vixen.Net.Messaging;
 using Vixen.Net.Prediction;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>The input buffer, taking a run of inputs from a client that is not to be trusted.</summary>
 /// <remarks>

@@ -28,7 +28,7 @@
           the sake of a test — and a corpus written by hand against a copy of the layout is one that
           goes stale silently, which for a fuzzer means a seed that guides nothing.
         -->
-        <InternalsVisibleTo Include="Vixen.Net.Fuzz" />
+        <InternalsVisibleTo Include="Vixen.Fuzz" />
     </ItemGroup>
 
 </Project>

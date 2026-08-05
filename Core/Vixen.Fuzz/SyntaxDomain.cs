@@ -5,7 +5,7 @@ using System.Text;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Text;
 
-namespace Vixen.Net.Fuzz;
+namespace Vixen.Fuzz;
 
 /// <summary>A language's inputs, mutated a syntax node at a time.</summary>
 /// <remarks>

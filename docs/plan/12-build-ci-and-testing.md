@@ -209,9 +209,59 @@ exact allocation via a `GCHeapAllocationEventSource` listener in the failure mes
   vertex layouts live. `Ticked` is the per-frame seam a real `TestApp` would drive it through.
 - **`FixtureProject`** — a synthetic Vixen project generator (N textures, M models, K scenes) for asset
   pipeline scale tests.
-- **Fuzzers** — `SharpFuzz` over the VXML parser, the VCSS parser, the Raven parser, the `.meta` reader,
-  and the bundle reader. Parsers and binary readers are exactly where fuzzing pays, and all five parse
-  untrusted-ish input. Run nightly with a persistent corpus.
+- **Fuzzers** — ✅ **all five of the parsers this line asked for are fuzzed**: VXML, VCSS (as
+  `stylevalue` and `layerrule`), Raven, the `.meta` reader and the bundle reader, among twenty targets
+  in [`Core/Vixen.Fuzz`](../../Core/Vixen.Fuzz), replayed nightly over a committed corpus by
+  [`nightly.yml`](../../.github/workflows/nightly.yml). **By an in-house harness rather than
+  `SharpFuzz`**, and that is a decision rather than a shortfall — the reasons are worth recording
+  because this line reads like an unmet commitment and is not one.
+
+  **The oracles are the point, and they are managed-language-specific.** A native fuzzer's oracle is a
+  crash. In C# you rarely get one: you get an `OutOfMemoryException` twenty minutes later, or a server
+  that dies on its second day. Five things are asserted around every case — that nothing **escaped**,
+  that nothing **amplified** (allocation against an allowance proportional to the input, summed over a
+  window, because a list that doubles pays for a thousand appends in one), that nothing **hung**, that
+  nothing was **retained** past a bound the target declares, and that nothing **ran away** while the
+  case was still in flight. Amplification and retention have no AFL or libFuzzer equivalent, and they
+  are what caught the attacker-declared-length allocations — a crash-finder reports every one of those
+  inputs clean, because none of them crashes anything.
+
+  **It runs on every build, not only nightly.** In-process under xunit, bounded by case count rather
+  than by the clock, with no instrumentation pass and nothing orchestrated out of process: twenty
+  targets and about 12.1 M cases in roughly eighteen seconds. A fuzzer that runs nightly and nowhere
+  else finds a regression the morning after somebody has already built on it.
+
+  **And for a grammar, structure-aware mutation beats coverage-guided byte mutation.** Coverage
+  guidance reaches deep code by *search*; tree mutation reaches it by *construction*. `IFuzzDomain`
+  parses a corpus entry and mutates a span chosen from the tree — replacing a subtree with another of
+  its kind, duplicating one, deleting an optional one, grafting one in from a second entry — so what
+  comes out lexes and mostly parses, and therefore reaches the binder and the backend, which is where a
+  compiler's defects live. **One case in eight stays byte havoc**, so an unterminated string, a stray
+  byte and a nesting depth that exhausts the parser's stack are still reached; structured generation
+  that *replaces* havoc rather than joining it stops finding those the day it lands.
+
+  `SharpFuzz` is still worth having **later, for `raven` only**, and conditional on the tree-mutation
+  target plateauing — an if-the-data-says-so decision, not a now decision. Each target is already
+  `(ReadOnlySpan<byte>) -> outcome`, so the wrapper is short. Its out-of-process execution would also
+  buy the one runaway nothing in-process can report: a stack overflow ends the CLR where it happens,
+  with no thread left to name the input.
+
+  **Three findings are open and filed rather than fixed**, recorded here so the ✅ above is not read as
+  "and nothing is owed":
+
+  - the YAML binder writes `null` into a member declared non-nullable — nullability is decided from the
+    CLR type, so the C# annotation contradicting it is not in the descriptor to read. Refusing it is a
+    decision about every `[DataContract]` type in the engine and belongs to `Vixen.Core.Yaml`;
+  - three inputs make Raven's incremental reparse build a **structurally different tree** — the printed
+    text still agrees, so only the shape comparison sees it;
+  - a binder recursion on `func F(): float[F()]` inside a `shader` **overflows the stack**. Deliberately
+    not promoted to the corpus, because an input that overflows the stack takes the test host down on
+    every build; the rule in that harness is that promotion follows the fix.
+
+  Because of the third, `raven` is excluded from the nightly by name (`VIXEN_FUZZ_SKIP`) until the
+  recursion is bounded — the nightly is the leg bounded by the clock, and a process that ends at an
+  overflow costs the other nineteen targets their results and leaves no artifact saying why. It still
+  runs, case-bounded, on every build.
 
 ### Optional external tools
 
