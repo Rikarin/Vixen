@@ -627,6 +627,45 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
     }
 
     /// <summary>
+    ///     What tier a document resolves to, before anything expands or builds it.
+    /// </summary>
+    /// <param name="document">The authored document.</param>
+    /// <param name="fallback">
+    ///     The platform's pick — <c>GraphicsOptions.Quality</c>, which a document that names its own
+    ///     <c>quality:</c> out-votes and a document that names none takes unchanged.
+    /// </param>
+    /// <param name="project">The project's <c>.vxpreset</c>, or null for engine defaults alone.</param>
+    /// <returns>The folded numbers, for a document with a frame node and for one without.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The seam a tier's non-post consumers reach the document through.</b>
+    ///         <see cref="Transform(GraphicsCompositorAsset, CompositorBuilder)" /> replaces the
+    ///         frame node during the build, so by the time
+    ///         anything holds the built document the node — and its <c>quality:</c> and inline
+    ///         <c>preset:</c> — is gone. The vegetation budgets are read while the frame builds and
+    ///         the texture pool is sized around it, and both are wired by a host that has the
+    ///         document in its hand one line earlier; asking here is what lets them honour the same
+    ///         vote the post chain does. Without it a project shipping a frame that names Epic over a
+    ///         host defaulting to High got Epic post effects and High ground, silently.
+    ///     </para>
+    ///     <para>
+    ///         Static and pure for <see cref="Transform(GraphicsCompositorAsset, out
+    ///         IReadOnlyDictionary{object, string})" />'s reason: no state of the factory's enters
+    ///         it, and the caller passes the same two layers the transform would have read — so a
+    ///         host and the expansion cannot resolve one document to two tiers.
+    ///     </para>
+    /// </remarks>
+    public static ResolvedQuality QualityOf(
+        GraphicsCompositorAsset document,
+        QualityTier fallback,
+        RenderQualityAsset? project = null
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        return StandardFrame.QualityOf(document, fallback, project);
+    }
+
+    /// <summary>
     ///     The expansion with a sentence about each thing it emitted — the explode tooling's door.
     /// </summary>
     /// <param name="document">The authored document.</param>

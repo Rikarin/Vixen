@@ -316,7 +316,7 @@ static class StandardFrame {
         }
 
         var frame = found[0];
-        var expanded = Emit(frame, RenderQuality.Resolve(frame.Quality ?? fallback, project, frame.Preset));
+        var expanded = Emit(frame, Tier(frame, fallback, project));
 
         if (notes is not null) {
             Annotate(notes, frame, expanded.Stages, expanded.Resources, expanded.Root);
@@ -328,6 +328,56 @@ static class StandardFrame {
             Game = Replace(game, frame, expanded.Root)
         };
     }
+
+    /// <summary>The tier a document resolves to, whether or not anything expands it.</summary>
+    /// <param name="document">The authored document, before any transform has touched it.</param>
+    /// <param name="fallback">The platform's pick, for a frame that names no tier and for a
+    ///     document with no frame node at all.</param>
+    /// <param name="project">The project's preset — the waterfall's middle layer.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The same fold <see cref="Expand" /> performs, reachable without expanding.</b> A
+    ///         tier decides more than the passes: the ground's vegetation budgets and the texture
+    ///         pool's size are the host's to wire and are read before or during the build, so a host
+    ///         that could only learn the tier from the expanded document would learn it too late —
+    ///         which is why a document's <c>quality:</c> moved the post chain and not the ground.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Routed through the same <see cref="Tier" /> as the expansion, deliberately: two
+    ///         folds of one waterfall are two answers that agree until somebody edits one of them,
+    ///         and the frame disagreeing with the ground about its own tier is silent in both
+    ///         directions.
+    ///     </para>
+    ///     <para>
+    ///         A document with two frame nodes takes the fallback here and is refused by
+    ///         <see cref="Expand" /> a moment later; one with a frame inside a pass is refused here,
+    ///         with the message it would have been refused with there.
+    ///     </para>
+    /// </remarks>
+    public static ResolvedQuality QualityOf(
+        GraphicsCompositorAsset document,
+        QualityTier fallback,
+        RenderQualityAsset? project
+    ) {
+        if (document.Game is not { } game) {
+            return Tier(null, fallback, project);
+        }
+
+        var found = new List<StandardFrameAsset>();
+        Find(game, found, inPass: false);
+
+        return Tier(found.Count == 1 ? found[0] : null, fallback, project);
+    }
+
+    /// <summary>The waterfall, folded for one frame node — or for a document that has none.</summary>
+    /// <remarks>
+    ///     The document's own vote is the top of doc 39's waterfall and out-votes the platform's per
+    ///     parameter: its <c>quality:</c> picks the column and its inline <c>preset:</c> is the last
+    ///     layer over the project's. A null frame is a hand-authored document, whose numbers are its
+    ///     own — so what it gets is the platform's pick, unchanged.
+    /// </remarks>
+    static ResolvedQuality Tier(StandardFrameAsset? frame, QualityTier fallback, RenderQualityAsset? project) =>
+        RenderQuality.Resolve(frame?.Quality ?? fallback, project, frame?.Preset);
 
     /// <summary>The inline look the document's frame node carries, or null.</summary>
     /// <remarks>

@@ -248,4 +248,70 @@ public class RenderQualityTests {
         // shrink the picture the player is shown.
         Assert.Equal(1f, document.Resources.Single(resource => resource.Name == "SceneColour").Scale);
     }
+
+    /// <summary>
+    ///     The document's vote reaches a caller that never expands it, which is what the tier's
+    ///     consumers outside the post chain are.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked before the build, necessarily.</b> The expansion replaces the frame node, so a
+    ///     host reading the built document finds nothing that says <c>quality:</c> — which is how a
+    ///     project shipping an Epic frame over a High host got Epic post effects and High ground.
+    /// </remarks>
+    [Fact]
+    public void A_documents_own_tier_is_readable_without_expanding_it() {
+        var document = new GraphicsCompositorAsset { Game = Bare with { Quality = QualityTier.Epic } };
+
+        Assert.Equal(
+            RenderQuality.Resolve(QualityTier.Epic),
+            PostEffectFactory.QualityOf(document, QualityTier.Low, project: null)
+        );
+    }
+
+    /// <summary>A document with no opinion keeps taking the platform's pick, unchanged.</summary>
+    [Fact]
+    public void A_document_that_names_no_tier_reads_back_as_the_hosts_pick() {
+        // Both readings of "says nothing": a frame node with no quality line, and a hand-authored
+        // document with no frame node at all.
+        Assert.Equal(
+            RenderQuality.Resolve(QualityTier.Medium),
+            PostEffectFactory.QualityOf(new() { Game = Bare }, QualityTier.Medium, project: null)
+        );
+
+        Assert.Equal(
+            RenderQuality.Resolve(QualityTier.Medium),
+            PostEffectFactory.QualityOf(new(), QualityTier.Medium, project: null)
+        );
+    }
+
+    /// <summary>
+    ///     And the whole waterfall arrives, not only the column: the project preset under the
+    ///     document's inline overlay, per parameter.
+    /// </summary>
+    [Fact]
+    public void The_read_back_tier_is_the_same_fold_the_expansion_performs() {
+        var project = new RenderQualityAsset {
+            Epic = new() { Vegetation = new() { GrassResidentCells = 111 }, Shadows = new() { CascadeCount = 3 } }
+        };
+
+        var inline = new RenderQualityAsset { Epic = new() { Vegetation = new() { GrassResidentCells = 222 } } };
+
+        var document = new GraphicsCompositorAsset {
+            Game = Bare with { Quality = QualityTier.Epic, Preset = inline, Shadows = ShadowMode.Cascades }
+        };
+
+        var read = PostEffectFactory.QualityOf(document, QualityTier.Low, project);
+
+        // The inline overlay out-votes the project preset, and a sibling the overlay says nothing
+        // about still comes from the project — which is the per-parameter rule, read back.
+        Assert.Equal(222, read.GrassResidentCells);
+        Assert.Equal(3, read.CascadeCount);
+
+        // And it is the same number the expansion put on the node, rather than a second fold that
+        // happens to agree today.
+        Assert.Equal(
+            read.CascadeCount,
+            Node<ShadowMapAsset>(StandardFrame.Expand(document, QualityTier.Low, project), "Sun").CascadeCount
+        );
+    }
 }

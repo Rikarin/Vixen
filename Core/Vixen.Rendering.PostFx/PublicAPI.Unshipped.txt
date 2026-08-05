@@ -2254,6 +2254,7 @@ required Vixen.Rendering.PostFx.TonemapRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.TonemapRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.VignetteRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.VignetteRenderer.Source.init -> string
+static Vixen.Rendering.PostFx.PostEffectFactory.QualityOf(Vixen.Rendering.Compositor.GraphicsCompositorAsset document, Vixen.Rendering.Compositor.QualityTier fallback, Vixen.Rendering.PostFx.RenderQualityAsset? project = null) -> Vixen.Rendering.PostFx.ResolvedQuality
 static Vixen.Rendering.PostFx.PostEffectFactory.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document, out System.Collections.Generic.IReadOnlyDictionary<object, string> notes) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 static Vixen.Rendering.PostFx.PostEffectRenderer.Sample(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, Vixen.Graphics.SamplerHandle sampler) -> void
 static Vixen.Rendering.PostFx.PostEffectRenderer.TexelSize(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Vector2

@@ -117,6 +117,12 @@ public sealed class AppGraphics : IDisposable {
         View = new(options.View);
         Renderer.Host.Builder.Views[options.View] = View;
 
+        // ⚠ Loaded here rather than at Load below, because the document is the top vote in the
+        // quality waterfall and the two consumers of a resolved tier are wired before the build
+        // finishes. Nothing between here and Load reads it, so the only thing this ordering costs
+        // is that the "which compositor" log line comes earlier.
+        var document = Frame(assets);
+
         // The project's quality preset is the waterfall's middle layer, and the object holding it is
         // in the factory list: PostEffectFactory takes the loaded asset rather than an address, so
         // the game that loaded it put it there. Found in a pass of its own rather than in the loop
@@ -136,7 +142,13 @@ public sealed class AppGraphics : IDisposable {
         // while both calls agree on the arguments — and they did not: the texture pool was sized
         // from the tier alone, so a project's .vxpreset moved its vegetation budgets and silently
         // did not move its texture budget.
-        var quality = RenderQuality.Resolve(options.Quality, preset);
+        //
+        // Through the document rather than from options.Quality alone, and that is the whole of
+        // what a !StandardFrame's own `quality:` and inline `preset:` used to be unable to move: the
+        // expansion replaces the node during the build, so a host asking afterwards would be asking
+        // a document that no longer says anything. This is the same fold the expansion performs, on
+        // the same two layers — see PostEffectFactory.QualityOf.
+        var quality = PostEffectFactory.QualityOf(document, options.Quality, preset);
 
         // ⚠ Before the factories too, because a !WaterSurface node is handed this as it is created
         // and a node with no zones draws nothing at all. It is also the one water clock — see
@@ -181,10 +193,11 @@ public sealed class AppGraphics : IDisposable {
 
         // Also before Load: the tier is read by the document transform, which runs inside the
         // build. A preset frame that names its own quality out-votes this; one that does not gets
-        // the platform's pick. See GraphicsOptions.Quality.
+        // the platform's pick. See GraphicsOptions.Quality. The same fallback `quality` above was
+        // folded from, so the expansion and the budgets cannot land on two different tiers.
         Renderer.Host.Builder.Quality = options.Quality;
 
-        Renderer.Host.Load(Frame(assets));
+        Renderer.Host.Load(document);
 
         if (Renderer.Host.Builder.Stages.TryGetValue(options.Stage, out var stage)) {
             // The view draws the camera's stage alone; extraction covers that one and every caster
@@ -697,12 +710,13 @@ public sealed class AppGraphics : IDisposable {
     ///         document or the game says otherwise.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this cannot see is a <c>!StandardFrame</c>'s own <c>quality:</c> or inline
-    ///         <c>preset:</c>.</b> Those are read inside the build, by an expansion that has already
-    ///         replaced the node by the time anything holds the document — so a frame document that
-    ///         names its own tier moves the post chain and not the ground. The <c>!Terrain</c> node's
-    ///         own scalars are the document-level vote that does reach here, and they out-vote this
-    ///         per field.
+    ///         What arrives here is folded from the frame document as well as the host — a
+    ///         <c>!StandardFrame</c>'s own <c>quality:</c> and inline <c>preset:</c> included, which
+    ///         for a while it was not. The expansion replaces the node during the build, so the vote
+    ///         is read off the document before it (<c>PostEffectFactory.QualityOf</c>) rather than
+    ///         out of the built frame, where it no longer exists. The <c>!Terrain</c> node's own
+    ///         scalars are a further document-level vote and out-vote this per field, in
+    ///         <c>TerrainFactory.Create</c>.
     ///     </para>
     /// </remarks>
     static TerrainVegetationQuality VegetationOf(ResolvedQuality quality) =>

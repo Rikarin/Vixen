@@ -61,9 +61,14 @@ hands the asset over.
 
 Some entries are carried, not yet consumed, and say so on their doc comments (`DfaoSamples`,
 `SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias` and
-all of `TextureQuality`): they map to systems the compositor does not construct today, and they
-land in the asset first so a project's tiers do not change shape when their consumers learn to
-read them.
+`TextureQuality.ParticleBudgetScale`): they map to systems the compositor does not construct today,
+and they land in the asset first so a project's tiers do not change shape when their consumers
+learn to read them.
+
+`TextureQuality`'s other two are consumed on the vegetation's terms, by the same host and from the
+same single fold: `streamingPoolMegabytes` and `mipBias` become `WorldRenderer.Textures`, sized
+before the texture source is mounted because a pool that could be resized afterwards would not be a
+budget.
 
 `VegetationQuality` is consumed, by hand-off rather than by reference. `Vixen.Rendering.Terrain`
 cannot see this assembly — the dependency runs the other way — so `TerrainFactory` declares its own
@@ -90,11 +95,13 @@ Either one missing and the number is carried the whole length of the waterfall a
 last step, which is what happened to the foliage budgets. `TerrainNodeTests` checks the two records
 against each other so the omission fails a test rather than a frame.
 
-⚠ **What the terrain fold cannot see is a `!StandardFrame`'s own `quality:` or inline `preset:`.**
-Those are read inside the build, by an expansion that has replaced the node before anything else
-holds the document, so a frame document naming its own tier moves the post chain and not the
-ground. `GraphicsOptions.Quality` and the project preset are what reach the vegetation; the
-`!Terrain` node's own scalars are its document-level vote.
+The terrain fold sees the whole waterfall, a `!StandardFrame`'s own `quality:` and inline `preset:`
+included. It has to be read off the document *before* the build: the expansion replaces the frame
+node as the compositor builds, so a host asking afterwards would be asking a document that no
+longer says anything — which is why, for a while, a frame naming its own tier moved the post chain
+and not the ground. `PostEffectFactory.QualityOf(document, fallback, project)` is that reading, and
+it is the same fold the expansion performs rather than a second one that agrees today. The
+`!Terrain` node's own scalars are a further document-level vote and out-vote the result per field.
 
 `GrassBladesPerCell` exists on the terrain-side record and in no tier: it is the scatter dispatch's
 shape rather than a budget, so a document or the game sets it.

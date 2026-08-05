@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Assets;
 using Vixen.Core;
+using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Serialization.Storage;
 using Vixen.Ecs;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Renderer;
@@ -278,6 +281,93 @@ public sealed class HostedRendererTests : IDisposable {
     }
 
     /// <summary>
+    ///     A frame document that names its own tier moves the ground and the texture pool, not only
+    ///     the post chain.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of the waterfall that used to stop at the passes.</b> The
+    ///     <c>!StandardFrame</c> expansion replaces the node during the build, so a host that read
+    ///     the tier off the built document read nothing — and a project shipping an Epic frame over
+    ///     a host defaulting elsewhere got Epic post effects over another tier's terrain and texture
+    ///     budgets, with the two halves of one frame disagreeing about what tier it was. Asserted
+    ///     against <c>RenderQuality.Resolve</c> rather than literals, on
+    ///     <see cref="TheHostsQualityTierReachesTheGroundsBudgets" />' terms.
+    /// </remarks>
+    [Fact]
+    public void TheFramesOwnTierOutVotesTheHostsForTheGroundAndTheTexturePool() {
+        var game = Framed(QualityTier.Low, new() { Quality = QualityTier.Epic });
+        using var application = Build(game);
+
+        var epic = RenderQuality.Resolve(QualityTier.Epic);
+        var textures = application.Services.Graphics!.Renderer.Textures;
+
+        Assert.Equal(epic.GrassResidentCells, game.Terrain.Vegetation.GrassResidentCells);
+        Assert.Equal(epic.FoliageCellBudget, game.Terrain.Vegetation.FoliageCellBudget);
+        Assert.Equal(epic.TerrainStreamingMegabytes, game.Terrain.Vegetation.TerrainStreamingMegabytes);
+        Assert.Equal(epic.StreamingPoolMegabytes, textures.PoolMegabytes);
+        Assert.Equal(epic.MipBias, textures.MipBias);
+
+        // And the host's own pick was genuinely out-voted rather than never consulted: Low says
+        // something different about every one of them.
+        var low = RenderQuality.Resolve(QualityTier.Low);
+
+        Assert.NotEqual(low.GrassResidentCells, game.Terrain.Vegetation.GrassResidentCells);
+        Assert.NotEqual(low.StreamingPoolMegabytes, textures.PoolMegabytes);
+    }
+
+    /// <summary>
+    ///     A document that names no tier keeps taking the platform's pick — the reading a settings
+    ///     screen depends on, and the one a fix for the paragraph above could quietly break.
+    /// </summary>
+    [Fact]
+    public void AFrameThatNamesNoTierStillTakesTheHostsPick() {
+        var game = Framed(QualityTier.Low, new());
+        using var application = Build(game);
+
+        var low = RenderQuality.Resolve(QualityTier.Low);
+
+        Assert.Equal(low.GrassResidentCells, game.Terrain.Vegetation.GrassResidentCells);
+        Assert.Equal(low.StreamingPoolMegabytes, application.Services.Graphics!.Renderer.Textures.PoolMegabytes);
+    }
+
+    /// <summary>
+    ///     And the document's <em>inline</em> preset reaches them too — per parameter, over the
+    ///     tier's own column.
+    /// </summary>
+    /// <remarks>
+    ///     The knob a document uses to move one budget without moving the tier: the overlay is the
+    ///     waterfall's top layer, and a fold that read only <c>quality:</c> would carry it as far as
+    ///     the passes and drop it here.
+    /// </remarks>
+    [Fact]
+    public void TheDocumentsInlinePresetReachesTheGroundAndTheTexturePool() {
+        var game = Framed(
+            QualityTier.Low,
+            new() {
+                Quality = QualityTier.Low,
+                Preset = new() {
+                    Low = new() {
+                        Vegetation = new() { GrassResidentCells = 77 },
+                        Textures = new() { StreamingPoolMegabytes = 333 }
+                    }
+                }
+            }
+        );
+
+        using var application = Build(game);
+
+        Assert.Equal(77, game.Terrain.Vegetation.GrassResidentCells);
+        Assert.Equal(333, application.Services.Graphics!.Renderer.Textures.PoolMegabytes);
+
+        // Siblings the overlay says nothing about stay the tier's, which is the per-parameter rule
+        // rather than a whole column being replaced.
+        Assert.Equal(
+            RenderQuality.Resolve(QualityTier.Low).FoliageCellBudget,
+            game.Terrain.Vegetation.FoliageCellBudget
+        );
+    }
+
+    /// <summary>
     ///     A batch tool wants the host and not a device. One line in <c>OnConfigure</c>, and the
     ///     frame still runs — including <c>OnRender</c>, which is where such a head does its work.
     /// </summary>
@@ -365,6 +455,51 @@ public sealed class HostedRendererTests : IDisposable {
         Assert.Same(swapChain, graphics.SwapChain);
     }
 
+    const string FrameAddress = "frames/main";
+
+    /// <summary>
+    ///     A game whose project ships a frame document, published where the host will mount it.
+    /// </summary>
+    /// <remarks>
+    ///     Through real content rather than by handing the asset over, because the thing under test
+    ///     is the host reading a document it loaded by address — which is the only way a shipped
+    ///     game's frame ever arrives, and the step where the document's own tier used to be lost.
+    /// </remarks>
+    AuthoredFrameGame Framed(QualityTier host, StandardFrameAsset frame) {
+        Publish(
+            Path.Combine(files.ApplicationDirectory, ContentMount.FolderName),
+            FrameAddress,
+            new GraphicsCompositorAsset { Game = frame }
+        );
+
+        return new(host);
+    }
+
+    /// <summary>Writes a one-asset content build the way `vixen content build` lays one out.</summary>
+    static void Publish<TAsset>(string directory, string address, TAsset asset) {
+        Directory.CreateDirectory(directory);
+
+        var scratch = new VirtualFileSystem();
+        scratch.Mount(new("/odb"), new MemoryFileProvider());
+
+        var backend = new FileOdbBackend(scratch, new("/odb"));
+        var id = new ObjectDatabase(backend).Write(asset);
+
+        var bundle = new BundleWriter();
+        bundle.AddAll(backend);
+        File.WriteAllBytes(Path.Combine(directory, "Main.bundle"), bundle.Build());
+
+        var catalog = new ContentCatalog(
+            CatalogFormat.Version,
+            default,
+            "Windows",
+            [new(address, id, "Main", ContentProvider.Local, [], [], 0)],
+            [new("Main", "", default, 0, 0, CompressionMethod.Lz4, [])]
+        );
+
+        File.WriteAllBytes(Path.Combine(directory, ContentMount.CatalogFileName), CatalogFormat.Write(catalog));
+    }
+
     static string[] Arguments => ["--vixen-workers", "1", "--vixen-frame-limit", "0"];
 
     VixenApplication Build(Game game) =>
@@ -407,6 +542,29 @@ public sealed class HostedRendererTests : IDisposable {
             }
 
             config.Graphics.Quality = tier;
+            config.Graphics.Factories.Add(Terrain);
+        }
+    }
+
+    /// <summary>
+    ///     <see cref="GroundGame" /> with a project frame under it: the ground, the effect set that
+    ///     owns <c>!StandardFrame</c>, and the address the document was published at.
+    /// </summary>
+    /// <remarks>
+    ///     Both factories, and in this order: the effect set's transform expands the frame node, and
+    ///     the terrain factory's has to see the expanded document rather than the preset that stands
+    ///     for it. Constructing them is also what registers their YAML and type-registry tags, which
+    ///     is what lets the published document deserialise at all.
+    /// </remarks>
+    sealed class AuthoredFrameGame(QualityTier tier) : SilentGame {
+        public TerrainFactory Terrain { get; } = new();
+
+        protected internal override void OnConfigure(AppConfig config) {
+            base.OnConfigure(config);
+
+            config.Graphics.Quality = tier;
+            config.Graphics.Compositor = FrameAddress;
+            config.Graphics.Factories.Add(new PostEffectFactory());
             config.Graphics.Factories.Add(Terrain);
         }
     }
