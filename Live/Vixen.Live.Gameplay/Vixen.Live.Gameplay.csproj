@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Gameplay</RootNamespace>
+        <Description>
+            The join between doc 28's gameplay libraries and doc 27's persistence: which durable
+            player a gameplay rule means, and doc 28's economy applied in the frame but written down
+            through doc 27's ledger — never awaited.
+        </Description>
+        <PackageTags>gameplay;persistence;ledger;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Both sides, which is the whole point of the assembly: Live/ may reference Gameplay/ and
+            nothing in Gameplay/ may reference Live/, so the join can only live here.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+        <ProjectReference Include="..\Vixen.Live.Persistence\Vixen.Live.Persistence.csproj" />
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay.Economy\Vixen.Gameplay.Economy.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net\Vixen.Net.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Gameplay.Tests" />
+    </ItemGroup>
+
+</Project>

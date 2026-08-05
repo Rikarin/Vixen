@@ -612,6 +612,8 @@
     <Project Path="Live/Vixen.Live.Persistence.Tests/Vixen.Live.Persistence.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process/Vixen.Live.Placement.Process.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process.Tests/Vixen.Live.Placement.Process.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Gameplay/Vixen.Live.Gameplay.csproj" />
+    <Project Path="Live/Vixen.Live.Gameplay.Tests/Vixen.Live.Gameplay.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Matchmaking/Vixen.Live.Matchmaking.csproj" />
     <Project Path="Live/Vixen.Live.Matchmaking.Tests/Vixen.Live.Matchmaking.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Transfer/Vixen.Live.Transfer.csproj" />

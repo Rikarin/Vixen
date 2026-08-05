@@ -1,0 +1,47 @@
+#nullable enable
+Vixen.Live.Gameplay.BridgeRefusal -> enum : int
+Vixen.Live.Gameplay.BridgeRefusal.BridgeRefusal() -> void
+Vixen.Live.Gameplay.BridgeRefusal.None = 0 -> Vixen.Live.Gameplay.BridgeRefusal
+Vixen.Live.Gameplay.BridgeRefusal.Refused = 2 -> Vixen.Live.Gameplay.BridgeRefusal
+Vixen.Live.Gameplay.BridgeRefusal.Superseded = 3 -> Vixen.Live.Gameplay.BridgeRefusal
+Vixen.Live.Gameplay.BridgeRefusal.Unknown = 1 -> Vixen.Live.Gameplay.BridgeRefusal
+Vixen.Live.Gameplay.GameplayIdentityMap -> sealed class
+Vixen.Live.Gameplay.GameplayIdentityMap : Vixen.Live.Gameplay.IGameplayIdentity
+Vixen.Live.Gameplay.GameplayIdentityMap.Admit(Vixen.Live.PlayerKey key, Vixen.Net.Sessions.PlayerId session) -> Vixen.Gameplay.PlayerId
+Vixen.Live.Gameplay.GameplayIdentityMap.Count.get -> int
+Vixen.Live.Gameplay.GameplayIdentityMap.GameplayIdentityMap() -> void
+Vixen.Live.Gameplay.GameplayIdentityMap.PlayerFor(Vixen.Live.PlayerKey key) -> Vixen.Gameplay.PlayerId
+Vixen.Live.Gameplay.GameplayIdentityMap.Players.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Vixen.Gameplay.PlayerId, Vixen.Live.PlayerKey>>
+Vixen.Live.Gameplay.GameplayIdentityMap.Release(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Live.Gameplay.GameplayIdentityMap.TryResolve(Vixen.Gameplay.PlayerId player, out Vixen.Live.PlayerKey key) -> bool
+Vixen.Live.Gameplay.IGameplayIdentity -> interface
+Vixen.Live.Gameplay.IGameplayIdentity.PlayerFor(Vixen.Live.PlayerKey key) -> Vixen.Gameplay.PlayerId
+Vixen.Live.Gameplay.IGameplayIdentity.TryResolve(Vixen.Gameplay.PlayerId player, out Vixen.Live.PlayerKey key) -> bool
+Vixen.Live.Gameplay.LedgerBridge -> sealed class
+Vixen.Live.Gameplay.LedgerBridge : Vixen.Gameplay.Economy.IEconomyLedger
+Vixen.Live.Gameplay.LedgerBridge.Balance(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.DefId asset) -> long
+Vixen.Live.Gameplay.LedgerBridge.Diverged -> System.Action<Vixen.Live.Gameplay.PendingWrite, Vixen.Live.Persistence.LedgerResult>?
+Vixen.Live.Gameplay.LedgerBridge.Divergences.get -> int
+Vixen.Live.Gameplay.LedgerBridge.Drain() -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Gameplay.PendingWrite>
+Vixen.Live.Gameplay.LedgerBridge.HoldsLease.get -> bool
+Vixen.Live.Gameplay.LedgerBridge.LastRefusal.get -> Vixen.Live.Gameplay.BridgeRefusal
+Vixen.Live.Gameplay.LedgerBridge.LeaseEpoch.get -> long
+Vixen.Live.Gameplay.LedgerBridge.LedgerBridge(Vixen.Live.Gameplay.IGameplayIdentity identity, Vixen.Gameplay.Economy.IEconomyLedger projection, long leaseEpoch) -> void
+Vixen.Live.Gameplay.LedgerBridge.Pending.get -> int
+Vixen.Live.Gameplay.LedgerBridge.Post(Vixen.Gameplay.Economy.EconomyIntent intent) -> Vixen.Gameplay.Economy.EconomyResult
+Vixen.Live.Gameplay.LedgerBridge.Renew(long epoch) -> void
+Vixen.Live.Gameplay.LedgerBridge.Restore(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.DefId asset, long amount) -> bool
+Vixen.Live.Gameplay.LedgerBridge.Settle(Vixen.Live.Persistence.IdempotencyKey key, Vixen.Live.Persistence.LedgerResult result) -> bool
+Vixen.Live.Gameplay.LedgerBridge.Supersede() -> void
+Vixen.Live.Gameplay.PendingWrite -> readonly struct
+Vixen.Live.Gameplay.PendingWrite : System.IEquatable<Vixen.Live.Gameplay.PendingWrite>
+Vixen.Live.Gameplay.PendingWrite.Detail.get -> string
+Vixen.Live.Gameplay.PendingWrite.Detail.init -> string
+Vixen.Live.Gameplay.PendingWrite.Intent.get -> Vixen.Live.Persistence.LedgerIntent
+Vixen.Live.Gameplay.PendingWrite.Intent.init -> Vixen.Live.Persistence.LedgerIntent
+Vixen.Live.Gameplay.PendingWrite.Key.get -> Vixen.Live.Persistence.IdempotencyKey
+Vixen.Live.Gameplay.PendingWrite.Key.init -> Vixen.Live.Persistence.IdempotencyKey
+Vixen.Live.Gameplay.PendingWrite.PendingWrite() -> void
+Vixen.Live.Gameplay.PendingWrite.PendingWrite(Vixen.Live.Persistence.IdempotencyKey Key, Vixen.Live.Persistence.LedgerIntent Intent, string Detail) -> void
+const Vixen.Live.Gameplay.LedgerBridge.RestoreAccount = "world/restore" -> string
+static Vixen.Live.Gameplay.GameplayIdentityMap.From(Vixen.Net.Sessions.PlayerId session) -> Vixen.Gameplay.PlayerId
