@@ -269,19 +269,24 @@ static partial class SampleLog {
     [LoggerMessage(
         EventId = 14058,
         Level = LogLevel.Information,
-        Message = "Ground: {Terrains} terrain(s) and {Fields} grass field(s) drawn, {Extracted} "
-            + "extracted with {Waiting} still loading, {RefusedGrass} grass rule(s) refused. Zero "
+        Message = "Ground: {Terrains} terrain(s), {Fields} grass field(s) and {Volumes} foliage "
+            + "volume(s) drawn, {Extracted} extracted with {Waiting} still loading, {RefusedGrass} "
+            + "grass rule(s) refused. Zero "
             + "drawn with zero extracted is a scene that carries no TerrainComponent; zero drawn "
             + "with one extracted is content that never arrived, which draws as no ground at all "
             + "rather than as an error — different bugs, and the picture is the same absence for "
             + "both. A layer whose texture reference did not parse is the third: that one draws the "
             + "renderer's white default, and white ground under a dusk sky is the loudest thing in "
-            + "the frame."
+            + "the frame. A volume at zero with a !FoliageVolume in the level is the fourth, and it "
+            + "has two halves that report identically: a .vxfol that did not load, and a palette "
+            + "whose mesh reference resolves to nothing — the stand is then culled to nothing and "
+            + "drawn as nothing, with the terrain under it perfectly correct."
     )]
     public static partial void GroundSummary(
         ILogger logger,
         int terrains,
         int fields,
+        int volumes,
         int extracted,
         int waiting,
         int refusedGrass

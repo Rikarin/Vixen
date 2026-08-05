@@ -28,8 +28,9 @@ makes resident and nothing samples.
 | `metal-panel` | albedo, normal, orm | Ramps — the one metallic surface | all three |
 | `crate` | albedo, normal, orm | Cover crates | all three |
 | `terrain-grass`, `terrain-rock`, `terrain-dirt` | albedo, orm | The terrain's painted layers | albedo; orm bound, unread |
-| `grass-blade` | albedo (alpha), normal | `Outskirts.vxgrass` | albedo |
-| `bark`, `leaves` | albedo (leaves alpha), normal | — | nothing |
+| `grass-blade` | albedo (alpha), normal | `Outskirts.vxgrass` | albedo, **including its alpha** |
+| `leaves` | albedo (alpha), normal | `Outskirts.vxfoliage` — the bushes | albedo, **including its alpha** |
+| `bark` | albedo, normal, orm | — | nothing |
 
 ⚠ **A material samples three textures now, and every arena material reads all three.**
 `TexturedNormalMapFeature` and `TexturedOrmFeature` joined `TexturedMetalRoughnessFeature` in
@@ -54,20 +55,41 @@ three quarters of a megabyte into a bundle. Their `-orm` maps *are* bound, into 
 the shader reads one channel of them — `.a`, and only under a height blend — so they are resident
 and unread while `Outskirts.vxterrain`'s layers blend by weight.
 
-⚠ **`grass-blade` has a seat; what it does not have is a mesh.** `GrassType.Albedo` and
-`FoliageType.Albedo` name a texture, and `TerrainSceneRenderer` resolves both into
-`GrassDrawPass.Albedo` and `FoliageDrawPass.Albedo` every frame — so `Outskirts.vxgrass` names
-`grass-blade-albedo` and the field draws green instead of the pass's white 1×1. But the map is a
-cutout *card* — seven blades on transparent — and the built-in blade is one tapered strip whose
-texcoord runs 0…1 across itself, so the card's seven blades are squeezed across each strip. The
-right green, the wrong framing. Closing it needs a blade-card mesh whose unwrap matches the atlas,
-and an alpha-test discard: `Grass.rvn` writes `sampled.a` into an opaque target, so a transparent
-margin draws as its background colour rather than as a hole.
+⚠ **The alpha channels are read now, and that is what makes these cutouts.** `Grass.rvn` and
+`Foliage.rvn` alpha-test against `alphaCutoff` (0.5) through one shared predicate — `GrassBlade.Cutout`
+and `FoliageBase.Cutout` — which every fragment stage in each file calls, the velocity stages
+included. That coupling is load-bearing rather than tidy: the velocity pass depth-tests against the
+frame's finished depth, so a fragment the colour pass discarded shows the ground behind it, and a
+velocity fragment surviving there writes the blade's motion over the ground's. The colour targets
+also write **one** where they used to write `sampled.a`, which was a coverage mask sitting in an
+opaque target's alpha beside a terrain that writes one.
 
-⚠ **`leaves`/`bark` still have no volume to sit in.** The seat exists — `FoliageType.Albedo` — and
-this sample places no `FoliageVolume`, so there is nothing to assign them to. Note that a stand
-binds **one** albedo for its whole palette, so a volume mixing `bark` and `leaves` would need one
-map or one volume each until the pass can bind a texture per type.
+⚠ **The built-in grass mesh is two meshes now, and the albedo picks between them.**
+`GrassDrawPass.BuildBlade` is the tapered strip and `BuildCard` is a crossed quad pair carrying the
+whole atlas; `GrassDrawPass.Blade` returns the card when an albedo is bound and the strip when none
+is. Each is wrong exactly where the other is right — the strip's silhouette is its geometry, which
+is what draws as a blade through the pass's white 1×1, and the card's silhouette is its alpha, which
+needs a cutout and is a green slab without one. The strip's texcoord was also inverted for as long
+as it existed: V runs downward from the first row of the image, so the root standing on the ground
+is v = 1, and nothing noticed because nothing but a white 1×1 was ever bound to it.
+
+⚠ **`leaves` sits in the bushes; `bark` still has nowhere to sit, and the reason is a binding.**
+`Outskirts.vxfoliage`/`.vxfol` place 64 crossed-card bushes on the slope outside the walls —
+`TerrainSeed.BuildFoliage` — so the leaves atlas is finally sampled. A stand binds **one** albedo
+for its whole palette: `FoliageDrawPass.Albedo` is a single `Texture2D` and
+`TerrainSceneRenderer.AlbedoOf` takes the first type in the palette that names one, so a second type
+beside the bushes would draw through *their* map. A trunk therefore waits on a texture array indexed
+by the palette slot the cull already writes into `FoliageCullParameters` — the shape is recorded on
+`FoliageDrawPass.Albedo`, and nothing new has to travel to the draw for it.
+
+⚠ **The grass has not been read as blades on a device, and the sample cannot currently show it.**
+The field rasterises — an A/B at a temporarily inflated card width turns the ridge silhouette from a
+clean line into a thick vegetated mass and back — but at the authored 0.6 m the only viewpoints this
+sample allows put the field either in the arena's shade or out past its 55 m cull. The terrain
+carries no collider (colliders are built from the level's authored boxes), so a `VIXEN_SPAWN` into
+the field falls through it and `RespawnWhenBelow` cycles the camera below the surface; the one
+static perch is a wall top, seven metres above ground the low sun does not reach. Judging the blade
+silhouette needs either a free camera or a viewpoint the level does not have.
 
 ⚠ **The third map is ORM, not roughness alone**: occlusion in R, roughness in G, metalness in B.
 One texture rather than three is the usual packing, and it matters here beyond tidiness — a

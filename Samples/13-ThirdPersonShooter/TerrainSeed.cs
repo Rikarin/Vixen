@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Foliage;
 using Vixen.Terrain;
 using TerrainMap = Vixen.Terrain.Terrain;
 
@@ -48,6 +50,12 @@ internal static class TerrainSeed {
     /// <summary>The grass rule painted onto the terrain's own Grass layer.</summary>
     public const string GrassPath = "Assets/Terrain/Outskirts.vxgrass";
 
+    /// <summary>Where the bushes' instances live — the <c>.vxfol</c> the volume component names.</summary>
+    public const string FoliagePath = "Assets/Terrain/Outskirts.vxfol";
+
+    /// <summary>And the palette entry describing what they are — the bushes' <c>.vxfoliage</c>.</summary>
+    public const string FoliageTypePath = "Assets/Terrain/Outskirts.vxfoliage";
+
     /// <summary>Half the terrain's span in metres — the entity is translated by this, so the grid's
     ///     centre lands on the arena's origin.</summary>
     public const float HalfExtent = 126f;
@@ -68,7 +76,84 @@ internal static class TerrainSeed {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, TerrainStore.Write(Build()));
 
+        var foliage = BuildFoliage();
+        var bytes = new byte[FoliageStore.ByteCount(foliage)];
+
+        FoliageStore.Write(foliage, bytes);
+        File.WriteAllBytes(Path.Combine(projectDirectory, FoliagePath), bytes);
+
         return path;
+    }
+
+    /// <summary>The bushes standing on the slopes outside the walls — the committed <c>.vxfol</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What finally gives <c>leaves-albedo.png</c> somewhere to sit.</b>
+    ///         <c>FoliageType.Albedo</c> has had a seat since the field was added and this sample
+    ///         placed no volume at all, so the map was committed, imported, made resident and
+    ///         sampled by nothing. A cutout card cross is the mesh that shows what the alpha test
+    ///         bought: without it the bush is three intersecting slabs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One type, and that is a limit rather than a choice.</b> A stand binds one albedo
+    ///         for its whole palette — <c>FoliageDrawPass.Albedo</c> carries the shape that would
+    ///         fix it — so a volume mixing <c>bark</c> and <c>leaves</c> would draw both through
+    ///         whichever map <c>TerrainSceneRenderer.AlbedoOf</c> found first. The trunk the bark map
+    ///         is for waits on that, and adding it now would be a stand that draws visibly wrong.
+    ///     </para>
+    ///     <para>
+    ///         <b>Placed in world space by arithmetic</b>, on <c>03-PbrShowcase</c>'s terms: the
+    ///         terrain entity is translated by <see cref="HalfExtent" />, and so is the volume's,
+    ///         so a bush at world <c>(x, z)</c> reads its height from sample
+    ///         <c>(x / 2 + 63, z / 2 + 63)</c>. A golden-angle spiral over the ring between the
+    ///         walls and the first hills, which is where the Grass layer is painted and therefore
+    ///         where the field the bushes stand in already is.
+    ///     </para>
+    /// </remarks>
+    public static FoliageVolume BuildFoliage() {
+        var volume = new FoliageVolume(new(32f));
+
+        var bush = volume.AddType(
+            FoliageType.Of("Bush") with {
+                Mesh = "vx:9a745bce11d8456db1f67ba97a59b796#b5761ecb",
+                Albedo = "vx:b52ac26f9cda4406b1c667297a987cbd",
+                Radius = 1.2f,
+                MinScale = 0.8f,
+                MaxScale = 1.6f,
+                StartCullDistance = 70f,
+                EndCullDistance = 90f
+            }
+        );
+
+        var placed = 0;
+
+        for (var candidate = 0; placed < 64 && candidate < 400; candidate++) {
+            // The ring the Grass layer is painted over: outside the walls, inside the first crest.
+            var angle = candidate * 2.399963f;
+            var radius = ArenaReach + 6f + ((candidate % 89) / 89f * 34f);
+            var x = radius * MathF.Cos(angle);
+            var z = radius * MathF.Sin(angle);
+
+            // Out of the quarry, which is a hole — an instance standing over one has no ground.
+            if (MathF.Abs(x - 50f) < 12f && MathF.Abs(z + 46f) < 12f) {
+                continue;
+            }
+
+            var height = HeightAt((int)((x / 2f) + (HalfExtent / 2f)), (int)((z / 2f) + (HalfExtent / 2f)));
+
+            volume.Add(
+                bush,
+                new(
+                    new(x, height, z),
+                    Quaternion.FromYawPitchRoll(candidate * 1.7f, 0f, 0f),
+                    0.8f + ((candidate * 37 % 100) / 100f * 0.8f)
+                )
+            );
+
+            placed++;
+        }
+
+        return volume;
     }
 
     /// <summary>The terrain itself, every section of the store exercised.</summary>

@@ -23,6 +23,10 @@ import Vixen.Shaders.Shading
 // partly opaque. The stipple pattern is the grass's, so a foliage LOD dissolving and a grass blade
 // fading composite identically.
 //
+// **The cutout and the fade are one predicate, `FoliageBase.Cutout`** — `Grass.rvn`'s arrangement
+// and its argument, which is stronger here: a leaf card is mostly hole, so a canopy without an alpha
+// test is a stack of opaque rectangles rather than a tree.
+//
 // **Three shaders share one base**, on `Terrain.rvn`'s arrangement: `FoliageBase` owns the bindings,
 // the streams and the placement, `Foliage` is the editor's preview lit by a hard-coded direction,
 // `FoliageLit` is the frame's — the same sun and the same cascade atlas the terrain under it
@@ -62,8 +66,15 @@ shader FoliageBase {
     var parameters: Buffer<FoliageCullParameters>
 
     /// The mesh's albedo, or the pass's white default while no material path exists.
+    ///
+    /// ⚠ **One map for a whole volume's palette.** A stand mixing bark and leaves needs a texture per
+    /// type, which this binding cannot express — `FoliageDrawPass.Albedo`'s remarks carry the shape
+    /// that would fix it. Until then a volume is authored around a single map.
     var albedoMap: Texture2D
     var albedoSampler: Sampler
+
+    /// The alpha below which a texel is not there, 0…1. `GrassBlade.alphaCutoff`'s terms exactly.
+    var alphaCutoff: float = 0.5f
 
     stream var uv: float2
     stream var normalWS: float3
@@ -99,6 +110,15 @@ shader FoliageBase {
     func Stipple(pixel: float2): float {
         return frac(52.9829189f * frac(dot(pixel, float2(0.06711056f, 0.00583715f))))
     }
+
+    /// Whether this fragment is not there — cut out of the card, or stippled out by the fade.
+    ///
+    /// ⚠ Every fragment stage in this file calls exactly this — `GrassBlade.Cutout`'s note, for the
+    /// same reason: the colour pass and the velocity pass must reach the same answer for the same
+    /// pixel, and one predicate is the only form of "the same" that survives an edit.
+    func Cutout(alpha: float, pixel: float2): bool {
+        return alpha < alphaCutoff || (CrossFade && Stipple(pixel) >= fade)
+    }
 }
 
 shader Foliage : FoliageBase {
@@ -120,7 +140,7 @@ shader Foliage : FoliageBase {
 
         // ⚠ Stippled, not blended — the grass fragment's argument, which is worse here: a forest's
         // canopies overlap far deeper than blades do, and translucency would sort all of them.
-        if (CrossFade && Stipple(fragment.xy) >= fade) {
+        if (Cutout(sampled.a, fragment.xy)) {
             discard
         }
 
@@ -128,7 +148,9 @@ shader Foliage : FoliageBase {
         val normal = Math.SafeNormalize(normalWS)
         val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
 
-        return float4(sampled.rgb * shade * (0.25f + 0.75f * light), sampled.a)
+        // One, not `sampled.a` — `Grass.Fragment`'s note: an opaque target, and the cutout has
+        // already answered coverage.
+        return float4(sampled.rgb * shade * (0.25f + 0.75f * light), 1f)
     }
 }
 
@@ -161,13 +183,14 @@ shader FoliageVelocity : FoliageBase {
         return clip
     }
 
-    /// `MotionVectors.Fragment`'s convention, behind the same stipple the colour passes take — the
+    /// `MotionVectors.Fragment`'s convention, behind the same cutout the colour passes take — the
     /// grass velocity fragment's argument: the discard must match the colour pass's exactly, or a
-    /// dissolved pixel's velocity overwrites the surface visible through it.
+    /// dissolved pixel's velocity overwrites the surface visible through it. Which is why this pass
+    /// samples an albedo whose colour it never uses: the alpha decides where the canopy is.
     [FragmentShader]
     [Semantic("SV_Target")]
     func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
-        if (CrossFade && Stipple(fragment.xy) >= fade) {
+        if (Cutout(albedoMap.Sample(albedoSampler, uv).a, fragment.xy)) {
             discard
         }
 
@@ -239,8 +262,9 @@ shader FoliageLit : FoliageBase {
     func Fragment([Semantic("SV_Position")] fragment: float4): TerrainTargets {
         val sampled = albedoMap.Sample(albedoSampler, uv)
 
-        // The same stipple the preview takes — the fade must not change with the lighting.
-        if (CrossFade && Stipple(fragment.xy) >= fade) {
+        // The same cutout the preview takes — neither the card's holes nor the fade may change with
+        // the lighting.
+        if (Cutout(sampled.a, fragment.xy)) {
             discard
         }
 
@@ -279,8 +303,9 @@ shader FoliageLit : FoliageBase {
 
         var targets: TerrainTargets
 
+        // One rather than `sampled.a` in both branches — `Grass.Fragment`'s note.
         if (SplitOutputs) {
-            targets.color = float4(colour, sampled.a)
+            targets.color = float4(colour, 1f)
             targets.albedo = float4(albedo, 1f)
 
             // Raw and signed — `SceneNormals`' convention, where an encode misleads every reader.
@@ -290,7 +315,7 @@ shader FoliageLit : FoliageBase {
 
             colour += Ibl.Diffuse(irradiance, albedo, 1f) * ambientIntensity
 
-            targets.color = float4(colour, sampled.a)
+            targets.color = float4(colour, 1f)
         }
 
         return targets

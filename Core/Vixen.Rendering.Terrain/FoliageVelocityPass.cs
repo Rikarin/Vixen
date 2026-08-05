@@ -144,7 +144,11 @@ sealed class FoliageVelocityPass : IDisposable {
             PreviousViewProjection = previousViewProjection,
             ViewProjection = view.ViewProjection,
 
-            // Unread — the fragment computes a stipple and a delta — but a block is written wholly.
+            // ⚠ The colour pass's own number, never a second one written here — the grass velocity
+            // pass's note says what a disagreeing cutoff writes into the motion target.
+            AlphaCutoff = draw.AlphaCutoff,
+
+            // Unread — the fragment computes a cutout and a delta — but a block is written wholly.
             TintRange = new(1f, 1f)
         }.Write(block);
 

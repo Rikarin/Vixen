@@ -20,6 +20,14 @@ import Vixen.Shaders.Shading
 // thousands of them — it is stippled out, which composites for free and reaches zero exactly at the
 // distance the cull drops it.
 //
+// **The cutout and the fade are one predicate, `GrassBlade.Cutout`, and all three fragments call
+// it.** A blade is drawn as a card and the card's margin is transparent, so an alpha test is what
+// turns the margin into a hole rather than into its background colour — and the velocity pass has to
+// cut out the *same* fragments as the colour pass, because it depth-tests against the frame's
+// finished depth and a fragment surviving where colour discarded would write the blade's motion over
+// the ground's. Two shaders holding two copies of that test is one edit away from disagreeing, which
+// is why the test is a function on the base rather than a line in each entry point.
+//
 // **Three shaders share one base**, on `Terrain.rvn`'s arrangement: `GrassBlade` owns the bindings,
 // the streams and the sway, `Grass` is the editor's preview lit by a hard-coded direction,
 // `GrassLit` is the frame's — the same sun and the same cascade atlas the terrain under it reads —
@@ -53,6 +61,17 @@ shader GrassBlade {
     /// The blade's albedo, tinted per instance.
     var albedoMap: Texture2D
     var albedoSampler: Sampler
+
+    /// The alpha below which a texel is not there, 0…1.
+    ///
+    /// ⚠ **A uniform and not a permutation, unlike `DepthOnly.AlphaTested`.** The colour pass and the
+    /// velocity pass resolve through different paths — the draw's variant is picked per grass type
+    /// and the velocity's once for the whole scene — so a permutation is two places the answer is
+    /// chosen and one of them is a frame away from being chosen differently. One number the velocity
+    /// pass takes from the colour pass, the way it already takes the albedo view and the sampler,
+    /// cannot drift. Zero means no cutout: `a < 0` is false for every texel, including the pass's
+    /// opaque white default.
+    var alphaCutoff: float = 0.5f
 
     /// What `tint` of 0 and 1 mean, as a multiplier on the albedo.
     var tintRange: float2
@@ -116,6 +135,17 @@ shader GrassBlade {
     func Stipple(pixel: float2): float {
         return frac(52.9829189f * frac(dot(pixel, float2(0.06711056f, 0.00583715f))))
     }
+
+    /// Whether this fragment is not there — cut out of the card, or stippled out by the fade.
+    ///
+    /// ⚠ **Every fragment stage in this file calls exactly this, and that is the point.** The colour
+    /// pass and the velocity pass must reach the same answer for the same pixel; the file header
+    /// says what a disagreement writes. The two reasons are one predicate because they are one
+    /// question — whether the blade covers the pixel — and because a caller that took them
+    /// separately could take one and forget the other.
+    func Cutout(alpha: float, pixel: float2): bool {
+        return alpha < alphaCutoff || (CrossFade && Stipple(pixel) >= fade)
+    }
 }
 
 shader Grass : GrassBlade {
@@ -139,7 +169,7 @@ shader Grass : GrassBlade {
         // make every one of them sort against every other — which is both slower and wrong. The
         // pattern is the screen-space one `LodRenderFeature`'s cross-fade uses, so a blade fading out
         // and a LOD level fading in dissolve identically.
-        if (CrossFade && Stipple(fragment.xy) >= fade) {
+        if (Cutout(sampled.a, fragment.xy)) {
             discard
         }
 
@@ -147,7 +177,10 @@ shader Grass : GrassBlade {
         val normal = Math.SafeNormalize(normalWS)
         val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
 
-        return float4(sampled.rgb * shade * (0.25f + 0.75f * light), sampled.a)
+        // One, not `sampled.a`: the target is opaque and a fragment that survived the cutout is
+        // wholly there. Writing the card's alpha into it puts the cutout's own mask in a channel
+        // whose readers — the terrain beside it writes one — take it for coverage.
+        return float4(sampled.rgb * shade * (0.25f + 0.75f * light), 1f)
     }
 }
 
@@ -193,16 +226,21 @@ shader GrassVelocity : GrassBlade {
         return clip
     }
 
-    /// `MotionVectors.Fragment`'s convention, behind the same stipple the colour passes take.
+    /// `MotionVectors.Fragment`'s convention, behind the same cutout the colour passes take.
     ///
-    /// ⚠ The stipple must match exactly — same pattern, same `fade` — because the velocity pass
-    /// depth-tests against the frame's finished depth: a fragment the colour pass discarded shows
-    /// the terrain behind it, and a velocity fragment surviving there would overwrite the ground's
-    /// answer with the blade's.
+    /// ⚠ The cutout must match exactly — same cutoff, same pattern, same `fade` — because the
+    /// velocity pass depth-tests against the frame's finished depth: a fragment the colour pass
+    /// discarded shows the terrain behind it, and a velocity fragment surviving there would
+    /// overwrite the ground's answer with the blade's. `Cutout` is what makes "exactly" structural.
+    ///
+    /// ⚠ **This is why the velocity pass binds an albedo it draws nothing with.** The map is sampled
+    /// for one channel and the colour is thrown away; the binding predates the read, and a velocity
+    /// pass that skipped it would cut the card's margin out of the picture and leave the margin's
+    /// motion in the buffer.
     [FragmentShader]
     [Semantic("SV_Target")]
     func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
-        if (CrossFade && Stipple(fragment.xy) >= fade) {
+        if (Cutout(albedoMap.Sample(albedoSampler, uv).a, fragment.xy)) {
             discard
         }
 
@@ -293,8 +331,9 @@ shader GrassLit : GrassBlade {
     func Fragment([Semantic("SV_Position")] fragment: float4): TerrainTargets {
         val sampled = albedoMap.Sample(albedoSampler, uv)
 
-        // The same stipple the preview takes — the fade must not change with the lighting.
-        if (CrossFade && Stipple(fragment.xy) >= fade) {
+        // The same cutout the preview takes — neither the card's holes nor the fade may change with
+        // the lighting, or a field looks like a different field in the editor.
+        if (Cutout(sampled.a, fragment.xy)) {
             discard
         }
 
@@ -333,8 +372,10 @@ shader GrassLit : GrassBlade {
 
         var targets: TerrainTargets
 
+        // One rather than `sampled.a` in both branches — `Grass.Fragment`'s note: the cutout has
+        // already decided coverage, and the terrain writing beside this writes one.
         if (SplitOutputs) {
-            targets.color = float4(colour, sampled.a)
+            targets.color = float4(colour, 1f)
             targets.albedo = float4(albedo, 1f)
 
             // Raw and signed, and the *ground's* — the stream's own note says why.
@@ -344,7 +385,7 @@ shader GrassLit : GrassBlade {
 
             colour += Ibl.Diffuse(irradiance, albedo, 1f) * ambientIntensity
 
-            targets.color = float4(colour, sampled.a)
+            targets.color = float4(colour, 1f)
         }
 
         return targets

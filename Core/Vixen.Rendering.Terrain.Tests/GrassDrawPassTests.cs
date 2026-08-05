@@ -240,5 +240,80 @@ public sealed class GrassDrawPassTests : IDisposable {
 
         // Three segments is six triangles is eighteen indices. One quad would be six.
         Assert.Equal(18, pass.DefaultBladeIndices);
+
+        // And the card is that crossed with itself: two quads of the same three segments.
+        Assert.Equal(36, pass.DefaultCardIndices);
+    }
+
+    /// <summary>A bound albedo draws the card; no albedo draws the tapered strip.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two built-ins are not interchangeable and the albedo is what says which.</b>
+    ///         The strip's silhouette is its geometry and the card's is its alpha, so a cutout atlas
+    ///         on the strip is seven blades squeezed into a sliver and the card with no map is a
+    ///         green slab. Asserted through <see cref="GrassDrawPass.MeshTemplate" /> as well as the
+    ///         mesh, because the index count is what the indirect command bakes — a pass that swapped
+    ///         the buffers and not the count would draw half a card.
+    ///     </para>
+    ///     <para>
+    ///         The selection is on read rather than latched at construction because a texture is not
+    ///         resolvable until its pixels are on the device — see the property's own remarks.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheAlbedoDecidesWhichBuiltInTheFieldDraws() {
+        using var pass = Pass();
+
+        Assert.Equal(pass.DefaultBladeIndices, pass.Blade.IndexCount);
+        Assert.Equal((uint)pass.DefaultBladeIndices, pass.MeshTemplate.IndexCount);
+
+        var strip = pass.Blade;
+
+        pass.Albedo = device.CreateTextureView(
+            device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: "card"))
+        );
+
+        Assert.Equal(pass.DefaultCardIndices, pass.Blade.IndexCount);
+        Assert.Equal((uint)pass.DefaultCardIndices, pass.MeshTemplate.IndexCount);
+        Assert.NotEqual(strip.Vertices, pass.Blade.Vertices);
+
+        // And back, because a rule whose texture stopped resolving must draw the shape that works
+        // without one rather than a slab of the white default.
+        pass.Albedo = default;
+
+        Assert.Equal(strip, pass.Blade);
+    }
+
+    /// <summary>An assigned mesh wins over both built-ins, including an assigned nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>default</c> means "no mesh", not "go back to the built-in".</b> A project that
+    ///     clears the blade is saying the field must not draw — <see cref="GrassDrawPass.HasBlade" />
+    ///     is the answer it expects — and a pass that read the clear as "unassigned" would quietly
+    ///     resume drawing built-in grass over whatever the project put there instead.
+    /// </remarks>
+    [Fact]
+    public void AnAssignedMeshWinsOverTheBuiltIns() {
+        using var pass = Pass();
+
+        var mine = new GrassBladeMesh(
+            device.CreateBuffer(new(64, BufferUsage.Vertex, MemoryAccess.HostUpload, "mine")),
+            device.CreateBuffer(new(24, BufferUsage.Index, MemoryAccess.HostUpload, "mine")),
+            6
+        );
+
+        pass.Blade = mine;
+
+        Assert.Equal(mine, pass.Blade);
+
+        // The albedo arriving does not take it back.
+        pass.Albedo = device.CreateTextureView(
+            device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: "card"))
+        );
+
+        Assert.Equal(mine, pass.Blade);
+
+        pass.Blade = default;
+
+        Assert.False(pass.HasBlade);
     }
 }

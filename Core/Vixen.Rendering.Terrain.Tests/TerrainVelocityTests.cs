@@ -285,15 +285,18 @@ public sealed class TerrainVelocityTests : IDisposable {
 
         var grass = ShaderSource("Grass.rvn", "GrassVelocity");
 
-        // The wind at last frame's clock — the sway's own motion — and the colour pass's stipple.
+        // The wind at last frame's clock — the sway's own motion — and the colour pass's coverage.
+        // The stipple moved inside `GrassBlade.Cutout` when the alpha test joined it, so what is
+        // asserted here is that this stage discards through the shared predicate at all;
+        // `TerrainShaderParityTests` is what holds the predicate itself to one copy.
         Assert.Contains("Displacement.WindPhased(scaled, world, wind, previousTime, blade.windPhase)", grass, StringComparison.Ordinal);
-        Assert.Contains("Stipple(fragment.xy) >= fade", grass, StringComparison.Ordinal);
+        Assert.Contains("if (Cutout(", grass, StringComparison.Ordinal);
 
         var foliage = ShaderSource("Foliage.rvn", "FoliageVelocity");
 
-        // Static reprojection, and the same stipple the foliage colour pass takes.
+        // Static reprojection, and the same cutout the foliage colour pass takes.
         Assert.Contains("previousViewProjection * float4(positionWS, 1f)", foliage, StringComparison.Ordinal);
-        Assert.Contains("Stipple(fragment.xy) >= fade", foliage, StringComparison.Ordinal);
+        Assert.Contains("if (Cutout(", foliage, StringComparison.Ordinal);
 
         // All three write the from-here-to-there offset in UV — Taa.rvn samples history at
         // `uv + motion`, so the sign convention is MotionVectors.rvn's, verbatim.

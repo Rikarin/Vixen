@@ -105,6 +105,8 @@ Vixen.Rendering.Terrain.FoliageDrawPass -> sealed class
 Vixen.Rendering.Terrain.FoliageDrawPass : System.IDisposable
 Vixen.Rendering.Terrain.FoliageDrawPass.Albedo.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.FoliageDrawPass.Albedo.set -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Terrain.FoliageDrawPass.AlphaCutoff.get -> float
+Vixen.Rendering.Terrain.FoliageDrawPass.AlphaCutoff.set -> float
 Vixen.Rendering.Terrain.FoliageDrawPass.Dispose() -> void
 Vixen.Rendering.Terrain.FoliageDrawPass.Draws.get -> int
 Vixen.Rendering.Terrain.FoliageDrawPass.FoliageDrawPass(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.Terrain.TerrainShaders shaders, Vixen.Rendering.RenderOutput output) -> void
@@ -236,9 +238,12 @@ Vixen.Rendering.Terrain.GrassDrawPass -> sealed class
 Vixen.Rendering.Terrain.GrassDrawPass : System.IDisposable
 Vixen.Rendering.Terrain.GrassDrawPass.Albedo.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.GrassDrawPass.Albedo.set -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Terrain.GrassDrawPass.AlphaCutoff.get -> float
+Vixen.Rendering.Terrain.GrassDrawPass.AlphaCutoff.set -> float
 Vixen.Rendering.Terrain.GrassDrawPass.Blade.get -> Vixen.Rendering.Terrain.GrassBladeMesh
 Vixen.Rendering.Terrain.GrassDrawPass.Blade.set -> Vixen.Rendering.Terrain.GrassBladeMesh
 Vixen.Rendering.Terrain.GrassDrawPass.DefaultBladeIndices.get -> int
+Vixen.Rendering.Terrain.GrassDrawPass.DefaultCardIndices.get -> int
 Vixen.Rendering.Terrain.GrassDrawPass.Dispose() -> void
 Vixen.Rendering.Terrain.GrassDrawPass.Draws.get -> int
 Vixen.Rendering.Terrain.GrassDrawPass.GrassDrawPass(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.Terrain.TerrainShaders shaders, Vixen.Rendering.RenderOutput output) -> void
@@ -610,6 +615,7 @@ Vixen.Rendering.Terrain.TerrainView.TerrainView(Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Terrain.TerrainView.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Terrain.TerrainView.ViewProjection.init -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.FoliageConstants -> struct
+Vixen.Shaders.Generated.FoliageConstants.AlphaCutoff -> float
 Vixen.Shaders.Generated.FoliageConstants.FoliageConstants() -> void
 Vixen.Shaders.Generated.FoliageConstants.TintRange -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.FoliageConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
@@ -621,6 +627,7 @@ Vixen.Shaders.Generated.FoliageLitCascadesElement.FoliageLitCascadesElement() ->
 Vixen.Shaders.Generated.FoliageLitCascadesElement.Split -> float
 Vixen.Shaders.Generated.FoliageLitCascadesElement.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.FoliageLitConstants -> struct
+Vixen.Shaders.Generated.FoliageLitConstants.AlphaCutoff -> float
 Vixen.Shaders.Generated.FoliageLitConstants.AmbientIntensity -> float
 Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL00 -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.FoliageLitConstants.EnvironmentShL10 -> Vixen.Core.Mathematics.Vector3
@@ -643,12 +650,14 @@ Vixen.Shaders.Generated.FoliageLitConstants.View -> Vixen.Core.Mathematics.Matri
 Vixen.Shaders.Generated.FoliageLitConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.FoliageLitKeys -> static class
 Vixen.Shaders.Generated.FoliageVelocityConstants -> struct
+Vixen.Shaders.Generated.FoliageVelocityConstants.AlphaCutoff -> float
 Vixen.Shaders.Generated.FoliageVelocityConstants.FoliageVelocityConstants() -> void
 Vixen.Shaders.Generated.FoliageVelocityConstants.PreviousViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.FoliageVelocityConstants.TintRange -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.FoliageVelocityConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.FoliageVelocityKeys -> static class
 Vixen.Shaders.Generated.GrassConstants -> struct
+Vixen.Shaders.Generated.GrassConstants.AlphaCutoff -> float
 Vixen.Shaders.Generated.GrassConstants.FadeRange -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.GrassConstants.GrassConstants() -> void
 Vixen.Shaders.Generated.GrassConstants.Time -> float
@@ -668,6 +677,7 @@ Vixen.Shaders.Generated.GrassLitCascadesElement.GrassLitCascadesElement() -> voi
 Vixen.Shaders.Generated.GrassLitCascadesElement.Split -> float
 Vixen.Shaders.Generated.GrassLitCascadesElement.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.GrassLitConstants -> struct
+Vixen.Shaders.Generated.GrassLitConstants.AlphaCutoff -> float
 Vixen.Shaders.Generated.GrassLitConstants.AmbientIntensity -> float
 Vixen.Shaders.Generated.GrassLitConstants.EnvironmentShL00 -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.GrassLitConstants.EnvironmentShL10 -> Vixen.Core.Mathematics.Vector3
@@ -718,6 +728,7 @@ Vixen.Shaders.Generated.GrassScatterConstants.WeightChannel -> int
 Vixen.Shaders.Generated.GrassScatterConstants.WeightRange -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.GrassScatterKeys -> static class
 Vixen.Shaders.Generated.GrassVelocityConstants -> struct
+Vixen.Shaders.Generated.GrassVelocityConstants.AlphaCutoff -> float
 Vixen.Shaders.Generated.GrassVelocityConstants.FadeRange -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.GrassVelocityConstants.GrassVelocityConstants() -> void
 Vixen.Shaders.Generated.GrassVelocityConstants.PreviousTime -> float
@@ -912,7 +923,7 @@ const Vixen.Shaders.Generated.FoliageVelocityKeys.SurvivorsBinding = 4 -> uint
 const Vixen.Shaders.Generated.FoliageVelocityKeys.SurvivorsSet = 2 -> int
 const Vixen.Shaders.Generated.FoliageVelocityKeys.TexcoordLocation = 8 -> uint
 const Vixen.Shaders.Generated.FoliageVelocityKeys.VertexAttributeCount = 3 -> int
-const Vixen.Shaders.Generated.GrassConstants.Size = 128 -> int
+const Vixen.Shaders.Generated.GrassConstants.Size = 144 -> int
 const Vixen.Shaders.Generated.GrassKeys.AlbedoMapBinding = 1 -> uint
 const Vixen.Shaders.Generated.GrassKeys.AlbedoMapSet = 2 -> int
 const Vixen.Shaders.Generated.GrassKeys.AlbedoSamplerBinding = 2 -> uint
@@ -921,7 +932,7 @@ const Vixen.Shaders.Generated.GrassKeys.BladesBinding = 3 -> uint
 const Vixen.Shaders.Generated.GrassKeys.BladesSet = 2 -> int
 const Vixen.Shaders.Generated.GrassKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.GrassKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.GrassKeys.ConstantBufferSize = 128 -> int
+const Vixen.Shaders.Generated.GrassKeys.ConstantBufferSize = 144 -> int
 const Vixen.Shaders.Generated.GrassKeys.NormalLocation = 5 -> uint
 const Vixen.Shaders.Generated.GrassKeys.PositionLocation = 4 -> uint
 const Vixen.Shaders.Generated.GrassKeys.ShaderName = "Grass" -> string
@@ -930,7 +941,7 @@ const Vixen.Shaders.Generated.GrassKeys.VertexAttributeCount = 3 -> int
 const Vixen.Shaders.Generated.GrassLitCascadesElement.BaseOffset = 112 -> int
 const Vixen.Shaders.Generated.GrassLitCascadesElement.Count = 4 -> int
 const Vixen.Shaders.Generated.GrassLitCascadesElement.Stride = 80 -> int
-const Vixen.Shaders.Generated.GrassLitConstants.Size = 720 -> int
+const Vixen.Shaders.Generated.GrassLitConstants.Size = 736 -> int
 const Vixen.Shaders.Generated.GrassLitKeys.AlbedoMapBinding = 2 -> uint
 const Vixen.Shaders.Generated.GrassLitKeys.AlbedoMapSet = 2 -> int
 const Vixen.Shaders.Generated.GrassLitKeys.AlbedoSamplerBinding = 4 -> uint
@@ -939,7 +950,7 @@ const Vixen.Shaders.Generated.GrassLitKeys.BladesBinding = 5 -> uint
 const Vixen.Shaders.Generated.GrassLitKeys.BladesSet = 2 -> int
 const Vixen.Shaders.Generated.GrassLitKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.GrassLitKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.GrassLitKeys.ConstantBufferSize = 720 -> int
+const Vixen.Shaders.Generated.GrassLitKeys.ConstantBufferSize = 736 -> int
 const Vixen.Shaders.Generated.GrassLitKeys.NormalLocation = 7 -> uint
 const Vixen.Shaders.Generated.GrassLitKeys.PositionLocation = 6 -> uint
 const Vixen.Shaders.Generated.GrassLitKeys.ShaderName = "GrassLit" -> string
@@ -974,7 +985,7 @@ const Vixen.Shaders.Generated.GrassScatterKeys.WeightMapBinding = 2 -> uint
 const Vixen.Shaders.Generated.GrassScatterKeys.WeightMapSet = 2 -> int
 const Vixen.Shaders.Generated.GrassScatterKeys.WeightSamplerBinding = 5 -> uint
 const Vixen.Shaders.Generated.GrassScatterKeys.WeightSamplerSet = 2 -> int
-const Vixen.Shaders.Generated.GrassVelocityConstants.Size = 208 -> int
+const Vixen.Shaders.Generated.GrassVelocityConstants.Size = 224 -> int
 const Vixen.Shaders.Generated.GrassVelocityKeys.AlbedoMapBinding = 1 -> uint
 const Vixen.Shaders.Generated.GrassVelocityKeys.AlbedoMapSet = 2 -> int
 const Vixen.Shaders.Generated.GrassVelocityKeys.AlbedoSamplerBinding = 2 -> uint
@@ -983,7 +994,7 @@ const Vixen.Shaders.Generated.GrassVelocityKeys.BladesBinding = 3 -> uint
 const Vixen.Shaders.Generated.GrassVelocityKeys.BladesSet = 2 -> int
 const Vixen.Shaders.Generated.GrassVelocityKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.GrassVelocityKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.GrassVelocityKeys.ConstantBufferSize = 208 -> int
+const Vixen.Shaders.Generated.GrassVelocityKeys.ConstantBufferSize = 224 -> int
 const Vixen.Shaders.Generated.GrassVelocityKeys.NormalLocation = 7 -> uint
 const Vixen.Shaders.Generated.GrassVelocityKeys.PositionLocation = 6 -> uint
 const Vixen.Shaders.Generated.GrassVelocityKeys.ShaderName = "GrassVelocity" -> string
@@ -1196,6 +1207,7 @@ static readonly Vixen.Shaders.Generated.FoliageCullKeys.UsedPermutationKeys -> V
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Views -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageKeys.AlbedoMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.FoliageKeys.AlbedoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.FoliageKeys.AlphaCutoff -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.FoliageKeys.CrossFade -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.FoliageKeys.Instances -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageKeys.Parameters -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
@@ -1205,6 +1217,7 @@ static readonly Vixen.Shaders.Generated.FoliageKeys.UsedPermutationKeys -> Vixen
 static readonly Vixen.Shaders.Generated.FoliageKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.FoliageLitKeys.AlbedoMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.FoliageLitKeys.AlbedoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.FoliageLitKeys.AlphaCutoff -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.FoliageLitKeys.AmbientIntensity -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.FoliageLitKeys.CrossFade -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.FoliageLitKeys.EnvironmentShL00 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
@@ -1234,6 +1247,7 @@ static readonly Vixen.Shaders.Generated.FoliageLitKeys.View -> Vixen.Shaders.Par
 static readonly Vixen.Shaders.Generated.FoliageLitKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.FoliageVelocityKeys.AlbedoMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.FoliageVelocityKeys.AlbedoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.FoliageVelocityKeys.AlphaCutoff -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.FoliageVelocityKeys.CrossFade -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.FoliageVelocityKeys.Instances -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageVelocityKeys.Parameters -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
@@ -1244,6 +1258,7 @@ static readonly Vixen.Shaders.Generated.FoliageVelocityKeys.UsedPermutationKeys 
 static readonly Vixen.Shaders.Generated.FoliageVelocityKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.GrassKeys.AlbedoMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.GrassKeys.AlbedoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.GrassKeys.AlphaCutoff -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.GrassKeys.Blades -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.GrassKeys.CrossFade -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.GrassKeys.FadeRange -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
@@ -1260,6 +1275,7 @@ static readonly Vixen.Shaders.Generated.GrassKeys.WindSpeed -> Vixen.Shaders.Par
 static readonly Vixen.Shaders.Generated.GrassKeys.WindStrength -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.GrassLitKeys.AlbedoMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.GrassLitKeys.AlbedoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.GrassLitKeys.AlphaCutoff -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.GrassLitKeys.AmbientIntensity -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.GrassLitKeys.Blades -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.GrassLitKeys.CrossFade -> Vixen.Shaders.PermutationKey<bool>
@@ -1326,6 +1342,7 @@ static readonly Vixen.Shaders.Generated.GrassScatterKeys.WeightRange -> Vixen.Sh
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.WeightSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.GrassVelocityKeys.AlbedoMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.GrassVelocityKeys.AlbedoSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.GrassVelocityKeys.AlphaCutoff -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.GrassVelocityKeys.Blades -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.GrassVelocityKeys.CrossFade -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.GrassVelocityKeys.FadeRange -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>

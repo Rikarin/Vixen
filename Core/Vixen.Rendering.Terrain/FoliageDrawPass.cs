@@ -61,6 +61,9 @@ public sealed class FoliageDrawPass : IDisposable {
     /// <summary>How many bytes one vertex is: position, normal, texcoord.</summary>
     public const int VertexBytes = 32;
 
+    /// <summary>The cutout a stand starts at — <see cref="GrassDrawPass.AlphaCutoff" />'s half.</summary>
+    const float DefaultAlphaCutoff = 0.5f;
+
     readonly IGraphicsDevice device;
     readonly int slots;
     readonly long constantStride;
@@ -233,7 +236,24 @@ public sealed class FoliageDrawPass : IDisposable {
     }
 
     /// <summary>What the instances are textured with, or default for the built-in white.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One map for the whole volume, which is what stops a stand mixing bark and leaves.</b>
+    ///     The binding is a single <c>Texture2D</c> and a volume's palette is many types, so today a
+    ///     stand is authored around one map or split into one volume per type. Closing it is a
+    ///     texture array indexed by the palette slot the cull already writes into
+    ///     <c>FoliageCullParameters</c> — the survivor's type is known at the draw, so nothing new
+    ///     has to travel; what is missing is an array binding and a per-type resolve beside
+    ///     <c>TerrainSceneRenderer</c>'s single one.
+    /// </remarks>
     public TextureViewHandle Albedo { get; set; }
+
+    /// <summary>The alpha below which a texel is a hole rather than a colour, 0…1.</summary>
+    /// <remarks>
+    ///     <see cref="GrassDrawPass.AlphaCutoff" />'s terms exactly, and it matters more here: a leaf
+    ///     card is mostly hole. ⚠ Set here and nowhere else —
+    ///     <see cref="FoliageVelocityPass" /> reads this one, for the reason that property states.
+    /// </remarks>
+    public float AlphaCutoff { get; set; } = DefaultAlphaCutoff;
 
     /// <summary>How many indirect draws the last <see cref="Record" /> issued.</summary>
     public int Draws { get; private set; }
@@ -252,6 +272,8 @@ public sealed class FoliageDrawPass : IDisposable {
 
     /// <summary>What the velocity pass binds where this pass binds its albedo — the grass pass's
     ///     borrow, for its reason: the default's first-frame upload is this pass's.</summary>
+    /// <remarks>⚠ Sampled rather than merely bound since the alpha test —
+    ///     <see cref="GrassDrawPass.AlbedoOrDefault" /> says what changed.</remarks>
     internal TextureViewHandle AlbedoOrDefault => Albedo.IsValid ? Albedo : defaultAlbedoView;
 
     /// <summary>And the sampler beside it, on the same terms.</summary>
@@ -305,6 +327,7 @@ public sealed class FoliageDrawPass : IDisposable {
         } else {
             new FoliageConstants {
                 ViewProjection = view.ViewProjection,
+                AlphaCutoff = AlphaCutoff,
                 TintRange = range
             }.Write(block);
         }
@@ -355,6 +378,7 @@ public sealed class FoliageDrawPass : IDisposable {
             EnvironmentShL22 = frame?.EnvironmentSh.L22 ?? Vector3.Zero,
             ShadowTexelSize = frame?.ShadowTexelSize ?? new Vector2(1f, 1f),
             ViewProjection = view.ViewProjection,
+            AlphaCutoff = AlphaCutoff,
             TintRange = tint
         }.Write(block);
 

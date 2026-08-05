@@ -27,7 +27,7 @@ namespace Vixen.Rendering.Terrain.Tests;
 ///         that, and it needs a GPU.
 ///     </para>
 /// </remarks>
-public sealed class TerrainShaderParityTests {
+public sealed partial class TerrainShaderParityTests {
     static string Source() => Source(Path.Combine("Terrain", "Terrain.rvn"));
 
     static string Source(string relative) {
@@ -265,6 +265,141 @@ public sealed class TerrainShaderParityTests {
         Assert.Contains($"const val Capacity = {Vixen.Rendering.ClusterGrid.Capacity}", shared, StringComparison.Ordinal);
         Assert.Contains($"indices: uint[{Vixen.Rendering.ClusterGrid.Capacity}]", shared, StringComparison.Ordinal);
     }
+
+    // ------------------------------------------------------------------ the cutout
+
+    /// <summary>
+    ///     Every fragment stage of the vegetation shaders discards through the one shared predicate.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The colour pass and the velocity pass must cut the same fragments out, and this
+    ///         is the assertion that they still can.</b> The velocity pass depth-tests against the
+    ///         frame's finished depth, so a fragment the colour pass discarded shows the terrain
+    ///         behind it — and a velocity fragment surviving there writes the blade's motion over the
+    ///         ground's, which resolves as a smear around every blade in every gust. The failure is
+    ///         invisible in a still frame and unattributable in a moving one.
+    ///     </para>
+    ///     <para>
+    ///         The shape asserted is <em>structural</em> rather than textual: one <c>Cutout</c> on
+    ///         the base, three callers, and no stage testing the stipple itself. Two copies of the
+    ///         same expression would pass a "the discard is present" test on the day it was written
+    ///         and drift on the day one of them was edited, which is the thing that actually happens.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Grass.rvn")]
+    [InlineData("Foliage.rvn")]
+    public void EveryVegetationFragmentDiscardsThroughTheOneCutout(string file) {
+        var source = Source(Path.Combine("Terrain", file));
+
+        var stages = Count(source, "[FragmentShader]");
+        var declarations = Count(source, "func Cutout(");
+        var callers = Count(source, "if (Cutout(");
+
+        Assert.True(stages == 3, $"{file} has {stages} fragment stages; the preview, the lit and the velocity are three.");
+        Assert.True(declarations == 1, $"{file} declares Cutout {declarations} times; the base owns it and only the base.");
+
+        Assert.True(
+            callers == stages,
+            $"{file} has {stages} fragment stages and {callers} of them discard through Cutout. A stage that "
+            + "tests its own coverage is a stage that can disagree with the others — see this test's remarks "
+            + "for what that writes into the motion target."
+        );
+
+        // The stipple is reachable only through the predicate: a stage comparing it against `fade`
+        // itself is the old shape, and the old shape is what drifted.
+        Assert.DoesNotContain("Stipple(fragment", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>And the predicate is the same predicate in both files.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Grass and foliage stipple against one pattern deliberately</b> — a tree's far LOD
+    ///     dissolving over grass that is fading must dissolve against the same noise, or the two
+    ///     dithers interfere as a visible weave. The cutoff joined it for the same reason: the two
+    ///     stacks share a frame.
+    /// </remarks>
+    [Fact]
+    public void TheGrassAndFoliageCutoutsAreTheSameExpression() {
+        Assert.Equal(CutoutBody("Grass.rvn"), CutoutBody("Foliage.rvn"));
+
+        static string CutoutBody(string file) {
+            var source = Source(Path.Combine("Terrain", file));
+            var start = source.IndexOf("func Cutout(", StringComparison.Ordinal);
+
+            Assert.True(start >= 0, $"{file} has no Cutout.");
+
+            return Whitespace().Replace(source[start..(source.IndexOf('}', start) + 1)], " ");
+        }
+    }
+
+    /// <summary>The velocity stages sample the alpha they are cutting out by.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The albedo was bound to the velocity passes before anything read it</b> — a
+    ///     descriptor set is written wholly or not at all — so the binding's presence proves nothing.
+    ///     A velocity stage that passed a constant to <c>Cutout</c> would satisfy every assertion
+    ///     above and still leave the card's margin moving.
+    /// </remarks>
+    [Theory]
+    [InlineData("Grass.rvn")]
+    [InlineData("Foliage.rvn")]
+    public void TheVelocityStagesSampleTheAlphaTheyCutBy(string file) {
+        var source = Source(Path.Combine("Terrain", file));
+
+        Assert.Matches(
+            new Regex(@"Cutout\(albedoMap\.Sample\(albedoSampler,\s*uv\)\.a,", RegexOptions.None, TimeSpan.FromSeconds(5)),
+            source
+        );
+    }
+
+    /// <summary>The cutout is a uniform rather than a permutation, and the host owns the number.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>[Permutation] AlphaTested</c> would be two places the answer is chosen.</b> The
+    ///     draw's variant is resolved per grass type and the velocity's once for the whole scene —
+    ///     <c>TerrainSceneRenderer.GrassShaders</c> against <c>ResolveVelocityShaders</c> — so the
+    ///     two could be resolved differently, which is the drift this whole file is guarding. The
+    ///     pipeline library's own shaders use the permutation because their two stages resolve
+    ///     together; these do not.
+    /// </remarks>
+    [Theory]
+    [InlineData("Grass.rvn")]
+    [InlineData("Foliage.rvn")]
+    public void TheCutoffIsAUniformTheHostWrites(string file) {
+        var source = Source(Path.Combine("Terrain", file));
+
+        Assert.Contains("var alphaCutoff: float = 0.5f", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("[Permutation] val AlphaTested", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>An opaque target takes one, not the cutout's own mask.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Writing <c>sampled.a</c> into <c>TerrainTargets.color</c> puts a coverage mask in a
+    ///     channel whose readers take it for coverage</b> — and the terrain writing beside it writes
+    ///     one. It is also the thing that made the cutout look unnecessary: an alpha in the target
+    ///     reads like an alpha that did something.
+    /// </remarks>
+    [Theory]
+    [InlineData("Grass.rvn")]
+    [InlineData("Foliage.rvn")]
+    public void TheColourTargetsTakeOneRatherThanTheCardsAlpha(string file) {
+        var source = Source(Path.Combine("Terrain", file));
+
+        Assert.DoesNotContain("sampled.a)", source, StringComparison.Ordinal);
+    }
+
+    static int Count(string source, string needle) {
+        var total = 0;
+
+        for (var at = source.IndexOf(needle, StringComparison.Ordinal); at >= 0;
+            at = source.IndexOf(needle, at + needle.Length, StringComparison.Ordinal)) {
+            total++;
+        }
+
+        return total;
+    }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Whitespace();
 
     /// <summary>The lit terrain returns to world space before it asks the frame anything.</summary>
     /// <remarks>
