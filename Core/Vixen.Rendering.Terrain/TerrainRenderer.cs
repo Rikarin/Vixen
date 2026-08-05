@@ -73,6 +73,7 @@ public sealed class TerrainRenderer : IDisposable {
     readonly SamplerHandle weightSampler;
     readonly SamplerHandle layerSampler;
     readonly DescriptorSetLayoutHandle setLayout;
+    readonly DescriptorSetLayoutHandle emptySetLayout;
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle pipeline;
 
@@ -351,7 +352,14 @@ public sealed class TerrainRenderer : IDisposable {
             )
         );
 
-        layout = device.CreatePipelineLayout(new([setLayout], [], "terrain"));
+        // ⚠ Padded below the material set, because a pipeline layout is positional and the shader's
+        // bindings are set 2 — DescriptorSetSlot.PerMaterial, where Raven puts every unmarked
+        // binding. A layout holding this set alone puts it at index 0, and BindDescriptorSet binds
+        // it at index 2: undefined behaviour some desktop drivers absorb and MoltenVK refuses from
+        // inside pipeline creation. One empty layout stands in for both unused slots — repeating a
+        // handle in a pipeline layout is legal everywhere.
+        emptySetLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "terrain empty"));
+        layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "terrain"));
 
         // No vertex buffers, which is the shader's own design: a lattice's positions are two
         // divisions of SV_VertexID, and Terrain.reflect.json's empty VertexInputs is the evidence.
@@ -1223,6 +1231,7 @@ public sealed class TerrainRenderer : IDisposable {
         device.Destroy(pipeline);
         device.Destroy(layout);
         device.Destroy(setLayout);
+        device.Destroy(emptySetLayout);
         device.Destroy(layerSampler);
         device.Destroy(weightSampler);
         device.Destroy(heightSampler);

@@ -50,4 +50,19 @@ static partial class SampleLog {
             + "variant(s) compiled."
     )]
     public static partial void FrameReport(ILogger logger, long frames, int objects, int variants);
+
+    [LoggerMessage(
+        EventId = 14016,
+        Level = LogLevel.Information,
+        Message = "The ground: {Terrains} terrain(s) and {Fields} grass field(s) drawn in the last frame; "
+            + "extraction saw {Extracted} terrain(s), {Waiting} still loading, {Refused} refused grass rule(s)."
+    )]
+    public static partial void GroundReport(
+        ILogger logger,
+        int terrains,
+        int fields,
+        int extracted,
+        int waiting,
+        int refused
+    );
 }

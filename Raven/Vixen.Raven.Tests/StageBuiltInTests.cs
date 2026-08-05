@@ -343,4 +343,83 @@ public class StageBuiltInTests {
         // list is the vertex layout and a claim about it is worth pinning.
         Assert.Equal(["position", "normal"], reflection.VertexInputs.Select(input => input.Name));
     }
+
+    /// <summary>
+    ///     <c>SV_Position</c> on a fragment parameter — the window coordinate, not a varying.
+    /// </summary>
+    /// <remarks>
+    ///     The gap the terrain's grass found: the semantic a vertex stage <em>returns</em> under
+    ///     had no fragment-stage entry, so a fragment declaring it got an ordinary located input —
+    ///     one location past the streams, which the vertex stage never writes. Some desktop
+    ///     drivers absorb the dangling input; Metal refuses the pipeline. The stipple pattern that
+    ///     wants pixel coordinates has no other source for them.
+    /// </remarks>
+    const string Stippled = """
+                            package A
+
+                            shader S {
+                                stream var fade: float
+
+                                [VertexShader]
+                                [Semantic("SV_Position")]
+                                func Vertex(position: float3): float4 {
+                                    fade = position.y
+                                    return float4(position, 1f)
+                                }
+
+                                [FragmentShader]
+                                [Semantic("SV_Target")]
+                                func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
+                                    val noise = frac(52.9829189f * frac(dot(fragment.xy, float2(0.06711056f, 0.00583715f))))
+
+                                    if (noise >= fade) {
+                                        discard
+                                    }
+
+                                    return float4(1f, 1f, 1f, 1f)
+                                }
+                            }
+
+                            """;
+
+    [Fact]
+    public void The_fragment_position_answers_for_the_fragment_stage_and_not_for_others() {
+        var builtIn = StageBuiltIns.Of("SV_Position", ShaderStage.Fragment);
+
+        Assert.NotNull(builtIn);
+        Assert.Equal(StageBuiltIn.FragmentPosition, builtIn.BuiltIn);
+        Assert.Equal("gl_FragCoord", builtIn.GlslName);
+        Assert.Same(BuiltInTypes.Float4, builtIn.Type);
+
+        // The vertex table stays open — SV_Position *there* is the output semantic, and an input
+        // spelled that way is an ordinary attribute the way POSITION is.
+        Assert.Null(StageBuiltIns.Of("SV_Position", ShaderStage.Vertex));
+        Assert.Null(StageBuiltIns.Of("SV_Position", ShaderStage.Compute));
+    }
+
+    [Fact]
+    public void GLSL_threads_gl_FragCoord_through_and_declares_no_input_for_it() {
+        var unit = Assert.Single(GenerateClean(Stippled), u => u.Name.EndsWith(".frag", StringComparison.Ordinal));
+
+        Assert.Contains("Fragment(gl_FragCoord)", unit.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain("in_fragment", unit.Code, StringComparison.Ordinal);
+
+        // The stream keeps location 0: the built-in consumed nothing.
+        Assert.Contains("layout(location = 0) in float in_fade;", unit.Code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SPIR_V_decorates_the_fragment_position_BuiltIn_FragCoord() {
+        if (!SpirvTestBase.ValidatorAvailable) {
+            return;
+        }
+
+        var listing = ReferenceCompiler.Disassemble(
+            Assert.Single(GenerateClean(Stippled, "spirv"), u => u.Name.EndsWith(".frag", StringComparison.Ordinal))
+                .Binary!
+        );
+
+        Assert.Contains("OpDecorate %in_fragment BuiltIn FragCoord", listing, StringComparison.Ordinal);
+        Assert.DoesNotContain("OpDecorate %in_fragment Location", listing, StringComparison.Ordinal);
+    }
 }

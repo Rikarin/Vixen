@@ -1,0 +1,23 @@
+# The showcase's one grass rule, bound to the terrain's Grass weight layer — blades grow where
+# TerrainSeed painted the gentle slopes, feather out where the paint thins, and are gone by 42 m,
+# which keeps the whole field inside the orbit camera's view of the hills.
+name: Meadow
+layer: Grass
+minWeight: 0.15
+maxWeight: 0.6
+density: 24
+jitter: 0.8
+minScale: 0.7
+maxScale: 1.3
+randomYaw: true
+alignToNormal: 0.35
+maxSlope: 0.8
+startCullDistance: 30
+endCullDistance: 42
+wind:
+  direction: 1 0.3
+  strength: 0.12
+  frequency: 0.35
+  speed: 1.4
+  flutter: 0.03
+  height: 0.6

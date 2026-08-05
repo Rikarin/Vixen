@@ -49,14 +49,23 @@ public sealed record TerrainAssetImportSettings : IImportSettings {
 ///         a build over a file somebody is in the middle of.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The document is written forward, not a compiled record.</b> [doc 08] splits import
-///         from compile, and none of these four has a compiler yet — the runtime reads the
-///         <c>[DataContract]</c> graph. Emitting a binary here would put the compiler's decisions
-///         inside the importer where the artefact cache key cannot see them.
+///         ⚠ <b>Three of the four are written forward as the document; the grass type is written as
+///         its serialized record, because it is the one with a runtime reader.</b>
+///         <c>AssetTerrainSource</c> opens a <c>.vxgrass</c> chunk and hands it to the binary
+///         serializer — a game does not carry the YAML dialect, which is the editor's format — so a
+///         text chunk is ground that quietly never grows. The layer, foliage and spline documents
+///         have no runtime consumer yet (a layer rides inside its <c>.vxterrain</c>), and they stay
+///         text until one exists, on <c>MaterialImporter</c>'s precedent for the split.
 ///     </para>
 /// </remarks>
 [Importer(LayerExtension, FoliageExtension, GrassExtension, SplineExtension)]
 public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSettings> {
+    /// <summary>The vector forms these documents write — a wind direction, a spline point.</summary>
+    /// <remarks>On <c>MaterialImporter</c>'s terms: registered from a static constructor rather
+    ///     than a module initializer, for the reason <see cref="MathScalars" /> gives about a
+    ///     process-wide table.</remarks>
+    static TerrainAssetImporter() => MathScalars.Register();
+
     /// <summary>What a terrain paint layer is written as.</summary>
     public const string LayerExtension = ".vxlayer";
 
@@ -147,11 +156,52 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
             return context.Finish();
         }
 
-        Inspect(extension, root, context);
-
-        context.Write(SubAssetId.Main, alias, System.Text.Encoding.UTF8.GetBytes(text));
+        // The grass type is compiled to the record the runtime reads back — the class remarks say
+        // why it alone is — and the other three are carried forward as their documents.
+        if (extension.Equals(GrassExtension, StringComparison.OrdinalIgnoreCase)) {
+            WriteGrass(root, text, context);
+        } else {
+            Inspect(extension, root, context);
+            context.Write(SubAssetId.Main, alias, System.Text.Encoding.UTF8.GetBytes(text));
+        }
 
         return context.Finish();
+    }
+
+    /// <summary>Writes a grass document as the serialized record <c>AssetTerrainSource</c> opens.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A document this build cannot read is carried forward as text with a warning</b>, on
+    ///     <see cref="Inspect" />'s terms: a field this build does not know is what an asset written
+    ///     by a newer editor looks like, and refusing it would make the project unopenable. What
+    ///     that chunk costs is honest — the runtime counts it failed where a compiled record would
+    ///     have grown — and the warning is how somebody learns which build wrote it.
+    /// </remarks>
+    static void WriteGrass(YamlMapping root, string text, ImportContext context) {
+        GrassType grass;
+
+        try {
+            grass = YamlSerializer.Deserialize<GrassType>(root);
+        } catch (Exception failure) when (failure is not OperationCanceledException) {
+            context.Report(
+                ImportSeverity.Warning,
+                $"It could not be read as a {nameof(GrassType)}: {failure.Message}. The file is "
+                + "still imported, because a field this build does not know is what an asset written "
+                + "by a newer editor looks like."
+            );
+
+            context.Write(SubAssetId.Main, nameof(GrassType), System.Text.Encoding.UTF8.GetBytes(text));
+
+            return;
+        }
+
+        if (grass.Validate() is { } problem) {
+            // A warning rather than an error, for the reason the class remarks give: an author
+            // part-way through a file is a legal state, and the runtime's own validation drops the
+            // rule where a person can see the count.
+            context.Report(ImportSeverity.Warning, problem);
+        }
+
+        context.Write(SubAssetId.Main, nameof(GrassType), Serializer.ToBytes(grass));
     }
 
     /// <summary>Reads the document as its own type and reports what the type says about itself.</summary>
@@ -167,7 +217,6 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
             var problem = extension.ToLowerInvariant() switch {
                 LayerExtension => YamlSerializer.Deserialize<TerrainLayerDescription>(root).Validate(),
                 FoliageExtension => YamlSerializer.Deserialize<FoliageType>(root).Validate(),
-                GrassExtension => YamlSerializer.Deserialize<GrassType>(root).Validate(),
                 SplineExtension => YamlSerializer.Deserialize<SplineAsset>(root).Validate(),
                 _ => null
             };

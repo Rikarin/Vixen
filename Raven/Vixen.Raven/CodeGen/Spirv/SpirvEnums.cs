@@ -254,6 +254,7 @@ public static class SpirvBuiltIns {
             Symbols.StageBuiltIn.GroupIndex => SpirvBuiltIn.LocalInvocationIndex,
             Symbols.StageBuiltIn.VertexId => SpirvBuiltIn.VertexIndex,
             Symbols.StageBuiltIn.InstanceId => SpirvBuiltIn.InstanceIndex,
+            Symbols.StageBuiltIn.FragmentPosition => SpirvBuiltIn.FragCoord,
             Symbols.StageBuiltIn.IsFrontFace => SpirvBuiltIn.FrontFacing,
             _ => throw new ArgumentOutOfRangeException(nameof(builtIn), builtIn, "Not a stage built-in.")
         };

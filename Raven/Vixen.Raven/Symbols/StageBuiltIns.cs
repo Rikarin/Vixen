@@ -42,6 +42,18 @@ public enum StageBuiltIn {
     InstanceId,
 
     /// <summary>
+    ///     Where this fragment is on the render target, in pixels, with the depth and 1/w behind it.
+    /// </summary>
+    /// <remarks>
+    ///     The fragment-stage reading of <c>SV_Position</c>: what a vertex stage <em>returns</em>
+    ///     under that semantic arrives here as the rasterizer's window coordinate —
+    ///     <c>gl_FragCoord</c>, SPIR-V's <c>FragCoord</c>. What screen-space noise is built on: a
+    ///     stipple pattern or a dither reads this, and there is nothing a shader could derive it
+    ///     from, because no interpolated stream knows where the viewport put it.
+    /// </remarks>
+    FragmentPosition,
+
+    /// <summary>
     ///     Whether the triangle this fragment came from faces the viewer.
     /// </summary>
     /// <remarks>
@@ -135,6 +147,17 @@ public static class StageBuiltIns {
         // every use.
         new("SV_VertexID", StageBuiltIn.VertexId, ShaderStage.Vertex, BuiltInTypes.Int, "gl_VertexIndex"),
         new("SV_InstanceID", StageBuiltIn.InstanceId, ShaderStage.Vertex, BuiltInTypes.Int, "gl_InstanceIndex"),
+
+        // The same name a vertex stage *returns* under, on the receiving end: keying on
+        // (semantic, stage) is what lets one spelling mean "clip position out" there and "window
+        // coordinate in" here without either table knowing about the other.
+        new(
+            "SV_Position",
+            StageBuiltIn.FragmentPosition,
+            ShaderStage.Fragment,
+            BuiltInTypes.Float4,
+            "gl_FragCoord"
+        ),
 
         // The one built-in whose type is `bool`, and the one place a boolean reaches a stage
         // interface at all: `RVN2103` keeps a stream out of one because Vulkan has no boolean

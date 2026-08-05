@@ -91,6 +91,14 @@ public sealed class PbrShowcaseGame : Game {
         // builder that has never heard of it throws from inside that build. Constructing the factory
         // is also what registers the node aliases with the type registry — one line, two failures.
         config.Graphics.Factories.Add(new Rendering.PostFx.PostEffectFactory());
+
+        // The document's `extensions: afterOpaque: [!Terrain]` splice, host half. Registering the
+        // factory is the whole installation: the host wires the world renderer's terrain list to it,
+        // the extraction bridge walks TerrainComponent entities into that list every frame, and the
+        // asset source turns the component's references into a heightfield and a grass rule.
+        // ⚠ Deliberately not in CasterStages — the terrain does not cast shadows yet, and adding the
+        // stage would extract nothing for it while every counter said the pass ran.
+        config.Graphics.Factories.Add(new Rendering.Terrain.TerrainFactory());
     }
 
     /// <inheritdoc />
@@ -170,13 +178,30 @@ public sealed class PbrShowcaseGame : Game {
                 graphics.Renderer.Extraction?.ObjectCount ?? 0,
                 effects?.CompiledCount ?? 0
             );
+
+            // What the terrain splice did, so a headless run says whether the ground was real: a
+            // frame that drew zero terrains with zero waiting is a scene problem, and one that drew
+            // zero with one waiting is content that never arrived — different bugs, one line each.
+            if (graphics.Renderer.Host.Builder.Nodes.Values
+                    .OfType<Rendering.Terrain.TerrainSceneRenderer>()
+                    .FirstOrDefault() is { } ground) {
+                SampleLog.GroundReport(
+                    log!,
+                    ground.TerrainsDrawn,
+                    ground.GrassFieldsDrawn,
+                    graphics.Renderer.TerrainExtraction?.TerrainCount ?? 0,
+                    graphics.Renderer.TerrainExtraction?.Waiting ?? 0,
+                    graphics.Renderer.TerrainExtraction?.RefusedGrass ?? 0
+                );
+            }
         }
 
         frame?.Dispose();
         frame = null;
     }
 
-    /// <summary>What exists: the grid, the floor it shadows, the sun, and the camera.</summary>
+    /// <summary>What exists: the grid, the floor it shadows, the ground around it, the sun, and the
+    ///     camera.</summary>
     /// <remarks>
     ///     Spawned in code rather than loaded from a scene asset, deliberately: the grid <em>is</em>
     ///     arithmetic — metallic from the row, roughness from the column — and a scene file version
@@ -215,6 +240,20 @@ public sealed class PbrShowcaseGame : Game {
         );
 
         scene.Add(floor, new PrimitiveShape { Kind = PrimitiveKind.Plane, Material = palette?.Floor ?? default });
+
+        // The ground under and around all of it: a 2×2-tile terrain whose flat apron sits just
+        // below the floor and whose hills fill the orbit camera's background — heights, painted
+        // weight layers and one hole all authored by TerrainSeed, the grass rule by its .vxgrass.
+        // Two components carry the whole thing: the terrain names its asset and the grass names its
+        // rule, and the entity's transform is the placement — translated by half the terrain's span
+        // so its sample grid is centred on the grid of spheres.
+        var ground = Hierarchy.CreateTransform(
+            scene,
+            LocalTransform.At(new(-TerrainSeed.HalfExtent, 0f, -TerrainSeed.HalfExtent))
+        );
+
+        scene.Add(ground, Rendering.Terrain.TerrainComponent.Of(TerrainSeed.TerrainPath));
+        scene.Add(ground, Rendering.Terrain.TerrainGrassComponent.Of("Assets/Terrain/Meadow.vxgrass"));
 
         // One sun, aimed along the direction the sky was baked from, with its illuminance and tint
         // read off that same sky — so the shadows, the disc and the ambient are one account of one

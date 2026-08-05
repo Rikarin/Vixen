@@ -1,7 +1,8 @@
 # 03 — PBR Showcase
 
 Twenty-five spheres: metallic along one axis of the grid, roughness along the other, on a floor,
-under one sun — rendered through the standard frame. The frame document is seven knobs:
+under one sun, on a terrain — rendered through the standard frame. The frame document is seven
+knobs and one splice:
 
 ```yaml
 version: 2
@@ -13,6 +14,10 @@ game: !StandardFrame
   antialiasing: Taa
   exposure: Automatic
   output: SceneColour
+  extensions:
+    afterOpaque:
+      - !Terrain
+        name: Ground
 ```
 
 ```bash
@@ -38,6 +43,33 @@ single light, where almost anything looks plausible.
 The sample is also the smallest complete example of a project on the
 [standard frame](../../docs/guide/rendering/standard-frame.md): what the seven knobs buy, and what
 each one still asks of the host.
+
+## The terrain
+
+The ground around the grid is the terrain stack demonstrated end to end from a real project — the
+first sample to walk the whole path a game walks, and deliberately a **multi-tile** terrain: 2×2
+tiles of 63 quads, because the grass scatter's tile addressing hid behind single-tile fixtures for
+months and a sample exists to walk the paths a real level walks.
+
+- **The content**: `Assets/Terrain/Meadow.vxterrain` is `TerrainStore`'s raw binary — gentle
+  sine hills around a flat apron under the floor, three painted weight layers (`Grass` on the
+  gentle slopes, `Rock` on the steep, `Dirt` under the apron), and one hole punched 18 m east of
+  the grid. Generated rather than sculpted (`TerrainSeed`; `dotnet run -- --regenerate-terrain`
+  rewrites it), committed because the content build imports files, not generators.
+  `Assets/Terrain/Meadow.vxgrass` is the one grass rule, bound to the `Grass` layer.
+- **The scene's half**: one entity, two components —
+  `TerrainComponent.Of("Assets/Terrain/Meadow.vxterrain")` and
+  `TerrainGrassComponent.Of("Assets/Terrain/Meadow.vxgrass")` — placed by its transform.
+- **The document's half**: the `extensions: afterOpaque:` splice above. The node's targets and
+  view default to the standard frame's names.
+- **The host's half**: `config.Graphics.Factories.Add(new TerrainFactory())` in `OnConfigure`,
+  which is the whole installation — the host wires the world renderer's terrain list to it.
+- **What the log says**: event 14016 at shutdown reports terrains and grass fields drawn against
+  what extraction saw, so a headless run says whether the ground was real.
+
+The terrain does not cast shadows yet (`TerrainComponent.CastShadows` is carried, not consumed),
+and its shading is the preview-grade variant — both tracked in the
+[terrain guide](../../docs/guide/rendering/terrain-rendering.md).
 
 ## How it is built
 

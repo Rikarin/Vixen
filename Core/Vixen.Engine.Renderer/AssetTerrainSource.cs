@@ -3,6 +3,7 @@
 
 using Vixen.Assets;
 using Vixen.Core;
+using Vixen.Core.Serialization;
 using Vixen.Foliage;
 using Vixen.Rendering.Terrain;
 using Vixen.Terrain;
@@ -17,8 +18,12 @@ namespace Vixen.Engine.Renderer;
 ///         <see cref="AssetTerrainTextures" /> and for the same reason:</b> this assembly is where
 ///         the asset system and the render system meet. A <c>.vxterrain</c> ships as a raw payload
 ///         — <see cref="TerrainStore" />'s own binary, not a serialized object — so it is opened as
-///         bytes and read here; a <c>.vxgrass</c> ships as its <c>[DataContract]</c> graph and
-///         loads as an object.
+///         bytes and read here; a <c>.vxgrass</c> ships as its serialized <see cref="GrassType" />
+///         and is opened the same way, because a typed load cannot reach it:
+///         <see cref="AssetManager.Load{T}(string, CancellationToken)" /> requires a class and the
+///         rule is deliberately a struct. <c>Load&lt;object&gt;</c> was the first attempt at this
+///         seam, and it can never answer — the database checks the chunk's type id against the type
+///         being asked for, and no chunk was written by <c>System.Object</c>.
 ///     </para>
 ///     <para>
 ///         <b>Nothing here waits</b> — <c>AssetMeshSource</c>'s contract. A load starts on the
@@ -122,7 +127,7 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
         }
 
         if (!grasses.TryGetValue(reference, out var entry)) {
-            grasses[reference] = entry = new() { Handle = LoadGrass(reference) };
+            grasses[reference] = entry = new() { Loading = LoadGrass(reference) };
         }
 
         if (entry.Type is { } type) {
@@ -133,26 +138,31 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
             return null;
         }
 
-        if (entry.Handle is not { } handle) {
+        if (entry.Loading is null) {
             entry.Failed = true;
             return null;
         }
 
-        switch (handle.Status) {
-            case AssetStatus.Loaded when handle.Result is GrassType loaded:
-                entry.Type = loaded;
-                return loaded;
-
-            case AssetStatus.Loaded:
-            case AssetStatus.Failed:
-                // Loaded-but-not-a-grass is a chunk whose alias names some other record — the same
-                // content problem a failed load is, and retrying would give the same answer.
-                entry.Failed = true;
-                return null;
-
-            default:
-                return null;
+        if (!entry.Loading.IsCompleted) {
+            return null;
         }
+
+        var loading = entry.Loading;
+
+        entry.Loading = null;
+
+        if (loading.IsCompletedSuccessfully) {
+            entry.Type = loading.Result;
+            return loading.Result;
+        }
+
+        // A chunk that is not a serialized grass rule — text out of an older build, some other
+        // record's bytes — throws from the read, which is the same content problem a missing file
+        // is, and retrying would give the same answer.
+        _ = loading.Exception;
+        entry.Failed = true;
+
+        return null;
     }
 
     /// <summary>Starts one terrain's read, off the frame's thread.</summary>
@@ -179,15 +189,27 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
         });
     }
 
-    /// <summary>Starts one grass rule's load, or records that it cannot start.</summary>
-    AssetHandle<object>? LoadGrass(string reference) {
-        try {
-            return AssetReference.TryParse(reference, out var parsed)
-                ? assets.LoadAsync<object>(parsed)
-                : assets.LoadAsync<object>(reference);
-        } catch (Exception failure) when (failure is ReferenceNotFoundException or AddressNotFoundException) {
+    /// <summary>Starts one grass rule's read, off the frame's thread.</summary>
+    /// <remarks>
+    ///     Opened as bytes and deserialized here rather than loaded through a typed handle —
+    ///     <c>TerrainAssetImporter</c> writes the chunk as the serialized record, and the class
+    ///     remarks say why no <c>Load&lt;T&gt;</c> can be the reader.
+    /// </remarks>
+    Task<GrassType>? LoadGrass(string reference) {
+        var address = AddressOf(reference);
+
+        if (address is null) {
             return null;
         }
+
+        return Task.Run(async () => {
+            await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
+
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory).ConfigureAwait(false);
+
+            return Serializer.Read<GrassType>(memory.ToArray());
+        });
     }
 
     /// <summary>The address a component's reference resolves to, or null for one the catalog lacks.</summary>
@@ -206,7 +228,7 @@ public sealed class AssetTerrainSource : ITerrainAssetSource {
     }
 
     sealed class GrassEntry {
-        public AssetHandle<object>? Handle;
+        public Task<GrassType>? Loading;
         public GrassType? Type;
         public bool Failed;
     }

@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Rendering.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+          The effect set's node kinds and the terrain's, because the document names !StandardFrame
+          and splices !Terrain at its afterOpaque seam — the same two factory registrations the game
+          makes in OnConfigure, made here for the same reason. Sample 13's Frame.Tests is the
+          pattern.
+        -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
+
+        <!--
+          The Null backend, so a YAML or wiring mistake in the document fails a test on any machine
+          rather than a launch on one with a GPU.
+        -->
+        <ProjectReference Include="..\..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!-- The YAML dialect, to read the actual authored document rather than a copy of it. -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+    </ItemGroup>
+
+    <!--
+      The document under test is the game's own file, linked rather than copied into the source
+      tree — a second copy is the one that drifts.
+    -->
+    <ItemGroup>
+        <None Include="..\Assets\Frame.vxcompositor" Link="Assets\Frame.vxcompositor" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+</Project>

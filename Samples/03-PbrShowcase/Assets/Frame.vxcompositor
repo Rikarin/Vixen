@@ -18,3 +18,11 @@ game: !StandardFrame
   antialiasing: Taa      # Off | Fxaa | Taa | TaaFxaa
   exposure: Automatic    # Fixed | Automatic
   output: SceneColour
+  # The eighth line: the terrain node spliced at the afterOpaque seam — after the Main pass,
+  # sharing its depth, before velocity and particles, which is where opaque ground belongs. The
+  # node's targets and view default to the standard frame's names; what it draws is whatever
+  # TerrainComponent entities the world carries. Host half: TerrainFactory in OnConfigure.
+  extensions:
+    afterOpaque:
+      - !Terrain
+        name: Ground

@@ -3,7 +3,9 @@
 
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Core.Serialization;
 using Vixen.Editor.Assets.Terrain;
+using Vixen.Foliage;
 using Vixen.Terrain;
 using Xunit;
 
@@ -90,6 +92,35 @@ public sealed class TerrainAssetImporterTests {
             result.Diagnostics,
             message => message.Message.Contains("candidate density", StringComparison.Ordinal)
         );
+    }
+
+    /// <summary>A grass document is compiled to the record the runtime opens.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other three ship as text; this one cannot.</b> <c>AssetTerrainSource</c> hands
+    ///     the chunk's payload to the binary serializer — a game does not carry the YAML dialect —
+    ///     so a text chunk here is a field that quietly never grows. Asserted by reading the
+    ///     artefact back the way the runtime does.
+    /// </remarks>
+    [Fact]
+    public async Task AGrassChunkIsTheSerializedRecord() {
+        var (_, result) = await Import(
+            "meadow.vxgrass",
+            """
+            name: Meadow
+            layer: Grass
+            density: 24
+            """
+        );
+
+        Assert.True(result.Succeeded);
+
+        var artefact = Assert.Single(result.Artifacts);
+        var written = Serializer.Read<GrassType>(artefact.Content.Span);
+
+        Assert.Equal("GrassType", artefact.Type);
+        Assert.Equal("Meadow", written.Name);
+        Assert.Equal("Grass", written.Layer);
+        Assert.Equal(24f, written.Density);
     }
 
     /// <summary>An author part-way through a file is warned, not failed.</summary>

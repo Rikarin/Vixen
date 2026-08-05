@@ -57,6 +57,7 @@ public sealed class GrassDrawPass : IDisposable {
     readonly BufferHandle defaultStaging;
     readonly SamplerHandle albedoSampler;
     readonly DescriptorSetLayoutHandle setLayout;
+    readonly DescriptorSetLayoutHandle emptySetLayout;
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle pipeline;
     readonly DescriptorSetHandle[] descriptors;
@@ -131,7 +132,10 @@ public sealed class GrassDrawPass : IDisposable {
             )
         );
 
-        layout = device.CreatePipelineLayout(new([setLayout], [], "grass"));
+        // Padded below the material set on TerrainRenderer's terms: the shader's bindings are set 2
+        // and a pipeline layout is positional, so the two unused slots hold one empty layout twice.
+        emptySetLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "grass empty"));
+        layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "grass"));
 
         pipeline = device.CreateGraphicsPipeline(
             new(
@@ -413,5 +417,6 @@ public sealed class GrassDrawPass : IDisposable {
         device.Destroy(pipeline);
         device.Destroy(layout);
         device.Destroy(setLayout);
+        device.Destroy(emptySetLayout);
     }
 }
