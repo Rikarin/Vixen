@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Engine.Renderer.Tests;
@@ -209,6 +211,40 @@ public sealed class TextureStreamingTests {
         // Nothing behind the eye divides by zero, and nothing with no size asks for anything.
         Assert.True(TextureStreamer.WantedWidth(1f, 0f, 1080f, MathF.PI / 3f) > 0);
         Assert.Equal(0, TextureStreamer.WantedWidth(0f, 2f, 1080f, MathF.PI / 3f));
+    }
+
+    /// <summary>
+    ///     The view-shaped estimate and the field-of-view-shaped one are the same arithmetic.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Two forms of one number is the shape of a drift nothing reports.</b> A view carries
+    ///     <c>1 / tan(fov / 2)</c> rather than the field of view, so the caller that has a view would
+    ///     otherwise run an <c>atan</c> back to reach the overload that runs a <c>tan</c> forward.
+    ///     They must agree, and this is what says so — <see cref="TextureDemand" /> uses the second
+    ///     and the documentation quotes the first.
+    /// </remarks>
+    [Fact]
+    public void TheViewsWantedWidthIsTheFieldOfViewsWantedWidth() {
+        const float Fov = MathF.PI / 3f;
+
+        var view = new RenderView("camera") {
+            Position = new(0f, 0f, 0f),
+            ScreenHeightScale = 1f / MathF.Tan(Fov * 0.5f)
+        };
+
+        var bounds = new BoundingSphere(new(0f, 0f, 12f), 1.5f);
+
+        Assert.Equal(
+            TextureStreamer.WantedWidth(1.5f, 12f, 1080f, Fov),
+            TextureStreamer.WantedWidth(bounds, view, 1080f),
+            tolerance: 1
+        );
+
+        // A shadow cascade and a probe face leave the scale at zero, and a texture wanted at a
+        // cascade's screen size would be a number with nothing behind it.
+        view.ScreenHeightScale = 0f;
+
+        Assert.Equal(0, TextureStreamer.WantedWidth(bounds, view, 1080f));
     }
 
     [Fact]
