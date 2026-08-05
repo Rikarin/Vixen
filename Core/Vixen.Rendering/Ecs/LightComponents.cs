@@ -40,7 +40,7 @@ namespace Vixen.Rendering.Ecs;
 /// </remarks>
 [Component]
 [DataContract]
-public struct Light {
+public struct Light : IDefaultComponent<Light> {
     /// <summary>Which of the five kinds it is.</summary>
     public LightKind Kind;
 
@@ -79,6 +79,16 @@ public struct Light {
 
     /// <summary>Half a tube's length, or half a rectangle's width. Zero for a punctual light.</summary>
     public float HalfLength;
+
+    /// <summary>A point light you can see by, which is what an Add Component hands over.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Explicit, so <c>Light.Default</c> does not become a second spelling of
+    ///     <see cref="Lights.Default(LightKind)" />.</b> That one takes the kind and this one has to
+    ///     pick, and a point light is the pick: it is the only kind that shows every field doing
+    ///     something — a directional light does not use the range, and a spot needs two angles
+    ///     explained before it looks like anything.
+    /// </remarks>
+    static Light IDefaultComponent<Light>.DefaultValue => Lights.Default(LightKind.Point);
 }
 
 /// <summary>Reading and writing an entity's light, and what the kinds are called.</summary>

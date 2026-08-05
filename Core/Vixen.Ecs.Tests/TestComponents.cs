@@ -78,3 +78,15 @@ public struct Named {
 
     public Named(string name) => Name = name;
 }
+
+/// <summary>A component whose zero is useless, declaring what a fresh one should be instead.</summary>
+/// <remarks>
+///     The storage layer is not supposed to care, and <c>ComponentDefaultTests</c> is what says so:
+///     every path that hands back a row keeps handing back zeroes for this exactly as for
+///     <see cref="Health" />, and only the call that asks by name gets the declared value.
+/// </remarks>
+public struct Shielded : IDefaultComponent<Shielded> {
+    public float Absorption;
+
+    static Shielded IDefaultComponent<Shielded>.DefaultValue => new() { Absorption = 50f };
+}

@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 
 namespace Vixen.Engine.Cameras;
 
@@ -47,7 +48,7 @@ namespace Vixen.Engine.Cameras;
 /// </remarks>
 [Component]
 [DataContract]
-public struct Camera {
+public struct Camera : IDefaultComponent<Camera> {
     /// <summary>The lens's focal length in millimetres.</summary>
     /// <remarks>
     ///     The stored truth behind <see cref="FieldOfView" />, and the reason it is stored rather than
@@ -166,6 +167,16 @@ public struct Camera {
 
     /// <summary>A sensible orthographic camera covering ten world units of height.</summary>
     public static Camera Orthographic2D => Perspective with { Orthographic = true };
+
+    /// <summary>What a freshly added camera holds: <see cref="Perspective" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Explicit, so this is not a third name for one of two cameras.</b> The type offers
+    ///     <see cref="Perspective" /> and <see cref="Orthographic2D" /> and a reader picks between
+    ///     them; a public <c>Default</c> beside those would read as a third kind. Perspective is what
+    ///     an Add Component hands over because a zeroed camera has a zero far plane and every matrix
+    ///     built from it is degenerate.
+    /// </remarks>
+    static Camera IDefaultComponent<Camera>.DefaultValue => Perspective;
 
     /// <summary>A camera named by its lens rather than by its angle, on a full-frame sensor.</summary>
     /// <param name="focalLength">The focal length, in millimetres.</param>

@@ -6,6 +6,7 @@ using Vixen.Audio.Mixing;
 using Vixen.Audio.Spatial;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 
 namespace Vixen.Audio.Ecs;
 
@@ -43,7 +44,7 @@ public enum AudioPlayback {
 /// </remarks>
 [Component]
 [DataContract]
-public struct AudioSource {
+public struct AudioSource : IDefaultComponent<AudioSource> {
     /// <summary>What it should be doing.</summary>
     public AudioPlayback Playback;
 
@@ -104,6 +105,13 @@ public struct AudioSource {
 
     /// <summary>The same, already playing.</summary>
     public static AudioSource Playing => Default with { Playback = AudioPlayback.Playing };
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Default" /> and not <see cref="Playing" />: a source added in the inspector that
+    ///     started making noise before a clip was chosen would be a component with a side effect.
+    /// </remarks>
+    static AudioSource IDefaultComponent<AudioSource>.DefaultValue => Default;
 }
 
 /// <summary>Which clip an <see cref="AudioSource" /> plays.</summary>

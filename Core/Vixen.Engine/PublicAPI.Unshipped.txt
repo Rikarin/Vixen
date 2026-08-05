@@ -74,6 +74,7 @@ Vixen.Engine.Behaviors.ISceneBehaviorBinder.Restore(byte[] state) -> object
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.Save(object behavior) -> byte[]
 Vixen.Engine.Behaviors.SceneBehaviorRegistry -> static class
 Vixen.Engine.Cameras.Camera -> struct
+Vixen.Engine.Cameras.Camera : Vixen.Ecs.IDefaultComponent<Vixen.Engine.Cameras.Camera>
 Vixen.Engine.Cameras.Camera.Aperture -> float
 Vixen.Engine.Cameras.Camera.AspectRatio -> float
 Vixen.Engine.Cameras.Camera.BladeCount -> int
@@ -121,6 +122,7 @@ Vixen.Engine.Cameras.CameraConfiner.Maximum -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Cameras.CameraConfiner.Minimum -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Cameras.CameraDamping -> static class
 Vixen.Engine.Cameras.CameraDirector -> struct
+Vixen.Engine.Cameras.CameraDirector : Vixen.Ecs.IDefaultComponent<Vixen.Engine.Cameras.CameraDirector>
 Vixen.Engine.Cameras.CameraDirector.CameraDirector() -> void
 Vixen.Engine.Cameras.CameraDirector.Channel -> int
 Vixen.Engine.Cameras.CameraDirector.DefaultBlend -> Vixen.Engine.Cameras.CameraBlend
@@ -257,6 +259,7 @@ Vixen.Engine.Cameras.TrackedDollyBody.Position -> float
 Vixen.Engine.Cameras.TrackedDollyBody.Track -> string
 Vixen.Engine.Cameras.TrackedDollyBody.TrackedDollyBody() -> void
 Vixen.Engine.Cameras.VirtualCamera -> struct
+Vixen.Engine.Cameras.VirtualCamera : Vixen.Ecs.IDefaultComponent<Vixen.Engine.Cameras.VirtualCamera>
 Vixen.Engine.Cameras.VirtualCamera.Channel -> int
 Vixen.Engine.Cameras.VirtualCamera.Enabled -> bool
 Vixen.Engine.Cameras.VirtualCamera.Lens -> Vixen.Engine.Cameras.CameraLens
@@ -750,7 +753,9 @@ Vixen.Engine.Players.ViewTarget.ViewTarget() -> void
 Vixen.Engine.Scenes.ISceneComponentBinder -> interface
 Vixen.Engine.Scenes.ISceneComponentBinder.AddTo(Vixen.Ecs.World world, Vixen.Core.Entity entity, object value) -> void
 Vixen.Engine.Scenes.ISceneComponentBinder.ComponentType.get -> System.Type
+Vixen.Engine.Scenes.ISceneComponentBinder.CreateDefault() -> object
 Vixen.Engine.Scenes.ISceneComponentBinder.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Engine.Scenes.ISceneComponentBinder.HasDefault.get -> bool
 Vixen.Engine.Scenes.ISceneComponentBinder.IsTag.get -> bool
 Vixen.Engine.Scenes.ISceneComponentBinder.Name.get -> string
 Vixen.Engine.Scenes.ISceneComponentBinder.Read(ref Vixen.Core.Serialization.SerializationReader reader, Vixen.Ecs.World world, Vixen.Core.Entity entity) -> void
@@ -1067,8 +1072,10 @@ static Vixen.Engine.Players.PlayerController.Default.get -> Vixen.Engine.Players
 static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
 static Vixen.Engine.Scenes.SceneComponentRegistry.Binders.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Scenes.ISceneComponentBinder>
 static Vixen.Engine.Scenes.SceneComponentRegistry.Declare<T>() -> void
+static Vixen.Engine.Scenes.SceneComponentRegistry.DeclareWithDefault<T>() -> void
 static Vixen.Engine.Scenes.SceneComponentRegistry.Evict(System.Reflection.Assembly assembly) -> int
 static Vixen.Engine.Scenes.SceneComponentRegistry.Register<T>() -> void
+static Vixen.Engine.Scenes.SceneComponentRegistry.RegisterWithDefault<T>() -> void
 static Vixen.Engine.Scenes.SceneComponentRegistry.Require(string alias) -> Vixen.Engine.Scenes.ISceneComponentBinder
 static Vixen.Engine.Scenes.SceneComponentRegistry.TryGet(System.Type type, out Vixen.Engine.Scenes.ISceneComponentBinder? binder) -> bool
 static Vixen.Engine.Scenes.SceneComponentRegistry.TryGet(string alias, out Vixen.Engine.Scenes.ISceneComponentBinder? binder) -> bool

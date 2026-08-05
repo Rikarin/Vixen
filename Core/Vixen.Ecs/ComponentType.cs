@@ -27,6 +27,71 @@ namespace Vixen.Ecs;
 public interface ITagComponent;
 
 /// <summary>
+///     Declares what a freshly created component of this type should hold, for the types whose zero
+///     is not a usable starting point.
+/// </summary>
+/// <typeparam name="TSelf">The component itself.</typeparam>
+/// <remarks>
+///     <para>
+///         <b>Opt-in, and a component that does not implement it costs nothing.</b> Most components
+///         are data whose zero is a perfectly good starting point; this exists for the few whose zero
+///         is not merely unhelpful but reads as a defect — a black light, a camera with a zero far
+///         plane, a shot that is <i>disabled</i> as well as degenerate. Nothing is registered for a
+///         type that does not implement this, no storage path branches on it, and
+///         <see cref="World.Add{T}(Entity)" /> is unchanged for everybody.
+///     </para>
+///     <para>
+///         ⚠ <b>This is consulted where something creates a component from nothing, and nowhere
+///         else.</b> The ECS hands back zeroed storage and continues to — a chunk row is a memset and
+///         <see cref="World.Add{T}(Entity)" /> still writes <c>default</c>. What reads this is the
+///         authoring half: the editor's Add Component, and anything else building a value it is about
+///         to hand to a person to edit. That boundary is the whole reason this is an interface and not
+///         a field initializer: a field initializer runs on <c>new T()</c> and not on
+///         <c>default(T)</c>, so it would be honoured on some paths and silently ignored on others,
+///         with nothing in the source saying which. <see cref="World.AddDefault{T}" /> is how the
+///         runtime asks for the same value on purpose.
+///     </para>
+///     <para>
+///         ⚠ <b>Not a deserialization fallback.</b> A saved component carries every field, so a load
+///         overwrites whatever it started from; a scene that omits a field means the field was
+///         authored as zero. Reading this on a load would make an old file change meaning.
+///     </para>
+///     <para>
+///         Implementing it changes nothing about the type's layout, its size or what a saved scene
+///         holds — the member is static, so the struct is the same bytes it was.
+///     </para>
+///     <para>
+///         <b>The engine's own components implement it explicitly</b>, which is the convention worth
+///         copying: it keeps the value where it already was — <c>Lights.Default(kind)</c>,
+///         <c>Camera.Perspective</c>, <c>TerrainComponent.Of(name)</c> — instead of growing a second
+///         public name for it, so there is one place a default is written down and this is only the
+///         wiring that says which one a fresh component takes.
+///     </para>
+/// </remarks>
+/// <example>
+///     <code>
+///     [Component]
+///     [DataContract]
+///     public struct Health : IDefaultComponent&lt;Health&gt; {
+///         public float Current;
+///         public float Maximum;
+///
+///         static Health IDefaultComponent&lt;Health&gt;.DefaultValue =&gt; new() { Current = 100f, Maximum = 100f };
+///     }
+///     </code>
+/// </example>
+public interface IDefaultComponent<TSelf> where TSelf : struct, IDefaultComponent<TSelf> {
+    /// <summary>What a freshly created one holds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not called <c>Default</c>, which is what it means.</b> An interface member by that name
+    ///     is a name a language with <c>Default</c> as a keyword cannot implement (CA1716), and the
+    ///     rule is worth keeping for a member a game's own types are meant to write. The types
+    ///     themselves are free to call their factory <c>Default</c>, and most of them do.
+    /// </remarks>
+    static abstract TSelf DefaultValue { get; }
+}
+
+/// <summary>
 ///     Everything the storage layer needs to know about one component type: its dense id, how many
 ///     bytes a chunk gives it per entity, and whether the bytes are the value or a handle to it.
 /// </summary>

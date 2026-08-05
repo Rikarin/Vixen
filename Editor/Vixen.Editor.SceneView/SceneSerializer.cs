@@ -345,6 +345,12 @@ public static class SceneSerializer {
         Entity parent,
         IDictionary<Entity, EntityId>? sources
     ) {
+        // ⚠ This stays here and is deliberately not an `IDefaultComponent`, though it looks like the
+        // same problem. That mechanism answers "what does a component created from nothing hold" with
+        // one whole value; this is a *per-field* rescue of a value that has already been read, where
+        // the position is the file's and only the absent fields are replaced. A whole-struct default
+        // cannot say that, and `LocalTransform` is not a registered scene component anyway — a scene
+        // stores it as three columns of its own rather than as something a file could also list.
         var local = new LocalTransform {
             Position = data.Position,
 

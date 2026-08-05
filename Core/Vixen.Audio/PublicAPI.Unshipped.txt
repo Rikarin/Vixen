@@ -928,6 +928,7 @@ Vixen.Audio.Ecs.AudioReverbZoneRef.AudioReverbZoneRef() -> void
 Vixen.Audio.Ecs.AudioReverbZoneRef.Enabled -> bool
 Vixen.Audio.Ecs.AudioReverbZoneRef.Zone -> Vixen.Audio.Spatial.AudioReverbZone?
 Vixen.Audio.Ecs.AudioSource -> struct
+Vixen.Audio.Ecs.AudioSource : Vixen.Ecs.IDefaultComponent<Vixen.Audio.Ecs.AudioSource>
 Vixen.Audio.Ecs.AudioSource.AudioSource() -> void
 Vixen.Audio.Ecs.AudioSource.Bus -> int
 Vixen.Audio.Ecs.AudioSource.Gain -> float

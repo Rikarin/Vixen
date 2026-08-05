@@ -1419,6 +1419,7 @@ Vixen.Rendering.Ecs.IVfxEffectSource.TryGet(Vixen.Core.AssetReference reference,
 Vixen.Rendering.Ecs.IVirtualGeometrySource -> interface
 Vixen.Rendering.Ecs.IVirtualGeometrySource.TryGet(Vixen.Core.AssetReference reference, out int mesh, out Vixen.Core.Mathematics.BoundingSphere bounds) -> Vixen.Rendering.Ecs.ClusterState
 Vixen.Rendering.Ecs.Light -> struct
+Vixen.Rendering.Ecs.Light : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.Light>
 Vixen.Rendering.Ecs.Light.Colour -> Vixen.Core.Mathematics.Color3
 Vixen.Rendering.Ecs.Light.HalfLength -> float
 Vixen.Rendering.Ecs.Light.InnerAngle -> float
@@ -1464,6 +1465,7 @@ Vixen.Rendering.Ecs.MeshExtractionSystem.Virtualized.set -> Vixen.Rendering.Feat
 Vixen.Rendering.Ecs.MeshExtractionSystem.VirtualizedCount.get -> int
 Vixen.Rendering.Ecs.MeshExtractionSystem.Waiting.get -> int
 Vixen.Rendering.Ecs.MeshRenderable -> struct
+Vixen.Rendering.Ecs.MeshRenderable : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.MeshRenderable>
 Vixen.Rendering.Ecs.MeshRenderable.CastsShadows -> bool
 Vixen.Rendering.Ecs.MeshRenderable.Material -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.MeshRenderable.Mesh -> Vixen.Core.AssetReference
@@ -1504,6 +1506,7 @@ Vixen.Rendering.Ecs.PostProcessShapeKind.Custom = 2 -> Vixen.Rendering.Ecs.PostP
 Vixen.Rendering.Ecs.PostProcessShapeKind.PostProcessShapeKind() -> void
 Vixen.Rendering.Ecs.PostProcessShapeKind.Sphere = 1 -> Vixen.Rendering.Ecs.PostProcessShapeKind
 Vixen.Rendering.Ecs.PostProcessVolume -> struct
+Vixen.Rendering.Ecs.PostProcessVolume : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.PostProcessVolume>
 Vixen.Rendering.Ecs.PostProcessVolume.BlendRadius -> float
 Vixen.Rendering.Ecs.PostProcessVolume.Extents -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Ecs.PostProcessVolume.PostProcessVolume() -> void
@@ -1544,6 +1547,7 @@ Vixen.Rendering.Ecs.SpherePostProcessShape.Radii.get -> Vixen.Core.Mathematics.V
 Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape() -> void
 Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Vector3 radii) -> void
 Vixen.Rendering.Ecs.VfxEmitter -> struct
+Vixen.Rendering.Ecs.VfxEmitter : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.VfxEmitter>
 Vixen.Rendering.Ecs.VfxEmitter.Effect -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.VfxEmitter.Playing -> bool
 Vixen.Rendering.Ecs.VfxEmitter.Reach -> float

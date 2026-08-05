@@ -162,7 +162,7 @@ public static class SceneBehaviorRegistry {
     /// <exception cref="SerializationException">It has no serializer, or no name to be written under.</exception>
     /// <exception cref="InvalidOperationException">Something else already claims its name.</exception>
     /// <remarks>
-    ///     Idempotent for the same type, on <see cref="Scenes.SceneComponentRegistry.Register{T}" />'s
+    ///     Idempotent for the same type, on <see cref="Scenes.SceneComponentRegistry.Register{T}()" />'s
     ///     terms. Annotating the behaviour is the ordinary way in; this stays public for a type whose
     ///     assembly cannot run a generator, and for a test that wants one registered now.
     /// </remarks>
