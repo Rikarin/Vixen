@@ -299,9 +299,57 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "1000"
+            },
+            {
+              "Name": "previousViewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 480,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "historyBlend",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 544,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "jitter",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 560,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
-          "Size": 480,
+          "Size": 576,
           "IsWritable": false
         },
         {
@@ -326,6 +374,16 @@
         },
         {
           "Binding": 3,
+          "Name": "history",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 4,
           "Name": "volumeSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -335,7 +393,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 4,
+          "Binding": 5,
           "Name": "shadowSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -345,7 +403,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 5,
+          "Binding": 6,
           "Name": "lightBuffer",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -565,7 +623,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 6,
+          "Binding": 7,
           "Name": "clusters",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -626,7 +684,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 7,
+          "Binding": 8,
           "Name": "target",
           "Type": "StorageImage",
           "Count": 1,
@@ -705,6 +763,18 @@
     },
     {
       "Name": "UseClusteredLights",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
+    {
+      "Name": "Reproject",
       "Type": {
         "Scalar": "Bool",
         "Rows": 1,
@@ -1025,6 +1095,60 @@
       "DefaultValue": "1000"
     },
     {
+      "Name": "previousViewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 480,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "historyBlend",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 544,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "jitter",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 560,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "lightBuffer.position",
       "Type": {
         "Scalar": "Float",
@@ -1035,7 +1159,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 0,
       "Size": 12,
       "ArrayStride": 0,
@@ -1053,7 +1177,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -1071,7 +1195,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 16,
       "Size": 12,
       "ArrayStride": 0,
@@ -1089,7 +1213,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 28,
       "Size": 4,
       "ArrayStride": 0,
@@ -1107,7 +1231,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 32,
       "Size": 12,
       "ArrayStride": 0,
@@ -1125,7 +1249,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 44,
       "Size": 4,
       "ArrayStride": 0,
@@ -1143,7 +1267,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 48,
       "Size": 4,
       "ArrayStride": 0,
@@ -1161,7 +1285,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 52,
       "Size": 4,
       "ArrayStride": 0,
@@ -1179,7 +1303,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 56,
       "Size": 4,
       "ArrayStride": 0,
@@ -1197,7 +1321,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 60,
       "Size": 4,
       "ArrayStride": 0,
@@ -1215,7 +1339,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 64,
       "Size": 12,
       "ArrayStride": 0,
@@ -1233,7 +1357,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 6,
       "Offset": 76,
       "Size": 4,
       "ArrayStride": 0,
@@ -1251,7 +1375,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 6,
+      "Binding": 7,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -1270,7 +1394,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 6,
+      "Binding": 7,
       "Offset": 4,
       "Size": 128,
       "ArrayStride": 4,
@@ -1288,6 +1412,7 @@
     "GridY",
     "GridZ",
     "Pass",
+    "Reproject",
     "Shadowed",
     "UseClusteredLights"
   ],
