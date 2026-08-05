@@ -67,8 +67,38 @@ public sealed class ProjectAssemblyTests : IDisposable {
         }
     }
 
-    static string Generator(string name) =>
-        Path.Combine(Repository, "Core", name, "bin", "Debug", "netstandard2.1", name + ".dll");
+    /// <summary>The configuration this tree was built in.</summary>
+    /// <remarks>
+    ///     ⚠ A generator is named by path, and the path carries the configuration. CI builds Release
+    ///     and only Release, so a hard-coded <c>Debug</c> here names a file that was never produced and
+    ///     every test in this class fails with <c>CS0006</c> on all three legs at once.
+    /// </remarks>
+    static string Configuration =>
+        typeof(ProjectAssemblyTests).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()
+            ?.Configuration
+        ?? "Debug";
+
+    static string Generator(string name) {
+        var output = Path.Combine(Repository, "Core", name, "bin");
+        var built = Path.Combine(output, Configuration, "netstandard2.1", name + ".dll");
+
+        if (File.Exists(built) || !Directory.Exists(output)) {
+            return built;
+        }
+
+        // A generator left behind by a build in the other configuration is the same code, and using
+        // it beats failing a load test over which folder it landed in. The path built above is still
+        // what gets returned when there is nothing at all, so the error names the expected place.
+        foreach (var other in Directory.GetDirectories(output)) {
+            var candidate = Path.Combine(other, "netstandard2.1", name + ".dll");
+
+            if (File.Exists(candidate)) {
+                return candidate;
+            }
+        }
+
+        return built;
+    }
 
     string Write(string source) {
         Directory.CreateDirectory(root);

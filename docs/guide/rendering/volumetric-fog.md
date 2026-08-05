@@ -4,7 +4,7 @@ slug: rendering/volumetric-fog
 kind: guide
 area: Rendering
 summary: The froxel volume that turns the frame's fog from a function of distance into something the scene's own light shines through, what its far plane really controls, and why the composite is on the other side of TAA.
-api: [T:Vixen.Rendering.PostFx.VolumetricFogAsset, T:Vixen.Rendering.PostFx.VolumetricFogRenderer, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.FogRenderer, T:Vixen.Shaders.Generated.VolumetricFogKeys, T:Vixen.Shaders.Generated.VolumetricFogConstants, T:Vixen.Shaders.Generated.VolumetricFogInjectKeys, T:Vixen.Shaders.Generated.VolumetricFogInjectConstants]
+api: [T:Vixen.Rendering.PostFx.VolumetricFogAsset, T:Vixen.Rendering.PostFx.VolumetricFogRenderer, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.FogRenderer, T:Vixen.Shaders.Generated.VolumetricFogKeys, T:Vixen.Shaders.Generated.VolumetricFogConstants, T:Vixen.Shaders.Generated.VolumetricFogInjectKeys, T:Vixen.Shaders.Generated.VolumetricFogInjectConstants, R:PostFx/VolumetricFog, R:PostFx/VolumetricFogInject, T:Vixen.Shaders.Generated.VolumetricFogCascadesElement]
 tags: [rendering, post-processing, compositor, fog]
 since: 0.1
 status: stable

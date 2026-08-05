@@ -8,7 +8,7 @@ api: [T:Vixen.Gameplay.Exploration.PointKind, T:Vixen.Gameplay.Exploration.Point
 tags: [gameplay, exploration, map, travel, waypoints, mmo]
 since: 0.1
 status: preview
-related: [gameplay/requirements, gameplay/economy, gameplay/tags]
+related: [gameplay/requirements, gameplay/economy, gameplay/tags, gameplay/movement]
 ---
 
 ## What it is

@@ -8,7 +8,7 @@ api: [T:Vixen.Gameplay.Combat.AbilityDefinition, T:Vixen.Gameplay.Combat.DamageD
 tags: [gameplay, combat, abilities, damage, threat]
 since: 0.1
 status: preview
-related: [gameplay/effects, gameplay/attributes, gameplay/requirements]
+related: [gameplay/effects, gameplay/attributes, gameplay/requirements, gameplay/ai]
 ---
 
 ## What it is

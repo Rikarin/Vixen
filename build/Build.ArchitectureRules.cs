@@ -100,6 +100,23 @@ partial class Build {
     /// <summary>The projects inside <c>Live/</c> that still may not see Orleans.</summary>
     static readonly string[] OrleansFreeInLive = ["Vixen.Live.Abstractions"];
 
+    /// <summary>The suffix that marks a game's own grain-interface assembly.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A game writes an Orleans assembly, and this rule used to forbid the one doc 27 tells
+    ///     it to write.</b> § The three assemblies a game writes gives <c>MyGame.Cluster</c> the row
+    ///     "may reference <c>Microsoft.Orleans.Sdk</c> and <c>MyGame.Contracts</c>", and
+    ///     <c>Samples/14-Mmo</c> is that row built — so the check was failing the reference
+    ///     implementation of the design it cites.
+    ///     <para>
+    ///         The allowance is the suffix rather than a list of names because it is the naming the
+    ///         doc and the template both use, and because what ADR-017 actually protects is the
+    ///         <em>client's</em> reference graph: a game's cluster assembly is precisely the one its
+    ///         client may not name, which the layer rules below still check. Nothing here lets
+    ///         Orleans into <c>.Contracts</c>, <c>.Shared</c> or <c>.Client</c>.
+    ///     </para>
+    /// </remarks>
+    const string ClusterSuffix = ".Cluster";
+
     Target CheckArchitecture => definition => definition
         .Description("Fails on a layer violation, a banned IL-rewriting package, or editor-only code in a runtime assembly")
         .Executes(() => {
@@ -168,7 +185,9 @@ partial class Build {
                         .ToList();
 
                     if (orleans.Count > 0) {
-                        if (layer != "Live") {
+                        if (layer == "Samples" && name.EndsWith(ClusterSuffix, StringComparison.Ordinal)) {
+                            // Doc 27's MyGame.Cluster row, which is allowed exactly this.
+                        } else if (layer != "Live") {
                             violations.Add(
                                 $"{name} is in {layer} and references {orleans[0]}. Orleans is the control plane and "
                                 + "only the control plane — see docs/plan/27 ADR-016."

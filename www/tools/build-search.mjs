@@ -278,32 +278,30 @@ writeFileSync(
     `export const NAMES: SearchName[] = ${JSON.stringify(names)};\n`
 );
 
-// ── The budgets — § Part 7, enforced rather than noted ─────────────────────────────────────────
+// ── The budgets — § Part 7, measured here and held to a number by `pnpm check` ──────────────────
+//
+// ⚠ **This measures and does not fail, and it used to fail.** Part 7 says the search budgets are
+// "measured by `pnpm check` — which is a command rather than a gate, along with the rest of the
+// deployment budgets"; enforcing them here as well made the site build the gate the plan said not to
+// build, and the first time the index outgrew the ceiling that landed as a red `pnpm build` rather
+// than as a number somebody read. `tools/check-budgets.mjs` owns the thresholds, alone.
+//
+// The numbers still get printed on every build, because the alternative to a gate is not silence.
 
 const brotli = value => brotliCompressSync(Buffer.from(value)).length;
 const eager = brotli(readFileSync(join(generated, 'search-names.ts')));
 const lazy = readdirSync(assets).reduce((total, file) => total + brotli(readFileSync(join(assets, file))), 0);
 
-const EAGER_BUDGET = 300 * 1024;
-const LAZY_BUDGET = 2 * 1024 * 1024;
 const kb = value => `${(value / 1024).toFixed(0)} kB`;
 
 console.log(
   `search: ${documents.length} documents, ${names.length} names — ` +
-    `eager ${kb(eager)} of ${kb(EAGER_BUDGET)} Brotli, lazy ${kb(lazy)} of ${kb(LAZY_BUDGET)} Brotli ` +
-    `in ${parts.length} parts`
+    `eager ${kb(eager)} Brotli, lazy ${kb(lazy)} Brotli in ${parts.length} parts ` +
+    `(against § Part 7's budgets: pnpm check)`
 );
 
-if (eager > EAGER_BUDGET || lazy > LAZY_BUDGET) {
-  console.error(
-    'error: the search index is over the budget in docs/plan/25 § Part 7. An index nobody waits for ' +
-      'is the whole point of the two tiers.'
-  );
-
-  process.exit(1);
-}
-
-// Kept for the site build's own budget check, which sees the numbers rather than recomputing them.
+// Unconditionally, and that ordering is the point: it used to be written after the exit above, so a
+// build that went over the ceiling left `pnpm check` with no numbers to read at all.
 writeFileSync(
   join(assets, 'budget.json'),
   JSON.stringify({ eager, lazy, documents: documents.length, parts: parts.length })

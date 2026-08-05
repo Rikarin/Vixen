@@ -4,11 +4,11 @@ slug: assets/content-in-a-game
 kind: guide
 area: Assets
 summary: What a build has to know, what it ships, and the two shapes a shipped chunk comes in.
-api: [T:Vixen.Editor.Assets.Compositors.CompositorImporter, T:Vixen.Editor.Assets.Compositors.CompositorImportSettings, T:Vixen.Cli.GameAssemblies, T:Vixen.Assets.RawPayload, T:Vixen.Assets.LooseContentSource]
+api: [T:Vixen.Editor.Assets.Compositors.CompositorImporter, T:Vixen.Editor.Assets.Compositors.CompositorImportSettings, T:Vixen.Cli.GameAssemblies, T:Vixen.Assets.RawPayload, T:Vixen.Assets.LooseContentSource, T:Vixen.Editor.Assets.Gameplay.AddressConstants, T:Vixen.Editor.Assets.Gameplay.AddressConstantsResult, T:Vixen.Cli.AddressRunner]
 tags: [assets, content, importers, build]
 since: 0.1
 status: stable
-related: [engine/players-and-possession, engine/booting-an-application]
+related: [engine/players-and-possession, engine/booting-an-application, core/fuzzing]
 ---
 
 ## What it is

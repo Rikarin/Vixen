@@ -3063,7 +3063,6 @@ T:Vixen.Rendering.PipelineKey sweep-pending
 T:Vixen.Rendering.PostFx.AmbientOcclusionRenderer sweep-pending
 T:Vixen.Rendering.PostFx.BloomRenderer sweep-pending
 T:Vixen.Rendering.PostFx.DistanceFieldAoRenderer sweep-pending
-T:Vixen.Rendering.PostFx.FogRenderer sweep-pending
 T:Vixen.Rendering.PostFx.FxaaRenderer sweep-pending
 T:Vixen.Rendering.PostFx.IndirectDiffuseRenderer sweep-pending
 T:Vixen.Rendering.PostFx.OutlineRenderer sweep-pending

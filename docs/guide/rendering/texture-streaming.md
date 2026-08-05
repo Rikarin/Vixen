@@ -4,7 +4,7 @@ slug: rendering/texture-streaming
 kind: guide
 area: Rendering
 summary: The small mips are always resident and the large ones are pages that come and go under a byte budget, because KTX2 stores level data smallest first.
-api: [T:Vixen.Core.Imaging.Ktx2Layout, T:Vixen.Core.Imaging.Ktx2Level, T:Vixen.Engine.Renderer.ITextureStreamSource, T:Vixen.Engine.Renderer.TexturePagePool, T:Vixen.Engine.Renderer.TextureStreamer, T:Vixen.Engine.Renderer.TextureStreamingQuality, T:Vixen.Engine.Renderer.TextureDemand, T:Vixen.Engine.Renderer.AssetTextureStreamSource]
+api: [T:Vixen.Core.Imaging.Ktx2Layout, T:Vixen.Core.Imaging.Ktx2Level, T:Vixen.Engine.Renderer.ITextureStreamSource, T:Vixen.Engine.Renderer.TexturePagePool, T:Vixen.Engine.Renderer.TextureStreamer, T:Vixen.Engine.Renderer.TextureStreamingQuality, T:Vixen.Engine.Renderer.TextureDemand, T:Vixen.Engine.Renderer.AssetTextureStreamSource, L:4001, L:4002]
 tags: [textures, streaming, memory, budget, ktx2]
 since: 0.1
 status: preview
@@ -218,6 +218,20 @@ since page 0 covers a chain under 64 KiB whole; `streaming: false` on a large on
 author what they would reach for it for, because it moves the texture out of a bounded pool into an
 unbounded whole-file load, which is what the pool exists to stop. The control that claim actually
 wants is a *pin* on the streamer, and nothing has asked for one.
+
+**What the pool says when it refuses.** Two log events, and they mean different things:
+
+| Event | Level | What it says |
+|---|---|---|
+| `4001` | Warning | The pool refused *n* requests — *r* of *c* pages are resident and *p* of those pinned, so there was nothing left to evict |
+| `4002` | Error | *n* **pinned** pages could not be given a slot; *p* of *c* pages are pinned already |
+
+⚠ **The level difference is permanence, and it is the whole reason there are two events.** A refused
+request is one coarser frame and the next frame asks again — annoying at volume, self-correcting by
+construction. A refused *pin* is not: the only thing that pins is a registration that has already
+happened and will not happen again, so whatever those pages belong to draws nothing at all until the
+pool is bigger. `4001` in a burst means raise the slot count; `4002` even once means the pinned floor
+does not fit the budget it was given.
 
 ## See also
 

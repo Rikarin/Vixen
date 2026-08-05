@@ -995,10 +995,15 @@ public class ViewCullingDeviceTests {
     ///     out of. Separate from the tests above so that a failure says <em>which</em> shader rather
     ///     than "culling does not work".
     /// </remarks>
+    // The three are "Culling", "HiZReduce" and "DrawArguments", and each comes from a *Keys class a
+    // source generator emits. `dotnet format analyzers` runs its own compilation without that
+    // generator's output, so all three constants resolve to nothing and read as one value repeated.
+#pragma warning disable xUnit1025
     [Theory]
     [InlineData(GpuCulling.ShaderName)]
     [InlineData(GpuCulling.ReduceShaderName)]
     [InlineData(GpuCulling.ArgumentsShaderName)]
+#pragma warning restore xUnit1025
     public void EachShaderMakesAPipeline(string shader) {
         if (!Fixture.TryOpen(out var fixture, out var reason)) {
             Skip(reason);

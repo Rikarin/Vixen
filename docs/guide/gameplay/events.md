@@ -54,7 +54,7 @@ Posting a kill:
 using Vixen.Gameplay;
 
 static class Deaths {
-    public static void Report(GameplayEventBus bus, GameplayTagTable tags, GameplaySubject victim, ulong killer) {
+    public static void Report(GameplayEventBus bus, GameplayTagTable tags, GameplaySubject victim, PlayerId killer) {
         bus.Post(
             new GameplayEvent(tags.Resolve("Event.Kill"), Instigator: killer, Tags: victim.Tags)
         );
@@ -80,7 +80,7 @@ static class Watch {
         return bus.Subscribe(filter, (in GameplayEvent killed) => Counted(killed.Instigator));
     }
 
-    static void Counted(ulong who) { }
+    static void Counted(PlayerId who) { }
 }
 ```
 

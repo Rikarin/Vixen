@@ -96,6 +96,7 @@ static class Camp {
 Paying everybody who did enough:
 
 ```csharp compile
+using Vixen.Gameplay;
 using Vixen.Gameplay.Quests;
 
 static class Payout {
@@ -117,7 +118,7 @@ static class Payout {
         return paid;
     }
 
-    static void Give(ulong participant, QuestReward reward) { }
+    static void Give(PlayerId participant, QuestReward reward) { }
 }
 ```
 
