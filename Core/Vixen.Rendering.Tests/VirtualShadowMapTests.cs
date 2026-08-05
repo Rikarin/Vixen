@@ -126,6 +126,63 @@ public class VirtualShadowMapTests {
         Assert.NotEqual(reference, Level(0, origin + (right * page * 1.5f)));
     }
 
+    /// <summary>
+    ///     A sun drifting less than the snap does not move the projection; past it, it does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The page snap's missing half, stated the same way the camera's is above. The light
+    ///         direction enters the matrix raw, so before <see cref="VirtualShadowMap.SnapDirection" />
+    ///         a sun that moved at all — sample 13's orbits deliberately — changed every level's
+    ///         projection every frame, every resident page was invalidated every frame, and the redraw
+    ///         budget never caught up: pages piled up allocated and owed while the uploaded table
+    ///         carried nothing. Snapped, the fitted direction holds still between steps and the pages
+    ///         drawn against it stay true.
+    ///     </para>
+    ///     <para>
+    ///         Anchored on the lattice for the camera test's reason: a direction an arbitrary
+    ///         hair from a cell boundary would make this a test of where the boundary happens to be.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sun_drifting_less_than_the_snap_does_not_move_the_projection() {
+        const float Step = 0.5f;
+
+        // On the lattice, so the cell is centred on it and a drift under a quarter step stays put.
+        var anchored = VirtualShadowMap.SnapDirection(Sun, Step);
+
+        // A tenth of a degree of azimuth — thirty frames of a thirty-second orbit.
+        var drifted = Turned(anchored, 0.1f);
+
+        Assert.Equal(anchored, VirtualShadowMap.SnapDirection(drifted, Step));
+
+        Assert.Equal(
+            VirtualShadowMap.ClipmapProjection(0, FirstExtent, new(7f, 1f, 2f), anchored, Depth),
+            VirtualShadowMap.ClipmapProjection(
+                0,
+                FirstExtent,
+                new(7f, 1f, 2f),
+                VirtualShadowMap.SnapDirection(drifted, Step),
+                Depth
+            )
+        );
+
+        // Past the step it moves, or the snap would be a shadow that never follows the sun at all.
+        Assert.NotEqual(anchored, VirtualShadowMap.SnapDirection(Turned(anchored, 2f), Step));
+
+        // And zero disables it: the direction comes back normalized and otherwise untouched.
+        Assert.Equal(Vector3.Normalize(drifted), VirtualShadowMap.SnapDirection(drifted, 0f));
+    }
+
+    /// <summary>A direction swung about the up axis by some degrees, elevation kept.</summary>
+    static Vector3 Turned(Vector3 direction, float degrees) {
+        var azimuth = MathF.Atan2(direction.Z, direction.X) + (degrees * (MathF.PI / 180f));
+        var elevation = MathF.Asin(Math.Clamp(direction.Y, -1f, 1f));
+        var planar = MathF.Cos(elevation);
+
+        return new(MathF.Cos(azimuth) * planar, MathF.Sin(elevation), MathF.Sin(azimuth) * planar);
+    }
+
     // --- Pages ---------------------------------------------------------------
 
     /// <summary>

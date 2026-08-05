@@ -266,6 +266,145 @@ public class VirtualShadowPageTests {
         Assert.Equal(8, first.Concat(rest).Distinct().Count());
     }
 
+    /// <summary>A backlog beyond the budget lands, and within its own arithmetic.</summary>
+    /// <remarks>
+    ///     The claim the budget's amortisation rests on: a burst of allocations larger than one
+    ///     frame's draws is not dropped, it is drained — none of it sampleable before its draw, all of
+    ///     it sampleable within ceiling-of-marked-over-budget frames. A backlog that outlives that
+    ///     bound is a queue something is re-queueing into faster than the budget drains it, which is
+    ///     the stall <c>VirtualShadowRenderer.LightSnapDegrees</c> exists to prevent.
+    /// </remarks>
+    [Fact]
+    public void A_backlog_beyond_the_budget_lands_within_its_own_frames() {
+        var (pages, residency) = Pool(pagesPerSide: 8);
+        using var owned = residency;
+
+        for (var page = 0; page < 24; page++) {
+            residency.Request(Key(page));
+        }
+
+        Settle(residency, 32);
+
+        // Allocated, every one — and not one of them sampleable until its draw lands.
+        for (var page = 0; page < 24; page++) {
+            Assert.True(pages.TryGetAllocation(page, out _));
+            Assert.False(pages.TryGetSlot(page, out _));
+        }
+
+        var frames = 0;
+
+        while (pages.Pending.Count > 0) {
+            Assert.True(++frames <= 3, "24 pages at 8 a frame outlived the 3 frames they arithmetic to.");
+
+            foreach (var page in pages.TakePending(8)) {
+                Assert.True(pages.Drawn(page));
+            }
+        }
+
+        Assert.Equal(3, frames);
+
+        for (var page = 0; page < 24; page++) {
+            Assert.True(pages.TryGetSlot(page, out _));
+        }
+    }
+
+    /// <summary>A marked page the frame dropped between take and draw is owed again.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The leak <see cref="VirtualShadowPages.Owe" /> exists to close.</b>
+    ///         <see cref="VirtualShadowPages.TakePending" /> forgets what it hands out, and the paths
+    ///         between it and <see cref="VirtualShadowPages.Drawn" /> can lose a page — a build that
+    ///         bailed before recording, a level count that shrank under a taken page. The page is then
+    ///         allocated, unpublished, and unreachable: <see cref="PageResidency.Request" /> refuses a
+    ///         resident page, so the marks that keep it alive in the eviction order can never queue it
+    ///         a draw. Touched forever, drawn never — a slot spent on nothing, for as long as
+    ///         something looks at it.
+    ///     </para>
+    ///     <para>
+    ///         The heal is the mark itself: <c>VirtualShadowAtlas.ServiceMarks</c> owes every marked
+    ///         page that is allocated and unpublished, which turns the stall back into a draw the next
+    ///         budget services.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_marked_page_the_frame_dropped_is_owed_again() {
+        var (pages, residency) = Pool();
+        using var owned = residency;
+
+        residency.Request(Key(5));
+        Settle(residency);
+
+        // The drop: taken for a frame whose draws never recorded.
+        Assert.Equal([5], pages.TakePending());
+
+        // The stall: allocated, unpublished, and no longer queued — and the mark's request is
+        // refused because the page is resident, so without Owe this state is permanent.
+        Assert.True(pages.TryGetAllocation(5, out _));
+        Assert.False(pages.TryGetSlot(5, out _));
+        Assert.Empty(pages.Pending);
+
+        residency.Request(Key(5));
+        Settle(residency);
+        Assert.Empty(pages.Pending);
+
+        // The heal: the mark owes the page its draw, and the next budget lands it.
+        Assert.True(pages.Owe(5));
+        Assert.Equal([5], pages.TakePending());
+        Assert.True(pages.Drawn(5));
+        Assert.True(pages.TryGetSlot(5, out _));
+    }
+
+    /// <summary>An owed mark is drawn before the backlog, wherever it sat in the queue.</summary>
+    /// <remarks>
+    ///     <see cref="VirtualShadowPages.TakePending" /> drains newest first, so what Owe does with a
+    ///     page already queued matters: moved to the newest end, what a pixel asked for this frame
+    ///     outranks a backlog about where the camera and the light used to be. Without the move, a
+    ///     refit's re-queue of a thousand stale pages would starve the dozen a frame is actually
+    ///     looking at — a budget spent entirely on shadows nobody samples.
+    /// </remarks>
+    [Fact]
+    public void An_owed_mark_outranks_the_stale_backlog() {
+        var (pages, residency) = Pool(pagesPerSide: 4);
+        using var owned = residency;
+
+        for (var page = 0; page < 6; page++) {
+            residency.Request(Key(page));
+        }
+
+        Settle(residency, 16);
+        Assert.Equal(6, pages.Pending.Count);
+
+        // Whatever order the queue settled in, the marked page is drawn first.
+        Assert.True(pages.Owe(3));
+        Assert.Equal(3, pages.TakePending(1)[0]);
+    }
+
+    /// <summary>A published page is not owed a redraw, or the map is a cascade again.</summary>
+    /// <remarks>
+    ///     The marks name every page the frame samples, drawn or not — the marking pass knows nothing
+    ///     about residency. An Owe that re-queued published pages would redraw the whole visible set
+    ///     every frame, which is the exact cost a virtual map exists to stop paying. What re-queues a
+    ///     published page is <see cref="VirtualShadowPages.Invalidate" /> alone, and only for cause.
+    /// </remarks>
+    [Fact]
+    public void A_published_page_is_not_owed_a_redraw() {
+        var (pages, residency) = Pool();
+        using var owned = residency;
+
+        residency.Request(Key(2));
+        Settle(residency);
+        pages.TakePending();
+        pages.Drawn(2);
+
+        Assert.False(pages.Owe(2));
+        Assert.Empty(pages.Pending);
+        Assert.True(pages.TryGetSlot(2, out _));
+
+        // And a page nothing allocated has nothing to owe.
+        Assert.False(pages.Owe(9999));
+        Assert.False(pages.Owe(-1));
+    }
+
     /// <summary>The store answers the interface without a device or a byte of geometry in it.</summary>
     /// <remarks>
     ///     <b>The claim improvement 6 is actually making</b>, stated as an assertion: the same residency

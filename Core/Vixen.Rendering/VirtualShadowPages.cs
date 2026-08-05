@@ -199,6 +199,47 @@ public sealed class VirtualShadowPages : IPageStore {
         return taken;
     }
 
+    /// <summary>Says a marked page is still owed its draw, and puts it where the budget looks first.</summary>
+    /// <param name="page">The virtual page index.</param>
+    /// <returns>Whether the page was allocated, unpublished, and therefore owed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The back-pressure that makes a mark mean something after allocation.</b>
+    ///         <see cref="PageResidency.Request" /> ignores a page that is already resident, so once a
+    ///         slot exists the marks stop being able to ask for anything — and every path that loses a
+    ///         page between <see cref="TakePending" /> and <see cref="Drawn" /> loses it forever: a
+    ///         frame whose build bailed out, a level count that shrank under a taken page, a backlog a
+    ///         refit re-queued past what the budget drains. The page sits allocated, unpublished,
+    ///         touched by every frame's marks so never evicted, and never drawn — invisible to the very
+    ///         requests that keep it alive. Called for each marked page, this turns that mark back into
+    ///         a draw.
+    ///     </para>
+    ///     <para>
+    ///         Moved to the newest end rather than merely ensured present, because
+    ///         <see cref="TakePending" /> drains newest first: what a pixel asked for <em>this frame</em>
+    ///         outranks a backlog about where the camera and the light used to be. A published page is
+    ///         refused — redrawing every marked page every frame is a cascade with extra bookkeeping,
+    ///         and what puts a published page back in this queue is <see cref="Invalidate" /> alone.
+    ///     </para>
+    /// </remarks>
+    public bool Owe(int page) {
+        if (page < 0 || page >= slots.Length || slots[page] == VirtualShadowMap.PageAbsent) {
+            return false;
+        }
+
+        if (table[page] != VirtualShadowMap.PageAbsent) {
+            return false;
+        }
+
+        if (!pendingSet.Add(page)) {
+            pending.Remove(page);
+        }
+
+        pending.Add(page);
+
+        return true;
+    }
+
     /// <summary>Says a resident page's depths are stale and it has to be drawn again.</summary>
     /// <param name="page">The virtual page index.</param>
     /// <returns>Whether there was a resident page to invalidate.</returns>
