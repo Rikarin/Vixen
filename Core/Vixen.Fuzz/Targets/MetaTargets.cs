@@ -178,18 +178,11 @@ public sealed class AssetMetaTarget : IFuzzTarget {
 
         signature = (signature * 31) + meta.MetaVersion;
 
-        // ⚠ Null-tolerant against a schema that says neither can be null, and that is a finding this
-        // target records rather than asserts. `subAssets: null` in a document binds to a null array
-        // even though `AssetMeta.SubAssets` is declared non-nullable with a non-null default — the
-        // binder decides nullability from the CLR type, which for any reference type is "yes", and
-        // the C# annotation it is contradicting is not in the descriptor for it to read. So a sidecar
-        // somebody commits produces an AssetMeta that violates its own contract, and the crash lands
-        // in whichever consumer dereferences it first, a long way from the file that caused it.
-        //
-        // Not asserted here because the fix is in the binder and applies to every [DataContract] type
-        // in the engine, not to `.meta` — refusing a document null for a collection member is a
-        // decision with that whole blast radius behind it, and it is not this harness's to make. The
-        // shape stays visible in the signature, so the corpus keeps an example of it either way.
+        // Still null-tolerant, and now only because a signature must be total — `subAssets: null` is
+        // refused by the binder as of `0a905f21`, so it arrives here as a YamlBindingException above
+        // rather than as a null array. This finding is closed; `MetaTests.ANullAgainstANonNullableMemberIsRefused`
+        // is what asserts it. The `?? -1` stays because a signature that can throw is a signature that
+        // reports the harness rather than the target.
         signature = (signature * 31) + (meta.SubAssets?.Length ?? -1);
         signature = (signature * 31) + (meta.Extensions?.Count ?? -1);
         signature = (signature * 31) + (meta.Importer is null ? 0 : 5);
