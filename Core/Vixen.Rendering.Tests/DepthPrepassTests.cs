@@ -36,8 +36,12 @@ public class DepthPrepassTests : IDisposable {
     readonly EffectSystem effects = new();
     readonly DescriptorSetLayoutHandle materialLayout;
     readonly DescriptorSetHandle materialSet;
+    readonly DescriptorAllocator allocator;
+    readonly DescriptorSetLayoutHandle viewLayout;
 
     public DepthPrepassTests() {
+        allocator = new(device);
+
         materialLayout = device.CreateDescriptorSetLayout(
             new(
                 DescriptorSetSlot.PerMaterial,
@@ -46,12 +50,19 @@ public class DepthPrepassTests : IDisposable {
             )
         );
 
+        // The host's own, because a depth-only variant has no reflected set layouts to take one from
+        // — which is the whole subject of The_override_still_binds_the_view_set_it_draws_under.
+        viewLayout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerView, [new(0, DescriptorKind.UniformBuffer, ShaderStage.Vertex)], "View")
+        );
+
         materialSet = device.CreateDescriptorSet(materialLayout, "Lit");
         effects.AddProvider(new AlwaysCompiles(materialLayout));
     }
 
     /// <inheritdoc />
     public void Dispose() {
+        allocator.Dispose();
         device.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -126,6 +137,48 @@ public class DepthPrepassTests : IDisposable {
 
         Assert.Equal((long)DescriptorSetSlot.PerMaterial, bind.A);
         Assert.Equal((long)materialSet.Value.Packed, bind.B);
+    }
+
+    /// <summary>
+    ///     The per-view set is bound in a stage that overrode the shader, and before it draws.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The other side of the test above, and the one that had no headless cover: an override
+    ///         binds <em>fewer</em> sets, never none. A depth-only vertex stage still reads the view's
+    ///         matrix out of set 1, so a pass that skipped it draws with
+    ///         <c>[DepthOnly/ShadowCaster] statically uses descriptor set 1, but ... a descriptor was
+    ///         never bound</c> — which until now only a device fixture could say.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The variant carries no set layouts at all, and that is the case under test.</b> A
+    ///         host-built effect — every device fixture's, and this one's <c>DepthOnly</c> — reports
+    ///         no layout for any set, so a draw loop keyed on "did the effect's layout for this set
+    ///         change" sees the same nothing it started with and concludes the set is still bound.
+    ///         <c>ViewConstants</c> falls back to the host's layout, so the bind itself was always
+    ///         possible; what was missing was a reason to make it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_override_still_binds_the_view_set_it_draws_under() {
+        using var h = Build();
+        using var constants = new ViewConstants(device) { Descriptors = allocator, Layout = viewLayout };
+
+        h.PrepassDraw.Constants = constants;
+        AddMesh(h);
+        Frame(h);
+
+        var stream = device.Recorder!.Commands.ToList();
+
+        var bind = stream.FindIndex(
+            command => command.Kind == RecordedCommandKind.BindDescriptorSet
+                && command.A == (long)DescriptorSetSlot.PerView
+        );
+
+        var draw = stream.FindIndex(command => command.Kind == RecordedCommandKind.Draw);
+
+        Assert.True(bind >= 0, "the prepass bound no per-view set");
+        Assert.True(bind < draw, "the prepass drew before binding its per-view set");
     }
 
     /// <summary>
@@ -302,6 +355,7 @@ public class DepthPrepassTests : IDisposable {
         public required RenderGraph Graph { get; init; }
         public required RenderStage Prepass { get; init; }
         public required RenderStage Opaque { get; init; }
+        public required SingleStageRenderer PrepassDraw { get; init; }
         public required RenderPassRenderer Colour { get; init; }
         public required MeshRenderFeature Meshes { get; init; }
         public required MaterialRenderFeature Materials { get; init; }
@@ -344,7 +398,8 @@ public class DepthPrepassTests : IDisposable {
         var camera = new RenderView("camera") { Position = Vector3.Zero, Frustum = new(view * projection) };
 
         var depthPass = new RenderPassRenderer { Name = "Prepass", DepthTarget = "SceneDepth" };
-        depthPass.Children.Add(new SingleStageRenderer { View = camera, Stage = prepass });
+        var prepassDraw = new SingleStageRenderer { View = camera, Stage = prepass };
+        depthPass.Children.Add(prepassDraw);
 
         var colourPass = new RenderPassRenderer {
             Name = "Forward",
@@ -373,6 +428,7 @@ public class DepthPrepassTests : IDisposable {
             Graph = new(device),
             Prepass = prepass,
             Opaque = opaque,
+            PrepassDraw = prepassDraw,
             Colour = colourPass,
             Meshes = meshes,
             Materials = materials,
@@ -405,6 +461,7 @@ public class DepthPrepassTests : IDisposable {
     void Frame(Harness h) {
         var list = device.BeginCommandList();
 
+        allocator.BeginFrame();
         h.Graph.Reset();
         h.Compositor.Build(h.Graph, effects, device);
         h.Graph.Execute(list);
