@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Inspector.PropertyField, T:Vixen.Editor.Inspector.MarkupBin
 tags: [editor, inspector, markup, vxml, plugins, hot-reload]
 since: 0.1
 status: preview
-related: [editor/editing-pipeline, editor/writing-a-plugin, editor/editor-scripts, editor/index]
+related: [editor/editing-pipeline, editor/writing-a-plugin, editor/editor-scripts, editor/frame-panel, editor/index]
 ---
 
 ## What it is
