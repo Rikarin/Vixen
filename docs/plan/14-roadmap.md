@@ -544,8 +544,7 @@ editor became the application-platform proof instead.
 - Release automation end to end: tag → signed editor builds for three desktops + NuGet push + GitHub
   Release with a changelog.
 - Fuzzing corpora seeded and running nightly — ✅ `nightly.yml` does this, at ten minutes a target over
-  nineteen of the twenty; `raven` is skipped by name there until its binder recursion is bounded, and
-  runs case-bounded on every build like the rest
+  all twenty; `raven` was skipped by name until its binder recursion was bounded, and is back in
   rather than one second. Soak tests (24 h editor session, 24 h game session) clean — the 30-minute
   network soak is the only one that exists.
 - A public issue-triage and support process, and a written compatibility policy.
