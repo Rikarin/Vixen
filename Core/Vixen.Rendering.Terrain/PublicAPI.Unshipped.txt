@@ -318,6 +318,7 @@ Vixen.Rendering.Terrain.ITerrainTextures.Resolve(string reference) -> Vixen.Grap
 Vixen.Rendering.Terrain.ITerrainTileSource -> interface
 Vixen.Rendering.Terrain.ITerrainTileSource.Prepare() -> void
 Vixen.Rendering.Terrain.ITerrainTileSource.ReadAsync(int tileX, int tileZ, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Rendering.Terrain.ITerrainTileSource.RevisionOf(int tileX, int tileZ) -> int
 Vixen.Rendering.Terrain.ITerrainTileSource.TileCounts.get -> (int X, int Z)
 Vixen.Rendering.Terrain.ITerrainTileSource.TileSamples.get -> int
 Vixen.Rendering.Terrain.SplinePlacedComponent -> struct
@@ -566,11 +567,13 @@ Vixen.Rendering.Terrain.TerrainTilePages.Pending.get -> int
 Vixen.Rendering.Terrain.TerrainTilePages.Place(Vixen.Rendering.PageKey key, int slot, System.ReadOnlySpan<byte> bytes) -> bool
 Vixen.Rendering.Terrain.TerrainTilePages.Resident.get -> int
 Vixen.Rendering.Terrain.TerrainTilePages.SlotCount.get -> int
+Vixen.Rendering.Terrain.TerrainTilePages.StaleArrivals.get -> long
 Vixen.Rendering.Terrain.TerrainTilePages.TerrainTilePages(Vixen.Rendering.Terrain.ITerrainTileSource source, int slots) -> void
 Vixen.Rendering.Terrain.TerrainTileSource -> sealed class
 Vixen.Rendering.Terrain.TerrainTileSource : Vixen.Rendering.Terrain.ITerrainTileSource
 Vixen.Rendering.Terrain.TerrainTileSource.Prepare() -> void
 Vixen.Rendering.Terrain.TerrainTileSource.ReadAsync(int tileX, int tileZ, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Rendering.Terrain.TerrainTileSource.RevisionOf(int tileX, int tileZ) -> int
 Vixen.Rendering.Terrain.TerrainTileSource.TerrainTileSource(Vixen.Terrain.Terrain terrain) -> void
 Vixen.Rendering.Terrain.TerrainTileSource.TileCounts.get -> (int X, int Z)
 Vixen.Rendering.Terrain.TerrainTileSource.TileSamples.get -> int
@@ -822,6 +825,7 @@ const Vixen.Rendering.Terrain.TerrainSceneRenderer.GrassCellSize = 32 -> float
 const Vixen.Rendering.Terrain.TerrainSplat.LayersPerWeightMap = 4 -> int
 const Vixen.Rendering.Terrain.TerrainSplat.MaxLayerSlots = 16 -> int
 const Vixen.Rendering.Terrain.TerrainStreamer.PageSource = 32324 -> int
+const Vixen.Rendering.Terrain.TerrainTilePages.HeaderSize = 4 -> int
 const Vixen.Shaders.Generated.FoliageConstants.Size = 80 -> int
 const Vixen.Shaders.Generated.FoliageCullKeys.BatchesBinding = 3 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.BatchesSet = 2 -> int

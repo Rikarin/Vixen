@@ -714,6 +714,15 @@ public sealed class TerrainRenderer : IDisposable {
         }
 
         // And the fine levels of whatever the pool handed over, which is the streaming half proper.
+        //
+        // ⚠ After the dirty tiles' own copies, and that is safe only because the two sets cannot
+        // overlap in a frame with anything to disagree about. `Terrain.Resolve` above bumps every
+        // dirty tile's revision before `Stream` places anything, so a chain read before this frame is
+        // refused by the pool and never gets here — which means a tile in `dirty` has no arrival, and
+        // a tile with an arrival was not dirtied. What is left is the first frame, where every tile is
+        // stale and an arrival may cover levels a full copy also covers: same revision, so the same
+        // bytes twice, and which copy the device runs last does not matter. Move the resolve after the
+        // stream and both of those stop being true.
         Streaming?.Pages.Drain((tileX, tileZ, chain) => CopyChain(commands, tileX, tileZ, chain, 0, floor));
 
         EndCopies(commands, copyHeights, anyStale, copyWeights);
