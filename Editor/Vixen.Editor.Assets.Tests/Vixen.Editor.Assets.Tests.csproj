@@ -66,4 +66,13 @@
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The first .vxwaves in the tree, read by WaterSceneRunsTests. A file rather than a string in
+          the test, because the format has three consumers that had never met: the importer here, the
+          runtime source in Vixen.Engine.Renderer, and the editor's Create ▸ Sea State entry.
+        -->
+        <None Include="Assets\Water\*.vxwaves" LinkBase="Assets\Water" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
 </Project>

@@ -1,0 +1,18 @@
+# The first .vxwaves in the tree. A sheltered pond: eight short waves, a hand's breadth of chop.
+#
+# ⚠ Committed as a *file* rather than written inline by the test that reads it, because the format
+# has three consumers that had never met — the importer in Vixen.Editor.Assets, the runtime source
+# in Vixen.Engine.Renderer, and the editor's Create ▸ Sea State entry — and nothing anywhere had
+# round-tripped what the three of them agree on. See WaterSceneRunsTests.
+name: Pond
+spectrum:
+  windDirection: 0.7
+  windSpeed: 3.5
+  directionalSpread: 0.9
+  minimumWavelength: 1
+  maximumWavelength: 6
+  wavelengthFalloff: 1
+  amplitudeScale: 1
+  steepness: 0.35
+  seed: 7
+  count: Eight
