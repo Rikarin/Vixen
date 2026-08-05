@@ -5,13 +5,13 @@
       "Bindings": [
         {
           "Binding": 0,
-          "Name": "FogPerMaterialUniforms",
+          "Name": "VolumetricFogPerMaterialUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Vertex, Fragment",
+          "Stages": "Compute",
           "Members": [
             {
-              "Name": "inverseViewProjection",
+              "Name": "inverseView",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 4,
@@ -27,36 +27,52 @@
               "DefaultValue": ""
             },
             {
-              "Name": "cameraPosition",
+              "Name": "tanHalfFov",
               "Type": {
                 "Scalar": "Float",
-                "Rows": 3,
+                "Rows": 2,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
               "Offset": 64,
-              "Size": 12,
+              "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1"
             },
             {
-              "Name": "fogColor",
+              "Name": "fogNear",
               "Type": {
                 "Scalar": "Float",
-                "Rows": 3,
+                "Rows": 1,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 80,
-              "Size": 12,
+              "Offset": 72,
+              "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.5, 0.6, 0.7"
+              "DefaultValue": "0.5"
+            },
+            {
+              "Name": "fogFar",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 76,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "64"
             },
             {
               "Name": "density",
@@ -68,43 +84,27 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 92,
+              "Offset": 80,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.02"
             },
             {
-              "Name": "fogStart",
+              "Name": "scatteringAlbedo",
               "Type": {
                 "Scalar": "Float",
-                "Rows": 1,
+                "Rows": 3,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
               "Offset": 96,
-              "Size": 4,
+              "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "10"
-            },
-            {
-              "Name": "fogEnd",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 100,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "200"
+              "DefaultValue": "0.9, 0.92, 0.95"
             },
             {
               "Name": "fogHeight",
@@ -116,7 +116,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 104,
+              "Offset": 108,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -132,7 +132,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 108,
+              "Offset": 112,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -148,14 +148,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 112,
+              "Offset": 128,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0, -1, 0"
             },
             {
-              "Name": "sunColor",
+              "Name": "sunColour",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 3,
@@ -164,78 +164,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 128,
+              "Offset": 144,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "1, 0.9, 0.7"
             },
             {
-              "Name": "sunAnisotropy",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 140,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0.7"
-            },
-            {
-              "Name": "volumeNear",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 144,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0.5"
-            },
-            {
-              "Name": "volumeFar",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 148,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "64"
-            },
-            {
-              "Name": "volumeSlices",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 152,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "64"
-            },
-            {
-              "Name": "cameraNear",
+              "Name": "phaseG",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -248,23 +184,23 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.1"
+              "DefaultValue": "0.7"
             },
             {
-              "Name": "cameraFar",
+              "Name": "ambientColour",
               "Type": {
                 "Scalar": "Float",
-                "Rows": 1,
+                "Rows": 3,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
               "Offset": 160,
-              "Size": 4,
+              "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "1000"
+              "DefaultValue": "0.35, 0.42, 0.55"
             }
           ],
           "Size": 176,
@@ -275,37 +211,27 @@
           "Name": "source",
           "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Vertex, Fragment",
+          "Stages": "Compute",
           "Members": [],
           "Size": 0,
           "IsWritable": false
         },
         {
           "Binding": 2,
-          "Name": "depthBuffer",
-          "Type": "SampledTexture",
+          "Name": "volumeSampler",
+          "Type": "Sampler",
           "Count": 1,
-          "Stages": "Vertex, Fragment",
+          "Stages": "Compute",
           "Members": [],
           "Size": 0,
           "IsWritable": false
         },
         {
           "Binding": 3,
-          "Name": "fogVolume",
-          "Type": "SampledTexture",
+          "Name": "target",
+          "Type": "StorageImage",
           "Count": 1,
-          "Stages": "Vertex, Fragment",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 4,
-          "Name": "linearSampler",
-          "Type": "Sampler",
-          "Count": 1,
-          "Stages": "Vertex, Fragment",
+          "Stages": "Compute",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -314,26 +240,12 @@
     }
   ],
   "VertexInputs": [],
-  "Outputs": [
-    {
-      "Location": 0,
-      "Name": "result",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 4,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Semantic": "SV_Target"
-    }
-  ],
+  "Outputs": [],
   "PushConstants": [],
   "SpecConstants": [],
   "Permutations": [
     {
-      "Name": "Mode",
+      "Name": "Pass",
       "Type": {
         "Scalar": "Int",
         "Rows": 1,
@@ -342,7 +254,43 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "DefaultValue": "2"
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "GridX",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "160"
+    },
+    {
+      "Name": "GridY",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "90"
+    },
+    {
+      "Name": "GridZ",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "64"
     },
     {
       "Name": "HeightFalloff",
@@ -355,36 +303,12 @@
         "IsStruct": false
       },
       "DefaultValue": "true"
-    },
-    {
-      "Name": "SunScattering",
-      "Type": {
-        "Scalar": "Bool",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "DefaultValue": "true"
-    },
-    {
-      "Name": "Volumetric",
-      "Type": {
-        "Scalar": "Bool",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "DefaultValue": "false"
     }
   ],
   "ValueParameters": [],
   "Parameters": [
     {
-      "Name": "inverseViewProjection",
+      "Name": "inverseView",
       "Type": {
         "Scalar": "Float",
         "Rows": 4,
@@ -402,10 +326,10 @@
       "DefaultValue": ""
     },
     {
-      "Name": "cameraPosition",
+      "Name": "tanHalfFov",
       "Type": {
         "Scalar": "Float",
-        "Rows": 3,
+        "Rows": 2,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -414,16 +338,16 @@
       "Set": 2,
       "Binding": 0,
       "Offset": 64,
-      "Size": 12,
+      "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1"
     },
     {
-      "Name": "fogColor",
+      "Name": "fogNear",
       "Type": {
         "Scalar": "Float",
-        "Rows": 3,
+        "Rows": 1,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -431,11 +355,29 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 80,
-      "Size": 12,
+      "Offset": 72,
+      "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.5, 0.6, 0.7"
+      "DefaultValue": "0.5"
+    },
+    {
+      "Name": "fogFar",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 76,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "64"
     },
     {
       "Name": "density",
@@ -449,17 +391,17 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 92,
+      "Offset": 80,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "0.02"
     },
     {
-      "Name": "fogStart",
+      "Name": "scatteringAlbedo",
       "Type": {
         "Scalar": "Float",
-        "Rows": 1,
+        "Rows": 3,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -468,28 +410,10 @@
       "Set": 2,
       "Binding": 0,
       "Offset": 96,
-      "Size": 4,
+      "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "10"
-    },
-    {
-      "Name": "fogEnd",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 100,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "200"
+      "DefaultValue": "0.9, 0.92, 0.95"
     },
     {
       "Name": "fogHeight",
@@ -503,7 +427,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 104,
+      "Offset": 108,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -521,7 +445,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 108,
+      "Offset": 112,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -539,14 +463,14 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 112,
+      "Offset": 128,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "0, -1, 0"
     },
     {
-      "Name": "sunColor",
+      "Name": "sunColour",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -557,86 +481,14 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 128,
+      "Offset": 144,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "1, 0.9, 0.7"
     },
     {
-      "Name": "sunAnisotropy",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 140,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0.7"
-    },
-    {
-      "Name": "volumeNear",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 144,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0.5"
-    },
-    {
-      "Name": "volumeFar",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 148,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "64"
-    },
-    {
-      "Name": "volumeSlices",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 152,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "64"
-    },
-    {
-      "Name": "cameraNear",
+      "Name": "phaseG",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -651,13 +503,13 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.1"
+      "DefaultValue": "0.7"
     },
     {
-      "Name": "cameraFar",
+      "Name": "ambientColour",
       "Type": {
         "Scalar": "Float",
-        "Rows": 1,
+        "Rows": 3,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -666,23 +518,25 @@
       "Set": 2,
       "Binding": 0,
       "Offset": 160,
-      "Size": 4,
+      "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "1000"
+      "DefaultValue": "0.35, 0.42, 0.55"
     }
   ],
   "RequiredCapabilities": [
+    "Compute",
+    "StorageImage",
     "Texture3D"
   ],
   "UsedPermutationKeys": [
+    "GridX",
+    "GridY",
+    "GridZ",
     "HeightFalloff",
-    "Mode",
-    "SunScattering",
-    "Volumetric"
+    "Pass"
   ],
   "Stages": [
-    "Vertex",
-    "Fragment"
+    "Compute"
   ]
 }

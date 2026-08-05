@@ -1,0 +1,315 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// ⚠ Imported for `WaterVolume.Phase` and for nothing else. Henyey–Greenstein is a function of an
+// angle and an anisotropy, and it does not know whether the medium is a lake or a valley — so the
+// alternative to this edge is a second copy of an eight-line function that a fixture already covers,
+// and two copies of one definition is two places for it to drift. `PostFx` already imports across
+// packages for `DistanceFields` and `IrradianceFields`.
+import Vixen.Shaders.Water
+
+// Froxel volumetric fog: the three compute stages that fill a volume the composite then reads.
+//
+// `docs/plan/06-rendering-pipeline.md` § P2. One shader with a `Pass` permutation rather than three
+// files, on `AutoExposure`'s terms: the three dispatches share one descriptor set, and a set is
+// written whole or not at all — so three shaders would be three sets whose bindings a host has to
+// keep in agreement anyway, with nothing to enforce the agreement.
+//
+// **What is reused, and what the plan document got wrong.** It says this "shares the clustering
+// grid". Half of that is right. The Z distribution is the cluster grid's — `near · (far/near)^(k/n)`,
+// and `DepthOf`'s negation with it — and a froxel finds its light list through `ClusterGrid.Of`. But
+// the grid itself is 16×9×24 with a light capacity of 32, and it is a *structured buffer*: far too
+// coarse for fog, and the wrong kind of resource for a stage that wants to filter its neighbours.
+// This owns its own volumes, at its own resolution, over its own near and far.
+//
+// **The far plane is this shader's own and not the camera's**, which is the single most important
+// number here. A froxel grid over a camera's whole range spends most of its slices on distance no fog
+// is visible at, and the near slices — where every visible shaft actually is — end up thinner than a
+// metre apart. Sixty-four to a hundred metres is the useful range; beyond it the composite falls back
+// to the analytic falloff `Fog.rvn` has always had.
+//
+// The scattering arithmetic is `WaterShading.rvn`'s, deliberately and without re-derivation: the
+// Henyey–Greenstein phase and Beer–Lambert transmittance are the same functions of the same
+// quantities whether the medium is a lake or a valley, and that file's versions have a fixture behind
+// them. What is different is the integration — water composites one homogeneous slab in closed form,
+// and this marches an inhomogeneous one — which is why `WaterVolume.InScatter` is not called here.
+
+/// The froxel grid's shape and the arithmetic for finding a froxel in it.
+///
+/// Permutations rather than constants, unlike `ClusterGrid`: nothing here sizes a struct, so the
+/// dimensions are free to be a quality decision. A tier picks them, the host declares volumes to
+/// match, and the variant is recompiled — which is the point, because the loop bound in `Integrate`
+/// wants to be a constant.
+struct FroxelGrid {
+    /// The view-space depth at which slice `k` begins. `ClusterGrid.SliceDepth`, verbatim.
+    ///
+    /// Exponential and not uniform: a uniform split spends most of its slices on distance nothing
+    /// occupies, and this gives every slice the same *ratio* of depths, which is how perspective
+    /// actually distributes what a camera sees. Invertible in closed form, so `SliceOf` is a
+    /// logarithm rather than a search.
+    static func SliceDepth(slice: int, slices: int, near: float, far: float): float {
+        return near * pow(far / near, float(slice) / float(slices))
+    }
+
+    /// Which slice a view-space depth falls in — `SliceDepth`'s inverse, unclamped.
+    ///
+    /// Fractional, because the composite wants to filter between two slices rather than land in one.
+    /// The caller clamps: a pixel beyond the fog's far plane has no slice, and that is the case the
+    /// analytic fallback exists for rather than something to round into the last one.
+    static func SliceOf(viewDepth: float, slices: int, near: float, far: float): float {
+        val ratio = log(max(viewDepth, near) / near) / max(log(far / near), Const.Epsilon)
+        return ratio * float(slices)
+    }
+
+    /// How far in front of the camera a view-space position is.
+    ///
+    /// **Negated, because the engine's view space is right-handed** — `Matrix4x4.LookAt` puts the
+    /// camera looking down −Z, so a visible point's `z` is negative while every depth here is a
+    /// positive distance. `ClusterGrid.DepthOf` is the same line, and its own comment records that
+    /// this sign has already cost one debugging round.
+    static func DepthOf(positionVS: float3): float => -positionVS.z
+
+    /// The view-space ray through a point on the grid. `ClusterGrid.Ray`, verbatim.
+    ///
+    /// ⚠ `z` is −1, so this is a *direction whose view depth is one*: multiplying it by a depth gives
+    /// the view-space position at that depth directly, and its length is how much further a metre
+    /// along the ray is than a metre of depth. `Integrate` needs exactly that ratio to turn a slice's
+    /// depth range into a path length.
+    static func Ray(uv: float2, tanHalfFov: float2): float3 {
+        val ndc = uv * 2f - 1f
+        return float3(ndc.x * tanHalfFov.x, ndc.y * tanHalfFov.y, -1f)
+    }
+}
+
+shader VolumetricFog {
+    /// 0 injects the medium, 1 lights it, 2 marches it. See the file header.
+    [Permutation] val Pass: int = 0
+
+    /// How many froxels across, down and deep. The host declares volumes of exactly this shape.
+    [Permutation] val GridX: int = 160
+    [Permutation] val GridY: int = 90
+    [Permutation] val GridZ: int = 64
+
+    /// Whether density thins with altitude, for a valley that fills from the bottom.
+    [Permutation] val HeightFalloff: bool = true
+
+    /// The volume this dispatch writes: media, then scattering, then the marched result.
+    [Format("rgba16f")] var target: RWTexture3D<float4>
+
+    /// The volume it reads. Unused by the injection, which binds the one it is about to write.
+    var source: Texture3D
+
+    /// How the volumes are read. Point-equivalent at texel centres, which is where every read lands.
+    var volumeSampler: Sampler
+
+    /// View to world, for the world position a froxel centre stands at.
+    var inverseView: mat4
+
+    /// The camera's half-angle tangents, which turn a grid UV into a view ray.
+    ///
+    /// ⚠ Not derivable here. The projection matrix is not bound and inverting one to recover two
+    /// numbers the host already has is two derivations of one quantity — `ClusterGrid.UvOf` states
+    /// the same rule about the same pair.
+    var tanHalfFov: float2 = float2(1f, 1f)
+
+    /// Where the grid's first slice begins, in metres of view depth.
+    ///
+    /// ⚠ Not zero and not the camera's near plane by accident: `SliceDepth` is a ratio raised to a
+    /// power, so a near of zero makes every slice zero and a near of a millimetre spends a third of
+    /// the grid inside the camera.
+    var fogNear: float = 0.5f
+
+    /// Where its last slice ends. The volume covers nothing beyond this; the composite falls back.
+    var fogFar: float = 64f
+
+    /// How much light a metre of the medium takes out of a ray, at the reference altitude.
+    var density: float = 0.02f
+
+    /// What fraction of that is scattered rather than absorbed, per channel.
+    ///
+    /// The scattering albedo. Air is very nearly white and very nearly all scattering, so this is
+    /// near one — the visible difference between fogs is the density and the phase, not this.
+    var scatteringAlbedo: float3 = float3(0.9f, 0.92f, 0.95f)
+
+    /// The altitude the authored density holds at, and how fast it thins above.
+    var fogHeight: float = 0f
+    var heightFalloffRate: float = 0.05f
+
+    /// Which way the light travels, and what it carries.
+    var sunDirection: float3 = float3(0f, -1f, 0f)
+    var sunColour: float3 = float3(1f, 0.9f, 0.7f)
+
+    /// Henyey–Greenstein anisotropy. Air's forward peak is what makes a sunbeam a sunbeam.
+    var phaseG: float = 0.7f
+
+    /// What arrives from the whole sky.
+    ///
+    /// ⚠ **Without it a valley with the sun behind the viewer is a hole in the world**, which is the
+    /// failure `WaterShading.AmbientInScatter` records at length and for the same reason: a phase
+    /// function is normalised over the sphere, so one directional light contributes almost nothing
+    /// outside its forward peak. Light arriving uniformly from everywhere is scattered uniformly
+    /// whatever `phaseG` is, because the phase integrates to one — so this term has no phase factor.
+    var ambientColour: float3 = float3(0.35f, 0.42f, 0.55f)
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val x = int(id.x)
+        val y = int(id.y)
+
+        if (x >= GridX || y >= GridY) {
+            return
+        }
+
+        if (Pass == 2) {
+            Integrate(x, y)
+            return
+        }
+
+        val z = int(id.z)
+
+        if (z >= GridZ) {
+            return
+        }
+
+        if (Pass == 0) {
+            Inject(x, y, z)
+        } else {
+            Scatter(x, y, z)
+        }
+    }
+
+    /// The grid UV a froxel's centre sits at, in the grid's own coordinates.
+    ///
+    /// ⚠ No y flip, and `ClusterGrid.UvOf` says why about its own pair: this is not a texture
+    /// coordinate for anything but the volumes, and what it must be is the exact inverse of the ray
+    /// `Ray` builds. The composite in `Fog.rvn` converts once, at the one place a screen UV meets it.
+    func GridUv(x: int, y: int): float2 {
+        return float2((float(x) + 0.5f) / float(GridX), (float(y) + 0.5f) / float(GridY))
+    }
+
+    /// The view-space depth at a froxel's centre — the geometric mean of its two faces.
+    ///
+    /// The mean of the *logarithms*, which is what the slice boundaries are spaced by, rather than
+    /// the arithmetic mean of two depths a factor apart. Half a slice in the grid's own terms.
+    func CentreDepth(z: int): float {
+        val half = pow(fogFar / fogNear, 0.5f / float(GridZ))
+        return FroxelGrid.SliceDepth(z, GridZ, fogNear, fogFar) * half
+    }
+
+    /// Where a froxel's centre is in the world.
+    func WorldOf(x: int, y: int, z: int): float3 {
+        val ray = FroxelGrid.Ray(GridUv(x, y), tanHalfFov)
+        val positionVS = ray * CentreDepth(z)
+
+        return Math.TransformPoint(inverseView, positionVS)
+    }
+
+    /// The texel-centre UVW of a froxel, for a read of one of the volumes.
+    func VolumeUvw(x: int, y: int, z: int): float3 {
+        return float3(
+            (float(x) + 0.5f) / float(GridX),
+            (float(y) + 0.5f) / float(GridY),
+            (float(z) + 0.5f) / float(GridZ)
+        )
+    }
+
+    /// Density relative to the fog plane, thinning exponentially with altitude.
+    ///
+    /// `Fog.rvn`'s `HeightDensity`, and it has to be: the analytic fallback and the volume meet at the
+    /// far plane, and a valley that thins at one rate inside the volume and another beyond it is a
+    /// visible ring at exactly the distance the two swap over.
+    func HeightDensity(height: float): float {
+        if (!HeightFalloff) {
+            return 1f
+        }
+
+        return exp(-max(height - fogHeight, 0f) * heightFalloffRate)
+    }
+
+    // --- Pass 0: what the medium is ---------------------------------------
+
+    /// Writes the medium's coefficients: scattering in `rgb`, extinction in `a`.
+    ///
+    /// Two numbers rather than one because they are two different physical quantities and only their
+    /// ratio is the albedo. Extinction is what leaves the straight-through ray — scattering *and*
+    /// absorption — and scattering is the part that comes back somewhere else.
+    func Inject(x: int, y: int, z: int) {
+        val world = WorldOf(x, y, z)
+        val extinction = max(density * HeightDensity(world.y), 0f)
+
+        target.Store(int3(x, y, z), float4(scatteringAlbedo * extinction, extinction))
+    }
+
+    // --- Pass 1: what it does with the light --------------------------------
+
+    /// Writes the radiance scattered toward the camera from one froxel, and carries the extinction.
+    ///
+    /// A radiance *density* and not a path integral: the marching is `Integrate`'s, and doing it here
+    /// too would count the same slab twice.
+    func Scatter(x: int, y: int, z: int) {
+        val medium = source.SampleLevel(volumeSampler, VolumeUvw(x, y, z), 0f)
+        val scattering = medium.rgb
+        val extinction = medium.a
+
+        // From the froxel toward the camera, which is the direction the scattered light leaves in.
+        val toCamera = -Math.SafeNormalize(FroxelGrid.Ray(GridUv(x, y), tanHalfFov))
+        val toSun = Math.SafeNormalize(-sunDirection)
+
+        // The angle between where the light came *from* and where it is going. `WaterVolume.Phase`
+        // takes it in exactly these terms.
+        val cosTheta = dot(toCamera, toSun)
+
+        val direct = sunColour * WaterVolume.Phase(cosTheta, phaseG)
+        val inscatter = scattering * (direct + ambientColour)
+
+        target.Store(int3(x, y, z), float4(inscatter, extinction))
+    }
+
+    // --- Pass 2: the march ---------------------------------------------------
+
+    /// Marches one column of froxels front to back, accumulating in-scatter and transmittance.
+    ///
+    /// Serial in `z` and one invocation per column, which is why this pass dispatches a flat grid: the
+    /// accumulation is a prefix sum along the ray, and every froxel's answer depends on every froxel
+    /// in front of it. A parallel scan would be correct and would cost more than the sixty-four steps
+    /// it replaced.
+    ///
+    /// ⚠ **The in-scatter is integrated over the slab rather than multiplied by its length.** For a
+    /// slab of constant extinction the integral of `S · exp(−σt · s)` from zero to `d` is
+    /// `S · (1 − exp(−σt · d)) / σt`, and the difference from `S · d` is the whole reason a dense fog
+    /// does not glow: past a few extinction lengths a thicker slab scatters no more light toward the
+    /// camera, because what it scatters in at the far end it absorbs again on the way out.
+    /// `WaterVolume.InScatter`'s remarks are the same observation for a lake.
+    func Integrate(x: int, y: int) {
+        // How much further a metre along the ray is than a metre of view depth. `Ray`'s z is −1, so
+        // its length is exactly that ratio — and without it every froxel off the screen's centre
+        // integrates a slab shorter than the one the light crossed, which reads as fog that thins
+        // toward the corners.
+        val rayScale = length(FroxelGrid.Ray(GridUv(x, y), tanHalfFov))
+
+        var accumulated = float3(0f, 0f, 0f)
+        var transmittance = 1f
+
+        for (z in 0 .. GridZ - 1) {
+            val slab = source.SampleLevel(volumeSampler, VolumeUvw(x, y, z), 0f)
+            val extinction = max(slab.a, 0f)
+
+            val near = FroxelGrid.SliceDepth(z, GridZ, fogNear, fogFar)
+            val far = FroxelGrid.SliceDepth(z + 1, GridZ, fogNear, fogFar)
+            val step = max(far - near, 0f) * rayScale
+
+            val stepTransmittance = exp(-extinction * step)
+
+            // The closed form above, with the `σt → 0` limit written out: an empty froxel's integral
+            // is `S · d`, and the quotient would be zero over zero.
+            val integral = extinction > Const.Epsilon ? (1f - stepTransmittance) / extinction : step
+
+            accumulated = accumulated + transmittance * slab.rgb * integral
+            transmittance = transmittance * stepTransmittance
+
+            target.Store(int3(x, y, z), float4(accumulated, transmittance))
+        }
+    }
+}

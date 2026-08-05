@@ -68,6 +68,7 @@
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Sharpen.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Vignette.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Fog.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\VolumetricFog.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Outline.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Ssao.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Taa.reflect.json" />

@@ -352,6 +352,29 @@ public sealed class FogRenderer() : PostEffectRenderer(
     /// <summary>Henyey–Greenstein anisotropy, 0 isotropic to just under 1 sharply forward.</summary>
     public float SunAnisotropy { get; set; } = 0.7f;
 
+    /// <summary>The marched volume <c>VolumetricFogRenderer</c> filled, or empty for the falloff alone.</summary>
+    /// <remarks>
+    ///     ⚠ Naming it is what turns the permutation on. It is not additive decoration: the volume
+    ///     replaces the analytic term out to <see cref="VolumeFar" /> and the analytic term carries on
+    ///     beyond it, so a name here changes what the first sixty-four metres of every ray are.
+    /// </remarks>
+    public string Volume { get; init; } = "";
+
+    /// <summary>The volume's own near plane, in view depth.</summary>
+    /// <remarks>
+    ///     ⚠ <b>These three must be the numbers the dispatch actually used.</b> The composite inverts
+    ///     the grid's Z distribution to find a slice, so a near, a far or a slice count that differs
+    ///     from <c>VolumetricFogRenderer</c>'s reads the wrong slice for every pixel — smooth,
+    ///     plausible, and wrong everywhere, which is this pass's recurring failure.
+    /// </remarks>
+    public float VolumeNear { get; set; } = 0.5f;
+
+    /// <summary>The volume's own far plane. Past this the analytic falloff is what runs.</summary>
+    public float VolumeFar { get; set; } = 64f;
+
+    /// <summary>How many slices it cut between the two.</summary>
+    public int VolumeSlices { get; set; } = 64;
+
     /// <inheritdoc />
     protected override void Configure(
         CompositorFrame frame,
@@ -361,15 +384,26 @@ public sealed class FogRenderer() : PostEffectRenderer(
         ArgumentNullException.ThrowIfNull(frame);
         ArgumentNullException.ThrowIfNull(parameters);
 
+        var volumetric = Volume is { Length: > 0 } volume && frame.Has(volume);
+
         parameters.Set(FogKeys.Mode, Mode);
         parameters.Set(FogKeys.HeightFalloff, applied.FogHeightFalloff?.Over(HeightFalloff) ?? HeightFalloff);
         parameters.Set(FogKeys.SunScattering, applied.FogSunScattering?.Over(SunScattering) ?? SunScattering);
+        parameters.Set(FogKeys.Volumetric, volumetric);
 
         if (View is { } view) {
             CameraPosition = view.Position;
 
             if (Matrix4x4.Invert(view.ViewProjection, out var inverse)) {
                 InverseViewProjection = inverse;
+            }
+
+            // The camera's own planes, for turning the reverse-Z device depth into the view depth the
+            // grid's Z distribution is expressed in. Taken from the same camera the unprojection is,
+            // so the two cannot describe different frusta.
+            if (view.Camera is { } camera) {
+                parameters.Set(FogKeys.CameraNear, camera.NearPlane);
+                parameters.Set(FogKeys.CameraFar, camera.FarPlane);
             }
         }
 
@@ -384,9 +418,21 @@ public sealed class FogRenderer() : PostEffectRenderer(
         parameters.Set(FogKeys.SunDirection, SunDirection);
         parameters.Set(FogKeys.SunColor, SunColour);
         parameters.Set(FogKeys.SunAnisotropy, SunAnisotropy);
+        parameters.Set(FogKeys.VolumeNear, VolumeNear);
+        parameters.Set(FogKeys.VolumeFar, VolumeFar);
+        parameters.Set(FogKeys.VolumeSlices, (float)Math.Max(VolumeSlices, 1));
 
         Read(bindings, FogKeys.SourceBinding, Source);
         Read(bindings, FogKeys.DepthBufferBinding, Depth);
+
+        // ⚠ Bound only when there is one, because there is no neutral 3D texture to stand in with —
+        // and the binding folds out of the variant with the permutation, so the set is still written
+        // whole. A volume named but not declared leaves the analytic path, which is the honest
+        // outcome for a document whose fog node runs without the dispatches that fill it.
+        if (volumetric) {
+            Read(bindings, FogKeys.FogVolumeBinding, Volume);
+        }
+
         Sample(bindings, FogKeys.LinearSamplerBinding, Samplers!.LinearClamp);
     }
 }

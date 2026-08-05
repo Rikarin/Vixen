@@ -682,6 +682,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             SharpenAsset sharpen => Sharpen(sharpen, builder),
             VignetteAsset lens => Lens(lens, builder),
             FogAsset fog => Fog(fog, builder),
+            VolumetricFogAsset volume => Volumetric(volume, builder),
             OutlineAsset outline => Outline(outline, builder),
             SsaoAsset ssao => Ssao(ssao, builder),
             AutoExposureAsset exposure => Exposure(exposure, builder),
@@ -1027,10 +1028,39 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             SunDirection = declared.SunDirection,
             SunColour = declared.SunColour,
             SunAnisotropy = declared.SunAnisotropy,
+            Volume = declared.Volume,
+            VolumeNear = declared.VolumeNear,
+            VolumeFar = declared.VolumeFar,
+            VolumeSlices = declared.VolumeSlices,
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,
             Samplers = builder.Samplers
+        };
+
+    static VolumetricFogRenderer Volumetric(VolumetricFogAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Media = declared.Media,
+            Scattered = declared.Scattered,
+            Volume = declared.Output,
+            Resolution = new(declared.Width, declared.Height, declared.Slices),
+            Near = declared.Near,
+            Far = declared.Far,
+            Density = declared.Density,
+            ScatteringAlbedo = declared.ScatteringAlbedo,
+            HeightFalloff = declared.HeightFalloff,
+            Height = declared.FogHeight,
+            HeightFalloffRate = declared.HeightFalloffRate,
+            SunDirection = declared.SunDirection,
+            SunColour = declared.SunColour,
+            PhaseG = declared.PhaseG,
+            AmbientColour = declared.AmbientColour,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers,
+            Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
         };
 
     static OutlineRenderer Outline(OutlineAsset declared, CompositorBuilder builder) =>
