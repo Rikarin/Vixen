@@ -81,15 +81,17 @@ trees would have thrown away the only reason to grow this harness instead of ado
 
 ## Using it
 
-The gate runs on every build, bounded by a case count rather than by the clock — the same machine
-runs the same cases in the same order from the same seed, so a red build is reproduced by reading the
-seed out of the message. For depth, give it seconds instead:
+The gate runs on every build, bounded by a case count rather than by the clock — every machine runs
+the same cases in the same order from the same seed, so a red build is reproduced locally by reading
+the seed out of the message. A run bounded by the clock executes a different number of cases on a
+loaded CI machine than on a laptop, and a green build then proves nothing in particular. For depth,
+give it seconds instead:
 
 ```bash
 VIXEN_FUZZ_SECONDS=600 dotnet test Core/Vixen.Fuzz.Tests -c Release
 ```
 
-One target, out of process, is a session over a name:
+One target on its own is a session over a name:
 
 ```csharp compile
 using Vixen.Fuzz;
