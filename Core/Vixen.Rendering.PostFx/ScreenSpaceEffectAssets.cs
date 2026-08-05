@@ -243,6 +243,115 @@ public sealed record FogAsset : ISceneRendererAsset {
 
     /// <summary>Where linear fog is total, in metres.</summary>
     public float End { get; init; } = 200f;
+
+    /// <summary>The altitude the authored density holds at, in world units.</summary>
+    /// <remarks>
+    ///     ⚠ Appended, and it has to be — a <c>[DataContract]</c> is serialised in declaration order,
+    ///     so a member inserted above re-reads every later one from the wrong offset. See
+    ///     <see cref="DistanceFieldAoAsset.View" /> for the same note and the same reason.
+    /// </remarks>
+    public float Height { get; init; }
+
+    /// <summary>How fast density thins above <see cref="Height" />, per world unit.</summary>
+    public float HeightFalloffRate { get; init; } = 0.05f;
+
+    /// <summary>Which way the light travels.</summary>
+    /// <remarks>
+    ///     ⚠ On <c>WaterAsset.SunDirection</c>'s terms. Left at the default the fog brightens toward
+    ///     straight up, which is a scattering peak in a place no sky puts one — fog lit from a
+    ///     different day than the sky in the same document.
+    /// </remarks>
+    public Vector3 SunDirection { get; init; } = new(0f, -1f, 0f);
+
+    /// <summary>The colour the forward-scattering peak goes toward.</summary>
+    public Vector3 SunColour { get; init; } = new(1f, 0.9f, 0.7f);
+
+    /// <summary>Henyey–Greenstein anisotropy. Air is forward-scattering, around 0.7.</summary>
+    public float SunAnisotropy { get; init; } = 0.7f;
+
+    /// <summary>The marched volume a <c>!VolumetricFog</c> node filled, or empty for the falloff alone.</summary>
+    public string Volume { get; init; } = "";
+
+    /// <summary>The volume's near plane, far plane and slice count — the dispatch's own three.</summary>
+    /// <remarks>⚠ See <c>FogRenderer.VolumeNear</c>: differing from the dispatch reads the wrong slice.</remarks>
+    public float VolumeNear { get; init; } = 0.5f;
+
+    /// <inheritdoc cref="VolumeNear" />
+    public float VolumeFar { get; init; } = 64f;
+
+    /// <inheritdoc cref="VolumeNear" />
+    public int VolumeSlices { get; init; } = 64;
+}
+
+/// <summary>The three compute dispatches that fill a froxel fog volume.</summary>
+/// <remarks>
+///     Paired with <see cref="FogAsset" /> exactly as <c>GlobalDistanceField</c> is paired with
+///     <see cref="DistanceFieldAoAsset" />: this fills a volume and names it, and the fog node reads
+///     the name. A document with one and not the other is not broken — the composite falls back to
+///     the analytic falloff, and the dispatches nothing reads are culled by the graph.
+/// </remarks>
+[DataContract("VolumetricFog")]
+public sealed record VolumetricFogAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The view whose camera the froxels are laid out in front of.</summary>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>The names the three volumes are published under.</summary>
+    public string Media { get; init; } = "FogMedia";
+
+    /// <inheritdoc cref="Media" />
+    public string Scattered { get; init; } = "FogScattered";
+
+    /// <inheritdoc cref="Media" />
+    public string Output { get; init; } = "FogVolume";
+
+    /// <summary>How many froxels across, down and deep.</summary>
+    public int Width { get; init; } = 160;
+
+    /// <inheritdoc cref="Width" />
+    public int Height { get; init; } = 90;
+
+    /// <inheritdoc cref="Width" />
+    public int Slices { get; init; } = 64;
+
+    /// <summary>Where the grid begins and ends, in metres of view depth.</summary>
+    /// <remarks>⚠ Not the camera's far plane. See <c>VolumetricFogRenderer.Far</c>.</remarks>
+    public float Near { get; init; } = 0.5f;
+
+    /// <inheritdoc cref="Near" />
+    public float Far { get; init; } = 64f;
+
+    /// <summary>How much light a metre of the medium takes out of a ray.</summary>
+    public float Density { get; init; } = 0.02f;
+
+    /// <summary>What fraction of that is scattered rather than absorbed, per channel.</summary>
+    public Vector3 ScatteringAlbedo { get; init; } = new(0.9f, 0.92f, 0.95f);
+
+    /// <summary>Whether density thins with altitude.</summary>
+    public bool HeightFalloff { get; init; } = true;
+
+    /// <summary>The altitude the authored density holds at, and how fast it thins above.</summary>
+    public float FogHeight { get; init; }
+
+    /// <inheritdoc cref="FogHeight" />
+    public float HeightFalloffRate { get; init; } = 0.05f;
+
+    /// <summary>Which way the light travels, and what it carries.</summary>
+    public Vector3 SunDirection { get; init; } = new(0f, -1f, 0f);
+
+    /// <inheritdoc cref="SunDirection" />
+    public Vector3 SunColour { get; init; } = new(1f, 0.9f, 0.7f);
+
+    /// <summary>Henyey–Greenstein anisotropy.</summary>
+    public float PhaseG { get; init; } = 0.7f;
+
+    /// <summary>What arrives from the whole sky. ⚠ Without it a back-lit valley is black.</summary>
+    public Vector3 AmbientColour { get; init; } = new(0.35f, 0.42f, 0.55f);
 }
 
 /// <summary>Outlines from depth and normal discontinuities.</summary>

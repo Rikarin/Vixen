@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.Bloom
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
-related: [rendering/physical-lighting, rendering/post-process-volumes, rendering/reading-the-frame]
+related: [rendering/physical-lighting, rendering/post-process-volumes, rendering/reading-the-frame, rendering/volumetric-fog]
 ---
 
 ## What it is
@@ -396,6 +396,8 @@ hue-versus-saturation are not a CDL, and no combination of five per-channel oper
 
 ## See also
 
+- [Fog a shadow can fall through](volumetric-fog.md) — the froxel volume that stands in front of the
+  analytic falloff above.
 - [Making a room look different](post-process-volumes.md) — where a look applies, rather than which
   effects exist.
 - [Lighting a scene in lux and lumens](physical-lighting.md) — what `ev100` and the grade are in.

@@ -264,6 +264,7 @@ static class StandardFrame {
     const string ShadowAtlas = "ShadowAtlas";
     const string PunctualAtlas = "PunctualShadowAtlas";
     const string Camera = "Camera";
+    const string FogVolume = "FogVolume";
 
     /// <summary>Expands every <c>!StandardFrame</c> in the document, or returns it untouched.</summary>
     /// <param name="document">The authored document.</param>
@@ -683,6 +684,23 @@ static class StandardFrame {
             );
         }
 
+        // ⚠ Here, and not beside the composite. The three dispatches need shadows and lights and
+        // not scene colour, so they belong after the shadow passes and before anything draws — and
+        // saying that as an edge is what puts the barriers in. The composite that reads what they
+        // wrote is the "Air" node far below, after the temporal accumulation, which is safe
+        // precisely because the volume does its temporal work in its own space.
+        if (tier.Fog && tier.VolumetricFog) {
+            nodes.Add(
+                new VolumetricFogAsset {
+                    Name = "Volumetrics",
+                    View = Camera,
+                    Output = FogVolume,
+                    Slices = tier.VolumetricSlices,
+                    Far = tier.VolumetricFar
+                }
+            );
+        }
+
         // The background fills a target the Main pass then *loads* — that is what puts the sky
         // behind the level, and why the sky has no target of its own.
         nodes.Add(new SkyAsset { Name = "Sky", Output = SceneHdr, View = Camera });
@@ -913,7 +931,14 @@ static class StandardFrame {
                     Source = colour,
                     Depth = SceneDepth,
                     View = Camera,
-                    Output = "SceneFogged"
+                    Output = "SceneFogged",
+
+                    // ⚠ The same three numbers the dispatch was given, from the same tier. The
+                    // composite inverts the grid's Z distribution to find a slice, so a near, a far
+                    // or a slice count that disagrees reads the wrong slice for every pixel.
+                    Volume = tier.VolumetricFog ? FogVolume : "",
+                    VolumeFar = tier.VolumetricFar,
+                    VolumeSlices = tier.VolumetricSlices
                 }
             );
 
@@ -1184,6 +1209,9 @@ static class StandardFrame {
                 "Lamps" =>
                     "The lamp atlas. Without the passes line it is rendered and shown to nobody — the entry "
                     + "is qualified because a composed slot's bindings are named for what fills it.",
+                "Volumetrics" =>
+                    "Three dispatches that fill a froxel volume. Here because they need shadows and lights "
+                    + "and not scene colour; the Air node far below is what reads what they wrote.",
                 "Sky" =>
                     "Fills a target the Main pass then loads — that is what puts the sky behind the level, "
                     + "and why the sky has no target of its own.",

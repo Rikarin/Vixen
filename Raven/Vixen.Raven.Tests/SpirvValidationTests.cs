@@ -270,7 +270,9 @@ public class SpirvValidationTests {
                 [VertexShader]
                 [Semantic("SV_Position")]
                 func Vertex(position: float3, uv: float2): float4 {
-                    val tinted = albedo.Sample(linear, uv)
+                    // Stated, because a vertex stage has no derivatives — RVN3013 warns about the
+                    // other spelling, and this test's subject is the module rather than the warning.
+                    val tinted = albedo.SampleLevel(linear, uv, 0f)
                     return world * float4(position * tinted.a, 1)
                 }
             }

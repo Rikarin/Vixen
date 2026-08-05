@@ -185,6 +185,39 @@ public static class LoweringDiagnostics {
         DiagnosticSeverity.Error
     );
 
+    /// <summary>
+    ///     A <c>Sample</c> — whose level of detail is whatever the derivatives imply — reached from a
+    ///     stage that has no derivatives.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Only a fragment stage runs in quads, so only a fragment stage can difference a
+    ///         coordinate against its neighbour's. Every other execution model has to state the level.
+    ///     </para>
+    ///     <para>
+    ///         A warning rather than an error, and this is the one place the argument
+    ///         <c>RVN3008</c> and <c>RVN3012</c> make runs the other way: the emitters do not leave
+    ///         this to <c>spirv-val</c>, they substitute level 0 and emit a valid module. So the code
+    ///         works — and that is exactly the problem. A shadow atlas has one level and level 0 is
+    ///         right; a mipped texture has several and level 0 is a decision nobody made, taken
+    ///         silently, on the far side of a call the author may not have written. The fix is one
+    ///         word, and saying it makes the level the author's rather than the compiler's.
+    ///     </para>
+    ///     <para>
+    ///         Reachability rather than where the call sits, on <c>RVN3008</c>'s terms: a helper
+    ///         belongs to whichever stages call it. A shadow tap shared by a deferred fragment pass
+    ///         and a fog injection is worth saying about only in the second.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ImplicitLodOutsideFragmentStage = new(
+        "RVN3013",
+        "Implicit level of detail outside a fragment stage",
+        "'Sample' is reachable from {0} entry point '{1}', which has no derivatives to imply a level "
+        + "of detail — the backend substitutes level 0. Say 'SampleLevel' to state the level you meant",
+        Lowering,
+        DiagnosticSeverity.Warning
+    );
+
     // --- Verification -----------------------------------------------------
 
     public static readonly DiagnosticDescriptor MalformedIr = new(

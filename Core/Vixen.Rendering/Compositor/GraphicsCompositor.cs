@@ -193,7 +193,7 @@ public sealed class GraphicsCompositor(RenderSystem system) {
                     imported.EntryState,
                     imported.ExitState
                 ),
-                imported.Description.Format
+                imported.Description
             );
         }
 
@@ -213,7 +213,8 @@ public sealed class GraphicsCompositor(RenderSystem system) {
                 continue;
             }
 
-            frame.Add(declared.Name, graph.CreateTexture(declared.Describe(FrameSize)), declared.Format);
+            var texture = declared.Describe(FrameSize);
+            frame.Add(declared.Name, graph.CreateTexture(texture), texture);
         }
 
         foreach (var declared in BufferResources) {

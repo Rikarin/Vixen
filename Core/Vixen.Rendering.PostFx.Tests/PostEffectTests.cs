@@ -1397,6 +1397,73 @@ public class PostEffectTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ The shader has always declared these; nothing wrote them. A binding nobody fills keeps
+    ///     the shader's own default, so the scattering peak sat at straight up and the mist plane at
+    ///     y=0 whatever the scene was — a wrong picture rather than no picture.
+    /// </summary>
+    [Fact]
+    public void The_suns_direction_and_the_mist_plane_reach_the_pass() {
+        using var node = new FogRenderer {
+            Source = "SceneColour",
+            Depth = "SceneDepth",
+            Output = "Fogged",
+            Height = 12f,
+            HeightFalloffRate = 0.2f,
+            SunDirection = new(0.3f, -0.8f, 0.5f),
+            SunColour = new(1f, 0.5f, 0.25f),
+            SunAnisotropy = 0.55f
+        };
+
+        using var h = Build(node);
+
+        Frame(h);
+
+        Assert.Equal(12f, node.Pass.Parameters.Get(FogKeys.FogHeight));
+        Assert.Equal(0.2f, node.Pass.Parameters.Get(FogKeys.HeightFalloffRate));
+        Assert.Equal(new Vector3(0.3f, -0.8f, 0.5f), node.Pass.Parameters.Get(FogKeys.SunDirection));
+        Assert.Equal(new Vector3(1f, 0.5f, 0.25f), node.Pass.Parameters.Get(FogKeys.SunColor));
+        Assert.Equal(0.55f, node.Pass.Parameters.Get(FogKeys.SunAnisotropy));
+    }
+
+    /// <summary>
+    ///     A document is where the sun is authored, on <c>!Water</c>'s terms — the two are the same
+    ///     quantity and a scene whose water and fog disagree about the hour is the failure.
+    /// </summary>
+    [Fact]
+    public void A_document_names_the_suns_direction_for_the_fog() {
+        using var system = new RenderSystem();
+
+        using var node = (FogRenderer)new PostEffectFactory().Create(
+            new FogAsset {
+                Source = "SceneColour",
+                Depth = "SceneDepth",
+                Height = 3f,
+                HeightFalloffRate = 0.11f,
+                SunDirection = new(0f, -0.6f, -0.8f),
+                SunColour = new(0.9f, 0.8f, 0.6f),
+                SunAnisotropy = 0.42f
+            },
+            new(system)
+        )!;
+
+        Assert.Equal(3f, node.Height);
+        Assert.Equal(0.11f, node.HeightFalloffRate);
+        Assert.Equal(new Vector3(0f, -0.6f, -0.8f), node.SunDirection);
+        Assert.Equal(new Vector3(0.9f, 0.8f, 0.6f), node.SunColour);
+        Assert.Equal(0.42f, node.SunAnisotropy);
+
+        // The unstated asset stands where the shader's own declaration does, so a document that
+        // says nothing renders what it rendered before this wiring existed.
+        var bare = new FogAsset();
+
+        Assert.Equal(FogKeys.FogHeight.DefaultValue, bare.Height);
+        Assert.Equal(FogKeys.HeightFalloffRate.DefaultValue, bare.HeightFalloffRate);
+        Assert.Equal(FogKeys.SunDirection.DefaultValue, bare.SunDirection);
+        Assert.Equal(FogKeys.SunColor.DefaultValue, bare.SunColour);
+        Assert.Equal(FogKeys.SunAnisotropy.DefaultValue, bare.SunAnisotropy);
+    }
+
+    /// <summary>
     ///     ⚠ The factory is what decides, and it decides from what the document left out.
     /// </summary>
     [Fact]

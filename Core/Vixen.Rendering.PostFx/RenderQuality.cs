@@ -176,6 +176,32 @@ public sealed record PostFidelityQuality {
     /// <summary>Whether the fog pass runs.</summary>
     public bool? Fog { get; init; }
 
+    /// <summary>Whether the froxel volume is filled and composited — <see cref="VolumetricFogAsset" />.</summary>
+    /// <remarks>
+    ///     ⚠ Off does not mean no fog. <see cref="Fog" /> still applies the analytic falloff, which is
+    ///     what every tier has always had; this decides whether the first
+    ///     <see cref="VolumetricFar" /> metres of it are marched instead. A tier with
+    ///     <see cref="Fog" /> false and this true gets nothing at all, because the composite lives in
+    ///     the pass <see cref="Fog" /> switches off.
+    /// </remarks>
+    public bool? VolumetricFog { get; init; }
+
+    /// <summary>How many depth slices the froxel grid has — <see cref="VolumetricFogAsset.Slices" />.</summary>
+    /// <remarks>
+    ///     The knob that decides whether a shadow edge crossing the volume reads as an edge or as a
+    ///     staircase, and the one that costs the most: the march is serial in this.
+    /// </remarks>
+    public int? VolumetricSlices { get; init; }
+
+    /// <summary>How far the volume reaches, in metres — <see cref="VolumetricFogAsset.Far" />.</summary>
+    /// <remarks>
+    ///     ⚠ Not a draw distance, and raising it does not extend the fog — the analytic falloff
+    ///     already covers everything past it. What it changes is how the slices are <em>spent</em>: a
+    ///     grid stretched to a kilometre puts almost all of its resolution where nothing is visible
+    ///     and leaves the near slices too thick to hold a beam's edge.
+    /// </remarks>
+    public float? VolumetricFar { get; init; }
+
     /// <summary>Whether the bloom pyramid is built.</summary>
     public bool? Bloom { get; init; }
 
@@ -496,6 +522,15 @@ public sealed record ResolvedQuality {
     /// <summary>See <see cref="PostFidelityQuality.Fog" />.</summary>
     public required bool Fog { get; init; }
 
+    /// <summary>See <see cref="PostFidelityQuality.VolumetricFog" />.</summary>
+    public required bool VolumetricFog { get; init; }
+
+    /// <summary>See <see cref="PostFidelityQuality.VolumetricSlices" />.</summary>
+    public required int VolumetricSlices { get; init; }
+
+    /// <summary>See <see cref="PostFidelityQuality.VolumetricFar" />.</summary>
+    public required float VolumetricFar { get; init; }
+
     /// <summary>See <see cref="PostFidelityQuality.Bloom" />.</summary>
     public required bool Bloom { get; init; }
 
@@ -641,6 +676,9 @@ public static class RenderQuality {
             PostFidelity = new() {
                 TaaVarianceClipping = false,
                 Fog = false,
+                VolumetricFog = false,
+                VolumetricSlices = 32,
+                VolumetricFar = 48f,
                 Bloom = false,
                 BloomLevels = 3,
                 BloomFilterRadius = 1f,
@@ -700,6 +738,9 @@ public static class RenderQuality {
             PostFidelity = new() {
                 TaaVarianceClipping = true,
                 Fog = true,
+                VolumetricFog = false,
+                VolumetricSlices = 32,
+                VolumetricFar = 48f,
                 Bloom = true,
                 BloomLevels = 4,
                 BloomFilterRadius = 1f,
@@ -759,6 +800,9 @@ public static class RenderQuality {
             PostFidelity = new() {
                 TaaVarianceClipping = true,
                 Fog = true,
+                VolumetricFog = true,
+                VolumetricSlices = 64,
+                VolumetricFar = 64f,
                 Bloom = true,
                 BloomLevels = 5,
                 BloomFilterRadius = 1f,
@@ -821,6 +865,9 @@ public static class RenderQuality {
             PostFidelity = new() {
                 TaaVarianceClipping = true,
                 Fog = true,
+                VolumetricFog = true,
+                VolumetricSlices = 128,
+                VolumetricFar = 96f,
                 Bloom = true,
                 BloomLevels = 6,
                 BloomFilterRadius = 1f,
@@ -919,6 +966,9 @@ public static class RenderQuality {
             TraceScale = Pick(t => t.Reflections, g => g.TraceScale, "reflections.traceScale"),
             TaaVarianceClipping = Pick(t => t.PostFidelity, g => g.TaaVarianceClipping, "post.taaVarianceClipping"),
             Fog = Pick(t => t.PostFidelity, g => g.Fog, "post.fog"),
+            VolumetricFog = Pick(t => t.PostFidelity, g => g.VolumetricFog, "post.volumetricFog"),
+            VolumetricSlices = Pick(t => t.PostFidelity, g => g.VolumetricSlices, "post.volumetricSlices"),
+            VolumetricFar = Pick(t => t.PostFidelity, g => g.VolumetricFar, "post.volumetricFar"),
             Bloom = Pick(t => t.PostFidelity, g => g.Bloom, "post.bloom"),
             BloomLevels = Pick(t => t.PostFidelity, g => g.BloomLevels, "post.bloomLevels"),
             BloomFilterRadius = Pick(t => t.PostFidelity, g => g.BloomFilterRadius, "post.bloomFilterRadius"),

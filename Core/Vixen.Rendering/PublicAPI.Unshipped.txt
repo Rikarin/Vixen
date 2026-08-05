@@ -326,9 +326,11 @@ Vixen.Rendering.Compositor.CompositorBuilder.Visibility.set -> Vixen.Rendering.G
 Vixen.Rendering.Compositor.CompositorFrame -> sealed class
 Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphBuffer buffer, in Vixen.Graphics.BufferDescription description) -> void
 Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphTexture texture, Vixen.Graphics.PixelFormat format) -> void
+Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphTexture texture, in Vixen.Graphics.TextureDescription description) -> void
 Vixen.Rendering.Compositor.CompositorFrame.Buffer(string node, string name) -> Vixen.Graphics.RenderGraph.GraphBuffer
 Vixen.Rendering.Compositor.CompositorFrame.CompositorFrame() -> void
 Vixen.Rendering.Compositor.CompositorFrame.DescribeBuffer(string node, string name) -> Vixen.Graphics.BufferDescription
+Vixen.Rendering.Compositor.CompositorFrame.DescriptionOf(string node, string name) -> Vixen.Graphics.TextureDescription?
 Vixen.Rendering.Compositor.CompositorFrame.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorFrame.Device.init -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorFrame.FormatOf(string node, string name) -> Vixen.Graphics.PixelFormat
@@ -861,7 +863,11 @@ Vixen.Rendering.Compositor.RenderPassRenderer.Viewport.get -> Vixen.Core.Mathema
 Vixen.Rendering.Compositor.RenderPassRenderer.Viewport.set -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.RenderResourceAsset -> sealed record
 Vixen.Rendering.Compositor.RenderResourceAsset : System.IEquatable<Vixen.Rendering.Compositor.RenderResourceAsset>
+Vixen.Rendering.Compositor.RenderResourceAsset.Depth.get -> int
+Vixen.Rendering.Compositor.RenderResourceAsset.Depth.init -> int
 Vixen.Rendering.Compositor.RenderResourceAsset.Describe(Vixen.Core.Mathematics.Int2 frameSize) -> Vixen.Graphics.TextureDescription
+Vixen.Rendering.Compositor.RenderResourceAsset.Dimension.get -> Vixen.Graphics.TextureDimension
+Vixen.Rendering.Compositor.RenderResourceAsset.Dimension.init -> Vixen.Graphics.TextureDimension
 Vixen.Rendering.Compositor.RenderResourceAsset.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.Compositor.RenderResourceAsset.Format.init -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.Compositor.RenderResourceAsset.Height.get -> int
@@ -1500,6 +1506,9 @@ Vixen.Rendering.Ecs.PostProcessSettings.Temperature -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.Tint -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.VignetteIntensity -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.VignetteSmoothness -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.VolumetricAlbedo -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.Ecs.PostProcessSettings.VolumetricDensity -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.VolumetricPhaseG -> float?
 Vixen.Rendering.Ecs.PostProcessShapeKind -> enum : int
 Vixen.Rendering.Ecs.PostProcessShapeKind.Box = 0 -> Vixen.Rendering.Ecs.PostProcessShapeKind
 Vixen.Rendering.Ecs.PostProcessShapeKind.Custom = 2 -> Vixen.Rendering.Ecs.PostProcessShapeKind
@@ -3745,6 +3754,12 @@ Vixen.Rendering.PostProcessOverlay.VignetteIntensity.get -> Vixen.Rendering.Blen
 Vixen.Rendering.PostProcessOverlay.VignetteIntensity.set -> Vixen.Rendering.Blended?
 Vixen.Rendering.PostProcessOverlay.VignetteSmoothness.get -> Vixen.Rendering.Blended?
 Vixen.Rendering.PostProcessOverlay.VignetteSmoothness.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricAlbedo.get -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.VolumetricAlbedo.set -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.VolumetricDensity.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricDensity.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricPhaseG.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricPhaseG.set -> Vixen.Rendering.Blended?
 Vixen.Rendering.PrimitiveKind -> enum : int
 Vixen.Rendering.PrimitiveKind.Capsule = 3 -> Vixen.Rendering.PrimitiveKind
 Vixen.Rendering.PrimitiveKind.Cone = 4 -> Vixen.Rendering.PrimitiveKind
