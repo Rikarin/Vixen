@@ -817,7 +817,42 @@ public sealed class CompositorBuilder(RenderSystem system) {
         return node;
     }
 
-    ShadowMapRenderer Cascades(ShadowMapAsset declared) =>
+    ShadowMapRenderer Cascades(ShadowMapAsset declared) {
+        var node = New(declared);
+
+        // ⚠ The half nothing did, and the one the node cannot do for itself. `cascades` is sized by a
+        // permutation, so the count is a fact about the *compiled shader* as much as about this node
+        // — and a shading pass built for four while the node fits two folds its atlas into a
+        // differently shaped grid, which is a frame with no sun shadow anywhere in it. Every tier
+        // below High ships fewer than four, so this was every one of them.
+        //
+        // Here rather than in the node's own Collect, because a variant is cached by its effect key:
+        // a value published after the first Prepare is a value already-resolved variants do not see,
+        // and those are the ones a settled scene keeps using.
+        var count = Math.Clamp(node.CascadeCount, 1, ShadowCascades.MaxCascades);
+        var key = ShadowMapRenderer.CascadeCountKey(node.ShaderName);
+
+        foreach (var feature in system.Features) {
+            if (feature is not RootRenderFeature root) {
+                continue;
+            }
+
+            foreach (var subFeature in root.SubFeatures) {
+                // Every material feature and not the first, on EnableGpuDriven's terms: a host has one
+                // per draw path — meshes and particles — and which of them draws the pass named here
+                // is not something this can tell. A feature whose shader has no such permutation
+                // carries a key nothing reads, which costs a dictionary entry.
+                if (subFeature is MaterialRenderFeature materials) {
+                    materials.SetPermutation(node.ShaderName, key, count);
+                }
+            }
+        }
+
+        return node;
+    }
+
+    /// <summary>The node itself, with everything a document cannot carry bound onto it.</summary>
+    ShadowMapRenderer New(ShadowMapAsset declared) =>
         new ShadowMapRenderer {
             Name = declared.Name,
             Enabled = declared.Enabled,

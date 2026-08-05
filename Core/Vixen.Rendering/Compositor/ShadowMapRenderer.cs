@@ -79,6 +79,8 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     ///         <see cref="CascadeCount" /> has to match the shader's <c>CascadeCount</c> permutation.
     ///         It sizes an array in the block, so the two disagreeing is a fragment reading a matrix
     ///         nobody wrote — the same agreement <c>MaxLights</c> needs, one array along.
+    ///         <see cref="CascadeCountKey" /> is how the count reaches the compiler, and
+    ///         <c>CompositorBuilder</c> is what calls it for a document's node.
     ///     </para>
     /// </remarks>
     public ParameterCollection? Scene { get; set; }
@@ -189,7 +191,54 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     public int StaticRebuilds { get; private set; }
 
     /// <summary>How many cascades to fit, up to <see cref="ShadowCascades.MaxCascades" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A shading pass has to be compiled for the same number</b>, which is not something this
+    ///     node can do to itself — see <see cref="CascadeCountKey" />.
+    /// </remarks>
     public int CascadeCount { get; set; } = 4;
+
+    /// <summary>
+    ///     The shader permutation that has to carry <see cref="CascadeCount" />, for the pass named.
+    /// </summary>
+    /// <param name="shaderName">The shading pass, as <see cref="ShaderName" /> names it.</param>
+    /// <returns>The key, interned under <c>&lt;pass&gt;.CascadeCount</c>.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The agreement this node's remarks have always described and nothing enforced.</strong>
+    ///         <c>ClusteredShading.rvn</c> declares <c>[Permutation] val CascadeCount: int = 4</c> and
+    ///         sizes <c>cascades[CascadeCount]</c> from it, so the block's <em>size</em> is per variant.
+    ///         <see cref="Publish" /> fills as many slots as this node fitted; a variant compiled for
+    ///         more folds its atlas into a grid of a different shape, so the matrices it does have
+    ///         address the wrong tiles and the ones it does not are read out of memory nobody wrote.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The failure is a frame with no sun shadow in it, not a wrong one.</b> Two cascades
+    ///         published into a four-cascade variant fold 2 × 1 against a lookup expecting 2 × 2, so
+    ///         <c>CascadeContaining</c> answers −1 for most of the screen and the shadow term is one
+    ///         everywhere — which is exactly what every project on the Low tier drew, that tier being
+    ///         the one that ships <c>CascadeCount = 2</c>.
+    ///     </para>
+    ///     <para>
+    ///         Given to <c>MaterialRenderFeature.SetPermutation</c>, which is the layer that decides
+    ///         which variant a draw resolves to. A node cannot do it itself: the count belongs to the
+    ///         frame rather than to an object or a material, and the feature that owns that third
+    ///         layer is not something a compositor node holds.
+    ///     </para>
+    /// </remarks>
+    public static PermutationKey<int> CascadeCountKey(string shaderName) {
+        ArgumentException.ThrowIfNullOrEmpty(shaderName);
+
+        return ParameterKeys.NewPermutation(ShaderDefaultCascades, $"{shaderName}.CascadeCount");
+    }
+
+    /// <summary>What <c>ClusteredShading.rvn</c> declares <c>CascadeCount</c> as.</summary>
+    /// <remarks>
+    ///     The shader's own number and not <see cref="ShadowCascades.MaxCascades" />, which happens to
+    ///     equal it: the default a key is interned with is what a host that never sets one selects on,
+    ///     so it has to be the value the compiler would have used. Raising the ceiling does not change
+    ///     what the <c>.rvn</c> says.
+    /// </remarks>
+    const int ShaderDefaultCascades = 4;
 
     /// <summary>One cascade's side in texels.</summary>
     public int Resolution { get; set; } = 1024;

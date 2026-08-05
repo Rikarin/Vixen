@@ -1787,6 +1787,7 @@ Vixen.Rendering.Features.MaterialRenderFeature.PermutationSources.get -> System.
 Vixen.Rendering.Features.MaterialRenderFeature.Permutations.get -> Vixen.Shaders.ParameterCollection
 Vixen.Rendering.Features.MaterialRenderFeature.RecordOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> (uint Group, int Index)?
 Vixen.Rendering.Features.MaterialRenderFeature.Records.get -> System.Collections.Generic.IReadOnlyDictionary<uint, Vixen.Rendering.MaterialRecords>
+Vixen.Rendering.Features.MaterialRenderFeature.SetPermutation<T>(string shaderName, Vixen.Shaders.PermutationKey<T> key, T value) -> void
 Vixen.Rendering.Features.MaterialRenderFeature.SortGroupOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> uint
 Vixen.Rendering.Features.MaterialRenderFeature.TextureIndices.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.ParameterKey<uint>, Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>>
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.get -> Vixen.Graphics.BindlessTable?
@@ -6117,6 +6118,7 @@ static Vixen.Rendering.Compositor.ResourceBinding.IsTexture(Vixen.Graphics.Descr
 static Vixen.Rendering.Compositor.SceneRenderer.BuildChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 static Vixen.Rendering.Compositor.SceneRenderer.CollectChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 static Vixen.Rendering.Compositor.SceneRenderer.RecordChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
+static Vixen.Rendering.Compositor.ShadowMapRenderer.CascadeCountKey(string shaderName) -> Vixen.Shaders.PermutationKey<int>
 static Vixen.Rendering.Ecs.BoxPostProcessShape.ExteriorDistance(Vixen.Core.Mathematics.Vector3 local, Vixen.Core.Mathematics.Vector3 extents) -> float
 static Vixen.Rendering.Ecs.GeometryKey.Of(Vixen.Core.AssetReference asset) -> Vixen.Rendering.Ecs.GeometryKey
 static Vixen.Rendering.Ecs.GeometryKey.Of(Vixen.Rendering.PrimitiveKind primitive) -> Vixen.Rendering.Ecs.GeometryKey
