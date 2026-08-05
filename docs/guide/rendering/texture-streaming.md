@@ -53,7 +53,12 @@ renderer.Mount(assets);
 it. ⚠ **Set it before `Mount`.** The pool is sized when the texture source is built and never
 afterwards — a budget that could be resized would not be a budget.
 
-Then, per frame, say how big each texture needs to be. `TextureStreamer.WantedWidth` is the same
+That is all a project has to do. **A texture that was sampled this frame and that nobody sized wants
+to be complete**, so a pool big enough for the scene draws exactly what the whole-file path drew, and
+what makes it coarser under pressure is the budget and the least-recently-used order rather than a
+heuristic nobody tuned.
+
+A project that knows better narrows it, per frame. `TextureStreamer.WantedWidth` is the same
 projected-size estimate mesh LOD selection uses:
 
 ```csharp no-compile="a fragment; bounds and view come from extraction"
@@ -62,7 +67,10 @@ var width = TextureStreamer.WantedWidth(bounds.Radius, distance, viewport.Y, cam
 textures.Want(material.BaseColour, width);
 ```
 
-A texture nobody ever `Want`s stays at its pinned floor, which is a picture rather than a hole.
+⚠ **Nothing in the engine calls `Want` yet.** Extraction has no texture-to-bounds mapping to compute
+one from — a material's textures are named, and which drawables use that material at what screen size
+is a join that does not exist. Until it does, the budget is the only thing narrowing residency. This
+is the seam a view-driven or feedback-driven signal replaces, and it is deliberately one method wide.
 
 ## Examples
 

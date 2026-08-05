@@ -72,54 +72,44 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     }
 
     /// <summary>
-    ///     The floor. Nothing has asked for this texture at any size, and it is still sampleable —
-    ///     at the resolution its pinned first page covers, and not at the one the file holds.
+    ///     A pool that fits everything draws what the whole-file path drew. That is the reason the
+    ///     default want is "complete": turning a pool on is then a decision about memory and never a
+    ///     silent drop in quality.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Which resolution the first image is, is not asserted, and deliberately.</b> Both
+    ///     pages of this file are asked for at once and an in-memory source returns them in the same
+    ///     millisecond, so whether the texture is ever seen at its 128×128 floor is a race. What is
+    ///     not a race is the floor itself — <see cref="TextureStreamer.PinnedLevel" /> — and where it
+    ///     ends up.
+    /// </remarks>
     [Fact]
-    public void AStreamedTextureArrivesAtItsPinnedFloorBeforeAnythingWantsIt() {
+    public void AStreamedTextureWithAPoolThatFitsItEndsUpAtTheWholeFile() {
         using var source = new AssetTextureSource(device, Content(256, 256), 4 * 1024 * 1024);
 
         Assert.NotNull(source.Streaming);
 
         Settle(source);
 
-        Assert.Equal(1L, source.StreamingSwaps);
-
-        var copies = device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture);
+        Assert.Equal(1, source.Streaming!.Textures);
 
         // 65_536 bytes of R8 level data is the 128×128 tail and everything under it; the 256×256
-        // level alone is one page over, so it is not here.
-        Assert.Contains(copies, copy => copy is { D: 0, E: 128 });
-        Assert.DoesNotContain(copies, copy => copy.E == 256);
-        Assert.Equal(1, source.Streaming!.Textures);
-    }
-
-    /// <summary>
-    ///     And it grows. A view says how wide it needs the texture to be, the pages arrive, and the
-    ///     image is replaced by a larger complete one rather than patched in place.
-    /// </summary>
-    [Fact]
-    public void WantingAStreamedTextureAtFullWidthSwapsItForTheLargerImage() {
-        var assets = Content(256, 256);
-        using var source = new AssetTextureSource(device, assets, 4 * 1024 * 1024);
-
-        Settle(source);
-
-        Assert.Equal(1L, source.StreamingSwaps);
-        device.Recorder!.Clear();
+        // level alone is one page over, so the pinned page cannot cover it.
+        Assert.Equal(1, source.Streaming.PinnedLevel(0));
 
         var waited = Stopwatch.StartNew();
 
         while (waited.Elapsed < Patience) {
-            source.Want(Bark, 256);
+            Assert.True(source.TryGet(Bark, out var view) && view.IsValid);
 
             Record(source);
 
-            if (source.StreamingSwaps > 1) {
-                var copies = device.Recorder.OfKind(RecordedCommandKind.CopyBufferToTexture);
+            if (source.Streaming.ResidentLevel(0) == 0 && source.StreamingSwaps > 0) {
+                Assert.Contains(
+                    device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture),
+                    copy => copy is { D: 0, E: 256 }
+                );
 
-                Assert.Contains(copies, copy => copy is { D: 0, E: 256 });
-                Assert.True(source.TryGet(Bark, out var view) && view.IsValid);
                 Assert.Equal(0L, source.StreamingRefusals);
 
                 return;
@@ -128,7 +118,31 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             Thread.Sleep(5);
         }
 
-        Assert.Fail($"the texture never grew past its floor in {Patience}");
+        Assert.Fail($"the texture never reached its full resolution in {Patience}");
+    }
+
+    /// <summary>
+    ///     And a caller that knows how big it needs the texture to be narrows that. Sixty frames of
+    ///     asking for 32 texels never brings the 256×256 level in, whatever the pool could hold.
+    /// </summary>
+    [Fact]
+    public void SizingAStreamedTextureKeepsItBelowTheWholeFile() {
+        using var source = new AssetTextureSource(device, Content(256, 256), 4 * 1024 * 1024);
+
+        for (var frame = 0; frame < 60; frame++) {
+            source.Want(Bark, 32);
+            source.TryGet(Bark, out _);
+
+            Record(source);
+            Thread.Sleep(1);
+        }
+
+        Assert.DoesNotContain(
+            device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture),
+            copy => copy.E == 256
+        );
+
+        Assert.True(source.TryGet(Bark, out var view) && view.IsValid);
     }
 
     /// <summary>
@@ -146,7 +160,7 @@ public sealed class AssetTextureStreamingTests : IDisposable {
         var waited = Stopwatch.StartNew();
 
         while (waited.Elapsed < Patience && source.Streaming!.Rejections == 0) {
-            source.Want(Bark, 256);
+            source.TryGet(Bark, out _);
 
             Record(source);
 

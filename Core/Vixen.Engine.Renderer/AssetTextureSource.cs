@@ -187,6 +187,10 @@ public sealed class AssetTextureSource : IDisposable {
             entries[reference] = entry = Begin(reference);
         }
 
+        // Asking for a texture is what says it is still being drawn, which is the whole of the LRU
+        // signal — a streamed texture nothing asked for this frame is the first to give its pages up.
+        entry.Sampled = true;
+
         if (entry.View.IsValid) {
             view = entry.View;
             return true;
@@ -216,9 +220,19 @@ public sealed class AssetTextureSource : IDisposable {
     ///     a bounding radius and a view.
     /// </param>
     /// <remarks>
-    ///     Does nothing when streaming is off, and nothing for a texture that is not streamed. A
-    ///     streamed texture nobody ever wants stays at its pinned floor, which is a picture rather
-    ///     than a hole — so a caller that has no heuristic yet is degraded rather than broken.
+    ///     <para>
+    ///         Does nothing when streaming is off, and nothing for a texture that is not streamed.
+    ///         It holds for one frame: <see cref="Update" /> reads it and clears it, because a want
+    ///         is a statement about a camera and a camera moves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not calling this is not the same as wanting nothing.</b> A texture
+    ///         <see cref="TryGet" /> asked for and nobody sized wants to be <em>complete</em> — see
+    ///         <see cref="Update" /> — so a project with no heuristic gets today's picture wherever
+    ///         the budget allows one, and the budget rather than a guess is what makes it coarser.
+    ///         This is what narrows that, and it is the seam a view-driven or feedback-driven signal
+    ///         replaces.
+    ///     </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">This has been disposed.</exception>
     public void Want(AssetReference reference, int width) {
@@ -236,9 +250,7 @@ public sealed class AssetTextureSource : IDisposable {
             Enrol(entry);
         }
 
-        if (entry.StreamId >= 0 && entry.Layout is not null) {
-            Streaming.Want(entry.StreamId, width);
-        }
+        entry.Wanted = Math.Max(entry.Wanted, width);
     }
 
     /// <summary>Records the copies for every texture whose bytes are waiting.</summary>
@@ -265,6 +277,7 @@ public sealed class AssetTextureSource : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         if (Streaming is not null) {
+            Ask();
             Streaming.Service();
             Swap(commands);
         }
@@ -418,6 +431,36 @@ public sealed class AssetTextureSource : IDisposable {
 
         entry.StreamId = -1;
         entry.Decoded = Decode(entry.Address!);
+    }
+
+    /// <summary>Turns this frame's asks into page requests, and forgets them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A texture that was sampled and not sized wants to be complete.</b> That is the
+    ///         default residency signal, and it is chosen over a guess for one reason: with a big
+    ///         enough pool it produces exactly the picture the whole-file path produced, so turning
+    ///         a pool on is a decision about memory and never a silent drop in quality. What makes
+    ///         it coarser under pressure is the budget and the least-recently-used order, which are
+    ///         measurable, rather than a heuristic nobody tuned.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here rather than in <see cref="TryGet" />, which is extraction's hot path.</b>
+    ///         Wanting a texture walks every page of its tail — hundreds for a 4K albedo — and doing
+    ///         that once per material per frame would do it many times over for the texture six
+    ///         materials share. Once per streamed texture per frame is the same information.
+    ///     </para>
+    /// </remarks>
+    void Ask() {
+        foreach (var entry in streamed) {
+            if (entry.Wanted >= 0) {
+                Streaming!.Want(entry.StreamId, entry.Wanted);
+            } else if (entry.Sampled) {
+                Streaming!.Want(entry.StreamId, entry.Layout!.Width);
+            }
+
+            entry.Wanted = -1;
+            entry.Sampled = false;
+        }
     }
 
     /// <summary>Swaps every streamed texture whose resident tail is no longer the one on the device.</summary>
@@ -680,5 +723,11 @@ public sealed class AssetTextureSource : IDisposable {
 
         /// <summary>The level its image starts at, or <c>-1</c> when nothing is on the device.</summary>
         public int Level = -1;
+
+        /// <summary>The width a caller sized it at this frame, or <c>-1</c> for nobody.</summary>
+        public int Wanted = -1;
+
+        /// <summary>Whether anything asked for it this frame.</summary>
+        public bool Sampled;
     }
 }
