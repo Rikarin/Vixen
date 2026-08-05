@@ -132,6 +132,12 @@ public sealed class AppGraphics : IDisposable {
             }
         }
 
+        // One fold for every consumer below. Resolving twice would be free of consequence only
+        // while both calls agree on the arguments — and they did not: the texture pool was sized
+        // from the tier alone, so a project's .vxpreset moved its vegetation budgets and silently
+        // did not move its texture budget.
+        var quality = RenderQuality.Resolve(options.Quality, preset);
+
         // Also before Load, and for a stricter version of the same reason: a node kind nothing has
         // bound is not a warning, it is a CompositorBindingException from inside the build. This is
         // where a project's own node packages get their say — see GraphicsOptions.Factories.
@@ -154,7 +160,7 @@ public sealed class AppGraphics : IDisposable {
                 //
                 // Before Load, necessarily: the factory's Create reads these while the frame builds.
                 if (terrain.Vegetation == DefaultVegetation) {
-                    terrain.Vegetation = VegetationOf(RenderQuality.Resolve(options.Quality, preset));
+                    terrain.Vegetation = VegetationOf(quality);
                 }
             }
         }
@@ -199,6 +205,14 @@ public sealed class AppGraphics : IDisposable {
         }
 
         if (assets is not null) {
+            // Before Mount, necessarily: the pool is sized when the texture source is built, and a
+            // pool that could be resized afterwards would not be a budget. This is where
+            // `textures.streamingPoolMegabytes` stops being a number nobody reads.
+            Renderer.Textures = new() {
+                PoolMegabytes = quality.StreamingPoolMegabytes,
+                MipBias = quality.MipBias
+            };
+
             Renderer.Mount(assets);
         }
 

@@ -57,16 +57,22 @@
         <ProjectReference Include="..\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
 
         <!--
-          The quality waterfall. AppGraphics resolves GraphicsOptions.Quality into the numbers a
-          frame's budgets are set from, which is a thing only a host can do: the tier is the
-          platform's pick and the project's preset is an asset somebody loaded, and neither is
-          knowable from inside the compositor. What that resolution feeds is TerrainFactory —
-          Vixen.Rendering.Terrain cannot reference this assembly, so the host is the only object
-          that can see both ends of that hand-off.
+          The quality waterfall's table. `GraphicsOptions.Quality` is a QualityTier —
+          Vixen.Rendering's, reachable already — but the numbers a tier folds to are
+          RenderQuality.Resolve's, and those live here. Without this reference the tier reaches the
+          document transform and nothing else, which is why every numeric knob in that table was
+          carried and read by nobody.
 
-          Note what this does *not* license: the node kinds in here still reach a document through
-          GraphicsOptions.Factories, because CompositorBuilder is the one that cannot switch on a
-          type downstream of it. That reference cycle is unaffected by this one.
+          Resolving is a thing only a host can do: the tier is the platform's pick and the project's
+          preset is an asset somebody loaded, and neither is knowable from inside the compositor.
+          AppGraphics then feeds the resolved struct to the consumers that cannot see both ends of
+          the hand-off themselves — TerrainFactory, because Vixen.Rendering.Terrain cannot reference
+          this assembly, and the texture pool.
+
+          ⚠ Not a general licence to reach into the post-effect stack. What this assembly wants is
+          the resolved struct; the effects themselves are a project's, registered through
+          GraphicsOptions.Factories like every other node package — CompositorBuilder is the one
+          that cannot switch on a type downstream of it, and that cycle is unaffected by this.
         -->
         <ProjectReference Include="..\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
 
