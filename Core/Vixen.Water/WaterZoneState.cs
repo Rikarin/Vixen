@@ -60,7 +60,7 @@ public enum WaterZoneUpdate {
 ///         hundred frames, forever.
 ///     </para>
 /// </remarks>
-public sealed class WaterZoneState {
+public sealed class WaterZoneState : IWaterFieldSource {
     readonly List<WaterBody> bodies = [];
 
     WaterField? rasterised;
@@ -190,13 +190,14 @@ public sealed class WaterZoneState {
     /// <param name="attenuation">How it falls off as the ground rises.</param>
     /// <returns>The query, which reads the field this zone owns.</returns>
     /// <remarks>
-    ///     ⚠ <b>The query holds the field rather than a copy of it</b>, so a window that scrolls is a
-    ///     window the boat floating on it sees scroll. A query built from a snapshot would answer for
-    ///     a window that no longer exists, which is a boat that keeps floating where the water used to
-    ///     be.
+    ///     ⚠ <b>The query holds this state rather than the field or a copy of it</b>, so a window
+    ///     that scrolls is a window the boat floating on it sees scroll — and a <see cref="Reshape" />
+    ///     to a new resolution, which is a <em>new field object</em>, is one the boat sees too. A
+    ///     query built from a snapshot would answer for a window that no longer exists; one built from
+    ///     the field object alone would read a dead field forever after a reshape.
     /// </remarks>
     public WaterQuery Query(in WaterWaveSpectrum spectrum, WaterAttenuation attenuation = default) =>
-        new(rasterised, spectrum, attenuation);
+        new(rasterised, spectrum, attenuation) { FieldSource = this };
 
     void Rasterize(Vector2 view, IWaterGround ground, WaterZoneUpdate why) {
         rasterised!.Rasterize(bodies, ground);

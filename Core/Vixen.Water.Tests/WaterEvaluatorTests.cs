@@ -220,6 +220,31 @@ public sealed class WaterEvaluatorTests {
         Assert.True(shallow < deep * 0.2f, $"the swell at the shoreline was {shallow} m against {deep} m");
     }
 
+    /// <summary>
+    ///     ⚠ An unset attenuation takes the default, through every door.
+    /// </summary>
+    /// <remarks>
+    ///     Zero is what a defaulted argument and a zeroed struct both hold, and an attenuation of
+    ///     zero is a swell lapping over dry sand — the contract is that waves are gone at zero depth.
+    ///     The constructor always folded it; the settable property once did not, so zero meant two
+    ///     different things depending on which entry path it came in through.
+    /// </remarks>
+    [Fact]
+    public void AnUnsetAttenuationTakesTheDefaultOnEveryPath() {
+        var query = new WaterQuery(null, WaterWaveSpectrum.Calm, new WaterAttenuation(0f));
+
+        Assert.Equal(WaterAttenuation.Default, query.Attenuation);
+
+        query.Attenuation = new(3f);
+        Assert.Equal(new WaterAttenuation(3f), query.Attenuation);
+
+        query.Attenuation = new(0f);
+        Assert.Equal(WaterAttenuation.Default, query.Attenuation);
+
+        query.Attenuation = new(-1f);
+        Assert.Equal(WaterAttenuation.Default, query.Attenuation);
+    }
+
     /// <summary>Dry land answers nothing, and says so rather than answering zero.</summary>
     [Fact]
     public void DryLandIsNotWaterAtHeightZero() {

@@ -32,6 +32,10 @@ Vixen.Rendering.Water.WaterAsset.SceneDepth.get -> string
 Vixen.Rendering.Water.WaterAsset.SceneDepth.init -> string
 Vixen.Rendering.Water.WaterAsset.SkyColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterAsset.SkyColour.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Water.WaterAsset.SunColour.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Water.WaterAsset.SunColour.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Water.WaterAsset.SunDirection.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Water.WaterAsset.SunDirection.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterAsset.Surface.get -> string
 Vixen.Rendering.Water.WaterAsset.Surface.init -> string
 Vixen.Rendering.Water.WaterAsset.SurfaceF0.get -> float

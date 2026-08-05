@@ -22,10 +22,14 @@ namespace Vixen.Rendering.Water;
 ///         blank frame — <see cref="WaterZoneSystem.ZonelessBodies" /> is a number an author can look at.
 ///     </para>
 ///     <para>
-///         <b>The window is centred on the view rather than on this entity</b>, so the transform
-///         positions the zone's <em>authority</em> — which bodies it claims — and not its texels.
-///         Doc 35 makes the window a sliding one for exactly the reason Unreal added local
-///         tessellation in 5.3: a fixed-extent version does not survive an open world.
+///         <b>The window is centred on the view rather than on this entity, and so is what the zone
+///         claims.</b> Doc 35 makes the window a sliding one for exactly the reason Unreal added
+///         local tessellation in 5.3 — a fixed-extent version does not survive an open world — and a
+///         claim staked to the entity's own position would be that fixed-extent version by another
+///         name: one zone would cover 512 metres of world forever, however far the camera walked. So
+///         a body is claimed the frame the sliding window reaches it, the entity's transform places
+///         the zone in the hierarchy for prefabs and duplication, and neither the texels nor the
+///         claim read it.
 ///     </para>
 /// </remarks>
 [Component]
@@ -52,6 +56,13 @@ public struct WaterZoneComponent {
     public WaterInfoPrecision Precision;
 
     /// <summary>How far the view may move before the window is re-rasterised, as a fraction.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero takes the default, an eighth.</b> A component can hold zero without anyone
+    ///     typing it — the ECS stores components in chunks whose columns are zeroed memory, and a
+    ///     scene that never states the field deserialises the same way — and a threshold of zero is
+    ///     the whole field re-rasterised every frame the view moves, visible nowhere but frame time.
+    ///     <see cref="Zone" /> folds it; <see cref="WaterZone.Validate" /> refuses it.
+    /// </remarks>
     public float ScrollThreshold;
 
     /// <summary>How many metres a texel of the coarsest thing reading the field covers.</summary>
@@ -82,12 +93,17 @@ public struct WaterZoneComponent {
         };
 
     /// <summary>This component as the kernel's own description.</summary>
+    /// <remarks>
+    ///     The seam where an unset <see cref="ScrollThreshold" /> becomes the default rather than a
+    ///     field re-rasterised every frame — see the field's own remarks. A negative threshold is an
+    ///     authored error and is left for <see cref="WaterZone.Validate" /> to refuse.
+    /// </remarks>
     public readonly WaterZone Zone =>
         new() {
             Extent = Extent,
             Resolution = Resolution,
             Precision = Precision,
-            ScrollThreshold = ScrollThreshold,
+            ScrollThreshold = ScrollThreshold == 0f ? WaterZone.Default.ScrollThreshold : ScrollThreshold,
             CoarsestTexel = CoarsestTexel
         };
 }
@@ -122,9 +138,17 @@ public struct WaterBodyComponent {
 
     /// <summary>Which spline asset gives it its shape.</summary>
     /// <remarks>
-    ///     A name rather than a handle, for the reason every other asset reference in a scene is one:
-    ///     a handle names a slot in a world that issued it, and a scene file is read by a world that
-    ///     has not run yet.
+    ///     <para>
+    ///         A name rather than a handle, for the reason every other asset reference in a scene is
+    ///         one: a handle names a slot in a world that issued it, and a scene file is read by a
+    ///         world that has not run yet.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A zeroed component holds <see langword="null" /> here — a chunk's column is zeroed
+    ///         memory, not constructed values — and null is not a name a source can be asked for. The
+    ///         fold counts it into <see cref="WaterZoneSystem.UnresolvedBodies" /> without reaching
+    ///         the source, the same number a spline that has not loaded counts into.
+    ///     </para>
     /// </remarks>
     public string Spline;
 
@@ -140,10 +164,17 @@ public struct WaterBodyComponent {
 
     /// <summary>How wide the band is over which coverage falls to zero at the boundary, in metres.</summary>
     /// <remarks>
-    ///     ⚠ <b>Narrower than a few of the zone's texels and the field cannot resolve it</b>, however
-    ///     smooth the arithmetic is — which is what the zone panel's metres-per-texel readout is for.
-    ///     Zero is a hard edge, and a hard edge on water reads as a cut in the terrain from a long way
-    ///     off.
+    ///     <para>
+    ///         ⚠ <b>Narrower than a few of the zone's texels and the field cannot resolve it</b>,
+    ///         however smooth the arithmetic is — which is what the zone panel's metres-per-texel
+    ///         readout is for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero takes the default two metres</b>, on <see cref="WaterZoneComponent.ScrollThreshold" />'s terms:
+    ///         zero is what a zeroed component holds, and a hard edge on water reads as a cut in the
+    ///         terrain from a long way off — a bug an author never typed. A deliberate near-hard edge
+    ///         — a canal wall — is a small stated value, a quarter of a metre.
+    ///     </para>
     /// </remarks>
     public float ShoreFalloff;
 
