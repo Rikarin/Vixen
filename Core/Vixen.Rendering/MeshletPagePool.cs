@@ -305,6 +305,19 @@ public sealed class MeshletPagePool : IPageStore, IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
+    ///     The same three tests <see cref="Place" /> applies, asked before the residency service has
+    ///     evicted anything to make room. Without it a frame that overruns the staging region pays for
+    ///     each refusal with a resident page it then does not replace — see
+    ///     <see cref="IPageStore.CanPlace" />, which is what this exists to answer honestly.
+    /// </remarks>
+    public bool CanPlace(PageKey key, int bytes) {
+        _ = key;
+
+        return !disposed && bytes > 0 && bytes <= PageSize && stagingUsed + bytes <= StagingCapacity;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
     ///     Staged rather than written, for <see cref="GeometryBuffer" />'s reason: the pool is
     ///     device-local, so the only way in is a copy recorded on a list. The staging region is one
     ///     slot per pool slot, which is more than a frame ever stages and is the size at which the

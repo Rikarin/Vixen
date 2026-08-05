@@ -172,14 +172,57 @@ public sealed class AssetVirtualGeometrySource : IVirtualGeometrySource, IDispos
         return new(registered.Center, registered.Radius);
     }
 
+    /// <summary>
+    ///     Releases a mesh: its pages go back to the pool, its blob is closed and its claims are dropped.
+    /// </summary>
+    /// <param name="reference">The mesh reference it was asked about under.</param>
+    /// <returns>Whether anything was registered to release.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Nothing calls this per entity, and it must not.</b> A reference is shared — a forest of
+    ///     one tree asset is one registration — so releasing it because one entity went away would take
+    ///     the geometry out from under every other entity drawing the same mesh. What may call it is
+    ///     whatever knows the content itself has gone, which today is <see cref="Dispose" />.
+    /// </remarks>
+    public bool Release(AssetReference reference) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        return entries.Remove(reference, out var entry) && Retire(entry);
+    }
+
     /// <inheritdoc />
+    /// <remarks>
+    ///     <b>Every registration is released, not merely forgotten.</b> Clearing the dictionary leaves
+    ///     the pool holding a pinned root page per mesh and <c>StreamMeshletPageSource</c> holding an
+    ///     open stream per mesh, both for content this object was the only reference to — so a host that
+    ///     rebuilt its renderer would find the pool smaller every time and nothing would say why.
+    /// </remarks>
     public void Dispose() {
         if (disposed) {
             return;
         }
 
         disposed = true;
+
+        foreach (var entry in entries.Values) {
+            Retire(entry);
+        }
+
         entries.Clear();
+    }
+
+    /// <summary>Gives back everything one entry claimed, in the order it claimed it.</summary>
+    bool Retire(Entry entry) {
+        var released = entry.State == ClusterState.Ready && entry.Index >= 0 && geometry.Release(entry.Index);
+
+        entry.Records?.Release();
+        entry.Mesh?.Release();
+
+        entry.Records = null;
+        entry.Mesh = null;
+        entry.State = ClusterState.None;
+        entry.Index = -1;
+
+        return released;
     }
 
     /// <summary>One mesh, somewhere between named and traversed.</summary>
