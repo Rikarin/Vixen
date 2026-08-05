@@ -103,7 +103,15 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     /// </remarks>
     public const float DefaultSoftwareThreshold = 0f;
 
+    /// <summary>The source id of each registration, by the index <see cref="Register" /> returned.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Append-only, and a retired entry keeps its place.</b> The index is what a scene put in
+    ///     <see cref="VirtualGeometryDraw.Mesh" />, and compacting this list would silently point every
+    ///     object past the retired one at its neighbour's geometry. <c>-1</c> marks a retired slot.
+    /// </remarks>
     readonly List<int> registered = [];
+
+    int retired;
 
     float[] errorScale = [];
     float[] errorThreshold = [];
@@ -183,8 +191,13 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     /// </remarks>
     public int RequestedPages { get; private set; }
 
-    /// <summary>How many meshes have been registered.</summary>
-    public int RegisteredMeshes => registered.Count;
+    /// <summary>How many meshes are registered and drawable.</summary>
+    /// <remarks>
+    ///     Live registrations rather than every registration ever made — a retired one is a slot that
+    ///     keeps its number and draws nothing, so counting it would make a level unload look like it did
+    ///     nothing at all.
+    /// </remarks>
+    public int RegisteredMeshes => registered.Count - retired;
 
     /// <summary>
     ///     Registers a mesh so objects can draw it, and makes its geometry reachable.
@@ -215,6 +228,44 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
         registered.Add(source);
 
         return registered.Count - 1;
+    }
+
+    /// <summary>
+    ///     Retires a mesh, so its pages go back to the pool and objects drawing it draw nothing.
+    /// </summary>
+    /// <param name="mesh">The index <see cref="Register" /> returned.</param>
+    /// <returns>The source id it was registered under, or <c>-1</c> if it was already retired.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such registration.</exception>
+    /// <exception cref="InvalidOperationException">There is no traversal holding it.</exception>
+    /// <remarks>
+    ///     The counterpart <see cref="Register" /> never had, and the reason a level unload leaked: a
+    ///     registration pins a root page, a pinned page is never evicted, and nothing here ever said a
+    ///     mesh had gone. The source id comes back because it is what the page blob is filed under and
+    ///     the caller is what has to close it — see <c>VirtualGeometrySystem.Release</c>, which does
+    ///     both halves so they cannot be done singly.
+    /// </remarks>
+    public int Unregister(int mesh) {
+        ArgumentOutOfRangeException.ThrowIfNegative(mesh);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(mesh, registered.Count);
+
+        if (Visibility is null) {
+            throw new InvalidOperationException(
+                "Set Visibility before retiring a mesh — the records live in it, and a retirement that "
+                + "went nowhere would be a pinned page nothing ever gives back."
+            );
+        }
+
+        var source = registered[mesh];
+
+        if (source < 0) {
+            return -1;
+        }
+
+        Visibility.Unregister(mesh);
+        registered[mesh] = -1;
+        retired++;
+
+        return source;
     }
 
     /// <summary>Starts a frame's bone palettes. Call before the first <see cref="SetBones" />.</summary>

@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
+using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.VirtualGeometry;
@@ -143,6 +145,140 @@ public sealed class VirtualGeometryContentTests {
         // The budget is the pool, which is what makes a scene's streaming cost one number.
         Assert.Equal(16L * 8 * 1024, geometry.Residency.Budget);
     }
+
+    /// <summary>
+    ///     Releasing a mesh gives its pinned root page back, and the next level's mesh gets it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A level unload used to shrink the pool permanently.</b> Registering pins a root page
+    ///         and a pinned page is never evicted, and there was no unregister anywhere: not on
+    ///         <c>GpuClusterVisibility</c>, not on the feature, not on this system. So a project that
+    ///         loaded a level and unloaded it kept one slot per mesh, for ever, and the only symptom was
+    ///         that eventually meshes stopped drawing.
+    ///     </para>
+    ///     <para>
+    ///         The pool is sized to exactly one mesh's root page here, so "the slot came back" is the
+    ///         difference between the second registration working and it throwing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task Releasing_a_mesh_returns_its_pinned_page_to_the_pool() {
+        using var device = new NullDevice();
+
+        var (mesh, pages) = Build();
+
+        // One slot: one mesh's root page is the whole pool, so "the slot came back" is the difference
+        // between the second registration working and it refusing.
+        using var geometry = new VirtualGeometrySystem(device, slots: 1, pageSize: 8 * 1024);
+
+        var first = Load(geometry, 1, mesh, pages);
+
+        Assert.Equal(0, first);
+        Assert.Equal(1, geometry.Feature.RegisteredMeshes);
+
+        // The root page is pinned before it has arrived, which is the point of pinning at load time.
+        Settle(device, geometry);
+        Assert.Equal(1, geometry.Residency.PinnedPages);
+
+        Assert.True(geometry.Release(first));
+
+        Assert.Equal(0, geometry.Feature.RegisteredMeshes);
+        Assert.Equal(0, geometry.Residency.PinnedPages);
+        Assert.Equal(0, geometry.Residency.ResidentPages);
+
+        // The blob went with it, so a level nobody is drawing does not hold its pages open.
+        var page = new byte[pages.PageSize];
+        var read = await geometry.Source.ReadAsync(new(1, 0), page, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, read);
+
+        // Releasing twice is not an error and does not give the slot back twice.
+        Assert.False(geometry.Release(first));
+
+        // And the slot really came back: the next level's mesh registers, pins and becomes resident.
+        var second = Load(geometry, 2, mesh, pages);
+
+        Assert.Equal(1, second);
+        Assert.Equal(1, geometry.Feature.RegisteredMeshes);
+
+        Settle(device, geometry);
+        Assert.Equal(1, geometry.Residency.PinnedPages);
+        Assert.True(geometry.Residency.IsResident(new(2, 0)));
+
+        // ⚠ The retired registration keeps its number and draws nothing, rather than being compacted
+        // away — an object still holding index 0 must not find itself drawing index 1's geometry.
+        Assert.Equal(2, geometry.MeshCount);
+        Assert.Equal(0, geometry.Visibility.MeshAt(first).RootCount);
+        Assert.Equal(0, geometry.Visibility.MeshAt(first).PageCount);
+        Assert.True(geometry.Visibility.MeshAt(second).RootCount > 0);
+        Assert.Equal(2, geometry.Visibility.MeshAt(second).Source);
+    }
+
+    /// <summary>
+    ///     Registering more meshes than the pool can pin says so, rather than drawing nothing.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A scene of ≥<c>slots</c> virtualized meshes, at one slot instead of 512.</b> Every
+    ///     registration pins a root page and a pinned page is never evicted, so once the pool is full of
+    ///     them every further mesh used to be dropped from the request queue in silence — resident never,
+    ///     re-requested never, and <see cref="PageResidency.Rejections" /> reading zero.
+    /// </remarks>
+    [Fact]
+    public void Registering_more_meshes_than_the_pool_can_pin_says_so() {
+        using var device = new NullDevice();
+        using var geometry = new VirtualGeometrySystem(device, slots: 1, pageSize: 8 * 1024);
+
+        var (mesh, pages) = Build();
+
+        Load(geometry, 1, mesh, pages);
+
+        var refused = Assert.Throws<PageBudgetException>(() => Load(geometry, 2, mesh, pages));
+
+        Assert.Equal(1, refused.Capacity);
+        Assert.Equal(2, refused.Pinned);
+        Assert.Contains("slot count", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Runs frames until the pinned root page has landed, or the patience runs out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Flushed like a frame, because the staging region is reclaimed at the flush.</b> The pool
+    ///     stages one slot's bytes per pool slot, so a loop that only serviced would fill it and every
+    ///     placement after the first would be refused — which is a real contract and not a test artefact.
+    /// </remarks>
+    static void Settle(IGraphicsDevice device, VirtualGeometrySystem geometry) {
+        var waited = Stopwatch.StartNew();
+
+        while (waited.Elapsed < TimeSpan.FromSeconds(10)) {
+            geometry.Residency.Service();
+            Flush(device, geometry.Pages);
+
+            if (geometry.Residency.PendingRequests == 0 && geometry.Residency.Loading == 0) {
+                geometry.Residency.Service();
+                Flush(device, geometry.Pages);
+
+                return;
+            }
+
+            Thread.Sleep(1);
+        }
+    }
+
+    static void Flush(IGraphicsDevice device, MeshletPagePool pool) {
+        using var list = device.BeginCommandList(QueueKind.Compute);
+
+        pool.Flush(list);
+        list.Finish();
+        device.ComputeQueue.Submit([list]);
+    }
+
+    static int Load(VirtualGeometrySystem geometry, int id, MeshletMesh mesh, MeshletPageSet pages) =>
+        geometry.Content(
+            id,
+            Serializer.ToBytes(mesh),
+            Serializer.ToBytes(pages.WithoutData()),
+            new MemoryStream(pages.Data)
+        );
 
     static (MeshletMesh Mesh, MeshletPageSet Pages) Build(int segments = 16) {
         var input = Grid(segments);

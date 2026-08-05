@@ -534,6 +534,56 @@ public sealed class GpuClusterVisibility : IDisposable {
     }
 
     /// <summary>
+    ///     Retires a registration and gives its pages back to the pool.
+    /// </summary>
+    /// <param name="index">Which registration, as <see cref="Register" /> numbered it.</param>
+    /// <returns>Whether there was a live registration to retire.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such registration.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a level unload calls, and the reason it has to exist.</b> A registration pins its
+    ///         root page, and a pinned page is never evicted — so a project that loads a level, unloads
+    ///         it and loads another has permanently spent one slot per mesh of the level it is no longer
+    ///         drawing. Enough of those and the pool is entirely pinned to content nothing references,
+    ///         which <see cref="PageResidency.Pin" /> then refuses by name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The record is retired in place, not removed.</b> Every list here is addressed by a
+    ///         base and a count recorded at registration — <see cref="ClusterMesh.FirstCluster" />,
+    ///         <see cref="ClusterMesh.FirstPage" /> — and those bases are baked into the cluster and
+    ///         raster records themselves, so removing a mesh's slice would renumber every mesh after it
+    ///         and every <c>VirtualGeometryDraw.Mesh</c> a scene is holding. Zeroing the counts costs the
+    ///         slice's memory until the whole system is disposed and costs nothing per frame: an
+    ///         instance pointing at it has no roots to walk, and its page window uploads as absent.
+    ///     </para>
+    /// </remarks>
+    public bool Unregister(int index) {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, meshes.Count);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        var entry = meshes[index];
+
+        if (entry.ClusterCount == 0 && entry.RootCount == 0 && entry.PageCount == 0) {
+            return false;
+        }
+
+        // Dropped rather than unpinned: unpinning hands the page to the eviction order, where it waits
+        // to be the least recently used of a pool it no longer belongs to. The content is gone, so the
+        // next thing loaded should be given the room rather than have to earn it.
+        if (Residency is not null) {
+            for (var page = 0; page < entry.PageCount; page++) {
+                Residency.Drop(new(entry.Source, page));
+            }
+        }
+
+        meshes[index] = entry with { ClusterCount = 0, RootCount = 0, PageCount = 0 };
+        meshesDirty = true;
+
+        return true;
+    }
+
+    /// <summary>
     ///     The merged cluster records, as the device will read them.
     /// </summary>
     /// <remarks>

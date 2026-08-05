@@ -1945,6 +1945,7 @@ Vixen.Rendering.Features.VirtualGeometryRenderFeature.ScreenHeight.set -> int
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.SetBones(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4> palette) -> void
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.SoftwareThreshold.get -> float
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.SoftwareThreshold.set -> float
+Vixen.Rendering.Features.VirtualGeometryRenderFeature.Unregister(int mesh) -> int
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.VirtualGeometryRenderFeature() -> void
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.Visibility.get -> Vixen.Rendering.GpuClusterVisibility?
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.Visibility.set -> Vixen.Rendering.GpuClusterVisibility?
@@ -2115,6 +2116,7 @@ Vixen.Rendering.GpuClusterVisibility.Slots.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.GpuClusterVisibility.SlotsOffset.get -> long
 Vixen.Rendering.GpuClusterVisibility.SoftwareClusters.get -> int
 Vixen.Rendering.GpuClusterVisibility.TraversedOnDevice.get -> bool
+Vixen.Rendering.GpuClusterVisibility.Unregister(int index) -> bool
 Vixen.Rendering.GpuClusterVisibility.UploadInstances() -> void
 Vixen.Rendering.GpuClusterVisibility.Visible.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.GpuClusterVisibility.VisibleClusters.get -> int
@@ -2223,6 +2225,7 @@ Vixen.Rendering.HiZReduction.Nearest = 1 -> Vixen.Rendering.HiZReduction
 Vixen.Rendering.IMeshletPageSource -> interface
 Vixen.Rendering.IMeshletPageSource.ReadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.IPageStore -> interface
+Vixen.Rendering.IPageStore.CanPlace(Vixen.Rendering.PageKey key, int bytes) -> bool
 Vixen.Rendering.IPageStore.Evict(Vixen.Rendering.PageKey key, int slot) -> void
 Vixen.Rendering.IPageStore.LoadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.IPageStore.PageSize.get -> int
@@ -3530,6 +3533,7 @@ Vixen.Rendering.MeshVertex.Position.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshletPagePool -> sealed class
 Vixen.Rendering.MeshletPagePool : System.IDisposable
 Vixen.Rendering.MeshletPagePool : Vixen.Rendering.IPageStore
+Vixen.Rendering.MeshletPagePool.CanPlace(Vixen.Rendering.PageKey key, int bytes) -> bool
 Vixen.Rendering.MeshletPagePool.Dispose() -> void
 Vixen.Rendering.MeshletPagePool.Evict(Vixen.Rendering.PageKey key, int slot) -> void
 Vixen.Rendering.MeshletPagePool.Evictions.get -> long
@@ -3586,6 +3590,15 @@ Vixen.Rendering.OccluderProjections.Matches(int viewCount) -> bool
 Vixen.Rendering.OccluderProjections.OccluderProjections() -> void
 Vixen.Rendering.OccluderProjections.Remember(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.RenderView> frameViews) -> void
 Vixen.Rendering.OccluderProjections.TryGet(int viewIndex, out Vixen.Core.Mathematics.Matrix4x4 projection) -> bool
+Vixen.Rendering.PageBudgetException -> sealed class
+Vixen.Rendering.PageBudgetException : System.Exception
+Vixen.Rendering.PageBudgetException.Capacity.get -> int
+Vixen.Rendering.PageBudgetException.Key.get -> Vixen.Rendering.PageKey
+Vixen.Rendering.PageBudgetException.PageBudgetException() -> void
+Vixen.Rendering.PageBudgetException.PageBudgetException(Vixen.Rendering.PageKey key, int pinned, int capacity) -> void
+Vixen.Rendering.PageBudgetException.PageBudgetException(string message) -> void
+Vixen.Rendering.PageBudgetException.PageBudgetException(string message, System.Exception innerException) -> void
+Vixen.Rendering.PageBudgetException.Pinned.get -> int
 Vixen.Rendering.PageKey -> readonly struct
 Vixen.Rendering.PageKey : System.IEquatable<Vixen.Rendering.PageKey>
 Vixen.Rendering.PageKey.Index.get -> int
@@ -3607,19 +3620,26 @@ Vixen.Rendering.PageResidency : System.IDisposable
 Vixen.Rendering.PageResidency.Budget.get -> long
 Vixen.Rendering.PageResidency.ClearRequests() -> void
 Vixen.Rendering.PageResidency.Dispose() -> void
+Vixen.Rendering.PageResidency.Drop(Vixen.Rendering.PageKey key) -> bool
 Vixen.Rendering.PageResidency.Evictions.get -> long
 Vixen.Rendering.PageResidency.IsResident(Vixen.Rendering.PageKey key) -> bool
 Vixen.Rendering.PageResidency.Loading.get -> int
 Vixen.Rendering.PageResidency.Loads.get -> long
+Vixen.Rendering.PageResidency.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Rendering.PageResidency.Logger.set -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Rendering.PageResidency.MaxPendingRequests.get -> int
+Vixen.Rendering.PageResidency.MaxPendingRequests.set -> int
 Vixen.Rendering.PageResidency.PageResidency(Vixen.Rendering.IPageStore store, long budget) -> void
 Vixen.Rendering.PageResidency.PendingRequests.get -> int
 Vixen.Rendering.PageResidency.Pin(Vixen.Rendering.PageKey key) -> void
+Vixen.Rendering.PageResidency.PinRefusals.get -> long
 Vixen.Rendering.PageResidency.PinnedPages.get -> int
 Vixen.Rendering.PageResidency.Rejections.get -> long
 Vixen.Rendering.PageResidency.Request(Vixen.Rendering.PageKey key) -> void
 Vixen.Rendering.PageResidency.ResidentBytes.get -> long
 Vixen.Rendering.PageResidency.ResidentPages.get -> int
 Vixen.Rendering.PageResidency.Service(int maxLoads = 8) -> int
+Vixen.Rendering.PageResidency.StaleRequests.get -> long
 Vixen.Rendering.PageResidency.Touch(Vixen.Rendering.PageKey key) -> void
 Vixen.Rendering.PageResidency.TryGetPlacement(Vixen.Rendering.PageKey key, out Vixen.Rendering.PagePlacement placement) -> bool
 Vixen.Rendering.PageResidency.Unpin(Vixen.Rendering.PageKey key) -> void
@@ -4369,6 +4389,7 @@ Vixen.Rendering.VirtualGeometrySystem.Pipelines.get -> Vixen.Rendering.ComputePi
 Vixen.Rendering.VirtualGeometrySystem.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.VirtualGeometrySystem.Raster.get -> Vixen.Rendering.GpuClusterRaster
 Vixen.Rendering.VirtualGeometrySystem.Register(Vixen.Rendering.RenderSystem system) -> void
+Vixen.Rendering.VirtualGeometrySystem.Release(int mesh) -> bool
 Vixen.Rendering.VirtualGeometrySystem.Residency.get -> Vixen.Rendering.PageResidency
 Vixen.Rendering.VirtualGeometrySystem.Resolve.get -> Vixen.Rendering.GpuClusterResolve
 Vixen.Rendering.VirtualGeometrySystem.Scene.get -> Vixen.Rendering.SceneConstants?

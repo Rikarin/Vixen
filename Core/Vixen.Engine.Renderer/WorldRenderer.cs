@@ -529,6 +529,12 @@ public sealed class WorldRenderer : IDisposable {
 
         // Only where there is a stack to register them with. A source that loaded hierarchies and had
         // nowhere to put them would page a level's geometry in and draw none of it.
+        //
+        // ⚠ The previous one is released first, because mounting again is the closest thing the
+        // renderer has to a content teardown. Every registration it made pinned a root page, and a
+        // pinned page is never evicted — so a second Mount that merely dropped the reference would
+        // leave the pool a slot smaller per mesh of the level being replaced, permanently and silently.
+        clustering?.Dispose();
         Hierarchies = clustering = Clusters is null ? null : new(assets, Clusters);
 
         // Unconditionally, because there is no device resource behind it and nothing to hold: an
