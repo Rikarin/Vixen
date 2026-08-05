@@ -238,9 +238,19 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
 
     /// <summary>Whether the last build found everything a shadowed march needs.</summary>
     /// <remarks>
-    ///     Availability and not preference, on <c>TerrainSceneRenderer.DetectMode</c>'s rule: the
-    ///     atlas is a declared resource and the cascades are published parameters, so the frame has
-    ///     already stated the answer and a toggle could only contradict it.
+    ///     <para>
+    ///         Availability and not preference, on <c>TerrainSceneRenderer.DetectMode</c>'s rule: the
+    ///         atlas is a declared resource and the cascades are published parameters, so the frame
+    ///         has already stated the answer and a toggle could only contradict it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>False was untested on a device until it was tested, and it did not work.</b> Every
+    ///         tier that fills a volume also shadows it, so nothing had ever taken this path — and the
+    ///         first thing that did threw out of the render graph, because the stand-in was a
+    ///         transient no pass wrote. It is an import now, and sample 3's frame with a
+    ///         <c>volumetricShadows: false</c> preset over its own tier runs it clean on a device:
+    ///         three dispatches, no validation error. See <see cref="ShadowStandIn" />.
+    ///     </para>
     /// </remarks>
     public bool Shadowed { get; private set; }
 
