@@ -10,6 +10,9 @@ using Vixen.Engine.Transforms;
 using Vixen.Graphics;
 using Vixen.Platform.Headless;
 using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
+using Vixen.Rendering.PostFx;
+using Vixen.Rendering.Terrain;
 using Xunit;
 
 namespace Vixen.App.Tests;
@@ -209,6 +212,72 @@ public sealed class HostedRendererTests : IDisposable {
     }
 
     /// <summary>
+    ///     The host's quality tier reaches the ground's streaming budgets, which for a long time it
+    ///     did not.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The last step of doc 39's waterfall, and the one nothing outside a test performed.</b>
+    ///     <c>Vixen.Rendering.Terrain</c> cannot reference the assembly the tier table lives in, so
+    ///     the resolved numbers cross to <c>TerrainFactory.Vegetation</c> as a plain-numbered copy —
+    ///     and until <c>AppGraphics</c> did that folding, a shipped game got the terrain stack's
+    ///     constructor defaults whatever tier it had selected. Asserted against
+    ///     <c>RenderQuality.Resolve</c> rather than against literals, so the test says "the tier's
+    ///     numbers" and not "these numbers, which somebody may have retuned".
+    /// </remarks>
+    [Fact]
+    public void TheHostsQualityTierReachesTheGroundsBudgets() {
+        var game = new GroundGame(QualityTier.Low);
+        using var application = Build(game);
+
+        var tier = RenderQuality.Resolve(QualityTier.Low);
+        var vegetation = game.Terrain.Vegetation;
+
+        Assert.Equal(tier.GrassDensityScale, vegetation.GrassDensityScale);
+        Assert.Equal(tier.GrassCullDistanceScale, vegetation.GrassCullDistanceScale);
+        Assert.Equal(tier.GrassResidentCells, vegetation.GrassResidentCells);
+        Assert.Equal(tier.FoliageDensityScale, vegetation.FoliageDensityScale);
+        Assert.Equal(tier.FoliageCullDistanceScale, vegetation.FoliageCullDistanceScale);
+        Assert.Equal(tier.FoliageCellBudget, vegetation.FoliageCellBudget);
+        Assert.Equal(tier.TerrainLodNearRange, vegetation.TerrainNearRange);
+        Assert.Equal(tier.TerrainStreamingMegabytes, vegetation.TerrainStreamingMegabytes);
+
+        // And the tier was actually consulted rather than the defaults happening to match: Low is
+        // below the record's own numbers everywhere it says anything.
+        Assert.NotEqual(new TerrainVegetationQuality(), vegetation);
+    }
+
+    /// <summary>Two tiers, two sets of budgets — otherwise the fold could be a constant.</summary>
+    [Fact]
+    public void ADifferentTierIsADifferentSetOfBudgets() {
+        var low = new GroundGame(QualityTier.Low);
+        var epic = new GroundGame(QualityTier.Epic);
+
+        using var quietly = Build(low);
+        using var lavishly = Build(epic);
+
+        var quiet = low.Terrain.Vegetation;
+        var lavish = epic.Terrain.Vegetation;
+
+        Assert.True(quiet.FoliageCellBudget < lavish.FoliageCellBudget);
+        Assert.True(quiet.GrassResidentCells < lavish.GrassResidentCells);
+        Assert.True(quiet.TerrainStreamingMegabytes < lavish.TerrainStreamingMegabytes);
+    }
+
+    /// <summary>
+    ///     A game that filled the budgets itself keeps them, on <c>TerrainFactory.Scene</c>'s terms:
+    ///     the host configures what nobody has decided, and a head with its own opinion has decided.
+    /// </summary>
+    [Fact]
+    public void BudgetsTheGameFilledItselfAreLeftAlone() {
+        var chosen = new TerrainVegetationQuality { FoliageCellBudget = 7, GrassResidentCells = 9 };
+        var game = new GroundGame(QualityTier.Low) { Chosen = chosen };
+
+        using var application = Build(game);
+
+        Assert.Equal(chosen, game.Terrain.Vegetation);
+    }
+
+    /// <summary>
     ///     A batch tool wants the host and not a device. One line in <c>OnConfigure</c>, and the
     ///     frame still runs — including <c>OnRender</c>, which is where such a head does its work.
     /// </summary>
@@ -318,6 +387,28 @@ public sealed class HostedRendererTests : IDisposable {
     /// </summary>
     sealed class WindowedGame : Game {
         protected internal override void OnConfigure(AppConfig config) => config.Window = new();
+    }
+
+    /// <summary>
+    ///     A game with ground in it: the one line of <c>OnConfigure</c> that installs the terrain
+    ///     node kind, which is also the whole installation the host recognises.
+    /// </summary>
+    sealed class GroundGame(QualityTier tier) : SilentGame {
+        public TerrainFactory Terrain { get; } = new();
+
+        /// <summary>Budgets the game decided for itself, or null to let the host's tier decide.</summary>
+        public TerrainVegetationQuality? Chosen { get; init; }
+
+        protected internal override void OnConfigure(AppConfig config) {
+            base.OnConfigure(config);
+
+            if (Chosen is { } opinion) {
+                Terrain.Vegetation = opinion;
+            }
+
+            config.Graphics.Quality = tier;
+            config.Graphics.Factories.Add(Terrain);
+        }
     }
 
     sealed class RecordingGame : SilentGame {

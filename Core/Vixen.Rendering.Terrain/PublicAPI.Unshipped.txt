@@ -368,6 +368,12 @@ Vixen.Rendering.Terrain.TerrainNodeAsset.Depth.get -> string
 Vixen.Rendering.Terrain.TerrainNodeAsset.Depth.init -> string
 Vixen.Rendering.Terrain.TerrainNodeAsset.Enabled.get -> bool
 Vixen.Rendering.Terrain.TerrainNodeAsset.Enabled.init -> bool
+Vixen.Rendering.Terrain.TerrainNodeAsset.FoliageCellBudget.get -> int?
+Vixen.Rendering.Terrain.TerrainNodeAsset.FoliageCellBudget.init -> int?
+Vixen.Rendering.Terrain.TerrainNodeAsset.FoliageCullDistanceScale.get -> float?
+Vixen.Rendering.Terrain.TerrainNodeAsset.FoliageCullDistanceScale.init -> float?
+Vixen.Rendering.Terrain.TerrainNodeAsset.FoliageDensityScale.get -> float?
+Vixen.Rendering.Terrain.TerrainNodeAsset.FoliageDensityScale.init -> float?
 Vixen.Rendering.Terrain.TerrainNodeAsset.Grass.get -> bool
 Vixen.Rendering.Terrain.TerrainNodeAsset.Grass.init -> bool
 Vixen.Rendering.Terrain.TerrainNodeAsset.GrassBladesPerCell.get -> int?
@@ -391,6 +397,8 @@ Vixen.Rendering.Terrain.TerrainNodeAsset.ShadowAtlas.init -> string
 Vixen.Rendering.Terrain.TerrainNodeAsset.TerrainNearRange.get -> float?
 Vixen.Rendering.Terrain.TerrainNodeAsset.TerrainNearRange.init -> float?
 Vixen.Rendering.Terrain.TerrainNodeAsset.TerrainNodeAsset() -> void
+Vixen.Rendering.Terrain.TerrainNodeAsset.TerrainStreamingMegabytes.get -> int?
+Vixen.Rendering.Terrain.TerrainNodeAsset.TerrainStreamingMegabytes.init -> int?
 Vixen.Rendering.Terrain.TerrainNodeAsset.View.get -> string
 Vixen.Rendering.Terrain.TerrainNodeAsset.View.init -> string
 Vixen.Rendering.Terrain.TerrainNodeRecord -> readonly struct
@@ -582,6 +590,8 @@ Vixen.Rendering.Terrain.TerrainVegetationQuality.GrassResidentCells.get -> int
 Vixen.Rendering.Terrain.TerrainVegetationQuality.GrassResidentCells.init -> int
 Vixen.Rendering.Terrain.TerrainVegetationQuality.TerrainNearRange.get -> float
 Vixen.Rendering.Terrain.TerrainVegetationQuality.TerrainNearRange.init -> float
+Vixen.Rendering.Terrain.TerrainVegetationQuality.TerrainStreamingMegabytes.get -> int
+Vixen.Rendering.Terrain.TerrainVegetationQuality.TerrainStreamingMegabytes.init -> int
 Vixen.Rendering.Terrain.TerrainVegetationQuality.TerrainVegetationQuality() -> void
 Vixen.Rendering.Terrain.TerrainView -> readonly struct
 Vixen.Rendering.Terrain.TerrainView : System.IEquatable<Vixen.Rendering.Terrain.TerrainView>

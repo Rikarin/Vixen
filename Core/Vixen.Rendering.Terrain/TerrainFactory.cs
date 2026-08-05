@@ -29,8 +29,8 @@ namespace Vixen.Rendering.Terrain;
 ///         waterfall's asset lives in <c>Vixen.Rendering.PostFx</c>, which this project must not
 ///         reference, so what crosses is plain numbers: a host that resolved a tier fills them, a
 ///         document scalar out-votes them per field, and a host that fills nothing runs the
-///         defaults. Folding the resolved tier in automatically is owed to the increment that
-///         teaches <c>!StandardFrame</c> to emit this node.
+///         defaults. <c>AppGraphics</c> performs that fill for a registered factory, which is what
+///         makes the budgets tier-driven in a shipped game rather than only in a test.
 ///     </para>
 /// </remarks>
 public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTransformer {
@@ -53,6 +53,12 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
     public TerrainSceneSource? Scene { get; set; }
 
     /// <summary>The vegetation numbers the host's tier resolved to, for nodes that do not say.</summary>
+    /// <remarks>
+    ///     <c>AppGraphics</c> assigns its resolved tier here when it finds this factory in
+    ///     <c>GraphicsOptions.Factories</c> — and leaves a factory the game filled itself alone, on
+    ///     <see cref="Scene" />'s terms. Untouched, this is the engine table's High column, so a head
+    ///     with no host behind it draws the frame the default tier describes rather than a zeroed one.
+    /// </remarks>
     public TerrainVegetationQuality Vegetation { get; set; } = new();
 
     /// <inheritdoc />
@@ -290,12 +296,21 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
             // carries the sun and the camera. Null in a builder with no frame wired, which is the
             // preview.
             Frame = builder.SceneConstants,
+            // Per field, never per group: a document that pins one budget inherits the host's tier
+            // for every sibling. Every member of TerrainVegetationQuality appears here, because one
+            // left out is a knob a document can write and the node will not read.
             Vegetation = Vegetation with {
                 GrassDensityScale = terrain.GrassDensityScale ?? Vegetation.GrassDensityScale,
                 GrassCullDistanceScale = terrain.GrassCullDistanceScale ?? Vegetation.GrassCullDistanceScale,
                 GrassResidentCells = terrain.GrassResidentCells ?? Vegetation.GrassResidentCells,
                 GrassBladesPerCell = terrain.GrassBladesPerCell ?? Vegetation.GrassBladesPerCell,
-                TerrainNearRange = terrain.TerrainNearRange ?? Vegetation.TerrainNearRange
+                TerrainNearRange = terrain.TerrainNearRange ?? Vegetation.TerrainNearRange,
+                FoliageDensityScale = terrain.FoliageDensityScale ?? Vegetation.FoliageDensityScale,
+                FoliageCullDistanceScale =
+                    terrain.FoliageCullDistanceScale ?? Vegetation.FoliageCullDistanceScale,
+                FoliageCellBudget = terrain.FoliageCellBudget ?? Vegetation.FoliageCellBudget,
+                TerrainStreamingMegabytes =
+                    terrain.TerrainStreamingMegabytes ?? Vegetation.TerrainStreamingMegabytes
             },
             Device = builder.Device,
             Modules = builder.Modules

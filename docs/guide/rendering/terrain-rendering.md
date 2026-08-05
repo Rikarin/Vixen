@@ -276,10 +276,14 @@ A hand-authored document places the same node itself and names its own targets �
 node draws every terrain the world carries; a world with none draws nothing quietly, while a target
 or view nothing bound refuses with a `CompositorBindingException` naming the node and the name.
 
-The node's nullable scalars — `grassDensityScale:`, `grassResidentCells:` and their siblings — are
-the quality waterfall's seam: a written value is the document deciding, null falls through to
-`TerrainFactory.Vegetation`, which is where a host lays down the numbers its resolved tier chose,
-and the defaults are the engine table's High tier.
+The node's nullable scalars — `grassDensityScale:`, `grassResidentCells:`, `foliageCellBudget:`,
+`terrainStreamingMegabytes:` and their siblings — are the quality waterfall's seam: a written value
+is the document deciding, null falls through to `TerrainFactory.Vegetation`, and the defaults are
+the engine table's High tier. `AppGraphics` lays down the numbers its resolved tier chose on every
+terrain factory registered in `GraphicsOptions.Factories`, so a game that sets
+`GraphicsOptions.Quality` gets tier-driven grass, foliage and tile budgets without writing any of
+them — see [Render quality](render-quality.md). A factory whose `Vegetation` the game filled itself
+is left alone, on `Scene`'s terms.
 
 ## Frame-lit shading
 

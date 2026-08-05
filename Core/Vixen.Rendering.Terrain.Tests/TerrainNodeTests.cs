@@ -110,6 +110,122 @@ public sealed class TerrainNodeTests : IDisposable {
         Assert.Equal(4096, node.Vegetation.GrassBladesPerCell);
     }
 
+    /// <summary>Every number the factory carries reaches the node, not the five the fold once listed.</summary>
+    /// <remarks>
+    ///     Record equality rather than a field-by-field list, deliberately: a knob added to
+    ///     <see cref="TerrainVegetationQuality" /> and left out of <c>TerrainFactory.Create</c>'s fold
+    ///     fails this without anyone remembering to extend an assertion. The values are all off the
+    ///     record's defaults so that a dropped field is a difference rather than a coincidence.
+    /// </remarks>
+    [Fact]
+    public void TheFactorysWholeTierReachesANodeThatSaysNothing() {
+        var (builder, factory) = Builder();
+
+        factory.Vegetation = new() {
+            GrassDensityScale = 0.31f,
+            GrassCullDistanceScale = 0.32f,
+            GrassResidentCells = 33,
+            GrassBladesPerCell = 34,
+            FoliageDensityScale = 0.35f,
+            FoliageCullDistanceScale = 0.36f,
+            FoliageCellBudget = 37,
+            TerrainNearRange = 38f,
+            TerrainStreamingMegabytes = 39
+        };
+
+        var compositor = builder.Build(new GraphicsCompositorAsset { Game = new TerrainNodeAsset() });
+        var node = Assert.IsType<TerrainSceneRenderer>(compositor.Game);
+
+        Assert.Equal(factory.Vegetation, node.Vegetation);
+    }
+
+    /// <summary>And every one of them is a number a <c>!Terrain</c> node can out-vote per field.</summary>
+    /// <remarks>
+    ///     The other half of <see cref="TheFactorysWholeTierReachesANodeThatSaysNothing" />: a knob
+    ///     carried by the factory but with no nullable beside it on the node is one a document cannot
+    ///     state, which is the gap the foliage budgets sat in.
+    /// </remarks>
+    [Fact]
+    public void ADocumentOutVotesTheFactoryForEveryOneOfThem() {
+        var (builder, factory) = Builder();
+
+        factory.Vegetation = new() {
+            GrassDensityScale = 0.31f,
+            GrassCullDistanceScale = 0.32f,
+            GrassResidentCells = 33,
+            GrassBladesPerCell = 34,
+            FoliageDensityScale = 0.35f,
+            FoliageCullDistanceScale = 0.36f,
+            FoliageCellBudget = 37,
+            TerrainNearRange = 38f,
+            TerrainStreamingMegabytes = 39
+        };
+
+        var compositor = builder.Build(
+            new GraphicsCompositorAsset {
+                Game = new TerrainNodeAsset {
+                    GrassDensityScale = 0.61f,
+                    GrassCullDistanceScale = 0.62f,
+                    GrassResidentCells = 63,
+                    GrassBladesPerCell = 64,
+                    FoliageDensityScale = 0.65f,
+                    FoliageCullDistanceScale = 0.66f,
+                    FoliageCellBudget = 67,
+                    TerrainNearRange = 68f,
+                    TerrainStreamingMegabytes = 69
+                }
+            }
+        );
+
+        var node = Assert.IsType<TerrainSceneRenderer>(compositor.Game);
+
+        Assert.Equal(
+            new TerrainVegetationQuality {
+                GrassDensityScale = 0.61f,
+                GrassCullDistanceScale = 0.62f,
+                GrassResidentCells = 63,
+                GrassBladesPerCell = 64,
+                FoliageDensityScale = 0.65f,
+                FoliageCullDistanceScale = 0.66f,
+                FoliageCellBudget = 67,
+                TerrainNearRange = 68f,
+                TerrainStreamingMegabytes = 69
+            },
+            node.Vegetation
+        );
+    }
+
+    /// <summary>
+    ///     The waterfall's vegetation group and the terrain stack's copy of it hold the same knobs.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The seam a reference would have checked, checked by a test instead.</b>
+    ///     <c>Vixen.Rendering.Terrain</c> cannot see <c>VegetationQuality</c> — the dependency runs
+    ///     the other way — so nothing makes the two records agree except a person remembering, and a
+    ///     knob added to the tier table with no field to land in is carried the whole length of the
+    ///     waterfall and dropped by the host's fold. <c>TerrainLodNearRange</c> is the one rename
+    ///     across the seam, and <c>GrassBladesPerCell</c> the one field no tier decides.
+    /// </remarks>
+    [Fact]
+    public void TheTierGroupAndTheTerrainCopyHoldTheSameKnobs() {
+        static string Crossed(string name) => name == "TerrainLodNearRange" ? "TerrainNearRange" : name;
+
+        var carried = typeof(VegetationQuality).GetProperties().Select(field => Crossed(field.Name));
+        var landed = typeof(TerrainVegetationQuality).GetProperties().Select(field => field.Name).ToHashSet();
+
+        Assert.All(
+            carried,
+            name => Assert.True(
+                landed.Contains(name),
+                $"VegetationQuality.{name} has nowhere to land: TerrainVegetationQuality has no such "
+                + "field, so the host's fold cannot carry it and the tier's number is dropped."
+            )
+        );
+
+        // The other direction, minus the one entry that is a dispatch shape rather than a budget.
+        Assert.Equal(landed.Count - 1, carried.Count());
+    }
+
     // ------------------------------------------------------------------ the bridge
 
     /// <summary>A world's terrain component reaches the frame list, placed by its transform.</summary>
@@ -683,6 +799,50 @@ public sealed class TerrainNodeTests : IDisposable {
         Assert.Equal(0, node.FoliageCellsOf(small));
 
         node.Dispose();
+    }
+
+    /// <summary>The tier's byte budget reaches the tile streamer of a terrain too big to fit it.</summary>
+    /// <remarks>
+    ///     Two builds of the same terrain, because the number only means anything as a comparison: a
+    ///     small pool holds fewer tiles than the world has, and the shipped 64 MiB holds all of them —
+    ///     <c>PageResidency</c> clamps a pool larger than the world, which is why the generous case
+    ///     lands exactly on the tile count rather than somewhere above it.
+    /// </remarks>
+    [Fact]
+    public void TheTerrainStreamingBudgetReachesTheStreamer() {
+        // Sixty-four tiles of 128 samples: past the sixteen-tile line where a streamer is built at
+        // all, and with chains big enough that a megabyte of pool is fewer slots than there are
+        // tiles. A smaller tile would make every budget clamp to the whole world and prove nothing.
+        var description = TerrainDescription.Default with {
+            TileSamples = 128, TilesX = 8, TilesZ = 8,
+            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+        };
+
+        Assert.True(Slots(1) < 64, "a one-megabyte pool held every tile, so the budget decided nothing");
+        Assert.Equal(64, Slots(64));
+
+        int Slots(int megabytes) {
+            var (builder, factory) = Builder();
+
+            factory.Vegetation = new() { TerrainStreamingMegabytes = megabytes };
+
+            var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+            var ground = new TerrainMap(description);
+
+            factory.Scene!.Terrains.Add(new(ground, Vector3.Zero, 32f, 0, true, null, 0f));
+
+            Draw(compositor);
+
+            var node = Assert.IsType<TerrainSceneRenderer>(
+                Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+            );
+
+            var slots = node.TerrainTileSlotsOf(ground);
+
+            node.Dispose();
+
+            return slots;
+        }
     }
 
     /// <summary>A frame publishing its lighting draws the foliage with the lit shaders too.</summary>
