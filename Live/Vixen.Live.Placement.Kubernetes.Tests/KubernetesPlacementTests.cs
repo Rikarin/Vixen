@@ -45,6 +45,36 @@ public sealed class KubernetesPlacementTests {
     }
 
     [Fact]
+    public async Task TheProbeSaysWhatItCannotKnowRatherThanClaimingTheImageIsFine() {
+        using var placement = Placement();
+
+        var probe = await placement.ProbeAsync(TestContext.Current.CancellationToken);
+
+        // ⚠ There is no cheap call that reports an image's entrypoint: the registry knows it and the
+        // API server does not, so a probe that said "running mygame/realm:0.1.0" and nothing more
+        // would be claiming a check it never made. What it can say is what gets appended, and to
+        // what — "whatever entrypoint it carries" is the honest half of the sentence.
+        Assert.True(probe.Available);
+        Assert.Contains(RealmSpec.ArgumentName, probe.Detail, StringComparison.Ordinal);
+        Assert.Contains("entrypoint", probe.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TheProbeRefusesACommandThatWouldExecAFlag() {
+        using var placement = new KubernetesPlacement(
+            Options() with { Command = [RealmSpec.ArgumentName] },
+            cluster
+        );
+
+        var probe = await placement.ProbeAsync(TestContext.Current.CancellationToken);
+
+        // A backend that cannot start a realm must say so where backends are chosen, not one
+        // placement at a time for the rest of the night.
+        Assert.False(probe.Available);
+        Assert.Contains(RealmSpec.ArgumentName, probe.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AClusterThatIsNotThereIsAnAnswerRatherThanAnException() {
         cluster.Version = null;
 
@@ -106,6 +136,61 @@ public sealed class KubernetesPlacementTests {
 
         Assert.Equal(spec.Shard.Value.ToString("D"), labels[KubernetesPlacementOptions.ShardLabel]);
         Assert.Equal("eu-fleet", labels[KubernetesPlacementOptions.OwnerLabel]);
+    }
+
+    [Fact]
+    public async Task TheImagesOwnEntrypointIsLeftAlone() {
+        using var placement = Placement();
+
+        await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
+
+        // ⚠ Absent, not empty. `command: []` is a container with no program at all; a realm image
+        // ends in ENTRYPOINT ["./YourGame.Realm"] and the pod's args are appended to it, which is
+        // exactly what a container's Cmd does on the Docker backend and what makes the spec the same
+        // string on all three.
+        Assert.Null(cluster.Last.Spec!.Containers[0].Command);
+    }
+
+    [Fact]
+    public async Task ACommandReplacesTheImagesEntrypoint() {
+        using var placement = new KubernetesPlacement(
+            Options() with { Command = ["/opt/runtime/launch"] },
+            cluster
+        );
+
+        await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
+
+        var container = cluster.Last.Spec!.Containers[0];
+
+        Assert.Equal("/opt/runtime/launch", Assert.Single(container.Command));
+
+        // And the spec still travels as arguments, which is the whole point of a Command: it says
+        // what runs, not what the realm is told.
+        Assert.Contains(RealmSpec.ArgumentName, container.Args!, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task ACommandThatIsAFlagIsRefusedBeforeAPortIsRented() {
+        var ports = new PortPool(30000, 30009);
+
+        using var placement = new KubernetesPlacement(
+            Options(ports) with { Command = [RealmSpec.ArgumentName] },
+            cluster
+        );
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        );
+
+        // What the kubelet would otherwise have said is `CreateContainerError: exec: "--realm-spec":
+        // executable file not found in $PATH`, from a pod that already exists and is holding a
+        // hostPort. This one names the image, the flag and the fix.
+        Assert.Contains("mygame/realm:0.1.0", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Command", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Arguments", failure.Message, StringComparison.Ordinal);
+
+        Assert.Empty(cluster.Pods);
+        Assert.Equal(0, ports.RentedCount);
     }
 
     [Fact]
@@ -249,6 +334,74 @@ public sealed class KubernetesPlacementTests {
 
         Assert.Equal(PlacementEventKind.Lost, lost.Kind);
         Assert.Contains("without being asked", lost.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task APodThatFailedSaysHowItDied() {
+        using var placement = Placement();
+        await using var watch = new PlacementWatch(placement);
+
+        var instance = await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
+
+        await watch.NextAsync();
+
+        cluster.Finish(instance.Id.Value, "Failed", "OOMKilled", 137);
+
+        // "pod Failed" is a phase, not a cause: a realm that returned non-zero and one the kernel
+        // shot read identically. The container status is where the difference is written down.
+        Assert.Contains("OOMKilled (exit 137)", (await watch.NextAsync()).Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ARealmIsNotLostWhileItsPodIsStillStarting() {
+        // ⚠ The API server refuses to stream the log of a container that has not started — a 400,
+        // not an empty stream — so a follow that begins when the pod is created ends at once. A
+        // backend that read that as the end of the pod would report every realm Lost milliseconds
+        // after placing it, drop its record and give its port back, and the shard the orchestrator
+        // was told about would then be unstoppable and never report ready.
+        cluster.LogsReadable = false;
+
+        using var placement = Placement();
+        await using var watch = new PlacementWatch(placement);
+
+        var instance = await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(PlacementEventKind.Started, (await watch.NextAsync()).Kind);
+
+        cluster.Waiting(instance.Id.Value, "ContainerCreating");
+
+        await Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+        Assert.False(watch.HasPending);
+    }
+
+    [Fact]
+    public async Task APodThatCannotStartItsContainerReportsWhatItTriedToExec() {
+        cluster.LogsReadable = false;
+
+        using var placement = Placement();
+        await using var watch = new PlacementWatch(placement);
+
+        var instance = await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
+
+        await watch.NextAsync();
+
+        // ⚠ The failure this backend cannot predict, arriving the only way it can. Nothing here can
+        // read an image's entrypoint — the registry knows it and the API server does not — so an
+        // image with none, whose args were therefore promoted to a program, is discovered from the
+        // pod. The kubelet says it exactly; a backend that reported only the phase would turn that
+        // sentence into "pod Pending without being asked".
+        cluster.Waiting(
+            instance.Id.Value,
+            "CreateContainerError",
+            $"exec: \"{RealmSpec.ArgumentName}\": executable file not found in $PATH"
+        );
+
+        var lost = await watch.NextAsync();
+
+        Assert.Equal(PlacementEventKind.Lost, lost.Kind);
+        Assert.Contains("CreateContainerError", lost.Detail, StringComparison.Ordinal);
+        Assert.Contains(RealmSpec.ArgumentName, lost.Detail, StringComparison.Ordinal);
     }
 
     [Fact]

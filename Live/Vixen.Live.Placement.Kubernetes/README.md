@@ -15,10 +15,37 @@ using var placement = new KubernetesPlacement(
         Owner     = "eu-fleet",
         Ports     = new PortPool(30000, 30099),      // the node range your firewall opened
         Self      = PodIdentity.FromEnvironment()    // the downward API; null outside a cluster
+        // Command = ["/opt/runtime/launch"]         // only for an image with no ENTRYPOINT of its own
     },
     new ClusterApi(ClusterApi.Connect()!)
 );
 ```
+
+## The image supplies the program, and this backend can only half-check that
+
+`args` are **appended** to the image's entrypoint; they never replace it. That is the property that
+makes a pod's command the same string a container's `Cmd` and `Process.Start` carry — `RealmSpec`'s
+whole premise — and it is why a realm image ends in `ENTRYPOINT ["./YourGame.Realm"]`, as the
+template's Dockerfile does. An image with **no** entrypoint promotes the first argument to the
+program, and the kubelet then reports
+`CreateContainerError: exec: "--realm-spec": executable file not found in $PATH` from a pod that
+already exists and is holding a `hostPort`. Set `Command` for an image that genuinely cannot carry an
+entrypoint — a shared runtime with the realm mounted into it — and it replaces the image's, exactly as
+Docker's `Entrypoint` option does.
+
+⚠ **Only half of "would this actually exec" is answerable from a cluster, and the code says which
+half.** The Docker backend asks the daemon what an image's entrypoint is before it accepts a
+placement. There is no equivalent here: the *registry* knows an image's entrypoint, and an API server
+does not until a kubelet has pulled it. So:
+
+- **Checked, in `ProbeAsync` and before `StartAsync` rents a port:** a configured `Command` whose
+  first word begins with `-`. That is always a misconfiguration — flags belong in `Arguments`.
+- **Not checked, and the probe says so rather than implying otherwise:** whether an image with no
+  `Command` carries an entrypoint. The probe's detail reads *"with `--realm-spec …` appended to
+  whatever entrypoint it carries"*, which is the true statement.
+- **Discovered, in the `Lost` event's detail:** the kubelet's own container-status reason, carried
+  into the event verbatim. This is the half that matters most, because it is the one that names the
+  program that was not found.
 
 ## The two decisions this project exists to implement
 
@@ -40,7 +67,14 @@ spends a page rejecting — and consumes a cluster IP per shard.
 the nodes' firewall and nothing here can check that; a realm on a closed port is a shard that reports
 ready and that nobody can reach.
 
-## Three things that differ from the other backends
+## Four things that differ from the other backends
+
+**A pod's log cannot be followed until its container has started**, and the API server refuses with a
+400 rather than an empty stream. Both other backends can attach to output the moment they create the
+thing; here the follow is re-attached while the pod is still on its way up, and only a pod that is
+running, gone, or stuck for a reason that will not resolve — `CreateContainerError`, `ErrImagePull`
+and the rest — ends the wait. Reading that first refusal as the end of the pod would report every
+realm `Lost` milliseconds after placing it.
 
 **The address is not known at `StartAsync`, and cannot be.** The scheduler has not placed the pod, so
 there is no node and therefore no external IP. `Started` carries no endpoint; the address is computed

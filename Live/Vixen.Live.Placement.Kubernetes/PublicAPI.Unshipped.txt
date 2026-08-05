@@ -32,6 +32,8 @@ Vixen.Live.Placement.KubernetesPlacementOptions -> sealed record
 Vixen.Live.Placement.KubernetesPlacementOptions : System.IEquatable<Vixen.Live.Placement.KubernetesPlacementOptions>
 Vixen.Live.Placement.KubernetesPlacementOptions.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Live.Placement.KubernetesPlacementOptions.Arguments.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.KubernetesPlacementOptions.Command.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.KubernetesPlacementOptions.Command.init -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Live.Placement.KubernetesPlacementOptions.DrainTimeout.get -> System.TimeSpan
 Vixen.Live.Placement.KubernetesPlacementOptions.DrainTimeout.init -> System.TimeSpan
 Vixen.Live.Placement.KubernetesPlacementOptions.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
