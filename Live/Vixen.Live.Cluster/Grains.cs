@@ -301,3 +301,75 @@ public interface IAccountGrain : IGrainWithGuidKey {
     /// </remarks>
     Task<bool> Revoke(string address);
 }
+
+/// <summary>One guild's roster and ranks. Doc 27 § Grains, and doc 28 § Social.</summary>
+/// <remarks>
+///     <para>
+///         <b>Left undeclared at L1 on purpose, and this is what was being waited for.</b> Doc 27's
+///         reason was that <em>"declaring an interface nobody implements is a promise rather than a
+///         contract"</em> — the feature belonged to doc 28 and doc 28 had not built it. G4 did.
+///     </para>
+///     <para>
+///         ⚠ <b>The grain decides ordering; the caller decides permission.</b> A charter's
+///         permissions are tags on a compiled <c>GuildCharter</c>, so <em>"may this officer
+///         kick"</em> is a content question and the realm answers it with the same code the client
+///         greys the button with. What the realm <em>cannot</em> answer is whether the roster still
+///         looks that way by the time the write lands, because two officers demoting each other at
+///         once is a race no local check can win. So the grain re-checks the one part that is
+///         intrinsic — rank is an integer and you may not act on somebody at or above your own — and
+///         that needs no content at all.
+///     </para>
+///     <para>
+///         That split is <c>HousePlot</c>'s, one tier up: the ladder comparison is arithmetic and the
+///         permissions are tags.
+///     </para>
+///     <para>
+///         ⚠ <b>Rank 0 is the leader and there is always exactly one.</b> Removing the last member is
+///         how a guild ends; demoting the only rank-0 member is refused, because a guild with no
+///         leader is one nobody can ever administer again.
+///     </para>
+/// </remarks>
+public interface IGuildGrain : IGrainWithGuidKey {
+    /// <summary>What the guild looks like.</summary>
+    /// <returns>The record, or <see cref="GuildRecord.None" /> if it was never founded.</returns>
+    Task<GuildRecord> Read();
+
+    /// <summary>Founds it.</summary>
+    /// <param name="founder">Who becomes rank 0.</param>
+    /// <param name="charter">Which charter, by address.</param>
+    /// <param name="name">What it is called.</param>
+    /// <param name="capacity">How many its charter allows. The caller reads that off the compiled charter.</param>
+    /// <returns>The outcome.</returns>
+    Task<GuildOutcome> Found(PlayerKey founder, string charter, string name, int capacity);
+
+    /// <summary>Adds somebody.</summary>
+    /// <param name="by">Who is inviting. The caller has already checked that they may.</param>
+    /// <param name="player">Who joins.</param>
+    /// <param name="rank">At what rank. Must be below the inviter's own.</param>
+    /// <returns>The outcome.</returns>
+    Task<GuildOutcome> Add(PlayerKey by, PlayerKey player, int rank);
+
+    /// <summary>Removes somebody, or lets them leave when they are their own actor.</summary>
+    /// <param name="by">Who is removing.</param>
+    /// <param name="player">Who goes.</param>
+    /// <returns>The outcome.</returns>
+    Task<GuildOutcome> Remove(PlayerKey by, PlayerKey player);
+
+    /// <summary>Moves somebody up or down.</summary>
+    /// <param name="by">Who is promoting.</param>
+    /// <param name="player">Who moves.</param>
+    /// <param name="rank">To what rank.</param>
+    /// <returns>The outcome.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Promoting somebody to rank 0 hands the guild over</b> — the old leader drops to rank
+    ///     1, because two leaders is a state no rule in this interface could resolve afterwards.
+    /// </remarks>
+    Task<GuildOutcome> SetRank(PlayerKey by, PlayerKey player, int rank);
+
+    /// <summary>Renames a rank, for this guild only.</summary>
+    /// <param name="by">Who. Must be rank 0.</param>
+    /// <param name="rank">Which rank.</param>
+    /// <param name="name">What to call it. Empty puts the charter's own name back.</param>
+    /// <returns>The outcome.</returns>
+    Task<GuildOutcome> RenameRank(PlayerKey by, int rank, string name);
+}

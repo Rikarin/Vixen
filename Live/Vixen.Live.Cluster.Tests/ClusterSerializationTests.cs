@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using Microsoft.Extensions.DependencyInjection;
 using Orleans.Serialization;
 using Xunit;
@@ -123,12 +124,21 @@ public sealed class ClusterSerializationTests {
             3
         );
 
-        var round = RoundTrip(holdings);
+        // ⚠ Compared whole, which only works because the equality is hand-written: a record's
+        // generated Equals compares an ImmutableArray by *reference*, so this line passing is itself
+        // the assertion that the trap doc 27 records for RealmEndpoint has been handled here too.
+        Assert.Equal(holdings, RoundTrip(holdings));
 
-        Assert.Equal(holdings.Unlocks, round.Unlocks);
-        Assert.Equal(holdings.Achievements, round.Achievements);
-        Assert.Equal(holdings.Points, round.Points);
-        Assert.Equal(holdings.Revision, round.Revision);
+        var guild = new GuildRecord(
+            "guilds/charter",
+            "The Fellowship",
+            [new(new(Guid.NewGuid(), Guid.NewGuid()), 0, DateTimeOffset.UnixEpoch)],
+            ImmutableDictionary<int, string>.Empty.Add(1, "Champion"),
+            DateTimeOffset.UnixEpoch,
+            4
+        );
+
+        Assert.Equal(guild, RoundTrip(guild));
     }
 
     [Fact]

@@ -4,6 +4,7 @@ Vixen.Live.Cluster.AccountHoldings : System.IEquatable<Vixen.Live.Cluster.Accoun
 Vixen.Live.Cluster.AccountHoldings.AccountHoldings(System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.AccountUnlock> Unlocks, System.Collections.Immutable.ImmutableArray<string> Achievements, int Points, uint Revision) -> void
 Vixen.Live.Cluster.AccountHoldings.Achievements.get -> System.Collections.Immutable.ImmutableArray<string>
 Vixen.Live.Cluster.AccountHoldings.Achievements.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Live.Cluster.AccountHoldings.Equals(Vixen.Live.Cluster.AccountHoldings? other) -> bool
 Vixen.Live.Cluster.AccountHoldings.Points.get -> int
 Vixen.Live.Cluster.AccountHoldings.Points.init -> int
 Vixen.Live.Cluster.AccountHoldings.Revision.get -> uint
@@ -21,6 +22,50 @@ Vixen.Live.Cluster.AccountUnlock.Order.get -> int
 Vixen.Live.Cluster.AccountUnlock.Order.init -> int
 Vixen.Live.Cluster.AccountUnlock.Source.get -> string
 Vixen.Live.Cluster.AccountUnlock.Source.init -> string
+Vixen.Live.Cluster.GuildMember -> sealed record
+Vixen.Live.Cluster.GuildMember : System.IEquatable<Vixen.Live.Cluster.GuildMember>
+Vixen.Live.Cluster.GuildMember.GuildMember(Vixen.Live.PlayerKey Player, int Rank, System.DateTimeOffset Joined) -> void
+Vixen.Live.Cluster.GuildMember.Joined.get -> System.DateTimeOffset
+Vixen.Live.Cluster.GuildMember.Joined.init -> System.DateTimeOffset
+Vixen.Live.Cluster.GuildMember.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Cluster.GuildMember.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Cluster.GuildMember.Rank.get -> int
+Vixen.Live.Cluster.GuildMember.Rank.init -> int
+Vixen.Live.Cluster.GuildOutcome -> sealed record
+Vixen.Live.Cluster.GuildOutcome : System.IEquatable<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Cluster.GuildOutcome.GuildOutcome(Vixen.Live.Cluster.GuildWrite Write, uint Revision) -> void
+Vixen.Live.Cluster.GuildOutcome.Ok.get -> bool
+Vixen.Live.Cluster.GuildOutcome.Revision.get -> uint
+Vixen.Live.Cluster.GuildOutcome.Revision.init -> uint
+Vixen.Live.Cluster.GuildOutcome.Write.get -> Vixen.Live.Cluster.GuildWrite
+Vixen.Live.Cluster.GuildOutcome.Write.init -> Vixen.Live.Cluster.GuildWrite
+Vixen.Live.Cluster.GuildRecord -> sealed record
+Vixen.Live.Cluster.GuildRecord : System.IEquatable<Vixen.Live.Cluster.GuildRecord>
+Vixen.Live.Cluster.GuildRecord.Charter.get -> string
+Vixen.Live.Cluster.GuildRecord.Charter.init -> string
+Vixen.Live.Cluster.GuildRecord.Equals(Vixen.Live.Cluster.GuildRecord? other) -> bool
+Vixen.Live.Cluster.GuildRecord.Exists.get -> bool
+Vixen.Live.Cluster.GuildRecord.Founded.get -> System.DateTimeOffset
+Vixen.Live.Cluster.GuildRecord.Founded.init -> System.DateTimeOffset
+Vixen.Live.Cluster.GuildRecord.GuildRecord(string Charter, string Name, System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.GuildMember> Members, System.Collections.Immutable.ImmutableDictionary<int, string> RankNames, System.DateTimeOffset Founded, uint Revision) -> void
+Vixen.Live.Cluster.GuildRecord.Members.get -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.GuildMember>
+Vixen.Live.Cluster.GuildRecord.Members.init -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.GuildMember>
+Vixen.Live.Cluster.GuildRecord.Name.get -> string
+Vixen.Live.Cluster.GuildRecord.Name.init -> string
+Vixen.Live.Cluster.GuildRecord.RankNames.get -> System.Collections.Immutable.ImmutableDictionary<int, string>
+Vixen.Live.Cluster.GuildRecord.RankNames.init -> System.Collections.Immutable.ImmutableDictionary<int, string>
+Vixen.Live.Cluster.GuildRecord.Revision.get -> uint
+Vixen.Live.Cluster.GuildRecord.Revision.init -> uint
+Vixen.Live.Cluster.GuildWrite -> enum : int
+Vixen.Live.Cluster.GuildWrite.Applied = 0 -> Vixen.Live.Cluster.GuildWrite
+Vixen.Live.Cluster.GuildWrite.Founded = 7 -> Vixen.Live.Cluster.GuildWrite
+Vixen.Live.Cluster.GuildWrite.Full = 6 -> Vixen.Live.Cluster.GuildWrite
+Vixen.Live.Cluster.GuildWrite.GuildWrite() -> void
+Vixen.Live.Cluster.GuildWrite.NoSuchMember = 4 -> Vixen.Live.Cluster.GuildWrite
+Vixen.Live.Cluster.GuildWrite.NotAMember = 3 -> Vixen.Live.Cluster.GuildWrite
+Vixen.Live.Cluster.GuildWrite.NotFound = 2 -> Vixen.Live.Cluster.GuildWrite
+Vixen.Live.Cluster.GuildWrite.Outranked = 5 -> Vixen.Live.Cluster.GuildWrite
+Vixen.Live.Cluster.GuildWrite.Unchanged = 1 -> Vixen.Live.Cluster.GuildWrite
 Vixen.Live.Cluster.IAccountGrain -> interface
 Vixen.Live.Cluster.IAccountGrain.Earn(string address, int points) -> System.Threading.Tasks.Task<bool>
 Vixen.Live.Cluster.IAccountGrain.Holdings() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.AccountHoldings>
@@ -33,6 +78,13 @@ Vixen.Live.Cluster.IFleetGrain.ShardChanged(Vixen.Live.Cluster.ShardReport repor
 Vixen.Live.Cluster.IFleetGrain.Shards() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.ShardReport[]>
 Vixen.Live.Cluster.IFleetGrain.Target() -> System.Threading.Tasks.Task<Vixen.Live.RealmVersion>
 Vixen.Live.Cluster.IFleetGrain.VersionSpread() -> System.Threading.Tasks.Task<double>
+Vixen.Live.Cluster.IGuildGrain -> interface
+Vixen.Live.Cluster.IGuildGrain.Add(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player, int rank) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Cluster.IGuildGrain.Found(Vixen.Live.PlayerKey founder, string charter, string name, int capacity) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Cluster.IGuildGrain.Read() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildRecord>
+Vixen.Live.Cluster.IGuildGrain.Remove(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Cluster.IGuildGrain.RenameRank(Vixen.Live.PlayerKey by, int rank, string name) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Cluster.IGuildGrain.SetRank(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player, int rank) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
 Vixen.Live.Cluster.IMapGrain -> interface
 Vixen.Live.Cluster.IMapGrain.Explain(Vixen.Live.PlayerKey player) -> System.Threading.Tasks.Task<string>
 Vixen.Live.Cluster.IMapGrain.Place(Vixen.Live.Cluster.PlaceRequest request) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlaceResult>
@@ -200,7 +252,10 @@ Vixen.Live.Cluster.ShardReport.StartedAt.get -> System.DateTimeOffset
 Vixen.Live.Cluster.ShardReport.StartedAt.init -> System.DateTimeOffset
 Vixen.Live.Cluster.ShardReport.State.get -> Vixen.Live.ShardState
 Vixen.Live.Cluster.ShardReport.State.init -> Vixen.Live.ShardState
+override Vixen.Live.Cluster.AccountHoldings.GetHashCode() -> int
+override Vixen.Live.Cluster.GuildRecord.GetHashCode() -> int
 static Vixen.Live.Cluster.AccountHoldings.Empty.get -> Vixen.Live.Cluster.AccountHoldings
+static Vixen.Live.Cluster.GuildRecord.None.get -> Vixen.Live.Cluster.GuildRecord
 static Vixen.Live.Cluster.Keys.ForFleet(string region) -> string
 static Vixen.Live.Cluster.Keys.ForMap(Vixen.Live.ShardKey key) -> string
 static Vixen.Live.Cluster.Keys.ForPlayer(Vixen.Live.PlayerKey player) -> string

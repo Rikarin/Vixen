@@ -179,4 +179,144 @@ public sealed record AccountHoldings(
 ) {
     /// <summary>An account that has nothing.</summary>
     public static AccountHoldings Empty { get; } = new([], [], 0, 0);
+
+    /// <summary>Whether two records say the same thing.</summary>
+    /// <param name="other">The other one.</param>
+    /// <returns>Whether they are equal.</returns>
+    /// <remarks>
+    ///     ⚠ Hand-written for <see cref="GuildRecord.Equals(GuildRecord)" />'s reason: a record's
+    ///     generated equality compares an <see cref="ImmutableArray{T}" /> by reference, so a
+    ///     round-tripped account never equals the one it came from.
+    /// </remarks>
+    public bool Equals(AccountHoldings? other) =>
+        other is not null
+        && Points == other.Points
+        && Revision == other.Revision
+        && Unlocks.SequenceEqual(other.Unlocks)
+        && Achievements.SequenceEqual(other.Achievements, StringComparer.Ordinal);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Points, Revision, Unlocks.Length, Achievements.Length);
+}
+
+/// <summary>Somebody in a guild, and where they stand in it.</summary>
+/// <param name="Player">Who.</param>
+/// <param name="Rank">Which rank. Zero is the leader; higher is further down.</param>
+/// <param name="Joined">When they did.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record GuildMember(
+    [property: Id(0)] PlayerKey Player,
+    [property: Id(1)] int Rank,
+    [property: Id(2)] DateTimeOffset Joined
+);
+
+/// <summary>One guild's durable shape.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The charter's <em>address</em>, never its ranks.</b> A charter is content — its rank
+///         list, its permissions and its member cap are a <c>.vxdef</c> — so a guild that stored them
+///         would be a guild that kept last patch's rules after the patch. What is genuinely per-guild
+///         is the names a leader typed over them, which is <see cref="RankNames" />.
+///     </para>
+///     <para>
+///         ⚠ <b>The bank is a ledger account and not a field.</b> Doc 27 § Persistence's invariant is
+///         that every movement of value is a row that sums to zero, and a guild bank held as a number
+///         here would be the one balance in the world outside it. It is
+///         <c>LedgerAccount.Of("guild/" + id)</c>, so a deposit is an ordinary two-legged transfer and
+///         the conservation oracle covers it for free.
+///     </para>
+/// </remarks>
+/// <param name="Charter">Which charter it was founded under.</param>
+/// <param name="Name">What it is called.</param>
+/// <param name="Members">Who is in it, in join order.</param>
+/// <param name="RankNames">What a leader renamed a rank to, by rank index. Absent means the charter's own.</param>
+/// <param name="Founded">When.</param>
+/// <param name="Revision">How many times it has changed.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record GuildRecord(
+    [property: Id(0)] string Charter,
+    [property: Id(1)] string Name,
+    [property: Id(2)] ImmutableArray<GuildMember> Members,
+    [property: Id(3)] ImmutableDictionary<int, string> RankNames,
+    [property: Id(4)] DateTimeOffset Founded,
+    [property: Id(5)] uint Revision
+) {
+    /// <summary>A guild that does not exist yet.</summary>
+    public static GuildRecord None { get; } =
+        new("", "", [], ImmutableDictionary<int, string>.Empty, default, 0);
+
+    /// <summary>Whether it has been founded.</summary>
+    public bool Exists => Charter.Length > 0;
+
+    /// <summary>Whether two records say the same thing.</summary>
+    /// <param name="other">The other one.</param>
+    /// <returns>Whether they are equal.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Hand-written, because a record's generated equality compares an
+    ///     <see cref="ImmutableArray{T}" /> by <em>reference</em>.</b> Two records holding the same
+    ///     members in the same order are otherwise unequal, so a caller asking "has this changed"
+    ///     always hears yes and a round trip never matches its source. This is the same trap doc 27
+    ///     § Slice two records for <c>RealmEndpoint</c>, found the same way — by a test that restored
+    ///     something and compared it.
+    /// </remarks>
+    public bool Equals(GuildRecord? other) =>
+        other is not null
+        && string.Equals(Charter, other.Charter, StringComparison.Ordinal)
+        && string.Equals(Name, other.Name, StringComparison.Ordinal)
+        && Founded == other.Founded
+        && Revision == other.Revision
+        && Members.SequenceEqual(other.Members)
+        && RankNames.Count == other.RankNames.Count
+        && RankNames.All(pair => other.RankNames.TryGetValue(pair.Key, out var name)
+            && string.Equals(pair.Value, name, StringComparison.Ordinal));
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Charter, Name, Founded, Revision, Members.Length, RankNames.Count);
+}
+
+/// <summary>What the grain made of a write.</summary>
+/// <remarks>
+///     ⚠ <b>Deliberately not <c>Vixen.Gameplay.Social</c>'s <c>GuildRefusal</c>, and not a copy of
+///     it.</b> That enum answers <em>"may this player do this"</em>, which needs the compiled charter
+///     and is the caller's question. This one answers only what the grain can decide without content:
+///     whether the roster still looks the way the caller thought it did. Two enums that meant the
+///     same thing would be the drift the three-assembly split exists to prevent; two that mean
+///     different things are two questions.
+/// </remarks>
+public enum GuildWrite {
+    /// <summary>It happened.</summary>
+    Applied,
+
+    /// <summary>Nothing changed, and nothing was wrong. A member added at the rank they already had.</summary>
+    Unchanged,
+
+    /// <summary>There is no guild here, or it has not been founded.</summary>
+    NotFound,
+
+    /// <summary>The actor is not in this guild.</summary>
+    NotAMember,
+
+    /// <summary>The target is not in this guild.</summary>
+    NoSuchMember,
+
+    /// <summary>The actor does not outrank the target, or is reaching above themselves.</summary>
+    Outranked,
+
+    /// <summary>It already holds as many as its charter allows.</summary>
+    Full,
+
+    /// <summary>It has been founded already.</summary>
+    Founded
+}
+
+/// <summary>What came of a write, and what the guild looks like now.</summary>
+/// <param name="Write">How it was received.</param>
+/// <param name="Revision">The revision after it, so a caller can tell a no-op from a change.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record GuildOutcome([property: Id(0)] GuildWrite Write, [property: Id(1)] uint Revision) {
+    /// <summary>Whether the guild is now in the state the caller asked for.</summary>
+    public bool Ok => Write is GuildWrite.Applied or GuildWrite.Unchanged;
 }

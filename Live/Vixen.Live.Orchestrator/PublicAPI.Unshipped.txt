@@ -117,6 +117,34 @@ Vixen.Live.Orchestration.FleetPolicy.SpawnCooldown.get -> System.TimeSpan
 Vixen.Live.Orchestration.FleetPolicy.SpawnCooldown.init -> System.TimeSpan
 Vixen.Live.Orchestration.FleetPolicy.SpawnLeadTime.get -> System.TimeSpan
 Vixen.Live.Orchestration.FleetPolicy.SpawnLeadTime.init -> System.TimeSpan
+Vixen.Live.Orchestration.GuildGrain -> sealed class
+Vixen.Live.Orchestration.GuildGrain : Orleans.Grain
+Vixen.Live.Orchestration.GuildGrain : Vixen.Live.Cluster.IGuildGrain
+Vixen.Live.Orchestration.GuildGrain.Add(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player, int rank) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Orchestration.GuildGrain.Found(Vixen.Live.PlayerKey founder, string charter, string name, int capacity) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Orchestration.GuildGrain.GuildGrain() -> void
+Vixen.Live.Orchestration.GuildGrain.Read() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildRecord>
+Vixen.Live.Orchestration.GuildGrain.Remove(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Orchestration.GuildGrain.RenameRank(Vixen.Live.PlayerKey by, int rank, string name) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Orchestration.GuildGrain.SetRank(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player, int rank) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Orchestration.GuildState -> sealed class
+Vixen.Live.Orchestration.GuildState.Add(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player, int rank) -> Vixen.Live.Cluster.GuildOutcome
+Vixen.Live.Orchestration.GuildState.Capacity.get -> int
+Vixen.Live.Orchestration.GuildState.Charter.get -> string
+Vixen.Live.Orchestration.GuildState.Count.get -> int
+Vixen.Live.Orchestration.GuildState.Exists.get -> bool
+Vixen.Live.Orchestration.GuildState.Found(Vixen.Live.PlayerKey founder, string charter, string name, int capacity) -> Vixen.Live.Cluster.GuildOutcome
+Vixen.Live.Orchestration.GuildState.Founded.get -> System.DateTimeOffset
+Vixen.Live.Orchestration.GuildState.GuildState(System.Func<System.DateTimeOffset>? now = null) -> void
+Vixen.Live.Orchestration.GuildState.Name.get -> string
+Vixen.Live.Orchestration.GuildState.Now.get -> System.Func<System.DateTimeOffset>
+Vixen.Live.Orchestration.GuildState.RankOf(Vixen.Live.PlayerKey player) -> int
+Vixen.Live.Orchestration.GuildState.Read() -> Vixen.Live.Cluster.GuildRecord
+Vixen.Live.Orchestration.GuildState.Remove(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player) -> Vixen.Live.Cluster.GuildOutcome
+Vixen.Live.Orchestration.GuildState.RenameRank(Vixen.Live.PlayerKey by, int rank, string? name) -> Vixen.Live.Cluster.GuildOutcome
+Vixen.Live.Orchestration.GuildState.Restore(Vixen.Live.Cluster.GuildRecord saved, int capacity) -> void
+Vixen.Live.Orchestration.GuildState.Revision.get -> uint
+Vixen.Live.Orchestration.GuildState.SetRank(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player, int rank) -> Vixen.Live.Cluster.GuildOutcome
 Vixen.Live.Orchestration.HealthOptions -> sealed record
 Vixen.Live.Orchestration.HealthOptions : System.IEquatable<Vixen.Live.Orchestration.HealthOptions>
 Vixen.Live.Orchestration.HealthOptions.HealthOptions(System.TimeSpan Interval, int MissesBeforeLost, System.Func<System.DateTimeOffset> Now) -> void
