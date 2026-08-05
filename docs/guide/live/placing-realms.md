@@ -123,10 +123,27 @@ using var placement = new DockerPlacement(new DockerPlacementOptions {
 });
 ```
 
-ADR-019 asks for a hand-written Engine API client rather than a package, and the surface really is
-six calls over a unix socket. The one piece that is not ordinary HTTP is the **log framing** — a
-container without a TTY has stdout and stderr multiplexed behind eight-byte headers — which is what
+ADR-019 asks for a hand-written Engine API client rather than a package, and the surface really is a
+handful of calls over a unix socket. The one piece that is not ordinary HTTP is the **log framing** —
+a container without a TTY has stdout and stderr multiplexed behind eight-byte headers — which is what
 lets a realm's `vixen-realm ready` line be told from something it wrote to stderr.
+
+⚠ **The realm image supplies the program, and the spec is appended to it.** There is no `Executable`
+option here as there is on `ProcessPlacement`, because the image already answers that question:
+
+```dockerfile
+ENTRYPOINT ["./YourGame.Realm"]
+```
+
+Docker execs the entrypoint with the container's `Cmd` appended, so what runs is
+`./YourGame.Realm --realm-spec "shard=…"` — the same string a pod's `args` and `Process.Start` carry,
+which is the property `RealmSpec` exists for. An image with **no** entrypoint makes `--realm-spec`
+itself the program, and the daemon's answer is `exec: "--realm-spec": executable file not found in
+$PATH` from a container that already exists. So the backend asks the image what it runs before it
+rents a port: `ProbeAsync` reports a backend whose image would exec a flag as unavailable, and
+`StartAsync` refuses. For an image that genuinely cannot carry an entrypoint — a shared runtime with
+the realm mounted into it — set `Entrypoint`, which replaces the image's the way Kubernetes' `command`
+does.
 
 ⚠ **There is no stdin, and there does not need to be.** `Placement.Process` writes `vixen-realm drain`
 because L0 has no control plane to say it over. A Docker deployment is an L1 deployment by

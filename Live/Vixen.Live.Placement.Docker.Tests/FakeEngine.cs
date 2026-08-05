@@ -36,6 +36,12 @@ sealed class FakeEngine : HttpMessageHandler {
     /// <summary>What the daemon says it is, or null to refuse the ping.</summary>
     public string? Version { get; set; } = "24.0.7";
 
+    /// <summary>
+    ///     What the image says its entrypoint is, or null for an image that has none — which is what
+    ///     a stock <c>hello-world</c> is, and what turns the first argument into the program.
+    /// </summary>
+    public IReadOnlyList<string>? Entrypoint { get; set; } = ["./YourGame.Realm"];
+
     /// <summary>Every path the client asked for, in order.</summary>
     public IReadOnlyCollection<string> Requests => requests;
 
@@ -82,6 +88,10 @@ sealed class FakeEngine : HttpMessageHandler {
             return Version is null
                 ? new(HttpStatusCode.ServiceUnavailable)
                 : Json($$"""{"Version":"{{Version}}","Os":"linux"}""");
+        }
+
+        if (path.Contains("/images/", StringComparison.Ordinal) && path.EndsWith("/json", StringComparison.Ordinal)) {
+            return Json(JsonSerializer.Serialize(new { Config = new { Entrypoint } }));
         }
 
         if (path.EndsWith("/containers/create", StringComparison.Ordinal)) {
