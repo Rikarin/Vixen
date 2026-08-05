@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax;
+using Vixen.Raven;
 using Vixen.Raven.Syntax;
 using Xunit;
 
@@ -150,6 +151,26 @@ public class RoundTripTests {
 
         Assert.Equal(1, attributed.AttributeLists.Count);
         Assert.Equal("Unroll", attributed.AttributeLists[0]?.Attributes[0]?.Name.ToString());
+    }
+
+    /// <summary>And the binder sees them, which is the point of the slot being filled.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The user-visible half of the fix.</b> <c>RVN2095</c> exists because nothing downstream
+    ///     reads a statement's attributes, so <c>[Unroll] for (…)</c> is a no-op the author believes
+    ///     in — and a block was the one statement where the warning could not fire, because the
+    ///     attributes never reached the tree for the binder to find. <c>[Unroll] { }</c> was therefore
+    ///     doubly silent: no effect, and nothing said so.
+    /// </remarks>
+    [Fact]
+    public void An_attributed_block_is_told_its_attributes_do_nothing() {
+        var tree = SyntaxTree.ParseText(
+            "package A.B\n\nshader Foo {\n    func M() {\n        [Unroll] {\n        }\n    }\n}\n",
+            path: "Test.rvn"
+        );
+
+        var diagnostics = Compilation.Create("Test", tree).GetDiagnostics();
+
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "RVN2095");
     }
 
     /// <summary>Recovery does not lose the source either, which is what the fuzzer actually hit.</summary>
