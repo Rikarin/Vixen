@@ -89,6 +89,7 @@
     <ItemGroup>
         <AdditionalFiles Include="..\..\Raven\Library\Water\Water.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Water\WaterMesh.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Water\Underwater.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

@@ -4,7 +4,7 @@ slug: rendering/reading-the-frame
 kind: guide
 area: Rendering
 summary: Two ways for a pass to consume its own output — a snapshot of a target inside one frame, and a pair of targets alternating across them — and why both are resources the render graph owns rather than barriers somebody remembers.
-api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource, T:Vixen.Rendering.Water.WaterSurfaceAsset, T:Vixen.Rendering.Water.WaterMeshRenderer, T:Vixen.Rendering.Water.WaterSurfacePass, T:Vixen.Rendering.Water.WaterNodeRecord, T:Vixen.Rendering.Water.WaterMeshShaders, T:Vixen.Rendering.Water.WaterMeshView, T:Vixen.Rendering.Water.WaterMeshSettings, T:Vixen.Rendering.Water.UnderwaterShape, R:Water/Water, R:Water/WaterMesh, T:Vixen.Shaders.Generated.WaterKeys, T:Vixen.Shaders.Generated.WaterMeshKeys]
+api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource, T:Vixen.Rendering.Water.WaterSurfaceAsset, T:Vixen.Rendering.Water.WaterMeshRenderer, T:Vixen.Rendering.Water.WaterSurfacePass, T:Vixen.Rendering.Water.WaterNodeRecord, T:Vixen.Rendering.Water.WaterMeshShaders, T:Vixen.Rendering.Water.WaterMeshView, T:Vixen.Rendering.Water.WaterMeshSettings, T:Vixen.Rendering.Water.UnderwaterShape, T:Vixen.Rendering.Water.UnderwaterAsset, T:Vixen.Rendering.Water.UnderwaterRenderer, R:Water/Water, R:Water/WaterMesh, R:Water/Underwater, T:Vixen.Shaders.Generated.WaterKeys, T:Vixen.Shaders.Generated.WaterMeshKeys, T:Vixen.Shaders.Generated.UnderwaterKeys]
 tags: [rendering, compositor, render-graph, water]
 since: 0.1
 status: stable
@@ -154,10 +154,24 @@ integrated against itself — clear at every depth, with nothing in a capture to
 skirt is drawn *first*, because with depth writes off nothing arbitrates between two fragments at one
 pixel except which came last.
 
-**Underwater is a volume rather than a node.** `UnderwaterShape` is doc 32's `IPostProcessShape`, and
-`WaterZoneSystem` is the source that supplies it — per zone rather than per body, because the field
-has already resolved a river mouth into one place. What it does *not* answer is the waterline: that is
-the mask `!Water` writes in alpha, and the composite that reads it is not built.
+**Underwater is two features that look like one**, and § D9 warns twice that getting the order wrong
+is architectural. The volume half is `UnderwaterShape`, doc 32's `IPostProcessShape`, supplied by
+`WaterZoneSystem` — per zone rather than per body, because the field has already resolved a river
+mouth into one place. It grades the whole frame.
+
+The other half is `!Underwater`, and it exists because **a fold produces one weight and a waterline is
+a curve**. It solves the intersection of the surface with the near plane per pixel, against the local
+surface *plane* read off the same `WaterQuery` the volume fold and the buoyancy solver read.
+
+⚠ **It goes after `!Water` and after a second `!Copy`.** What it grades is the finished frame
+*including* the water surface, so the copy it reads has to be taken after the surface was composited —
+a document reusing the copy `!Water` read would grade the frame as it was before the water was in it,
+which at the waterline is a band of unlit lake.
+
+⚠ **The surface mask does a different job in this node.** In `!Water` it says "there is water here";
+in `!Underwater` it says "the ray leaves the water here", which is what bounds the fog path. Without
+that, a diver looking up is exactly as dark as one looking down at the bed — the failure that reads as
+"underwater is just a blue filter".
 
 What supplies the water's own planes is a scene: `WaterZoneComponent` and `WaterBodyComponent` on
 ordinary entities, folded by `WaterZoneSystem` into the fields the kernel owns and uploaded by

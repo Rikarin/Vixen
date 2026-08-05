@@ -99,6 +99,16 @@ public class LibraryReflectionTests {
         // every one of its window numbers by name, and a binding index comes from declaration order
         // within a set — so adding a texture above another renumbers it silently.
         ("Water", "WaterMesh"),
+
+        // And § D9's second half — the waterline, which the volume path cannot express because a fold
+        // produces one weight for the whole frame and this needs a curve. Published on `Water`'s
+        // terms: UnderwaterRenderer binds its three planes, its local surface plane and every one of
+        // its medium coefficients by name, and its two permutations — the distortion and the caustics
+        // — are asked for by key. ⚠ And for `behindScale`'s reason once more: `surfaceNormal`'s
+        // declared default is +Y, and a key interned from a string carries no default, so an
+        // EffectConstants that wrote it as zero would give a waterline that is nowhere at all.
+        ("Water", "Underwater"),
+
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see
