@@ -133,6 +133,13 @@ public sealed class FrameDocumentTests : IDisposable {
         Assert.Equal("SceneNormals", combine.Normals);
         Assert.Equal("Reflections", combine.Reflections);
 
+        // ⚠ Both AO planes run at half resolution and this node is the only full-resolution reader
+        // either of them has, so the depth and the camera are what make the difference between an
+        // upsample that respects the depth edge at a corner and a linear tap that smears occlusion
+        // across it. A key the document names and nothing binds is silently the second one.
+        Assert.Equal("SceneDepth", combine.Depth);
+        Assert.NotNull(combine.View);
+
         Assert.Equal(
             "Reflections",
             Assert.IsType<ReflectionRenderer>(built.Builder.Nodes["Mirrors"]).Target

@@ -1,6 +1,7 @@
 package Vixen.Shaders.PostFx
 
 import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
 
 // Putting a split frame back together: the other half of `ForwardPlus.SplitOutputs`.
 //
@@ -27,6 +28,12 @@ import Vixen.Shaders.Core
 // The sun factor reaches emissive too, because target 0 carries direct and emissive as one number.
 // That is a knowing approximation: the sun channel is a soft wide term, and a frame that cannot
 // accept it shadows the sun through the cascades and turns the channel off, as above.
+//
+// The AO pair usually arrives at half resolution, and this is the one place it meets the full-res
+// frame — so the upsample lives here rather than in a pass of its own. With a depth bound, each AO
+// plane is read through `Upsample` below: four texels, bilinear coverage, and the probe upsample's
+// plane test, which is what keeps half-res occlusion from smearing across the depth edge at a
+// corner and reading as occlusion that stands beside the crease that earned it.
 
 shader AmbientCombine {
     /// The split pass's first target: direct light, emissive and specular ambient; alpha carried.
@@ -62,6 +69,10 @@ shader AmbientCombine {
     /// For the planes that may be half resolution — the AO pair, irradiance, reflections.
     var linearSampler: Sampler
 
+    /// The full-resolution depth, for the AO upsample below. Read only above zero `useBilateral`;
+    /// the stand-in rule covers the binding, as it does every optional plane.
+    var depthBuffer: Texture2D
+
     /// 1 where the named plane is real, 0 where the host bound a stand-in.
     ///
     /// Uniforms rather than permutations, deliberately: the bindings exist in every variant either
@@ -78,6 +89,28 @@ shader AmbientCombine {
     /// A multiplier on the rebuilt ambient alone — the split-mode seat of `ambientIntensity`,
     /// which the pass no longer applies to the diffuse half because the pass no longer has it.
     var intensity: float = 1f
+
+    /// 1 to upsample the AO pair bilaterally, 0 for the plain linear read.
+    ///
+    /// The AO planes come in at half resolution, and a linear tap of them at a depth edge averages
+    /// the two surfaces that meet there — occlusion that visibly stands a texel or two off the
+    /// corner that earned it. Above zero, each plane is read as its four nearest texels weighted by
+    /// the plane test below instead. Zero when the host bound no depth, because the test would then
+    /// be against a stand-in.
+    var useBilateral: float = 0f
+
+    /// What turns a depth back into the world position the plane test stands in.
+    var inverseViewProjection: mat4
+
+    /// One texel of the `occlusion` plane in UV, locating its four nearest texel centres.
+    var occlusionTexel: float2 = float2(0.001f, 0.001f)
+
+    /// One texel of the `contactOcclusion` plane, which may be a different size.
+    var contactTexel: float2 = float2(0.001f, 0.001f)
+
+    /// How far off this pixel's plane a reduced texel's surface may stand and still be averaged
+    /// in, in world units — `ScreenProbeUpsample.planeTolerance`'s number, doing the same job.
+    var planeTolerance: float = 0.05f
 
     stream var uv: float2
 
@@ -103,15 +136,30 @@ shader AmbientCombine {
         }
 
         val material = albedo.Sample(pointSampler, uv)
-        val field = occlusion.Sample(linearSampler, uv)
-        val contact = contactOcclusion.Sample(linearSampler, uv).r
+        var field = float2(1f, 1f)
+        var contact = 1f
+
+        if (useBilateral > 0f) {
+            // The pixel's own surface, reconstructed the way the AO passes reconstructed theirs, so
+            // the plane test below compares like with like.
+            val deviceDepth = depthBuffer.Sample(pointSampler, uv).r
+            val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
+            val n = Math.SafeNormalize(surface.xyz)
+
+            field = Upsample(occlusion, occlusionTexel, world, n)
+            contact = Upsample(contactOcclusion, contactTexel, world, n).x
+        } else {
+            field = occlusion.Sample(linearSampler, uv).rg
+            contact = contactOcclusion.Sample(linearSampler, uv).r
+        }
+
         val incoming = irradiance.Sample(linearSampler, uv).rgb * useIrradiance
 
         // The material's own occlusion rides in the albedo plane's alpha, so it multiplies here
         // exactly as `Ibl.Diffuse` multiplied it before the split — and the two screen terms
         // stack over it, each answering at a scale the other cannot.
-        val open = material.a * lerp(1f, field.r, useOcclusion) * lerp(1f, contact, useContactOcclusion)
-        val sun = lerp(1f, field.g, useOcclusion)
+        val open = material.a * lerp(1f, field.x, useOcclusion) * lerp(1f, contact, useContactOcclusion)
+        val sun = lerp(1f, field.y, useOcclusion)
 
         var color = lit.rgb * sun + material.rgb * incoming * open * intensity
 
@@ -122,5 +170,56 @@ shader AmbientCombine {
         color = lerp(color, mirror.rgb, saturate(mirror.a) * useReflections)
 
         return float4(color, lit.a)
+    }
+
+    /// A reduced plane's `rg` at this pixel: its four nearest texels, each weighted by bilinear
+    /// coverage and kept only if the surface it measured lies on this pixel's plane —
+    /// `ScreenProbeUpsample`'s tap rule, one lattice down.
+    ///
+    /// Each texel's surface is re-read rather than carried: the AO pass point-sampled the
+    /// full-resolution depth at its own texel centre, so point-sampling the same buffer at the same
+    /// centre recovers exactly the depth its answer stands on. A texel across a depth edge fails
+    /// the plane test and drops out, the weights renormalise over what is left, and a pixel every
+    /// texel rejects takes the plain linear blend — a smeared answer over a hole, the fallback the
+    /// probe upsample also takes. A full-resolution plane degenerates to its own texel at weight
+    /// one, so the path costs nothing wrong when a host runs AO at scale 1.
+    func Upsample(plane: Texture2D, texel: float2, world: float3, n: float3): float2 {
+        val continuous = uv / texel - 0.5f
+        val anchor = floor(continuous)
+        val fraction = continuous - anchor
+
+        var kept = float2(0f, 0f)
+        var keptWeight = 0f
+
+        for (corner in 0 .. 3) {
+            val ox = corner == 1 || corner == 3 ? 1f : 0f
+            val oy = corner >= 2 ? 1f : 0f
+            val coverage = (ox > 0f ? fraction.x : 1f - fraction.x) * (oy > 0f ? fraction.y : 1f - fraction.y)
+
+            if (coverage > 0f) {
+                val tapUv = (anchor + float2(ox, oy) + 0.5f) * texel
+
+                if (Fullscreen.InBounds(tapUv)) {
+                    val tapDepth = depthBuffer.Sample(pointSampler, tapUv).r
+
+                    // ZERO is the sky, because depth is reversed — a texel that took no march has
+                    // no surface to agree with.
+                    if (tapDepth > 0f) {
+                        val theirs = Transform.UvDepthToWorld(inverseViewProjection, tapUv, tapDepth)
+
+                        if (abs(dot(world - theirs, n)) <= planeTolerance) {
+                            kept += plane.Sample(pointSampler, tapUv).rg * coverage
+                            keptWeight += coverage
+                        }
+                    }
+                }
+            }
+        }
+
+        if (keptWeight <= 0f) {
+            return plane.Sample(linearSampler, uv).rg
+        }
+
+        return kept / keptWeight
     }
 }

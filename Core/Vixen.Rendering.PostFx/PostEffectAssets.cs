@@ -557,6 +557,20 @@ public sealed record AmbientCombineAsset : ISceneRendererAsset {
     /// <summary><c>!Reflections</c>' plane: radiance in rgb, validity in a. Empty blends none in.</summary>
     public string Reflections { get; init; } = string.Empty;
 
+    /// <summary>The full-resolution depth, for the bilateral AO upsample. Empty keeps the linear read.</summary>
+    /// <remarks>
+    ///     The AO planes usually arrive at half resolution, and this node is where they meet the
+    ///     full-resolution frame — naming the depth here is what keeps their occlusion from
+    ///     smearing across the depth edge at a corner. Wants <see cref="View" /> beside it.
+    /// </remarks>
+    public string Depth { get; init; } = string.Empty;
+
+    /// <summary>The view whose camera drives the upsample's plane test.</summary>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>How far off a pixel's plane a reduced texel may stand and still count, in metres.</summary>
+    public float PlaneTolerance { get; init; } = 0.05f;
+
     /// <summary>The name the combined radiance is published under.</summary>
     public string Output { get; init; } = "PostFx";
 
@@ -826,6 +840,9 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             Occlusion = declared.Occlusion is { Length: > 0 } occlusion ? occlusion : null,
             ContactOcclusion = declared.ContactOcclusion is { Length: > 0 } contact ? contact : null,
             Reflections = declared.Reflections is { Length: > 0 } mirrors ? mirrors : null,
+            Depth = declared.Depth is { Length: > 0 } depth ? depth : null,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            PlaneTolerance = declared.PlaneTolerance,
             Output = declared.Output,
             Intensity = declared.Intensity,
             Modules = builder.Modules,
@@ -1049,6 +1066,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             Radius = declared.Radius,
             Intensity = declared.Intensity,
             Falloff = declared.Falloff,
+            Bias = declared.Bias,
             Scale = declared.Scale,
             Modules = builder.Modules,
             Device = builder.Device,

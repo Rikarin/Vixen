@@ -6,10 +6,10 @@ import Vixen.Shaders.Geometry
 // Ground-truth ambient occlusion from depth: the horizon-based estimator.
 //
 // GTAO rather than the classic hemisphere-sampling SSAO, and the difference is not just quality. Classic
-// SSAO samples points in a hemisphere and counts how many are occluded, which converges slowly and
-// depends on a bias to avoid self-occlusion. GTAO instead finds the *horizon angle* in each of a few
-// screen-space directions and integrates the visible cone analytically — so a handful of directions gives
-// a smooth result with no bias term at all.
+// SSAO samples points in a hemisphere and counts how many are occluded, which converges slowly. GTAO
+// instead finds the *horizon angle* in each of a few screen-space directions and integrates the visible
+// cone analytically — so a handful of directions gives a smooth result. The one bias it does carry is
+// `bias` below, the price of marching all the way in to the first depth texel; see there.
 //
 // The bent normal falls out of the same search for free, and is what makes indirect specular respond to
 // occlusion rather than only indirect diffuse.
@@ -48,6 +48,15 @@ shader Ssao {
 
     /// Distance over which occlusion fades out, so distant geometry does not occlude.
     var falloff: float = 1f
+
+    /// The elevation below which a horizon does not count, as a sine — the self-occlusion guard.
+    ///
+    /// The march's first sample stands one depth texel out (see `SearchHorizon`), and at one texel
+    /// the reconstructed neighbour and the G-buffer's normal disagree by quantisation alone: on a
+    /// surface seen at a slant, half a texel of depth rounding reads as a horizon that is not there.
+    /// Flooring the elevation is what lets the march sample the near field at all rather than skip
+    /// it; the estimate is renormalised over what is left, so a full wall still reads as one.
+    var bias: float = 0.1f
 
     stream var uv: float2
 
@@ -120,8 +129,18 @@ shader Ssao {
         var weight = 0f
         val stepCount = max(Steps, 1)
 
+        // Where the first sample stands. `radius / Steps` out — the even spacing — has a hole in
+        // it: anything nearer than the first shell is never sampled, and the nearest occluder a
+        // pixel has is the wall it touches. Up close the shell is dozens of texels wide, and the
+        // hole reads as an unoccluded strip hugging every corner, exactly one shell thick. So the
+        // first sample stands at one *depth texel* instead — the closest thing the buffer resolves
+        // — whenever the shell would be farther than that, and the rest spread evenly out to the
+        // radius. What the near sample costs is precision noise, which is `bias`'s job above.
+        val stride = direction * screenRadius / texelSize
+        val first = min(1f / float(stepCount), 1f / max(length(stride), 1f))
+
         for (s in 1 .. stepCount) {
-            val t = float(s) / float(stepCount)
+            val t = first + (1f - first) * float(s - 1) / float(max(stepCount - 1, 1))
             val sampleUv = uv + direction * screenRadius * t
 
             if (!Fullscreen.InBounds(sampleUv)) {
@@ -134,8 +153,11 @@ shader Ssao {
             val distance = length(toSample)
 
             // Fades a sample out with distance, so a wall behind the pixel does not occlude it.
+            // The elevation is floored by `bias` and renormalised — the guard that pays for the
+            // one-texel first sample above.
             val attenuation = saturate(1f - distance / max(radius * falloff, Const.Epsilon))
-            val cosine = dot(Math.SafeNormalize(toSample), n) * attenuation
+            val elevation = dot(Math.SafeNormalize(toSample), n)
+            val cosine = (elevation - bias) / max(1f - bias, Const.Epsilon) * attenuation
 
             maxCosine = max(maxCosine, cosine)
             weight += attenuation

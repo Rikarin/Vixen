@@ -223,12 +223,21 @@ struct DistanceField {
         strength: float
     ): float {
         val up = Math.SafeNormalize(normal)
+
+        // The first shell stands one cell out, because a cell is the finest thing the field can
+        // resolve. `radius / samples` put it wherever the knobs happened to: inside the cell for a
+        // modest radius, where a trilinear read is the surface's own interpolation and the sample
+        // measures nothing — or several cells out for a large one, where everything nearer than the
+        // first shell, the corner a pixel actually touches, went unmeasured. The remaining shells
+        // spread evenly from there to the radius. Self-occlusion needs no bias here: over open
+        // ground the field one cell up reads one cell, and the shortfall is zero by construction.
+        val first = min(1f / max(volume.inverseCellSize, Const.Epsilon), radius)
         var occlusion = 0f
         var weight = 1f
         var total = 0f
 
         for (i in 1 .. samples) {
-            val height = radius * float(i) / float(samples)
+            val height = first + (radius - first) * float(i - 1) / float(max(samples - 1, 1))
             val clearance = Sample(volume, field, s, position + up * height)
 
             // Normalised per shell rather than in metres, so every shell answers the same question —
@@ -461,12 +470,27 @@ shader GlobalDistanceField : IDistanceFieldSource {
     /// How enclosed a point is, from a few samples up its own normal, across the whole clipmap.
     func OcclusionField(position: float3, normal: float3, radius: float, samples: int, strength: float): float {
         val up = Math.SafeNormalize(normal)
+
+        // The first shell stands one cell out — the cell of whichever level covers the point,
+        // because that is the finest thing the field resolves there. See `DistanceField.Occlusion`
+        // for the single-volume statement of the rule and for why no bias rides along.
+        var cell = 1f / distanceFieldVolumes[LevelCount - 1].inverseCellSize
+        var found = false
+
+        for (level in 0 .. LevelCount - 1) {
+            if (!found && DistanceField.Contains(distanceFieldVolumes[level], position)) {
+                cell = 1f / distanceFieldVolumes[level].inverseCellSize
+                found = true
+            }
+        }
+
+        val first = min(cell, radius)
         var occlusion = 0f
         var weight = 1f
         var total = 0f
 
         for (i in 1 .. samples) {
-            val height = radius * float(i) / float(samples)
+            val height = first + (radius - first) * float(i - 1) / float(max(samples - 1, 1))
             val clearance = SampleField(position + up * height)
 
             // The same integral as `DistanceField.Occlusion`, and the same correction: normalised per
