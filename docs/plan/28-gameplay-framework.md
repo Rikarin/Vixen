@@ -158,14 +158,14 @@ Gameplay/                               # ── a top level of its own; see bel
 ├── Vixen.Gameplay.Interaction/         # ✅ interactables, gathering, channelled use, doors
 ├── Vixen.Gameplay.Crafting/            # ✅ recipes, stations, quality, discovery
 ├── Vixen.Gameplay.Movement/            # mounts, vehicles, seats, swimming, flight, gliding, water craft
-├── Vixen.Gameplay.Travel/              # portals, waypoints, teleports, taxi, join-friend — doc 27's client half
+├── Vixen.Gameplay.Travel/              # ✅ portals, waypoints, taxi, summons — doc 27's client half
 ├── Vixen.Gameplay.Social/              # ✅ parties, squads, teams, guilds, ranks, friends, presence
 ├── Vixen.Gameplay.Chat/                # ✅ channels, routing, moderation, rate limits
 ├── Vixen.Gameplay.Economy/             # ✅ currencies, vendors, trade, mail, auction, price model
 ├── Vixen.Gameplay.Instances/           # ✅ dungeons, raids, difficulty, lockouts, encounters
 │                                       #   (the raid calendar is fleet-wide and stays a grain's)
 ├── Vixen.Gameplay.Pvp/                 # ✅ arenas, battlegrounds, objectives, scoring, rounds
-├── Vixen.Gameplay.Exploration/         # points of interest, map discovery, vistas, world map
+├── Vixen.Gameplay.Exploration/         # ✅ points of interest, map discovery, vistas, fog
 ├── Vixen.Gameplay.Housing/             # plots, decoration placement, permissions, persistence
 ├── Vixen.Gameplay.Collections/         # pets, mounts owned, skins/transmog, titles, toys, cosmetics
 └── Vixen.Gameplay.*.Tests/             # ADR-014 — siblings, one per library
@@ -535,9 +535,17 @@ node-stealing) are policies on the definition.
 (a recipe learned by experiment rather than by purchase), and skill gain. Nothing here is technically
 hard; the value is in it being *the same* system as gathering and using the same requirement algebra.
 
-> **Two of six built.** [`Vixen.Gameplay.Interaction`](../../Gameplay/Vixen.Gameplay.Interaction/README.md),
-> 15 tests, and [`Vixen.Gameplay.Crafting`](../../Gameplay/Vixen.Gameplay.Crafting/README.md), 17.
-> ⚠ **Movement, travel, exploration and the AI half are owed.**
+> **Four of six built.** [`Vixen.Gameplay.Interaction`](../../Gameplay/Vixen.Gameplay.Interaction/README.md),
+> 15 tests, [`Vixen.Gameplay.Crafting`](../../Gameplay/Vixen.Gameplay.Crafting/README.md), 17,
+> [`Vixen.Gameplay.Exploration`](../../Gameplay/Vixen.Gameplay.Exploration/README.md), 16, and
+> [`Vixen.Gameplay.Travel`](../../Gameplay/Vixen.Gameplay.Travel/README.md), 14.
+> ⚠ **Movement is blocked on doc 16's owed parent-relative replication**, which this section itself
+> predicted — overview.md still has it ⬜ as item 69, so a passenger's transform cannot be replicated
+> correctly and building the networked half now would mean building a workaround. The vehicle *model*
+> is not blocked and is owed rather than impossible. ⚠ **The AI half turned out to be much smaller
+> than the cost row implies**: threat, aggro and taunt landed in `Vixen.Gameplay.Combat` at G2, and
+> the planners, blackboard, action surface and perception are `Core/Vixen.Ai`'s and built — what is
+> actually left is leashing, spawn tables and dialogue.
 >
 > Four things worth carrying forward. ⚠ **A shared node has to be *claimed* for the duration of a
 > channel**, and that is this section's version of the duplication bug: without it two players who
@@ -552,6 +560,18 @@ hard; the value is in it being *the same* system as gathering and using the same
 > ingredients**, since a superset match means throwing everything in the pot discovers every recipe at
 > once; and **skill gain falls linearly across a band rather than off a cliff**, because a cliff makes
 > the last recipe before it the only thing anybody makes.
+>
+> On travel and exploration: ⚠ **a waypoint's unlock is a *tag*, so `Travel` never references
+> `Exploration`** — the spine forbids the edge and the tag is better anyway, since a waypoint can then
+> be unlocked by a quest or a purchase, and a game with portals does not carry a fog bitmap. ⚠ **This
+> section's "the only thing this library adds is the fiction" is taken literally**: the entire output
+> of `Travel` is a `TransferOrder`, it moves nobody, and it does not take the fare either — a fare
+> taken before a transfer that then fails is a player who paid to stay where they were. ⚠ **Map
+> completion counts only what a designer opted in and is computed rather than stored**, because a
+> patch that adds a point must not un-complete a finished map for everybody who had it at a hundred
+> per cent. ⚠ **`TravelKind`'s five values change no behaviour at all**, which is the check that this
+> library really is only the fiction: the day one of them needs to branch is the day it stopped
+> being.
 
 **Movement** is mounts and vehicles: ground, flying, aquatic, submarine, boat, car. One `IVehicle` with
 seats, a driver, passengers, a control mapping, and physics config — a mount is a single-seat vehicle

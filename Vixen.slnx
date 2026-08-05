@@ -555,6 +555,10 @@
     <Project Path="Gameplay/Vixen.Gameplay.Interaction.Tests/Vixen.Gameplay.Interaction.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Crafting/Vixen.Gameplay.Crafting.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Crafting.Tests/Vixen.Gameplay.Crafting.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Exploration/Vixen.Gameplay.Exploration.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Exploration.Tests/Vixen.Gameplay.Exploration.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Travel/Vixen.Gameplay.Travel.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Travel.Tests/Vixen.Gameplay.Travel.Tests.csproj" />
   </Folder>
 
   <!--
