@@ -1582,6 +1582,10 @@ Vixen.Rendering.PostFx.VolumetricFogAsset.Scattered.get -> string
 Vixen.Rendering.PostFx.VolumetricFogAsset.Scattered.init -> string
 Vixen.Rendering.PostFx.VolumetricFogAsset.ScatteringAlbedo.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.VolumetricFogAsset.ScatteringAlbedo.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.VolumetricFogAsset.ScenePass.get -> string
+Vixen.Rendering.PostFx.VolumetricFogAsset.ScenePass.init -> string
+Vixen.Rendering.PostFx.VolumetricFogAsset.ShadowAtlas.get -> string
+Vixen.Rendering.PostFx.VolumetricFogAsset.ShadowAtlas.init -> string
 Vixen.Rendering.PostFx.VolumetricFogAsset.Slices.get -> int
 Vixen.Rendering.PostFx.VolumetricFogAsset.Slices.init -> int
 Vixen.Rendering.PostFx.VolumetricFogAsset.SunColour.get -> Vixen.Core.Mathematics.Vector3
@@ -1608,6 +1612,8 @@ Vixen.Rendering.PostFx.VolumetricFogRenderer.Density.set -> float
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Dispatched.get -> Vixen.Core.Mathematics.Int3
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Far.get -> float
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Far.set -> float
+Vixen.Rendering.PostFx.VolumetricFogRenderer.Frame.get -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.PostFx.VolumetricFogRenderer.Frame.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Height.get -> float
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Height.set -> float
 Vixen.Rendering.PostFx.VolumetricFogRenderer.HeightFalloff.get -> bool
@@ -1630,6 +1636,13 @@ Vixen.Rendering.PostFx.VolumetricFogRenderer.Scattered.get -> string
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Scattered.init -> string
 Vixen.Rendering.PostFx.VolumetricFogRenderer.ScatteringAlbedo.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.VolumetricFogRenderer.ScatteringAlbedo.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.VolumetricFogRenderer.ScenePass.get -> string
+Vixen.Rendering.PostFx.VolumetricFogRenderer.ScenePass.set -> string
+Vixen.Rendering.PostFx.VolumetricFogRenderer.ShadowAtlas.get -> string
+Vixen.Rendering.PostFx.VolumetricFogRenderer.ShadowAtlas.init -> string
+Vixen.Rendering.PostFx.VolumetricFogRenderer.ShadowStandIn.get -> string
+Vixen.Rendering.PostFx.VolumetricFogRenderer.ShadowStandIn.init -> string
+Vixen.Rendering.PostFx.VolumetricFogRenderer.Shadowed.get -> bool
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Steps.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.ComputeRenderer>
 Vixen.Rendering.PostFx.VolumetricFogRenderer.SunColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.VolumetricFogRenderer.SunColour.set -> Vixen.Core.Mathematics.Vector3
@@ -1781,11 +1794,21 @@ Vixen.Shaders.Generated.VignetteConstants.VignetteIntensity -> float
 Vixen.Shaders.Generated.VignetteConstants.VignetteRoundness -> float
 Vixen.Shaders.Generated.VignetteConstants.VignetteSmoothness -> float
 Vixen.Shaders.Generated.VignetteKeys -> static class
+Vixen.Shaders.Generated.VolumetricFogCascadesElement -> struct
+Vixen.Shaders.Generated.VolumetricFogCascadesElement.DepthScale -> float
+Vixen.Shaders.Generated.VolumetricFogCascadesElement.Split -> float
+Vixen.Shaders.Generated.VolumetricFogCascadesElement.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.VolumetricFogCascadesElement.VolumetricFogCascadesElement() -> void
 Vixen.Shaders.Generated.VolumetricFogConstants -> struct
 Vixen.Shaders.Generated.VolumetricFogConstants.AmbientColour -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.VolumetricFogConstants.FogFar -> float
 Vixen.Shaders.Generated.VolumetricFogConstants.FogNear -> float
+Vixen.Shaders.Generated.VolumetricFogConstants.InverseView -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.VolumetricFogConstants.PhaseG -> float
+Vixen.Shaders.Generated.VolumetricFogConstants.ShadowConstantBias -> float
+Vixen.Shaders.Generated.VolumetricFogConstants.ShadowFadeRange -> float
+Vixen.Shaders.Generated.VolumetricFogConstants.ShadowSlopeBias -> float
+Vixen.Shaders.Generated.VolumetricFogConstants.ShadowTexelSize -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.VolumetricFogConstants.SunColour -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.VolumetricFogConstants.SunDirection -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.VolumetricFogConstants.TanHalfFov -> Vixen.Core.Mathematics.Vector2
@@ -2004,7 +2027,10 @@ const Vixen.Shaders.Generated.VignetteKeys.LinearSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.VignetteKeys.ShaderName = "Vignette" -> string
 const Vixen.Shaders.Generated.VignetteKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.VignetteKeys.SourceSet = 2 -> int
-const Vixen.Shaders.Generated.VolumetricFogConstants.Size = 64 -> int
+const Vixen.Shaders.Generated.VolumetricFogCascadesElement.BaseOffset = 128 -> int
+const Vixen.Shaders.Generated.VolumetricFogCascadesElement.Count = 4 -> int
+const Vixen.Shaders.Generated.VolumetricFogCascadesElement.Stride = 80 -> int
+const Vixen.Shaders.Generated.VolumetricFogConstants.Size = 480 -> int
 const Vixen.Shaders.Generated.VolumetricFogInjectConstants.Size = 128 -> int
 const Vixen.Shaders.Generated.VolumetricFogInjectKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.VolumetricFogInjectKeys.ConstantBufferSet = 2 -> int
@@ -2014,13 +2040,17 @@ const Vixen.Shaders.Generated.VolumetricFogInjectKeys.TargetBinding = 1 -> uint
 const Vixen.Shaders.Generated.VolumetricFogInjectKeys.TargetSet = 2 -> int
 const Vixen.Shaders.Generated.VolumetricFogKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.VolumetricFogKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.VolumetricFogKeys.ConstantBufferSize = 64 -> int
+const Vixen.Shaders.Generated.VolumetricFogKeys.ConstantBufferSize = 480 -> int
 const Vixen.Shaders.Generated.VolumetricFogKeys.ShaderName = "VolumetricFog" -> string
+const Vixen.Shaders.Generated.VolumetricFogKeys.ShadowMapBinding = 2 -> uint
+const Vixen.Shaders.Generated.VolumetricFogKeys.ShadowMapSet = 2 -> int
+const Vixen.Shaders.Generated.VolumetricFogKeys.ShadowSamplerBinding = 4 -> uint
+const Vixen.Shaders.Generated.VolumetricFogKeys.ShadowSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.VolumetricFogKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.VolumetricFogKeys.SourceSet = 2 -> int
-const Vixen.Shaders.Generated.VolumetricFogKeys.TargetBinding = 3 -> uint
+const Vixen.Shaders.Generated.VolumetricFogKeys.TargetBinding = 5 -> uint
 const Vixen.Shaders.Generated.VolumetricFogKeys.TargetSet = 2 -> int
-const Vixen.Shaders.Generated.VolumetricFogKeys.VolumeSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.VolumetricFogKeys.VolumeSamplerBinding = 3 -> uint
 const Vixen.Shaders.Generated.VolumetricFogKeys.VolumeSamplerSet = 2 -> int
 override Vixen.Rendering.PostFx.AmbientCombineRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
@@ -2066,6 +2096,7 @@ readonly Vixen.Shaders.Generated.SkyConstants.Write(System.Span<byte> buffer) ->
 readonly Vixen.Shaders.Generated.SsaoConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TaaConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.VignetteConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.VolumetricFogCascadesElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.VolumetricFogConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.VolumetricFogInjectConstants.Write(System.Span<byte> buffer) -> void
 required Vixen.Rendering.PostFx.AmbientCombineRenderer.Albedo.get -> string
@@ -2463,8 +2494,16 @@ static readonly Vixen.Shaders.Generated.VolumetricFogKeys.FogNear -> Vixen.Shade
 static readonly Vixen.Shaders.Generated.VolumetricFogKeys.GridX -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.VolumetricFogKeys.GridY -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.VolumetricFogKeys.GridZ -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.VolumetricFogKeys.InverseView -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.VolumetricFogKeys.Pass -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.VolumetricFogKeys.PhaseG -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VolumetricFogKeys.ShadowConstantBias -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VolumetricFogKeys.ShadowFadeRange -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VolumetricFogKeys.ShadowMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.VolumetricFogKeys.ShadowSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.VolumetricFogKeys.ShadowSlopeBias -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VolumetricFogKeys.ShadowTexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.VolumetricFogKeys.Shadowed -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VolumetricFogKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.VolumetricFogKeys.SunColour -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.VolumetricFogKeys.SunDirection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>

@@ -310,6 +310,16 @@ public sealed record VolumetricFogAsset : ISceneRendererAsset {
     /// <inheritdoc cref="Media" />
     public string Output { get; init; } = "FogVolume";
 
+    /// <summary>The cascade atlas the froxels are shadowed against.</summary>
+    /// <remarks>
+    ///     ⚠ Naming it does not turn shadowing on — the frame declaring it does, along with the
+    ///     cascades published under <see cref="ScenePass" />. See <c>VolumetricFogRenderer.Shadowed</c>.
+    /// </remarks>
+    public string ShadowAtlas { get; init; } = "ShadowAtlas";
+
+    /// <summary>Whose published cascades and biases the shadow taps use.</summary>
+    public string ScenePass { get; init; } = "ForwardPlus";
+
     /// <summary>How many froxels across, down and deep.</summary>
     public int Width { get; init; } = 160;
 
