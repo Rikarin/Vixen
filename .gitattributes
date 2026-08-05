@@ -50,3 +50,67 @@
 *.dll  binary
 *.so   binary
 *.dylib binary
+
+# The engine's own binary asset formats, for .bin's reason and with a sharper edge on it: these are
+# packed little-endian floats and ushorts, so whether a given file happens to contain a NUL byte in
+# the range git samples is a property of the terrain somebody sculpted. Outskirts.vxterrain has 29
+# NUL bytes in the 8 KB git looks at — a heightfield with no zero-valued sample, which is what a
+# terrain sitting entirely above its own base height is, would have none at all, be classified text,
+# and be rewritten on a Windows checkout. Its samples are not lines, and a CR LF inside one is
+# two height values, so the rewrite shifts every byte after it. The importers then reject their own
+# magic number (VXFL, VXTERRA1) if they are lucky, and import shifted instance data if they are not.
+# Which of the two you get is decided by where in the file the pair fell.
+*.vxfol     binary
+*.vxterrain binary
+# HeightmapImporter's two: a .r16 is width × height × two bytes with no header at all — there is not
+# even a magic number to refuse with, so a rewritten one imports silently as a terrain of vertical
+# noise. A .hmpng is a 16-bit PNG, read by TerrainHeightmapPng rather than the texture path, and
+# .png's own rule does not reach it because the extension is different.
+*.r16       binary
+*.hmpng     binary
+
+# The source formats Vixen.Editor.Assets claims and reads as bytes rather than through a
+# StreamReader. Same hazard, no engine authorship: these arrive from a DCC and go straight into a
+# decoder. jump.wav already carries a CR LF pair and is saved only by the 68 NUL bytes beside it.
+# The text source formats the importers also claim — .obj and .dae, and the .cube LUT that
+# CubeLutImporter reads through a StreamReader — are deliberately left to `text=auto`.
+*.jpeg  binary
+*.bmp   binary
+*.tga   binary
+*.psd   binary
+*.gif   binary
+*.hdr   binary
+*.wav   binary
+*.wave  binary
+*.ogg   binary
+*.mp3   binary
+*.flac  binary
+# .opus has no importer — it is the voice codec, read by OpusStreamDecoder — but its fixtures in
+# Core/Vixen.Audio.Codecs.Tests are committed, and one of the assertions on them is about the file's
+# length. A rewrite would change the number the test compares against, which is not a failure that
+# reads as an encoding problem.
+*.opus  binary
+*.webm  binary
+*.mkv   binary
+*.mp4   binary
+*.m4v   binary
+*.mov   binary
+*.3ds   binary
+*.blend binary
+# .ply and .stl each have an ASCII form and a binary form under one extension. Declared binary
+# because that is the form a rewrite destroys; an ASCII one merely goes un-normalised, which costs
+# nothing.
+*.ply   binary
+*.stl   binary
+
+# Two more that no importer claims but that are committed and were falling to `text=auto`.
+# docs/api-history's Brotli is the thinnest margin in the repository: 2.5 MB of entropy-coded stream
+# with 33 NUL bytes in the range git samples and 26 CR LF pairs already sitting in it. Those pairs
+# are compressed data, not line ends. One regenerated snapshot that happens to place no NUL in the
+# first 8 KB is classified text, and a Windows checkout then rewrites 26 bytes of a stream whose
+# decoder has no way to tell you which byte went wrong — it just fails to decompress.
+*.br    binary
+# SPIR-V modules are 32-bit words. The NUL margin here is structural rather than lucky (OpName pads
+# its strings to word boundaries), so this is belt-and-braces — but it also stops git offering a
+# textual diff of one, which is never what anybody wanted.
+*.spv   binary
