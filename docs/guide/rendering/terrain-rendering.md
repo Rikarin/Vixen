@@ -4,7 +4,7 @@ slug: rendering/terrain-rendering
 kind: guide
 area: Rendering
 summary: A quadtree with a vertex morph, one instanced grid patch, no vertex buffer, and one draw call however many patches it takes.
-api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, T:Vixen.Shaders.Generated.TerrainLitKeys, T:Vixen.Shaders.Generated.TerrainLitConstants, T:Vixen.Shaders.Generated.TerrainLitCascadesElement, R:Terrain/Terrain, R:Terrain/TerrainLit, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures, T:Vixen.Rendering.Terrain.TerrainStreamer, T:Vixen.Rendering.Terrain.TerrainTilePages, T:Vixen.Rendering.Terrain.TerrainTileSource, T:Vixen.Rendering.Terrain.ITerrainTileSource, T:Vixen.Rendering.Terrain.TerrainTileHandler, T:Vixen.Engine.Renderer.AssetTerrainTextures, T:Vixen.Rendering.Terrain.TerrainNodeAsset, T:Vixen.Rendering.Terrain.TerrainFactory, T:Vixen.Rendering.Terrain.TerrainSceneRenderer, T:Vixen.Rendering.Terrain.TerrainSceneSource, T:Vixen.Rendering.Terrain.TerrainSceneEntry, T:Vixen.Rendering.Terrain.ITerrainAssetSource, T:Vixen.Rendering.Terrain.TerrainExtractionSystem, T:Vixen.Rendering.Terrain.TerrainVegetationQuality, T:Vixen.Engine.Renderer.AssetTerrainSource]
+api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, T:Vixen.Shaders.Generated.TerrainLitKeys, T:Vixen.Shaders.Generated.TerrainLitConstants, T:Vixen.Shaders.Generated.TerrainLitCascadesElement, T:Vixen.Shaders.Generated.TerrainCasterKeys, T:Vixen.Shaders.Generated.TerrainCasterConstants, R:Terrain/Terrain, R:Terrain/TerrainLit, R:Terrain/TerrainCaster, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures, T:Vixen.Rendering.Terrain.TerrainStreamer, T:Vixen.Rendering.Terrain.TerrainTilePages, T:Vixen.Rendering.Terrain.TerrainTileSource, T:Vixen.Rendering.Terrain.ITerrainTileSource, T:Vixen.Rendering.Terrain.TerrainTileHandler, T:Vixen.Engine.Renderer.AssetTerrainTextures, T:Vixen.Rendering.Terrain.TerrainNodeAsset, T:Vixen.Rendering.Terrain.TerrainFactory, T:Vixen.Rendering.Terrain.TerrainSceneRenderer, T:Vixen.Rendering.Terrain.TerrainSceneSource, T:Vixen.Rendering.Terrain.TerrainSceneEntry, T:Vixen.Rendering.Terrain.ITerrainAssetSource, T:Vixen.Rendering.Terrain.TerrainExtractionSystem, T:Vixen.Rendering.Terrain.TerrainVegetationQuality, T:Vixen.Engine.Renderer.AssetTerrainSource]
 tags: [terrain, rendering, lod, cdlod, instancing]
 since: 0.1
 status: preview
@@ -314,10 +314,50 @@ convention, where zero is the sky — while withholding diffuse ambient, which t
 at the other end of the frame rebuilds from real irradiance and real occlusion. Screen-space GI, AO
 and the combine then see the ground exactly as they see everything else.
 
-⚠ **Still owed:** terrain and grass as shadow *casters* (`TerrainComponent.CastShadows` is carried,
-not yet consumed, as is `LodBias`), motion vectors, punctual shadow atlas sampling for the lamps,
-the virtual shadow map (a frame running it shadows its ground from the cascades underneath), and
-per-layer surface roughness reaching the lit BRDF — the splat stays diffuse until the surface
+## Shadow casting
+
+A terrain with `TerrainComponent.CastShadows` — on by `TerrainComponent.Of`, off in a zeroed
+component — draws into the sun's cascade atlas, so it self-shadows its own valleys and throws its
+hills across everything else the frame shades. There is nothing to install beyond what lit shading
+already asked for: `TerrainFactory`'s document transform inserts a caster node wherever a document
+holds a `!Terrain` node and a `!ShadowMap` writing the atlas it samples, directly **after** the
+shadow node — position is the point, because the graph runs passes in declaration order and a
+caster pass declared where the terrain node builds (after the Main pass) would write depths the
+frame had already sampled. Register the factory after `PostEffectFactory`, as the samples do: the
+transform has to see the expanded frame, not the `!StandardFrame` preset that stands for it.
+
+What the caster pass does: loads the atlas — never clears, the mesh casters' depths are in it and
+reverse-Z `Greater` merges the terrain depth-correctly — then draws one tile per cascade under the
+shadow node's own viewports, with the cascade's *unfolded* matrix read straight off that node
+(`ShadowMapRenderer.Cascades`; the published, tile-folded form is for lookups). It rasterises on
+the caster stage's conventions: back faces culled, zero raster bias — the frame's biases are added
+in the sampling, in metres — and depth clamp where the device has it.
+
+Three deliberate shapes worth knowing:
+
+- **Coverage is the whole terrain at one coarse level, not the camera's node set.** A hill behind
+  the camera still casts into the view, so the caster tiles the entire heightfield uniformly —
+  at most 8×8 patches, the level rising with the terrain's size, floored to the streamer's pinned
+  tail so every read is resident. Uniform also means no morph and no cracks by construction; a
+  cascade's texels cannot see the boundary the morph exists for.
+- **Holes cast no shadow.** The caster keeps a fragment stage for exactly one line: the hole mask's
+  `discard`, because a cave mouth throwing the shadow of a solid hillside reads as a bug standing
+  in front of the cave. That is the pass's whole fragment cost.
+- **A terrain casts from its second frame.** The caster pass records before the surface's own
+  upload pass runs, so a heightfield born this frame is skipped until its atlas has been copied
+  once — one frame of latency per new terrain, paid once.
+
+⚠ **The virtual shadow map does not receive terrain casters yet.** A frame running `shadows:
+Virtual` A/Bs the map with the cascades — the map answers where it has a drawn page, the cascades
+everywhere else — so terrain shadows appear wherever the cascades answer and are absent from drawn
+pages, the mirror of terrain *receiving* (which is cascades-only on such frames too). Marking
+terrain into the page passes is a tracked follow-up.
+
+⚠ **Still owed:** grass as a caster (blades barely resolve at cascade texel sizes, and the scatter
+is a per-camera compute whose output the shadow pass has no residency contract with — casting
+terrain without grass is the visible 95 %), `LodBias` (carried, not yet consumed), motion vectors,
+punctual shadow atlas sampling for the lamps, terrain in the virtual shadow map's pages as above,
+and per-layer surface roughness reaching the lit BRDF — the splat stays diffuse until the surface
 textures teach it otherwise.
 
 ## See also

@@ -264,6 +264,12 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     public ReadOnlySpan<float> Splits => splits.AsSpan(0, count);
 
     /// <summary>The cascades this frame fitted.</summary>
+    /// <remarks>
+    ///     Each holds its <em>unfolded</em> matrix — what a foreign caster rasterises with under
+    ///     this node's own tile viewports, the terrain caster being the one that does. The folded
+    ///     form is <see cref="Publish" />'s and belongs to lookups alone: folding is
+    ///     <c>NdcToUv</c>'s business, and rasterisation is the viewport's.
+    /// </remarks>
     public ReadOnlySpan<ShadowCascade> Cascades => cascades.AsSpan(0, count);
 
     /// <summary>The views the cascades are drawn from, for a host that wants to inspect them.</summary>

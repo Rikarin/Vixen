@@ -49,6 +49,29 @@ public sealed class FrameDocumentTests {
         Assert.Equal(Array.IndexOf(names, "Main") + 1, Array.IndexOf(names, "Ground"));
     }
 
+    /// <summary>And the caster splice: directly after the sun, before anything samples the atlas.</summary>
+    /// <remarks>
+    ///     The terrain factory's transform inserts it wherever a <c>!Terrain</c> node and a
+    ///     <c>!ShadowMap</c> share an atlas — which the document's <c>shadows: Cascades</c> line
+    ///     and the <c>!Terrain</c> splice together arrange. Position is the contract: after the
+    ///     Main pass it would shadow only the ground itself.
+    /// </remarks>
+    [Fact]
+    public void The_terrain_casters_land_between_the_sun_and_the_main_pass() {
+        using var built = Build();
+
+        var children = Assert.IsType<SceneRendererSequence>(built.Compositor.Game).Children;
+        var names = children.Select(child => child.Name).ToArray();
+
+        var sun = Array.IndexOf(names, "Sun");
+        var casters = Array.IndexOf(names, "Ground.Casters");
+        var main = Array.IndexOf(names, "Main");
+
+        Assert.True(sun >= 0, "the document's cascades knob lost its sun node");
+        Assert.Equal(sun + 1, casters);
+        Assert.True(casters < main, "the caster node must build before the pass that samples the atlas");
+    }
+
     /// <summary>The node's defaults bind the standard frame's names — no target authored, none wrong.</summary>
     [Fact]
     public void The_ground_shares_the_frames_colour_and_depth() {

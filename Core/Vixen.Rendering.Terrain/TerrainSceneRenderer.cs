@@ -36,8 +36,11 @@ namespace Vixen.Rendering.Terrain;
 ///     <para>
 ///         ⚠ <b>Preview-grade shading, stated rather than discovered.</b> <c>Terrain.rvn</c> lights
 ///         with its own hard-coded sun and the default permutation covers four weight-blended
-///         layers; frame-lit shading, shadow casting and motion vectors are tracked work. What this
-///         node settles is placement and reachability, which is the part a document can say.
+///         layers; frame-lit shading rides <c>TerrainLit</c> when the frame provides its half, and
+///         shadow casting is <see cref="TerrainCasterRenderer" />'s — a sibling node, because a
+///         caster must run before the passes this node runs after. Motion vectors are tracked
+///         work. What this node settles is placement and reachability, which is the part a
+///         document can say.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A heightfield placed twice draws once.</b> The renderer's constants are per frame
@@ -335,6 +338,33 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                 );
             }
         );
+    }
+
+    /// <summary>The caster over one terrain's draw set, made when the caster node first asks.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The seam <see cref="TerrainCasterRenderer" /> reaches through: the caster borrows
+    ///         the surface's heightmap, holes and index buffer, so it lives and dies with the draw
+    ///         set — a mode flip or a LOD change disposes both together, and a caster over a
+    ///         disposed surface cannot exist.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Null until the surface has uploaded once. The caster pass records <em>before</em>
+    ///         this node's Upload pass runs, so a set born this frame holds a heightmap in the
+    ///         <c>Undefined</c> state — sampled, that is a validation error wearing a flat shadow.
+    ///         One frame of caster latency per new terrain is the cost, paid once.
+    ///     </para>
+    /// </remarks>
+    internal TerrainCasterPass? CasterFor(TerrainMap terrain, in TerrainShaders shaders, PixelFormat depthFormat) {
+        if (Device is null || !sets.TryGetValue(terrain, out var set) || set is null) {
+            return null;
+        }
+
+        if (!set.Surface.Uploaded) {
+            return null;
+        }
+
+        return set.Caster ??= new(Device, set.Surface, shaders, depthFormat);
     }
 
     /// <summary>A frame buffer the shading pass published, by the shader's bare name for it.</summary>
@@ -748,7 +778,11 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
         public GrassField? Field { get; set; }
 
+        /// <summary>The caster over this surface, or null while nothing casts. See <see cref="CasterFor" />.</summary>
+        public TerrainCasterPass? Caster { get; set; }
+
         public void Dispose() {
+            Caster?.Dispose();
             Field?.Dispose();
             Surface.Streaming?.Dispose();
             Surface.Dispose();

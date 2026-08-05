@@ -814,6 +814,79 @@ public sealed class TerrainRenderer : IDisposable {
     /// </remarks>
     internal Vector3 FrameOrigin { get; set; }
 
+    /// <summary>Whether the atlas has been copied at least once, which is when a caster may sample it.</summary>
+    /// <remarks>
+    ///     The caster node's guard: its pass records before this renderer's own Upload pass runs,
+    ///     so on the frame a renderer is built the heightmap is still <c>Undefined</c> — a caster
+    ///     that drew from it would be a validation error and a flat shadow at once. One frame of
+    ///     caster latency after construction is the price of the ordering, and it is paid once.
+    /// </remarks>
+    internal bool Uploaded => uploaded;
+
+    /// <summary>How many quads the shared grid patch spans — the caster's record arithmetic needs it.</summary>
+    internal int GridQuadCount => gridQuads;
+
+    /// <summary>How deep the atlas's mip chain is, which clamps the caster's coarse level.</summary>
+    internal int AtlasLevels => atlas.LevelCount;
+
+    /// <summary>The shared patch's index buffer, which the caster draws from too.</summary>
+    internal BufferHandle SharedIndices => indices;
+
+    /// <summary>And how many indices one patch is.</summary>
+    internal int SharedIndexCount => indexCount;
+
+    /// <summary>Fills a <c>TerrainCaster</c> block: a cascade's matrix over this terrain's geometry.</summary>
+    /// <remarks>
+    ///     Here rather than in <see cref="TerrainCasterPass" /> because every scalar below the
+    ///     matrix is this renderer's private atlas arithmetic — the caster samples the same
+    ///     heightmap through the same tile-block transform, and two derivations of that transform
+    ///     is how a shadow reads a block its surface was not drawn from.
+    /// </remarks>
+    internal void WriteCasterConstants(byte[] block, in Matrix4x4 viewProjection) {
+        var description = Terrain.Description;
+
+        new TerrainCasterConstants {
+            ViewProjection = viewProjection,
+            HeightMapSize = new(atlas.Width, atlas.Height),
+            TileSamples = atlas.TileSamples,
+            TileQuads = atlas.TileQuads,
+            AtlasTiles = new(atlas.TilesX, atlas.TilesZ),
+            HeightRange = new(description.MinHeight, description.MaxHeight),
+            MetresPerQuad = description.MetresPerQuad
+        }.Write(block);
+    }
+
+    /// <summary>Writes a caster descriptor set: the caster's own buffers over this renderer's textures.</summary>
+    /// <remarks>
+    ///     The whole set, not the two textures the caster reads — <c>TerrainCaster</c> inherits
+    ///     every binding <c>TerrainBase</c> declares, and a set is written wholly or not at all.
+    ///     The splat's slots get the same defaults <see cref="Resize" /> writes, because a binding
+    ///     the shader never samples still has to hold something a driver can validate.
+    /// </remarks>
+    internal void WriteCasterSet(DescriptorSetHandle set, BufferHandle block, BufferHandle casterNodes, long nodesOffset, long nodesSize) {
+        device.UpdateDescriptorSet(
+            set,
+            [
+                DescriptorWrite.Uniform(TerrainCasterKeys.ConstantBufferBinding, block),
+                DescriptorWrite.Texture(TerrainCasterKeys.HeightMapBinding, heightView),
+                DescriptorWrite.Texture(TerrainCasterKeys.HoleMapBinding, holeView),
+                DescriptorWrite.SamplerAt(TerrainCasterKeys.HoleSamplerBinding, holeSampler),
+                DescriptorWrite.SamplerAt(TerrainCasterKeys.HeightSamplerBinding, heightSampler),
+                DescriptorWrite.SamplerAt(TerrainCasterKeys.WeightSamplerBinding, weightSampler),
+                DescriptorWrite.SamplerAt(TerrainCasterKeys.LayerSamplerBinding, layerSampler),
+                DescriptorWrite.Storage(TerrainCasterKeys.NodesBinding, casterNodes, nodesOffset, nodesSize),
+                DescriptorWrite.Storage(TerrainCasterKeys.LayerScalesBinding, layerScales),
+                DescriptorWrite.Storage(TerrainCasterKeys.LayerBlendsBinding, layerBlends),
+                .. Enumerable.Range(0, MaxWeightMaps)
+                    .Select(map => DescriptorWrite.Texture(TerrainCasterKeys.WeightMapsBinding, weightViews[map], map)),
+                .. Enumerable.Range(0, MaxLayers)
+                    .Select(slot => DescriptorWrite.Texture(TerrainCasterKeys.LayerMapsBinding, defaultAlbedoView, slot)),
+                .. Enumerable.Range(0, MaxLayers)
+                    .Select(slot => DescriptorWrite.Texture(TerrainCasterKeys.SurfaceMapsBinding, defaultSurfaceView, slot))
+            ]
+        );
+    }
+
     /// <summary>Fills the lit shader's block: the frame's lighting, then the base surface values.</summary>
     void WriteLitBlock(byte[] block, in TerrainView view) {
         var description = Terrain.Description;

@@ -137,6 +137,11 @@ public class LibraryReflectionTests {
         // module and binds nothing the frame owns.
         ("Terrain", "TerrainLit"),
 
+        // The depth-only caster — the same geometry under a sun cascade's matrix, holes discarded.
+        // Published because TerrainCasterPass writes its block and its whole set by these keys, and
+        // its bindings must track TerrainBase's declaration order, not the preview's numbers.
+        ("Terrain", "TerrainCaster"),
+
         // The grass pair — docs/plan/31 § T6. GrassDispatch binds the scatter's cell records, its
         // instance and count buffers and every terrain texture it reads, all by name, and the draw
         // reads the buffer the scatter appended to. Published for the reason the culling passes are:

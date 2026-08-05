@@ -16,6 +16,15 @@ namespace Vixen.Rendering.Terrain;
 ///         the world's extraction bridge itself.
 ///     </para>
 ///     <para>
+///         <b>And the transformer that splices the caster.</b> A document holding a
+///         <c>!Terrain</c> node and a <c>!ShadowMap</c> writing the atlas it samples gets a
+///         <see cref="TerrainCasterRenderer" /> inserted directly after the shadow node — the one
+///         place in the frame where the cascades are drawn and nothing has sampled them yet.
+///         Registered after <c>PostEffectFactory</c>, necessarily: transformers run in
+///         registration order, and this one has to see the expanded frame the
+///         <c>!StandardFrame</c> transform produced, not the preset that stands for it.
+///     </para>
+///     <para>
 ///         ⚠ <b><see cref="Vegetation" /> is where a quality tier reaches the vegetation.</b> The
 ///         waterfall's asset lives in <c>Vixen.Rendering.PostFx</c>, which this project must not
 ///         reference, so what crosses is plain numbers: a host that resolved a tier fills them, a
@@ -24,7 +33,12 @@ namespace Vixen.Rendering.Terrain;
 ///         teaches <c>!StandardFrame</c> to emit this node.
 ///     </para>
 /// </remarks>
-public sealed class TerrainFactory : ISceneRendererFactory {
+public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTransformer {
+    // The casters built this document walk, waiting for the terrain node that owns the draw sets.
+    // Per build, because a build makes fresh nodes: Transform clears it, Create pairs from it, and
+    // an entry left behind is a caster node no terrain node answered — which draws nothing quietly,
+    // exactly as its own remarks promise.
+    readonly List<TerrainCasterRenderer> unpaired = [];
     /// <summary>Where the frame's terrains come from — the extraction bridge's list.</summary>
     /// <remarks>
     ///     Null builds nodes that draw nothing quietly, which is a document opened by a tool with
@@ -37,8 +51,106 @@ public sealed class TerrainFactory : ISceneRendererFactory {
     public TerrainVegetationQuality Vegetation { get; set; } = new();
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     Pure, as the contract demands: the same document in, the same document out — the
+    ///     insertion is decided by what the document already says, and a document that holds a
+    ///     caster node, no terrain node, or no matching shadow node passes through untouched.
+    /// </remarks>
+    public GraphicsCompositorAsset Transform(GraphicsCompositorAsset document, CompositorBuilder builder) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        // A build makes fresh nodes, so a rebuild must not pair against the last build's.
+        unpaired.Clear();
+
+        if (document.Game is not { } game) {
+            return document;
+        }
+
+        var spliced = SpliceCasters(game);
+
+        return ReferenceEquals(spliced, game) ? document : document with { Game = spliced };
+    }
+
+    /// <summary>Inserts a caster node after the shadow node whose atlas a terrain node samples.</summary>
+    /// <remarks>
+    ///     Within one children list, because that is where the standard frame's expansion puts both
+    ///     — and where any hand-authored frame that wants the splice puts them too, since a caster
+    ///     in a different sequence from its atlas's writer would have no defined order against it.
+    ///     Sequences are walked recursively so a nested frame still qualifies.
+    /// </remarks>
+    static ISceneRendererAsset SpliceCasters(ISceneRendererAsset node) {
+        if (node is not SequenceAsset sequence) {
+            return node;
+        }
+
+        var children = sequence.Children;
+        ISceneRendererAsset[]? replaced = null;
+
+        for (var index = 0; index < children.Length; index++) {
+            var child = SpliceCasters(children[index]);
+
+            if (!ReferenceEquals(child, children[index])) {
+                replaced ??= [.. children];
+                replaced[index] = child;
+            }
+        }
+
+        var current = replaced ?? children;
+        var terrain = default(TerrainNodeAsset);
+        var already = false;
+
+        foreach (var child in current) {
+            terrain ??= child as TerrainNodeAsset;
+            already |= child is TerrainCasterNodeAsset;
+        }
+
+        if (terrain is null || already) {
+            return replaced is null ? node : sequence with { Children = replaced };
+        }
+
+        for (var index = 0; index < current.Length; index++) {
+            if (current[index] is not ShadowMapAsset shadows || shadows.Atlas != terrain.ShadowAtlas) {
+                continue;
+            }
+
+            // Directly after the cascades and before anything that samples them — position is the
+            // node's whole reason to exist, so it is decided here, once, by the transform.
+            var caster = new TerrainCasterNodeAsset {
+                Name = $"{terrain.Name}.Casters",
+                Enabled = terrain.Enabled,
+                ShadowAtlas = terrain.ShadowAtlas,
+                ScenePass = terrain.ScenePass
+            };
+
+            return sequence with {
+                Children = [.. current[..(index + 1)], caster, .. current[(index + 1)..]]
+            };
+        }
+
+        return replaced is null ? node : sequence with { Children = replaced };
+    }
+
+    /// <inheritdoc />
     public SceneRenderer? Create(ISceneRendererAsset declared, CompositorBuilder builder) {
         ArgumentNullException.ThrowIfNull(builder);
+
+        if (declared is TerrainCasterNodeAsset casters) {
+            var node = new TerrainCasterRenderer {
+                Name = casters.Name,
+                Enabled = casters.Enabled,
+                ShadowAtlas = casters.ShadowAtlas,
+                ScenePass = casters.ScenePass,
+                Scene = Scene,
+                Device = builder.Device,
+                Modules = builder.Modules
+            };
+
+            // The caster precedes its terrain node in every document the transform produces, so it
+            // waits here for the node that owns the draw sets it will borrow.
+            unpaired.Add(node);
+
+            return node;
+        }
 
         if (declared is not TerrainNodeAsset terrain) {
             return null;
@@ -51,7 +163,7 @@ public sealed class TerrainFactory : ISceneRendererFactory {
             throw new CompositorBindingException(terrain.Name, "view", terrain.View);
         }
 
-        return new TerrainSceneRenderer {
+        var surfaces = new TerrainSceneRenderer {
             Name = terrain.Name,
             Enabled = terrain.Enabled,
             Output = terrain.Output,
@@ -79,5 +191,20 @@ public sealed class TerrainFactory : ISceneRendererFactory {
             Device = builder.Device,
             Modules = builder.Modules
         };
+
+        // The caster node built earlier in this walk gets the surface node whose draw sets it
+        // borrows — matched by the atlas name, because that is the contract the two halves share.
+        for (var index = 0; index < unpaired.Count; index++) {
+            if (unpaired[index].ShadowAtlas != terrain.ShadowAtlas) {
+                continue;
+            }
+
+            unpaired[index].Surfaces = surfaces;
+            unpaired.RemoveAt(index);
+
+            break;
+        }
+
+        return surfaces;
     }
 }

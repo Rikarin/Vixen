@@ -112,6 +112,13 @@ The camera's own view keeps the `Opaque` mask alone — the shadow node makes it
 cascade, and adding the caster stage to the camera would draw the level twice into the frame the
 player sees.
 
+Terrain is the one caster that does not go through the stage. The ground is not an extracted
+object — its patches live in a node's own buffers — so `TerrainComponent.CastShadows` is consumed
+by a caster node the terrain factory's transform splices directly after the shadow node, which
+loads the atlas and merges the terrain's depths into every cascade's tile under the same
+conventions this page describes: reverse-Z, back faces, zero raster bias, holes discarded. See
+[terrain rendering](terrain-rendering.md) for its shape and its virtual-shadow-map caveat.
+
 ## Examples
 
 **One mesh, two shaders, two vertex layouts.** A vertex layout is a join of two facts and only one

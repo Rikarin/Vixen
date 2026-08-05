@@ -414,6 +414,42 @@ shader Terrain : TerrainBase {
     }
 }
 
+shader TerrainCaster : TerrainBase {
+    /// The vertex stage — the shared patch arithmetic, under a cascade's matrix instead of the
+    /// camera's.
+    ///
+    /// `viewProjection` holds the *sun cascade's* view-projection with the terrain's placement
+    /// folded in, one block per tile, which is `ShadowCaster`'s whole reason for being its own
+    /// shader rather than a reuse of the camera pass: one binding must never mean different things
+    /// in different passes. The geometry is `PatchVertex` unchanged — identical placement is only a
+    /// property code can have by being the same code — and no normal-offset bias is added here,
+    /// because the frame's biases live in the sampling (`FrameShadow.Term`) and the caster stage's
+    /// convention is zero raster bias.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("SV_VertexID")] vertex: int,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        return PatchVertex(vertex, instance)
+    }
+
+    /// A hole casts no shadow, which only a `discard` can say — `ShadowCaster.Fragment`'s argument,
+    /// with the terrain's own mask: a cave mouth throwing the shadow of a solid hillside reads as a
+    /// lighting bug standing in front of the cave. The cost is a fragment stage on a pass that
+    /// could otherwise run vertex-only, paid because the holes are the one splat fact a shadow can
+    /// show.
+    ///
+    /// No `SV_Target`, deliberately: the caster pass is depth-only, and a colour output with no
+    /// attachment behind it is a validation warning per draw.
+    [FragmentShader]
+    func Fragment() {
+        if (Hole(sampleCoord)) {
+            discard
+        }
+    }
+}
+
 shader TerrainLit : TerrainBase {
     /// Whether the frame splits its outputs — `ForwardPlus.SplitOutputs`, on the terrain's terms.
     ///
