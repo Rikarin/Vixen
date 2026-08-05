@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Water.Physics</RootNamespace>
+        <Description>
+            Floats rigid bodies on Vixen.Water's surface, through Jolt. A separate assembly on
+            purpose — docs/plan/35 § D1: the water kernel is what a dedicated server runs, so nothing
+            in it may link a physics engine, and a game with water and no rigid bodies must not link
+            one either.
+        </Description>
+        <PackageTags>water;buoyancy;physics;pontoon;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The two halves this assembly exists to join, and nothing else. Vixen.Audio.Physics'
+            arrangement exactly: the kernel answers where the surface is and knows nothing about a
+            body, the physics world integrates forces and knows nothing about a wave, and this is the
+            twenty lines between them.
+
+            ⚠ Note what is *not* here: Vixen.Rendering.Water. A buoyancy solver finds the water
+            through `IWaterSurface`, which is a kernel interface, so a headless server can run this
+            without linking a graphics device. A reference to the renderer would undo § D1 in one
+            line.
+        -->
+        <ProjectReference Include="..\Vixen.Water\Vixen.Water.csproj" />
+        <ProjectReference Include="..\Vixen.Physics\Vixen.Physics.csproj" />
+
+        <!-- What the generated descriptors are registered into — a pontoon list is authored. -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Water.Physics.Tests" />
+    </ItemGroup>
+
+</Project>

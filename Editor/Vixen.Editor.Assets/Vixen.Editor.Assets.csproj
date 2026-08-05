@@ -93,6 +93,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Terrain\Vixen.Terrain.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Foliage\Vixen.Foliage.csproj" />
 
+        <!--
+            And water's one asset kind — docs/plan/35 § D6 admits exactly one, a `.vxwaves`. The
+            kernel rather than Vixen.Rendering.Water, because a sea state is arithmetic: the type the
+            importer writes is the type a dedicated server deserialises, and nothing in that path
+            opens a device.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Water\Vixen.Water.csproj" />
+
         <!-- The navmesh importer runs the bake, which is a runtime assembly's: the artefact it writes
              is what a player deserialises, so both halves have to be the same NavMeshAsset. -->
         <ProjectReference Include="..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />

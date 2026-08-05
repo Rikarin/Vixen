@@ -152,6 +152,97 @@ public sealed record WaterSurfaceAsset : ISceneRendererAsset {
     public float FoamCrest { get; init; } = 0.5f;
 }
 
+/// <summary>The waterline composite, as a document names it.</summary>
+/// <remarks>
+///     <para>
+///         <b>[35 § D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part)'s
+///         second half.</b> The volume half is a <c>PostProcessVolume</c> with
+///         <see cref="UnderwaterShape" /> and grades the whole frame; this is the curve, which a fold
+///         cannot express because a fold produces one weight.
+///     </para>
+///     <para>
+///         ⚠ <b>It goes <em>after</em> <c>!Water</c>, and after a second <c>!Copy</c>.</b> What it
+///         grades is the finished frame including the water surface, so the copy it reads has to be
+///         taken after the surface was composited — a document that reuses the copy <c>!Water</c> read
+///         would grade the frame as it was before the water was in it, which at the waterline is a
+///         band of unlit lake.
+///     </para>
+///     <para>
+///         A project that never puts a camera in the water can leave the node out entirely; a project
+///         that names it pays a fullscreen pass that returns on its first branch whenever the camera
+///         is dry.
+///     </para>
+/// </remarks>
+[DataContract("Underwater")]
+public sealed record UnderwaterAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The target it writes — the frame's scene colour.</summary>
+    public string Output { get; init; } = "SceneColour";
+
+    /// <summary>The copy of the finished frame, which is what it grades.</summary>
+    public string Behind { get; init; } = "SceneColourCopy";
+
+    /// <summary>The opaque scene's depth.</summary>
+    public string SceneDepth { get; init; } = "SceneDepth";
+
+    /// <summary>The surface plane, read for where a ray leaves the water.</summary>
+    public string Surface { get; init; } = "WaterSurface";
+
+    /// <summary>Which view's camera the waterline is solved against.</summary>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>How wide the waterline's fade is, in metres.</summary>
+    public float WaterlineFeather { get; init; } = 0.04f;
+
+    /// <summary>How much light the medium scatters out of a ray per metre, per channel.</summary>
+    /// <remarks>⚠ The same triple <c>!Water</c> carries, or the lake changes colour when you go under.</remarks>
+    public Vector3 Scattering { get; init; } = new(0.03f, 0.06f, 0.09f);
+
+    /// <summary>How much it absorbs per metre, per channel.</summary>
+    public Vector3 Absorption { get; init; } = new(0.35f, 0.06f, 0.02f);
+
+    /// <summary>Henyey–Greenstein anisotropy, carried so the medium is one description.</summary>
+    public float PhaseG { get; init; } = 0.7f;
+
+    /// <summary>What arrives from the whole sky. ⚠ Without it, below the surface is black.</summary>
+    public Vector3 SkyColour { get; init; } = new(0.35f, 0.45f, 0.6f);
+
+    /// <summary>§ D8's scale on what shows through.</summary>
+    public Vector3 BehindScale { get; init; } = Vector3.One;
+
+    /// <summary>Whether what is seen is refracted at all.</summary>
+    public bool Distortion { get; init; } = true;
+
+    /// <summary>How far the wobble displaces what is seen, in UV.</summary>
+    public float DistortionAmount { get; init; } = 0.004f;
+
+    /// <summary>How many wobbles across the screen.</summary>
+    public float DistortionScale { get; init; } = 12f;
+
+    /// <summary>How fast they travel.</summary>
+    public float DistortionSpeed { get; init; } = 0.6f;
+
+    /// <summary>Whether the moving caustic bands are added.</summary>
+    public bool Caustics { get; init; } = true;
+
+    /// <summary>How bright they are.</summary>
+    public float CausticAmount { get; init; } = 0.12f;
+
+    /// <summary>How large a caustic cell is.</summary>
+    public float CausticScale { get; init; } = 1.5f;
+
+    /// <summary>How fast the pattern drifts.</summary>
+    public float CausticSpeed { get; init; } = 0.35f;
+
+    /// <summary>How deep they fade out over, in metres.</summary>
+    public float CausticDepth { get; init; } = 12f;
+}
+
 /// <summary>Builds this assembly's node kinds for a document that names them.</summary>
 /// <remarks>
 ///     Registered on <c>CompositorBuilder.Factories</c>, which is asked <em>after</em> the built-ins —
@@ -165,6 +256,7 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
         return declared switch {
             WaterAsset water => Water(water, builder),
             WaterSurfaceAsset mesh => Mesh(mesh, builder),
+            UnderwaterAsset under => Underwater(under, builder),
             _ => null
         };
     }
@@ -180,6 +272,40 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
     ///     </para>
     /// </remarks>
     public WaterZoneSystem? Zones { get; set; }
+
+    UnderwaterRenderer Underwater(UnderwaterAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Output = declared.Output,
+            Behind = declared.Behind,
+            SceneDepth = declared.SceneDepth,
+            Surface = declared.Surface,
+            View = declared.View is { Length: > 0 } name ? builder.Views.GetValueOrDefault(name) : null,
+
+            // ⚠ The same system the surface node draws from, so the waterline is solved against the
+            // field a boat floats on and the water is drawn from — § D2 applied to a third consumer.
+            Zones = Zones,
+            WaterlineFeather = declared.WaterlineFeather,
+            Scattering = declared.Scattering,
+            Absorption = declared.Absorption,
+            PhaseG = declared.PhaseG,
+            SkyColour = declared.SkyColour,
+            BehindScale = declared.BehindScale,
+            Distortion = declared.Distortion,
+            DistortionAmount = declared.DistortionAmount,
+            DistortionScale = declared.DistortionScale,
+            DistortionSpeed = declared.DistortionSpeed,
+            Caustics = declared.Caustics,
+            CausticAmount = declared.CausticAmount,
+            CausticScale = declared.CausticScale,
+            CausticSpeed = declared.CausticSpeed,
+            CausticDepth = declared.CausticDepth,
+            Modules = builder.Modules,
+            Samplers = builder.Samplers,
+            Allocator = builder.Descriptors,
+            Device = builder.Device
+        };
 
     WaterMeshRenderer Mesh(WaterSurfaceAsset declared, CompositorBuilder builder) =>
         new() {

@@ -305,6 +305,31 @@ public sealed class WaterRipples : IWaterRipples {
         return true;
     }
 
+    /// <summary>Injects every disturbance a step produced.</summary>
+    /// <param name="queue">The step's disturbances.</param>
+    /// <returns>How many fitted inside this simulation's own budget.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queue" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>It does not clear the queue, and that is what lets there be two consumers.</b> A wake
+    ///     is a ripple <em>and</em> a burst of spray, and a queue that emptied itself on the first
+    ///     read would give whichever system was added second nothing at all — a wake with no spray,
+    ///     or spray with no wake, depending on an ordering nobody chose. The step that produced them
+    ///     is what clears it.
+    /// </remarks>
+    public int Apply(WaterDisturbances queue) {
+        ArgumentNullException.ThrowIfNull(queue);
+
+        var taken = 0;
+
+        foreach (var disturbance in queue.Queued) {
+            if (Inject(disturbance.Position, disturbance.Radius, disturbance.Strength)) {
+                taken++;
+            }
+        }
+
+        return taken;
+    }
+
     /// <summary>Advances the simulation by one fixed step.</summary>
     /// <param name="deltaTime">How long the step is, in seconds.</param>
     /// <exception cref="ArgumentException">The settings are not stable at that step.</exception>

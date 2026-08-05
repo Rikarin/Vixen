@@ -116,9 +116,15 @@ from.
 and its reason: a kernel that referenced the ECS would be a kernel a dedicated server could not link
 without also linking a world.
 
-⚠ **`WaterBodyComponent` is a *managed* component** because it names its spline by string, so the fold
-reaches it one entity at a time rather than as a span. The transforms beside it are unmanaged and are
-read as a span, which is why only one of the two loops looks unusual.
+⚠ **Both components are *managed* ones** because each names an asset by string — a body its spline, a
+zone its `.vxwaves` — so the fold reaches them one entity at a time rather than as a span. The
+transforms beside a body are unmanaged and are read as a span, which is why only one of the two loops
+looks unusual.
+
+⚠ **A named sea state becomes a value in `GatherZones` and nowhere else.** The component published in
+`Zones` carries the resolved spectrum, so the vertex stage and the underwater shape read one field
+and neither has to know the asset exists. Resolving in two places would be two answers to "what sea is
+this", and the frame they disagree on is a boat riding a different swell from the one drawn under it.
 
 ⚠ **Bodies are cached by identity, and that is what makes the whole amortisation real.** A fold that
 built a fresh `WaterBody` every frame hands the zone a different list every frame, marks the field
@@ -126,9 +132,16 @@ dirty every frame, and re-rasterises every frame — the cost § D3's threshold 
 full and invisible in a picture. `RebuiltBodies` and `UploadCount` are the readings that say it is
 working; both should track the *change* count and not the frame count.
 
-Two diagnostics rather than one: `ZonelessBodies` is a body no zone's window reached, and
-`UnresolvedBodies` is one whose spline has not loaded. The fixes are different — a zone's extent
-against an asset name — so one number for both would send an author to the wrong place.
+Three diagnostics rather than one: `ZonelessBodies` is a body no zone's window reached,
+`UnresolvedBodies` is one whose spline has not loaded, and `UnresolvedWaves` is a *zone* whose sea
+state could not be used. The fixes are different — a zone's extent, an asset name, an asset name
+again — so one number for all three would send an author to the wrong place.
+
+⚠ **The third is not like the other two, and `stat water` draws it differently on purpose.** A
+zoneless or unresolved body is water that is not on screen; a zone whose sea state did not load has
+water that looks entirely convincing and is the wrong sea, which on a client is a boat that rides
+differently from the one on the server. It is warned, not flagged red, and it is the only evidence
+there is.
 
 ## The alpha is the waterline mask
 
@@ -139,6 +152,47 @@ weight for the whole frame. This pass already knows, per pixel, whether the surf
 camera, so it says so. Designing the volume path first and discovering the waterline second is how the
 transition ends up a hard cut whose fix is architectural.
 
+
+## The waterline is a curve, and a fold cannot produce one
+
+[§ D9] divides underwater into two features that look like one, and warns twice that getting the
+order wrong is architectural: **"designing the volume path first and discovering the waterline second
+is how you get a system where the transition is a hard cut and the fix is architectural."**
+
+`UnderwaterShape` is the volume half and grades the whole frame. `!Underwater` is the other half. A
+fold produces **one weight**; a camera straddling the surface needs two treatments divided by the
+intersection of the wave surface with the near plane, which is a per-pixel question no scalar answers.
+
+⚠ **The curve is solved against the local surface *plane*, not the wave sum, and the approximation is
+stated.** The exact answer needs the info texture and the Gerstner sum bound into a post-process node
+— a second place for § D2's seam test to have to hold. Over the few centimetres a near plane spans, a
+wave is its own tangent plane to well under a millimetre. What it costs is a crest smaller than the
+near plane passing the camera, which is spray rather than a waterline.
+
+⚠ **The plane comes from the same `WaterQuery` the volume fold and the buoyancy solver read, at the
+same water time.** A waterline drawn against the rest height sits at mean sea level while the drawn
+surface moves around it, which reads as the camera being wrong rather than the line being wrong.
+
+⚠ **The mask does one job here, and it is not the waterline.** `WaterSurface`'s coverage says the
+surface is between the eye and the scene — which, underwater, means *the ray leaves the water there*.
+So it bounds the fog path. A diver looking up sees the sky through a metre of water; taking the
+distance to the sky instead makes looking up exactly as dark as looking down at the bed, which is the
+failure that reads as "underwater is just a blue filter".
+
+⚠ **The distortion and the caustics are the volume's, not the lens's** — § D9 says so outright, and the
+caustics fade with `submersion` rather than with the ray's length. The two are different questions and
+the wrong one is quietly wrong: caustics land on whatever the light reaches, so a diver just under the
+surface sees them on a wall thirty metres away and a diver at thirty metres sees none on a wall he
+could touch. Fading by the path is the second of those applied to the first, and an image fixture is
+what caught it.
+
+⚠ **A node with no zone system leaves its plane alone; a node whose zones answer nothing overwrites
+it.** The difference matters: a host that has not wired the system up has made no claim about where
+the water is, and a host that has and got nothing has claimed there is none. Collapsing the two makes
+the node impossible to drive by hand, which is how an image fixture reaches it — and is how the
+collapse was found. The plane's own default is a kilometre below the world rather than the origin,
+because a plane at the origin fogs the bottom half of every frame in a project whose ground sits below
+zero, and that reads as the effect working.
 
 ## Underwater is a shape, not a system
 

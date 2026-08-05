@@ -300,6 +300,23 @@ public sealed class WaterSurfacePass : IDisposable {
     /// <summary>How many draws the last <see cref="Record" /> made. Zero, one or two.</summary>
     public int Draws { get; private set; }
 
+    /// <summary>The patches the last <see cref="Upload" /> chose — the skirt's first, then the window's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The order is the draw order and it is load bearing</b>, which is why this is one
+    ///         span and not two: the far skirt is uploaded and drawn first because depth writes are
+    ///         off, so at a pixel where both cover the last fragment wins and the near mesh is the one
+    ///         with a field under it. The first <see cref="FarPatches" /> entries are the skirt's.
+    ///     </para>
+    ///     <para>
+    ///         Published for <c>water.showTiles</c> and <c>water.showLod</c>. A debug draw that
+    ///         selected the patches again would be drawing <em>its own</em> descent — which would
+    ///         agree with the frame's until the moment it stopped, and that moment is exactly the bug
+    ///         somebody would be turning the overlay on to find.
+    ///     </para>
+    /// </remarks>
+    public ReadOnlySpan<TerrainLodNode> Selected => CollectionsMarshal.AsSpan(selected);
+
     /// <summary>Selects this frame's patches and stages everything the draw reads.</summary>
     /// <param name="mesh">The zone's mesh, already pointed at a rasterised field.</param>
     /// <param name="view">The camera's placement and what it can see.</param>
@@ -411,23 +428,39 @@ public sealed class WaterSurfacePass : IDisposable {
             return;
         }
 
-        commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, frameSets[slot]);
-        commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, materialSets[slot]);
         commands.BindIndexBuffer(indices, IndexFormat.UInt32);
 
         // The skirt occupies the first records and the window the rest, which is what lets two
         // permutations share one instance buffer: an instanced draw's first instance is an offset.
         if (farCount > 0) {
-            commands.BindPipeline(farPipeline);
+            Bind(commands, farPipeline);
             commands.DrawIndexed(IndexCount, farCount);
             Draws++;
         }
 
         if (nearCount > 0) {
-            commands.BindPipeline(nearPipeline);
+            Bind(commands, nearPipeline);
             commands.DrawIndexed(IndexCount, nearCount, firstInstance: farCount);
             Draws++;
         }
+    }
+
+    /// <summary>Binds a pipeline and then the sets it reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The pipeline first, and per draw rather than once.</b> A descriptor set is bound
+    ///     <em>against a layout</em>, and the layout comes from the bound pipeline — so binding the
+    ///     sets before any pipeline is undefined, which Vulkan does not report and this engine's
+    ///     command list refuses by name. Both variants share one layout, so rebinding for the second
+    ///     draw is a no-op in the driver and is what keeps the rule visible rather than relying on it.
+    ///     <br />
+    ///     This is what the first frame of this pass ever recorded on a real device found, and what
+    ///     § W4's horizon shot exists to have found: a surface that draws nothing at all, on every
+    ///     device, with a fully green device-free suite behind it.
+    /// </remarks>
+    void Bind(ICommandList commands, PipelineHandle pipeline) {
+        commands.BindPipeline(pipeline);
+        commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, frameSets[slot]);
+        commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, materialSets[slot]);
     }
 
     /// <summary>Turns however many nodes were just appended into records, up to the cap.</summary>
