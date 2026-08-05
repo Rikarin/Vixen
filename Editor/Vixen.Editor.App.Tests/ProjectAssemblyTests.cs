@@ -79,17 +79,17 @@ public sealed class ProjectAssemblyTests : IDisposable {
         ?? "Debug";
 
     static string Generator(string name) {
-        var built = Path.Combine(Repository, "Core", name, "bin", Configuration, "netstandard2.1", name + ".dll");
+        var output = Path.Combine(Repository, "Core", name, "bin");
+        var built = Path.Combine(output, Configuration, "netstandard2.1", name + ".dll");
 
-        if (File.Exists(built)) {
+        if (File.Exists(built) || !Directory.Exists(output)) {
             return built;
         }
 
-        // A generator built once in the other configuration and left there is still the same code,
-        // and using it beats failing a load test over which folder it landed in.
-        foreach (var other in Directory.Exists(Path.Combine(Repository, "Core", name, "bin"))
-                     ? Directory.GetDirectories(Path.Combine(Repository, "Core", name, "bin"))
-                     : []) {
+        // A generator left behind by a build in the other configuration is the same code, and using
+        // it beats failing a load test over which folder it landed in. The path built above is still
+        // what gets returned when there is nothing at all, so the error names the expected place.
+        foreach (var other in Directory.GetDirectories(output)) {
             var candidate = Path.Combine(other, "netstandard2.1", name + ".dll");
 
             if (File.Exists(candidate)) {
