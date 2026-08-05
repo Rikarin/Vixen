@@ -107,6 +107,12 @@ public sealed partial class WaterModule : IEditorPlugin {
             )
         );
 
+        // ⚠ The half of the toolset that makes the other half visible, and it was missing entirely:
+        // the gesture wrote a curve, the body named it, and nothing turned that name back into
+        // geometry for a pane to draw. `TerrainModule` contributes an `ITerrainScene` through this
+        // same door for the same reason — see `WaterModuleScene`.
+        context.Owns(context.Services.Require<IEditorRegistry>().Add(WaterScene));
+
         WaterPanels();
 
         Shell.Modes.Add(water);

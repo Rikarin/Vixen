@@ -703,6 +703,13 @@ sealed class EditorHost : IDisposable {
             presenter.GrassStages = GrassModules();
             presenter.VegetationScene = editor.VegetationScene;
 
+            // ⚠ And the water, which needs no modules at all: the preview surface is evaluated on the
+            // CPU by the same `WaterQuery` a game's vertex stage samples — docs/plan/35 § D2 — so
+            // there is no library stage to be missing and no build in which a lake silently does not
+            // draw. Absent a contributing module the seam is null, which is a pane with no water in
+            // it and nothing else different.
+            presenter.WaterScene = editor.WaterScene;
+
             scenes.Add(presenter);
         }
     }

@@ -108,6 +108,25 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 
         <!--
+            And water's, for the terrain reference's reason one subsystem over: `WaterPresenter` runs
+            `WaterZoneSystem.Fold` over the scene document's world, which is the *same* fold a game
+            runs — docs/plan/35 § D2. A second implementation of it in the editor would be a second
+            opinion about where the water is, and the frame the two stopped agreeing on would be the
+            bug somebody opened the editor to find.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+
+        <!--
+            ⚠ And buoyancy, which is the one reference here that is *not* about drawing. docs/plan/35
+            § D1 keeps `Vixen.Water.Physics` — and therefore Jolt — out of every host that does not
+            float something, so a game opts in and `Vixen.App.Hosting` deliberately does not link it.
+            An editor is the exception, and for a reason that has nothing to do with running physics:
+            `BuoyancyBody` is a scene component, and a component whose assembly is not loaded is
+            missing from Add ▸ and takes a scene naming it down on load. See `BuiltInSubsystems`.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Water.Physics\Vixen.Water.Physics.csproj" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
             [Inspector] members of its own — which SceneEntity does — has to name the generator.
         -->

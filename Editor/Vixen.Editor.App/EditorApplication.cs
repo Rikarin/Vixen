@@ -454,6 +454,19 @@ sealed partial class EditorApplication : IDisposable {
             hierarchyStale = true;
         };
 
+        // ⚠ Before the scene is read, and that ordering is the whole of it. These used to be
+        // registered a hundred lines further down, beside the other producer-1 contributions, and
+        // touched later still — by `ComponentsView.Default`, whose remark says "before the first
+        // read" and meant the Add Component menu's. A *scene file* is read before either, so a
+        // project whose `Main.vxscene` named a component from a subsystem nothing had happened to
+        // load did not open at all: `SceneComponentRegistry` had never heard of the alias and the
+        // editor died on the way up with "Nothing in this build claims the name". Registered here
+        // and touched here, so the two reads happen in the order the failure requires.
+        foreach (var subsystem in BuiltInSubsystems) {
+            contributions.Add(Extensions.Add(subsystem));
+            subsystem.Touch();
+        }
+
         if (SceneSerializer.Load(scene, scenePath) == 0) {
             Seed();
 
@@ -505,16 +518,12 @@ sealed partial class EditorApplication : IDisposable {
         thumbnails = new ThumbnailCache(project);
         watcher = Watch(project);
 
-        // ⚠ Here rather than beside the other producer-1 registrations in `CreateAssetCommands`,
-        // because the very next line reads them. Doc 36 § D5 retires `ComponentsView.Prime` — three
-        // hardcoded `RunModuleConstructor` calls inside the panel, which was F11's "a list, in the
+        // ⚠ `BuiltInSubsystems` is registered and touched *above*, before the scene file is read —
+        // see there. Doc 36 § D5 retires `ComponentsView.Prime` — three hardcoded
+        // `RunModuleConstructor` calls inside the panel, which was F11's "a list, in the
         // application, of which subsystems exist". This is still a list and it is still the
         // application's; what changed is that it is a contribution, so a module can add to it and a
         // plugin's own runtime assembly can be declared by whoever shipped it.
-        foreach (var subsystem in BuiltInSubsystems) {
-            contributions.Add(Extensions.Add(subsystem));
-        }
-
         bridges = ComponentsView.Default(() => scene?.Behaviors, Extensions);
         code = new ProjectAssemblies(project.Paths);
 
@@ -672,6 +681,10 @@ sealed partial class EditorApplication : IDisposable {
     /// <remarks><see cref="TerrainScene" />'s arrangement exactly, and the last contribution wins.</remarks>
     internal IVegetationScene? VegetationScene =>
         Extensions.All<IVegetationScene>() is [.., var scene] ? scene : null;
+
+    /// <summary>What the viewport draws the water from, if a water module contributed one.</summary>
+    /// <remarks><see cref="TerrainScene" />'s arrangement exactly, and the last contribution wins.</remarks>
+    internal IWaterScene? WaterScene => Extensions.All<IWaterScene>() is [.., var scene] ? scene : null;
 
     /// <summary>The features this editor was told to load, in the order it registers them.</summary>
     /// <remarks>
@@ -3526,7 +3539,21 @@ sealed partial class EditorApplication : IDisposable {
     static readonly AuthoringAssembly[] BuiltInSubsystems = [
         new(typeof(Camera)),
         new(typeof(Light)),
-        new(typeof(AudioSource))
+        new(typeof(AudioSource)),
+
+        // ⚠ The ground, the water and what floats on it — three subsystems this editor references and
+        // never calls into before a scene is read, which is exactly the failure the audio line
+        // documents. A `Main.vxscene` naming a `!TerrainComponent` or a `!WaterZoneComponent` used to
+        // take the whole editor down on the way up, because the alias was unknown at the moment the
+        // file was bound.
+        new(typeof(Vixen.Rendering.Terrain.TerrainComponent)),
+        new(typeof(Vixen.Rendering.Water.WaterZoneComponent)),
+
+        // ⚠ And buoyancy, which is the one on this list the *editor* is the only reason to link.
+        // docs/plan/35 § D1 keeps `Vixen.Water.Physics` out of every host that does not float
+        // anything — a game opts in — but a scene has to be authorable before it can be opted into,
+        // and an Add Component menu with no `BuoyancyBody` in it is a component nobody can place.
+        new(typeof(Vixen.Water.Physics.BuoyancyBody))
     ];
 
     /// <summary>What a row with nothing else to say draws.</summary>

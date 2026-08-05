@@ -49,6 +49,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Foliage\Vixen.Foliage.csproj" />
 
         <!--
+            The sea state `IWaterScene` hands a viewport, on Vixen.Foliage's terms exactly: the
+            kernel is arithmetic and opens no device, and the device half — Vixen.Rendering.Water,
+            whose IWaterSplineSource and IWaterWaveSource these methods are adapted onto — stays in
+            the *presenter's* assembly.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Water\Vixen.Water.csproj" />
+
+        <!--
             The scene is an ECS world and a transform hierarchy, and play-in-editor's in-process
             topology is a snapshot of one. Vixen.Ecs arrives with it.
         -->
