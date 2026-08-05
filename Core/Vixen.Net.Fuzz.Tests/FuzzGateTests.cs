@@ -119,7 +119,17 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
 
         try {
             var seed = Corpus.Fingerprint(Encoding.UTF8.GetBytes(name));
-            var session = new FuzzSession(target, seed) { RegressionDirectory = Regressions };
+
+            var session = new FuzzSession(target, seed) {
+                RegressionDirectory = Regressions,
+
+                // The same directory Keep writes to, given to the session as well, because the one
+                // finding Keep can never write is the one that stops this method returning — a case
+                // that does not come back. The guard writes that one from its own thread while the
+                // case is still running.
+                FindingDirectory = Findings
+            };
+
             var seconds = Seconds;
             var outcome = seconds is null ? session.Run(cases) : session.RunFor(seconds.Value);
 
@@ -298,12 +308,14 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
             return;
         }
 
-        var directory = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "fuzz-findings");
-
         foreach (var finding in outcome.Findings) {
-            Corpus.WriteRegression(directory, finding.Target, finding.Input);
+            Corpus.WriteRegression(Findings, finding.Target, finding.Input);
         }
     }
+
+    /// <summary>Where the inputs that broke something go, for the workflow to upload.</summary>
+    static string Findings =>
+        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "fuzz-findings");
 
     /// <summary>Where the committed crashers live, next to this test.</summary>
     static string Regressions => Path.Combine(AppContext.BaseDirectory, "Corpus");
