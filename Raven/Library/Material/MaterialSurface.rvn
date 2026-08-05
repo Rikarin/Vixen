@@ -429,6 +429,53 @@ shader TexturedNormalMapSurface : MaterialTextures, IMaterialSurface {
     }
 }
 
+/// Occlusion, roughness and metalness from one packed map — R, G and B in that order.
+///
+/// One texture rather than three, which is the usual packing and matters beyond tidiness: a
+/// streaming pool is bounded in *pages*, so three maps per material would spend three times the
+/// residency on the same information.
+///
+/// ⚠ **It reads `d.diffuseColor` back as the base albedo, so the surface feature before it must
+/// leave its own metalness at zero.** At metalness zero `MetalRoughnessSurface` writes
+/// `diffuseColor = baseColor` and `f0 = 0.04`, which is recoverable; at any other value the albedo
+/// has already been split between the two channels by a factor this cannot see, and there is no
+/// third channel to read it out of. A material that sets metalness on its base feature *and* supplies
+/// one from a map is asking two things for one channel — the map wins, and what it multiplies is
+/// whatever the split left behind. Author the base at metalness 0 and let this decide.
+///
+/// The three scalars multiply into the map rather than replacing it, for the reason
+/// `TexturedMetalRoughnessSurface`'s colour does: a shared map can then be trimmed per material, and
+/// a material that wants the map exactly leaves all three at one.
+shader TexturedOrmSurface : MaterialTextures, IMaterialSurface {
+    /// Which slot of the frame's table holds this material's packed map.
+    var ormIndex: uint = 0u
+
+    /// How much of the map's occlusion is applied, 0 for none.
+    var occlusionStrength: float = 1f
+
+    /// What the map's roughness is scaled by.
+    var roughness: float = 1f
+
+    /// And its metalness.
+    var metalness: float = 1f
+
+    func Compute(inout d: MaterialData) {
+        val sampled = SampleSurface(ormIndex, d)
+
+        // Multiplied into whatever is already there rather than overwriting, which is
+        // `OcclusionSurface`'s argument: a baked map and a screen-space term compose without either
+        // knowing about the other.
+        d.occlusion = d.occlusion * lerp(1f, saturate(sampled.r), saturate(occlusionStrength))
+        d.perceptualRoughness = saturate(sampled.g * roughness)
+
+        val m = saturate(sampled.b * metalness)
+        val albedo = d.diffuseColor
+
+        d.diffuseColor = albedo * (1f - m)
+        d.f0 = Brdf.F0FromMetalness(albedo, m, MaterialDefaults.DielectricF0)
+    }
+}
+
 /// Adds emitted radiance.
 shader EmissiveSurface : IMaterialSurface {
     var emissiveColor: float3 = float3(0f, 0f, 0f)

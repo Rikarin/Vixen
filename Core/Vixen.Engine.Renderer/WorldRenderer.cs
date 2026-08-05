@@ -823,6 +823,7 @@ public sealed class WorldRenderer : IDisposable {
 
         var baseColor = new TexturedMetalRoughnessFeature();
         var normal = new TexturedNormalMapFeature();
+        var orm = new TexturedOrmFeature();
 
         materials.TextureIndices[
                 ParameterKeys.New<uint>(
@@ -839,6 +840,11 @@ public sealed class WorldRenderer : IDisposable {
                 )
             ] =
             ParameterKeys.New<TextureViewHandle>(normal.NormalMap);
+
+        materials.TextureIndices[
+                ParameterKeys.New<uint>(TexturedOrmFeature.OrmIndexParameter(prefix + orm.ShaderName + "."))
+            ] =
+            ParameterKeys.New<TextureViewHandle>(orm.OrmMap);
     }
 
     /// <summary>

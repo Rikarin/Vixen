@@ -188,6 +188,71 @@ public class TexturedMaterialTests {
         );
     }
 
+    /// <summary>The packed map is a third sampling feature, on the same terms as the other two.</summary>
+    /// <remarks>
+    ///     Its three scalars are multipliers rather than values, so a material that wants the map
+    ///     exactly leaves all three at one — which is why they default there and why the defaults are
+    ///     asserted: a zero would read as "no occlusion, mirror-smooth, dielectric" and look like a
+    ///     map that never arrived.
+    /// </remarks>
+    [Fact]
+    public void A_packed_map_is_named_by_its_own_composition_path() {
+        var material = Compiled(new TexturedOrmFeature());
+        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+
+        Assert.Contains("ForwardPlus.CompositeSurface.TexturedOrmSurface.ormIndex", names);
+        Assert.Contains("ForwardPlus.CompositeSurface.TexturedOrmSurface.occlusionStrength", names);
+
+        Assert.Equal(
+            "ForwardPlus.CompositeSurface.TexturedOrmSurface.ormIndex",
+            TexturedOrmFeature.OrmIndexParameter("ForwardPlus.CompositeSurface.TexturedOrmSurface.")
+        );
+
+        var feature = new TexturedOrmFeature();
+
+        Assert.Equal(1f, feature.OcclusionStrength);
+        Assert.Equal(1f, feature.Roughness);
+        Assert.Equal(1f, feature.Metalness);
+    }
+
+    /// <summary>All three sampling features compose, under three distinct names.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Three chain slots, three index parameters, three map names — and the last of those is
+    ///         the one worth an assertion. <c>MaterialRenderFeature.TextureIndices</c> is keyed by the
+    ///         shader-side name and valued by the material-side one, so two features sharing a map
+    ///         name would be two indices filled from one texture: an ORM map sampled as a normal,
+    ///         which shades and does not fail.
+    ///     </para>
+    ///     <para>
+    ///         This is the shape the whole of part B was for — a base colour, a normal and a packed
+    ///         surface map on one material, which nothing in the library could express when only
+    ///         <c>TexturedMetalRoughnessSurface</c> sampled.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void All_three_sampling_features_compose_under_distinct_names() {
+        var material = Compiled(
+            new TexturedMetalRoughnessFeature(),
+            new TexturedNormalMapFeature(),
+            new TexturedOrmFeature()
+        );
+
+        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+
+        Assert.Contains("ForwardPlus.CompositeSurface.TexturedMetalRoughnessSurface.baseColorIndex", names);
+        Assert.Contains("ForwardPlus.CompositeSurface.TexturedNormalMapSurface.normalIndex", names);
+        Assert.Contains("ForwardPlus.CompositeSurface.TexturedOrmSurface.ormIndex", names);
+
+        string[] maps = [
+            new TexturedMetalRoughnessFeature().BaseColorMap,
+            new TexturedNormalMapFeature().NormalMap,
+            new TexturedOrmFeature().OrmMap
+        ];
+
+        Assert.Equal(maps.Length, maps.Distinct(StringComparer.Ordinal).Count());
+    }
+
     static Material Compiled(params IMaterialFeature[] features) {
         var compilation = MaterialCompiler.Compile(new() { Features = features });
 
