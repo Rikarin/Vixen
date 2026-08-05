@@ -74,13 +74,28 @@ shader LocalExposure {
     /// shadow raises whatever noise is in it, and pulling a highlight down does not.
     var shadowContrast: float = 0.4f
 
-    /// The log luminance the compression pivots around — what is left exactly where it was.
+    /// Linear exposure multiplier, when it is authored rather than measured.
     ///
-    /// ⚠ Not a constant. A frame metered to put middle grey at 0.18 has a log luminance of about
-    /// −2.5 there, and a frame with no exposure applied yet has whatever its radiance says. The host
-    /// sets this from the same exposure the tonemap will use, which is what stops the effect
-    /// brightening or darkening the picture overall.
-    var pivot: float = -2.47f
+    /// ⚠ **The pivot is derived from this rather than handed over, and that is the fix for a whole
+    /// class of being wrong.** The pivot is the scene luminance that comes out as middle grey, which
+    /// is `0.18 / exposure` and nothing else — a host computing it separately is a second derivation
+    /// of one number, and the first one drifted by 2.7 stops without a single test noticing, because
+    /// what a wrong pivot produces is a picture rather than a failure.
+    var exposure: float = 1f
+
+    /// What `AutoExposure` left for this frame. One element, read only when `UseExposureBuffer`.
+    ///
+    /// ⚠ **Read here for exactly `Tonemap.rvn`'s reason.** A metered frame's exposure is produced on
+    /// the device and never crosses the bus, so a host cannot know it — and this pass runs *only* in
+    /// a metered frame, because `post.localExposure` is gated on the meter. A pivot the host supplied
+    /// would therefore be wrong in every frame this shader has ever run in.
+    var exposureBuffer: Buffer<float>
+
+    /// Whether the exposure comes from the buffer rather than from `exposure`.
+    ///
+    /// ⚠ A permutation, and — as always — it folds the *read* and not the *binding*: both variants
+    /// declare `exposureBuffer`, so a frame that leaves it unmetered still owes the slot a buffer.
+    [Permutation] val UseExposureBuffer: bool = false
 
     /// A ceiling on how far any pixel may move, in stops.
     ///
@@ -170,7 +185,7 @@ shader LocalExposure {
         // How far this region sits from where the meter says the middle is, and which way. The two
         // contrasts are separate because bringing a highlight down and lifting a shadow are not the
         // same operation with a sign — see the uniforms.
-        val offset = slow - pivot
+        val offset = slow - Pivot()
         val amount = offset > 0f ? saturate(highlightContrast) : saturate(shadowContrast)
 
         // ⚠ The *base* moves and the detail does not, which is the whole effect in one line. Scaling
@@ -179,6 +194,21 @@ shader LocalExposure {
         val moved = clamp(-offset * amount, -maximumStops, maximumStops)
 
         return float4(colour.rgb * exp2(moved), colour.a)
+    }
+
+    /// The log-2 scene luminance the compression pivots around — what is left exactly where it was.
+    ///
+    /// ⚠ **`0.18`, not the exposure equation's `1.2`.** They are both called middle grey and they are
+    /// different numbers: 1.2 is ISO 2720's calibration constant, which appears in
+    /// `exposure = 1 / (1.2 · 2^EV)` and maps an EV to the *output*; 0.18 is the reflectance that
+    /// output lands on. The scene luminance that renders as middle grey is therefore `0.18 / exposure`
+    /// — and anchoring the pivot to 1.2 instead puts it 2.74 stops too high, which drops nearly every
+    /// texel in a photometric frame below it, where `shadowContrast` lifts the whole picture. That is
+    /// a wash, and it is what this shader did.
+    func Pivot(): float {
+        val applied = max(UseExposureBuffer ? exposureBuffer[0] : exposure, Const.Epsilon)
+
+        return log2(max(0.18f / applied, Const.Epsilon))
     }
 
     /// Log-2 luminance, floored so a black texel is a large negative number rather than minus infinity.

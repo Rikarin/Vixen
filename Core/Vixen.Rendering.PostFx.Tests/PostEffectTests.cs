@@ -123,7 +123,14 @@ public class PostEffectTests : IDisposable {
             new(TonemapKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
             new(TonemapKeys.LutSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
             new(TonemapKeys.BloomSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
-            new(TonemapKeys.BloomDirtSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+            new(TonemapKeys.BloomDirtSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+
+            // ⚠ Declared here whether or not a case in this file meters, because the *shader* declares
+            // it whether or not a variant reads it — and a stub layout that models a permutation as
+            // folding the binding away is a stub that agrees with the mistake rather than the shader.
+            // These twelve cases all draw with a fixed exposure, so this is the line that makes them
+            // exercise the stand-in instead of passing while the real device refuses the frame.
+            new(TonemapKeys.ExposureBufferBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment)
         );
 
         Declare(

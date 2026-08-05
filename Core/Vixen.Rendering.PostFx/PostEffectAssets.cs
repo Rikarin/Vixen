@@ -1191,6 +1191,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             Enabled = declared.Enabled,
             Source = declared.Source,
             View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            ExposureBuffer = declared.ExposureBuffer,
             Output = declared.Output,
             Format = declared.Format,
             Ev100 = declared.Ev100,
