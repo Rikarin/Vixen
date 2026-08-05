@@ -591,6 +591,7 @@ Vixen.Rendering.Compositor.GraphicsCompositor.Game.get -> Vixen.Rendering.Compos
 Vixen.Rendering.Compositor.GraphicsCompositor.Game.set -> Vixen.Rendering.Compositor.SceneRenderer?
 Vixen.Rendering.Compositor.GraphicsCompositor.GraphicsCompositor(Vixen.Rendering.RenderSystem system) -> void
 Vixen.Rendering.Compositor.GraphicsCompositor.Imports.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.ImportedTexture>
+Vixen.Rendering.Compositor.GraphicsCompositor.Resize(Vixen.Core.Mathematics.Int2 size, System.Action idle) -> int
 Vixen.Rendering.Compositor.GraphicsCompositor.Resources.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.RenderResourceAsset>
 Vixen.Rendering.Compositor.GraphicsCompositor.System.get -> Vixen.Rendering.RenderSystem
 Vixen.Rendering.Compositor.GraphicsCompositor.Use(Vixen.Rendering.RenderView view) -> void
@@ -637,6 +638,8 @@ Vixen.Rendering.Compositor.IDrawArgumentSource.FillArguments(Vixen.Rendering.Ren
 Vixen.Rendering.Compositor.IDrawArgumentSource.FillBatches(Vixen.Rendering.RenderSystem system, System.Span<uint> batches) -> void
 Vixen.Rendering.Compositor.IPostProcessTarget -> interface
 Vixen.Rendering.Compositor.IPostProcessTarget.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
+Vixen.Rendering.Compositor.IResizeTarget -> interface
+Vixen.Rendering.Compositor.IResizeTarget.Reset() -> void
 Vixen.Rendering.Compositor.ISceneRendererAsset -> interface
 Vixen.Rendering.Compositor.ISceneRendererAsset.Enabled.get -> bool
 Vixen.Rendering.Compositor.ISceneRendererAsset.Name.get -> string

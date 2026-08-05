@@ -154,7 +154,82 @@ public sealed class GraphicsCompositor(RenderSystem system) {
     public IList<RenderBufferAsset> BufferResources { get; } = [];
 
     /// <summary>The frame's reference size, which a scaled resource is a fraction of.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Assigning this does not tell the frame's nodes.</b> Almost every node re-reads it each
+    ///     build and needs nothing; the few that lay device state out against it are reached by
+    ///     <see cref="Resize" />, which is what a host writes a new size through.
+    /// </remarks>
     public Int2 FrameSize { get; set; } = new(1, 1);
+
+    /// <summary>Moves the frame to a new size and lets the nodes that had laid state out against the
+    ///     old one lay it again.</summary>
+    /// <param name="size">The new size.</param>
+    /// <param name="idle">
+    ///     Waits for the device to finish everything in flight. Called at most once, immediately
+    ///     before the first node is reset, and not at all when no node needs one.
+    /// </param>
+    /// <returns>How many nodes were reset.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="idle" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Called between frames, never from inside one.</b> A node's <see cref="IResizeTarget.Reset" />
+    ///         releases textures the frames still in flight may reference, which is why the idle is a
+    ///         parameter rather than advice: a caller cannot reach the walk without supplying one, and
+    ///         a compositor has no device of its own to call it on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The idle is deferred until a node actually wants it.</b> A frame whose nodes all
+    ///         re-derive their extents — which is most frames — pays nothing for a resize, and a
+    ///         window drag would otherwise stall the device once per pixel of travel.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unchanged size is not a resize.</b> A host writes the size every time it
+    ///         rebuilds a swapchain, including the rebuilds that come back the same — a surface that
+    ///         keeps reporting <c>Suboptimal</c> does exactly that — and resetting on those would
+    ///         restart every temporal chain in the frame, for ever, at no size change at all.
+    ///     </para>
+    /// </remarks>
+    public int Resize(Int2 size, Action idle) {
+        ArgumentNullException.ThrowIfNull(idle);
+
+        if (size == FrameSize) {
+            return 0;
+        }
+
+        FrameSize = size;
+
+        var idled = false;
+        var reset = 0;
+
+        Visit(Game, idle, ref idled, ref reset);
+
+        return reset;
+
+        static void Visit(SceneRenderer? node, Action idle, ref bool idled, ref int reset) {
+            if (node is null) {
+                return;
+            }
+
+            if (node is IResizeTarget target) {
+                // Once, and only once something is about to be released — see the remarks.
+                if (!idled) {
+                    idled = true;
+                    idle();
+                }
+
+                target.Reset();
+                reset++;
+            }
+
+            // ⚠ Disabled nodes are reset too, for Apply's reason one step further on: a node switched
+            // off across the resize and on again afterwards would otherwise come back holding a
+            // lattice laid over a frame size that no longer exists, and refuse the first build that
+            // reaches it.
+            foreach (var child in node.Nested) {
+                Visit(child, idle, ref idled, ref reset);
+            }
+        }
+    }
 
     /// <summary>
     ///     Runs a whole frame: collect, the render system's phases, then declare the graph's passes.
