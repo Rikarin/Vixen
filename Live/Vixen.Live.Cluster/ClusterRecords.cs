@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
+
 namespace Vixen.Live.Cluster;
 
 /// <summary>What a gate asks for when a player wants to be somewhere.</summary>
@@ -133,3 +135,48 @@ public sealed record PlayerLease(
     [property: Id(2)] ShardId Holder,
     [property: Id(3)] DateTimeOffset Expires
 );
+
+/// <summary>One thing an account has, and where it came from.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>An address and a number, and deliberately nothing about pets or mounts.</b> Doc 28
+///         § Collections says its whole mechanism is <em>"a set of unlocked <c>DefId</c>s with an
+///         unlock source recorded"</em> — so that is exactly what the control plane carries, and
+///         <c>IAccountGrain</c> never learns what a collectible is. A game that declined doc 28's
+///         libraries still has accounts, and the cluster contract should not make it link them.
+///     </para>
+///     <para>
+///         The address rather than the hash, because a <c>DefId</c> is one-way: support asking "what
+///         is <c>0x9A3C1F04</c>" of a durable row has nowhere to look, and the row outlives the build
+///         that could have told them.
+///     </para>
+/// </remarks>
+/// <param name="Address">What was unlocked — <c>collect/mount/gryphon</c>.</param>
+/// <param name="Source">How they came by it, as doc 28's <c>UnlockSource</c> names it.</param>
+/// <param name="From">What exactly — the boss, the quest, the achievement. Empty for nothing in particular.</param>
+/// <param name="Order">The nth thing this account unlocked.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record AccountUnlock(
+    [property: Id(0)] string Address,
+    [property: Id(1)] string Source,
+    [property: Id(2)] string From,
+    [property: Id(3)] int Order
+);
+
+/// <summary>Everything an account owns, as one answer.</summary>
+/// <param name="Unlocks">What it has, in the order it got them.</param>
+/// <param name="Achievements">What it has earned, in the order it earned them.</param>
+/// <param name="Points">What those achievements are worth.</param>
+/// <param name="Revision">How many times this has changed. What an optimistic write checks.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record AccountHoldings(
+    [property: Id(0)] ImmutableArray<AccountUnlock> Unlocks,
+    [property: Id(1)] ImmutableArray<string> Achievements,
+    [property: Id(2)] int Points,
+    [property: Id(3)] uint Revision
+) {
+    /// <summary>An account that has nothing.</summary>
+    public static AccountHoldings Empty { get; } = new([], [], 0, 0);
+}

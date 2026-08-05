@@ -104,6 +104,33 @@ public sealed class ClusterSerializationTests {
         Assert.Equal(report, RoundTrip(report));
     }
 
+    /// <summary>
+    ///     The account vocabulary G8 needed, round-tripped for the reason this file exists: a type
+    ///     added to the contract and not to the surrogates fails at the first grain call that carries
+    ///     it, not at compile time.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ These two need no surrogate, and that is a property worth pinning rather than assuming.
+    ///     They are strings, ints and immutable arrays — <c>IAccountGrain</c> deliberately knows
+    ///     nothing about collectibles, so nothing from <c>Vixen.Live.Abstractions</c> crosses in them.
+    /// </remarks>
+    [Fact]
+    public void AnAccountsHoldingsCrossAGrainCall() {
+        var holdings = new AccountHoldings(
+            [new("collect/mount/gryphon", "Loot", "boss/skarr", 1), new("collect/pet/cat", "Quest", "", 2)],
+            ["achieve/stabled"],
+            10,
+            3
+        );
+
+        var round = RoundTrip(holdings);
+
+        Assert.Equal(holdings.Unlocks, round.Unlocks);
+        Assert.Equal(holdings.Achievements, round.Achievements);
+        Assert.Equal(holdings.Points, round.Points);
+        Assert.Equal(holdings.Revision, round.Revision);
+    }
+
     [Fact]
     public void AGrainKeyIsOneSpellingOfOneIdentity() {
         var key = new ShardKey("maps/queensdale", "eu", new("0.1.0", 0xC0FFEE));

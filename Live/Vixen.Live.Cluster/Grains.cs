@@ -235,3 +235,69 @@ public static class Keys {
     /// <returns>The grain key.</returns>
     public static string ForFleet(string region) => region ?? "";
 }
+
+/// <summary>One account's own state, which is not one character's. Doc 28 § Collections.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 27 § Grains does not have this one, and G8 is what showed it was missing.</b>
+///         <see cref="IPlayerGrain" /> is keyed by <em>account and character</em>, and doc 28 says a
+///         collection is <em>"account-wide"</em> — a mount earned on one character is owned by all of
+///         them. There is no key on <c>IPlayerGrain</c> that can own that, so the alternative to this
+///         grain is the same rows written by five characters at once, which is the one thing the
+///         single-writer discipline exists to prevent.
+///     </para>
+///     <para>
+///         <b>What stays per character is what the character <em>shows</em>.</b> Doc 28's wardrobe —
+///         transmog overrides, hidden slots, the worn title — is per character and rides in
+///         <c>PlayerRecord.Profile</c>. That split is the one G8 already built, and it happens to
+///         land exactly on the grain boundary.
+///     </para>
+///     <para>
+///         ⚠ <b>It knows nothing about collectibles.</b> The vocabulary is
+///         <see cref="AccountUnlock" /> — an address, a source and an order — because that is all doc
+///         28's mechanism is, and because a game that declined the gameplay libraries still has
+///         accounts. Turning one into a <c>CollectionRecord</c> is <c>Vixen.Live.Gameplay</c>'s.
+///     </para>
+///     <para>
+///         ⚠ <b>No lease.</b> A character's durable state is fenced by ADR-021's lease because two
+///         realms can each believe they hold the character. An account is written from wherever its
+///         characters happen to be, so the single writer is the grain's own turn and nothing else —
+///         which is why <see cref="Unlock" /> is idempotent on the address rather than on an epoch.
+///     </para>
+/// </remarks>
+public interface IAccountGrain : IGrainWithGuidKey {
+    /// <summary>Everything this account owns.</summary>
+    /// <returns>The collection.</returns>
+    Task<AccountHoldings> Holdings();
+
+    /// <summary>Gives the account something.</summary>
+    /// <param name="unlock">What, and where it came from. Its <c>Order</c> is assigned here and ignored.</param>
+    /// <returns>Whether it was new. False is success — see the remarks on the type.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Idempotent on the address, so a retry is free and needs no key.</b> Two realms racing
+    ///     to grant the same mount to two characters of one account is ordinary, not exceptional, and
+    ///     the second must be a no-op rather than a second row.
+    /// </remarks>
+    Task<bool> Unlock(AccountUnlock unlock);
+
+    /// <summary>Records an achievement and what it is worth.</summary>
+    /// <param name="address">Which achievement.</param>
+    /// <param name="points">What it is worth.</param>
+    /// <returns>Whether it was new.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Never un-earned, and there is deliberately no method for it.</b> Doc 28's rule: a
+    ///     refund, a sale or a patch that raises a threshold must not take back something somebody
+    ///     already did.
+    /// </remarks>
+    Task<bool> Earn(string address, int points);
+
+    /// <summary>Takes something back — a refund, a season ending, a mistake.</summary>
+    /// <param name="address">What.</param>
+    /// <returns>Whether they had it.</returns>
+    /// <remarks>
+    ///     Unlocks only. An achievement has no counterpart here on purpose, and doc 28's wardrobe
+    ///     re-checks every unlock as it resolves so that a revoked appearance falls back to the real
+    ///     item rather than leaving somebody invisible.
+    /// </remarks>
+    Task<bool> Revoke(string address);
+}

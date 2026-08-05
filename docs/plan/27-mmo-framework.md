@@ -451,6 +451,7 @@ Small, and each one is a single-writer for exactly one question.
 | `IMapGrain` | map address (`maps/queensdale`) | the set of shards for this map; placement scoring; spawn/merge decisions |
 | `IShardGrain` | `ShardId` (guid) | one realm instance: state machine, population, heartbeat, endpoint, version |
 | `IPlayerGrain` | account + character | durable state, the realm lease, the transfer state machine, session identity |
+| `IAccountGrain` ✅ | account | ⚠ **Not in this table as written, and [28](28-gameplay-framework.md)'s G8 is what showed it was missing.** A collection is *account-wide* — a mount earned on one character is owned by all of them — and there is no key on `IPlayerGrain` that can own that, because it is keyed by account *and character*. The alternative is five characters writing the same rows at once, which is the one thing the single-writer discipline exists to prevent. It knows nothing about collectibles: the vocabulary is an address, a source and an order, which is all doc 28's mechanism is |
 | `IPartyGrain` | party id | membership, the "join my friend" target, party-aware placement |
 | `IGuildGrain` | guild id | roster, ranks, bank, guild hall shard |
 | `IQueueGrain` | queue id | matchmaking tickets and pools ([28](28-gameplay-framework.md) § Matchmaking) |
@@ -1037,7 +1038,14 @@ generator, not an IL weaver — so ADR-002 survives unchanged, and the package i
 by `CheckArchitecture` rather than by discipline.
 
 **Four grains, not eight, and the four that are missing are missing for two different reasons.**
-`IMapGrain`, `IShardGrain`, `IPlayerGrain` and `IFleetGrain` are here. `IPartyGrain` turns out not to
+`IMapGrain`, `IShardGrain`, `IPlayerGrain` and `IFleetGrain` are here.
+
+> ⚠ **Five, since [28](28-gameplay-framework.md)'s G8, and the fifth is one this document never
+> listed.** `IAccountGrain` — see § Grains. The reasoning below was right about which of doc 27's own
+> eight belonged here; what it could not know is that the grain table's *keys* were incomplete.
+> `IPlayerGrain` is keyed by account **and** character, and doc 28's collections are account-wide, so
+> nothing in the table could own them. That is a gap a milestone above found in the substrate rather
+> than the other way round, which is the ordering this pair of documents is supposed to have. `IPartyGrain` turns out not to
 be needed for placement at all — the map keeps its occupants' party and guild ids, so counting them is
 local and the social-graph query never happens on the control plane. `IGuildGrain`, `IQueueGrain` and
 `IInstanceGrain` belong to features in [28](28-gameplay-framework.md) rather than to this substrate,

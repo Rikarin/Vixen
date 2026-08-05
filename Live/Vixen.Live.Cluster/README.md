@@ -42,6 +42,7 @@ key.
 | `IMapGrain` | one map's shards: placement, and the spawn/merge heuristics. Keyed by map, region and version |
 | `IShardGrain` | one realm process's life. `Requested → Starting → Ready → Draining → Stopping → Stopped` |
 | `IPlayerGrain` | the lease — ADR-021, and the reason item duplication is not expressible |
+| `IAccountGrain` | one **account's** collection — a grain doc 27 § Grains does not have, and G8 is what showed was missing |
 | `IFleetGrain` | a region's register, the rollout target, and where a stuck drain escalates to |
 
 Doc 27 § Grains lists eight. `IPartyGrain`, `IGuildGrain`, `IQueueGrain` and `IInstanceGrain` are not
