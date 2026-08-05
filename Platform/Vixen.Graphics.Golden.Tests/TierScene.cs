@@ -11,6 +11,7 @@ using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 
@@ -53,6 +54,14 @@ sealed class TierScene : IDisposable {
 
     (TextureHandle Texture, TextureViewHandle View, TextureDescription Description) owned;
 
+    EnvironmentTexture? environment;
+    TextureHandle opaqueTexture;
+    TextureViewHandle opaqueView;
+    SamplerHandle opaqueSampler;
+    BufferHandle bindPose;
+    BufferHandle clusters;
+    BufferHandle opacityStaging;
+
     TierScene(Fixture fixture, WorldRenderer renderer) {
         this.fixture = fixture;
         Renderer = renderer;
@@ -88,10 +97,10 @@ sealed class TierScene : IDisposable {
     ///     produce a plausible picture, and the frame's screen-space passes tile the screen.
     /// </remarks>
     public static RenderCamera Camera => RenderCamera.Default with {
-        Position = new(-3.1f, 2.35f, 5.6f),
-        Forward = Vector3.Normalize(new(0.46f, -0.29f, -1f)),
+        Position = new(-3.4f, 2.9f, 4.6f),
+        Forward = Vector3.Normalize(new(0.78f, -0.49f, -1f)),
         AspectRatio = 1f,
-        FieldOfView = MathF.PI / 3.2f,
+        FieldOfView = MathF.PI / 3f,
         NearPlane = 0.2f,
         FarPlane = 120f
     };
@@ -135,7 +144,77 @@ sealed class TierScene : IDisposable {
             new(scene.owned.Texture, scene.owned.View, scene.owned.Description, ResourceState.Undefined, ResourceState.CopySource)
         );
 
+        scene.Supply();
+
         return scene;
+    }
+
+    /// <summary>
+    ///     Fills what the frame declares and nothing in it produces.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Sample 13's <c>ApplySky</c> and <c>ApplyCaster</c>, and the same three reasons.</b> A
+    ///         permutation folds <em>code</em> and not bindings, so every set in the frame is declared
+    ///         whole whatever is switched off — and a set written short of one binding is a set that is
+    ///         never bound at all. Three of them have no producer anywhere in a Standard Frame:
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item><description>
+    ///             the sky node's <b>environment cube</b>, which is baked before the graph exists and
+    ///             outlives every frame, so no document can name it;
+    ///         </description></item>
+    ///         <item><description>
+    ///             the caster stage's <b>opacity map, its sampler and a bone palette</b>, which no
+    ///             material in any project has an opinion about — white, because white is "this texel
+    ///             is solid" and undefined is a shadow with holes in it on one driver;
+    ///         </description></item>
+    ///         <item><description>
+    ///             the <b>cluster list</b>, which <c>ForwardPlus</c> declares whether or not the
+    ///             clustered permutation is on.
+    ///         </description></item>
+    ///     </list>
+    ///     <para>
+    ///         ⚠ After every <c>Load</c> and not once: the nodes are made by the builder, so a rebuilt
+    ///         document is a different sky node — and one that never got its cube draws black, which is
+    ///         exactly what a missing background looks like.
+    ///     </para>
+    /// </remarks>
+    void Supply() {
+        var device = fixture.Device;
+
+        foreach (var node in Renderer.Host.Builder.Nodes.Values) {
+            if (node is SkyRenderer sky) {
+                sky.Environment = environment!.View;
+                sky.EnvironmentSampler = environment.Sampler;
+                sky.MipCount = environment.MipCount;
+            }
+
+            // ⚠ The one thing this fixture pins that a game would not, and the whole of its
+            // determinism argument for exposure. The meter eases towards its target at
+            // `1 - exp(-dt·rate)` per frame, which at the node's own 3 e-folds per second and 1/60 of
+            // a second is 4.9% of the way — so a golden rendered after N frames is a picture of N,
+            // and moving the frame count by one moves every pixel. A delta of ten seconds makes that
+            // fraction 1 to thirteen decimal places: the meter reaches its target on the first frame
+            // and stays there, so what is committed is the exposure the scene resolves to rather than
+            // the exposure it was passing through. The rate itself is untouched, because the rate is
+            // what a regression in the adaptation would move.
+            if (node is AutoExposureRenderer meter) {
+                meter.DeltaTime = 10f;
+            }
+        }
+
+        Renderer.SceneBlock.Parameters.Set(ForwardPlusKeys.Clusters, clusters);
+
+        if (!Renderer.Host.Builder.Stages.TryGetValue("Shadow", out var caster)) {
+            return;
+        }
+
+        // Named rather than taken from a generated `ShadowCasterKeys`, because there is no such class:
+        // the key generator reads a shader's committed `.reflect.json` and `ShadowCaster` has none.
+        caster.Parameters.Set(ParameterKeys.New<TextureViewHandle>("ShadowCaster.opacityMap"), opaqueView);
+        caster.Parameters.Set(ParameterKeys.New<SamplerHandle>("ShadowCaster.opacitySampler"), opaqueSampler);
+        caster.Parameters.Set(ParameterKeys.New<BufferHandle>("ShadowCaster.bones"), bindPose);
     }
 
     void Build() {
@@ -157,35 +236,55 @@ sealed class TierScene : IDisposable {
                     var direction = sky.DirectionOf(image, x, y);
                     var height = Math.Clamp((direction.Y * 0.5f) + 0.5f, 0f, 1f);
 
-                    // Warm ground, cool zenith — and unequal channels, so a swizzle in the cube's
-                    // upload is a colour change rather than a shade change.
-                    sky.At(image, x, y) = Vector3.Lerp(new(0.32f, 0.24f, 0.16f), new(0.30f, 0.44f, 0.72f), height);
+                    // ⚠ Photometric, in cd/m², and not a 0–1 colour. The frame meters itself and the
+                    // tonemap's curve is calibrated in real units, so a sky of 0.4 is a scene twelve
+                    // stops under anything the exposure machinery was built for — which comes out as
+                    // a frame the meter drags up until it is white. Warm ground and cool zenith, with
+                    // unequal channels, so a swizzle in the cube's upload is a colour change rather
+                    // than a shade change.
+                    sky.At(image, x, y) = Vector3.Lerp(
+                        new(760f, 560f, 380f),
+                        new(1_100f, 1_600f, 2_600f),
+                        height
+                    );
                 }
             }
         }
 
-        var environment = EnvironmentTexture.Bake(device, sky, mipCount: 4, samples: 8);
+        environment = EnvironmentTexture.Bake(device, sky, mipCount: 4, samples: 8);
 
         cleanup.Add(environment.Dispose);
         Renderer.Environment = environment;
 
-        var light = new EnvironmentLight { MipCount = environment.MipCount, Intensity = 1f };
+        // The ambient term the surfaces not facing the sun are lit by, projected off the same cube
+        // the background is drawn from — two opinions about one sky is the drift `SkyRenderer`'s
+        // remarks describe.
+        var light = new EnvironmentLight {
+            MipCount = environment.MipCount,
+            Intensity = 1f,
+            Irradiance = SphericalHarmonics.Project(sky)
+        };
 
         environment.Apply(light);
         Renderer.SceneEnvironment.Environment = light;
+
+        StandIns(device);
 
         // The sun, as a light the lighting feature owns rather than a constant: the shadow node fits
         // its cascades along `CompositorBuilder.Sun`, which is this same feature, so a fixture that
         // set a direction on set 0 by hand would light the scene down one vector and shadow it down
         // another.
+        // ⚠ Lux, and a low sun's rather than noon's. Twelve thousand is late afternoon: bright enough
+        // that the shadow is the darkest thing in frame and dim enough that the lamp below is visible
+        // at all, which at noon's ninety thousand it would not be.
         Renderer.Lighting.Lights.Add(
-            RenderLight.Directional(SunDirection, new(1f, 0.94f, 0.82f), 3.6f)
+            RenderLight.Directional(SunDirection, new(1f, 0.94f, 0.82f), 12_000f)
         );
 
         // One lamp, off to the side and low, so the punctual atlas has a tile to fill and the smooth
         // slab has a highlight that is not the sun's.
         Renderer.Lighting.Lights.Add(
-            RenderLight.Point(new(2.9f, 1.15f, 1.6f), 7f, new(1f, 0.45f, 0.2f), 26f)
+            RenderLight.Point(new(2.9f, 1.15f, 1.6f), 7f, new(1f, 0.45f, 0.2f), 9_000f)
         );
 
         // ⚠ Rgba8UNormSrgb where the expansion declares Bgra8UNormSrgb, because the readback is
@@ -200,6 +299,53 @@ sealed class TierScene : IDisposable {
 
         Output = owned.Texture;
         View = new("Camera") { Camera = Camera };
+    }
+
+    /// <summary>The four resources the frame declares and no pass in it writes.</summary>
+    /// <remarks>
+    ///     See <see cref="Supply" /> for why each exists. The opacity texture's four bytes are staged
+    ///     rather than written, because a texture is device memory and only a copy reaches it — and
+    ///     the copy cannot be recorded inside a render pass, which is what
+    ///     <see cref="Upload" /> is for.
+    /// </remarks>
+    void StandIns(VulkanDevice device) {
+        clusters = device.CreateBuffer(
+            new(ClusterGrid.BufferSize, BufferUsage.Storage, MemoryAccess.HostUpload, "Clusters.StandIn")
+        );
+
+        device.Write(clusters, 0, new byte[ClusterGrid.BufferSize]);
+
+        var opacity = fixture.Owned(
+            "Opacity.Opaque",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba8UNorm,
+            1,
+            1
+        );
+
+        opaqueView = opacity.View;
+        opaqueSampler = fixture.Sampler(SamplerDescription.LinearClamp with { Name = "Opacity.Opaque" });
+        opaqueTexture = opacity.Texture;
+
+        opacityStaging = device.CreateBuffer(
+            new(4, BufferUsage.CopySource, MemoryAccess.HostUpload, "Opacity.Staging")
+        );
+
+        device.Write(opacityStaging, 0, [byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue]);
+
+        bindPose = device.CreateBuffer(
+            new(64, BufferUsage.Storage, MemoryAccess.HostUpload, "Bones.BindPose")
+        );
+
+        var identity = Matrix4x4.Identity;
+
+        device.Write(bindPose, 0, MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref identity, 1)));
+
+        cleanup.Add(() => {
+            device.Destroy(clusters);
+            device.Destroy(opacityStaging);
+            device.Destroy(bindPose);
+        });
     }
 
     /// <summary>Adds one box to the scene.</summary>
@@ -331,6 +477,20 @@ sealed class TierScene : IDisposable {
             Renderer.MaterialDescriptors.BeginFrame();
 
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "tier")) {
+                if (frame == 0) {
+                    // ⚠ Before the passes and outside any of them: a copy into a texture cannot be
+                    // recorded inside a render pass, and everything the graph executes is inside one.
+                    commands.Barrier(
+                        new([], [new(opaqueTexture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                    );
+
+                    commands.CopyBufferToTexture(opacityStaging, 0, new(opaqueTexture), new(1, 1, 1));
+
+                    commands.Barrier(
+                        new([], [new(opaqueTexture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                    );
+                }
+
                 Renderer.Draw(commands);
 
                 if (frame == frames - 1) {
