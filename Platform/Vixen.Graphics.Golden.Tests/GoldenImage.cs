@@ -13,7 +13,33 @@ namespace Vixen.Graphics.Golden.Tests;
 /// <param name="Fraction">
 ///     What fraction of pixels may be wrong before the image is.
 /// </param>
-public readonly record struct Tolerance(int Channel, double Fraction) {
+/// <param name="Mean">
+///     How far the <em>average</em> channel may move, in 0–255.
+/// </param>
+/// <remarks>
+///     <para>
+///         ⚠ <b><see cref="Mean" /> is not a second opinion about <see cref="Channel" />; it is the
+///         failure <see cref="Channel" /> cannot see.</b> Counting pixels over a threshold finds
+///         something small and badly wrong and is blind to everything being slightly wrong: a
+///         material whose albedo moved four per cent shifts sixty to ninety per cent of a frame by
+///         one or two levels and almost nothing by more than three, so every per-pixel threshold at
+///         or above two passes it. That is not a hypothetical — it is what a deliberately injected
+///         4% albedo change did to the tier goldens, which passed.
+///     </para>
+///     <para>
+///         The two bounds are complementary and the suite needs both. A mean alone is the
+///         mean-squared-error mistake this file's remarks describe: low enough to pass a whole image
+///         while a corner is blown out. A count alone is the one above. Whichever is crossed first
+///         fails, and the message says which.
+///     </para>
+///     <para>
+///         <see cref="double.MaxValue" /> by default so every fixture written before this existed
+///         keeps exactly the bound it was written with — a tolerance is a claim somebody made about
+///         a specific picture, and tightening forty of them at once from here would be replacing
+///         forty claims with a guess.
+///     </para>
+/// </remarks>
+public readonly record struct Tolerance(int Channel, double Fraction, double Mean = double.MaxValue) {
     /// <summary>
     ///     What a fixture with flat colour and no interpolation should meet.
     /// </summary>
@@ -42,6 +68,33 @@ public readonly record struct Tolerance(int Channel, double Fraction) {
     ///     should say why.
     /// </remarks>
     public static Tolerance Edges => new(12, 0.002);
+
+    /// <summary>What a whole shaded, tonemapped, antialiased frame should meet.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Edges" />'s two bounds, because a frame this size has an antialiased
+    ///         silhouette in it and FXAA's blend sits on a luminance comparison two drivers may
+    ///         resolve either way — plus the mean bound, which is the one that catches a shading
+    ///         change rather than a geometric one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A third of a level, and the number is measured rather than picked.</b> Rendering
+    ///         the tier fixture twice on MoltenVK moves the mean by <em>exactly</em> zero — the frames
+    ///         are bit-identical — and a 4% albedo change moves it by 1.256 on Low, 1.164 on Medium
+    ///         and 0.44 on High and Epic, where local exposure and the defocus damp it. So the gap
+    ///         this number sits in is 0 to 0.44, and it is put nearer the noise than the signal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cross-driver half of that measurement does not exist yet.</b> The zero above
+    ///         is one driver's; lavapipe may well move a fully shaded frame's mean by a fraction of a
+    ///         level everywhere, for the interpolation-precision reason
+    ///         <see cref="Interpolated" /> gives. If the first cross-driver run needs this raised,
+    ///         raise it — but past about 0.45 it stops catching a 4% albedo change on High and Epic,
+    ///         and that is a trade to make on purpose rather than by nudging a number until CI is
+    ///         green.
+    ///     </para>
+    /// </remarks>
+    public static Tolerance Shaded => new(12, 0.002, 0.35);
 }
 
 /// <summary>What comparing two images found.</summary>
@@ -50,12 +103,14 @@ public readonly record struct Tolerance(int Channel, double Fraction) {
 /// <param name="TotalPixels">How many there are.</param>
 /// <param name="WorstChannel">The largest single-channel difference anywhere.</param>
 /// <param name="WorstAt">Where that was.</param>
+/// <param name="MeanChannel">The average channel difference over every channel of every pixel.</param>
 public readonly record struct Comparison(
     bool Matches,
     int DifferingPixels,
     int TotalPixels,
     int WorstChannel,
-    (int X, int Y) WorstAt
+    (int X, int Y) WorstAt,
+    double MeanChannel = 0
 ) {
     /// <summary>What fraction of pixels differed.</summary>
     public double Fraction => TotalPixels == 0 ? 0 : (double)DifferingPixels / TotalPixels;
@@ -145,11 +200,22 @@ public static class GoldenImage {
         PngCodec.Save(Path.Combine(DiffDirectory, $"{name}.expected.png"), expected);
         PngCodec.Save(Path.Combine(DiffDirectory, $"{name}.diff.png"), Highlight(expected, rendered, tolerance));
 
+        // Which bound was crossed, first, because the two mean different things: a count over the
+        // threshold is something in one place being badly wrong, and a mean over it is the whole
+        // frame being slightly wrong. "Images differ" sends a reader looking for the wrong shape of
+        // bug, and a shading change with nothing over the per-pixel threshold has no "where" to look
+        // at at all.
+        var crossed = result.MeanChannel > tolerance.Mean
+            ? $"the average channel moved by {result.MeanChannel:F3}/255, where {tolerance.Mean:F3} is "
+                + "the most it may — a whole-frame shading change rather than an artefact in one place"
+            : $"{result.DifferingPixels} of {result.TotalPixels} pixels ({result.Fraction:P3}) differ by "
+                + $"more than {tolerance.Channel}/255, where {tolerance.Fraction:P3} is the most that may";
+
         Assert.Fail(
-            $"'{name}' does not match its reference: {result.DifferingPixels} of {result.TotalPixels} "
-            + $"pixels ({result.Fraction:P3}) differ by more than {tolerance.Channel}/255, and the "
-            + $"worst is {result.WorstChannel}/255 at ({result.WorstAt.X}, {result.WorstAt.Y}). "
-            + $"The rendering, the reference and a diff are in {DiffDirectory}."
+            $"'{name}' does not match its reference: {crossed}. The worst single channel is "
+            + $"{result.WorstChannel}/255 at ({result.WorstAt.X}, {result.WorstAt.Y}), and the average "
+            + $"is {result.MeanChannel:F3}/255. The rendering, the reference and a diff are in "
+            + $"{DiffDirectory}."
         );
     }
 
@@ -160,6 +226,7 @@ public static class GoldenImage {
     public static Comparison Compare(in Bitmap expected, in Bitmap actual, Tolerance tolerance) {
         var differing = 0;
         var worst = 0;
+        var sum = 0L;
         (int X, int Y) worstAt = (0, 0);
 
         for (var y = 0; y < expected.Height; y++) {
@@ -168,7 +235,14 @@ public static class GoldenImage {
                 var delta = 0;
 
                 for (var channel = 0; channel < 4; channel++) {
-                    delta = Math.Max(delta, Math.Abs(expected.Pixels[offset + channel] - actual.Pixels[offset + channel]));
+                    var difference = Math.Abs(expected.Pixels[offset + channel] - actual.Pixels[offset + channel]);
+
+                    // ⚠ Summed over every channel rather than over the worst one per pixel, because
+                    // the failure the mean exists for is a shading change — and a shading change
+                    // moves all three colour channels. Taking the maximum first would throw away
+                    // two thirds of the evidence for the one thing this bound is here to see.
+                    sum += difference;
+                    delta = Math.Max(delta, difference);
                 }
 
                 if (delta > worst) {
@@ -183,13 +257,15 @@ public static class GoldenImage {
         }
 
         var total = expected.Width * expected.Height;
+        var mean = total == 0 ? 0 : (double)sum / (total * 4);
 
         return new(
-            differing <= tolerance.Fraction * total,
+            differing <= tolerance.Fraction * total && mean <= tolerance.Mean,
             differing,
             total,
             worst,
-            worstAt
+            worstAt,
+            mean
         );
     }
 

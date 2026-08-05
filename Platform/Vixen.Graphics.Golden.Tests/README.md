@@ -6,7 +6,7 @@ This is the level of testing every other kind is a proxy for. A command-stream a
 backend emitted the calls somebody intended; only a picture proves those calls draw what they were
 meant to.
 
-Five kinds of fixture, forty-two in all — the suite `docs/plan/05` § Testing asks for.
+Six kinds of fixture — the suite `docs/plan/05` § Testing asks for.
 
 | Class | What it is about |
 |---|---|
@@ -15,6 +15,7 @@ Five kinds of fixture, forty-two in all — the suite `docs/plan/05` § Testing 
 | `CompositorImageTests` | The **renderer** — the layer engine code actually uses |
 | `UiImageTests` | The user interface's GPU half |
 | `DebugDrawImageTests` | The debug geometry's — the screen projection, and whether the stroke font is letters |
+| `StandardFrameTierImageTests` | A **whole frame per quality tier** — the expansion, not the nodes |
 
 `PipelineStateImageTests` is the largest and the most repetitive, deliberately. Every bit it covers is
 one a backend can silently ignore: recording `BindPipeline` proves the call was made and proves
@@ -37,8 +38,8 @@ normal build; the separate target exists to write diffs somewhere a human will f
 
 ## When one fails
 
-The failure names how many pixels differed, by how much, and where the worst one was. It also writes
-three files into `artifacts/golden-diff/`:
+The failure names **which bound was crossed** — a count of badly-wrong pixels or the average channel
+— by how much, and where the worst pixel was. It also writes three files into `artifacts/golden-diff/`:
 
 | File | What it is |
 |---|---|
@@ -54,8 +55,26 @@ CI uploads that directory on failure.
 ./build.sh GoldenImages --configuration Release --update-golden
 ```
 
-Then **look at what it wrote** before committing. A suite that rewrites its own expectations when
-they fail is a suite that always passes.
+Or, for one fixture without a whole gate run — the same environment variable the target sets:
+
+```bash
+VIXEN_UPDATE_GOLDEN=1 VIXEN_REQUIRE_VULKAN=1 dotnet test \
+  Platform/Vixen.Graphics.Golden.Tests -c Release \
+  --filter "FullyQualifiedName~StandardFrameTierImageTests"
+```
+
+It writes into the **source** `References/`, not the copy beside the binary — rewriting that one
+would "pass" and change nothing anybody commits. `VIXEN_REQUIRE_VULKAN=1` is worth setting either
+way: without it a machine with no device skips silently, and a skipped update writes nothing while
+reporting success.
+
+⚠ Run it again **without** `VIXEN_UPDATE_GOLDEN` afterwards, and note that `--no-build` will not copy
+the new references beside the binary — a verification run that skipped the copy compares against the
+old ones.
+
+Then **look at what it wrote** before committing, against the questions in
+[Judging a golden that moved](#judging-a-golden-that-moved). A suite that rewrites its own
+expectations when they fail is a suite that always passes.
 
 ## Comparison
 
@@ -64,13 +83,95 @@ Perceptual with an explicit threshold, not bitwise ([`docs/plan/05`](../../docs/
 sRGB conversion differently and both are conformant, so a bitwise suite is red on one machine from the
 day it is written and gets disabled within a month.
 
-The metric counts pixels exceeding a per-channel threshold rather than taking a mean-squared error.
-MSE is the obvious choice and the wrong one — a value low enough to pass a whole image hides a bright
-artefact in a corner, which is exactly the failure this suite exists to catch.
+**Two bounds, and a fixture may set either or both.**
+
+| Bound | What it catches | What it is blind to |
+|---|---|---|
+| `Channel` + `Fraction` — how many pixels exceed a per-channel threshold | something small and badly wrong: an artefact in a corner, a shifted edge, a pass that stopped running | a frame that is *slightly* wrong everywhere |
+| `Mean` — how far the average channel moved | a shading change across the whole frame: an albedo, an exposure, a light's intensity | a bright artefact in a corner, which barely moves an average |
+
+They are complements, and the second exists because the first alone was measurably not enough. A
+material's base colour moved four per cent shifts 62–91% of a frame by one or two levels and only
+4–67 pixels by more than three, so **every per-pixel threshold at or above two passes it** — which
+the tier goldens duly did, until `Tolerance.Shaded` grew a mean. A mean alone would be the
+mean-squared-error mistake: low enough to pass a whole image while a corner is blown out. Whichever
+bound is crossed first fails, and the message says which, because "everything moved a little" has no
+coordinate to point a reader at.
+
+`Mean` defaults to no bound at all, so a fixture written before it existed keeps exactly the claim it
+was written with.
 
 These references were generated on MoltenVK and are verified against lavapipe on every push. The
 tolerances are what that cross-driver agreement actually needs, not what one machine happens to
-produce.
+produce — with one stated exception: `Tolerance.Shaded`'s mean of 0.35 was measured against one
+driver's zero and against injected regressions of 0.44 to 1.26, and its cross-driver half does not
+exist yet. See its remarks before raising it.
+
+## The tier goldens
+
+`StandardFrameTierImageTests` is the only fixture here that renders a **whole frame the way a game
+does**: a `!StandardFrame` node expanded by `PostEffectFactory`, built by `CompositorBuilder`, drawn
+by `WorldRenderer`, with the quality tier as the only difference between its four pictures. Every
+other fixture assembles its own nodes, which tests the nodes and leaves the expansion — the thing
+that decides what a tier *does* — asserted only against its own structure.
+
+Four things it pins, because a golden that drifts by one frame's history fails randomly:
+
+- **FXAA, not TAA.** A temporal resolve converges over frames against a jitter sequence.
+- **The meter's `DeltaTime` is set to ten seconds**, which makes its per-frame adaptation fraction
+  one: the exposure arrives at its target on the first frame instead of being a picture of the frame
+  count. The adaptation *rate* is untouched, because the rate is what a regression would move.
+- **Two frames, and the second is kept** — so a history plane, a depth pyramid or a reprojected fog
+  volume is read as well as written. Nothing moves between them.
+- **The scene is photometric**: 12 000 lux of sun, a sky in cd/m², a lamp in lumens. The meter and
+  the tone curve are calibrated in real units, so a scene in 0–1 colours is a dozen stops under
+  everything downstream and comes back flat white. That was this fixture's first picture.
+
+⚠ **`tier-low` has no sun shadow, and that is a defect rather than a tier.** A resolved
+`cascadeCount` of anything but four draws no directional shadow at all, because nothing wires the
+number into the shader's `CascadeCount` permutation — the shader reads four cascade slots while the
+host fills two. Low ships two. If that reference gains a shadow, the fix has landed and the new
+picture is the right one.
+
+⚠ **`tier-high` and `tier-epic` differ by ten pixels.** Everything Epic adds over High in this frame
+is either invisible at 128² or belongs to the GI and reflection stacks the fixture cannot host, so
+the pair is held only to "differ at all" — zero would mean the tier stopped resolving. It is not
+evidence that Epic is worth its cost.
+
+**What the tier goldens cannot see.** A fidelity *number* — 1024 cascade texels against 512, 64
+froxel slices against 32, a five-level bloom pyramid against four — changes almost nothing a picture
+can measure at this size; the largest of those three moved the average channel by 0.010. That is not
+a fixture fault, it is what a cost trade is. Those live in
+[`QualityTableSnapshotTests`](../../Core/Vixen.Rendering.PostFx.Tests/QualityTableSnapshotTests.cs),
+which writes down all 240 numbers and fails by name when one moves.
+
+## Judging a golden that moved
+
+This is the whole risk of the technique and the reason teams abandon it: the cheapest response to a
+red golden is `--update-golden`, and a suite whose references are rewritten whenever they fail is a
+suite that asserts nothing. The question is never "does the new picture look fine" — it always looks
+fine, or somebody would have noticed before committing.
+
+Ask these, in order:
+
+1. **Did you change anything that should have moved it?** If the diff is in a fixture you did not
+   touch and the commit is a rename, stop: that is the failure this suite exists for.
+2. **Does the change explain the *shape* of the diff?** Open `<name>.diff.png` — the differing pixels
+   are painted red over a dimmed reference, so a shading change is a wash over whole surfaces and a
+   geometric one is an outline. A bias change that comes out as a wash, or an albedo change that
+   comes out as an outline, is not the change you think you made.
+3. **Which bound was crossed?** The message says. A crossed *mean* with nothing over the per-pixel
+   threshold is a whole-frame shading change; a crossed *count* with a small mean is something local.
+   If a refactor that was supposed to be behaviour-preserving crossed either, it was not.
+4. **Did only the pictures you expected move?** The four tier goldens share one scene, so a change to
+   shading moves all four and a change to a tier-gated pass moves one or two. One tier moving alone,
+   for a change that was not tier-specific, is a knob leaking.
+5. **Is the new picture a picture of a bug being fixed?** Say so in the commit message, with the
+   before and after described in words. The next person to read this file learns what the reference
+   means from that sentence and from nowhere else.
+
+Only then regenerate, and commit the images in the same commit as the change that moved them —
+never in a commit of their own, which is a diff no reviewer can attach to anything.
 
 ## Writing one
 
