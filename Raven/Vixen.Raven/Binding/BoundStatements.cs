@@ -7,14 +7,14 @@ using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Binding;
 
-public sealed class BoundBlockStatement(SyntaxNode syntax, IReadOnlyList<BoundStatement> statements)
+internal sealed class BoundBlockStatement(SyntaxNode syntax, IReadOnlyList<BoundStatement> statements)
     : BoundStatement(syntax) {
     public IReadOnlyList<BoundStatement> Statements { get; } = statements;
     public override BoundKind Kind => BoundKind.BlockStatement;
     public override IEnumerable<BoundNode> Children => Statements;
 }
 
-public sealed class BoundLocalDeclarationStatement(
+internal sealed class BoundLocalDeclarationStatement(
     SyntaxNode syntax,
     LocalSymbol local,
     BoundExpression? initializer
@@ -25,14 +25,14 @@ public sealed class BoundLocalDeclarationStatement(
     public override IEnumerable<BoundNode> Children => Initializer is null ? [] : [Initializer];
 }
 
-public sealed class BoundExpressionStatement(SyntaxNode syntax, BoundExpression expression)
+internal sealed class BoundExpressionStatement(SyntaxNode syntax, BoundExpression expression)
     : BoundStatement(syntax) {
     public BoundExpression Expression { get; } = expression;
     public override BoundKind Kind => BoundKind.ExpressionStatement;
     public override IEnumerable<BoundNode> Children => [Expression];
 }
 
-public sealed class BoundIfStatement(
+internal sealed class BoundIfStatement(
     SyntaxNode syntax,
     BoundExpression condition,
     BoundStatement consequence,
@@ -47,7 +47,7 @@ public sealed class BoundIfStatement(
         Alternative is null ? [Condition, Consequence] : [Condition, Consequence, Alternative];
 }
 
-public sealed class BoundWhileStatement(SyntaxNode syntax, BoundExpression condition, BoundStatement body)
+internal sealed class BoundWhileStatement(SyntaxNode syntax, BoundExpression condition, BoundStatement body)
     : BoundStatement(syntax) {
     public BoundExpression Condition { get; } = condition;
     public BoundStatement Body { get; } = body;
@@ -56,7 +56,7 @@ public sealed class BoundWhileStatement(SyntaxNode syntax, BoundExpression condi
 }
 
 /// <summary><c>repeat … while (…)</c> — the body runs before the first test.</summary>
-public sealed class BoundRepeatStatement(SyntaxNode syntax, BoundStatement body, BoundExpression condition)
+internal sealed class BoundRepeatStatement(SyntaxNode syntax, BoundStatement body, BoundExpression condition)
     : BoundStatement(syntax) {
     public BoundStatement Body { get; } = body;
     public BoundExpression Condition { get; } = condition;
@@ -65,7 +65,7 @@ public sealed class BoundRepeatStatement(SyntaxNode syntax, BoundStatement body,
 }
 
 /// <summary><c>for (i in sequence) …</c>.</summary>
-public sealed class BoundForStatement(
+internal sealed class BoundForStatement(
     SyntaxNode syntax,
     LocalSymbol iterationVariable,
     BoundExpression sequence,
@@ -78,17 +78,17 @@ public sealed class BoundForStatement(
     public override IEnumerable<BoundNode> Children => [Sequence, Body];
 }
 
-public sealed class BoundReturnStatement(SyntaxNode syntax, BoundExpression? expression) : BoundStatement(syntax) {
+internal sealed class BoundReturnStatement(SyntaxNode syntax, BoundExpression? expression) : BoundStatement(syntax) {
     public BoundExpression? Expression { get; } = expression;
     public override BoundKind Kind => BoundKind.ReturnStatement;
     public override IEnumerable<BoundNode> Children => Expression is null ? [] : [Expression];
 }
 
-public sealed class BoundBreakStatement(SyntaxNode syntax) : BoundStatement(syntax) {
+internal sealed class BoundBreakStatement(SyntaxNode syntax) : BoundStatement(syntax) {
     public override BoundKind Kind => BoundKind.BreakStatement;
 }
 
-public sealed class BoundContinueStatement(SyntaxNode syntax) : BoundStatement(syntax) {
+internal sealed class BoundContinueStatement(SyntaxNode syntax) : BoundStatement(syntax) {
     public override BoundKind Kind => BoundKind.ContinueStatement;
 }
 
@@ -98,7 +98,7 @@ public sealed class BoundContinueStatement(SyntaxNode syntax) : BoundStatement(s
 ///     stage intrinsic, which is the whole reason it needs a keyword: a function cannot express
 ///     "control does not come back", so nothing after the call would be known to be unreachable.
 /// </remarks>
-public sealed class BoundDiscardStatement(SyntaxNode syntax) : BoundStatement(syntax) {
+internal sealed class BoundDiscardStatement(SyntaxNode syntax) : BoundStatement(syntax) {
     public override BoundKind Kind => BoundKind.DiscardStatement;
 }
 
@@ -113,14 +113,14 @@ public sealed class BoundDiscardStatement(SyntaxNode syntax) : BoundStatement(sy
 /// <param name="Labels">The <c>case</c> values, converted to the governing type. Empty for <c>default</c>.</param>
 /// <param name="IsDefault">Whether this section carries the <c>default</c> label.</param>
 /// <param name="Statements">The section's body.</param>
-public sealed record BoundSwitchSection(
+internal sealed record BoundSwitchSection(
     IReadOnlyList<BoundExpression> Labels,
     bool IsDefault,
     IReadOnlyList<BoundStatement> Statements
 );
 
 /// <summary><c>switch</c> statement.</summary>
-public sealed class BoundSwitchStatement(
+internal sealed class BoundSwitchStatement(
     SyntaxNode syntax,
     BoundExpression governingExpression,
     IReadOnlyList<BoundSwitchSection> sections
@@ -136,6 +136,6 @@ public sealed class BoundSwitchStatement(
 }
 
 /// <summary>An empty statement, or one the binder chose not to model.</summary>
-public sealed class BoundNoOpStatement(SyntaxNode syntax) : BoundStatement(syntax) {
+internal sealed class BoundNoOpStatement(SyntaxNode syntax) : BoundStatement(syntax) {
     public override BoundKind Kind => BoundKind.NoOpStatement;
 }

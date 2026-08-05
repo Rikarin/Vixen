@@ -19,7 +19,7 @@ namespace Vixen.Raven.Binding;
 ///     <c>[Semantic("SV_Target")]</c> are compile-time metadata read straight off
 ///     the syntax. In expression position the binder rejects it.
 /// </remarks>
-public static class LiteralParser {
+internal static class LiteralParser {
     const string IntegerSuffixes = "uU";
     const string AllSuffixes = "uUfFdDmM";
 

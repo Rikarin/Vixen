@@ -29,7 +29,7 @@ namespace Vixen.Raven.Symbols.Source;
 ///         therefore belong in the cache key.
 ///     </para>
 /// </remarks>
-public sealed class SourceValueParameterSymbol : FieldSymbol {
+internal sealed class SourceValueParameterSymbol : FieldSymbol {
     readonly Binder binder;
     readonly TypeParameterSyntax syntax;
 

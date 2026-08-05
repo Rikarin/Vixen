@@ -9,7 +9,7 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols.Source;
 
 /// <summary>A <c>val</c>/<c>var</c> field declared in a type body.</summary>
-public sealed class SourceFieldSymbol : FieldSymbol {
+internal sealed class SourceFieldSymbol : FieldSymbol {
     readonly Binder binder;
     readonly FieldDeclarationSyntax syntax;
 
@@ -346,7 +346,7 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 }
 
 /// <summary>A member of an <c>enum</c>: a constant of the enum's own type.</summary>
-public sealed class SourceEnumMemberSymbol : FieldSymbol {
+internal sealed class SourceEnumMemberSymbol : FieldSymbol {
     readonly Binder binder;
     readonly EnumMemberDeclarationSyntax syntax;
 

@@ -6,7 +6,7 @@ using Vixen.Raven.IR;
 namespace Vixen.Raven.CodeGen.Glsl;
 
 /// <summary>Mapping IR opcodes onto GLSL's built-in functions.</summary>
-public static class GlslIntrinsics {
+internal static class GlslIntrinsics {
     /// <summary>GLSL spells these the same as the IR, just lower-cased.</summary>
     static readonly Dictionary<IrIntrinsic, string> DirectNames = new() {
         [IrIntrinsic.Abs] = "abs",

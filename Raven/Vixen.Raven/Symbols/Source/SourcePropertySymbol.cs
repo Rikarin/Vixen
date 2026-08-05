@@ -13,7 +13,7 @@ namespace Vixen.Raven.Symbols.Source;
 ///     <c>willSet</c>/<c>didSet</c> observers in addition to <c>get</c>/<c>set</c>;
 ///     any of them makes the property writable.
 /// </summary>
-public sealed class SourcePropertySymbol : PropertySymbol {
+internal sealed class SourcePropertySymbol : PropertySymbol {
     readonly Binder binder;
     ParameterSymbol[]? parameters;
     bool resolving;

@@ -13,7 +13,7 @@ namespace Vixen.Raven.Binding;
 ///     <see cref="TypeSymbol" />, and every conversion made explicit. Phase 3 lowers
 ///     this to the target-independent IR.
 /// </summary>
-public abstract class BoundNode {
+internal abstract class BoundNode {
     /// <summary>The syntax this node was bound from.</summary>
     public SyntaxNode Syntax { get; }
 
@@ -38,7 +38,7 @@ public abstract class BoundNode {
 }
 
 /// <summary>A bound node that produces a value (or, for statements' sake, a type).</summary>
-public abstract class BoundExpression : BoundNode {
+internal abstract class BoundExpression : BoundNode {
     /// <summary>The expression's type; <see cref="ErrorTypeSymbol" /> when it could not be determined.</summary>
     public abstract TypeSymbol Type { get; }
 
@@ -52,6 +52,6 @@ public abstract class BoundExpression : BoundNode {
 }
 
 /// <summary>A bound node that performs an action rather than producing a value.</summary>
-public abstract class BoundStatement : BoundNode {
+internal abstract class BoundStatement : BoundNode {
     protected BoundStatement(SyntaxNode syntax) : base(syntax) { }
 }

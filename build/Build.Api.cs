@@ -122,6 +122,16 @@ partial class Build {
     ///         realm binary referencing <c>Vixen.Live.Realm</c> — a promise made to somebody else's
     ///         build, which is exactly the subject of this gate.
     ///     </para>
+    ///     <para>
+    ///         And <c>Vixen.Raven</c>, which is the second named exception. <c>Raven/</c> is
+    ///         build-time tooling and is not covered as a folder — but the compiler is not the CLI
+    ///         around it. Its own <c>.csproj</c> says so: <em>"Shipped package: the compiler is
+    ///         useful on its own, without the engine"</em>, with a description, package tags and a
+    ///         readme. It is the assembly with the most churn in the tree, and it was the one whose
+    ///         entire surface — 4 913 entries — was approved by nothing, so every addition, removal
+    ///         and signature change in it passed silently. The CLI, the tests and the ANTLR oracle
+    ///         beside it still are not covered, because none of them packs.
+    ///     </para>
     /// </remarks>
     List<AbsolutePath> ApiCheckedProjects() =>
         RootDirectory
@@ -130,7 +140,8 @@ partial class Build {
                 "Gameplay/**/*.csproj",
                 "Platform/**/*.csproj",
                 "Live/**/*.csproj",
-                "Editor/Vixen.Editor.Plugin/*.csproj"
+                "Editor/Vixen.Editor.Plugin/*.csproj",
+                "Raven/Vixen.Raven/*.csproj"
             )
             .Where(path => !path.ToString().Contains("/bin/", StringComparison.Ordinal))
             .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))

@@ -15,7 +15,7 @@ namespace Vixen.Raven.Symbols.Source;
 ///     resolves the first time it is read. That ordering is what lets a type refer to
 ///     its own members while its members refer back to the type.
 /// </summary>
-public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
+internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     readonly Binder outerBinder;
     readonly List<SourceNamedTypeSymbol> nestedTypes = [];
 

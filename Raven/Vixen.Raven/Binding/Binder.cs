@@ -15,7 +15,7 @@ namespace Vixen.Raven.Binding;
 ///     The chain is
 ///     <c>global → imports → type → method → block…</c>.
 /// </summary>
-public abstract partial class Binder {
+internal abstract partial class Binder {
     /// <summary>The enclosing scope, or null for the global binder.</summary>
     public Binder? Next { get; }
 

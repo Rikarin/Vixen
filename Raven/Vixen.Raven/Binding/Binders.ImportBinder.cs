@@ -11,7 +11,7 @@ namespace Vixen.Raven.Binding;
 ///     one, plus everything its <c>import</c> directives bring in. Imports resolve on
 ///     first use, after every declaration in the compilation exists.
 /// </summary>
-public sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace, CompilationUnitSyntax unit)
+internal sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace, CompilationUnitSyntax unit)
     : Binder(next) {
     NamespaceSymbol[]? importedNamespaces;
     NamespaceSymbol[]? packageChain;

@@ -12,7 +12,7 @@ namespace Vixen.Raven.Binding;
 ///     where reading <see cref="BoundExpression.ConstantValue" /> alone only sees
 ///     literals and const-field references.
 /// </summary>
-public static class ConstantEvaluator {
+internal static class ConstantEvaluator {
     /// <summary>The expression's compile-time value, or null when it is not a constant.</summary>
     public static object? Evaluate(BoundExpression expression) {
         switch (expression) {

@@ -10,7 +10,7 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Binding;
 
 /// <summary>Resolution of type syntax to <see cref="TypeSymbol" />s.</summary>
-public abstract partial class Binder {
+internal abstract partial class Binder {
     /// <summary>
     ///     Resolves a type annotation. Failures report once and yield
     ///     <see cref="ErrorTypeSymbol" /> so callers need no null checks.

@@ -6,7 +6,7 @@ using Vixen.Raven.Symbols;
 namespace Vixen.Raven.Binding;
 
 /// <summary>What a <see cref="BoundBody" /> came from.</summary>
-public enum BoundBodyKind {
+internal enum BoundBodyKind {
     Method,
     Constructor,
     PropertyGetter,
@@ -23,7 +23,7 @@ public enum BoundBodyKind {
 ///     raw syntax does not give you (an expression-bodied method's return conversion
 ///     has no syntax node of its own to hang off).
 /// </summary>
-public sealed class BoundBody {
+internal sealed class BoundBody {
     /// <summary>The method, property or field this body belongs to.</summary>
     public Symbol Member { get; }
 

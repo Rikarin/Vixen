@@ -8,7 +8,7 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols.Source;
 
 /// <summary>Applies <c>where T : Base, Other</c> clauses to type parameters.</summary>
-public static class ConstraintResolution {
+internal static class ConstraintResolution {
     public static void Apply(
         IReadOnlyList<TypeParameterSymbol> typeParameters,
         SyntaxList<TypeParameterConstraintClauseSyntax> clauses,

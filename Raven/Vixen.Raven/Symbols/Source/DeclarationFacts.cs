@@ -8,7 +8,7 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols.Source;
 
 /// <summary>Reads modifiers and attributes off declaration syntax.</summary>
-public static class DeclarationFacts {
+internal static class DeclarationFacts {
     /// <summary>Attribute names that mark a method as a pipeline entry point.</summary>
     static readonly Dictionary<string, ShaderStage> StageAttributes = new(StringComparer.Ordinal) {
         ["VertexShader"] = ShaderStage.Vertex,

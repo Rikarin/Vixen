@@ -5,7 +5,7 @@
 namespace Vixen.Raven.Binding;
 
 /// <summary>The operation a <see cref="BoundBinaryExpression" /> performs.</summary>
-public enum BinaryOperatorKind {
+internal enum BinaryOperatorKind {
     Add,
     Subtract,
     Multiply,
@@ -28,7 +28,7 @@ public enum BinaryOperatorKind {
 }
 
 /// <summary>The operation a <see cref="BoundUnaryExpression" /> performs.</summary>
-public enum UnaryOperatorKind {
+internal enum UnaryOperatorKind {
     Plus,
     Minus,
     BitwiseNot,

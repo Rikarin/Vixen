@@ -17,7 +17,7 @@ namespace Vixen.Raven.CodeGen.Spirv;
 ///     listing rendered from the very same instructions, so what a golden file shows
 ///     is what the binary holds.
 /// </remarks>
-public sealed class SpirvBackend(SpirvOptions? options = null) : ITargetBackend {
+internal sealed class SpirvBackend(SpirvOptions? options = null) : ITargetBackend {
     readonly SpirvOptions options = options ?? new SpirvOptions();
 
     public string Name => "spirv";

@@ -31,7 +31,7 @@ namespace Vixen.Raven.CodeGen.Spirv;
 ///         where it matters, and duplicating it here would be a second list to keep in step.
 ///     </para>
 /// </remarks>
-public static class SpirvNames {
+internal static class SpirvNames {
     /// <summary>What a suffixed name gains, so that two distinct names stay distinct.</summary>
     const string Suffix = "_";
 
