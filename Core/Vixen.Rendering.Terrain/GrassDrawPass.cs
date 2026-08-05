@@ -85,6 +85,14 @@ public sealed class GrassDrawPass : IDisposable {
 
     readonly BufferHandle bladeVertices;
     readonly BufferHandle bladeIndices;
+    readonly BufferHandle cardVertices;
+    readonly BufferHandle cardIndices;
+
+    readonly GrassBladeMesh strip;
+    readonly GrassBladeMesh card;
+
+    GrassBladeMesh blade;
+    bool assigned;
 
     int slot;
     bool defaultUploaded;
@@ -223,20 +231,55 @@ public sealed class GrassDrawPass : IDisposable {
         }
 
         (bladeVertices, bladeIndices, DefaultBladeIndices) = BuildBlade(device);
-        Blade = new(bladeVertices, bladeIndices, DefaultBladeIndices);
+        (cardVertices, cardIndices, DefaultCardIndices) = BuildCard(device);
+
+        strip = new(bladeVertices, bladeIndices, DefaultBladeIndices);
+        card = new(cardVertices, cardIndices, DefaultCardIndices);
     }
 
-    /// <summary>How many indices the built-in blade is.</summary>
+    /// <summary>How many indices the built-in tapered strip is.</summary>
     public int DefaultBladeIndices { get; }
+
+    /// <summary>How many indices the built-in cutout card is.</summary>
+    public int DefaultCardIndices { get; }
 
     /// <summary>What every instance is drawn from.</summary>
     /// <remarks>
-    ///     ⚠ <b>Settable, and the built-in one is a fallback rather than the design.</b> A project's
-    ///     grass is a mesh an artist made; what the built-in blade is for is that a field scattered
-    ///     before anybody has assigned one draws something, which is the difference between "no mesh
-    ///     yet" and "the grass system does not work".
+    ///     <para>
+    ///         ⚠ <b>Settable, and the built-in ones are a fallback rather than the design.</b> A
+    ///         project's grass is a mesh an artist made; what a built-in is for is that a field
+    ///         scattered before anybody has assigned one draws something, which is the difference
+    ///         between "no mesh yet" and "the grass system does not work". Assigning wins from the
+    ///         moment it is assigned, including assigning nothing — <c>default</c> means no mesh, not
+    ///         "go back to the built-in".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>There are two built-ins and <see cref="Albedo" /> picks between them, because
+    ///         each is wrong exactly where the other is right.</b> The tapered strip's silhouette is
+    ///         its geometry — six centimetres at the root, a point at the tip — which is what draws
+    ///         as a blade when there is no texture to draw one. The card's silhouette is its
+    ///         <em>alpha</em>: a wide crossed quad carrying a whole cutout atlas, which needs the
+    ///         cutout to look like anything at all and is a green rectangle without it. So the strip
+    ///         squeezes a seven-blade card into a sliver and the card without a map is a slab, and
+    ///         the fact that decides which is wanted is the one this pass already holds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Resolved on read rather than latched, because an albedo arrives late.</b> A
+    ///         texture is not resolvable until its pixels are on the device, so a mesh chosen when
+    ///         the field was built would be the strip for every field in every session. The read is
+    ///         coherent within a frame: <c>TerrainSceneRenderer</c> assigns the albedo immediately
+    ///         before it reads <see cref="MeshTemplate" /> and calls <see cref="Prepare" />, so the
+    ///         index count the indirect command bakes and the buffers <see cref="Record" /> binds are
+    ///         the same mesh's.
+    ///     </para>
     /// </remarks>
-    public GrassBladeMesh Blade { get; set; }
+    public GrassBladeMesh Blade {
+        get => assigned ? blade : Albedo.IsValid ? card : strip;
+        set {
+            blade = value;
+            assigned = true;
+        }
+    }
 
     /// <summary>What the blades are textured with, or default for the built-in white.</summary>
     public TextureViewHandle Albedo { get; set; }
@@ -492,33 +535,112 @@ public sealed class GrassDrawPass : IDisposable {
         public const int SizeInBytes = 32;
     }
 
-    /// <summary>Builds the tapered blade a field draws before anybody assigns a mesh.</summary>
+    /// <summary>How many segments a built-in is split into up its height.</summary>
     /// <remarks>
-    ///     ⚠ <b>Three segments rather than one quad, because the wind bends it.</b>
-    ///     <c>Grass.rvn</c>'s vertex stage displaces by height, so a two-triangle blade bends as a
-    ///     rigid card leaning over — which at any strength above a breeze reads as the grass being
-    ///     knocked flat rather than swaying.
+    ///     ⚠ <b>Three rather than one, because the wind bends it.</b> <c>Grass.rvn</c>'s vertex stage
+    ///     displaces by height above the pivot, so a two-triangle blade bends as a rigid card leaning
+    ///     over — which at any strength above a breeze reads as the grass being knocked flat rather
+    ///     than swaying. It is the sway that sets the number, so both built-ins take it.
+    /// </remarks>
+    const int Segments = 3;
+
+    /// <summary>How wide the cutout card is, in metres at unit scale.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Roughly as wide as it is tall, because the atlas is square.</b> A card narrower than
+    ///     its map squeezes the blades drawn across it and a wider one splays them, and neither reads
+    ///     as grass — the geometry has no shape of its own to fall back on, which is the whole
+    ///     difference between this and <see cref="BuildBlade" />'s strip.
+    /// </remarks>
+    const float CardWidth = 0.6f;
+
+    /// <summary>Builds the tapered blade a field with no texture draws.</summary>
+    /// <remarks>
+    ///     <b>The no-albedo built-in</b> — <see cref="Blade" /> says why there are two. Its shape is
+    ///     its geometry, so it draws as a blade through the pass's white default; a cutout atlas on
+    ///     it is seven blades squeezed into a six-centimetre sliver.
     /// </remarks>
     static (BufferHandle Vertices, BufferHandle Indices, int IndexCount) BuildBlade(IGraphicsDevice device) {
-        const int segments = 3;
+        var vertices = new BladeVertex[(Segments + 1) * 2];
+        var indices = new uint[Segments * 6];
 
-        var vertices = new BladeVertex[(segments + 1) * 2];
-        var indices = new uint[segments * 6];
-
-        for (var step = 0; step <= segments; step++) {
-            var v = step / (float)segments;
+        for (var step = 0; step <= Segments; step++) {
+            var height = step / (float)Segments;
 
             // Tapered: full width at the root, a point at the tip.
-            var halfWidth = 0.5f * (1f - v) * 0.06f;
+            var halfWidth = 0.5f * (1f - height) * 0.06f;
 
-            vertices[step * 2] = new() { Position = new(-halfWidth, v, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(0f, v) };
-            vertices[(step * 2) + 1] = new() { Position = new(halfWidth, v, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(1f, v) };
+            // ⚠ `1 − height`, not `height`. V runs *downward* from the first row of the image
+            // (Conventions.md), so the root — which stands on the ground — is the map's bottom edge
+            // and therefore v = 1. Written the other way for as long as the strip existed, and
+            // invisible the whole time because nothing but a white 1×1 was ever bound to it.
+            var v = 1f - height;
+
+            vertices[step * 2] = new() { Position = new(-halfWidth, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(0f, v) };
+            vertices[(step * 2) + 1] = new() { Position = new(halfWidth, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(1f, v) };
         }
 
-        var at = 0;
+        Stitch(indices, 0, 0);
 
-        for (var step = 0; step < segments; step++) {
-            var lower = (uint)(step * 2);
+        return Upload(device, vertices, indices, "grass blade");
+    }
+
+    /// <summary>Builds the crossed cutout card a field with a texture draws.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The albedo built-in</b> — <see cref="Blade" /> says why there are two. The whole
+    ///         atlas across one quad, which is what makes a seven-blade cutout draw as seven blades
+    ///         rather than as banding, and what makes <see cref="AlphaCutoff" /> worth having: the
+    ///         card's silhouette is the map's alpha and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two quads crossed at a right angle, not one.</b> A grass type scatters at a
+    ///         random yaw, so a single card is edge-on to the camera for some fraction of the field
+    ///         at every moment — and a blade that vanishes as you turn reads as the scatter dropping
+    ///         instances. Crossed, no instance is ever edge-on in both quads. It costs a second
+    ///         quad's fill, which the cutout takes most of back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Untapered, deliberately.</b> Narrowing the card toward the tip would cut the
+    ///         atlas's own blades off at an angle the map does not have, which is the strip's mistake
+    ///         upside down.
+    ///     </para>
+    /// </remarks>
+    static (BufferHandle Vertices, BufferHandle Indices, int IndexCount) BuildCard(IGraphicsDevice device) {
+        const int perQuad = (Segments + 1) * 2;
+
+        var vertices = new BladeVertex[perQuad * 2];
+        var indices = new uint[Segments * 6 * 2];
+        var half = CardWidth * 0.5f;
+
+        for (var step = 0; step <= Segments; step++) {
+            var height = step / (float)Segments;
+            var v = 1f - height;
+
+            // Across X, facing Z; then across Z, facing X. The normals are the preview shader's —
+            // `GrassLit` lights a blade by its rotated up axis instead, for the reason that stream
+            // states, so these two answers only ever differ in the editor's preview.
+            vertices[step * 2] = new() { Position = new(-half, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(0f, v) };
+            vertices[(step * 2) + 1] = new() { Position = new(half, height, 0f), Normal = new(0f, 0f, 1f), Texcoord = new(1f, v) };
+
+            vertices[perQuad + (step * 2)] = new() { Position = new(0f, height, -half), Normal = new(1f, 0f, 0f), Texcoord = new(0f, v) };
+            vertices[perQuad + (step * 2) + 1] = new() { Position = new(0f, height, half), Normal = new(1f, 0f, 0f), Texcoord = new(1f, v) };
+        }
+
+        Stitch(indices, 0, 0);
+        Stitch(indices, Segments * 6, perQuad);
+
+        return Upload(device, vertices, indices, "grass card");
+    }
+
+    /// <summary>Writes one quad's triangles into <paramref name="indices" />, from a vertex base.</summary>
+    /// <remarks>
+    ///     Winding is irrelevant to the draw — a field is <see cref="CullMode.None" /> — and kept
+    ///     consistent anyway, so a project that binds a culling pipeline to the same buffers gets the
+    ///     front faces it expects rather than a card that is invisible from one side.
+    /// </remarks>
+    static void Stitch(uint[] indices, int at, int baseVertex) {
+        for (var step = 0; step < Segments; step++) {
+            var lower = (uint)(baseVertex + (step * 2));
 
             indices[at++] = lower;
             indices[at++] = lower + 2;
@@ -528,18 +650,26 @@ public sealed class GrassDrawPass : IDisposable {
             indices[at++] = lower + 2;
             indices[at++] = lower + 3;
         }
+    }
 
+    /// <summary>Puts one built-in's two buffers on the device.</summary>
+    static (BufferHandle Vertices, BufferHandle Indices, int IndexCount) Upload(
+        IGraphicsDevice device,
+        BladeVertex[] vertices,
+        uint[] indices,
+        string name
+    ) {
         var vertexBuffer = device.CreateBuffer(
             new(
                 (long)vertices.Length * BladeVertex.SizeInBytes,
                 BufferUsage.Vertex,
                 MemoryAccess.HostUpload,
-                "grass blade vertices"
+                $"{name} vertices"
             )
         );
 
         var indexBuffer = device.CreateBuffer(
-            new((long)indices.Length * sizeof(uint), BufferUsage.Index, MemoryAccess.HostUpload, "grass blade indices")
+            new((long)indices.Length * sizeof(uint), BufferUsage.Index, MemoryAccess.HostUpload, $"{name} indices")
         );
 
         device.Write(vertexBuffer, 0, MemoryMarshal.AsBytes<BladeVertex>(vertices));
@@ -566,6 +696,8 @@ public sealed class GrassDrawPass : IDisposable {
 
         device.Destroy(bladeVertices);
         device.Destroy(bladeIndices);
+        device.Destroy(cardVertices);
+        device.Destroy(cardIndices);
         device.Destroy(constants);
         device.Destroy(defaultStaging);
         device.Destroy(albedoSampler);
