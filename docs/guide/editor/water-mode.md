@@ -132,9 +132,24 @@ first-party debug tooling in any engine, and there is no credit in inventing wor
 an unresolved one is an asset name or an asset that has not loaded. One number for both sends an
 author to the wrong place.
 
-⚠ **The six `show` verbs are flags and the drawing they switch on is not built.** They cost a branch;
-what would read them is a viewport line pass water has no seam into yet. Shipping the switches with
-nothing behind them would be worse than shipping neither, so this says so.
+The six `show` verbs draw through `DebugDraw`, which turned out to be the seam water was said to be
+missing: it is an *accumulator* rather than a renderer, so `Vixen.Rendering.Water` draws into it
+without knowing what a line pass is.
+
+⚠ **Five of the six are `WaterDebugDraw`'s and the sixth is `BuoyancyDebugDraw`'s.** The pontoons and
+the forces belong to `Vixen.Water.Physics`, which the renderer must not reference — § D1 puts the
+physics join in its own assembly precisely so that nothing linking Jolt is linked by a renderer. The
+flag is with the console verb; the drawing is with the data, and a host copies one across.
+
+⚠ **`showTiles` colours a patch by what is under it, using the contribution and not the containment
+test.** `WaterBody.Contains` is an even-odd test on a closed boundary and answers *false* for every
+open body — so a colour rule written on it paints every river as open sea, which is precisely the case
+the verb exists for.
+
+⚠ **`showLod` draws two rings per level and not one.** A level's range is where it takes over; its
+morph band is where it has already begun degenerating onto its parent's grid. A pop at the outer ring
+is a range that is too near; one inside the band is a morph that is not reaching zero, and they have
+different fixes.
 
 ## Examples
 

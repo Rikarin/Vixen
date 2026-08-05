@@ -16,12 +16,18 @@ namespace Vixen.Rendering.Water;
 ///         rather than as something added after the first bug.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Flags rather than the drawing, and the drawing is owed.</b> Switching one of these
-///         on costs a branch; what reads them is the viewport's line pass, which water has no seam
-///         into yet. Shipping the switches with nothing behind them would be worse than shipping
-///         neither, so <see cref="WaterOverlay" /> and <see cref="WaterMeshOverlay" /> — the two that
-///         only need numbers somebody already publishes — are built, and the six that need lines are
-///         <em>flags a renderer can read</em> with the draw itself named as not built.
+///         <b>What reads them is <see cref="WaterDebugDraw" />, and it turned out no new seam was
+///         needed.</b> These shipped as flags with the drawing owed, on the belief that a viewport
+///         line pass was missing — <c>DebugDraw</c> is exactly that pass, and it is an accumulator
+///         rather than a renderer, so this assembly draws into it without knowing what a line is.
+///     </para>
+///     <para>
+///         ⚠ <b>Five of the six are drawn by <see cref="WaterDebugDraw" /> and the sixth is
+///         elsewhere.</b> <see cref="ShowBuoyancy" />'s pontoons and forces belong to
+///         <c>Vixen.Water.Physics</c>, which this assembly must not reference — § D1 puts the physics
+///         join in its own assembly precisely so that nothing linking Jolt is linked by a renderer.
+///         The flag is here because the console verb is; <c>BuoyancyDebugDraw</c> is where the data
+///         is, and a host copies this across.
 ///     </para>
 /// </remarks>
 public static class WaterDebug {

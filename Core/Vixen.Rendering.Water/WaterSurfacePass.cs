@@ -300,6 +300,23 @@ public sealed class WaterSurfacePass : IDisposable {
     /// <summary>How many draws the last <see cref="Record" /> made. Zero, one or two.</summary>
     public int Draws { get; private set; }
 
+    /// <summary>The patches the last <see cref="Upload" /> chose — the skirt's first, then the window's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The order is the draw order and it is load bearing</b>, which is why this is one
+    ///         span and not two: the far skirt is uploaded and drawn first because depth writes are
+    ///         off, so at a pixel where both cover the last fragment wins and the near mesh is the one
+    ///         with a field under it. The first <see cref="FarPatches" /> entries are the skirt's.
+    ///     </para>
+    ///     <para>
+    ///         Published for <c>water.showTiles</c> and <c>water.showLod</c>. A debug draw that
+    ///         selected the patches again would be drawing <em>its own</em> descent — which would
+    ///         agree with the frame's until the moment it stopped, and that moment is exactly the bug
+    ///         somebody would be turning the overlay on to find.
+    ///     </para>
+    /// </remarks>
+    public ReadOnlySpan<TerrainLodNode> Selected => CollectionsMarshal.AsSpan(selected);
+
     /// <summary>Selects this frame's patches and stages everything the draw reads.</summary>
     /// <param name="mesh">The zone's mesh, already pointed at a rasterised field.</param>
     /// <param name="view">The camera's placement and what it can see.</param>

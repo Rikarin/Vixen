@@ -7,6 +7,13 @@ Vixen.Water.Physics.BuoyancyBody.FlowDrag -> float
 Vixen.Water.Physics.BuoyancyBody.MaximumForce -> float
 Vixen.Water.Physics.BuoyancyBody.Pontoons -> Vixen.Water.BuoyancyPontoon[]
 Vixen.Water.Physics.BuoyancyBody.QuadraticDamping -> float
+Vixen.Water.Physics.BuoyancyDebugDraw -> sealed class
+Vixen.Water.Physics.BuoyancyDebugDraw.BuoyancyDebugDraw() -> void
+Vixen.Water.Physics.BuoyancyDebugDraw.Draw(Vixen.Engine.Diagnostics.DebugDraw into, Vixen.Ecs.World world, Vixen.Water.Physics.BuoyancySystem buoyancy) -> void
+Vixen.Water.Physics.BuoyancyDebugDraw.Enabled.get -> bool
+Vixen.Water.Physics.BuoyancyDebugDraw.Enabled.set -> bool
+Vixen.Water.Physics.BuoyancyDebugDraw.ForceScale.get -> float
+Vixen.Water.Physics.BuoyancyDebugDraw.ForceScale.set -> float
 Vixen.Water.Physics.BuoyancyState -> struct
 Vixen.Water.Physics.BuoyancyState.BuoyancyState() -> void
 Vixen.Water.Physics.BuoyancyState.Lift -> float
