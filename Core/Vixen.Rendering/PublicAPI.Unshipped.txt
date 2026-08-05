@@ -1213,6 +1213,8 @@ Vixen.Rendering.Compositor.VirtualShadowRenderer.FirstExtent.get -> float
 Vixen.Rendering.Compositor.VirtualShadowRenderer.FirstExtent.set -> float
 Vixen.Rendering.Compositor.VirtualShadowRenderer.LightDirection.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Compositor.VirtualShadowRenderer.LightDirection.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Compositor.VirtualShadowRenderer.LightSnapDegrees.get -> float
+Vixen.Rendering.Compositor.VirtualShadowRenderer.LightSnapDegrees.set -> float
 Vixen.Rendering.Compositor.VirtualShadowRenderer.MarkedPages.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.PagesPerFrame.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.PagesPerFrame.set -> int
@@ -4424,6 +4426,7 @@ Vixen.Rendering.VirtualShadowPages.Evict(Vixen.Rendering.PageKey key, int slot) 
 Vixen.Rendering.VirtualShadowPages.Invalidate(int page) -> bool
 Vixen.Rendering.VirtualShadowPages.InvalidateAll() -> void
 Vixen.Rendering.VirtualShadowPages.LoadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Rendering.VirtualShadowPages.Owe(int page) -> bool
 Vixen.Rendering.VirtualShadowPages.PageSize.get -> int
 Vixen.Rendering.VirtualShadowPages.PagesPerSide.get -> int
 Vixen.Rendering.VirtualShadowPages.Pending.get -> System.Collections.Generic.IReadOnlyList<int>
@@ -6261,6 +6264,7 @@ static Vixen.Rendering.VirtualShadowMap.IndexOf(uint first, Vixen.Core.Mathemati
 static Vixen.Rendering.VirtualShadowMap.LevelFor(float worldTexelSize, float firstExtent, int levels) -> int
 static Vixen.Rendering.VirtualShadowMap.PageOf(in Vixen.Core.Mathematics.Matrix4x4 viewProjection, Vixen.Core.Mathematics.Vector3 world, out Vixen.Core.Mathematics.Int2 page) -> bool
 static Vixen.Rendering.VirtualShadowMap.PageProjection(in Vixen.Core.Mathematics.Matrix4x4 viewProjection, Vixen.Core.Mathematics.Int2 page) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Rendering.VirtualShadowMap.SnapDirection(Vixen.Core.Mathematics.Vector3 direction, float degrees) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Rendering.VirtualShadowMap.TexelOf(int level, float firstExtent) -> float
 static Vixen.Rendering.VirtualShadowMap.WorldTexelSize(float distance, float screenHeightScale, int screenHeight) -> float
 static readonly Vixen.Rendering.Lighting.CubeMapping.Faces -> Vixen.Rendering.CubeFace[]

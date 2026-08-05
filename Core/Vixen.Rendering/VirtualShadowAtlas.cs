@@ -254,15 +254,21 @@ public sealed class VirtualShadowAtlas : IDisposable {
 
         // Touching is what keeps the pages a frame is about to *read* out of the eviction order — the
         // same line UploadResidency has in the geometry path, and the same failure without it: a pool
-        // that thrashes hardest on exactly the pages it is using.
+        // that thrashes hardest on exactly the pages it is using. Owing is the draw-side half of the
+        // same statement: Request above ignores a page that is already resident, so a marked page
+        // whose slot exists but whose depths were never published — dropped between the take and the
+        // draw, or re-queued past what the budget drains — has no voice but this one. Owe puts it at
+        // the newest end of the draw queue, where the budget looks first.
         for (var word = 0; word < marks.Length; word++) {
             var bits = marks[word];
 
             while (bits != 0) {
                 var bit = System.Numerics.BitOperations.TrailingZeroCount(bits);
+                var page = (word * 32) + bit;
 
                 bits &= bits - 1;
-                Residency.Touch(new(VirtualShadowPages.Source, (word * 32) + bit));
+                Residency.Touch(new(VirtualShadowPages.Source, page));
+                Pages.Owe(page);
             }
         }
 
