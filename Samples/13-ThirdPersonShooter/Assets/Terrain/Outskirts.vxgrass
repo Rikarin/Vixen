@@ -7,14 +7,17 @@
 # the pass's white 1×1 — which is what the blades were sampling, tinted only by `tintRange` and the
 # shader's own light term.
 #
-# ⚠ **What is still owed is the mesh, not the map.** `grass-blade-albedo.png` is authored as a
-# cutout *card* — seven blades on a transparent background, `make_textures.py`'s `grass_blade` — and
-# the built-in blade `GrassDrawPass.BuildBlade` scatters is a single tapered strip whose texcoord
-# runs 0…1 across that one blade. So the card's seven blades are squeezed across each strip and read
-# as vertical banding rather than as seven blades. It is the right green and the wrong framing, and
-# closing it needs a blade-card mesh whose unwrap matches the atlas — plus an alpha-test discard,
-# which `Grass.rvn` does not have: the fragment writes `sampled.a` into an opaque target, so the
-# card's transparent margin would draw as its background colour rather than as a hole.
+# ⚠ **Naming a map is what chooses the mesh.** `grass-blade-albedo.png` is authored as a cutout
+# *card* — seven blades on a transparent background, `make_textures.py`'s `grass_blade` — and
+# `GrassDrawPass.Blade` answers with the crossed card rather than the tapered strip precisely
+# because this line binds one. The card carries the whole atlas across itself and takes its
+# silhouette from the alpha, which `Grass.rvn` now tests against `alphaCutoff`; the strip is what a
+# rule with no `albedo:` still draws, and it is the shape that reads as a blade through the pass's
+# white 1×1.
+#
+# ⚠ **The fade band is short and the ring is not.** 38…55 m here against a 160 m residency, so most
+# resident cells scatter blades that are stippled fully out. Wasteful rather than wrong, and it is
+# also why the field is hard to see from far off: past 55 m there is nothing to see.
 name: Outskirts
 layer: Grass
 albedo: vx:6a17bc2149f845118f5497862fa98c7e
