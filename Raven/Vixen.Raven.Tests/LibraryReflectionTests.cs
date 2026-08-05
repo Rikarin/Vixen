@@ -150,6 +150,14 @@ public class LibraryReflectionTests {
         // its bindings must track TerrainBase's declaration order, not the preview's numbers.
         ("Terrain", "TerrainCaster"),
 
+        // The velocity half of the ground stack — the same lattice, blades and placements under two
+        // matrices, feeding the frame's motion target. Published on the caster's terms: each pass
+        // writes its block and its whole set by these keys, and the bindings track the base
+        // shaders' declaration order, not the previews' numbers.
+        ("Terrain", "TerrainVelocity"),
+        ("Terrain", "GrassVelocity"),
+        ("Terrain", "FoliageVelocity"),
+
         // The grass pair — docs/plan/31 § T6. GrassDispatch binds the scatter's cell records, its
         // instance and count buffers and every terrain texture it reads, all by name, and the draw
         // reads the buffer the scatter appended to. Published for the reason the culling passes are:

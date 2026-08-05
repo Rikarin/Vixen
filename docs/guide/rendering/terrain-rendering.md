@@ -355,10 +355,57 @@ terrain into the page passes is a tracked follow-up.
 
 ⚠ **Still owed:** grass as a caster (blades barely resolve at cascade texel sizes, and the scatter
 is a per-camera compute whose output the shadow pass has no residency contract with — casting
-terrain without grass is the visible 95 %), `LodBias` (carried, not yet consumed), motion vectors,
+terrain without grass is the visible 95 %), `LodBias` (carried, not yet consumed),
 punctual shadow atlas sampling for the lamps, terrain in the virtual shadow map's pages as above,
 and per-layer surface roughness reaching the lit BRDF — the splat stays diffuse until the surface
 textures teach it otherwise.
+
+## Motion vectors and TAA
+
+Under `antialiasing: Taa` the whole ground stack — the surface, the grass and the foliage — writes
+into the frame's motion plane, and **all three of them have to**. The reason is what `Taa.rvn`
+actually does with a texel nothing wrote: it reprojects with the motion texture and nothing else.
+Its `depthBuffer` binding is declared and never read, so there is no camera-only fallback
+reconstructed from depth — an unwritten texel holds the pass's clear, which is a motion of zero,
+which the resolve reads as *"this pixel did not move on screen"*. Under any camera motion that
+lands the history on the wrong surface, and only the neighbourhood variance clip contains it. That
+is the smear. Static geometry is therefore not exempt: it owes the resolve its camera term exactly
+as much as anything that moves owes its own.
+
+Installation is the caster's story at the other end of the frame, and nothing new to write down:
+`TerrainFactory`'s transform inserts a velocity node wherever a document holds a `!Terrain` node and
+a render pass drawing the `Motion` stage — `!StandardFrame`'s own signature for "the pass TAA's
+vectors land in" — directly **after** that pass. Position is again the whole point, mirrored: the
+frame's velocity pass *clears* the motion plane, and it runs after the `afterOpaque` seam where the
+terrain node itself sits, so a reprojection recorded from the terrain node's own passes would be
+wiped before TAA ever read it. A frame with no `Motion` stage gets no node and pays nothing; the
+node's names are the velocity pass's own, so a hand-authored frame that calls its plane something
+else is picked up without a knob. The three velocity shaders resolving is availability, on the lit
+path's terms: until they compile the ground ghosts for a frame or two rather than not drawing.
+
+What each of the three reprojects:
+
+- **The surface** places the same lattice under this frame's placed matrix and last frame's, both
+  unjittered — the engine never folds TAA's jitter into a view matrix, so `MotionVectors.rvn`'s
+  convention carries over unchanged. The morph is **this frame's under both matrices**: reprojecting
+  with last frame's morph would mean keeping last frame's node records, and the error accepted
+  instead is the morph's own movement between two frames, which is a fraction of a patch texel by
+  construction — the morph band is metres wide and a camera crosses it over many frames. The
+  variance clip absorbs sub-texel disagreement; a second record upload would not earn its bytes.
+- **The grass** evaluates `Displacement.WindPhased` **twice**, at this frame's clock and last
+  frame's, and that second evaluation is the whole reason grass needs a shader of its own. A blade's
+  screen motion is the camera's plus its sway; reprojecting a swaying tip as if it were static
+  leaves the sway unaccounted, which is the tip ghosting against its own wake in every gust.
+- **The foliage** is static geometry, so its previous position is its current one through the
+  previous matrix — one extra binding and no second clock. Trunk sway is owed with the impostors'
+  wind, and the day the draw gains it this shader gains the grass's second evaluation.
+
+Two conventions the passes share. The depth test is `GreaterEqual`, not the frame stages' strict
+`Greater`: this geometry is already the nearest thing in the depth buffer, so its fragments arrive
+*at* the stored depth and a strict test would reject every one of them — a pass that silently wrote
+nothing. And the grass and foliage velocity fragments take **exactly** the colour passes' stipple,
+same pattern and same fade, because a fragment the colour pass dissolved shows the terrain behind
+it: a velocity surviving there would overwrite the ground's answer with the blade's.
 
 ## See also
 

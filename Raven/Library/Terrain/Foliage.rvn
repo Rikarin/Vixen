@@ -23,10 +23,11 @@ import Vixen.Shaders.Shading
 // partly opaque. The stipple pattern is the grass's, so a foliage LOD dissolving and a grass blade
 // fading composite identically.
 //
-// **Two shaders share one base**, on `Terrain.rvn`'s arrangement: `FoliageBase` owns the bindings,
+// **Three shaders share one base**, on `Terrain.rvn`'s arrangement: `FoliageBase` owns the bindings,
 // the streams and the placement, `Foliage` is the editor's preview lit by a hard-coded direction,
-// and `FoliageLit` is the frame's — the same sun and the same cascade atlas the terrain under it
-// reads, through `FrameLit.rvn`'s transliterations.
+// `FoliageLit` is the frame's — the same sun and the same cascade atlas the terrain under it
+// reads, through `FrameLit.rvn`'s transliterations — and `FoliageVelocity` reprojects the same
+// static placements for the frame's temporal resolve.
 
 shader FoliageBase {
     /// Whether instances stipple out over the band before their cull distance.
@@ -128,6 +129,53 @@ shader Foliage : FoliageBase {
         val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
 
         return float4(sampled.rgb * shade * (0.25f + 0.75f * light), sampled.a)
+    }
+}
+
+shader FoliageVelocity : FoliageBase {
+    /// The camera's view-projection *last* frame — the instances are world-space, so no placement
+    /// rides either matrix. Unjittered, as `TerrainVelocity`'s note states for both.
+    ///
+    /// The only extra binding, because a placed tree does not move: unlike the grass there is no
+    /// second clock to evaluate — the camera term is the whole motion, and `positionWS` goes
+    /// through both matrices unchanged. Trunk sway is owed with the impostors' wind, and the day
+    /// the draw gains it this shader gains the grass's second evaluation.
+    var previousViewProjection: mat4
+
+    stream var currentClip: float4
+    stream var previousClip: float4
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("POSITION")] position: float3,
+        [Semantic("NORMAL")] normal: float3,
+        [Semantic("TEXCOORD0")] texcoord: float2,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        val clip = PlantVertex(position, normal, texcoord, instance)
+
+        currentClip = clip
+        previousClip = previousViewProjection * float4(positionWS, 1f)
+
+        return clip
+    }
+
+    /// `MotionVectors.Fragment`'s convention, behind the same stipple the colour passes take — the
+    /// grass velocity fragment's argument: the discard must match the colour pass's exactly, or a
+    /// dissolved pixel's velocity overwrites the surface visible through it.
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
+        if (CrossFade && Stipple(fragment.xy) >= fade) {
+            discard
+        }
+
+        val here = currentClip.xy / max(currentClip.w, Const.Epsilon)
+        val there = previousClip.xy / max(previousClip.w, Const.Epsilon)
+        val motion = (there - here) * float2(0.5f, -0.5f)
+
+        return float4(motion.x, motion.y, 0f, 1f)
     }
 }
 

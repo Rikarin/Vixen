@@ -39,9 +39,11 @@ namespace Vixen.Rendering.Terrain;
 ///         with its own hard-coded sun and the default permutation covers four weight-blended
 ///         layers; frame-lit shading rides <c>TerrainLit</c> when the frame provides its half, and
 ///         shadow casting is <see cref="TerrainCasterRenderer" />'s — a sibling node, because a
-///         caster must run before the passes this node runs after. Motion vectors are tracked
-///         work. What this node settles is placement and reachability, which is the part a
-///         document can say.
+///         caster must run before the passes this node runs after. Motion vectors are
+///         <see cref="TerrainVelocityRenderer" />'s, a sibling for the mirrored reason: the frame's
+///         velocity pass clears the motion plane after this node's own passes have run, so the
+///         reprojection is staged here and recorded there. What this node settles is placement and
+///         reachability, which is the part a document can say.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A heightfield placed twice draws once.</b> The renderer's constants are per frame
@@ -75,7 +77,12 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     readonly TerrainFrameLighting lighting = new();
 
     TerrainShaders terrainShaders;
+    TerrainShaders terrainVelocityShaders;
+    TerrainShaders grassVelocityShaders;
+    TerrainShaders foliageVelocityShaders;
     (bool Lit, bool Split, bool Clustered) shaderMode;
+    (PixelFormat Motion, PixelFormat Depth) velocityFormats;
+    float lastTime = -1f;
     bool disposed;
 
     /// <summary>The colour target the ground draws into.</summary>
@@ -192,6 +199,23 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// <summary>Whether the ground wrote the frame's split planes as well as its colour.</summary>
     public bool Split { get; private set; }
 
+    /// <summary>Whether the ground stack reprojected into the frame's motion target this frame.</summary>
+    /// <remarks>
+    ///     True exactly when the spliced <see cref="TerrainVelocityRenderer" /> exists, the frame
+    ///     declares its motion plane, and the three velocity shaders have resolved. False on a
+    ///     frame with no temporal resolve — the ordinary case, costing nothing — and for the first
+    ///     frames of a development run while the compiler works, which is a ground that ghosts
+    ///     briefly rather than a ground that is not there: the colour path never waits on this.
+    /// </remarks>
+    public bool MotionVectors { get; private set; }
+
+    /// <summary>How many reprojection draws the sibling recorded last frame — terrains, grass
+    ///     fields' indirect commands and foliage batches' together.</summary>
+    public int VelocityDraws { get; private set; }
+
+    /// <summary>The velocity sibling the factory paired, or null in a frame with no velocity pass.</summary>
+    internal TerrainVelocityRenderer? VelocitySibling { get; set; }
+
     /// <summary>Whether the lit shaders read the frame's culled cluster lists.</summary>
     /// <remarks>
     ///     False on a frame that culls no lights — the ground is then lit by the sun and the sky
@@ -218,6 +242,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         SharedPlacements = 0;
         FoliageVolumesDrawn = 0;
         FoliageMeshesMissing = 0;
+        VelocityDraws = 0;
         WaitingForShaders = false;
 
         // A node built without a device declines to draw — an editor opening a document before it
@@ -261,6 +286,20 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         if (!ResolveTerrainShaders(frame)) {
             WaitingForShaders = true;
             return;
+        }
+
+        // The velocity path rides availability, the lit detection's own idiom: the transformer
+        // spliced a sibling exactly when the frame draws a Motion stage, the frame declares the
+        // plane that stage writes, and the three velocity shaders have resolved. Any of them
+        // missing turns the path off for the frame without holding the colour draw hostage — a
+        // ground that ghosts for the compiler's first frames rather than a ground that is not
+        // there.
+        MotionVectors = VelocitySibling is { Enabled: true } sibling
+            && frame.Has(sibling.Motion)
+            && ResolveVelocityShaders(frame);
+
+        if (MotionVectors) {
+            velocityFormats = (frame.FormatOf(ToString(), VelocitySibling!.Motion), depthFormat);
         }
 
         var output = Split
@@ -309,6 +348,14 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         }
 
         var time = (float)clock.Elapsed.TotalSeconds;
+
+        // The clock the grass velocity shader re-evaluates the wind at. This frame's value on the
+        // very first frame, which is a sway delta of zero — the honest answer for a field nobody
+        // has seen move yet.
+        var previousTime = lastTime >= 0f ? lastTime : time;
+
+        lastTime = time;
+
         var atlas = Lit ? frame.Texture(ToString(), ShadowAtlas) : default;
 
         // The uploads and the scatter, outside any render pass: buffer writes, texture copies and
@@ -338,7 +385,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                         }
 
                         foreach (var (set, entry) in drawn) {
-                            Upload(context.CommandList, set, entry, view, time);
+                            Upload(context.CommandList, set, entry, view, time, previousTime);
                         }
 
                         foreach (var (stand, entry) in foliageDrawn) {
@@ -530,8 +577,8 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         return parameters.Has(key) ? parameters.Get(key) : fallback;
     }
 
-    /// <summary>Stages one terrain's frame: the surface, then its grass field.</summary>
-    void Upload(ICommandList commands, TerrainDrawSet set, in TerrainSceneEntry entry, RenderView view, float time) {
+    /// <summary>Stages one terrain's frame: the surface, its reprojection, then its grass field.</summary>
+    void Upload(ICommandList commands, TerrainDrawSet set, in TerrainSceneEntry entry, RenderView view, float time, float previousTime) {
         // The placement rides the view matrix, because the shader has no field for one — the
         // editor's UploadTerrain states the whole argument. The frustum comes from the combined
         // matrix so culling happens in the terrain's own space.
@@ -549,6 +596,16 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         set.Surface.FrameOrigin = entry.Origin;
 
         set.Surface.Upload(commands, terrainView);
+
+        if (MotionVectors) {
+            // Staged after the surface's own upload, so the node records the set points at are this
+            // frame's camera selection — the same patches, the same morph, and therefore the same
+            // depths the velocity node's read-only test compares. The sibling records the draw
+            // after the frame's velocity pass has cleared the plane.
+            set.Velocity ??= new(Device!, set.Surface, terrainVelocityShaders, velocityFormats.Motion, velocityFormats.Depth);
+
+            set.Velocity.Upload(placedMatrix, Matrix4x4.FromTranslation(entry.Origin) * PreviousOf(view));
+        }
 
         if (set.Field is not { } field) {
             return;
@@ -578,6 +635,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         // The blades are scattered in world space, so the grass draws with the camera's own view
         // rather than the terrain's origin-shifted one.
         var worldView = new TerrainView(view.ViewProjection, view.Position, new(view.ViewProjection));
+        var fade = new Vector2(field.Type.StartCullDistance * scale, field.Type.EndCullDistance * scale);
 
         field.Draw.Prepare(
             commands,
@@ -585,11 +643,38 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             in worldView,
             field.Type.Wind,
             time,
-            fade: new(field.Type.StartCullDistance * scale, field.Type.EndCullDistance * scale)
+            fade: fade
         );
+
+        if (MotionVectors) {
+            // The same camera, the same wind, the same fade band — every value the stipple reads
+            // is the colour pass's own, so the two passes discard the same pixels. What is this
+            // pass's alone is the previous matrix and the previous clock, which is the sway's own
+            // motion made real to the resolve.
+            field.Velocity ??= new(Device!, grassVelocityShaders, velocityFormats.Motion, velocityFormats.Depth);
+
+            field.Velocity.Prepare(
+                field.Draw,
+                field.Dispatch,
+                in worldView,
+                PreviousOf(view),
+                field.Type.Wind,
+                time,
+                previousTime,
+                fade
+            );
+        }
 
         field.Dispatch.Record(commands);
     }
+
+    /// <summary>Last frame's matrix, or this frame's on the frame nobody has advanced yet.</summary>
+    /// <remarks>The zero matrix a fresh view reports would project every vertex to the origin and
+    ///     hand the whole ground a vector pointing at screen centre — the substitution
+    ///     <c>MotionVectorRenderFeature</c> makes for an object's first sight, made here for the
+    ///     view's.</remarks>
+    static Matrix4x4 PreviousOf(RenderView view) =>
+        view.PreviousViewProjection == default ? view.ViewProjection : view.PreviousViewProjection;
 
     /// <summary>The draw set for one terrain, made on the frame its heightfield first appears.</summary>
     TerrainDrawSet? SetFor(in TerrainSceneEntry entry, in RenderOutput output, CompositorFrame frame) {
@@ -793,9 +878,54 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         var worldView = new TerrainView(view.ViewProjection, view.Position, view.Frustum);
 
         stand.Draw.Prepare(commands, stand.Cull, in worldView);
+
+        if (MotionVectors) {
+            // A placed tree does not move, so the camera term is its whole motion — one previous
+            // matrix, no previous clock. Prepared after the colour pass's own prepare, whose first
+            // frame uploads the default albedo the velocity set borrows.
+            stand.Velocity ??= new(Device!, foliageVelocityShaders, velocityFormats.Motion, velocityFormats.Depth);
+
+            stand.Velocity.Prepare(stand.Draw, stand.Cull, in worldView, PreviousOf(view));
+        }
+
         stand.Cull.Record(commands);
 
         FoliageMeshesMissing += stand.Missing.Count;
+    }
+
+    /// <summary>Records the stack's reprojection — every staged velocity pass, in draw order.</summary>
+    /// <returns>How many draws were issued: terrains, grass fields' indirect commands, foliage batches'.</returns>
+    /// <remarks>
+    ///     Called by <see cref="TerrainVelocityRenderer" /> from inside its own pass, which the
+    ///     transformer placed after the frame's velocity pass — recording these draws from this
+    ///     node's own passes would put them before that pass's clear, which wipes them unwritten.
+    ///     Every pass recorded here was staged by this frame's upload, so a set born without the
+    ///     motion path — the sibling absent, the shaders pending — simply holds no velocity object
+    ///     and contributes nothing.
+    /// </remarks>
+    internal int RecordVelocity(ICommandList commands) {
+        var draws = 0;
+
+        foreach (var (set, _) in drawn) {
+            if (set.Velocity is { } surface) {
+                surface.Record(commands);
+                draws += surface.Draws;
+            }
+
+            if (set.Field is { Velocity: { } blades } field) {
+                draws += blades.Record(commands, field.Draw, field.Dispatch);
+            }
+        }
+
+        foreach (var (stand, _) in foliageDrawn) {
+            if (stand.Velocity is { } plants) {
+                draws += plants.Record(commands, stand.Cull, stand.Meshes);
+            }
+        }
+
+        VelocityDraws = draws;
+
+        return draws;
     }
 
     /// <summary>Turns arrived mesh assets into device buffers and draw templates, one type at a time.</summary>
@@ -937,6 +1067,9 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         /// <summary>The cell streamer, or null for a volume that fits the tier's budget whole.</summary>
         public FoliageStreamer? Streamer { get; }
 
+        /// <summary>The volume's reprojection, or null while the frame has no motion plane.</summary>
+        public FoliageVelocityPass? Velocity { get; set; }
+
         /// <summary>Each resolved type's device mesh, by palette index.</summary>
         public Dictionary<int, FoliageMesh> Meshes { get; } = [];
 
@@ -959,6 +1092,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             }
 
             Meshes.Clear();
+            Velocity?.Dispose();
             Draw.Dispose();
             Cull.Dispose();
             Streamer?.Dispose();
@@ -1012,6 +1146,41 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         );
 
         return terrainShaders.IsValid;
+    }
+
+    /// <summary>Resolves the stack's three velocity shaders, once, through the frame's effect system.</summary>
+    /// <remarks>
+    ///     All three together rather than each on first need, because the answer gates one decision:
+    ///     a frame whose grass reprojects while its terrain cannot yet would ghost the ground under
+    ///     sharp blades, which reads as a worse bug than both ghosting for one more compile.
+    /// </remarks>
+    bool ResolveVelocityShaders(CompositorFrame frame) {
+        if (terrainVelocityShaders.IsValid && grassVelocityShaders.IsValid && foliageVelocityShaders.IsValid) {
+            return true;
+        }
+
+        if (frame.Effects.Resolve(EffectKey.Of("TerrainVelocity")) is not { } terrain
+            || frame.Effects.Resolve(EffectKey.Of("GrassVelocity")) is not { } grass
+            || frame.Effects.Resolve(EffectKey.Of("FoliageVelocity")) is not { } foliage) {
+            return false;
+        }
+
+        terrainVelocityShaders = new(
+            Modules!.ModuleOf(terrain, ShaderStage.Vertex),
+            Modules.ModuleOf(terrain, ShaderStage.Fragment)
+        );
+
+        grassVelocityShaders = new(
+            Modules.ModuleOf(grass, ShaderStage.Vertex),
+            Modules.ModuleOf(grass, ShaderStage.Fragment)
+        );
+
+        foliageVelocityShaders = new(
+            Modules.ModuleOf(foliage, ShaderStage.Vertex),
+            Modules.ModuleOf(foliage, ShaderStage.Fragment)
+        );
+
+        return terrainVelocityShaders.IsValid && grassVelocityShaders.IsValid && foliageVelocityShaders.IsValid;
     }
 
     /// <summary>Resolves one grass rule's three shaders and the output its pipeline draws into.</summary>
@@ -1091,7 +1260,11 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         /// <summary>The caster over this surface, or null while nothing casts. See <see cref="CasterFor" />.</summary>
         public TerrainCasterPass? Caster { get; set; }
 
+        /// <summary>The reprojection over this surface, or null while the frame has no motion plane.</summary>
+        public TerrainVelocityPass? Velocity { get; set; }
+
         public void Dispose() {
+            Velocity?.Dispose();
             Caster?.Dispose();
             Field?.Dispose();
             Surface.Streaming?.Dispose();
@@ -1119,10 +1292,14 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
         public GrassDrawPass Draw { get; }
 
+        /// <summary>The field's reprojection, or null while the frame has no motion plane.</summary>
+        public GrassVelocityPass? Velocity { get; set; }
+
         /// <summary>This frame's resident cells, materialised once for the dispatch.</summary>
         public List<GrassSlot> Resident { get; } = [];
 
         public void Dispose() {
+            Velocity?.Dispose();
             Draw.Dispose();
             Dispatch.Dispose();
         }

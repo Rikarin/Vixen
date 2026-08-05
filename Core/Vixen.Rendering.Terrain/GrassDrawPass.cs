@@ -352,6 +352,17 @@ public sealed class GrassDrawPass : IDisposable {
     /// <remarks>The same instance the terrains read — see <see cref="TerrainRenderer.Frame" />.</remarks>
     internal TerrainFrameLighting? Frame { get; set; }
 
+    /// <summary>What the velocity pass binds where this pass binds its albedo.</summary>
+    /// <remarks>
+    ///     The velocity fragment never samples it — the stipple is all it computes — but a set is
+    ///     written wholly or not at all, and the default's first-frame upload is this pass's, so the
+    ///     sibling borrows rather than staging a second white texel.
+    /// </remarks>
+    internal TextureViewHandle AlbedoOrDefault => Albedo.IsValid ? Albedo : defaultAlbedoView;
+
+    /// <summary>And the sampler beside it, on the same terms.</summary>
+    internal SamplerHandle AlbedoSampler => albedoSampler;
+
     /// <summary>Fills the lit shader's block: the frame's lighting, then the preview's own values.</summary>
     void WriteLitBlock(
         byte[] block,

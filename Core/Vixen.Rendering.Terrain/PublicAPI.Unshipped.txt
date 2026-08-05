@@ -468,6 +468,8 @@ Vixen.Rendering.Terrain.TerrainSceneRenderer.Grass.set -> bool
 Vixen.Rendering.Terrain.TerrainSceneRenderer.GrassFieldsDrawn.get -> int
 Vixen.Rendering.Terrain.TerrainSceneRenderer.GrassLayersMissing.get -> int
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Lit.get -> bool
+Vixen.Rendering.Terrain.TerrainSceneRenderer.MotionVectors.get -> bool
+Vixen.Rendering.Terrain.TerrainSceneRenderer.VelocityDraws.get -> int
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Normals.get -> string
