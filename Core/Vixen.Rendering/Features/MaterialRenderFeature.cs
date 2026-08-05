@@ -324,6 +324,58 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         return supported;
     }
 
+    /// <summary>
+    ///     States a frame permutation's value, and registers the key the variant is then selected by.
+    /// </summary>
+    /// <typeparam name="T">What the permutation is — a flag, or a count that sizes an array.</typeparam>
+    /// <param name="shaderName">Whose variants this chooses between: the effect key's shader.</param>
+    /// <param name="key">The shader's own key, as <see cref="PermutationKeys" /> would list it.</param>
+    /// <param name="value">What the frame is actually configured for.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Both halves, for the reason <see cref="EnableRecords" /> is one call.</strong>
+    ///         <see cref="Permutations" /> is where a value goes and <see cref="PermutationKeys" /> is
+    ///         what the effect key is built <em>from</em> — so a value set under a key that list does
+    ///         not carry reaches no compiler at all, and the variant resolved is the one the shader's
+    ///         own default describes. Nothing reports it: an effect resolves, a pipeline binds and a
+    ///         frame draws, with the host configured one way and the shader compiled another.
+    ///     </para>
+    ///     <para>
+    ///         That is how a frame that fitted two cascades came to shade with a pass compiled for
+    ///         four — see <see cref="Compositor.ShadowMapRenderer.CascadeCountKey" />, which is the
+    ///         case this was written for. A count that sizes an array is the worst shape of it,
+    ///         because the shader then reads slots the host never wrote.
+    ///     </para>
+    ///     <para>
+    ///         Additive, so a host that has already registered the generated
+    ///         <c>…Keys.UsedPermutationKeys</c> keeps exactly that list, and one that has registered
+    ///         nothing ends up selecting on the keys it explicitly set and on no others — which is
+    ///         the narrow answer, and deliberately not "every key the shader declares". See
+    ///         <see cref="PermutationKeys" /> for why a key nothing branches on is a cache split for
+    ///         nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Call this before the first <see cref="Prepare" />, on <see cref="EnableRecords" />'s
+    ///         terms and for its reason: a variant is cached by its effect key, so a permutation
+    ///         changed after one was resolved leaves it compiled for the old value.
+    ///     </para>
+    /// </remarks>
+    public void SetPermutation<T>(string shaderName, PermutationKey<T> key, T value) where T : notnull {
+        ArgumentException.ThrowIfNullOrEmpty(shaderName);
+        ArgumentNullException.ThrowIfNull(key);
+
+        Permutations.Set(key, value);
+
+        if (!PermutationKeys.TryGetValue(shaderName, out var keys)) {
+            PermutationKeys[shaderName] = [key];
+            return;
+        }
+
+        if (!keys.Contains(key)) {
+            PermutationKeys[shaderName] = [.. keys, key];
+        }
+    }
+
     /// <summary>The record buffers, one per effect, for a host that binds them.</summary>
     /// <remarks>
     ///     Keyed by sort group, which is the engine's name for "these objects resolved to the same

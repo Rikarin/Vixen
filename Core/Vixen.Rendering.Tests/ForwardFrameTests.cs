@@ -638,11 +638,21 @@ public sealed class ForwardFrameTests : IDisposable {
     ///     Every cascade the atlas holds is filled, and the shader has an array that long.
     /// </summary>
     /// <remarks>
-    ///     <see cref="ShadowMapRenderer.CascadeCount" /> and the shader's <c>CascadeCount</c>
-    ///     permutation size the same array from opposite sides, and nothing connects them — the same
-    ///     shape as <c>MaxLights</c>, one array along. A host that fitted three into a block sized for
-    ///     four leaves the last one a matrix nobody wrote, and a fragment far enough away projects
-    ///     with it.
+    ///     <para>
+    ///         <see cref="ShadowMapRenderer.CascadeCount" /> and the shader's <c>CascadeCount</c>
+    ///         permutation size the same array from opposite sides — the same shape as
+    ///         <c>MaxLights</c>, one array along. A host that fitted three into a block sized for four
+    ///         leaves the last one a matrix nobody wrote, and a fragment far enough away projects with
+    ///         it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This passes at any count, and that is what it cannot see.</b> The fixture builds
+    ///         both sides from the same number, so it says the publisher fills what it declared and
+    ///         never that the <em>compiled</em> shader declared the same thing —
+    ///         <see cref="ShadowMapRenderer.CascadeCountKey" /> is the connection, and
+    ///         <c>CompositorAssetTests</c> is where a document is checked to make it. The picture is
+    ///         <c>CascadeCountDeviceTests</c>, because a variant is only wrong once it is compiled.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Every_cascade_the_shader_declares_is_filled() {

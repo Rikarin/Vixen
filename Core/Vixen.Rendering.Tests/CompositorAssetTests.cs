@@ -733,7 +733,7 @@ public class CompositorAssetTests : IDisposable {
         Assert.Same(visibility, h.System.Visibility);
     }
 
-    static void AddMesh(Harness h, float z, Material material, RenderStageMask stages) {
+    static RenderObjectId AddMesh(Harness h, float z, Material material, RenderStageMask stages) {
         var id = h.System.Objects.Add(
             new() {
                 Bounds = new(new Vector3(0f, 0f, z), 1f),
@@ -747,6 +747,7 @@ public class CompositorAssetTests : IDisposable {
         };
 
         h.Materials.Assign(h.System, id, material);
+        return id;
     }
 
     /// <summary>Builds the compositor an asset describes, and lends it the host-owned textures.</summary>
@@ -984,6 +985,66 @@ public class CompositorAssetTests : IDisposable {
 
         Assert.Equal(3, compositor.Views.Count);
         Assert.Contains(h.Camera, compositor.Views);
+    }
+
+    /// <summary>
+    ///     The document's cascade count reaches the shader the shading pass is compiled from.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The agreement the node's remarks described and nothing made.</strong>
+    ///         <c>cascades</c> is sized by a permutation, so the count is a property of the compiled
+    ///         variant as much as of the node — and until this call existed the host published two
+    ///         matrices into a pass compiled for four. The tiles then fold 2 × 1 against a lookup
+    ///         expecting 2 × 2, so the containment test answers "no cascade" across most of the screen
+    ///         and the frame has <em>no sun shadow in it at all</em>. Nothing is invalid, nothing is
+    ///         refused, and every tier below High ships fewer than four cascades.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are asserted, because either alone is silent. The value is what a variant
+    ///         is compiled for; the key is what the effect key is built from, and a value under a key
+    ///         the list does not carry reaches no compiler — see
+    ///         <c>MaterialRenderFeature.SetPermutation</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_documents_cascade_count_selects_the_shading_variant() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+
+        Compose(h, asset);
+
+        var key = ShadowMapRenderer.CascadeCountKey("ForwardPlus");
+
+        Assert.Equal(2, h.Materials.Permutations.Get(key));
+        Assert.Contains(key, h.Materials.PermutationKeys["ForwardPlus"]);
+    }
+
+    /// <summary>
+    ///     And it lands in the effect key, which is the only place it can change anything.
+    /// </summary>
+    /// <remarks>
+    ///     What the assertions above are <em>for</em>, stated where a rename cannot quietly unpick
+    ///     it. A permutation the feature holds and the effect key omits looks identical from the
+    ///     collection's side and is the whole failure: the compiler is never told, so it produces the
+    ///     variant the shader's own <c>= 4</c> describes.
+    /// </remarks>
+    [Fact]
+    public void The_count_is_in_the_key_the_shading_variant_was_resolved_from() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+
+        var compositor = Compose(h, asset);
+        var opaque = h.Builder.Stages["Opaque"];
+
+        var mesh = AddMesh(h, -10f, new Material("ForwardPlus"), opaque.Mask);
+
+        Frame(h, compositor);
+
+        var effect = h.Materials.EffectOf(h.System, mesh);
+
+        Assert.NotNull(effect);
+        Assert.Contains(new KeyValuePair<string, string>("ForwardPlus.CascadeCount", "2"), effect!.Key.Values);
     }
 
     // --- Refusals -----------------------------------------------------------
