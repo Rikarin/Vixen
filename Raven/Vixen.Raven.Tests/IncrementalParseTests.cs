@@ -216,4 +216,47 @@ public class IncrementalParseTests {
 
         AssertMatchesFullParse(oldTree.WithChangedText(newText), newText);
     }
+
+    /// <summary>
+    ///     An enum's members may only be reused inside an enum body, and an edit that dissolves the
+    ///     header above them is what puts that to the test.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Everything the blender checks passes here and the tree is still wrong.</b>
+    ///         <c>EnumMemberDeclarationSyntax</c> is a <c>MemberDeclarationSyntax</c>, so it was
+    ///         collected as a candidate; the only thing that parses one is
+    ///         <c>ParseEnumDeclaration</c>'s own loop, and the only things that ask for a candidate
+    ///         are the two loops running <c>ParseMemberDeclaration</c>. Rename an enum to a keyword
+    ///         — <c>enum E {</c> becomes <c>enum shader {</c> — and its members' text is untouched,
+    ///         lexes token for token as it did, and now begins where a member would: a span test and
+    ///         a token comparison both say yes, and an enum member gets spliced into a shader body
+    ///         that a full parse leaves empty.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The printed text still matches</b>, which is why the round-trip half of the fuzz
+    ///         oracle ran over these for months without a word — <c>ToFullString()</c> is equal for
+    ///         both trees and only <c>SyntaxDumper.Dump</c> tells them apart. Found by
+    ///         <c>Vixen.Net.Fuzz</c>'s <c>raven</c> target at forty thousand cases, past the fifteen
+    ///         hundred the per-build gate runs; both inputs are now in that target's corpus, so they
+    ///         replay on every build as well as here.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    // The smallest: the enum's name becomes the `shader` keyword, so `Off` lands in a shader body.
+    [InlineData("return 1\nenum E {\n    Off,\n    On = 5\n}\n", 14, 1, "shader ")]
+    // The same defect one level out: the edit eats the enum header entirely, so `On = 5` lands at
+    // the top level, where the compilation unit's member loop takes it.
+    [InlineData(
+        "val s = [1, ..other, 5]\nval t = (count: 1, scale: 2f)\nenum E {\n    Off,\n    On = 5\n}\n",
+        39,
+        28,
+        " "
+    )]
+    public void An_enum_member_is_never_reused_as_a_member(string source, int start, int length, string inserted) {
+        var oldTree = SyntaxTree.ParseText(source, path: "incremental.rvn");
+        var newText = oldTree.Text!.WithChanges(new TextChange(new(start, length), inserted));
+
+        AssertMatchesFullParse(oldTree.WithChangedText(newText), newText);
+    }
 }

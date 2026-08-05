@@ -880,7 +880,12 @@ sealed class RavenParser : SyntaxParser {
         // cannot see the difference — so the blender compares the two streams kind for kind before
         // it hands anything over, and returns the index to resume at, which subsumes the boundary
         // check this used to do for itself.
-        if (blender.TryReuse(fullStart, Tokens, out var next) is not { } green) {
+        //
+        // ⚠ And it is handed the context, because neither test can see the difference between the
+        // same tokens read by two grammars. `ParseMemberDeclaration` is what runs here, so
+        // `MemberList` is what may come back — an enum member lexes exactly as it did when its
+        // `enum` header was still above it, and splicing one in here is a tree no full parse builds.
+        if (blender.TryReuse(ReuseContext.MemberList, fullStart, Tokens, out var next) is not { } green) {
             return null;
         }
 
