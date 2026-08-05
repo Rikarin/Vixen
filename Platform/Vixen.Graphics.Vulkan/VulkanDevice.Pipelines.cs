@@ -107,8 +107,39 @@ public sealed unsafe partial class VulkanDevice {
         var pushConstants = description.PushConstants ?? [];
         var handles = stackalloc DescriptorSetLayout[Math.Max(1, sets.Length)];
 
+        // The update-after-bind budget, judged here because this is where Vulkan judges it: the
+        // moment any set in the layout is update-after-bind, every sampled image in *all* of them
+        // counts against maxDescriptorSetUpdateAfterBindSampledImages — which MaxBindlessDescriptors
+        // already reports, folded with its per-stage sibling. Each layout was legal alone; the sum
+        // is what nobody else can see. Checked rather than left to the driver because a release
+        // driver does not refuse — it creates the layout and the behaviour past the limit is
+        // whatever the hardware does, which is how three ceiling-sized terrain arrays ran for
+        // months as a validation error nobody was counting.
+        var sampledImages = 0L;
+        var updateAfterBind = false;
+
         for (var index = 0; index < sets.Length; index++) {
-            handles[index] = ResolveLayout(sets[index]).Handle;
+            var resolved = ResolveLayout(sets[index]);
+            handles[index] = resolved.Handle;
+            updateAfterBind |= resolved.IsBindless;
+
+            foreach (var binding in resolved.Bindings) {
+                if (binding.Kind == DescriptorKind.SampledTexture) {
+                    sampledImages += binding.IsUnbounded()
+                        ? resolved.BindlessCapacity
+                        : Math.Max(1, binding.Count);
+                }
+            }
+        }
+
+        if (updateAfterBind && sampledImages > Features.MaxBindlessDescriptors) {
+            throw new ArgumentException(
+                $"Pipeline layout '{description.Name}' declares {sampledImages} sampled images across "
+                + $"its sets, and this device allows {Features.MaxBindlessDescriptors} once any set is "
+                + "update-after-bind. An unbounded binding takes its layout's whole capacity, so the "
+                + "usual cause is several unbounded arrays each sized as if the budget were theirs "
+                + "alone — state a smaller capacity where the layouts are built."
+            );
         }
 
         var ranges = stackalloc VkPushConstantRange[Math.Max(1, pushConstants.Length)];
