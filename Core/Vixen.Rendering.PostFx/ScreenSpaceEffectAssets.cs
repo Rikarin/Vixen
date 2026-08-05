@@ -379,7 +379,16 @@ public sealed record AutoExposureAsset : ISceneRendererAsset {
     public float MiddleGrey { get; init; } = 0.18f;
 
     /// <summary>The dimmest exposure it will settle at.</summary>
-    public float MinimumExposure { get; init; } = 0.03f;
+    /// <remarks>
+    ///     ⚠ <b>EV 17, and the floor has to reach daylight or the clamp becomes the meter.</b> These
+    ///     are linear multipliers, so the <em>dimmest</em> exposure is the one that bounds the
+    ///     <em>brightest</em> scene — and a sunlit surface is around EV 15. This used to be 0.03,
+    ///     which is EV 4.8: a dim interior. Every outdoor scene lit in real photometric units then
+    ///     asked for an exposure ten stops below what it was allowed, settled on the floor, and
+    ///     tonemapped a thousand times over white — a frame that is uniformly blown out and reports
+    ///     nothing wrong, because the meter did converge. It converged on the clamp.
+    /// </remarks>
+    public float MinimumExposure { get; init; } = Photometry.ExposureFromEv100(17f);
 
     /// <summary>The brightest exposure it will settle at.</summary>
     public float MaximumExposure { get; init; } = 8f;
