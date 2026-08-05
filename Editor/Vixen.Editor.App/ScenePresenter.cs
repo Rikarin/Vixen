@@ -390,7 +390,10 @@ sealed class ScenePresenter : IDisposable {
 
         geometry.Build(document, viewport, size.Y);
 
-        Write(lines, geometry.World);
+        // ⚠ The water's diagnostics join the depth-tested list rather than the overlay's, because a
+        // flow arrow behind a hill is behind the hill — these describe places in the world, not
+        // handles you have to be able to reach through it.
+        Write(lines, geometry.World, water.DebugLines);
         Write(overlay, geometry.Overlay);
 
         // ⚠ The gizmo's key light follows the camera, and this is the half of it that reaches the

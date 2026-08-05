@@ -114,6 +114,7 @@ public sealed partial class WaterModule : IEditorPlugin {
         context.Owns(context.Services.Require<IEditorRegistry>().Add(WaterScene));
 
         WaterPanels();
+        WaterDebugCommands(context);
 
         Shell.Modes.Add(water);
     }

@@ -7,6 +7,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.SceneView;
+using Vixen.Engine.Diagnostics;
 using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Rendering.Water;
@@ -97,6 +98,20 @@ sealed class WaterPresenter : IDisposable {
     readonly List<MeshVertex> vertices = [];
     readonly List<uint> indices = [];
 
+    /// <summary>Where <see cref="WaterDebugDraw" /> puts its geometry when a verb is switched on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The reason <c>water.show*</c> was six flags with nothing behind them, closed from the
+    ///     editor's side rather than from a game's.</b> <c>DebugDraw</c> is the accumulator every
+    ///     subsystem's gizmos write into and <c>DebugDrawRenderer</c> is what drains it — and nothing
+    ///     in this tree constructs either in a running program, so a game turning a verb on still sees
+    ///     nothing. A pane already has two line renderers; draining the accumulator into one of them is
+    ///     the whole of what was missing here.
+    /// </remarks>
+    readonly DebugDraw debug = new();
+
+    readonly WaterDebugDraw debugDraw = new();
+    readonly List<LineVertex> debugLines = [];
+
     /// <summary>Which grid corners had water in them, reused across zones.</summary>
     readonly List<bool> wet = [];
 
@@ -148,6 +163,17 @@ sealed class WaterPresenter : IDisposable {
     /// <summary>How many draws the last <see cref="Record" /> issued.</summary>
     public int Draws { get; private set; }
 
+    /// <summary>This frame's <c>water.show*</c> geometry, as segments the pane's line pass takes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>World lines only, and the other two kinds are honestly absent.</b> <c>DebugDraw</c>
+    ///     also carries screen-space segments and world labels — <c>water.showInfo</c>'s channel
+    ///     charts are entirely the first and <c>water.showTiles</c>' level numbers are the second — and
+    ///     a pane has no screen-space line pass and no world text pass to drain them into. What works
+    ///     here is <c>water.showFlow</c>, which is arrows on the surface and is the verb an author
+    ///     turns on to find out why a river runs backwards.
+    /// </remarks>
+    public IReadOnlyList<LineVertex> DebugLines => debugLines;
+
     /// <summary>Folds the scene's zones and stages the surface this frame draws.</summary>
     /// <param name="world">The scene's world, whose transforms have already been resolved.</param>
     /// <param name="camera">The pane's camera, which is what the zone windows follow.</param>
@@ -162,6 +188,7 @@ sealed class WaterPresenter : IDisposable {
 
         vertices.Clear();
         indices.Clear();
+        debugLines.Clear();
 
         ZonesDrawn = 0;
         Triangles = 0;
@@ -196,6 +223,34 @@ sealed class WaterPresenter : IDisposable {
         Triangles = indices.Count / 3;
 
         surface.Upload(CollectionsMarshal.AsSpan(vertices), CollectionsMarshal.AsSpan(indices));
+
+        Diagnose();
+    }
+
+    /// <summary>Runs whichever <c>water.show*</c> verbs are on and drains what they drew.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The accumulator is cleared rather than aged.</b> <c>DebugDrawSystem</c> ages a game's
+    ///     in <c>PostRender</c> so a line asked for with a lifetime survives the frames it was asked
+    ///     for; a viewport redraws from the fold every frame and has nothing to keep, and ageing one
+    ///     nobody advances would leave every arrow on screen for ever.
+    /// </remarks>
+    void Diagnose() {
+        debug.Clear();
+
+        if (!WaterDebug.Any) {
+            return;
+        }
+
+        // ⚠ No surface node and no ripple simulation, which is what an editor pane genuinely has:
+        // `water.showTiles` and `water.showLod` are about the patches a *device* selected and
+        // `water.showRipples` about a simulation only a game runs. `WaterDebugDraw` takes both as
+        // null and skips them, so the verbs are inert here rather than wrong.
+        debugDraw.Draw(debug, zones);
+
+        foreach (var line in debug.Lines) {
+            debugLines.Add(new(line.From, line.Colour));
+            debugLines.Add(new(line.To, line.Colour));
+        }
     }
 
     /// <summary>Records this frame's water. Must be inside the scene's render pass.</summary>
