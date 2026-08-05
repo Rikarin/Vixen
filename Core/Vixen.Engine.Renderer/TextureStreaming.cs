@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
+using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 
 namespace Vixen.Engine.Renderer;
@@ -222,12 +223,18 @@ public sealed class TexturePagePool : IPageStore {
 ///     <para>
 ///         <b>What drives residency is a wanted width, and that is the narrowest seam that works.</b>
 ///         A caller says how many texels across it needs a texture to be —
-///         <see cref="WantedWidth" /> computes that from a bounding radius and a view, which is the
-///         same screen-coverage estimate mesh LOD selection uses — and this turns it into a level
-///         and asks for the pages that cover it. Sampling feedback would be a better signal and
-///         there is no feedback buffer to read; an authored per-texture priority would be a worse
-///         one, because it cannot know where the camera is. When a feedback buffer exists it
-///         replaces <see cref="Want(int,int)" /> and nothing else.
+///         <see cref="WantedWidth(float,float,float,float)" /> computes that from a bounding radius
+///         and a view, which is the same screen-coverage estimate mesh LOD selection uses — and this
+///         turns it into a level and asks for the pages that cover it. Sampling feedback would be a
+///         better signal and there is no feedback buffer to read; an authored per-texture priority
+///         would be a worse one, because it cannot know where the camera is. When a feedback buffer
+///         exists it replaces <see cref="Want(int,int)" /> and nothing else.
+///     </para>
+///     <para>
+///         <b>What says the wanted width is <see cref="TextureDemand" />.</b> It surveys the frame's
+///         visible drawables, takes the maximum over every user of a texture, and quantises that onto
+///         a ladder of mip widths with a dead band — because a wanted width that oscillates at a
+///         level boundary is a swap on alternate frames, and a swap is an upload.
 ///     </para>
 ///     <para>
 ///         <b><see cref="MipBias" /> is consumed here rather than on the sampler, and that is a
@@ -470,6 +477,47 @@ public sealed class TextureStreamer : IDisposable {
         var pixelsPerUnit = viewportHeight / (2f * MathF.Tan(verticalFieldOfView * 0.5f));
 
         return (int)MathF.Ceiling(2f * radius * pixelsPerUnit / away);
+    }
+
+    /// <summary>The same estimate, from the numbers a frame actually holds.</summary>
+    /// <param name="bounds">The object's world bounding sphere, which is what a render object carries.</param>
+    /// <param name="view">The view looking at it.</param>
+    /// <param name="viewportHeight">How many pixels tall the output is.</param>
+    /// <returns>
+    ///     How many texels across the texture should be, or zero for a view that does no screen-size
+    ///     work.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The same arithmetic as the overload above, and it has to be.</b> A view carries
+    ///         <see cref="RenderView.ScreenHeightScale" /> — <c>1 / tan(fov / 2)</c>, the
+    ///         resolution-independent half of the projection — rather than the field of view itself,
+    ///         so the caller that has a view would otherwise have to run an <c>atan</c> back into a
+    ///         field of view for this to run a <c>tan</c> forward out of it. The identity is
+    ///         <c>pixelsPerUnit = viewportHeight × ScreenHeightScale / 2</c>, which is what makes this
+    ///         one multiply.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero for a view whose <see cref="RenderView.ScreenHeightScale" /> is zero</b>,
+    ///         which is what a shadow cascade and a probe face are —
+    ///         <c>LodRenderFeature.Prepare</c> skips those views for the same reason. A cascade covers
+    ///         the world at whatever density its extent implies and has no viewport height to measure
+    ///         a texel against, so a texture wanted at a cascade's screen size would be a number with
+    ///         no meaning behind it.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="view" /> is null.</exception>
+    public static int WantedWidth(in BoundingSphere bounds, RenderView view, float viewportHeight) {
+        ArgumentNullException.ThrowIfNull(view);
+
+        if (bounds.Radius <= 0f || viewportHeight <= 0f || view.ScreenHeightScale <= 0f) {
+            return 0;
+        }
+
+        // Behind or at the eye: the object is not culled by this and must not divide by zero.
+        var away = MathF.Max(Vector3.Distance(bounds.Center, view.Position), 1e-4f);
+
+        return (int)MathF.Ceiling(bounds.Radius * view.ScreenHeightScale * viewportHeight / away);
     }
 
     /// <summary>The coarsest level whose width still covers what was asked for.</summary>

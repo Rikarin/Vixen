@@ -216,7 +216,7 @@ public sealed class AssetTextureSource : IDisposable {
     /// <summary>Says how many texels across a frame needs a texture to be.</summary>
     /// <param name="reference">Which texture.</param>
     /// <param name="width">
-    ///     The wanted width in texels — <see cref="TextureStreamer.WantedWidth" /> computes one from
+    ///     The wanted width in texels — <see cref="TextureStreamer.WantedWidth(float,float,float,float)" /> computes one from
     ///     a bounding radius and a view.
     /// </param>
     /// <remarks>
