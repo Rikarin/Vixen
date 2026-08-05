@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.PostFx.StandardFrameAsset, T:Vixen.Rendering.PostFx.Post
 tags: [rendering, compositor, presets, getting-started]
 since: 0.1
 status: preview
-related: [rendering/standard-frame, rendering/render-quality, rendering/post-processing]
+related: [rendering/standard-frame, rendering/render-quality, rendering/post-processing, rendering/timing-the-frame]
 ---
 
 ## What it is

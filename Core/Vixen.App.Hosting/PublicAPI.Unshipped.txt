@@ -4,6 +4,7 @@ Vixen.App.AppArguments : System.IEquatable<Vixen.App.AppArguments>
 Vixen.App.AppArguments.AppArguments() -> void
 Vixen.App.AppArguments.Backends.get -> System.Collections.Generic.IReadOnlyList<Vixen.App.GraphicsBackend>
 Vixen.App.AppArguments.FrameRateLimit.get -> int?
+Vixen.App.AppArguments.GpuProfiling.get -> bool
 Vixen.App.AppArguments.Headless.get -> bool
 Vixen.App.AppArguments.LogFilePath.get -> string?
 Vixen.App.AppArguments.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel??
@@ -79,6 +80,7 @@ Vixen.App.AppGraphics.Dispose() -> void
 Vixen.App.AppGraphics.Effects.get -> Vixen.Shaders.EffectSystem
 Vixen.App.AppGraphics.End() -> void
 Vixen.App.AppGraphics.FrameCount.get -> int
+Vixen.App.AppGraphics.GpuFrame.get -> Vixen.Graphics.GpuFrame
 Vixen.App.AppGraphics.IsLost.get -> bool
 Vixen.App.AppGraphics.ParticleStages.get -> Vixen.Rendering.RenderStageMask
 Vixen.App.AppGraphics.Recreate(bool force = false) -> void
@@ -155,6 +157,8 @@ Vixen.App.GraphicsOptions.Enabled.set -> bool
 Vixen.App.GraphicsOptions.Factories.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.ISceneRendererFactory>
 Vixen.App.GraphicsOptions.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.App.GraphicsOptions.Format.set -> Vixen.Graphics.PixelFormat
+Vixen.App.GraphicsOptions.GpuProfiling.get -> bool
+Vixen.App.GraphicsOptions.GpuProfiling.set -> bool
 Vixen.App.GraphicsOptions.GraphicsOptions() -> void
 Vixen.App.GraphicsOptions.IndexCapacity.get -> int
 Vixen.App.GraphicsOptions.IndexCapacity.set -> int

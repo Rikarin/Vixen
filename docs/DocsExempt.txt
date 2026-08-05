@@ -1405,9 +1405,6 @@ T:Vixen.Editor.Profiler.BufferedProfileSource sweep-pending
 T:Vixen.Editor.Profiler.CaptureComparison sweep-pending
 T:Vixen.Editor.Profiler.FlameChartView sweep-pending
 T:Vixen.Editor.Profiler.FlameNode sweep-pending
-T:Vixen.Editor.Profiler.GpuFrame sweep-pending
-T:Vixen.Editor.Profiler.GpuProfiler sweep-pending
-T:Vixen.Editor.Profiler.GpuScope sweep-pending
 T:Vixen.Editor.Profiler.GpuTimelineView sweep-pending
 T:Vixen.Editor.Profiler.IProfileSource sweep-pending
 T:Vixen.Editor.Profiler.LocalProfileSource sweep-pending
@@ -1799,7 +1796,6 @@ T:Vixen.Graphics.GpuSampler sweep-pending
 T:Vixen.Graphics.GpuShader sweep-pending
 T:Vixen.Graphics.GpuTexture sweep-pending
 T:Vixen.Graphics.GpuTextureView sweep-pending
-T:Vixen.Graphics.GpuTimestamps sweep-pending
 T:Vixen.Graphics.GraphicsDeviceFeatures sweep-pending
 T:Vixen.Graphics.GraphicsPipelineDescription sweep-pending
 T:Vixen.Graphics.ICommandList sweep-pending
