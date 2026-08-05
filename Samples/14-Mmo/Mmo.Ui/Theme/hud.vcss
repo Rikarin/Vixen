@@ -1,0 +1,65 @@
+/*
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The rules a utility class cannot say, and nothing else.
+
+    ⚠ Every one of these is here for a reason a class name could not carry: a custom property the
+    control library reads, a default for a tag rather than for an element, or a relationship between
+    two states. Anything that is "this element, this property, this value" belongs in the markup as
+    a utility — a rule here is a rule somebody has to find before they can change it.
+
+    ⚠ Unlayered, deliberately. The generated utilities land in `@layer utilities` and a layer loses
+    to an unlayered rule whatever the source order, so these win without `!important` anywhere.
+*/
+
+/* ── The controls' own custom properties ────────────────────────────────────────────────────── */
+
+/*
+    ProgressBar's fill takes the element's foreground when nothing sets --fill-color, which is what
+    lets `text-health` colour a bar. The *track* has no such fallback, so it is set once here rather
+    than on every bar in the game.
+*/
+progress-bar {
+    --track-color: #1b1f27;
+}
+
+/* ── Defaults per tag, which a utility cannot express ───────────────────────────────────────── */
+
+unit-frame,
+action-bar,
+quest-tracker,
+bag-grid,
+vendor-panel,
+chat-panel,
+loot-roll {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Relationships between states ───────────────────────────────────────────────────────────── */
+
+/*
+    ⚠ Two classes, so it beats the single-class utility that sets the background — which is the
+    whole reason the utility layer exists and the reason this is not written with !important.
+    A slot on cooldown is dimmed *and* still shows its icon: hiding it would lose the one thing a
+    player is looking at while they wait.
+*/
+.slot.on-cooldown {
+    opacity: 0.45;
+}
+
+/*
+    A slot the player cannot use at all reads differently from one that is merely counting down.
+    Same dimming, plus a border that says "not now" rather than "not yet".
+*/
+.slot.unusable {
+    border-color: #c4453c;
+}
+
+/*
+    A quest whose objectives are all done is the one line in the tracker a player is looking for.
+*/
+.quest.ready > quest-title {
+    color: #4c9e4c;
+}

@@ -1,0 +1,76 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component UnitFrame
+@namespace Vixen.Samples.Mmo.Ui
+@tag unit-frame
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<frame-head class="flex items-center justify-between gap-2">
+    <frame-name class="text-base font-semibold text-parchment">@Unit.Name.Value</frame-name>
+
+    @if (Unit.IsElite.Value) {
+        <elite-mark class="text-xs font-bold text-cast">ELITE</elite-mark>
+    }
+
+    <frame-level class="text-xs text-ink-200">@Unit.Level.Value</frame-level>
+</frame-head>
+
+<!--
+    ⚠ The bar's colour is a *text* colour. ProgressBar's fill falls back to the element's foreground
+    when nothing sets `--fill-color`, so a utility class colours it and the four resource colours
+    ride the same family as every other colour in the theme.
+-->
+<ProgressBar class="h-3 w-full rounded-sm text-health" Value="@Unit.HealthFraction" />
+
+<frame-vitals class="flex items-center justify-between gap-2">
+    <frame-health class="text-xs text-ink-200">@Unit.Health.Value / @Unit.MaximumHealth.Value</frame-health>
+</frame-vitals>
+
+<ProgressBar class="h-2 w-full rounded-sm @Unit.ResourceClass.Value" Value="@Unit.ResourceFraction" />
+
+<!--
+    ⚠ The cast bar exists only while something is being cast, rather than sitting there at zero.
+    A bar that is always present and usually empty is a bar players stop looking at, and it is also
+    two more rectangles per frame per nameplate in a world that can have forty of them.
+-->
+@if (Unit.IsCasting) {
+    <cast-row class="flex flex-col gap-1">
+        <cast-name class="text-xs text-cast">@Unit.Casting.Value</cast-name>
+        <ProgressBar class="h-2 w-full rounded-sm text-cast" Value="@Unit.CastProgress.Value" />
+    </cast-row>
+}
+
+@code {
+    /// <summary>Whose frame this is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The model and not the values.</b> A frame given a name and a number would need
+    ///     re-parameterising every time either changed; given the model, every binding here follows
+    ///     its own signal and the component is built once. It is also what lets the same component
+    ///     be the player's frame, their target's and a party member's without a mode flag.
+    /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>Settable rather than <c>required … init</c>, and that follows from how a component is
+    ///     made.</b> <c>BuildContext.Child&lt;T&gt;</c> is constrained to <c>new()</c> and assigns
+    ///     parameters afterwards, so an init-only property cannot be given one and a required one
+    ///     would never be satisfied. An empty model as the default is what makes a component built
+    ///     with no parameters draw an empty frame rather than throw.
+    /// </remarks>
+    readonly Signal<UnitModel> unit = new(new());
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever. A signal is what makes the assignment reach the
+    ///     effects that read it, and it is the same shape <c>Vixen.Editor.Ui</c>'s <c>TaskCenter</c>
+    ///     uses for the same reason.
+    /// </remarks>
+    public UnitModel Unit {
+        get => unit.Value;
+        set => unit.Value = value;
+    }
+}

@@ -1,0 +1,75 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component VendorPanel
+@namespace Vixen.Samples.Mmo.Ui
+@tag vendor-panel
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+@if (Vendor.Open.Value) {
+    <vendor-head class="flex items-center justify-between px-3 py-2 bg-ink-700 rounded-md">
+        <vendor-title class="text-lg font-semibold text-parchment">@Vendor.Title.Value</vendor-title>
+        <vendor-purse class="text-sm text-cast">@Vendor.Purse.Value g</vendor-purse>
+    </vendor-head>
+
+    <ScrollView class="h-64">
+        @for (var row in Vendor.Stock) {
+            <vendor-row key="@row" class="flex items-center justify-between gap-3 px-3 py-1">
+                <vendor-name class="text-sm @row.RarityClass.Value">@row.Name.Value</vendor-name>
+
+                <!--
+                    ⚠ Two refusals, shown two ways, and that is the point of this panel. "You cannot
+                    afford it" is a number the player can go and change today; "you are not Honoured
+                    enough" is a reason. Greying both out identically is the interface deciding the
+                    two failures are the same, and they are not.
+                -->
+                @if (row.Locked.Value) {
+                    <vendor-lock class="text-xs text-warn">@row.LockReason.Value</vendor-lock>
+                } else {
+                    <vendor-price class="@Price(row)">@row.Price.Value @row.Currency.Value</vendor-price>
+                }
+
+                <Button Variant="Subtle"
+                        Size="Small"
+                        Label="Buy"
+                        Disabled="@(!row.CanBuy)"
+                        on:click.stop="@(() => Buy(row))" />
+            </vendor-row>
+        }
+    </ScrollView>
+}
+
+@code {
+    /// <summary>The shop.</summary>
+    readonly Signal<VendorModel> vendor = new(new());
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever. A signal is what makes the assignment reach the
+    ///     effects that read it, and it is the same shape <c>Vixen.Editor.Ui</c>'s <c>TaskCenter</c>
+    ///     uses for the same reason.
+    /// </remarks>
+    public VendorModel Vendor {
+        get => vendor.Value;
+        set => vendor.Value = value;
+    }
+
+    /// <summary>What to do when somebody buys. The realm's answer, not this panel's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A callback rather than a purchase.</b> The panel knows the price and the purse and
+    ///     could take one from the other on the spot — and then the player's gold would be whatever
+    ///     the client last calculated rather than whatever the ledger says. Doc 28's economy is
+    ///     "every transaction is one balanced, idempotent intent"; a client that spends locally has
+    ///     invented a second one.
+    /// </remarks>
+    public Action<VendorRow>? Bought { get; set; }
+
+    void Buy(VendorRow row) => Bought?.Invoke(row);
+
+    static string Price(VendorRow row) => row.Affordable.Value ? "text-xs text-cast" : "text-xs text-refuse";
+}

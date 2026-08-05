@@ -682,14 +682,6 @@ public sealed partial class UiDocument : IDisposable {
             // a frame becomes dirty at all: a binding assigns a class, a text or a child list, and
             // the document is clean until it has run. Draining after the early return would be a
             // pass that goes home having read the queue's effects one frame late, for ever.
-            // ⚠ Before `Refont` and before the dirty check, because an effect is the most common way
-            // a frame becomes dirty at all: a binding assigns a class, a text or a child list, and
-            // the document is clean until it has run. Draining after the early return would be a
-            // pass that goes home having read the queue's effects one frame late, for ever.
-            // ⚠ Before `Refont` and before the dirty check, because an effect is the most common way
-            // a frame becomes dirty at all: a binding assigns a class, a text or a child list, and
-            // the document is clean until it has run. Draining after the early return would be a
-            // pass that goes home having read the queue's effects one frame late, for ever.
             Effects.Flush();
 
             Refont();

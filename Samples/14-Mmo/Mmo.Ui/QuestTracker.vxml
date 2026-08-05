@@ -1,0 +1,67 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component QuestTracker
+@namespace Vixen.Samples.Mmo.Ui
+@tag quest-tracker
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<tracker-head class="text-sm font-semibold text-ink-200 px-2">Quests</tracker-head>
+
+@for (var quest in Quests.Tracked) {
+    <quest-row key="@quest" class="@Row(quest)">
+        <quest-title class="text-sm font-medium text-parchment">@quest.Title.Value</quest-title>
+        <quest-stage class="text-xs text-ink-300">@quest.Stage.Value</quest-stage>
+
+        @for (var objective in quest.Objectives) {
+            <objective-row key="@objective" class="flex items-center justify-between gap-2">
+                <objective-text class="@Objective(objective)">@objective.Text.Value</objective-text>
+                <objective-count class="@Objective(objective)">@objective.Have.Value / @objective.Need.Value</objective-count>
+            </objective-row>
+        }
+    </quest-row>
+}
+
+<!--
+    ⚠ An empty tracker says so. A panel that is simply absent when there is nothing in it is a panel
+    a player thinks is broken the first time they abandon their last quest.
+-->
+@if (Quests.Tracked.Count == 0) {
+    <tracker-empty class="text-xs text-ink-300 px-2 py-2">Nothing tracked.</tracker-empty>
+}
+
+@code {
+    /// <summary>What to track.</summary>
+    readonly Signal<QuestTrackerModel> quests = new(new());
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever. A signal is what makes the assignment reach the
+    ///     effects that read it, and it is the same shape <c>Vixen.Editor.Ui</c>'s <c>TaskCenter</c>
+    ///     uses for the same reason.
+    /// </remarks>
+    public QuestTrackerModel Quests {
+        get => quests.Value;
+        set => quests.Value = value;
+    }
+
+    static string Row(QuestEntry quest) =>
+        quest.IsReady.Value
+            ? "quest ready flex flex-col gap-1 px-2 py-1"
+            : "quest flex flex-col gap-1 px-2 py-1";
+
+    /// <summary>
+    ///     ⚠ A finished objective is struck through by colour rather than removed. Removing it makes
+    ///     the list jump under the cursor at the moment a player is reading it, and loses the one
+    ///     piece of feedback that says the last kill counted.
+    /// </summary>
+    /// <param name="objective">Which.</param>
+    /// <returns>The class list.</returns>
+    static string Objective(ObjectiveEntry objective) =>
+        objective.IsDone ? "text-xs text-done" : "text-xs text-ink-200";
+}

@@ -1,0 +1,44 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component ChatPanel
+@namespace Vixen.Samples.Mmo.Ui
+@tag chat-panel
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<ScrollView class="h-40 px-2">
+    @for (var line in Chat.Lines) {
+        <chat-line key="@line" class="flex gap-1 py-1">
+            <chat-channel class="text-xs @line.ChannelClass">[@line.Channel]</chat-channel>
+            <chat-speaker class="text-xs font-medium text-ink-100">@line.Speaker</chat-speaker>
+            <chat-text class="text-xs text-ink-200">@line.Text</chat-text>
+        </chat-line>
+    }
+</ScrollView>
+
+@code {
+    /// <summary>The log.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The channel's colour arrives on the entry rather than being looked up here.</b> A
+    ///     channel is content — <c>ChatChannelDefinition</c> in <c>Assets/chat/</c> — so which colour
+    ///     it gets is a decision the binder makes once from the definition, and not one this panel
+    ///     re-derives from a string on every line it draws.
+    /// </remarks>
+    readonly Signal<ChatModel> chat = new(new());
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever. A signal is what makes the assignment reach the
+    ///     effects that read it, and it is the same shape <c>Vixen.Editor.Ui</c>'s <c>TaskCenter</c>
+    ///     uses for the same reason.
+    /// </remarks>
+    public ChatModel Chat {
+        get => chat.Value;
+        set => chat.Value = value;
+    }
+}

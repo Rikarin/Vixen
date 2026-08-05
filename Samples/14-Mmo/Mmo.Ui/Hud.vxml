@@ -1,0 +1,66 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component Hud
+@namespace Vixen.Samples.Mmo.Ui
+@tag mmo-hud
+@using Vixen.Ui.Reactive
+
+<!--
+    ⚠ The regions are laid out with utilities and positioned by hud.vcss. Which corner a panel lives
+    in is a fact about the *screen* rather than about the panel, and the panels are reused — a unit
+    frame is top-left as the player's and top-middle as their target's.
+-->
+<hud-top class="flex items-start justify-between gap-4 p-3">
+    <UnitFrame class="w-56 flex flex-col gap-1 p-2 rounded-md bg-ink-700 shadow-panel" Unit="@Model.Player" />
+
+    <!--
+        ⚠ `@if (… is { } target)` does not work here, and the reason is worth knowing: a condition
+        becomes an effect and the body becomes a separate build, so a pattern variable declared in
+        the test is not in scope inside the branch. The C# compiler says so at the right character of
+        this file — which is the whole bargain of emitting the expression under a #line rather than
+        typechecking it on the markup side — but the fix is a property, not a pattern.
+    -->
+    @if (Model.HasTarget) {
+        <UnitFrame class="w-56 flex flex-col gap-1 p-2 rounded-md bg-ink-700 shadow-panel" Unit="@Model.TargetOrNobody" />
+    }
+
+    <QuestTracker class="w-64 flex flex-col gap-2 py-2 rounded-md bg-ink-700 shadow-panel" Quests="@Model.Quests" />
+</hud-top>
+
+<hud-middle class="flex items-start justify-between gap-4 px-3">
+    <ChatPanel class="w-96 flex flex-col rounded-md bg-ink-700 shadow-panel" Chat="@Model.Chat" />
+    <LootRoll class="w-56" Roll="@Model.Loot" />
+    <VendorPanel class="w-96 flex flex-col rounded-md bg-ink-700 shadow-panel" Vendor="@Model.Vendor" />
+</hud-middle>
+
+<hud-bottom class="flex items-end justify-between gap-4 p-3">
+    <ActionBar Bar="@Model.Bar" />
+    <BagGrid class="w-64 flex flex-col rounded-md bg-ink-700 shadow-panel" Bags="@Model.Bags" />
+</hud-bottom>
+
+@code {
+    /// <summary>Everything the HUD is looking at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One model for the whole HUD, handed down.</b> Each panel takes the piece it needs, so
+    ///     a panel can be mounted on its own in a test and the composition here is the only place
+    ///     that knows the layout. It is also the reason none of the panels reference each other: a
+    ///     vendor window that closed the bag would be two panels agreeing about a third thing.
+    /// </remarks>
+    readonly Signal<HudModel> model = new(new());
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever. A signal is what makes the assignment reach the
+    ///     effects that read it, and it is the same shape <c>Vixen.Editor.Ui</c>'s <c>TaskCenter</c>
+    ///     uses for the same reason.
+    /// </remarks>
+    public HudModel Model {
+        get => model.Value;
+        set => model.Value = value;
+    }
+}

@@ -1,0 +1,71 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component ActionBar
+@namespace Vixen.Samples.Mmo.Ui
+@tag action-bar
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<bar-row class="flex items-center gap-1 p-2 rounded-md bg-ink-700 shadow-panel">
+    @for (var slot in Bar.Slots) {
+        <slot-cell key="@slot" class="@Cell(slot)">
+            <slot-key class="text-xs text-ink-300">@slot.Binding.Value</slot-key>
+            <slot-name class="text-xs text-parchment">@slot.Name.Value</slot-name>
+
+            @if (slot.Cost.Value > 0) {
+                <slot-cost class="text-xs text-mana">@slot.Cost.Value</slot-cost>
+            }
+
+            <!--
+                ⚠ The sweep is a bar and not a number, because a player reads "nearly ready" off a
+                length and has to *parse* a number. It is inverted — Cooldown is how much is LEFT —
+                so it empties as the ability comes back.
+            -->
+            @if (!slot.IsReady) {
+                <ProgressBar class="h-1 w-full rounded-none text-ink-300" Value="@slot.Cooldown.Value" />
+            }
+        </slot-cell>
+    }
+</bar-row>
+
+@code {
+    /// <summary>The bar to draw.</summary>
+    readonly Signal<ActionBarModel> bar = new(new());
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever. A signal is what makes the assignment reach the
+    ///     effects that read it, and it is the same shape <c>Vixen.Editor.Ui</c>'s <c>TaskCenter</c>
+    ///     uses for the same reason.
+    /// </remarks>
+    public ActionBarModel Bar {
+        get => bar.Value;
+        set => bar.Value = value;
+    }
+
+    /// <summary>The classes one cell carries, assembled from whole names.</summary>
+    /// <param name="slot">Which.</param>
+    /// <returns>The class list.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Every name here is a literal, which is what keeps the scanner able to see them.</b>
+    ///     Composing <c>"slot " + state</c> from fragments would emit no rule for the fragment and
+    ///     the cell would silently lose its styling — the failure mode `MmoStyles.Safelist` exists
+    ///     for, avoided here by writing the whole name in each arm instead.
+    /// </remarks>
+    static string Cell(ActionSlot slot) {
+        if (!slot.Usable.Value) {
+            return "slot unusable flex flex-col items-center gap-1 w-14 p-1 rounded-sm border bg-ink-600";
+        }
+
+        if (!slot.IsReady) {
+            return "slot on-cooldown flex flex-col items-center gap-1 w-14 p-1 rounded-sm border border-ink-500 bg-ink-600";
+        }
+
+        return "slot flex flex-col items-center gap-1 w-14 p-1 rounded-sm border border-ink-400 bg-ink-600";
+    }
+}

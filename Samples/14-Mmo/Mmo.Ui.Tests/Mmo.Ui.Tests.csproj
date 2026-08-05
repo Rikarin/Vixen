@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.Mmo.Ui.Tests</RootNamespace>
+        <AssemblyName>Mmo.Ui.Tests</AssemblyName>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Mmo.Ui\Mmo.Ui.csproj" />
+
+        <!--
+            The harness that runs frames instead of waiting, and rasterises without a GPU. Doc 12's
+            rule that no test may sleep is what makes an interface test something CI runs on every
+            push rather than a nightly.
+        -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
+    </ItemGroup>
+
+</Project>

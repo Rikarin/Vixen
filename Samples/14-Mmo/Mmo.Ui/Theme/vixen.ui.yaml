@@ -1,0 +1,91 @@
+# SPDX-FileCopyrightText: Copyright (c) Rikarin
+# SPDX-License-Identifier: Apache-2.0
+#
+# The design tokens for Greenmarch's interface. One file, and "the accent is teal now" is one line
+# of it — which is the argument that made Tailwind win, and it applies more strongly here than to a
+# website because every panel in the game is in the same repository as every token.
+#
+# ⚠ The rarity colours are content rather than chrome, and they are still here. A rarity is a fact
+# about an item and its colour is a fact about the *interface*: the same five names appear on a
+# tooltip border, a bag slot, a loot roll and a chat link, and a game that let each of those pick
+# its own would have five slightly different purples.
+
+darkMode: media
+
+theme:
+    # 4px, which makes p-2 eight and p-4 sixteen and everybody able to see that one is twice the
+    # other. A named scale reads better in a design tool and worse in a stylesheet.
+    spacing: 4
+
+    colors:
+        # The frame: a dark, slightly warm slate, because a HUD sits over a world and pure grey
+        # reads as a hole cut in it.
+        ink:
+            DEFAULT: '#0f1115'
+            700: '#1b1f27'
+            600: '#252b36'
+            500: '#333b49'
+            400: '#4a5567'
+            300: '#6b7688'
+            200: '#9aa3b2'
+            100: '#d7dce4'
+
+        parchment: '#e8e0cc'
+        accent:
+            DEFAULT: '#2f9e8f'
+            600: '#25806f'
+            300: '#63c3b5'
+
+        # The four bars everybody reads without looking.
+        health: '#b3423a'
+        mana: '#3f6fb5'
+        rage: '#a8642a'
+        focus: '#6f9b3a'
+        cast: '#c8a24a'
+
+        # Rarity. ⚠ Five, and they are *this game's* five — worn, common, fine, rare, storied, from
+        # Mmo.Content.Authoring's own table. Naming them after another game's ladder would give the
+        # interface colours for rarities no item has and none for the ones every item has.
+        worn: '#7a7a7a'
+        common: '#d7dce4'
+        fine: '#3fa34d'
+        rare: '#3f7fd0'
+        storied: '#a463d8'
+
+        # What a number means when it is not a colour: a refusal, a warning, a completion.
+        refuse: '#c4453c'
+        warn: '#d99a2b'
+        done: '#4c9e4c'
+
+    radius:
+        none: 0
+        sm: 2
+        DEFAULT: 4
+        md: 6
+        lg: 10
+        full: 9999
+
+    fontSize:
+        xs: [10, 14]
+        sm: [12, 16]
+        base: [14, 20]
+        lg: [17, 24]
+        xl: [22, 30]
+
+    fontWeight:
+        normal: 400
+        medium: 500
+        semibold: 600
+        bold: 700
+
+    shadow:
+        # A shadow is a designed thing: its offset, blur and alpha are chosen together to read as one
+        # height above the surface, which is why a token is a whole declaration rather than numbers
+        # to assemble.
+        panel: 0 2px 12px rgba(0, 0, 0, 0.55)
+        raised: 0 1px 3px rgba(0, 0, 0, 0.45)
+
+    screens:
+        # A HUD's breakpoints are about how much room the world gets, not about phones.
+        md: 1280
+        lg: 1920

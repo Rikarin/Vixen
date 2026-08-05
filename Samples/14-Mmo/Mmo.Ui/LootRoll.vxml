@@ -1,0 +1,61 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component LootRoll
+@namespace Vixen.Samples.Mmo.Ui
+@tag loot-roll
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+@if (Roll.Open.Value) {
+    <roll-body class="flex flex-col gap-2 p-3 rounded-md bg-ink-700 shadow-panel">
+        <roll-item class="text-base font-semibold @Roll.RarityClass.Value">@Roll.Item.Value</roll-item>
+        <roll-clock class="text-xs text-ink-300">@Roll.Seconds.Value s</roll-clock>
+
+        <roll-choices class="flex items-center gap-2">
+            <Button Variant="Primary" Size="Small" Label="Need" on:click.stop="@Need" />
+            <Button Variant="Default" Size="Small" Label="Greed" on:click.stop="@Greed" />
+            <Button Variant="Subtle" Size="Small" Label="Pass" on:click.stop="@Pass" />
+        </roll-choices>
+    </roll-body>
+}
+
+@code {
+    /// <summary>The roll.</summary>
+    readonly Signal<LootRollModel> roll = new(new());
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever. A signal is what makes the assignment reach the
+    ///     effects that read it, and it is the same shape <c>Vixen.Editor.Ui</c>'s <c>TaskCenter</c>
+    ///     uses for the same reason.
+    /// </remarks>
+    public LootRollModel Roll {
+        get => roll.Value;
+        set => roll.Value = value;
+    }
+
+    /// <summary>What to tell the realm. The window closing is local; the winner is not.</summary>
+    public Action<LootRollModel.Choice>? Chose { get; set; }
+
+    void Need() => Decide(LootRollModel.Choice.Need);
+
+    void Greed() => Decide(LootRollModel.Choice.Greed);
+
+    void Pass() => Decide(LootRollModel.Choice.Pass);
+
+    /// <remarks>
+    ///     ⚠ <b>The window closes here and the item is awarded elsewhere.</b> This player has
+    ///     answered, so their window goes; who won is the realm's, arrives later, and shows up as a
+    ///     chat line. An interface that awarded the item on the spot would disagree with the server
+    ///     every time two people needed at once, which is most of the times a roll matters.
+    /// </remarks>
+    void Decide(LootRollModel.Choice choice) {
+        Roll.Decide(choice);
+        Chose?.Invoke(choice);
+    }
+}

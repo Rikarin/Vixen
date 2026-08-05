@@ -1,0 +1,55 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component BagGrid
+@namespace Vixen.Samples.Mmo.Ui
+@tag bag-grid
+@using Vixen.Ui.Reactive
+
+<bag-head class="flex items-center justify-between px-2 py-1">
+    <bag-title class="text-sm font-semibold text-parchment">Bags</bag-title>
+    <bag-free class="text-xs text-ink-300">@Bags.Free.Value free</bag-free>
+</bag-head>
+
+<bag-slots class="flex flex-wrap gap-1 p-2">
+    @for (var slot in Bags.Slots) {
+        <!--
+            ⚠ The rarity class comes off the model whole. `border-@rarity` would put `border-` and a
+            variable in the markup, the scanner would emit neither, and every slot would draw with
+            the default border — which looks like a theme decision rather than a missing rule.
+        -->
+        <bag-slot key="@slot" class="flex items-center justify-center w-10 h-10 rounded-sm border-2 bg-ink-700 @slot.RarityClass.Value">
+            @if (!slot.IsEmpty) {
+                <slot-count class="text-xs text-ink-100">@Stack(slot)</slot-count>
+            }
+        </bag-slot>
+    }
+</bag-slots>
+
+@code {
+    /// <summary>The bags to draw.</summary>
+    readonly Signal<BagModel> bags = new(new());
+
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
+    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
+    ///     <em>afterwards</em>. So every effect this component made has already read the property
+    ///     once, with whatever the default was, and a plain property assigned later notifies nobody:
+    ///     the panel draws the empty model for ever. A signal is what makes the assignment reach the
+    ///     effects that read it, and it is the same shape <c>Vixen.Editor.Ui</c>'s <c>TaskCenter</c>
+    ///     uses for the same reason.
+    /// </remarks>
+    public BagModel Bags {
+        get => bags.Value;
+        set => bags.Value = value;
+    }
+
+    /// <summary>
+    ///     ⚠ A stack of one shows nothing. A grid where every square carries a "1" is a grid where
+    ///     the numbers stop meaning "there are several of these", which is the only thing they say.
+    /// </summary>
+    /// <param name="slot">Which.</param>
+    /// <returns>The count, or nothing.</returns>
+    static string Stack(BagSlot slot) => slot.Count.Value > 1 ? slot.Count.Value.ToString() : string.Empty;
+}

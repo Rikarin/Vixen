@@ -10,10 +10,14 @@ hundred connections, thirty minutes, a rolling upgrade in the middle.
 
 ## State
 
-**Built: the content, the eight projects, the composition and the soak. 981 definitions and 19
-scenes across six zones, 72 tests, and a fleet that runs thirty minutes in ten seconds.**
+**Complete.** The content, the ten projects, the composition, the soak and the interface: 981
+definitions and 19 scenes across six zones, 142 tests, a fleet that runs thirty minutes in ten seconds
+and holds every budget, and a HUD written in VXML with a stylesheet generated from one theme file.
 
-**Owed:** the UI (**#38**).
+⚠ **Nothing draws the HUD and nothing connects it**, and both absences are deliberate — see
+[`Mmo.Ui`](Mmo.Ui/README.md) § What is not here. A window is `Samples/02-HelloUi`'s ninety lines of
+`Program.cs`; keeping it out is what lets the whole interface suite run in a third of a second on a
+machine with no GPU.
 
 | | Sees | |
 |---|---|---|
@@ -26,8 +30,10 @@ scenes across six zones, 72 tests, and a fleet that runs thirty minutes in ten s
 | `Mmo.Gate` | — | Region, maps, version. Forty lines, and that is the point. |
 | `Mmo.Orchestrator` | — | A silo. The game's grains need no registration beyond being referenced. |
 | `Mmo.Client` | — | Headless: sign in, pick a character, get a ticket, connect. |
+| `Mmo.Ui` | — | The interface: eight VXML components, a theme file, and a Tailwind-shaped stylesheet with only the utilities the markup uses. [Its own README](Mmo.Ui/README.md) is where the VXML traps are. |
 | `Mmo.Content.Tests` | — | The real importer over the real tree, every library's `Problems`, and the cross-references. |
 | `Mmo.Realm.Tests` | — | That twenty libraries actually compose. |
+| `Mmo.Ui.Tests` | — | Seventy, over a real `UiDocument`, with no GPU and no window. |
 | `Mmo.Soak` | — | Doc 27 and doc 28's shared exit criterion. [Its own README](Mmo.Soak/README.md) is where the findings are. |
 
 ⚠ **The reference graph is doc 27 § The three assemblies a game writes, and the absences are the

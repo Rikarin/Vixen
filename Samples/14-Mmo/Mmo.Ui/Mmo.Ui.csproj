@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.Mmo.Ui</RootNamespace>
+        <AssemblyName>Mmo.Ui</AssemblyName>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **The rules, and not the realm.** ADR-017 is mechanical: the client never references
+            anything that speaks Orleans, and this assembly is the client's face. What it *does*
+            reference is Mmo.Shared, because a bar that cannot evaluate a requirement cannot grey
+            itself out and a vendor row that cannot read a price has to be told one — and being told
+            one is how a client and a server come to disagree about what something costs.
+        -->
+        <ProjectReference Include="..\Mmo.Shared\Mmo.Shared.csproj" />
+
+        <!--
+            The interface framework, and the two halves it is written in: VXML for the tree, and the
+            Tailwind-shaped utilities for everything a class name can say.
+        -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Ui.Styling.Utilities\Vixen.Ui.Styling.Utilities.csproj" />
+
+        <!--
+            ⚠ Analyzers do not flow through a ProjectReference, so this project names both
+            generators itself. Vixen.Ui.Generators is what turns a [UiProperty] into a property the
+            style system can see; Vixen.Ui.Markup.Generators is the VXML compiler. A shipped game
+            gets them from the Vixen.Sdk package.
+        -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **The markup is embedded as well as compiled, and that is the utility system's build
+            step standing in for itself.** `Vixen.Ui.Styling.Utilities`' README lists build-step
+            integration as waiting on the asset pipeline: until it lands, something has to scan the
+            source for class names so the generator knows which rules to emit. A game does it in its
+            build; this sample does it at startup, over the same files, with the same scanner.
+
+            The scan is deliberately over-inclusive — see `CandidateScanner` — so embedding the
+            markup verbatim is exactly the input it wants.
+        -->
+        <EmbeddedResource Include="**/*.vxml" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+        <EmbeddedResource Include="Theme\*.yaml;Theme\*.vcss" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Mmo.Ui.Tests" />
+    </ItemGroup>
+
+    <!--
+        What a PackageReference to Vixen.Ui would have imported on its own: the **/*.vxml glob and
+        the two properties the generator asks MSBuild for. At the bottom of the file for the reason
+        the .targets itself gives — the glob has to run after DefaultItemExcludes is final.
+    -->
+    <Import Project="..\..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
+
+</Project>

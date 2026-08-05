@@ -678,8 +678,10 @@
   <Project Path="Samples/14-Mmo/Mmo.Gate/Mmo.Gate.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Orchestrator/Mmo.Orchestrator.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Client/Mmo.Client.csproj" />
+  <Project Path="Samples/14-Mmo/Mmo.Ui/Mmo.Ui.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Content.Tests/Mmo.Content.Tests.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Realm.Tests/Mmo.Realm.Tests.csproj" />
+  <Project Path="Samples/14-Mmo/Mmo.Ui.Tests/Mmo.Ui.Tests.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Soak/Mmo.Soak.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Content.Authoring/Mmo.Content.Authoring.csproj" />
 
