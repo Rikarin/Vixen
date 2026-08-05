@@ -137,7 +137,6 @@ importer: !TextureImporter
   compression: Bc7
   quality: 0.85
   premultiplyAlpha: false
-  streaming: true
   overrides:
     - target: Android
       compression: Astc6x6
@@ -540,10 +539,22 @@ addresses, which is what "dependencies" was trying to say.
   `WorldRenderer.Textures` before content is mounted. See
   [Streaming texture mip tails](../guide/rendering/texture-streaming.md).
 
-  ⚠ **Audio and mesh LODs still load whole**, and the `streaming: true` flag the `.meta` sketch above
-  shows is still only a sketch — `TextureImportSettings` has no such field, and the KTX2 writer
-  writes no key/value data, so there is no channel from a `.meta` file to the runtime. What decides
-  streamability today is size: a texture whose level data exceeds one page is streamed.
+  What a texture is wanted at is `TextureDemand`: it surveys the frame's visible drawables once,
+  takes the maximum over every user of a texture, and quantises that onto the ladder of mip widths
+  with a dead band, because a wanted width that oscillates at a level boundary is an image swap on
+  alternate frames.
+
+  ⚠ **Audio and mesh LODs still load whole.**
+
+  **`streaming: true` has been withdrawn from the sketch above rather than implemented**, and the
+  reasoning is worth keeping. There is no channel for it — `TextureImportSettings` has no such field
+  and `Ktx2.Write` writes `kvdByteLength = 0` — and building one means a permanent format commitment
+  across four assemblies for a decision size already makes correctly. `streaming: true` on a small
+  texture is what already happens (page 0 covers a chain under 64 KiB whole); `streaming: false` on a
+  large one does not give an author what they would reach for it for, because it moves the texture out
+  of a bounded pool into an unbounded whole-file load, which is what the pool exists to stop. The
+  control that claim actually wants is a *pin*, and nothing has asked for one. What decides
+  streamability is size: a texture whose level data exceeds one page is streamed.
 
 ## Editor integration
 

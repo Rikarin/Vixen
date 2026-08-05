@@ -259,6 +259,14 @@ public sealed class TextureDemandTests : IDisposable {
         // Or the assertion below would hold for a texture that never swapped at all.
         Assert.True(swaps > 0, "the texture never reached the level its width asked for");
 
+        // The second copy, which is what makes the real cost of a pool roughly twice its budget. The
+        // image is the tail, so it is the level-two tail of a 1024 chain and nothing else.
+        Assert.Equal(
+            renderer.Painted.Streaming!.ResidentBytes,
+            renderer.Painted.StreamedImageBytes,
+            tolerance: renderer.Painted.Streaming.PageSize
+        );
+
         for (var frame = 0; frame < 60; frame++) {
             Move(loop, entity, frame % 2 == 0 ? over : under);
             Frame(loop, renderer);

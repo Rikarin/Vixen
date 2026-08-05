@@ -27,11 +27,21 @@ public sealed class Ktx2Exception(string message) : Exception(message);
 ///     </para>
 ///     <para>
 ///         <b>What is implemented:</b> the identifier, the header, the level index, the data format
-///         descriptor, key/value data, and level data for uncompressed and block-compressed formats.
+///         descriptor, and level data for uncompressed and block-compressed formats.
 ///         <b>What is not:</b> supercompression — neither Basis Universal nor Zstd — and therefore
 ///         supercompression global data, which is written as absent and refused on read. A build that
 ///         wants smaller bundles compresses the chunk the texture lives in, which
 ///         [08](../../../docs/plan/08-asset-pipeline-and-addressables.md) already does per bundle.
+///     </para>
+///     <para>
+///         <b>Key/value data is not implemented either</b>, and this text used to say it was.
+///         <see cref="Write" /> writes <c>kvdByteOffset</c> and <c>kvdByteLength</c> as zero and
+///         <see cref="ReadLayout" /> never looks at them, so there is no channel from an importer's
+///         settings to the runtime through this container. That is worth stating rather than leaving
+///         to be discovered: doc 08's <c>streaming: true</c> flag reads as though it had somewhere to
+///         go, and it has not. See
+///         [Streaming texture mip tails](../../../docs/guide/rendering/texture-streaming.md) for why
+///         nothing needs one.
 ///     </para>
 ///     <para>
 ///         <b>What has not been done:</b> validated against an independent KTX2 implementation. The

@@ -44,6 +44,7 @@ Vixen.Engine.Renderer.AssetTextureSource.Dispose() -> void
 Vixen.Engine.Renderer.AssetTextureSource.Failed.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.Loaded.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.Requested.get -> int
+Vixen.Engine.Renderer.AssetTextureSource.StreamedImageBytes.get -> long
 Vixen.Engine.Renderer.AssetTextureSource.Streaming.get -> Vixen.Engine.Renderer.TextureStreamer?
 Vixen.Engine.Renderer.AssetTextureSource.StreamingRefusals.get -> long
 Vixen.Engine.Renderer.AssetTextureSource.StreamingSwaps.get -> long

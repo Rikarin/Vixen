@@ -131,6 +131,26 @@ public sealed class AssetTextureSource : IDisposable {
     /// <summary>How many streamed textures have been swapped to a different resolution.</summary>
     public long StreamingSwaps { get; private set; }
 
+    /// <summary>How many bytes of streamed mip tail are on the device right now.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The second copy, and the number a project has to add to its pool budget itself.</b>
+    ///         <see cref="TextureStreamer.ResidentBytes" /> is the host figure — the pages
+    ///         <see cref="TexturePagePool" /> holds — and this is the images those pages were uploaded
+    ///         into. Both exist at once, on purpose: a swap re-uploads a whole tail, and re-reading it
+    ///         from disk on every resolution change would put a file read in the frame path.
+    ///     </para>
+    ///     <para>
+    ///         <b>Measured rather than assumed to be equal, because it is not.</b> A tail whose pages
+    ///         have arrived but whose swap was refused for staging — see
+    ///         <see cref="StreamingRefusals" /> — is large in the pool and small on the device, and one
+    ///         that arrived and was then evicted is the other way round. So the two numbers are
+    ///         reported separately and a budget covering both would be an approximation stated as a
+    ///         promise. <c>PoolMegabytes</c> is, and remains, the host number.
+    ///     </para>
+    /// </remarks>
+    public long StreamedImageBytes { get; private set; }
+
     /// <summary>How many distinct textures have been asked for.</summary>
     public int Requested => entries.Count;
 
@@ -570,6 +590,14 @@ public sealed class AssetTextureSource : IDisposable {
         if (entry.Texture.IsValid) {
             device.Destroy(entry.Texture);
         }
+
+        // The image the tail decoded to is exactly the tail's bytes, so the level it starts at is
+        // all this has to know: what was there is subtracted and what replaced it is added.
+        if (entry.Level >= 0) {
+            StreamedImageBytes -= layout.TailLength(entry.Level);
+        }
+
+        StreamedImageBytes += layout.TailLength(level);
 
         entry.Texture = texture;
         entry.View = view;
