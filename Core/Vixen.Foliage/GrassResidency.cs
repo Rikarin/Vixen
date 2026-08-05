@@ -55,6 +55,20 @@ public readonly record struct GrassResidencyChange(
 ///         under the camera — and <see cref="Refused" /> says it happened, because the alternative is
 ///         a level that quietly stops having grass at a distance nobody chose.
 ///     </para>
+///     <para>
+///         ⚠ <b>Not <c>Vixen.Rendering</c>'s <c>PageResidency</c>, and what separates them is the
+///         policy rather than the storage.</b> That service is an LRU under a byte budget: a request
+///         that needs room evicts whatever was used longest ago, and it always finds room, because
+///         only a pinned page refuses. This is a distance ring, where a cell further out than
+///         everything resident has to <em>lose</em> — <see cref="Reclaim" /> takes a slot only from a
+///         cell further away than the candidate, and <see cref="Refused" /> is what happens when
+///         there is none. Touching cells in distance order does not recover that: nine slots under a
+///         range that wants forty-one cells re-place every slot every frame while nobody moves, in
+///         either request order, because each of the thirty-two that does not fit still evicts one
+///         that did. <c>ARingThatRanOutStandsStill</c> is that property held down. The layering says
+///         the same thing more cheaply — this assembly references no device and that one is the
+///         render system — but the policy is why they are two services and not one.
+///     </para>
 /// </remarks>
 public sealed class GrassResidency {
     readonly Dictionary<FoliageCellKey, int> resident = [];

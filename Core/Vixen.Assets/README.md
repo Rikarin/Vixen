@@ -251,9 +251,16 @@ that is already compressed — which a video is — pays the build time and save
 
 ## Still to come
 
-The streaming manager. Reloading in place, so a hot-reloaded asset updates the references pointing at
-it rather than replacing them. `Tools/Vixen.ContentServer` — the client half of the update story is
-here and tested (including doc 08's byte-count assertion), but there is no tool yet that serves a
-content build over HTTP for a developer to point a device at.
+The streaming manager, for everything except textures. Textures stream their mip tails — see
+[Streaming texture mip tails](../../docs/guide/rendering/texture-streaming.md), whose pages are byte
+ranges read through `OpenAsync` and whose budget is `RenderQuality`'s
+`textures.streamingPoolMegabytes`. Audio and mesh LODs still load whole, and there is no
+`StreamingManager` over all three: what exists is `Vixen.Rendering`'s `PageResidency`, one request
+queue and one budget that any of them can be a consumer of.
+
+Reloading in place, so a hot-reloaded asset updates the references pointing at it rather than
+replacing them. `Tools/Vixen.ContentServer` — the client half of the update story is here and tested
+(including doc 08's byte-count assertion), but there is no tool yet that serves a content build over
+HTTP for a developer to point a device at.
 
 Licensed under Apache-2.0.

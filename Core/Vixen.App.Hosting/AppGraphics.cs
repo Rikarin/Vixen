@@ -10,6 +10,8 @@ using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.PostFx;
+using Vixen.Rendering.Terrain;
 using Vixen.Shaders;
 
 namespace Vixen.App;
@@ -42,6 +44,11 @@ namespace Vixen.App;
 ///     </para>
 /// </remarks>
 public sealed class AppGraphics : IDisposable {
+    // What an untouched TerrainFactory.Vegetation equals, so a game that filled it by hand can be
+    // told from one that never mentioned it. A record, so this is member-for-member equality — the
+    // nullable-slot trick Scene uses is not available for a property whose default is not null.
+    static readonly TerrainVegetationQuality DefaultVegetation = new();
+
     readonly GraphicsOptions options;
     readonly Platform.IWindow? window;
     readonly ILogger logger;
@@ -110,6 +117,46 @@ public sealed class AppGraphics : IDisposable {
         View = new(options.View);
         Renderer.Host.Builder.Views[options.View] = View;
 
+        // ⚠ Loaded here rather than at Load below, because the document is the top vote in the
+        // quality waterfall and the two consumers of a resolved tier are wired before the build
+        // finishes. Nothing between here and Load reads it, so the only thing this ordering costs
+        // is that the "which compositor" log line comes earlier.
+        var document = Frame(assets);
+
+        // The project's quality preset is the waterfall's middle layer, and the object holding it is
+        // in the factory list: PostEffectFactory takes the loaded asset rather than an address, so
+        // the game that loaded it put it there. Found in a pass of its own rather than in the loop
+        // below — the terrain factory may be registered first, and the tier it is handed must not
+        // depend on the order a game happened to register two factories in.
+        var preset = default(RenderQualityAsset);
+
+        foreach (var factory in options.Factories) {
+            if (factory is PostEffectFactory { Preset: { } project }) {
+                preset = project;
+
+                break;
+            }
+        }
+
+        // One fold for every consumer below. Resolving twice would be free of consequence only
+        // while both calls agree on the arguments — and they did not: the texture pool was sized
+        // from the tier alone, so a project's .vxpreset moved its vegetation budgets and silently
+        // did not move its texture budget.
+        //
+        // Through the document rather than from options.Quality alone, and that is the whole of
+        // what a !StandardFrame's own `quality:` and inline `preset:` used to be unable to move: the
+        // expansion replaces the node during the build, so a host asking afterwards would be asking
+        // a document that no longer says anything. This is the same fold the expansion performs, on
+        // the same two layers — see PostEffectFactory.QualityOf.
+        var quality = PostEffectFactory.QualityOf(document, options.Quality, preset);
+
+        // ⚠ Before the factories too, because a !WaterSurface node is handed this as it is created
+        // and a node with no zones draws nothing at all. It is also the one water clock — see
+        // WaterZoneSystem.WaterTime — so the surface, the underwater volume and a buoyancy solver all
+        // read the same number rather than three that agree until the frame rate changes.
+        Water = new(View);
+        WaterClock = new(Water);
+
         // Also before Load, and for a stricter version of the same reason: a node kind nothing has
         // bound is not a warning, it is a CompositorBindingException from inside the build. This is
         // where a project's own node packages get their say — see GraphicsOptions.Factories.
@@ -120,17 +167,38 @@ public sealed class AppGraphics : IDisposable {
             // is the world renderer's own frame list — an object that does not exist when
             // OnConfigure registers the factory. Registering it is the whole installation; a factory
             // whose Scene was assigned by the game already is left alone.
-            if (factory is Vixen.Rendering.Terrain.TerrainFactory terrain) {
+            if (factory is TerrainFactory terrain) {
                 terrain.Scene ??= Renderer.TerrainScene;
+
+                // ⚠ And the same recognition is where the quality tier crosses an assembly boundary
+                // the waterfall cannot: Vixen.Rendering.Terrain must not reference
+                // Vixen.Rendering.PostFx, so the resolved numbers travel as a plain-numbered copy
+                // and this is the hand-off. Without it a shipped game runs the terrain stack's
+                // constructor defaults whatever tier it selected, and every vegetation budget is
+                // carried the whole length of the waterfall and dropped at the last step.
+                //
+                // Before Load, necessarily: the factory's Create reads these while the frame builds.
+                if (terrain.Vegetation == DefaultVegetation) {
+                    terrain.Vegetation = VegetationOf(quality);
+                }
+            }
+
+            // And water's, on exactly the same terms and for the same reason: what a !WaterSurface
+            // node draws is the zones an ECS system folded out of the scene this frame, and that
+            // system does not exist when a game's OnConfigure hands the factory over. A factory whose
+            // Zones the game already assigned is left alone.
+            if (factory is Vixen.Rendering.Water.WaterRendererFactory water) {
+                water.Zones ??= Water;
             }
         }
 
         // Also before Load: the tier is read by the document transform, which runs inside the
         // build. A preset frame that names its own quality out-votes this; one that does not gets
-        // the platform's pick. See GraphicsOptions.Quality.
+        // the platform's pick. See GraphicsOptions.Quality. The same fallback `quality` above was
+        // folded from, so the expansion and the budgets cannot land on two different tiers.
         Renderer.Host.Builder.Quality = options.Quality;
 
-        Renderer.Host.Load(Frame(assets));
+        Renderer.Host.Load(document);
 
         if (Renderer.Host.Builder.Stages.TryGetValue(options.Stage, out var stage)) {
             // The view draws the camera's stage alone; extraction covers that one and every caster
@@ -165,6 +233,14 @@ public sealed class AppGraphics : IDisposable {
         }
 
         if (assets is not null) {
+            // Before Mount, necessarily: the pool is sized when the texture source is built, and a
+            // pool that could be resized afterwards would not be a budget. This is where
+            // `textures.streamingPoolMegabytes` stops being a number nobody reads.
+            Renderer.Textures = new() {
+                PoolMegabytes = quality.StreamingPoolMegabytes,
+                MipBias = quality.MipBias
+            };
+
             Renderer.Mount(assets);
         }
 
@@ -177,12 +253,36 @@ public sealed class AppGraphics : IDisposable {
         // same document with nothing rebuilt.
         Volumes.Look = LookFor(assets);
 
+        // ⚠ The seam doc 35 § B2 generalised doc 32's box for, wired here rather than left to a game.
+        // An underwater volume is a PostProcessVolume with Shape: Custom on a zone entity, and
+        // without a source it reaches *nothing* — deliberately, because falling back to the box would
+        // grade a rectangle around the lake while the inspector looked correct. A game that supplies
+        // its own source out-votes this.
+        Volumes.Shapes ??= Water;
+
         if (engine is not null) {
             // The order the three are added in does not decide the order they run in — SystemPhase
             // and the declared access do — but all are PreRender readers of WorldTransform, so all
             // land after the transforms are written and a camera moved this frame renders from where
             // it is.
             engine.Add(Camera);
+
+            // ⚠ Before the volumes, and the order does matter here even though the three above it are
+            // order-free. The volume fold asks this system for the underwater shape, and a shape
+            // built from a field that has not been rasterised this frame is one testing against where
+            // the water was — which at a shoreline is the grade coming on a frame early. The phase
+            // and the declared access are what actually order them; adding it here says why.
+            engine.Add(Water);
+
+            // ⚠ The one thing that advances the water clock, and it is a second system rather than a
+            // line in the one above because of a phase. The fold has to be in PreRender — a body is
+            // rasterised where TransformSystem has just put it — and FixedUpdate, where a buoyancy
+            // solver runs, is *earlier in the same frame*. A clock advanced during the fold reaches a
+            // solver a frame late, which is a boat exactly one frame of swell behind the water drawn
+            // under it: constant, small, and invisible until the frame rate changes. EarlyUpdate is
+            // before everything that reads it.
+            engine.Add(WaterClock);
+
             engine.Add(Volumes);
             Renderer.Register(engine, Stages, ParticleStages);
         }
@@ -208,6 +308,41 @@ public sealed class AppGraphics : IDisposable {
 
     /// <summary>What fills it from the world.</summary>
     public CameraExtractionSystem Camera { get; }
+
+    /// <summary>The scene's water: the zones, their fields, and the one water clock.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Held by the host rather than by a game, because three unrelated things need the same
+    ///         one — the <c>!WaterSurface</c> node draws its zones, the volume fold asks it for the
+    ///         underwater shape, and a buoyancy solver reads its clock.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A game still has to point it at its splines, its sea states and its ground.</b>
+    ///         <see cref="Vixen.Rendering.Water.WaterZoneSystem.Splines" /> is null until something
+    ///         supplies one, and every body then counts into <c>UnresolvedBodies</c>;
+    ///         <see cref="Vixen.Rendering.Water.WaterZoneSystem.Waves" /> is null until something
+    ///         supplies one, and every zone naming a <c>.vxwaves</c> falls back to its inline
+    ///         spectrum and counts into <c>UnresolvedWaves</c>; <c>Ground</c> defaults to a flat plane
+    ///         at zero, which is right for an open ocean and visibly wrong for a lake in a valley.
+    ///     </para>
+    ///     <para>
+    ///         <c>Vixen.Engine.Renderer</c>'s <c>AssetWaterSource</c> is the implementation of the
+    ///         first two for a game with a content build, and it is not wired here for
+    ///         <c>AssetTerrainSource</c>'s reason: the host owns a device and a world, and an asset
+    ///         manager is the application's.
+    ///     </para>
+    /// </remarks>
+    public Vixen.Rendering.Water.WaterZoneSystem Water { get; }
+
+    /// <summary>What advances the water clock, in <c>EarlyUpdate</c>, before anything reads it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Separate from <see cref="Water" /> because of a phase, not because of tidiness.</b>
+    ///     The fold runs in <c>PreRender</c> and a buoyancy solver runs in <c>FixedUpdate</c>, which is
+    ///     earlier in the same frame — so a clock advanced during the fold hands the solver last
+    ///     frame's time while the vertex stage draws this frame's. Exposed so a cinematic can slow the
+    ///     sea with <c>Rate</c>, or a test pin <c>Water.WaterTime</c> and simply not add this.
+    /// </remarks>
+    public Vixen.Rendering.Water.WaterClockSystem WaterClock { get; }
 
     /// <summary>The post-process volumes the camera is inside, folded into one overlay.</summary>
     /// <remarks>
@@ -585,6 +720,45 @@ public sealed class AppGraphics : IDisposable {
 
         return PostProcessSettings.None;
     }
+
+    /// <summary>One resolved tier's vegetation budgets, in the terrain stack's own vocabulary.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one place the two vocabularies are matched up, and adding a knob to
+    ///         <c>VegetationQuality</c> without adding it here carries the number the whole length of
+    ///         the waterfall and drops it.</b> The records are deliberately not the same type: the
+    ///         waterfall lives in <c>Vixen.Rendering.PostFx</c> and the consumer in
+    ///         <c>Vixen.Rendering.Terrain</c>, which must not reference it — see
+    ///         <see cref="TerrainVegetationQuality" />. Two of the names differ across the seam
+    ///         (<c>TerrainLodNearRange</c> is the terrain stack's <c>TerrainNearRange</c>), which is
+    ///         the other reason this is written out rather than reflected over.
+    ///     </para>
+    ///     <para>
+    ///         <c>GrassBladesPerCell</c> is absent because no tier decides it: it is the scatter
+    ///         dispatch's shape rather than a budget, so it keeps the record's own default and a
+    ///         document or the game says otherwise.
+    ///     </para>
+    ///     <para>
+    ///         What arrives here is folded from the frame document as well as the host — a
+    ///         <c>!StandardFrame</c>'s own <c>quality:</c> and inline <c>preset:</c> included, which
+    ///         for a while it was not. The expansion replaces the node during the build, so the vote
+    ///         is read off the document before it (<c>PostEffectFactory.QualityOf</c>) rather than
+    ///         out of the built frame, where it no longer exists. The <c>!Terrain</c> node's own
+    ///         scalars are a further document-level vote and out-vote this per field, in
+    ///         <c>TerrainFactory.Create</c>.
+    ///     </para>
+    /// </remarks>
+    static TerrainVegetationQuality VegetationOf(ResolvedQuality quality) =>
+        new() {
+            GrassDensityScale = quality.GrassDensityScale,
+            GrassCullDistanceScale = quality.GrassCullDistanceScale,
+            GrassResidentCells = quality.GrassResidentCells,
+            FoliageDensityScale = quality.FoliageDensityScale,
+            FoliageCullDistanceScale = quality.FoliageCullDistanceScale,
+            FoliageCellBudget = quality.FoliageCellBudget,
+            TerrainNearRange = quality.TerrainLodNearRange,
+            TerrainStreamingMegabytes = quality.TerrainStreamingMegabytes
+        };
 
     /// <summary>Builds the swapchain if there is not one, and says what the frame is now sized to.</summary>
     void EnsureSwapChain() {

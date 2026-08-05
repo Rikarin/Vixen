@@ -205,6 +205,41 @@ public sealed class VirtualGeometrySystem : IDisposable {
         return VirtualGeometryContent.Load(Feature, Source, id, asset, data);
     }
 
+    /// <summary>
+    ///     Releases a mesh: its pages go back to the pool and its blob is closed.
+    /// </summary>
+    /// <param name="mesh">The index <see cref="Content(int, VirtualGeometryAsset, System.IO.Stream)" /> returned.</param>
+    /// <returns>Whether there was a live registration to release.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such registration.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="Content(int, VirtualGeometryAsset, System.IO.Stream)" />'s counterpart, and
+    ///         it undoes both halves for the reason that one does both.</b> A registration pins a root
+    ///         page and opens a blob; releasing only the pin leaves a file handle, and releasing only the
+    ///         blob leaves a slot of the pool pinned to content nothing draws — for ever, because nothing
+    ///         re-pins and nothing unpins. A project that loads and unloads levels loses a slot per mesh
+    ///         per level until <see cref="PageResidency.Pin" /> refuses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The index stays valid and keeps its number: an object still holding it in
+    ///         <c>VirtualGeometryDraw.Mesh</c> draws nothing rather than drawing whatever was registered
+    ///         next. See <c>GpuClusterVisibility.Unregister</c> for why the record is retired in place.
+    ///     </para>
+    /// </remarks>
+    public bool Release(int mesh) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        var id = Feature.Unregister(mesh);
+
+        if (id < 0) {
+            return false;
+        }
+
+        Source.Remove(id);
+
+        return true;
+    }
+
     /// <summary>Registers the feature with a render system.</summary>
     /// <param name="system">The system.</param>
     /// <exception cref="ArgumentNullException"><paramref name="system" /> is null.</exception>

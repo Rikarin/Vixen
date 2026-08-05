@@ -28,14 +28,16 @@ namespace Vixen.Rendering.Ecs;
 ///     <para>
 ///         ⚠ <b>A zeroed emitter is stopped, and that is why <see cref="VfxEmitters" /> exists.</b>
 ///         <c>default</c> gives <see cref="Playing" /> false and a <see cref="Reach" /> of zero — an
-///         effect that never runs and whose bound culls it from every view even if it did. A component
-///         cannot have a non-zero default and nothing can change that, which is the same asymmetry
-///         <c>MeshRenderables.Default</c> and <c>Lights.Default</c> exist for.
+///         effect that never runs and whose bound culls it from every view even if it did. A chunk row
+///         is zeroed memory and no constructor runs on it, so the usable value cannot be a field
+///         initialiser; it is declared through <see cref="IDefaultComponent{TSelf}" /> instead, which
+///         is what an Add Component reaches. <c>MeshRenderables.Default</c> and <c>Lights.Default</c>
+///         are the same asymmetry answered the same way.
 ///     </para>
 /// </remarks>
 [Component]
 [DataContract]
-public struct VfxEmitter {
+public struct VfxEmitter : IDefaultComponent<VfxEmitter> {
     /// <summary>Which effect, as the reference a scene stores.</summary>
     /// <remarks>
     ///     ⚠ <b><see cref="AssetReference.Null" /> is a real state rather than a mistake</b>, and it is
@@ -87,6 +89,16 @@ public struct VfxEmitter {
     ///     steam — so it is worth a number rather than a larger <see cref="Reach" />.
     /// </remarks>
     public float Rise;
+
+    /// <summary>A playing emitter with a bound that is not zero, and no effect chosen yet.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Explicit, so this does not become a second public name for
+    ///     <see cref="VfxEmitters.Default(AssetReference)" />.</b> That one takes the effect, which an
+    ///     Add Component has no answer to — the picker in the row is the answer, and
+    ///     <see cref="Effect" /> being null is a real state rather than a mistake. What is worth
+    ///     carrying across is the pair of fields whose zeroes stop the emitter dead.
+    /// </remarks>
+    static VfxEmitter IDefaultComponent<VfxEmitter>.DefaultValue => VfxEmitters.Default(AssetReference.Null);
 }
 
 /// <summary>What <see cref="VfxExtractionSystem" /> made for an emitter, so it can take it away again.</summary>

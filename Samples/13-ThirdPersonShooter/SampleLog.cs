@@ -267,6 +267,72 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
+        EventId = 14058,
+        Level = LogLevel.Information,
+        Message = "Ground: {Terrains} terrain(s) and {Fields} grass field(s) drawn, {Extracted} "
+            + "extracted with {Waiting} still loading, {RefusedGrass} grass rule(s) refused. Zero "
+            + "drawn with zero extracted is a scene that carries no TerrainComponent; zero drawn "
+            + "with one extracted is content that never arrived, which draws as no ground at all "
+            + "rather than as an error — different bugs, and the picture is the same absence for "
+            + "both. A layer whose texture reference did not parse is the third: that one draws the "
+            + "renderer's white default, and white ground under a dusk sky is the loudest thing in "
+            + "the frame."
+    )]
+    public static partial void GroundSummary(
+        ILogger logger,
+        int terrains,
+        int fields,
+        int extracted,
+        int waiting,
+        int refusedGrass
+    );
+
+    [LoggerMessage(
+        EventId = 14057,
+        Level = LogLevel.Information,
+        Message = "Textures: {Painted} of {Requested} material texture(s) loaded, {Failed} failed. "
+            + "Survey: {Promotions} promotion(s), {Demotions} demotion(s). Streaming {Streamed} "
+            + "texture(s), {Resident} of {Budget} byte(s) resident, {Loading} in flight; {Swaps} "
+            + "swap(s), {Refusals} refusal(s), {Rejections} rejection(s), {Image} byte(s) of image. "
+            + "Painted at zero is a level whose materials name no maps, and that is the state this "
+            + "survey ran in for as long as no .vxmat carried a textures: block — every number after "
+            + "it is then a correct answer about an empty set. Painted above zero with resident at "
+            + "zero is the other half, and a different bug: the maps are bound and the pool has been "
+            + "asked for nothing, which is a survey that never saw a screen height."
+    )]
+    public static partial void TextureSummary(
+        ILogger logger,
+        int painted,
+        int requested,
+        int failed,
+        long promotions,
+        long demotions,
+        int streamed,
+        long resident,
+        long budget,
+        int loading,
+        long swaps,
+        long refusals,
+        long rejections,
+        long image
+    );
+
+    [LoggerMessage(
+        EventId = 14059,
+        Level = LogLevel.Information,
+        Message = "Material maps: {Indexed} texture(s) hold a bindless slot, {Unresolved} pairing(s) "
+            + "resolved to slot zero. Unresolved above zero once the level has settled is a map the "
+            + "shader asks for and nothing supplied — a renamed parameter, a texture that failed to "
+            + "load, or a feature nobody paired in WorldRenderer.Paired — and every one of them draws "
+            + "the table's magenta checker. It is magenta and not white for a reason worth keeping: "
+            + "an arena material tints the map it multiplies, so a white fallback renders wall.vxmat "
+            + "at its 1.739× compensation and blows the level out to flat white, which reads as "
+            + "broken lighting rather than as a missing texture. Indexed at zero with unresolved at "
+            + "zero is a level whose materials sample nothing at all."
+    )]
+    public static partial void MaterialTextureSummary(ILogger logger, int indexed, int unresolved);
+
+    [LoggerMessage(
         EventId = 14056,
         Level = LogLevel.Information,
         Message = "VSM: {Marked} page(s) marked by the last serviced frame, {Drawn} drawn this frame, "

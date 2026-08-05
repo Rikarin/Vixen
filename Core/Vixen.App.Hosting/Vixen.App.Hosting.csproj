@@ -56,6 +56,33 @@
         -->
         <ProjectReference Include="..\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
 
+        <!--
+          The quality waterfall's table. `GraphicsOptions.Quality` is a QualityTier —
+          Vixen.Rendering's, reachable already — but the numbers a tier folds to are
+          RenderQuality.Resolve's, and those live here. Without this reference the tier reaches the
+          document transform and nothing else, which is why every numeric knob in that table was
+          carried and read by nobody.
+
+          Resolving is a thing only a host can do: the tier is the platform's pick and the project's
+          preset is an asset somebody loaded, and neither is knowable from inside the compositor.
+          AppGraphics then feeds the resolved struct to the consumers that cannot see both ends of
+          the hand-off themselves — TerrainFactory, because Vixen.Rendering.Terrain cannot reference
+          this assembly, and the texture pool.
+
+          ⚠ Not a general licence to reach into the post-effect stack. What this assembly wants is
+          the resolved struct; the effects themselves are a project's, registered through
+          GraphicsOptions.Factories like every other node package — CompositorBuilder is the one
+          that cannot switch on a type downstream of it, and that cycle is unaffected by this.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+
+        <!--
+          Water's device half, for the same reason the terrain factory is recognised in AppGraphics: a
+          !WaterSurface node reads the zones an ECS system folds, and the system does not exist when
+          OnConfigure registers the factory. This is where the two meet — docs/plan/35 § D3.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+
         <!-- The action system. Named here rather than taken transitively through Vixen.Engine,
              because PlatformInput is what joins it to Vixen.Platform and that seam is this
              assembly's own — see PlatformInput.cs. -->

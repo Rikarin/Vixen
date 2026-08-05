@@ -1,0 +1,6 @@
+val s = [1, ..other, 5]
+val t = (count: 1, scale: 2f)
+enum E {
+    Off,
+    On = 5
+}

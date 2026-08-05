@@ -28,6 +28,10 @@
         -->
         <ProjectReference Include="..\..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
 
+        <!-- The !Terrain node the document splices after the Main pass, and the layer descriptions
+             its .vxterrain carries. -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
+
         <!--
           The Null backend, so a YAML or wiring mistake in the document fails a test on any machine
           rather than a launch on one with a GPU. Vixen.Rendering.Tests' CompositorAssetTests is the
@@ -45,5 +49,15 @@
     -->
     <ItemGroup>
         <None Include="..\Assets\Frame.vxcompositor" Link="Assets\Frame.vxcompositor" CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
+            The source documents, not the imported artefacts. What these tests assert about a
+            material is what an author wrote — that the feature's map name and the textures: entry
+            agree — and the import is what turns that into a binding, so reading the artefact would
+            be testing the importer twice and the authoring not at all. Globbed rather than listed so
+            a new .vxmat is covered by the theory the day it is added.
+        -->
+        <None Include="..\Assets\Materials\*.vxmat" Link="Assets\Materials\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\Assets\Terrain\Outskirts.vxterrain" Link="Assets\Terrain\Outskirts.vxterrain" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 </Project>

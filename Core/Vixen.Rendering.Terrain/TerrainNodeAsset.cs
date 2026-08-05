@@ -87,6 +87,18 @@ public sealed record TerrainNodeAsset : ISceneRendererAsset {
 
     /// <summary>How far level 0 reaches for a terrain whose component left it at zero, or null for the tier.</summary>
     public float? TerrainNearRange { get; init; }
+
+    /// <summary>What fraction of each foliage volume to draw, 0…1, or null for the factory's tier.</summary>
+    public float? FoliageDensityScale { get; init; }
+
+    /// <summary>A multiplier over every foliage type's authored cull distances, or null for the tier.</summary>
+    public float? FoliageCullDistanceScale { get; init; }
+
+    /// <summary>How many foliage cells one volume's streamer keeps uploaded, or null for the tier.</summary>
+    public int? FoliageCellBudget { get; init; }
+
+    /// <summary>Megabytes of staged tile chains a terrain's streamer may hold, or null for the tier.</summary>
+    public int? TerrainStreamingMegabytes { get; init; }
 }
 
 /// <summary>The vegetation numbers one quality tier resolves to, in the terrain stack's own vocabulary.</summary>
@@ -101,9 +113,11 @@ public sealed record TerrainNodeAsset : ISceneRendererAsset {
 ///         describes.
 ///     </para>
 ///     <para>
-///         The foliage pair is carried for the foliage increment — the cull pass consumes the same
-///         two numbers the grass path does, and a record that dropped them would be re-grown in the
-///         same file next month.
+///         Every field here is read by <see cref="TerrainSceneRenderer" />, and every one a
+///         <c>!Terrain</c> node can state is folded over this per parameter — see
+///         <see cref="TerrainFactory.Create" />. <see cref="GrassBladesPerCell" /> is the single
+///         entry with no counterpart in the waterfall's <c>VegetationQuality</c>: it is a dispatch
+///         shape rather than a budget, so a document or the factory sets it and no tier does.
 ///     </para>
 /// </remarks>
 public sealed record TerrainVegetationQuality {
@@ -119,15 +133,24 @@ public sealed record TerrainVegetationQuality {
     /// <summary>How many blades one cell's run holds.</summary>
     public int GrassBladesPerCell { get; init; } = 4096;
 
-    /// <summary>What fraction of the foliage to draw, 0…1. ⚠ Carried, not yet consumed.</summary>
+    /// <summary>What fraction of the foliage to draw, 0…1.</summary>
     public float FoliageDensityScale { get; init; } = 1f;
 
-    /// <summary>A multiplier over foliage cull distances. ⚠ Carried, not yet consumed.</summary>
+    /// <summary>A multiplier over foliage cull distances.</summary>
     public float FoliageCullDistanceScale { get; init; } = 1f;
 
-    /// <summary>How many foliage cells stay resident. ⚠ Carried, not yet consumed.</summary>
+    /// <summary>How many foliage cells stay resident — the streamer's pool, which is the upload.</summary>
     public int FoliageCellBudget { get; init; } = 512;
 
     /// <summary>How far level 0 reaches for a terrain that does not say, in metres.</summary>
     public float TerrainNearRange { get; init; } = 64f;
+
+    /// <summary>Megabytes of staged tile chains one terrain's streamer may hold.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Bytes, unlike every other budget here, because a tile's size is knowable and a cell's
+    ///     is not.</b> A mip chain is a fixed count of <c>ushort</c> samples once the tile size is
+    ///     read, so <see cref="TerrainStreamer" /> divides this into slots; a foliage cell holds
+    ///     whatever was painted into it, which is why its budget counts cells.
+    /// </remarks>
+    public int TerrainStreamingMegabytes { get; init; } = 64;
 }

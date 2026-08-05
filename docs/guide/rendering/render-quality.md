@@ -7,8 +7,8 @@ summary: The quality waterfall behind the Standard Frame's tiers — engine defa
 api: [T:Vixen.Rendering.PostFx.RenderQualityAsset, T:Vixen.Rendering.PostFx.QualityTierOverrides, T:Vixen.Rendering.PostFx.ResolutionQuality, T:Vixen.Rendering.PostFx.ShadowQuality, T:Vixen.Rendering.PostFx.GlobalIlluminationQuality, T:Vixen.Rendering.PostFx.ReflectionQuality, T:Vixen.Rendering.PostFx.PostFidelityQuality, T:Vixen.Rendering.PostFx.LightQuality, T:Vixen.Rendering.PostFx.GeometryQuality, T:Vixen.Rendering.PostFx.VegetationQuality, T:Vixen.Rendering.PostFx.TextureQuality, T:Vixen.Rendering.PostFx.CullingMode, T:Vixen.Rendering.PostFx.FxaaPreset, T:Vixen.Rendering.PostFx.ResolvedQuality, T:Vixen.Rendering.PostFx.RenderQuality, T:Vixen.Rendering.Compositor.QualityTier]
 tags: [rendering, presets, scalability, quality]
 since: 0.1
-status: experimental
-related: [rendering/standard-frame, rendering/choosing-a-frame, rendering/post-processing]
+status: preview
+related: [rendering/standard-frame, rendering/choosing-a-frame, rendering/post-processing, rendering/volumetric-fog]
 ---
 
 ## What it is
@@ -60,13 +60,51 @@ document transform would put content IO inside a build that must stay pure. Load
 hands the asset over.
 
 Some entries are carried, not yet consumed, and say so on their doc comments (`DfaoSamples`,
-`SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias`, all
-of `VegetationQuality` and all of `TextureQuality`): they map to systems the compositor does not
-construct today, and they land in the asset first so a project's tiers do not change shape when
-their consumers learn to read them. `VegetationQuality` is the newest of these — the terrain,
-grass and foliage libraries have landed with exactly the parameters its fields name (the scatter
-kernels' density scales, `GrassResidency`'s cell capacity, `TerrainLodRanges.NearRange`), and the
-seam that constructs those renderers from a frame is what remains owed.
+`SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias` and
+`TextureQuality.ParticleBudgetScale`): they map to systems the compositor does not construct today,
+and they land in the asset first so a project's tiers do not change shape when their consumers
+learn to read them.
+
+`TextureQuality`'s other two are consumed on the vegetation's terms, by the same host and from the
+same single fold: `streamingPoolMegabytes` and `mipBias` become `WorldRenderer.Textures`, sized
+before the texture source is mounted because a pool that could be resized afterwards would not be a
+budget.
+
+`VegetationQuality` is consumed, by hand-off rather than by reference. `Vixen.Rendering.Terrain`
+cannot see this assembly — the dependency runs the other way — so `TerrainFactory` declares its own
+plain-numbered `TerrainVegetationQuality`, and `AppGraphics` folds a resolved tier into
+`TerrainFactory.Vegetation` for every terrain factory it finds in `GraphicsOptions.Factories`. That
+fold is the hand-off: registering the factory is still the whole installation, and a game that
+filled the budgets itself is left alone. All seven entries land — the two density scales, the two
+cull scales, the grass and foliage cell counts and the near range — plus
+`terrainStreamingMegabytes`, which becomes `TerrainStreamer`'s byte budget.
+
+A `!Terrain` node may state any of those numbers directly, per field, and a written value out-votes
+the factory's tier while its siblings still fall through:
+
+```yaml
+- !Terrain
+  name: Ground
+  foliageCellBudget: 96      # this document has decided
+  # every other budget is the host's resolved tier
+```
+
+⚠ **A knob added to `VegetationQuality` is wired only when both halves are added**:
+`TerrainVegetationQuality` must grow the same field *and* `AppGraphics`' fold must assign it.
+Either one missing and the number is carried the whole length of the waterfall and dropped at the
+last step, which is what happened to the foliage budgets. `TerrainNodeTests` checks the two records
+against each other so the omission fails a test rather than a frame.
+
+The terrain fold sees the whole waterfall, a `!StandardFrame`'s own `quality:` and inline `preset:`
+included. It has to be read off the document *before* the build: the expansion replaces the frame
+node as the compositor builds, so a host asking afterwards would be asking a document that no
+longer says anything — which is why, for a while, a frame naming its own tier moved the post chain
+and not the ground. `PostEffectFactory.QualityOf(document, fallback, project)` is that reading, and
+it is the same fold the expansion performs rather than a second one that agrees today. The
+`!Terrain` node's own scalars are a further document-level vote and out-vote the result per field.
+
+`GrassBladesPerCell` exists on the terrain-side record and in no tier: it is the scatter dispatch's
+shape rather than a budget, so a document or the game sets it.
 
 ## Examples
 

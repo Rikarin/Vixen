@@ -1,0 +1,38 @@
+# The arena's one grass rule, bound to the terrain's Grass weight layer — blades grow on the gentle
+# ground outside the walls, thin out where the paint does, and are gone by 55 m, which is about where
+# the far hills take over from ground the player could walk on.
+#
+# ⚠ **The texture now has a seat, and the blades are green rather than white.** `GrassType.Albedo`
+# is resolved every frame into `GrassDrawPass.Albedo`, so `albedoMap` is this file's map instead of
+# the pass's white 1×1 — which is what the blades were sampling, tinted only by `tintRange` and the
+# shader's own light term.
+#
+# ⚠ **What is still owed is the mesh, not the map.** `grass-blade-albedo.png` is authored as a
+# cutout *card* — seven blades on a transparent background, `make_textures.py`'s `grass_blade` — and
+# the built-in blade `GrassDrawPass.BuildBlade` scatters is a single tapered strip whose texcoord
+# runs 0…1 across that one blade. So the card's seven blades are squeezed across each strip and read
+# as vertical banding rather than as seven blades. It is the right green and the wrong framing, and
+# closing it needs a blade-card mesh whose unwrap matches the atlas — plus an alpha-test discard,
+# which `Grass.rvn` does not have: the fragment writes `sampled.a` into an opaque target, so the
+# card's transparent margin would draw as its background colour rather than as a hole.
+name: Outskirts
+layer: Grass
+albedo: vx:6a17bc2149f845118f5497862fa98c7e
+minWeight: 0.2
+maxWeight: 0.7
+density: 18
+jitter: 0.85
+minScale: 0.8
+maxScale: 1.4
+randomYaw: true
+alignToNormal: 0.4
+maxSlope: 0.7
+startCullDistance: 38
+endCullDistance: 55
+wind:
+  direction: 1 0.25
+  strength: 0.14
+  frequency: 0.3
+  speed: 1.6
+  flutter: 0.035
+  height: 0.55

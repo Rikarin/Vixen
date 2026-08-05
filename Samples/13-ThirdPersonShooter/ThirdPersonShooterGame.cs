@@ -103,6 +103,18 @@ public sealed class ThirdPersonShooterGame : Game {
         // [ModuleInitializer] registering its aliases with the type registry — so without this the
         // document does not bind either. One line, two failures.
         config.Graphics.Factories.Add(new Rendering.PostFx.PostEffectFactory());
+
+        // The `!Terrain` node's host half, and it is exactly one line on the same terms as the one
+        // above: constructing the factory registers the node alias with the type registry, and the
+        // rest — the world renderer's terrain list, the extraction bridge that walks
+        // TerrainComponent entities into it, the asset source turning the component's reference into
+        // a heightfield and its grass rule — comes with the registration. Without this the document
+        // names a type nothing in the build claims, which is a refusal from inside the compositor's
+        // construction rather than a frame that quietly has no ground.
+        //
+        // ⚠ Deliberately not in CasterStages. The terrain does not cast into the cascades yet, and
+        // adding the stage would extract nothing for it while every counter said the pass ran.
+        config.Graphics.Factories.Add(new Rendering.Terrain.TerrainFactory());
     }
 
     /// <inheritdoc />

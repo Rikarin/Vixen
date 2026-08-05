@@ -198,6 +198,8 @@ const Vixen.Core.Serialization.Framing.MaximumLength = 536870912 -> int
 const Vixen.Core.Serialization.Storage.BundleFormat.EntrySize = 24 -> int
 const Vixen.Core.Serialization.Storage.BundleFormat.HeaderSize = 24 -> int
 const Vixen.Core.Serialization.Storage.BundleFormat.Version = 1 -> int
+const Vixen.Core.Serialization.Storage.ChunkFormat.MaximumLz4Expansion = 255 -> int
+const Vixen.Core.Serialization.Storage.ChunkFormat.MaximumZstdExpansion = 4096 -> int
 const Vixen.Core.Serialization.Storage.ChunkFormat.MinimumCompressedSize = 256 -> int
 const Vixen.Core.Serialization.Storage.ChunkFormat.Version = 1 -> int
 override Vixen.Core.Serialization.ContentReference<T>.ToString() -> string

@@ -176,6 +176,69 @@ public sealed record PostFidelityQuality {
     /// <summary>Whether the fog pass runs.</summary>
     public bool? Fog { get; init; }
 
+    /// <summary>Whether the froxel volume is filled and composited — <see cref="VolumetricFogAsset" />.</summary>
+    /// <remarks>
+    ///     ⚠ Off does not mean no fog. <see cref="Fog" /> still applies the analytic falloff, which is
+    ///     what every tier has always had; this decides whether the first
+    ///     <see cref="VolumetricFar" /> metres of it are marched instead. A tier with
+    ///     <see cref="Fog" /> false and this true gets nothing at all, because the composite lives in
+    ///     the pass <see cref="Fog" /> switches off.
+    /// </remarks>
+    public bool? VolumetricFog { get; init; }
+
+    /// <summary>Whether the froxels are shadowed against the sun's cascades.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The knob that decides whether the volume draws beams or a glow</b>, and by some way
+    ///         the most expensive thing in the feature: a 3×3 filter per froxel, doubled across a
+    ///         cascade seam, against a grid of 160 × 90 × <see cref="VolumetricSlices" />. The
+    ///         injection and the march are each one cheap pass over the same grid; this is the rest of
+    ///         the bill.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off is not "no fog", and it is not even "no volume".</b> The volume is still
+    ///         filled and still composited — the height gradient and the forward scattering peak both
+    ///         survive. What goes is the one thing an analytic falloff could never do: a shaft, which
+    ///         is the <em>absence</em> of light behind a caster. A tier that switches this off is
+    ///         choosing to pay for marched fog and not for the reason to march it, which is a
+    ///         defensible trade only where the slice count is already low.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ True cannot conjure an atlas. A frame with no shadow node publishes no cascades, and
+    ///         the pass detects that and goes unshadowed regardless — availability is the floor and
+    ///         this is a ceiling under it. Which is why the knob is only worth having now that
+    ///         something answers to it.
+    ///     </para>
+    /// </remarks>
+    public bool? VolumetricShadows { get; init; }
+
+    /// <summary>How many depth slices the froxel grid has — <see cref="VolumetricFogAsset.Slices" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The knob that decides whether a shadow edge crossing the volume reads as an edge or as a
+    ///         staircase, and the one that costs the most: the march is serial in this.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The only grid axis a tier moves, and the arithmetic says it should stay that
+    ///         way.</b> A froxel at view depth <c>d</c> is <c>d · 2·tan(fovX/2) / 160</c> wide and
+    ///         <c>d · ((far/near)^(1/slices) − 1)</c> deep. At 91° horizontal that is 0.013 d against
+    ///         0.079 d at 64 slices, 0.042 d at 128, and 0.153 d at 32 — so the depth axis is between
+    ///         three and twelve times the coarser one at every tier this ships, and it is where a
+    ///         staircase comes from. Tiering the screen axes instead would sharpen what is already
+    ///         fine, and now costs four volumes rather than three because the scattering one is a pair.
+    ///     </para>
+    /// </remarks>
+    public int? VolumetricSlices { get; init; }
+
+    /// <summary>How far the volume reaches, in metres — <see cref="VolumetricFogAsset.Far" />.</summary>
+    /// <remarks>
+    ///     ⚠ Not a draw distance, and raising it does not extend the fog — the analytic falloff
+    ///     already covers everything past it. What it changes is how the slices are <em>spent</em>: a
+    ///     grid stretched to a kilometre puts almost all of its resolution where nothing is visible
+    ///     and leaves the near slices too thick to hold a beam's edge.
+    /// </remarks>
+    public float? VolumetricFar { get; init; }
+
     /// <summary>Whether the bloom pyramid is built.</summary>
     public bool? Bloom { get; init; }
 
@@ -256,14 +319,23 @@ public sealed record GeometryQuality {
 
 /// <summary>Vegetation and terrain-surface budgets for one tier.</summary>
 /// <remarks>
-///     ⚠ All entries are carried, not yet consumed. Unlike the pre-landing era, every one now maps
-///     to a parameter that exists: the density scales are the scatter kernels' own multipliers
-///     (<c>GrassScatter</c>'s <c>densityScale</c>, and the same fold over
-///     <c>FoliageType.Density</c>), the cull scales multiply each type's authored cull distances,
-///     the cell counts are <c>GrassResidency</c>'s and the foliage streamer's capacities, and the
-///     near range is <c>TerrainLodRanges.NearRange</c>. What is missing is the seam that constructs
-///     those renderers from a frame at all — they land in the preset first so a project's tiers do
-///     not change shape when that seam arrives.
+///     <para>
+///         Every entry lands on a parameter that exists: the density scales are the scatter kernels'
+///         own multipliers (<c>GrassScatter</c>'s <c>densityScale</c>, and the same fold over
+///         <c>FoliageType.Density</c>), the cull scales multiply each type's authored cull distances,
+///         the cell counts are <c>GrassResidency</c>'s and the foliage streamer's capacities, the near
+///         range is <c>TerrainLodRanges.NearRange</c>, and the streaming pool is
+///         <c>TerrainStreamer</c>'s byte budget.
+///     </para>
+///     <para>
+///         ⚠ <b>They reach those renderers by hand-off, not by reference — and the hand-off is
+///         <c>AppGraphics</c>'.</b> <c>Vixen.Rendering.Terrain</c> cannot see this assembly, because
+///         the dependency runs the other way, so the terrain factory declares its own plain-numbered
+///         copy (<c>TerrainVegetationQuality</c>) and the host folds a resolved tier into
+///         <c>TerrainFactory.Vegetation</c> before it builds the frame. A knob added here is not
+///         wired until that copy grows the same field <em>and</em> the host's fold assigns it: both
+///         halves, or the number is carried and dropped.
+///     </para>
 /// </remarks>
 [DataContract("VegetationQuality")]
 public sealed record VegetationQuality {
@@ -287,13 +359,32 @@ public sealed record VegetationQuality {
 
     /// <summary>Metres of full-detail terrain before the first LOD step.</summary>
     public float? TerrainLodNearRange { get; init; }
+
+    /// <summary>Megabytes of staged terrain tile chains a frame may hold.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Bytes here and cells for the foliage, and the asymmetry is the content's rather than
+    ///     an oversight.</b> A terrain tile's mip chain is a fixed number of <c>ushort</c> samples, so
+    ///     a byte budget converts to a slot count the moment the tile size is known; a foliage cell
+    ///     holds however many instances somebody painted into it, which is why
+    ///     <c>FoliageCellPages.PageSize</c> is one and <see cref="FoliageCellBudget" /> counts cells.
+    /// </remarks>
+    public int? TerrainStreamingMegabytes { get; init; }
 }
 
 /// <summary>Texture and effect budgets for one tier.</summary>
 /// <remarks>
-///     ⚠ All three entries are carried, not yet consumed — the streaming pool and mip bias belong
-///     to systems the compositor does not construct, and the particle budget to the VFX runtime.
-///     Foliage, grass and terrain live in their own group, <see cref="VegetationQuality" />.
+///     <para>
+///         The streaming pool and the mip bias are consumed, and not by the compositor: they belong
+///         to a system it does not construct, so <c>AppGraphics</c> resolves the tier and hands the
+///         two numbers to <c>WorldRenderer.Textures</c> before it mounts content. A pool is sized
+///         when the texture source is built and never afterwards, which is what makes a budget a
+///         budget — see <c>TextureStreamer</c>.
+///     </para>
+///     <para>
+///         ⚠ <see cref="ParticleBudgetScale" /> is still carried and not consumed; it belongs to the
+///         VFX runtime. Foliage, grass and terrain live in their own group,
+///         <see cref="VegetationQuality" />.
+///     </para>
 /// </remarks>
 [DataContract("TextureQuality")]
 public sealed record TextureQuality {
@@ -468,6 +559,18 @@ public sealed record ResolvedQuality {
     /// <summary>See <see cref="PostFidelityQuality.Fog" />.</summary>
     public required bool Fog { get; init; }
 
+    /// <summary>See <see cref="PostFidelityQuality.VolumetricFog" />.</summary>
+    public required bool VolumetricFog { get; init; }
+
+    /// <summary>See <see cref="PostFidelityQuality.VolumetricShadows" />.</summary>
+    public required bool VolumetricShadows { get; init; }
+
+    /// <summary>See <see cref="PostFidelityQuality.VolumetricSlices" />.</summary>
+    public required int VolumetricSlices { get; init; }
+
+    /// <summary>See <see cref="PostFidelityQuality.VolumetricFar" />.</summary>
+    public required float VolumetricFar { get; init; }
+
     /// <summary>See <see cref="PostFidelityQuality.Bloom" />.</summary>
     public required bool Bloom { get; init; }
 
@@ -543,6 +646,9 @@ public sealed record ResolvedQuality {
     /// <summary>See <see cref="VegetationQuality.TerrainLodNearRange" />.</summary>
     public required float TerrainLodNearRange { get; init; }
 
+    /// <summary>See <see cref="VegetationQuality.TerrainStreamingMegabytes" />.</summary>
+    public required int TerrainStreamingMegabytes { get; init; }
+
     /// <summary>See <see cref="TextureQuality.StreamingPoolMegabytes" />.</summary>
     public required int StreamingPoolMegabytes { get; init; }
 
@@ -610,6 +716,10 @@ public static class RenderQuality {
             PostFidelity = new() {
                 TaaVarianceClipping = false,
                 Fog = false,
+                VolumetricFog = false,
+                VolumetricShadows = false,
+                VolumetricSlices = 32,
+                VolumetricFar = 48f,
                 Bloom = false,
                 BloomLevels = 3,
                 BloomFilterRadius = 1f,
@@ -633,7 +743,8 @@ public static class RenderQuality {
                 FoliageDensityScale = 0.6f,
                 FoliageCullDistanceScale = 0.7f,
                 FoliageCellBudget = 128,
-                TerrainLodNearRange = 48f
+                TerrainLodNearRange = 48f,
+                TerrainStreamingMegabytes = 32
             },
             Textures = new() { StreamingPoolMegabytes = 1024, MipBias = 0.5f, ParticleBudgetScale = 0.5f }
         },
@@ -668,6 +779,10 @@ public static class RenderQuality {
             PostFidelity = new() {
                 TaaVarianceClipping = true,
                 Fog = true,
+                VolumetricFog = false,
+                VolumetricShadows = false,
+                VolumetricSlices = 32,
+                VolumetricFar = 48f,
                 Bloom = true,
                 BloomLevels = 4,
                 BloomFilterRadius = 1f,
@@ -691,7 +806,8 @@ public static class RenderQuality {
                 FoliageDensityScale = 0.8f,
                 FoliageCullDistanceScale = 0.85f,
                 FoliageCellBudget = 192,
-                TerrainLodNearRange = 64f
+                TerrainLodNearRange = 64f,
+                TerrainStreamingMegabytes = 48
             },
             Textures = new() { StreamingPoolMegabytes = 2048, MipBias = 0f, ParticleBudgetScale = 0.75f }
         },
@@ -726,6 +842,10 @@ public static class RenderQuality {
             PostFidelity = new() {
                 TaaVarianceClipping = true,
                 Fog = true,
+                VolumetricFog = true,
+                VolumetricShadows = true,
+                VolumetricSlices = 64,
+                VolumetricFar = 64f,
                 Bloom = true,
                 BloomLevels = 5,
                 BloomFilterRadius = 1f,
@@ -743,7 +863,8 @@ public static class RenderQuality {
             Lights = new() { MaxLights = 256, MaxLightsPerObject = 8 },
             Geometry = new() { Culling = CullingMode.Indirect, VirtualGeometry = true, LodBias = 0f },
             // High is the vegetation libraries' own shipped defaults: GrassResidency's 256 cells,
-            // FoliageType/GrassType densities at par, TerrainLodRanges.Default's 64 m near range.
+            // FoliageType/GrassType densities at par, TerrainLodRanges.Default's 64 m near range and
+            // TerrainStreamer's own 64 MiB pool.
             Vegetation = new() {
                 GrassDensityScale = 1f,
                 GrassCullDistanceScale = 1f,
@@ -751,7 +872,8 @@ public static class RenderQuality {
                 FoliageDensityScale = 1f,
                 FoliageCullDistanceScale = 1f,
                 FoliageCellBudget = 256,
-                TerrainLodNearRange = 64f
+                TerrainLodNearRange = 64f,
+                TerrainStreamingMegabytes = 64
             },
             Textures = new() { StreamingPoolMegabytes = 3072, MipBias = 0f, ParticleBudgetScale = 1f }
         },
@@ -786,6 +908,10 @@ public static class RenderQuality {
             PostFidelity = new() {
                 TaaVarianceClipping = true,
                 Fog = true,
+                VolumetricFog = true,
+                VolumetricShadows = true,
+                VolumetricSlices = 128,
+                VolumetricFar = 96f,
                 Bloom = true,
                 BloomLevels = 6,
                 BloomFilterRadius = 1f,
@@ -809,7 +935,8 @@ public static class RenderQuality {
                 FoliageDensityScale = 1f,
                 FoliageCullDistanceScale = 1.25f,
                 FoliageCellBudget = 384,
-                TerrainLodNearRange = 96f
+                TerrainLodNearRange = 96f,
+                TerrainStreamingMegabytes = 128
             },
             Textures = new() { StreamingPoolMegabytes = 4096, MipBias = 0f, ParticleBudgetScale = 1f }
         }
@@ -883,6 +1010,10 @@ public static class RenderQuality {
             TraceScale = Pick(t => t.Reflections, g => g.TraceScale, "reflections.traceScale"),
             TaaVarianceClipping = Pick(t => t.PostFidelity, g => g.TaaVarianceClipping, "post.taaVarianceClipping"),
             Fog = Pick(t => t.PostFidelity, g => g.Fog, "post.fog"),
+            VolumetricFog = Pick(t => t.PostFidelity, g => g.VolumetricFog, "post.volumetricFog"),
+            VolumetricShadows = Pick(t => t.PostFidelity, g => g.VolumetricShadows, "post.volumetricShadows"),
+            VolumetricSlices = Pick(t => t.PostFidelity, g => g.VolumetricSlices, "post.volumetricSlices"),
+            VolumetricFar = Pick(t => t.PostFidelity, g => g.VolumetricFar, "post.volumetricFar"),
             Bloom = Pick(t => t.PostFidelity, g => g.Bloom, "post.bloom"),
             BloomLevels = Pick(t => t.PostFidelity, g => g.BloomLevels, "post.bloomLevels"),
             BloomFilterRadius = Pick(t => t.PostFidelity, g => g.BloomFilterRadius, "post.bloomFilterRadius"),
@@ -908,6 +1039,7 @@ public static class RenderQuality {
             FoliageCullDistanceScale = Pick(t => t.Vegetation, g => g.FoliageCullDistanceScale, "vegetation.foliageCullDistanceScale"),
             FoliageCellBudget = Pick(t => t.Vegetation, g => g.FoliageCellBudget, "vegetation.foliageCellBudget"),
             TerrainLodNearRange = Pick(t => t.Vegetation, g => g.TerrainLodNearRange, "vegetation.terrainLodNearRange"),
+            TerrainStreamingMegabytes = Pick(t => t.Vegetation, g => g.TerrainStreamingMegabytes, "vegetation.terrainStreamingMegabytes"),
             StreamingPoolMegabytes = Pick(t => t.Textures, g => g.StreamingPoolMegabytes, "textures.streamingPoolMegabytes"),
             MipBias = Pick(t => t.Textures, g => g.MipBias, "textures.mipBias"),
             ParticleBudgetScale = Pick(t => t.Textures, g => g.ParticleBudgetScale, "textures.particleBudgetScale")

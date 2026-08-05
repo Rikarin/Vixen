@@ -267,8 +267,43 @@ public sealed class Arena : IDisposable {
 
         arena.BuildCollision(loop.World);
         arena.SupplyFrame(services);
+        SpawnGround(loop.World);
 
         return arena;
+    }
+
+    /// <summary>Puts the outskirts under the level: one entity carrying the heightfield and its
+    ///     grass rule, which is all the <c>!Terrain</c> node needs from a world.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Spawned in code rather than authored into <c>Arena.vxscene</c>, and the reason is
+    ///         the placement.</b> The terrain's grid starts at its own origin and grows positive, so
+    ///         an entity at the world origin would put 252 m of ground to the north-east of an arena
+    ///         centred on it. The translation below is what centres the two, and it is
+    ///         <see cref="TerrainSeed.HalfExtent" /> — the same constant the seed's own arithmetic
+    ///         uses, which is the point of it being a constant rather than a number in two files.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Both components or neither is worth grass. <c>TerrainGrassComponent</c> names a rule
+    ///         and the rule names a weight layer; a rule beside no terrain scatters nothing and
+    ///         reports nothing, because the layer it is looking for is on the heightfield.
+    ///     </para>
+    /// </remarks>
+    static void SpawnGround(World world) {
+        var placement = LocalTransform.At(new(-TerrainSeed.HalfExtent, 0f, -TerrainSeed.HalfExtent));
+
+        // ⚠ **Both transforms, and the world one is not redundant.**
+        // `TerrainExtractionSystem`'s query is `WithAll<TerrainComponent, WorldTransform>`, and a
+        // `WorldTransform` is written by the transform pass for entities that have one — it is not
+        // added to an entity that arrived without it. Every other object in this level came out of
+        // the scene asset carrying both; an entity created in code carries what it was created with,
+        // so a terrain spawned with a `LocalTransform` alone is one the ground's extraction cannot
+        // see. It reports zero terrains extracted with zero waiting, which reads as "the scene has
+        // no TerrainComponent" — and the scene does have one.
+        var ground = world.Create(placement, new WorldTransform { Value = placement.ToMatrix() });
+
+        world.Add(ground, Rendering.Terrain.TerrainComponent.Of(TerrainSeed.TerrainPath));
+        world.Add(ground, Rendering.Terrain.TerrainGrassComponent.Of(TerrainSeed.GrassPath));
     }
 
     /// <summary>Adds the level's systems to the loop.</summary>
@@ -1181,6 +1216,57 @@ public sealed class Arena : IDisposable {
             Sparks?.LastParticleCount ?? 0,
             graphics.Renderer.Emitters?.Waiting ?? 0,
             graphics.Renderer.ParticleMaterials.BoundCount
+        );
+
+        // ⚠ The survey has no picture of its own, which is why it needs a line here. Streaming is a
+        // decision about which mip levels are on the device, and both of its failures render: too
+        // little resident is a blurrier wall, and nothing resident at all is the flat base level,
+        // which over a generated noise texture is indistinguishable from the map working. The
+        // counters are the only place the difference is stated.
+        // What the terrain splice did, on the streaming line's terms below: the ground has no
+        // counter in any of the summaries above, and a frame with no ground in it looks exactly like
+        // a frame whose ground is behind the walls.
+        if (graphics.Renderer.Host.Builder.Nodes.Values
+                .OfType<Rendering.Terrain.TerrainSceneRenderer>()
+                .FirstOrDefault() is { } ground) {
+            SampleLog.GroundSummary(
+                logger,
+                ground.TerrainsDrawn,
+                ground.GrassFieldsDrawn,
+                graphics.Renderer.TerrainExtraction?.TerrainCount ?? 0,
+                graphics.Renderer.TerrainExtraction?.Waiting ?? 0,
+                graphics.Renderer.TerrainExtraction?.RefusedGrass ?? 0
+            );
+        }
+
+        var painted = graphics.Renderer.Painted;
+        var streamer = painted?.Streaming;
+
+        SampleLog.TextureSummary(
+            logger,
+            painted?.Loaded ?? 0,
+            painted?.Requested ?? 0,
+            painted?.Failed ?? 0,
+            graphics.Renderer.Demand?.Promotions ?? 0,
+            graphics.Renderer.Demand?.Demotions ?? 0,
+            streamer?.Textures ?? 0,
+            streamer?.ResidentBytes ?? 0,
+            streamer?.Budget ?? 0,
+            streamer?.Loading ?? 0,
+            painted?.StreamingSwaps ?? 0,
+            painted?.StreamingRefusals ?? 0,
+            streamer?.Rejections ?? 0,
+            painted?.StreamedImageBytes ?? 0
+        );
+
+        // ⚠ The counter the survey above cannot give, because it counts *assets* and this counts
+        // *pairings*. A texture that loaded and a material that reads it are two different joins, and
+        // the one between them — MaterialRenderFeature.TextureIndices — matches one name against one
+        // name and says nothing when it matches nothing.
+        SampleLog.MaterialTextureSummary(
+            logger,
+            graphics.Renderer.Materials.IndexedTextureCount,
+            graphics.Renderer.Materials.UnresolvedTextureCount
         );
     }
 

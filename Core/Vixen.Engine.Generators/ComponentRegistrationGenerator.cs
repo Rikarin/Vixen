@@ -11,13 +11,14 @@ namespace Vixen.Engine.Generators;
 /// <summary>One component this assembly declares, as much of it as the emission needs.</summary>
 /// <param name="QualifiedName">Its fully qualified name, which is what the generated call names.</param>
 /// <param name="IsContract">Whether it also carries <c>[DataContract]</c>.</param>
+/// <param name="HasDefault">Whether it implements <c>IDefaultComponent&lt;itself&gt;</c>.</param>
 /// <param name="Warning">Why it cannot be registered, or <see langword="null" /> if it can.</param>
 /// <remarks>
 ///     A record of strings rather than the symbol, because an incremental generator's pipeline
 ///     compares its intermediate values and a <see cref="ISymbol" /> keeps a whole compilation alive
 ///     to do it.
 /// </remarks>
-sealed record ComponentModel(string QualifiedName, bool IsContract, string? Warning);
+sealed record ComponentModel(string QualifiedName, bool IsContract, bool HasDefault, string? Warning);
 
 /// <summary>Declares every component this assembly can put in a scene, before any of its code runs.</summary>
 /// <remarks>
@@ -44,6 +45,15 @@ sealed record ComponentModel(string QualifiedName, bool IsContract, string? Warn
 ///         naming the registry there would not compile. Wiring this generator into such an assembly
 ///         is deliberately a no-op rather than an error: the day it grows a reference, its components
 ///         register with nothing else asked of anybody.
+///     </para>
+///     <para>
+///         <b>A component implementing <c>IDefaultComponent&lt;itself&gt;</c> gets the other
+///         declaration, and that is the whole of how a default reaches the editor.</b> The value
+///         lives behind a <c>static abstract</c> member, which can only be named where the type
+///         argument carries the constraint — so the registry cannot fetch it from its own
+///         unconstrained generic and this is the one place the call can be written. A component that
+///         declares nothing emits exactly what it emitted before, which is what makes the feature
+///         free for the components that do not want it.
 ///     </para>
 /// </remarks>
 [Generator(LanguageNames.CSharp)]
@@ -91,11 +101,29 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
         var isContract = type.GetAttributes()
             .Any(attribute => attribute.AttributeClass?.Name == "DataContractAttribute");
 
-        return new(qualified, isContract, type.IsGenericType ? qualified : null);
+        return new(qualified, isContract, HasDefault(type), type.IsGenericType ? qualified : null);
     }
 
+    /// <summary>Whether the type declares a default, by implementing the interface closed over itself.</summary>
+    /// <param name="type">The component.</param>
+    /// <returns>Whether it does.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Matched by full name and closed over itself, both of which are load-bearing.</b> The
+    ///     emitted call carries the same constraint the interface does, so anything this answers yes
+    ///     to has to satisfy it — and a game with an <c>IDefaultComponent&lt;T&gt;</c> of its own in
+    ///     another namespace is the one way that could fail. It would emit a call the compiler then
+    ///     rejects, reporting a constraint violation against generated source the author never wrote.
+    /// </remarks>
+    static bool HasDefault(INamedTypeSymbol type) =>
+        type.AllInterfaces.Any(
+            candidate => candidate.Name == "IDefaultComponent"
+                && candidate.ContainingNamespace?.ToDisplayString() == "Vixen.Ecs"
+                && candidate.TypeArguments.Length == 1
+                && SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[0], type)
+        );
+
     static void Emit(SourceProductionContext context, ImmutableArray<ComponentModel> models, bool reachable) {
-        var valid = new List<string>();
+        var valid = new List<ComponentModel>();
 
         foreach (var model in models) {
             // ⚠ Reported even where nothing would be emitted anyway. A generic component is a
@@ -107,9 +135,11 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
             }
 
             // Silent, and not a diagnostic: a component with no [DataContract] is the handle case,
-            // which is correct and common.
+            // which is correct and common. A handle declaring a default is silent for the same
+            // reason and loses nothing — it has no binder for a panel to reach it through either
+            // way, and `World.AddDefault` resolves against the type rather than against this.
             if (model.IsContract) {
-                valid.Add(model.QualifiedName);
+                valid.Add(model);
             }
         }
 
@@ -118,7 +148,7 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
         }
 
         // Ordered, because a generator whose output moves for no reason makes every build a diff.
-        valid.Sort(StringComparer.Ordinal);
+        valid.Sort(static (left, right) => StringComparer.Ordinal.Compare(left.QualifiedName, right.QualifiedName));
 
         var source = new StringBuilder();
         source.AppendLine("// <auto-generated/>");
@@ -131,7 +161,13 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
         source.AppendLine("        internal static void Initialize() {");
 
         foreach (var component in valid) {
-            source.AppendLine($"            global::{RegistryType}.Declare<{component}>();");
+            // ⚠ Two methods rather than one with an optional factory, because the factory can only be
+            // written where the type argument carries the constraint. `DeclareWithDefault` is where
+            // `T.DefaultValue` resolves, statically — so a component that declares one costs no
+            // reflection and one that does not costs nothing at all.
+            var method = component.HasDefault ? "DeclareWithDefault" : "Declare";
+
+            source.AppendLine($"            global::{RegistryType}.{method}<{component.QualifiedName}>();");
         }
 
         source.AppendLine("        }");

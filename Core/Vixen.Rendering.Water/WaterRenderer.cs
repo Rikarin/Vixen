@@ -48,8 +48,10 @@ namespace Vixen.Rendering.Water;
 /// </remarks>
 public sealed class WaterRenderer : SceneRenderer, IDisposable {
     readonly FullScreenRenderer pass;
+    readonly ComputeRenderer classify;
     readonly List<ResourceBinding> bindings = [];
 
+    BufferHandle placeholder;
     bool disposed;
 
     /// <summary>Creates the node.</summary>
@@ -59,6 +61,12 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
             ShaderName = WaterKeys.ShaderName,
             PermutationKeys = WaterKeys.UsedPermutationKeys,
             ConstantBinding = WaterKeys.ConstantBufferBinding
+        };
+
+        classify = new() {
+            Name = WaterTilesKeys.ShaderName,
+            ShaderName = WaterTilesKeys.ShaderName,
+            ConstantBinding = WaterTilesKeys.ConstantBufferBinding
         };
     }
 
@@ -163,6 +171,54 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
     /// <summary>Whether foam is blended over the result at all.</summary>
     public bool Foam { get; set; } = true;
 
+    /// <summary>
+    ///     Whether the pass runs over the screen tiles that have water in them rather than over the
+    ///     screen — § D8's tile classification.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>§ D8 keeps this "for its actual reason: the water pass is expensive per pixel and
+    ///         covers a small fraction of most frames".</b> On, a compute pass classifies the coverage
+    ///         mask into one flag per 8×8 tile and this node draws two triangles per tile with one
+    ///         instance each; a tile with no water collapses in the vertex stage and costs no fragment
+    ///         at all. Off, it is one triangle over the screen and every pixel of the frame runs the
+    ///         fragment shader — most of them only to hand back what was already behind.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It needs <see cref="Pipelines" />, and it is off without one</b> rather than
+    ///         throwing: a host that has not given the node a compute cache gets the untiled pass, which
+    ///         is the same picture, on <c>!ScreenProbeGather</c>'s terms.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it needs <see cref="Output" /> to already hold what <see cref="Behind" /> is a
+    ///         copy of, which is what makes the two paths the same picture.</b> The untiled pass writes
+    ///         every pixel of the frame — the scene colour back, with a zero mask in alpha — and the
+    ///         tiled one leaves a dry tile exactly as it found it. In a document that is free: § B1's
+    ///         <c>!Copy</c> is what filled <see cref="Behind" /> from this very target, so "as it found
+    ///         it" and "what is behind" are the same bytes. Wired by hand against a target holding
+    ///         something else, the dry pixels keep that something else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What a dry tile no longer writes is the alpha mask</b>, and § D9's composite does
+    ///         not read it — <c>Underwater.rvn</c> reads the surface plane's own coverage, for the
+    ///         reason its remarks give. The pass's alpha remains the mask everywhere the pass ran.
+    ///     </para>
+    ///     <para>
+    ///         Off by default here and on for a document — see <c>WaterAsset.Tiled</c>. A node somebody
+    ///         wired by hand has no <c>!Copy</c> guaranteeing the precondition above; a document has.
+    ///     </para>
+    /// </remarks>
+    public bool Tiled { get; set; }
+
+    /// <summary>Where the classification's compute pipeline comes from. Null turns tiling off.</summary>
+    public ComputePipelineCache? Pipelines {
+        get => classify.Pipelines;
+        set => classify.Pipelines = value;
+    }
+
+    /// <summary>How many tiles covered the target the last time this built, or zero when untiled.</summary>
+    public Int2 TileCount { get; private set; }
+
     /// <summary>Where shader modules come from. Set before the first frame that builds.</summary>
     public EffectPipelineDescriber? Modules {
         get => pass.Modules;
@@ -186,6 +242,9 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
 
     /// <summary>The pass this node is, for a host that wants to look at what it did.</summary>
     public FullScreenRenderer Pass => pass;
+
+    /// <summary>And the classification dispatch ahead of it, which runs only when <see cref="Tiled" />.</summary>
+    public ComputeRenderer Classification => classify;
 
     /// <summary>How many frames have declared the pass.</summary>
     public int BuildCount { get; private set; }
@@ -222,6 +281,8 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
 
         pass.ColourTargets.Add(Output);
 
+        var tiles = Tile(compositor, frame);
+
         if (View is { } view) {
             CameraPosition = view.Position;
 
@@ -232,6 +293,9 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
 
         pass.Parameters.Set(WaterKeys.Reflections, Reflections.Length > 0);
         pass.Parameters.Set(WaterKeys.Foam, Foam);
+        pass.Parameters.Set(WaterKeys.Tiled, tiles.Tiled);
+        pass.Parameters.Set(WaterKeys.TileCount, tiles.Count);
+        pass.Parameters.Set(WaterKeys.TargetSize, tiles.Target);
         pass.Parameters.Set(WaterKeys.InverseViewProjection, InverseViewProjection);
         pass.Parameters.Set(WaterKeys.CameraPosition, CameraPosition);
         pass.Parameters.Set(WaterKeys.Scattering, Scattering);
@@ -254,6 +318,18 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
         // permutation; what would happen without a binding is a descriptor the driver refuses.
         Read(WaterKeys.ReflectionPlaneBinding, Reflections.Length > 0 ? Reflections : Behind);
 
+        // The tile flags, on exactly those terms: declared and bound whether or not anything filled
+        // them, because the untiled variant's set has the slot in it too.
+        pass.BufferReads.Add(tiles.Buffer);
+
+        bindings.Add(
+            new() {
+                Binding = WaterKeys.WaterTilesBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Resource = tiles.Buffer
+            }
+        );
+
         bindings.Add(
             new() {
                 Binding = WaterKeys.PointSamplerBinding,
@@ -274,9 +350,134 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
             pass.Descriptors.Bindings.Add(binding);
         }
 
+        // ⚠ Two triangles per tile and one instance per tile, against a target that is *loaded*. The
+        // load is not tidiness: a pass covering part of the screen with LoadAction.DontCare leaves the
+        // pixels no instance covered holding whatever the allocator handed over, which on most drivers
+        // is the previous frame and reads as smearing rather than as an uninitialised target.
+        pass.Vertices = tiles.Tiled ? WaterTiles.VerticesPerTile : 3;
+        pass.Instances = tiles.Tiled ? WaterTiles.Total(tiles.Count) : 1;
+        pass.Load = tiles.Tiled ? LoadAction.Load : LoadAction.DontCare;
+
         BuildCount++;
+
+        // The classification first, because the draw reads what it wrote. The graph would order them
+        // from the buffer either way; declaring them the other way round would be a reader looking for
+        // a producer that has not declared itself yet.
+        if (tiles.Tiled) {
+            BuildChild(classify, compositor, frame);
+        }
+
         BuildChild(pass, compositor, frame);
     }
+
+    /// <summary>Sizes the tiling, declares its buffer, and points the classifier at both.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The buffer is declared whether or not the classification runs</b>, and it is one
+    ///         word wide when it does not. A descriptor set is written wholly or not at all, so the
+    ///         untiled variant binds this slot as well — see <c>Water.rvn</c>'s <c>waterTiles</c> — and
+    ///         a graph resource is the only thing <see cref="DescriptorBindings" /> can resolve a
+    ///         buffer binding against.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sized from the target's own description rather than from the frame's size</b>, on
+    ///         <see cref="CompositorFrame.DescriptionOf" />'s own terms: a scaled resource is not the
+    ///         frame's extent, and a tiling derived from the wrong
+    ///         one covers part of the target and leaves the rest to whatever the last frame put there.
+    ///     </para>
+    /// </remarks>
+    Tiling Tile(GraphicsCompositor compositor, CompositorFrame frame) {
+        var described = frame.DescriptionOf(ToString(), Output);
+        var target = described is { } size ? new Int2(size.Width, size.Height) : compositor.FrameSize;
+        var tiled = Tiled && Pipelines is not null && target is { X: > 0, Y: > 0 };
+        var count = tiled ? WaterTiles.CountFor(target) : default;
+        var name = $"{this}.Tiles";
+
+        TileCount = count;
+
+        if (!frame.HasBuffer(name)) {
+            var description = new BufferDescription(
+                WaterTiles.Bytes(count),
+                BufferUsage.Storage,
+                tiled ? MemoryAccess.DeviceLocal : MemoryAccess.HostUpload,
+                name
+            );
+
+            // ⚠ Created when something fills it and *imported* when nothing does, and the difference is
+            // a graph rule rather than a preference: a pass that reads a transient no earlier pass
+            // wrote is refused by name — "the contents it would read are whatever was in that memory
+            // last frame" — and the untiled variant binds this slot without ever indexing it. An
+            // imported buffer is one whose contents are the host's business, which is exactly the
+            // claim being made.
+            frame.Add(
+                name,
+                tiled
+                    ? frame.Graph.CreateBuffer(description)
+                    : frame.Graph.ImportBuffer(Placeholder(description), description, ResourceState.ShaderRead, ResourceState.ShaderRead),
+                description
+            );
+        }
+
+        if (!tiled) {
+            return new(false, default, target, name);
+        }
+
+        classify.Groups = new(count.X, count.Y, 1);
+        classify.Samplers = Samplers;
+        classify.Descriptors.Allocator = pass.Descriptors.Allocator;
+        classify.Parameters.Set(WaterTilesKeys.TileCount, count);
+        classify.Parameters.Set(WaterTilesKeys.TargetSize, target);
+
+        classify.Reads.Clear();
+        classify.BufferWrites.Clear();
+        classify.Descriptors.Bindings.Clear();
+
+        classify.Reads.Add(Surface);
+        classify.BufferWrites.Add(name);
+
+        classify.Descriptors.Bindings.Add(
+            new() {
+                Binding = WaterTilesKeys.WaterSurfaceBinding,
+                Kind = DescriptorKind.SampledTexture,
+                Resource = Surface
+            }
+        );
+
+        classify.Descriptors.Bindings.Add(
+            new() {
+                Binding = WaterTilesKeys.PointSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampler = Samplers!.PointClamp
+            }
+        );
+
+        classify.Descriptors.Bindings.Add(
+            new() { Binding = WaterTilesKeys.TilesBinding, Kind = DescriptorKind.StorageBuffer, Resource = name }
+        );
+
+        return new(true, count, target, name);
+    }
+
+    /// <summary>The one word the untiled variant binds and never reads, made once.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zeroed, and that is not decoration either.</b> "Nothing reads it" is true of the variant
+    ///     compiled today; a buffer of undefined memory is one whose first reader — a permutation
+    ///     somebody adds, a driver that reorders — finds tiles claimed at random. Four bytes to make the
+    ///     answer "no tiles" instead of "whatever was there".
+    /// </remarks>
+    BufferHandle Placeholder(in BufferDescription description) {
+        if (placeholder.IsValid) {
+            return placeholder;
+        }
+
+        placeholder = pass.Device!.CreateBuffer(description);
+        pass.Device.Write(placeholder, 0, new byte[description.Size]);
+
+        return placeholder;
+    }
+
+    /// <summary>What one frame's tiling came to.</summary>
+    readonly record struct Tiling(bool Tiled, Int2 Count, Int2 Target, string Buffer);
 
     /// <summary>Adds a sampled texture to the pass, and records that it is read.</summary>
     /// <remarks>
@@ -300,6 +501,13 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
         }
 
         disposed = true;
+
+        if (placeholder.IsValid) {
+            pass.Device?.Destroy(placeholder);
+            placeholder = default;
+        }
+
         pass.Dispose();
+        classify.Dispose();
     }
 }

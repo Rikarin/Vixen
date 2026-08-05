@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Terrain;
@@ -34,25 +35,75 @@ public interface ITerrainTileSource {
     /// <summary>How many tiles there are along each axis.</summary>
     (int X, int Z) TileCounts { get; }
 
+    /// <summary>Brings whatever <see cref="ReadAsync" /> reads up to date, on the caller's thread.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of the source that is allowed to mutate anything.</b>
+    ///     <see cref="ReadAsync" /> runs on a thread-pool thread — <see cref="PageResidency" /> starts
+    ///     every load through <see cref="Task.Run(Action)" /> — so anything it recomputed there would be
+    ///     a write to shared state racing the frame. <see cref="TerrainStreamer.Update" /> calls this
+    ///     immediately before it services the queue, which is the frame thread, and every load it then
+    ///     dispatches reads state that is already current.
+    /// </remarks>
+    void Prepare();
+
+    /// <summary>What a tile's bytes are at, as a number that changes whenever they change.</summary>
+    /// <param name="tileX">Its X index.</param>
+    /// <param name="tileZ">Its Z index.</param>
+    /// <returns>Its revision. Compared for equality and never for order.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What tells an arrival from a stale one, and the reason a load is allowed to read
+    ///         a terrain the frame is still editing.</b> <see cref="Prepare" /> makes the source
+    ///         current at the moment loads are dispatched, and says nothing about the frames a load is
+    ///         in flight for. A sculpt, a spline or a layer toggle between those two moments rewrites
+    ///         the very tile being read, and what comes back is then a chain of two terrains —
+    ///         <see cref="TerrainTilePages" /> reads this before the load and again when the bytes are
+    ///         back, and throws away anything whose number moved.
+    ///     </para>
+    ///     <para>
+    ///         <b>Called from a loading thread as well as the frame's</b>, so an implementation over
+    ///         mutable state owes it the same publication its bytes get — see
+    ///         <see cref="TerrainMap.RevisionOf" />, which is the one that has to. A source whose bytes
+    ///         cannot change under it, a file being the case this interface exists for, answers a
+    ///         constant and is never refused.
+    ///     </para>
+    /// </remarks>
+    int RevisionOf(int tileX, int tileZ);
+
     /// <summary>Reads one tile's whole mip chain, packed level after level.</summary>
     /// <param name="tileX">Its X index.</param>
     /// <param name="tileZ">Its Z index.</param>
     /// <param name="destination">Where to put them; at least the chain's byte count.</param>
     /// <param name="cancellation">Cancelled when the page is no longer wanted.</param>
     /// <returns>How many bytes were written.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Called concurrently, and on threads that are not the frame's.</b> Up to
+    ///     <c>maxLoads</c> reads are in flight at once and none of them is serialised against the
+    ///     others, so an implementation may not write to anything it also owns — see
+    ///     <see cref="IPageStore.LoadAsync" />, whose contract this one inherits. What is per-load is
+    ///     <paramref name="destination" />, which the residency service allocates before it dispatches.
+    /// </remarks>
     ValueTask<int> ReadAsync(int tileX, int tileZ, Memory<byte> destination, CancellationToken cancellation);
 }
 
 /// <summary>A tile source over a terrain that is already in memory.</summary>
 /// <remarks>
-///     ⚠ <b>Synchronous behind an asynchronous signature, and deliberately so.</b> Compositing a
-///     tile's chain is arithmetic over arrays this object already holds; wrapping it in a thread would
-///     add a scheduling hop to a few microseconds of work. What the signature buys is that the
-///     file-backed source can replace this one without <see cref="PageResidency" /> changing.
+///     <para>
+///         ⚠ <b>Synchronous behind an asynchronous signature, and deliberately so.</b> Compositing a
+///         tile's chain is arithmetic over arrays this object already holds; wrapping it in a thread
+///         would add a scheduling hop to a few microseconds of work. What the signature buys is that
+///         the file-backed source can replace this one without <see cref="PageResidency" /> changing.
+///     </para>
+///     <para>
+///         ⚠ <b>Synchronous is not the same as single-threaded.</b> The residency service dispatches
+///         every load through the thread pool whatever the source does with it, so several
+///         <see cref="ReadAsync" /> calls run at once and none of them may touch the terrain's
+///         composite, its dirty flags or a buffer of this object's own. Resolving is
+///         <see cref="Prepare" />'s, and the chain is built straight into the caller's destination.
+///     </para>
 /// </remarks>
 public sealed class TerrainTileSource : ITerrainTileSource {
     readonly TerrainMap terrain;
-    readonly ushort[] chain;
 
     /// <summary>Reads tiles out of a terrain.</summary>
     /// <param name="terrain">The terrain.</param>
@@ -61,7 +112,6 @@ public sealed class TerrainTileSource : ITerrainTileSource {
         ArgumentNullException.ThrowIfNull(terrain);
 
         this.terrain = terrain;
-        chain = new ushort[TerrainMips.ChainSamples(terrain.Description.TileSamples)];
     }
 
     /// <inheritdoc />
@@ -71,20 +121,41 @@ public sealed class TerrainTileSource : ITerrainTileSource {
     public (int X, int Z) TileCounts => (terrain.Description.TilesX, terrain.Description.TilesZ);
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A tile whose edit layers have not been composited reads the last composite</b>, which
+    ///     after a stroke is the ground as it was before it — and a page loaded once and then kept
+    ///     resident would show that for as long as the camera stayed near it. So the resolve has to
+    ///     happen, and the only question was which thread pays for it. This one, because
+    ///     <see cref="TerrainMap.Resolve" /> writes the composite and the frame thread calls it too.
+    /// </remarks>
+    public void Prepare() => terrain.Resolve();
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Per tile rather than per terrain, and that is the difference between a stroke costing
+    ///     one tile a frame and costing every loaded tile one.</b> A sculpt dirties the handful of
+    ///     tiles it touched; a terrain-wide counter would refuse every load in flight anywhere in the
+    ///     world for as long as somebody was dragging a brush, which on a large terrain is the
+    ///     streaming turning itself off whenever it is being used.
+    /// </remarks>
+    public int RevisionOf(int tileX, int tileZ) => terrain.RevisionOf(tileX, tileZ);
+
+    /// <inheritdoc />
     public ValueTask<int> ReadAsync(int tileX, int tileZ, Memory<byte> destination, CancellationToken cancellation) {
         cancellation.ThrowIfCancellationRequested();
 
-        // ⚠ Resolved first. A tile whose edit layers have not been composited reads the last
-        // composite, which after a stroke is the ground as it was before it — and a page loaded once
-        // and then kept resident would show that for as long as the camera stayed near it.
-        terrain.Resolve();
-
+        // ⚠ Built straight into the destination rather than through a buffer this source owns. Up to
+        // maxLoads reads run at once and a shared scratch array is one tile's heights landing in
+        // another tile's page — which reads as corrupt content rather than as a threading fault. The
+        // destination is per load by construction: PageResidency allocates it before it dispatches.
+        //
+        // Reading a composite the frame may be rewriting is deliberate and is not made safe here: a
+        // chain built across a recomposite is a mixture, and what rules it out is the revision the
+        // pool stamps this read with and re-checks before the bytes are allowed anywhere.
+        var chain = MemoryMarshal.Cast<byte, ushort>(destination.Span);
         var written = TerrainMips.Build(terrain, tileX, tileZ, chain);
-        var bytes = MemoryMarshal.AsBytes(chain.AsSpan(0, (int)written));
 
-        bytes.CopyTo(destination.Span);
-
-        return ValueTask.FromResult(bytes.Length);
+        return ValueTask.FromResult((int)written * sizeof(ushort));
     }
 }
 
@@ -113,8 +184,29 @@ public delegate void TerrainTileHandler(int tileX, int tileZ, ReadOnlySpan<byte>
 ///         one frame, so a camera that jumps across a large terrain fills it, and the pages that do not
 ///         fit are asked for again next frame.
 ///     </para>
+///     <para>
+///         ⚠ <b>A page is a chain and the revision it was read at, in that order, and the revision is
+///         why the second half exists.</b> A load runs for as many frames as the thread pool takes to
+///         get to it, and the terrain underneath it is one an editor may be sculpting — so a chain
+///         that arrives is a statement about a tile as it was, and whether it is still true is a
+///         question only the frame thread can answer. <see cref="Place" /> asks it, and refuses what
+///         has gone out of date; the tile is then simply not resident, the grid asks for it again next
+///         frame, and the one after that has the stroke in it.
+///     </para>
 /// </remarks>
 public sealed class TerrainTilePages : IPageStore {
+    /// <summary>How many bytes of a page come before its chain.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The revision travels inside the page rather than beside it, because
+    ///     <see cref="IPageStore" /> has nowhere to put per-load state.</b> <see cref="LoadAsync" />
+    ///     is handed a destination and <see cref="Place" /> is handed bytes, and the only thing
+    ///     joining them is the key. A table keyed on the tile would work exactly as long as no two
+    ///     loads for one tile are ever alive at once — which is <see cref="PageResidency" />'s
+    ///     bookkeeping to keep and not this class's to depend on. Four bytes at the front of the page
+    ///     belong to that page by construction and cannot be got wrong from outside.
+    /// </remarks>
+    public const int HeaderSize = sizeof(int);
+
     readonly ITerrainTileSource source;
     readonly byte[] pool;
     readonly int[] lengths;
@@ -134,7 +226,7 @@ public sealed class TerrainTilePages : IPageStore {
         this.source = source;
         tilesX = Math.Max(1, source.TileCounts.X);
 
-        PageSize = (int)TerrainMips.ChainSamples(source.TileSamples) * sizeof(ushort);
+        PageSize = HeaderSize + ((int)TerrainMips.ChainSamples(source.TileSamples) * sizeof(ushort));
         SlotCount = slots;
 
         pool = new byte[(long)slots * PageSize <= int.MaxValue ? slots * PageSize : 0];
@@ -165,6 +257,15 @@ public sealed class TerrainTilePages : IPageStore {
     /// <summary>How many tiles the pool holds.</summary>
     public int Resident => resident.Count;
 
+    /// <summary>How many arrivals were thrown away because their tile changed under them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Expected to be small and non-zero while somebody is sculpting, and zero otherwise.</b>
+    ///     A number that keeps climbing on a terrain nobody is editing means something is calling
+    ///     <see cref="TerrainMap.Resolve" /> on a tile that is not dirty, or invalidating far more than
+    ///     a stroke touched — either way the streamer is re-reading tiles it already had.
+    /// </remarks>
+    public long StaleArrivals { get; private set; }
+
     /// <summary>Whether a tile's chain is in the pool.</summary>
     /// <param name="tileX">Its X index.</param>
     /// <param name="tileZ">Its Z index.</param>
@@ -172,19 +273,59 @@ public sealed class TerrainTilePages : IPageStore {
     public bool IsResident(int tileX, int tileZ) => resident.Contains((tileZ * tilesX) + tileX);
 
     /// <inheritdoc />
-    public ValueTask<int> LoadAsync(PageKey key, Memory<byte> destination, CancellationToken cancellation) =>
-        source.ReadAsync(key.Index % tilesX, key.Index / tilesX, destination, cancellation);
+    /// <remarks>
+    ///     ⚠ <b>The revision is taken before the read and not after it.</b> What the stamp has to mean
+    ///     is "no recomposite of this tile has happened since the first sample was looked at" — so it
+    ///     must be the number from before that sample, and a stamp taken afterwards would be the
+    ///     counter sampled at the far end of a tear and then declared current. That is not a smaller
+    ///     version of the bug; it is the bug with a check in front of it that always passes.
+    /// </remarks>
+    public async ValueTask<int> LoadAsync(PageKey key, Memory<byte> destination, CancellationToken cancellation) {
+        var tileX = key.Index % tilesX;
+        var tileZ = key.Index / tilesX;
+
+        var revision = source.RevisionOf(tileX, tileZ);
+        var read = await source.ReadAsync(tileX, tileZ, destination[HeaderSize..], cancellation).ConfigureAwait(false);
+
+        BinaryPrimitives.WriteInt32LittleEndian(destination.Span, revision);
+
+        return HeaderSize + read;
+    }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A tile whose composite moved while the load was in flight is refused, and this is the
+    ///     only place that can tell.</b> The read runs on a thread-pool thread and the terrain is
+    ///     rewritten on the frame's — by <c>TerrainRenderer.Upload</c>, by
+    ///     <see cref="TerrainStreamer.Update" />'s own prepare, and by every editor tool — so a chain
+    ///     that spans a recomposite is a mixture of the ground before the stroke and after it, and one
+    ///     that merely predates a recomposite is the ground before the stroke entire. Both are wrong
+    ///     and both look the same from here, which is why one comparison rules out both.
+    ///     <see cref="Place" /> runs on the frame thread, so any resolve that overlapped the read has
+    ///     finished and bumped by the time this asks — which is what lets a single counter stand in
+    ///     for a lock nobody can afford on <see cref="TerrainMap.Resolve" />.
+    /// </remarks>
     public bool Place(PageKey key, int slot, ReadOnlySpan<byte> bytes) {
-        if (pending.Count >= MaxPending) {
+        if (pending.Count >= MaxPending || bytes.Length < HeaderSize) {
+            return false;
+        }
+
+        var tileX = key.Index % tilesX;
+        var tileZ = key.Index / tilesX;
+
+        if (BinaryPrimitives.ReadInt32LittleEndian(bytes) != source.RevisionOf(tileX, tileZ)) {
+            // Nothing is kept and nothing is marked resident, so the grid asks for the tile again next
+            // frame and reads it against the composite as it now is. What the tile loses is a frame of
+            // fine levels, drawn from the pinned tail meanwhile — the same bargain as a full pool.
+            StaleArrivals++;
+
             return false;
         }
 
         bytes.CopyTo(pool.AsSpan(slot * PageSize));
         lengths[slot] = bytes.Length;
 
-        pending.Add((key.Index % tilesX, key.Index / tilesX, slot, bytes.Length));
+        pending.Add((tileX, tileZ, slot, bytes.Length));
         resident.Add(key.Index);
 
         return true;
@@ -204,11 +345,16 @@ public sealed class TerrainTilePages : IPageStore {
     /// <summary>Hands over the tiles that have arrived since the last call.</summary>
     /// <param name="into">Told each tile's indices and its chain.</param>
     /// <exception cref="ArgumentNullException"><paramref name="into" /> is null.</exception>
+    /// <remarks>
+    ///     The chain and not the page: the revision is the pool's bookkeeping and has already done its
+    ///     work by the time anything is drained, so what a caller is handed is the same run of levels
+    ///     it would have got from a source it read itself.
+    /// </remarks>
     public void Drain(TerrainTileHandler into) {
         ArgumentNullException.ThrowIfNull(into);
 
         foreach (var (tileX, tileZ, slot, length) in pending) {
-            into(tileX, tileZ, pool.AsSpan(slot * PageSize, length));
+            into(tileX, tileZ, pool.AsSpan((slot * PageSize) + HeaderSize, length - HeaderSize));
         }
 
         pending.Clear();
@@ -249,6 +395,7 @@ public sealed class TerrainStreamer : IDisposable {
     public const int PageSource = 0x7E44;
 
     readonly TerrainDescription description;
+    readonly ITerrainTileSource source;
     readonly TerrainTilePages pages;
     readonly PageResidency residency;
     readonly StreamingGrid grid;
@@ -264,16 +411,22 @@ public sealed class TerrainStreamer : IDisposable {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(budget);
 
         this.description = description;
+        this.source = source;
 
-        var chainBytes = (int)TerrainMips.ChainSamples(description.TileSamples) * sizeof(ushort);
+        // ⚠ The page and not the chain, because the pool's page carries a revision in front of its
+        // levels. Budgeting by the chain would leave the budget a few bytes per slot short of what
+        // PageResidency measures residency in, and the arithmetic that says "this many tiles fit"
+        // would then refuse the last one for ever.
+        var pageBytes = ((int)TerrainMips.ChainSamples(description.TileSamples) * sizeof(ushort))
+            + TerrainTilePages.HeaderSize;
 
         // ⚠ At least one slot, and never more than the terrain has tiles. A pool larger than the
         // world is slots that can never be filled, and the budget is then a number that describes
         // nothing — see PageResidency's own clamp of the budget to the pool.
-        var slots = Math.Clamp((int)Math.Min(int.MaxValue, budget / Math.Max(1, chainBytes)), 1, description.TileCount);
+        var slots = Math.Clamp((int)Math.Min(int.MaxValue, budget / Math.Max(1, pageBytes)), 1, description.TileCount);
 
         pages = new(source, slots);
-        residency = new(pages, Math.Max(chainBytes, (long)slots * chainBytes));
+        residency = new(pages, Math.Max(pageBytes, (long)slots * pageBytes));
 
         grid = new(
             PageSource,
@@ -343,12 +496,31 @@ public sealed class TerrainStreamer : IDisposable {
     /// <param name="maxLoads">How many loads may start this frame.</param>
     /// <returns>How many tiles are in use.</returns>
     /// <remarks>
-    ///     ⚠ <b>Serviced here rather than by the caller, because a grid that requests and nothing that
-    ///     services is a queue that grows for ever</b> — which is exactly the state the grid was left
-    ///     in when it had no consumer at all.
+    ///     <para>
+    ///         ⚠ <b>Serviced here rather than by the caller, because a grid that requests and nothing
+    ///         that services is a queue that grows for ever</b> — which is exactly the state the grid
+    ///         was left in when it had no consumer at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The source is prepared before anything is dispatched, and that ordering is the
+    ///         invariant <see cref="ITerrainTileSource.ReadAsync" /> is written against.</b> Every load
+    ///         <see cref="PageResidency.Service" /> starts runs on a thread-pool thread, so a source
+    ///         that brought itself up to date in the read would be mutating shared state off the frame.
+    ///         Doing it here means it happens once per frame on the thread that owns the terrain,
+    ///         whatever the caller did or did not resolve beforehand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Preparing says nothing about the frames a load spends in flight, which is the
+    ///         other half and is <see cref="TerrainTilePages.Place" />'s.</b> This makes the source
+    ///         current at the moment loads are dispatched; an edit landing two frames later rewrites
+    ///         tiles that are still being read, and no amount of resolving beforehand can reach them.
+    ///         What does is the revision each page carries, checked when it arrives.
+    ///     </para>
     /// </remarks>
     public int Update(ReadOnlySpan<StreamingSource> sources, int maxLoads = 8) {
         ObjectDisposedException.ThrowIf(disposed, this);
+
+        source.Prepare();
 
         TouchedTiles = grid.Update(sources, residency);
         residency.Service(maxLoads);

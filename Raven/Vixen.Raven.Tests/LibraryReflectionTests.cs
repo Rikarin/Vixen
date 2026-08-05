@@ -61,6 +61,8 @@ public class LibraryReflectionTests {
         ("PostFx", "Sharpen"),
         ("PostFx", "Vignette"),
         ("PostFx", "Fog"),
+        ("PostFx", "VolumetricFogInject"),
+        ("PostFx", "VolumetricFog"),
         ("PostFx", "Outline"),
         ("PostFx", "Ssao"),
         ("PostFx", "Taa"),
@@ -91,6 +93,35 @@ public class LibraryReflectionTests {
         // it as zero, and the frame behind the water would be perfectly black — which reads as
         // "the water is opaque" rather than as a parameter nobody set.
         ("Water", "Water"),
+
+        // And § D4's surface — the quadtree's draw, which writes the two planes the pass above reads.
+        // Published on Terrain's terms: WaterMeshRenderer binds its node buffer, its info texture and
+        // every one of its window numbers by name, and a binding index comes from declaration order
+        // within a set — so adding a texture above another renumbers it silently.
+        ("Water", "WaterMesh"),
+
+        // And § D9's second half — the waterline, which the volume path cannot express because a fold
+        // produces one weight for the whole frame and this needs a curve. Published on `Water`'s
+        // terms: UnderwaterRenderer binds its three planes, its local surface plane and every one of
+        // its medium coefficients by name, and its two permutations — the distortion and the caustics
+        // — are asked for by key. ⚠ And for `behindScale`'s reason once more: `surfaceNormal`'s
+        // declared default is +Y, and a key interned from a string carries no default, so an
+        // EffectConstants that wrote it as zero would give a waterline that is nowhere at all.
+        ("Water", "Underwater"),
+
+        // And § D12's step, the fourth Water module. Published because WaterRippleSimulation binds
+        // its storage image and every one of its simulation numbers by name, and because its `Compute`
+        // permutation is asked for by key — § B5's GL variant is the same arithmetic writing a colour
+        // target, and a permutation nothing can name is a backend that silently gets the wrong one.
+        ("Water", "Ripples"),
+
+        // And § D8's classification, the fifth. Published because WaterRenderer binds its surface, its
+        // tile buffer and both of its sizes by name, and because the tile buffer is the one binding two
+        // shaders have to agree about: `Water.rvn`'s vertex stage indexes what this one wrote, so a
+        // renumbering that reached only one of them is a draw reading a buffer of coverage as a buffer
+        // of tiles.
+        ("Water", "WaterTiles"),
+
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see

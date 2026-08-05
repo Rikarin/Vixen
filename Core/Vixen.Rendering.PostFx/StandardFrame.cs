@@ -264,6 +264,7 @@ static class StandardFrame {
     const string ShadowAtlas = "ShadowAtlas";
     const string PunctualAtlas = "PunctualShadowAtlas";
     const string Camera = "Camera";
+    const string FogVolume = "FogVolume";
 
     /// <summary>Expands every <c>!StandardFrame</c> in the document, or returns it untouched.</summary>
     /// <param name="document">The authored document.</param>
@@ -315,7 +316,7 @@ static class StandardFrame {
         }
 
         var frame = found[0];
-        var expanded = Emit(frame, RenderQuality.Resolve(frame.Quality ?? fallback, project, frame.Preset));
+        var expanded = Emit(frame, Tier(frame, fallback, project));
 
         if (notes is not null) {
             Annotate(notes, frame, expanded.Stages, expanded.Resources, expanded.Root);
@@ -327,6 +328,56 @@ static class StandardFrame {
             Game = Replace(game, frame, expanded.Root)
         };
     }
+
+    /// <summary>The tier a document resolves to, whether or not anything expands it.</summary>
+    /// <param name="document">The authored document, before any transform has touched it.</param>
+    /// <param name="fallback">The platform's pick, for a frame that names no tier and for a
+    ///     document with no frame node at all.</param>
+    /// <param name="project">The project's preset — the waterfall's middle layer.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The same fold <see cref="Expand" /> performs, reachable without expanding.</b> A
+    ///         tier decides more than the passes: the ground's vegetation budgets and the texture
+    ///         pool's size are the host's to wire and are read before or during the build, so a host
+    ///         that could only learn the tier from the expanded document would learn it too late —
+    ///         which is why a document's <c>quality:</c> moved the post chain and not the ground.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Routed through the same <see cref="Tier" /> as the expansion, deliberately: two
+    ///         folds of one waterfall are two answers that agree until somebody edits one of them,
+    ///         and the frame disagreeing with the ground about its own tier is silent in both
+    ///         directions.
+    ///     </para>
+    ///     <para>
+    ///         A document with two frame nodes takes the fallback here and is refused by
+    ///         <see cref="Expand" /> a moment later; one with a frame inside a pass is refused here,
+    ///         with the message it would have been refused with there.
+    ///     </para>
+    /// </remarks>
+    public static ResolvedQuality QualityOf(
+        GraphicsCompositorAsset document,
+        QualityTier fallback,
+        RenderQualityAsset? project
+    ) {
+        if (document.Game is not { } game) {
+            return Tier(null, fallback, project);
+        }
+
+        var found = new List<StandardFrameAsset>();
+        Find(game, found, inPass: false);
+
+        return Tier(found.Count == 1 ? found[0] : null, fallback, project);
+    }
+
+    /// <summary>The waterfall, folded for one frame node — or for a document that has none.</summary>
+    /// <remarks>
+    ///     The document's own vote is the top of doc 39's waterfall and out-votes the platform's per
+    ///     parameter: its <c>quality:</c> picks the column and its inline <c>preset:</c> is the last
+    ///     layer over the project's. A null frame is a hand-authored document, whose numbers are its
+    ///     own — so what it gets is the platform's pick, unchanged.
+    /// </remarks>
+    static ResolvedQuality Tier(StandardFrameAsset? frame, QualityTier fallback, RenderQualityAsset? project) =>
+        RenderQuality.Resolve(frame?.Quality ?? fallback, project, frame?.Preset);
 
     /// <summary>The inline look the document's frame node carries, or null.</summary>
     /// <remarks>
@@ -683,6 +734,28 @@ static class StandardFrame {
             );
         }
 
+        // ⚠ Here, and not beside the composite. The three dispatches need shadows and lights and
+        // not scene colour, so they belong after the shadow passes and before anything draws — and
+        // saying that as an edge is what puts the barriers in. The composite that reads what they
+        // wrote is the "Air" node far below, after the temporal accumulation, which is safe
+        // precisely because the volume does its temporal work in its own space.
+        if (tier.Fog && tier.VolumetricFog) {
+            nodes.Add(
+                new VolumetricFogAsset {
+                    Name = "Volumetrics",
+                    View = Camera,
+                    Output = FogVolume,
+                    Slices = tier.VolumetricSlices,
+                    Far = tier.VolumetricFar,
+
+                    // ⚠ The atlas is named unconditionally and this is the only gate. Detection is
+                    // the floor — a frame with no Sun node goes unshadowed whatever this says — and
+                    // the tier is a ceiling under it, because the taps are the feature's whole cost.
+                    Shadows = tier.VolumetricShadows
+                }
+            );
+        }
+
         // The background fills a target the Main pass then *loads* — that is what puts the sky
         // behind the level, and why the sky has no target of its own.
         nodes.Add(new SkyAsset { Name = "Sky", Output = SceneHdr, View = Camera });
@@ -913,7 +986,14 @@ static class StandardFrame {
                     Source = colour,
                     Depth = SceneDepth,
                     View = Camera,
-                    Output = "SceneFogged"
+                    Output = "SceneFogged",
+
+                    // ⚠ The same three numbers the dispatch was given, from the same tier. The
+                    // composite inverts the grid's Z distribution to find a slice, so a near, a far
+                    // or a slice count that disagrees reads the wrong slice for every pixel.
+                    Volume = tier.VolumetricFog ? FogVolume : "",
+                    VolumeFar = tier.VolumetricFar,
+                    VolumeSlices = tier.VolumetricSlices
                 }
             );
 
@@ -1184,6 +1264,9 @@ static class StandardFrame {
                 "Lamps" =>
                     "The lamp atlas. Without the passes line it is rendered and shown to nobody — the entry "
                     + "is qualified because a composed slot's bindings are named for what fills it.",
+                "Volumetrics" =>
+                    "Three dispatches that fill a froxel volume. Here because they need shadows and lights "
+                    + "and not scene colour; the Air node far below is what reads what they wrote.",
                 "Sky" =>
                     "Fills a target the Main pass then loads — that is what puts the sky behind the level, "
                     + "and why the sky has no target of its own.",

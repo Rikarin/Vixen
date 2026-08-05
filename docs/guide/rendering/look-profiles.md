@@ -7,7 +7,7 @@ summary: One .vxlook asset carrying the project's artistic base — exposure tar
 api: [T:Vixen.Rendering.LookAsset, T:Vixen.Rendering.BlendedGrading, T:Vixen.Rendering.BlendedToggle]
 tags: [rendering, post-processing, compositor, look, presets]
 since: 0.1
-status: experimental
+status: preview
 related: [rendering/post-process-volumes, rendering/standard-frame, rendering/render-quality, rendering/post-processing]
 ---
 

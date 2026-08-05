@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 
 namespace Vixen.Engine.Cameras;
 
@@ -135,7 +136,7 @@ public struct CameraBlend {
 /// </remarks>
 [Component]
 [DataContract]
-public struct CameraDirector {
+public struct CameraDirector : IDefaultComponent<CameraDirector> {
     /// <summary>The blend used for any transition a <see cref="CameraBlendTable" /> has no rule for.</summary>
     public CameraBlend DefaultBlend;
 
@@ -162,4 +163,7 @@ public struct CameraDirector {
         WriteLens = true,
         Channel = 0
     };
+
+    /// <inheritdoc />
+    static CameraDirector IDefaultComponent<CameraDirector>.DefaultValue => Default;
 }

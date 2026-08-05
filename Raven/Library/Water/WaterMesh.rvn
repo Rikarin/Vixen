@@ -1,0 +1,282 @@
+package Vixen.Shaders.Water
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// The water surface: one instanced grid patch, morphed into its parent, sampling the info field and
+// displaced by the sea state — docs/plan/35 § D4.
+//
+// **The terrain's quadtree with a different height source, and that is the whole design.** Every
+// patch a frame draws is the *same* grid — 33² vertices for a 32-quad patch — scaled and placed by a
+// per-node record, so all the water in a zone is one draw call however many patches it takes. The
+// morph is `PatchSelector.MorphIndex`, shared with `Terrain.rvn` by being the same arithmetic, and
+// `WaterSurfaceMeshTests` holds this against the C# form because a shader cannot be asked whether two
+// adjacent patches agree along their shared edge and a function can.
+//
+// ⚠ **Water makes a crack worse than a terrain does, not better.** A crack in a terrain shows a
+// sliver of skybox for a frame; a crack in a flat specular surface shows a bright line that reads as
+// a rendering artefact from four hundred metres. That is why the no-crack test is written before this
+// file rather than after the first screenshot.
+//
+// **What it writes is two planes, not a lit pixel.** § D8's `!Water` pass is what integrates
+// absorption and scattering over the depth of water and composites it once; this stage's job is to
+// say, per pixel, *where the surface is, how much water is here, which way it faces and whether it is
+// foaming*. Splitting them that way is what lets the volume integration be one full-screen pass over
+// the pixels that have water rather than a per-fragment loop over the ones that draw it.
+
+/// One patch of water a frame draws.
+///
+/// The per-instance record the renderer uploads, one per node the selector chose.
+///
+/// ⚠ **The origin is in world metres and not in texels**, which is the one place this differs from
+/// `TerrainNode`. A terrain's patches are addressed in sample coordinates because its heightmap is an
+/// atlas of tiles; water's field is a single sliding window, so a world position is both what the
+/// wave sum needs and what the field lookup is one subtraction away from — and carrying texels would
+/// mean converting back for every wave.
+struct WaterNode {
+    /// Where the patch's low corner is, on the ground plane, in world metres.
+    var origin: float2
+
+    /// How many metres one step of the grid patch spans. `quads * metresPerQuad / gridQuads`.
+    var step: float
+
+    /// How far the patch has morphed towards its parent's grid, 0…1.
+    var morph: float
+}
+
+/// The two planes the surface pass writes, in attachment order.
+///
+/// ⚠ **Coverage rather than a shading-model id.** § D8 says to classify from the G-buffer's
+/// shading-model id "which already exists" — it does not; the deferred path is ⬜ and this engine is
+/// Forward+. So the surface writes a one-channel mask, which is exactly what an id comparison would
+/// have produced, and when the deferred path lands `Water.rvn`'s binding becomes that comparison with
+/// nothing else changing.
+struct WaterSurfaceTargets {
+    /// Device depth in `r`, coverage in `g`. `Water.rvn` reads both.
+    var surface: float4
+
+    /// The surface's world normal in `xyz` and its foam in `a`.
+    var normal: float4
+}
+
+/// How the field's four channels become the five numbers a surface needs.
+///
+/// ⚠ **Neither depth nor coverage is a channel, and both are derived here** — § D3's rule, applied
+/// twice. Storing either would be a number that can disagree with the two it came from, and the frame
+/// it disagrees on is the one where the shoreline is in a different place for the material than for
+/// the wave attenuation.
+struct WaterInfo {
+    /// Where the surface sits at rest, in world units.
+    var surfaceHeight: float
+
+    /// How fast the water moves, in metres per second, on the ground plane.
+    var flow: float2
+
+    /// Where the ground under it is, in world units.
+    var groundHeight: float
+
+    /// How deep the water is — the surface against the ground, never negative.
+    static func DepthOf(sample: float4): float => max(sample.r - sample.a, 0f)
+
+    /// How much water is here at all, 0..1.
+    ///
+    /// The shoreline band, in metres of depth, is what turns a hard edge into a beach. A body's own
+    /// `ShoreFalloff` already softened the *field*; this is the last few centimetres, where the
+    /// surface meets the bed and a step would read as a cut in the terrain from a long way off.
+    static func CoverageOf(sample: float4, shore: float): float {
+        return WaterMath.SmoothStep(0f, max(shore, 1e-4f), DepthOf(sample))
+    }
+}
+
+shader WaterMesh {
+    /// How many quads the shared grid patch spans. A compile-time constant so the morph can fold.
+    [Permutation] val GridQuads: int = 32
+
+    /// Whether this draw is the skirt to the horizon rather than the window.
+    ///
+    /// § D4's far mesh: "one more node level past the selector's range, drawn with a permutation that
+    /// skips the wave sum and the flow". There is no field out there to sample and nothing to
+    /// attenuate against, so the variant is a flat plane at the rest height — which is what the
+    /// horizon looks like anyway, and is why it costs one permutation rather than a second shader.
+    [Permutation] val FarMesh: bool = false
+
+    /// The sea state.
+    ///
+    /// A `compose` slot rather than a call, for the reason `IWaterWaves` states: a buffer cannot be a
+    /// function parameter, so whoever holds the buffer holds the loop. It is also the seat an FFT
+    /// model takes when it lands.
+    ///
+    /// ⚠ **Defaulted to the buffered sum rather than to `StillWater`, and that is what makes the
+    /// reflection honest.** Reflection describes one variant, and a binding behind a slot nothing
+    /// filled is gone before it is described — so a default of `StillWater` would generate no key for
+    /// the wave buffer and the renderer would have to intern one from a string. A document with no sea
+    /// state sets `waveCount` to zero, which is the same flat surface for the cost of an empty loop.
+    compose val waves: IWaterWaves = BufferedWaterWaves
+
+    var viewProjection: mat4
+
+    /// The patches this draw covers.
+    var nodes: Buffer<WaterNode>
+
+    /// The info field: surface height in `r`, flow in `gb`, the ground beneath in `a`.
+    var waterInfo: Texture2D
+    var infoSampler: Sampler
+
+    /// The window's low corner, on the ground plane, and how many metres it spans.
+    var windowOrigin: float2
+    var windowExtent: float = 512f
+
+    /// The depth at which waves reach their full height. Shallower than this they are damped.
+    var attenuationDepth: float = 2f
+
+    /// The simulation's water time, in seconds. ⚠ Not a frame time — see § D2.
+    var waterTime: float = 0f
+
+    /// How wide the band is over which the waves fade out at the window's edge, in metres.
+    ///
+    /// ⚠ **The seam between this mesh and the far mesh, and the one place the drawn surface is
+    /// deliberately not the queried one.** The far mesh has no field under it and so no waves; meeting
+    /// them directly puts a step the height of a crest along a straight line at the horizon, in every
+    /// frame. `WaterSurfaceMesh.EdgeFade` is the same ramp on the host and states what it costs.
+    var edgeFade: float = 32f
+
+    /// Where the open surface sits, for the far mesh, in world units.
+    var restHeight: float = 0f
+
+    /// How deep the water has to be before it is fully opaque water, in metres.
+    var shoreDepth: float = 0.25f
+
+    /// How shallow the water has to be before it foams, in metres.
+    var foamDepth: float = 0.4f
+
+    /// How far above the rest height a crest has to rise before it foams, in metres.
+    var foamCrest: float = 0.5f
+
+    stream var positionWS: float3
+    stream var normalWS: float3
+    stream var coverage: float
+    stream var foam: float
+
+    /// The shared patch arithmetic — the morph, the field read, the displacement, the streams.
+    ///
+    /// `SV_VertexID` rather than a vertex buffer: the grid patch is a regular lattice, so its
+    /// positions are two divisions of the index and uploading 33² of them per frame would be sending
+    /// the shader something it can count.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("SV_VertexID")] vertex: int,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        val node = nodes[instance]
+        val side = GridQuads + 1
+
+        val gridX = vertex % side
+        val gridZ = vertex / side
+
+        // The morph. An odd index slides back onto its even neighbour, so at morph 1 the patch has
+        // exactly half its resolution — which is its parent's, which is why the boundary between the
+        // two has nothing to leak through. `PatchSelector.MorphIndex` is the same expression.
+        val morphed = float2(
+            float(gridX) - float(gridX % 2) * node.morph,
+            float(gridZ) - float(gridZ % 2) * node.morph
+        )
+
+        val ground = node.origin + morphed * node.step
+
+        if (FarMesh) {
+            // No field, no waves, no flow: a plane at the rest height. § D4's far mesh.
+            positionWS = float3(ground.x, restHeight, ground.y)
+            normalWS = float3(0f, 1f, 0f)
+            coverage = 1f
+            foam = 0f
+
+            return Transform.ObjectToClip(viewProjection, positionWS)
+        }
+
+        val sample = Sample(ground)
+        val depth = WaterInfo.DepthOf(sample)
+
+        // ⚠ Two dampings multiplied, and they are different things. The first is § D7's attenuation —
+        // a wave whose amplitude does not fall off as the ground rises produces a crest that
+        // intersects the beach. The second is the window's own edge, which exists only so the far
+        // mesh has something flat to meet.
+        val damping = WaterSurface.Attenuation(depth, attenuationDepth) * EdgeDamping(ground)
+        val displacement = waves.Displace(ground, waterTime, damping)
+
+        positionWS = float3(
+            ground.x + displacement.offset.x,
+            sample.r + displacement.offset.y,
+            ground.y + displacement.offset.z
+        )
+
+        normalWS = displacement.normal
+        coverage = WaterInfo.CoverageOf(sample, shoreDepth)
+        foam = Foam(depth, displacement.offset.y)
+
+        return Transform.ObjectToClip(viewProjection, positionWS)
+    }
+
+    /// The two planes § D8's pass reads.
+    ///
+    /// ⚠ **Discarded where there is no water rather than written as zero.** A patch is selected
+    /// conservatively — the coverage predicate rounds outward on purpose, so a tile at the shoreline
+    /// carries dry corners — and a dry fragment that wrote a surface depth would put the water's own
+    /// depth in front of the beach it is standing on.
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment([Semantic("SV_Position")] fragment: float4): WaterSurfaceTargets {
+        if (coverage <= 0f) {
+            discard
+        }
+
+        var targets: WaterSurfaceTargets
+
+        // ⚠ `fragment.z` is the device depth this fragment actually wrote, which is the number
+        // `Water.rvn` unprojects. Recomputing it from `positionWS` would be a second answer to a
+        // question the rasteriser already settled, and the two disagree by exactly the interpolation
+        // error that makes a reconstruction drift across a triangle.
+        targets.surface = float4(fragment.z, saturate(coverage), 0f, 0f)
+        targets.normal = float4(Math.SafeNormalize(normalWS), saturate(foam))
+
+        return targets
+    }
+
+    /// The field at a place on the ground plane.
+    ///
+    /// ⚠ `SampleLevel` and not `Sample`: a vertex stage has no derivatives, so `Sample` outside a
+    /// fragment stage never meant what it looked like — SPIR-V was quietly substituting level zero.
+    /// See docs/plan/07, where this was the reason `SampleLevel` landed.
+    func Sample(ground: float2): float4 {
+        val uv = (ground - windowOrigin) / max(windowExtent, Const.Epsilon)
+
+        return waterInfo.SampleLevel(infoSampler, uv, 0f).rgba
+    }
+
+    /// How much of the sea state survives at a place, before the depth attenuation.
+    ///
+    /// `WaterSurfaceMesh.EdgeDamping` is the same ramp. See `edgeFade`.
+    func EdgeDamping(ground: float2): float {
+        if (edgeFade <= 0f) {
+            return 1f
+        }
+
+        val low = ground - windowOrigin
+        val high = float2(windowExtent, windowExtent) - low
+        val nearest = min(min(low.x, low.y), min(high.x, high.y))
+
+        return WaterMath.SmoothStep(0f, edgeFade, nearest)
+    }
+
+    /// Where the surface foams: the shallows, and the tops of the crests.
+    ///
+    /// Two sources rather than one because they are two different things an observer names — surf on
+    /// a beach, and whitecaps in a swell — and a single "foam" term driven by depth alone leaves the
+    /// open sea flat however hard the wind blows.
+    func Foam(depth: float, lift: float): float {
+        val shore = 1f - WaterMath.SmoothStep(0f, max(foamDepth, 1e-4f), depth)
+        val crest = WaterMath.SmoothStep(max(foamCrest, 1e-4f), max(foamCrest, 1e-4f) * 2f, lift)
+
+        return max(shore, crest)
+    }
+}

@@ -129,6 +129,11 @@ public sealed class TerrainRenderer : IDisposable {
     readonly TextureViewHandle[] surfaceViews = new TextureViewHandle[MaxLayers];
 
     readonly DescriptorSetHandle[] descriptors;
+
+    // Which slots' sets still hold layer views the resolve has moved on from. Rung rather than
+    // written across the ring because a set the GPU is reading cannot be updated at all without
+    // VK_EXT_descriptor_indexing's update-after-bind flags — see BindLayerTextures.
+    readonly bool[] layersStale;
     readonly List<TerrainLodNode> selected = [];
 
     TerrainSplat splat;
@@ -467,6 +472,7 @@ public sealed class TerrainRenderer : IDisposable {
         );
 
         descriptors = new DescriptorSetHandle[slots];
+        layersStale = new bool[slots];
         Resize(1024);
     }
 
@@ -608,6 +614,15 @@ public sealed class TerrainRenderer : IDisposable {
     /// </remarks>
     public TerrainSplat Splat => splat;
 
+    /// <summary>Which set the last layer rebind wrote, invalid until one has.</summary>
+    /// <remarks>
+    ///     Internal because it is the ring's claim rather than anything a caller binds: the set a
+    ///     rebind writes must be the one this upload's <see cref="Record" /> goes on to bind, never
+    ///     one a submitted frame is still reading, and only a test that reads back both ends of that
+    ///     can say so.
+    /// </remarks>
+    internal DescriptorSetHandle LastLayerRebind { get; private set; }
+
     /// <summary>How many draws the last <see cref="Record" /> made.</summary>
     /// <remarks>
     ///     One, for any number of patches, or zero when nothing was selected. It is a property rather
@@ -714,6 +729,15 @@ public sealed class TerrainRenderer : IDisposable {
         }
 
         // And the fine levels of whatever the pool handed over, which is the streaming half proper.
+        //
+        // ⚠ After the dirty tiles' own copies, and that is safe only because the two sets cannot
+        // overlap in a frame with anything to disagree about. `Terrain.Resolve` above bumps every
+        // dirty tile's revision before `Stream` places anything, so a chain read before this frame is
+        // refused by the pool and never gets here — which means a tile in `dirty` has no arrival, and
+        // a tile with an arrival was not dirtied. What is left is the first frame, where every tile is
+        // stale and an arrival may cover levels a full copy also covers: same revision, so the same
+        // bytes twice, and which copy the device runs last does not matter. Move the resolve after the
+        // stream and both of those stop being true.
         Streaming?.Pages.Drain((tileX, tileZ, chain) => CopyChain(commands, tileX, tileZ, chain, 0, floor));
 
         EndCopies(commands, copyHeights, anyStale, copyWeights);
@@ -1300,12 +1324,14 @@ public sealed class TerrainRenderer : IDisposable {
         }
     }
 
-    /// <summary>Resolves every layer slot's textures, rebinding the sets only when one changed.</summary>
+    /// <summary>Resolves every layer slot's textures, owing the ring a rebind when one changed.</summary>
     /// <remarks>
     ///     ⚠ <b>Rebinding is what costs, so the comparison is what avoids it.</b> Updating a
     ///     descriptor set is a driver call per write and there are thirty-two of them here; doing it
     ///     every frame for a set of textures that changes when somebody assigns one in a panel would
     ///     be sixty of those a second to answer a question whose answer is almost always "the same".
+    ///     A change is owed to every slot and paid one slot per upload — see
+    ///     <see cref="BindLayerTextures" />.
     /// </remarks>
     void ResolveLayerTextures() {
         ResolvedTextures = 0;
@@ -1337,27 +1363,46 @@ public sealed class TerrainRenderer : IDisposable {
         }
 
         if (changed) {
-            BindLayerTextures();
+            Array.Fill(layersStale, true);
         }
+
+        BindLayerTextures();
     }
 
-    /// <summary>Writes the layer and surface arrays into every frame's descriptor set.</summary>
+    /// <summary>Writes the layer and surface arrays into this upload's descriptor set, if it is behind.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This slot's set and no other, whatever changed.</b> A set bound by a frame still in
+    ///         flight may not be updated at all — that needs
+    ///         <c>VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT</c>, which this layout does not declare —
+    ///         and writing the whole ring is exactly that error, once per set the GPU still holds. The
+    ///         ring is what makes it unnecessary: <see cref="Upload" /> advanced to the slot
+    ///         <see cref="Record" /> is about to bind, so the frame that reads a changed layer is this
+    ///         one, and the slots behind it are written when their own upload comes round.
+    ///     </para>
+    ///     <para>
+    ///         A texture arriving therefore costs <see cref="slots" /> updates spread over as many
+    ///         uploads rather than <see cref="slots" /> at once, and a steady frame costs none: the
+    ///         stale flags are what tell "the views moved" from "this set has caught up".
+    ///     </para>
+    /// </remarks>
     void BindLayerTextures() {
-        foreach (var set in descriptors) {
-            if (!set.IsValid) {
-                continue;
-            }
-
-            device.UpdateDescriptorSet(
-                set,
-                [
-                    .. Enumerable.Range(0, MaxLayers)
-                        .Select(slot => DescriptorWrite.Texture(layerMapsBinding, layerViews[slot], slot)),
-                    .. Enumerable.Range(0, MaxLayers)
-                        .Select(slot => DescriptorWrite.Texture(surfaceMapsBinding, surfaceViews[slot], slot))
-                ]
-            );
+        if (!layersStale[slot] || !descriptors[slot].IsValid) {
+            return;
         }
+
+        layersStale[slot] = false;
+        LastLayerRebind = descriptors[slot];
+
+        device.UpdateDescriptorSet(
+            descriptors[slot],
+            [
+                .. Enumerable.Range(0, MaxLayers)
+                    .Select(layer => DescriptorWrite.Texture(layerMapsBinding, layerViews[layer], layer)),
+                .. Enumerable.Range(0, MaxLayers)
+                    .Select(layer => DescriptorWrite.Texture(surfaceMapsBinding, surfaceViews[layer], layer))
+            ]
+        );
     }
 
     /// <summary>Moves what this frame copies into the copy state, in one barrier.</summary>
@@ -1505,7 +1550,15 @@ public sealed class TerrainRenderer : IDisposable {
                 DescriptorWrite.Storage(layerScalesBinding, layerScales),
                 DescriptorWrite.Storage(layerBlendsBinding, layerBlends),
                 .. Enumerable.Range(0, MaxWeightMaps)
-                    .Select(map => DescriptorWrite.Texture(weightMapsBinding, weightViews[map], map))
+                    .Select(map => DescriptorWrite.Texture(weightMapsBinding, weightViews[map], map)),
+
+                // Whatever the layers resolved to, written here rather than left to BindLayerTextures:
+                // a resized set is a new set, and one whose layer bindings were never written reverts
+                // every layer to its default — and BindLayerTextures only ever touches one slot.
+                .. Enumerable.Range(0, MaxLayers)
+                    .Select(layer => DescriptorWrite.Texture(layerMapsBinding, layerViews[layer], layer)),
+                .. Enumerable.Range(0, MaxLayers)
+                    .Select(layer => DescriptorWrite.Texture(surfaceMapsBinding, surfaceViews[layer], layer))
             ];
 
             if (lit) {
@@ -1522,9 +1575,8 @@ public sealed class TerrainRenderer : IDisposable {
             device.UpdateDescriptorSet(descriptors[index], CollectionsMarshal.AsSpan(writes));
         }
 
-        // A resized set is a new set, so whatever the layers resolved to has to be written into it —
-        // otherwise growing the patch buffer silently reverts every layer to its default.
-        BindLayerTextures();
+        // Every set now holds the current views, so nothing is owed a layer rebind.
+        Array.Fill(layersStale, false);
     }
 
     /// <inheritdoc />

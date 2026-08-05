@@ -159,6 +159,15 @@ public readonly record struct TerrainLodNode(int X, int Z, int Quads, int Level,
 ///         camera does. Both are functions, so both are unit tests. [§ Part 4] says the no-crack test
 ///         must be written before the renderer, not after it.
 ///     </para>
+///     <para>
+///         <b>The descent itself is <see cref="PatchSelector" />'s, and water is its second
+///         consumer</b>
+///         ([35 § D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source)).
+///         What is left here is the part that is about a <em>terrain</em>: where its samples are, how
+///         tall it is, and how a morphed grid index becomes a heightmap lookup. The selection, the
+///         morph and their two tests are shared, which is the point — Unreal has two quadtrees and
+///         two ways to get a crack.
+///     </para>
 /// </remarks>
 public sealed class TerrainLodTree {
     /// <summary>How many quads the shared grid patch spans, by default.</summary>
@@ -167,9 +176,10 @@ public sealed class TerrainLodTree {
     ///     terrain in the world. Large enough that a frame is a few hundred nodes rather than a few
     ///     thousand, small enough that a node is a useful cull unit.
     /// </remarks>
-    public const int DefaultGridQuads = 32;
+    public const int DefaultGridQuads = PatchSelector.DefaultGridQuads;
 
     readonly TerrainDescription description;
+    readonly PatchSelector selector;
 
     /// <summary>Builds a tree over a terrain's shape.</summary>
     /// <param name="description">The terrain's shape.</param>
@@ -189,42 +199,27 @@ public sealed class TerrainLodTree {
             throw new ArgumentException(rangeReason, nameof(ranges));
         }
 
-        if (gridQuads < 2 || (gridQuads & (gridQuads - 1)) != 0) {
-            throw new ArgumentException(
-                $"The grid patch must span a power of two quads of at least two; it was {gridQuads}.",
-                nameof(gridQuads)
-            );
-        }
-
         this.description = description;
-        Ranges = ranges;
         GridQuads = gridQuads;
 
         // The root covers a square of whole patches large enough to hold the terrain. A terrain that
         // is not square, or not a power of two patches across, leaves nodes hanging off the far edge;
-        // Select skips them rather than clamping, because a clamped node would draw one patch's
-        // worth of terrain twice.
+        // the source's coverage answer skips them rather than clamping, because a clamped node would
+        // draw one patch's worth of terrain twice.
         var quads = Math.Max(description.TilesX, description.TilesZ) * description.TileQuads;
-        var patches = 1;
-        var levels = 1;
+        var (rootQuads, levels) = PatchSelector.RootFor(quads, gridQuads);
 
-        while (patches * gridQuads < quads) {
-            patches *= 2;
-            levels++;
-        }
-
-        RootQuads = patches * gridQuads;
-        DepthCount = Math.Min(levels, ranges.LevelCount);
+        selector = new(rootQuads, Math.Min(levels, ranges.LevelCount), ranges);
     }
 
     /// <summary>Where each level takes over.</summary>
-    public TerrainLodRanges Ranges { get; }
+    public TerrainLodRanges Ranges => selector.Ranges;
 
     /// <summary>How many quads the shared grid patch spans.</summary>
     public int GridQuads { get; }
 
     /// <summary>How many quads the root node spans.</summary>
-    public int RootQuads { get; }
+    public int RootQuads => selector.RootQuads;
 
     /// <summary>How deep the tree is, which may be fewer levels than the ranges describe.</summary>
     /// <remarks>
@@ -232,7 +227,10 @@ public sealed class TerrainLodTree {
     ///     more levels than the terrain has is not an error — it is a project setting shared by
     ///     terrains of different sizes.
     /// </remarks>
-    public int DepthCount { get; }
+    public int DepthCount => selector.DepthCount;
+
+    /// <summary>The descent this tree is, for a caller that wants the shared arithmetic on its own.</summary>
+    public PatchSelector Selector => selector;
 
     /// <summary>Chooses the patches a view draws.</summary>
     /// <param name="viewPosition">Where the view is, in the terrain's own space.</param>
@@ -255,9 +253,12 @@ public sealed class TerrainLodTree {
         ArgumentNullException.ThrowIfNull(terrain);
         ArgumentNullException.ThrowIfNull(nodes);
 
-        var before = nodes.Count;
-        Descend(0, 0, RootQuads, DepthCount - 1, viewPosition, in frustum, terrain, nodes);
-        return nodes.Count - before;
+        return selector.Select(
+            viewPosition,
+            in frustum,
+            new TerrainPatchSource(description, terrain),
+            nodes
+        );
     }
 
     /// <summary>Everything a node occupies, in the terrain's own space.</summary>
@@ -330,8 +331,7 @@ public sealed class TerrainLodTree {
     /// <param name="index">The vertex's index in the patch.</param>
     /// <param name="morph">How far morphed, 0…1.</param>
     /// <returns>The morphed index, which is fractional in between.</returns>
-    public static float MorphIndex(int index, float morph) =>
-        index - ((index & 1) * Math.Clamp(morph, 0f, 1f));
+    public static float MorphIndex(int index, float morph) => PatchSelector.MorphIndex(index, morph);
 
     static float HeightAt(Terrain terrain, float x, float z) {
         var x0 = (int)MathF.Floor(x);
@@ -347,50 +347,28 @@ public sealed class TerrainLodTree {
         return (((a * (1f - fx)) + (b * fx)) * (1f - fz)) + (((c * (1f - fx)) + (d * fx)) * fz);
     }
 
-    void Descend(
-        int x,
-        int z,
-        int quads,
-        int level,
-        Vector3 viewPosition,
-        in BoundingFrustum frustum,
-        Terrain terrain,
-        ICollection<TerrainLodNode> nodes
-    ) {
-        // Off the edge of a terrain that is not a square power of two patches. Skipped rather than
-        // clamped, because a clamped node would draw one patch's worth of ground twice.
-        if (x >= description.SamplesX - 1 || z >= description.SamplesZ - 1) {
-            return;
+    /// <summary>A terrain, as the shared descent asks about it.</summary>
+    /// <remarks>
+    ///     A struct, so a selection allocates nothing — <see cref="PatchSelector.Select" /> takes its
+    ///     source as a generic parameter for exactly that reason.
+    /// </remarks>
+    readonly struct TerrainPatchSource(TerrainDescription description, Terrain terrain) : IPatchSource {
+        public BoundingBox BoundsOf(int x, int z, int quads) {
+            var (minimum, maximum) = terrain.HeightRangeOf(new(x, z, quads + 1, quads + 1));
+            var scale = description.MetresPerQuad;
+
+            return new(
+                new(x * scale, minimum, z * scale),
+                new((x + quads) * scale, maximum, (z + quads) * scale)
+            );
         }
 
-        var bounds = BoundsOf(x, z, quads, terrain);
-
-        if (!frustum.Intersects(bounds)) {
-            return;
-        }
-
-        var distance = DistanceTo(bounds, viewPosition);
-
-        // This level is coarse enough if the finer one's range does not reach here. Level 0 has no
-        // finer one and is always the answer.
-        if (level == 0 || distance > Ranges.RangeOf(level - 1)) {
-            nodes.Add(new(x, z, quads, level, Ranges.MorphOf(level, distance)));
-            return;
-        }
-
-        var half = quads / 2;
-
-        Descend(x, z, half, level - 1, viewPosition, in frustum, terrain, nodes);
-        Descend(x + half, z, half, level - 1, viewPosition, in frustum, terrain, nodes);
-        Descend(x, z + half, half, level - 1, viewPosition, in frustum, terrain, nodes);
-        Descend(x + half, z + half, half, level - 1, viewPosition, in frustum, terrain, nodes);
-    }
-
-    static float DistanceTo(in BoundingBox bounds, Vector3 point) {
-        var dx = MathF.Max(0f, MathF.Max(bounds.Minimum.X - point.X, point.X - bounds.Maximum.X));
-        var dy = MathF.Max(0f, MathF.Max(bounds.Minimum.Y - point.Y, point.Y - bounds.Maximum.Y));
-        var dz = MathF.Max(0f, MathF.Max(bounds.Minimum.Z - point.Z, point.Z - bounds.Maximum.Z));
-
-        return MathF.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        /// <summary>Whether the node is on the terrain at all.</summary>
+        /// <remarks>
+        ///     Off the edge of a terrain that is not a square power of two patches. Skipped rather
+        ///     than clamped, because a clamped node would draw one patch's worth of ground twice.
+        /// </remarks>
+        public bool Covers(int x, int z, int quads) =>
+            x < description.SamplesX - 1 && z < description.SamplesZ - 1;
     }
 }

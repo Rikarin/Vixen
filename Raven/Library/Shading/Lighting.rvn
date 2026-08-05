@@ -207,8 +207,17 @@ struct Lighting {
     /// when its own depth is at least that. `depth <= stored` is the conventional-Z test, and under
     /// reverse-Z it answers backwards: everything occluded tests lit, and the only texels that ever
     /// shadow are the empty ones.
+    /// `SampleLevel` and not `Sample`, which is not a detail: this is called from compute.
+    ///
+    /// A shadow atlas has exactly one level, so level 0 is the same texel a derivative-implied lookup
+    /// would have read — no approximation, and nothing to tune. What the explicit form buys is that a
+    /// stage with no derivatives can call it at all. `VisibilityResolve` already did: the resolve is a
+    /// compute dispatch that shades, it reaches this line through `ClusteredShading.SampleCascade`,
+    /// and it was relying on the backend quietly substituting the zero this now states. RVN3013 is
+    /// what says so out loud. Non-uniform control flow is the second reason — a tap inside an `if`
+    /// has no defined derivative even in a fragment stage.
     static func ShadowTap(shadowMap: Texture2D, shadowSampler: Sampler, uv: float2, depth: float): float {
-        val stored = shadowMap.Sample(shadowSampler, uv).r
+        val stored = shadowMap.SampleLevel(shadowSampler, uv, 0f).r
         return depth >= stored ? 1f : 0f
     }
 

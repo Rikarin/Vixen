@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Engine.Scenes;
+using Vixen.Physics.Characters;
 using Vixen.Physics.Ecs;
 using Vixen.Physics.Shapes;
 using Xunit;
@@ -51,5 +52,36 @@ public sealed class PhysicsSceneComponentTests {
 
         Assert.False(SceneComponentRegistry.TryGet(typeof(PhysicsBody), out _));
         Assert.False(SceneComponentRegistry.TryGet(typeof(PhysicsTeleport), out _));
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>A declared default crosses the same boundary the declaration does.</b> A zeroed
+    ///     <see cref="CharacterMovement" /> has no speed, no gravity and no shape, so a character added
+    ///     from the inspector stood still in mid-air — and the engine, which has never heard of this
+    ///     type, is not where the fix could have gone.
+    /// </remarks>
+    [Fact]
+    public void CharacterMovementCarriesItsDefaultAcrossTheBoundary() {
+        _ = CharacterMovement.Default;
+
+        Assert.True(SceneComponentRegistry.TryGet(typeof(CharacterMovement), out var binder));
+        Assert.True(binder.HasDefault);
+
+        var fresh = Assert.IsType<CharacterMovement>(binder.CreateDefault());
+
+        Assert.Equal(CharacterMovement.Default.WalkSpeed, fresh.WalkSpeed);
+        Assert.NotEqual(0f, fresh.Gravity);
+    }
+
+    /// <remarks>
+    ///     The other half, in the assembly that would notice: a collider says nothing about a default
+    ///     and is not made to.
+    /// </remarks>
+    [Fact]
+    public void AComponentThatDeclaresNoDefaultSaysSo() {
+        _ = Collider.Of(new ShapeId(1));
+
+        Assert.True(SceneComponentRegistry.TryGet(typeof(Collider), out var binder));
+        Assert.False(binder.HasDefault);
     }
 }

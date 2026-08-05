@@ -4,6 +4,7 @@
 using Vixen.Audio.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
@@ -11,6 +12,7 @@ using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
@@ -310,6 +312,120 @@ public class ComponentTests {
         Assert.Contains(bridges, bridge => bridge.ComponentType == typeof(LateComponent));
     }
 
+    /// <summary>
+    ///     ⚠ <b>The payoff, end to end: a component added from the menu holds what its type says a
+    ///     fresh one holds.</b>
+    /// </summary>
+    /// <remarks>
+    ///     A zeroed camera has a zero far plane and every matrix built from it is degenerate, so this
+    ///     is the difference between adding a camera and adding a bug report. It went through a
+    ///     hardcoded chain of four types in this assembly until <c>IDefaultComponent</c>; the value is
+    ///     the same and the reach is not.
+    /// </remarks>
+    [Fact]
+    public void A_component_added_from_the_menu_holds_its_declared_default() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("hierarchy");
+        editor.ExpandAll(editor.Hierarchy);
+        editor.ClickRow(editor.Hierarchy, "Crate");
+
+        var crate = Named(editor, "Crate");
+
+        Choose(editor, "Camera");
+
+        var camera = editor.Scene.World.Read<Camera>(crate);
+
+        Assert.Equal(Camera.Perspective.FarPlane, camera.FarPlane);
+        Assert.NotEqual(0f, camera.FarPlane);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The component this mechanism was built for.</b> A zeroed <c>VirtualCamera</c> is
+    ///     <i>disabled</i> as well as lensless, so a shot added from the menu neither rendered nor
+    ///     looked broken — and it never appeared on the editor's hardcoded list, because a list kept
+    ///     in the editor's own assembly is one somebody has to remember to extend.
+    /// </summary>
+    [Fact]
+    public void A_virtual_camera_added_from_the_menu_is_a_shot_that_would_render() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("hierarchy");
+        editor.ExpandAll(editor.Hierarchy);
+        editor.ClickRow(editor.Hierarchy, "Crate");
+
+        var crate = Named(editor, "Crate");
+
+        Choose(editor, "Virtual Camera");
+
+        var shot = editor.Scene.World.Read<VirtualCamera>(crate);
+
+        Assert.True(shot.Enabled);
+        Assert.NotEqual(0f, shot.Lens.FarPlane);
+    }
+
+    /// <summary>
+    ///     Every subsystem's adopted component, in the one assembly that can see all of them at once.
+    /// </summary>
+    /// <remarks>
+    ///     The four at the top are what <c>ComponentsView.Initial</c> hardcoded; the rest had the same
+    ///     problem and no way to say so. <c>CharacterMovement</c> is the seventh and is asserted in
+    ///     <c>Vixen.Physics.Tests</c> — this assembly does not reference physics.
+    /// </remarks>
+    [Theory]
+    [InlineData(typeof(Light))]
+    [InlineData(typeof(PostProcessVolume))]
+    [InlineData(typeof(TerrainComponent))]
+    [InlineData(typeof(Camera))]
+    [InlineData(typeof(VirtualCamera))]
+    [InlineData(typeof(CameraDirector))]
+    [InlineData(typeof(AudioSource))]
+    [InlineData(typeof(MeshRenderable))]
+    [InlineData(typeof(VfxEmitter))]
+    public void Every_adopted_component_creates_something_other_than_a_zero(Type component) {
+        var bridge = ComponentsView.Default().Single(candidate => candidate.ComponentType == component);
+        var fresh = bridge.Create();
+
+        Assert.Equal(component, fresh.GetType());
+        Assert.NotEqual(Activator.CreateInstance(component), fresh);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The zeroes that mean something, which must stay zero.</b>
+    /// </summary>
+    /// <remarks>
+    ///     A grass rule's <c>Range</c> of zero is the instruction to take the project's, and a
+    ///     <c>PrimitiveShape</c> is a kind and a material where every value is as good as any other.
+    ///     A mechanism that had started inventing values for these would be one that had stopped
+    ///     being opt-in.
+    /// </remarks>
+    [Theory]
+    [InlineData(typeof(TerrainGrassComponent))]
+    [InlineData(typeof(PrimitiveShape))]
+    public void A_component_that_declares_nothing_still_creates_a_zero(Type component) {
+        var bridge = ComponentsView.Default().Single(candidate => candidate.ComponentType == component);
+
+        Assert.Equal(Activator.CreateInstance(component), bridge.Create());
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A component the editor has never heard of, carrying its own default.</b> This is the
+    ///     shape a game's component has: registered from outside this assembly, drawn from its
+    ///     <c>[DataContract]</c> description, and started from a value the editor does not know and
+    ///     did not choose.
+    /// </summary>
+    [Fact]
+    public void A_component_registered_from_outside_the_editor_brings_its_own_default() {
+        SceneComponentRegistry.RegisterWithDefault<LateDefaulted>();
+
+        var bridge = ComponentsView.Default()
+            .Single(candidate => candidate.ComponentType == typeof(LateDefaulted));
+
+        var fresh = Assert.IsType<LateDefaulted>(bridge.Create());
+
+        Assert.Equal(42f, fresh.Reach);
+    }
+
     [Fact]
     public void An_asset_selection_shows_no_components_at_all() {
         using var editor = EditorSession.Start();
@@ -411,4 +527,20 @@ struct LateComponent {
 
     public LateComponent() {
     }
+}
+
+/// <summary>The same, declaring what a fresh one holds — a game's component with an opinion.</summary>
+/// <remarks>
+///     ⚠ <b>The value is on the type and not in a field initializer</b>, which is the distinction the
+///     whole mechanism turns on. <see cref="LateComponent" /> above has an initializer, and it runs on
+///     <c>new()</c> and never on the ECS paths that hand back a zeroed row — honoured in some places
+///     and silently ignored in others. This one is honoured exactly where something asks.
+/// </remarks>
+[Component]
+[DataContract("ComponentTestsLateDefaulted")]
+struct LateDefaulted : IDefaultComponent<LateDefaulted> {
+    /// <summary>Something for a row to draw, whose zero would be useless.</summary>
+    public float Reach;
+
+    static LateDefaulted IDefaultComponent<LateDefaulted>.DefaultValue => new() { Reach = 42f };
 }

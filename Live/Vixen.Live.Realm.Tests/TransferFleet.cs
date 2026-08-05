@@ -4,8 +4,8 @@
 using System.Text;
 using Vixen.Live.Persistence;
 using Vixen.Live.Transfer;
-using Vixen.Net.Transport;
 using Vixen.Net.Sessions;
+using Vixen.Net.Transport;
 using Vixen.Net.Transport.Local;
 
 namespace Vixen.Live.Realms.Tests;

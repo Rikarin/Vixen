@@ -50,6 +50,15 @@
             each of — see its own remarks for why the renderer does not hold an asset manager.
         -->
         <ProjectReference Include="..\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
+
+        <!--
+            And water's, for AssetWaterSource — the same join once more. A water body names its
+            spline and a zone names its sea state, both by name, and `WaterZoneSystem` deliberately
+            takes them through seams rather than holding an asset manager: a test's spline is a
+            literal and an editor's is a document being dragged. This is where the game's answer
+            lives.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
     </ItemGroup>
 
     <ItemGroup>

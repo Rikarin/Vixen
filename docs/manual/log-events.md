@@ -35,7 +35,7 @@ identifies its origin on sight.
 | 1 000 – 1 999 | `Vixen.Core.*` — services, assets of the foundation, allocators | reserved |
 | 2 000 – 2 999 | `Vixen.Graphics`, backends | **in use** |
 | 3 000 – 3 999 | `Vixen.Shaders`, Raven integration | reserved |
-| 4 000 – 4 999 | `Vixen.Rendering`, `Vixen.Rendering.PostFx` | reserved |
+| 4 000 – 4 999 | `Vixen.Rendering`, `Vixen.Rendering.PostFx` | **in use** |
 | 5 000 – 5 999 | `Vixen.Ecs`, `Vixen.Engine` | reserved |
 | 6 000 – 6 999 | `Vixen.Assets`, content pipeline | reserved |
 | 7 000 – 7 999 | `Vixen.Ui.*` | **in use** |
@@ -63,6 +63,19 @@ identifies its origin on sight.
 | 2102 | Debug | `WaitIdle did nothing: this WebGPU surface cannot block on the queue.` — a browser tab has one thread and blocking on it is a deadlock | 0.1.0 |
 | 2103 | Warning | `wgpu-native or Dawn could not be loaded ({Reason})` — no desktop OS ships one, so this is ordinary and selection moves on | 0.1.0 |
 | 2104 | Warning | `WebGPU device lost ({Reason}). Everything has to be recreated.` | 0.1.0 |
+
+### `Vixen.Rendering` — the render system
+
+**Nothing here is logged per frame.** Every line below describes a frame that drew and quietly drew
+less than it was asked for — the class of wrongness no exception ever reaches, and therefore the
+class that has to be a log line rather than a counter nobody reads. What keeps it affordable is that
+`PageResidency.Service` compares two longs when the frame is healthy and formats nothing, and reports
+at most one line per five seconds when it is not.
+
+| Id | Level | Message | Since |
+|---|---|---|---|
+| 4001 | Warning | `The page pool refused {Refusals} request(s): {Resident} of {Capacity} page(s) are resident and {Pinned} of those are pinned, so there was nothing left to evict.` — the frame drew something coarser than it asked for, which is designed behaviour and still worth seeing | 0.1.0 |
+| 4002 | Error | `{Refusals} pinned page(s) could not be given a slot: {Pinned} of {Capacity} page(s) are pinned already.` — error rather than warning because it is permanent: a refused request is a coarser frame and the next frame asks again, and the only thing that pins is a registration that has already happened | 0.1.0 |
 
 ### `Vixen.Ui.Reactive` — the signal graph
 

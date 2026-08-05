@@ -1099,8 +1099,15 @@ will grow their own.
 honest is `IPageStore`: the service owns the request queue, the byte budget, the eviction order and
 the counters, and knows nothing about where the bytes go or how they are read. What proves that is
 not the interface but the test — `PageResidencyTests` drives the whole of it against a store that is
-a dictionary, with no device and no geometry anywhere in it. The two other consumers are still
-unbuilt; what has been avoided is their having to bring their own budget.
+a dictionary, with no device and no geometry anywhere in it.
+
+The **texture** consumer is now built —
+[`TexturePagePool`](../../Core/Vixen.Engine.Renderer/TextureStreaming.cs), whose pages are fixed
+byte-size slices of a KTX2 file's level data, and which brought no budget of its own; see
+[Streaming texture mip tails](../guide/rendering/texture-streaming.md). What it needed from the
+service and got unchanged is the queue, the ceiling, the LRU order, the pinning and `Rejections`;
+what it did not need was any change to the interface, which is the claim `IPageStore` was making.
+The virtual shadow map's pages are still owed.
 
 ### 7. A portable baseline that does not need 64-bit atomics
 

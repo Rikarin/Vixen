@@ -70,15 +70,53 @@ public struct WaterZoneComponent {
 
     /// <summary>The sea state every body in this zone is summed from.</summary>
     /// <remarks>
-    ///     On the zone rather than per body, because a sea state is shared between every body in a
-    ///     region and between levels — which is why <c>.vxwaves</c> is the one new asset kind
-    ///     [§ D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline)
-    ///     admits. Until that asset exists the spectrum is carried inline.
+    ///     <para>
+    ///         On the zone rather than per body, because a sea state is shared between every body in a
+    ///         region and between levels — which is why <c>.vxwaves</c> is the one new asset kind
+    ///         [§ D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline)
+    ///         admits.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What a zone naming no asset uses, and what one whose asset has not loaded falls
+    ///         back to.</b> <see cref="WaveAsset" /> wins where it resolves; see there for why the
+    ///         fallback is this rather than nothing.
+    ///     </para>
     /// </remarks>
     public WaterWaveSpectrum Waves;
 
     /// <summary>How the sea state falls off as the ground rises, in metres of depth.</summary>
     public float AttenuationDepth;
+
+    /// <summary>Which <c>.vxwaves</c> the sea state comes from, or empty for the inline one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A name rather than a handle, for <see cref="WaterBodyComponent.Spline" />'s reason: a
+    ///         handle names a slot in a world that issued it, and a scene file is read by a world that
+    ///         has not run yet. <see cref="IWaterWaveSource" /> is what turns one into a spectrum.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Last in the struct, and it has to stay last.</b> The generated serializer writes
+    ///         fields in declaration order and reads them back by position under a count guard, so a
+    ///         field inserted above this one is every scene saved before it reading its attenuation
+    ///         depth as an asset name. Appending is what an existing scene survives.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A name that does not resolve falls back to <see cref="Waves" /> and counts into
+    ///         <see cref="WaterZoneSystem.UnresolvedWaves" />.</b> That is the opposite of a body,
+    ///         whose unresolved spline means it is not rendered at all — and the asymmetry is the
+    ///         point. A body with no curve has no shape to draw; a zone with no spectrum has a
+    ///         perfectly good window and would render it dead flat, which reads as the water stack
+    ///         being broken rather than as one asset still streaming. So the frame keeps its waves and
+    ///         the count is what says the asset did not arrive.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is why the component is a managed one.</b> A string is a reference, so the
+    ///         zone column holds handles into the world's store rather than a span of structs — see
+    ///         <see cref="WaterZoneSystem.Fold" />, which reads zones an entity at a time for exactly
+    ///         this reason and says so.
+    ///     </para>
+    /// </remarks>
+    public string WaveAsset;
 
     /// <summary>A 512-metre window at two metres a texel, over an open sea.</summary>
     public static WaterZoneComponent Default =>
@@ -89,7 +127,8 @@ public struct WaterZoneComponent {
             ScrollThreshold = 0.125f,
             CoarsestTexel = 0f,
             Waves = WaterWaveSpectrum.Default,
-            AttenuationDepth = 2f
+            AttenuationDepth = 2f,
+            WaveAsset = string.Empty
         };
 
     /// <summary>This component as the kernel's own description.</summary>

@@ -331,6 +331,12 @@ Editor/
 ├── Vixen.Editor.Terrain/         # ✅ the terrain viewport mode: eight sculpt tools, the panel's
 │   └── Vixen.Editor.Terrain.Tests/    #   settings, the stroke and layer commands (docs/plan/31 § T3;
 │                                      #   the heightfield kernel is Core/Vixen.Terrain)
+├── Vixen.Editor.Water/           # ✅ one water mode and three verbs: draw a body's curve on the
+│   └── Vixen.Editor.Water.Tests/ #   ground, drag its profile handles, preview its carve — plus the
+│                                 #   zone panel's derived numbers (docs/plan/35 § W9; the kernel is
+│                                 #   Core/Vixen.Water). ⚠ One mode where terrain needs two, because
+│                                 #   placing a lake is placing an entity and editing its shape is
+│                                 #   editing a spline, and the editor already does both
 ├── Vixen.Editor.NodeGraph/       # reusable node-graph framework: model, layout, wiring, undo, groups
 │   └── Vixen.Editor.NodeGraph.Tests/
 ├── Vixen.Editor.ShaderGraph/     # nodes → Raven source generation

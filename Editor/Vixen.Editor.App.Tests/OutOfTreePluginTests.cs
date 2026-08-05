@@ -28,6 +28,7 @@ namespace Vixen.Editor.App.Tests;
 ///         the tool moved — rather than by the registration having been accepted.
 ///     </para>
 /// </remarks>
+[Collection(SharedDrawerRegistry.Name)]
 public class OutOfTreePluginTests {
     /// <summary>What a plugin author writes. Nothing here is generated and nothing is in-tree.</summary>
     /// <remarks>

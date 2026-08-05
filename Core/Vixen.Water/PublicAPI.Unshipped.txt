@@ -1,4 +1,39 @@
 #nullable enable
+Vixen.Water.Buoyancy -> static class
+Vixen.Water.BuoyancyForce -> readonly struct
+Vixen.Water.BuoyancyForce : System.IEquatable<Vixen.Water.BuoyancyForce>
+Vixen.Water.BuoyancyForce.BuoyancyForce() -> void
+Vixen.Water.BuoyancyForce.BuoyancyForce(Vixen.Core.Mathematics.Vector3 Force, Vixen.Core.Mathematics.Vector3 Position, float Submerged, float SurfaceHeight) -> void
+Vixen.Water.BuoyancyForce.Force.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Water.BuoyancyForce.Force.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Water.BuoyancyForce.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Water.BuoyancyForce.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Water.BuoyancyForce.Submerged.get -> float
+Vixen.Water.BuoyancyForce.Submerged.init -> float
+Vixen.Water.BuoyancyForce.SurfaceHeight.get -> float
+Vixen.Water.BuoyancyForce.SurfaceHeight.init -> float
+Vixen.Water.BuoyancyPontoon -> readonly struct
+Vixen.Water.BuoyancyPontoon : System.IEquatable<Vixen.Water.BuoyancyPontoon>
+Vixen.Water.BuoyancyPontoon.BuoyancyPontoon() -> void
+Vixen.Water.BuoyancyPontoon.BuoyancyPontoon(Vixen.Core.Mathematics.Vector3 Offset, float Radius) -> void
+Vixen.Water.BuoyancyPontoon.Offset.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Water.BuoyancyPontoon.Offset.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Water.BuoyancyPontoon.Radius.get -> float
+Vixen.Water.BuoyancyPontoon.Radius.init -> float
+Vixen.Water.BuoyancyPontoon.Volume.get -> float
+Vixen.Water.BuoyancySettings -> readonly struct
+Vixen.Water.BuoyancySettings : System.IEquatable<Vixen.Water.BuoyancySettings>
+Vixen.Water.BuoyancySettings.BuoyancySettings() -> void
+Vixen.Water.BuoyancySettings.Coefficient.get -> float
+Vixen.Water.BuoyancySettings.Coefficient.init -> float
+Vixen.Water.BuoyancySettings.Damping.get -> float
+Vixen.Water.BuoyancySettings.Damping.init -> float
+Vixen.Water.BuoyancySettings.FlowDrag.get -> float
+Vixen.Water.BuoyancySettings.FlowDrag.init -> float
+Vixen.Water.BuoyancySettings.MaximumForce.get -> float
+Vixen.Water.BuoyancySettings.MaximumForce.init -> float
+Vixen.Water.BuoyancySettings.QuadraticDamping.get -> float
+Vixen.Water.BuoyancySettings.QuadraticDamping.init -> float
 Vixen.Water.FlatWaterGround -> readonly struct
 Vixen.Water.FlatWaterGround : System.IEquatable<Vixen.Water.FlatWaterGround>
 Vixen.Water.FlatWaterGround : Vixen.Water.IWaterGround
@@ -29,6 +64,9 @@ Vixen.Water.IWaterGround -> interface
 Vixen.Water.IWaterGround.HeightAt(Vixen.Core.Mathematics.Vector2 ground) -> float
 Vixen.Water.IWaterRipples -> interface
 Vixen.Water.IWaterRipples.TryDisplacement(Vixen.Core.Mathematics.Vector2 position, out float displacement) -> bool
+Vixen.Water.IWaterSurface -> interface
+Vixen.Water.IWaterSurface.QueryAt(Vixen.Core.Mathematics.Vector2 position) -> Vixen.Water.WaterQuery?
+Vixen.Water.IWaterSurface.WaterTime.get -> float
 Vixen.Water.WaterAttenuation -> readonly struct
 Vixen.Water.WaterAttenuation : System.IEquatable<Vixen.Water.WaterAttenuation>
 Vixen.Water.WaterAttenuation.At(float depth) -> float
@@ -39,6 +77,7 @@ Vixen.Water.WaterAttenuation.WaterAttenuation(float Depth) -> void
 Vixen.Water.WaterBody -> sealed class
 Vixen.Water.WaterBody.BedRamp.get -> float
 Vixen.Water.WaterBody.BedRamp.init -> float
+Vixen.Water.WaterBody.Bounds() -> (Vixen.Core.Mathematics.Vector2 Low, Vixen.Core.Mathematics.Vector2 High)
 Vixen.Water.WaterBody.Contains(Vixen.Core.Mathematics.Vector2 ground) -> bool
 Vixen.Water.WaterBody.Defaults.get -> Vixen.Water.WaterProfilePoint
 Vixen.Water.WaterBody.IsSubtractive.get -> bool
@@ -76,6 +115,42 @@ Vixen.Water.WaterBodyKind.Lake = 1 -> Vixen.Water.WaterBodyKind
 Vixen.Water.WaterBodyKind.Ocean = 0 -> Vixen.Water.WaterBodyKind
 Vixen.Water.WaterBodyKind.River = 2 -> Vixen.Water.WaterBodyKind
 Vixen.Water.WaterBodyKind.WaterBodyKind() -> void
+Vixen.Water.WaterCarve -> static class
+Vixen.Water.WaterCarveProfile -> readonly struct
+Vixen.Water.WaterCarveProfile : System.IEquatable<Vixen.Water.WaterCarveProfile>
+Vixen.Water.WaterCarveProfile.BedLayer.get -> int
+Vixen.Water.WaterCarveProfile.BedLayer.init -> int
+Vixen.Water.WaterCarveProfile.BedLayerStrength.get -> float
+Vixen.Water.WaterCarveProfile.BedLayerStrength.init -> float
+Vixen.Water.WaterCarveProfile.Strength.get -> float
+Vixen.Water.WaterCarveProfile.Strength.init -> float
+Vixen.Water.WaterCarveProfile.WaterCarveProfile() -> void
+Vixen.Water.WaterDisturbance -> readonly struct
+Vixen.Water.WaterDisturbance : System.IEquatable<Vixen.Water.WaterDisturbance>
+Vixen.Water.WaterDisturbance.Height.get -> float
+Vixen.Water.WaterDisturbance.Height.init -> float
+Vixen.Water.WaterDisturbance.Kind.get -> Vixen.Water.WaterDisturbanceKind
+Vixen.Water.WaterDisturbance.Kind.init -> Vixen.Water.WaterDisturbanceKind
+Vixen.Water.WaterDisturbance.Position.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterDisturbance.Position.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterDisturbance.Radius.get -> float
+Vixen.Water.WaterDisturbance.Radius.init -> float
+Vixen.Water.WaterDisturbance.Strength.get -> float
+Vixen.Water.WaterDisturbance.Strength.init -> float
+Vixen.Water.WaterDisturbance.WaterDisturbance() -> void
+Vixen.Water.WaterDisturbance.WaterDisturbance(Vixen.Core.Mathematics.Vector2 Position, float Radius, float Strength, Vixen.Water.WaterDisturbanceKind Kind, float Height) -> void
+Vixen.Water.WaterDisturbanceKind -> enum : int
+Vixen.Water.WaterDisturbanceKind.Splash = 1 -> Vixen.Water.WaterDisturbanceKind
+Vixen.Water.WaterDisturbanceKind.Wake = 0 -> Vixen.Water.WaterDisturbanceKind
+Vixen.Water.WaterDisturbanceKind.WaterDisturbanceKind() -> void
+Vixen.Water.WaterDisturbances -> sealed class
+Vixen.Water.WaterDisturbances.Add(in Vixen.Water.WaterDisturbance disturbance) -> bool
+Vixen.Water.WaterDisturbances.Budget.get -> int
+Vixen.Water.WaterDisturbances.Clear() -> void
+Vixen.Water.WaterDisturbances.Count.get -> int
+Vixen.Water.WaterDisturbances.Overflowed.get -> int
+Vixen.Water.WaterDisturbances.Queued.get -> System.ReadOnlySpan<Vixen.Water.WaterDisturbance>
+Vixen.Water.WaterDisturbances.WaterDisturbances(int budget = 64) -> void
 Vixen.Water.WaterEvaluator -> readonly ref struct
 Vixen.Water.WaterEvaluator.Attenuation.get -> Vixen.Water.WaterAttenuation
 Vixen.Water.WaterEvaluator.Displace(Vixen.Core.Mathematics.Vector2 position, float waterTime, float damping, out Vixen.Core.Mathematics.Vector3 offset, out Vixen.Core.Mathematics.Vector3 normal) -> void
@@ -109,6 +184,14 @@ Vixen.Water.WaterFieldDescription.Resolution.init -> int
 Vixen.Water.WaterFieldDescription.Snap(Vixen.Core.Mathematics.Vector2 centre, float coarsestTexel = 0) -> Vixen.Water.WaterFieldDescription
 Vixen.Water.WaterFieldDescription.Validate() -> string?
 Vixen.Water.WaterFieldDescription.WaterFieldDescription() -> void
+Vixen.Water.WaterFieldPyramid -> sealed class
+Vixen.Water.WaterFieldPyramid.AnyCoverage(Vixen.Core.Mathematics.Vector2 low, Vixen.Core.Mathematics.Vector2 high, float threshold = 0) -> bool
+Vixen.Water.WaterFieldPyramid.Build(Vixen.Water.WaterField field) -> void
+Vixen.Water.WaterFieldPyramid.Description.get -> Vixen.Water.WaterFieldDescription
+Vixen.Water.WaterFieldPyramid.LevelCount.get -> int
+Vixen.Water.WaterFieldPyramid.Resolution.get -> int
+Vixen.Water.WaterFieldPyramid.SurfaceRange(Vixen.Core.Mathematics.Vector2 low, Vixen.Core.Mathematics.Vector2 high) -> (float Minimum, float Maximum)
+Vixen.Water.WaterFieldPyramid.WaterFieldPyramid(int resolution) -> void
 Vixen.Water.WaterFieldSample -> readonly struct
 Vixen.Water.WaterFieldSample : System.IEquatable<Vixen.Water.WaterFieldSample>
 Vixen.Water.WaterFieldSample.Coverage.get -> float
@@ -158,6 +241,40 @@ Vixen.Water.WaterQuery.SetSpectrum(in Vixen.Water.WaterWaveSpectrum spectrum) ->
 Vixen.Water.WaterQuery.Spectrum.get -> Vixen.Water.WaterWaveSpectrum
 Vixen.Water.WaterQuery.WaterQuery(Vixen.Water.WaterField? field, in Vixen.Water.WaterWaveSpectrum spectrum, Vixen.Water.WaterAttenuation attenuation = default(Vixen.Water.WaterAttenuation)) -> void
 Vixen.Water.WaterQuery.Waves.get -> System.ReadOnlySpan<Vixen.Water.GerstnerWave>
+Vixen.Water.WaterRippleSettings -> readonly struct
+Vixen.Water.WaterRippleSettings : System.IEquatable<Vixen.Water.WaterRippleSettings>
+Vixen.Water.WaterRippleSettings.Damping.get -> float
+Vixen.Water.WaterRippleSettings.Damping.init -> float
+Vixen.Water.WaterRippleSettings.EdgeFade.get -> float
+Vixen.Water.WaterRippleSettings.EdgeFade.init -> float
+Vixen.Water.WaterRippleSettings.Extent.get -> float
+Vixen.Water.WaterRippleSettings.Extent.init -> float
+Vixen.Water.WaterRippleSettings.InjectionBudget.get -> int
+Vixen.Water.WaterRippleSettings.InjectionBudget.init -> int
+Vixen.Water.WaterRippleSettings.MaximumSpeed(float deltaTime) -> float
+Vixen.Water.WaterRippleSettings.MetresPerTexel.get -> float
+Vixen.Water.WaterRippleSettings.Resolution.get -> int
+Vixen.Water.WaterRippleSettings.Resolution.init -> int
+Vixen.Water.WaterRippleSettings.Speed.get -> float
+Vixen.Water.WaterRippleSettings.Speed.init -> float
+Vixen.Water.WaterRippleSettings.Validate(float deltaTime) -> string?
+Vixen.Water.WaterRippleSettings.WaterRippleSettings() -> void
+Vixen.Water.WaterRipples -> sealed class
+Vixen.Water.WaterRipples : Vixen.Water.IWaterRipples
+Vixen.Water.WaterRipples.Apply(Vixen.Water.WaterDisturbances queue) -> int
+Vixen.Water.WaterRipples.At(int x, int z) -> float
+Vixen.Water.WaterRipples.Clear() -> void
+Vixen.Water.WaterRipples.Follow(Vixen.Core.Mathematics.Vector2 centre) -> bool
+Vixen.Water.WaterRipples.Inject(Vixen.Core.Mathematics.Vector2 position, float radius, float amount) -> bool
+Vixen.Water.WaterRipples.Injections.get -> int
+Vixen.Water.WaterRipples.Origin.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterRipples.Overflowed.get -> int
+Vixen.Water.WaterRipples.Peak.get -> float
+Vixen.Water.WaterRipples.Settings.get -> Vixen.Water.WaterRippleSettings
+Vixen.Water.WaterRipples.Step(float deltaTime) -> void
+Vixen.Water.WaterRipples.StepCount.get -> int
+Vixen.Water.WaterRipples.TryDisplacement(Vixen.Core.Mathematics.Vector2 position, out float displacement) -> bool
+Vixen.Water.WaterRipples.WaterRipples(in Vixen.Water.WaterRippleSettings settings, Vixen.Core.Mathematics.Vector2 origin = default(Vixen.Core.Mathematics.Vector2)) -> void
 Vixen.Water.WaterSample -> readonly struct
 Vixen.Water.WaterSample : System.IEquatable<Vixen.Water.WaterSample>
 Vixen.Water.WaterSample.Coverage.get -> float
@@ -173,6 +290,24 @@ Vixen.Water.WaterSample.Normal.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Water.WaterSample.Normal.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Water.WaterSample.WaterSample() -> void
 Vixen.Water.WaterSample.WaterSample(float Height, Vixen.Core.Mathematics.Vector3 Normal, Vixen.Core.Mathematics.Vector2 Flow, float Depth, float Coverage) -> void
+Vixen.Water.WaterSurfaceMesh -> sealed class
+Vixen.Water.WaterSurfaceMesh.EdgeDamping(Vixen.Core.Mathematics.Vector2 position) -> float
+Vixen.Water.WaterSurfaceMesh.EdgeFade.get -> float
+Vixen.Water.WaterSurfaceMesh.EdgeFade.set -> float
+Vixen.Water.WaterSurfaceMesh.FarDistance.get -> float
+Vixen.Water.WaterSurfaceMesh.FarDistance.set -> float
+Vixen.Water.WaterSurfaceMesh.GridQuads.get -> int
+Vixen.Water.WaterSurfaceMesh.GroundOf(in Vixen.Terrain.TerrainLodNode node, int gridX, int gridZ) -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterSurfaceMesh.MaximumAmplitude.get -> float
+Vixen.Water.WaterSurfaceMesh.MetresPerQuad.get -> float
+Vixen.Water.WaterSurfaceMesh.PositionOf(in Vixen.Terrain.TerrainLodNode node, int gridX, int gridZ, in Vixen.Water.WaterEvaluator evaluator, float waterTime) -> (Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Normal)
+Vixen.Water.WaterSurfaceMesh.Ranges.get -> Vixen.Terrain.TerrainLodRanges
+Vixen.Water.WaterSurfaceMesh.Select(Vixen.Core.Mathematics.Vector3 viewPosition, in Vixen.Core.Mathematics.BoundingFrustum frustum, System.Collections.Generic.ICollection<Vixen.Terrain.TerrainLodNode> nodes) -> int
+Vixen.Water.WaterSurfaceMesh.SelectFar(in Vixen.Core.Mathematics.BoundingFrustum frustum, float restHeight, System.Collections.Generic.ICollection<Vixen.Terrain.TerrainLodNode> nodes) -> int
+Vixen.Water.WaterSurfaceMesh.Selector.get -> Vixen.Terrain.PatchSelector
+Vixen.Water.WaterSurfaceMesh.Update(Vixen.Water.WaterFieldPyramid reduced, float maximumAmplitude) -> void
+Vixen.Water.WaterSurfaceMesh.WaterSurfaceMesh(in Vixen.Water.WaterFieldDescription window, Vixen.Terrain.TerrainLodRanges ranges, int gridQuads = 32) -> void
+Vixen.Water.WaterSurfaceMesh.Window.get -> Vixen.Water.WaterFieldDescription
 Vixen.Water.WaterWaveCount -> enum : int
 Vixen.Water.WaterWaveCount.Eight = 8 -> Vixen.Water.WaterWaveCount
 Vixen.Water.WaterWaveCount.Sixteen = 16 -> Vixen.Water.WaterWaveCount
@@ -203,6 +338,13 @@ Vixen.Water.WaterWaveSpectrum.WindDirection.get -> float
 Vixen.Water.WaterWaveSpectrum.WindDirection.init -> float
 Vixen.Water.WaterWaveSpectrum.WindSpeed.get -> float
 Vixen.Water.WaterWaveSpectrum.WindSpeed.init -> float
+Vixen.Water.WaterWavesAsset -> sealed class
+Vixen.Water.WaterWavesAsset.Name.get -> string
+Vixen.Water.WaterWavesAsset.Name.set -> string
+Vixen.Water.WaterWavesAsset.Spectrum.get -> Vixen.Water.WaterWaveSpectrum
+Vixen.Water.WaterWavesAsset.Spectrum.set -> Vixen.Water.WaterWaveSpectrum
+Vixen.Water.WaterWavesAsset.Validate() -> string?
+Vixen.Water.WaterWavesAsset.WaterWavesAsset() -> void
 Vixen.Water.WaterZone -> readonly struct
 Vixen.Water.WaterZone : System.IEquatable<Vixen.Water.WaterZone>
 Vixen.Water.WaterZone.Bytes.get -> long
@@ -242,15 +384,29 @@ Vixen.Water.WaterZoneUpdate.First = 1 -> Vixen.Water.WaterZoneUpdate
 Vixen.Water.WaterZoneUpdate.None = 0 -> Vixen.Water.WaterZoneUpdate
 Vixen.Water.WaterZoneUpdate.Scrolled = 2 -> Vixen.Water.WaterZoneUpdate
 Vixen.Water.WaterZoneUpdate.WaterZoneUpdate() -> void
+const Vixen.Water.Buoyancy.Density = 1000 -> float
 const Vixen.Water.GerstnerWave.Gravity = 9.80665 -> float
 const Vixen.Water.WaterBody.BoundarySamples = 16 -> int
+const Vixen.Water.WaterCarve.LayerName = "Water" -> string
 const Vixen.Water.WaterMath.PiA = 3.140625 -> float
 const Vixen.Water.WaterMath.PiB = 0.00096702576 -> float
 const Vixen.Water.WaterMath.PiC = 6.2772E-07 -> float
 const Vixen.Water.WaterMath.PiD = 1.2154201E-10 -> float
 const Vixen.Water.WaterMath.Tau = 6.2831855 -> float
+const Vixen.Water.WaterWavesAsset.Extension = ".vxwaves" -> string
+static Vixen.Water.Buoyancy.Evaluate(in Vixen.Water.WaterEvaluator evaluator, in Vixen.Water.BuoyancyPontoon pontoon, Vixen.Core.Mathematics.Vector3 centre, Vixen.Core.Mathematics.Vector3 velocity, float gravity, in Vixen.Water.BuoyancySettings settings, float waterTime, Vixen.Water.IWaterRipples? ripples = null) -> Vixen.Water.BuoyancyForce
+static Vixen.Water.Buoyancy.RestDisplacement(System.ReadOnlySpan<Vixen.Water.BuoyancyPontoon> pontoons, float mass, in Vixen.Water.BuoyancySettings settings) -> float
+static Vixen.Water.Buoyancy.Solve(in Vixen.Water.WaterEvaluator evaluator, System.ReadOnlySpan<Vixen.Water.BuoyancyPontoon> pontoons, in Vixen.Core.Mathematics.Matrix4x4 placement, Vixen.Core.Mathematics.Vector3 velocity, float gravity, in Vixen.Water.BuoyancySettings settings, float waterTime, System.Span<Vixen.Water.BuoyancyForce> into, Vixen.Water.IWaterRipples? ripples = null) -> int
+static Vixen.Water.Buoyancy.SubmergedFraction(float radius, float centre, float surface) -> float
+static Vixen.Water.BuoyancyForce.None.get -> Vixen.Water.BuoyancyForce
+static Vixen.Water.BuoyancySettings.Default.get -> Vixen.Water.BuoyancySettings
 static Vixen.Water.WaterAttenuation.Default.get -> Vixen.Water.WaterAttenuation
 static Vixen.Water.WaterBodyContribution.None.get -> Vixen.Water.WaterBodyContribution
+static Vixen.Water.WaterCarve.Carve(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, Vixen.Water.WaterBody body, in Vixen.Water.WaterCarveProfile profile) -> Vixen.Terrain.TerrainRect
+static Vixen.Water.WaterCarve.LayerOf(Vixen.Terrain.Terrain terrain, string name = "Water") -> Vixen.Terrain.TerrainEditLayer
+static Vixen.Water.WaterCarve.Regenerate(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, System.Collections.Generic.IEnumerable<(Vixen.Water.WaterBody Body, Vixen.Water.WaterCarveProfile Profile)> bodies) -> Vixen.Terrain.TerrainRect
+static Vixen.Water.WaterCarveProfile.Default.get -> Vixen.Water.WaterCarveProfile
+static Vixen.Water.WaterCarveProfile.None.get -> Vixen.Water.WaterCarveProfile
 static Vixen.Water.WaterFieldDescription.Default.get -> Vixen.Water.WaterFieldDescription
 static Vixen.Water.WaterFieldSample.None.get -> Vixen.Water.WaterFieldSample
 static Vixen.Water.WaterMath.Cos(float radians) -> float
@@ -263,6 +419,7 @@ static Vixen.Water.WaterMath.SmoothStep(float edge0, float edge1, float value) -
 static Vixen.Water.WaterMath.Unit(uint hash, int stream) -> float
 static Vixen.Water.WaterProfilePoint.Still.get -> Vixen.Water.WaterProfilePoint
 static Vixen.Water.WaterProfilePoint.Stream.get -> Vixen.Water.WaterProfilePoint
+static Vixen.Water.WaterRippleSettings.Default.get -> Vixen.Water.WaterRippleSettings
 static Vixen.Water.WaterSample.None.get -> Vixen.Water.WaterSample
 static Vixen.Water.WaterWaveSpectrum.Calm.get -> Vixen.Water.WaterWaveSpectrum
 static Vixen.Water.WaterWaveSpectrum.Default.get -> Vixen.Water.WaterWaveSpectrum

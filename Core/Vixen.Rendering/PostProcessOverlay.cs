@@ -179,6 +179,15 @@ public struct PostProcessOverlay {
     /// <summary>Whether looking toward the sun brightens it.</summary>
     public BlendedToggle? FogSunScattering { get; set; }
 
+    /// <summary>How thick the froxel medium is here. ⚠ Zero is an opinion; see the settings field.</summary>
+    public Blended? VolumetricDensity { get; set; }
+
+    /// <summary>What fraction of it scatters rather than absorbs.</summary>
+    public BlendedColour? VolumetricAlbedo { get; set; }
+
+    /// <summary>Its Henyey–Greenstein anisotropy.</summary>
+    public Blended? VolumetricPhaseG { get; set; }
+
     /// <summary>How dark the corners go.</summary>
     public Blended? VignetteIntensity { get; set; }
 
@@ -227,6 +236,9 @@ public struct PostProcessOverlay {
         && FogColour is null
         && FogHeightFalloff is null
         && FogSunScattering is null
+        && VolumetricDensity is null
+        && VolumetricAlbedo is null
+        && VolumetricPhaseG is null
         && VignetteIntensity is null
         && VignetteSmoothness is null
         && GrainIntensity is null
@@ -269,6 +281,9 @@ public struct PostProcessOverlay {
         FogColour = Fold(FogColour, settings.FogColour, amount);
         FogHeightFalloff = Fold(FogHeightFalloff, settings.FogHeightFalloff, amount);
         FogSunScattering = Fold(FogSunScattering, settings.FogSunScattering, amount);
+        VolumetricDensity = Fold(VolumetricDensity, settings.VolumetricDensity, amount);
+        VolumetricAlbedo = Fold(VolumetricAlbedo, settings.VolumetricAlbedo, amount);
+        VolumetricPhaseG = Fold(VolumetricPhaseG, settings.VolumetricPhaseG, amount);
         VignetteIntensity = Fold(VignetteIntensity, settings.VignetteIntensity, amount);
         VignetteSmoothness = Fold(VignetteSmoothness, settings.VignetteSmoothness, amount);
         GrainIntensity = Fold(GrainIntensity, settings.GrainIntensity, amount);

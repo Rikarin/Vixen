@@ -648,12 +648,34 @@ public sealed class World : IDisposable {
         Write(entity, value);
     }
 
-    /// <summary>Adds a component with its default value — the usual way to add a tag.</summary>
+    /// <summary>Adds a component zeroed — the usual way to add a tag.</summary>
     /// <typeparam name="T">The component type.</typeparam>
     /// <param name="entity">The handle.</param>
     /// <exception cref="EntityNotFoundException">The handle is stale, or from another world.</exception>
     /// <exception cref="InvalidOperationException">The entity already has one.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Zeroed even for a component that declares an <see cref="IDefaultComponent{TSelf}" />,
+    ///     which is deliberate.</b> "The ECS hands back zeroed storage" is a contract the storage layer
+    ///     keeps everywhere — a chunk row is a memset — and honouring a declared default here would
+    ///     mean this unconstrained call had to ask, per type, on a structural change, on behalf of the
+    ///     components that never opted in. <see cref="AddDefault{T}" /> is the one that asks, and the
+    ///     constraint on it means the compiler answers rather than the run time.
+    /// </remarks>
     public void Add<T>(Entity entity) => Add<T>(entity, default!);
+
+    /// <summary>Adds a component holding what its type declares a fresh one should hold.</summary>
+    /// <typeparam name="T">The component type, which has to declare a default to be named here.</typeparam>
+    /// <param name="entity">The handle.</param>
+    /// <exception cref="EntityNotFoundException">The handle is stale, or from another world.</exception>
+    /// <exception cref="InvalidOperationException">The entity already has one.</exception>
+    /// <remarks>
+    ///     What <c>world.Add&lt;VirtualCamera&gt;(entity)</c> looks like it does and does not: a zeroed
+    ///     shot is disabled and has no lens, so it neither renders nor looks broken. The constraint is
+    ///     the point — this cannot be called for a component with no default to reach, so there is no
+    ///     silent difference between the two adds for anything that did not opt in, and the resolution
+    ///     is static, which is what keeps it free of a lookup.
+    /// </remarks>
+    public void AddDefault<T>(Entity entity) where T : struct, IDefaultComponent<T> => Add(entity, T.DefaultValue);
 
     /// <summary>Removes a component, moving the entity to the archetype without it.</summary>
     /// <typeparam name="T">The component type.</typeparam>

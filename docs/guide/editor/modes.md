@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Ui.IEditorMode, T:Vixen.Editor.Ui.EditorModes, T:Vixen.Edit
 tags: [editor, viewport, input, blockout, terrain, foliage, plugins]
 since: 0.1
 status: preview
-related: [editor/terrain-mode, editor/foliage-mode]
+related: [editor/terrain-mode, editor/foliage-mode, editor/water-mode]
 ---
 
 ## What it is

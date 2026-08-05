@@ -4,7 +4,7 @@ slug: rendering/reading-the-frame
 kind: guide
 area: Rendering
 summary: Two ways for a pass to consume its own output — a snapshot of a target inside one frame, and a pair of targets alternating across them — and why both are resources the render graph owns rather than barriers somebody remembers.
-api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource]
+api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource, T:Vixen.Rendering.Water.WaterSurfaceAsset, T:Vixen.Rendering.Water.WaterMeshRenderer, T:Vixen.Rendering.Water.WaterSurfacePass, T:Vixen.Rendering.Water.WaterNodeRecord, T:Vixen.Rendering.Water.WaterMeshShaders, T:Vixen.Rendering.Water.WaterMeshView, T:Vixen.Rendering.Water.WaterMeshSettings, T:Vixen.Rendering.Water.UnderwaterShape, T:Vixen.Rendering.Water.UnderwaterAsset, T:Vixen.Rendering.Water.UnderwaterRenderer, R:Water/Water, R:Water/WaterMesh, R:Water/Underwater, T:Vixen.Shaders.Generated.WaterKeys, T:Vixen.Shaders.Generated.WaterMeshKeys, T:Vixen.Shaders.Generated.UnderwaterKeys, T:Vixen.Rendering.Water.WaterRippleSimulation, R:Water/Ripples, T:Vixen.Shaders.Generated.RipplesKeys, T:Vixen.Rendering.Water.WaterTiles, R:Water/WaterTiles, T:Vixen.Shaders.Generated.WaterTilesKeys]
 tags: [rendering, compositor, render-graph, water]
 since: 0.1
 status: stable
@@ -127,7 +127,8 @@ declared for storage alone is refused by name rather than left dirty.
 ```yaml
 game: !Sequence
   children:
-    # … the lit pass, then the water surface pass writing WaterSurface and WaterNormal …
+    # … the lit pass …
+    - !WaterSurface { surface: WaterSurface, normal: WaterNormal, sceneDepth: SceneDepth, view: Camera }
     - !Copy   { source: SceneColour, destination: SceneColourCopy }
     - !Water  { behind: SceneColourCopy, output: SceneColour, view: Camera }
 ```
@@ -140,6 +141,89 @@ on one driver and not another.
 ⚠ **Its alpha is the waterline mask, not an opacity.** A camera straddling the surface needs two
 treatments in one frame divided by a curve a post-process volume's single per-frame weight cannot
 express, and the pass already knows per pixel which side it is on.
+
+⚠ **All three nodes, in that order, or there is no wet pixel.** `!WaterSurface` is what draws the
+geometry — `WaterMeshRenderer` over `WaterSurfacePass`, one instanced draw of the terrain's own grid
+patch per zone plus a second for the far skirt. Without it `!Water` reads a cleared mask, finds no
+coverage anywhere and passes the frame through unchanged, which is a water stack that is wired, tested
+and invisible.
+
+⚠ **A frame that draws no water at all is usually the depth buffer.** The surface's depth state is
+`Greater` with no write and its attachment is `LoadAction.Load`, so a document that puts `!WaterSurface`
+before anything has written depth tests every fragment against undefined memory — and fails all of
+them, with no validation error anywhere. That is the silent no-draw; it belongs after the opaque pass
+for the reason below, and the horizon fixture clears depth to the far plane before it because a
+fixture has no opaque pass.
+
+⚠ **The surface tests depth and never writes it.** The composite unprojects the *scene* depth to find
+what is behind the water; a surface that wrote depth would put itself there and the water would be
+integrated against itself — clear at every depth, with nothing in a capture to say why. And the far
+skirt is drawn *first*, because with depth writes off nothing arbitrates between two fragments at one
+pixel except which came last.
+
+**The pass runs over the tiles that have water in them, not over the screen.** `tiled: true` — which is
+the default for a document — puts a compute dispatch ahead of the draw. `WaterTiles.rvn` classifies the
+coverage mask into one flag per 8×8 tile, and `!Water` becomes `Draw(6, tiles)`: two triangles per
+tile, one instance per tile, and a dry tile collapsing to a degenerate rectangle in the vertex stage.
+`WaterTiles` is the C# half of that arithmetic, and the tile size is a constant in both files because
+three things — the host, the classifier and the draw — have to agree about which tile an instance is.
+
+⚠ **A tiled pass loads its target and leaves a dry tile alone**, where the untiled one writes every
+pixel of the frame: the scene colour back, with a zero mask in alpha. Those are the same picture only
+where the output already holds what `behind:` is a copy of — which in a document is free, because the
+`!Copy` above filled `behind:` from that very target. Wire a `WaterRenderer` by hand against a target
+holding something else and the dry pixels keep that something else, which is why `Tiled` is off on the
+node and on in the document.
+
+⚠ **A flag per tile and not a compacted list, so the draw is instanced rather than indirect.** The
+shape this came from feeds an indirect draw, which needs the count on the device; `ICommandList` has
+`DrawIndexedIndirect` and no non-indexed `DrawIndirect`, so indirect here means either a three-entry
+index buffer for a triangle that has no vertex buffer, or reading the count back to the host — a stall
+a frame long, every frame, to avoid a pass over tiles that are mostly empty. What a flag costs instead
+is one discarded rectangle per dry tile.
+
+⚠ **The tile buffer is bound even when the tiling is off**, because a descriptor set is written wholly
+or not at all — a shader's bindings come from its declarations and not from the variant it was compiled
+into. Untiled, the node imports a zeroed word of its own rather than declaring a transient nothing
+writes, which the render graph refuses by name.
+
+**Underwater is two features that look like one**, and § D9 warns twice that getting the order wrong
+is architectural. The volume half is `UnderwaterShape`, doc 32's `IPostProcessShape`, supplied by
+`WaterZoneSystem` — per zone rather than per body, because the field has already resolved a river
+mouth into one place. It grades the whole frame.
+
+The other half is `!Underwater`, and it exists because **a fold produces one weight and a waterline is
+a curve**. It solves the intersection of the surface with the near plane per pixel, against the local
+surface *plane* read off the same `WaterQuery` the volume fold and the buoyancy solver read.
+
+⚠ **It goes after `!Water` and after a second `!Copy`.** What it grades is the finished frame
+*including* the water surface, so the copy it reads has to be taken after the surface was composited —
+a document reusing the copy `!Water` read would grade the frame as it was before the water was in it,
+which at the waterline is a band of unlit lake.
+
+⚠ **The surface mask does a different job in this node.** In `!Water` it says "there is water here";
+in `!Underwater` it says "the ray leaves the water here", which is what bounds the fog path. Without
+that, a diver looking up is exactly as dark as one looking down at the bed — the failure that reads as
+"underwater is just a blue filter".
+
+**The ripple field is the ping-pong's first consumer.** `WaterRippleSimulation` is one dispatch a
+step over a `PingPongTextures` pair, with the displacement and its rate in one texture's `rg`.
+
+⚠ **`Rgba16Float` and not `Rg16Float`, which is portability rather than waste.** Vulkan's *required*
+storage-image formats are a short list and two-channel half is not on it — a device without
+`StorageImageExtendedFormats` refuses the module outright, which is what the seam fixture found on the
+first machine it ran on.
+
+⚠ **The uniform block is filled at declaration and not inside the pass body.** A graph executes long
+after it is declared and the injection queue is cleared at the bottom of `Record`, so a body that
+described itself would describe an empty queue every time — a device field that is perfectly flat,
+perfectly stable, and wrong by exactly the reference's own amplitude.
+
+⚠ **The descriptor ring is sized by `StepsPerFrame` and not by frames in flight alone.** A set names
+the half of the pair this step reads and the halves swap, so a set rewritten while a submitted command
+list still references it is the race the ping-pong exists to avoid — arriving through the descriptor
+rather than through the texture. One step a frame is the assumption; an accumulator catching up after
+a hitch takes several.
 
 What supplies the water's own planes is a scene: `WaterZoneComponent` and `WaterBodyComponent` on
 ordinary entities, folded by `WaterZoneSystem` into the fields the kernel owns and uploaded by

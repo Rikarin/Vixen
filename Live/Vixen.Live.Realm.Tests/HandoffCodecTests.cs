@@ -96,11 +96,73 @@ public class HandoffCodecTests {
         Span<byte> buffer = stackalloc byte[512];
         var payload = HandoffCodec.Write(source, here, Replicators, buffer);
 
-        Assert.False(
-            HandoffCodec.Apply(target, target.Create(), payload.AsSpan()[..^2], Replicators, out var applied)
-        );
+        var there = target.Create();
 
-        Assert.True(applied < 2);
+        Assert.False(HandoffCodec.Apply(target, there, payload.AsSpan()[..^2], Replicators, out var applied));
+
+        // ⚠ Nothing, and not "fewer than two". The first record reads cleanly and the second runs
+        // out, so a codec that applies as it goes leaves a Position on an entity whose transfer was
+        // refused — a player who is somewhere with the wrong body, which is the one outcome this
+        // design is built to make impossible. `applied < 2` was true of that codec too.
+        Assert.Equal(0, applied);
+        Assert.False(target.Has<Position>(there));
+        Assert.False(target.Has<Cooldown>(there));
+    }
+
+    /// <summary>
+    ///     A record this build cannot read is refused with the ones before it left off, for the same
+    ///     reason: an unknown type id cannot be skipped, so everything after it is unreadable and
+    ///     everything before it must not stand.
+    /// </summary>
+    [Fact]
+    public void A_payload_whose_last_record_is_unknown_applies_none_of_it() {
+        var source = new World();
+        var target = new World();
+
+        var here = source.Create();
+
+        source.Add(here, new Position { X = 1, Y = 2 });
+        source.Add(here, new Cooldown { Remaining = 3 });
+
+        Span<byte> buffer = stackalloc byte[512];
+        var payload = HandoffCodec.Write(source, here, Replicators, buffer);
+
+        var there = target.Create();
+
+        // The receiving build knows Position and has never heard of Cooldown, which is written second.
+        Assert.False(HandoffCodec.Apply(target, there, payload.AsSpan(), [new PositionReplicator()], out var applied));
+
+        Assert.Equal(0, applied);
+        Assert.False(target.Has<Position>(there));
+    }
+
+    /// <summary>The rehearsal does not leave anything of its own behind.</summary>
+    /// <remarks>
+    ///     Applying a payload twice — once onto a scratch entity to find out whether all of it reads,
+    ///     then onto the real one — is the only way to be atomic over records that are not
+    ///     length-prefixed. The scratch entity is this codec's business and nobody else's, so a world
+    ///     it was used on has to end up holding exactly the entity the caller asked about.
+    /// </remarks>
+    [Fact]
+    public void The_rehearsal_leaves_no_entity_of_its_own() {
+        var source = new World();
+        var target = new World();
+
+        var here = source.Create();
+
+        source.Add(here, new Position { X = 1, Y = 2 });
+
+        Span<byte> buffer = stackalloc byte[512];
+        var payload = HandoffCodec.Write(source, here, Replicators, buffer);
+
+        var there = target.Create();
+        var before = target.EntityCount;
+
+        Assert.True(HandoffCodec.Apply(target, there, payload.AsSpan(), Replicators, out _));
+        Assert.Equal(before, target.EntityCount);
+
+        Assert.False(HandoffCodec.Apply(target, there, payload.AsSpan()[..^2], Replicators, out _));
+        Assert.Equal(before, target.EntityCount);
     }
 
     [Fact]

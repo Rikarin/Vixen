@@ -42,3 +42,23 @@ public struct RegistrationTestSettings {
     /// <summary>Anything.</summary>
     public Vector3 Extent;
 }
+
+/// <summary>A game's component whose zero would look like a defect, so it says what a fresh one is.</summary>
+/// <remarks>
+///     ⚠ <b>Declared in a test assembly and nowhere named by the engine</b>, which is the whole point
+///     <c>ComponentDefaultReachTests</c> makes: the mechanism it uses is the interface and the
+///     generator that already runs in any project declaring components. Before it, the only way a
+///     component got a usable starting value was a hardcoded list of four types inside the editor's
+///     own assembly, which a game's component could never appear on.
+/// </remarks>
+[Component]
+[DataContract("RegistrationTestThruster")]
+public struct Thruster : IDefaultComponent<Thruster> {
+    /// <summary>How hard it pushes. Zero is a thruster that does nothing at all.</summary>
+    public float Thrust;
+
+    /// <summary>How much fuel it starts with.</summary>
+    public float Fuel;
+
+    static Thruster IDefaultComponent<Thruster>.DefaultValue => new() { Thrust = 250f, Fuel = 100f };
+}

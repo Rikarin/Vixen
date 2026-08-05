@@ -29,6 +29,15 @@
         -->
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
 
+        <!--
+            The quadtree, and only the quadtree — docs/plan/35 § D4: "one quadtree, not two". Unreal
+            has a landscape LOD system and a water LOD system, with two morphs, two sets of bias cvars
+            and two ways to get a crack; PatchSelector is the descent both consumers share, and the
+            no-crack and morph-continuity tests are written once because of it. Vixen.Terrain opens no
+            device either, so this costs the kernel nothing it was promising not to have.
+        -->
+        <ProjectReference Include="..\Vixen.Terrain\Vixen.Terrain.csproj" />
+
         <!-- What the generated descriptors are registered into. -->
         <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
 
@@ -38,6 +47,16 @@
             contract runs this itself.
         -->
         <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            And the binary ones, on Vixen.Foliage's terms. A .vxwaves ships as its serialized
+            WaterWavesAsset rather than as text — docs/plan/35 § D6's one asset kind has a runtime
+            reader, `AssetWaterSource` — and a type no serializer is registered for cannot be written
+            by the importer or read by a game, on a trimmed build or otherwise.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
 

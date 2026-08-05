@@ -50,10 +50,37 @@ public sealed class Corpus {
     /// </remarks>
     public const int MaxSignatures = 1 << 16;
 
+    /// <summary>How often an input is kept once novelty has stopped meaning anything.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Only reached when a target has said its behaviour space is too large for the
+    ///         signature to summarise</b> — see <see cref="IFuzzTarget.NoveltyGuides" />. Past
+    ///         <see cref="MaxSignatures" /> such a target keeps one input in this many regardless of
+    ///         what it did, so the pool the mutator draws from goes on turning over.
+    ///     </para>
+    ///     <para>
+    ///         <b>Which is a fix rather than a feature.</b> Saturation used to stop two different
+    ///         things at once: it stopped the signature table growing, which is the memory bound it
+    ///         was there for, and it stopped the corpus growing at all, which nothing wanted. A run
+    ///         that saturates in its first second then spends the rest of an hour mutating whatever
+    ///         the first few thousand cases happened to leave behind. Only the first of those is
+    ///         worth keeping.
+    ///     </para>
+    ///     <para>
+    ///         Sixty-four is slow enough that the protected seeds still dominate what the mutator
+    ///         picks, and fast enough that a long run replaces the unprotected pool many times over.
+    ///     </para>
+    /// </remarks>
+    public const int Sample = 64;
+
     readonly List<byte[]> entries = [];
     readonly HashSet<long> signatures = [];
     ulong offered;
     int protectedCount;
+
+    /// <summary>Whether an input is kept for being novel, or sampled once novelty saturates.</summary>
+    /// <remarks>Set from <see cref="IFuzzTarget.NoveltyGuides" />. True is what every decoder wants.</remarks>
+    public bool NoveltyGuides { get; set; } = true;
 
     /// <summary>How many inputs are held.</summary>
     public int Count => entries.Count;
@@ -74,12 +101,16 @@ public sealed class Corpus {
         offered++;
 
         // Saturated. See MaxSignatures: the guidance has proved worthless on this target, so it is
-        // switched off rather than paid for, and neither table grows again.
+        // switched off rather than paid for, and the signature table never grows again.
         if (signatures.Count >= MaxSignatures) {
-            return false;
-        }
-
-        if (!signatures.Add(signature)) {
+            // For a target that expected to saturate, the pool goes on turning over anyway — see
+            // Sample. For one that did not, freezing it is the older and more conservative answer:
+            // a decoder whose signature cannot saturate has a signature that is wrong, and the
+            // finding is that rather than the corpus.
+            if (NoveltyGuides || offered % Sample != 0) {
+                return false;
+            }
+        } else if (!signatures.Add(signature)) {
             return false;
         }
 

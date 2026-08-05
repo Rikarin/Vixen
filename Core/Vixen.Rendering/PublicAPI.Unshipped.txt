@@ -326,9 +326,11 @@ Vixen.Rendering.Compositor.CompositorBuilder.Visibility.set -> Vixen.Rendering.G
 Vixen.Rendering.Compositor.CompositorFrame -> sealed class
 Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphBuffer buffer, in Vixen.Graphics.BufferDescription description) -> void
 Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphTexture texture, Vixen.Graphics.PixelFormat format) -> void
+Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphTexture texture, in Vixen.Graphics.TextureDescription description) -> void
 Vixen.Rendering.Compositor.CompositorFrame.Buffer(string node, string name) -> Vixen.Graphics.RenderGraph.GraphBuffer
 Vixen.Rendering.Compositor.CompositorFrame.CompositorFrame() -> void
 Vixen.Rendering.Compositor.CompositorFrame.DescribeBuffer(string node, string name) -> Vixen.Graphics.BufferDescription
+Vixen.Rendering.Compositor.CompositorFrame.DescriptionOf(string node, string name) -> Vixen.Graphics.TextureDescription?
 Vixen.Rendering.Compositor.CompositorFrame.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorFrame.Device.init -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorFrame.FormatOf(string node, string name) -> Vixen.Graphics.PixelFormat
@@ -473,6 +475,8 @@ Vixen.Rendering.Compositor.FullScreenRenderer.Device.get -> Vixen.Graphics.IGrap
 Vixen.Rendering.Compositor.FullScreenRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.FullScreenRenderer.Dispose() -> void
 Vixen.Rendering.Compositor.FullScreenRenderer.FullScreenRenderer() -> void
+Vixen.Rendering.Compositor.FullScreenRenderer.Instances.get -> int
+Vixen.Rendering.Compositor.FullScreenRenderer.Instances.set -> int
 Vixen.Rendering.Compositor.FullScreenRenderer.Load.get -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.FullScreenRenderer.Load.set -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.FullScreenRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
@@ -487,6 +491,8 @@ Vixen.Rendering.Compositor.FullScreenRenderer.Samplers.set -> Vixen.Rendering.Sa
 Vixen.Rendering.Compositor.FullScreenRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.FullScreenRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.FullScreenRenderer.UploadCount.get -> int
+Vixen.Rendering.Compositor.FullScreenRenderer.Vertices.get -> int
+Vixen.Rendering.Compositor.FullScreenRenderer.Vertices.set -> int
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.get -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.set -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.GlobalDistanceFieldAsset -> sealed record
@@ -861,7 +867,11 @@ Vixen.Rendering.Compositor.RenderPassRenderer.Viewport.get -> Vixen.Core.Mathema
 Vixen.Rendering.Compositor.RenderPassRenderer.Viewport.set -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.RenderResourceAsset -> sealed record
 Vixen.Rendering.Compositor.RenderResourceAsset : System.IEquatable<Vixen.Rendering.Compositor.RenderResourceAsset>
+Vixen.Rendering.Compositor.RenderResourceAsset.Depth.get -> int
+Vixen.Rendering.Compositor.RenderResourceAsset.Depth.init -> int
 Vixen.Rendering.Compositor.RenderResourceAsset.Describe(Vixen.Core.Mathematics.Int2 frameSize) -> Vixen.Graphics.TextureDescription
+Vixen.Rendering.Compositor.RenderResourceAsset.Dimension.get -> Vixen.Graphics.TextureDimension
+Vixen.Rendering.Compositor.RenderResourceAsset.Dimension.init -> Vixen.Graphics.TextureDimension
 Vixen.Rendering.Compositor.RenderResourceAsset.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.Compositor.RenderResourceAsset.Format.init -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.Compositor.RenderResourceAsset.Height.get -> int
@@ -903,6 +913,8 @@ Vixen.Rendering.Compositor.RenderStageAsset.SortMode.init -> Vixen.Rendering.Ren
 Vixen.Rendering.Compositor.ResourceBinding -> sealed class
 Vixen.Rendering.Compositor.ResourceBinding.Binding.get -> uint
 Vixen.Rendering.Compositor.ResourceBinding.Binding.init -> uint
+Vixen.Rendering.Compositor.ResourceBinding.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Compositor.ResourceBinding.Buffer.init -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.Compositor.ResourceBinding.Kind.get -> Vixen.Graphics.DescriptorKind
 Vixen.Rendering.Compositor.ResourceBinding.Kind.init -> Vixen.Graphics.DescriptorKind
 Vixen.Rendering.Compositor.ResourceBinding.Name.get -> string?
@@ -1419,6 +1431,7 @@ Vixen.Rendering.Ecs.IVfxEffectSource.TryGet(Vixen.Core.AssetReference reference,
 Vixen.Rendering.Ecs.IVirtualGeometrySource -> interface
 Vixen.Rendering.Ecs.IVirtualGeometrySource.TryGet(Vixen.Core.AssetReference reference, out int mesh, out Vixen.Core.Mathematics.BoundingSphere bounds) -> Vixen.Rendering.Ecs.ClusterState
 Vixen.Rendering.Ecs.Light -> struct
+Vixen.Rendering.Ecs.Light : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.Light>
 Vixen.Rendering.Ecs.Light.Colour -> Vixen.Core.Mathematics.Color3
 Vixen.Rendering.Ecs.Light.HalfLength -> float
 Vixen.Rendering.Ecs.Light.InnerAngle -> float
@@ -1464,6 +1477,7 @@ Vixen.Rendering.Ecs.MeshExtractionSystem.Virtualized.set -> Vixen.Rendering.Feat
 Vixen.Rendering.Ecs.MeshExtractionSystem.VirtualizedCount.get -> int
 Vixen.Rendering.Ecs.MeshExtractionSystem.Waiting.get -> int
 Vixen.Rendering.Ecs.MeshRenderable -> struct
+Vixen.Rendering.Ecs.MeshRenderable : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.MeshRenderable>
 Vixen.Rendering.Ecs.MeshRenderable.CastsShadows -> bool
 Vixen.Rendering.Ecs.MeshRenderable.Material -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.MeshRenderable.Mesh -> Vixen.Core.AssetReference
@@ -1498,12 +1512,16 @@ Vixen.Rendering.Ecs.PostProcessSettings.Temperature -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.Tint -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.VignetteIntensity -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.VignetteSmoothness -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.VolumetricAlbedo -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.Ecs.PostProcessSettings.VolumetricDensity -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.VolumetricPhaseG -> float?
 Vixen.Rendering.Ecs.PostProcessShapeKind -> enum : int
 Vixen.Rendering.Ecs.PostProcessShapeKind.Box = 0 -> Vixen.Rendering.Ecs.PostProcessShapeKind
 Vixen.Rendering.Ecs.PostProcessShapeKind.Custom = 2 -> Vixen.Rendering.Ecs.PostProcessShapeKind
 Vixen.Rendering.Ecs.PostProcessShapeKind.PostProcessShapeKind() -> void
 Vixen.Rendering.Ecs.PostProcessShapeKind.Sphere = 1 -> Vixen.Rendering.Ecs.PostProcessShapeKind
 Vixen.Rendering.Ecs.PostProcessVolume -> struct
+Vixen.Rendering.Ecs.PostProcessVolume : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.PostProcessVolume>
 Vixen.Rendering.Ecs.PostProcessVolume.BlendRadius -> float
 Vixen.Rendering.Ecs.PostProcessVolume.Extents -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Ecs.PostProcessVolume.PostProcessVolume() -> void
@@ -1544,6 +1562,7 @@ Vixen.Rendering.Ecs.SpherePostProcessShape.Radii.get -> Vixen.Core.Mathematics.V
 Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape() -> void
 Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Vector3 radii) -> void
 Vixen.Rendering.Ecs.VfxEmitter -> struct
+Vixen.Rendering.Ecs.VfxEmitter : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.VfxEmitter>
 Vixen.Rendering.Ecs.VfxEmitter.Effect -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.VfxEmitter.Playing -> bool
 Vixen.Rendering.Ecs.VfxEmitter.Reach -> float
@@ -1769,6 +1788,7 @@ Vixen.Rendering.Features.MaterialRenderFeature.SortGroupOf(Vixen.Rendering.Rende
 Vixen.Rendering.Features.MaterialRenderFeature.TextureIndices.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.ParameterKey<uint>, Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>>
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.get -> Vixen.Graphics.BindlessTable?
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.set -> Vixen.Graphics.BindlessTable?
+Vixen.Rendering.Features.MaterialRenderFeature.UnresolvedTextureCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UploadCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UploadedRecordCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UseRecords.get -> bool
@@ -1945,6 +1965,7 @@ Vixen.Rendering.Features.VirtualGeometryRenderFeature.ScreenHeight.set -> int
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.SetBones(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4> palette) -> void
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.SoftwareThreshold.get -> float
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.SoftwareThreshold.set -> float
+Vixen.Rendering.Features.VirtualGeometryRenderFeature.Unregister(int mesh) -> int
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.VirtualGeometryRenderFeature() -> void
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.Visibility.get -> Vixen.Rendering.GpuClusterVisibility?
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.Visibility.set -> Vixen.Rendering.GpuClusterVisibility?
@@ -2115,6 +2136,7 @@ Vixen.Rendering.GpuClusterVisibility.Slots.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.GpuClusterVisibility.SlotsOffset.get -> long
 Vixen.Rendering.GpuClusterVisibility.SoftwareClusters.get -> int
 Vixen.Rendering.GpuClusterVisibility.TraversedOnDevice.get -> bool
+Vixen.Rendering.GpuClusterVisibility.Unregister(int index) -> bool
 Vixen.Rendering.GpuClusterVisibility.UploadInstances() -> void
 Vixen.Rendering.GpuClusterVisibility.Visible.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.GpuClusterVisibility.VisibleClusters.get -> int
@@ -2223,6 +2245,7 @@ Vixen.Rendering.HiZReduction.Nearest = 1 -> Vixen.Rendering.HiZReduction
 Vixen.Rendering.IMeshletPageSource -> interface
 Vixen.Rendering.IMeshletPageSource.ReadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.IPageStore -> interface
+Vixen.Rendering.IPageStore.CanPlace(Vixen.Rendering.PageKey key, int bytes) -> bool
 Vixen.Rendering.IPageStore.Evict(Vixen.Rendering.PageKey key, int slot) -> void
 Vixen.Rendering.IPageStore.LoadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.IPageStore.PageSize.get -> int
@@ -3334,6 +3357,30 @@ Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.get -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.init -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.TexturedMetalRoughnessFeature() -> void
+Vixen.Rendering.Materials.TexturedNormalMapFeature -> sealed record
+Vixen.Rendering.Materials.TexturedNormalMapFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedNormalMapFeature>
+Vixen.Rendering.Materials.TexturedNormalMapFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedNormalMapFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalMap.get -> string
+Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalMap.init -> string
+Vixen.Rendering.Materials.TexturedNormalMapFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.get -> float
+Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.init -> float
+Vixen.Rendering.Materials.TexturedNormalMapFeature.TexturedNormalMapFeature() -> void
+Vixen.Rendering.Materials.TexturedOrmFeature -> sealed record
+Vixen.Rendering.Materials.TexturedOrmFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedOrmFeature>
+Vixen.Rendering.Materials.TexturedOrmFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedOrmFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedOrmFeature.Metalness.get -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.Metalness.init -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.OcclusionStrength.get -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.OcclusionStrength.init -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.OrmMap.get -> string
+Vixen.Rendering.Materials.TexturedOrmFeature.OrmMap.init -> string
+Vixen.Rendering.Materials.TexturedOrmFeature.Roughness.get -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.Roughness.init -> float
+Vixen.Rendering.Materials.TexturedOrmFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedOrmFeature.TexturedOrmFeature() -> void
 Vixen.Rendering.MemoryMeshletPageSource -> sealed class
 Vixen.Rendering.MemoryMeshletPageSource : Vixen.Rendering.IMeshletPageSource
 Vixen.Rendering.MemoryMeshletPageSource.Add(int source, Vixen.Rendering.VirtualGeometry.MeshletPageSet pages) -> void
@@ -3530,6 +3577,7 @@ Vixen.Rendering.MeshVertex.Position.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshletPagePool -> sealed class
 Vixen.Rendering.MeshletPagePool : System.IDisposable
 Vixen.Rendering.MeshletPagePool : Vixen.Rendering.IPageStore
+Vixen.Rendering.MeshletPagePool.CanPlace(Vixen.Rendering.PageKey key, int bytes) -> bool
 Vixen.Rendering.MeshletPagePool.Dispose() -> void
 Vixen.Rendering.MeshletPagePool.Evict(Vixen.Rendering.PageKey key, int slot) -> void
 Vixen.Rendering.MeshletPagePool.Evictions.get -> long
@@ -3586,6 +3634,15 @@ Vixen.Rendering.OccluderProjections.Matches(int viewCount) -> bool
 Vixen.Rendering.OccluderProjections.OccluderProjections() -> void
 Vixen.Rendering.OccluderProjections.Remember(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.RenderView> frameViews) -> void
 Vixen.Rendering.OccluderProjections.TryGet(int viewIndex, out Vixen.Core.Mathematics.Matrix4x4 projection) -> bool
+Vixen.Rendering.PageBudgetException -> sealed class
+Vixen.Rendering.PageBudgetException : System.Exception
+Vixen.Rendering.PageBudgetException.Capacity.get -> int
+Vixen.Rendering.PageBudgetException.Key.get -> Vixen.Rendering.PageKey
+Vixen.Rendering.PageBudgetException.PageBudgetException() -> void
+Vixen.Rendering.PageBudgetException.PageBudgetException(Vixen.Rendering.PageKey key, int pinned, int capacity) -> void
+Vixen.Rendering.PageBudgetException.PageBudgetException(string message) -> void
+Vixen.Rendering.PageBudgetException.PageBudgetException(string message, System.Exception innerException) -> void
+Vixen.Rendering.PageBudgetException.Pinned.get -> int
 Vixen.Rendering.PageKey -> readonly struct
 Vixen.Rendering.PageKey : System.IEquatable<Vixen.Rendering.PageKey>
 Vixen.Rendering.PageKey.Index.get -> int
@@ -3607,19 +3664,26 @@ Vixen.Rendering.PageResidency : System.IDisposable
 Vixen.Rendering.PageResidency.Budget.get -> long
 Vixen.Rendering.PageResidency.ClearRequests() -> void
 Vixen.Rendering.PageResidency.Dispose() -> void
+Vixen.Rendering.PageResidency.Drop(Vixen.Rendering.PageKey key) -> bool
 Vixen.Rendering.PageResidency.Evictions.get -> long
 Vixen.Rendering.PageResidency.IsResident(Vixen.Rendering.PageKey key) -> bool
 Vixen.Rendering.PageResidency.Loading.get -> int
 Vixen.Rendering.PageResidency.Loads.get -> long
+Vixen.Rendering.PageResidency.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Rendering.PageResidency.Logger.set -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Rendering.PageResidency.MaxPendingRequests.get -> int
+Vixen.Rendering.PageResidency.MaxPendingRequests.set -> int
 Vixen.Rendering.PageResidency.PageResidency(Vixen.Rendering.IPageStore store, long budget) -> void
 Vixen.Rendering.PageResidency.PendingRequests.get -> int
 Vixen.Rendering.PageResidency.Pin(Vixen.Rendering.PageKey key) -> void
+Vixen.Rendering.PageResidency.PinRefusals.get -> long
 Vixen.Rendering.PageResidency.PinnedPages.get -> int
 Vixen.Rendering.PageResidency.Rejections.get -> long
 Vixen.Rendering.PageResidency.Request(Vixen.Rendering.PageKey key) -> void
 Vixen.Rendering.PageResidency.ResidentBytes.get -> long
 Vixen.Rendering.PageResidency.ResidentPages.get -> int
 Vixen.Rendering.PageResidency.Service(int maxLoads = 8) -> int
+Vixen.Rendering.PageResidency.StaleRequests.get -> long
 Vixen.Rendering.PageResidency.Touch(Vixen.Rendering.PageKey key) -> void
 Vixen.Rendering.PageResidency.TryGetPlacement(Vixen.Rendering.PageKey key, out Vixen.Rendering.PagePlacement placement) -> bool
 Vixen.Rendering.PageResidency.Unpin(Vixen.Rendering.PageKey key) -> void
@@ -3721,6 +3785,12 @@ Vixen.Rendering.PostProcessOverlay.VignetteIntensity.get -> Vixen.Rendering.Blen
 Vixen.Rendering.PostProcessOverlay.VignetteIntensity.set -> Vixen.Rendering.Blended?
 Vixen.Rendering.PostProcessOverlay.VignetteSmoothness.get -> Vixen.Rendering.Blended?
 Vixen.Rendering.PostProcessOverlay.VignetteSmoothness.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricAlbedo.get -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.VolumetricAlbedo.set -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.VolumetricDensity.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricDensity.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricPhaseG.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricPhaseG.set -> Vixen.Rendering.Blended?
 Vixen.Rendering.PrimitiveKind -> enum : int
 Vixen.Rendering.PrimitiveKind.Capsule = 3 -> Vixen.Rendering.PrimitiveKind
 Vixen.Rendering.PrimitiveKind.Cone = 4 -> Vixen.Rendering.PrimitiveKind
@@ -4369,6 +4439,7 @@ Vixen.Rendering.VirtualGeometrySystem.Pipelines.get -> Vixen.Rendering.ComputePi
 Vixen.Rendering.VirtualGeometrySystem.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.VirtualGeometrySystem.Raster.get -> Vixen.Rendering.GpuClusterRaster
 Vixen.Rendering.VirtualGeometrySystem.Register(Vixen.Rendering.RenderSystem system) -> void
+Vixen.Rendering.VirtualGeometrySystem.Release(int mesh) -> bool
 Vixen.Rendering.VirtualGeometrySystem.Residency.get -> Vixen.Rendering.PageResidency
 Vixen.Rendering.VirtualGeometrySystem.Resolve.get -> Vixen.Rendering.GpuClusterResolve
 Vixen.Rendering.VirtualGeometrySystem.Scene.get -> Vixen.Rendering.SceneConstants?
@@ -6167,6 +6238,8 @@ static Vixen.Rendering.Materials.MaterialSurface.Default.get -> Vixen.Rendering.
 static Vixen.Rendering.Materials.MaterialSurface.Of(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.IMaterialFeature>? features) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.MaterialSurface.Of(Vixen.Rendering.Materials.MaterialContent? content) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorIndexParameter(string path) -> string
+static Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalIndexParameter(string path) -> string
+static Vixen.Rendering.Materials.TexturedOrmFeature.OrmIndexParameter(string path) -> string
 static Vixen.Rendering.MeshInstance.NormalMatrix(in Vixen.Core.Mathematics.Matrix4x4 transform) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4), Vixen.Rendering.Materials.MaterialSurface? surface = null, float checker = 0, float tint = 0) -> Vixen.Rendering.MeshInstance
 static Vixen.Rendering.MeshInstance.Packed(Vixen.Rendering.Materials.MaterialSurface surface, float checker = 0, float tint = 0) -> Vixen.Core.Mathematics.Vector4

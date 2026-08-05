@@ -87,6 +87,52 @@ in is the thing an author writes a custom inspector to fix, so it replaces rathe
 plugin's own type, compiled outside the solution and therefore with no generated description at all,
 still gets the inspector its author wrote.
 
+## Examples
+
+**A whole inspector, both ways of naming a member in one file.** The shape group draws the rows the
+default inspector would have drawn; the pattern group chooses its controls, because a spacing an
+author drags is worth a slider and a seed is not.
+
+```html no-compile="Editor/MyGame.Editor/BrushInspector.vxml"
+@component BrushInspector
+@namespace MyGame.Editor
+@tag brush-inspector
+@using Vixen.Editor.Inspector
+@using Vixen.Ui.Controls
+
+<Expander Label="Shape" IsExpanded="true">
+    <PropertyField Path="Radius" />
+    <PropertyField Path="Falloff" />
+</Expander>
+
+<Expander Label="Pattern">
+    <Slider binding-path="Spacing" Minimum="0.05" Maximum="4" />
+    <CheckBox binding-path="AlignToSurface" Content="Align to surface" />
+    <NumericInput binding-path="Seed" />
+</Expander>
+```
+
+**Registering it against a type**, from a plugin's `Activate`:
+
+```csharp no-compile="Editor/MyGame.Editor/MyGameEditorPlugin.cs"
+public void Activate(PluginContext context) {
+    var registry = context.Services.Get<InspectorRegistry>();
+
+    registry.Add(
+        new CustomInspector(
+            typeof(BrushSettings),
+            MarkupInspector.Of<BrushInspector>(
+                context.Services.TryGet<HotReloadHost>(out var reload) ? reload : null
+            )
+        )
+    );
+}
+```
+
+Select something with a `BrushSettings` on it and the panel is the file — two groups, five rows, and
+each of them the row the pipeline would have produced, with its reset button, its override bar and
+its undo intact.
+
 ## See also
 
 * [The editing pipeline](editing-pipeline.md) — what a `binding-path` is bound *to*

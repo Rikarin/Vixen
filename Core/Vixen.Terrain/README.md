@@ -39,6 +39,31 @@ world and run in milliseconds.
 | `TerrainSpline` | Roads: deform into the reserved Splines layer, paint along the width, place meshes along the length |
 | `TerrainSplineProfile` | A half-width, a cosine shoulder per side, a strength and a depth |
 | `TerrainMips` | The per-tile height mip chain, reduced by the *maximum* so a ridge survives |
+| `PatchSelector` | The CDLOD descent itself, over anything that can answer `IPatchSource` |
+| `IPatchSource` | The two questions a descent asks a square of ground: how tall is it, and is there anything there |
+
+
+## One quadtree, not two
+
+`PatchSelector` is `TerrainLodTree`'s descent with the terrain taken out of it, and water is its
+second consumer — [`docs/plan/35 § D4`](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source).
+Unreal has a landscape LOD system and a water LOD system, with two morphs, two sets of bias cvars and
+two ways to get a crack.
+
+The extraction is worth stating because of what it turned out to be: the selection, the morph, the
+no-crack property and the continuity property are all functions of a node's extent and the view's
+distance, and **none of them is a function of what the height came from**. What is left in
+`TerrainLodTree` is exactly the part that is about a terrain — where its samples are, how tall it is,
+and how a morphed grid index becomes a heightmap lookup.
+
+⚠ **`IPatchSource.Covers` must be conservative.** Pruning happens before a node's children are
+visited, so a source that answers from the node's centre removes a shoreline running through a
+corner — and the water ends in a straight edge halfway across a tile. Over-reporting costs a patch
+that draws nothing; under-reporting is a hole.
+
+⚠ **Implement it as a `readonly struct`.** `Select` takes it as a generic parameter rather than as an
+interface reference, so a struct source is called through a constrained call and a selection allocates
+nothing — which matters because this runs once per frame per terrain and per zone.
 
 
 ## The mip chain reduces by the maximum

@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Ecs.Systems;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Vixen.Rendering.Water;
@@ -476,5 +478,258 @@ public sealed class WaterZoneSystemTests : IDisposable {
         var wrong = WaterZoneComponent.Default with { Resolution = 256, CoarsestTexel = 4f };
 
         Assert.NotNull(wrong.Zone.Validate());
+    }
+
+    // --- The sea state a zone names — docs/plan/35 § D6's one asset kind -------
+
+    /// <summary>A source holding one sea state under one name.</summary>
+    sealed class Sea(string name, WaterWaveSpectrum spectrum) : IWaterWaveSource {
+        public int Calls { get; private set; }
+
+        public WaterWaveSpectrum? SpectrumFor(string asked) {
+            Calls++;
+
+            return asked == name ? spectrum : null;
+        }
+    }
+
+    /// <summary>A named sea state replaces the inline one, in the component every consumer reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted through <see cref="WaterZoneSystem.Zones" /> rather than through a resolver
+    ///     the test calls itself.</b> The whole design is that the name becomes a value in exactly one
+    ///     place, so that the vertex stage and the underwater shape cannot disagree about what sea
+    ///     this is — and the only way to check that is to read what those two read.
+    /// </remarks>
+    [Fact]
+    public void A_zone_naming_a_sea_state_draws_that_one() {
+        var gale = WaterWaveSpectrum.Default with { WindSpeed = 24f, Count = WaterWaveCount.ThirtyTwo };
+
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "NorthSea" });
+
+        var system = System();
+
+        system.Waves = new Sea("NorthSea", gale);
+        system.Fold(world);
+
+        var (_, component) = Assert.Single(system.Zones);
+
+        Assert.Equal(24f, component.Waves.WindSpeed);
+        Assert.Equal(WaterWaveCount.ThirtyTwo, component.Waves.Count);
+        Assert.Equal(0, system.UnresolvedWaves);
+    }
+
+    /// <summary>
+    ///     ⚠ A name that does not resolve keeps the zone's own waves and counts — it does not flatten
+    ///     the sea.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The opposite of a body whose spline is missing, deliberately.</b> A body with no
+    ///         curve has no shape to draw and is not rendered; a zone with no spectrum has a perfectly
+    ///         good window, and rendering it dead flat reads as the water stack being broken rather
+    ///         than as one asset still streaming — which is a bug report about the renderer for a
+    ///         problem in the content.
+    ///     </para>
+    ///     <para>
+    ///         The assertion that matters is the wind speed, not the count: a fallback that quietly
+    ///         became <see cref="WaterWaveSpectrum.Default" /> would also leave the count at one and
+    ///         would be a different sea again.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sea_state_that_has_not_loaded_falls_back_to_the_zones_own_and_is_counted() {
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "Missing" });
+
+        var system = System();
+
+        system.Waves = new Sea("NorthSea", WaterWaveSpectrum.Default);
+        system.Fold(world);
+
+        var (_, component) = Assert.Single(system.Zones);
+
+        Assert.Equal(WaterWaveSpectrum.Calm.WindSpeed, component.Waves.WindSpeed);
+        Assert.Equal(WaterWaveSpectrum.Calm.Count, component.Waves.Count);
+        Assert.Equal(1, system.UnresolvedWaves);
+    }
+
+    /// <summary>And with no source at all, which is the host that never wired one.</summary>
+    [Fact]
+    public void A_zone_naming_a_sea_state_with_no_source_is_counted() {
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "NorthSea" });
+
+        var system = System();
+
+        system.Fold(world);
+
+        Assert.Equal(1, system.UnresolvedWaves);
+        Assert.Equal(WaterWaveSpectrum.Calm.WindSpeed, system.Zones[0].Component.Waves.WindSpeed);
+    }
+
+    /// <summary>
+    ///     ⚠ An asset that arrives carrying a spectrum the evaluator refuses counts, and is not used.
+    /// </summary>
+    /// <remarks>
+    ///     A file somebody edited outside the editor, past the importer that would have refused it.
+    ///     Substituting it in would generate <em>zero</em> waves — see <c>WaterMeshRenderer.Stage</c>,
+    ///     which asks <c>Validate</c> before it generates — so the zone would draw a mirror where the
+    ///     inline spectrum would have drawn a sea. It counts for the same reason a missing file does:
+    ///     the sea on screen is not the one the zone named.
+    /// </remarks>
+    [Fact]
+    public void A_sea_state_the_evaluator_refuses_is_counted_and_not_used() {
+        var backwards = WaterWaveSpectrum.Default with { MinimumWavelength = 60f, MaximumWavelength = 4f };
+
+        Assert.NotNull(backwards.Validate());
+
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "Broken" });
+
+        var system = System();
+
+        system.Waves = new Sea("Broken", backwards);
+        system.Fold(world);
+
+        Assert.Equal(1, system.UnresolvedWaves);
+        Assert.Equal(WaterWaveSpectrum.Calm.MinimumWavelength, system.Zones[0].Component.Waves.MinimumWavelength);
+    }
+
+    /// <summary>A zone naming nothing never reaches the source.</summary>
+    /// <remarks>
+    ///     The negative control for the count: a fold that asked for the empty name would count every
+    ///     zone in a project that uses no sea-state assets, and the diagnostic would read as broken
+    ///     from the first frame of every scene.
+    /// </remarks>
+    [Fact]
+    public void A_zone_naming_no_sea_state_never_asks() {
+        Zone(WaterZoneComponent.Default);
+
+        var system = System();
+        var sea = new Sea("NorthSea", WaterWaveSpectrum.Default);
+
+        system.Waves = sea;
+        system.Fold(world);
+
+        Assert.Equal(0, sea.Calls);
+        Assert.Equal(0, system.UnresolvedWaves);
+    }
+
+    // --- The surface seam, and the clock — docs/plan/35 § D1 and § D2 ---------
+
+    /// <summary>A place inside a zone's window answers a query; a place outside answers nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Null is dry and is not an error.</b> It is what a boat outside every window gets, and
+    ///     a solver leaves it to gravity rather than guessing — the same answer
+    ///     <see cref="WaterZoneSystem.ZonelessBodies" /> counts for a body.
+    /// </remarks>
+    [Fact]
+    public void A_place_inside_a_window_has_a_query_and_a_place_outside_does_not() {
+        Zone(WaterZoneComponent.Default with { Extent = 256f });
+
+        Body(new(0f, 2f, 0f));
+
+        var system = System();
+
+        system.Fold(world);
+
+        Assert.NotNull(system.QueryAt(Vector2.Zero));
+        Assert.Null(system.QueryAt(new(5_000f, 0f)));
+    }
+
+    /// <summary>
+    ///     ⚠ The same query object twice, because it is asked once per pontoon per fixed step.
+    /// </summary>
+    /// <remarks>
+    ///     A <see cref="WaterQuery" /> sums its spectrum into up to thirty-two waves in its
+    ///     constructor. Building one per ask is that sum per pontoon per step, which for a river of
+    ///     crates is thousands of times a second — invisible in a picture and plainly visible in a
+    ///     profile, which is the wrong order to find it in.
+    /// </remarks>
+    [Fact]
+    public void The_query_is_cached_per_zone_rather_than_built_per_ask() {
+        Zone(WaterZoneComponent.Default);
+
+        Body(new(0f, 2f, 0f));
+
+        var system = System();
+
+        system.Fold(world);
+
+        var first = system.QueryAt(Vector2.Zero);
+
+        Assert.NotNull(first);
+        Assert.Same(first, system.QueryAt(new(4f, 4f)));
+
+        // And a fold that changed nothing does not rebuild it either — the sea state is the key.
+        system.Fold(world);
+
+        Assert.Same(first, system.QueryAt(Vector2.Zero));
+    }
+
+    /// <summary>A resolved sea state reaches the query a boat floats on, not just the vertex stage.</summary>
+    /// <remarks>
+    ///     The other half of "the name becomes a value in exactly one place": if the substitution
+    ///     happened only in what <see cref="WaterZoneSystem.Zones" /> publishes, the renderer would
+    ///     draw the named sea and a solver would float boats on the inline one.
+    /// </remarks>
+    [Fact]
+    public void A_named_sea_state_reaches_the_query_too() {
+        var gale = WaterWaveSpectrum.Default with { WindSpeed = 24f, Count = WaterWaveCount.ThirtyTwo };
+
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "NorthSea" });
+        Body(new(0f, 2f, 0f));
+
+        var system = System();
+
+        system.Waves = new Sea("NorthSea", gale);
+        system.Fold(world);
+
+        var query = system.QueryAt(Vector2.Zero);
+
+        Assert.NotNull(query);
+        Assert.Equal(32, query.Waves.Length);
+        Assert.Equal(24f, query.Spectrum.WindSpeed);
+    }
+
+    /// <summary>
+    ///     ⚠ The fold does not advance the clock. <see cref="WaterClockSystem" /> does, in a phase
+    ///     early enough for the fixed step.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A regression test for a one-frame drift that shipped.</b> The zone system folds in
+    ///         <see cref="SystemPhase.PreRender" /> — it has to, because a body is rasterised where
+    ///         <c>TransformSystem</c> has just put it — and <see cref="SystemPhase.FixedUpdate" />,
+    ///         where a buoyancy solver runs, is <em>earlier in the same frame</em>. A clock advanced
+    ///         during the fold therefore handed the solver last frame's water time while the vertex
+    ///         stage drew this frame's, and a boat sat exactly one frame of swell behind the water
+    ///         underneath it.
+    ///     </para>
+    ///     <para>
+    ///         Small, constant, and invisible until the frame rate changed — which is the drift § D2's
+    ///         whole seam test exists to prevent, arriving through the back door of a phase order.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_fold_does_not_touch_the_clock_and_the_phases_say_why() {
+        var system = System();
+
+        system.WaterTime = 12.5f;
+        system.Fold(world);
+
+        Assert.Equal(12.5f, system.WaterTime);
+
+        // And the phases, which is the reason the clock is a second system rather than a line in the
+        // fold: EarlyUpdate < FixedUpdate < PreRender, so the writer is before every reader.
+        Assert.Equal(
+            SystemPhase.EarlyUpdate,
+            typeof(WaterClockSystem).GetCustomAttribute<UpdateInGroupAttribute>()!.Phase
+        );
+
+        Assert.Equal(
+            SystemPhase.PreRender,
+            typeof(WaterZoneSystem).GetCustomAttribute<UpdateInGroupAttribute>()!.Phase
+        );
+
+        Assert.True(SystemPhase.EarlyUpdate < SystemPhase.FixedUpdate);
+        Assert.True(SystemPhase.FixedUpdate < SystemPhase.PreRender);
     }
 }

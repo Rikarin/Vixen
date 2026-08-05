@@ -208,7 +208,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Sampling_outside_a_fragment_stage_asks_for_an_explicit_level() {
-        var unit = One(
+        var units = CodeGenTestBase.Generate(
             """
             package A
 
@@ -222,12 +222,22 @@ public class SpirvBackendTests {
                 }
             }
 
-            """
+            """,
+            out var lowering,
+            out _,
+            "spirv"
         );
+
+        var unit = Assert.Single(units);
 
         // Only a fragment shader has the derivatives an implicit level needs.
         Assert.Contains("OpImageSampleExplicitLod", unit.Code);
         Assert.DoesNotContain("OpImageSampleImplicitLod", unit.Code);
+
+        // ⚠ And the substitution is said out loud, which is the half that was missing. Level 0 is
+        // right for an unmipped texture and a decision nobody made for a mipped one, so a module
+        // that validates is not on its own evidence the author got what they meant.
+        Assert.Equal("RVN3013", Assert.Single(lowering).Descriptor.Id);
     }
 
     // --- Stage interface ---------------------------------------------------

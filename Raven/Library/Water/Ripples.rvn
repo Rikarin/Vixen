@@ -1,0 +1,213 @@
+package Vixen.Shaders.Water
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.PostFx
+
+// The ripple field's step — docs/plan/35 § D12, and one of the four Water library modules the
+// document names.
+//
+// A sliding window of height field, advanced by the explicit two-dimensional wave equation: the
+// acceleration of a texel is the Laplacian of its neighbours times the speed squared, damped, and
+// integrated semi-implicitly so the step is the one a fixed-step physics engine takes.
+//
+// ⚠ **Height and velocity in one texture's `rg` rather than two textures.** A wave equation needs
+// both at every texel, and two ping-pong pairs is four textures, four barriers and two chances for a
+// pair to be advanced without the other — which is a simulation that reads this step's height with
+// last step's velocity and is *stable*, so it does not announce itself.
+//
+// ⚠ **The Laplacian is clamped at the border, not wrapped.** A wrapped Laplacian joins the two ends
+// of the window, so a wake leaving one side arrives at the other; a clamped one is a mirror, so it
+// reflects. Which is why neither of those is the boundary: the edge is faded to nothing across a
+// stated band, and the fade is what makes the window's edge invisible rather than reflective.
+//
+// ⚠ **This is the *inexact* half of § D2's seam and it is meant to be.** The closed-form wave sum in
+// `Surface.rvn` is held to exact-to-the-float against `WaterEvaluator`, because a rollback re-asks it
+// at a time it never simulated. A height field's state *is* its history: there is no expression to
+// compare, only a trajectory, and two trajectories that start together diverge at whatever rate the
+// arithmetic differs. So `WaterRippleSeamTests` states a tolerance in metres and measures against it,
+// and the network path passes no ripples at all — see `IWaterRipples`, whose separate argument is
+// what enforces that.
+//
+// ⚠ **§ B5: `glBindImageTexture` is ⬜ in the GL backend.** The `Fragment` permutation is the same
+// arithmetic writing a colour target instead of a storage image, which is the variant every other
+// compute path in the engine already carries. `Injection` is a fragment pass in both, because
+// scattering a handful of splashes into a field is a job for the rasteriser rather than a dispatch
+// over sixty thousand texels that touches four of them.
+
+shader Ripples {
+    /// Whether this variant writes a storage image or a colour target. See § B5 above.
+    [Permutation] val Compute: bool = true
+
+    /// The field as it stands: `r` is the displacement in metres, `g` is its rate.
+    var state: Texture2D
+
+    /// Where the advanced field goes, for the compute variant.
+    /// ⚠ **`rgba16f` and not `rg16f`, and the two spare channels are the price of portability.**
+    /// Vulkan's *required* storage-image formats are a short list and two-channel half is not on it —
+    /// a device without `StorageImageExtendedFormats` refuses the module outright, which is what the
+    /// seam fixture found on the first machine it ran on. Four-channel half is required everywhere,
+    /// and `ba` are somewhere a future consumer can put the surface normal without another texture.
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    var pointSampler: Sampler
+
+    /// How many texels along each axis.
+    var resolution: int = 257
+
+    /// How many metres apart two neighbouring texels are.
+    var metresPerTexel: float = 0.25f
+
+    /// How fast a ripple travels, in metres a second.
+    ///
+    /// ⚠ Above the Courant limit — `Δx ⁄ (Δt √2)` — an explicit wave equation does not look wrong, it
+    /// grows without bound in a few dozen steps and everything downstream reads a NaN.
+    /// `WaterRippleSettings.Validate` refuses it on the host, which is where a refusal can carry a
+    /// sentence.
+    var speed: float = 2f
+
+    /// How fast the field loses energy, per second.
+    var damping: float = 0.6f
+
+    /// How long the step is, in seconds. The simulation's, never a frame's.
+    var deltaTime: float = 0.016666f
+
+    /// How wide the band is over which the field is faded to nothing at the window's edge, in metres.
+    ///
+    /// ⚠ **Metres and not texels, because `WaterRippleSettings.EdgeFade` is metres.** The seam test
+    /// compares two trajectories at a tolerance of a few millimetres; a band that differed by a
+    /// resolution-dependent factor would put the two edges in different places and the tolerance would
+    /// be measuring that instead of the arithmetic.
+    var edgeFade: float = 6f
+
+    /// This step's disturbances: `xy` the texel they are centred on, `z` the radius in texels, `w`
+    /// how hard, in metres a second.
+    ///
+    /// ⚠ **Into the *velocity* and not the height**, which is `WaterRipples.Inject`'s own rule and is
+    /// the whole difference between a wake and a hole: a boat sitting still that pushed the height
+    /// down would carve a permanent dent in the lake, where one that pushes the rate down makes a
+    /// depression that springs back.
+    ///
+    /// ⚠ **A fixed array, and the cap is the budget.** An unbounded number of sources is how this
+    /// feature becomes a frame-time cliff — § D12 says so — so the host takes the first
+    /// `MaxInjections` and counts the rest into `Overflowed`, which is a number an author can see.
+    /// Thirty-two distance tests per texel is what a step costs when every one of them is used.
+    var injections: float4[32]
+
+    /// How many of them this step has. The rest of the array is not read.
+    var injectionCount: int = 0
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val coord = int2(int(uv.x * float(resolution)), int(uv.y * float(resolution)))
+        return Advance(coord)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+
+        // The dispatch is rounded up to whole groups, so the tail invocations have no texel. Storing
+        // outside a storage image is undefined in both targets.
+        if (coord.x >= resolution || coord.y >= resolution) {
+            return
+        }
+
+        target.Store(coord, Advance(coord))
+    }
+
+    /// One texel of one step: the wave equation, damped, then faded at the edge.
+    ///
+    /// ⚠ **The order is the host's order and it has to be.** Damping is applied to the *accelerated*
+    /// velocity and the edge fade to both channels after the integration — swap either and the field
+    /// is stable, plausible and a different simulation from the one `WaterRipples.Step` runs, which
+    /// is a seam test that fails by a number nobody can attribute.
+    func Advance(coord: int2): float4 {
+        val here = Load(coord)
+
+        val left = Load(int2(max(coord.x - 1, 0), coord.y)).x
+        val right = Load(int2(min(coord.x + 1, resolution - 1), coord.y)).x
+        val down = Load(int2(coord.x, max(coord.y - 1, 0))).x
+        val up = Load(int2(coord.x, min(coord.y + 1, resolution - 1))).x
+
+        val laplacian = left + right + down + up - (4f * here.x)
+        val coefficient = speed * speed / (metresPerTexel * metresPerTexel)
+
+        // ⚠ Before the step and into the velocity, which is the host's order exactly. `WaterRipples`
+        // injects between two steps, so a shader that added after the integration would put this
+        // step's splash into next step's height — one frame of lag, invisible, and enough to make the
+        // seam test's tolerance a number nobody can attribute.
+        val accelerated = here.y + Injected(coord) + (coefficient * laplacian * deltaTime)
+        val damped = accelerated - (accelerated * clamp(damping * deltaTime, 0f, 1f))
+
+        val fade = EdgeFade(coord)
+
+        return float4((here.x + (damped * deltaTime)) * fade, damped * fade, 0f, 0f)
+    }
+
+    /// The field at a texel, unfiltered.
+    func Load(coord: int2): float2 {
+        return state.Load(int3(coord.x, coord.y, 0)).xy
+    }
+
+    /// How much this step's disturbances add to a texel's velocity.
+    ///
+    /// ⚠ **A smooth bump rather than a disc**, matching `WaterRipples.Inject`: a hard-edged injection
+    /// is a step function, and a wave equation's response to a step is a ring of grid-aligned
+    /// artefacts that reads as a square splash.
+    ///
+    /// ⚠ **Written out rather than `smoothstep`**, on `EdgeFade`'s reasoning — the seam is measured in
+    /// millimetres and a built-in with implementation latitude is not something to measure across.
+    func Injected(coord: int2): float {
+        var total = 0f
+
+        for (index in 0 .. injectionCount - 1) {
+            val injection = injections[index]
+            val reach = max(injection.z, metresPerTexel)
+
+            val dx = (float(coord.x) - injection.x) * metresPerTexel
+            val dz = (float(coord.y) - injection.y) * metresPerTexel
+            val distance = sqrt((dx * dx) + (dz * dz))
+
+            val t = saturate(distance / reach)
+            val falloff = 1f - (t * t * (3f - (2f * t)))
+
+            total = total + (injection.w * falloff)
+        }
+
+        return total
+    }
+
+    /// How much of a texel's state survives, by how close to the edge it is.
+    ///
+    /// ⚠ **Smoothstepped rather than linear**, matching `WaterRipples.EdgeFade` exactly: a linear
+    /// ramp has a corner at both ends, and the one at the inner end is a discontinuity in the
+    /// *damping* that a travelling wave partially reflects off — which is the artefact the fade
+    /// exists to prevent, moved inward by the width of the band.
+    func EdgeFade(coord: int2): float {
+        if (!(edgeFade > 0f)) {
+            return 1f
+        }
+
+        val x = min(float(coord.x), float(resolution - 1 - coord.x))
+        val z = min(float(coord.y), float(resolution - 1 - coord.y))
+        val nearest = min(x, z) * metresPerTexel
+
+        // ⚠ Written out rather than `smoothstep`, which is `WaterMath.SmoothStep`'s own reasoning
+        // applied across the seam: Vulkan allows an implementation latitude on the built-in, and two
+        // implementations of one finite sequence of multiplies and adds agree anywhere there is a
+        // 32-bit float.
+        val t = saturate(nearest / edgeFade)
+
+        return t * t * (3f - (2f * t))
+    }
+}

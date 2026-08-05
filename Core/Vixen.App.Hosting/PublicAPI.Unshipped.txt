@@ -88,6 +88,8 @@ Vixen.App.AppGraphics.Suspend() -> void
 Vixen.App.AppGraphics.SwapChain.get -> Vixen.Graphics.ISwapChain?
 Vixen.App.AppGraphics.View.get -> Vixen.Rendering.RenderView
 Vixen.App.AppGraphics.Volumes.get -> Vixen.Rendering.Ecs.PostProcessVolumeSystem
+Vixen.App.AppGraphics.Water.get -> Vixen.Rendering.Water.WaterZoneSystem
+Vixen.App.AppGraphics.WaterClock.get -> Vixen.Rendering.Water.WaterClockSystem
 Vixen.App.AppServices -> sealed class
 Vixen.App.AppServices.Assets.get -> Vixen.Assets.AssetManager?
 Vixen.App.AppServices.Config.get -> Vixen.App.AppConfig

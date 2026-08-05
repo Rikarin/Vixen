@@ -1,0 +1,272 @@
+package Vixen.Shaders.Water
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.PostFx
+
+// The underwater composite — docs/plan/35 § D9's second half, and the one the document warns about
+// twice: "designing the volume path first and discovering the waterline second is how you get a
+// system where the transition is a hard cut and the fix is architectural".
+//
+// § D9 divides underwater into two features that look like one:
+//
+//   * **A volume.** How the whole frame is graded when the camera is under. That is doc 32's post
+//     process volume with `UnderwaterShape` as its containment test, and it is built.
+//   * **A waterline.** What a camera *straddling* the surface sees — two treatments in one frame,
+//     divided by a curve. A volume fold produces one weight for the whole frame and cannot express a
+//     curve at all. This is that half.
+//
+// ⚠ **The curve is the intersection of the surface with the near plane, and that is what makes it a
+// curve rather than a horizontal line.** Every ray leaves the same eye, so "is this ray in water"
+// would be a single answer — except that the surface near the eye is not flat, and the wave that is
+// over your left eye is not the wave over your right. So the test is per pixel against the local
+// surface *plane*, evaluated where this pixel's ray crosses the near plane.
+//
+// ⚠ **A plane and not the wave sum, and the approximation is stated rather than hidden.** The exact
+// answer needs the info texture and the Gerstner sum in this shader — which is a second binding of
+// the whole surface stack in a post-process node, and a second place for the seam test to have to
+// hold. Over the few centimetres a near plane spans, a wave is its own tangent plane to well under a
+// millimetre; what the approximation costs is the case where a crest smaller than the near plane
+// passes the camera, which is spray rather than a waterline.
+//
+// ⚠ **The mask does one job here and it is not the waterline.** `waterSurface`'s coverage says the
+// surface is between the eye and the scene — which underwater means *the ray leaves the water there*.
+// So it bounds the fog path: a diver looking up sees the sky through a metre of water, not through
+// the distance to the sky. Without it, looking up from just below the surface is as dark as looking
+// down at the bed, which is the failure that reads as "underwater is a blue filter".
+
+shader Underwater {
+    /// Whether to wobble what is seen, as the surface refracts it.
+    [Permutation] val Distortion: bool = true
+
+    /// Whether to add the moving caustic bands.
+    [Permutation] val Caustics: bool = true
+
+    /// A copy of the frame so far. ⚠ A copy — see `WaterRenderer` and § B1; sampling a target this
+    /// pass is also writing is undefined, not slow.
+    var sceneColourCopy: Texture2D
+
+    /// The opaque scene's depth, which says how far the fog has to reach.
+    var sceneDepth: Texture2D
+
+    /// The surface plane: device depth in `r`, coverage in `g`. Read for where the ray *leaves*.
+    var waterSurface: Texture2D
+
+    var pointSampler: Sampler
+    var linearSampler: Sampler
+
+    var inverseViewProjection: mat4
+    var cameraPosition: float3
+
+    /// A point on the surface near the camera, and the surface's normal there — the local plane.
+    ///
+    /// The host reads both off the same `WaterQuery` the volume fold and the buoyancy solver read,
+    /// at the same water time, which is § D2's whole point applied to one more consumer.
+    var surfacePoint: float3 = float3(0f)
+    var surfaceNormal: float3 = float3(0f, 1f, 0f)
+
+    /// How wide the waterline's fade is, in metres.
+    ///
+    /// ⚠ **Not zero, ever.** A hard step across a curve that moves with the swell is the aliased,
+    /// crawling edge that makes people reach for temporal antialiasing to fix a geometry problem. A
+    /// couple of centimetres is a line; the whole point of the fade is that it is *narrow* and not
+    /// that it is soft.
+    var waterlineFeather: float = 0.04f
+
+    /// How far below the surface the camera is, in metres. Negative is above.
+    ///
+    /// § D9: the distortion and the caustic wobble are driven by the submersion depth the fold
+    /// already computes, and they are **not lens properties** — the volume describes a place, and the
+    /// lens belongs to the camera.
+    var submersion: float = 0f
+
+    /// The medium, which is the same triple `!Water` integrates with.
+    ///
+    /// ⚠ **The same numbers on purpose.** A frame whose surface pass and whose underwater pass
+    /// disagree about the medium is a lake that changes colour when you put your head under, which
+    /// reads as a bug in whichever one you look at second.
+    var scattering: float3 = float3(0.03f, 0.06f, 0.09f)
+    var absorption: float3 = float3(0.35f, 0.06f, 0.02f)
+    var phaseG: float = 0.7f
+
+    /// What arrives from the whole sky. ⚠ Without it, everything below the surface is black — see
+    /// `WaterVolume.AmbientInScatter`, which is the term a fixture found missing rather than reasoned about.
+    var skyColour: float3 = float3(0.35f, 0.45f, 0.6f)
+
+    /// § D8's scale on what shows through, applied here for the same reason it is applied there.
+    var behindScale: float3 = float3(1f)
+
+    /// How far the refraction wobble displaces what is seen, in UV.
+    var distortionAmount: float = 0.004f
+
+    /// How many wobbles across the screen, and how fast they travel.
+    var distortionScale: float = 12f
+    var distortionSpeed: float = 0.6f
+
+    /// How bright the caustic bands are, added to what is seen.
+    var causticAmount: float = 0.12f
+
+    /// How many metres a caustic cell is, and how fast the pattern drifts.
+    var causticScale: float = 1.5f
+    var causticSpeed: float = 0.35f
+
+    /// How deep the caustics fade out over, in metres. ⚠ They are a surface phenomenon.
+    var causticDepth: float = 12f
+
+    /// The simulation's water time. The one clock — see `WaterZoneSystem.WaterTime`.
+    var waterTime: float = 0f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val underwater = Waterline(uv)
+
+        // ⚠ Returned rather than discarded, on `!Water`'s terms: this pass writes its result, and a
+        // pixel that discarded would leave the target holding whatever it held *and* write no mask.
+        if (underwater <= 0f) {
+            return float4(sceneColourCopy.Sample(pointSampler, uv).rgb, 0f)
+        }
+
+        // The wobble first, because everything below reads what the wobble decided to look at. ⚠ It
+        // scales with the waterline weight, so the transition does not tear: a pixel half in and half
+        // out is refracted half as far, which is what a meniscus looks like.
+        var sampled = uv
+
+        if (Distortion) {
+            sampled = Refract(uv, underwater)
+        }
+
+        val behind = sceneColourCopy.Sample(linearSampler, sampled).rgb
+        val path = PathThroughWater(sampled)
+
+        var medium: WaterMedium
+        medium.scattering = scattering
+        medium.absorption = absorption
+        medium.phaseG = phaseG
+
+        // ⚠ The ambient term only, and no directional in-scatter. A ray that starts *inside* the
+        // medium has no surface between it and the sun to refract a beam through, so the forward peak
+        // `!Water` integrates has nothing to be a peak of — what is left is what arrives from every
+        // direction, which is what makes water below the surface a flat blue-green.
+        val through = behind * behindScale * WaterVolume.Transmittance(medium, path)
+        var colour = through + WaterVolume.AmbientInScatter(medium, path, skyColour)
+
+        if (Caustics) {
+            colour = colour + Caustic(sampled)
+        }
+
+        return float4(lerp(sceneColourCopy.Sample(pointSampler, uv).rgb, colour, underwater), underwater)
+    }
+
+    /// How much of this pixel is below the surface, 0…1 — § D9's curve.
+    ///
+    /// The ray through this pixel crosses the near plane somewhere; which side of the local surface
+    /// plane that crossing is on is the answer. ⚠ **Reverse-Z, so the near plane is depth 1** — the
+    /// engine's convention (§ E), and reconstructing at 0 would test against the *far* plane, which
+    /// puts the waterline at the horizon and looks like the effect simply not working.
+    func Waterline(at: float2): float {
+        val nearWorld = Transform.UvDepthToWorld(inverseViewProjection, at, 1f)
+        val normal = Math.SafeNormalize(surfaceNormal)
+        val above = dot(nearWorld - surfacePoint, normal)
+
+        return saturate(0.5f - (above / max(waterlineFeather, Const.Epsilon)))
+    }
+
+    /// How far this pixel's ray travels through water before it hits something or leaves.
+    ///
+    /// ⚠ **Bounded by the surface where the ray exits, which is what the mask is for.** A diver
+    /// looking up sees the sky through a metre of water; taking the distance to the sky instead makes
+    /// looking up exactly as dark as looking down at the bed, which is the failure that reads as
+    /// "underwater is just a blue filter".
+    ///
+    /// And where nothing is hit and the ray does not leave — looking along the water at a far shore
+    /// that is not drawn — the path saturates the medium rather than being zero, on `!Water`'s
+    /// `FarPath` terms: clear water where the horizon shows through is the one place a sea is least
+    /// clear.
+    func PathThroughWater(at: float2): float {
+        val surface = waterSurface.Sample(pointSampler, at)
+        val scene = sceneDepth.Sample(pointSampler, at).r
+
+        var distance = 0f
+        var hit = false
+
+        if (scene > 0f) {
+            val world = Transform.UvDepthToWorld(inverseViewProjection, at, scene)
+            distance = length(world - cameraPosition)
+            hit = true
+        }
+
+        // The surface, where there is one in front, and it is nearer than the scene: that is where
+        // the ray leaves the water.
+        if (saturate(surface.g) > 0f) {
+            val exitWorld = Transform.UvDepthToWorld(inverseViewProjection, at, surface.r)
+            val exit = length(exitWorld - cameraPosition)
+
+            if (!hit || exit < distance) {
+                distance = exit
+                hit = true
+            }
+        }
+
+        if (!hit) {
+            return 40f
+        }
+
+        return max(distance, 0f)
+    }
+
+    /// The refraction wobble, as a UV offset.
+    ///
+    /// Two sines at right angles and at different rates, which is the cheapest thing that does not
+    /// read as a repeating pattern. ⚠ **It is a property of the volume and not of the camera** — § D9
+    /// is explicit — so it scales with `submersion` rather than with anything a lens knows: a head
+    /// just under the surface wobbles, and one at ten metres does not.
+    func Refract(at: float2, weight: float): float2 {
+        val phase = waterTime * distortionSpeed
+        val wobble = float2(
+            sin((at.y * distortionScale) + phase),
+            cos((at.x * distortionScale * 0.87f) + (phase * 1.3f))
+        )
+
+        // Nearest the surface is where the refraction is, because that is where the surface is.
+        val depth = saturate(1f - (max(submersion, 0f) / max(causticDepth, Const.Epsilon)))
+
+        return clamp(at + (wobble * distortionAmount * weight * depth), float2(0f), float2(1f))
+    }
+
+    /// The moving bands of focused sunlight, added to what is seen.
+    ///
+    /// ⚠ **Additive and unshadowed, which is a stated approximation rather than an oversight.** Real
+    /// caustics are the sun refracted through the surface onto whatever is below, which needs the
+    /// surface's normal field projected along the light — a second pass over the whole scene. What
+    /// this is is the *look* of that, driven by the same clock, and it is honest about being a
+    /// screen-space pattern.
+    ///
+    /// ⚠ **It fades with `submersion` and not with the path**, which is § D9's "driven by the
+    /// submersion depth the fold already computes". The two are not the same question and the wrong
+    /// one is quietly wrong: caustics land on whatever the light reaches, so a diver just under the
+    /// surface sees them on a wall thirty metres away, and a diver at thirty metres sees none on a
+    /// wall he could touch. Fading by the path is the second of those applied to the first.
+    func Caustic(at: float2): float3 {
+        val phase = waterTime * causticSpeed
+        val scaled = at * causticScale * 8f
+
+        // Two rotated lattices summed, which is what gives the cellular look rather than a grid.
+        val a = sin(scaled.x + phase) * sin(scaled.y + (phase * 1.17f))
+        val b = sin(((scaled.x + scaled.y) * 0.71f) - (phase * 0.83f))
+        val bands = saturate((a * b) + 0.35f)
+
+        val fade = saturate(1f - (max(submersion, 0f) / max(causticDepth, Const.Epsilon)))
+
+        return float3(bands * bands * causticAmount * fade)
+    }
+}

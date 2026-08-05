@@ -880,7 +880,12 @@ sealed class RavenParser : SyntaxParser {
         // cannot see the difference — so the blender compares the two streams kind for kind before
         // it hands anything over, and returns the index to resume at, which subsumes the boundary
         // check this used to do for itself.
-        if (blender.TryReuse(fullStart, Tokens, out var next) is not { } green) {
+        //
+        // ⚠ And it is handed the context, because neither test can see the difference between the
+        // same tokens read by two grammars. `ParseMemberDeclaration` is what runs here, so
+        // `MemberList` is what may come back — an enum member lexes exactly as it did when its
+        // `enum` header was still above it, and splicing one in here is a tree no full parse builds.
+        if (blender.TryReuse(ReuseContext.MemberList, fullStart, Tokens, out var next) is not { } green) {
             return null;
         }
 
@@ -1172,7 +1177,25 @@ sealed class RavenParser : SyntaxParser {
                or RavenTokenKind.WillSetKeyword
                or RavenTokenKind.DidSetKeyword
                or RavenTokenKind.OpenBracket) {
-            accessors.Add(ParseAccessorDeclaration());
+            // ⚠ The no-progress guard the member and statement loops all keep, and the one loop that
+            // did not. OpenBracket is in the set above because an accessor may carry attributes, but
+            // whether the bracket *is* an attribute list is decided further down by ScanAttributeList,
+            // which resets the position when it says no — and every step under it then fabricates
+            // rather than consumes. So `var t{[` left the bracket exactly where it was and this loop
+            // added a fabricated accessor for it until the machine ran out of memory. Seven
+            // characters, and nothing that measures a parse afterwards can see it, because the parse
+            // does not finish.
+            var before = RawPosition;
+            var accessor = ParseAccessorDeclaration();
+
+            if (RawPosition == before) {
+                SkipToLineEnd();
+                SkipNewLines();
+
+                continue;
+            }
+
+            accessors.Add(accessor);
             SkipNewLines();
         }
 

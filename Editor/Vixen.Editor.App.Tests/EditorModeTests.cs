@@ -7,6 +7,7 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Terrain;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
+using Vixen.Editor.Water;
 using Vixen.Input;
 using Vixen.Ui;
 using Xunit;
@@ -16,14 +17,16 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Doc 24's B2, end to end: the mode bar, and which command a digit means in the viewport.</summary>
 public class EditorModeTests {
     [Fact]
-    public void The_editor_ships_four_modes_and_starts_in_Select() {
+    public void The_editor_ships_five_modes_and_starts_in_Select() {
         using var fixture = EditorSession.Start();
 
         // ⚠ Select first, and it is not alphabetical or historical — it is the one with no panel, no
         // toolbar and no input, so a viewport in it behaves exactly as the viewport did before modes
-        // existed. Doc 31's two arrive after doc 24's for the same reason they were built after it.
+        // existed. Doc 31's two arrive after doc 24's for the same reason they were built after it,
+        // and doc 35's water arrives after terrain because water is drawn *on* ground: an author
+        // sculpts a valley and then lays a lake in it.
         Assert.Equal(
-            [SelectMode.ModeId, BlockoutMode.ModeId, TerrainMode.ModeId, FoliageMode.ModeId],
+            [SelectMode.ModeId, BlockoutMode.ModeId, TerrainMode.ModeId, FoliageMode.ModeId, WaterMode.ModeId],
             fixture.Shell.Modes.Modes.Select(mode => mode.Id)
         );
 

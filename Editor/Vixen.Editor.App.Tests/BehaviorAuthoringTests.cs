@@ -159,7 +159,8 @@ public class BehaviorAuthoringTests {
         Assert.NotNull(attached);
 
         // Its constructor's defaults, which is the one place a behaviour is easier than a component:
-        // a zeroed struct needs `ComponentsView.Initial` and a field initialiser does not.
+        // a behaviour is constructed so a field initialiser runs, where a component has to declare
+        // an `IDefaultComponent` because a chunk row is never constructed at all.
         Assert.Equal(3f, attached.Speed);
 
         var section = Components(editor).Sections.Single(fold => fold.Label == "Patrol Behavior");

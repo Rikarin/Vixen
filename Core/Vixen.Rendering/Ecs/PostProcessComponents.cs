@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 
 namespace Vixen.Rendering.Ecs;
 
@@ -190,6 +191,24 @@ public struct PostProcessSettings {
     /// <summary>Whether looking toward the sun brightens the fog.</summary>
     public bool? FogSunScattering;
 
+    /// <summary>How thick the froxel medium is here, per metre.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>null</c> and <c>0</c> are different answers and the difference is the whole
+    ///     overlap rule.</b> Null is "this volume has no opinion about fog", so whatever is underneath
+    ///     it stands; zero is "there is no fog <em>here</em>", which is an opinion, and a strong one —
+    ///     it is how a designer clears the mist out of an interior that a level-wide volume filled.
+    ///     Flattening the two would make every volume that cares only about the grade also silently
+    ///     delete the fog, which is the failure the optional fields exist to prevent.
+    /// </remarks>
+    public float? VolumetricDensity;
+
+    /// <summary>What fraction of that scatters rather than absorbs, per channel.</summary>
+    /// <remarks>Near one for air. Lowering it is soot rather than mist.</remarks>
+    public Vector3? VolumetricAlbedo;
+
+    /// <summary>Henyey–Greenstein anisotropy: 0 an even glow, 0.9 a searchlight beam.</summary>
+    public float? VolumetricPhaseG;
+
     // --- The lens's imperfections --------------------------------------------
 
     /// <summary>0 is no darkening at the corners, 1 is fully dark.</summary>
@@ -249,6 +268,9 @@ public struct PostProcessSettings {
         && FogColour is null
         && FogHeightFalloff is null
         && FogSunScattering is null
+        && VolumetricDensity is null
+        && VolumetricAlbedo is null
+        && VolumetricPhaseG is null
         && VignetteIntensity is null
         && VignetteSmoothness is null
         && GrainIntensity is null
@@ -289,6 +311,9 @@ public struct PostProcessSettings {
         Note(into, FogColour is not null, "fogColour");
         Note(into, FogHeightFalloff is not null, "fogHeightFalloff");
         Note(into, FogSunScattering is not null, "fogSunScattering");
+        Note(into, VolumetricDensity is not null, "volumetricDensity");
+        Note(into, VolumetricAlbedo is not null, "volumetricAlbedo");
+        Note(into, VolumetricPhaseG is not null, "volumetricPhaseG");
         Note(into, VignetteIntensity is not null, "vignetteIntensity");
         Note(into, VignetteSmoothness is not null, "vignetteSmoothness");
         Note(into, GrainIntensity is not null, "grainIntensity");
@@ -556,7 +581,7 @@ public interface IPostProcessShapeSource {
 /// </remarks>
 [Component]
 [DataContract]
-public struct PostProcessVolume {
+public struct PostProcessVolume : IDefaultComponent<PostProcessVolume> {
     /// <summary>Half the shape's size, in the entity's own space.</summary>
     /// <remarks>
     ///     Half a box's extents, or an ellipsoid's radii — see <see cref="Shape" />. One field for both
@@ -617,6 +642,9 @@ public struct PostProcessVolume {
         Shape = PostProcessShapeKind.Box,
         Settings = PostProcessSettings.None
     };
+
+    /// <inheritdoc />
+    static PostProcessVolume IDefaultComponent<PostProcessVolume>.DefaultValue => Default;
 
     /// <summary>How much a volume applies at a given distance outside it.</summary>
     /// <param name="distanceOutside">What a shape reported. Zero or less is inside.</param>

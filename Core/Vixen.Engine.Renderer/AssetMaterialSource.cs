@@ -44,6 +44,17 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     readonly Dictionary<AssetReference, Entry> entries = [];
     readonly List<Paint> unpainted = [];
 
+    /// <summary>Which textures each compiled material samples, kept after they have been painted.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="unpainted" />, and the difference is the whole of the join.</b> That
+    ///     list is a queue and empties itself: a texture is on it until its view lands and never
+    ///     again. Asking "which textures does this material use" is a question about the material and
+    ///     is asked every frame — see <see cref="TextureDemand" /> — so it needs the answer to
+    ///     outlive the load. Keyed by the compiled <see cref="Material" /> rather than by the
+    ///     reference, because that is what a render object points at.
+    /// </remarks>
+    readonly Dictionary<Material, AssetReference[]> sampled = [];
+
     bool disposed;
 
     /// <summary>Builds a source over a content manager.</summary>
@@ -145,6 +156,23 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///     forgot to assign a map to.
     /// </remarks>
     public int Unpainted => unpainted.Count;
+
+    /// <summary>Which textures a compiled material samples.</summary>
+    /// <param name="material">One of the materials this compiled.</param>
+    /// <returns>
+    ///     Its texture references, or null for a material this did not compile and for one that
+    ///     samples nothing.
+    /// </returns>
+    /// <remarks>
+    ///     The material side of the texture-to-bounds join: extraction knows which material a
+    ///     drawable is painted in and this says which files that material reads, which is what lets
+    ///     <see cref="TextureDemand" /> turn a drawable's screen size into
+    ///     <see cref="AssetTextureSource.Want" />. Null rather than an empty list for a material this
+    ///     never saw, because a project supplying its own <see cref="IMaterialSource" /> — the
+    ///     samples do — has materials this has no opinion about at all.
+    /// </remarks>
+    public IReadOnlyList<AssetReference>? TexturesOf(Material material) =>
+        material is not null && sampled.TryGetValue(material, out var textures) ? textures : null;
 
     /// <inheritdoc />
     public bool TryGet(AssetReference reference, out Material material) {
@@ -250,10 +278,17 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
 
         entry.Material = material;
 
+        var textures = new List<AssetReference>(content.Textures.Length);
+
         foreach (var texture in content.Textures) {
             if (texture.Parameter.Length > 0 && !texture.Texture.IsNull) {
                 unpainted.Add(new(material, texture.Parameter, texture.Texture));
+                textures.Add(texture.Texture);
             }
+        }
+
+        if (textures.Count > 0) {
+            sampled[material] = textures.ToArray();
         }
 
         return true;
@@ -269,6 +304,7 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
 
         entries.Clear();
         unpainted.Clear();
+        sampled.Clear();
     }
 
     /// <summary>One material, somewhere between named and drawn.</summary>

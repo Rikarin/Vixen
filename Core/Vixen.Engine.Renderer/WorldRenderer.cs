@@ -55,6 +55,12 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>The source <see cref="Mount" /> built for the virtualized path, if there is one.</summary>
     AssetVirtualGeometrySource? clustering;
 
+    /// <summary>The checker slot zero of <see cref="Table" /> holds, and the bytes behind it.</summary>
+    readonly TextureHandle missingMap;
+    readonly TextureViewHandle missingMapView;
+    readonly BufferHandle missingMapStaging;
+
+    bool missingMapUploaded;
     bool disposed;
 
     /// <summary>Builds the standard renderer for a world.</summary>
@@ -264,10 +270,37 @@ public sealed class WorldRenderer : IDisposable {
             // set layouts, which is undefined behaviour that MoltenVK happens to render correctly.
             // The second cost is the pool: a table built to a desktop driver's million-descriptor
             // ceiling reserves hundreds of megabytes to hold a scene's worth of textures.
-            Table = new(device, capacity: BindlessTable.ConventionalCapacity);
+            // ⚠ **The stage mask is the same agreement as the capacity, and it was left at the
+            // constructor's `Fragment` default.** Two descriptor set layouts are compatible only if
+            // they are identically defined, stage flags included — and the effect path builds set 4
+            // from the *reflected* mask, which for `ForwardPlus` is vertex and fragment because
+            // `MaterialTextures.materialTextures` is `[Shared]` across a shader with both stages. A
+            // table built fragment-only is a set the pipeline layout refuses, and the refusal is not
+            // confined to set 4: an incompatible bind disturbs the sets under it, so the validation
+            // that comes out of it is "uses set 0 but that set is not bound" on every draw in the
+            // Main pass. Nothing bound this table until a material carried a texture, which is why a
+            // mismatch this loud sat here unseen.
+            (missingMap, missingMapView, missingMapStaging) = CreateMissingMap(device);
+
+            Table = new(
+                device,
+                ShaderStage.Vertex | ShaderStage.Fragment,
+                BindlessTable.ConventionalCapacity,
+                fallback: missingMapView
+            );
+
+            // ⚠ And added, not only handed to the constructor. The constructor's fallback covers a
+            // slot that *retired*; slot zero is the one an unresolved index names, and a table gives
+            // zero to whichever view asks for a slot first — so without this line every material
+            // whose map did not arrive draws as whichever texture the level happened to load first,
+            // which is a plausible picture of the wrong surface. Added once and never removed, so the
+            // reference is permanent and the slot cannot be reused.
+            Table.Add(missingMapView);
+
             Materials.Textures = Table;
 
             Paired(Materials, "ForwardPlus");
+            FilterTextures("ForwardPlus");
         }
     }
 
@@ -441,6 +474,38 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>Where a material's textures come from, once content is mounted.</summary>
     public AssetTextureSource? Painted { get; private set; }
 
+    /// <summary>What sizes them, on a renderer whose textures are streamed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Null when there is no pool</b>, which is the whole of the degradation story again:
+    ///         a project with <see cref="TextureStreamingQuality.PoolMegabytes" /> at zero loads
+    ///         every texture whole and there is nothing to size, so the survey is not built and
+    ///         <see cref="Draw" /> does not run it.
+    ///     </para>
+    ///     <para>
+    ///         Built by <see cref="Mount" /> rather than by <see cref="Register" />, because what it
+    ///         needs is the texture source and the material source — both of which are content — and
+    ///         not the extraction system: it reads the render system's objects directly, on
+    ///         <c>LodRenderFeature.Prepare</c>'s terms.
+    ///     </para>
+    ///     <para>
+    ///         Settable, so a project with its own signal can put one here or clear it — setting
+    ///         <see cref="TextureDemand.ScreenHeight" /> would not do, because <see cref="Draw" />
+    ///         writes that from <see cref="SceneRenderHost.FrameSize" /> every frame. Null leaves
+    ///         every texture in the branch it was in before this existed.
+    ///     </para>
+    /// </remarks>
+    public TextureDemand? Demand { get; set; }
+
+    /// <summary>The texture numbers the host's tier resolved to, read by <see cref="Mount" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Set it before <see cref="Mount" />, or it says nothing.</b> The pool is sized when
+    ///     the source is built and a pool cannot be resized — its budget is the promise a pool
+    ///     exists to make. The default is a zero pool, which is the behaviour that existed before
+    ///     streaming did.
+    /// </remarks>
+    public TextureStreamingQuality Textures { get; set; } = new();
+
     /// <summary>The virtualized stack, if this renderer was given one.</summary>
     /// <remarks>
     ///     <para>
@@ -524,11 +589,28 @@ public sealed class WorldRenderer : IDisposable {
 
         // Only where there is a table to put them in: an AssetTextureSource with nothing indexing its
         // views would upload every texture in the level and hand the slots to nobody.
-        Painted = Table is null ? null : new AssetTextureSource(Device, assets);
+        Painted = Table is null
+            ? null
+            : new AssetTextureSource(
+                Device,
+                assets,
+                (long)Math.Max(0, Textures.PoolMegabytes) * 1024 * 1024,
+                Textures.MipBias
+            );
         Painter = painting = new(assets, Painted);
+
+        // Only where there is something to size. A survey over a source with no streamer would walk
+        // the object list every frame to call a method that returns immediately.
+        Demand = Painted?.Streaming is null ? null : new(Host.System, Meshes, Materials, painting, Painted);
 
         // Only where there is a stack to register them with. A source that loaded hierarchies and had
         // nowhere to put them would page a level's geometry in and draw none of it.
+        //
+        // ⚠ The previous one is released first, because mounting again is the closest thing the
+        // renderer has to a content teardown. Every registration it made pinned a root page, and a
+        // pinned page is never evicted — so a second Mount that merely dropped the reference would
+        // leave the pool a slot smaller per mesh of the level being replaced, permanently and silently.
+        clustering?.Dispose();
         Hierarchies = clustering = Clusters is null ? null : new(assets, Clusters);
 
         // Unconditionally, because there is no device resource behind it and nothing to hold: an
@@ -628,6 +710,19 @@ public sealed class WorldRenderer : IDisposable {
         ArgumentNullException.ThrowIfNull(commands);
         ObjectDisposedException.ThrowIf(disposed, this);
 
+        // ⚠ Before the update below, because that is what turns a want into page requests: the order
+        // is survey, ask, service, swap, and a survey after the update would be a frame late for ever.
+        //
+        // The height from the compositor rather than from a property somebody sets, so a window that
+        // resized carries the new number the frame after it did. Zero — a renderer whose frame size
+        // was never set — surveys nothing and leaves every texture wanting to be complete, which is
+        // the behaviour that existed before anything sized them.
+        if (Demand is { } demand) {
+            demand.ScreenHeight = Host.FrameSize.Y;
+            demand.Update();
+        }
+
+        UploadMissingMap(commands);
         painting?.Update(commands);
 
         // ⚠ The vertices and indices themselves, and nothing was copying them.
@@ -715,14 +810,186 @@ public sealed class WorldRenderer : IDisposable {
     ///         <see cref="TexturedMetalRoughnessFeature.BaseColorIndexParameter" /> takes a path rather
     ///         than a slot.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every sampling feature has to be listed, and a feature that is not listed fails
+    ///         exactly like a renamed map.</b> Its index is never written, so it stays zero, so the map
+    ///         is read from slot zero and the surface is shaded by a checker — which for a normal map
+    ///         is a lit surface whose shading is wrong rather than a surface that is obviously
+    ///         untextured. <c>MaterialRenderFeature.UnresolvedTextureCount</c> is what says so.
+    ///     </para>
     /// </remarks>
     static void Paired(MaterialRenderFeature materials, string shader) {
-        var path = $"{shader}.{MaterialCompiler.ChainShader}.{new TexturedMetalRoughnessFeature().ShaderName}.";
+        var prefix = $"{shader}.{MaterialCompiler.ChainShader}.";
+
+        var baseColor = new TexturedMetalRoughnessFeature();
+        var normal = new TexturedNormalMapFeature();
+        var orm = new TexturedOrmFeature();
 
         materials.TextureIndices[
-                ParameterKeys.New<uint>(TexturedMetalRoughnessFeature.BaseColorIndexParameter(path))
+                ParameterKeys.New<uint>(
+                    TexturedMetalRoughnessFeature.BaseColorIndexParameter(
+                        prefix + baseColor.ShaderName + "."
+                    )
+                )
             ] =
-            ParameterKeys.New<TextureViewHandle>(new TexturedMetalRoughnessFeature().BaseColorMap);
+            ParameterKeys.New<TextureViewHandle>(baseColor.BaseColorMap);
+
+        materials.TextureIndices[
+                ParameterKeys.New<uint>(
+                    TexturedNormalMapFeature.NormalIndexParameter(prefix + normal.ShaderName + ".")
+                )
+            ] =
+            ParameterKeys.New<TextureViewHandle>(normal.NormalMap);
+
+        materials.TextureIndices[
+                ParameterKeys.New<uint>(TexturedOrmFeature.OrmIndexParameter(prefix + orm.ShaderName + "."))
+            ] =
+            ParameterKeys.New<TextureViewHandle>(orm.OrmMap);
+    }
+
+    /// <summary>
+    ///     Fills the one per-frame binding the material table's shader half declares.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The table's other half, and nothing wrote it.</b>
+    ///         <c>MaterialTextures</c> declares its array <c>[Bindless]</c> in set 4 <em>and</em> its
+    ///         filter <c>[PerFrame] [Shared] var materialSampler</c> in set 0 — a table is one
+    ///         sampler for every material by construction, which is the cost a table exists to
+    ///         charge. <see cref="Paired" /> above pairs the index and stops there, so a variant
+    ///         composed from <c>TexturedMetalRoughnessSurface</c> declared a set-0 binding with no
+    ///         filler.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And <c>EffectSetWriter</c> fills a set whole or not at all, so that was not a
+    ///         material sampled through a default filter: it was <em>every draw in the shading
+    ///         pass</em> refused, on a frame whose every other counter reported success. Only the
+    ///         textured variants, which is worse than all of them — the untextured half of the level
+    ///         drew and the textured half did not.
+    ///     </para>
+    ///     <para>
+    ///         Anisotropic repeat rather than <see cref="SamplerDescription.LinearRepeat" />: what
+    ///         this filters is surface detail on ground and walls seen at grazing angles, which is
+    ///         the case trilinear alone blurs to nothing. It is one sampler for the whole frame, so
+    ///         the sixteen taps are paid once in state and not once per material.
+    ///     </para>
+    /// </remarks>
+    /// <summary>What the table's filter is called in a shading pass's set 0.</summary>
+    /// <remarks>
+    ///     ⚠ Unqualified by any composition path, unlike the index <see cref="Paired" /> writes.
+    ///     <c>materialSampler</c> is <c>[Shared]</c>, so every feature that samples names the same
+    ///     one and it is hoisted to the pass rather than living under the feature that declared it.
+    ///     Spelling it the other way is a binding nothing writes, which is a set written short.
+    /// </remarks>
+    const string MaterialTexturesSampler = "materialSampler";
+
+    void FilterTextures(string shader) {
+        SceneBlock.Parameters.Set(
+            ParameterKeys.New<SamplerHandle>($"{shader}.{MaterialTexturesSampler}"),
+            Samplers.GetOrCreate(SamplerDescription.LinearRepeat with { Anisotropy = 16f, Name = "MaterialTable" })
+        );
+    }
+
+    /// <summary>How many texels square the checker in slot zero is.</summary>
+    /// <remarks>
+    ///     Small enough to be one upload of no consequence and large enough to be a <em>checker</em>
+    ///     rather than a flat colour, which is what distinguishes it from a material that is merely
+    ///     magenta. Eight texels in blocks of four is a 2×2 pattern per tile of the map's coordinates,
+    ///     so it reads as a checker at every distance a wall is seen from.
+    /// </remarks>
+    const int MissingMapSize = 8;
+
+    /// <summary>
+    ///     Builds the texture an unresolved material index samples: a magenta and black checker.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What is in slot zero decides whether a missing map reads as an error or as
+    ///         lighting.</b> <see cref="Paired" /> pairs one name with one name, and an unmatched pair
+    ///         leaves the index at zero — so slot zero is what a renamed map, a texture that failed to
+    ///         load and a feature nobody paired all sample.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And white is the one colour it must not be, because a material tints the map it
+    ///         multiplies. Sample 13's <c>wall.vxmat</c> carries <c>baseColor: 1.739 1.623 1.456</c>
+    ///         so that the dusk palette is preserved at concrete-albedo's mean of 0.1725 — correct,
+    ///         and it means a white fallback renders that material at 1.739× and blows the level out
+    ///         to flat white. That reads as "the lighting broke" rather than as "a texture is
+    ///         missing", and it cost a day. Magenta against black is not a surface at any exposure and
+    ///         survives any tint a material can carry.
+    ///     </para>
+    ///     <para>
+    ///         Staged rather than written, because a sampled texture cannot be host-written — the copy
+    ///         goes on the first frame's list in <see cref="UploadMissingMap" />, which is
+    ///         <c>FoliageDrawPass</c>'s arrangement for its own default.
+    ///     </para>
+    /// </remarks>
+    static (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) CreateMissingMap(
+        IGraphicsDevice device
+    ) {
+        const int block = MissingMapSize / 2;
+
+        var texture = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                MissingMapSize,
+                MissingMapSize,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: "MissingMap"
+            )
+        );
+
+        var pixels = new byte[MissingMapSize * MissingMapSize * 4];
+
+        for (var y = 0; y < MissingMapSize; y++) {
+            for (var x = 0; x < MissingMapSize; x++) {
+                var at = ((y * MissingMapSize) + x) * 4;
+                var lit = ((x / block) ^ (y / block)) == 0;
+
+                // Full-intensity magenta rather than a dimmed one: this is read through whatever
+                // exposure the frame settled on, and a fallback that tone-maps to a plausible mauve
+                // is one somebody argues with instead of fixing.
+                pixels[at] = lit ? byte.MaxValue : (byte)0;
+                pixels[at + 2] = lit ? byte.MaxValue : (byte)0;
+                pixels[at + 3] = byte.MaxValue;
+            }
+        }
+
+        var staging = device.CreateBuffer(
+            new(pixels.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, "MissingMap staging")
+        );
+
+        device.Write(staging, 0, pixels);
+        return (texture, device.CreateTextureView(texture), staging);
+    }
+
+    /// <summary>Puts the checker's pixels on the list, once.</summary>
+    /// <remarks>
+    ///     ⚠ Before <see cref="AssetMaterialSource.Update" /> rather than after, so that the first
+    ///     frame — the one in which no material's texture has landed yet and every index is still zero
+    ///     — samples the checker rather than an image in an undefined layout.
+    /// </remarks>
+    void UploadMissingMap(ICommandList commands) {
+        if (missingMapUploaded || !missingMap.IsValid) {
+            return;
+        }
+
+        missingMapUploaded = true;
+
+        commands.Barrier(
+            new([], [new TextureBarrier(missingMap, ResourceState.Undefined, ResourceState.CopyDestination)])
+        );
+
+        commands.CopyBufferToTexture(
+            missingMapStaging,
+            0,
+            new(missingMap),
+            new(MissingMapSize, MissingMapSize, 1)
+        );
+
+        commands.Barrier(
+            new([], [new TextureBarrier(missingMap, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+        );
     }
 
     /// <inheritdoc />
@@ -742,6 +1009,14 @@ public sealed class WorldRenderer : IDisposable {
         painting?.Dispose();
         Painted?.Dispose();
         Table?.Dispose();
+
+        // After the table, which is still holding the reference taken for slot zero.
+        if (missingMap.IsValid) {
+            Device.Destroy(missingMapView);
+            Device.Destroy(missingMap);
+            Device.Destroy(missingMapStaging);
+        }
+
         MaterialDescriptors.Dispose();
         Samplers.Dispose();
         SceneBlock.Dispose();

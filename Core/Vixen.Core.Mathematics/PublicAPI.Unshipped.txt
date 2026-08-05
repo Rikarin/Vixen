@@ -304,7 +304,8 @@ Vixen.Core.Mathematics.SplineAsset.Join(Vixen.Core.Mathematics.SplineAsset other
 Vixen.Core.Mathematics.SplineAsset.MoveTo(int index, Vixen.Core.Mathematics.Vector3 position) -> void
 Vixen.Core.Mathematics.SplineAsset.Name.get -> string
 Vixen.Core.Mathematics.SplineAsset.Name.set -> string
-Vixen.Core.Mathematics.SplineAsset.Points.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.SplinePoint>
+Vixen.Core.Mathematics.SplineAsset.Points.get -> System.Collections.Generic.List<Vixen.Core.Mathematics.SplinePoint>
+Vixen.Core.Mathematics.SplineAsset.Points.set -> System.Collections.Generic.List<Vixen.Core.Mathematics.SplinePoint>
 Vixen.Core.Mathematics.SplineAsset.RemoveAt(int index) -> bool
 Vixen.Core.Mathematics.SplineAsset.Set(int index, Vixen.Core.Mathematics.SplinePoint point) -> void
 Vixen.Core.Mathematics.SplineAsset.SetTangentIn(int index, Vixen.Core.Mathematics.Vector3 tangentIn, bool mirror = true) -> void

@@ -49,6 +49,15 @@ Vixen.Terrain.FlattenDirection.Lower = 2 -> Vixen.Terrain.FlattenDirection
 Vixen.Terrain.FlattenDirection.Raise = 1 -> Vixen.Terrain.FlattenDirection
 Vixen.Terrain.IBrushMask -> interface
 Vixen.Terrain.IBrushMask.Sample(Vixen.Core.Mathematics.Vector2 uv) -> float
+Vixen.Terrain.IPatchSource -> interface
+Vixen.Terrain.IPatchSource.BoundsOf(int x, int z, int quads) -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Terrain.IPatchSource.Covers(int x, int z, int quads) -> bool
+Vixen.Terrain.PatchSelector -> sealed class
+Vixen.Terrain.PatchSelector.DepthCount.get -> int
+Vixen.Terrain.PatchSelector.PatchSelector(int rootQuads, int depthCount, Vixen.Terrain.TerrainLodRanges ranges) -> void
+Vixen.Terrain.PatchSelector.Ranges.get -> Vixen.Terrain.TerrainLodRanges
+Vixen.Terrain.PatchSelector.RootQuads.get -> int
+Vixen.Terrain.PatchSelector.Select<TSource>(Vixen.Core.Mathematics.Vector3 viewPosition, in Vixen.Core.Mathematics.BoundingFrustum frustum, TSource source, System.Collections.Generic.ICollection<Vixen.Terrain.TerrainLodNode> nodes) -> int
 Vixen.Terrain.Terrain -> sealed class
 Vixen.Terrain.Terrain.AddLayer(string name, Vixen.Terrain.TerrainLayerKind kind = Vixen.Terrain.TerrainLayerKind.Manual) -> Vixen.Terrain.TerrainEditLayer
 Vixen.Terrain.Terrain.Base.get -> Vixen.Terrain.TerrainSamples
@@ -70,6 +79,7 @@ Vixen.Terrain.Terrain.MoveLayer(int from, int to) -> void
 Vixen.Terrain.Terrain.RemoveLayer(Vixen.Terrain.TerrainEditLayer layer) -> bool
 Vixen.Terrain.Terrain.ReservedLayer(Vixen.Terrain.TerrainLayerKind kind, string? name = null) -> Vixen.Terrain.TerrainEditLayer
 Vixen.Terrain.Terrain.Resolve() -> int
+Vixen.Terrain.Terrain.RevisionOf(int tileX, int tileZ) -> int
 Vixen.Terrain.Terrain.Terrain(Vixen.Terrain.TerrainDescription description, float height = 0) -> void
 Vixen.Terrain.Terrain.Weights.get -> Vixen.Terrain.TerrainWeights
 Vixen.Terrain.TerrainAtlas -> readonly struct
@@ -304,6 +314,7 @@ Vixen.Terrain.TerrainLodTree.Ranges.get -> Vixen.Terrain.TerrainLodRanges
 Vixen.Terrain.TerrainLodTree.RootQuads.get -> int
 Vixen.Terrain.TerrainLodTree.SampleOf(in Vixen.Terrain.TerrainLodNode node, int gridX, int gridZ) -> Vixen.Core.Mathematics.Vector2
 Vixen.Terrain.TerrainLodTree.Select(Vixen.Core.Mathematics.Vector3 viewPosition, in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Terrain.Terrain terrain, System.Collections.Generic.ICollection<Vixen.Terrain.TerrainLodNode> nodes) -> int
+Vixen.Terrain.TerrainLodTree.Selector.get -> Vixen.Terrain.PatchSelector
 Vixen.Terrain.TerrainLodTree.TerrainLodTree(Vixen.Terrain.TerrainDescription description, Vixen.Terrain.TerrainLodRanges ranges, int gridQuads = 32) -> void
 Vixen.Terrain.TerrainMips -> static class
 Vixen.Terrain.TerrainNoise -> readonly struct
@@ -449,10 +460,13 @@ Vixen.Terrain.TerrainWeights.TerrainWeights(Vixen.Terrain.TerrainDescription des
 Vixen.Terrain.TerrainWeights.Verify() -> string?
 Vixen.Terrain.TerrainWeights.WeightAt(int layer, int x, int z) -> byte
 Vixen.Terrain.TerrainWeights.WeightmapCount.get -> int
+const Vixen.Terrain.PatchSelector.DefaultGridQuads = 32 -> int
 const Vixen.Terrain.TerrainDescription.MaxTileSamples = 1024 -> int
 const Vixen.Terrain.TerrainDescription.MinTileSamples = 4 -> int
 const Vixen.Terrain.TerrainEditLayer.ChunkSize = 64 -> int
 const Vixen.Terrain.TerrainHeightmapPng.BytesPerSample = 2 -> int
+const Vixen.Terrain.TerrainHeightmapPng.MaximumExpansion = 1032 -> int
+const Vixen.Terrain.TerrainHeightmapPng.MaximumSize = 16384 -> int
 const Vixen.Terrain.TerrainLayerDescription.MinimumTiling = 0.001 -> float
 const Vixen.Terrain.TerrainLodTree.DefaultGridQuads = 32 -> int
 const Vixen.Terrain.TerrainMips.MinimumSamples = 2 -> int
@@ -464,6 +478,9 @@ const Vixen.Terrain.TerrainStore.Version = 1 -> int
 const Vixen.Terrain.TerrainWeights.Total = 255 -> int
 override Vixen.Terrain.TerrainDescription.ToString() -> string
 static Vixen.Terrain.BrushFalloff.Evaluate(Vixen.Terrain.BrushFalloffKind kind, float t) -> float
+static Vixen.Terrain.PatchSelector.DistanceTo(in Vixen.Core.Mathematics.BoundingBox bounds, Vixen.Core.Mathematics.Vector3 point) -> float
+static Vixen.Terrain.PatchSelector.MorphIndex(int index, float morph) -> float
+static Vixen.Terrain.PatchSelector.RootFor(int quads, int gridQuads = 32) -> (int RootQuads, int LevelCount)
 static Vixen.Terrain.TerrainBrush.Default.get -> Vixen.Terrain.TerrainBrush
 static Vixen.Terrain.TerrainDescription.Default.get -> Vixen.Terrain.TerrainDescription
 static Vixen.Terrain.TerrainHeightmap.Export(Vixen.Terrain.Terrain terrain, System.Span<byte> destination, bool bigEndian = false) -> int

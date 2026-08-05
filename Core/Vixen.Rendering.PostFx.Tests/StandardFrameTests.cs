@@ -275,6 +275,149 @@ public class StandardFrameTests {
         Assert.True(Node<AutoExposureAsset>(document, "Meter").UseHistogram);
     }
 
+    /// <summary>
+    ///     The volumetric dispatches sit between the shadows and the scene, and the composite sits
+    ///     after the temporal resolve.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Both halves matter and they pull in opposite directions. The dispatches need shadows and
+    ///     lights, so they go before anything draws; the composite must be after TAA, because the
+    ///     accumulator averages radiance and must only ever see the finished frame. Splitting the
+    ///     feature across the accumulator is safe only because the volume does its temporal work in
+    ///     its own space rather than the screen's.
+    /// </remarks>
+    [Fact]
+    public void The_volume_is_filled_before_the_scene_and_read_after_the_resolve() {
+        var names = Names(Expand(AllOn));
+
+        var lamps = Array.IndexOf(names, "Lamps");
+        var volumetrics = Array.IndexOf(names, "Volumetrics");
+        var main = Array.IndexOf(names, "Main");
+        var accumulate = Array.IndexOf(names, "Accumulate");
+        var air = Array.IndexOf(names, "Air");
+
+        Assert.True(lamps < volumetrics, "the dispatches come after the shadow atlases they read");
+        Assert.True(volumetrics < main, "and before anything that draws the scene");
+        Assert.True(accumulate < air, "the composite is after TAA — the invariant the seat exists for");
+    }
+
+    /// <summary>
+    ///     The composite reads the volume the dispatch wrote, at the numbers the dispatch used.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The far plane and the slice count are the grid's Z distribution, and the composite
+    ///     inverts it to find a slice. Two derivations of those numbers is a composite that reads
+    ///     the wrong slice for every pixel — smooth, plausible, and wrong everywhere.
+    /// </remarks>
+    [Fact]
+    public void The_composite_reads_the_volume_at_the_dispatchs_own_numbers() {
+        var document = Expand(AllOn);
+
+        var volume = Node<VolumetricFogAsset>(document, "Volumetrics");
+        var air = Node<FogAsset>(document, "Air");
+
+        Assert.Equal(volume.Output, air.Volume);
+        Assert.Equal(volume.Far, air.VolumeFar);
+        Assert.Equal(volume.Slices, air.VolumeSlices);
+    }
+
+    /// <summary>
+    ///     A tier without the volume still fogs, and a frame without fog has no dispatches at all.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The two knobs are not the same knob. Off leaves the analytic falloff every tier has
+    ///     always had; what it removes is the marching of the first stretch of it. And the composite
+    ///     lives inside the fog pass, so a tier that switched the volume on with fog off would spend
+    ///     three dispatches on a volume nothing reads.
+    /// </remarks>
+    [Theory]
+    [InlineData(QualityTier.Low, false, false)]
+    [InlineData(QualityTier.Medium, true, false)]
+    [InlineData(QualityTier.High, true, true)]
+    [InlineData(QualityTier.Epic, true, true)]
+    public void The_dispatches_follow_the_tier(QualityTier quality, bool fog, bool volumetric) {
+        var names = Names(Expand(AllOn with { Quality = quality }));
+
+        Assert.Equal(fog, names.Contains("Air"));
+        Assert.Equal(volumetric, names.Contains("Volumetrics"));
+    }
+
+    /// <summary>The tier decides whether the volume draws beams or a glow.</summary>
+    /// <remarks>
+    ///     ⚠ Both tiers that fill a volume shadow it today, so this pins the wiring rather than a
+    ///     difference: the knob reaches the node. A tier that switched shadowing off would still get
+    ///     the height gradient and the phase peak — what it would lose is the one thing the analytic
+    ///     falloff could never do, which is why the knob was withheld until something answered to it.
+    /// </remarks>
+    [Theory]
+    [InlineData(QualityTier.High, true)]
+    [InlineData(QualityTier.Epic, true)]
+    public void The_froxel_shadowing_follows_the_tier(QualityTier quality, bool shadows) {
+        var volume = Node<VolumetricFogAsset>(Expand(AllOn with { Quality = quality }), "Volumetrics");
+
+        Assert.Equal(shadows, volume.Shadows);
+    }
+
+    /// <summary>
+    ///     The dispatches shadow the froxels against the atlas the sun node actually fills.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ Two names for one atlas is fog that is unshadowed and says nothing about it — the
+    ///         detection is availability rather than a toggle, so a name the frame never declared
+    ///         reads exactly like a frame with no sun. Silent, and the whole feature missing.
+    ///     </para>
+    ///     <para>
+    ///         The ordering half is <c>Lamps &lt; Volumetrics</c> above; this is the other half, and
+    ///         neither implies the other. A pass ordered after the shadow nodes that samples a
+    ///         different texture is correctly sequenced and reads nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_froxels_are_shadowed_against_the_atlas_the_sun_fills() {
+        var document = Expand(AllOn);
+
+        var sun = Node<ShadowMapAsset>(document, "Sun");
+        var volume = Node<VolumetricFogAsset>(document, "Volumetrics");
+
+        Assert.Equal(sun.Atlas, volume.ShadowAtlas);
+    }
+
+    /// <summary>
+    ///     The frame emits no cluster cull, so the fog's lamps are the absent case rather than the
+    ///     ordinary one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted so that it is a decision rather than an accident.</b>
+    ///     <c>VolumetricFogRenderer.Clustered</c> detects the cluster buffers instead of being told
+    ///     about them, and the reason that reads as reasonable is that the frame which would publish
+    ///     them is not this one — the Standard Frame lights its lamps per object. If a cluster node
+    ///     were ever added here, the fog would start reading lamp lists on the same day and nothing
+    ///     would say so; this is what makes that a red test rather than a surprise.
+    /// </remarks>
+    [Fact]
+    public void The_standard_frame_publishes_no_cluster_lists_for_the_volume_to_read() {
+        var document = Expand(AllOn);
+
+        Assert.Empty(Root(document).Children.OfType<ClusterCullingAsset>());
+        Assert.Contains("Volumetrics", Names(document));
+    }
+
+    /// <summary>A frame with the shadows switched off still fills the volume, unshadowed.</summary>
+    /// <remarks>
+    ///     ⚠ The dispatches are not conditional on the sun: fog with no beams in it is still fog, and
+    ///     the height gradient and the phase peak are worth the marching on their own. What must not
+    ///     happen is the node disappearing — the composite in the <c>"Air"</c> seat reads the volume
+    ///     either way, and a named volume nobody filled is the one failure mode worse than no shafts.
+    /// </remarks>
+    [Fact]
+    public void The_volume_is_still_filled_by_a_frame_that_casts_no_shadows() {
+        var names = Names(Expand(AllOn with { Shadows = ShadowMode.Off }));
+
+        Assert.Contains("Volumetrics", names);
+        Assert.DoesNotContain("Sun", names);
+    }
+
     /// <summary>The ceiling configuration is sample 13's graph, in sample 13's order.</summary>
     /// <remarks>
     ///     A hardcoded list, not a read of the sample file: the sample is hand-authored and
@@ -287,7 +430,7 @@ public class StandardFrameTests {
 
         Assert.Equal(
             [
-                "Cull", "Clipmap", "Probes", "Cache", "Sun", "Lamps", "Sky", "Main", "Velocity",
+                "Cull", "Clipmap", "Probes", "Cache", "Sun", "Lamps", "Volumetrics", "Sky", "Main", "Velocity",
                 "Sparks", "Occluders", "SunPages", "Gather", "Mirrors", "Occlusion",
                 "ContactOcclusion", "Combine", "Accumulate", "Air", "Defocus", "Shutter", "Meter",
                 "Adapt", "Flare", "Glow", "Tonemap", "Edges", "Recover", "Glass"

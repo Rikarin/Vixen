@@ -196,6 +196,87 @@ public sealed class WaterPassTests : IDisposable {
         Assert.Empty(water.Pass.Reads);
     }
 
+    // --- § D8's tile classification -----------------------------------------
+
+    /// <summary>
+    ///     ⚠ Tiled, the draw is two triangles an instance over the tiles, into a target it loads.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Three properties that fail in three different ways, so they are asserted together.</b>
+    ///         Three vertices instead of six is half of every tile missing — a checkerboard of water.
+    ///         One instance instead of one per tile is the whole pass collapsed into the top-left tile.
+    ///         And <see cref="LoadAction.DontCare" /> on a draw that covers part of the screen is the
+    ///         pixels no instance covered holding whatever the allocator handed over, which on most
+    ///         drivers is the previous frame — so it reads as smearing rather than as an uninitialised
+    ///         target, and it is the one of the three that looks plausible.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_tiled_pass_draws_two_triangles_per_tile_over_a_loaded_target() {
+        using var water = Node();
+
+        water.Tiled = true;
+        water.Pipelines = new(device);
+
+        Build(Compositor(water));
+
+        var tiles = WaterTiles.CountFor(new(Size, Size));
+
+        Assert.Equal(tiles, water.TileCount);
+        Assert.Equal(WaterTiles.VerticesPerTile, water.Pass.Vertices);
+        Assert.Equal(WaterTiles.Total(tiles), water.Pass.Instances);
+        Assert.Equal(LoadAction.Load, water.Pass.Load);
+
+        // And the classification reads the coverage mask and writes the flags, which is what orders it
+        // between the surface pass and the draw.
+        Assert.Contains("WaterSurface", water.Classification.Reads);
+        Assert.Equal(new Int3(tiles.X, tiles.Y, 1), water.Classification.Groups);
+        Assert.Single(water.Classification.BufferWrites);
+        Assert.Equal(water.Classification.BufferWrites[0], water.Pass.BufferReads.Single());
+    }
+
+    /// <summary>Untiled, it is the full-screen triangle it has always been — and still binds the flags.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A descriptor set is written wholly or not at all</b>, so the untiled variant binds the
+    ///     tile buffer too: a shader's bindings come from its declarations and not from the variant it
+    ///     was compiled into. Without it the driver refuses the set in the path that has no tiling at
+    ///     all, which is a frame that does not render rather than a frame with no optimisation.
+    /// </remarks>
+    [Fact]
+    public void An_untiled_pass_is_one_triangle_and_binds_the_tile_buffer_anyway() {
+        using var water = Node();
+
+        Build(Compositor(water));
+
+        Assert.Equal(3, water.Pass.Vertices);
+        Assert.Equal(1, water.Pass.Instances);
+        Assert.Equal(LoadAction.DontCare, water.Pass.Load);
+        Assert.Equal(default, water.TileCount);
+
+        Assert.Single(water.Pass.Descriptors.Bindings, binding => binding.Kind == DescriptorKind.StorageBuffer);
+        Assert.Single(water.Pass.BufferReads);
+        Assert.Empty(water.Classification.BufferWrites);
+    }
+
+    /// <summary>A host that asked for tiling without a compute cache gets the untiled pass.</summary>
+    /// <remarks>
+    ///     The terms every other optional half of this renderer is built on: the picture is the same
+    ///     either way, so a missing dependency costs the optimisation rather than the frame.
+    /// </remarks>
+    [Fact]
+    public void Tiling_without_a_compute_cache_is_off_rather_than_broken() {
+        using var water = Node();
+
+        water.Tiled = true;
+
+        Build(Compositor(water));
+
+        Assert.Equal(3, water.Pass.Vertices);
+        Assert.Equal(1, water.Pass.Instances);
+        Assert.Equal(default, water.TileCount);
+    }
+
     // --- What a document says -----------------------------------------------
 
     /// <summary>The factory builds the node a document named, with the numbers it stated.</summary>
@@ -212,7 +293,8 @@ public sealed class WaterPassTests : IDisposable {
             BehindScale = new(0.5f, 0.5f, 0.5f),
             SunColour = new(1.2f, 1f, 0.8f),
             SunDirection = new(0.5f, -0.7f, 0.5f),
-            Foam = false
+            Foam = false,
+            Tiled = false
         };
 
         using var node = Assert.IsType<WaterRenderer>(new WaterRendererFactory().Create(asset, builder));
@@ -229,6 +311,13 @@ public sealed class WaterPassTests : IDisposable {
         // day than its sky, and nothing an author types elsewhere can move it.
         Assert.Equal(new Vector3(1.2f, 1f, 0.8f), node.SunColour);
         Assert.Equal(new Vector3(0.5f, -0.7f, 0.5f), node.SunDirection);
+
+        // ⚠ And § D8's tiling rides it too — on by default for a document, because a document has the
+        // !Copy that makes a tiled pass and an untiled one the same picture, and a node somebody wired
+        // by hand does not. See WaterRenderer.Tiled.
+        Assert.False(node.Tiled);
+        Assert.True(new WaterAsset().Tiled);
+        Assert.NotNull(node.Pipelines);
 
         // ⚠ And its defaults are water's, not zero. `behindScale` at zero is a perfectly black frame
         // behind the water, which reads as "the water is opaque" rather than as a parameter nobody set.

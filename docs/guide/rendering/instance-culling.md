@@ -4,7 +4,7 @@ slug: rendering/instance-culling
 kind: guide
 area: Rendering
 summary: Per-instance culling and LOD binning inside a batch, per-instance parameters beside the transforms, and a grid that keeps pages resident around whoever is moving.
-api: [T:Vixen.Rendering.InstanceCuller, T:Vixen.Rendering.InstanceBounds, T:Vixen.Rendering.InstanceCullSettings, T:Vixen.Rendering.InstanceLodRun, T:Vixen.Rendering.Features.InstanceParameters, T:Vixen.Rendering.StreamingGrid, T:Vixen.Rendering.StreamingSource]
+api: [T:Vixen.Rendering.InstanceCuller, T:Vixen.Rendering.InstanceBounds, T:Vixen.Rendering.InstanceCullSettings, T:Vixen.Rendering.InstanceLodRun, T:Vixen.Rendering.Features.InstanceParameters, T:Vixen.Rendering.StreamingGrid, T:Vixen.Rendering.StreamingSource, T:Vixen.Rendering.PageBudgetException]
 tags: [rendering, instancing, culling, lod, streaming]
 since: 0.1
 status: preview
@@ -78,6 +78,34 @@ arrives after it was needed, which is a hole in the ground for as long as the lo
 grid that also evicted would be a second policy disagreeing with the first about what is worth
 keeping. `PageKey(Source, Index)` is deliberately source-agnostic so that terrain tiles, foliage cells
 and meshlet pages all sit in the same budget.
+
+## The pinned working set
+
+A page can be *pinned*, which means it is loaded and then never evicted. A mesh's root page is pinned
+at registration, and that is what makes an object draw at its coarsest level rather than not at all.
+
+⚠ **Pinned pages cost slots permanently, so the pool must be bigger than the pinned set.** Pinning
+past the budget throws `PageBudgetException` naming both numbers, rather than leaving pages that can
+never become resident:
+
+```csharp no-compile="a fragment; the pool is one VirtualGeometrySystem's"
+// slots: 512 by default — a scene of 512 virtualized meshes fills it with root pages alone.
+var geometry = new VirtualGeometrySystem(device, slots: 1024);
+```
+
+It throws where the content is loaded rather than in a frame, because that is where the fix is: a
+pinned set larger than the pool is a number somebody chose when the pool was sized, and discovering
+it a page at a time in the render loop would either stop the application or — as it did before —
+silently produce meshes that draw nothing for ever with every counter reading healthy.
+
+⚠ **Unloading a level has to give the pages back.** `VirtualGeometrySystem.Release(mesh)` retires the
+registration, drops its pages and closes its blob; without it every level loaded costs a slot per
+mesh, permanently. The index stays valid and draws nothing, so an object still holding it does not
+find itself drawing whatever was registered next.
+
+⚠ **`Rejections` and `PinRefusals` are the signals worth watching.** They also reach the log as
+events 4001 and 4002 — at most one line per five seconds, and nothing at all while the frame is
+healthy.
 
 ## Examples
 

@@ -54,12 +54,45 @@ public sealed record RenderResourceAsset {
     /// <summary>How many samples it has.</summary>
     public int SampleCount { get; init; } = 1;
 
+    /// <summary>Its depth in texels. Read only when <see cref="Dimension" /> is a 3D texture.</summary>
+    /// <remarks>
+    ///     ⚠ No <see cref="Scale" /> counterpart, and deliberately: a volume's third axis is not a
+    ///     fraction of anything the frame has. A froxel grid's slice count is a quality decision about
+    ///     how finely to cut the view frustum, and it does not change when the window does.
+    /// </remarks>
+    public int Depth { get; init; } = 1;
+
+    /// <summary>Its shape.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ Appended, on <c>TonemapAsset.Bloom</c>'s terms — a <c>[DataContract]</c> is
+    ///         serialised in declaration order.
+    ///     </para>
+    ///     <para>
+    ///         Here so a volume is a resource the <em>document</em> names. A froxel grid the document
+    ///         cannot name is a grid the document cannot re-point at, cannot resize, and cannot hand
+    ///         to a second pass — which would leave every volumetric stage binding its own textures
+    ///         by hand and the graph unable to order them, when ordering compute stages by what they
+    ///         declare is the whole reason <c>!Compute</c> exists.
+    ///     </para>
+    /// </remarks>
+    public TextureDimension Dimension { get; init; } = TextureDimension.Texture2D;
+
     /// <summary>This declaration as a texture description, against a frame of a given size.</summary>
     public TextureDescription Describe(Int2 frameSize) {
         var width = Width > 0 ? Width : Math.Max((int)MathF.Ceiling(frameSize.X * Scale), 1);
         var height = Height > 0 ? Height : Math.Max((int)MathF.Ceiling(frameSize.Y * Scale), 1);
 
-        return new(Format, width, height, Usage, SampleCount: SampleCount, Name: Name);
+        return new(
+            Format,
+            width,
+            height,
+            Usage,
+            Math.Max(Depth, 1),
+            SampleCount: SampleCount,
+            Dimension: Dimension,
+            Name: Name
+        );
     }
 }
 

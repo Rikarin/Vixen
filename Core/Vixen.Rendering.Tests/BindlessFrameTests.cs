@@ -269,6 +269,79 @@ public sealed class BindlessFrameTests : IDisposable {
         Assert.Equal(1, harness.Materials.IndexedTextureCount);
     }
 
+    /// <summary>A material whose shader asks for a map it never got is counted.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <strong>The thing an unmatched pairing has instead of a symptom.</strong> An index
+    ///         nobody wrote stays zero and the shader samples slot zero, which draws — so the failure
+    ///         has a picture, and until this counter existed the picture was the only report. What
+    ///         made it worse than silent is that a material tints the map it multiplies: a base colour
+    ///         raised to compensate for a dark map renders the fallback at that same factor, so the
+    ///         level blows out and reads as broken lighting rather than as a missing texture.
+    ///     </para>
+    ///     <para>
+    ///         The index parameter is set on the material here because that is what
+    ///         <c>MaterialCompiler</c> does — the sampling feature's <c>Compile</c> writes a zero — and
+    ///         its presence is the material saying it reads a map through it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_declared_index_with_no_texture_is_counted_unresolved() {
+        using var harness = Build(table: true);
+
+        var wanting = Material();
+        wanting.Parameters.Set(BaseColorIndex, 0u);
+
+        AddMesh(harness, wanting);
+        Frame(harness);
+
+        Assert.Equal(1, harness.Materials.UnresolvedTextureCount);
+        Assert.Equal(0u, wanting.Parameters.Get(BaseColorIndex));
+        Assert.Equal(0, harness.Materials.IndexedTextureCount);
+    }
+
+    /// <summary>And a material that never asked for one is not.</summary>
+    /// <remarks>
+    ///     The distinction the counter is only worth having if it makes: an untextured workflow is not
+    ///     a fault, and a counter that reported every material in a level without maps would be one
+    ///     nobody reads. What separates them is whether the material's own shader has the index
+    ///     parameter at all.
+    /// </remarks>
+    [Fact]
+    public void A_material_that_asked_for_no_map_is_not_counted() {
+        using var harness = Build(table: true);
+
+        AddMesh(harness, Material());
+        Frame(harness);
+
+        Assert.Equal(0, harness.Materials.UnresolvedTextureCount);
+    }
+
+    /// <summary>A map that arrives takes the count back down.</summary>
+    /// <remarks>
+    ///     Which is what makes it a gauge rather than a total: a level streaming its textures in
+    ///     counts them while they are in flight, so only a number that stays up once the scene has
+    ///     settled is a map that will never come.
+    /// </remarks>
+    [Fact]
+    public void A_texture_that_arrives_clears_the_count() {
+        using var harness = Build(table: true);
+
+        var waiting = Material();
+        waiting.Parameters.Set(BaseColorIndex, 0u);
+
+        AddMesh(harness, waiting);
+        Frame(harness);
+
+        Assert.Equal(1, harness.Materials.UnresolvedTextureCount);
+
+        waiting.Parameters.Set(BaseColor, View());
+        Frame(harness);
+
+        Assert.Equal(0, harness.Materials.UnresolvedTextureCount);
+        Assert.Equal(1, harness.Materials.IndexedTextureCount);
+    }
+
     // --- The geometry -------------------------------------------------------
 
     /// <summary>

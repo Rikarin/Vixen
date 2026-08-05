@@ -137,7 +137,6 @@ importer: !TextureImporter
   compression: Bc7
   quality: 0.85
   premultiplyAlpha: false
-  streaming: true
   overrides:
     - target: Android
       compression: Astc6x6
@@ -377,6 +376,7 @@ Importer set for 1.0:
 | `StyleImporter` | vcss | parsed stylesheet + utility-class extraction |
 | `AssetImporter` | vxmat vxscene vxprefab vxgroup vxanim vxvfx … | Vixen-authored YAML assets |
 | `NavMeshImporter` | vxnavmesh | `NavMesh` — the bake, run at build time from the collision mesh the asset names |
+| `WaterWavesImporter` | vxwaves | `WaterWavesAsset` — a sea state, which is the one asset kind [35 § D6](35-water.md) admits; a water body stays in the scene because that is where its merge is |
 | `ScriptImporter` | cs | script metadata (execution order, default field values) |
 | `VideoImporter` | ✅ webm mkv (mp4 claimed and refused with the reason) | `VideoClip` + the container beside it |
 | `FolderImporter` | folders | folder assets (group inheritance, addressable roots) |
@@ -527,6 +527,35 @@ addresses, which is what "dependencies" was trying to say.
 - **Streaming.** Textures stream mip tails; audio streams; meshes stream LODs. A `StreamingManager`
   with a memory budget and a priority heuristic (distance, screen coverage, view frustum) — Stride has
   `Streaming/` for exactly this.
+
+  ✅ **Textures do**, and there is no `StreamingManager` because there did not need to be one:
+  [`PageResidency`](../../Core/Vixen.Rendering/PageResidency.cs) is already the request queue, the
+  byte budget and the eviction order, and what a texture streamer adds is a store
+  ([`TexturePagePool`](../../Core/Vixen.Engine.Renderer/TextureStreaming.cs)) and a heuristic
+  (`TextureStreamer.WantedWidth` — bounding radius over distance, the same projected size mesh LOD
+  selection uses). A page is a fixed byte-size slice of a KTX2 file's level data, which is a
+  complete mip tail exactly because the container stores levels smallest first; page 0 is pinned, so
+  a streamed texture always has something to sample. The budget is
+  `RenderQuality`'s `textures.streamingPoolMegabytes`, resolved by `AppGraphics` and handed to
+  `WorldRenderer.Textures` before content is mounted. See
+  [Streaming texture mip tails](../guide/rendering/texture-streaming.md).
+
+  What a texture is wanted at is `TextureDemand`: it surveys the frame's visible drawables once,
+  takes the maximum over every user of a texture, and quantises that onto the ladder of mip widths
+  with a dead band, because a wanted width that oscillates at a level boundary is an image swap on
+  alternate frames.
+
+  ⚠ **Audio and mesh LODs still load whole.**
+
+  **`streaming: true` has been withdrawn from the sketch above rather than implemented**, and the
+  reasoning is worth keeping. There is no channel for it — `TextureImportSettings` has no such field
+  and `Ktx2.Write` writes `kvdByteLength = 0` — and building one means a permanent format commitment
+  across four assemblies for a decision size already makes correctly. `streaming: true` on a small
+  texture is what already happens (page 0 covers a chain under 64 KiB whole); `streaming: false` on a
+  large one does not give an author what they would reach for it for, because it moves the texture out
+  of a bounded pool into an unbounded whole-file load, which is what the pool exists to stop. The
+  control that claim actually wants is a *pin*, and nothing has asked for one. What decides
+  streamability is size: a texture whose level data exceeds one page is streamed.
 
 ## Editor integration
 

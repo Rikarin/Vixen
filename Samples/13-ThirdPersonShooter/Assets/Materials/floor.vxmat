@@ -1,9 +1,36 @@
 # The arena floor: poured concrete, rough and dark — a moody level is one whose floor gives most
 # of the light it is given back to nowhere.
+#
+# Concrete rather than metal-panel, against what Content/README.md's table suggests: this material
+# is metalness 0 at roughness 0.88, which is poured floor and not plate, and the level's one metallic
+# surface is the ramp. The map follows the material, not the other way round.
 shader: ForwardPlus
 shading: StandardShading
 features:
-  - !MetalRoughness
-    baseColor: 0.19 0.18 0.17
+  - !TexturedMetalRoughness
+    baseColor: 1.102 1.044 0.990
     metalness: 0
     roughness: 0.88
+    baseColorMap: baseColorMap
+
+  # The same map the walls read, on the same argument: one upload however many materials sample it.
+  - !TexturedNormalMap
+    normalMap: normalMap
+    strength: 1
+
+  # The same map again, and the floor is where it costs the most look: `roughness: 0.88` above was
+  # chosen to give light back to nowhere, and concrete-orm's green tops out at 0.90 — so the floor
+  # stays as matte as it was and gains variation rather than shine.
+  - !TexturedOrm
+    ormMap: ormMap
+    occlusionStrength: 1
+    roughness: 1
+    metalness: 1
+
+textures:
+  - parameter: baseColorMap
+    texture: vx:bec393cb4c61452198c3af4408818204
+  - parameter: normalMap
+    texture: vx:9741806c7d834c58bdd5347a050e8758
+  - parameter: ormMap
+    texture: vx:6d2b8e37a0744f69b8eef36708982e96

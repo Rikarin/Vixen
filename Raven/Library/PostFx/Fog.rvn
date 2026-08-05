@@ -22,9 +22,23 @@ shader Fog {
     /// Whether to brighten fog toward the sun, which is what sells it as scattering.
     [Permutation] val SunScattering: bool = true
 
+    /// Whether a froxel volume stands in for the analytic falloff, out to its own far plane.
+    ///
+    /// ⚠ **Not a replacement for the rest of this shader, and that is the point.** The volume covers
+    /// sixty-four metres or so; the world does not stop there. Beyond its far plane the analytic
+    /// falloff below still runs, over what the volume left — so a project that turns this on gets
+    /// marched fog where the marching is worth doing and keeps a horizon that fades.
+    [Permutation] val Volumetric: bool = false
+
     var source: Texture2D
     var depthBuffer: Texture2D
     var linearSampler: Sampler
+
+    /// The integrated volume: accumulated in-scatter in `rgb`, surviving transmittance in `a`.
+    ///
+    /// `VolumetricFog`'s pass 2 wrote it. Read with a linear filter in all three axes, which is what
+    /// makes a 64-slice grid look continuous rather than banded.
+    var fogVolume: Texture3D
 
     var inverseViewProjection: mat4
     var cameraPosition: float3
@@ -50,6 +64,19 @@ shader Fog {
     var sunColor: float3 = float3(1f, 0.9f, 0.7f)
     var sunAnisotropy: float = 0.7f
 
+    /// The volume's own near and far, in view depth, and how many slices it cut between them.
+    ///
+    /// ⚠ The same three numbers `VolumetricFog` was dispatched with. A composite that reads the
+    /// volume with a different `fogFar` samples the wrong slice for every pixel — a smooth, plausible
+    /// fog that is wrong everywhere, which is this file's own recurring failure mode.
+    var volumeNear: float = 0.5f
+    var volumeFar: float = 64f
+    var volumeSlices: float = 64f
+
+    /// The camera's near and far, for turning a device depth into a view depth.
+    var cameraNear: float = 0.1f
+    var cameraFar: float = 1000f
+
     stream var uv: float2
 
     [VertexShader]
@@ -74,6 +101,10 @@ shader Fog {
         val toPixel = world - cameraPosition
         val distance = length(toPixel)
 
+        if (Volumetric) {
+            return float4(Composite(color, uv, deviceDepth, world, distance), 1f)
+        }
+
         var amount = Amount(distance)
 
         if (HeightFalloff) {
@@ -90,6 +121,57 @@ shader Fog {
         }
 
         return float4(lerp(color, tint, saturate(amount)), 1f)
+    }
+
+    /// The volume over the frame, with the analytic falloff carrying on past its far plane.
+    ///
+    /// Two composites in order, and the order is the physical one: the volume is what the first
+    /// `volumeFar` metres did to the pixel, so it applies to the pixel; the analytic term is what the
+    /// metres *beyond* that did, so it applies to the result. Running them the other way round would
+    /// fog the volume's own in-scatter by distance it never travelled.
+    ///
+    /// ⚠ **The analytic term is measured from the volume's far plane, not from the camera.** Passing
+    /// the whole distance would count the first sixty-four metres twice — once marched and once
+    /// analytically — and the seam would be a bright ring at exactly the swap-over distance, which is
+    /// the artefact this arrangement exists to avoid.
+    func Composite(color: float3, uv: float2, deviceDepth: float, world: float3, distance: float): float3 {
+        val toPixel = world - cameraPosition
+        val viewDepth = Transform.LinearizeReverseZ(deviceDepth, cameraNear, cameraFar)
+
+        // The grid's own Z distribution, inverted. Clamped to the last slice rather than left to run
+        // off the end: a pixel beyond the volume reads the far face, which holds exactly what the
+        // whole volume did to a ray that crossed all of it — which is the right answer to hand the
+        // fallback below.
+        val ratio = log(max(viewDepth, volumeNear) / volumeNear) / max(log(volumeFar / volumeNear), Const.Epsilon)
+        val slice = clamp(ratio * volumeSlices, 0f, volumeSlices - 0.5f)
+
+        // ⚠ `uv.y` is *not* flipped back. `Fullscreen.Uv` already put y down the screen, and
+        // `FroxelGrid.Ray` was built from a grid uv with the same sense — so the two agree, and
+        // negating here would light the top of the frame with the bottom's froxels.
+        val volume = fogVolume.SampleLevel(linearSampler, float3(uv.x, uv.y, slice / volumeSlices), 0f)
+        val marched = color * volume.a + volume.rgb
+
+        // What is left of the ray once the volume has had it.
+        val beyond = max(distance - volumeFar, 0f)
+
+        if (beyond <= 0f) {
+            return marched
+        }
+
+        var amount = Amount(beyond)
+
+        if (HeightFalloff) {
+            amount = amount * HeightDensity(world.y)
+        }
+
+        var tint = fogColor
+
+        if (SunScattering) {
+            val cosine = dot(Math.SafeNormalize(toPixel), Math.SafeNormalize(-sunDirection))
+            tint = lerp(fogColor, sunColor, HenyeyGreenstein(cosine, sunAnisotropy))
+        }
+
+        return lerp(marched, tint, saturate(amount))
     }
 
     func Amount(distance: float): float {

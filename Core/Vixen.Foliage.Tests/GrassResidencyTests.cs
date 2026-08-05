@@ -131,6 +131,40 @@ public sealed class GrassResidencyTests {
         Assert.True(ring.TryGetSlot(new(0, 0), out _), "the cell under the camera was not kept.");
     }
 
+    /// <summary>And having lost the horizon, it stops: a refusal that repeats is not a refusal.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The property an LRU does not have, and the reason this ring is not one.</b> A service
+    ///     that evicted a resident cell to make room for a further one would hand every slot to a
+    ///     different cell every frame while the camera stood still — a full re-scatter of the ring,
+    ///     thousands of surface probes, for a set that ends up the same size and further away. Nine
+    ///     slots over a range that wants forty-one cells is that case, and standing still is the test.
+    /// </remarks>
+    [Fact]
+    public void ARingThatRanOutStandsStill() {
+        var ring = Ring(9);
+
+        ring.Update(new(200f, 0f, 200f), 96f);
+
+        var chosen = ring.Resident.OrderBy(entry => entry.Slot).ToArray();
+
+        Assert.Equal(9, ring.Count);
+        Assert.True(ring.Refused > 0, "a nine-slot ring covered a 96 m range and said nothing.");
+
+        for (var frame = 0; frame < 8; frame++) {
+            var change = ring.Update(new(200f, 0f, 200f), 96f);
+
+            Assert.True(
+                change.IsEmpty,
+                $"frame {frame} took {change.Created.Count} cells in and put {change.Evicted.Count} "
+                + "out for a camera that did not move; the refusal is churning rather than refusing."
+            );
+
+            Assert.True(ring.Refused > 0, $"frame {frame} refused nothing and still holds nine slots.");
+        }
+
+        Assert.Equal(chosen, ring.Resident.OrderBy(entry => entry.Slot).ToArray());
+    }
+
     [Fact]
     public void ClearingReturnsEverySlot() {
         var ring = Ring(16);

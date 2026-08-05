@@ -17,6 +17,17 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+          For Diagnostics/RenderingLog only. Abstractions rather than the implementation, on
+          Vixen.Audio's terms: the render system takes an ILogger a host already built and never
+          decides where a line goes. What it buys is docs/manual/log-events.md's 4 000 range — a
+          frame that streams less than it was asked for is invisible to every exception path, so
+          the only thing that can report it is a log line with a stable id.
+        -->
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />

@@ -432,8 +432,18 @@ public static class WorldSerializer {
             entities[index] = world.Create(archetypes[blockOf[index]]);
         }
 
-        for (var block = 0; block < content.Blocks.Length; block++) {
-            Fill(content.Blocks[block], columns[block], world, entities);
+        // ⚠ Emptied rather than left half-restored. This already cleared the world above, so there is
+        // nothing to put back and "the restore did not happen" cannot mean "the world is as it was" —
+        // but it can mean an empty world rather than a partial one, which is a state a caller can
+        // tell apart from a successful load and a partial one is not.
+        try {
+            for (var block = 0; block < content.Blocks.Length; block++) {
+                Fill(content.Blocks[block], columns[block], world, entities);
+            }
+        } catch {
+            world.Clear();
+
+            throw;
         }
 
         for (var index = content.Count - 1; index >= 0; index--) {
@@ -463,10 +473,32 @@ public static class WorldSerializer {
     /// </remarks>
     static void Fill(SceneBlock block, IWorldColumn[] columns, World world, Entity[] entities) {
         for (var column = 0; column < columns.Length; column++) {
-            var reader = new SerializationReader(block.Columns[column].Data);
+            var data = block.Columns[column].Data;
+            var reader = new SerializationReader(data);
 
-            foreach (var index in block.Entities) {
-                columns[column].Read(ref reader, world, entities[index]);
+            // ⚠ The same pair of checks SceneContent.Fill makes, and for the reason WorldContent's
+            // own remarks give: this data came off a disk, and a column's length is the one thing
+            // Validate cannot relate to a block because only a column knows how wide a value is.
+            try {
+                foreach (var index in block.Entities) {
+                    columns[column].Read(ref reader, world, entities[index]);
+                }
+            } catch (SerializationException failure) {
+                throw new ArgumentException(
+                    $"This world's '{columns[column].Name}' column is {data.Length} bytes and its block has "
+                    + $"{block.Entities.Length} entities, which ran out after {reader.BytesRead}. The data is "
+                    + "truncated or was written by something that does not agree with this format.",
+                    failure
+                );
+            }
+
+            // Bytes left over means the column and the block disagree about how many entities there
+            // are, and reading the first n of them restores a world that is quietly wrong.
+            if (reader.Remaining != 0) {
+                throw new ArgumentException(
+                    $"This world's '{columns[column].Name}' column has {reader.Remaining} bytes left after its "
+                    + $"block's {block.Entities.Length} entities were read."
+                );
             }
         }
     }

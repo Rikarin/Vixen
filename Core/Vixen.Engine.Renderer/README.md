@@ -83,6 +83,25 @@ asked; recording the copy needs a command list and happens in `Draw`. So a textu
 frame after its bytes were recorded — and the view is created *after* the copy is on the list, never
 before, or a material samples undefined memory for a frame.
 
+**And with a pool, it streams its mip tail instead.** `WorldRenderer.Textures` carries the quality
+tier's `streamingPoolMegabytes`; a non-zero one builds a `TextureStreamer` over `PageResidency`,
+whose pages are byte ranges of the KTX2 file's level data. A streamed texture arrives at the
+resolution its pinned first page covers and is *replaced* by a larger complete image as pages
+arrive — not patched in place, because `baseMipLevel` is ignored for sampled bindings on the OpenGL
+backend and a full-size allocation would spend the memory streaming exists to save. Zero is the
+default and is exactly the whole-file behaviour above: no residency, no ring, no per-frame cost.
+
+**What decides how large a texture should be is `TextureDemand`.** Once a frame, at the top of
+`Draw`, it walks the visible drawables of the mesh feature, `max`es each one's projected size into a
+slot for its material, fans that out through `AssetMaterialSource.TexturesOf` to the files the
+material samples, and quantises the result onto the ladder of mip widths with a dead band. The
+maximum rather than the last user seen, because a texture is shared; a dead band because a wanted
+width that oscillates at a level boundary is an image swap on alternate frames, and a swap is an
+upload. The screen height comes from `SceneRenderHost.FrameSize`, and a height of zero surveys
+nothing — which leaves every texture in the "sampled and not sized wants to be complete" branch
+rather than asking for the smallest level of everything. See
+[Streaming texture mip tails](../../docs/guide/rendering/texture-streaming.md).
+
 ## Drawing a frame
 
 `SceneRenderHost` is the other join this assembly makes, and it is the same shape as the first: a

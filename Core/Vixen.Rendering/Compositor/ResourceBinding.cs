@@ -76,6 +76,34 @@ public sealed class ResourceBinding {
     public TextureViewHandle View { get; init; }
 
     /// <summary>
+    ///     A buffer the <em>host</em> owns, for a binding that is not a graph resource.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="View" />'s counterpart for the other resource kind, and it covers the case
+    ///         a name cannot: a buffer that reaches its consumer as a <em>handle</em>. The frame's
+    ///         light list and its cluster lists travel that way —
+    ///         <c>ForwardLightingRenderFeature.Publish</c> and <c>RenderPassRenderer.SceneBuffers</c>
+    ///         write handles into the scene's parameters — so a node outside the pass that published
+    ///         them has nothing to resolve a <see cref="Resource" /> against.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It declares no edge, on <see cref="View" />'s terms and for a sharper reason.</b>
+    ///         The handle was published while last frame executed, so there is nothing in this frame
+    ///         to order against — and importing it under a name of one's own would give the graph a
+    ///         second resource over memory it already tracks, which is two barrier streams for one
+    ///         buffer. <c>TerrainSceneRenderer</c> consumes exactly these two buffers exactly this
+    ///         way, through a side-effect pass, and its own remarks record what it costs: a frame that
+    ///         has only just started culling is lit without its lamps for one frame.
+    ///     </para>
+    ///     <para>
+    ///         Consulted only when <see cref="Resource" /> is empty, so a binding that names a graph
+    ///         buffer is unaffected.
+    ///     </para>
+    /// </remarks>
+    public BufferHandle Buffer { get; init; }
+
+    /// <summary>
     ///     The sampler to use, described rather than handed over.
     /// </summary>
     /// <remarks>
@@ -181,6 +209,7 @@ public sealed class DescriptorBindings {
         var resolvedBuffers = new GraphBuffer[bindings.Length];
         var resolvedSamplers = new SamplerHandle[bindings.Length];
         var resolvedViews = new TextureViewHandle[bindings.Length];
+        var resolvedHandles = new BufferHandle[bindings.Length];
 
         for (var i = 0; i < bindings.Length; i++) {
             var binding = bindings[i];
@@ -198,6 +227,8 @@ public sealed class DescriptorBindings {
             // the name and silently ignore the handle.
             if (binding.Resource.Length == 0 && binding.View.IsValid) {
                 resolvedViews[i] = binding.View;
+            } else if (binding.Resource.Length == 0 && binding.Buffer.IsValid) {
+                resolvedHandles[i] = binding.Buffer;
             } else if (ResourceBinding.IsTexture(places[i].Kind)) {
                 resolvedTextures[i] = textures.TryGetValue(binding.Resource, out var texture)
                     ? texture
@@ -216,6 +247,7 @@ public sealed class DescriptorBindings {
             resolvedBuffers,
             resolvedSamplers,
             resolvedViews,
+            resolvedHandles,
             Allocator!,
             Layout,
             Slot
@@ -231,6 +263,7 @@ sealed class BoundBindings(
     GraphBuffer[] buffers,
     SamplerHandle[] samplers,
     TextureViewHandle[] views,
+    BufferHandle[] handles,
     DescriptorAllocator allocator,
     DescriptorSetLayoutHandle layout,
     DescriptorSetSlot slot
@@ -255,9 +288,10 @@ sealed class BoundBindings(
             writes[i] = kind switch {
                 DescriptorKind.Sampler => DescriptorWrite.SamplerAt(index, samplers[i]),
 
-                // The host's own view where the node handed one over, and the graph's otherwise.
-                // Checked before the kind, because both arms are textures.
+                // The host's own view or buffer where the node handed one over, and the graph's
+                // otherwise. Checked before the kind, because each pair of arms is one kind.
                 _ when views[i].IsValid => new(index, kind, TextureView: views[i]),
+                _ when handles[i].IsValid => new(index, kind, handles[i], bindings[i].Offset, bindings[i].Size),
                 _ when ResourceBinding.IsTexture(kind) => new(index, kind, TextureView: context.View(textures[i])),
                 _ => new(index, kind, context.Buffer(buffers[i]), bindings[i].Offset, bindings[i].Size)
             };
