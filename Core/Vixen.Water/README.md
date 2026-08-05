@@ -182,6 +182,34 @@ the evaluator it would make every buoyancy query depend on where the *camera* is
 differently depending on where somebody is looking, which is § D2's seam broken in the worst way.
 Here the disagreement is confined to a band the view is half a window from.
 
+## Carving is a reserved edit layer, and the machinery existed
+
+[§ D5]. `WaterCarve` writes into the terrain's reserved `Water` layer, alongside Splines and Scatter,
+on [31 § D4]'s contract and with **no change to it** — which is the evidence doc 35 claims it is: the
+feature that most obviously wants non-destructive terrain deformation was not in scope when the
+mechanism was designed, and needed nothing added to it.
+
+**The bed a body carves is the bed the field rasterises, by construction.** Both read
+`WaterBody.Sample` — the surface height minus the coverage-weighted bed depth — so the shoreline the
+terrain is cut to and the shoreline the water is drawn at cannot disagree. That is § D2's argument
+applied to the ground rather than to the surface, and it is why `WaterCarve` takes a `WaterBody`
+rather than a `TerrainSplineProfile`.
+
+⚠ **A carve only ever cuts, and a raise only ever raises.** The bed is where a body *wants* the
+ground, not where it insists on it: ground already deeper than the bed is a trench somebody dug on
+purpose, and a lake whose surface sits above a valley floor would otherwise fill the valley in.
+
+⚠ **`Regenerate` resolves every body at each sample and combines by min and max — it does not carve
+them in turn.** Carving in turn is order-dependent twice over: a later body's clear erases an
+earlier one's bed wherever the two rects overlap, and even without that the last writer wins. The
+symptom is a lake that gets shallower when an unrelated body is moved.
+
+⚠ **The carve profile has three numbers where Unreal's brush has twenty.** The channel depth, the ramp
+and the outward falloff are the *body's*, not the carve's. The terracing, the two octaves of curl and
+the shape blur are a procedural shoreline generator living inside a water body, and every one of them
+is a terrain brush an author runs on a layer above — which survives the body being moved, because it
+is in a different layer. That is the gate § D5 says to check the decision against, and it is a test.
+
 ## What is not here
 
 The renderer (`Vixen.Rendering.Water`), the editor (`Vixen.Editor.Water`), the Raven modules, the
