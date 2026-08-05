@@ -5,6 +5,7 @@ using Vixen.Editor.Inspector;
 using Vixen.Ui;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.HotReload;
 using Xunit;
 
@@ -27,7 +28,17 @@ namespace Vixen.Editor.Terrain.Tests;
 public class BrushInspectorMarkupTests : IDisposable {
     readonly UiDocument document = new(400f, 800f);
 
-    public BrushInspectorMarkupTests() => InspectorTheme.Install(document);
+    /// <remarks>
+    ///     ⚠ <b>All three sheets, because one of the claims below is about a rule in the first
+    ///     one.</b> Collapsing is <c>expander-content { display: none }</c> and lives in
+    ///     <c>ControlTheme</c>; a fixture that loaded only the inspector's own sheet could assert
+    ///     that a group's flag went false and never notice that its rows stayed on screen.
+    /// </remarks>
+    public BrushInspectorMarkupTests() {
+        ControlTheme.Install(document);
+        AdvancedTheme.Install(document);
+        InspectorTheme.Install(document);
+    }
 
     public void Dispose() {
         document.Dispose();
@@ -71,6 +82,89 @@ public class BrushInspectorMarkupTests : IDisposable {
         var groups = Descendants(document.Root).OfType<Expander>().Select(group => group.Label).ToList();
 
         Assert.Equal(["Shape", "Stroke", "Pattern"], groups);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Markup children of an <c>&lt;Expander&gt;</c> belong to its content part, not to the
+    ///     control.</b> Hung off the control they are siblings of the part that
+    ///     <c>display: none</c> hides, so a group could be shut and its rows would stay — the
+    ///     chevron flipping over nine sliders that never moved. This is the structural half of the
+    ///     claim the next test measures.
+    /// </summary>
+    [Fact]
+    public void A_groups_rows_are_inside_the_part_that_collapsing_hides() {
+        var (_, fields) = Built();
+        var groups = Descendants(document.Root).OfType<Expander>().ToList();
+
+        Assert.Equal(3, groups.Count);
+        Assert.All(groups, group => Assert.NotEmpty(group.Content.Children));
+
+        // Every row is under some group's content, and none of them is a child of a group itself.
+        Assert.All(fields, field => Assert.Contains(groups, group => Descendants(group.Content).Contains(field)));
+        Assert.All(groups, group => Assert.DoesNotContain(group.Children, child => child is PropertyField));
+    }
+
+    /// <summary>
+    ///     <b>Doc 36 § P4's grouping argument, which is only worth anything if a group can shut.</b>
+    ///     The three headings exist so that a brush reads as a shape, a stroke and a pattern rather
+    ///     than as eleven sliders; a heading that cannot be closed is a caption.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The rows' own rectangles, not just the group's flag.</b> <c>IsExpanded</c> going
+    ///     false and the class coming off are both true of the broken version — what was wrong was
+    ///     that nothing followed from them, so the assertion has to be about what the user sees.
+    /// </remarks>
+    [Fact]
+    public void A_collapsed_group_does_not_show_its_rows() {
+        var (_, fields) = Built();
+
+        var stroke = Descendants(document.Root).OfType<Expander>().Single(group => group.Label == "Stroke");
+        var rows = fields.Where(field => Descendants(stroke.Content).Contains(field)).ToList();
+
+        Assert.Equal(["Strength", "Spacing", "Rotation", "Angle"], rows.Select(row => row.Path));
+        Assert.All(rows, row => Assert.True(row.Height > 0f));
+
+        stroke.IsExpanded = false;
+        document.Update();
+
+        Assert.False(stroke.HasClass("open"));
+        Assert.Equal(0f, stroke.Content.Height);
+        Assert.All(rows, row => Assert.Equal(0f, row.Height));
+
+        // And back, because a section that shut once and never reopened would pass everything above.
+        stroke.IsExpanded = true;
+        document.Update();
+
+        Assert.All(rows, row => Assert.True(row.Height > 0f));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The header is what opens it, and a click on a row inside must not shut it.</b> The
+    ///     markup path reaches <see cref="Expander" /> through <c>ContentHost</c> rather than
+    ///     through <c>Content.Add</c>, so the click routing is worth asserting once from this side
+    ///     too — a row that hung off the control would bubble to the same place and look identical.
+    /// </summary>
+    [Fact]
+    public void The_header_toggles_a_group_that_the_markup_asked_to_be_open() {
+        var (_, fields) = Built();
+
+        var shape = Descendants(document.Root).OfType<Expander>().Single(group => group.Label == "Shape");
+        var radius = fields.Single(field => field.Path == "Radius");
+
+        Assert.True(shape.IsExpanded);
+        Assert.True(radius.Height > 0f);
+
+        shape.Header.Activate();
+        document.Update();
+
+        Assert.False(shape.IsExpanded);
+        Assert.Equal(0f, radius.Height);
+
+        shape.Header.Activate();
+        document.Update();
+
+        Assert.True(shape.IsExpanded);
+        Assert.True(radius.Height > 0f);
     }
 
     [Fact]

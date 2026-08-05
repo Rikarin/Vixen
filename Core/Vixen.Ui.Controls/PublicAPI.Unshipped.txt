@@ -762,6 +762,7 @@ override Vixen.Ui.Controls.EmptyState.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.EmptyState.OnCreated() -> void
 override Vixen.Ui.Controls.EmptyState.TagName.get -> string
 override Vixen.Ui.Controls.Expander.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Expander.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Expander.OnCreated() -> void
 override Vixen.Ui.Controls.Expander.TagName.get -> string
 override Vixen.Ui.Controls.ExpanderHeader.OnCreated() -> void

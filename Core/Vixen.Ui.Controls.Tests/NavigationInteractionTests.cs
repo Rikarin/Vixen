@@ -141,11 +141,10 @@ public class NavigationInteractionTests {
         using var ui = Opened();
         var accordion = ui.Add<Accordion>("faq");
 
-        // ⚠ Two things the first version of this test got wrong. `AddSection` registers the section
-        // with the accordion and the inherited `Add<Expander>()` does not, so a section added the
-        // other way is exempt from the exclusion — the same shape as `RadioGroup.AddOption`. And
-        // `AllowMultiple` defaults to *true*, so "one at a time" is the opted-in behaviour rather
-        // than the default.
+        // ⚠ `AllowMultiple` defaults to *true*, so "one at a time" is the opted-in behaviour rather
+        // than the default. (This comment used to add that `AddSection` registers a section and the
+        // inherited `Add<Expander>()` does not. It no longer does: a section is a section because it
+        // is a child — see the next test for why that had to change.)
         accordion.AllowMultiple = false;
 
         var first = accordion.AddSection("One");
@@ -161,6 +160,75 @@ public class NavigationInteractionTests {
         // column of expanders.
         Assert.True(second.IsExpanded);
         Assert.False(first.IsExpanded);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Sections built as children rather than through <c>AddSection</c>, because that is
+    ///     the only shape markup can produce.</b> An <c>&lt;Accordion AllowMultiple="false"&gt;</c>
+    ///     with expanders written inside it has no <c>AddSection</c> to call, so an accordion that
+    ///     only knew about registered sections parsed the attribute, bound it, and behaved like a
+    ///     column of expanders. This is the same test as the one above with the two lines that build
+    ///     the sections changed, and it is a separate test rather than a theory because what it
+    ///     covers is the authoring route, not a parameter.
+    /// </summary>
+    [Fact]
+    public void An_accordion_excludes_sections_that_were_added_as_children() {
+        using var ui = Opened();
+        var accordion = ui.Add<Accordion>("faq");
+        accordion.AllowMultiple = false;
+
+        var first = accordion.Add<Expander>();
+        first.Label = "One";
+
+        var second = accordion.Add<Expander>();
+        second.Label = "Two";
+        ui.Frame();
+
+        Assert.Equal([first, second], accordion.Sections);
+
+        ui.Get("expander-header").First().Click();
+        Assert.True(first.IsExpanded);
+
+        ui.Get("expander-header").Last().Click();
+
+        Assert.True(second.IsExpanded);
+        Assert.False(first.IsExpanded);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An expander inside a section is not a section.</b> Its <c>OpenChangedEvent</c>
+    ///     bubbles through the accordion on its way out, and an accordion that acted on any of them
+    ///     would shut every section — including the one holding whatever the user had just opened.
+    ///     Reachable only once sections are read from the children, which is why it arrives with the
+    ///     test above it.
+    /// </summary>
+    [Fact]
+    public void An_expander_nested_inside_a_section_does_not_close_the_others() {
+        using var ui = Opened();
+        var accordion = ui.Add<Accordion>("faq");
+        accordion.AllowMultiple = false;
+
+        var first = accordion.AddSection("One");
+        var second = accordion.AddSection("Two");
+
+        var nested = second.Content.Add<Expander>();
+        nested.Label = "Inner";
+        ui.Frame();
+
+        Assert.Equal([first, second], accordion.Sections);
+
+        second.IsExpanded = true;
+        Assert.False(first.IsExpanded);
+
+        first.IsExpanded = true;
+        Assert.False(second.IsExpanded);
+
+        // The nested one belongs to the section it is in, and opening it settles nothing above it.
+        second.IsExpanded = true;
+        nested.IsExpanded = true;
+
+        Assert.True(nested.IsExpanded);
+        Assert.True(second.IsExpanded);
     }
 
     [Fact]
