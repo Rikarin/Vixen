@@ -23,6 +23,28 @@ solver that reached for it would drag a graphics device into the path a dedicate
 solver finds the water through `IWaterSurface`, which is a *kernel* interface — `WaterZoneSystem`
 implements it on a client, and a headless build implements it from its own fold.
 
+## A game references this package itself, and nothing will tell it to
+
+`Vixen.App.Hosting` links `Vixen.Rendering.Water`, so a zone and a body reach every game with a
+`!WaterSurface` node in its frame document. **It deliberately does not link this one**, because
+linking it would put Jolt in every host that draws a lake — the exact thing the section above says
+must not happen.
+
+What that costs has to be stated rather than discovered:
+
+> A `[ModuleInitializer]` cannot run in a process that never loads the assembly.
+
+`BuoyancyBody` and `BuoyancyState` are declared to `SceneComponentRegistry` from an initializer this
+assembly emits, so in a game that has not added the reference the declaration never happens and a
+scene naming `!BuoyancyBody` fails to load with *"This build has no component called
+'BuoyancyBody'"*. That is loud and it is the right failure; it does not name the package, and this
+paragraph is where it is named.
+
+⚠ **The editor links it unconditionally, and not because an editor runs physics.** A component whose
+assembly is not loaded is missing from Add ▸ and takes a scene naming it down on load — so a boat
+could not be *authored* before it could be opted into. `EditorApplication.BuiltInSubsystems` is the
+list that touches such an assembly, and it has to run before the scene file is read.
+
 ## The phase order is load-bearing, and both halves of it fail silently
 
 `BuoyancySystem` runs in `FixedUpdate`, **after `PhysicsSyncSystem` and before `PhysicsStepSystem`**.

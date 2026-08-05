@@ -75,5 +75,41 @@ same rule it refuses by — so the panel cannot be right about a configuration t
 metric, the far-mesh cut and the collision bounds. An author raising the wind from a breeze to a gale
 should see what it costs before the frame time does.
 
+## And the viewport has to draw it, which for a long time it did not
+
+`ScenePresenter` contained no occurrence of the word "water". The gesture wrote a real `.vxspline`,
+created a real `WaterBodyComponent`, and an author saw the same dry ground they had before — doc 31's
+"built and not yet reachable" arriving through a door W9's exit criterion could not check, since a
+session test can find the tools bound and say nothing about what is on screen.
+
+`WaterModuleScene` is this module's half of the fix: an `IWaterScene` contributed through the same
+registry `TerrainModule` contributes an `ITerrainScene` through, answering the three questions a fold
+cannot answer for itself — what a spline name means, what a sea-state name means, and where the
+ground is.
+
+⚠ **It reads the files off disk rather than through the asset database.** The draw tool writes the
+curve beside the scene with `File.WriteAllText` and an import is a scan away, so a source that asked
+the database would show the lake on whichever frame the watcher caught up — which reads as the draw
+tool being unreliable. Cached by name and re-read when the timestamp moves.
+
+⚠ **`GroundAt` is a flat plane at zero, and that is a limit rather than a placeholder.** The runtime's
+ground is the terrain's, and this module may not reference the terrain one — the two are independent
+plugins and either may be absent. What it costs is a shoreline drawn where the body's own falloff puts
+it rather than where the hill is; what it buys is a water toolset that works in a project with no
+terrain in it.
+
+## The six `water.show*` verbs are editor commands too
+
+`WaterDebug` declares them as `[ConsoleCommand]`s, and the only thing that finds an attributed command
+is `ConsoleCommands.RegisterFrom(Assembly)` — which nothing in the tree calls, because nothing in the
+tree constructs a `ConsoleCommands` outside its own tests. `WaterModuleDebug` registers the same six in
+the shell under **the same names**: the command palette is the editor's console, and a different id
+there would mean the sentence in the guide matched neither.
+
+⚠ **`water.showFlow` is the one of the six a pane draws today.** Tiles and LOD bands describe patches a
+device selected and ripples a simulation only a game runs; a preview surface is a CPU grid with none of
+the three. They are registered anyway, so the set an author sees does not depend on which host they are
+in.
+
 [§ D6]: ../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline
 [§ Part 4]: ../../docs/plan/35-water.md#part-4--testing

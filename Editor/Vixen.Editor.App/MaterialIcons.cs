@@ -10,8 +10,8 @@ using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Terrain;
 using Vixen.Rendering.Water;
 using Vixen.Ui;
-using Vixen.Water.Physics;
 using Vixen.Ui.Controls;
+using Vixen.Water.Physics;
 
 namespace Vixen.Editor.App;
 

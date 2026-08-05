@@ -4,7 +4,7 @@ slug: editor/water-mode
 kind: guide
 area: Editor
 summary: One mode and three verbs — draw a body's curve on the ground, drag its profile handles, and preview what its carve did to the terrain — plus the zone panel that turns a resolution into metres.
-api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics, T:Vixen.Editor.Assets.Water.WaterWavesImporter, T:Vixen.Editor.Assets.Water.WaterWavesImportSettings]
+api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Editor.SceneView.IWaterScene, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics, T:Vixen.Editor.Assets.Water.WaterWavesImporter, T:Vixen.Editor.Assets.Water.WaterWavesImportSettings]
 tags: [editor, water, mode, river, lake, undo]
 since: 0.1
 status: preview
@@ -117,6 +117,37 @@ rather than half-done. An entity naming a spline nothing can supply loads, resol
 into `WaterZoneSystem.UnresolvedBodies` and draws no water — the author would be looking at a lake in
 the outliner and dry ground in the viewport.
 
+### What the viewport shows
+
+The pane draws the water the mode paints, and it does it by running the game's own fold.
+`WaterModule` contributes an `IWaterScene` — three questions the fold cannot answer for itself, which
+are what a *name* means — and the presenter hands them to a `WaterZoneSystem` it folds over the scene
+document's world.
+
+| Question | What the module answers with |
+|---|---|
+| `SplineFor` | The `.vxspline` beside the scene, re-read when its timestamp moves |
+| `SpectrumFor` | The `.vxwaves` the zone names, or null to fall back to the inline spectrum |
+| `GroundAt` | A flat plane at zero — the module may not reference the terrain one, and either may be absent |
+
+⚠ **The fold is `WaterZoneSystem.Fold(World)` and not a second implementation of it.** § D2 is a rule
+about hosts and the editor is one: a second fold would be a second opinion about where the shoreline
+is, and it would agree with the game's until the frame it stopped. The surface itself is evaluated on
+the CPU by the same `WaterQuery` a game's vertex stage samples, so a grid over the window is the
+picture the game will draw rather than an impression of it — which is the opposite call from the
+grass, where a CPU preview of a hundred thousand blades would have been a lie.
+
+⚠ **The preview is translucent and it writes depth, so it is recorded last of the solid geometry.**
+The ground under a lake has to be in the target before the water blends over it; and something under
+the surface has to lose the depth test to it, which is what makes a submerged object read as
+submerged.
+
+⚠ **A zone whose spectrum cannot be summed draws a still sea rather than failing.** A zone authored in
+a file that never wrote a `waves:` block holds a *zeroed* spectrum, whose minimum wavelength is zero
+and whose dispersion relation therefore divides by nothing. That is the ordinary state of a lake
+somebody has just placed, and the runtime's own answer for it — `WaterMeshRenderer` sums zero waves —
+is flat.
+
 ### Debugging
 
 Doc 35 copies Unreal's debug surface on purpose: `stat water` and `stat watermesh` are better than most
@@ -127,6 +158,23 @@ first-party debug tooling in any engine, and there is no credit in inventing wor
 | `stat water` | Zones, bodies, and — in red — `zoneless` and `unresolved`, which have different fixes |
 | `stat watermesh` | Zones drawn, patches, vertices, draws, and `dropped` in red |
 | `water.showTiles`, `water.showLod`, `water.showInfo`, `water.showFlow`, `water.showBuoyancy`, `water.showRipples` | Flags a renderer reads |
+
+The six `show` verbs are registered by `WaterModule` under those exact names, so the command palette
+finds them — **the command palette is the editor's console**, and a different id there would mean the
+sentence above matched neither. `WaterDebug.Register(ConsoleCommands)` is the same six for a game,
+without the reflection the `[ConsoleCommand]` attributes would otherwise need.
+
+⚠ **`water.showFlow` is the one of the six a pane draws today.** Tiles and LOD bands describe the
+patches a *device* selected and ripples a simulation only a game runs; the editor's preview surface is
+a CPU grid with none of the three. They are registered anyway, so that the set an author sees does not
+depend on which host they are in. `water.showInfo`'s channel charts are screen-space and a pane has no
+screen-space debug pass to drain them into.
+
+⚠ **`stat water` and `stat watermesh` still have no host.** `WaterOverlay` and `WaterMeshOverlay` are
+`IDiagnosticOverlay`s and nothing in the tree constructs a `DiagnosticOverlays`, a `ConsoleCommands` or
+a `DebugDraw` outside its own tests — and no compositor node draws a frame's `DebugDraw`. That is doc
+13's host wiring rather than water's, and it is missing for `FrameStatsOverlay` and `AudioOverlay`
+equally.
 
 ⚠ **Two diagnostics rather than one, because the fixes differ.** A zoneless body is a zone's extent;
 an unresolved one is an asset name or an asset that has not loaded. One number for both sends an

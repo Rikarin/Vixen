@@ -714,6 +714,7 @@ static Vixen.Rendering.Water.WaterDebug.Buoyancy(Vixen.Engine.Diagnostics.Overla
 static Vixen.Rendering.Water.WaterDebug.Flow(Vixen.Engine.Diagnostics.Overlays.ConsoleContext context) -> void
 static Vixen.Rendering.Water.WaterDebug.Info(Vixen.Engine.Diagnostics.Overlays.ConsoleContext context) -> void
 static Vixen.Rendering.Water.WaterDebug.Lod(Vixen.Engine.Diagnostics.Overlays.ConsoleContext context) -> void
+static Vixen.Rendering.Water.WaterDebug.Register(Vixen.Engine.Diagnostics.Overlays.ConsoleCommands into) -> int
 static Vixen.Rendering.Water.WaterDebug.Reset() -> void
 static Vixen.Rendering.Water.WaterDebug.Ripples(Vixen.Engine.Diagnostics.Overlays.ConsoleContext context) -> void
 static Vixen.Rendering.Water.WaterDebug.ShowBuoyancy.get -> bool
