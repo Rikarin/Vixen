@@ -179,6 +179,14 @@ public sealed class InspectorView : Control {
     }
 
     /// <summary>Raised after an editor writes a member.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves of the panel, and it was one of them for a while.</b> The generated rows
+    ///     raise it from the loop in <c>Rebuild</c>; a <see cref="CustomInspector" /> — which is what
+    ///     every <c>.vxml</c> inspector is — replaces that loop and returns before it runs, so a host
+    ///     whose panel moved to markup would have gone quiet without anything saying so. Writes made
+    ///     through <see cref="Edited" /> are forwarded here as well, which covers whatever the author
+    ///     bound and whatever they bind after their builder returns.
+    /// </remarks>
     public event Action<InspectorView, InspectorMember>? ValueChanged;
 
     /// <summary>Raised when the lock is turned on or off.</summary>
@@ -363,6 +371,25 @@ public sealed class InspectorView : Control {
         // rows quietly poorer than the ones it replaced, which is the opposite of what an author
         // writes one for. See `InspectorTarget`.
         Edited = targets.Count > 0 ? new InspectorTarget(targets, EditedDocument, Prefab) : null;
+
+        // ⚠ Here rather than inside the custom branch below, and before anything has had a chance to
+        // bind: a binding made while a custom inspector is being built is one whose first write can
+        // land during `Build` itself, and a subscription made afterwards would miss it. The target is
+        // new per rebuild, so this is not a subscription that accumulates.
+        //
+        // It cannot double-report the generated rows: those build their own `InspectorField`s rather
+        // than asking `Edited` for them, so nothing is both a row below and a binding of this target.
+        if (Edited is { } bound) {
+            bound.Changed += (_, property) => {
+                // Always an `InspectorField` in this panel — `InspectorEditProvider` resolves nothing
+                // for a type the generator did not describe, so a binding that exists at all came
+                // from a descriptor. The test is what keeps a host that hands over its own provider
+                // from turning a wider `IEditMember` into a cast that throws inside somebody's edit.
+                if (property.Member is InspectorMember member) {
+                    ValueChanged?.Invoke(this, member);
+                }
+            };
+        }
 
         // ⚠ Before the descriptor is required, and that ordering is the point. A hand-written
         // inspector replaces the generated rows, so a type that has none at all — a plugin's own,

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Core;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
@@ -165,6 +166,118 @@ public class PanelTests : IDisposable {
         menu.Items[1].Activate();
 
         Assert.Equal(0.75f, view.Targets.OfType<WaterMaterial>().Single().Level);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A custom inspector returns before the loop that raises <c>ValueChanged</c>.</b> Every
+    ///     <c>.vxml</c> inspector is one of these, so a panel that moved to markup would have stopped
+    ///     hearing about writes — silently, because the event is still there and nothing raises it.
+    /// </summary>
+    [Fact]
+    public void A_custom_inspector_reports_a_write_the_way_the_generated_rows_do() {
+        var view = View();
+        var registry = new EditorRegistry();
+        var water = new WaterMaterial();
+
+        EditProperty? bound = null;
+
+        using var registration = registry.Add(
+            new CustomInspector(
+                typeof(WaterMaterial),
+                (body, target) => {
+                    bound = target.Find("Roughness");
+                    InspectorRows.Add(body, (InspectorField) bound!, DrawerRegistry.Default);
+                }
+            )
+        );
+
+        view.Extensions = registry;
+
+        List<InspectorMember> written = [];
+
+        view.ValueChanged += (_, member) => written.Add(member);
+        view.Inspect(water);
+
+        // The generated rows were replaced, so there is nothing here that could have raised it the
+        // old way — which is what makes this an assertion about the custom path rather than about
+        // whichever half happened to fire.
+        Assert.Empty(view.Rows);
+        Assert.NotNull(bound);
+
+        Assert.True(bound.Write(0.75f));
+
+        Assert.Equal(0.75f, water.Roughness);
+        Assert.Equal("Roughness", Assert.Single(written).Name);
+    }
+
+    /// <summary>
+    ///     The shape a <c>.vxml</c> inspector actually has: a control that named a member, joined to
+    ///     the target after the tree was built.
+    /// </summary>
+    [Fact]
+    public void A_control_bound_by_path_inside_a_custom_inspector_reports_too() {
+        var view = View();
+        var registry = new EditorRegistry();
+        var water = new WaterMaterial { Roughness = 0.4f };
+
+        using var registration = registry.Add(
+            new CustomInspector(
+                typeof(WaterMaterial),
+                (body, target) => {
+                    var slider = body.Add<Slider>();
+
+                    slider.Minimum = 0f;
+                    slider.Maximum = 1f;
+                    slider.SetAttribute("binding-path", "Roughness");
+
+                    MarkupBinding.Bind(body, target);
+                }
+            )
+        );
+
+        view.Extensions = registry;
+
+        List<InspectorMember> written = [];
+
+        view.ValueChanged += (_, member) => written.Add(member);
+        view.Inspect(water);
+
+        var slider = Descendants(view).OfType<Slider>().Single();
+
+        Assert.Equal(0.4f, slider.Value, 3);
+
+        slider.Value = 0.9f;
+        view.Document.Update();
+
+        Assert.Equal(0.9f, water.Roughness, 3);
+        Assert.Equal("Roughness", Assert.Single(written).Name);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Once, not twice.</b> The generated rows raise the event themselves and the target
+    ///     forwards whatever was bound through it; a row that was also a binding of the target would
+    ///     report every write to a host counting them.
+    /// </summary>
+    [Fact]
+    public void A_generated_row_reports_its_write_exactly_once() {
+        var view = View();
+        var written = 0;
+
+        view.ValueChanged += (_, _) => written++;
+        view.Inspect(new WaterMaterial());
+
+        Assert.True(view.Rows.Single(row => row.Field.Member.Name == "Roughness").Field.Write(0.75f));
+        Assert.Equal(1, written);
+    }
+
+    static IEnumerable<UiElement> Descendants(UiElement element) {
+        foreach (var child in element.Children) {
+            yield return child;
+
+            foreach (var found in Descendants(child)) {
+                yield return found;
+            }
+        }
     }
 
     /// <summary>Aims the menu at a row the way a secondary click does, then opens it.</summary>

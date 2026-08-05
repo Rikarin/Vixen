@@ -88,6 +88,14 @@ The point of it being here rather than in the inspector is doc 36 § D1: an edit
 paths has five answers to "what happens when twenty things are selected", and a plugin cannot join
 an undo stack there is no shared way in to.
 
+A binding raises `EditProperty.Changed`, and the target aggregates all of them into
+`EditTarget.Changed`. Both, because they answer different questions: a surface that built a row knows
+which binding it is watching, and one whose body was filled in by a markup tree or by somebody else's
+builder never sees the individual bindings at all. ⚠ **Walking `Properties()` afterwards and
+subscribing to each is the near miss** — it covers what existed at the moment of the walk and nothing
+bound after it, which is a foldout opened later or a `.vxml` re-bound by a hot reload. Only bindings
+the target handed out are heard; an `EditProperty` constructed beside one is not among them.
+
 ## One contribution registry, and it is not the only registry
 
 `EditorRegistry` is a typed multimap: `Add(contribution)` files something under its own type and
