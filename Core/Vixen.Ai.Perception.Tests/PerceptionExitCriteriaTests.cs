@@ -58,7 +58,14 @@ public class PerceptionCostTests {
         Assert.Equal(slow.Candidates, fast.Candidates);
 
         Assert.True(fast.Examined * 20 < slow.Examined, report);
-        Assert.True(quick < scanned, report);
+
+        // ⚠ The two times are reported and not compared, which is this class's own rule and was
+        // broken here. `quick < scanned` reads as harmless — the broad phase examines twenty times
+        // less, so of course it is faster — but each side is a single Stopwatch reading of a few
+        // hundred microseconds, and on a runner shared with two other jobs the scheduler decides
+        // that ordering as often as the algorithm does. It failed on CI and never once locally,
+        // which is the signature. The work counts above are the same claim without the coin toss.
+        Assert.NotEqual(0d, quick + scanned);
     }
 
     static (PerceptionStats Stats, double Milliseconds) Measure(bool broadPhase) {

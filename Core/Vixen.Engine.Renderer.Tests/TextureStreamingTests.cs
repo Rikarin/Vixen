@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
@@ -261,8 +262,19 @@ public sealed class TextureStreamingTests {
     }
 
     /// <summary>Services until nothing is in flight and nothing is queued.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A deadline in wall-clock time, and it fails rather than returning.</b> This used to give
+    ///     up after four hundred one-millisecond rounds and return as if it had drained — so on a
+    ///     runner where the loader's threads were not scheduled inside 400 ms, every assertion after
+    ///     the call read a half-loaded streamer and the test failed on a resident level or an eviction
+    ///     count. The number that expired was never the number under test, which is what made the
+    ///     failure look like a streaming bug on CI and like nothing at all on a developer's machine.
+    ///     Thirty seconds is far past anything this work takes and is a hang's timeout, not a race's.
+    /// </remarks>
     static void Drain(TextureStreamer streamer) {
-        for (var round = 0; round < 400; round++) {
+        var deadline = Stopwatch.StartNew();
+
+        while (deadline.Elapsed < TimeSpan.FromSeconds(30)) {
             var placed = streamer.Service(256);
 
             if (placed == 0 && streamer.Loading == 0 && streamer.PendingRequests == 0) {
@@ -271,6 +283,11 @@ public sealed class TextureStreamingTests {
 
             Thread.Sleep(1);
         }
+
+        Assert.Fail(
+            $"the streamer did not settle in 30 s: {streamer.Loading} loading, "
+            + $"{streamer.PendingRequests} queued"
+        );
     }
 
     /// <summary>A set of KTX2 files in memory, served as byte ranges.</summary>
