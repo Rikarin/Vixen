@@ -45,6 +45,26 @@ public sealed record TerrainNodeAsset : ISceneRendererAsset {
     /// <summary>The view whose camera places, culls and streams the ground.</summary>
     public string View { get; init; } = "Camera";
 
+    /// <summary>The frame's split albedo plane. Its presence is what turns the split path on.</summary>
+    /// <remarks>
+    ///     No <c>lit:</c> or <c>split:</c> toggle, deliberately — availability is the signal. The
+    ///     node lights with the frame exactly when the frame publishes its lighting (the cascade
+    ///     constants, the atlas below, a scene camera), and writes the split planes exactly when
+    ///     the document declares them; every one of those is a fact the frame already states, and a
+    ///     toggle would be a second copy of it that can disagree. These three names exist for the
+    ///     hand-authored document whose resources are called something else.
+    /// </remarks>
+    public string Albedo { get; init; } = "SceneAlbedo";
+
+    /// <summary>And its normal plane, on the same terms.</summary>
+    public string Normals { get; init; } = "SceneNormals";
+
+    /// <summary>The cascade atlas the frame renders, which the lit ground samples.</summary>
+    public string ShadowAtlas { get; init; } = "ShadowAtlas";
+
+    /// <summary>Which pass's names the frame's lighting is published under.</summary>
+    public string ScenePass { get; init; } = "ForwardPlus";
+
     /// <summary>Whether grass fields scatter and draw at all.</summary>
     /// <remarks>
     ///     A switch rather than a density of zero, for the reason the editor's grass panel has one:

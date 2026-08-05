@@ -90,8 +90,10 @@
         <!-- Named, not globbed: the generator emits a `…Keys` type per file, and two projects
              globbing one directory emit the same type twice. -->
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\Terrain.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\TerrainLit.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\GrassScatter.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\Grass.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\GrassLit.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\Impostor.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\FoliageCull.reflect.json" />
     </ItemGroup>

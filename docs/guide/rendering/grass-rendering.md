@@ -4,7 +4,7 @@ slug: rendering/grass-rendering
 kind: guide
 area: Rendering
 summary: Cells scattered as they come into range and blades culled every frame — the CPU reference of a compute pass, and the seam test that holds the two together.
-api: [T:Vixen.Rendering.Terrain.GrassRenderer, T:Vixen.Rendering.Terrain.GrassDraw, T:Vixen.Rendering.Terrain.GrassBatch, T:Vixen.Rendering.Terrain.TerrainSurface, T:Vixen.Rendering.Terrain.GrassDispatch, T:Vixen.Rendering.Terrain.GrassCellRecord, T:Vixen.Rendering.Terrain.GrassInstanceRecord, T:Vixen.Rendering.Terrain.GrassTerrainSource, T:Vixen.Shaders.Generated.GrassScatterKeys, T:Vixen.Shaders.Generated.GrassScatterConstants, T:Vixen.Shaders.Generated.GrassKeys, T:Vixen.Shaders.Generated.GrassConstants, R:Terrain/GrassScatter, R:Terrain/Grass, T:Vixen.Rendering.Terrain.GrassDrawPass, T:Vixen.Rendering.Terrain.GrassBladeMesh, T:Vixen.Rendering.Terrain.FoliageStreamer, T:Vixen.Rendering.Terrain.FoliageCellPages, T:Vixen.Rendering.Terrain.TerrainGrassComponent]
+api: [T:Vixen.Rendering.Terrain.GrassRenderer, T:Vixen.Rendering.Terrain.GrassDraw, T:Vixen.Rendering.Terrain.GrassBatch, T:Vixen.Rendering.Terrain.TerrainSurface, T:Vixen.Rendering.Terrain.GrassDispatch, T:Vixen.Rendering.Terrain.GrassCellRecord, T:Vixen.Rendering.Terrain.GrassInstanceRecord, T:Vixen.Rendering.Terrain.GrassTerrainSource, T:Vixen.Shaders.Generated.GrassScatterKeys, T:Vixen.Shaders.Generated.GrassScatterConstants, T:Vixen.Shaders.Generated.GrassKeys, T:Vixen.Shaders.Generated.GrassConstants, T:Vixen.Shaders.Generated.GrassLitKeys, T:Vixen.Shaders.Generated.GrassLitConstants, T:Vixen.Shaders.Generated.GrassLitCascadesElement, R:Terrain/GrassScatter, R:Terrain/Grass, R:Terrain/GrassLit, T:Vixen.Rendering.Terrain.GrassDrawPass, T:Vixen.Rendering.Terrain.GrassBladeMesh, T:Vixen.Rendering.Terrain.FoliageStreamer, T:Vixen.Rendering.Terrain.FoliageCellPages, T:Vixen.Rendering.Terrain.TerrainGrassComponent]
 tags: [grass, rendering, culling, instancing, wind]
 since: 0.1
 status: preview
@@ -216,6 +216,16 @@ multi-rule scene format is a decision this increment did not rush. A rule bound 
 the terrain has not painted grows nothing and is counted on the node
 (`TerrainSceneRenderer.GrassLayersMissing`); a rule whose own `Validate` refuses it is dropped at
 extraction (`TerrainExtractionSystem.RefusedGrass`) rather than thrown from the scatter mid-frame.
+
+⚠ **The blades follow the terrain's lighting mode.** When the frame publishes its lighting — [the
+terrain page](terrain-rendering.md)'s frame-lit section says exactly what that means — the field
+draws with `GrassLit`: the frame's sun, the cascade shadow term sampled at the blade's *root* (a
+blade shadows as one point of ground, and sampling the swaying tip is how a field shimmers at every
+shadow edge), the sky's harmonics for ambient, and under a split frame the albedo and normal
+planes. The normal it lights by and reports is the blade's rotated up axis — the ground the blade
+stands for, so screen-space AO and GI treat a meadow as ground rather than as thousands of tiny
+walls. Clustered lamps deliberately skip the blades: a blade is centimetres across and fades out
+within a hundred metres, and the lamp light on the terrain shows through the field everywhere.
 
 ## See also
 

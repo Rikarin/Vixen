@@ -1,0 +1,1528 @@
+{
+  "Sets": [
+    {
+      "Set": 2,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "GrassLitPerMaterialUniforms",
+          "Type": "UniformBuffer",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [
+            {
+              "Name": "lightDirection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shadowConstantBias",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 12,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lightColor",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shadowSlopeBias",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 28,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shadowFadeRange",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 32,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "ambientIntensity",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 36,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "view",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 48,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cascades",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": 4,
+                "StructName": "ShadowCascade",
+                "IsMatrix": false,
+                "IsArray": true,
+                "IsStruct": true
+              },
+              "Offset": 112,
+              "Size": 320,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cascades[].viewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 64,
+              "ArrayStride": 80,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cascades[].split",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 176,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cascades[].depthScale",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 180,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "StructName": "ShCoefficients",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 432,
+              "Size": 144,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh.l00",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 432,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh.l1m1",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 448,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh.l10",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 464,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh.l11",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 480,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh.l2m2",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 496,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh.l2m1",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 512,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh.l20",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 528,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh.l21",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 544,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "environmentSh.l22",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 560,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shadowTexelSize",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 576,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "viewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 592,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "viewPosition",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 656,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "time",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 668,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "wind",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "StructName": "WindParameters",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 672,
+              "Size": 32,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "wind.direction",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 672,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "wind.strength",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 680,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "wind.frequency",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 684,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "wind.speed",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 688,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "wind.flutter",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 692,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "wind.height",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 696,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "tintRange",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 704,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "fadeRange",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 712,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 720,
+          "IsWritable": false
+        },
+        {
+          "Binding": 1,
+          "Name": "shadowMap",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 2,
+          "Name": "albedoMap",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 3,
+          "Name": "shadowSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 4,
+          "Name": "albedoSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 5,
+          "Name": "blades",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Vertex, Fragment",
+          "Members": [
+            {
+              "Name": "blades",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "StructName": "GrassInstance",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 0,
+              "Size": 48,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "blades.position",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "blades.scale",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 12,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "blades.rotation",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "blades.tint",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 32,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "blades.windPhase",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 36,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "blades.padding0",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 40,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "blades.padding1",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 44,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 48,
+          "IsWritable": false
+        }
+      ]
+    }
+  ],
+  "VertexInputs": [
+    {
+      "Location": 6,
+      "Name": "position",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "POSITION"
+    },
+    {
+      "Location": 7,
+      "Name": "normal",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "NORMAL"
+    },
+    {
+      "Location": 8,
+      "Name": "texcoord",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "TEXCOORD0"
+    }
+  ],
+  "Outputs": [
+    {
+      "Location": 0,
+      "Name": "color",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "SV_Target0"
+    }
+  ],
+  "PushConstants": [],
+  "SpecConstants": [],
+  "Permutations": [
+    {
+      "Name": "SplitOutputs",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
+    {
+      "Name": "CrossFade",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "true"
+    }
+  ],
+  "ValueParameters": [],
+  "Parameters": [
+    {
+      "Name": "lightDirection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shadowConstantBias",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 12,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lightColor",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 16,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shadowSlopeBias",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 28,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shadowFadeRange",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 32,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "ambientIntensity",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 36,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "view",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 48,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "cascades[].viewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 112,
+      "Size": 64,
+      "ArrayStride": 80,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "cascades[].split",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 176,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "cascades[].depthScale",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 180,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "environmentSh.l00",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 432,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "environmentSh.l1m1",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 448,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "environmentSh.l10",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 464,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "environmentSh.l11",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 480,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "environmentSh.l2m2",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 496,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "environmentSh.l2m1",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 512,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "environmentSh.l20",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 528,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "environmentSh.l21",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 544,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "environmentSh.l22",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 560,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shadowTexelSize",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 576,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "viewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 592,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "viewPosition",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 656,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "time",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 668,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "wind.direction",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 672,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "wind.strength",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 680,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "wind.frequency",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 684,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "wind.speed",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 688,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "wind.flutter",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 692,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "wind.height",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 696,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "tintRange",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 704,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "fadeRange",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 712,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "blades.position",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 5,
+      "Offset": 0,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "blades.scale",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 5,
+      "Offset": 12,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "blades.rotation",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 5,
+      "Offset": 16,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "blades.tint",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 5,
+      "Offset": 32,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "blades.windPhase",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 5,
+      "Offset": 36,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "blades.padding0",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 5,
+      "Offset": 40,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "blades.padding1",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 5,
+      "Offset": 44,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    }
+  ],
+  "RequiredCapabilities": [],
+  "UsedPermutationKeys": [
+    "CrossFade",
+    "SplitOutputs"
+  ],
+  "Stages": [
+    "Vertex",
+    "Fragment"
+  ]
+}

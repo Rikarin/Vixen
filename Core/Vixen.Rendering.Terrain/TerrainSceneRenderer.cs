@@ -60,8 +60,10 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     readonly List<(TerrainDrawSet Set, TerrainSceneEntry Entry)> drawn = [];
     readonly HashSet<TerrainMap> placed = [];
     readonly Stopwatch clock = Stopwatch.StartNew();
+    readonly TerrainFrameLighting lighting = new();
 
     TerrainShaders terrainShaders;
+    (bool Lit, bool Split, bool Clustered) shaderMode;
     bool disposed;
 
     /// <summary>The colour target the ground draws into.</summary>
@@ -69,6 +71,44 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
     /// <summary>The depth target it tests and writes.</summary>
     public required string Depth { get; init; }
+
+    /// <summary>The frame's split albedo plane, bound beside <see cref="Output" /> when it exists.</summary>
+    /// <remarks>
+    ///     The canonical name is <c>!StandardFrame</c>'s and the presence of the resource is the
+    ///     signal: a frame that splits declares the plane and the Main pass writes it, so the ground
+    ///     joins with the same three targets — direct light, albedo, raw world normal — and the
+    ///     ambient combine rebuilds its diffuse ambient like everything else's. A frame that does
+    ///     not split declares no such resource and the ground draws one target, ambient included.
+    /// </remarks>
+    public string Albedo { get; set; } = "SceneAlbedo";
+
+    /// <summary>And its normal plane, on the same terms.</summary>
+    public string Normals { get; set; } = "SceneNormals";
+
+    /// <summary>The frame's cascade atlas — half of what makes the ground frame-lit at all.</summary>
+    /// <remarks>
+    ///     Read for two reasons: its presence (with the published cascade constants) is the signal
+    ///     that the frame lights, and the raster pass must declare the read so the graph fences the
+    ///     shadow passes before the ground samples what they wrote.
+    /// </remarks>
+    public string ShadowAtlas { get; set; } = "ShadowAtlas";
+
+    /// <summary>Which pass's names the frame's lighting is published under.</summary>
+    /// <remarks>
+    ///     <c>ShadowMapRenderer.Publish</c>, the lighting feature and the Main pass's
+    ///     <c>sceneTextures:</c> lines all qualify their keys by the shading pass they serve, and
+    ///     the ground consumes the same values — the sun, the cascades, the cluster buffers — so it
+    ///     reads the same qualified names. The default is the standard frame's shading pass.
+    /// </remarks>
+    public string ScenePass { get; set; } = "ForwardPlus";
+
+    /// <summary>The frame's set-0 state, whose parameters and scene lighting the lit path reads.</summary>
+    /// <remarks>
+    ///     Null is the editor's case and any host that wires no frame: the ground keeps the
+    ///     preview shaders and asks the frame for nothing. <see cref="TerrainFactory" /> wires the
+    ///     builder's own instance.
+    /// </remarks>
+    public SceneConstants? Frame { get; set; }
 
     /// <summary>The view whose camera places, culls and streams the ground.</summary>
     public RenderView? View { get; set; }
@@ -116,6 +156,26 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public bool WaitingForShaders { get; private set; }
 
+    /// <summary>Whether the last build chose the frame-lit shaders over the preview.</summary>
+    /// <remarks>
+    ///     True exactly when the frame provided what lit shading needs: a <see cref="Frame" /> with
+    ///     a camera, the cascade constants published under <see cref="ScenePass" />'s name, and the
+    ///     <see cref="ShadowAtlas" /> resource to sample. Anything less is the preview — the honest
+    ///     fallback, because a lit shader with nothing bound behind it draws a black world.
+    /// </remarks>
+    public bool Lit { get; private set; }
+
+    /// <summary>Whether the ground wrote the frame's split planes as well as its colour.</summary>
+    public bool Split { get; private set; }
+
+    /// <summary>Whether the lit shaders read the frame's culled cluster lists.</summary>
+    /// <remarks>
+    ///     False on a frame that culls no lights — the ground is then lit by the sun and the sky
+    ///     alone, with no per-object fallback on purpose: a terrain is the biggest object in any
+    ///     frame, which is the exact shape the eight-light per-object list reorders worst on.
+    /// </remarks>
+    public bool ClusteredLights { get; private set; }
+
     /// <inheritdoc />
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
@@ -145,12 +205,41 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             return;
         }
 
+        // What the frame provides decides which shaders draw — see Lit's remarks. Decided before
+        // the shader resolve because the mode is the effect key, and re-decided every frame because
+        // the cluster buffers arrive a frame after the first Main pass executes.
+        var mode = DetectMode(frame);
+
+        if (mode != shaderMode) {
+            // A mode is a pipeline: different shaders, a different set layout, and under split a
+            // different attachment count. The draw sets are rebuilt on the mode's first frame —
+            // the same atlas re-upload the very first frame paid.
+            foreach (var set in sets.Values) {
+                set?.Dispose();
+            }
+
+            sets.Clear();
+            terrainShaders = default;
+            shaderMode = mode;
+        }
+
+        (Lit, Split, ClusteredLights) = mode;
+
         if (!ResolveTerrainShaders(frame)) {
             WaitingForShaders = true;
             return;
         }
 
-        var output = new RenderOutput([colourFormat], depthFormat);
+        var output = Split
+            ? new RenderOutput(
+                [colourFormat, frame.FormatOf(ToString(), Albedo), frame.FormatOf(ToString(), Normals)],
+                depthFormat
+            )
+            : new RenderOutput([colourFormat], depthFormat);
+
+        if (Lit) {
+            FillLighting();
+        }
 
         drawn.Clear();
         placed.Clear();
@@ -173,6 +262,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         }
 
         var time = (float)clock.Elapsed.TotalSeconds;
+        var atlas = Lit ? frame.Texture(ToString(), ShadowAtlas) : default;
 
         // The uploads and the scatter, outside any render pass: buffer writes, texture copies and
         // the two compute dispatches are what a Vulkan render pass refuses. SideEffect because the
@@ -183,8 +273,23 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             pass => {
                 pass.SideEffect();
 
+                if (Lit) {
+                    // Declared read here as well as on the raster pass, because this is where the
+                    // descriptors are written: a graph texture has no view until the graph places
+                    // it, and the read is what makes the handle answerable in Execute.
+                    pass.Reads(atlas);
+                }
+
                 pass.Execute(
                     context => {
+                        if (Lit) {
+                            // The handles are the frame's and arrive at execute: the atlas from the
+                            // graph, the cluster buffers from what the shading pass last published.
+                            lighting.ShadowAtlas = context.View(atlas);
+                            lighting.LightBuffer = PublishedBuffer("lightBuffer");
+                            lighting.Clusters = PublishedBuffer("clusters");
+                        }
+
                         foreach (var (set, entry) in drawn) {
                             Upload(context.CommandList, set, entry, view, time);
                         }
@@ -199,7 +304,21 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                 // Loaded, never cleared: the Main pass's picture is what the ground joins. The
                 // depth is read-write on purpose — see the class remarks.
                 pass.ColourAttachment(colour, LoadAction.Load, default);
+
+                if (Split) {
+                    // The split planes the Main pass wrote, loaded for the same reason the colour
+                    // is: the ground joins a frame, it does not start one.
+                    pass.ColourAttachment(frame.Texture(ToString(), Albedo), LoadAction.Load, default);
+                    pass.ColourAttachment(frame.Texture(ToString(), Normals), LoadAction.Load, default);
+                }
+
                 pass.DepthAttachment(depth, LoadAction.Load, 0f);
+
+                if (Lit) {
+                    // The barrier half: the shadow passes wrote the atlas, and the ground samples
+                    // it inside this pass.
+                    pass.Reads(atlas);
+                }
 
                 pass.Execute(
                     context => {
@@ -218,6 +337,116 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         );
     }
 
+    /// <summary>A frame buffer the shading pass published, by the shader's bare name for it.</summary>
+    BufferHandle PublishedBuffer(string binding) {
+        if (Frame is not { } constants) {
+            return default;
+        }
+
+        var key = ParameterKeys.New<BufferHandle>($"{ScenePass}.{binding}");
+
+        return constants.Parameters.Has(key) ? constants.Parameters.Get(key) : default;
+    }
+
+    /// <summary>Whether the frame provides what each of the three lit decisions needs.</summary>
+    /// <remarks>
+    ///     Availability is the signal — no toggle on the node, because every one of these is a fact
+    ///     the frame already states: the atlas and the split planes are declared resources, the
+    ///     cascades and the cluster buffers are published parameters, and the camera is the scene
+    ///     lighting's. A hand-authored frame that provides them differently names its own resources
+    ///     through <see cref="ShadowAtlas" />, <see cref="Albedo" /> and <see cref="Normals" />.
+    /// </remarks>
+    (bool Lit, bool Split, bool Clustered) DetectMode(CompositorFrame frame) {
+        if (Frame is not { Lighting.Camera: not null } constants) {
+            return (false, false, false);
+        }
+
+        var cascades = ParameterKeys.New<Matrix4x4>($"{ScenePass}.cascades[0].viewProjection");
+
+        if (!constants.Parameters.Has(cascades) || !frame.Has(ShadowAtlas)) {
+            return (false, false, false);
+        }
+
+        var split = frame.Has(Albedo) && frame.Has(Normals);
+
+        // Both halves of the clustered contract, because they publish separately: the light list
+        // comes from the lighting feature and the lists from the pass's own sceneBuffers line. The
+        // handles land a frame after the first Main pass executes, so a clustered frame's ground is
+        // sun-lit for exactly one frame — the same frame everything else is still warming up in.
+        var clustered = PublishedBuffer("lightBuffer").IsValid && PublishedBuffer("clusters").IsValid;
+
+        return (true, split, clustered);
+    }
+
+    /// <summary>Copies the frame's lighting into the values the lit blocks are written from.</summary>
+    void FillLighting() {
+        var constants = Frame!;
+        var parameters = constants.Parameters;
+        var scene = constants.Lighting!;
+        var camera = scene.Camera!.Value;
+        var sun = scene.Sun?.Sun;
+
+        lighting.LightDirection = sun?.Direction ?? Vector3.Zero;
+        lighting.LightColor = sun?.Radiance ?? Vector3.Zero;
+        lighting.ViewPosition = camera.Position;
+
+        // The same derivations the frame's own consumers use: the view matrix ShadowMapRenderer's
+        // cascades were fitted along, and the half-tangents ClusterGrid.Apply hands both the culler
+        // and the shading pass — a second derivation of either is how the ground reads someone
+        // else's slice.
+        lighting.View = Matrix4x4.LookAt(camera.Position, camera.Position + camera.Forward, camera.Up);
+
+        var vertical = MathF.Tan(camera.FieldOfView * 0.5f);
+
+        lighting.TanHalfFov = new(vertical * camera.AspectRatio, vertical);
+        lighting.NearPlane = camera.NearPlane;
+        lighting.FarPlane = camera.FarPlane;
+
+        lighting.EnvironmentSh = scene.Environment?.Irradiance ?? default;
+        lighting.AmbientIntensity = scene.Environment?.Intensity ?? 0f;
+
+        lighting.ShadowTexelSize = Value(parameters, "shadowTexelSize", new Vector2(1f / 1024f, 1f / 1024f));
+        lighting.ShadowConstantBias = Value(parameters, "shadowConstantBias", 0.008f);
+        lighting.ShadowSlopeBias = Value(parameters, "shadowSlopeBias", 0.01f);
+        lighting.ShadowFadeRange = Value(parameters, "shadowFadeRange", 10f);
+
+        var lastSplit = 0f;
+
+        for (var cascade = 0; cascade < lighting.Cascades.Length; cascade++) {
+            var slot = $"{ScenePass}.cascades[{cascade.ToString(System.Globalization.CultureInfo.InvariantCulture)}]";
+            var matrix = ParameterKeys.New<Matrix4x4>($"{slot}.viewProjection");
+
+            if (parameters.Has(matrix)) {
+                lighting.Cascades[cascade] = new() {
+                    ViewProjection = parameters.Get(matrix),
+                    Split = Value(parameters, $"cascades[{cascade}].split", lastSplit),
+                    DepthScale = Value(parameters, $"cascades[{cascade}].depthScale", 0f)
+                };
+
+                lastSplit = lighting.Cascades[cascade].Split;
+            } else {
+                // Padded degenerate — a zero matrix fails the containment test's `w > 0`, so the
+                // slot can never be selected — and the last real split repeated, so the fade-out
+                // distance stays the frame's own. FrameShadow's own contract.
+                lighting.Cascades[cascade] = new() { Split = lastSplit };
+            }
+        }
+    }
+
+    /// <summary>One published scalar, under the shading pass's qualified name.</summary>
+    float Value(ParameterCollection parameters, string name, float fallback) {
+        var key = ParameterKeys.New<float>($"{ScenePass}.{name}");
+
+        return parameters.Has(key) ? parameters.Get(key) : fallback;
+    }
+
+    /// <summary>And one published vector, on the same terms.</summary>
+    Vector2 Value(ParameterCollection parameters, string name, Vector2 fallback) {
+        var key = ParameterKeys.New<Vector2>($"{ScenePass}.{name}");
+
+        return parameters.Has(key) ? parameters.Get(key) : fallback;
+    }
+
     /// <summary>Stages one terrain's frame: the surface, then its grass field.</summary>
     void Upload(ICommandList commands, TerrainDrawSet set, in TerrainSceneEntry entry, RenderView view, float time) {
         // The placement rides the view matrix, because the shader has no field for one — the
@@ -229,6 +458,13 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         // Re-assigned per frame rather than at construction, because the source appears when
         // content mounts — which may be after this node first built the set.
         set.Surface.Textures = Scene?.Textures;
+
+        // The frame's lighting rides the same per-frame assignment: one shared instance, and the
+        // origin that turns the shader's terrain-local positions back into the world the cascades
+        // and the lamps live in.
+        set.Surface.Frame = Lit ? lighting : null;
+        set.Surface.FrameOrigin = entry.Origin;
+
         set.Surface.Upload(commands, terrainView);
 
         if (set.Field is not { } field) {
@@ -244,6 +480,8 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
         var scale = MathF.Max(Vegetation.GrassCullDistanceScale, 0f);
         var source = set.Surface.GrassSource(field.Layer, entry.Origin);
+
+        field.Draw.Frame = Lit ? lighting : null;
 
         field.Dispatch.Prepare(
             field.Type,
@@ -301,7 +539,8 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                 entry.Terrain,
                 terrainShaders,
                 output,
-                Vixen.Terrain.TerrainLodRanges.Default with { NearRange = nearRange }
+                Vixen.Terrain.TerrainLodRanges.Default with { NearRange = nearRange },
+                lit: Lit
             );
 
             var description = entry.Terrain.Description;
@@ -375,7 +614,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             Math.Max(1, Vegetation.GrassBladesPerCell)
         );
 
-        var draw = new GrassDrawPass(Device!, shaders.Draw, output);
+        var draw = new GrassDrawPass(Device!, shaders.Draw, output, lit: Lit);
 
         set.Field = new(
             type,
@@ -401,19 +640,29 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         return -1;
     }
 
-    /// <summary>Resolves the surface's two stages, once, through the frame's effect system.</summary>
+    /// <summary>Resolves the surface's two stages, once per mode, through the frame's effect system.</summary>
     /// <remarks>
-    ///     The default permutation — four layer slots, no height blend — which is the same
-    ///     preview-grade variant the editor embeds. A terrain whose splat wants more compiles the
-    ///     same shader at other values, and routing that through here is part of the frame-lit
-    ///     shading task.
+    ///     The default splat permutation — four layer slots, no height blend — in whichever shader
+    ///     the detected mode names: the preview, or <c>TerrainLit</c> keyed by the split and the
+    ///     cluster decisions. A terrain whose splat wants more compiles the same shader at other
+    ///     values, and routing that through here is still owed.
     /// </remarks>
     bool ResolveTerrainShaders(CompositorFrame frame) {
         if (terrainShaders.IsValid) {
             return true;
         }
 
-        if (frame.Effects.Resolve(EffectKey.Of("Terrain")) is not { } effect) {
+        var key = Lit
+            ? EffectKey.Of(
+                "TerrainLit",
+                [
+                    KeyValuePair.Create("SplitOutputs", Split ? "true" : "false"),
+                    KeyValuePair.Create("UseClusteredLights", ClusteredLights ? "true" : "false")
+                ]
+            )
+            : EffectKey.Of("Terrain");
+
+        if (frame.Effects.Resolve(key) is not { } effect) {
             return false;
         }
 
@@ -453,9 +702,15 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             ]
         );
 
+        // The draw follows the surface's mode: the lit blades take the split decision with them,
+        // and the scatter is mode-blind — a blade's placement does not depend on what lights it.
+        var drawKey = Lit
+            ? EffectKey.Of("GrassLit", [KeyValuePair.Create("SplitOutputs", Split ? "true" : "false")])
+            : EffectKey.Of("Grass");
+
         if (frame.Effects.Resolve(scatterKey) is not { } scatterEffect
             || frame.Effects.Resolve(argumentKey) is not { } argumentEffect
-            || frame.Effects.Resolve(EffectKey.Of("Grass")) is not { } drawEffect) {
+            || frame.Effects.Resolve(drawKey) is not { } drawEffect) {
             return null;
         }
 

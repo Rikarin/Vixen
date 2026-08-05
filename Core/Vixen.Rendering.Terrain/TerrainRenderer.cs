@@ -65,6 +65,32 @@ public sealed class TerrainRenderer : IDisposable {
     readonly int indexCount;
     readonly int slots;
 
+    // Which shader the set is written for. The preview and the lit shader bind the same resources
+    // under different indices — a binding index comes from declaration order within a set, and the
+    // lit shader declares the frame's resources first — so every write below goes through these
+    // rather than through either shader's keys directly.
+    readonly bool lit;
+    readonly int blockSize;
+    readonly uint constantBinding;
+    readonly uint heightMapBinding;
+    readonly uint weightMapsBinding;
+    readonly uint layerMapsBinding;
+    readonly uint surfaceMapsBinding;
+    readonly uint holeMapBinding;
+    readonly uint holeSamplerBinding;
+    readonly uint heightSamplerBinding;
+    readonly uint weightSamplerBinding;
+    readonly uint layerSamplerBinding;
+    readonly uint nodesBinding;
+    readonly uint layerScalesBinding;
+    readonly uint layerBlendsBinding;
+
+    // The lit shader's own resources: the cascade atlas's sampler, and a spare storage buffer for
+    // the cluster bindings on a frame that culls no lights — a binding is in the plan because it is
+    // declared, and a set is written wholly or not at all.
+    readonly SamplerHandle shadowSampler;
+    readonly BufferHandle spareBuffer;
+
     readonly BufferHandle indices;
     readonly BufferHandle[] constants;
     readonly BufferHandle layerScales;
@@ -129,6 +155,23 @@ public sealed class TerrainRenderer : IDisposable {
         RenderOutput output,
         TerrainLodRanges ranges,
         int gridQuads = TerrainLodTree.DefaultGridQuads
+    ) : this(device, terrain, shaders, output, ranges, lit: false, gridQuads) { }
+
+    /// <summary>Creates a renderer whose set is written for <c>TerrainLit</c> rather than the preview.</summary>
+    /// <remarks>
+    ///     Internal because the lit contract is <see cref="TerrainSceneRenderer" />'s: the frame's
+    ///     values arrive through <see cref="Frame" /> before every <see cref="Upload" />, and a
+    ///     caller that constructs lit without filling it draws ground under a black sun. Decided at
+    ///     construction because the descriptor layout and the block size are the shader's.
+    /// </remarks>
+    internal TerrainRenderer(
+        IGraphicsDevice device,
+        TerrainMap terrain,
+        TerrainShaders shaders,
+        RenderOutput output,
+        TerrainLodRanges ranges,
+        bool lit,
+        int gridQuads = TerrainLodTree.DefaultGridQuads
     ) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(terrain);
@@ -139,6 +182,22 @@ public sealed class TerrainRenderer : IDisposable {
 
         this.device = device;
         this.gridQuads = gridQuads;
+        this.lit = lit;
+
+        blockSize = lit ? TerrainLitKeys.ConstantBufferSize : TerrainKeys.ConstantBufferSize;
+        constantBinding = lit ? TerrainLitKeys.ConstantBufferBinding : TerrainKeys.ConstantBufferBinding;
+        heightMapBinding = lit ? TerrainLitKeys.HeightMapBinding : TerrainKeys.HeightMapBinding;
+        weightMapsBinding = lit ? TerrainLitKeys.WeightMapsBinding : TerrainKeys.WeightMapsBinding;
+        layerMapsBinding = lit ? TerrainLitKeys.LayerMapsBinding : TerrainKeys.LayerMapsBinding;
+        surfaceMapsBinding = lit ? TerrainLitKeys.SurfaceMapsBinding : TerrainKeys.SurfaceMapsBinding;
+        holeMapBinding = lit ? TerrainLitKeys.HoleMapBinding : TerrainKeys.HoleMapBinding;
+        holeSamplerBinding = lit ? TerrainLitKeys.HoleSamplerBinding : TerrainKeys.HoleSamplerBinding;
+        heightSamplerBinding = lit ? TerrainLitKeys.HeightSamplerBinding : TerrainKeys.HeightSamplerBinding;
+        weightSamplerBinding = lit ? TerrainLitKeys.WeightSamplerBinding : TerrainKeys.WeightSamplerBinding;
+        layerSamplerBinding = lit ? TerrainLitKeys.LayerSamplerBinding : TerrainKeys.LayerSamplerBinding;
+        nodesBinding = lit ? TerrainLitKeys.NodesBinding : TerrainKeys.NodesBinding;
+        layerScalesBinding = lit ? TerrainLitKeys.LayerScalesBinding : TerrainKeys.LayerScalesBinding;
+        layerBlendsBinding = lit ? TerrainLitKeys.LayerBlendsBinding : TerrainKeys.LayerBlendsBinding;
 
         Terrain = terrain;
         Tree = new(terrain.Description, ranges, gridQuads);
@@ -230,7 +289,7 @@ public sealed class TerrainRenderer : IDisposable {
         for (var index = 0; index < slots; index++) {
             constants[index] = device.CreateBuffer(
                 new(
-                    TerrainKeys.ConstantBufferSize,
+                    blockSize,
                     BufferUsage.Uniform,
                     MemoryAccess.HostUpload,
                     $"terrain constants {index}"
@@ -330,26 +389,42 @@ public sealed class TerrainRenderer : IDisposable {
             surfaceViews[slot] = defaultSurfaceView;
         }
 
+        var bindings = new List<DescriptorBinding> {
+            new(constantBinding, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
+            new(heightMapBinding, DescriptorKind.SampledTexture, ShaderStage.Vertex | ShaderStage.Fragment),
+            new(weightMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxWeightMaps),
+            new(layerMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxLayers),
+            new(surfaceMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxLayers),
+            new(holeMapBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(holeSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(heightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
+            new(weightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(layerSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(nodesBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex),
+            new(layerScalesBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment),
+            new(layerBlendsBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment)
+        };
+
+        if (lit) {
+            // The frame's resources, at the lit shader's own indices. The sampler is this
+            // renderer's — unfiltered and clamped, `ShadowMapRenderer.Publish`'s reasoning: the tap
+            // compares after sampling, so a linear read blends four depths into a value no surface
+            // has. The spare buffer stands in for the cluster bindings on a frame that culls no
+            // lights, whose variant reads neither.
+            bindings.Add(new(TerrainLitKeys.ShadowMapBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment));
+            bindings.Add(new(TerrainLitKeys.ShadowSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment));
+            bindings.Add(new(TerrainLitKeys.LightBufferBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment));
+            bindings.Add(new(TerrainLitKeys.ClustersBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment));
+
+            shadowSampler = device.CreateSampler(SamplerDescription.PointClamp);
+
+            spareBuffer = device.CreateBuffer(
+                new(64, BufferUsage.Storage, MemoryAccess.HostUpload, "terrain lit spare")
+            );
+        }
+
         setLayout = device.CreateDescriptorSetLayout(
-            new(
-                DescriptorSetSlot.PerMaterial,
-                [
-                    new(TerrainKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(TerrainKeys.HeightMapBinding, DescriptorKind.SampledTexture, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(TerrainKeys.WeightMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxWeightMaps),
-                    new(TerrainKeys.LayerMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxLayers),
-                    new(TerrainKeys.SurfaceMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxLayers),
-                    new(TerrainKeys.HoleMapBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(TerrainKeys.HoleSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
-                    new(TerrainKeys.HeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(TerrainKeys.WeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
-                    new(TerrainKeys.LayerSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
-                    new(TerrainKeys.NodesBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex),
-                    new(TerrainKeys.LayerScalesBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment),
-                    new(TerrainKeys.LayerBlendsBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment)
-                ],
-                "terrain"
-            )
+            new(DescriptorSetSlot.PerMaterial, [.. bindings], "terrain")
         );
 
         // ⚠ Padded below the material set, because a pipeline layout is positional and the shader's
@@ -361,6 +436,18 @@ public sealed class TerrainRenderer : IDisposable {
         emptySetLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "terrain empty"));
         layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "terrain"));
 
+        // Every colour format the output declares, not the first: a split frame hands the lit
+        // shader three targets — the scene, the albedo plane and the normal plane — and a pipeline
+        // declaring fewer attachments than the pass would be a validation error at the draw.
+        var attachments = new ColourTargetState[Math.Max(output.ColourCount, 1)];
+
+        for (var target = 0; target < attachments.Length; target++) {
+            attachments[target] = new(
+                output.ColourCount > 0 ? output.ColourFormats[target] : PixelFormat.Rgba8UNorm,
+                BlendState.Opaque
+            );
+        }
+
         // No vertex buffers, which is the shader's own design: a lattice's positions are two
         // divisions of SV_VertexID, and Terrain.reflect.json's empty VertexInputs is the evidence.
         pipeline = device.CreateGraphicsPipeline(
@@ -368,12 +455,7 @@ public sealed class TerrainRenderer : IDisposable {
                 shaders.Vertex,
                 shaders.Fragment,
                 layout,
-                [
-                    new(
-                        output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm,
-                        BlendState.Opaque
-                    )
-                ],
+                attachments,
                 [],
                 PrimitiveTopology.TriangleList,
                 RasterizerState.Default,
@@ -691,9 +773,75 @@ public sealed class TerrainRenderer : IDisposable {
         // float2 to eight bytes and a mat4 is sixty-four, so a block written in declaration order
         // puts every field after the first vector at the wrong address — and the symptom is a terrain
         // whose tile count is somebody else's height range.
-        var block = new byte[TerrainKeys.ConstantBufferSize];
+        var block = new byte[blockSize];
 
-        new TerrainConstants {
+        if (lit) {
+            WriteLitBlock(block, view);
+        } else {
+            new TerrainConstants {
+                ViewProjection = view.ViewProjection,
+                HeightMapSize = new(atlas.Width, atlas.Height),
+                TileSamples = atlas.TileSamples,
+                TileQuads = atlas.TileQuads,
+                AtlasTiles = new(atlas.TilesX, atlas.TilesZ),
+                HeightRange = new(description.MinHeight, description.MaxHeight),
+                MetresPerQuad = description.MetresPerQuad
+            }.Write(block);
+        }
+
+        device.Write(constants[slot], 0, block);
+
+        if (lit) {
+            BindFrameResources();
+        }
+
+        return PatchCount;
+    }
+
+    /// <summary>The frame's lighting, filled by <see cref="TerrainSceneRenderer" /> before every upload.</summary>
+    /// <remarks>
+    ///     One stable instance per node rather than a parameter, because the same values reach every
+    ///     terrain the frame draws and the grass pass beside them — the scene renderer fills it once
+    ///     per frame and every consumer reads it. Null on a lit renderer draws under a black sun,
+    ///     which is the loud version of "nobody filled the frame".
+    /// </remarks>
+    internal TerrainFrameLighting? Frame { get; set; }
+
+    /// <summary>Where this terrain's low corner is in world space — the lit block's <c>originWS</c>.</summary>
+    /// <remarks>
+    ///     Beside <see cref="Frame" /> rather than inside it, because the lighting is the frame's
+    ///     and the placement is this terrain's: one shared instance, one origin per renderer.
+    /// </remarks>
+    internal Vector3 FrameOrigin { get; set; }
+
+    /// <summary>Fills the lit shader's block: the frame's lighting, then the base surface values.</summary>
+    void WriteLitBlock(byte[] block, in TerrainView view) {
+        var description = Terrain.Description;
+        var frame = Frame;
+
+        new TerrainLitConstants {
+            OriginWS = FrameOrigin,
+            ShadowConstantBias = frame?.ShadowConstantBias ?? 0f,
+            LightDirection = frame?.LightDirection ?? Vector3.Zero,
+            ShadowSlopeBias = frame?.ShadowSlopeBias ?? 0f,
+            LightColor = frame?.LightColor ?? Vector3.Zero,
+            ShadowFadeRange = frame?.ShadowFadeRange ?? 1f,
+            ViewPosition = frame?.ViewPosition ?? Vector3.Zero,
+            AmbientIntensity = frame?.AmbientIntensity ?? 0f,
+            View = frame?.View ?? Matrix4x4.Identity,
+            EnvironmentShL00 = frame?.EnvironmentSh.L00 ?? Vector3.Zero,
+            EnvironmentShL1m1 = frame?.EnvironmentSh.L1m1 ?? Vector3.Zero,
+            EnvironmentShL10 = frame?.EnvironmentSh.L10 ?? Vector3.Zero,
+            EnvironmentShL11 = frame?.EnvironmentSh.L11 ?? Vector3.Zero,
+            EnvironmentShL2m2 = frame?.EnvironmentSh.L2m2 ?? Vector3.Zero,
+            EnvironmentShL2m1 = frame?.EnvironmentSh.L2m1 ?? Vector3.Zero,
+            EnvironmentShL20 = frame?.EnvironmentSh.L20 ?? Vector3.Zero,
+            EnvironmentShL21 = frame?.EnvironmentSh.L21 ?? Vector3.Zero,
+            EnvironmentShL22 = frame?.EnvironmentSh.L22 ?? Vector3.Zero,
+            ShadowTexelSize = frame?.ShadowTexelSize ?? new Vector2(1f, 1f),
+            TanHalfFov = frame?.TanHalfFov ?? new Vector2(1f, 0.5625f),
+            NearPlane = frame?.NearPlane ?? 0.1f,
+            FarPlane = frame?.FarPlane ?? 1000f,
             ViewProjection = view.ViewProjection,
             HeightMapSize = new(atlas.Width, atlas.Height),
             TileSamples = atlas.TileSamples,
@@ -703,9 +851,36 @@ public sealed class TerrainRenderer : IDisposable {
             MetresPerQuad = description.MetresPerQuad
         }.Write(block);
 
-        device.Write(constants[slot], 0, block);
+        if (frame is null) {
+            return;
+        }
 
-        return PatchCount;
+        for (var cascade = 0; cascade < TerrainLitCascadesElement.Count; cascade++) {
+            frame.Cascades[cascade].Write(block, cascade);
+        }
+    }
+
+    /// <summary>Points this slot's set at the frame's atlas and cluster buffers.</summary>
+    /// <remarks>
+    ///     Per upload rather than once, because the handles are the frame's: the atlas is a graph
+    ///     texture whose placement can move, and the light buffer grows with the scene. The spare
+    ///     buffer stands in wherever the frame published nothing — the unclustered variant reads
+    ///     neither, and a set is written wholly or not at all.
+    /// </remarks>
+    void BindFrameResources() {
+        var atlasView = Frame is { ShadowAtlas.IsValid: true } present ? present.ShadowAtlas : defaultAlbedoView;
+        var lights = Frame is { LightBuffer.IsValid: true } scene ? scene.LightBuffer : spareBuffer;
+        var lists = Frame is { Clusters.IsValid: true } culled ? culled.Clusters : spareBuffer;
+
+        device.UpdateDescriptorSet(
+            descriptors[slot],
+            [
+                DescriptorWrite.Texture(TerrainLitKeys.ShadowMapBinding, atlasView),
+                DescriptorWrite.SamplerAt(TerrainLitKeys.ShadowSamplerBinding, shadowSampler),
+                DescriptorWrite.Storage(TerrainLitKeys.LightBufferBinding, lights),
+                DescriptorWrite.Storage(TerrainLitKeys.ClustersBinding, lists)
+            ]
+        );
     }
 
     /// <summary>Draws this frame's patches.</summary>
@@ -1049,9 +1224,9 @@ public sealed class TerrainRenderer : IDisposable {
                 set,
                 [
                     .. Enumerable.Range(0, MaxLayers)
-                        .Select(slot => DescriptorWrite.Texture(TerrainKeys.LayerMapsBinding, layerViews[slot], slot)),
+                        .Select(slot => DescriptorWrite.Texture(layerMapsBinding, layerViews[slot], slot)),
                     .. Enumerable.Range(0, MaxLayers)
-                        .Select(slot => DescriptorWrite.Texture(TerrainKeys.SurfaceMapsBinding, surfaceViews[slot], slot))
+                        .Select(slot => DescriptorWrite.Texture(surfaceMapsBinding, surfaceViews[slot], slot))
                 ]
             );
         }
@@ -1190,23 +1365,33 @@ public sealed class TerrainRenderer : IDisposable {
                 descriptors[index] = device.CreateDescriptorSet(setLayout, $"terrain {index}");
             }
 
-            device.UpdateDescriptorSet(
-                descriptors[index],
-                [
-                    DescriptorWrite.Uniform(TerrainKeys.ConstantBufferBinding, constants[index]),
-                    DescriptorWrite.Texture(TerrainKeys.HeightMapBinding, heightView),
-                    DescriptorWrite.Texture(TerrainKeys.HoleMapBinding, holeView),
-                    DescriptorWrite.SamplerAt(TerrainKeys.HoleSamplerBinding, holeSampler),
-                    DescriptorWrite.SamplerAt(TerrainKeys.HeightSamplerBinding, heightSampler),
-                    DescriptorWrite.SamplerAt(TerrainKeys.WeightSamplerBinding, weightSampler),
-                    DescriptorWrite.SamplerAt(TerrainKeys.LayerSamplerBinding, layerSampler),
-                    DescriptorWrite.Storage(TerrainKeys.NodesBinding, nodes, index * nodeCapacity, nodeCapacity),
-                    DescriptorWrite.Storage(TerrainKeys.LayerScalesBinding, layerScales),
-                    DescriptorWrite.Storage(TerrainKeys.LayerBlendsBinding, layerBlends),
-                    .. Enumerable.Range(0, MaxWeightMaps)
-                        .Select(map => DescriptorWrite.Texture(TerrainKeys.WeightMapsBinding, weightViews[map], map))
-                ]
-            );
+            List<DescriptorWrite> writes = [
+                DescriptorWrite.Uniform(constantBinding, constants[index]),
+                DescriptorWrite.Texture(heightMapBinding, heightView),
+                DescriptorWrite.Texture(holeMapBinding, holeView),
+                DescriptorWrite.SamplerAt(holeSamplerBinding, holeSampler),
+                DescriptorWrite.SamplerAt(heightSamplerBinding, heightSampler),
+                DescriptorWrite.SamplerAt(weightSamplerBinding, weightSampler),
+                DescriptorWrite.SamplerAt(layerSamplerBinding, layerSampler),
+                DescriptorWrite.Storage(nodesBinding, nodes, index * nodeCapacity, nodeCapacity),
+                DescriptorWrite.Storage(layerScalesBinding, layerScales),
+                DescriptorWrite.Storage(layerBlendsBinding, layerBlends),
+                .. Enumerable.Range(0, MaxWeightMaps)
+                    .Select(map => DescriptorWrite.Texture(weightMapsBinding, weightViews[map], map))
+            ];
+
+            if (lit) {
+                // Written valid rather than left for the first Upload: a freshly grown set is bound
+                // the same frame, and a set with an unwritten binding the pipeline statically uses
+                // is undefined on one driver and a validation error on another. Upload's
+                // BindFrameResources overwrites these with the frame's handles before any draw.
+                writes.Add(DescriptorWrite.Texture(TerrainLitKeys.ShadowMapBinding, defaultAlbedoView));
+                writes.Add(DescriptorWrite.SamplerAt(TerrainLitKeys.ShadowSamplerBinding, shadowSampler));
+                writes.Add(DescriptorWrite.Storage(TerrainLitKeys.LightBufferBinding, spareBuffer));
+                writes.Add(DescriptorWrite.Storage(TerrainLitKeys.ClustersBinding, spareBuffer));
+            }
+
+            device.UpdateDescriptorSet(descriptors[index], CollectionsMarshal.AsSpan(writes));
         }
 
         // A resized set is a new set, so whatever the layers resolved to has to be written into it —
@@ -1226,6 +1411,14 @@ public sealed class TerrainRenderer : IDisposable {
             if (set.IsValid) {
                 device.Destroy(set);
             }
+        }
+
+        if (shadowSampler.IsValid) {
+            device.Destroy(shadowSampler);
+        }
+
+        if (spareBuffer.IsValid) {
+            device.Destroy(spareBuffer);
         }
 
         device.Destroy(pipeline);

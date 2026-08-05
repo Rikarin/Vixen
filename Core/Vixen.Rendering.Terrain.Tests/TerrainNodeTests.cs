@@ -291,6 +291,204 @@ public sealed class TerrainNodeTests : IDisposable {
         Assert.Equal("SceneColour", refusal.Name);
     }
 
+    // ------------------------------------------------------------------ the lit path
+
+    const string LitDocument = """
+        version: 2
+        resources:
+          - name: SceneHdr
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+          - name: SceneDepth
+            format: Depth32Float
+            usage: DepthStencilTarget
+          - name: ShadowAtlas
+            format: Depth32Float
+            usage: DepthStencilTarget, Sampled
+            width: 64
+            height: 64
+        game: !Sequence
+          name: Frame
+          children:
+            - !Terrain
+              name: Ground
+        """;
+
+    /// <summary>Wires the frame the lit path detects: a scene camera and published cascades.</summary>
+    SceneConstants LitFrame(CompositorBuilder builder) {
+        var constants = new SceneConstants(device) {
+            Lighting = new() {
+                Camera = new RenderCamera(new(16f, 40f, 16f), new(0f, -0.5f, 0.5f), new(0f, 1f, 0f), MathF.PI / 3f, 1f, 0.1f, 1000f)
+            }
+        };
+
+        // What ShadowMapRenderer.Publish writes, reduced to the one key detection reads and the
+        // scalars the block copies.
+        constants.Parameters.Set(
+            ParameterKeys.New<Matrix4x4>("ForwardPlus.cascades[0].viewProjection"),
+            Matrix4x4.Identity
+        );
+
+        constants.Parameters.Set(ParameterKeys.New<float>("ForwardPlus.cascades[0].split"), 60f);
+
+        builder.SceneConstants = constants;
+
+        return constants;
+    }
+
+    /// <summary>A frame that publishes its lighting gets the lit shaders; one that does not, the preview.</summary>
+    [Fact]
+    public void AFramePublishingItsLightingGetsTheLitShaders() {
+        var (builder, factory) = Builder();
+        var constants = LitFrame(builder);
+
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LitDocument));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.Same(constants, node.Frame);
+
+        Draw(compositor, shadowAtlas: true);
+
+        Assert.True(node.Lit);
+        Assert.False(node.Split);
+        Assert.False(node.ClusteredLights);
+        Assert.Equal(1, node.TerrainsDrawn);
+        Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.DrawIndexed));
+
+        node.Dispose();
+        constants.Dispose();
+    }
+
+    /// <summary>Without a frame — the editor's case — the same document stays on the preview.</summary>
+    [Fact]
+    public void AFramePublishingNothingStaysOnThePreview() {
+        var (builder, factory) = Builder();
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LitDocument));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        Draw(compositor, shadowAtlas: true);
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.False(node.Lit);
+        Assert.Equal(1, node.TerrainsDrawn);
+
+        node.Dispose();
+    }
+
+    /// <summary>A frame whose document declares no atlas is not lit, however much it publishes.</summary>
+    [Fact]
+    public void AFrameWithoutTheAtlasResourceStaysOnThePreview() {
+        var (builder, factory) = Builder();
+        var constants = LitFrame(builder);
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        Draw(compositor);
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.False(node.Lit);
+        Assert.Equal(1, node.TerrainsDrawn);
+
+        node.Dispose();
+        constants.Dispose();
+    }
+
+    /// <summary>The split planes' presence is what binds them, and the ground still draws once.</summary>
+    [Fact]
+    public void ASplitFrameBindsTheSplitPlanes() {
+        const string split = """
+            version: 2
+            resources:
+              - name: SceneHdr
+                format: Rgba16Float
+                usage: ColourTarget, Sampled
+              - name: SceneDepth
+                format: Depth32Float
+                usage: DepthStencilTarget
+              - name: ShadowAtlas
+                format: Depth32Float
+                usage: DepthStencilTarget, Sampled
+                width: 64
+                height: 64
+              - name: SceneAlbedo
+                format: Rgba16Float
+                usage: ColourTarget, Sampled
+              - name: SceneNormals
+                format: Rgba16Float
+                usage: ColourTarget, Sampled
+            game: !Sequence
+              name: Frame
+              children:
+                - !Terrain
+                  name: Ground
+            """;
+
+        var (builder, factory) = Builder();
+        var constants = LitFrame(builder);
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(split));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        Draw(compositor, shadowAtlas: true, splitPlanes: true);
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.True(node.Lit);
+        Assert.True(node.Split);
+        Assert.Equal(1, node.TerrainsDrawn);
+        Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.DrawIndexed));
+
+        node.Dispose();
+        constants.Dispose();
+    }
+
+    /// <summary>Published cluster buffers turn the clustered variant on.</summary>
+    [Fact]
+    public void PublishedClusterBuffersTurnTheClusteredVariantOn() {
+        var (builder, factory) = Builder();
+        var constants = LitFrame(builder);
+
+        // What the lighting feature and the Main pass's sceneBuffers line publish — the frame's
+        // whole light list and the culled per-cluster lists.
+        var lights = device.CreateBuffer(new(64, BufferUsage.Storage, MemoryAccess.HostUpload, "lights"));
+        var clusters = device.CreateBuffer(new(64, BufferUsage.Storage, MemoryAccess.HostUpload, "clusters"));
+
+        constants.Parameters.Set(ParameterKeys.New<BufferHandle>("ForwardPlus.lightBuffer"), lights);
+        constants.Parameters.Set(ParameterKeys.New<BufferHandle>("ForwardPlus.clusters"), clusters);
+
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LitDocument));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        Draw(compositor, shadowAtlas: true);
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.True(node.Lit);
+        Assert.True(node.ClusteredLights);
+        Assert.Equal(1, node.TerrainsDrawn);
+
+        node.Dispose();
+        constants.Dispose();
+    }
+
     // ------------------------------------------------------------------ the standard frame
 
     /// <summary>The node splices at the standard frame's afterOpaque seam and the result builds.</summary>
@@ -366,9 +564,25 @@ public sealed class TerrainNodeTests : IDisposable {
     ///     frame the Main pass wrote both before the ground joined, and a test frame with no Main
     ///     pass has to stand in for it the way a host stands in for a swapchain.
     /// </remarks>
-    void Draw(GraphicsCompositor compositor) {
+    void Draw(GraphicsCompositor compositor, bool shadowAtlas = false, bool splitPlanes = false) {
         compositor.Imports["SceneHdr"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "hdr");
         compositor.Imports["SceneDepth"] = Imported(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget, "depth");
+
+        if (shadowAtlas) {
+            // Imported because the test frame has no shadow pass: in a real frame the cascades are
+            // rendered before the ground reads them, and an import is how a test stands in for a
+            // producer — the same trade the two targets above make for the Main pass.
+            compositor.Imports["ShadowAtlas"] = Imported(
+                PixelFormat.Depth32Float,
+                TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
+                "atlas"
+            );
+        }
+
+        if (splitPlanes) {
+            compositor.Imports["SceneAlbedo"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "albedo");
+            compositor.Imports["SceneNormals"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "normals");
+        }
 
         var graph = new RenderGraph(device);
         var commands = device.BeginCommandList();

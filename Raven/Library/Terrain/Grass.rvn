@@ -2,6 +2,7 @@ package Vixen.Shaders.Terrain
 
 import Vixen.Shaders.Core
 import Vixen.Shaders.Geometry
+import Vixen.Shaders.Shading
 
 // Drawing what `GrassScatter.rvn` produced: one instanced mesh per blade, swayed by the wind.
 //
@@ -18,8 +19,12 @@ import Vixen.Shaders.Geometry
 // distance is not made translucent — two translucent things sort against each other and grass is
 // thousands of them — it is stippled out, which composites for free and reaches zero exactly at the
 // distance the cull drops it.
+//
+// **Two shaders share one base**, on `Terrain.rvn`'s arrangement: `GrassBlade` owns the bindings,
+// the streams and the sway, `Grass` is the editor's preview lit by a hard-coded direction, and
+// `GrassLit` is the frame's — the same sun and the same cascade atlas the terrain under it reads.
 
-shader Grass {
+shader GrassBlade {
     /// Whether blades fade out over the band before their cull distance.
     ///
     /// A permutation because the alternative is a `discard` in every fragment of a field that never
@@ -59,14 +64,13 @@ shader Grass {
     stream var tint: float
     stream var fade: float
 
-    [VertexShader]
-    [Semantic("SV_Position")]
-    func Vertex(
-        [Semantic("POSITION")] position: float3,
-        [Semantic("NORMAL")] normal: float3,
-        [Semantic("TEXCOORD0")] texcoord: float2,
-        [Semantic("SV_InstanceID")] instance: int
-    ): float4 {
+    /// The shared vertex arithmetic: place the blade, sway it, fill the streams.
+    ///
+    /// A function rather than the entry point, for `TerrainBase.PatchVertex`'s reason — the preview
+    /// and the lit pass must place identical blades, and identical is a property only shared code
+    /// has. The blade's index is returned by way of the streams; a caller that needs the instance
+    /// record again reads `blades` a second time, which is a buffer load the cache already holds.
+    func BladeVertex(position: float3, normal: float3, texcoord: float2, instance: int): float4 {
         val blade = blades[instance]
 
         val scaled = position * blade.scale
@@ -111,6 +115,19 @@ shader Grass {
     func Stipple(pixel: float2): float {
         return frac(52.9829189f * frac(dot(pixel, float2(0.06711056f, 0.00583715f))))
     }
+}
+
+shader Grass : GrassBlade {
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("POSITION")] position: float3,
+        [Semantic("NORMAL")] normal: float3,
+        [Semantic("TEXCOORD0")] texcoord: float2,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        return BladeVertex(position, normal, texcoord, instance)
+    }
 
     [FragmentShader]
     [Semantic("SV_Target")]
@@ -130,5 +147,142 @@ shader Grass {
         val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
 
         return float4(sampled.rgb * shade * (0.25f + 0.75f * light), sampled.a)
+    }
+}
+
+shader GrassLit : GrassBlade {
+    /// Whether the frame splits its outputs — `TerrainLit.SplitOutputs`, for the blades.
+    [Permutation] val SplitOutputs: bool = false
+
+    /// The direction light travels — away from the sun. The scene pass's uniform, verbatim.
+    var lightDirection: float3
+
+    /// The frame's shadow bias, in metres — `ShadowMapRenderer.Publish`'s value.
+    var shadowConstantBias: float
+
+    /// The sun's radiance, premultiplied by intensity.
+    var lightColor: float3
+
+    var shadowSlopeBias: float
+
+    var shadowFadeRange: float
+
+    /// The sky's ambient scale — `EnvironmentLight.Intensity`, the scene pass's own number.
+    var ambientIntensity: float
+
+    /// World to view, for the cascade selection's view depth. The frame camera's matrix.
+    var view: mat4
+
+    /// The sun's cascades — `TerrainLit.cascades`' terms: always four, tail padded degenerate.
+    var cascades: ShadowCascade[4]
+
+    /// The sky's diffuse irradiance, projected into nine coefficients — the frame's own values.
+    var environmentSh: ShCoefficients
+
+    var shadowTexelSize: float2
+
+    /// The cascade atlas the frame rendered.
+    var shadowMap: Texture2D
+    var shadowSampler: Sampler
+
+    /// The blade's rotated up axis — the ground the blade stands for, not the card it is drawn as.
+    ///
+    /// ⚠ **The lit pass lights and reports grass as ground, deliberately.** A blade's mesh normal
+    /// swings through ninety degrees as its card turns, which under a real sun draws a field as
+    /// glitter; its rotated up axis is the surface normal wherever the scatter aligned it and world
+    /// up where it did not, which is what a field of grass optically is — the ground, slightly
+    /// furred. The same vector goes to `SceneNormals`, so screen-space AO and GI treat blades as the
+    /// ground they cover rather than as thousands of tiny walls. The wind displaces positions and
+    /// leaves this alone: a swaying tip does not change which way the meadow faces.
+    stream var groundWS: float3
+
+    /// The blade's root, for the shadow lookup — a blade shadows as one point of ground.
+    ///
+    /// ⚠ Per blade rather than per fragment, deliberately: a five-centimetre blade spans a small
+    /// fraction of a cascade texel, so every fragment of it lands on the same shadow answer anyway
+    /// — and sampling at the swaying tip instead is how a field shimmers at every shadow edge in
+    /// the wind.
+    stream var rootWS: float3
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("POSITION")] position: float3,
+        [Semantic("NORMAL")] normal: float3,
+        [Semantic("TEXCOORD0")] texcoord: float2,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        val clip = BladeVertex(position, normal, texcoord, instance)
+
+        // A second read of the same record the shared arithmetic took — cached, and cheaper than
+        // widening the shared function's signature for one variant.
+        groundWS = Math.SafeNormalize(
+            Instancing.RotateByQuaternion(blades[instance].rotation, float3(0f, 1f, 0f))
+        )
+
+        rootWS = blades[instance].position
+
+        return clip
+    }
+
+    [FragmentShader]
+    func Fragment([Semantic("SV_Position")] fragment: float4): TerrainTargets {
+        val sampled = albedoMap.Sample(albedoSampler, uv)
+
+        // The same stipple the preview takes — the fade must not change with the lighting.
+        if (CrossFade && Stipple(fragment.xy) >= fade) {
+            discard
+        }
+
+        val shade = lerp(tintRange.x, tintRange.y, tint)
+        val albedo = sampled.rgb * shade
+        val n = Math.SafeNormalize(groundWS)
+
+        val world = rootWS
+        val viewDepth = FrameClusters.DepthOf(Math.TransformPoint(view, world))
+
+        val sun = Lighting.Directional(lightDirection, lightColor)
+        val NdotL = saturate(dot(n, sun.l))
+
+        var visibility = 1f
+
+        if (NdotL > 0f) {
+            visibility = FrameShadow.Term(
+                shadowMap,
+                shadowSampler,
+                cascades,
+                world,
+                n,
+                NdotL,
+                viewDepth,
+                shadowTexelSize,
+                shadowConstantBias,
+                shadowSlopeBias,
+                shadowFadeRange
+            )
+        }
+
+        // The sun and the sky, and no clustered lamps: a blade is centimetres across and fades out
+        // within a hundred metres, so the lamps' contribution is the terrain's under it — which the
+        // eye reads as correct because the ground shows through the field everywhere.
+        var colour = albedo * Const.InvPi * sun.radiance * NdotL * visibility
+
+        var targets: TerrainTargets
+
+        if (SplitOutputs) {
+            targets.color = float4(colour, sampled.a)
+            targets.albedo = float4(albedo, 1f)
+
+            // Raw and signed, and the *ground's* — the stream's own note says why.
+            targets.normal = float4(n, 1f)
+        } else {
+            val irradiance = Ibl.IrradianceSh9(n, environmentSh)
+
+            colour += Ibl.Diffuse(irradiance, albedo, 1f) * ambientIntensity
+
+            targets.color = float4(colour, sampled.a)
+        }
+
+        return targets
     }
 }
