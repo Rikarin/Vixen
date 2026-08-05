@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 
 namespace Vixen.Fuzz;
 
@@ -80,6 +81,28 @@ public sealed record FuzzFinding(string Target, FuzzFailure Failure, byte[] Inpu
         );
 }
 
+/// <summary>Why a run ended.</summary>
+/// <remarks>
+///     ⚠ <b>Internal, and a phrase rather than a type on <see cref="FuzzOutcome" />, because
+///     <c>Vixen.Fuzz</c>'s public surface is gated by <c>CheckDocs</c> and a new public type there
+///     owes a guide page the harness does not have.</b> The distinction is worth keeping in the code
+///     regardless: the summary line has to name one of exactly four things, and a string built at
+///     four call sites is a string that eventually says five.
+/// </remarks>
+enum FuzzStop {
+    /// <summary>The time budget ran out — the only ending that means the run finished its work.</summary>
+    Clock = 0,
+
+    /// <summary>The requested number of cases was reached.</summary>
+    Cases = 1,
+
+    /// <summary>Enough distinct failures were found that there was nothing left to learn.</summary>
+    Findings = 2,
+
+    /// <summary>A case would not come back, and the run gave up rather than lose the host.</summary>
+    Runaway = 3
+}
+
 /// <summary>What a run came to.</summary>
 /// <param name="Target">Which decoder was run.</param>
 /// <param name="Cases">How many inputs were pushed through it.</param>
@@ -87,13 +110,34 @@ public sealed record FuzzFinding(string Target, FuzzFailure Failure, byte[] Inpu
 /// <param name="Signatures">How many distinct behaviours were seen.</param>
 /// <param name="Elapsed">How long it took.</param>
 /// <param name="Findings">What broke, if anything.</param>
+/// <param name="Stopped">
+///     Why the run ended, as a phrase for the summary line.
+///     <para>
+///         ⚠ <b>Not decoration.</b> A run that stopped on the finding cap and a run that used its
+///         whole budget print the same line without this, and the two mean opposite things: raven's
+///         nightly saturated <see cref="FuzzSession.MaxFindings" /> after five and a half minutes of
+///         a two-hour budget for weeks, and the summary said <c>3 FINDING(S)</c> in exactly the tone
+///         it would have said it after two hours. What caught it was somebody downloading an
+///         artifact and counting the files in it.
+///     </para>
+/// </param>
+/// <param name="Suppressed">
+///     How many further failures matched a finding already held.
+///     <para>
+///         The other half of the same signal. One defect reached ten thousand ways is a number worth
+///         printing, both because it says the finding list is short for a good reason and because a
+///         suppressed count that dwarfs the run is a key that is still splitting one bug into many.
+///     </para>
+/// </param>
 public sealed record FuzzOutcome(
     string Target,
     long Cases,
     int CorpusSize,
     int Signatures,
     TimeSpan Elapsed,
-    IReadOnlyList<FuzzFinding> Findings
+    IReadOnlyList<FuzzFinding> Findings,
+    string Stopped,
+    long Suppressed
 ) {
     /// <summary>Whether every promise held.</summary>
     public bool Clean => Findings.Count == 0;
@@ -105,6 +149,8 @@ public sealed record FuzzOutcome(
             $"{Target,-10} {Cases,9:N0} cases  {Signatures,5:N0} behaviours  {CorpusSize,4:N0} kept  "
             + $"{Cases / Math.Max(0.001, Elapsed.TotalSeconds),9:N0}/s  "
             + $"{(Clean ? "clean" : $"{Findings.Count} FINDING(S)")}"
+            + $"{(Suppressed > 0 ? $" (+{Suppressed:N0} repeats)" : "")}"
+            + $"  stopped on {Stopped}"
         );
 }
 
@@ -141,6 +187,20 @@ public sealed record FuzzOutcome(
 ///         morning's fixing into a week of one-a-day. It stops at <see cref="MaxFindings" />, which
 ///         is there so a target that throws on everything does not fill memory with the evidence.
 ///     </para>
+///     <para>
+///         ⚠ <b>That cap ends the run, and not only the collecting — reaffirmed rather than assumed,
+///         because it is what hid a compiler bug for weeks.</b> The argument for bounding stored
+///         evidence does not by itself argue for stopping, and while the dedup key was the whole
+///         detail string it very nearly was not: one defect minted a fresh finding per byte offset,
+///         thirty-two of them filled the cap in five and a half minutes, and <c>raven</c> never once
+///         spent more than that of its two-hour nightly. The cap stays a stopping condition now that
+///         a finding means a distinct defect again, for a reason the old arithmetic did not have:
+///         <b>past thirty-two of those there is nothing left to learn, and going on makes the search
+///         worse rather than longer</b> — every failing input is offered to the corpus, so the
+///         mutator settles into the broken region and stops reaching anything else. What was
+///         actually missing was not more running but the ability to see that it had stopped, which
+///         is <see cref="FuzzOutcome.Stopped" />.
+///     </para>
 /// </remarks>
 public sealed class FuzzSession {
     /// <summary>How many findings are collected before a run gives up.</summary>
@@ -155,7 +215,10 @@ public sealed class FuzzSession {
     readonly FuzzRandom picker;
     readonly FuzzRandom shaper;
     readonly List<FuzzFinding> findings = [];
+    readonly HashSet<string> keys = new(StringComparer.Ordinal);
     readonly Stopwatch clock = new();
+
+    long suppressed;
 
     int windowCases;
     long windowAllocated;
@@ -309,8 +372,32 @@ public sealed class FuzzSession {
 
         clock.Stop();
 
-        return new(target.Name, executed, corpus.Count, corpus.SignatureCount, clock.Elapsed, findings);
+        // In the order the loop would have left: a runaway abandons everything, the cap is checked
+        // before the clock, and the clock is what a nightly is supposed to end on.
+        var stop = abandoned ? FuzzStop.Runaway
+            : findings.Count >= MaxFindings ? FuzzStop.Findings
+            : executed >= cases ? FuzzStop.Cases
+            : FuzzStop.Clock;
+
+        return new(
+            target.Name,
+            executed,
+            corpus.Count,
+            corpus.SignatureCount,
+            clock.Elapsed,
+            findings,
+            Phrase(stop),
+            suppressed
+        );
     }
+
+    static string Phrase(FuzzStop stop) =>
+        stop switch {
+            FuzzStop.Runaway => "a runaway",
+            FuzzStop.Findings => "the finding cap",
+            FuzzStop.Cases => "the case bound",
+            _ => "the clock"
+        };
 
     void Prepare() {
         var seeds = new List<byte[]>();
@@ -490,16 +577,83 @@ public sealed class FuzzSession {
         return $"{exception.GetType().Name}: {exception.Message}{top}";
     }
 
+    /// <summary>Holds the first example of each distinct failure, and counts the rest.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One example of each failure per target is what gets fixed; a thousand near-identical
+    ///         inputs is a report nobody reads. What distinguishes them is the <i>shape</i> of the
+    ///         failure, never the bytes, which differ by construction — and the first example's bytes
+    ///         are what is kept, because the reproducer is the entire value of a finding.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The shape is not the message, and this used to say it was.</b> A detail is written
+    ///         for a person to read, so it quotes the input: an offset, a character, a byte count. Two
+    ///         instances of one defect therefore have two details, and keying on the whole string mints
+    ///         a fresh finding for each — which is not a tidiness problem, because
+    ///         <see cref="MaxFindings" /> then ends the run. Raven's round-trip oracle names the offset
+    ///         of the first difference and the character either side of it; one dropped attribute list
+    ///         was thirty-two findings at thirty-two offsets, the cap filled in five and a half
+    ///         minutes, and the target's two-hour nightly had never once run longer than that.
+    ///     </para>
+    ///     <para>
+    ///         So the key is <b>the failure and the detail with the input's own values taken out of
+    ///         it</b> — digit runs and quoted spans blanked. For the failure that matters, that is
+    ///         where it was thrown: <see cref="Describe" /> puts the exception's type and top frame in
+    ///         the detail precisely so two throwing sites stay two findings, and blanking values
+    ///         leaves both standing. What collapses is only the part that varies per input, which is
+    ///         what "the same bug twice" means.
+    ///     </para>
+    ///     <para>
+    ///         It does over-collapse in one direction, deliberately: a message whose <i>only</i>
+    ///         distinguishing content is a quoted value — an unexpected diagnostic id, say — is one
+    ///         finding however many ids reach it. That is the same claim as "one throwing site is one
+    ///         defect", and a report of thirty near-identical lines is the thing being fixed.
+    ///     </para>
+    /// </remarks>
     void Record(FuzzFinding finding) {
-        // One example of each failure per target is what gets fixed; a thousand near-identical
-        // inputs is a report nobody reads. The fingerprint of the *shape* — the failure and its
-        // detail — is what distinguishes them, not the bytes, which differ by construction.
-        foreach (var seen in findings) {
-            if (seen.Failure == finding.Failure && string.Equals(seen.Detail, finding.Detail, StringComparison.Ordinal)) {
-                return;
-            }
+        if (!keys.Add(Key(finding))) {
+            suppressed++;
+
+            return;
         }
 
         findings.Add(finding);
+    }
+
+    /// <summary>The failure's shape: everything about it that is not this input's own values.</summary>
+    static string Key(FuzzFinding finding) {
+        var detail = finding.Detail.AsSpan();
+        var key = new StringBuilder(detail.Length + 8);
+
+        key.Append((int)finding.Failure).Append('|');
+
+        for (var i = 0; i < detail.Length; i++) {
+            var character = detail[i];
+
+            // A digit run is an offset, a length or a count, and always this input's.
+            if (char.IsAsciiDigit(character)) {
+                while (i + 1 < detail.Length && (char.IsAsciiDigit(detail[i + 1]) || detail[i + 1] is ',' or '.')) {
+                    i++;
+                }
+
+                key.Append('#');
+
+                continue;
+            }
+
+            // A quoted span is a value lifted out of the input — the character a printer dropped, the
+            // token a parser did not expect. The quotes stay, so a message *shaped* around a quote
+            // still differs from one that is not.
+            if (character == '\'' && detail[(i + 1)..].IndexOf('\'') is >= 0 and var end) {
+                key.Append("''");
+                i += end + 1;
+
+                continue;
+            }
+
+            key.Append(character);
+        }
+
+        return key.ToString();
     }
 }

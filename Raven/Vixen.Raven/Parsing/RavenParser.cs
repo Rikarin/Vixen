@@ -1570,7 +1570,18 @@ sealed class RavenParser : SyntaxParser {
 
     // ================================================================== Statements
 
-    BlockSyntax ParseBlock() {
+    /// <summary>Grammar <c>block</c>, carrying the attribute lists the caller has already taken.</summary>
+    /// <param name="attributes">
+    ///     What was parsed before the brace, or nothing. ⚠ <b>A block is the one statement whose
+    ///     attributes are the caller's to pass on, and forgetting to was a parse that did not
+    ///     reproduce its source.</b> Every other branch of <see cref="ParseStatement" /> threads them
+    ///     into the node it builds; this one dropped the <c>AttributeListSyntax</c> it had just
+    ///     consumed tokens for, so <c>[Unroll] {</c> printed back as <c>{</c> and those characters
+    ///     left the tree entirely. It is <c>BlockSyntax</c>'s own slot in the grammar — it was never
+    ///     filled. The other callers here are bodies and clauses, whose attributes belong to the
+    ///     declaration or the statement above them, and they pass nothing on purpose.
+    /// </param>
+    BlockSyntax ParseBlock(SyntaxList<AttributeListSyntax> attributes = default) {
         var open = Expect(RavenTokenKind.OpenBrace, SyntaxKind.OpenBraceToken);
         SkipNewLines();
 
@@ -1584,7 +1595,7 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var close = Expect(RavenTokenKind.CloseBrace, SyntaxKind.CloseBraceToken);
-        return (BlockSyntax)SyntaxFactory.Block(new(), open, new(SyntaxList.List(statements.ToArray())), close);
+        return (BlockSyntax)SyntaxFactory.Block(attributes, open, new(SyntaxList.List(statements.ToArray())), close);
     }
 
     StatementSyntax ParseStatement() {
@@ -1618,7 +1629,7 @@ sealed class RavenParser : SyntaxParser {
 
         switch (Kind) {
             case RavenTokenKind.OpenBrace:
-                return ParseBlock();
+                return ParseBlock(attributes);
 
             case RavenTokenKind.BreakKeyword: {
                 var keyword = Take(SyntaxKind.BreakKeyword);

@@ -657,6 +657,30 @@ runaway*: the CLR ends the process at the overflow, so there is no thread left t
 no sample early enough to have taken one. Bounding this recursion did not change that; a case per child
 process still would.
 
+**And one that was thirty-two findings and one defect, which is the more useful half of the story.**
+`ParseStatement` threads the attribute lists it has just consumed tokens for into whatever node it
+builds — every branch of it except the one that discovers the statement is a block, where
+`case OpenBrace: return ParseBlock()` dropped them on the floor. `BlockSyntax` has declared an
+`AttributeLists` slot since the grammar was written and the parser never filled it, so `[Unroll] {`
+parsed to a block with no attributes and printed back as `{`: the characters left the tree entirely
+and the round-trip oracle said so. Reduced, every one of the thirty-two is `func{ …[X] {`. Fixed by
+passing the lists in, pinned by `RoundTripTests.An_attributed_block_carries_its_attributes` — which
+asserts the *slot* rather than the string, because a fix that put the characters back as trivia would
+round-trip and still leave the attributes unreachable to everything that reads the tree.
+
+⚠ **It was thirty-two findings because of this harness, not because of the compiler, and that is what
+made it expensive.** The dedup key was the whole detail string, and a detail quotes the input — the
+oracle names the byte offset of the first difference and the character either side of it. So one
+defect minted a fresh finding per offset, `MaxFindings` filled after five and a half minutes, and the
+cap **ends the run**: `raven` has a two-hour nightly budget and had never once spent more than four
+per cent of it. The summary line could not say so either — `109,012 cases … 3 FINDING(S)` is what a
+run that stopped at four per cent prints, and it is the same line a run that used all of it prints.
+What caught it was somebody downloading an artifact and counting the files in it. The key is now the
+failure and the detail with the input's own values blanked, the summary says which of the four things
+ended the run, and repeats are counted rather than dropped in silence. On the same sixty seconds and
+the same seed, with the parser defect put back: **one** finding and sixty-six repeats, and the run
+goes the distance.
+
 **And one found and deliberately not fixed**, because the fix is not this harness's to make: the binder
 writes `null` into a member declared non-nullable. `subAssets: null` in a sidecar produces an
 `AssetMeta` whose `SubAssets` is null although the property is `SubAssetEntry[]` with a non-null
