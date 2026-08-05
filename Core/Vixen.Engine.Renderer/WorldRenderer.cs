@@ -264,7 +264,21 @@ public sealed class WorldRenderer : IDisposable {
             // set layouts, which is undefined behaviour that MoltenVK happens to render correctly.
             // The second cost is the pool: a table built to a desktop driver's million-descriptor
             // ceiling reserves hundreds of megabytes to hold a scene's worth of textures.
-            Table = new(device, capacity: BindlessTable.ConventionalCapacity);
+            // ⚠ **The stage mask is the same agreement as the capacity, and it was left at the
+            // constructor's `Fragment` default.** Two descriptor set layouts are compatible only if
+            // they are identically defined, stage flags included — and the effect path builds set 4
+            // from the *reflected* mask, which for `ForwardPlus` is vertex and fragment because
+            // `MaterialTextures.materialTextures` is `[Shared]` across a shader with both stages. A
+            // table built fragment-only is a set the pipeline layout refuses, and the refusal is not
+            // confined to set 4: an incompatible bind disturbs the sets under it, so the validation
+            // that comes out of it is "uses set 0 but that set is not bound" on every draw in the
+            // Main pass. Nothing bound this table until a material carried a texture, which is why a
+            // mismatch this loud sat here unseen.
+            Table = new(
+                device,
+                ShaderStage.Vertex | ShaderStage.Fragment,
+                BindlessTable.ConventionalCapacity
+            );
             Materials.Textures = Table;
 
             Paired(Materials, "ForwardPlus");

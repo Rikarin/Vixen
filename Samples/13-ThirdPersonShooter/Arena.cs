@@ -1182,6 +1182,31 @@ public sealed class Arena : IDisposable {
             graphics.Renderer.Emitters?.Waiting ?? 0,
             graphics.Renderer.ParticleMaterials.BoundCount
         );
+
+        // ⚠ The survey has no picture of its own, which is why it needs a line here. Streaming is a
+        // decision about which mip levels are on the device, and both of its failures render: too
+        // little resident is a blurrier wall, and nothing resident at all is the flat base level,
+        // which over a generated noise texture is indistinguishable from the map working. The
+        // counters are the only place the difference is stated.
+        var painted = graphics.Renderer.Painted;
+        var streamer = painted?.Streaming;
+
+        SampleLog.TextureSummary(
+            logger,
+            painted?.Loaded ?? 0,
+            painted?.Requested ?? 0,
+            painted?.Failed ?? 0,
+            graphics.Renderer.Demand?.Promotions ?? 0,
+            graphics.Renderer.Demand?.Demotions ?? 0,
+            streamer?.Textures ?? 0,
+            streamer?.ResidentBytes ?? 0,
+            streamer?.Budget ?? 0,
+            streamer?.Loading ?? 0,
+            painted?.StreamingSwaps ?? 0,
+            painted?.StreamingRefusals ?? 0,
+            streamer?.Rejections ?? 0,
+            painted?.StreamedImageBytes ?? 0
+        );
     }
 
     /// <summary>How many entities a query matches.</summary>

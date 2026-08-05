@@ -267,6 +267,36 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
+        EventId = 14057,
+        Level = LogLevel.Information,
+        Message = "Textures: {Painted} of {Requested} material texture(s) loaded, {Failed} failed. "
+            + "Survey: {Promotions} promotion(s), {Demotions} demotion(s). Streaming {Streamed} "
+            + "texture(s), {Resident} of {Budget} byte(s) resident, {Loading} in flight; {Swaps} "
+            + "swap(s), {Refusals} refusal(s), {Rejections} rejection(s), {Image} byte(s) of image. "
+            + "Painted at zero is a level whose materials name no maps, and that is the state this "
+            + "survey ran in for as long as no .vxmat carried a textures: block — every number after "
+            + "it is then a correct answer about an empty set. Painted above zero with resident at "
+            + "zero is the other half, and a different bug: the maps are bound and the pool has been "
+            + "asked for nothing, which is a survey that never saw a screen height."
+    )]
+    public static partial void TextureSummary(
+        ILogger logger,
+        int painted,
+        int requested,
+        int failed,
+        long promotions,
+        long demotions,
+        int streamed,
+        long resident,
+        long budget,
+        int loading,
+        long swaps,
+        long refusals,
+        long rejections,
+        long image
+    );
+
+    [LoggerMessage(
         EventId = 14056,
         Level = LogLevel.Information,
         Message = "VSM: {Marked} page(s) marked by the last serviced frame, {Drawn} drawn this frame, "
