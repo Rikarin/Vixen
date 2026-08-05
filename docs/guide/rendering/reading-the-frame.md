@@ -4,7 +4,7 @@ slug: rendering/reading-the-frame
 kind: guide
 area: Rendering
 summary: Two ways for a pass to consume its own output — a snapshot of a target inside one frame, and a pair of targets alternating across them — and why both are resources the render graph owns rather than barriers somebody remembers.
-api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource, T:Vixen.Rendering.Water.WaterSurfaceAsset, T:Vixen.Rendering.Water.WaterMeshRenderer, T:Vixen.Rendering.Water.WaterSurfacePass, T:Vixen.Rendering.Water.WaterNodeRecord, T:Vixen.Rendering.Water.WaterMeshShaders, T:Vixen.Rendering.Water.WaterMeshView, T:Vixen.Rendering.Water.WaterMeshSettings, T:Vixen.Rendering.Water.UnderwaterShape, T:Vixen.Rendering.Water.UnderwaterAsset, T:Vixen.Rendering.Water.UnderwaterRenderer, R:Water/Water, R:Water/WaterMesh, R:Water/Underwater, T:Vixen.Shaders.Generated.WaterKeys, T:Vixen.Shaders.Generated.WaterMeshKeys, T:Vixen.Shaders.Generated.UnderwaterKeys, T:Vixen.Rendering.Water.WaterRippleSimulation, R:Water/Ripples, T:Vixen.Shaders.Generated.RipplesKeys]
+api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Compositor.TextureCopyRenderer, T:Vixen.Graphics.RenderGraph.PingPongTextures, T:Vixen.Graphics.RenderGraph.PingPongPair, T:Vixen.Rendering.Water.WaterRenderer, T:Vixen.Rendering.Water.WaterAsset, T:Vixen.Rendering.Water.WaterRendererFactory, T:Vixen.Rendering.Water.WaterZoneComponent, T:Vixen.Rendering.Water.WaterBodyComponent, T:Vixen.Rendering.Water.WaterZoneSystem, T:Vixen.Rendering.Water.WaterInfoTexture, T:Vixen.Rendering.Water.IWaterSplineSource, T:Vixen.Rendering.Water.WaterSurfaceAsset, T:Vixen.Rendering.Water.WaterMeshRenderer, T:Vixen.Rendering.Water.WaterSurfacePass, T:Vixen.Rendering.Water.WaterNodeRecord, T:Vixen.Rendering.Water.WaterMeshShaders, T:Vixen.Rendering.Water.WaterMeshView, T:Vixen.Rendering.Water.WaterMeshSettings, T:Vixen.Rendering.Water.UnderwaterShape, T:Vixen.Rendering.Water.UnderwaterAsset, T:Vixen.Rendering.Water.UnderwaterRenderer, R:Water/Water, R:Water/WaterMesh, R:Water/Underwater, T:Vixen.Shaders.Generated.WaterKeys, T:Vixen.Shaders.Generated.WaterMeshKeys, T:Vixen.Shaders.Generated.UnderwaterKeys, T:Vixen.Rendering.Water.WaterRippleSimulation, R:Water/Ripples, T:Vixen.Shaders.Generated.RipplesKeys, T:Vixen.Rendering.Water.WaterTiles, R:Water/WaterTiles, T:Vixen.Shaders.Generated.WaterTilesKeys]
 tags: [rendering, compositor, render-graph, water]
 since: 0.1
 status: stable
@@ -160,6 +160,32 @@ what is behind the water; a surface that wrote depth would put itself there and 
 integrated against itself — clear at every depth, with nothing in a capture to say why. And the far
 skirt is drawn *first*, because with depth writes off nothing arbitrates between two fragments at one
 pixel except which came last.
+
+**The pass runs over the tiles that have water in them, not over the screen.** `tiled: true` — which is
+the default for a document — puts a compute dispatch ahead of the draw. `WaterTiles.rvn` classifies the
+coverage mask into one flag per 8×8 tile, and `!Water` becomes `Draw(6, tiles)`: two triangles per
+tile, one instance per tile, and a dry tile collapsing to a degenerate rectangle in the vertex stage.
+`WaterTiles` is the C# half of that arithmetic, and the tile size is a constant in both files because
+three things — the host, the classifier and the draw — have to agree about which tile an instance is.
+
+⚠ **A tiled pass loads its target and leaves a dry tile alone**, where the untiled one writes every
+pixel of the frame: the scene colour back, with a zero mask in alpha. Those are the same picture only
+where the output already holds what `behind:` is a copy of — which in a document is free, because the
+`!Copy` above filled `behind:` from that very target. Wire a `WaterRenderer` by hand against a target
+holding something else and the dry pixels keep that something else, which is why `Tiled` is off on the
+node and on in the document.
+
+⚠ **A flag per tile and not a compacted list, so the draw is instanced rather than indirect.** The
+shape this came from feeds an indirect draw, which needs the count on the device; `ICommandList` has
+`DrawIndexedIndirect` and no non-indexed `DrawIndirect`, so indirect here means either a three-entry
+index buffer for a triangle that has no vertex buffer, or reading the count back to the host — a stall
+a frame long, every frame, to avoid a pass over tiles that are mostly empty. What a flag costs instead
+is one discarded rectangle per dry tile.
+
+⚠ **The tile buffer is bound even when the tiling is off**, because a descriptor set is written wholly
+or not at all — a shader's bindings come from its declarations and not from the variant it was compiled
+into. Untiled, the node imports a zeroed word of its own rather than declaring a transient nothing
+writes, which the render graph refuses by name.
 
 **Underwater is two features that look like one**, and § D9 warns twice that getting the order wrong
 is architectural. The volume half is `UnderwaterShape`, doc 32's `IPostProcessShape`, supplied by

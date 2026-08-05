@@ -1,0 +1,132 @@
+package Vixen.Shaders.Water
+
+import Vixen.Shaders.Core
+
+// Which screen tiles have any water in them — docs/plan/35 § D8's tile classification, and the last
+// thing on doc 35's list.
+//
+// **§ D8 keeps this "for its actual reason: the water pass is expensive per pixel and covers a small
+// fraction of most frames".** It is an optimisation over a pass that is already correct, which is why
+// it was built last rather than first: a classification written before the look was proven would have
+// been a second place for a wrong picture to come from.
+//
+// ⚠ **§ D8 says to classify from "the GBuffer's shading model id, which already exists" — it does
+// not.** The deferred path is ⬜ and this engine is Forward+, so `WaterSurfacePass` writes a
+// one-channel coverage mask instead, which is exactly what an id comparison would have produced. When
+// the deferred path lands, `waterSurface` becomes that comparison and nothing else here changes.
+//
+// ⚠ **It reads the surface exactly the way the water pass's own fragment stage reads it** — point
+// sampled, at the centre of a *target* pixel — rather than fetching the surface's texels. That is what
+// makes the classification conservative by construction instead of by argument: a tile is claimed if
+// and only if some pixel of it would have found coverage, whatever resolution the surface plane
+// happens to be at. A classifier that walked the surface's own texels would agree only while the two
+// planes were the same size, and would silently drop water the day one of them was not.
+//
+// **One workgroup per tile, one lane per pixel, and one bit of answer.** `VisibilityTiles.rvn` bins by
+// material and needs a shared word per material; this needs a shared bit, so the whole reduction is one
+// `atomicOr` and one write.
+
+/// The tiling's shape, and the arithmetic the classifier and the water pass address tiles with.
+///
+/// Constants rather than permutations because the host, this shader and `Water.rvn`'s vertex stage all
+/// have to agree about which tile an instance is — the same argument `VisibilityTile` makes.
+struct WaterTile {
+    /// How many pixels a tile is on a side.
+    ///
+    /// Eight, so a tile is sixty-four pixels and one workgroup classifies it with one lane each — the
+    /// same size `VisibilityTile` uses, and for the same reason. Larger tiles claim more dry pixels
+    /// around a shoreline; smaller ones cost more instances for the same water.
+    const val Size = 8
+
+    /// How many tiles cover a target of this many pixels.
+    static func CountFor(size: int2): int2 => int2((size.x + Size - 1) / Size, (size.y + Size - 1) / Size)
+
+    /// One tile's index in a row-major grid of them.
+    static func Index(tile: int2, count: int2): int => tile.y * count.x + tile.x
+
+    /// The tile a row-major index names — what an instance id means.
+    static func Unindex(index: int, count: int2): int2 => int2(index % count.x, index / count.x)
+
+    /// Which corner of a tile's two triangles a vertex of `Draw(6, tiles)` is, in 0..1.
+    ///
+    /// **Six vertices and not three, and the difference is the whole saving.** A screen-covering
+    /// triangle is twice the viewport so that its visible quarter needs no clipping; scaled down to one
+    /// tile the same triangle covers *four* tiles, and shading a water tile up to four times costs more
+    /// than the dry tiles it skipped. Two triangles cover a tile exactly, and a rectangle is what a tile
+    /// is.
+    static func Corner(vertexIndex: int): float2 {
+        // 0,1,2 and then 1,2,3 — the second triangle shares the first's diagonal, so the four corners
+        // are (0,0), (1,0), (0,1), (1,1) in that order and no pixel is covered twice.
+        val corner = vertexIndex < 3 ? vertexIndex : vertexIndex - 2
+
+        return float2(float(corner % 2), float(corner / 2))
+    }
+}
+
+shader WaterTiles {
+    /// The surface plane: device depth in `r`, and the coverage the surface pass wrote in `g`.
+    var waterSurface: Texture2D
+
+    /// Point, and it has to be — see this file's remarks. A filtered tap would find coverage half a
+    /// texel outside the water and claim tiles the pass then shades for nothing.
+    var pointSampler: Sampler
+
+    /// One word per tile: non-zero where the water pass has something to do.
+    ///
+    /// **A flag per tile rather than a compacted list, and that is a decision rather than a shortcut.**
+    /// A compacted list needs the count on the device to draw from, and `ICommandList` has
+    /// `DrawIndexedIndirect` and no non-indexed `DrawIndirect` — so an indirect draw here means either a
+    /// three-entry index buffer for a triangle that has no vertex buffer, or reading the count back to
+    /// the host, which is a stall a frame long every frame to avoid a pass over tiles that are mostly
+    /// empty. That is the cost this feature exists to remove, paid the other way round.
+    ///
+    /// What a flag costs instead is one *collapsed* triangle pair per dry tile — a vertex stage that
+    /// reads one word and emits a degenerate rectangle. At 1080p that is thirty-two thousand instances
+    /// the setup engine discards and no pixel work at all, against a full-screen pass of the most
+    /// expensive fragment shader in the frame.
+    var tiles: RWBuffer<uint>
+
+    /// How many tiles cover the target, in x and y.
+    var tileCount: int2
+
+    /// And how many pixels the target is, which is what bounds the lanes at the right and bottom edges.
+    var targetSize: int2
+
+    /// Whether any pixel of this tile is water. One bit, shared by the workgroup.
+    groupshared var covered: uint
+
+    /// One workgroup per tile, one invocation per pixel of it.
+    ///
+    /// The dispatch is `(tileCount.x, tileCount.y, 1)` with a workgroup of `Size * Size`, so a tile is a
+    /// workgroup exactly and a pixel is a lane. Lanes past the target's right or bottom edge — where the
+    /// last tile of a row hangs over — read nothing and set no bit.
+    [ComputeShader(64)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
+        if (lane == 0u) {
+            covered = 0u
+        }
+
+        barrier()
+
+        val tile = int2(int(group.x), int(group.y))
+        val pixel = tile * WaterTile.Size + int2(int(lane) % WaterTile.Size, int(lane) / WaterTile.Size)
+
+        if (pixel.x < targetSize.x && pixel.y < targetSize.y) {
+            // The centre of the pixel, which is where the interpolator puts the water pass's own `uv` —
+            // so this tap and that one are the same fetch of the same texel.
+            val centre = float2(float(pixel.x), float(pixel.y)) + float2(0.5f)
+            val uv = centre / float2(float(targetSize.x), float(targetSize.y))
+
+            if (waterSurface.SampleLevel(pointSampler, uv, 0f).g > 0f) {
+                atomicOr(covered, 1u)
+            }
+        }
+
+        barrier()
+
+        // One lane writes, because a tile is claimed once however many of its pixels claimed it.
+        if (lane == 0u) {
+            tiles[WaterTile.Index(tile, tileCount)] = covered
+        }
+    }
+}

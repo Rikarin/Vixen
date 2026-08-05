@@ -475,6 +475,8 @@ Vixen.Rendering.Compositor.FullScreenRenderer.Device.get -> Vixen.Graphics.IGrap
 Vixen.Rendering.Compositor.FullScreenRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.FullScreenRenderer.Dispose() -> void
 Vixen.Rendering.Compositor.FullScreenRenderer.FullScreenRenderer() -> void
+Vixen.Rendering.Compositor.FullScreenRenderer.Instances.get -> int
+Vixen.Rendering.Compositor.FullScreenRenderer.Instances.set -> int
 Vixen.Rendering.Compositor.FullScreenRenderer.Load.get -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.FullScreenRenderer.Load.set -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.FullScreenRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
@@ -489,6 +491,8 @@ Vixen.Rendering.Compositor.FullScreenRenderer.Samplers.set -> Vixen.Rendering.Sa
 Vixen.Rendering.Compositor.FullScreenRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.FullScreenRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.FullScreenRenderer.UploadCount.get -> int
+Vixen.Rendering.Compositor.FullScreenRenderer.Vertices.get -> int
+Vixen.Rendering.Compositor.FullScreenRenderer.Vertices.set -> int
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.get -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.set -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.GlobalDistanceFieldAsset -> sealed record

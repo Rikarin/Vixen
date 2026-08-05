@@ -155,6 +155,8 @@ Vixen.Rendering.Water.WaterAsset.Surface.get -> string
 Vixen.Rendering.Water.WaterAsset.Surface.init -> string
 Vixen.Rendering.Water.WaterAsset.SurfaceF0.get -> float
 Vixen.Rendering.Water.WaterAsset.SurfaceF0.init -> float
+Vixen.Rendering.Water.WaterAsset.Tiled.get -> bool
+Vixen.Rendering.Water.WaterAsset.Tiled.init -> bool
 Vixen.Rendering.Water.WaterAsset.View.get -> string
 Vixen.Rendering.Water.WaterAsset.View.init -> string
 Vixen.Rendering.Water.WaterAsset.WaterAsset() -> void
@@ -341,6 +343,7 @@ Vixen.Rendering.Water.WaterRenderer.BehindScale.set -> Vixen.Core.Mathematics.Ve
 Vixen.Rendering.Water.WaterRenderer.BuildCount.get -> int
 Vixen.Rendering.Water.WaterRenderer.CameraPosition.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.CameraPosition.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Water.WaterRenderer.Classification.get -> Vixen.Rendering.Compositor.ComputeRenderer
 Vixen.Rendering.Water.WaterRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Water.WaterRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Water.WaterRenderer.Dispose() -> void
@@ -355,6 +358,8 @@ Vixen.Rendering.Water.WaterRenderer.Modules.set -> Vixen.Rendering.Compositor.Ef
 Vixen.Rendering.Water.WaterRenderer.Pass.get -> Vixen.Rendering.Compositor.FullScreenRenderer
 Vixen.Rendering.Water.WaterRenderer.PhaseG.get -> float
 Vixen.Rendering.Water.WaterRenderer.PhaseG.set -> float
+Vixen.Rendering.Water.WaterRenderer.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.Water.WaterRenderer.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.Water.WaterRenderer.Reflections.get -> string
 Vixen.Rendering.Water.WaterRenderer.Reflections.init -> string
 Vixen.Rendering.Water.WaterRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
@@ -369,6 +374,9 @@ Vixen.Rendering.Water.WaterRenderer.SunDirection.get -> Vixen.Core.Mathematics.V
 Vixen.Rendering.Water.WaterRenderer.SunDirection.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.SurfaceF0.get -> float
 Vixen.Rendering.Water.WaterRenderer.SurfaceF0.set -> float
+Vixen.Rendering.Water.WaterRenderer.TileCount.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.Water.WaterRenderer.Tiled.get -> bool
+Vixen.Rendering.Water.WaterRenderer.Tiled.set -> bool
 Vixen.Rendering.Water.WaterRenderer.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Water.WaterRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Water.WaterRenderer.WaterRenderer() -> void
@@ -468,6 +476,7 @@ Vixen.Rendering.Water.WaterSurfacePass.Record(Vixen.Graphics.ICommandList comman
 Vixen.Rendering.Water.WaterSurfacePass.Selected.get -> System.ReadOnlySpan<Vixen.Terrain.TerrainLodNode>
 Vixen.Rendering.Water.WaterSurfacePass.Upload(Vixen.Water.WaterSurfaceMesh mesh, in Vixen.Rendering.Water.WaterMeshView view, System.ReadOnlySpan<Vixen.Water.GerstnerWave> sea, Vixen.Graphics.TextureViewHandle info, Vixen.Graphics.SamplerHandle sampler, in Vixen.Rendering.Water.WaterMeshSettings settings) -> void
 Vixen.Rendering.Water.WaterSurfacePass.WaterSurfacePass(Vixen.Graphics.IGraphicsDevice device, (Vixen.Rendering.Water.WaterMeshShaders Near, Vixen.Rendering.Water.WaterMeshShaders Far) shaders, System.ReadOnlySpan<Vixen.Graphics.PixelFormat> formats, Vixen.Graphics.PixelFormat depthFormat, int gridQuads = 32) -> void
+Vixen.Rendering.Water.WaterTiles -> static class
 Vixen.Rendering.Water.WaterZoneComponent -> struct
 Vixen.Rendering.Water.WaterZoneComponent.AttenuationDepth -> float
 Vixen.Rendering.Water.WaterZoneComponent.CoarsestTexel -> float
@@ -550,6 +559,8 @@ Vixen.Shaders.Generated.WaterConstants.SkyColour -> Vixen.Core.Mathematics.Vecto
 Vixen.Shaders.Generated.WaterConstants.SunColour -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.WaterConstants.SunDirection -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.WaterConstants.SurfaceF0 -> float
+Vixen.Shaders.Generated.WaterConstants.TargetSize -> Vixen.Core.Mathematics.Int2
+Vixen.Shaders.Generated.WaterConstants.TileCount -> Vixen.Core.Mathematics.Int2
 Vixen.Shaders.Generated.WaterConstants.WaterConstants() -> void
 Vixen.Shaders.Generated.WaterKeys -> static class
 Vixen.Shaders.Generated.WaterMeshKeys -> static class
@@ -568,11 +579,18 @@ Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WaterMeshPerMaterialConsta
 Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WaterTime -> float
 Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WindowExtent -> float
 Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.WindowOrigin -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.WaterTilesConstants -> struct
+Vixen.Shaders.Generated.WaterTilesConstants.TargetSize -> Vixen.Core.Mathematics.Int2
+Vixen.Shaders.Generated.WaterTilesConstants.TileCount -> Vixen.Core.Mathematics.Int2
+Vixen.Shaders.Generated.WaterTilesConstants.WaterTilesConstants() -> void
+Vixen.Shaders.Generated.WaterTilesKeys -> static class
 const Vixen.Rendering.Water.WaterInfoTexture.Channels = 4 -> int
 const Vixen.Rendering.Water.WaterRippleSimulation.GroupSize = 8 -> int
 const Vixen.Rendering.Water.WaterRippleSimulation.MaxInjections = 32 -> int
 const Vixen.Rendering.Water.WaterSurfacePass.MaxPatches = 2048 -> int
 const Vixen.Rendering.Water.WaterSurfacePass.MaxWaves = 32 -> int
+const Vixen.Rendering.Water.WaterTiles.Size = 8 -> int
+const Vixen.Rendering.Water.WaterTiles.VerticesPerTile = 6 -> int
 const Vixen.Shaders.Generated.RipplesConstants.Size = 560 -> int
 const Vixen.Shaders.Generated.RipplesKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.RipplesKeys.ConstantBufferSet = 2 -> int
@@ -599,10 +617,10 @@ const Vixen.Shaders.Generated.UnderwaterKeys.SceneDepthSet = 2 -> int
 const Vixen.Shaders.Generated.UnderwaterKeys.ShaderName = "Underwater" -> string
 const Vixen.Shaders.Generated.UnderwaterKeys.WaterSurfaceBinding = 3 -> uint
 const Vixen.Shaders.Generated.UnderwaterKeys.WaterSurfaceSet = 2 -> int
-const Vixen.Shaders.Generated.WaterConstants.Size = 192 -> int
+const Vixen.Shaders.Generated.WaterConstants.Size = 208 -> int
 const Vixen.Shaders.Generated.WaterKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.WaterKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.WaterKeys.ConstantBufferSize = 192 -> int
+const Vixen.Shaders.Generated.WaterKeys.ConstantBufferSize = 208 -> int
 const Vixen.Shaders.Generated.WaterKeys.LinearSamplerBinding = 7 -> uint
 const Vixen.Shaders.Generated.WaterKeys.LinearSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.WaterKeys.PointSamplerBinding = 6 -> uint
@@ -618,6 +636,8 @@ const Vixen.Shaders.Generated.WaterKeys.WaterNormalBinding = 4 -> uint
 const Vixen.Shaders.Generated.WaterKeys.WaterNormalSet = 2 -> int
 const Vixen.Shaders.Generated.WaterKeys.WaterSurfaceBinding = 3 -> uint
 const Vixen.Shaders.Generated.WaterKeys.WaterSurfaceSet = 2 -> int
+const Vixen.Shaders.Generated.WaterKeys.WaterTilesBinding = 8 -> uint
+const Vixen.Shaders.Generated.WaterKeys.WaterTilesSet = 2 -> int
 const Vixen.Shaders.Generated.WaterMeshKeys.BufferedWaterWavesWavesBinding = 1 -> uint
 const Vixen.Shaders.Generated.WaterMeshKeys.BufferedWaterWavesWavesSet = 0 -> int
 const Vixen.Shaders.Generated.WaterMeshKeys.ConstantBufferBinding = 0 -> uint
@@ -638,6 +658,17 @@ const Vixen.Shaders.Generated.WaterMeshKeys.WaterInfoBinding = 1 -> uint
 const Vixen.Shaders.Generated.WaterMeshKeys.WaterInfoSet = 2 -> int
 const Vixen.Shaders.Generated.WaterMeshPerFrameConstants.Size = 16 -> int
 const Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.Size = 112 -> int
+const Vixen.Shaders.Generated.WaterTilesConstants.Size = 16 -> int
+const Vixen.Shaders.Generated.WaterTilesKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.WaterTilesKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.WaterTilesKeys.ConstantBufferSize = 16 -> int
+const Vixen.Shaders.Generated.WaterTilesKeys.PointSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.WaterTilesKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.WaterTilesKeys.ShaderName = "WaterTiles" -> string
+const Vixen.Shaders.Generated.WaterTilesKeys.TilesBinding = 3 -> uint
+const Vixen.Shaders.Generated.WaterTilesKeys.TilesSet = 2 -> int
+const Vixen.Shaders.Generated.WaterTilesKeys.WaterSurfaceBinding = 1 -> uint
+const Vixen.Shaders.Generated.WaterTilesKeys.WaterSurfaceSet = 2 -> int
 override Vixen.Rendering.Water.UnderwaterRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Water.WaterClockSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Water.WaterMeshRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
@@ -650,6 +681,7 @@ readonly Vixen.Shaders.Generated.UnderwaterConstants.Write(System.Span<byte> buf
 readonly Vixen.Shaders.Generated.WaterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.WaterMeshPerFrameConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.WaterMeshPerMaterialConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.WaterTilesConstants.Write(System.Span<byte> buffer) -> void
 required Vixen.Rendering.Water.UnderwaterRenderer.Behind.get -> string
 required Vixen.Rendering.Water.UnderwaterRenderer.Behind.init -> string
 required Vixen.Rendering.Water.UnderwaterRenderer.Output.get -> string
@@ -702,6 +734,11 @@ static Vixen.Rendering.Water.WaterNodeRecord.Of(in Vixen.Terrain.TerrainLodNode 
 static Vixen.Rendering.Water.WaterNodeRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Water.WaterSurfacePass.DepthState.get -> Vixen.Graphics.DepthStencilState
 static Vixen.Rendering.Water.WaterSurfacePass.Raster.get -> Vixen.Graphics.RasterizerState
+static Vixen.Rendering.Water.WaterTiles.Bytes(Vixen.Core.Mathematics.Int2 count) -> int
+static Vixen.Rendering.Water.WaterTiles.CountFor(Vixen.Core.Mathematics.Int2 target) -> Vixen.Core.Mathematics.Int2
+static Vixen.Rendering.Water.WaterTiles.Index(Vixen.Core.Mathematics.Int2 tile, Vixen.Core.Mathematics.Int2 count) -> int
+static Vixen.Rendering.Water.WaterTiles.Total(Vixen.Core.Mathematics.Int2 count) -> int
+static Vixen.Rendering.Water.WaterTiles.Unindex(int index, Vixen.Core.Mathematics.Int2 count) -> Vixen.Core.Mathematics.Int2
 static Vixen.Rendering.Water.WaterZoneComponent.Default.get -> Vixen.Rendering.Water.WaterZoneComponent
 static readonly Vixen.Shaders.Generated.RipplesKeys.Compute -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.RipplesKeys.Damping -> Vixen.Shaders.ParameterKey<float>
@@ -760,9 +797,13 @@ static readonly Vixen.Shaders.Generated.WaterKeys.SkyColour -> Vixen.Shaders.Par
 static readonly Vixen.Shaders.Generated.WaterKeys.SunColour -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.WaterKeys.SunDirection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.WaterKeys.SurfaceF0 -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.WaterKeys.TargetSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int2>
+static readonly Vixen.Shaders.Generated.WaterKeys.TileCount -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int2>
+static readonly Vixen.Shaders.Generated.WaterKeys.Tiled -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.WaterKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.WaterKeys.WaterNormal -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.WaterKeys.WaterSurface -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.WaterKeys.WaterTiles -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.WaterMeshKeys.AttenuationDepth -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.WaterMeshKeys.BufferedWaterWavesWaveCount -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.WaterMeshKeys.BufferedWaterWavesWaves -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
@@ -781,3 +822,8 @@ static readonly Vixen.Shaders.Generated.WaterMeshKeys.WaterInfo -> Vixen.Shaders
 static readonly Vixen.Shaders.Generated.WaterMeshKeys.WaterTime -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.WaterMeshKeys.WindowExtent -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.WaterMeshKeys.WindowOrigin -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.WaterTilesKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.WaterTilesKeys.TargetSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int2>
+static readonly Vixen.Shaders.Generated.WaterTilesKeys.TileCount -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int2>
+static readonly Vixen.Shaders.Generated.WaterTilesKeys.Tiles -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.WaterTilesKeys.WaterSurface -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
