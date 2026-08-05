@@ -1,0 +1,68 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 39's look profile — the base of the volume stack — as a form. Markup with no code-behind,
+    on `TerrainBrushInspector`'s terms; every row is an optional member, so every row is a tick beside
+    a value and "says nothing" is one click from "has an opinion".
+
+    ⚠ **Grouped by what a person is trying to change, not by what the fold does with it.** Twenty-nine
+    optional numbers in declaration order is a wall, and the failure it produces is specific: somebody
+    scrolls past the meter clamps, cannot find them, and pins `ev100` instead — which a metered frame
+    then ignores, because the meter's buffer outranks every authored exposure. Exposure is first and
+    the clamps are beside the value they clamp.
+
+    ⚠ **Everything is collapsed except exposure.** Doc 39's own account of sample 13's dusk is that it
+    works because `ev100`, the meter's clamps and the fog colour all agree; those are the three anybody
+    opens this asset for, and the remaining twenty-two are why the file exists rather than why it is
+    open.
+-->
+@component LookInspector
+@namespace Vixen.Editor.AssetEditors.Frame
+@tag look-inspector
+@using Vixen.Editor.Inspector
+@using Vixen.Ui.Controls
+
+<Expander Label="Exposure" IsExpanded="true">
+    <PropertyField Path="Ev100" />
+    <PropertyField Path="ExposureCompensation" />
+    <PropertyField Path="MeterMinimumEv" />
+    <PropertyField Path="MeterMaximumEv" />
+    <PropertyField Path="LocalHighlightContrast" />
+    <PropertyField Path="LocalShadowContrast" />
+</Expander>
+
+<Expander Label="Bloom" IsExpanded="false">
+    <PropertyField Path="BloomIntensity" />
+    <PropertyField Path="BloomThreshold" />
+    <PropertyField Path="BloomKnee" />
+    <PropertyField Path="BloomTint" />
+</Expander>
+
+<Expander Label="Grade" IsExpanded="false">
+    <PropertyField Path="Contrast" />
+    <PropertyField Path="Saturation" />
+    <PropertyField Path="ColourFilter" />
+    <PropertyField Path="Temperature" />
+    <PropertyField Path="Tint" />
+    <PropertyField Path="HueShift" />
+</Expander>
+
+<Expander Label="Fog" IsExpanded="false">
+    <PropertyField Path="FogDensity" />
+    <PropertyField Path="FogColour" />
+    <PropertyField Path="FogHeightFalloff" />
+    <PropertyField Path="FogSunScattering" />
+    <PropertyField Path="VolumetricDensity" />
+    <PropertyField Path="VolumetricAlbedo" />
+    <PropertyField Path="VolumetricPhaseG" />
+</Expander>
+
+<Expander Label="Lens" IsExpanded="false">
+    <PropertyField Path="VignetteIntensity" />
+    <PropertyField Path="VignetteSmoothness" />
+    <PropertyField Path="GrainIntensity" />
+    <PropertyField Path="AberrationStrength" />
+    <PropertyField Path="FlareIntensity" />
+    <PropertyField Path="MaximumDefocus" />
+</Expander>

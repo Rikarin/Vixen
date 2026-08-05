@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.Ecs.PostProcessVolume, T:Vixen.Rendering.Ecs.PostProcess
 tags: [rendering, post-processing, compositor, editor]
 since: 0.1
 status: stable
-related: [rendering/post-processing, rendering/physical-lighting, rendering/look-profiles]
+related: [rendering/post-processing, rendering/physical-lighting, rendering/look-profiles, editor/frame-panel]
 ---
 
 ## What it is

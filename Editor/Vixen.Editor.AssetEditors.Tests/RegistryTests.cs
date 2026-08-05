@@ -79,12 +79,17 @@ public class AssetEditorRegistryTests {
                      // graph nobody authors, because a GOAP graph's edges are derived; and an
                      // environment query as two ordered lists, because that is what Unreal's EQS graph
                      // canvas actually holds.
-                     "Behaviour Tree", "Utility Set", "GOAP Domain", "Environment Query"
+                     "Behaviour Tree", "Utility Set", "GOAP Domain", "Environment Query",
+
+                     // Doc 39's last row: the `.vxcompositor` a project actually ships, which the
+                     // compositor graph editor does not claim — that one opens a `.vxcomp`, a node
+                     // graph that compiles *to* a frame — so double-clicking the frame did nothing.
+                     "Frame"
                  }) {
             Assert.True(registry.TryGetByName(name, out _), $"'{name}' is not registered.");
         }
 
-        Assert.Equal(25, registry.Count);
+        Assert.Equal(26, registry.Count);
     }
 
     /// <summary>

@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.PostFx.StandardFrameAsset, T:Vixen.Rendering.PostFx.Stan
 tags: [rendering, compositor, presets, post-processing]
 since: 0.1
 status: preview
-related: [rendering/choosing-a-frame, rendering/post-processing, rendering/shadows, rendering/lit-path, rendering/render-quality, rendering/volumetric-fog]
+related: [rendering/choosing-a-frame, rendering/post-processing, rendering/shadows, rendering/lit-path, rendering/render-quality, rendering/volumetric-fog, editor/frame-panel]
 ---
 
 ## What it is

@@ -1,0 +1,46 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 39 § 1: "edited in the editor as a plain inspector over the node's [DataContract] members.
+    Hot reload already works; the panel is a form, not new machinery." This is that form, and it is
+    markup with no code-behind for the reason doc 36 § P4 gives — `PropertyField` resolves each
+    member against the ambient edit target and hands it to whatever drawer claims it, so the reset
+    button, the tooltip, the mixed state and the undo all arrive without being asked for.
+
+    ⚠ **The grouping is the argument, not decoration.** The generated inspector would draw eight
+    rows in declaration order, and eight semantic knobs read as one undifferentiated column is
+    exactly the "which one do I turn" problem the Standard Frame exists to solve. The three groups
+    are the three questions a person actually arrives with: how the frame is lit, what it costs, and
+    where it comes out.
+
+    ⚠ **Quality is first and alone.** It is the only knob that changes sixty-two other numbers, and
+    the resolved-stack panel below the form is the readout for what it did — see
+    `ResolvedQualityTable`. Putting it in with the lighting switches would bury the one control whose
+    effect is not local.
+-->
+@component StandardFrameInspector
+@namespace Vixen.Editor.AssetEditors.Frame
+@tag standard-frame-inspector
+@using Vixen.Editor.Inspector
+@using Vixen.Ui.Controls
+
+<Expander Label="Scalability" IsExpanded="true">
+    <PropertyField Path="Quality" />
+</Expander>
+
+<Expander Label="Lighting" IsExpanded="true">
+    <PropertyField Path="Shadows" />
+    <PropertyField Path="Gi" />
+    <PropertyField Path="Reflections" />
+</Expander>
+
+<Expander Label="Image" IsExpanded="true">
+    <PropertyField Path="Antialiasing" />
+    <PropertyField Path="Exposure" />
+    <PropertyField Path="Particles" />
+</Expander>
+
+<Expander Label="Output" IsExpanded="false">
+    <PropertyField Path="Output" />
+</Expander>
