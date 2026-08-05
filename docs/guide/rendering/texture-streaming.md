@@ -110,11 +110,11 @@ still should add nothing to either.
 
 ### Turning it off, or replacing it
 
-A project that wants no view-driven signal leaves `WorldRenderer.Host.FrameSize` unset, or sets
-`TextureDemand.ScreenHeight` to zero: the survey then sizes nothing and every texture falls back to
-**a texture that was sampled this frame and that nobody sized wants to be complete**, which is what
-the whole-file path drew. Zero is the safe direction on purpose — a survey that ran with no pixels
-would ask for zero texels, and zero texels means the *smallest* level.
+A project that wants no view-driven signal sets `WorldRenderer.Demand` to null. Setting
+`TextureDemand.ScreenHeight` to zero will not do it — `Draw` writes that from
+`SceneRenderHost.FrameSize` every frame — but a renderer whose frame size was never set does survey
+nothing, and that is the safe direction on purpose: a survey that ran with no pixels would ask for
+zero texels, and zero texels means the *smallest* level.
 
 A project with a better signal calls `AssetTextureSource.Want` itself; it is idempotent, holds for
 one frame, and takes the maximum of everything said in that frame. This is the seam a
@@ -122,9 +122,16 @@ feedback-buffer signal replaces, and it is deliberately one method wide.
 
 ⚠ **Textures no material of `AssetMaterialSource`'s paints are not surveyed.** Terrain layers reach
 the streamer through `AssetTerrainTextures`, particle materials through a second
-`MaterialRenderFeature`, and a project's own `IMaterialSource` through neither. Each of those falls
-into the "sampled and not sized" branch and wants to be complete, exactly as before. The survey
-narrows what it can see and silences nothing.
+`MaterialRenderFeature`, and a project's own `IMaterialSource` through neither. The survey narrows
+what it can see and silences nothing: each of those keeps exactly the behaviour it had.
+
+⚠ **What "the behaviour it had" is depends on who calls `TryGet`.** That is what sets the
+sampled-this-frame flag the fallback reads, and only a caller that asks every frame keeps it set —
+`AssetTerrainTextures.Resolve` does, and `AssetMaterialSource.Update` stops once a material's textures
+have been painted. So for a *material* texture the "wants to be complete" fallback holds until the
+paint lands and not after, which is one of the things the survey fixes rather than one it relies on: a
+surveyed texture is touched every frame it is visible, which is what makes the least-recently-used
+order mean what it says.
 
 ## Examples
 

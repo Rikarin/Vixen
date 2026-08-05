@@ -455,8 +455,14 @@ public sealed class WorldRenderer : IDisposable {
     ///         not the extraction system: it reads the render system's objects directly, on
     ///         <c>LodRenderFeature.Prepare</c>'s terms.
     ///     </para>
+    ///     <para>
+    ///         Settable, so a project with its own signal can put one here or clear it — setting
+    ///         <see cref="TextureDemand.ScreenHeight" /> would not do, because <see cref="Draw" />
+    ///         writes that from <see cref="SceneRenderHost.FrameSize" /> every frame. Null leaves
+    ///         every texture in the branch it was in before this existed.
+    ///     </para>
     /// </remarks>
-    public TextureDemand? Demand { get; private set; }
+    public TextureDemand? Demand { get; set; }
 
     /// <summary>The texture numbers the host's tier resolved to, read by <see cref="Mount" />.</summary>
     /// <remarks>

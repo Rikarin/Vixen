@@ -184,6 +184,7 @@ Vixen.Engine.Renderer.WorldRenderer : System.IDisposable
 Vixen.Engine.Renderer.WorldRenderer.Clusters.get -> Vixen.Rendering.VirtualGeometrySystem?
 Vixen.Engine.Renderer.WorldRenderer.Clusters.set -> Vixen.Rendering.VirtualGeometrySystem?
 Vixen.Engine.Renderer.WorldRenderer.Demand.get -> Vixen.Engine.Renderer.TextureDemand?
+Vixen.Engine.Renderer.WorldRenderer.Demand.set -> Vixen.Engine.Renderer.TextureDemand?
 Vixen.Engine.Renderer.WorldRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice
 Vixen.Engine.Renderer.WorldRenderer.Dispose() -> void
 Vixen.Engine.Renderer.WorldRenderer.Draw(Vixen.Graphics.ICommandList commands) -> void
