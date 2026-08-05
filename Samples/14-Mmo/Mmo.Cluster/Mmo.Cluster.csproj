@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.Mmo.Cluster</RootNamespace>
+        <AssemblyName>Mmo.Cluster</AssemblyName>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ The one assembly in this sample a client must never reference, and the build checks it
+            rather than trusting it. Doc 27 § The three assemblies a game writes: grain interfaces go
+            here so that ADR-017 is mechanical — a client cannot reach a grain because the types are
+            not in an assembly it links.
+
+            `Sdk` rather than `Client` or `Server`: the SDK is the interfaces, the attributes and the
+            generator. It hosts nothing and connects to nothing, so referencing it does not decide
+            whether this process is a silo.
+        -->
+        <PackageReference Include="Microsoft.Orleans.Sdk" />
+
+        <ProjectReference Include="..\..\..\Live\Vixen.Live.Cluster\Vixen.Live.Cluster.csproj" />
+        <ProjectReference Include="..\Mmo.Contracts\Mmo.Contracts.csproj" />
+    </ItemGroup>
+
+</Project>

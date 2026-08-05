@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.Mmo.Clients</RootNamespace>
+        <AssemblyName>Mmo.Client</AssemblyName>
+        <OutputType>Exe</OutputType>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ What is NOT here is the interesting half. The client links the wire, the service-plane
+            client and the rules it shares with the realm — and no orchestrator, no gate hosting,
+            nothing from the control plane. Doc 27 ADR-017: the client never speaks to a cluster,
+            because a cluster client is a peer of the cluster and this one runs on somebody else's
+            machine.
+
+            It reaches the service plane over HTTPS and WSS and its realm over UDP directly, which is
+            the whole of its topology: two connections, and briefly three during a transfer.
+
+            ⚠ Headless, and that is #38's boundary rather than a shortcut: this project proves the
+            protocol and the prediction, and the UI is a separate deliverable that sits on top of it.
+        -->
+        <ProjectReference Include="..\..\..\Live\Vixen.Live.Client\Vixen.Live.Client.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Net.Transport.Udp\Vixen.Net.Transport.Udp.csproj" />
+        <ProjectReference Include="..\Mmo.Contracts\Mmo.Contracts.csproj" />
+        <ProjectReference Include="..\Mmo.Shared\Mmo.Shared.csproj" />
+    </ItemGroup>
+
+</Project>

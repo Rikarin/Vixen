@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.Mmo.Gates</RootNamespace>
+        <AssemblyName>Mmo.Gate</AssemblyName>
+        <OutputType>Exe</OutputType>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ Thin on purpose, and how thin is the interesting part. Doc 27's service plane is
+            login, the character list, the realm list and the transfer ticket — all of which
+            Vixen.Live.Gate already implements. What a game adds is its own account authority and
+            its own character rows, which is what this project is.
+
+            No Vixen.Engine: a gate answering an HTTP request should not be loading an ECS. No
+            Mmo.Shared either — the gate does not simulate anything, so it does not need the rules,
+            and referencing them would put twenty gameplay libraries in a login service.
+        -->
+        <ProjectReference Include="..\..\..\Live\Vixen.Live.Gate\Vixen.Live.Gate.csproj" />
+        <ProjectReference Include="..\Mmo.Contracts\Mmo.Contracts.csproj" />
+        <ProjectReference Include="..\Mmo.Cluster\Mmo.Cluster.csproj" />
+    </ItemGroup>
+
+</Project>

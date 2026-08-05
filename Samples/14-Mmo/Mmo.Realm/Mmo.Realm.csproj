@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.Mmo.Realms</RootNamespace>
+        <AssemblyName>Mmo.Realm</AssemblyName>
+        <OutputType>Exe</OutputType>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            The shard. Vixen.Live.Realm brings the host, Vixen.Net and the application host with it;
+            a placement backend launches this executable with one argument.
+
+            ⚠ Publish it as a server variant — no window, no GPU, a content profile with no textures,
+            audio or shader permutations. That is what makes a shard start fast enough to be scaled
+            elastically, and it is one property rather than a different program:
+
+                dotnet publish -c Release -p:BuildVariant=Server
+        -->
+        <ProjectReference Include="..\..\..\Live\Vixen.Live.Realm\Vixen.Live.Realm.csproj" />
+
+        <!-- The realm asks grains; ADR-016 says it never awaits one on a frame path. -->
+        <ProjectReference Include="..\..\..\Live\Vixen.Live.Realm.Cluster\Vixen.Live.Realm.Cluster.csproj" />
+
+        <!-- Where doc 28's rules meet doc 27's storage. -->
+        <ProjectReference Include="..\..\..\Live\Vixen.Live.Gameplay\Vixen.Live.Gameplay.csproj" />
+
+        <ProjectReference Include="..\Mmo.Contracts\Mmo.Contracts.csproj" />
+        <ProjectReference Include="..\Mmo.Shared\Mmo.Shared.csproj" />
+        <ProjectReference Include="..\Mmo.Cluster\Mmo.Cluster.csproj" />
+    </ItemGroup>
+
+</Project>

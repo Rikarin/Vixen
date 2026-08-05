@@ -462,6 +462,28 @@ what stops the classic drift where the client's prediction and the server's simu
 implementations of one rule — doc 16's `MispredictionCount` is the number that catches it, and one
 assembly is what prevents it.
 
+> **Built, as `Samples/14-Mmo`**, and three things about the graph only appear once somebody walks it.
+>
+> ⚠ **`MyGame.Shared` needs much less than this table implies.** Most of what a naive one would hold
+> is *already* shared, because the gameplay libraries are linked by both ends:
+> `AbilityTemplate.BaseAmount` **is** the damage formula and `RequirementSet.IsMetBy` **is** what
+> greys a button out and refuses a packet. Wrapping either in the shared assembly creates exactly the
+> second implementation it exists to prevent. What belongs there is the arithmetic the *game* owns —
+> how fast a mount is, which attribute a class spends, how a level and a stat become a health bar.
+>
+> ⚠ **A map's *name* is Contracts' and its *id* is Shared's**, and the compile error that forces the
+> split is a good one. The gate validates an enter-world request against a map list and the
+> orchestrator configures a placement per map — neither simulates anything, so neither should link
+> twenty gameplay libraries, and a `DefId` in Contracts would drag `Vixen.Gameplay` in behind it.
+>
+> ⚠ **A game cannot read one definition file before it has declared its composition.** A `!Tag`
+> resolves through `SerializerRegistry`, which a module initializer fills when its assembly *loads*,
+> and a project that references twenty libraries while touching a type from one of them has nineteen
+> assemblies the runtime never loaded. `Use<TModule>()`'s `new()` constraint is what makes the
+> dependency real. This belongs in the template's own comments, because the failure —
+> *"nothing in this build claims the name"* about a type in the build output — reads as a packaging
+> bug and is not one.
+
 `dotnet new vixen-mmo` scaffolds all six projects (`.Client`, `.Realm`, `.Orchestrator`, `.Gate`,
 `.Contracts`, `.Cluster`, `.Shared`, `.Content`) with the references already correct, because getting
 this graph wrong on day one is the kind of mistake that is discovered in month six.

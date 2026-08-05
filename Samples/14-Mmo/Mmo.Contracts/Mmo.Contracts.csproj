@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.Mmo.Contracts</RootNamespace>
+        <AssemblyName>Mmo.Contracts</AssemblyName>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+
+        <!--
+            The client links this and a client is an iOS NativeAOT binary, so everything here has to
+            survive the trimmer. That constraint is most of the argument for the two references below.
+        -->
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ Two references, and the absence of a third is the point. Doc 27 § The three assemblies
+            a game writes: this one is seen by the client, the realm, the orchestrator and the gate,
+            so it may name the wire and the shard vocabulary and nothing else.
+
+            No Orleans — ADR-017 made mechanical rather than remembered: the client physically cannot
+            reach a grain, because the types are not in an assembly it references. Grain interfaces
+            go in Mmo.Cluster.
+
+            No Vixen.Engine either. A gate answering an HTTP request should not be loading an ECS.
+
+            ⚠ And no Vixen.Gameplay. A DefId is four bytes and the client needs them, but the
+            *libraries* are the realm's and the shared rules' — a contracts assembly that pulled in
+            twenty gameplay packages would put a threat table in a login screen.
+        -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\..\..\Live\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>

@@ -28,30 +28,12 @@
         <ProjectReference Include="..\..\..\Editor\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
 
         <!--
-          Every library the content claims to exercise. A library missing from this list is one whose
-          Problems nobody reads, which is the whole failure mode this project exists to prevent.
+          ⚠ Mmo.Shared rather than twenty ProjectReferences, and that is the finding this project
+          exists to record. The libraries arrive transitively; what matters is that MmoModules.Compose
+          is a hard call at a call site, so the twenty assemblies are *loaded* and their module
+          initializers have filled SerializerRegistry before a single file is read.
         -->
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay\Vixen.Gameplay.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Ai\Vixen.Gameplay.Ai.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Chat\Vixen.Gameplay.Chat.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Collections\Vixen.Gameplay.Collections.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Combat\Vixen.Gameplay.Combat.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Crafting\Vixen.Gameplay.Crafting.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Economy\Vixen.Gameplay.Economy.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Exploration\Vixen.Gameplay.Exploration.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Housing\Vixen.Gameplay.Housing.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Instances\Vixen.Gameplay.Instances.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Interaction\Vixen.Gameplay.Interaction.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Inventory\Vixen.Gameplay.Inventory.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Items\Vixen.Gameplay.Items.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Loot\Vixen.Gameplay.Loot.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Movement\Vixen.Gameplay.Movement.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Progression\Vixen.Gameplay.Progression.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Pvp\Vixen.Gameplay.Pvp.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Quests\Vixen.Gameplay.Quests.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Shooting\Vixen.Gameplay.Shooting.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Social\Vixen.Gameplay.Social.csproj" />
-        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Travel\Vixen.Gameplay.Travel.csproj" />
+        <ProjectReference Include="..\Mmo.Shared\Mmo.Shared.csproj" />
     </ItemGroup>
 
     <!--

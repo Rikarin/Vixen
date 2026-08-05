@@ -10,14 +10,30 @@ hundred connections, thirty minutes, a rolling upgrade in the middle.
 
 ## State
 
-**Built: the content and the check that reads it. 112 definition files, four maps, 43 tests.**
+**Built: the content, the seven projects and the composition. 112 definition files, four maps,
+61 tests.**
 
-**Owed:** the six projects and the composition (**#36**), the soak (**#37**), the UI (**#38**).
+**Owed:** the soak (**#37**), the UI (**#38**).
 
-| | |
-|---|---|
-| `Assets/**` | 112 `.vxdef` and friends, and four `.vxscene` layouts. |
-| `Mmo.Content.Tests` | The real importer over the real tree, and every library's `Problems` read. |
+| | Sees | |
+|---|---|---|
+| `Assets/**` | — | 112 `.vxdef` and friends, and four `.vxscene` layouts. |
+| `Mmo.Contracts` | everybody | `[Replicated]` components, broadcasts, the gate's DTOs, the map names. No Orleans, no engine, AOT-clean. |
+| `Mmo.Shared` | client, realm | The composition, the compiled libraries, and the rules both ends run. |
+| `Mmo.Cluster` | realm, orchestrator, gate | One grain the sample adds: `IWorldEventGrain`. |
+| `Mmo.Realm` | — | Composes all twenty libraries, holds the four bridges, runs `RealmApp.Run<MmoRealm>`. |
+| `Mmo.Gate` | — | Region, maps, version. Forty lines, and that is the point. |
+| `Mmo.Orchestrator` | — | A silo. The game's grains need no registration beyond being referenced. |
+| `Mmo.Client` | — | Headless: sign in, pick a character, get a ticket, connect. |
+| `Mmo.Content.Tests` | — | The real importer over the real tree, every library's `Problems`, and the cross-references. |
+| `Mmo.Realm.Tests` | — | That twenty libraries actually compose. |
+
+⚠ **The reference graph is doc 27 § The three assemblies a game writes, and the absences are the
+load-bearing part.** `Mmo.Contracts` has no Orleans, so ADR-017 is mechanical rather than remembered
+— the client cannot reach a grain because the types are not in an assembly it links. `Mmo.Gate` has
+no `Mmo.Shared`, because a login service should not load twenty gameplay libraries. `Mmo.Orchestrator`
+has no `Mmo.Shared` either: a grain that needed the gameplay libraries would be a grain doing
+simulation, which is the one thing the control plane is not for.
 
 ## The maps
 
@@ -105,10 +121,48 @@ library says so, which is the only reason it was noticed.
   the default is a timer, so it has to be zeroed on purpose.
 - **A leash whose tether equals its break.** See above.
 
+### Nothing checks a cross-library address reference, and structurally nothing can
+
+⚠ A loot entry names an **item**, a vendor row names an item and a currency, a recipe names items and
+a profession, a quest reward names four kinds of thing — and not one of those references is validated
+by any library. Doc 28's spine allows only `Items` and `Combat` to be depended on, so
+`Vixen.Gameplay.Loot` has no way to ask whether `items/marchguard-plate` is anything; it checks a
+nested *table* because a table is its own.
+
+⚠ And a `DefId` cannot report the difference. It hashes the address, so **an id for nothing is
+indistinguishable from an id for something** — a misspelt reference resolves to a perfectly good
+number for a definition that does not exist, and the failure is a null in whatever code path first
+needs it, at whatever hour a player first kills the thing that was supposed to drop it.
+
+`Mmo.Content.Tests/ReferenceTests.cs` is that check, in the only place it can currently be written:
+the only project in the repository that compiles every library against one catalog. **It is the piece
+of this sample most worth copying.** Task #42 is the engine-side version.
+
+### What `Mmo.Shared` turned out not to need
+
+Doc 27 frames the shared assembly as where the predicted step and the damage formula live. Writing it
+found that **most of that is already shared**, because the gameplay libraries are linked by both
+ends: `AbilityTemplate.BaseAmount` *is* the damage formula and `RequirementSet.IsMetBy` *is* what
+greys a button out and refuses a packet. Wrapping either here would create exactly the second
+implementation the assembly exists to prevent.
+
+What is left is the arithmetic the game owns — how fast a mount is, which attribute a class spends,
+how a level and a stat become a health bar — and it is there because nothing in the engine could have
+guessed it.
+
+⚠ One more thing moved for a reason worth knowing: the **map names** are in `Mmo.Contracts`, not
+`Mmo.Shared`. The gate needs them and the orchestrator needs them, and neither simulates anything —
+so the *names* are wire vocabulary and the *ids* are the simulation's. A `DefId` in Contracts would
+drag `Vixen.Gameplay` into a login service.
+
 ## Running the check
 
 ```bash
 dotnet test Samples/14-Mmo/Mmo.Content.Tests/Mmo.Content.Tests.csproj
+```
+
+```bash
+dotnet test Samples/14-Mmo/Mmo.Realm.Tests/Mmo.Realm.Tests.csproj
 ```
 
 It imports the tree through `DefinitionImporter` — the same code the editor and `vixen import` run —

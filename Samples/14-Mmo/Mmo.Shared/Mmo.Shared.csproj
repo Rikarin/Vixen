@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <!--
+            ⚠ Not `…Mmo.Shared`, and the mismatch with the assembly name is deliberate. `Shared` is a
+            Visual Basic keyword, so CA1716 refuses it as a namespace — the fourth time that rule has
+            fired in this repository, after IChatContext.Of, IRatingModel.Default and
+            IGameplayIdentity.Of. The *assembly* keeps doc 27's name because that is the name the
+            reference graph is described by; the namespace says what is in it.
+        -->
+        <RootNamespace>Vixen.Samples.Mmo.Rules</RootNamespace>
+        <AssemblyName>Mmo.Shared</AssemblyName>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ The client links this, which is the whole point of it existing. Doc 27: this is where
+            "the client predicts what the server will do" is made literal — one implementation of a
+            rule rather than two that drift, and doc 16's MispredictionCount is the number that
+            catches the drift when there is more than one.
+
+            So: no Orleans, no ASP.NET, no Vixen.Live.Realm. The gameplay libraries are here because
+            the rules *are* the gameplay libraries — a client that could not evaluate a requirement
+            could not grey out a button, and one that could not compile an ability could not show a
+            cast bar.
+        -->
+        <ProjectReference Include="..\Mmo.Contracts\Mmo.Contracts.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Ai\Vixen.Gameplay.Ai.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Chat\Vixen.Gameplay.Chat.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Collections\Vixen.Gameplay.Collections.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Combat\Vixen.Gameplay.Combat.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Crafting\Vixen.Gameplay.Crafting.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Economy\Vixen.Gameplay.Economy.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Exploration\Vixen.Gameplay.Exploration.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Housing\Vixen.Gameplay.Housing.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Instances\Vixen.Gameplay.Instances.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Interaction\Vixen.Gameplay.Interaction.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Inventory\Vixen.Gameplay.Inventory.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Items\Vixen.Gameplay.Items.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Loot\Vixen.Gameplay.Loot.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Movement\Vixen.Gameplay.Movement.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Progression\Vixen.Gameplay.Progression.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Pvp\Vixen.Gameplay.Pvp.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Quests\Vixen.Gameplay.Quests.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Shooting\Vixen.Gameplay.Shooting.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Social\Vixen.Gameplay.Social.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Travel\Vixen.Gameplay.Travel.csproj" />
+
+        <!-- Reading the authored tree back needs the importer that wrote it. -->
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Content\Vixen.Gameplay.Content.csproj" />
+    </ItemGroup>
+
+</Project>

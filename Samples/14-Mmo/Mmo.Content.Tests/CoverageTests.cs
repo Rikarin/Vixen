@@ -21,6 +21,7 @@ using Vixen.Gameplay.Quests;
 using Vixen.Gameplay.Shooting;
 using Vixen.Gameplay.Social;
 using Vixen.Gameplay.Travel;
+using Vixen.Samples.Mmo.Rules;
 using Xunit;
 
 namespace Vixen.Samples.Mmo.Content.Tests;
@@ -113,4 +114,32 @@ public sealed class CoverageTests : IAsyncLifetime {
         { "Housing", catalog => HousingLibrary.Compile(catalog).Plots.Count() },
         { "Collections", catalog => CollectionLibrary.Compile(catalog).Collectibles.Length }
     };
+}
+
+/// <summary>That every address <c>Mmo.Shared</c> spells out is an address something is at.</summary>
+/// <remarks>
+///     ⚠ <b>A misspelt address is not a compile error and never will be.</b> <c>DefId.From</c> hashes
+///     whatever it is handed, so <c>"maps/thornwod"</c> is a perfectly good id for nothing at all —
+///     and the failure is a lookup that returns null in a code path nobody exercised. This is the
+///     only place that can catch it, which is why <c>MmoAddresses.All</c> exists at all.
+/// </remarks>
+public sealed class AddressTests : IAsyncLifetime {
+    AuthoredContent content = null!;
+
+    /// <inheritdoc />
+    public async ValueTask InitializeAsync() => content = await AuthoredContent.LoadAsync();
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync() {
+        GC.SuppressFinalize(this);
+
+        return ValueTask.CompletedTask;
+    }
+
+    [Fact]
+    public void EveryAddressCodeNamesResolves() {
+        foreach (var address in MmoAddresses.All) {
+            Assert.True(content.Catalog.Find(DefId.From(address)) is not null, $"'{address}' is at nothing.");
+        }
+    }
 }

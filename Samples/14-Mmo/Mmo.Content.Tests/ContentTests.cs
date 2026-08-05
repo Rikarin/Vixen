@@ -21,6 +21,7 @@ using Vixen.Gameplay.Quests;
 using Vixen.Gameplay.Shooting;
 using Vixen.Gameplay.Social;
 using Vixen.Gameplay.Travel;
+using Vixen.Samples.Mmo.Rules;
 using Xunit;
 
 namespace Vixen.Samples.Mmo.Content.Tests;

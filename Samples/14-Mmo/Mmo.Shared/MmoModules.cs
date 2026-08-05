@@ -23,7 +23,7 @@ using Vixen.Gameplay.Shooting;
 using Vixen.Gameplay.Social;
 using Vixen.Gameplay.Travel;
 
-namespace Vixen.Samples.Mmo.Content.Tests;
+namespace Vixen.Samples.Mmo.Rules;
 
 /// <summary>Every one of doc 28's libraries, composed. The sample takes all of them on purpose.</summary>
 /// <remarks>
@@ -48,6 +48,12 @@ namespace Vixen.Samples.Mmo.Content.Tests;
 ///         ⚠ <b>Taking every module is a statement about the sample and not a default.</b> Doc 28
 ///         ships twenty-odd packages precisely so an extraction shooter does not carry a threat
 ///         table; this one is a full MMO and says so in one place.
+///     </para>
+///     <para>
+///         <b>It lives in <c>Mmo.Shared</c> because the client needs it too.</b> A client that could
+///         not resolve a tag could not grey out a button, and the tag table is the composition's.
+///         Doc 27's rule that the shared assembly is where a rule lives once rather than twice
+///         covers the <em>vocabulary</em> as well as the arithmetic.
 ///     </para>
 /// </remarks>
 public static class MmoModules {

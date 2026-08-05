@@ -7,6 +7,7 @@ using Vixen.Core.IO;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Gameplay;
 using Vixen.Gameplay;
+using Vixen.Samples.Mmo.Rules;
 
 namespace Vixen.Samples.Mmo.Content.Tests;
 
