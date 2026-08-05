@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using Npgsql;
 using Xunit;
 
@@ -231,6 +232,43 @@ public class SqlPersistenceTests {
         );
 
         Assert.Single(mine);
+    }
+
+    /// <summary>
+    ///     ⚠ The roster, whose table is the one migration 2 could not create for a day. Every other
+    ///     statement in this class was covered here and migration 2's was not, which is exactly how a
+    ///     literal backslash reached a server nobody was reading the SQL against.
+    /// </summary>
+    [Fact]
+    public async Task A_guild_and_its_roster_round_trip() {
+        await using var store = await OpenAsync();
+
+        var (leader, _) = await CharacterAsync(store);
+        var (member, _) = await CharacterAsync(store);
+
+        var row = new GuildRow(
+            Guid.NewGuid(),
+            "guilds/charter",
+            $"n{Guid.NewGuid():N}",
+            [new(leader.Key, 0, Noon), new(member.Key, 2, Noon.AddMinutes(1))],
+            ImmutableDictionary<int, string>.Empty.Add(1, "Champion"),
+            Noon,
+            1
+        );
+
+        Assert.Equal(WriteOutcome.Written, await store.Guilds.WriteAsync(row, TestContext.Current.CancellationToken));
+        Assert.Equal(row, await store.Guilds.ReadAsync(row.Id, TestContext.Current.CancellationToken));
+
+        // "Which guilds is this account in" is the query the roster is rows for.
+        Assert.Single(await store.Guilds.ForAccountAsync(member.Key.Account, TestContext.Current.CancellationToken));
+
+        // The revision fence, as the `where revision < @revision` it is written as.
+        Assert.Equal(WriteOutcome.Superseded, await store.Guilds.WriteAsync(row, TestContext.Current.CancellationToken));
+
+        // And `on delete cascade` takes the roster with it, which is a property of the constraint
+        // rather than of the code that deletes.
+        Assert.True(await store.Guilds.DeleteAsync(row.Id, TestContext.Current.CancellationToken));
+        Assert.Empty(await store.Guilds.ForAccountAsync(member.Key.Account, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
