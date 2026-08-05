@@ -364,10 +364,24 @@ public sealed class RenderGraph {
                 // has no description to carry a name, and every compute dispatch in the frame is one:
                 // the GPU cull, the clipmap, the surface cache, the probe gather, the exposure
                 // reduce. Without this a capture of sample 13 is a wall of anonymous dispatches.
-                commandList.PushDebugGroup(pass.Name);
+                //
+                // ⚠ Guarded on the name being there, and not out of tidiness. A backend may decline
+                // to open a group it cannot name — the Vulkan one returns early on an empty string —
+                // while its pop is unconditional, so pushing "" and popping it anyway closes a group
+                // somebody else opened. That is an unbalanced label stack, and it surfaces as a
+                // validation error at submit, a whole frame away from the unnamed pass that caused it.
+                var named = !string.IsNullOrEmpty(pass.Name);
+
+                if (named) {
+                    commandList.PushDebugGroup(pass.Name);
+                }
+
                 context.RenderArea = Int2.Zero;
                 pass.Body!(context);
-                commandList.PopDebugGroup();
+
+                if (named) {
+                    commandList.PopDebugGroup();
+                }
             }
 
             sink?.Close(commandList, scope);
