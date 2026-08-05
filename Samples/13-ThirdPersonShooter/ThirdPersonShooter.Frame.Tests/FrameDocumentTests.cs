@@ -299,15 +299,33 @@ public sealed class FrameDocumentTests : IDisposable {
         var content = YamlSerializer.Parse<MaterialContent>(File.ReadAllText(path));
 
         var textured = Assert.Single(content.Features.OfType<TexturedMetalRoughnessFeature>());
-        var binding = Assert.Single(content.Textures);
+        var normal = Assert.Single(content.Features.OfType<TexturedNormalMapFeature>());
+        var orm = Assert.Single(content.Features.OfType<TexturedOrmFeature>());
 
+        // ⚠ Three features and three names, none of which the material may choose: `Paired` keys one
+        // TextureIndices entry per feature off that feature's *default* map name, so a material that
+        // renamed any of them resolves nothing for it and takes slot zero.
         Assert.Equal("baseColorMap", textured.BaseColorMap);
-        Assert.Equal(textured.BaseColorMap, binding.Parameter);
+        Assert.Equal("normalMap", normal.NormalMap);
+        Assert.Equal("ormMap", orm.OrmMap);
 
-        // A reference that does not parse is answered with nothing by AssetTerrainTextures and by
-        // AssetTextureSource alike — both draw the fallback, which over generated noise is a texture
-        // that looks like it loaded.
-        Assert.False(binding.Texture.IsNull, $"{material} names a texture that is not a reference");
+        // ⚠ And the base feature at metalness zero wherever an ORM map supplies one, which is the
+        // constraint TexturedOrmSurface cannot check for itself: it reads `diffuseColor` back as the
+        // albedo, and that is only the albedo when the feature before it left the split alone.
+        Assert.Equal(0f, textured.Metalness);
+
+        foreach (var name in new[] { textured.BaseColorMap, normal.NormalMap, orm.OrmMap }) {
+            var binding = Assert.Single(content.Textures, entry => entry.Parameter == name);
+
+            // A reference that does not parse is answered with nothing by AssetTerrainTextures and by
+            // AssetTextureSource alike — both draw the fallback, which over generated noise is a
+            // texture that looks like it loaded.
+            Assert.False(binding.Texture.IsNull, $"{material}'s {name} is not a reference");
+        }
+
+        // No entry naming a parameter no feature declares: that is a dependency the material carries,
+        // the bundle ships and the pool makes resident, and nothing ever samples.
+        Assert.Equal(3, content.Textures.Length);
     }
 
     /// <summary>The committed heightfield's three layers each name an albedo that parses.</summary>
