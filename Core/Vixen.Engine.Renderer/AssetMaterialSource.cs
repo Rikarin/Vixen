@@ -38,20 +38,38 @@ namespace Vixen.Engine.Renderer;
 ///         sample. Waiting instead would hold a whole level's geometry off screen for its slowest
 ///         texture.
 ///     </para>
+///     <para>
+///         ⚠ <b>And they are re-asserted every frame rather than written once.</b> A streamed
+///         texture's view is not a constant: <see cref="AssetTextureSource" /> uploads each new
+///         resident tail into a new image and destroys the old pair, so a material written once goes
+///         on naming an image that no longer exists. See <see cref="paints" />.
+///     </para>
 /// </remarks>
 public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     readonly AssetManager assets;
     readonly Dictionary<AssetReference, Entry> entries = [];
-    readonly List<Paint> unpainted = [];
 
-    /// <summary>Which textures each compiled material samples, kept after they have been painted.</summary>
+    /// <summary>Every (material, parameter, texture) triple a compiled material declared.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not <see cref="unpainted" />, and the difference is the whole of the join.</b> That
-    ///     list is a queue and empties itself: a texture is on it until its view lands and never
-    ///     again. Asking "which textures does this material use" is a question about the material and
-    ///     is asked every frame — see <see cref="TextureDemand" /> — so it needs the answer to
-    ///     outlive the load. Keyed by the compiled <see cref="Material" /> rather than by the
-    ///     reference, because that is what a render object points at.
+    ///     ⚠ <b>A standing list rather than a queue that empties, and streaming is why.</b> This was
+    ///     a work list: a texture sat on it until its view landed, was written into the material once
+    ///     and removed. That is correct for a view that never moves, and
+    ///     <see cref="AssetTextureSource" /> moves them —
+    ///     <c>Swap</c> uploads each new resident tail into a <em>new</em> image and destroys the old
+    ///     pair, which is the one thing its own remarks warn a caller about: the view a caller cached
+    ///     is a destroyed one. So the material kept naming an image that no longer existed, the
+    ///     bindless slot kept pointing at it because the handle it was keyed by had not changed, and
+    ///     the shader sampled a dead descriptor — black, on every surface whose wanted resolution
+    ///     moved after the first paint, which is the large ones.
+    /// </remarks>
+    readonly List<Paint> paints = [];
+
+    /// <summary>Which textures each compiled material samples.</summary>
+    /// <remarks>
+    ///     Asking "which textures does this material use" is a question about the material and is
+    ///     asked every frame — see <see cref="TextureDemand" />. Keyed by the compiled
+    ///     <see cref="Material" /> rather than by the reference, because that is what a render object
+    ///     points at.
     /// </remarks>
     readonly Dictionary<Material, AssetReference[]> sampled = [];
 
@@ -154,8 +172,25 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///     Falls to zero a few frames after a level starts. A number that stays up is a texture
     ///     reference nothing can resolve, which otherwise looks exactly like a material an artist
     ///     forgot to assign a map to.
+    ///     <para>
+    ///         Counted rather than read off the length of a queue, because <see cref="paints" /> no
+    ///         longer drains — see the field. A paint is owed until its parameter has been written
+    ///         once, which is the same moment the list used to drop it.
+    ///     </para>
     /// </remarks>
-    public int Unpainted => unpainted.Count;
+    public int Unpainted {
+        get {
+            var count = 0;
+
+            foreach (var paint in paints) {
+                if (!paint.Material.Parameters.Has(paint.Key)) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
 
     /// <summary>Which textures a compiled material samples.</summary>
     /// <param name="material">One of the materials this compiled.</param>
@@ -226,15 +261,15 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
         // the time this asks for it.
         textures.Update(commands);
 
-        for (var index = unpainted.Count - 1; index >= 0; index--) {
-            var paint = unpainted[index];
-
-            if (!textures.TryGet(paint.Texture, out var view)) {
-                continue;
+        // ⚠ Every frame, and every paint — not once each. A streamed texture's view is replaced
+        // whenever its resident resolution changes, and the old one is destroyed with it; a material
+        // written once holds that dead handle for the rest of the run. Re-asserting costs nothing
+        // for a settled texture, because ParameterCollection.Set does not bump the version when the
+        // value is unchanged, so MaterialRenderFeature re-indexes only what actually moved.
+        foreach (var paint in paints) {
+            if (textures.TryGet(paint.Texture, out var view)) {
+                paint.Material.Parameters.Set(paint.Key, view);
             }
-
-            paint.Material.Parameters.Set(ParameterKeys.New<TextureViewHandle>(paint.Parameter), view);
-            unpainted.RemoveAt(index);
         }
     }
 
@@ -282,7 +317,7 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
 
         foreach (var texture in content.Textures) {
             if (texture.Parameter.Length > 0 && !texture.Texture.IsNull) {
-                unpainted.Add(new(material, texture.Parameter, texture.Texture));
+                paints.Add(new(material, ParameterKeys.New<TextureViewHandle>(texture.Parameter), texture.Texture));
                 textures.Add(texture.Texture);
             }
         }
@@ -303,7 +338,7 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
         disposed = true;
 
         entries.Clear();
-        unpainted.Clear();
+        paints.Clear();
         sampled.Clear();
     }
 
@@ -314,9 +349,9 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
         public bool Failed;
     }
 
-    /// <summary>A texture a material is still waiting for.</summary>
+    /// <summary>A texture a material samples, and the parameter it reaches the shader through.</summary>
     /// <param name="Material">The material to set it on.</param>
-    /// <param name="Parameter">What the material calls it.</param>
+    /// <param name="Key">The parameter the material's shader reads the view from.</param>
     /// <param name="Texture">Which texture.</param>
-    readonly record struct Paint(Material Material, string Parameter, AssetReference Texture);
+    readonly record struct Paint(Material Material, ParameterKey<TextureViewHandle> Key, AssetReference Texture);
 }
