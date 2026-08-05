@@ -341,8 +341,8 @@ public static class AssetEditorTheme {
         analysis-message { flex-grow: 1; min-width: 0; }
 
         /* ── The frame editor (doc 39) ──────────────────────────────────────── */
-        frame-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
-        frame-editor > scroll-view { flex-grow: 1; min-height: 0px; }
+        frame-editor { flex-direction: column; flex-grow: 1; min-height: 0; gap: 6px; padding: 6px; overflow: hidden; }
+        frame-editor > scroll-view { flex-grow: 1; min-height: 0; }
         frame-sections { flex-direction: column; gap: 6px; }
 
         frame-banner {
@@ -353,7 +353,43 @@ public static class AssetEditorTheme {
             color: var(--text-muted);
         }
 
-        frame-knobs { flex-direction: column; gap: 1px; }
+        /* ⚠ A markup inspector's root element is styled by nobody, and this sheet's own opening
+           remark is the reason it matters: CSS's initial direction is `row`, so the four `Expander`s
+           a `.vxml` declares were laid out *beside* one another. The visible symptom was not the
+           layout — four narrow columns of switches read as a deliberate arrangement — but that the
+           row became twice the panel's width, which pushed the resolved table's provenance column
+           off the right edge of a scroll region nobody would think to drag sideways. The component
+           tag is what a `@tag` directive names. */
+        standard-frame-inspector, look-inspector { flex-direction: column; min-width: 0; }
+
+        /* And the two forms, for the same reason the table is bounded: the look profile is
+           twenty-nine optional rows, and a form that pushes the readouts under it off the bottom of
+           a docked panel is a form that hides the thing it was opened to explain. */
+        frame-editor inspector { min-height: 0; max-height: 300px; }
+
+        /* ⚠ Bounded and scrolled in its own right, which is not a nicety. The resolved table is
+           sixty-two rows and nine headings, and a section that tall makes every section under it —
+           including the volume stack, which is the other half of the answer — unreachable in a
+           docked panel. `compiled-scene-blocks` makes the same bargain for the same reason: a long
+           list inside a form is a list with a scrollbar, not a form that grows without limit. */
+        frame-knobs { flex-direction: column; gap: 1px; min-width: 0; }
+
+        /* ⚠ Every cell in these rows has to be allowed to shrink, and the reason is
+           `scroll-content { align-self: flex-start; min-width: 100% }`: a scroll region's content is
+           at least as wide as the viewport and grows past it with its children. `fact-name`'s shared
+           rule is `width: 40%` with no `min-width: 0`, so a row whose longest name is
+           `virtualPagesPerFrame` had an intrinsic width wider than the docked panel — the content
+           grew, and the provenance column, which is the entire point of the table, sat off the right
+           edge behind a horizontal scrollbar nobody would think to drag. Shrinking the two text
+           cells to zero puts the row's minimum at the fixed column's width, which always fits. */
+        frame-editor fact-row { min-width: 0; overflow: hidden; }
+        frame-editor fact-name { width: 40%; min-width: 0; flex-shrink: 1; overflow: hidden; }
+        frame-editor fact-value { flex-grow: 1; flex-shrink: 1; min-width: 0; overflow: hidden; }
+
+        /* The same trap, and the sentences here are long enough to hit it much harder: a guardrail
+           refusal is three lines of prose. */
+        frame-editor analysis-row { min-width: 0; overflow: hidden; }
+        frame-editor analysis-message { flex-grow: 1; flex-shrink: 1; min-width: 0; overflow: hidden; }
 
         /* A group heading inside the resolved table. Sixty-two rows in one column is a wall; nine
            headings turn it into nine short lists that can be skimmed for the right one. */
@@ -366,15 +402,12 @@ public static class AssetEditorTheme {
         /* ⚠ The provenance column, and it is muted by default on purpose: `engine` is the answer for
            most of the table, and a panel that highlighted every row would highlight nothing. What has
            to be findable at a glance is the handful somebody's own file has taken ownership of. */
-        frame-origin {
-            width: 116px;
-            flex-shrink: 0;
-            text-align: right;
-            color: var(--text-muted);
-            font-size: 11px;
-        }
-
-        frame-origin.overridden { color: var(--accent, #6ba4f2); }
+        /* ⚠ The provenance is coloured on the row rather than drawn in a column of its own, and the
+           reason is in `StandardFrameView.RestateQuality`: a third cell at the right edge of a
+           docked panel is a cell that a long name, a scroll region's content width or a scrollbar
+           each push out of sight. Three arrangements were tried on device and none of them survived
+           a narrow dock; the value cell always drew. */
+        frame-editor fact-row.overridden > fact-value { color: var(--accent, #6ba4f2); }
 
         /* ── The behaviour-tree editor ──────────────────────────────────────── */
         behaviortree-editor { flex-direction: column; flex-grow: 1; position: relative; overflow: hidden; }

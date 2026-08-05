@@ -52,6 +52,15 @@ public sealed class StandardFrameView : Control {
     StandardFrameDocument? document;
     bool overriddenOnly;
 
+    /// <summary>Whether the panel is the thing that caused the change it is being told about.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Without it, editing a knob rebuilds the form the knob is in.</b> A write raises the
+    ///     document's <see cref="StandardFrameDocument.Changed" />, and the full restate re-inspects
+    ///     both forms — which throws away the row being typed into, and with it the caret. The
+    ///     derived sections still rebuild; only the two inspectors are left alone.
+    /// </remarks>
+    bool applying;
+
     /// <inheritdoc />
     protected override string TagName => "frame-editor";
 
@@ -91,6 +100,9 @@ public sealed class StandardFrameView : Control {
 
     /// <summary>The resolved volume stack.</summary>
     public UiElement Stack { get; private set; } = null!;
+
+    /// <summary>What the fold said about itself — the camera, the counts, and what did not reach.</summary>
+    public UiElement Summary { get; private set; } = null!;
 
     /// <summary>What the panel is saying about the document as a whole.</summary>
     public UiElement Banner { get; private set; } = null!;
@@ -140,7 +152,7 @@ public sealed class StandardFrameView : Control {
             RestateQuality();
         };
 
-        Quality = body.Add("frame-knobs");
+        Quality = Table(body);
 
         Title(body, "Volumes reaching the camera");
 
@@ -149,8 +161,21 @@ public sealed class StandardFrameView : Control {
         refresh.Label = "Fold again";
         refresh.Clicked += _ => RestateVolumes();
 
-        Stack = body.Add("frame-knobs");
+        Summary = body.Add("analysis-list");
+        Stack = Table(body);
     }
+
+    /// <summary>A list of provenance rows, in the panel's own scroll region.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a <see cref="ScrollView" /> of its own, and that was measured rather than
+    ///     assumed.</b> A nested scroll region's content is <c>align-self: flex-start</c> with
+    ///     <c>min-width: 100%</c>, so its rows are sized against a width that is its own content's
+    ///     rather than the panel's — and the fixed-width provenance column, which is the entire
+    ///     point of these tables, resolved to nothing and drew nothing. On device, three times, in
+    ///     three arrangements. The panel scrolls as one thing instead, and "Only what is overridden"
+    ///     is the control that makes the long table short.
+    /// </remarks>
+    static UiElement Table(UiElement parent) => parent.Add("frame-knobs");
 
     /// <summary>Shows a frame document.</summary>
     /// <param name="frame">The document.</param>
@@ -166,12 +191,6 @@ public sealed class StandardFrameView : Control {
 
         Knobs.Extensions = Extensions ?? Knobs.Extensions;
         Look.Extensions = Extensions ?? Look.Extensions;
-
-        // ⚠ Written back on every row change rather than on a Save, and that is what "live" means
-        // here: the mirrors are not the document, so a knob that only moved the mirror would show a
-        // resolved stack for a frame nobody is going to get.
-        Knobs.ValueChanged += (_, _) => Applied();
-        Look.ValueChanged += (_, _) => Applied();
 
         frame.Changed += Restate;
 
@@ -206,8 +225,14 @@ public sealed class StandardFrameView : Control {
             : "A hand-authored document. There is no frame node to turn, so the knobs are hidden and "
             + "the panel does not write this file.";
 
-        Knobs.Inspect(frame.CanEdit ? [frame.Settings] : []);
-        Look.Inspect(frame.CanEdit ? [frame.Look] : []);
+        if (!applying) {
+            Knobs.Inspect(frame.CanEdit ? [frame.Settings] : []);
+            Look.Inspect(frame.CanEdit ? [frame.Look] : []);
+
+            Watch(Knobs);
+            Watch(Look);
+        }
+
         Explode.Disabled = !frame.CanExplode;
 
         RestateFacts(frame);
@@ -215,10 +240,41 @@ public sealed class StandardFrameView : Control {
         RestateVolumes();
     }
 
+    /// <summary>Subscribes to every row of a form, so a write reaches the document.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>InspectorView.ValueChanged</c> does not fire for a custom inspector, which is the
+    ///     shape this panel is.</b> The event is raised from the generated-row loop, and a
+    ///     <c>CustomInspector</c> returns before that loop runs — so a markup form's writes are
+    ///     silent to whoever is holding the view. The edit target's own properties do raise
+    ///     <c>Changed</c>, and they are the same objects the markup bound to, so this is the same
+    ///     notification one layer down rather than a second mechanism.
+    /// </remarks>
+    void Watch(InspectorView view) {
+        if (view.Edited is not { } edited) {
+            return;
+        }
+
+        // ⚠ A fresh `InspectorTarget` is built by every `Inspect`, so these are new properties with
+        // no subscribers rather than the same ones subscribed twice.
+        foreach (var property in edited.Properties()) {
+            property.Changed += _ => Applied();
+        }
+    }
+
     void Applied() {
-        // The document raises `Changed`, which is what restates the panel — so the write path and
-        // the reload path are the same path and cannot drift.
-        document?.Apply();
+        if (applying || document is not { } frame) {
+            return;
+        }
+
+        applying = true;
+
+        try {
+            // The document raises `Changed`, which is what restates the panel — so the write path
+            // and the reload path are the same path and cannot drift.
+            frame.Apply();
+        } finally {
+            applying = false;
+        }
     }
 
     void Eject() {
@@ -296,20 +352,26 @@ public sealed class StandardFrameView : Control {
             var row = Quality.Add("fact-row");
 
             row.Add("fact-name").Text = knob.Name;
-            row.Add("fact-value").Text = knob.Value;
 
-            // The provenance, which is the column the panel exists for. Engine values are muted so
-            // that the two that are not read as the exceptions they are.
-            var origin = row.Add("frame-origin");
-
-            origin.Text = knob.Layer switch {
+            // ⚠ The provenance is *in* the value cell, not in a column of its own, and that is a
+            // finding rather than a preference. A third cell with a fixed width sits at the right
+            // edge of a docked panel, where a long member name, a padded scroll region or a
+            // scrollbar each push it out of view — measured three ways on device, invisible every
+            // time. A cell that always draws is worth more than a column that sometimes aligns.
+            //
+            // ⚠ Short names, because the cell is narrow: `RenderQuality.vxpreset` clipped to
+            // `RenderQuality.vxpres…` says less than `vxpreset`. The file's full name is on the
+            // line above the table, once.
+            row.Add("fact-value").Text = $"{knob.Value}   {knob.Layer switch {
                 QualityLayer.Document => "document",
-                QualityLayer.Project => StandardFrameDocument.PresetFile,
+                QualityLayer.Project => "vxpreset",
                 _ => "engine"
-            };
+            }}";
 
             if (knob.Overridden) {
-                origin.AddClass("overridden");
+                // Engine values are the rule and the other two are the exceptions, so only the
+                // exceptions are coloured — a table where every row is highlighted highlights nothing.
+                row.AddClass("overridden");
             }
 
             QualityRows++;
@@ -322,6 +384,8 @@ public sealed class StandardFrameView : Control {
 
     void RestateVolumes() {
         Clear(Stack);
+        Clear(Summary);
+
         StackRows = 0;
 
         if (document is not { } frame) {
@@ -329,7 +393,7 @@ public sealed class StandardFrameView : Control {
         }
 
         if (Scene?.Current is not { } scene) {
-            Stack.Add("text").Text = "No scene is open, so there is nothing to fold.";
+            Summary.Add("text").Text = "No scene is open, so there is nothing to fold.";
             return;
         }
 
@@ -341,16 +405,20 @@ public sealed class StandardFrameView : Control {
 
         var report = volumes.Fold(scene.World);
 
-        Line(Stack, "camera", Where(volumes.Camera));
-        Line(Stack, "fold", report.Summary);
+        // ⚠ Above the table rather than in it, and not only so it stays put while the parameters
+        // scroll: a sentence is as wide as it is, and a scroll region sized to its content is a
+        // region whose columns start off the right edge — which is where the provenance column went
+        // the first time these four lines shared the table's box.
+        Line(Summary, "camera", Where(volumes.Camera));
+        Line(Summary, "fold", report.Summary);
 
         if (report.HasLook) {
-            Line(Stack, "look", "The document's look profile is the base layer, at full weight.");
+            Line(Summary, "look", "The document's look profile is the base layer, at full weight.");
         }
 
         if (report.Volumes > report.Contributing) {
             Line(
-                Stack,
+                Summary,
                 "note",
                 $"{report.Volumes - report.Contributing} placed and not reaching: a zero weight, zero "
                 + "extents, a camera outside the blend radius, or a volume that says nothing.",
@@ -363,24 +431,36 @@ public sealed class StandardFrameView : Control {
 
             row.Add("fact-name").Text = parameter.Parameter;
 
+            // The same three facts the quality table shows, in the same cell and for the same
+            // reason: what it resolved to, at what weight, and which layer had the last word.
             row.Add("fact-value").Text = string.Create(
                 CultureInfo.InvariantCulture,
-                $"{parameter.Value}  ×{parameter.Weight:0.##}"
+                $"{parameter.Value} ×{parameter.Weight:0.##}   {Short(parameter.Winner)}"
+                + $"{(parameter.IsContested ? $" of {parameter.Layers.Count}" : string.Empty)}"
             );
 
-            var origin = row.Add("frame-origin");
-
-            origin.Text = parameter.IsContested
-                ? $"{parameter.Winner} (of {parameter.Layers.Count})"
-                : parameter.Winner;
-
             if (parameter.IsContested) {
-                origin.AddClass("overridden");
+                // ⚠ Contested is the interesting state, not "came from a volume". A parameter one
+                // layer claims is doing what its author asked; a parameter three layers claim is
+                // where somebody's edit is being quietly out-voted.
+                row.AddClass("overridden");
             }
 
             StackRows++;
         }
     }
+
+    /// <summary>A layer name that fits the column.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shortened here and not in <see cref="ResolvedVolumes" />.</b> The fold's own spelling
+    ///     is <c>volume(priority 3)</c> — <c>PostProcessVolumeSystem.Contributions</c> writes it, a
+    ///     log line quotes it, and a test asserts it — so the data keeps it and only the cell is
+    ///     narrowed. A clipped <c>volume(prior…</c> tells a reader nothing; the priority is the part
+    ///     that distinguishes one volume from the next.
+    /// </remarks>
+    static string Short(string layer) => layer.StartsWith("volume(priority ", StringComparison.Ordinal)
+        ? $"priority {layer[16..].TrimEnd(')')}"
+        : layer;
 
     static string Where(Vector3 point) => string.Create(
         CultureInfo.InvariantCulture,
