@@ -250,7 +250,11 @@ public sealed class Binder {
         bound.Add(new BoundText(text));
     }
 
+    // CA1859 reads the `slot` branch and stops, so it proposes BoundSlot — a sealed sibling of the
+    // BoundElement this returns below it. Taking the advice does not compile.
+#pragma warning disable CA1859
     BoundNode BindElement(ElementSyntax element) {
+#pragma warning restore CA1859
         var tag = element.StartTag.Name.Text;
         var attributes = BindAttributes(element.StartTag);
 
