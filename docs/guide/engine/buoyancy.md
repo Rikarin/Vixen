@@ -4,7 +4,7 @@ slug: engine/buoyancy
 kind: guide
 area: Engine
 summary: Pontoons over Jolt, evaluated at the fixed step's water time — a component, a system, and the three orderings that are silent when they are wrong.
-api: [T:Vixen.Water.Physics.BuoyancyBody, T:Vixen.Water.Physics.BuoyancyState, T:Vixen.Water.Physics.BuoyancySystem, T:Vixen.Rendering.Water.WaterClockSystem, T:Vixen.Water.IWaterSurface]
+api: [T:Vixen.Water.Physics.BuoyancyBody, T:Vixen.Water.Physics.BuoyancyState, T:Vixen.Water.Physics.BuoyancySystem, T:Vixen.Rendering.Water.WaterClockSystem, T:Vixen.Water.IWaterSurface, T:Vixen.Water.Physics.BuoyancyDebugDraw]
 tags: [water, buoyancy, physics, pontoon, boat, raft]
 since: 0.1
 status: preview

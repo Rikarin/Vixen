@@ -4,7 +4,7 @@ slug: editor/icons
 kind: guide
 area: Editor
 summary: Declaring what a type looks like with SVG path data, and the parser that made the attribute buildable.
-api: [T:Vixen.Editor.Ui.EditorIconAttribute, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Ui.SvgPath, T:Vixen.Ui.SvgPathException]
+api: [T:Vixen.Editor.Ui.EditorIconAttribute, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Ui.SvgPath, T:Vixen.Ui.SvgPathException, T:Vixen.Ui.Rendering.IconAtlas, T:Vixen.Ui.Rendering.IconField]
 tags: [editor, icons, svg, plugins]
 since: 0.2
 status: preview

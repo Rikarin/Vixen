@@ -4,7 +4,7 @@ slug: editor/modes
 kind: guide
 area: Editor
 summary: What the viewport's input means right now, and how a mode claims keys that already mean something else.
-api: [T:Vixen.Editor.Ui.IEditorMode, T:Vixen.Editor.Ui.EditorModes, T:Vixen.Editor.Ui.SelectMode, T:Vixen.Editor.SceneView.IViewportInput, T:Vixen.Editor.Blockout.BlockoutMode, T:Vixen.Editor.Blockout.BlockoutElement]
+api: [T:Vixen.Editor.Ui.IEditorMode, T:Vixen.Editor.Ui.EditorModes, T:Vixen.Editor.Ui.SelectMode, T:Vixen.Editor.SceneView.IViewportInput, T:Vixen.Editor.Blockout.BlockoutMode, T:Vixen.Editor.Blockout.BlockoutElement, T:Vixen.Editor.Ui.ModeArt]
 tags: [editor, viewport, input, blockout, terrain, foliage, plugins]
 since: 0.1
 status: preview

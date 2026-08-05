@@ -4,7 +4,7 @@ slug: editor/foliage-mode
 kind: guide
 area: Editor
 summary: The mode that requires nothing — six tools, a palette, surface filters, and instance selection through the transform gizmo.
-api: [T:Vixen.Editor.Terrain.FoliageMode, T:Vixen.Editor.Terrain.FoliageEdit, T:Vixen.Editor.Terrain.FoliageTool, T:Vixen.Editor.Terrain.FoliageSettings, T:Vixen.Editor.Terrain.FoliageReapply, T:Vixen.Editor.Terrain.FoliageFilters, T:Vixen.Editor.Terrain.FoliageStrokeCommand, T:Vixen.Editor.Terrain.FoliageMoveCommand]
+api: [T:Vixen.Editor.Terrain.FoliageMode, T:Vixen.Editor.Terrain.FoliageEdit, T:Vixen.Editor.Terrain.FoliageTool, T:Vixen.Editor.Terrain.FoliageSettings, T:Vixen.Editor.Terrain.FoliageReapply, T:Vixen.Editor.Terrain.FoliageFilters, T:Vixen.Editor.Terrain.FoliageStrokeCommand, T:Vixen.Editor.Terrain.FoliageMoveCommand, T:Vixen.Editor.SceneView.IVegetationScene]
 tags: [editor, foliage, mode, painting, undo]
 since: 0.1
 status: preview
