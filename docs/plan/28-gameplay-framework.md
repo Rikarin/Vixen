@@ -167,8 +167,8 @@ Gameplay/                               # ── a top level of its own; see bel
 │                                       #   (the raid calendar is fleet-wide and stays a grain's)
 ├── Vixen.Gameplay.Pvp/                 # ✅ arenas, battlegrounds, objectives, scoring, rounds
 ├── Vixen.Gameplay.Exploration/         # ✅ points of interest, map discovery, vistas, fog
-├── Vixen.Gameplay.Housing/             # plots, decoration placement, permissions, persistence
-├── Vixen.Gameplay.Collections/         # pets, mounts owned, skins/transmog, titles, toys, cosmetics
+├── Vixen.Gameplay.Housing/             # ✅ plots, decoration placement, permissions, no clock at all
+├── Vixen.Gameplay.Collections/         # ✅ pets, mounts, transmog, titles, toys, achievements
 └── Vixen.Gameplay.*.Tests/             # ADR-014 — siblings, one per library
 
 Live/                                   # doc 27 § Repository layout
@@ -797,6 +797,38 @@ account-wide, all durable, all in `Live.Progression.Cluster`, and all one mechan
 `DefId`s with an unlock source recorded. Transmog additionally needs an appearance override on the
 item instance, which is one field and one visual-resolution rule.
 
+> **Built.** [`Vixen.Gameplay.Housing`](../../Gameplay/Vixen.Gameplay.Housing/README.md) and
+> [`.Collections`](../../Gameplay/Vixen.Gameplay.Collections/README.md) — **G8**, 72 tests. Four
+> findings.
+>
+> **The hibernation claim is a claim about the API, and it is now enforceable by reading it.** "Ten
+> thousand houses are ten thousand rows, not ten thousand processes" only holds if a plot has nothing
+> that must keep running — so *no method in either library takes a `now`*. There is no timer, no decay
+> and no tick; an unlock records an order rather than a timestamp; a plot's change signal is a
+> `Revision` counter rather than an event, because a subscription is a live object and a hibernating
+> plot has nowhere to keep one. Anything that ages is the caller's, compared on load.
+>
+> **A ban cannot be the bottom rung of the permission ladder**, which is the shape it wants to be. On
+> a house its owner has opened to the public everybody is on the bottom rung and the bottom rung is
+> admitted, so the ban does nothing at the exact moment it is most needed. It is a separate set that
+> beats the ladder outright — and the owner is exempt from it, because the alternative is a mis-click
+> that locks somebody out of their own house until support intervenes.
+>
+> **G-Q3 is right about two things out of three.** An achievement *is* an unlock with criteria and the
+> state shape *is* identical — but "criteria are tag queries" covers "have all five keys" and cannot
+> express "kill thirty boars", because a tag query is a standing test and cannot count. So an
+> achievement has both halves: `Requires` in the kernel's requirement algebra, and `Criteria` on the
+> kernel's event bus — whose own remarks already named achievements as a listener it exists for. The
+> counting needs no new requirement kind either: the record answers `Collection.Mount` and its
+> siblings as ordinary requirement *values*, so "own fifty mounts" is one authored comparison.
+>
+> **A misspelt verb on a criterion cannot be caught by the build, and it took writing the check to
+> find out.** `CollectTags` hands every verb a criterion names to the content build, which bakes it —
+> so `Event.Kil` resolves to a perfectly real tag that nothing ever posts, and the kernel's
+> empty-range trap never fires. The catchable half is a criterion with *no* verb, which is reported.
+> The other would need a list of the verbs a composition actually posts, which nothing keeps; it is
+> recorded as owed rather than papered over.
+
 ---
 
 ## Authority — who decides what
@@ -897,7 +929,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G5** ✅ | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
 | **G6** ✅ | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
 | **G7** ✅ | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
-| **G8** | **Owning** | Housing and decoration; collections, transmog, titles, achievements | 1.0 |
+| **G8** ✅ | **Owning** | Housing and decoration; collections, transmog, titles, achievements | 1.0 |
 | | **Total** | | **25.5** |
 
 With [27](27-mmo-framework.md)'s **16.0**, the whole framework is **≈ 41.5 EM** — near enough the size
@@ -924,7 +956,7 @@ and a game takes what its genre needs:
 |---|---|---|---|
 | G-R1 | **Opinionated becomes a straitjacket.** Every game wants its damage formula, its stacking rule, its loot policy | High | The composition seams are named per feature — pipeline stages, `IMatchFunction`, `IRatingModel`, `IMarketModel`, `IChatFilter`, `IQuestObjective`, `IContainer` policies — and the built-ins are written *through* those seams, so the extension point is the one the engine itself uses |
 | G-R2 | **Item duplication through a container transaction** | High | Transactional containers, the conservation oracle in CI, the ledger as the audit trail. Same posture as doc 27's M2 and the same test harness |
-| G-R3 | **Twenty libraries is twenty READMEs, twenty test projects and twenty public API baselines** | Medium | Real cost, accepted for removability. The shallow dependency spine is what keeps it from becoming twenty *coupled* libraries |
+| G-R3 | **Twenty libraries is twenty READMEs, twenty test projects and twenty public API baselines** | Medium | Real cost, accepted for removability. The shallow dependency spine is what keeps it from becoming twenty *coupled* libraries. ✅ The estimate was exact: G0–G8 landed as the kernel plus **twenty** feature libraries, and the spine held — the only horizontal edges anywhere are the `Items` and `Combat` ones it allows, and G8's two take neither |
 | G-R4 | **Definition schema churn breaks live content** | Medium | `.vxdef` versioning with a generated migration chain, exactly as ADR-005 specifies for `.meta`; `ContentDiff` refuses a non-additive live apply |
 | G-R5 | **The client and realm rules drift**, so prediction mispredicts constantly and it looks like jitter | Medium | `MyGame.Shared` is one assembly both link; doc 16's `MispredictionCount` is the number that catches drift; requirement evaluation is asserted identical by running both in one test |
 | G-R6 | **Scope inflation** — every feature here has a version that takes a year | Medium | Each entry's "the engine-side ambition is bounded" line. A planner, not a behaviour library. A price model, not an economy simulation |
@@ -933,7 +965,7 @@ and a game takes what its genre needs:
 |---|---|---|
 | G-Q1 | One `.vxdef` importer with type tags, or an importer per extension? | **One.** ADR-005's type tag *is* the discriminator; extensions are cosmetic and get editor associations. ✅ Built that way, and `OneImporterClaimsEveryDefinitionExtension` is what stops the next definition kind quietly arriving with an importer of its own |
 | G-Q2 | Does the kernel ship a UI layer for these features? | **No, and this is worth being firm about.** `Vixen.Ui` plus the data model is the answer; a shipped inventory window is a shipped art style. Ship them in `Samples/14-Mmo` as copyable reference instead |
-| G-Q3 | Are achievements their own library or part of Collections? | **Collections.** An achievement is an unlock with criteria, criteria are tag queries, and the state shape is identical |
+| G-Q3 | Are achievements their own library or part of Collections? | **Collections.** An achievement is an unlock with criteria, criteria are tag queries, and the state shape is identical. ✅ Built there, and two of those three held. A tag query is a standing test and cannot count, so an achievement has *both* halves: `Requires` in the requirement algebra for "have all five keys", and `Criteria` on the kernel's event bus for "kill thirty boars". Counting needed no new requirement kind — the record answers `Collection.Mount` and its siblings as ordinary values |
 | G-Q4 | Is combat's damage pipeline replaceable wholesale, or only extensible? | **Extensible, with named stages.** A wholesale replacement gets a game a pipeline with none of the tested edge cases and no way back |
 | G-Q5 | Should `Vixen.Gameplay` ship an authored "starter ruleset" (a working RPG out of the box)? | **In `Samples/14-Mmo`, not in the library.** A default ruleset in the engine becomes the ruleset everyone ships, and then it is an API |
 | G-Q6 | Does the modifier algebra need a fourth bucket — an `Override` that replaces a value outright? | **No, decided while building G0.** An operation that replaces the value needs a rule for what happens when two of them are active, and every such rule ("strongest wins", "last wins", "first wins") is the argument the fixed order exists to end. The cases that want one — a polymorph fixing movement speed, a mechanic capping health — are a large `MultiplyPercent` plus the clamp the layout already carries, which composes with everything else instead of silently deleting it |

@@ -439,7 +439,8 @@ Gameplay/                         # ── 28: what a game is made of, not what 
 ├── Vixen.Gameplay.Travel/        # ✅ portals, waypoints, taxis — doc 27's client half
 ├── Vixen.Gameplay.Movement/      # 🟡 vehicles with seats; the transform waits on doc 16 #69
 ├── Vixen.Gameplay.Ai/            # ✅ leashing and spawn tables — the rest found other homes
-└── Vixen.Gameplay.*/             #    housing, collections…                                    (G8)
+├── Vixen.Gameplay.Housing/       # ✅ plots, decoration, permission tiers — and no clock anywhere
+└── Vixen.Gameplay.Collections/   # ✅ pets, mounts, transmog, titles, achievements
 
 Live/                             # ── 27: the online service layer ──
 ├── Vixen.Live.Abstractions/      # ✅ RealmId · ShardKey · RealmSpec · TransferTicket · endpoints

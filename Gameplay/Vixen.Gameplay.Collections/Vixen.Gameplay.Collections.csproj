@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Collections</RootNamespace>
+        <Description>
+            Pets, mounts, appearances, titles and toys — one mechanism, a set of unlocked ids with a
+            source recorded — plus achievements, which doc 28 says are the same thing with criteria,
+            and a wardrobe whose override falls back to the real item rather than to nothing.
+        </Description>
+        <PackageTags>gameplay;collections;achievements;transmog;titles;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The kernel and nothing else — not even Items, which doc 28's spine would allow. The
+            wardrobe resolves ids to ids, so what an appearance replaces never has to be an item.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Collections.Tests" />
+    </ItemGroup>
+
+</Project>

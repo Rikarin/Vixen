@@ -1,0 +1,186 @@
+#nullable enable
+Vixen.Gameplay.Collections.Achievement -> sealed class
+Vixen.Gameplay.Collections.Achievement.Criteria.get -> System.ReadOnlySpan<Vixen.Gameplay.Collections.AchievementCriterion>
+Vixen.Gameplay.Collections.Achievement.Definition.get -> Vixen.Gameplay.Collections.AchievementDefinition
+Vixen.Gameplay.Collections.Achievement.DisplayName.get -> string
+Vixen.Gameplay.Collections.Achievement.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.Achievement.IsHidden.get -> bool
+Vixen.Gameplay.Collections.Achievement.Points.get -> int
+Vixen.Gameplay.Collections.Achievement.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Collections.Achievement.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Collections.Achievement.Unlocks.get -> System.ReadOnlySpan<Vixen.Gameplay.DefId>
+Vixen.Gameplay.Collections.AchievementCriterion -> sealed class
+Vixen.Gameplay.Collections.AchievementCriterion.Count.get -> int
+Vixen.Gameplay.Collections.AchievementCriterion.Definition.get -> Vixen.Gameplay.Collections.AchievementCriterionDefinition
+Vixen.Gameplay.Collections.AchievementCriterion.Description.get -> string
+Vixen.Gameplay.Collections.AchievementCriterion.Filter.get -> Vixen.Gameplay.GameplayEventFilter
+Vixen.Gameplay.Collections.AchievementCriterion.Index.get -> int
+Vixen.Gameplay.Collections.AchievementCriterionDefinition -> sealed class
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.AchievementCriterionDefinition() -> void
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.All.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.All.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Any.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Any.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Count.get -> int
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Count.set -> int
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Description.get -> string
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Description.set -> string
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.None.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.None.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Scene.get -> string
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Scene.set -> string
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Subject.get -> string
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Subject.set -> string
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Verb.get -> string
+Vixen.Gameplay.Collections.AchievementCriterionDefinition.Verb.set -> string
+Vixen.Gameplay.Collections.AchievementDefinition -> sealed record
+Vixen.Gameplay.Collections.AchievementDefinition : System.IEquatable<Vixen.Gameplay.Collections.AchievementDefinition>
+Vixen.Gameplay.Collections.AchievementDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Collections.AchievementDefinition.AchievementDefinition() -> void
+Vixen.Gameplay.Collections.AchievementDefinition.Criteria.get -> System.Collections.Generic.List<Vixen.Gameplay.Collections.AchievementCriterionDefinition>
+Vixen.Gameplay.Collections.AchievementDefinition.Criteria.set -> System.Collections.Generic.List<Vixen.Gameplay.Collections.AchievementCriterionDefinition>
+Vixen.Gameplay.Collections.AchievementDefinition.Description.get -> string
+Vixen.Gameplay.Collections.AchievementDefinition.Description.set -> string
+Vixen.Gameplay.Collections.AchievementDefinition.DisplayName.get -> string
+Vixen.Gameplay.Collections.AchievementDefinition.DisplayName.set -> string
+Vixen.Gameplay.Collections.AchievementDefinition.Hidden.get -> bool
+Vixen.Gameplay.Collections.AchievementDefinition.Hidden.set -> bool
+Vixen.Gameplay.Collections.AchievementDefinition.Points.get -> int
+Vixen.Gameplay.Collections.AchievementDefinition.Points.set -> int
+Vixen.Gameplay.Collections.AchievementDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Collections.AchievementDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Collections.AchievementDefinition.Tag.get -> string
+Vixen.Gameplay.Collections.AchievementDefinition.Tag.set -> string
+Vixen.Gameplay.Collections.AchievementDefinition.Unlocks.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Collections.AchievementDefinition.Unlocks.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Collections.Collectible -> sealed class
+Vixen.Gameplay.Collections.Collectible.Definition.get -> Vixen.Gameplay.Collections.CollectibleDefinition
+Vixen.Gameplay.Collections.Collectible.DisplayName.get -> string
+Vixen.Gameplay.Collections.Collectible.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.Collectible.IsHidden.get -> bool
+Vixen.Gameplay.Collections.Collectible.Kind.get -> Vixen.Gameplay.Collections.CollectibleKind
+Vixen.Gameplay.Collections.Collectible.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Collections.Collectible.Slot.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Collections.Collectible.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Collections.CollectibleDefinition -> sealed record
+Vixen.Gameplay.Collections.CollectibleDefinition : System.IEquatable<Vixen.Gameplay.Collections.CollectibleDefinition>
+Vixen.Gameplay.Collections.CollectibleDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Collections.CollectibleDefinition.CollectibleDefinition() -> void
+Vixen.Gameplay.Collections.CollectibleDefinition.DisplayName.get -> string
+Vixen.Gameplay.Collections.CollectibleDefinition.DisplayName.set -> string
+Vixen.Gameplay.Collections.CollectibleDefinition.Hidden.get -> bool
+Vixen.Gameplay.Collections.CollectibleDefinition.Hidden.set -> bool
+Vixen.Gameplay.Collections.CollectibleDefinition.Kind.get -> Vixen.Gameplay.Collections.CollectibleKind
+Vixen.Gameplay.Collections.CollectibleDefinition.Kind.set -> Vixen.Gameplay.Collections.CollectibleKind
+Vixen.Gameplay.Collections.CollectibleDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Collections.CollectibleDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Collections.CollectibleDefinition.Slot.get -> string
+Vixen.Gameplay.Collections.CollectibleDefinition.Slot.set -> string
+Vixen.Gameplay.Collections.CollectibleDefinition.Tag.get -> string
+Vixen.Gameplay.Collections.CollectibleDefinition.Tag.set -> string
+Vixen.Gameplay.Collections.CollectibleKind -> enum : int
+Vixen.Gameplay.Collections.CollectibleKind.Appearance = 2 -> Vixen.Gameplay.Collections.CollectibleKind
+Vixen.Gameplay.Collections.CollectibleKind.CollectibleKind() -> void
+Vixen.Gameplay.Collections.CollectibleKind.Cosmetic = 5 -> Vixen.Gameplay.Collections.CollectibleKind
+Vixen.Gameplay.Collections.CollectibleKind.Mount = 1 -> Vixen.Gameplay.Collections.CollectibleKind
+Vixen.Gameplay.Collections.CollectibleKind.Pet = 0 -> Vixen.Gameplay.Collections.CollectibleKind
+Vixen.Gameplay.Collections.CollectibleKind.Title = 3 -> Vixen.Gameplay.Collections.CollectibleKind
+Vixen.Gameplay.Collections.CollectibleKind.Toy = 4 -> Vixen.Gameplay.Collections.CollectibleKind
+Vixen.Gameplay.Collections.CollectionLibrary -> sealed class
+Vixen.Gameplay.Collections.CollectionLibrary.Achievements.get -> System.ReadOnlySpan<Vixen.Gameplay.Collections.Achievement>
+Vixen.Gameplay.Collections.CollectionLibrary.Collectibles.get -> System.ReadOnlySpan<Vixen.Gameplay.Collections.Collectible>
+Vixen.Gameplay.Collections.CollectionLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Collections.Collectible?
+Vixen.Gameplay.Collections.CollectionLibrary.FindAchievement(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Collections.Achievement?
+Vixen.Gameplay.Collections.CollectionLibrary.OfKind(Vixen.Gameplay.Collections.CollectibleKind kind) -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Collections.Collectible>
+Vixen.Gameplay.Collections.CollectionLibrary.Points.get -> int
+Vixen.Gameplay.Collections.CollectionLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Collections.CollectionRecord -> sealed class
+Vixen.Gameplay.Collections.CollectionRecord : Vixen.Gameplay.IRequirementContext
+Vixen.Gameplay.Collections.CollectionRecord.Achieved -> System.Action<Vixen.Gameplay.Collections.Achievement>?
+Vixen.Gameplay.Collections.CollectionRecord.Achievements() -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Collections.Achievement>
+Vixen.Gameplay.Collections.CollectionRecord.Attach(Vixen.Gameplay.GameplayEventBus bus) -> void
+Vixen.Gameplay.Collections.CollectionRecord.Collected -> System.Action<Vixen.Gameplay.Collections.Collectible, Vixen.Gameplay.Collections.Unlock>?
+Vixen.Gameplay.Collections.CollectionRecord.CollectionRecord(Vixen.Gameplay.Collections.CollectionLibrary library, Vixen.Gameplay.IRequirementContext? context = null, Vixen.Gameplay.GameplayTagSet? tags = null) -> void
+Vixen.Gameplay.Collections.CollectionRecord.Count.get -> int
+Vixen.Gameplay.Collections.CollectionRecord.CountOf(Vixen.Gameplay.Collections.CollectibleKind kind) -> int
+Vixen.Gameplay.Collections.CollectionRecord.Counters() -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Collections.CriterionProgress>
+Vixen.Gameplay.Collections.CollectionRecord.Detach() -> bool
+Vixen.Gameplay.Collections.CollectionRecord.Earned.get -> int
+Vixen.Gameplay.Collections.CollectionRecord.IsEarned(Vixen.Gameplay.Collections.Achievement achievement) -> bool
+Vixen.Gameplay.Collections.CollectionRecord.IsUnlocked(Vixen.Gameplay.DefId collectible) -> bool
+Vixen.Gameplay.Collections.CollectionRecord.Library.get -> Vixen.Gameplay.Collections.CollectionLibrary
+Vixen.Gameplay.Collections.CollectionRecord.Note(Vixen.Gameplay.Collections.Achievement achievement, int criterion, int amount = 1) -> bool
+Vixen.Gameplay.Collections.CollectionRecord.Observe(in Vixen.Gameplay.GameplayEvent gameplayEvent) -> void
+Vixen.Gameplay.Collections.CollectionRecord.Points.get -> int
+Vixen.Gameplay.Collections.CollectionRecord.ProgressOf(Vixen.Gameplay.Collections.Achievement achievement, int criterion) -> int
+Vixen.Gameplay.Collections.CollectionRecord.Refresh() -> int
+Vixen.Gameplay.Collections.CollectionRecord.Restore(System.Collections.Generic.IEnumerable<Vixen.Gameplay.Collections.Unlock> saved, System.Collections.Generic.IEnumerable<Vixen.Gameplay.DefId>? achievements = null, System.Collections.Generic.IEnumerable<Vixen.Gameplay.Collections.CriterionProgress>? counters = null) -> void
+Vixen.Gameplay.Collections.CollectionRecord.Revoke(Vixen.Gameplay.Collections.Collectible collectible) -> bool
+Vixen.Gameplay.Collections.CollectionRecord.SourceOf(Vixen.Gameplay.DefId collectible) -> Vixen.Gameplay.Collections.Unlock?
+Vixen.Gameplay.Collections.CollectionRecord.Tags.get -> Vixen.Gameplay.GameplayTagSet
+Vixen.Gameplay.Collections.CollectionRecord.Unlock(Vixen.Gameplay.Collections.Collectible collectible, Vixen.Gameplay.Collections.UnlockSource source = Vixen.Gameplay.Collections.UnlockSource.Unknown, Vixen.Gameplay.DefId from = default(Vixen.Gameplay.DefId)) -> bool
+Vixen.Gameplay.Collections.CollectionRecord.Unlocks.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Collections.Unlock>
+Vixen.Gameplay.Collections.CollectionRecord.Watching.get -> int
+Vixen.Gameplay.Collections.CollectionsModule -> sealed class
+Vixen.Gameplay.Collections.CollectionsModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Collections.CollectionsModule.CollectionsModule() -> void
+Vixen.Gameplay.Collections.CollectionsModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Collections.CollectionsModule.Name.get -> string
+Vixen.Gameplay.Collections.CriterionProgress -> readonly struct
+Vixen.Gameplay.Collections.CriterionProgress : System.IEquatable<Vixen.Gameplay.Collections.CriterionProgress>
+Vixen.Gameplay.Collections.CriterionProgress.Achievement.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.CriterionProgress.Achievement.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.CriterionProgress.Criterion.get -> int
+Vixen.Gameplay.Collections.CriterionProgress.Criterion.init -> int
+Vixen.Gameplay.Collections.CriterionProgress.CriterionProgress() -> void
+Vixen.Gameplay.Collections.CriterionProgress.CriterionProgress(Vixen.Gameplay.DefId Achievement, int Criterion, int Progress) -> void
+Vixen.Gameplay.Collections.CriterionProgress.Progress.get -> int
+Vixen.Gameplay.Collections.CriterionProgress.Progress.init -> int
+Vixen.Gameplay.Collections.Unlock -> readonly struct
+Vixen.Gameplay.Collections.Unlock : System.IEquatable<Vixen.Gameplay.Collections.Unlock>
+Vixen.Gameplay.Collections.Unlock.Collectible.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.Unlock.Collectible.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.Unlock.From.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.Unlock.From.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.Unlock.Order.get -> int
+Vixen.Gameplay.Collections.Unlock.Order.init -> int
+Vixen.Gameplay.Collections.Unlock.Source.get -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.Unlock.Source.init -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.Unlock.Unlock() -> void
+Vixen.Gameplay.Collections.Unlock.Unlock(Vixen.Gameplay.DefId Collectible, Vixen.Gameplay.Collections.UnlockSource Source, Vixen.Gameplay.DefId From, int Order) -> void
+Vixen.Gameplay.Collections.UnlockSource -> enum : int
+Vixen.Gameplay.Collections.UnlockSource.Achievement = 3 -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.UnlockSource.Craft = 5 -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.UnlockSource.Grant = 7 -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.UnlockSource.Loot = 1 -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.UnlockSource.Promotion = 6 -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.UnlockSource.Purchase = 4 -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.UnlockSource.Quest = 2 -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.UnlockSource.Unknown = 0 -> Vixen.Gameplay.Collections.UnlockSource
+Vixen.Gameplay.Collections.UnlockSource.UnlockSource() -> void
+Vixen.Gameplay.Collections.Wardrobe -> sealed class
+Vixen.Gameplay.Collections.Wardrobe.Count.get -> int
+Vixen.Gameplay.Collections.Wardrobe.Hidden.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.Collections.Wardrobe.Hide(Vixen.Gameplay.GameplayTag slot, bool hide = true) -> bool
+Vixen.Gameplay.Collections.Wardrobe.Hiding.get -> int
+Vixen.Gameplay.Collections.Wardrobe.IsHidden(Vixen.Gameplay.GameplayTag slot) -> bool
+Vixen.Gameplay.Collections.Wardrobe.OverrideOf(Vixen.Gameplay.GameplayTag slot) -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.Wardrobe.Overrides.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Vixen.Gameplay.GameplayTag, Vixen.Gameplay.DefId>>
+Vixen.Gameplay.Collections.Wardrobe.Record.get -> Vixen.Gameplay.Collections.CollectionRecord
+Vixen.Gameplay.Collections.Wardrobe.Resolve(Vixen.Gameplay.GameplayTag slot, Vixen.Gameplay.DefId worn) -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.Wardrobe.Restore(Vixen.Gameplay.GameplayTag slot) -> bool
+Vixen.Gameplay.Collections.Wardrobe.Show(Vixen.Gameplay.Collections.Collectible appearance) -> bool
+Vixen.Gameplay.Collections.Wardrobe.Title.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Collections.Wardrobe.Wardrobe(Vixen.Gameplay.Collections.CollectionRecord record) -> void
+Vixen.Gameplay.Collections.Wardrobe.Wear(Vixen.Gameplay.Collections.Collectible? title) -> bool
+Vixen.Gameplay.Collections.Wardrobe.Worn() -> Vixen.Gameplay.DefId
+const Vixen.Gameplay.Collections.CollectionRecord.EarnedValue = "Collection.Earned" -> string
+const Vixen.Gameplay.Collections.CollectionRecord.PointsValue = "Collection.Points" -> string
+const Vixen.Gameplay.Collections.CollectionRecord.TotalValue = "Collection.Total" -> string
+const Vixen.Gameplay.Collections.CollectionRecord.ValuePrefix = "Collection." -> string
+const Vixen.Gameplay.Collections.CollectionsModule.CollectedRoot = "Collected" -> string
+const Vixen.Gameplay.Collections.CollectionsModule.EarnedRoot = "Earned" -> string
+override Vixen.Gameplay.Collections.AchievementDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Collections.CollectibleDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Collections.CollectionLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Collections.CollectionLibrary
+static Vixen.Gameplay.Collections.CollectionLibrary.Empty.get -> Vixen.Gameplay.Collections.CollectionLibrary

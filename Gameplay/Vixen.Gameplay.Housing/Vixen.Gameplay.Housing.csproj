@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Housing</RootNamespace>
+        <Description>
+            Plots, decoration placement with a shared snap, permission tiers and visitor access —
+            the durable half of doc 28's housing, with no clock in it so ten thousand houses are ten
+            thousand rows rather than ten thousand processes.
+        </Description>
+        <PackageTags>gameplay;housing;decoration;permissions;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The kernel, and Vixen.Core.Mathematics for the one thing a layout cannot avoid holding:
+            where a piece of furniture is. It is stored and never interpreted — no overlap test, no
+            ground test, no bounds test, because all three need the scene.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Housing.Tests" />
+    </ItemGroup>
+
+</Project>
