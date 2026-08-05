@@ -7,15 +7,56 @@ Spec: doc 27 § Persistence and ADR-021, doc 28 § Economy.
 
 ## State
 
-**Built: the identity join, and the economy on the ledger. 20 tests.**
+**Built: the identity join, the economy on the ledger, the profile container, the checkpoint policy
+and a durable pity store. 44 tests.**
 
 | | |
 |---|---|
 | `IGameplayIdentity` · `GameplayIdentityMap` | Which durable player a gameplay rule means. |
 | `LedgerBridge` · `PendingWrite` · `BridgeRefusal` | `IEconomyLedger` in the frame, `ILedger` afterwards. |
+| `PlayerProfile` · `ProfileSectionId` | `PlayerRecord.Profile`'s contents, as named slices. |
+| `IProfileSection` · `ProfileBinder` · `ProfileSections` | The seam a game registers its codecs with. |
+| `CheckpointPolicy` · `CheckpointReason` | When counters are written down. |
+| `ProfilePityStore` | Doc 28's durable pity counters, as a section. |
 
-**Owed:** the `PlayerRecord.Profile` codecs, the checkpoint policy, and durable `IPityStore`,
-`ISocialStore` and `ILockoutStore` — task **#39**.
+**Owed:** durable `ISocialStore` and `ILockoutStore` over their grains, and the remaining section
+codecs — task **#39**.
+
+## Assets go in the ledger; counters go in the profile
+
+The rule the whole assembly is arranged around, and it decides the storage on its own. An asset can
+be **duplicated** — gold, items — so every movement of one is an append-only row with an idempotency
+key. A counter cannot: writing level 42 twice leaves you at 42. So a counter is written on a
+**cadence**, and a crash loses at most one interval of it.
+
+⚠ **That loss is the correct trade rather than a compromise.** Making a counter durable per kill puts
+a database round trip on the combat path, which ADR-016 forbids outright.
+
+It is also why `ProfilePityStore` can be synchronous where `LedgerBridge` could not: a loot roll asks
+for a count mid-frame and the answer is in memory, and what makes it durable is the checkpoint
+underneath rather than a round trip at the call.
+
+## The profile keeps what it does not understand
+
+⚠ **An unknown section is preserved, never dropped**, and that is why the container knows nothing
+about types. Doc 27 § Upgrades fragments a population by version *on purpose*, so during a rollout an
+old realm and a new realm both write the same character. An old realm that dropped the section the
+new one added would lose it — silently, and only for players who zoned the wrong way. A map of id to
+bytes cannot make that mistake; the codecs that know types sit above it.
+
+⚠ **Two sections on one id are refused rather than last-wins**, which would be one of them silently
+reading the other's bytes.
+
+⚠ **Sections are written in id order and identical bytes are not a change**, or every checkpoint
+looks like one and the row is rewritten on a cadence for ever.
+
+⚠ **A failed checkpoint stays dirty *and* does not restart the clock.** Clearing the flag loses the
+interval for good; restarting the clock turns a five-second outage into five minutes of lost
+progress.
+
+⚠ **Transfer and logout write only when there is something to write.** "Always on transfer" reads as
+unconditional and should not be: a character nobody changed has the same bytes stored already, and
+the round trip to say so is one spent inside L2's overlap window.
 
 ## This assembly can only be here
 

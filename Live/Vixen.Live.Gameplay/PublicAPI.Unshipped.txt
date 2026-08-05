@@ -5,6 +5,26 @@ Vixen.Live.Gameplay.BridgeRefusal.None = 0 -> Vixen.Live.Gameplay.BridgeRefusal
 Vixen.Live.Gameplay.BridgeRefusal.Refused = 2 -> Vixen.Live.Gameplay.BridgeRefusal
 Vixen.Live.Gameplay.BridgeRefusal.Superseded = 3 -> Vixen.Live.Gameplay.BridgeRefusal
 Vixen.Live.Gameplay.BridgeRefusal.Unknown = 1 -> Vixen.Live.Gameplay.BridgeRefusal
+Vixen.Live.Gameplay.CheckpointPolicy -> sealed class
+Vixen.Live.Gameplay.CheckpointPolicy.Cadence.get -> System.TimeSpan
+Vixen.Live.Gameplay.CheckpointPolicy.CheckpointPolicy(System.TimeSpan cadence) -> void
+Vixen.Live.Gameplay.CheckpointPolicy.Due(System.DateTimeOffset now, out Vixen.Live.Gameplay.CheckpointReason reason) -> bool
+Vixen.Live.Gameplay.CheckpointPolicy.Failed() -> void
+Vixen.Live.Gameplay.CheckpointPolicy.Failures.get -> int
+Vixen.Live.Gameplay.CheckpointPolicy.Force(Vixen.Live.Gameplay.CheckpointReason reason) -> void
+Vixen.Live.Gameplay.CheckpointPolicy.IsDirty.get -> bool
+Vixen.Live.Gameplay.CheckpointPolicy.Loaded(System.DateTimeOffset now) -> void
+Vixen.Live.Gameplay.CheckpointPolicy.Touch() -> void
+Vixen.Live.Gameplay.CheckpointPolicy.Writes.get -> int
+Vixen.Live.Gameplay.CheckpointPolicy.Written.get -> System.DateTimeOffset
+Vixen.Live.Gameplay.CheckpointPolicy.Wrote(System.DateTimeOffset now) -> void
+Vixen.Live.Gameplay.CheckpointReason -> enum : int
+Vixen.Live.Gameplay.CheckpointReason.Cadence = 1 -> Vixen.Live.Gameplay.CheckpointReason
+Vixen.Live.Gameplay.CheckpointReason.CheckpointReason() -> void
+Vixen.Live.Gameplay.CheckpointReason.Logout = 3 -> Vixen.Live.Gameplay.CheckpointReason
+Vixen.Live.Gameplay.CheckpointReason.Manual = 4 -> Vixen.Live.Gameplay.CheckpointReason
+Vixen.Live.Gameplay.CheckpointReason.None = 0 -> Vixen.Live.Gameplay.CheckpointReason
+Vixen.Live.Gameplay.CheckpointReason.Transfer = 2 -> Vixen.Live.Gameplay.CheckpointReason
 Vixen.Live.Gameplay.GameplayIdentityMap -> sealed class
 Vixen.Live.Gameplay.GameplayIdentityMap : Vixen.Live.Gameplay.IGameplayIdentity
 Vixen.Live.Gameplay.GameplayIdentityMap.Admit(Vixen.Live.PlayerKey key, Vixen.Net.Sessions.PlayerId session) -> Vixen.Gameplay.PlayerId
@@ -17,6 +37,10 @@ Vixen.Live.Gameplay.GameplayIdentityMap.TryResolve(Vixen.Gameplay.PlayerId playe
 Vixen.Live.Gameplay.IGameplayIdentity -> interface
 Vixen.Live.Gameplay.IGameplayIdentity.PlayerFor(Vixen.Live.PlayerKey key) -> Vixen.Gameplay.PlayerId
 Vixen.Live.Gameplay.IGameplayIdentity.TryResolve(Vixen.Gameplay.PlayerId player, out Vixen.Live.PlayerKey key) -> bool
+Vixen.Live.Gameplay.IProfileSection -> interface
+Vixen.Live.Gameplay.IProfileSection.Id.get -> Vixen.Live.Gameplay.ProfileSectionId
+Vixen.Live.Gameplay.IProfileSection.Load(System.ReadOnlyMemory<byte> bytes) -> void
+Vixen.Live.Gameplay.IProfileSection.Save() -> System.ReadOnlyMemory<byte>
 Vixen.Live.Gameplay.LedgerBridge -> sealed class
 Vixen.Live.Gameplay.LedgerBridge : Vixen.Gameplay.Economy.IEconomyLedger
 Vixen.Live.Gameplay.LedgerBridge.Balance(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.DefId asset) -> long
@@ -43,5 +67,52 @@ Vixen.Live.Gameplay.PendingWrite.Key.get -> Vixen.Live.Persistence.IdempotencyKe
 Vixen.Live.Gameplay.PendingWrite.Key.init -> Vixen.Live.Persistence.IdempotencyKey
 Vixen.Live.Gameplay.PendingWrite.PendingWrite() -> void
 Vixen.Live.Gameplay.PendingWrite.PendingWrite(Vixen.Live.Persistence.IdempotencyKey Key, Vixen.Live.Persistence.LedgerIntent Intent, string Detail) -> void
+Vixen.Live.Gameplay.PlayerProfile -> sealed class
+Vixen.Live.Gameplay.PlayerProfile.Count.get -> int
+Vixen.Live.Gameplay.PlayerProfile.PlayerProfile() -> void
+Vixen.Live.Gameplay.PlayerProfile.Remove(Vixen.Live.Gameplay.ProfileSectionId id) -> bool
+Vixen.Live.Gameplay.PlayerProfile.Revision.get -> uint
+Vixen.Live.Gameplay.PlayerProfile.Sections.get -> System.Collections.Generic.IEnumerable<Vixen.Live.Gameplay.ProfileSectionId>
+Vixen.Live.Gameplay.PlayerProfile.Set(Vixen.Live.Gameplay.ProfileSectionId id, System.ReadOnlyMemory<byte> section) -> bool
+Vixen.Live.Gameplay.PlayerProfile.TryGet(Vixen.Live.Gameplay.ProfileSectionId id, out System.ReadOnlyMemory<byte> section) -> bool
+Vixen.Live.Gameplay.PlayerProfile.Write() -> System.ReadOnlyMemory<byte>
+Vixen.Live.Gameplay.ProfileBinder -> sealed class
+Vixen.Live.Gameplay.ProfileBinder.Add(Vixen.Live.Gameplay.IProfileSection section) -> Vixen.Live.Gameplay.ProfileBinder
+Vixen.Live.Gameplay.ProfileBinder.Count.get -> int
+Vixen.Live.Gameplay.ProfileBinder.Load(Vixen.Live.Gameplay.PlayerProfile profile) -> void
+Vixen.Live.Gameplay.ProfileBinder.ProfileBinder() -> void
+Vixen.Live.Gameplay.ProfileBinder.Save(Vixen.Live.Gameplay.PlayerProfile profile) -> bool
+Vixen.Live.Gameplay.ProfileFormatException -> sealed class
+Vixen.Live.Gameplay.ProfileFormatException : System.Exception
+Vixen.Live.Gameplay.ProfileFormatException.ProfileFormatException(string message) -> void
+Vixen.Live.Gameplay.ProfilePityStore -> sealed class
+Vixen.Live.Gameplay.ProfilePityStore : Vixen.Gameplay.Loot.IPityStore
+Vixen.Live.Gameplay.ProfilePityStore : Vixen.Live.Gameplay.IProfileSection
+Vixen.Live.Gameplay.ProfilePityStore.AttemptsOf(Vixen.Gameplay.Loot.PityKey key) -> int
+Vixen.Live.Gameplay.ProfilePityStore.Count.get -> int
+Vixen.Live.Gameplay.ProfilePityStore.Id.get -> Vixen.Live.Gameplay.ProfileSectionId
+Vixen.Live.Gameplay.ProfilePityStore.Load(System.ReadOnlyMemory<byte> bytes) -> void
+Vixen.Live.Gameplay.ProfilePityStore.ProfilePityStore(Vixen.Live.Gameplay.CheckpointPolicy? checkpoint = null) -> void
+Vixen.Live.Gameplay.ProfilePityStore.Record(Vixen.Gameplay.Loot.PityKey key, bool hit) -> void
+Vixen.Live.Gameplay.ProfilePityStore.Save() -> System.ReadOnlyMemory<byte>
+Vixen.Live.Gameplay.ProfileSectionId -> readonly struct
+Vixen.Live.Gameplay.ProfileSectionId : System.IEquatable<Vixen.Live.Gameplay.ProfileSectionId>
+Vixen.Live.Gameplay.ProfileSectionId.IsSome.get -> bool
+Vixen.Live.Gameplay.ProfileSectionId.ProfileSectionId() -> void
+Vixen.Live.Gameplay.ProfileSectionId.ProfileSectionId(uint Value) -> void
+Vixen.Live.Gameplay.ProfileSectionId.Value.get -> uint
+Vixen.Live.Gameplay.ProfileSectionId.Value.init -> uint
+Vixen.Live.Gameplay.ProfileSections -> static class
 const Vixen.Live.Gameplay.LedgerBridge.RestoreAccount = "world/restore" -> string
+const Vixen.Live.Gameplay.PlayerProfile.Version = 1 -> int
+override Vixen.Live.Gameplay.ProfileSectionId.ToString() -> string
 static Vixen.Live.Gameplay.GameplayIdentityMap.From(Vixen.Net.Sessions.PlayerId session) -> Vixen.Gameplay.PlayerId
+static Vixen.Live.Gameplay.PlayerProfile.Magic.get -> System.ReadOnlySpan<byte>
+static Vixen.Live.Gameplay.PlayerProfile.Read(System.ReadOnlyMemory<byte> bytes) -> Vixen.Live.Gameplay.PlayerProfile
+static Vixen.Live.Gameplay.ProfileSectionId.From(string? name) -> Vixen.Live.Gameplay.ProfileSectionId
+static Vixen.Live.Gameplay.ProfileSectionId.None.get -> Vixen.Live.Gameplay.ProfileSectionId
+static Vixen.Live.Gameplay.ProfileSections.Exploration.get -> Vixen.Live.Gameplay.ProfileSectionId
+static Vixen.Live.Gameplay.ProfileSections.Pity.get -> Vixen.Live.Gameplay.ProfileSectionId
+static Vixen.Live.Gameplay.ProfileSections.Progression.get -> Vixen.Live.Gameplay.ProfileSectionId
+static Vixen.Live.Gameplay.ProfileSections.Quests.get -> Vixen.Live.Gameplay.ProfileSectionId
+static Vixen.Live.Gameplay.ProfileSections.Wardrobe.get -> Vixen.Live.Gameplay.ProfileSectionId
