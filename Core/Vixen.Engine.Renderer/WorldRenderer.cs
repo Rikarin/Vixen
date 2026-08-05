@@ -710,6 +710,28 @@ public sealed class WorldRenderer : IDisposable {
         ArgumentNullException.ThrowIfNull(commands);
         ObjectDisposedException.ThrowIf(disposed, this);
 
+        // ⚠ The frame boundary the two per-frame pools were never told about, and both halves of the
+        // miss are silent.
+        //
+        // Nothing outside this type holds `MaterialDescriptors`, so this is the only place the call
+        // can be made — and it belongs at the top of Draw because that is the one point that is after
+        // `IGraphicsDevice.BeginFrame` (AppGraphics.Begin waits on the frame's fence, acquires and
+        // opens the list before it calls this) and before the frame's first allocation, which happens
+        // inside `Host.Draw` when the features prepare and the graph's nodes bind.
+        //
+        // The leak is the smaller half: sets are handed out and never recycled, so a scene walks the
+        // descriptor pool up rather than settling. The worse half is the cache, because it is
+        // content-addressed and does *not* survive a frame by design — the handles in it name
+        // transient graph memory that next frame is free to give to something else. A cache that
+        // persisted returns frame N+1 a set still pointing at frame N's textures, which is a frame
+        // that draws and reads the wrong attachment rather than a frame that fails.
+        //
+        // The table's miss costs no correctness and no memory: a released index stays in its ring and
+        // simply never comes back, so a level that streams textures in and out walks the high-water
+        // mark to Capacity and then refuses to add another.
+        MaterialDescriptors.BeginFrame();
+        Table?.BeginFrame();
+
         // ⚠ Before the update below, because that is what turns a want into page requests: the order
         // is survey, ask, service, swap, and a survey after the update would be a frame late for ever.
         //

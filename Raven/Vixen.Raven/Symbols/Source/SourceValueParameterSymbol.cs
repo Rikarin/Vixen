@@ -3,6 +3,7 @@
 
 using Vixen.Core.Syntax;
 using Vixen.Raven.Binding;
+using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Symbols.Source;
@@ -32,6 +33,7 @@ public sealed class SourceValueParameterSymbol : FieldSymbol {
     readonly Binder binder;
     readonly TypeParameterSyntax syntax;
 
+    bool resolving;
     TypeSymbol? type;
 
     public override string Name => syntax.Identifier.ValueText;
@@ -41,8 +43,7 @@ public sealed class SourceValueParameterSymbol : FieldSymbol {
     /// <summary>Position in the declaring shader's parameter list.</summary>
     public int Ordinal { get; }
 
-    public override TypeSymbol Type =>
-        type ??= syntax.Type is { } annotation ? binder.BindType(annotation) : ErrorTypeSymbol.Instance;
+    public override TypeSymbol Type => type ??= ResolveType();
 
     public override bool IsConst => true;
     public override bool IsStatic => true;
@@ -77,6 +78,30 @@ public sealed class SourceValueParameterSymbol : FieldSymbol {
         this.syntax = syntax;
         Ordinal = ordinal;
         this.binder = binder;
+    }
+
+    /// <summary>
+    ///     Resolves the declared type, under the same cycle guard <see cref="SourceFieldSymbol" />
+    ///     carries.
+    /// </summary>
+    /// <remarks>
+    ///     A value parameter reaches its own type by being a readable name: <c>val N: int[N]</c>
+    ///     folds the rank's size, binds <c>N</c>, and asks this symbol what type it has. The
+    ///     annotation is the only branch there is, which is exactly why it needs the guard rather
+    ///     than being exempt from it.
+    /// </remarks>
+    TypeSymbol ResolveType() {
+        if (resolving) {
+            binder.Diagnostics.Add(SemanticDiagnostics.CircularDefinition, syntax.Identifier.GetLocation(), Name);
+            return ErrorTypeSymbol.Instance;
+        }
+
+        resolving = true;
+        try {
+            return syntax.Type is { } annotation ? binder.BindType(annotation) : ErrorTypeSymbol.Instance;
+        } finally {
+            resolving = false;
+        }
     }
 
     /// <summary>Whether a supplied value has this parameter's declared type.</summary>

@@ -543,11 +543,13 @@ editor became the application-platform proof instead.
   line rather than a done one.
 - Release automation end to end: tag → signed editor builds for three desktops + NuGet push + GitHub
   Release with a changelog.
-- Fuzzing corpora seeded and running nightly — ✅ `nightly.yml` does this, at ten minutes a target over
-  nineteen of the twenty; `raven` is skipped by name there until its binder recursion is bounded, and
-  runs case-bounded on every build like the rest
-  rather than one second. Soak tests (24 h editor session, 24 h game session) clean — the 30-minute
-  network soak is the only one that exists.
+- Fuzzing corpora seeded and running nightly — ✅ `nightly.yml` does this as **a matrix job per
+  target** over all twenty, `fail-fast: false`, each with its own budget and its own
+  `fuzz-findings-<target>` artifact: five minutes for a grammar the mutator exhausts, ten for the
+  decoders, two hours for `raven`, against the second or so each gets in the per-build gate. `raven`
+  was skipped by name until its binder recursion was bounded, and is back in — one job per target is
+  what makes a target that ends its own process cost only its own night's depth. Soak tests (24 h
+  editor session, 24 h game session) clean — the 30-minute network soak is the only one that exists.
 - A public issue-triage and support process, and a written compatibility policy.
 
 **Exit:** a person who has never seen the repo can install the SDK, create a project, build it for all

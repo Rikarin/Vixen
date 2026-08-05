@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Vixen.Fuzz.Targets;
 using Vixen.Ui.Markup.Syntax;
 using Xunit;
@@ -115,6 +116,17 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
     [Theory]
     [MemberData(nameof(Targets))]
     public void NothingEscapes(string name, long cases) {
+        // The nightly runs one target per job, so nineteen of these twenty rows are somebody else's
+        // job and are skipped here rather than filtered off the command line — a skip with a reason
+        // is visible in that job's results, and `--filter` on a display name is a second spelling of
+        // the target list that goes wrong silently. Unset, which is what a build and a laptop get,
+        // this selects nothing and every row runs. TheSelectionNamesRealTargets catches a typo, which
+        // would otherwise be a green job that fuzzed nothing at all.
+        Assert.SkipWhen(
+            Only.Length > 0 && !string.Equals(name, Only, StringComparison.Ordinal),
+            $"VIXEN_FUZZ_ONLY is {Only}, so this run is that target's and leaves {name} to another."
+        );
+
         // Only the clock-bounded leg can be hung by a target, so only it honours the exclusion. The
         // per-build run is bounded by cases and finishes whatever it starts.
         Assert.SkipWhen(
@@ -303,6 +315,94 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
         Assert.True(missing.Length == 0, $"No case budget for: {string.Join(", ", missing)}.");
     }
 
+    /// <summary>The nightly's matrix is this registry, in this order, with a budget each.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A target list written out in YAML is a second source of truth that goes stale in
+    ///         silence.</b> The nightly fans out one job per target and cannot ask a running assembly
+    ///         for the names, so it reads <c>nightly-budgets.json</c> — and this is what makes that
+    ///         file the registry rather than a copy of it. Add a twenty-first target and the gate
+    ///         fails here on the next build, in the same breath as
+    ///         <see cref="EveryTargetHasABudget" />, rather than fuzzing it on every build and never
+    ///         once overnight.
+    ///     </para>
+    ///     <para>
+    ///         <b>The order is asserted as well as the set</b>, so the job list on a nightly reads in
+    ///         the same order as <see cref="FuzzTargets.Names" /> and the two can be compared by eye.
+    ///     </para>
+    ///     <para>
+    ///         <b>And the seconds are a whole number of minutes because the workflow divides by
+    ///         sixty</b> to derive each job's <c>timeout-minutes</c>. That division is the arithmetic
+    ///         that used to be done by hand against the target count and went stale twice; a budget
+    ///         that is not a multiple of sixty would hand Actions a fractional cap.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheNightlyMatrixIsTheRegistry() {
+        var path = Path.Combine(AppContext.BaseDirectory, "nightly-budgets.json");
+
+        Assert.True(File.Exists(path), $"{path} is missing, so the nightly has no matrix to build.");
+
+        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        var entries = document.RootElement.GetProperty("targets").EnumerateArray().ToArray();
+
+        var named = entries.Select(entry => entry.GetProperty("name").GetString() ?? string.Empty).ToArray();
+
+        Assert.Equal(FuzzTargets.Names, named);
+
+        foreach (var entry in entries) {
+            var name = entry.GetProperty("name").GetString();
+            var seconds = entry.GetProperty("seconds").GetInt32();
+
+            Assert.True(seconds > 0, $"{name} has a nightly budget of {seconds} seconds.");
+            Assert.True(seconds % 60 == 0, $"{name}'s {seconds} seconds is not a whole number of minutes.");
+
+            // ⚠ The runner's cap is stored beside the budget rather than derived from it, because
+            // Actions expressions have no arithmetic: `${{ … seconds / 60 + 30 }}` is a workflow the
+            // API refuses outright — `Unexpected symbol: '/'`, before a job runs — not a slow one.
+            // Storing it means the two can drift, and this is the thing that stops them.
+            var minutes = entry.GetProperty("minutes").GetInt32();
+
+            Assert.True(
+                minutes == (seconds / 60) + 30,
+                $"{name} budgets {seconds}s and caps its job at {minutes} min, which must be "
+                + $"{(seconds / 60) + 30} — the budget plus the runner's overhead. nightly.yml reads "
+                + "`minutes` verbatim and cannot compute it."
+            );
+
+            // A budget nobody can explain is one nobody can revise, and these are the only place the
+            // measurement behind a number is written down where CI also reads it.
+            Assert.False(
+                string.IsNullOrWhiteSpace(entry.GetProperty("why").GetString()),
+                $"{name}'s nightly budget has no reason attached."
+            );
+        }
+    }
+
+    /// <summary>Whatever the two selection variables name is a target that exists.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A misspelt <c>VIXEN_FUZZ_ONLY</c> skips every row and passes.</b> That is a job that
+    ///     ran for its whole budget, reported clean and fuzzed nothing — the exact silence the
+    ///     generated theory rows were introduced to end, arriving through the other door.
+    ///     <c>VIXEN_FUZZ_SKIP</c> fails the same way in the safe direction, and is worth catching for
+    ///     the same reason: a target somebody meant to exclude and did not is a nightly that dies on a
+    ///     defect they already knew about.
+    /// </remarks>
+    [Fact]
+    public void TheSelectionNamesRealTargets() {
+        var selected = Only.Length > 0 ? new[] { Only } : Array.Empty<string>();
+
+        var unknown = selected.Concat(Excluded)
+            .Where(name => !FuzzTargets.Names.Contains(name, StringComparer.Ordinal))
+            .ToArray();
+
+        Assert.True(
+            unknown.Length == 0,
+            $"VIXEN_FUZZ_ONLY/VIXEN_FUZZ_SKIP name targets that do not exist: {string.Join(", ", unknown)}. "
+            + $"Try one of: {string.Join(", ", FuzzTargets.Names)}."
+        );
+    }
+
     /// <summary>Every named target is one that can actually be built.</summary>
     /// <remarks>
     ///     The list and the factory are written twice, in the way a list of names and a list of
@@ -361,23 +461,23 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
     /// <summary>Targets a clock-bounded run leaves out, named in <c>VIXEN_FUZZ_SKIP</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A target that cannot finish a time-bounded run takes the whole nightly with it.</b>
-    ///         <c>CaseGuard</c> names a runaway and writes its bytes out, and for the breach that
-    ///         cannot be outlived it ends the process deliberately — but a nightly that ends
-    ///         deliberately still reports nothing for the nineteen targets that were fine, and a stack
-    ///         overflow is not something any watchdog gets to report at all.
+    ///         <b>Nothing is in it, and it is kept for the case it was written for.</b> It held
+    ///         <c>raven</c> while a binder recursion overflowed the stack: the CLR ends the process at
+    ///         the guard page with no thread left to write a finding, so that target cost the other
+    ///         nineteen their results every night and left no artifact saying why. The nightly runs one
+    ///         target per job now, so a death takes only its own job — which retires the blast radius
+    ///         this existed for, not the mechanism.
     ///     </para>
     ///     <para>
-    ///         <c>raven</c> is that target today, and this is the only place the exclusion lives: one
-    ///         cause of its overruns is fixed and a second — a binder recursion on
-    ///         <c>func F(): float[F()]</c> — is open, deliberately not in the corpus because replaying
-    ///         it would take the test host down on every build.
+    ///         <b>What is left is a hand override</b>, for the night somebody needs a target out of the
+    ///         way without editing a workflow. It is honoured *only* when the run is bounded by the
+    ///         clock — the per-build gate is bounded by cases, finishes what it starts, and has never
+    ///         been affected by it.
     ///     </para>
     ///     <para>
     ///         <b>A skip rather than a deleted row, because a skip is visible in the results.</b>
     ///         Filtering it off the command line would be a target that stops running with nothing
     ///         saying so — which is the same silence the generated theory rows were introduced to end.
-    ///         This is meant to be emptied: see <c>Core/Vixen.Fuzz/README.md</c> § Running it.
     ///     </para>
     /// </remarks>
     static HashSet<string> Excluded { get; } =
@@ -386,6 +486,23 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
             StringComparer.Ordinal
         );
+
+    /// <summary>The one target this run is for, named in <c>VIXEN_FUZZ_ONLY</c>, or empty for all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The nightly's matrix is what this is for.</b> One job per target, each with its own
+    ///         clock and its own artifacts, which is what makes a target that dies cost only itself.
+    ///         Each job runs the whole class and skips the nineteen rows that are not its own.
+    ///     </para>
+    ///     <para>
+    ///         <b>A selector rather than a filter, and it applies to both legs.</b>
+    ///         <c>dotnet test --filter</c> would have to match a theory's display name, which is
+    ///         generated from the argument list and is not something a workflow should be reading; and
+    ///         a filtered-out row is absent from the results where a skipped one carries its reason.
+    ///         Unset — a laptop, and every per-build run — it selects nothing.
+    ///     </para>
+    /// </remarks>
+    static string Only => (Environment.GetEnvironmentVariable("VIXEN_FUZZ_ONLY") ?? string.Empty).Trim();
 
     /// <summary>
     ///     How long a nightly run gets, or null for the fixed per-build budget above.

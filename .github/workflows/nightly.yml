@@ -3,11 +3,23 @@ name: Nightly
 # The gate on every build runs the fuzzer for eighteen seconds — 12.1 M cases over twenty targets,
 # measured rather than estimated — which is a very effective regression test and is not a thorough
 # fuzz. This is the thorough one: the same harness, the same seeds, the same deterministic generator,
-# given ten minutes a target instead of the second or two the gate spends on it.
+# given between five minutes and two hours a target instead of the second or two the gate spends on it.
+#
+# ⚠ ONE JOB PER TARGET, NOT ONE JOB. The fuzz leg was a single job that ran all twenty in series under
+# one derived cap, and that shape cost three things. Its timeout-minutes was target-count arithmetic
+# done by hand and went stale twice (150 → 180 → 240 → 255). A target that ends its own process —
+# raven did, on a binder overflow the CLR takes the process down for — cost the other nineteen their
+# results and left no artifact saying why, which is why raven was skipped by name for two nightlies.
+# And every target shared one wall clock, so the budget one of them needed was a budget all of them
+# had to be given. A matrix retires all three: each job derives its own cap from its own budget, a
+# job that dies takes only itself, and a target that wants two hours can have them while a saturated
+# grammar takes five minutes. Actions is free on public repositories, so what is being spent here is
+# wall clock rather than compute, and the wall clock is now the largest single budget rather than the
+# sum of twenty.
 #
 # docs/plan/12 § Test infrastructure asks for fuzzers "run nightly with a persistent corpus". The
 # persistent corpus is Core/Vixen.Fuzz.Tests/Corpus, committed and replayed before every run; what
-# this job adds is the time. See Core/Vixen.Fuzz/README.md for what is fuzzed and what is owed —
+# this leg adds is the time. See Core/Vixen.Fuzz/README.md for what is fuzzed and what is owed —
 # in particular that this is a behaviour signature rather than instrumented coverage, and that
 # SharpFuzz over libFuzzer belongs here when it exists.
 
@@ -19,9 +31,13 @@ on:
   workflow_dispatch:
     inputs:
       seconds:
-        description: 'Seconds per fuzz target'
+        description: 'Seconds per fuzz target (blank: the per-target budgets in nightly-budgets.json)'
         required: false
-        default: '600'
+        default: ''
+      skip:
+        description: 'VIXEN_FUZZ_SKIP — targets to leave out of this run, comma separated'
+        required: false
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}
@@ -34,25 +50,63 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
-  fuzz:
-    name: fuzz
+  # ⚠ The target list is read out of the repository rather than written here. Twenty names in this
+  # file would be a second source of truth for a list that is already one — FuzzTargets.Names — and
+  # the way that fails is a twenty-first target that the gate fuzzes on every build and the nightly
+  # has never once run. Core/Vixen.Fuzz/nightly-budgets.json is the list CI can see, and
+  # FuzzGateTests.TheNightlyMatrixIsTheRegistry fails on every build when it stops being the registry
+  # in the registry's order. Nothing here parses C#, and nothing in C# parses YAML.
+  targets:
+    name: targets
     runs-on: ubuntu-latest
-    # ⚠ THE CAP IS DERIVED FROM THE BUDGET AND HAS TO BE RECOMPUTED WHEN A TARGET IS ADDED. It was
-    # 150 for fifteen targets, which was the fuzzing time exactly; then 180; and then the nineteenth
-    # and twentieth targets put the fuzzing at 200 minutes and left the cap twenty minutes behind it —
-    # a job guaranteed to end on the clock having reported nothing.
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Printed as well as emitted, because the matrix is otherwise only visible as twenty job names
+      # with no budgets on them and no reasons behind the budgets.
+      - name: Read the target list and its budgets
+        id: read
+        run: |
+          set -euo pipefail
+          budgets=Core/Vixen.Fuzz/nightly-budgets.json
+          echo "matrix=$(jq -c '.targets' "$budgets")" >> "$GITHUB_OUTPUT"
+          jq -r '.targets[] | "\(.name)\t\(.seconds)s\t\(.why)"' "$budgets"
+        shell: bash
+
+  fuzz:
+    name: fuzz (${{ matrix.target.name }})
+    needs: targets
+    runs-on: ubuntu-latest
+
+    strategy:
+      # ⚠ Without this, one target finding something cancels the other nineteen — which is the exact
+      # failure this leg was made a matrix to end, arriving as a default rather than as a crash.
+      # A fuzz finding is a result, not a reason to stop looking.
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.matrix) }}
+
+    # This target's own budget plus the runner's overhead, so it cannot drift the way the single
+    # job's did: that number was the target count times the per-target seconds, recomputed by hand,
+    # and it was wrong twice — once by twenty minutes, which is a nightly guaranteed to end on the
+    # clock having reported nothing. Thirty minutes is the runner's own overhead (checkout, restore,
+    # a Release build of the engine and spirv-tools measured at about twelve) plus slack, because a
+    # cap that fires on a healthy run stops meaning anything.
     #
-    # Twenty targets less the one in VIXEN_FUZZ_SKIP is nineteen, at ten minutes each, so the fuzzing
-    # is 190 minutes. 240 is that plus checkout, restore, build and spirv-tools, plus a fifth again in
-    # headroom.
+    # ⚠ Stored in the JSON rather than computed here, because **Actions expressions have no
+    # arithmetic** — only comparison and logic. `${{ matrix.target.seconds / 60 + 30 }}` is not a
+    # slower way to write this; it is a workflow the API refuses outright, with
+    # `Unexpected symbol: '/'`, before a single job runs. `minutes` and `seconds` are held in step
+    # by FuzzGateTests.TheNightlyMatrixIsTheRegistry rather than by whoever edits the file next.
     #
-    # The cap was raised rather than the seconds cut, because depth is the only thing this job adds
-    # over the gate that already runs on every build — cutting the per-target budget to fit the cap
-    # trades away the reason the job exists. The cap is not a budget. It is the backstop for a decoder
-    # that has been made to loop for ever, which is itself a finding and presents as a job that never
-    # ends, so it has to stay comfortably ahead of the targets or it fires on healthy runs and stops
-    # meaning anything. See Core/Vixen.Fuzz/README.md § Running it.
-    timeout-minutes: 240
+    # It is not a budget. VIXEN_FUZZ_SECONDS bounds the fuzzing and CaseGuard bounds a single case;
+    # this is the third backstop, for the process that stops making progress in a way neither of
+    # those can see. See Core/Vixen.Fuzz/README.md § The nightly's budgets.
+    timeout-minutes: ${{ matrix.target.minutes }}
 
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +116,10 @@ jobs:
         with:
           global-json-file: global.json
 
+      # One key for twenty jobs, deliberately: they restore the same packages, and a key per target
+      # would be twenty copies of one cache. They start together, so on a miss they all build it and
+      # the first to finish writes it — the rest log a collision and carry on, which is noise rather
+      # than a failure.
       - name: Cache NuGet
         uses: actions/cache@v4
         with:
@@ -79,24 +137,39 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y spirv-tools
         shell: bash
 
-      # ⚠ VIXEN_FUZZ_SKIP is raven, and it is here because this is the leg bounded by the clock.
-      # raven has still never completed a time-bounded run: the parser hang behind the first failure
-      # is fixed, and the next 600-second run got four minutes further and died of a binder stack
-      # overflow — the one runaway CaseGuard provokes and cannot report, because the CLR ends the
-      # process at the overflow with no thread left to write a finding. That would take the other
-      # nineteen targets' results with it every night, and no artifact would say why. raven still runs
-      # on every build, where the budget is 1,500 cases and it finishes in about two seconds, so this
-      # costs depth on one target rather than coverage of it. The skip is visible in the results.
+      # VIXEN_FUZZ_ONLY is what makes this one target's job: the whole test class runs and the other
+      # nineteen rows skip themselves with a reason, which is visible in the results where a
+      # --filter'd row would simply be absent. A name that matches no target fails
+      # TheSelectionNamesRealTargets rather than passing having fuzzed nothing.
       #
-      # Empty this out when the binder recursion is bounded — see Core/Vixen.Fuzz/README.md § Running
-      # it, which is also where the case for leaving it in and reading the artifacts is written down.
+      # VIXEN_FUZZ_SKIP is empty and stays here as a hand override, for the night somebody needs a
+      # target out of the way without editing this file. It is not how a broken target is handled any
+      # more: it existed because raven ended the process on a binder overflow — no exception, no
+      # finding, no artifact — and took the other nineteen targets' results with it. One job per
+      # target is what actually fixes that, and the binder reports RVN2005 for a signature that
+      # reaches its own type now besides (Corpus/raven/70ae34e20b4880ee.bin).
+      #
+      # The seconds are this target's own, measured; a workflow_dispatch value overrides every
+      # target's, which is for a one-off deep run rather than for the schedule.
       - name: Fuzz
-        run: dotnet test Core/Vixen.Fuzz.Tests -c Release
+        run: |
+          set -euo pipefail
+          echo "$WHY"
+          dotnet test Core/Vixen.Fuzz.Tests -c Release
         shell: bash
         env:
-          VIXEN_FUZZ_SECONDS: ${{ github.event.inputs.seconds || '600' }}
-          VIXEN_FUZZ_SKIP: raven
+          VIXEN_FUZZ_ONLY: ${{ matrix.target.name }}
+          VIXEN_FUZZ_SECONDS: ${{ github.event.inputs.seconds || matrix.target.seconds }}
+          VIXEN_FUZZ_SKIP: ${{ github.event.inputs.skip }}
+          # Through the environment rather than interpolated into the script, because this is prose
+          # out of a JSON file and an apostrophe in it would otherwise be a shell syntax error.
+          WHY: ${{ matrix.target.name }} gets ${{ matrix.target.seconds }}s — ${{ matrix.target.why }}
 
+      # ⚠ THE TARGET HAS TO BE IN THE NAME. Twenty jobs uploading "fuzz-findings" is twenty
+      # collisions, and upload-artifact v4 refuses a name that already exists — so nineteen of them
+      # fail the upload and the findings they were carrying are gone with the runner. Losing those is
+      # losing the one thing this leg exists to produce.
+      #
       # The bytes, not just the message. A finding whose input only exists in an assertion string is
       # one somebody has to retype; the fix for each of these is to move the file into
       # Core/Vixen.Fuzz.Tests/Corpus and commit it, and it is a test from then on.
@@ -104,7 +177,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: fuzz-findings
+          name: fuzz-findings-${{ matrix.target.name }}
           path: artifacts/fuzz-findings/
           if-no-files-found: warn
 
@@ -112,7 +185,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fuzz-results
+          name: fuzz-results-${{ matrix.target.name }}
           path: Core/Vixen.Fuzz.Tests/TestResults/
           if-no-files-found: ignore
 

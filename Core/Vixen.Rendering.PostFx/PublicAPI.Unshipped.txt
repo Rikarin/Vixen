@@ -1038,6 +1038,7 @@ Vixen.Rendering.PostFx.ScreenProbeGatherAsset.View.get -> string
 Vixen.Rendering.PostFx.ScreenProbeGatherAsset.View.init -> string
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer -> sealed class
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer : System.IDisposable
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer : Vixen.Rendering.Compositor.IResizeTarget
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer : Vixen.Rendering.Compositor.SceneRenderer
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.AccumulateSkipped.get -> string?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Accumulator.get -> Vixen.Rendering.Lighting.ScreenProbeAccumulateFill?

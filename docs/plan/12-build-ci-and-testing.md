@@ -92,7 +92,7 @@ something to satisfy by memory.
 ```
 .github/workflows/
 ├── ci.yml               # PR + push to main: the matrix below
-├── nightly.yml          # physical-device suites, long benchmarks, fuzzing, full golden sweep
+├── nightly.yml          # physical-device suites, long benchmarks, fuzzing (a job per target), full golden sweep
 ├── release.yml          # tag-triggered: Release target, signed artefacts, NuGet push
 └── docs.yml             # Docs + CheckDocs → GHCR image on master and on tags; pr-<n> tag per PR (25)
 ```
@@ -253,15 +253,32 @@ exact allocation via a `GCHeapAllocationEventSource` listener in the failure mes
     CLR type, so the C# annotation contradicting it is not in the descriptor to read. Refusing it is a
     decision about every `[DataContract]` type in the engine and belongs to `Vixen.Core.Yaml`;
   - three inputs make Raven's incremental reparse build a **structurally different tree** — the printed
-    text still agrees, so only the shape comparison sees it;
-  - a binder recursion on `func F(): float[F()]` inside a `shader` **overflows the stack**. Deliberately
-    not promoted to the corpus, because an input that overflows the stack takes the test host down on
-    every build; the rule in that harness is that promotion follows the fix.
+    text still agrees, so only the shape comparison sees it.
 
-  Because of the third, `raven` is excluded from the nightly by name (`VIXEN_FUZZ_SKIP`) until the
-  recursion is bounded — the nightly is the leg bounded by the clock, and a process that ends at an
-  overflow costs the other nineteen targets their results and leaves no artifact saying why. It still
-  runs, case-bounded, on every build.
+  **The third is fixed.** A binder recursion on `func F(): float[F()]` overflowed the stack — not a
+  property of `shader` as first recorded, but of any type with members: a `struct` did it too, and so
+  did a parameter type, two signatures sizing arrays by each other, and a `val` parameter sizing its
+  own type. Three of the four source symbols that resolve a type already carried the cycle guard;
+  `SourceMethodSymbol` had it around the inferred branch only, and the two parameter symbols had none.
+  Guarding the whole resolution in each, keyed by the symbol, reports `RVN2005` and closes the family.
+
+  The input is `Corpus/raven/70ae34e20b4880ee.bin` now — it had been kept out deliberately, because one
+  that overflows the stack takes the test host down on every build, and the rule in that harness is
+  that promotion follows the fix. With it fixed, `raven` is back in the nightly and `VIXEN_FUZZ_SKIP`
+  is empty.
+
+  **And the nightly is a job per target rather than a job**, which is what makes the skip a hand
+  override rather than the mechanism. One `strategy: matrix` leg over `FuzzTargets.Names`,
+  `fail-fast: false`, each job with its own budget, its own `timeout-minutes` derived from that budget
+  and its own `fuzz-findings-<target>` artifact. Three things go away with the single job: a cap that
+  was target-count arithmetic done by hand and went stale twice; a target that ends its own process
+  costing the other nineteen their results, which is precisely what `raven` did and why it was skipped
+  at all; and one wall clock shared by twenty targets, so the deepest one could have no more time than
+  the shallowest. The budgets are `Core/Vixen.Fuzz/nightly-budgets.json` — five minutes for a grammar
+  that saturates in seconds, two hours for `raven` at 465 cases/s — and
+  `FuzzGateTests.TheNightlyMatrixIsTheRegistry` fails on every build if that file stops being the
+  target list, because a list of names in a YAML file is the drift this replaced wearing a different
+  hat.
 
 ### Optional external tools
 

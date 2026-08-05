@@ -1,0 +1,141 @@
+{
+  "note": [
+    "How long each target gets on the nightly leg, and the matrix that leg builds itself from.",
+    ".github/workflows/nightly.yml reads this file with jq and fans out one job per entry, so the",
+    "target list lives in exactly one place that CI can see. FuzzGateTests.TheNightlyMatrixIsTheRegistry",
+    "asserts on every build that these names are FuzzTargets.Names in order, which is what stops a",
+    "twenty-first target from being added to the harness and quietly never fuzzed overnight.",
+    "",
+    "seconds is per target and per job \u2014 the jobs run in parallel, so the nightly's wall clock is the",
+    "largest number here rather than their sum. It is a multiple of 60 because the workflow derives",
+    "timeout-minutes from it, which is the arithmetic that used to be done by hand and went stale twice.",
+    "",
+    "The figures each why cites are measured, in a Release run of the case-bounded gate on an arm64",
+    "laptop: see Core/Vixen.Fuzz/README.md, The nightly's budgets. Read them as ratios \u2014 a loaded machine",
+    "reads three to four times lower across the board, and a long run is slower again as the corpus fills",
+    "with larger inputs. They are the order of magnitude a budget was chosen from, not a promise about",
+    "the count."
+  ],
+  "targets": [
+    {
+      "name": "packet",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "1.0 M cases/s and the bottom of every receive path. Ten minutes is ~600 M inputs, and its signature table saturates, so past that the clock buys unguided repetition rather than depth."
+    },
+    {
+      "name": "bits",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "1.3 M cases/s, and saturates like packet. What replication, RPC and sync lists actually read, so it keeps the full baseline anyway."
+    },
+    {
+      "name": "handshake",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "981 k cases/s over eleven distinct behaviours \u2014 a shallow decoder reached before authentication. Ten minutes is far past everything it can do."
+    },
+    {
+      "name": "client",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "2.0 M cases/s, twenty behaviours. Two of the findings in this harness were a client keeping a record it should not, which is a retention oracle rather than a case count."
+    },
+    {
+      "name": "snapshot",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "1.9 M cases/s. A packet that creates and destroys entities, so the interesting oracle is what the world weighs afterwards."
+    },
+    {
+      "name": "inspect",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "1.1 M cases/s over 2 365 behaviours \u2014 the widest behaviour space of the byte targets, and still six hundred million inputs in ten minutes."
+    },
+    {
+      "name": "delta",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "2.5 M cases/s, the fastest target here. Writes into a buffer from widths a packet chose, which is a property a billion cases will not exhaust and one bad width will show."
+    },
+    {
+      "name": "rpc",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "2.4 M cases/s. Keeps 538 inputs out of 1.5 M, which is guidance working \u2014 the corpus is a selection rather than a list."
+    },
+    {
+      "name": "synclist",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "540 k cases/s. The only index that arrives from the network; ten minutes is ~300 M of them."
+    },
+    {
+      "name": "input",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "370 k cases/s, and its corpus is already at the 4 096 cap in the gate's own budget. Work a client can make a server do every tick."
+    },
+    {
+      "name": "udp",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "251 k cases/s \u2014 a poll walks a connection table, so a case is expensive by this list's standards. The code an attacker reaches first, on a public port."
+    },
+    {
+      "name": "upgrade",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "344 k cases/s over seven behaviours. Both findings here were amplification and a missing timeout rather than depth, and neither needed a long run."
+    },
+    {
+      "name": "bundle",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "196 k cases/s with a CRC over the whole payload per case. Ten minutes is ~120 M opens of a file a content update downloaded."
+    },
+    {
+      "name": "chunk",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "163 k cases/s, each an LZ4 or Zstd decode. A declared length that is what gets allocated, which the amplification oracle judges rather than the clock."
+    },
+    {
+      "name": "heightmap",
+      "seconds": 600,
+      "minutes": 40,
+      "why": "73 k cases/s \u2014 inflate plus an unfilter pass per case, and only 367 behaviours. A PNG somebody dropped on an importer."
+    },
+    {
+      "name": "meta",
+      "seconds": 1800,
+      "minutes": 60,
+      "why": "20 k cases/s, the slowest target that is not a grammar: decode, line scan, YAML parse and a reflected bind is four passes where a packet target has one. Ten minutes is 12 M cases; thirty is 36 M, and it has an open finding."
+    },
+    {
+      "name": "stylevalue",
+      "seconds": 300,
+      "minutes": 35,
+      "why": "Fills the 65 536-entry signature table and the 4 096-entry corpus inside the 3.4 s the gate spends on it. The mutator exhausts a grammar this small, so the budget is set by that rather than by 118 k cases/s."
+    },
+    {
+      "name": "layerrule",
+      "seconds": 300,
+      "minutes": 35,
+      "why": "Saturates the same way in 1.3 s at 225 k cases/s. A hand-written brace matcher over text ExCSS gave up on \u2014 small, and searched out in minutes."
+    },
+    {
+      "name": "vxml",
+      "seconds": 3600,
+      "minutes": 90,
+      "why": "15 k cases/s, because a case is four parses. The trailing-escape finding took 1.6 M cases, so ten minutes is five of those and an hour is fifty-five million."
+    },
+    {
+      "name": "raven",
+      "seconds": 7200,
+      "minutes": 150,
+      "why": "465 cases/s \u2014 a case is a whole compiler, and the reason this leg is a matrix at all. Ten minutes is ~280 k cases and the parser hang lived at a quarter of a million, so the old shared budget was one defect deep. Two hours is ~3 M."
+    }
+  ]
+}

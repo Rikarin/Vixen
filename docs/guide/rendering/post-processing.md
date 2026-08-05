@@ -4,7 +4,7 @@ slug: rendering/post-processing
 kind: guide
 area: Rendering
 summary: Every screen-space effect a compositor document can name, what each one reads, and the order they have to run in.
-api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DepthOfFieldAsset, T:Vixen.Rendering.PostFx.DepthOfFieldRenderer, R:PostFx/DepthOfField, T:Vixen.Rendering.PostFx.MotionBlurAsset, T:Vixen.Rendering.PostFx.MotionBlurRenderer, R:PostFx/MotionBlur, T:Vixen.Rendering.PostFx.LocalExposureAsset, T:Vixen.Rendering.PostFx.LocalExposureRenderer, R:PostFx/LocalExposure, T:Vixen.Rendering.PostFx.LensFlareAsset, T:Vixen.Rendering.PostFx.LensFlareRenderer, R:PostFx/LensFlare, R:PostFx/AutoExposure, T:Vixen.Rendering.PostFx.AutoExposureRenderer, R:Pipeline/MotionVectors, T:Vixen.Rendering.Features.MotionVectorRenderFeature, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.ColorGrading, T:Vixen.Rendering.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
+api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DepthOfFieldAsset, T:Vixen.Rendering.PostFx.DepthOfFieldRenderer, R:PostFx/DepthOfField, T:Vixen.Rendering.PostFx.MotionBlurAsset, T:Vixen.Rendering.PostFx.MotionBlurRenderer, R:PostFx/MotionBlur, T:Vixen.Rendering.PostFx.LocalExposureAsset, T:Vixen.Rendering.PostFx.LocalExposureRenderer, R:PostFx/LocalExposure, T:Vixen.Rendering.PostFx.LensFlareAsset, T:Vixen.Rendering.PostFx.LensFlareRenderer, R:PostFx/LensFlare, R:PostFx/AutoExposure, T:Vixen.Rendering.PostFx.AutoExposureRenderer, R:Pipeline/MotionVectors, T:Vixen.Rendering.Features.MotionVectorRenderFeature, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.Compositor.IResizeTarget, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.ColorGrading, T:Vixen.Rendering.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
@@ -393,6 +393,64 @@ indexes through.
 
 ⚠ The table is what expresses the one thing the decision list cannot: hue-versus-hue and
 hue-versus-saturation are not a CDL, and no combination of five per-channel operations is one.
+
+## When the window resizes
+
+Most of the nodes on this page need nothing from you when the frame changes size. A post effect
+declares its output as a graph transient sized from `frame.Size` on every build, so a resized frame
+simply declares a differently sized texture; `!Bloom`, `!AutoExposure` and `!LensFlare` rebuild their
+whole mip chain from the new size the same way. The ones that keep a device texture between frames —
+`!TemporalAntialiasing`'s history pair, `!Reflections`' output and its Hi-Z chain, `!Fog`'s froxel
+volumes — compare the extent they allocated against the one they were handed, reallocate when it
+moved, and drop whatever they had accumulated. Destroying a texture inside `Build` is safe because
+the RHI's `Destroy` retires rather than frees: the memory comes back when the frame that referenced
+it has finished, not when the call returns.
+
+`!ScreenProbeGather` is the exception, and the reason `IResizeTarget` exists. Its lattice is not a
+texture but a *shape*: an atlas layout, a mirror, a history and a CPU reconstruction surface are all
+constructed against one viewport, and a probe's patch in the atlas is addressed by a grid derived
+from it. Rebuilding that from inside `Build` would swap objects that this frame's descriptor sets
+already name, so the node refuses a frame of the wrong size instead — loudly, with the size it laid
+out and the size it was given.
+
+The resize is therefore a step outside a frame:
+
+```csharp no-compile="the host owns the device; see SceneRenderHost"
+// What AppGraphics does after it rebuilds the swapchain.
+host.FrameSize = swapChain.Size;
+```
+
+`SceneRenderHost.FrameSize` forwards to `GraphicsCompositor.Resize`, which walks the frame and calls
+`Reset()` on every node implementing `IResizeTarget`, having first idled the device exactly once —
+and not at all when no node in the tree wants one, so a window drag through a hundred sizes costs a
+hundred nothing-happened walks rather than a hundred device stalls. A size equal to the current one
+is not a resize: a surface reporting `Suboptimal` asks for a swapchain rebuild every frame, and
+resetting on those would restart every temporal chain in the frame for ever.
+
+⚠ **A reset is a camera cut.** Probe history, placement and readback rings all start over, because
+the alternative is reprojecting through a lattice that no longer exists — a frame that draws and is
+quietly wrong, which is worse than a frame that is visibly one frame behind.
+
+**A node of your own taking part.** Implement `IResizeTarget` only if you keep state whose *shape*
+other objects were built against. If you can compare a cached `Int2` and reallocate, do that instead
+— it needs no wiring and no idle.
+
+```csharp no-compile="illustrative; SceneRenderer's phases are driven by the compositor"
+public sealed class MyGather : SceneRenderer, IResizeTarget {
+    Lattice? lattice;
+
+    public void Reset() {
+        lattice?.Dispose();
+        lattice = null;      // The next Build lays a new one at the frame's size.
+    }
+}
+```
+
+`Reset()` is called with the device idle and outside any frame, and it is called on a node that has
+never built — the first size a host writes is a change from the compositor's default — so "nothing
+to forget" has to be free rather than an error. It is called on disabled nodes too, for the reason
+[post-process volumes](post-process-volumes.md) visits them: a node switched off across the resize
+and back on afterwards would otherwise refuse the first build that reached it.
 
 ## See also
 

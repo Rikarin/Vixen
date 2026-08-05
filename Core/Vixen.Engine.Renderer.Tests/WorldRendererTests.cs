@@ -314,6 +314,179 @@ public sealed class WorldRendererTests : IDisposable {
         Assert.NotEqual(device.Features.MaxBindlessDescriptors, renderer.Table.Capacity);
     }
 
+    /// <summary>
+    ///     A hundred frames of the same shape settle at one set per frame in flight.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The leak <see cref="DescriptorAllocator" />'s own doc comment describes, at the level
+    ///         that was missing it.</b> That the allocator recycles is already asserted where it lives;
+    ///         what nothing asserted is that anything ever tells it a frame has begun.
+    ///         <see cref="WorldRenderer.MaterialDescriptors" /> is the frame's, no other type can reach
+    ///         it, and <see cref="WorldRenderer.Draw" /> is the only call in a frame that is both after
+    ///         <see cref="IGraphicsDevice.BeginFrame" /> and before the first pass allocates — so if
+    ///         that call is not there, it is nowhere, and every frame's sets are handed out and never
+    ///         given back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The frame allocates here rather than through a pass, and it has to.</b> A set is
+    ///         allocated against a resolved shader's layout, and nothing resolves against
+    ///         <see cref="NullDevice" /> without a compiled effect — so a fixture that waited for a pass
+    ///         to ask would assert against zero sets and pass whatever <c>Draw</c> did. This asks the
+    ///         renderer's allocator for exactly what a pass asks it for, at the point in the frame a
+    ///         pass asks.
+    ///     </para>
+    ///     <para>
+    ///         The write differs frame to frame because a real one does: a per-view block moves through
+    ///         <c>EffectConstants</c>' ring as its camera moves, so the offset a set is written with is
+    ///         not last frame's. That is what makes the missed call visible — an unchanging frame would
+    ///         be answered from a stale cache and settle at one set, which looks like health.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFramesDescriptorSetsAreRecycledRatherThanAccumulated() {
+        using var loop = new EngineLoop();
+        using var renderer = Build(loop, out _, mounted: false);
+
+        var layout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerView,
+                [new(0, DescriptorKind.UniformBuffer, ShaderStage.Vertex)],
+                "view"
+            )
+        );
+
+        var block = device.CreateBuffer(new(4096, BufferUsage.Uniform, Name: "Block"));
+        var descriptors = renderer.MaterialDescriptors;
+        var settled = 0;
+
+        for (var frame = 0; frame < 64; frame++) {
+            device.BeginFrame();
+
+            var list = device.BeginCommandList();
+
+            renderer.Draw(list);
+            descriptors.Allocate(layout, [DescriptorWrite.Uniform(0, block, frame % 16 * 256, 256)]);
+
+            list.Finish();
+            device.GraphicsQueue.Submit([list]);
+            device.EndFrame();
+
+            if (frame == descriptors.FramesInFlight - 1) {
+                settled = descriptors.SetCount;
+            }
+        }
+
+        // One set per frame in flight, reached within that many frames and never exceeded. A renderer
+        // that never begins the frame creates one per distinct write instead, which is a number that
+        // depends on how long the run was rather than on how deep the ring is.
+        Assert.Equal(descriptors.FramesInFlight, settled);
+        Assert.Equal(settled, descriptors.SetCount);
+    }
+
+    /// <summary>
+    ///     A set asked for in two frames is written in both, not answered from the first.
+    /// </summary>
+    /// <remarks>
+    ///     The worse half of the same missed call, and the half that is not a leak: the cache is
+    ///     content-addressed over handles that name transient graph memory, and the next frame's graph
+    ///     is free to give that memory to something else. A cache that outlived its frame would hand
+    ///     frame <c>N + 1</c> a set still pointing at frame <c>N</c>'s attachments — a frame that draws
+    ///     the wrong texture rather than one that fails.
+    /// </remarks>
+    [Fact]
+    public void TheDescriptorCacheDoesNotSurviveTheFrame() {
+        using var loop = new EngineLoop();
+        using var renderer = Build(loop, out _, mounted: false);
+
+        var layout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerView,
+                [new(0, DescriptorKind.UniformBuffer, ShaderStage.Vertex)],
+                "view"
+            )
+        );
+
+        var block = device.CreateBuffer(new(256, BufferUsage.Uniform, Name: "Block"));
+        var descriptors = renderer.MaterialDescriptors;
+
+        for (var frame = 0; frame < 4; frame++) {
+            device.BeginFrame();
+
+            var list = device.BeginCommandList();
+
+            renderer.Draw(list);
+            descriptors.Allocate(layout, [DescriptorWrite.Uniform(0, block, 0, 256)]);
+
+            list.Finish();
+            device.GraphicsQueue.Submit([list]);
+            device.EndFrame();
+
+            // Each frame writes its own set. Reuse within a frame is the point of the cache and is
+            // fine; reuse across one is a descriptor nobody rewrote, and the counters are per frame
+            // only because BeginFrame resets them.
+            Assert.Equal(1, descriptors.WriteCount);
+            Assert.Equal(0, descriptors.ReuseCount);
+        }
+    }
+
+    /// <summary>
+    ///     A texture the frame let go of gets its table slot back.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="BindlessTable" />'s per-frame call, missed in the same place and for the same
+    ///         reason. It costs no correctness — a released index simply stays in the ring — so the
+    ///         failure is a level that streams textures in and out walking the high-water mark up to
+    ///         <see cref="BindlessTable.Capacity" /> and then refusing a texture on a machine with
+    ///         descriptors to spare.
+    ///     </para>
+    ///     <para>
+    ///         Slot zero belongs to the missing-map fallback for the life of the renderer, so the first
+    ///         index a test sees is one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBindlessTableGetsItsReleasedSlotsBack() {
+        using var loop = new EngineLoop();
+        using var renderer = Build(loop, out _, mounted: false);
+
+        Assert.NotNull(renderer.Table);
+
+        var streamed = View("streamed");
+        var index = renderer.Table.Add(streamed);
+
+        Assert.True(renderer.Table.Remove(streamed));
+
+        // The ring comes back round to the slot the release went into on the frame after the last one
+        // that could still be naming it.
+        for (var frame = 0; frame < renderer.Table.FramesInFlight; frame++) {
+            DrawOne(renderer);
+        }
+
+        Assert.Equal(index, renderer.Table.Add(View("replacement")));
+        Assert.Equal((int)index + 1, renderer.Table.HighWaterMark);
+    }
+
+    /// <summary>Runs one device frame through the renderer, as an application's does.</summary>
+    void DrawOne(WorldRenderer renderer) {
+        device.BeginFrame();
+
+        var list = device.BeginCommandList();
+
+        renderer.Draw(list);
+
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
+        device.EndFrame();
+    }
+
+    /// <summary>A view of a texture, for giving the table something to hold.</summary>
+    TextureViewHandle View(string name) =>
+        device.CreateTextureView(
+            device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: name))
+        );
+
     static readonly AssetReference Rock = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
     static readonly AssetReference Painted = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
     static readonly AssetReference Bark = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);

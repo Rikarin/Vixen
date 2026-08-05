@@ -341,16 +341,20 @@ passed the test that checks the names match the constructors, and never ran. A t
 now a target the gate runs; forgetting to give it a case budget fails a test rather than making it
 disappear.
 
-For a longer run, give it seconds instead:
+For a longer run, give it seconds instead — and, if you want one target rather than twenty, name it:
 
 ```bash
 VIXEN_FUZZ_SECONDS=600 dotnet test Core/Vixen.Fuzz.Tests -c Release
+VIXEN_FUZZ_SECONDS=7200 VIXEN_FUZZ_ONLY=raven dotnet test Core/Vixen.Fuzz.Tests -c Release
 ```
 
-That is what `.github/workflows/nightly.yml` does at three in the morning — the same harness, the same
-seeds, the same generator, given ten minutes a target rather than the second or two the gate spends on
-it. Anything it finds is written to `artifacts/fuzz-findings` and uploaded, because a finding whose
-bytes only exist in an assertion message is one somebody has to retype.
+That is what `.github/workflows/nightly.yml` does at three in the morning, one target per job — the
+same harness, the same seeds, the same generator, given between five minutes and two hours rather than
+the second or two the gate spends on it. `VIXEN_FUZZ_ONLY` is how a job takes its own target: the other
+nineteen rows skip themselves with a reason, which is visible in the results where a `--filter`'d row
+would simply be absent. Anything found is written to `artifacts/fuzz-findings` and uploaded under the
+target's name, because a finding whose bytes only exist in an assertion message is one somebody has to
+retype.
 
 **The numbers above are measured rather than carried forward**, in an isolated Release run: twenty
 targets, **12,091,500 cases in about eighteen seconds**. They had been wrong twice — a per-target
@@ -371,51 +375,116 @@ and therefore past every run the gate has ever done. The first time-bounded run 
 it in nine minutes, wrote it out, and ended the process deliberately at 678 MB instead of being killed
 at whatever the host gave up at.
 
-⚠ **It still has not had a clean one.** With that fixed, the next 600 s run got four minutes further
-and died of the stack overflow above — a second defect the first had been standing in front of, and one
-the guard cannot report. So the honest state of this target is: **two known reasons a time-bounded run
-ends early, one fixed and one open**, and no evidence yet about what is behind the second.
+With that fixed, the next 600 s run got four minutes further and died of the stack overflow above — a
+second defect the first had been standing in front of, and one the guard cannot report. So there were
+**two reasons a time-bounded run ended early**, and for two nightlies `nightly.yml` set
+`VIXEN_FUZZ_SKIP: raven` while the second was open.
 
-**So it is out of the nightly, by name, until the binder recursion is bounded.** `nightly.yml` sets
-`VIXEN_FUZZ_SKIP: raven`, and `NothingEscapes` skips a named target *only* when the run is bounded by
-the clock — the per-build gate is bounded by cases, finishes what it starts, and is unaffected.
+**Both are fixed, and `raven` is back in the nightly.** The overflow was
+`func F(): float[F()]` — a signature that reaches its own type through an array size, which sent the
+binder round `ResolveReturnType → BindType → BindArraySize → BindValue → BindInvocation` and back
+until the stack ended. The binder now reports `RVN2005` and names the symbol, the input is
+`Corpus/raven/70ae34e20b4880ee.bin`, and `VIXEN_FUZZ_SKIP` is empty.
 
-The choice was between that and leaving it in to read the artifacts, and the artifacts are what decided
-it: **a stack overflow does not produce any.** The CLR ends the process at the overflow with no thread
-left to write a finding and no sample early enough to have taken one, so a night spent on `raven`
-would cost the other nineteen targets their results and leave nothing behind explaining why. Against
-that, what the skip costs is depth on one target — it still runs 1,500 cases on every build, still
-replays every committed `raven` regression, and still fails the build if any of them breaks.
+⚠ **What the skip was for is worth keeping even though the skip is gone.** It was never quarantine
+for a target that fails; it was for the one failure that produces *no artifacts*. The CLR ends the
+process at the overflow with no thread left to write a finding and no sample early enough to have
+taken one, so a night spent on `raven` cost the other nineteen targets their results and left nothing
+behind explaining why. That is the only bar a target has to clear to be in here: its runaways have to
+be recordable. A target that merely fails is a finding, and the artifacts are how it gets read.
 
-⚠ **A skip rather than a deleted row, and the difference is the whole point.** Filtering it off the
-command line would be a target that quietly stops running, which is the silence the generated theory
-rows were introduced to end. `VIXEN_FUZZ_SKIP` puts it in the results as a skip with a reason attached,
-so a nightly that has stopped fuzzing the compiler says so on its own face.
+**And the bar is lower now than it was, because the nightly is one job per target.** What made an
+unrecordable death expensive was that it was one process running twenty targets; the cost of the same
+death today is one job's results, and the other nineteen upload theirs. `VIXEN_FUZZ_SKIP` is the hand
+override rather than the mechanism — see *The nightly's budgets*, below.
 
-Two things follow that the skip does not settle:
+⚠ **A skip rather than a deleted row, when one is needed.** Filtering a target off the command line
+would be one that quietly stops running, which is the silence the generated theory rows were
+introduced to end. `VIXEN_FUZZ_SKIP` puts it in the results as a skip with a reason attached, so a
+nightly that has stopped fuzzing the compiler says so on its own face. `NothingEscapes` honours it
+*only* when the run is bounded by the clock — the per-build gate is bounded by cases, finishes what it
+starts, and was unaffected throughout.
 
-- **A time-bounded run is the mode that finds this class and the mode that cannot survive it.** That is
-  not a reason to stop doing it — it is the reason the guard exists and the reason out-of-process
-  execution is owed. When a case runs in a child process, `raven` comes back into the nightly and this
-  paragraph goes away.
-- **The gate's fifteen hundred cases are not a search and were never meant to be.** Two of the open
-  `raven` findings needed forty thousand cases and the parser hang needed six times that. Depth is the
-  nightly's; what the gate owes is that the pipeline still runs. With `raven` out of the nightly, that
-  depth is not currently being bought for the compiler by anything, which is the cost being carried.
+Two things follow that the episode did not settle:
 
-### The nightly's arithmetic, and why the cap moves rather than the budget
+- **A time-bounded run is the mode that finds this class and the mode that cannot survive it.** The
+  fix here bounded one recursion; it did not make the harness able to record the next one. That is
+  still the reason out-of-process execution is owed — with a case in a child process, an overflow is a
+  finding with bytes attached rather than a night with nothing in it.
+- **The gate's fifteen hundred cases are not a search and were never meant to be.** Two of the `raven`
+  findings needed forty thousand cases and the parser hang needed six times that. Depth is the
+  nightly's; what the gate owes is that the pipeline still runs.
 
-`nightly.yml` had `VIXEN_FUZZ_SECONDS: 600` against `timeout-minutes: 180` with twenty targets — 200
-minutes of fuzzing under a 180-minute cap, so **every nightly was going to end on the clock having
-reported nothing**. The cap had been 150 for fifteen targets, which was the fuzzing time exactly, and
-then 180; it is a number derived from the target count and it had stopped being recomputed.
+### The nightly's budgets, and why there is no arithmetic left
 
-It is 240 now, against nineteen targets at ten minutes: 190 minutes of fuzzing, plus checkout, restore,
-build and `spirv-tools`, plus a fifth again in headroom. **The cap moved rather than the budget**
-because depth is the only thing this job adds over the gate that already runs on every build — cutting
-the per-target seconds to fit a cap would trade away the reason to have a nightly at all. And the cap is
-not a budget: it is the backstop for a decoder that has been made to loop for ever, which only works
-while it sits comfortably above what a healthy run costs.
+**The nightly was one job that ran all twenty targets in series, and it is now one job per target.**
+`nightly.yml` builds a `strategy: matrix` over the target list, `fail-fast: false`, and that retires
+three separate problems rather than one.
+
+**The cap was arithmetic somebody had to redo.** `timeout-minutes` was the target count times the
+per-target seconds plus setup, worked out by hand — 150 for fifteen targets, then 180, then 240, then
+255 — and it went stale twice. Once it was twenty minutes *under* the fuzzing time, which is a nightly
+guaranteed to end on the clock having reported nothing. Each job now derives its own cap from its own
+budget (`seconds / 60 + 30`), so there is no figure that has to be recomputed when a target is added,
+and the thirty minutes is the runner's overhead — checkout, restore, a Release build of the engine and
+`spirv-tools`, about twelve — plus slack, because a cap that fires on a healthy run stops meaning
+anything. It is still not a budget: `VIXEN_FUZZ_SECONDS` bounds the fuzzing and `CaseGuard` bounds a
+case, and this is the backstop for the process that stops making progress in a way neither can see.
+
+**A target that ended its own process took the other nineteen with it.** That was the whole reason
+`raven` was skipped by name — not the defect, the blast radius: the CLR ends the process at a stack
+overflow with no thread left to write a finding, so a night on `raven` cost nineteen targets their
+results and left no artifact explaining why. One job per target means the loss is one target's night.
+`VIXEN_FUZZ_SKIP` stays as a hand override and is empty; it is no longer the answer to a target that
+cannot survive a run.
+
+**And twenty targets shared one wall clock, so the deepest could have no more than the shallowest.**
+Ten minutes was what twenty times ten minutes could be afforded to be. Now `raven` takes two hours
+while `layerrule` takes five minutes, and the nightly's wall clock is the *largest* budget rather than
+the sum — two hours where the single job booked four and a quarter, for three times the fuzzing.
+Actions is free on public repositories, so what is being spent is wall clock rather than compute.
+
+**The budgets are `nightly-budgets.json`, and they are chosen from measured rates.** One Release run
+of the gate on an arm64 laptop. ⚠ **Read the ratios rather than the figures**: the same run on a
+machine with three other builds on it reads three to four times lower across the board, which is the
+same reason the gate is bounded by cases and not by the clock. A nightly is slower again, because a
+run an hour in is mutating a corpus of larger inputs than a gate's first second is. These are the
+order of magnitude a budget was picked from, not a promise about the count.
+
+| Target | Cases/s, measured | Nightly | ≈ cases in that budget | Why that budget |
+|---|---:|---:|---:|---|
+| `packet` | 1.02 M | 10 min | ~610 M | saturates its signature table; past that the clock buys repetition |
+| `bits` | 1.28 M | 10 min | ~770 M | as `packet` |
+| `handshake` | 981 k | 10 min | ~590 M | eleven behaviours — shallow, and exhausted long before ten minutes |
+| `client` | 1.95 M | 10 min | ~1.2 G | twenty behaviours; its findings were retention, not depth |
+| `snapshot` | 1.92 M | 10 min | ~1.2 G | |
+| `inspect` | 1.06 M | 10 min | ~640 M | widest behaviour space of the byte targets, at 2 365 |
+| `delta` | 2.50 M | 10 min | ~1.5 G | fastest target here |
+| `rpc` | 2.38 M | 10 min | ~1.4 G | keeps 538 of 1.5 M — guidance working |
+| `synclist` | 540 k | 10 min | ~320 M | |
+| `input` | 370 k | 10 min | ~220 M | corpus already at its 4 096 cap in the gate's budget |
+| `udp` | 251 k | 10 min | ~150 M | a poll walks a connection table |
+| `upgrade` | 344 k | 10 min | ~210 M | seven behaviours |
+| `bundle` | 196 k | 10 min | ~120 M | a CRC over the whole payload per case |
+| `chunk` | 163 k | 10 min | ~98 M | an LZ4 or Zstd decode per case |
+| `heightmap` | 73 k | 10 min | ~44 M | inflate and an unfilter pass per case |
+| `meta` | 20 k | **30 min** | ~36 M | four passes per case — decode, line scan, YAML parse, reflected bind — and an open finding |
+| `stylevalue` | 118 k | **5 min** | ~35 M | fills the 65 536 signature table and the 4 096 corpus in the 3.4 s the gate gives it |
+| `layerrule` | 225 k | **5 min** | ~68 M | same, in 1.3 s |
+| `vxml` | 15 k | **60 min** | ~55 M | four parses per case; the trailing-escape finding took 1.6 M cases |
+| `raven` | 465 | **120 min** | ~3.3 M | a case is a whole compiler, and ten minutes is ~280 k cases — the parser hang lived at a quarter of a million, so the old shared budget was one defect deep |
+
+**⚠ The target list is not written out in the workflow.** Twenty names in a YAML file would be a
+second source of truth for a list that is already one, and the way that fails is a twenty-first target
+the gate fuzzes on every build and the nightly has never once run — the same class of drift as the cap
+that stopped being recomputed. `nightly-budgets.json` is the list CI reads, and
+`FuzzGateTests.TheNightlyMatrixIsTheRegistry` fails on every build if it stops being `FuzzTargets.Names`
+in that order. A budget also has to be a whole number of minutes, because the workflow divides it by
+sixty.
+
+**⚠ And the artifact names carry the target.** Twenty jobs uploading `fuzz-findings` is nineteen
+refused uploads and nineteen sets of findings lost with the runner, which is the one thing this leg
+exists to produce.
 
 ## What it found
 
@@ -531,8 +600,8 @@ And then the one the fifth oracle was written for, which no other oracle here co
   `VIXEN_FUZZ_SECONDS` run: every attempt had been hitting this and being killed by whatever ran out
   first. A developer's Mac was one of those.
 
-**And immediately behind it, a second one the first had been hiding — which this harness can provoke
-and cannot name.** The very next time-bounded run got four minutes further and died of a **stack
+**And immediately behind it, a second one the first had been hiding — which this harness could provoke
+and could not name.** The very next time-bounded run got four minutes further and died of a **stack
 overflow** in the binder:
 
 ```
@@ -547,16 +616,30 @@ shader S {
 
 `SourceMethodSymbol.ResolveReturnType` → `BindType` → `BindArraySize` → `BindValue` → `BindInvocation`
 → `BoundInvocationExpression.Type` → `SourceMethodSymbol.ReturnType` → and round again. A member
-function whose return type is an array sized by a call to itself; nothing on that path asks whether it
-is already resolving the symbol it is being asked for. Reproduces in 40 ms from the seven lines above.
-Only inside a `shader` — the same shape at the top level binds fine, so the two symbol paths do not
-agree about cycles.
+function whose return type is an array sized by a call to itself; nothing on that path asked whether it
+was already resolving the symbol it was being asked for. Reproduced in 40 ms from the seven lines above.
 
-Open, and **deliberately not in the corpus**: an input that overflows the stack takes the test host
-with it on every build, and the rule here is that promotion follows the fix. It is also the honest
-edge of the guard — see *What survives a runaway*: the CLR ends the process at the overflow, so there
-is no thread left to write a finding and no sample early enough to have taken one. A depth bound on
-the resolution, of the kind `RavenTargets.Shape` already keeps for tree recursion, is what this wants.
+⚠ **"Only inside a `shader`" was the wrong reading of it, and chasing that would have found nothing.**
+A `struct` does it too. What is true is that the same text at the *top level* does not crash — because
+a package-level `func` never becomes a symbol at all, so it is not bound rather than bound fine:
+`func G(): Missing` outside a type reports no `RVN2002` either. The real asymmetry was one layer in.
+Four source symbols resolve a declared type; `SourceFieldSymbol` and `SourcePropertySymbol` wrap the
+whole of it in a per-symbol `resolving` flag that reports `RVN2005`, `SourceMethodSymbol` had that flag
+around its *inferred* branch only and left the annotation unguarded, and neither parameter symbol had
+one.
+
+**Fixed by giving all four the same guard**, keyed by the symbol, which closes the family rather than
+the instance: a return type, a parameter type (`func F(x: float[F(1f)])`), two signatures sizing arrays
+by each other, and a `val` parameter sizing its own type (`shader S<val N: int[N]>`) all went to the
+guard page before and all now name the symbol they are circular through. A depth bound would have
+closed the instance and left the other three.
+
+**And so it is in the corpus** — `raven/70ae34e20b4880ee.bin`. It had been kept out deliberately while
+it was open: an input that overflows the stack takes the test host with it on every build, and the rule
+here is that promotion follows the fix. It stays the honest edge of the guard — see *What survives a
+runaway*: the CLR ends the process at the overflow, so there is no thread left to write a finding and
+no sample early enough to have taken one. Bounding this recursion did not change that; a case per child
+process still would.
 
 **And one found and deliberately not fixed**, because the fix is not this harness's to make: the binder
 writes `null` into a member declared non-nullable. `subAssets: null` in a sidecar produces an

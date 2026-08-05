@@ -69,6 +69,15 @@
         <EmbeddedResource Include="..\..\Raven\Library\Example2.rvn" LogicalName="Example2.rvn" />
 
         <!--
+            The nightly's per-target budgets, next to the registry they are a budget for.
+            .github/workflows/nightly.yml reads this file from the checkout to build its matrix, and it
+            is copied to the output so FuzzGateTests can read the same bytes and assert that the two
+            lists are one list. Without the copy the test would have to walk out of bin/ to find it,
+            which is the kind of path that goes stale in a rename and takes the assertion with it.
+        -->
+        <None Include="nightly-budgets.json" CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so every project in this
             repository that declares [DataContract] types names the generators itself. This one
             declares exactly one — the importer settings the .meta seeds carry a tag for, which has

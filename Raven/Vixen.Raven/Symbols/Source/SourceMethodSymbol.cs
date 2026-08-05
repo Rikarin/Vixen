@@ -180,26 +180,33 @@ public sealed class SourceMethodSymbol : MethodSymbol {
             return BuiltInTypes.Void;
         }
 
-        if (ReturnTypeSyntax is { } annotation) {
-            return TypeScopedBinder.BindType(annotation);
+        // ⚠ **The guard is around the whole resolution, not only the inferred branch** — the shape
+        // SourceFieldSymbol and SourcePropertySymbol already have. An annotation is not inert: an
+        // array rank folds its size, which binds an expression, which can be a call to this very
+        // method and asks it for the return type being resolved. `func F(): float[F()]` took that
+        // route, and with the guard sitting one branch further down it recursed to the guard page —
+        // a stack overflow, which is the one failure the compiler cannot turn into a diagnostic
+        // because the process is gone before anything can write one.
+        if (resolvingReturnType) {
+            binder.Diagnostics.Add(SemanticDiagnostics.CircularDefinition, DeclaringSyntax.GetLocation(), Name);
+            return ErrorTypeSymbol.Instance;
         }
 
-        // `func f() => expr` with no annotation takes its type from the body.
-        if (ExpressionBody?.Expression is { } expression) {
-            if (resolvingReturnType) {
-                binder.Diagnostics.Add(SemanticDiagnostics.CircularDefinition, DeclaringSyntax.GetLocation(), Name);
-                return ErrorTypeSymbol.Instance;
+        resolvingReturnType = true;
+        try {
+            if (ReturnTypeSyntax is { } annotation) {
+                return TypeScopedBinder.BindType(annotation);
             }
 
-            resolvingReturnType = true;
-            try {
+            // `func f() => expr` with no annotation takes its type from the body.
+            if (ExpressionBody?.Expression is { } expression) {
                 return new MemberBinder(binder, this, null, Parameters, TypeParameters).InferType(expression);
-            } finally {
-                resolvingReturnType = false;
             }
-        }
 
-        return BuiltInTypes.Void;
+            return BuiltInTypes.Void;
+        } finally {
+            resolvingReturnType = false;
+        }
     }
 
     /// <summary>Resolves the whole signature, so its diagnostics appear unprompted.</summary>
