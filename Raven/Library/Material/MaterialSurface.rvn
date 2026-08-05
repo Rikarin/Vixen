@@ -395,6 +395,40 @@ shader NormalMapSurface : IMaterialSurface {
     }
 }
 
+/// Replaces the shading normal from a tangent-space normal *map*.
+///
+/// What `NormalMapSurface` above could not be for as long as a feature could not sample: that one
+/// carries a single `normalTS` constant, which bends a whole surface one way and is a normal map in
+/// name only. This one reads a map through the frame's table, which is the same seat
+/// `TexturedMetalRoughnessSurface` sits in and for the same reason.
+///
+/// ⚠ **`Normals.Decode` maps the sample from 0..1 back to -1..1, and that is correct here even though
+/// the engine's standing rule is that a normal is never rescaled on the way in.** The two are
+/// different reads. A G-buffer normal is stored *raw signed* in `Rgba16Float` — a format that holds
+/// negatives — so decoding one is a corruption, and `GBuffer.rvn` only calls `Math.FromUnorm` on the
+/// two channels it deliberately packed with `ToUnorm`. A normal *map* is an unsigned texture authored
+/// by a baker that had no choice, so its -1..1 range is genuinely folded into 0..1 and genuinely has
+/// to be unfolded. The rule is about the G-buffer; it does not reach here.
+///
+/// Three channels rather than two, because that is what the sample content is: `Normals.Decode`
+/// against `Normals.DecodeTwoChannel`, and the second is what a BC5 map would want.
+shader TexturedNormalMapSurface : MaterialTextures, IMaterialSurface {
+    /// Which slot of the frame's table holds this material's normal map.
+    var normalIndex: uint = 0u
+
+    /// How far the normal is bent, where 1 is as authored.
+    var strength: float = 1f
+
+    func Compute(inout d: MaterialData) {
+        val sampled = SampleSurface(normalIndex, d)
+
+        // Rotated by the frame the *pass* supplied, for the reason `NormalMapSurface` states at
+        // length: a tangent-space vector assigned straight to `normalWS` lights every surface as
+        // though it faced +Z, which reads as a broken map rather than as a missing basis.
+        d.normalWS = Normals.ToWorld(d.tangentFrame, Normals.Decode(sampled.rgb, strength))
+    }
+}
+
 /// Adds emitted radiance.
 shader EmissiveSurface : IMaterialSurface {
     var emissiveColor: float3 = float3(0f, 0f, 0f)

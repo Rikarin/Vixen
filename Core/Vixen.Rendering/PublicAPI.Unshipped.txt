@@ -3351,6 +3351,16 @@ Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.get -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.init -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.TexturedMetalRoughnessFeature() -> void
+Vixen.Rendering.Materials.TexturedNormalMapFeature -> sealed record
+Vixen.Rendering.Materials.TexturedNormalMapFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedNormalMapFeature>
+Vixen.Rendering.Materials.TexturedNormalMapFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedNormalMapFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalMap.get -> string
+Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalMap.init -> string
+Vixen.Rendering.Materials.TexturedNormalMapFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.get -> float
+Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.init -> float
+Vixen.Rendering.Materials.TexturedNormalMapFeature.TexturedNormalMapFeature() -> void
 Vixen.Rendering.MemoryMeshletPageSource -> sealed class
 Vixen.Rendering.MemoryMeshletPageSource : Vixen.Rendering.IMeshletPageSource
 Vixen.Rendering.MemoryMeshletPageSource.Add(int source, Vixen.Rendering.VirtualGeometry.MeshletPageSet pages) -> void
@@ -6208,6 +6218,7 @@ static Vixen.Rendering.Materials.MaterialSurface.Default.get -> Vixen.Rendering.
 static Vixen.Rendering.Materials.MaterialSurface.Of(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.IMaterialFeature>? features) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.MaterialSurface.Of(Vixen.Rendering.Materials.MaterialContent? content) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorIndexParameter(string path) -> string
+static Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalIndexParameter(string path) -> string
 static Vixen.Rendering.MeshInstance.NormalMatrix(in Vixen.Core.Mathematics.Matrix4x4 transform) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4), Vixen.Rendering.Materials.MaterialSurface? surface = null, float checker = 0, float tint = 0) -> Vixen.Rendering.MeshInstance
 static Vixen.Rendering.MeshInstance.Packed(Vixen.Rendering.Materials.MaterialSurface surface, float checker = 0, float tint = 0) -> Vixen.Core.Mathematics.Vector4

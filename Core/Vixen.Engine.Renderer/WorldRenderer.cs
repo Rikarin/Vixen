@@ -810,14 +810,35 @@ public sealed class WorldRenderer : IDisposable {
     ///         <see cref="TexturedMetalRoughnessFeature.BaseColorIndexParameter" /> takes a path rather
     ///         than a slot.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every sampling feature has to be listed, and a feature that is not listed fails
+    ///         exactly like a renamed map.</b> Its index is never written, so it stays zero, so the map
+    ///         is read from slot zero and the surface is shaded by a checker — which for a normal map
+    ///         is a lit surface whose shading is wrong rather than a surface that is obviously
+    ///         untextured. <c>MaterialRenderFeature.UnresolvedTextureCount</c> is what says so.
+    ///     </para>
     /// </remarks>
     static void Paired(MaterialRenderFeature materials, string shader) {
-        var path = $"{shader}.{MaterialCompiler.ChainShader}.{new TexturedMetalRoughnessFeature().ShaderName}.";
+        var prefix = $"{shader}.{MaterialCompiler.ChainShader}.";
+
+        var baseColor = new TexturedMetalRoughnessFeature();
+        var normal = new TexturedNormalMapFeature();
 
         materials.TextureIndices[
-                ParameterKeys.New<uint>(TexturedMetalRoughnessFeature.BaseColorIndexParameter(path))
+                ParameterKeys.New<uint>(
+                    TexturedMetalRoughnessFeature.BaseColorIndexParameter(
+                        prefix + baseColor.ShaderName + "."
+                    )
+                )
             ] =
-            ParameterKeys.New<TextureViewHandle>(new TexturedMetalRoughnessFeature().BaseColorMap);
+            ParameterKeys.New<TextureViewHandle>(baseColor.BaseColorMap);
+
+        materials.TextureIndices[
+                ParameterKeys.New<uint>(
+                    TexturedNormalMapFeature.NormalIndexParameter(prefix + normal.ShaderName + ".")
+                )
+            ] =
+            ParameterKeys.New<TextureViewHandle>(normal.NormalMap);
     }
 
     /// <summary>
