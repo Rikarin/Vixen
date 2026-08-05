@@ -92,9 +92,12 @@ public sealed record FuzzOutcome(
 /// <remarks>
 ///     <para>
 ///         <b>The oracles are the point, not the loop.</b> Pushing bytes at a decoder proves nothing
-///         on its own — the decoder has to be measured while it does it. Three things are measured:
-///         that nothing was thrown, that the allocation was proportionate to the input, and that the
-///         case finished quickly. Everything else about the decode is the target's business.
+///         on its own — the decoder has to be measured while it does it. Four things are measured:
+///         that nothing was thrown, that the allocation was proportionate to the input, that nothing
+///         was retained, and that the case finished quickly. Everything else about the decode is the
+///         target's business — including, since <see cref="IFuzzTarget.Domain" />, how its inputs were
+///         made. None of the four asks what an input <i>is</i>, which is what let that be added
+///         without disturbing any of them.
 ///     </para>
 ///     <para>
 ///         <b>Deterministic, and that is a requirement rather than a nicety.</b> The generator is
@@ -120,6 +123,7 @@ public sealed class FuzzSession {
     readonly Mutator mutator;
     readonly Corpus corpus = new();
     readonly FuzzRandom picker;
+    readonly FuzzRandom shaper;
     readonly List<FuzzFinding> findings = [];
     readonly Stopwatch clock = new();
 
@@ -172,6 +176,12 @@ public sealed class FuzzSession {
         this.target = target;
         mutator = new(seed);
         picker = new(seed ^ 0x9E3779B97F4A7C15ul);
+
+        // Its own generator rather than the picker's, so that adding a domain to a target does not
+        // change which corpus entries every *other* case draws. A run is reproduced from its seed,
+        // and that only holds if the streams are independent.
+        shaper = new(seed ^ 0xD1B54A32D192ED03ul);
+        corpus.NoveltyGuides = target.NoveltyGuides;
     }
 
     /// <summary>Runs a fixed number of cases.</summary>
@@ -190,13 +200,20 @@ public sealed class FuzzSession {
 
         long executed = 0;
 
+        var domain = target.Domain;
+
         while (executed < cases && clock.Elapsed < budget && findings.Count < MaxFindings) {
-            var input = mutator.Mutate(corpus.Pick(picker.Next()), corpus.Pick(picker.Next()));
+            var first = corpus.Pick(picker.Next());
+            var second = corpus.Pick(picker.Next());
+
+            // The one line the seam changes. Everything below — the measurement, the oracles, the
+            // corpus, the bytes a finding carries — is indifferent to which branch produced the input.
+            var input = domain is null ? mutator.Mutate(first, second) : domain.Mutate(first, second, shaper);
 
             // One in sixteen from nothing. The corpus records shapes that have been reached, and a
             // run that only ever mutates it cannot reach a shape no seed was near.
             if (picker.Next() % 16 == 0) {
-                input = mutator.Fresh();
+                input = domain is null ? mutator.Fresh() : domain.Fresh(shaper);
             }
 
             Execute(input, ++executed > WarmUpCases, keep: true);

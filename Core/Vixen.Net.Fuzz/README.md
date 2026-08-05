@@ -75,10 +75,14 @@ Not done here because a project rename touches the solution file, every `Project
 workflow and the test project beside it, and this branch is one of several in flight. It is a
 mechanical change worth doing on its own.
 
-## The three oracles
+## The four oracles
 
 Pushing bytes at a decoder proves nothing on its own. What makes this a test is what is measured while
 it happens.
+
+**They are statements about behaviour, not about input shape**, which is why the structure-aware seam
+below could be added without touching any of them — and is the entire reason to have grown this
+harness rather than adopted `SharpFuzz`.
 
 **Nothing throws.** The whole never-throws design in `PacketReader`'s remarks exists because an
 exception out of a receive path is a denial of service if it unwinds a frame and a crash if it does
@@ -136,6 +140,61 @@ times out of four billion. So:
   without bound is a memory leak wearing a hat. Past `MaxSignatures` the guidance has demonstrated
   that nearly everything looks new to it, so it is switched off rather than paid for — which is what
   `packet` and `bits` do, and the printed ratio is where you can see it.
+
+## Structure-aware inputs
+
+**Havoc is the right tool for a decoder and the wrong one for a compiler.** The mutator is aimed at
+length prefixes and varints and is very good at those. Pointed at a *language* it spends effectively
+all of its budget on text that does not lex, and a shader that fails at its first token has exercised
+the tokeniser and nothing behind it — so the binder, the type checker and the backend, which is where a
+compiler's defects live, are never reached.
+
+So a target may declare an `IFuzzDomain`: how to read a corpus entry into a value, how to change one,
+and how to write one back out. A grammar's version of havoc is replacing a subtree with another of the
+same kind, duplicating one, deleting an optional one, grafting one in from a second corpus entry, or
+swapping an operator for one the grammar also allows there — each producing something that lexes and
+mostly parses, and therefore something that reaches the passes behind the front end.
+
+Three things about it are load-bearing:
+
+- **The four oracles did not change, and that was the constraint rather than the outcome.** They are
+  statements about behaviour — nothing threw, nothing amplified, nothing was retained, nothing hung —
+  and none of them asks what an input *is*. `IFuzzTarget.Run` still takes a `ReadOnlySpan<byte>`,
+  `FuzzSession` still measures around that one call, and a finding still carries the exact bytes. A
+  design that had made the oracles care about trees would have thrown away the only reason to grow this
+  harness instead of adopting `SharpFuzz`.
+- **The corpus format stays bytes, and for a language that costs nothing.** A tree's serialization is
+  its source text, which is what a corpus file should hold anyway: readable in a diff, committable as a
+  regression, and something a person reproducing a finding can hand to the real compiler. The price is
+  a parse per case on the way in and another inside `Run`.
+- **Garbage is still generated, and leaving it out is the mistake this is most likely to make.** A tree
+  mutator only ever emits text the printer produced, so an unterminated string, a stray byte and a
+  nesting depth that runs the parser out of stack stop being reached the moment structured generation
+  *replaces* byte havoc rather than joining it. One mutation in `FuzzDomain.GarbageIn` is havoc over
+  the serialized form. It is also what keeps a committed regression useful: a crasher found by havoc
+  usually is not a tree, so it fails `TryRead`, and without the blend it would be replayed once at
+  start-up and never mutated again.
+
+### And guidance, which such a target should turn off
+
+`IFuzzTarget.NoveltyGuides` is true for a decoder and false for a compiler, and the difference is the
+size of the behaviour space rather than a preference. A packet reader has a few dozen outcomes, so
+"this input did something new" is a strong signal and a corpus selected on it is a set of
+representatives. A compiler has a behaviour for every combination of declarations, types and
+diagnostics there is: nearly everything looks new, the signature table saturates in seconds, and what
+it selected before saturating was whatever the first few thousand cases happened to be.
+
+Declaring it false is **accepting unguided but structured generation**, which is a position rather than
+a shortfall. The guidance existed to walk a decoder into branches random bytes never reach; a
+grammar-aware domain reaches them by construction instead.
+
+What it buys in exchange is a fix to something that was simply wrong. Saturation used to stop two
+things at once: the signature table growing, which is the memory bound it exists for, and *the corpus
+growing at all*, which nothing wanted — so a run that saturates in its first second spends the rest of
+an hour mutating whatever the first few thousand cases left behind. Past saturation a target that
+declared it keeps one input in `Corpus.Sample` regardless of what it did, and the pool goes on turning
+over. A target that did *not* declare it still freezes, which is the conservative answer: a decoder
+whose signature cannot saturate has a signature that is wrong, and the finding is that.
 
 The whole thing is deterministic. The generator is seeded from the target name, the mutations are a
 pure function of it, and the corpus grows in a fixed order — so a failure on a CI runner is reproduced
@@ -244,6 +303,8 @@ without it.
   find in an hour what this finds in a week. The targets are already the right shape for it — each is
   `(ReadOnlySpan<byte>) -> outcome` — so the wrapper is a few lines. Worth having *alongside* rather
   than instead: this one runs on every build, which an instrumented one never will.
-- **Structure-aware mutation.** The mutator does not know a snapshot from a handshake. A mutator that
-  understood the record format could keep the tick and break the payload, rather than spending most of
-  its budget on inputs the first field refuses.
+- **Structure-aware mutation for the *binary* formats.** The seam exists and the grammars use it, but
+  the mutator still does not know a snapshot from a handshake. A domain that understood the record
+  format could keep the tick and break the payload, rather than spending most of its budget on inputs
+  the first field refuses. `IFuzzDomain` is where such a thing would go, and nothing about it is
+  specific to text — it was built for trees because that is where the need was sharpest.
