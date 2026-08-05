@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using System.Text;
+using Vixen.Net.Fuzz.Targets;
 using Vixen.Ui.Markup.Syntax;
 using Xunit;
 
@@ -82,7 +83,14 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
         // domain parses a corpus entry to choose an edit, the target parses the result, and then the
         // reparse oracle parses an edited copy twice so the incremental and full trees can be
         // compared. That is the point of the target and it is not cheap.
-        ["vxml"] = 20_000
+        ["vxml"] = 20_000,
+
+        // And the smallest of all, because a case here is a whole compiler. Parse, print, reparse
+        // twice for the incremental oracle, then bind and analyse flow — and for the rare mutant that
+        // still compiles clean, lower, verify, emit SPIR-V and hand the module to spirv-val down a
+        // pipe. Depth on this one belongs to the nightly, which is bounded by time and gives every
+        // target the same ten minutes; the gate's job here is to notice that the pipeline still runs.
+        ["raven"] = 1_500
     };
 
     /// <summary>One row per registered target, so a new one cannot be left out.</summary>
@@ -161,9 +169,11 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
     ///         one has to be asked.
     ///     </para>
     /// </remarks>
-    [Fact]
-    public void EveryGrammarSeedIsWellFormed() {
-        var target = FuzzTargets.Named("vxml");
+    [Theory]
+    [InlineData("vxml")]
+    [InlineData("raven")]
+    public void EveryGrammarSeedIsWellFormed(string name) {
+        var target = FuzzTargets.Named(name);
 
         try {
             var seeds = new List<byte[]>();
@@ -173,20 +183,81 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
 
             foreach (var seed in seeds) {
                 var source = Encoding.UTF8.GetString(seed);
-                var tree = SyntaxTree.ParseText(source, "Seed.vxml");
+                var (printed, reported) = Parse(name, source);
 
                 Assert.True(
-                    tree.Diagnostics.Count == 0,
-                    $"A vxml seed does not parse cleanly and therefore seeds nothing:\n{source}\n  "
-                    + string.Join("\n  ", tree.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+                    reported.Count == 0,
+                    $"A {name} seed does not parse cleanly and therefore seeds nothing:\n{source}\n  "
+                    + string.Join("\n  ", reported)
                 );
 
-                Assert.Equal(source, tree.GetRoot().ToFullString());
+                Assert.Equal(source, printed);
             }
         } finally {
             (target as IDisposable)?.Dispose();
         }
     }
+
+    /// <summary>Parses a seed with whichever front end owns it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Raven looks enough like C from a distance to be written from memory and be wrong.</b>
+    ///     Its statements end at a line break rather than a semicolon and its fields are
+    ///     <c>var x: float</c> — so a seed typed out in the C shape parses into a tree full of
+    ///     fabricated tokens, and because the parser is total it goes on looking exactly like a seed
+    ///     that works. Every seed in this target's first draft was of that kind.
+    /// </remarks>
+    static (string Printed, IReadOnlyList<string> Reported) Parse(string name, string source) {
+        if (string.Equals(name, "raven", StringComparison.Ordinal)) {
+            var raven = Vixen.Raven.Syntax.SyntaxTree.ParseText(source, path: "Seed.rvn");
+
+            return (raven.GetRoot().ToFullString(), [.. raven.Diagnostics.Select(d => d.ToString())]);
+        }
+
+        var markup = SyntaxTree.ParseText(source, "Seed.vxml");
+
+        return (markup.GetRoot().ToFullString(), [.. markup.Diagnostics.Select(d => d.ToString())]);
+    }
+
+    /// <summary>The SPIR-V validator is installed, so the <c>raven</c> target means something.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A silent skip would make the codegen half of that target vacuous while the run
+    ///         still printed "clean".</b> Every other oracle in this harness compares two things Vixen
+    ///         wrote; <c>spirv-val</c> is the only one that asks somebody else whether the answer is
+    ///         right, and it is therefore the only one that can catch a backend emitting a module that
+    ///         is <i>valid and wrong</i> — the class an implicit-LOD substitution belonged to for four
+    ///         months. Absent, the target goes on passing and stops checking that.
+    ///     </para>
+    ///     <para>
+    ///         The same argument, and the same test, as
+    ///         <c>SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something</c>. CI
+    ///         installs <c>spirv-tools</c> on both legs.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheSpirvValidatorIsInstalled() =>
+        Assert.True(
+            Spirv.Available,
+            "spirv-val is not on PATH, so the raven target generates modules and validates nothing. "
+            + "Install spirv-tools (brew install spirv-tools, or apt-get install spirv-tools)."
+        );
+
+    /// <summary>The validity oracle is switched off, and this is the note saying so out loud.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It works, and it is off because of what it found.</b> Two one-token edits of
+    ///     <c>Example2.rvn</c> compile with no diagnostic at all and emit modules a driver would
+    ///     reject — a <c>bool</c> where SPIR-V forbids one, and an <c>OpConstantNull</c> of
+    ///     <c>void</c>. Both are committed under <c>Corpus/raven</c> and both replay the moment
+    ///     <c>VIXEN_FUZZ_SPIRV</c> is set. This test is here so that "off" is a fact somebody reads
+    ///     rather than a silence, and it is <b>meant to be deleted</b> along with
+    ///     <see cref="Spirv.Enabled" /> when the two are fixed.
+    /// </remarks>
+    [Fact]
+    public void TheValidityOracleIsQuarantinedNotForgotten() =>
+        Assert.SkipWhen(
+            Spirv.Enabled,
+            "VIXEN_FUZZ_SPIRV is set, so modules are being validated — delete this test and the switch."
+        );
 
     /// <summary>Every registered target has a case budget somebody chose.</summary>
     /// <remarks>

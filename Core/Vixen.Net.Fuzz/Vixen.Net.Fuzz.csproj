@@ -55,6 +55,18 @@
             that the tree is the file.
         -->
         <ProjectReference Include="..\Vixen.Ui.Markup\Vixen.Ui.Markup.csproj" />
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The shader seeds, embedded rather than typed out, so that a change to a shipped example
+            changes the corpus with it — the same rule the packet targets follow by writing their
+            seeds through the real encoders. Example1 is the one asserted to compile the whole way
+            through both backends, which is what puts codegen within one edit of a seed.
+        -->
+        <EmbeddedResource Include="..\..\Raven\Library\Example1.rvn" LogicalName="Example1.rvn" />
+        <EmbeddedResource Include="..\..\Raven\Library\Example2.rvn" LogicalName="Example2.rvn" />
 
         <!--
             Analyzers do not flow transitively through a ProjectReference, so every project in this
