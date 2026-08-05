@@ -256,14 +256,15 @@ public sealed record GeometryQuality {
 
 /// <summary>Vegetation and terrain-surface budgets for one tier.</summary>
 /// <remarks>
-///     ⚠ All entries are carried, not yet consumed. Unlike the pre-landing era, every one now maps
-///     to a parameter that exists: the density scales are the scatter kernels' own multipliers
-///     (<c>GrassScatter</c>'s <c>densityScale</c>, and the same fold over
+///     Every entry lands on a parameter that exists: the density scales are the scatter kernels' own
+///     multipliers (<c>GrassScatter</c>'s <c>densityScale</c>, and the same fold over
 ///     <c>FoliageType.Density</c>), the cull scales multiply each type's authored cull distances,
 ///     the cell counts are <c>GrassResidency</c>'s and the foliage streamer's capacities, and the
-///     near range is <c>TerrainLodRanges.NearRange</c>. What is missing is the seam that constructs
-///     those renderers from a frame at all — they land in the preset first so a project's tiers do
-///     not change shape when that seam arrives.
+///     near range is <c>TerrainLodRanges.NearRange</c>.
+///     ⚠ <b>They reach those renderers by hand-off, not by reference.</b>
+///     <c>Vixen.Rendering.Terrain</c> cannot see this assembly — the dependency runs the other way —
+///     so the terrain factory declares its own plain-numbered copy and the host folds a resolved
+///     tier into it. A knob added here is not wired until that copy grows the same field.
 /// </remarks>
 [DataContract("VegetationQuality")]
 public sealed record VegetationQuality {
