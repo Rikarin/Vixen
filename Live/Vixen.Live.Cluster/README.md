@@ -45,6 +45,7 @@ key.
 | `IAccountGrain` | one **account's** collection — a grain doc 27 § Grains does not have, and G8 is what showed was missing |
 | `IGuildGrain` | one guild's roster and ranks — declared now that G4 has built the feature it is a contract for |
 | `IInstanceGrain` | one saved instance: its roster, its fleet-wide lockout, and what is dead in it |
+| `IQueueGrain` | one queue's tickets and the matches it has formed — doc 28's "grain-held record" |
 | `IFleetGrain` | a region's register, the rollout target, and where a stuck drain escalates to |
 
 Doc 27 § Grains lists eight. `IPartyGrain`, `IGuildGrain`, `IQueueGrain` and `IInstanceGrain` are not

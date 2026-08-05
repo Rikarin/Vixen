@@ -155,6 +155,8 @@ Vixen.Live.Orchestration.HealthOptions.MissesBeforeLost.init -> int
 Vixen.Live.Orchestration.HealthOptions.Now.get -> System.Func<System.DateTimeOffset>
 Vixen.Live.Orchestration.HealthOptions.Now.init -> System.Func<System.DateTimeOffset>
 Vixen.Live.Orchestration.HealthOptions.Patience.get -> System.TimeSpan
+Vixen.Live.Orchestration.IQueueMatcher -> interface
+Vixen.Live.Orchestration.IQueueMatcher.Form(System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.QueueTicket> waiting, System.DateTimeOffset now) -> System.Collections.Generic.IEnumerable<System.Collections.Immutable.ImmutableArray<System.Collections.Immutable.ImmutableArray<string>>>
 Vixen.Live.Orchestration.InstanceGrain -> sealed class
 Vixen.Live.Orchestration.InstanceGrain : Orleans.Grain
 Vixen.Live.Orchestration.InstanceGrain : Vixen.Live.Cluster.IInstanceGrain
@@ -249,6 +251,10 @@ Vixen.Live.Orchestration.OrchestratorOptions.Maps.init -> System.Collections.Gen
 Vixen.Live.Orchestration.OrchestratorOptions.OrchestratorOptions(string ClusterId, string ServiceId, System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Live.Orchestration.MapOptions> Maps, Vixen.Live.Orchestration.MapOptions? Default) -> void
 Vixen.Live.Orchestration.OrchestratorOptions.ServiceId.get -> string
 Vixen.Live.Orchestration.OrchestratorOptions.ServiceId.init -> string
+Vixen.Live.Orchestration.PairMatcher -> sealed class
+Vixen.Live.Orchestration.PairMatcher : Vixen.Live.Orchestration.IQueueMatcher
+Vixen.Live.Orchestration.PairMatcher.Form(System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.QueueTicket> waiting, System.DateTimeOffset now) -> System.Collections.Generic.IEnumerable<System.Collections.Immutable.ImmutableArray<System.Collections.Immutable.ImmutableArray<string>>>
+Vixen.Live.Orchestration.PairMatcher.PairMatcher() -> void
 Vixen.Live.Orchestration.PlacementDecision -> sealed record
 Vixen.Live.Orchestration.PlacementDecision : System.IEquatable<Vixen.Live.Orchestration.PlacementDecision>
 Vixen.Live.Orchestration.PlacementDecision.Endpoint.get -> Vixen.Live.RealmEndpoint
@@ -365,6 +371,30 @@ Vixen.Live.Orchestration.PlayerLeaseState.IsHeld.get -> bool
 Vixen.Live.Orchestration.PlayerLeaseState.PlayerLeaseState(Vixen.Live.Orchestration.LeaseOptions? options = null) -> void
 Vixen.Live.Orchestration.PlayerLeaseState.Release(Vixen.Live.ShardId shard, long presented) -> void
 Vixen.Live.Orchestration.PlayerLeaseState.Renew(Vixen.Live.ShardId shard, long presented) -> Vixen.Live.Cluster.PlayerLease
+Vixen.Live.Orchestration.QueueGrain -> sealed class
+Vixen.Live.Orchestration.QueueGrain : Orleans.Grain
+Vixen.Live.Orchestration.QueueGrain : Vixen.Live.Cluster.IQueueGrain
+Vixen.Live.Orchestration.QueueGrain.Abandon(System.Guid match, System.DateTimeOffset now) -> System.Threading.Tasks.Task<bool>
+Vixen.Live.Orchestration.QueueGrain.Backfill(System.Guid match, int seats) -> System.Threading.Tasks.Task<bool>
+Vixen.Live.Orchestration.QueueGrain.Cancel(string ticket) -> System.Threading.Tasks.Task<bool>
+Vixen.Live.Orchestration.QueueGrain.Cycle(System.DateTimeOffset now) -> System.Threading.Tasks.Task<System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.QueueMatch>>
+Vixen.Live.Orchestration.QueueGrain.Enqueue(Vixen.Live.Cluster.QueueEntry entry) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.QueueTicket>
+Vixen.Live.Orchestration.QueueGrain.QueueGrain() -> void
+Vixen.Live.Orchestration.QueueGrain.Read() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.QueueSnapshot>
+Vixen.Live.Orchestration.QueueGrain.Start(System.Guid match) -> System.Threading.Tasks.Task<bool>
+Vixen.Live.Orchestration.QueueGrain.Ticket(string ticket) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.QueueTicket?>
+Vixen.Live.Orchestration.QueueState -> sealed class
+Vixen.Live.Orchestration.QueueState.Abandon(System.Guid match, System.DateTimeOffset now) -> bool
+Vixen.Live.Orchestration.QueueState.Backfill(System.Guid match, int seats) -> bool
+Vixen.Live.Orchestration.QueueState.Cancel(string ticket) -> bool
+Vixen.Live.Orchestration.QueueState.Cycle(System.DateTimeOffset now) -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.QueueMatch>
+Vixen.Live.Orchestration.QueueState.Enqueue(Vixen.Live.Cluster.QueueEntry entry) -> Vixen.Live.Cluster.QueueTicket
+Vixen.Live.Orchestration.QueueState.Open.get -> int
+Vixen.Live.Orchestration.QueueState.QueueState(Vixen.Live.Orchestration.IQueueMatcher? matcher = null) -> void
+Vixen.Live.Orchestration.QueueState.Read(System.DateTimeOffset now) -> Vixen.Live.Cluster.QueueSnapshot
+Vixen.Live.Orchestration.QueueState.Start(System.Guid match) -> bool
+Vixen.Live.Orchestration.QueueState.Ticket(string ticket) -> Vixen.Live.Cluster.QueueTicket?
+Vixen.Live.Orchestration.QueueState.Waiting.get -> int
 Vixen.Live.Orchestration.Rollout -> sealed class
 Vixen.Live.Orchestration.Rollout.Admits(Vixen.Live.RealmVersion version, System.DateTimeOffset now) -> bool
 Vixen.Live.Orchestration.Rollout.Observe(System.Collections.Generic.IReadOnlyCollection<Vixen.Live.Cluster.ShardReport> shards, System.DateTimeOffset now) -> Vixen.Live.Orchestration.RolloutDecision

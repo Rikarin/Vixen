@@ -152,6 +152,26 @@ public sealed class ClusterSerializationTests {
         );
 
         Assert.Equal(saved, RoundTrip(saved));
+
+        var formed = new QueueMatch(
+            Guid.NewGuid(),
+            [new(["1"]), new(["2"])],
+            0.94,
+            DateTimeOffset.UnixEpoch,
+            false
+        );
+
+        Assert.Equal(formed, RoundTrip(formed));
+
+        var ticket = new QueueTicket(
+            "1",
+            new([new(Guid.NewGuid(), Guid.NewGuid())], 1500d, 200d, ["role/tank"], DateTimeOffset.UnixEpoch),
+            QueueTicketState.Waiting,
+            Guid.Empty
+        );
+
+        Assert.Equal(ticket.Id, RoundTrip(ticket).Id);
+        Assert.Equal(ticket.Entry.Players, RoundTrip(ticket).Entry.Players);
     }
 
     [Fact]

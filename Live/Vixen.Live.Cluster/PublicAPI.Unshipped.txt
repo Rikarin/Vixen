@@ -104,6 +104,15 @@ Vixen.Live.Cluster.IPlayerGrain.Lease() -> System.Threading.Tasks.Task<Vixen.Liv
 Vixen.Live.Cluster.IPlayerGrain.ReleaseLease(Vixen.Live.ShardId shard, long epoch) -> System.Threading.Tasks.Task
 Vixen.Live.Cluster.IPlayerGrain.RenewLease(Vixen.Live.ShardId shard, long epoch) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlayerLease>
 Vixen.Live.Cluster.IPlayerGrain.Where() -> System.Threading.Tasks.Task<Vixen.Live.ShardId>
+Vixen.Live.Cluster.IQueueGrain -> interface
+Vixen.Live.Cluster.IQueueGrain.Abandon(System.Guid match, System.DateTimeOffset now) -> System.Threading.Tasks.Task<bool>
+Vixen.Live.Cluster.IQueueGrain.Backfill(System.Guid match, int seats) -> System.Threading.Tasks.Task<bool>
+Vixen.Live.Cluster.IQueueGrain.Cancel(string ticket) -> System.Threading.Tasks.Task<bool>
+Vixen.Live.Cluster.IQueueGrain.Cycle(System.DateTimeOffset now) -> System.Threading.Tasks.Task<System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.QueueMatch>>
+Vixen.Live.Cluster.IQueueGrain.Enqueue(Vixen.Live.Cluster.QueueEntry entry) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.QueueTicket>
+Vixen.Live.Cluster.IQueueGrain.Read() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.QueueSnapshot>
+Vixen.Live.Cluster.IQueueGrain.Start(System.Guid match) -> System.Threading.Tasks.Task<bool>
+Vixen.Live.Cluster.IQueueGrain.Ticket(string ticket) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.QueueTicket?>
 Vixen.Live.Cluster.IShardGrain -> interface
 Vixen.Live.Cluster.IShardGrain.Drain(string reason) -> System.Threading.Tasks.Task
 Vixen.Live.Cluster.IShardGrain.Heartbeat(Vixen.Live.Cluster.ShardHeartbeat sample) -> System.Threading.Tasks.Task<Vixen.Live.ShardState>
@@ -212,6 +221,65 @@ Vixen.Live.Cluster.PlayerLease.Granted.init -> bool
 Vixen.Live.Cluster.PlayerLease.Holder.get -> Vixen.Live.ShardId
 Vixen.Live.Cluster.PlayerLease.Holder.init -> Vixen.Live.ShardId
 Vixen.Live.Cluster.PlayerLease.PlayerLease(bool Granted, long Epoch, Vixen.Live.ShardId Holder, System.DateTimeOffset Expires) -> void
+Vixen.Live.Cluster.QueueEntry -> sealed record
+Vixen.Live.Cluster.QueueEntry : System.IEquatable<Vixen.Live.Cluster.QueueEntry>
+Vixen.Live.Cluster.QueueEntry.Deviation.get -> double
+Vixen.Live.Cluster.QueueEntry.Deviation.init -> double
+Vixen.Live.Cluster.QueueEntry.Enqueued.get -> System.DateTimeOffset
+Vixen.Live.Cluster.QueueEntry.Enqueued.init -> System.DateTimeOffset
+Vixen.Live.Cluster.QueueEntry.Players.get -> System.Collections.Immutable.ImmutableArray<Vixen.Live.PlayerKey>
+Vixen.Live.Cluster.QueueEntry.Players.init -> System.Collections.Immutable.ImmutableArray<Vixen.Live.PlayerKey>
+Vixen.Live.Cluster.QueueEntry.QueueEntry(System.Collections.Immutable.ImmutableArray<Vixen.Live.PlayerKey> Players, double Rating, double Deviation, System.Collections.Immutable.ImmutableArray<string> Tags, System.DateTimeOffset Enqueued) -> void
+Vixen.Live.Cluster.QueueEntry.Rating.get -> double
+Vixen.Live.Cluster.QueueEntry.Rating.init -> double
+Vixen.Live.Cluster.QueueEntry.Tags.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Live.Cluster.QueueEntry.Tags.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Live.Cluster.QueueMatch -> sealed record
+Vixen.Live.Cluster.QueueMatch : System.IEquatable<Vixen.Live.Cluster.QueueMatch>
+Vixen.Live.Cluster.QueueMatch.Equals(Vixen.Live.Cluster.QueueMatch? other) -> bool
+Vixen.Live.Cluster.QueueMatch.Formed.get -> System.DateTimeOffset
+Vixen.Live.Cluster.QueueMatch.Formed.init -> System.DateTimeOffset
+Vixen.Live.Cluster.QueueMatch.Id.get -> System.Guid
+Vixen.Live.Cluster.QueueMatch.Id.init -> System.Guid
+Vixen.Live.Cluster.QueueMatch.IsBackfill.get -> bool
+Vixen.Live.Cluster.QueueMatch.IsBackfill.init -> bool
+Vixen.Live.Cluster.QueueMatch.Quality.get -> double
+Vixen.Live.Cluster.QueueMatch.Quality.init -> double
+Vixen.Live.Cluster.QueueMatch.QueueMatch(System.Guid Id, System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.QueueTeam> Teams, double Quality, System.DateTimeOffset Formed, bool IsBackfill) -> void
+Vixen.Live.Cluster.QueueMatch.Teams.get -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.QueueTeam>
+Vixen.Live.Cluster.QueueMatch.Teams.init -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.QueueTeam>
+Vixen.Live.Cluster.QueueSnapshot -> sealed record
+Vixen.Live.Cluster.QueueSnapshot : System.IEquatable<Vixen.Live.Cluster.QueueSnapshot>
+Vixen.Live.Cluster.QueueSnapshot.LongestWait.get -> System.TimeSpan
+Vixen.Live.Cluster.QueueSnapshot.LongestWait.init -> System.TimeSpan
+Vixen.Live.Cluster.QueueSnapshot.Open.get -> int
+Vixen.Live.Cluster.QueueSnapshot.Open.init -> int
+Vixen.Live.Cluster.QueueSnapshot.Players.get -> int
+Vixen.Live.Cluster.QueueSnapshot.Players.init -> int
+Vixen.Live.Cluster.QueueSnapshot.QueueSnapshot(int Waiting, int Players, int Open, System.TimeSpan LongestWait) -> void
+Vixen.Live.Cluster.QueueSnapshot.Waiting.get -> int
+Vixen.Live.Cluster.QueueSnapshot.Waiting.init -> int
+Vixen.Live.Cluster.QueueTeam -> sealed record
+Vixen.Live.Cluster.QueueTeam : System.IEquatable<Vixen.Live.Cluster.QueueTeam>
+Vixen.Live.Cluster.QueueTeam.QueueTeam(System.Collections.Immutable.ImmutableArray<string> Tickets) -> void
+Vixen.Live.Cluster.QueueTeam.Tickets.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Live.Cluster.QueueTeam.Tickets.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Live.Cluster.QueueTicket -> sealed record
+Vixen.Live.Cluster.QueueTicket : System.IEquatable<Vixen.Live.Cluster.QueueTicket>
+Vixen.Live.Cluster.QueueTicket.Entry.get -> Vixen.Live.Cluster.QueueEntry
+Vixen.Live.Cluster.QueueTicket.Entry.init -> Vixen.Live.Cluster.QueueEntry
+Vixen.Live.Cluster.QueueTicket.Id.get -> string
+Vixen.Live.Cluster.QueueTicket.Id.init -> string
+Vixen.Live.Cluster.QueueTicket.Match.get -> System.Guid
+Vixen.Live.Cluster.QueueTicket.Match.init -> System.Guid
+Vixen.Live.Cluster.QueueTicket.QueueTicket(string Id, Vixen.Live.Cluster.QueueEntry Entry, Vixen.Live.Cluster.QueueTicketState State, System.Guid Match) -> void
+Vixen.Live.Cluster.QueueTicket.State.get -> Vixen.Live.Cluster.QueueTicketState
+Vixen.Live.Cluster.QueueTicket.State.init -> Vixen.Live.Cluster.QueueTicketState
+Vixen.Live.Cluster.QueueTicketState -> enum : int
+Vixen.Live.Cluster.QueueTicketState.Done = 2 -> Vixen.Live.Cluster.QueueTicketState
+Vixen.Live.Cluster.QueueTicketState.Matched = 1 -> Vixen.Live.Cluster.QueueTicketState
+Vixen.Live.Cluster.QueueTicketState.QueueTicketState() -> void
+Vixen.Live.Cluster.QueueTicketState.Waiting = 0 -> Vixen.Live.Cluster.QueueTicketState
 Vixen.Live.Cluster.RealmEndpointConverter -> sealed class
 Vixen.Live.Cluster.RealmEndpointConverter.ConvertFromSurrogate(in Vixen.Live.Cluster.RealmEndpointSurrogate surrogate) -> Vixen.Live.RealmEndpoint
 Vixen.Live.Cluster.RealmEndpointConverter.ConvertToSurrogate(in Vixen.Live.RealmEndpoint value) -> Vixen.Live.Cluster.RealmEndpointSurrogate
@@ -307,6 +375,7 @@ Vixen.Live.Cluster.ShardReport.State.init -> Vixen.Live.ShardState
 override Vixen.Live.Cluster.AccountHoldings.GetHashCode() -> int
 override Vixen.Live.Cluster.GuildRecord.GetHashCode() -> int
 override Vixen.Live.Cluster.InstanceRecord.GetHashCode() -> int
+override Vixen.Live.Cluster.QueueMatch.GetHashCode() -> int
 static Vixen.Live.Cluster.AccountHoldings.Empty.get -> Vixen.Live.Cluster.AccountHoldings
 static Vixen.Live.Cluster.GuildRecord.None.get -> Vixen.Live.Cluster.GuildRecord
 static Vixen.Live.Cluster.InstanceRecord.None.get -> Vixen.Live.Cluster.InstanceRecord

@@ -427,3 +427,112 @@ public sealed record InstanceOutcome([property: Id(0)] InstanceWrite Write, [pro
     /// <summary>Whether the instance is now in the state the caller asked for.</summary>
     public bool Ok => Write is InstanceWrite.Applied or InstanceWrite.Unchanged;
 }
+
+/// <summary>What somebody joining a queue asks for.</summary>
+/// <remarks>
+///     ⚠ <b><see cref="PlayerKey" />s and a pair of doubles, and deliberately not
+///     <c>Vixen.Live.Matchmaking</c>'s <c>MatchTicket</c>.</b> That type carries a
+///     <c>Vixen.Gameplay.PlayerId</c>, which is realm-scoped and must never be the thing a queue
+///     holds — a ticket outlives the realm the player was on when they joined it. It also lives
+///     above <c>Vixen.Gameplay</c>, and the cluster contract stays free of doc 28 for
+///     <see cref="AccountUnlock" />'s reason: the gate links this and should not link an inventory
+///     system. The orchestrator maps one to the other, which is where the matchmaker runs.
+/// </remarks>
+/// <param name="Players">Who. One for a solo queue; a party is never split.</param>
+/// <param name="Rating">How good they are thought to be.</param>
+/// <param name="Deviation">How sure that is. Zero for a model that has no idea of uncertainty.</param>
+/// <param name="Tags">What they are — a role, a region, a game mode.</param>
+/// <param name="Enqueued">When they joined.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record QueueEntry(
+    [property: Id(0)] ImmutableArray<PlayerKey> Players,
+    [property: Id(1)] double Rating,
+    [property: Id(2)] double Deviation,
+    [property: Id(3)] ImmutableArray<string> Tags,
+    [property: Id(4)] DateTimeOffset Enqueued
+);
+
+/// <summary>Where a ticket has got to.</summary>
+public enum QueueTicketState {
+    /// <summary>Still queueing.</summary>
+    Waiting,
+
+    /// <summary>In a formed match, waiting for a shard.</summary>
+    Matched,
+
+    /// <summary>Given up on, or taken by a match that started.</summary>
+    Done
+}
+
+/// <summary>One ticket in a queue.</summary>
+/// <param name="Id">What names it.</param>
+/// <param name="Entry">What they asked for.</param>
+/// <param name="State">Where it has got to.</param>
+/// <param name="Match">Which match took it, or <see cref="Guid.Empty" />.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record QueueTicket(
+    [property: Id(0)] string Id,
+    [property: Id(1)] QueueEntry Entry,
+    [property: Id(2)] QueueTicketState State,
+    [property: Id(3)] Guid Match
+);
+
+/// <summary>One side of a formed match.</summary>
+/// <param name="Tickets">Which tickets are on it.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record QueueTeam([property: Id(0)] ImmutableArray<string> Tickets);
+
+/// <summary>A roster the queue has formed.</summary>
+/// <remarks>
+///     ⚠ <b>Formed is not started.</b> A shard still has to be allocated through <c>IMapGrain</c>,
+///     and that can fail — so the tickets are held rather than released, and the caller either
+///     confirms or abandons. This is L2's reservation at a different scale, and for the same reason:
+///     capacity promised to twenty rosters is nineteen groups refused at the door.
+/// </remarks>
+/// <param name="Id">What names it. A backfill reuses the id it is filling.</param>
+/// <param name="Teams">The sides.</param>
+/// <param name="Quality">What the evaluator thought of it.</param>
+/// <param name="Formed">When.</param>
+/// <param name="IsBackfill">Whether it fills a match that is already running.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record QueueMatch(
+    [property: Id(0)] Guid Id,
+    [property: Id(1)] ImmutableArray<QueueTeam> Teams,
+    [property: Id(2)] double Quality,
+    [property: Id(3)] DateTimeOffset Formed,
+    [property: Id(4)] bool IsBackfill
+) {
+    /// <summary>Whether two match the same.</summary>
+    /// <param name="other">The other one.</param>
+    /// <returns>Whether they are equal.</returns>
+    /// <remarks>⚠ Hand-written for <see cref="GuildRecord.Equals(GuildRecord)" />'s reason.</remarks>
+    public bool Equals(QueueMatch? other) =>
+        other is not null
+        && Id == other.Id
+        && Quality.Equals(other.Quality)
+        && Formed == other.Formed
+        && IsBackfill == other.IsBackfill
+        && Teams.Length == other.Teams.Length
+        && Teams.Zip(other.Teams).All(pair => pair.First.Tickets.SequenceEqual(pair.Second.Tickets, StringComparer.Ordinal));
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Id, Quality, Formed, IsBackfill, Teams.Length);
+}
+
+/// <summary>What a queue looks like right now.</summary>
+/// <param name="Waiting">How many tickets are queueing.</param>
+/// <param name="Players">How many people that is.</param>
+/// <param name="Open">How many matches are formed and not yet started.</param>
+/// <param name="LongestWait">How long the oldest waiting ticket has been there.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record QueueSnapshot(
+    [property: Id(0)] int Waiting,
+    [property: Id(1)] int Players,
+    [property: Id(2)] int Open,
+    [property: Id(3)] TimeSpan LongestWait
+);

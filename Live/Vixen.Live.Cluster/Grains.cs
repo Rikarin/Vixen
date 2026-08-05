@@ -444,3 +444,81 @@ public interface IInstanceGrain : IGrainWithGuidKey {
     /// </remarks>
     Task<InstanceOutcome> Close();
 }
+
+/// <summary>One queue's tickets and the matches it has formed. Doc 28 § Matchmaking.</summary>
+/// <remarks>
+///     <para>
+///         <b>The last of the three doc 27 left undeclared at L1</b>, and doc 28 is specific about
+///         the shape: a ticket is <em>"a grain-held record"</em>. <c>Vixen.Live.Matchmaking</c>'s
+///         <c>Matchmaker</c> is an in-memory queue, which is the first item on its own owed list.
+///     </para>
+///     <para>
+///         ⚠ <b>The scoring stays a pure function and the grain is a scheduling decision on top.</b>
+///         That is exactly the relationship <c>PlacementDirector</c> has to <c>IMapGrain</c>, and it
+///         is what lets doc 27 § Testing's property tests run tens of thousands of randomised
+///         fleets — a matchmaker that could only be exercised inside a silo is one nobody tests.
+///     </para>
+///     <para>
+///         ⚠ <b>Formed is not started.</b> A roster still needs a shard, and allocating one can
+///         fail, so the tickets are held rather than released and the caller either
+///         <see cref="Start" />s or <see cref="Abandon" />s. L2's reservation, at a different scale
+///         and for the same reason.
+///     </para>
+///     <para>
+///         ⚠ <b>Keyed by the queue definition's address</b>, so "the ranked 3v3 queue" is one grain
+///         per region-and-version the caller decides to spell into the key — the same freedom
+///         <c>ShardKey</c> gives a map.
+///     </para>
+/// </remarks>
+public interface IQueueGrain : IGrainWithStringKey {
+    /// <summary>Joins the queue.</summary>
+    /// <param name="entry">What they are asking for.</param>
+    /// <returns>The ticket, whose id is what cancels it.</returns>
+    Task<QueueTicket> Enqueue(QueueEntry entry);
+
+    /// <summary>Gives up.</summary>
+    /// <param name="ticket">Which ticket.</param>
+    /// <returns>Whether it was still waiting. A ticket already in a match is not cancellable.</returns>
+    Task<bool> Cancel(string ticket);
+
+    /// <summary>Where a ticket has got to.</summary>
+    /// <param name="ticket">Which.</param>
+    /// <returns>It, or null.</returns>
+    Task<QueueTicket?> Ticket(string ticket);
+
+    /// <summary>Forms whatever can be formed.</summary>
+    /// <param name="now">The clock.</param>
+    /// <returns>The rosters, including any backfill that could be filled.</returns>
+    Task<ImmutableArray<QueueMatch>> Cycle(DateTimeOffset now);
+
+    /// <summary>Says a formed match got its shard.</summary>
+    /// <param name="match">Which.</param>
+    /// <returns>Whether it was open.</returns>
+    Task<bool> Start(Guid match);
+
+    /// <summary>Says a formed match did not get one, and puts its tickets back.</summary>
+    /// <param name="match">Which.</param>
+    /// <param name="now">The clock, so the tickets re-enter having already waited.</param>
+    /// <returns>Whether it was open.</returns>
+    /// <remarks>
+    ///     ⚠ <b>They keep their original enqueue time.</b> A ticket that went back to the end of the
+    ///     queue would be punished for a failure that was the fleet's, and the widening a long wait
+    ///     earns is the thing that gets them matched at all.
+    /// </remarks>
+    Task<bool> Abandon(Guid match, DateTimeOffset now);
+
+    /// <summary>Says somebody left a running match, so a seat needs filling.</summary>
+    /// <param name="match">Which match.</param>
+    /// <param name="seats">How many seats opened.</param>
+    /// <returns>Whether the request was recorded.</returns>
+    /// <remarks>
+    ///     Doc 28 names backfill and nothing did it. What this records is the <em>need</em>; the next
+    ///     <see cref="Cycle" /> is what fills it, and the match it answers with carries the id being
+    ///     filled rather than a new one.
+    /// </remarks>
+    Task<bool> Backfill(Guid match, int seats);
+
+    /// <summary>What the queue looks like.</summary>
+    /// <returns>The snapshot.</returns>
+    Task<QueueSnapshot> Read();
+}
