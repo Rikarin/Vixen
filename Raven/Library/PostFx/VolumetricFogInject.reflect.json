@@ -5,11 +5,27 @@
       "Bindings": [
         {
           "Binding": 0,
-          "Name": "VolumetricFogPerMaterialUniforms",
+          "Name": "VolumetricFogInjectPerMaterialUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
           "Stages": "Compute",
           "Members": [
+            {
+              "Name": "inverseView",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
             {
               "Name": "tanHalfFov",
               "Type": {
@@ -20,7 +36,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 0,
+              "Offset": 64,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -36,7 +52,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 8,
+              "Offset": 72,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -52,46 +68,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 12,
+              "Offset": 76,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "64"
             },
             {
-              "Name": "sunDirection",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 16,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0, -1, 0"
-            },
-            {
-              "Name": "sunColour",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 32,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "1, 0.9, 0.7"
-            },
-            {
-              "Name": "phaseG",
+              "Name": "density",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -100,14 +84,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 44,
+              "Offset": 80,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.7"
+              "DefaultValue": "0.02"
             },
             {
-              "Name": "ambientColour",
+              "Name": "scatteringAlbedo",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 3,
@@ -116,38 +100,50 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 48,
+              "Offset": 96,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.35, 0.42, 0.55"
+              "DefaultValue": "0.9, 0.92, 0.95"
+            },
+            {
+              "Name": "fogHeight",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 108,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "heightFalloffRate",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.05"
             }
           ],
-          "Size": 64,
+          "Size": 128,
           "IsWritable": false
         },
         {
           "Binding": 1,
-          "Name": "source",
-          "Type": "SampledTexture",
-          "Count": 1,
-          "Stages": "Compute",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 2,
-          "Name": "volumeSampler",
-          "Type": "Sampler",
-          "Count": 1,
-          "Stages": "Compute",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 3,
           "Name": "target",
           "Type": "StorageImage",
           "Count": 1,
@@ -164,18 +160,6 @@
   "PushConstants": [],
   "SpecConstants": [],
   "Permutations": [
-    {
-      "Name": "Pass",
-      "Type": {
-        "Scalar": "Int",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "DefaultValue": "0"
-    },
     {
       "Name": "GridX",
       "Type": {
@@ -211,10 +195,40 @@
         "IsStruct": false
       },
       "DefaultValue": "64"
+    },
+    {
+      "Name": "HeightFalloff",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "true"
     }
   ],
   "ValueParameters": [],
   "Parameters": [
+    {
+      "Name": "inverseView",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
     {
       "Name": "tanHalfFov",
       "Type": {
@@ -227,7 +241,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 0,
+      "Offset": 64,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -245,7 +259,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 8,
+      "Offset": 72,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -263,50 +277,14 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 12,
+      "Offset": 76,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "64"
     },
     {
-      "Name": "sunDirection",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 16,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0, -1, 0"
-    },
-    {
-      "Name": "sunColour",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 32,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "1, 0.9, 0.7"
-    },
-    {
-      "Name": "phaseG",
+      "Name": "density",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -317,14 +295,14 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 44,
+      "Offset": 80,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.7"
+      "DefaultValue": "0.02"
     },
     {
-      "Name": "ambientColour",
+      "Name": "scatteringAlbedo",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -335,11 +313,47 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 48,
+      "Offset": 96,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.35, 0.42, 0.55"
+      "DefaultValue": "0.9, 0.92, 0.95"
+    },
+    {
+      "Name": "fogHeight",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 108,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "heightFalloffRate",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 112,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.05"
     }
   ],
   "RequiredCapabilities": [
@@ -351,7 +365,7 @@
     "GridX",
     "GridY",
     "GridZ",
-    "Pass"
+    "HeightFalloff"
   ],
   "Stages": [
     "Compute"

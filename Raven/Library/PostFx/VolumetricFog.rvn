@@ -12,10 +12,11 @@ import Vixen.Shaders.Water
 
 // Froxel volumetric fog: the three compute stages that fill a volume the composite then reads.
 //
-// `docs/plan/06-rendering-pipeline.md` § P2. One shader with a `Pass` permutation rather than three
-// files, on `AutoExposure`'s terms: the three dispatches share one descriptor set, and a set is
-// written whole or not at all — so three shaders would be three sets whose bindings a host has to
-// keep in agreement anyway, with nothing to enforce the agreement.
+// `docs/plan/06-rendering-pipeline.md` § P2. Two shaders and three dispatches, and the seam between
+// them is not arbitrary: `VolumetricFogInject` reads nothing and the other two sample a volume. A set
+// is written whole or not at all, so a pass that shares a set with a sampler it never uses still has
+// to bind something into it — see `VolumetricFogInject`'s own note for what that cost on a device.
+// The two that *do* sample share a set and a `Pass` permutation, on `AutoExposure`'s terms.
 //
 // **What is reused, and what the plan document got wrong.** It says this "shares the clustering
 // grid". Half of that is right. The Z distribution is the cluster grid's — `near · (far/near)^(k/n)`,
@@ -83,11 +84,17 @@ struct FroxelGrid {
     }
 }
 
-shader VolumetricFog {
-    /// 0 injects the medium, 1 lights it, 2 marches it. See the file header.
-    [Permutation] val Pass: int = 0
-
-    /// How many froxels across, down and deep. The host declares volumes of exactly this shape.
+/// The medium's coefficients, written into a volume. The one pass that reads nothing.
+///
+/// ⚠ **A shader of its own, and not a third `Pass` of the one below, for a reason a device found.**
+/// A descriptor set is written whole or not at all, so a variant that shared a set with the passes
+/// that sample a volume would have to bind *something* into that sampled slot — and the only 3D
+/// textures in the frame at this point are the ones these passes write. Pointing a sampled binding at
+/// a storage image the same dispatch writes asks the driver for one image in two layouts at once,
+/// which the validation layers reject per dispatch and a release driver does not. The permutation
+/// does not fold the binding away either: the layers report `source` and `volumeSampler` as
+/// statically used in the variant that never calls them. Two shaders is what actually separates them.
+shader VolumetricFogInject {
     [Permutation] val GridX: int = 160
     [Permutation] val GridY: int = 90
     [Permutation] val GridZ: int = 64
@@ -95,17 +102,64 @@ shader VolumetricFog {
     /// Whether density thins with altitude, for a valley that fills from the bottom.
     [Permutation] val HeightFalloff: bool = true
 
-    /// The volume this dispatch writes: media, then scattering, then the marched result.
+    /// Scattering in `rgb`, extinction in `a`.
     [Format("rgba16f")] var target: RWTexture3D<float4>
 
-    /// The volume it reads. Unused by the injection, which binds the one it is about to write.
+    var inverseView: mat4
+    var tanHalfFov: float2 = float2(1f, 1f)
+    var fogNear: float = 0.5f
+    var fogFar: float = 64f
+    var density: float = 0.02f
+    var scatteringAlbedo: float3 = float3(0.9f, 0.92f, 0.95f)
+    var fogHeight: float = 0f
+    var heightFalloffRate: float = 0.05f
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val x = int(id.x)
+        val y = int(id.y)
+        val z = int(id.z)
+
+        if (x >= GridX || y >= GridY || z >= GridZ) {
+            return
+        }
+
+        val uv = float2((float(x) + 0.5f) / float(GridX), (float(y) + 0.5f) / float(GridY))
+        val centre = pow(fogFar / fogNear, 0.5f / float(GridZ))
+        val depth = FroxelGrid.SliceDepth(z, GridZ, fogNear, fogFar) * centre
+        val world = Math.TransformPoint(inverseView, FroxelGrid.Ray(uv, tanHalfFov) * depth)
+
+        // `Fog.rvn`'s `HeightDensity`, and it has to be: the analytic fallback and the volume meet at
+        // the far plane, and a valley that thins at one rate inside and another beyond it is a
+        // visible ring at exactly the distance the two swap over.
+        val altitude = HeightFalloff ? exp(-max(world.y - fogHeight, 0f) * heightFalloffRate) : 1f
+
+        // Two numbers rather than one, because they are two physical quantities and only their ratio
+        // is the albedo. Extinction is what leaves the straight-through ray — scattering *and*
+        // absorption — and scattering is the part that comes back somewhere else.
+        val extinction = max(density * altitude, 0f)
+
+        target.Store(int3(x, y, z), float4(scatteringAlbedo * extinction, extinction))
+    }
+}
+
+shader VolumetricFog {
+    /// 0 lights the medium, 1 marches it. The injection is `VolumetricFogInject` above.
+    [Permutation] val Pass: int = 0
+
+    /// How many froxels across, down and deep. The host declares volumes of exactly this shape.
+    [Permutation] val GridX: int = 160
+    [Permutation] val GridY: int = 90
+    [Permutation] val GridZ: int = 64
+
+    /// The volume this dispatch writes: the lit medium, then the marched result.
+    [Format("rgba16f")] var target: RWTexture3D<float4>
+
+    /// The volume it reads: the medium, then the scattering. Sampled by both of these passes.
     var source: Texture3D
 
     /// How the volumes are read. Point-equivalent at texel centres, which is where every read lands.
     var volumeSampler: Sampler
-
-    /// View to world, for the world position a froxel centre stands at.
-    var inverseView: mat4
 
     /// The camera's half-angle tangents, which turn a grid UV into a view ray.
     ///
@@ -123,19 +177,6 @@ shader VolumetricFog {
 
     /// Where its last slice ends. The volume covers nothing beyond this; the composite falls back.
     var fogFar: float = 64f
-
-    /// How much light a metre of the medium takes out of a ray, at the reference altitude.
-    var density: float = 0.02f
-
-    /// What fraction of that is scattered rather than absorbed, per channel.
-    ///
-    /// The scattering albedo. Air is very nearly white and very nearly all scattering, so this is
-    /// near one — the visible difference between fogs is the density and the phase, not this.
-    var scatteringAlbedo: float3 = float3(0.9f, 0.92f, 0.95f)
-
-    /// The altitude the authored density holds at, and how fast it thins above.
-    var fogHeight: float = 0f
-    var heightFalloffRate: float = 0.05f
 
     /// Which way the light travels, and what it carries.
     var sunDirection: float3 = float3(0f, -1f, 0f)
@@ -162,7 +203,7 @@ shader VolumetricFog {
             return
         }
 
-        if (Pass == 2) {
+        if (Pass == 1) {
             Integrate(x, y)
             return
         }
@@ -173,11 +214,7 @@ shader VolumetricFog {
             return
         }
 
-        if (Pass == 0) {
-            Inject(x, y, z)
-        } else {
-            Scatter(x, y, z)
-        }
+        Scatter(x, y, z)
     }
 
     /// The grid UV a froxel's centre sits at, in the grid's own coordinates.
@@ -189,23 +226,6 @@ shader VolumetricFog {
         return float2((float(x) + 0.5f) / float(GridX), (float(y) + 0.5f) / float(GridY))
     }
 
-    /// The view-space depth at a froxel's centre — the geometric mean of its two faces.
-    ///
-    /// The mean of the *logarithms*, which is what the slice boundaries are spaced by, rather than
-    /// the arithmetic mean of two depths a factor apart. Half a slice in the grid's own terms.
-    func CentreDepth(z: int): float {
-        val half = pow(fogFar / fogNear, 0.5f / float(GridZ))
-        return FroxelGrid.SliceDepth(z, GridZ, fogNear, fogFar) * half
-    }
-
-    /// Where a froxel's centre is in the world.
-    func WorldOf(x: int, y: int, z: int): float3 {
-        val ray = FroxelGrid.Ray(GridUv(x, y), tanHalfFov)
-        val positionVS = ray * CentreDepth(z)
-
-        return Math.TransformPoint(inverseView, positionVS)
-    }
-
     /// The texel-centre UVW of a froxel, for a read of one of the volumes.
     func VolumeUvw(x: int, y: int, z: int): float3 {
         return float3(
@@ -215,34 +235,7 @@ shader VolumetricFog {
         )
     }
 
-    /// Density relative to the fog plane, thinning exponentially with altitude.
-    ///
-    /// `Fog.rvn`'s `HeightDensity`, and it has to be: the analytic fallback and the volume meet at the
-    /// far plane, and a valley that thins at one rate inside the volume and another beyond it is a
-    /// visible ring at exactly the distance the two swap over.
-    func HeightDensity(height: float): float {
-        if (!HeightFalloff) {
-            return 1f
-        }
-
-        return exp(-max(height - fogHeight, 0f) * heightFalloffRate)
-    }
-
-    // --- Pass 0: what the medium is ---------------------------------------
-
-    /// Writes the medium's coefficients: scattering in `rgb`, extinction in `a`.
-    ///
-    /// Two numbers rather than one because they are two different physical quantities and only their
-    /// ratio is the albedo. Extinction is what leaves the straight-through ray — scattering *and*
-    /// absorption — and scattering is the part that comes back somewhere else.
-    func Inject(x: int, y: int, z: int) {
-        val world = WorldOf(x, y, z)
-        val extinction = max(density * HeightDensity(world.y), 0f)
-
-        target.Store(int3(x, y, z), float4(scatteringAlbedo * extinction, extinction))
-    }
-
-    // --- Pass 1: what it does with the light --------------------------------
+    // --- Pass 0: what the medium does with the light --------------------------------
 
     /// Writes the radiance scattered toward the camera from one froxel, and carries the extinction.
     ///
@@ -267,7 +260,7 @@ shader VolumetricFog {
         target.Store(int3(x, y, z), float4(inscatter, extinction))
     }
 
-    // --- Pass 2: the march ---------------------------------------------------
+    // --- Pass 1: the march ---------------------------------------------------
 
     /// Marches one column of froxels front to back, accumulating in-scatter and transmittance.
     ///

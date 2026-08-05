@@ -158,13 +158,13 @@ public sealed class VolumetricFogRenderer : SceneRenderer {
 
         // The three grid dimensions are permutations, so a variant is compiled per shape — which is
         // what lets Integrate's march be a counted loop rather than a dynamic one.
-        Step(0, "Inject", Media, Media, Groups(Dispatched.X, Dispatched.Y, Dispatched.Z));
-        Step(1, "Scatter", Scattered, Media, Groups(Dispatched.X, Dispatched.Y, Dispatched.Z));
+        Inject(Groups(Dispatched.X, Dispatched.Y, Dispatched.Z));
+        Step(1, "Scatter", 0, Scattered, Media, Groups(Dispatched.X, Dispatched.Y, Dispatched.Z));
 
         // ⚠ Flat in z, and it has to be: the march is a prefix sum along the ray, so one invocation
         // owns a whole column. A dispatch shaped like the volume would have every slice's invocation
         // racing to write every slice.
-        Step(2, "Integrate", Volume, Scattered, Groups(Dispatched.X, Dispatched.Y, 1));
+        Step(2, "Integrate", 1, Volume, Scattered, Groups(Dispatched.X, Dispatched.Y, 1));
 
         foreach (var step in steps) {
             BuildChild(step, compositor, frame);
@@ -198,36 +198,79 @@ public sealed class VolumetricFogRenderer : SceneRenderer {
         frame.Add(name, frame.Graph.CreateTexture(description), description);
     }
 
-    void Step(int index, string name, string target, string source, Int3 groups) {
-        var node = At(index, name);
+    /// <summary>The medium, which reads nothing and so is a shader of its own.</summary>
+    /// <remarks>
+    ///     ⚠ A separate shader rather than a third <c>Pass</c>, and a device is what decided it. A set
+    ///     is written whole or not at all, so a variant sharing a set with the two that sample a
+    ///     volume would have to bind <em>something</em> into that sampled slot — and the only 3D
+    ///     textures in the frame at this point are the ones these passes write. Pointing a sampled
+    ///     binding at the storage image the same dispatch writes asks the driver for one image in two
+    ///     layouts at once, which the validation layers refuse per dispatch
+    ///     (<c>VUID-vkCmdDispatch-imageLayout-00344</c>) and a release driver does not. Leaving it
+    ///     unbound is not the fix either: the layers then report <c>source</c> as statically used in a
+    ///     variant that never calls it, so the permutation is not folding the binding away.
+    /// </remarks>
+    void Inject(Int3 groups) {
+        var node = At(
+            0,
+            "Inject",
+            VolumetricFogInjectKeys.ShaderName,
+            VolumetricFogInjectKeys.UsedPermutationKeys,
+            VolumetricFogInjectKeys.ConstantBufferBinding
+        );
 
-        node.Parameters.Set(VolumetricFogKeys.Pass, index);
+        node.Parameters.Set(VolumetricFogInjectKeys.GridX, Dispatched.X);
+        node.Parameters.Set(VolumetricFogInjectKeys.GridY, Dispatched.Y);
+        node.Parameters.Set(VolumetricFogInjectKeys.GridZ, Dispatched.Z);
+        node.Parameters.Set(VolumetricFogInjectKeys.HeightFalloff, HeightFalloff);
+
+        if (Camera() is { } camera) {
+            node.Parameters.Set(VolumetricFogInjectKeys.InverseView, camera.InverseView);
+            node.Parameters.Set(VolumetricFogInjectKeys.TanHalfFov, camera.TanHalfFov);
+        }
+
+        node.Parameters.Set(VolumetricFogInjectKeys.FogNear, Near);
+        node.Parameters.Set(VolumetricFogInjectKeys.FogFar, Far);
+        node.Parameters.Set(VolumetricFogInjectKeys.Density, Density);
+        node.Parameters.Set(VolumetricFogInjectKeys.ScatteringAlbedo, ScatteringAlbedo);
+        node.Parameters.Set(VolumetricFogInjectKeys.FogHeight, Height);
+        node.Parameters.Set(VolumetricFogInjectKeys.HeightFalloffRate, HeightFalloffRate);
+
+        node.Groups = groups;
+
+        node.Reads.Clear();
+        node.Writes.Clear();
+        node.Descriptors.Bindings.Clear();
+
+        node.Writes.Add(Media);
+
+        node.Descriptors.Bindings.Add(new() {
+            Binding = VolumetricFogInjectKeys.TargetBinding,
+            Kind = DescriptorKind.StorageTexture,
+            Resource = Media
+        });
+    }
+
+    void Step(int index, string name, int pass, string target, string source, Int3 groups) {
+        var node = At(
+            index,
+            name,
+            VolumetricFogKeys.ShaderName,
+            VolumetricFogKeys.UsedPermutationKeys,
+            VolumetricFogKeys.ConstantBufferBinding
+        );
+
+        node.Parameters.Set(VolumetricFogKeys.Pass, pass);
         node.Parameters.Set(VolumetricFogKeys.GridX, Dispatched.X);
         node.Parameters.Set(VolumetricFogKeys.GridY, Dispatched.Y);
         node.Parameters.Set(VolumetricFogKeys.GridZ, Dispatched.Z);
-        node.Parameters.Set(VolumetricFogKeys.HeightFalloff, HeightFalloff);
 
-        // The camera's, derived exactly once and here. A view-to-world matrix and the two half-angle
-        // tangents are all the grid needs: the tangents turn a grid uv into a view ray whose depth is
-        // one, and the matrix puts the result in the world.
-        if (View?.Camera is { } camera) {
-            var view = Matrix4x4.LookAt(camera.Position, camera.Position + camera.Forward, camera.Up);
-
-            if (Matrix4x4.Invert(view, out var inverse)) {
-                node.Parameters.Set(VolumetricFogKeys.InverseView, inverse);
-            }
-
-            var vertical = MathF.Tan(camera.FieldOfView * 0.5f);
-
-            node.Parameters.Set(VolumetricFogKeys.TanHalfFov, new Vector2(vertical * camera.AspectRatio, vertical));
+        if (Camera() is { } camera) {
+            node.Parameters.Set(VolumetricFogKeys.TanHalfFov, camera.TanHalfFov);
         }
 
         node.Parameters.Set(VolumetricFogKeys.FogNear, Near);
         node.Parameters.Set(VolumetricFogKeys.FogFar, Far);
-        node.Parameters.Set(VolumetricFogKeys.Density, Density);
-        node.Parameters.Set(VolumetricFogKeys.ScatteringAlbedo, ScatteringAlbedo);
-        node.Parameters.Set(VolumetricFogKeys.FogHeight, Height);
-        node.Parameters.Set(VolumetricFogKeys.HeightFalloffRate, HeightFalloffRate);
         node.Parameters.Set(VolumetricFogKeys.SunDirection, SunDirection);
         node.Parameters.Set(VolumetricFogKeys.SunColour, SunColour);
         node.Parameters.Set(VolumetricFogKeys.PhaseG, PhaseG);
@@ -240,15 +283,7 @@ public sealed class VolumetricFogRenderer : SceneRenderer {
         node.Descriptors.Bindings.Clear();
 
         node.Writes.Add(target);
-
-        // ⚠ The injection reads nothing, and still declares and binds the volume it is about to
-        // write. A descriptor set is written whole or not at all — the fault AutoExposureRenderer
-        // records at length — so a step that left `source` unbound would lose `target` with it and
-        // every dispatch would be refused. Naming the same resource in both lists is what tells the
-        // graph the pass is a read-modify-write of it, which for the injection is harmless and true.
-        if (!string.Equals(source, target, StringComparison.Ordinal)) {
-            node.Reads.Add(source);
-        }
+        node.Reads.Add(source);
 
         node.Descriptors.Bindings.Add(new() {
             Binding = VolumetricFogKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = target
@@ -258,10 +293,9 @@ public sealed class VolumetricFogRenderer : SceneRenderer {
             Binding = VolumetricFogKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source
         });
 
-        // ⚠ Linear rather than point, and every read this sampler serves lands on a texel centre —
-        // where the two agree exactly. It is linear so that the *composite* filters between slices,
-        // and one sampler for both keeps the volume from being filtered one way when it is written
-        // and another when it is read.
+        // ⚠ Linear, and every read it serves here lands on a texel centre — where linear and point
+        // agree exactly. It is linear because the *composite* filters between slices, and one filter
+        // for both keeps the volume from meaning one thing written and another read.
         node.Descriptors.Bindings.Add(new() {
             Binding = VolumetricFogKeys.VolumeSamplerBinding,
             Kind = DescriptorKind.Sampler,
@@ -269,13 +303,38 @@ public sealed class VolumetricFogRenderer : SceneRenderer {
         });
     }
 
-    ComputeRenderer At(int index, string name) {
+    /// <summary>
+    ///     The view-to-world matrix and the half-angle tangents, derived exactly once.
+    /// </summary>
+    /// <remarks>
+    ///     All the grid needs: the tangents turn a grid UV into a view ray whose view depth is one,
+    ///     and the matrix puts the result in the world. ⚠ Both passes take them from here rather than
+    ///     deriving their own, because two derivations of one frustum is a scatter pass lighting
+    ///     froxels the injection put somewhere else.
+    /// </remarks>
+    (Matrix4x4 InverseView, Vector2 TanHalfFov)? Camera() {
+        if (View?.Camera is not { } camera) {
+            return null;
+        }
+
+        var view = Matrix4x4.LookAt(camera.Position, camera.Position + camera.Forward, camera.Up);
+
+        if (!Matrix4x4.Invert(view, out var inverse)) {
+            return null;
+        }
+
+        var vertical = MathF.Tan(camera.FieldOfView * 0.5f);
+
+        return (inverse, new Vector2(vertical * camera.AspectRatio, vertical));
+    }
+
+    ComputeRenderer At(int index, string name, string shader, IReadOnlyList<ParameterKey> keys, uint constants) {
         while (steps.Count <= index) {
             steps.Add(new() {
                 Name = $"{this}.{name}",
-                ShaderName = VolumetricFogKeys.ShaderName,
-                PermutationKeys = VolumetricFogKeys.UsedPermutationKeys,
-                ConstantBinding = VolumetricFogKeys.ConstantBufferBinding
+                ShaderName = shader,
+                PermutationKeys = keys,
+                ConstantBinding = constants
             });
         }
 

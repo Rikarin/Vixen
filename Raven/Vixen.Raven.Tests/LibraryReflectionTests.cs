@@ -61,6 +61,7 @@ public class LibraryReflectionTests {
         ("PostFx", "Sharpen"),
         ("PostFx", "Vignette"),
         ("PostFx", "Fog"),
+        ("PostFx", "VolumetricFogInject"),
         ("PostFx", "VolumetricFog"),
         ("PostFx", "Outline"),
         ("PostFx", "Ssao"),
