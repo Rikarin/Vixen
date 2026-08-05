@@ -32,6 +32,45 @@ public interface IFuzzTarget {
     /// <summary>Which receive path this is, in one line.</summary>
     string What { get; }
 
+    /// <summary>How its inputs are made, or null for byte havoc.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Null for a decoder, which is what <see cref="Mutator" /> was built for and is most of
+    ///         these. A target whose input is a <i>language</i> declares a domain instead, because
+    ///         havoc over the bytes of a source file produces text that does not lex and therefore
+    ///         never reaches anything behind the tokeniser. See <see cref="IFuzzDomain" /> for the
+    ///         argument and for why the oracles above did not have to change to allow it.
+    ///     </para>
+    ///     <para>
+    ///         It changes what arrives at <see cref="Run" /> and nothing else. A target still receives
+    ///         bytes, and is still expected to treat them as bytes it did not write — a domain makes
+    ///         grammatical input <i>more likely</i>, and promises nothing at all about any single case.
+    ///     </para>
+    /// </remarks>
+    IFuzzDomain? Domain => null;
+
+    /// <summary>Whether a behaviour nothing produced before is worth keeping the input for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>True for a decoder and false for a compiler, and the difference is the size of the
+    ///         behaviour space rather than a preference.</b> A packet reader has a few dozen outcomes,
+    ///         so "this input did something new" is a strong signal and a corpus selected on it is a
+    ///         set of representatives. A compiler has a behaviour for every combination of
+    ///         declarations, types and diagnostics there is; nearly every input looks new, the
+    ///         signature table saturates within seconds, and what it selected before saturating was
+    ///         whatever the first few thousand cases happened to be.
+    ///     </para>
+    ///     <para>
+    ///         Declaring false is <b>accepting unguided but structured generation</b>, which is a real
+    ///         position and not a shortfall: the guidance existed to walk a decoder into branches that
+    ///         random bytes never reach, and a grammar-aware domain reaches them by construction
+    ///         instead. What it buys in exchange is stated at <see cref="Corpus.Sample" /> — the pool
+    ///         keeps refreshing past saturation rather than freezing, which is what happens today and
+    ///         is the half of it that was actually wrong.
+    ///     </para>
+    /// </remarks>
+    bool NoveltyGuides => true;
+
     /// <summary>Adds well-formed inputs for the mutator to start from.</summary>
     /// <param name="corpus">Where to put them.</param>
     /// <remarks>

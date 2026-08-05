@@ -223,4 +223,33 @@ public class RecoveryTests {
             Assert.Equal(prefix, Vxml.Parse(prefix).GetRoot().ToFullString());
         }
     }
+
+    /// <summary>
+    ///     A file that ends in the middle of an escape used to throw out of the lexer, which is the
+    ///     one thing this parser promises it never does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The end of the file arriving in the middle of a construct, which every
+    ///         multi-character skip in a lexer is a chance to get wrong.</b> A backslash asks the
+    ///         scanner to take two characters and there is one, so the window ended at
+    ///         <c>Length + 1</c> — which nothing noticed, because <c>AtEnd</c> is <c>&gt;=</c> and
+    ///         every loop stopped exactly as it should. The token that scan produced was then cut
+    ///         with a range past the end of the string.
+    ///     </para>
+    ///     <para>
+    ///         Fixed by clamping <c>SlidingTextWindow.Advance</c>, so the property belongs to the
+    ///         window rather than to the dozen skips across two lexers that would each have to
+    ///         remember it. Found by <c>Vixen.Net.Fuzz</c>'s <c>vxml</c> target after a million and a
+    ///         half cases; the prefix test above walks one file and never reaches this, because a
+    ///         real file has no trailing backslash to be cut after.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("@code {'\\")]
+    [InlineData("@code {\"\\")]
+    [InlineData("@component C\n@code { var c = '\\")]
+    [InlineData("@if (x) { }\n@code { var s = @\"a\\")]
+    public void A_file_ending_inside_an_escape_still_parses(string source) =>
+        Assert.Equal(source, Vxml.Parse(source).GetRoot().ToFullString());
 }
