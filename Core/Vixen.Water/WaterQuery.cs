@@ -32,7 +32,7 @@ namespace Vixen.Water;
 ///     </para>
 /// </remarks>
 public sealed class WaterQuery {
-    GerstnerWave[] waves;
+    readonly GerstnerWave[] waves;
     int waveCount;
 
     /// <summary>Creates a query over a field and a sea state.</summary>

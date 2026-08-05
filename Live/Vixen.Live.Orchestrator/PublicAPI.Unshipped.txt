@@ -11,6 +11,16 @@ Vixen.Live.Orchestration.CandidateVerdict.Shard.init -> Vixen.Live.ShardId
 Vixen.Live.Orchestration.CandidateVerdict.Terms.get -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.ScoreTerm>
 Vixen.Live.Orchestration.CandidateVerdict.Terms.init -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.ScoreTerm>
 Vixen.Live.Orchestration.CandidateVerdict.WasScored.get -> bool
+Vixen.Live.Orchestration.CatalogProjection -> readonly struct
+Vixen.Live.Orchestration.CatalogProjection : System.IEquatable<Vixen.Live.Orchestration.CatalogProjection>
+Vixen.Live.Orchestration.CatalogProjection.Address.get -> string
+Vixen.Live.Orchestration.CatalogProjection.Address.init -> string
+Vixen.Live.Orchestration.CatalogProjection.CatalogProjection() -> void
+Vixen.Live.Orchestration.CatalogProjection.CatalogProjection(string Address, ulong Content, ulong Shape) -> void
+Vixen.Live.Orchestration.CatalogProjection.Content.get -> ulong
+Vixen.Live.Orchestration.CatalogProjection.Content.init -> ulong
+Vixen.Live.Orchestration.CatalogProjection.Shape.get -> ulong
+Vixen.Live.Orchestration.CatalogProjection.Shape.init -> ulong
 Vixen.Live.Orchestration.ContentChange -> enum : byte
 Vixen.Live.Orchestration.ContentChange.Added = 0 -> Vixen.Live.Orchestration.ContentChange
 Vixen.Live.Orchestration.ContentChange.ContentChange() -> void
@@ -111,6 +121,7 @@ Vixen.Live.Orchestration.MapCoordinator.Key.get -> Vixen.Live.ShardKey
 Vixen.Live.Orchestration.MapCoordinator.LastDecision.get -> Vixen.Live.Orchestration.PlacementDecision?
 Vixen.Live.Orchestration.MapCoordinator.MapCoordinator(Vixen.Live.ShardKey key, Vixen.Live.Orchestration.PlacementWeights? weights = null, Vixen.Live.Orchestration.FleetPolicy? policy = null) -> void
 Vixen.Live.Orchestration.MapCoordinator.Place(Vixen.Live.Cluster.PlaceRequest request, System.DateTimeOffset now) -> Vixen.Live.Cluster.PlaceResult
+Vixen.Live.Orchestration.MapCoordinator.Placements.get -> Vixen.Live.Orchestration.PlacementLog
 Vixen.Live.Orchestration.MapCoordinator.PlayerLeft(Vixen.Live.PlayerKey player, Vixen.Live.ShardId shard) -> void
 Vixen.Live.Orchestration.MapCoordinator.Population.get -> int
 Vixen.Live.Orchestration.MapCoordinator.ShardChanged(Vixen.Live.Cluster.ShardReport report) -> void
@@ -127,6 +138,7 @@ Vixen.Live.Orchestration.MapFleet.Policy.get -> Vixen.Live.Orchestration.FleetPo
 Vixen.Live.Orchestration.MapGrain -> sealed class
 Vixen.Live.Orchestration.MapGrain : Orleans.Grain
 Vixen.Live.Orchestration.MapGrain : Vixen.Live.Cluster.IMapGrain
+Vixen.Live.Orchestration.MapGrain.Explain(Vixen.Live.PlayerKey player) -> System.Threading.Tasks.Task<string>
 Vixen.Live.Orchestration.MapGrain.MapGrain(Vixen.Live.Orchestration.OrchestratorOptions cluster, Microsoft.Extensions.Logging.ILogger<Vixen.Live.Orchestration.MapGrain> log) -> void
 Vixen.Live.Orchestration.MapGrain.Place(Vixen.Live.Cluster.PlaceRequest request) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlaceResult>
 Vixen.Live.Orchestration.MapGrain.PlayerLeft(Vixen.Live.PlayerKey player, Vixen.Live.ShardId shard) -> System.Threading.Tasks.Task
@@ -190,10 +202,32 @@ Vixen.Live.Orchestration.PlacementFilter.None = 0 -> Vixen.Live.Orchestration.Pl
 Vixen.Live.Orchestration.PlacementFilter.NotReady = 5 -> Vixen.Live.Orchestration.PlacementFilter
 Vixen.Live.Orchestration.PlacementFilter.PlacementFilter() -> void
 Vixen.Live.Orchestration.PlacementFilter.Region = 2 -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.PlacementLog -> sealed class
+Vixen.Live.Orchestration.PlacementLog.Capacity.get -> int
+Vixen.Live.Orchestration.PlacementLog.Capacity.init -> int
+Vixen.Live.Orchestration.PlacementLog.Count.get -> int
+Vixen.Live.Orchestration.PlacementLog.Explain(Vixen.Live.PlayerKey player) -> string
+Vixen.Live.Orchestration.PlacementLog.PlacementLog() -> void
+Vixen.Live.Orchestration.PlacementLog.Recent() -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.PlacementRecord>
+Vixen.Live.Orchestration.PlacementLog.Record(Vixen.Live.Orchestration.PlacementRecord record) -> void
+Vixen.Live.Orchestration.PlacementLog.TryGet(Vixen.Live.PlayerKey player, out Vixen.Live.Orchestration.PlacementRecord? record) -> bool
 Vixen.Live.Orchestration.PlacementOutcome -> enum : byte
 Vixen.Live.Orchestration.PlacementOutcome.NoCandidate = 1 -> Vixen.Live.Orchestration.PlacementOutcome
 Vixen.Live.Orchestration.PlacementOutcome.Placed = 0 -> Vixen.Live.Orchestration.PlacementOutcome
 Vixen.Live.Orchestration.PlacementOutcome.PlacementOutcome() -> void
+Vixen.Live.Orchestration.PlacementRecord -> sealed record
+Vixen.Live.Orchestration.PlacementRecord : System.IEquatable<Vixen.Live.Orchestration.PlacementRecord>
+Vixen.Live.Orchestration.PlacementRecord.At.get -> System.DateTimeOffset
+Vixen.Live.Orchestration.PlacementRecord.At.init -> System.DateTimeOffset
+Vixen.Live.Orchestration.PlacementRecord.Explanation.get -> string
+Vixen.Live.Orchestration.PlacementRecord.Explanation.init -> string
+Vixen.Live.Orchestration.PlacementRecord.PlacementRecord(Vixen.Live.PlayerKey Player, Vixen.Live.Cluster.PlaceStatus Status, Vixen.Live.ShardId Shard, string Explanation, System.DateTimeOffset At) -> void
+Vixen.Live.Orchestration.PlacementRecord.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Orchestration.PlacementRecord.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Orchestration.PlacementRecord.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.PlacementRecord.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.PlacementRecord.Status.get -> Vixen.Live.Cluster.PlaceStatus
+Vixen.Live.Orchestration.PlacementRecord.Status.init -> Vixen.Live.Cluster.PlaceStatus
 Vixen.Live.Orchestration.PlacementRequest -> sealed record
 Vixen.Live.Orchestration.PlacementRequest : System.IEquatable<Vixen.Live.Orchestration.PlacementRequest>
 Vixen.Live.Orchestration.PlacementRequest.CameFrom.get -> Vixen.Live.ShardId
@@ -359,6 +393,7 @@ override Vixen.Live.Orchestration.ContentEntry.ToString() -> string
 override Vixen.Live.Orchestration.FleetAction.ToString() -> string
 override Vixen.Live.Orchestration.MapGrain.OnActivateAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task
 override Vixen.Live.Orchestration.MapGrain.ToString() -> string
+override Vixen.Live.Orchestration.PlacementRecord.ToString() -> string
 override Vixen.Live.Orchestration.PlacementRequest.ToString() -> string
 override Vixen.Live.Orchestration.Rollout.ToString() -> string
 override Vixen.Live.Orchestration.RolloutDecision.ToString() -> string
@@ -368,6 +403,7 @@ static Vixen.Live.Orchestration.ContentDiff.Blockers(System.Collections.Generic.
 static Vixen.Live.Orchestration.ContentDiff.Compare(System.Collections.Generic.IReadOnlyCollection<Vixen.Live.Orchestration.ContentEntry> before, System.Collections.Generic.IReadOnlyCollection<Vixen.Live.Orchestration.ContentEntry> after) -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Orchestration.ContentDelta>
 static Vixen.Live.Orchestration.ContentDiff.IsAdditive(System.Collections.Generic.IReadOnlyCollection<Vixen.Live.Orchestration.ContentDelta> deltas) -> bool
 static Vixen.Live.Orchestration.ContentDiff.LiveReloadable.get -> System.Collections.Immutable.ImmutableArray<string>
+static Vixen.Live.Orchestration.ContentDiff.Project(System.Collections.Generic.IReadOnlyCollection<Vixen.Live.Orchestration.CatalogProjection> entries, System.Func<string, string> kind) -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Orchestration.ContentEntry>
 static Vixen.Live.Orchestration.FleetAction.None.get -> Vixen.Live.Orchestration.FleetAction
 static Vixen.Live.Orchestration.FleetPolicy.Default.get -> Vixen.Live.Orchestration.FleetPolicy
 static Vixen.Live.Orchestration.HealthOptions.Default.get -> Vixen.Live.Orchestration.HealthOptions
