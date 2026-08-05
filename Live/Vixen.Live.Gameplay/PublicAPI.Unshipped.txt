@@ -34,6 +34,29 @@ Vixen.Live.Gameplay.GameplayIdentityMap.PlayerFor(Vixen.Live.PlayerKey key) -> V
 Vixen.Live.Gameplay.GameplayIdentityMap.Players.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Vixen.Gameplay.PlayerId, Vixen.Live.PlayerKey>>
 Vixen.Live.Gameplay.GameplayIdentityMap.Release(Vixen.Gameplay.PlayerId player) -> bool
 Vixen.Live.Gameplay.GameplayIdentityMap.TryResolve(Vixen.Gameplay.PlayerId player, out Vixen.Live.PlayerKey key) -> bool
+Vixen.Live.Gameplay.GuildEdit -> readonly struct
+Vixen.Live.Gameplay.GuildEdit : System.IEquatable<Vixen.Live.Gameplay.GuildEdit>
+Vixen.Live.Gameplay.GuildEdit.By.get -> Vixen.Live.PlayerKey
+Vixen.Live.Gameplay.GuildEdit.By.init -> Vixen.Live.PlayerKey
+Vixen.Live.Gameplay.GuildEdit.Guild.get -> Vixen.Gameplay.Social.GuildId
+Vixen.Live.Gameplay.GuildEdit.Guild.init -> Vixen.Gameplay.Social.GuildId
+Vixen.Live.Gameplay.GuildEdit.GuildEdit() -> void
+Vixen.Live.Gameplay.GuildEdit.GuildEdit(Vixen.Gameplay.Social.GuildId Guild, Vixen.Live.Gameplay.GuildEditKind Kind, Vixen.Live.PlayerKey By, Vixen.Live.PlayerKey Player, int Rank = 0, string Name = "") -> void
+Vixen.Live.Gameplay.GuildEdit.Kind.get -> Vixen.Live.Gameplay.GuildEditKind
+Vixen.Live.Gameplay.GuildEdit.Kind.init -> Vixen.Live.Gameplay.GuildEditKind
+Vixen.Live.Gameplay.GuildEdit.Name.get -> string
+Vixen.Live.Gameplay.GuildEdit.Name.init -> string
+Vixen.Live.Gameplay.GuildEdit.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Gameplay.GuildEdit.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Gameplay.GuildEdit.Rank.get -> int
+Vixen.Live.Gameplay.GuildEdit.Rank.init -> int
+Vixen.Live.Gameplay.GuildEditKind -> enum : int
+Vixen.Live.Gameplay.GuildEditKind.Add = 1 -> Vixen.Live.Gameplay.GuildEditKind
+Vixen.Live.Gameplay.GuildEditKind.GuildEditKind() -> void
+Vixen.Live.Gameplay.GuildEditKind.None = 0 -> Vixen.Live.Gameplay.GuildEditKind
+Vixen.Live.Gameplay.GuildEditKind.Remove = 2 -> Vixen.Live.Gameplay.GuildEditKind
+Vixen.Live.Gameplay.GuildEditKind.RenameRank = 4 -> Vixen.Live.Gameplay.GuildEditKind
+Vixen.Live.Gameplay.GuildEditKind.SetRank = 3 -> Vixen.Live.Gameplay.GuildEditKind
 Vixen.Live.Gameplay.IGameplayIdentity -> interface
 Vixen.Live.Gameplay.IGameplayIdentity.PlayerFor(Vixen.Live.PlayerKey key) -> Vixen.Gameplay.PlayerId
 Vixen.Live.Gameplay.IGameplayIdentity.TryResolve(Vixen.Gameplay.PlayerId player, out Vixen.Live.PlayerKey key) -> bool
@@ -73,6 +96,15 @@ Vixen.Live.Gameplay.LockoutBridge.Save(Vixen.Gameplay.Instances.Lockout lockout)
 Vixen.Live.Gameplay.LockoutBridge.Settle(Vixen.Live.Gameplay.PendingLockout write) -> bool
 Vixen.Live.Gameplay.LockoutBridge.Warm.get -> int
 Vixen.Live.Gameplay.LockoutBridge.Warmed(Vixen.Gameplay.PlayerId player, System.Collections.Generic.IEnumerable<Vixen.Gameplay.Instances.Lockout> lockouts) -> void
+Vixen.Live.Gameplay.PendingGraph -> readonly struct
+Vixen.Live.Gameplay.PendingGraph : System.IEquatable<Vixen.Live.Gameplay.PendingGraph>
+Vixen.Live.Gameplay.PendingGraph.Equals(Vixen.Live.Gameplay.PendingGraph other) -> bool
+Vixen.Live.Gameplay.PendingGraph.Links.get -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Gameplay.SocialLink>
+Vixen.Live.Gameplay.PendingGraph.Links.init -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Gameplay.SocialLink>
+Vixen.Live.Gameplay.PendingGraph.Owner.get -> Vixen.Live.PlayerKey
+Vixen.Live.Gameplay.PendingGraph.Owner.init -> Vixen.Live.PlayerKey
+Vixen.Live.Gameplay.PendingGraph.PendingGraph() -> void
+Vixen.Live.Gameplay.PendingGraph.PendingGraph(Vixen.Live.PlayerKey Owner, System.Collections.Immutable.ImmutableArray<Vixen.Live.Gameplay.SocialLink> Links) -> void
 Vixen.Live.Gameplay.PendingLockout -> readonly struct
 Vixen.Live.Gameplay.PendingLockout : System.IEquatable<Vixen.Live.Gameplay.PendingLockout>
 Vixen.Live.Gameplay.PendingLockout.Completions.get -> int
@@ -133,8 +165,49 @@ Vixen.Live.Gameplay.ProfileSectionId.ProfileSectionId(uint Value) -> void
 Vixen.Live.Gameplay.ProfileSectionId.Value.get -> uint
 Vixen.Live.Gameplay.ProfileSectionId.Value.init -> uint
 Vixen.Live.Gameplay.ProfileSections -> static class
+Vixen.Live.Gameplay.SocialBridge -> sealed class
+Vixen.Live.Gameplay.SocialBridge : Vixen.Gameplay.Social.ISocialStore
+Vixen.Live.Gameplay.SocialBridge.Admitted(Vixen.Live.PlayerKey key, Vixen.Gameplay.PlayerId player) -> int
+Vixen.Live.Gameplay.SocialBridge.Cold -> System.Action<Vixen.Gameplay.PlayerId>?
+Vixen.Live.Gameplay.SocialBridge.ColdReads.get -> int
+Vixen.Live.Gameplay.SocialBridge.Divergences.get -> int
+Vixen.Live.Gameplay.SocialBridge.Drain() -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Gameplay.GuildEdit>
+Vixen.Live.Gameplay.SocialBridge.DrainGraphs() -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Gameplay.PendingGraph>
+Vixen.Live.Gameplay.SocialBridge.Forget(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Live.Gameplay.SocialBridge.Graphs.get -> Vixen.Gameplay.Social.SocialGraphs
+Vixen.Live.Gameplay.SocialBridge.GuildOf(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.GuildId
+Vixen.Live.Gameplay.SocialBridge.Guilds.get -> int
+Vixen.Live.Gameplay.SocialBridge.Invite(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.Social.GuildId id, Vixen.Gameplay.PlayerId player, Vixen.Gameplay.GameplayTagRange invitePermission = default(Vixen.Gameplay.GameplayTagRange)) -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Live.Gameplay.SocialBridge.IsWarm(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Live.Gameplay.SocialBridge.Kick(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.Social.GuildId id, Vixen.Gameplay.PlayerId player, Vixen.Gameplay.GameplayTagRange kickPermission = default(Vixen.Gameplay.GameplayTagRange)) -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Live.Gameplay.SocialBridge.LoadGraph(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.SocialGraph?
+Vixen.Live.Gameplay.SocialBridge.LoadGuild(Vixen.Gameplay.Social.GuildId id) -> Vixen.Gameplay.Social.Guild?
+Vixen.Live.Gameplay.SocialBridge.Pending.get -> int
+Vixen.Live.Gameplay.SocialBridge.PendingGraphs.get -> int
+Vixen.Live.Gameplay.SocialBridge.Promote(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.Social.GuildId id, Vixen.Gameplay.PlayerId player, int rank) -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Live.Gameplay.SocialBridge.Refused -> System.Action<Vixen.Live.Gameplay.GuildEdit>?
+Vixen.Live.Gameplay.SocialBridge.Rename(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.Social.GuildId id, int rank, string name) -> bool
+Vixen.Live.Gameplay.SocialBridge.SaveGraph(Vixen.Gameplay.Social.SocialGraph graph) -> void
+Vixen.Live.Gameplay.SocialBridge.SaveGuild(Vixen.Gameplay.Social.Guild guild) -> void
+Vixen.Live.Gameplay.SocialBridge.Settle(Vixen.Live.Gameplay.GuildEdit edit) -> bool
+Vixen.Live.Gameplay.SocialBridge.Settle(Vixen.Live.Gameplay.GuildEdit edit, Vixen.Gameplay.Social.GuildRefusal refusal) -> bool
+Vixen.Live.Gameplay.SocialBridge.Settle(Vixen.Live.Gameplay.PendingGraph write) -> bool
+Vixen.Live.Gameplay.SocialBridge.SocialBridge(Vixen.Live.Gameplay.IGameplayIdentity identity, Vixen.Gameplay.Social.SocialLibrary? library = null) -> void
+Vixen.Live.Gameplay.SocialBridge.StateWrites.get -> int
+Vixen.Live.Gameplay.SocialBridge.Warm.get -> int
+Vixen.Live.Gameplay.SocialBridge.Warmed(Vixen.Gameplay.PlayerId player, Vixen.Live.Persistence.GuildRow? row) -> Vixen.Gameplay.Social.Guild?
+Vixen.Live.Gameplay.SocialBridge.Warmed(Vixen.Live.PlayerKey owner, System.Collections.Generic.IEnumerable<Vixen.Live.Gameplay.SocialLink> links) -> Vixen.Gameplay.Social.SocialGraph?
+Vixen.Live.Gameplay.SocialLink -> readonly struct
+Vixen.Live.Gameplay.SocialLink : System.IEquatable<Vixen.Live.Gameplay.SocialLink>
+Vixen.Live.Gameplay.SocialLink.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Gameplay.SocialLink.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Gameplay.SocialLink.SocialLink() -> void
+Vixen.Live.Gameplay.SocialLink.SocialLink(Vixen.Live.PlayerKey Player, Vixen.Gameplay.Social.SocialTie Tie) -> void
+Vixen.Live.Gameplay.SocialLink.Tie.get -> Vixen.Gameplay.Social.SocialTie
+Vixen.Live.Gameplay.SocialLink.Tie.init -> Vixen.Gameplay.Social.SocialTie
 const Vixen.Live.Gameplay.LedgerBridge.RestoreAccount = "world/restore" -> string
 const Vixen.Live.Gameplay.PlayerProfile.Version = 1 -> int
+override Vixen.Live.Gameplay.PendingGraph.GetHashCode() -> int
 override Vixen.Live.Gameplay.ProfileSectionId.ToString() -> string
 static Vixen.Live.Gameplay.GameplayIdentityMap.From(Vixen.Net.Sessions.PlayerId session) -> Vixen.Gameplay.PlayerId
 static Vixen.Live.Gameplay.PlayerProfile.Magic.get -> System.ReadOnlySpan<byte>

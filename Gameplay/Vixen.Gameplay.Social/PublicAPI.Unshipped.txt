@@ -95,7 +95,9 @@ Vixen.Gameplay.Social.Guild.Ranks.get -> System.Collections.Generic.IReadOnlyLis
 Vixen.Gameplay.Social.Guild.Remove(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player, Vixen.Gameplay.GameplayTagRange kickPermission = default(Vixen.Gameplay.GameplayTagRange)) -> Vixen.Gameplay.Social.GuildRefusal
 Vixen.Gameplay.Social.Guild.RenameRank(int rank, string name) -> bool
 Vixen.Gameplay.Social.Guild.Roster.get -> System.Collections.Generic.IReadOnlyDictionary<Vixen.Gameplay.PlayerId, int>
+Vixen.Gameplay.Social.Guild.Seat(Vixen.Gameplay.PlayerId player, int rank) -> bool
 Vixen.Gameplay.Social.Guild.SetRank(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player, int rank) -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.Guild.Unseat(Vixen.Gameplay.PlayerId player) -> bool
 Vixen.Gameplay.Social.GuildCharter -> sealed class
 Vixen.Gameplay.Social.GuildCharter.Definition.get -> Vixen.Gameplay.Social.GuildCharterDefinition
 Vixen.Gameplay.Social.GuildCharter.Id.get -> Vixen.Gameplay.DefId
@@ -222,7 +224,10 @@ Vixen.Gameplay.Social.SocialGraph.Outgoing.get -> System.Collections.Generic.IRe
 Vixen.Gameplay.Social.SocialGraph.Owner.get -> Vixen.Gameplay.PlayerId
 Vixen.Gameplay.Social.SocialGraph.Receive(Vixen.Gameplay.PlayerId player) -> bool
 Vixen.Gameplay.Social.SocialGraph.Request(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.Seat(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.Social.SocialTie tie) -> bool
 Vixen.Gameplay.Social.SocialGraph.SocialGraph(Vixen.Gameplay.PlayerId owner) -> void
+Vixen.Gameplay.Social.SocialGraph.TieTo(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.SocialTie
+Vixen.Gameplay.Social.SocialGraph.Ties() -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Vixen.Gameplay.PlayerId, Vixen.Gameplay.Social.SocialTie>>
 Vixen.Gameplay.Social.SocialGraph.Unblock(Vixen.Gameplay.PlayerId player) -> bool
 Vixen.Gameplay.Social.SocialGraph.Unfriend(Vixen.Gameplay.PlayerId player) -> bool
 Vixen.Gameplay.Social.SocialGraphs -> sealed class
@@ -245,6 +250,13 @@ Vixen.Gameplay.Social.SocialModule : Vixen.Gameplay.IGameplayModule
 Vixen.Gameplay.Social.SocialModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
 Vixen.Gameplay.Social.SocialModule.Name.get -> string
 Vixen.Gameplay.Social.SocialModule.SocialModule() -> void
+Vixen.Gameplay.Social.SocialTie -> enum : int
+Vixen.Gameplay.Social.SocialTie.Blocked = 2 -> Vixen.Gameplay.Social.SocialTie
+Vixen.Gameplay.Social.SocialTie.Friend = 1 -> Vixen.Gameplay.Social.SocialTie
+Vixen.Gameplay.Social.SocialTie.None = 0 -> Vixen.Gameplay.Social.SocialTie
+Vixen.Gameplay.Social.SocialTie.Received = 4 -> Vixen.Gameplay.Social.SocialTie
+Vixen.Gameplay.Social.SocialTie.Requested = 3 -> Vixen.Gameplay.Social.SocialTie
+Vixen.Gameplay.Social.SocialTie.SocialTie() -> void
 const Vixen.Gameplay.Social.SocialModule.GroupRoot = "Group" -> string
 const Vixen.Gameplay.Social.SocialModule.Invite = "Guild.Permission.Invite" -> string
 const Vixen.Gameplay.Social.SocialModule.Kick = "Guild.Permission.Kick" -> string

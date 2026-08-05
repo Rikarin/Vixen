@@ -513,6 +513,75 @@ public class GuildTests {
             }
         }
     }
+
+    // ── The restore seam ──────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void ARosterIsSeatedWithoutAnybodyAskingPermission() {
+        // ⚠ Add() asks a permission and SetRank() asks who outranks whom, and a roster arriving from
+        // storage has nobody asking either. HousePlot.Assign is the same seam for the same reason.
+        var guild = new Guild(Charter, PlayerId.None, "The Vigil");
+
+        Assert.True(guild.Seat(Content.Player(1), 0));
+        Assert.True(guild.Seat(Content.Player(2), 1));
+
+        Assert.Equal(Content.Player(1), guild.Leader);
+        Assert.Equal(1, guild.RankOf(Content.Player(2)));
+    }
+
+    [Fact]
+    public void AFounderlessGuildStartsEmptyRatherThanRefusingToExist() {
+        // What makes Seat enough on its own: the constructor already permits a guild with nobody in
+        // it, so restoring one needs no second constructor.
+        Assert.Equal(0, new Guild(Charter, PlayerId.None).Count);
+    }
+
+    [Fact]
+    public void ARankThePatchRemovedLandsOnTheBottomRungRatherThanLosingThePlayer() {
+        // ⚠ A charter edited to drop a rung leaves members holding a rank the ladder no longer has.
+        // Refusing them would delete those members the next time the guild was read.
+        var guild = new Guild(Charter, PlayerId.None);
+
+        Assert.True(guild.Seat(Content.Player(1), 99));
+        Assert.Equal(Charter.Ranks.Length - 1, guild.RankOf(Content.Player(1)));
+    }
+
+    [Fact]
+    public void SeatingIsRefusedForNobodyAndForTheRankThatMeansNotIn() {
+        // RankOf answers −1 for somebody who is not in the guild, and feeding that straight back is
+        // the caller mistake worth refusing rather than clamping.
+        var guild = new Guild(Charter, PlayerId.None);
+
+        Assert.False(guild.Seat(PlayerId.None, 0));
+        Assert.False(guild.Seat(Content.Player(1), -1));
+        Assert.Equal(0, guild.Count);
+    }
+
+    [Fact]
+    public void SeatingDoesNotKeepTheOneLeaderInvariantAndSaysSo() {
+        // ⚠ The one rule nothing else here breaks. Two at rank zero makes Leader answer with
+        // whichever comes out of the roster first, and the authority seating them is the only thing
+        // that knows which is true.
+        var guild = new Guild(Charter, PlayerId.None);
+
+        guild.Seat(Content.Player(1), 0);
+        guild.Seat(Content.Player(2), 0);
+
+        Assert.Equal(2, guild.At(0).Count());
+        Assert.Equal(PlayerId.None, new Guild(Charter, PlayerId.None).Leader);
+    }
+
+    [Fact]
+    public void UnseatingWillStrandAGuildWhereRemovingRefusesTo() {
+        // ⚠ WouldStrand is a rule about what a *player* may do. An authority replacing a roster it
+        // already holds is not playing.
+        var guild = Founded();
+
+        Assert.Equal(GuildRefusal.WouldStrand, guild.Remove(PlayerId.None, Content.Player(1)));
+        Assert.True(guild.Unseat(Content.Player(1)));
+        Assert.Equal(PlayerId.None, guild.Leader);
+        Assert.False(guild.Unseat(Content.Player(9)));
+    }
 }
 
 public class SocialGraphTests {
@@ -575,6 +644,73 @@ public class SocialGraphTests {
 
         Assert.True(graphs.Of(Content.Player(1)).Unblock(Content.Player(2)));
         Assert.False(graphs.Of(Content.Player(1)).IsFriend(Content.Player(2)));
+    }
+
+    // ── The restore seam ──────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AStoredGraphIsSeatedWithoutTheRulesForMakingOne() {
+        // ⚠ Request() refuses somebody who is blocked, so replaying it over stored state applies
+        // today's rules to yesterday's answer. Guild.Seat is the same seam for the same reason.
+        var graph = graphs.Of(Content.Player(1));
+
+        graph.Block(Content.Player(3));
+
+        Assert.True(graph.Seat(Content.Player(3), SocialTie.Friend));
+        Assert.True(graph.IsFriend(Content.Player(3)));
+        Assert.False(graph.HasBlocked(Content.Player(3)));
+    }
+
+    [Fact]
+    public void SeatingOneTieClearsTheOtherThree() {
+        // ⚠ A graph read back with somebody on two lists is one where Block's guarantee has already
+        // failed, and the only door state comes in through is the cheapest place to stop it.
+        var graph = graphs.Of(Content.Player(1));
+
+        graph.Seat(Content.Player(2), SocialTie.Requested);
+        graph.Seat(Content.Player(2), SocialTie.Blocked);
+
+        Assert.Empty(graph.Outgoing);
+        Assert.True(graph.HasBlocked(Content.Player(2)));
+        Assert.Equal(SocialTie.Blocked, graph.TieTo(Content.Player(2)));
+    }
+
+    [Fact]
+    public void SeatingNothingIsARemovalAndSeatingWhatIsAlreadyThereIsNotAChange() {
+        var graph = graphs.Of(Content.Player(1));
+
+        Assert.True(graph.Seat(Content.Player(2), SocialTie.Friend));
+        Assert.False(graph.Seat(Content.Player(2), SocialTie.Friend));
+        Assert.True(graph.Seat(Content.Player(2), SocialTie.None));
+        Assert.Equal(SocialTie.None, graph.TieTo(Content.Player(2)));
+        Assert.Empty(graph.Friends);
+    }
+
+    [Fact]
+    public void SeatingRefusesNobodyAndTheOwnerThemselves() {
+        var graph = graphs.Of(Content.Player(1));
+
+        Assert.False(graph.Seat(PlayerId.None, SocialTie.Friend));
+        Assert.False(graph.Seat(Content.Player(1), SocialTie.Blocked));
+    }
+
+    [Fact]
+    public void EveryTieComesBackOutInPlayerOrder() {
+        // Ordered, so two realms holding the same graph write the same bytes.
+        var graph = graphs.Of(Content.Player(1));
+
+        graph.Seat(Content.Player(4), SocialTie.Received);
+        graph.Seat(Content.Player(2), SocialTie.Blocked);
+        graph.Seat(Content.Player(3), SocialTie.Friend);
+
+        Assert.Equal(
+            [
+                new(Content.Player(2), SocialTie.Blocked),
+                new(Content.Player(3), SocialTie.Friend),
+                new KeyValuePair<PlayerId, SocialTie>(Content.Player(4), SocialTie.Received)
+            ],
+            graph.Ties()
+        );
     }
 }
 

@@ -325,6 +325,54 @@ public sealed class Guild {
         return GuildRefusal.None;
     }
 
+    /// <summary>Puts somebody on a rung with no checks at all.</summary>
+    /// <param name="player">Who.</param>
+    /// <param name="rank">Which rung. Past the bottom lands on the bottom; below zero is refused.</param>
+    /// <returns>Whether anybody was seated.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not a player action, and the reason a stored guild can be read back.</b>
+    ///         <see cref="Add" /> asks a permission and <see cref="SetRank" /> asks who outranks whom,
+    ///         and a roster arriving from storage has nobody asking either — the authority that lands
+    ///         it is the thing that kept it. <c>HousePlot.Assign</c> is the same seam for the same
+    ///         reason, and replaying the checked calls instead would re-derive a roster against
+    ///         today's content and quietly drop the standing a patch has since made illegal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A rank past the bottom rung lands on the bottom rather than being refused.</b> A
+    ///         charter edited to remove a rung leaves every member who stood on it holding a rank this
+    ///         ladder no longer has, and refusing them would <em>delete those members</em> the next
+    ///         time the guild was read. Landing them at the bottom loses a rank; refusing them loses
+    ///         the player.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not keep the one-leader invariant, which nothing else here breaks.</b>
+    ///         Seating two members at rank zero makes <see cref="Leader" /> answer with whichever the
+    ///         roster yields first, and seating none makes it answer <see cref="PlayerId.None" />. The
+    ///         caller is the authority precisely because it is the one that knows which of those is
+    ///         true, so it is the one that has to check.
+    ///     </para>
+    /// </remarks>
+    public bool Seat(PlayerId player, int rank) {
+        if (!player.IsSome || rank < 0) {
+            return false;
+        }
+
+        roster[player] = Math.Min(rank, ranks.Count - 1);
+
+        return true;
+    }
+
+    /// <summary>Takes somebody off the roster with no checks at all. The authority's, like <see cref="Seat" />.</summary>
+    /// <param name="player">Who.</param>
+    /// <returns>Whether they were on it.</returns>
+    /// <remarks>
+    ///     ⚠ It will strand a guild, which <see cref="Remove" /> refuses to. That refusal is a rule
+    ///     about what a <em>player</em> may do; an authority replacing a roster it already holds is
+    ///     not playing.
+    /// </remarks>
+    public bool Unseat(PlayerId player) => roster.Remove(player);
+
     /// <summary>Renames a rung.</summary>
     /// <param name="rank">Which one.</param>
     /// <param name="name">What it is now called.</param>

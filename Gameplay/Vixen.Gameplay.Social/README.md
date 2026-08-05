@@ -8,8 +8,9 @@ Spec: [docs/plan/28](../../docs/plan/28-gameplay-framework.md) § Social, the fi
 ## State
 
 **Built: groups with invites, subgroups, roles and leadership succession; guilds with a permission
-matrix and the rules that stop one being bricked; friends, blocks and presence with its redaction.
-43 tests.** Chat is G4's other half.
+matrix and the rules that stop one being bricked; friends, blocks and presence with its redaction;
+the unchecked seams a stored roster and a stored graph come back in through. 54 tests.** Chat is
+G4's other half.
 
 | | |
 |---|---|
@@ -17,7 +18,7 @@ matrix and the rules that stop one being bricked; friends, blocks and presence w
 | `PlayerGroup` · `GroupMember` · `GroupInvite` · `GroupRefusal` | The membership and everything that changes it. |
 | `GuildId` · `GuildCharterDefinition` · `GuildCharter` · `GuildRankDefinition` · `GuildRank` | What a *new* guild starts as. |
 | `Guild` · `GuildRefusal` | The roster, the ladder, and `Can(player, permission)`. |
-| `SocialGraph` · `SocialGraphs` | Friends both ways, blocks one way. |
+| `SocialGraph` · `SocialGraphs` · `SocialTie` | Friends both ways, blocks one way. |
 | `PresenceStatus` · `PresenceRecord` · `PresenceBook` | Who is online, redacted per viewer. |
 | `SocialLibrary` · `ISocialStore` · `MemorySocialStore` | Compiled content, and the durable seam. |
 | `SocialModule` | Two definition types, five permission tags. |
@@ -86,11 +87,31 @@ able to whisper, invite or trade, which is every avenue the block was for.
 ⚠ **Presence is redacted in the book, not at the UI.** An invisible player whose map still went over
 the wire is one anybody with a packet capture can follow. A player always sees themselves.
 
+### State comes back in through one unchecked door
+
+`Guild.Seat`, `Guild.Unseat` and `SocialGraph.Seat` are not player actions, and `HousePlot.Assign` is
+the precedent. `Add` asks a permission, `SetRank` asks who outranks whom and `Request` refuses
+somebody who is blocked — those are the rules for *making* a tie, and a roster arriving from storage
+has nobody asking any of them. Replaying the checked calls would re-derive yesterday's state against
+today's content and quietly drop whatever a patch has since made illegal.
+
+⚠ **A rank past the bottom rung lands on the bottom rather than being refused.** A charter edited to
+remove a rung leaves members holding a rank the ladder no longer has; refusing them would *delete
+those members* the next time the guild was read. Landing them at the bottom loses a rank, and
+refusing them loses the player.
+
+⚠ **Seating does not keep the one-leader invariant**, which nothing else here breaks — the caller is
+the authority precisely because it is the one that knows which of two rank-zero members is real.
+
+⚠ **`SocialTie` is one value rather than a set of flags, and seating one clears the other three.**
+`Block` drops the friendship and both requests, so "blocked friend" is not a state this graph can be
+in — and a flags enum would invite storage to write one.
+
 ## What is owed
 
-- **Durability.** A roster and a friends list are a grain's — doc 27 hands `IGuildGrain` to doc 28
-  rather than building it. `ISocialStore` is the seam and `MemorySocialStore` is the test's; the real
-  one is task **#27**'s.
+- ~~**Durability.**~~ Built. A roster and a friends list are a grain's — doc 27 hands `IGuildGrain`
+  to doc 28 rather than building it. `ISocialStore` is the seam, `MemorySocialStore` is the test's,
+  and `Vixen.Live.Gameplay.SocialBridge` is the real one.
 - **The guild bank.** A bank tab is a container with a permission on it, which needs
   `Vixen.Gameplay.Inventory` — and this library takes no dependency on it, so the bank belongs
   wherever the two are already both present, which is G5.

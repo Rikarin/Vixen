@@ -8,7 +8,7 @@ Spec: doc 27 § Persistence and ADR-021, doc 28 § Economy.
 ## State
 
 **Built: the identity join, the economy on the ledger, the profile container, the checkpoint policy,
-a durable pity store and a durable lockout store. 57 tests.**
+a durable pity store, a durable lockout store and a durable social store. 78 tests.**
 
 | | |
 |---|---|
@@ -19,13 +19,15 @@ a durable pity store and a durable lockout store. 57 tests.**
 | `CheckpointPolicy` · `CheckpointReason` | When counters are written down. |
 | `ProfilePityStore` | Doc 28's durable pity counters, as a section. |
 | `LockoutBridge` · `PendingLockout` | `ILockoutStore` in the frame, `IInstanceGrain` afterwards. |
+| `SocialBridge` · `GuildEdit` · `PendingGraph` · `SocialLink` | `ISocialStore` in the frame, `IGuildGrain` afterwards. |
 
-**Owed:** a durable `ISocialStore`, and the remaining section codecs — task **#39**.
+**Owed:** the remaining section codecs — progression, quests, exploration and wardrobe — task **#39**.
+`ProfilePityStore` is the worked example.
 
 ## A sync store over async truth has a cold-read problem the interface cannot express
 
-`LedgerBridge` and `LockoutBridge` are the same shape for the same reason, and the difference between
-them is worth stating because it is dangerous.
+`LedgerBridge`, `LockoutBridge` and `SocialBridge` are the same shape for the same reason, and the
+differences between them are worth stating because two of the three are dangerous.
 
 ⚠ **An unknown balance reads as zero and refuses a purchase** — annoying, and safe. **An unknown
 lockout reads as `null`, which `ILockoutStore.Find` defines as "not locked"** — so a player whose
@@ -45,6 +47,42 @@ same absence in a cache and must not be the same fact.
 ⚠ **Purging the view is not releasing a lockout.** It drops what has lifted from a realm's memory;
 what decides it has lifted is the reset the cluster holds, and a realm that could write a release
 would be one that ends a raid lockout by restarting.
+
+⚠ **`SocialBridge.GuildOf` has the same problem in a third shape.** `GuildId.None` for somebody whose
+guild was never loaded reads as *"in no guild"*, which admits them to a rival's guild chat and drops
+the tag their hall's permissions hang off. Same treatment: `IsWarm`, `ColdReads`, `Cold`.
+
+## The roster this realm holds is only the members it can name
+
+⚠ **A 500-member guild has maybe thirty of them online, and the rest cannot be seated at all.** A
+gameplay `PlayerId` is a session id widened, so a member who is not connected *to this realm* has no
+gameplay id. That is the same partial view `LedgerBridge` keeps of a balance and is not a defect —
+but it makes one thing lethal: **a partial roster must never be written back as the whole truth**, or
+the write deletes everybody who was offline.
+
+⚠ **So a guild is written as operations, and `SaveGuild` is counted rather than obeyed.** Two things
+are missing from a state-shaped save and neither can be recovered: the roster is partial, and a diff
+of two rosters cannot say *who did it* — which every `IGuildGrain` method needs, because every guild
+rule is about authority. `Invite`, `Kick`, `Promote` and `Rename` are the same operations with the
+actor kept, and a non-zero `StateWrites` says something in the game is still going the other way.
+
+⚠ **A graph is state-shaped and safely so**, and the difference is the point: it has one owner, every
+change in it is theirs, and nothing has been thrown away by handing over the whole thing. Only the
+nameable part is diffed; a tie to somebody this realm cannot name is carried through untouched.
+
+⚠ **A block on somebody offline leaks unless it is re-seated when they arrive.** The person blocked is
+usually not here, so the block is a `PlayerKey` in the durable set and nothing in any graph —
+`SocialGraphs.IsSevered` answers false and they can whisper, invite and trade. `Admitted` is the
+sweep, and a realm that forgets to call it has a block that does not work.
+
+⚠ **`SocialBridge.Divergences` is not expected to be zero**, unlike `LedgerBridge`'s. A cap of 500
+measured against thirty seated members will say yes when the guild is full, and the grain will refuse
+it. That is the trade this bridge makes on purpose; what the counter is for is noticing when the
+number stops looking like the online fraction of a roster.
+
+⚠ **A refusal does not roll the view back.** Undoing a join two frames later is a player who was in
+the guild, saw the roster, said hello and was silently ejected — and the next `Warmed` corrects it
+from the authority anyway.
 
 ## Assets go in the ledger; counters go in the profile
 

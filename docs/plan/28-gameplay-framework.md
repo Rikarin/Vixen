@@ -665,6 +665,19 @@ one.
 > nothing**: drawing actors uniformly spent almost all of its time on an empty group refusing
 > everything, every invariant holding and nothing exercised — which is what the applied/refused floors
 > exist to catch, and why the loop now steers itself towards the states it is checking.
+>
+> **Amended by #39, which built the durable half and found what the checked API could not express.**
+> ⚠ **State has to come back in through an unchecked door, and G8 had already found the same thing.**
+> `Guild.Seat`, `Guild.Unseat` and `SocialGraph.Seat` are `HousePlot.Assign`'s seam for
+> `HousePlot.Assign`'s reason: `Add` asks a permission and `Request` refuses somebody who is blocked,
+> and a roster arriving from storage has nobody asking either. Replaying the checked calls re-derives
+> yesterday's state against today's content. ⚠ **A rank past the bottom rung lands on the bottom
+> rather than being refused**, because a charter edited to remove a rung would otherwise *delete* the
+> members standing on it the next time the guild was read — losing a rank beats losing a player. ⚠ **A
+> `SocialTie` is one value rather than a set of flags**: `Block` drops the friendship and both
+> requests, so a flags enum would invite storage to write a state the rules cannot produce. ⚠ **The
+> one-leader invariant is the only rule seating does not keep**, deliberately — the authority landing
+> the roster is the only thing that knows which of two rank-zero members is real.
 
 ### Economy
 

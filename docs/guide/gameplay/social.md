@@ -4,7 +4,7 @@ slug: gameplay/social
 kind: guide
 area: Gameplay
 summary: Three kinds of group and one implementation, a guild whose permission matrix is a tag query per action, and a block that is one-way as a fact and two-way as a rule.
-api: [T:Vixen.Gameplay.PlayerId, T:Vixen.Gameplay.Social.GroupId, T:Vixen.Gameplay.Social.GroupKind, T:Vixen.Gameplay.Social.GroupRefusal, T:Vixen.Gameplay.Social.GroupPolicyDefinition, T:Vixen.Gameplay.Social.GroupPolicy, T:Vixen.Gameplay.Social.GroupMember, T:Vixen.Gameplay.Social.GroupInvite, T:Vixen.Gameplay.Social.PlayerGroup, T:Vixen.Gameplay.Social.GuildId, T:Vixen.Gameplay.Social.GuildRefusal, T:Vixen.Gameplay.Social.GuildRankDefinition, T:Vixen.Gameplay.Social.GuildCharterDefinition, T:Vixen.Gameplay.Social.GuildCharter, T:Vixen.Gameplay.Social.GuildRank, T:Vixen.Gameplay.Social.Guild, T:Vixen.Gameplay.Social.SocialGraph, T:Vixen.Gameplay.Social.SocialGraphs, T:Vixen.Gameplay.Social.PresenceStatus, T:Vixen.Gameplay.Social.PresenceRecord, T:Vixen.Gameplay.Social.PresenceBook, T:Vixen.Gameplay.Social.SocialLibrary, T:Vixen.Gameplay.Social.ISocialStore, T:Vixen.Gameplay.Social.MemorySocialStore, T:Vixen.Gameplay.Social.SocialModule]
+api: [T:Vixen.Gameplay.PlayerId, T:Vixen.Gameplay.Social.GroupId, T:Vixen.Gameplay.Social.GroupKind, T:Vixen.Gameplay.Social.GroupRefusal, T:Vixen.Gameplay.Social.GroupPolicyDefinition, T:Vixen.Gameplay.Social.GroupPolicy, T:Vixen.Gameplay.Social.GroupMember, T:Vixen.Gameplay.Social.GroupInvite, T:Vixen.Gameplay.Social.PlayerGroup, T:Vixen.Gameplay.Social.GuildId, T:Vixen.Gameplay.Social.GuildRefusal, T:Vixen.Gameplay.Social.GuildRankDefinition, T:Vixen.Gameplay.Social.GuildCharterDefinition, T:Vixen.Gameplay.Social.GuildCharter, T:Vixen.Gameplay.Social.GuildRank, T:Vixen.Gameplay.Social.Guild, T:Vixen.Gameplay.Social.SocialTie, T:Vixen.Gameplay.Social.SocialGraph, T:Vixen.Gameplay.Social.SocialGraphs, T:Vixen.Gameplay.Social.PresenceStatus, T:Vixen.Gameplay.Social.PresenceRecord, T:Vixen.Gameplay.Social.PresenceBook, T:Vixen.Gameplay.Social.SocialLibrary, T:Vixen.Gameplay.Social.ISocialStore, T:Vixen.Gameplay.Social.MemorySocialStore, T:Vixen.Gameplay.Social.SocialModule]
 tags: [gameplay, social, party, squad, guild, friends, presence, mmo]
 since: 0.1
 status: preview
@@ -47,6 +47,33 @@ player must not still be able to whisper, invite or trade.
 
 ⚠ **Presence is redacted in the book rather than at the UI.** An invisible player whose map went over
 the wire is one a packet capture can follow.
+
+### Reading one back
+
+`Guild.Seat`, `Guild.Unseat` and `SocialGraph.Seat` are the unchecked door state comes in through, and
+they are not player actions. `HousePlot.Assign` is the same seam for the same reason: `Add` asks a
+permission and `SetRank` asks who outranks whom, and a roster arriving from storage has nobody asking
+either. Replaying the checked calls instead would re-derive yesterday's state against today's content
+and quietly drop the standing a patch has since made illegal.
+
+Three rules come with them, and each is a mistake the alternative makes:
+
+⚠ **A rank past the bottom rung lands on the bottom rather than being refused.** A charter edited to
+remove a rung leaves every member who stood on it holding a rank the ladder no longer has, and
+refusing them would *delete those members* the next time the guild was read. Landing them at the
+bottom loses a rank; refusing them loses the player.
+
+⚠ **Seating does not keep the one-leader invariant**, which nothing else in `Guild` breaks. Two at
+rank zero makes `Leader` answer with whichever the roster yields first. The caller is the authority
+precisely because it is the one that knows which is true, so it is the one that has to check.
+
+⚠ **A `SocialTie` is one value and not a set of flags, and seating one clears the other three.**
+`Block` drops the friendship and both requests, so "blocked friend" is not a state this graph can be
+in — and a graph read back with somebody on two lists is one where the block's guarantee has already
+failed.
+
+`SocialGraph.Ties()` is the way back out, in player order so that two realms holding the same graph
+write the same bytes.
 
 ## Examples
 

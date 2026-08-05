@@ -40,6 +40,29 @@ public readonly record struct PresenceRecord(
     public static PresenceRecord Away(PlayerId player) => new(player, PresenceStatus.Offline);
 }
 
+/// <summary>What one player is to another, in a graph being read back.</summary>
+/// <remarks>
+///     ⚠ <b>One value rather than a set of flags, because the four are exclusive.</b>
+///     <see cref="SocialGraph.Block" /> drops the friendship and both requests, so "blocked friend"
+///     is not a state this graph can be in — and a flags enum would invite storage to write one.
+/// </remarks>
+public enum SocialTie {
+    /// <summary>Nothing. What <see cref="SocialGraph.Seat" /> treats as a removal.</summary>
+    None,
+
+    /// <summary>A friend.</summary>
+    Friend,
+
+    /// <summary>Blocked by the owner.</summary>
+    Blocked,
+
+    /// <summary>The owner has asked them and nobody has answered.</summary>
+    Requested,
+
+    /// <summary>They have asked the owner.</summary>
+    Received
+}
+
 /// <summary>One player's friends and blocks.</summary>
 /// <remarks>
 ///     <para>
@@ -176,6 +199,91 @@ public sealed class SocialGraph {
     /// <param name="player">Who.</param>
     /// <returns>Whether they were blocked.</returns>
     public bool Unblock(PlayerId player) => blocked.Remove(player);
+
+    /// <summary>What somebody is to the owner.</summary>
+    /// <param name="player">Who.</param>
+    /// <returns>The tie, or <see cref="SocialTie.None" />.</returns>
+    public SocialTie TieTo(PlayerId player) {
+        if (blocked.Contains(player)) {
+            return SocialTie.Blocked;
+        }
+
+        if (friends.Contains(player)) {
+            return SocialTie.Friend;
+        }
+
+        if (outgoing.Contains(player)) {
+            return SocialTie.Requested;
+        }
+
+        return incoming.Contains(player) ? SocialTie.Received : SocialTie.None;
+    }
+
+    /// <summary>Puts a tie in with no checks at all.</summary>
+    /// <param name="player">Who.</param>
+    /// <param name="tie">What they are. <see cref="SocialTie.None" /> takes them out.</param>
+    /// <returns>Whether anything moved.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not a player action, and the reason a stored graph can be read back.</b>
+    ///         <see cref="Request" /> refuses somebody who is blocked and <see cref="Block" /> drops
+    ///         the friendship, which are the rules for <em>making</em> a tie. Replaying them over a
+    ///         graph that already holds the answer would apply today's rules to yesterday's state and
+    ///         silently drop what a patch has since made illegal — <c>Guild.Seat</c> and
+    ///         <c>HousePlot.Assign</c> are the same seam for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exclusive, so seating one tie clears the other three.</b> A graph read back with
+    ///         somebody on two lists is a graph where <see cref="Block" />'s guarantee has already
+    ///         failed, and the cheapest place to stop that is the only door state comes in through.
+    ///     </para>
+    /// </remarks>
+    public bool Seat(PlayerId player, SocialTie tie) {
+        if (!player.IsSome || player == Owner) {
+            return false;
+        }
+
+        var was = TieTo(player);
+
+        friends.Remove(player);
+        blocked.Remove(player);
+        outgoing.Remove(player);
+        incoming.Remove(player);
+
+        switch (tie) {
+            case SocialTie.Friend:
+                friends.Add(player);
+
+                break;
+
+            case SocialTie.Blocked:
+                blocked.Add(player);
+
+                break;
+
+            case SocialTie.Requested:
+                outgoing.Add(player);
+
+                break;
+
+            case SocialTie.Received:
+                incoming.Add(player);
+
+                break;
+        }
+
+        return was != tie;
+    }
+
+    /// <summary>Everybody the owner has any tie to, in player order.</summary>
+    /// <returns>Them and what they are.</returns>
+    /// <remarks>Player order, so two realms holding the same graph write the same bytes.</remarks>
+    public IEnumerable<KeyValuePair<PlayerId, SocialTie>> Ties() =>
+        friends.Select(player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Friend))
+            .Concat(blocked.Select(player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Blocked)))
+            .Concat(outgoing.Select(player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Requested)))
+            .Concat(incoming.Select(player => new KeyValuePair<PlayerId, SocialTie>(player, SocialTie.Received)))
+            .OrderBy(tie => tie.Key);
 
     /// <summary>Records the other half of a friendship <see cref="SocialGraphs" /> has agreed.</summary>
     /// <param name="player">Who.</param>
