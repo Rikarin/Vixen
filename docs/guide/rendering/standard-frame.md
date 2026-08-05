@@ -7,7 +7,7 @@ summary: One engine-owned node that expands into the full frame graph — shadow
 api: [T:Vixen.Rendering.PostFx.StandardFrameAsset, T:Vixen.Rendering.PostFx.StandardFrameExtensions, T:Vixen.Rendering.Compositor.QualityTier, T:Vixen.Rendering.PostFx.ShadowMode, T:Vixen.Rendering.PostFx.GiMode, T:Vixen.Rendering.PostFx.ReflectionsMode, T:Vixen.Rendering.PostFx.AntialiasingMode, T:Vixen.Rendering.PostFx.ExposureMode, T:Vixen.Rendering.Compositor.ICompositorAssetTransformer, T:Vixen.Editor.Assets.Compositors.CompositorWriter]
 tags: [rendering, compositor, presets, post-processing]
 since: 0.1
-status: experimental
+status: preview
 related: [rendering/choosing-a-frame, rendering/post-processing, rendering/shadows, rendering/lit-path, rendering/render-quality]
 ---
 

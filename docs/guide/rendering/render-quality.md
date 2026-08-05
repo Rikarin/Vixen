@@ -7,7 +7,7 @@ summary: The quality waterfall behind the Standard Frame's tiers — engine defa
 api: [T:Vixen.Rendering.PostFx.RenderQualityAsset, T:Vixen.Rendering.PostFx.QualityTierOverrides, T:Vixen.Rendering.PostFx.ResolutionQuality, T:Vixen.Rendering.PostFx.ShadowQuality, T:Vixen.Rendering.PostFx.GlobalIlluminationQuality, T:Vixen.Rendering.PostFx.ReflectionQuality, T:Vixen.Rendering.PostFx.PostFidelityQuality, T:Vixen.Rendering.PostFx.LightQuality, T:Vixen.Rendering.PostFx.GeometryQuality, T:Vixen.Rendering.PostFx.VegetationQuality, T:Vixen.Rendering.PostFx.TextureQuality, T:Vixen.Rendering.PostFx.CullingMode, T:Vixen.Rendering.PostFx.FxaaPreset, T:Vixen.Rendering.PostFx.ResolvedQuality, T:Vixen.Rendering.PostFx.RenderQuality, T:Vixen.Rendering.Compositor.QualityTier]
 tags: [rendering, presets, scalability, quality]
 since: 0.1
-status: experimental
+status: preview
 related: [rendering/standard-frame, rendering/choosing-a-frame, rendering/post-processing]
 ---
 
@@ -60,13 +60,16 @@ document transform would put content IO inside a build that must stay pure. Load
 hands the asset over.
 
 Some entries are carried, not yet consumed, and say so on their doc comments (`DfaoSamples`,
-`SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias`, all
-of `VegetationQuality` and all of `TextureQuality`): they map to systems the compositor does not
-construct today, and they land in the asset first so a project's tiers do not change shape when
-their consumers learn to read them. `VegetationQuality` is the newest of these — the terrain,
-grass and foliage libraries have landed with exactly the parameters its fields name (the scatter
-kernels' density scales, `GrassResidency`'s cell capacity, `TerrainLodRanges.NearRange`), and the
-seam that constructs those renderers from a frame is what remains owed.
+`SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias` and
+all of `TextureQuality`): they map to systems the compositor does not construct today, and they
+land in the asset first so a project's tiers do not change shape when their consumers learn to
+read them.
+
+`VegetationQuality` is consumed, but by hand-off rather than by reference: `Vixen.Rendering.Terrain`
+cannot see this assembly — the dependency runs the other way — so `TerrainFactory` declares its own
+plain-numbered `TerrainVegetationQuality` and the host folds a resolved tier into it. The document
+may also state any of those numbers directly on its `!Terrain` node, which out-votes the factory.
+A knob added to `VegetationQuality` is not wired until that copy grows the same field.
 
 ## Examples
 

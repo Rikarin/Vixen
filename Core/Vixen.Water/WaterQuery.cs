@@ -46,7 +46,7 @@ public interface IWaterFieldSource {
 ///     </para>
 /// </remarks>
 public sealed class WaterQuery {
-    GerstnerWave[] waves;
+    readonly GerstnerWave[] waves;
     int waveCount;
     WaterField? standalone;
     WaterAttenuation attenuation;

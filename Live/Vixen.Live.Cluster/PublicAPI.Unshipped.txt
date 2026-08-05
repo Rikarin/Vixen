@@ -7,6 +7,7 @@ Vixen.Live.Cluster.IFleetGrain.Shards() -> System.Threading.Tasks.Task<Vixen.Liv
 Vixen.Live.Cluster.IFleetGrain.Target() -> System.Threading.Tasks.Task<Vixen.Live.RealmVersion>
 Vixen.Live.Cluster.IFleetGrain.VersionSpread() -> System.Threading.Tasks.Task<double>
 Vixen.Live.Cluster.IMapGrain -> interface
+Vixen.Live.Cluster.IMapGrain.Explain(Vixen.Live.PlayerKey player) -> System.Threading.Tasks.Task<string>
 Vixen.Live.Cluster.IMapGrain.Place(Vixen.Live.Cluster.PlaceRequest request) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlaceResult>
 Vixen.Live.Cluster.IMapGrain.PlayerLeft(Vixen.Live.PlayerKey player, Vixen.Live.ShardId shard) -> System.Threading.Tasks.Task
 Vixen.Live.Cluster.IMapGrain.ShardChanged(Vixen.Live.Cluster.ShardReport report) -> System.Threading.Tasks.Task
