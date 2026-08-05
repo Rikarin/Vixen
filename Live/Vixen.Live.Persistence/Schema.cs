@@ -166,10 +166,10 @@ public static class Schema {
                 create table if not exists live_guild_member (
                     guild       uuid         not null references live_guild (id) on delete cascade,
                     account     uuid         not null,
-                    \"character\" uuid         not null,
+                    "character" uuid         not null,
                     rank        integer      not null,
                     joined      timestamptz  not null,
-                    primary key (guild, account, \"character\")
+                    primary key (guild, account, "character")
                 )
                 """,
                 """

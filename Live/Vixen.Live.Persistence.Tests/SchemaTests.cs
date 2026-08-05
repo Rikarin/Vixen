@@ -80,5 +80,26 @@ public class SchemaTests {
         Assert.Contains("sequence     bigserial    primary key", sql, StringComparison.Ordinal);
         Assert.Contains("primary key (op_account, op_character, op_kind, op_id)", sql, StringComparison.Ordinal);
         Assert.Contains("primary key (account, \"character\")", sql, StringComparison.Ordinal);
+        Assert.Contains("primary key (guild, account, \"character\")", sql, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     No statement carries a backslash, which is the one thing a string-only test can say about a
+    ///     C# escape that reached the server.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ These statements are raw string literals, where <c>\"</c> is a backslash followed by a
+    ///     quote rather than a quote — and PostgreSQL answers a literal backslash in a statement with
+    ///     <c>42601</c> at parse time, which takes the whole schema with it. Migration 2 shipped with
+    ///     two of them and the nightly leg was red for a day before anybody looked. Nothing in this
+    ///     dialect needs one: identifiers are quoted with <c>"</c>, strings with <c>'</c>, and
+    ///     <c>standard_conforming_strings</c> has been on since 9.1.
+    /// </remarks>
+    [Fact]
+    public void No_statement_carries_a_backslash() {
+        Assert.All(
+            Schema.Steps.SelectMany(step => step.Statements).Append(Schema.CreateVersionTable),
+            statement => Assert.DoesNotContain("\\", statement, StringComparison.Ordinal)
+        );
     }
 }
