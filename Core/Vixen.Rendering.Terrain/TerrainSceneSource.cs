@@ -43,7 +43,10 @@ public interface ITerrainAssetSource {
 /// <param name="Origin">Where its low corner is, in world space — the entity's translation.</param>
 /// <param name="NearRange">How far level 0 reaches, or zero for the node's quality default.</param>
 /// <param name="LodBias">Levels added to every pick, positive for coarser. ⚠ Carried, not yet consumed.</param>
-/// <param name="CastShadows">Whether it casts. ⚠ Carried, not yet consumed — casters are a tracked task.</param>
+/// <param name="CastShadows">
+///     Whether it draws into the sun's cascade atlas — <see cref="TerrainCasterRenderer" /> is the
+///     consumer, and a frame whose every terrain says false declares no caster pass at all.
+/// </param>
 /// <param name="Grass">The grass rule, or null for a terrain with none.</param>
 /// <param name="GrassRange">How far grass cells stay resident, in metres. Zero takes the default.</param>
 public readonly record struct TerrainSceneEntry(

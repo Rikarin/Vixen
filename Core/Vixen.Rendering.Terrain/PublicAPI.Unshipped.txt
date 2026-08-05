@@ -303,11 +303,13 @@ Vixen.Rendering.Terrain.TerrainExtractionSystem.TerrainCount.get -> int
 Vixen.Rendering.Terrain.TerrainExtractionSystem.TerrainExtractionSystem(Vixen.Rendering.Terrain.TerrainSceneSource scene) -> void
 Vixen.Rendering.Terrain.TerrainExtractionSystem.Waiting.get -> int
 Vixen.Rendering.Terrain.TerrainFactory -> sealed class
+Vixen.Rendering.Terrain.TerrainFactory : Vixen.Rendering.Compositor.ICompositorAssetTransformer
 Vixen.Rendering.Terrain.TerrainFactory : Vixen.Rendering.Compositor.ISceneRendererFactory
 Vixen.Rendering.Terrain.TerrainFactory.Create(Vixen.Rendering.Compositor.ISceneRendererAsset declared, Vixen.Rendering.Compositor.CompositorBuilder builder) -> Vixen.Rendering.Compositor.SceneRenderer?
 Vixen.Rendering.Terrain.TerrainFactory.Scene.get -> Vixen.Rendering.Terrain.TerrainSceneSource?
 Vixen.Rendering.Terrain.TerrainFactory.Scene.set -> Vixen.Rendering.Terrain.TerrainSceneSource?
 Vixen.Rendering.Terrain.TerrainFactory.TerrainFactory() -> void
+Vixen.Rendering.Terrain.TerrainFactory.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document, Vixen.Rendering.Compositor.CompositorBuilder builder) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 Vixen.Rendering.Terrain.TerrainFactory.Vegetation.get -> Vixen.Rendering.Terrain.TerrainVegetationQuality
 Vixen.Rendering.Terrain.TerrainFactory.Vegetation.set -> Vixen.Rendering.Terrain.TerrainVegetationQuality
 Vixen.Rendering.Terrain.TerrainGrassComponent -> struct
@@ -624,6 +626,16 @@ Vixen.Shaders.Generated.ImpostorConstants.ViewPosition -> Vixen.Core.Mathematics
 Vixen.Shaders.Generated.ImpostorConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.ImpostorConstants.WorldUp -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ImpostorKeys -> static class
+Vixen.Shaders.Generated.TerrainCasterConstants -> struct
+Vixen.Shaders.Generated.TerrainCasterConstants.AtlasTiles -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.TerrainCasterConstants.HeightMapSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.TerrainCasterConstants.HeightRange -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.TerrainCasterConstants.MetresPerQuad -> float
+Vixen.Shaders.Generated.TerrainCasterConstants.TerrainCasterConstants() -> void
+Vixen.Shaders.Generated.TerrainCasterConstants.TileQuads -> float
+Vixen.Shaders.Generated.TerrainCasterConstants.TileSamples -> float
+Vixen.Shaders.Generated.TerrainCasterConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.TerrainCasterKeys -> static class
 Vixen.Shaders.Generated.TerrainConstants -> struct
 Vixen.Shaders.Generated.TerrainConstants.AtlasTiles -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.TerrainConstants.HeightMapSize -> Vixen.Core.Mathematics.Vector2
@@ -778,6 +790,35 @@ const Vixen.Shaders.Generated.ImpostorKeys.InstancesSet = 2 -> int
 const Vixen.Shaders.Generated.ImpostorKeys.NormalAtlasBinding = 2 -> uint
 const Vixen.Shaders.Generated.ImpostorKeys.NormalAtlasSet = 2 -> int
 const Vixen.Shaders.Generated.ImpostorKeys.ShaderName = "Impostor" -> string
+const Vixen.Shaders.Generated.TerrainCasterConstants.Size = 112 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.ConstantBufferSize = 112 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.HeightMapBinding = 1 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.HeightMapSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.HeightSamplerBinding = 6 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.HeightSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.HoleMapBinding = 4 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.HoleMapSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.HoleSamplerBinding = 9 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.HoleSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.LayerBlendsBinding = 12 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.LayerBlendsSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.LayerMapsBinding = 3 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.LayerMapsSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.LayerSamplerBinding = 8 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.LayerSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.LayerScalesBinding = 11 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.LayerScalesSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.NodesBinding = 10 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.NodesSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.ShaderName = "Terrain" -> string
+const Vixen.Shaders.Generated.TerrainCasterKeys.SurfaceMapsBinding = 5 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.SurfaceMapsSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.WeightMapsBinding = 2 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.WeightMapsSet = 2 -> int
+const Vixen.Shaders.Generated.TerrainCasterKeys.WeightSamplerBinding = 7 -> uint
+const Vixen.Shaders.Generated.TerrainCasterKeys.WeightSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.TerrainConstants.Size = 112 -> int
 const Vixen.Shaders.Generated.TerrainKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.TerrainKeys.ConstantBufferSet = 2 -> int
@@ -855,6 +896,7 @@ readonly Vixen.Shaders.Generated.GrassLitCascadesElement.Write(System.Span<byte>
 readonly Vixen.Shaders.Generated.GrassLitConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.GrassScatterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ImpostorConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.TerrainCasterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TerrainConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TerrainLitCascadesElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.TerrainLitConstants.Write(System.Span<byte> buffer) -> void
@@ -1000,6 +1042,29 @@ static readonly Vixen.Shaders.Generated.ImpostorKeys.UsedPermutationKeys -> Vixe
 static readonly Vixen.Shaders.Generated.ImpostorKeys.ViewPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ImpostorKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.ImpostorKeys.WorldUp -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.AtlasTiles -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.GridQuads -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.HeightBlend -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.HeightMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.HeightMapSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.HeightRange -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.HeightSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.HoleMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.HoleSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.LayerBlends -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.LayerMaps -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.LayerSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.LayerScales -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.LayerSlots -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.MetresPerQuad -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.Nodes -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.SurfaceMaps -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.TileQuads -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.TileSamples -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.WeightMaps -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TerrainCasterKeys.WeightSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.TerrainKeys.AtlasTiles -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.TerrainKeys.GridQuads -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.TerrainKeys.HeightBlend -> Vixen.Shaders.PermutationKey<bool>
