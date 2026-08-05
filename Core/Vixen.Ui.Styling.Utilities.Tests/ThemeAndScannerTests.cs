@@ -55,6 +55,22 @@ public class ThemeAndScannerTests {
         Assert.Empty(tokens.Radius);
     }
 
+    /// <summary>
+    ///     And a file that is not YAML at all goes down the same channel, rather than out of the
+    ///     reader and into whoever was building a stylesheet. A theme file is hand-written, so this is
+    ///     the likeliest of the failures here — and the malformed tag is the shape the <c>meta</c>
+    ///     fuzz found reaching a library constructor before <c>YamlReader</c> refused it.
+    /// </summary>
+    [Theory]
+    [InlineData("theme: !!Te]V\n")]
+    [InlineData("theme:\n  colors: { bad: [1, 2\n")]
+    [InlineData(":")]
+    public void A_theme_file_that_is_not_YAML_is_reported_rather_than_thrown(string yaml) {
+        var tokens = ThemeTokens.Parse(yaml);
+
+        Assert.Contains("not YAML", Assert.Single(tokens.Diagnostics), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void The_scanner_finds_class_names_wherever_they_are_written() {
         var found = new HashSet<string>(StringComparer.Ordinal);

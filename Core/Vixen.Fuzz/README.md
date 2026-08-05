@@ -468,7 +468,7 @@ order of magnitude a budget was picked from, not a promise about the count.
 | `bundle` | 196 k | 10 min | ~120 M | a CRC over the whole payload per case |
 | `chunk` | 163 k | 10 min | ~98 M | an LZ4 or Zstd decode per case |
 | `heightmap` | 73 k | 10 min | ~44 M | inflate and an unfilter pass per case |
-| `meta` | 20 k | **30 min** | ~36 M | four passes per case — decode, line scan, YAML parse, reflected bind — and an open finding |
+| `meta` | 20 k | **30 min** | ~36 M | four passes per case — decode, line scan, YAML parse, reflected bind — and the malformed tag took three million |
 | `stylevalue` | 118 k | **5 min** | ~35 M | fills the 65 536 signature table and the 4 096 corpus in the 3.4 s the gate gives it |
 | `layerrule` | 225 k | **5 min** | ~68 M | same, in 1.3 s |
 | `vxml` | 15 k | **60 min** | ~55 M | four parses per case; the trailing-escape finding took 1.6 M cases |
@@ -534,6 +534,22 @@ where `YamlReader` decides what counts as a refusal. Pinned in `Vixen.Core.Yaml.
   `ThrowIfNullOrEmpty` guard states a *caller's* contract and named a parameter the caller never
   passed. Refused in the reader now, where a key that came out of a file is a parse error rather than
   somebody's bug. The shortest input in the corpus.
+
+And a fourth from the same boundary, which the nightly found rather than the gate — 3 M cases in,
+long after the 60 k the gate runs.
+
+- **A tag that is not a URI came out as an `ArgumentException` from a library constructor.**
+  `-torter: !!Te]V 1`: the `!!` shorthand expands to `tag:yaml.org,2002:Te]V`, `TagName`'s constructor
+  checks that a global tag is a URI, and it throws `ArgumentException` — from inside
+  `Parser.MoveNext`, so the boundary's filter for `YamlException` never saw it and neither did the two
+  production `when` filters. Every position a tag can appear in reaches it, `!<>` reaches its
+  empty-value sibling, and a `%TAG` directive declaring a bad prefix reaches it for all three handles.
+  ⚠ **Translated by a decorator over `IParser` rather than by another type on that filter**, because
+  `ArgumentException` is the one type on this seam that is ambiguous — it is also what `YamlMapping.Set`
+  throws, so catching it around the whole read would have turned the finding above into "the file is
+  bad" instead of the refusal it was fixed into. Nothing of the reader's own runs inside `MoveNext`.
+  `meta/5b8b48c830e9132e.bin`, which is the 64-byte prefix the finding printed; the 228-byte input it
+  came from is not recoverable from a truncated hex line, and the prefix reproduces it exactly.
 
 Then one from `vxml`, which is the first finding here that byte havoc could not have reached and the
 first that needed more than "nothing threw".
@@ -640,6 +656,30 @@ here is that promotion follows the fix. It stays the honest edge of the guard �
 runaway*: the CLR ends the process at the overflow, so there is no thread left to write a finding and
 no sample early enough to have taken one. Bounding this recursion did not change that; a case per child
 process still would.
+
+**And one that was thirty-two findings and one defect, which is the more useful half of the story.**
+`ParseStatement` threads the attribute lists it has just consumed tokens for into whatever node it
+builds — every branch of it except the one that discovers the statement is a block, where
+`case OpenBrace: return ParseBlock()` dropped them on the floor. `BlockSyntax` has declared an
+`AttributeLists` slot since the grammar was written and the parser never filled it, so `[Unroll] {`
+parsed to a block with no attributes and printed back as `{`: the characters left the tree entirely
+and the round-trip oracle said so. Reduced, every one of the thirty-two is `func{ …[X] {`. Fixed by
+passing the lists in, pinned by `RoundTripTests.An_attributed_block_carries_its_attributes` — which
+asserts the *slot* rather than the string, because a fix that put the characters back as trivia would
+round-trip and still leave the attributes unreachable to everything that reads the tree.
+
+⚠ **It was thirty-two findings because of this harness, not because of the compiler, and that is what
+made it expensive.** The dedup key was the whole detail string, and a detail quotes the input — the
+oracle names the byte offset of the first difference and the character either side of it. So one
+defect minted a fresh finding per offset, `MaxFindings` filled after five and a half minutes, and the
+cap **ends the run**: `raven` has a two-hour nightly budget and had never once spent more than four
+per cent of it. The summary line could not say so either — `109,012 cases … 3 FINDING(S)` is what a
+run that stopped at four per cent prints, and it is the same line a run that used all of it prints.
+What caught it was somebody downloading an artifact and counting the files in it. The key is now the
+failure and the detail with the input's own values blanked, the summary says which of the four things
+ended the run, and repeats are counted rather than dropped in silence. On the same sixty seconds and
+the same seed, with the parser defect put back: **one** finding and sixty-six repeats, and the run
+goes the distance.
 
 **And one found and deliberately not fixed**, because the fix is not this harness's to make: the binder
 writes `null` into a member declared non-nullable. `subAssets: null` in a sidecar produces an

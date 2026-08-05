@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using System.Text.Json;
 using Xunit;
 
@@ -94,6 +95,98 @@ public sealed class DockerPlacementTests : IDisposable {
             instance.Endpoint.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
             bound[0].GetProperty("hostPort").GetString()
         );
+    }
+
+    [Fact]
+    public async Task TheImagesOwnEntrypointIsLeftAlone() {
+        using var placement = Placement();
+
+        await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
+
+        // ⚠ Absent, not empty. An entrypoint of `[]` CLEARS the image's, and a cleared entrypoint is
+        // what promotes `--realm-spec` to the program — the failure this whole path exists to avoid.
+        // A realm image ends in ENTRYPOINT ["./YourGame.Realm"] and the spec is appended to it.
+        Assert.False(JsonDocument.Parse(daemon.Last.Body).RootElement.TryGetProperty("entrypoint", out _));
+    }
+
+    [Fact]
+    public async Task AnImageWithNoEntrypointIsRefusedBeforeAnythingIsCreated() {
+        daemon.Entrypoint = null;
+
+        var ports = new PortPool(7800, 7809);
+
+        using var placement = new DockerPlacement(Options(ports), new DockerEngine(daemon), ownsEngine: true);
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        );
+
+        // The message the daemon would otherwise have given is "exec: \"--realm-spec\": executable
+        // file not found in $PATH", from a container that already exists, on a nightly leg nobody
+        // reads. This one names the image, the flag and the fix.
+        Assert.Contains("mygame/realm:0.1.0", failure.Message, StringComparison.Ordinal);
+        Assert.Contains(RealmSpec.ArgumentName, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("ENTRYPOINT", failure.Message, StringComparison.Ordinal);
+
+        // Nothing was created and nothing was rented, because nothing could have run.
+        Assert.Empty(daemon.Containers);
+        Assert.Equal(0, ports.RentedCount);
+    }
+
+    [Fact]
+    public async Task TheProbeRefusesAnImageThatWouldExecAFlag() {
+        daemon.Entrypoint = null;
+
+        using var placement = Placement();
+
+        var probe = await placement.ProbeAsync(TestContext.Current.CancellationToken);
+
+        // A backend that cannot start a realm must say so where backends are chosen, not one
+        // placement at a time for the rest of the night.
+        Assert.False(probe.Available);
+        Assert.Contains(RealmSpec.ArgumentName, probe.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnEntrypointOverrideReplacesTheImages() {
+        using var placement = new DockerPlacement(
+            Options() with { Entrypoint = ["/opt/runtime/launch"] },
+            new DockerEngine(daemon),
+            ownsEngine: true
+        );
+
+        await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
+
+        var body = JsonDocument.Parse(daemon.Last.Body).RootElement;
+
+        Assert.Equal(
+            "/opt/runtime/launch",
+            body.GetProperty("entrypoint").EnumerateArray().Single().GetString()
+        );
+
+        // And the spec still travels as arguments, which is the whole point of an override: it says
+        // what runs, not what the realm is told.
+        var command = body.GetProperty("cmd").EnumerateArray().Select(entry => entry.GetString()).ToList();
+
+        Assert.Contains(RealmSpec.ArgumentName, command, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task ARefusedStartSaysWhatItTriedToExec() {
+        using var placement = new DockerPlacement(
+            Options() with { Entrypoint = ["./YourGame.Realm"] },
+            new DockerEngine(new RefusingStart()),
+            ownsEngine: true
+        );
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        );
+
+        // The daemon's own message is about a program and never says which one it was handed.
+        Assert.Contains("exec", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("./YourGame.Realm", failure.Message, StringComparison.Ordinal);
+        Assert.Contains(RealmSpec.ArgumentName, failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -292,6 +385,36 @@ public sealed class DockerPlacementTests : IDisposable {
         }
 
         Assert.Fail($"The condition was still false after {Patience}.");
+    }
+
+    /// <summary>
+    ///     A daemon that creates a container and then will not start it, the way a real one answers a
+    ///     command whose first word is not a program.
+    /// </summary>
+    sealed class RefusingStart : HttpMessageHandler {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        ) {
+            var path = request.RequestUri!.AbsolutePath;
+
+            if (path.EndsWith("/start", StringComparison.Ordinal)) {
+                return Task.FromResult(
+                    new HttpResponseMessage(System.Net.HttpStatusCode.BadRequest) {
+                        Content = new StringContent(
+                            "{\"message\":\"failed to create task for container: OCI runtime create "
+                            + "failed: exec: \\\"./YourGame.Realm\\\": permission denied\"}"
+                        )
+                    }
+                );
+            }
+
+            return Task.FromResult(
+                new HttpResponseMessage(System.Net.HttpStatusCode.OK) {
+                    Content = new StringContent("{\"Id\":\"9001\"}", Encoding.UTF8, "application/json")
+                }
+            );
+        }
     }
 
     /// <summary>A daemon that refuses to create anything, which is how a bad image is injected.</summary>

@@ -1,0 +1,8 @@
+package A.B
+
+shader Foo {
+    func M() {
+        [Unroll] {
+        }
+    }
+}

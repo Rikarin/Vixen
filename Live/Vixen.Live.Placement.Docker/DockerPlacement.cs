@@ -30,7 +30,29 @@ public sealed record DockerPlacementOptions {
     /// <summary>Which orchestrator these containers belong to.</summary>
     public string Owner { get; init; } = "vixen";
 
+    /// <summary>The program a realm container runs, or empty for the image's own entrypoint.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Empty is the answer for a realm image, and the one this backend is designed
+    ///         around.</b> A realm image ends in <c>ENTRYPOINT ["./YourGame.Realm"]</c> — the template's
+    ///         Dockerfile does — and everything below is <em>appended</em> to it. That is what makes a
+    ///         container's command the same string a pod's <c>args</c> and <c>Process.Start</c> carry,
+    ///         which is <see cref="RealmSpec" />'s whole premise.
+    ///     </para>
+    ///     <para>
+    ///         Set it only for an image that cannot carry an entrypoint of its own — a shared runtime
+    ///         image with the realm mounted into it, say. This is Kubernetes' <c>command</c>, with the
+    ///         same meaning: it replaces the image's rather than adding to it.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<string> Entrypoint { get; init; } = [];
+
     /// <summary>Arguments to put before the encoded <see cref="RealmSpec" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Arguments, not a program.</b> They are appended to the entrypoint alongside the spec,
+    ///     so the first of them is never what gets executed — unless the image has no entrypoint at
+    ///     all, which <see cref="DockerPlacement.StartAsync" /> refuses rather than discovers.
+    /// </remarks>
     public IReadOnlyList<string> Arguments { get; init; } = [];
 
     /// <summary>Variables to set in every realm container.</summary>
@@ -130,6 +152,12 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The probe reads the image, not just the daemon.</b> An image whose command would begin
+    ///     with a flag is a fleet that comes up dead, one container at a time, with a message about
+    ///     <c>--realm-spec</c> not being on the <c>PATH</c>. The probe is where a backend gets to say
+    ///     "not me" before an orchestrator picks it, so it is where that is worth finding out.
+    /// </remarks>
     public async ValueTask<PlacementProbe> ProbeAsync(CancellationToken cancellation) {
         var ping = await engine.PingAsync(cancellation).ConfigureAwait(false);
 
@@ -137,9 +165,31 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
             return new(false, BackendName, ping.Detail);
         }
 
-        return options.Image.Length == 0
-            ? new(false, BackendName, $"{ping.Detail}, but no image is configured")
-            : new(true, BackendName, $"{ping.Detail}, running {options.Image}");
+        if (options.Image.Length == 0) {
+            return new(false, BackendName, $"{ping.Detail}, but no image is configured");
+        }
+
+        IReadOnlyList<string> entrypoint;
+
+        try {
+            entrypoint = await EntrypointAsync(cancellation).ConfigureAwait(false);
+        } catch (Exception failure) when (failure is InvalidOperationException or IOException or HttpRequestException) {
+            // A probe answers rather than throws: the orchestrator asks every backend and takes the
+            // first that says yes, so an image the daemon has never heard of is a "no", not a crash.
+            return new(false, BackendName, $"{ping.Detail}, but {failure.Message}");
+        }
+
+        var program = Program(entrypoint, options.Arguments);
+
+        if (program.StartsWith('-')) {
+            return new(false, BackendName, $"{ping.Detail}, but {WouldExec(options.Image, entrypoint, program)}");
+        }
+
+        // What a realm would be launched as, with the spec itself elided — it is two hundred
+        // characters of key-value text and the interesting part is the word in front of it.
+        var command = Argv(entrypoint, [.. options.Arguments, RealmSpec.ArgumentName, "…"]);
+
+        return new(true, BackendName, $"{ping.Detail}, running {options.Image} as `{command}`");
     }
 
     /// <inheritdoc />
@@ -157,8 +207,18 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
             throw new InvalidOperationException($"`{spec}` is not a runnable spec.");
         }
 
+        // Asked of the image rather than assumed, and asked before a port is rented so that a
+        // misconfigured backend costs nothing to find out about.
+        var entrypoint = await EntrypointAsync(cancellation).ConfigureAwait(false);
+        var program = Program(entrypoint, options.Arguments);
+
+        if (program.StartsWith('-')) {
+            throw new InvalidOperationException(WouldExec(options.Image, entrypoint, program));
+        }
+
         var (bound, rented) = Bind(spec.Endpoint);
         var started = spec with { Endpoint = bound };
+        IReadOnlyList<string> arguments = [.. options.Arguments, .. started.ToCommandLine()];
 
         string id;
 
@@ -166,19 +226,31 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
             id = await engine.CreateAsync(
                     new(
                         options.Image,
-                        [.. options.Arguments, .. started.ToCommandLine()],
+                        arguments,
                         new Dictionary<string, string>(StringComparer.Ordinal) {
                             [DockerPlacementOptions.ShardLabel] = spec.Shard.Value.ToString("D"),
                             [DockerPlacementOptions.OwnerLabel] = options.Owner
                         },
                         options.Environment,
                         bound.Port
-                    ),
+                    ) {
+                        Entrypoint = options.Entrypoint
+                    },
                     cancellation
                 )
                 .ConfigureAwait(false);
 
-            await engine.StartAsync(id, cancellation).ConfigureAwait(false);
+            try {
+                await engine.StartAsync(id, cancellation).ConfigureAwait(false);
+            } catch (InvalidOperationException refused) {
+                // ⚠ The daemon's complaint about a container that would not start is about a
+                // *program*, and it does not say which one it was handed. Whoever reads this at three
+                // in the morning needs the argv, not the container id.
+                throw new InvalidOperationException(
+                    $"{refused.Message} — it was launched as `{Argv(entrypoint, arguments)}`.",
+                    refused
+                );
+            }
         } catch {
             // The port goes back before the exception leaves — the machine where starts fail is the
             // one where somebody is watching, and a launcher that leaked a port per failure would
@@ -312,6 +384,39 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
             engine.Dispose();
         }
     }
+
+    /// <summary>The first word of what the daemon will exec.</summary>
+    /// <remarks>
+    ///     Docker's rule, written down: the entrypoint if there is one, otherwise the first element of
+    ///     the command — and when there is neither, the spec's own flag, which is the shape of the
+    ///     failure this exists to name.
+    /// </remarks>
+    static string Program(IReadOnlyList<string> entrypoint, IReadOnlyList<string> arguments) {
+        if (entrypoint.Count > 0) {
+            return entrypoint[0];
+        }
+
+        return arguments.Count > 0 ? arguments[0] : RealmSpec.ArgumentName;
+    }
+
+    static string Argv(IReadOnlyList<string> entrypoint, IReadOnlyList<string> arguments) =>
+        string.Join(' ', entrypoint.Concat(arguments).Select(Quote));
+
+    static string Quote(string word) =>
+        word.Contains(' ', StringComparison.Ordinal) ? $"\"{word}\"" : word;
+
+    static string WouldExec(string image, IReadOnlyList<string> entrypoint, string program) =>
+        entrypoint.Count == 0
+            ? $"`{image}` has no entrypoint, so the first word of the command is the program Docker "
+            + $"execs — and that is `{program}`, which is a flag. A realm image ends in "
+            + $"ENTRYPOINT [\"./YourGame.Realm\"] and has {RealmSpec.ArgumentName} appended to it; an "
+            + "image that cannot needs DockerPlacementOptions.Entrypoint to say what to run."
+            : $"`{image}` would exec `{program}`, which is a flag rather than a program.";
+
+    ValueTask<IReadOnlyList<string>> EntrypointAsync(CancellationToken cancellation) =>
+        options.Entrypoint.Count > 0
+            ? new(options.Entrypoint)
+            : new(engine.InspectEntrypointAsync(options.Image, cancellation));
 
     (RealmEndpoint Endpoint, bool Rented) Bind(RealmEndpoint requested) {
         var host = requested.Host is { Length: > 0 } named ? named : options.Host;

@@ -42,7 +42,7 @@ public static class YamlReader {
         ArgumentNullException.ThrowIfNull(input);
 
         try {
-            var parser = new Parser(new Scanner(input, skipComments: false));
+            var parser = new GuardedParser(new Parser(new Scanner(input, skipComments: false)));
             var state = new ReadState(parser);
             return state.ReadDocument();
         } catch (YamlParseException) {
@@ -65,6 +65,63 @@ public static class YamlReader {
             throw new YamlParseException($"The document is malformed: {failure.Message}", 0, 0, failure);
         }
 #pragma warning restore CA1031
+    }
+
+    /// <summary>YamlDotNet's parser, with what it throws that is not an exception of its own translated.</summary>
+    /// <param name="inner">The parser being driven.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A third escape, and the first one the catch above could not be widened to take.</b>
+    ///         A malformed tag — <c>!!Te]V</c>, where a shorthand expands to something that is not a
+    ///         URI — reaches <c>TagName</c>'s constructor inside <c>Parser.ParseNode</c>, and that
+    ///         constructor validates its argument and throws <see cref="ArgumentException" />. So does
+    ///         <c>!&lt;&gt;</c>, whose expansion is empty, and so does a <c>%TAG</c> directive
+    ///         declaring a prefix that is not a URI. All three are documents somebody committed, not
+    ///         calls somebody made.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why this is a decorator rather than one more type on the filter above.</b>
+    ///         <see cref="ArgumentException" /> is the one type on this seam that is genuinely
+    ///         ambiguous: <see cref="YamlMapping.Set" /> throws it for an empty key and
+    ///         <see cref="YamlScalar" /> throws its null-argument subclass, so a filter around the
+    ///         whole read would turn a defect in <see cref="ReadState" /> into "the file is bad" — and
+    ///         the empty-key case is a real finding this reader already has, fixed by refusing the
+    ///         document rather than by swallowing the exception. An <see cref="ArgumentException" />
+    ///         out of <see cref="MoveNext" /> has no such ambiguity: nothing of this assembly's runs
+    ///         inside that call, so it came from the library and it is about the document. Narrowing
+    ///         it by <c>TargetSite</c> instead would be the same statement made reflectively, and
+    ///         would stop being true on a trimmed NativeAOT build — which is the one build this
+    ///         reader exists to work on.
+    ///     </para>
+    ///     <para>
+    ///         Only <see cref="MoveNext" /> is guarded, because only it runs the library: <c>Current</c>
+    ///         returns a field, and <c>ParserExtensions.Accept</c> — which is all
+    ///         <see cref="ReadState" /> calls — reaches the parser through those two members alone.
+    ///     </para>
+    /// </remarks>
+    sealed class GuardedParser(IParser inner) : IParser {
+        long line;
+        long column;
+
+        public ParsingEvent? Current => inner.Current;
+
+        public bool MoveNext() {
+            try {
+                var moved = inner.MoveNext();
+
+                // The position of the last event that was read, so that a failure on the *next* one
+                // points at somewhere in the file rather than at (0,0). The failing token's own mark
+                // is not available: the parser threw before it produced an event carrying it.
+                if (inner.Current is { } current) {
+                    line = current.End.Line;
+                    column = current.End.Column;
+                }
+
+                return moved;
+            } catch (ArgumentException failure) {
+                throw new YamlParseException($"The document is malformed: {failure.Message}", line, column, failure);
+            }
+        }
     }
 
     /// <summary>One read in progress: the parser, and the comments waiting for a node to land on.</summary>

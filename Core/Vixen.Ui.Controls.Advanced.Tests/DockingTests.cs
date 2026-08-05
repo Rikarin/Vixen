@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Core.Yaml;
 using Vixen.Ui.Styling;
 using Xunit;
 
@@ -82,6 +83,17 @@ public class DockingTests {
         Assert.Null(layout.Root);
         Assert.Empty(layout.Floating);
         Assert.Empty(layout.Groups());
+    }
+
+    [Fact]
+    public void A_file_that_is_not_yaml_is_the_one_thing_that_throws() {
+        // The line above this one is the contrast the rule turns on: "not a mapping" *parses*, and a
+        // document that parses into something this does not understand is the emptiest stale layout
+        // there is. Text no parser will read is not a stale layout at all — there is nothing in it to
+        // salvage — and returning the same empty arrangement would tell a caller that the user's
+        // panels were legitimately gone. This type has no diagnostics list to say otherwise, so the
+        // exception is how the corruption reaches somebody who can report it.
+        Assert.Throws<YamlParseException>(() => DockLayout.Load("root: [unclosed"));
     }
 
     [Fact]

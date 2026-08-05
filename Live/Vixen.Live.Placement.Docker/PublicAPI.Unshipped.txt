@@ -13,6 +13,8 @@ Vixen.Live.Placement.DockerCreate : System.IEquatable<Vixen.Live.Placement.Docke
 Vixen.Live.Placement.DockerCreate.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Live.Placement.DockerCreate.Arguments.init -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Live.Placement.DockerCreate.DockerCreate(string Image, System.Collections.Generic.IReadOnlyList<string> Arguments, System.Collections.Generic.IReadOnlyDictionary<string, string> Labels, System.Collections.Generic.IReadOnlyDictionary<string, string> Environment, int Port) -> void
+Vixen.Live.Placement.DockerCreate.Entrypoint.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.DockerCreate.Entrypoint.init -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Live.Placement.DockerCreate.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
 Vixen.Live.Placement.DockerCreate.Environment.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
 Vixen.Live.Placement.DockerCreate.Image.get -> string
@@ -28,8 +30,10 @@ Vixen.Live.Placement.DockerEngine.Dispose() -> void
 Vixen.Live.Placement.DockerEngine.DockerEngine(System.Net.Http.HttpMessageHandler handler) -> void
 Vixen.Live.Placement.DockerEngine.DockerEngine(string? endpoint = null) -> void
 Vixen.Live.Placement.DockerEngine.FollowAsync(string id, System.Threading.CancellationToken cancellation) -> System.Collections.Generic.IAsyncEnumerable<string>
+Vixen.Live.Placement.DockerEngine.InspectEntrypointAsync(string image, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string>>
 Vixen.Live.Placement.DockerEngine.ListAsync(string label, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Placement.DockerContainer>>
 Vixen.Live.Placement.DockerEngine.PingAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Placement.DockerPing>
+Vixen.Live.Placement.DockerEngine.PullAsync(string image, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
 Vixen.Live.Placement.DockerEngine.RemoveAsync(string id, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
 Vixen.Live.Placement.DockerEngine.StartAsync(string id, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
 Vixen.Live.Placement.DockerEngine.StopAsync(string id, System.TimeSpan patience, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
@@ -62,6 +66,8 @@ Vixen.Live.Placement.DockerPlacementOptions.Arguments.init -> System.Collections
 Vixen.Live.Placement.DockerPlacementOptions.DockerPlacementOptions() -> void
 Vixen.Live.Placement.DockerPlacementOptions.DrainTimeout.get -> System.TimeSpan
 Vixen.Live.Placement.DockerPlacementOptions.DrainTimeout.init -> System.TimeSpan
+Vixen.Live.Placement.DockerPlacementOptions.Entrypoint.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.DockerPlacementOptions.Entrypoint.init -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Live.Placement.DockerPlacementOptions.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
 Vixen.Live.Placement.DockerPlacementOptions.Environment.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
 Vixen.Live.Placement.DockerPlacementOptions.Host.get -> string

@@ -111,7 +111,7 @@
       "name": "meta",
       "seconds": 1800,
       "minutes": 60,
-      "why": "20 k cases/s, the slowest target that is not a grammar: decode, line scan, YAML parse and a reflected bind is four passes where a packet target has one. Ten minutes is 12 M cases; thirty is 36 M, and it has an open finding."
+      "why": "20 k cases/s, the slowest target that is not a grammar: decode, line scan, YAML parse and a reflected bind is four passes where a packet target has one. Ten minutes is 12 M cases; thirty is 36 M, and the finding it had at ten took three."
     },
     {
       "name": "stylevalue",
