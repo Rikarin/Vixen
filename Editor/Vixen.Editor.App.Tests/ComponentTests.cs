@@ -39,6 +39,22 @@ public class ComponentTests {
             ?? throw editor.Fail("the inspector has no components section");
     }
 
+    /// <summary>Loads the subsystems whose components the add-component menu is expected to offer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A test that asks <c>ComponentsView.Default()</c> what it offers has to load the
+    ///     subsystems first.</b> Each assembly declares its components from a <c>[ModuleInitializer]</c>,
+    ///     which runs when something first reaches into that assembly, and <c>Default()</c> called with
+    ///     no registry reaches into none of them — so without this the offered set is whatever the rest
+    ///     of the run happened to load, and the same test passes in a full run and fails under a filter.
+    ///     A real editor loads a project's assemblies eagerly for exactly this reason.
+    /// </remarks>
+    static void LoadSubsystems() {
+        _ = Lights.All.Count; // Vixen.Rendering
+        _ = TerrainComponent.Of(string.Empty); // Vixen.Rendering.Terrain
+        _ = VirtualCamera.Default; // Vixen.Engine
+        _ = AudioSource.Default; // Vixen.Audio
+    }
+
     static Expander Section(EditorSession editor, string name) =>
         Components(editor).Sections.FirstOrDefault(fold => fold.Label == name)
         ?? throw editor.Fail(
@@ -383,6 +399,8 @@ public class ComponentTests {
     [InlineData(typeof(MeshRenderable))]
     [InlineData(typeof(VfxEmitter))]
     public void Every_adopted_component_creates_something_other_than_a_zero(Type component) {
+        LoadSubsystems();
+
         var bridge = ComponentsView.Default().Single(candidate => candidate.ComponentType == component);
         var fresh = bridge.Create();
 
@@ -403,6 +421,8 @@ public class ComponentTests {
     [InlineData(typeof(TerrainGrassComponent))]
     [InlineData(typeof(PrimitiveShape))]
     public void A_component_that_declares_nothing_still_creates_a_zero(Type component) {
+        LoadSubsystems();
+
         var bridge = ComponentsView.Default().Single(candidate => candidate.ComponentType == component);
 
         Assert.Equal(Activator.CreateInstance(component), bridge.Create());
