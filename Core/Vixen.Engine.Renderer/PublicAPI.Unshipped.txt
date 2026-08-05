@@ -38,13 +38,17 @@ Vixen.Engine.Renderer.AssetTerrainTextures.Resolve(string reference) -> Vixen.Gr
 Vixen.Engine.Renderer.AssetTerrainTextures.Unparsed.get -> int
 Vixen.Engine.Renderer.AssetTextureSource -> sealed class
 Vixen.Engine.Renderer.AssetTextureSource : System.IDisposable
-Vixen.Engine.Renderer.AssetTextureSource.AssetTextureSource(Vixen.Graphics.IGraphicsDevice device, Vixen.Assets.AssetManager assets) -> void
+Vixen.Engine.Renderer.AssetTextureSource.AssetTextureSource(Vixen.Graphics.IGraphicsDevice device, Vixen.Assets.AssetManager assets, long streamingPoolBytes = 0, float mipBias = 0) -> void
 Vixen.Engine.Renderer.AssetTextureSource.Dispose() -> void
 Vixen.Engine.Renderer.AssetTextureSource.Failed.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.Loaded.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.Requested.get -> int
+Vixen.Engine.Renderer.AssetTextureSource.Streaming.get -> Vixen.Engine.Renderer.TextureStreamer?
+Vixen.Engine.Renderer.AssetTextureSource.StreamingRefusals.get -> long
+Vixen.Engine.Renderer.AssetTextureSource.StreamingSwaps.get -> long
 Vixen.Engine.Renderer.AssetTextureSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Graphics.TextureViewHandle view) -> bool
 Vixen.Engine.Renderer.AssetTextureSource.Update(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Engine.Renderer.AssetTextureSource.Want(Vixen.Core.AssetReference reference, int width) -> void
 Vixen.Engine.Renderer.AssetTextureStreamSource -> sealed class
 Vixen.Engine.Renderer.AssetTextureStreamSource : Vixen.Engine.Renderer.ITextureStreamSource
 Vixen.Engine.Renderer.AssetTextureStreamSource.AssetTextureStreamSource(Vixen.Assets.AssetManager assets) -> void
