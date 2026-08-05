@@ -35,7 +35,27 @@ public enum FuzzFailure {
     ///     memory left on the second day, and the only thing that catches it is asking the decoder
     ///     what it is holding.
     /// </remarks>
-    Retained = 3
+    Retained = 3,
+
+    /// <summary>The case was still running when the guard gave up on it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The only one of these seen from outside the call.</b> The other four are computed
+    ///         from readings taken either side of <see cref="IFuzzTarget.Run" />, so none of them can
+    ///         be reported for an input that never lets <c>Run</c> return — and an input that loops, or
+    ///         that grows the heap until there is none left, is exactly that input. What reported it
+    ///         before this existed was the operating system killing the machine.
+    ///     </para>
+    ///     <para>
+    ///         Distinct from <see cref="TookTooLong" /> and <see cref="Allocated" /> rather than folded
+    ///         into them, because it is a different claim measured a different way. Those two are
+    ///         per-thread, exact and proportionate to the input, and they say a decode was slower or
+    ///         fatter than the input justifies. This one is coarse and process-wide and says only that
+    ///         a case was still going when a ceiling nothing healthy approaches went past — see
+    ///         <see cref="CaseGuard" /> for what it can and, more to the point, cannot do about that.
+    ///     </para>
+    /// </remarks>
+    RanAway = 4
 }
 
 /// <summary>An input that broke a promise.</summary>
@@ -100,6 +120,16 @@ public sealed record FuzzOutcome(
 ///         without disturbing any of them.
 ///     </para>
 ///     <para>
+///         ⚠ <b>All four are computed after <see cref="IFuzzTarget.Run" /> returns, and that is a hole
+///         rather than a detail.</b> An input that makes a decoder loop, or grow the heap without
+///         bound, never lets it return — so the readings that would have caught it are never taken and
+///         the run is ended by the operating system killing the machine instead. A fifth,
+///         <see cref="FuzzFailure.RanAway" />, is watched for <i>during</i> the call by
+///         <see cref="CaseGuard" />, on another thread, so that such an input is a named finding with
+///         its bytes on disk rather than a dead host and a guess. Read that type for what the guard
+///         cannot do, which is take the thread back.
+///     </para>
+///     <para>
 ///         <b>Deterministic, and that is a requirement rather than a nicety.</b> The generator is
 ///         seeded, the mutations are a pure function of it, and the corpus grows in a fixed order,
 ///         so a failure on a CI machine is reproduced locally from the seed and the target name.
@@ -133,15 +163,18 @@ public sealed class FuzzSession {
     long windowWorst;
     byte[]? windowWorstInput;
 
+    CaseGuard? guard;
+    bool abandoned;
+
     /// <summary>How long one input may take to decode before that is itself the finding.</summary>
     /// <remarks>
     ///     <para>
-    ///         Generous, because it is checked after the fact rather than enforced: this measures a
-    ///         case that finished slowly, and a case that never finishes hangs the run. That is the
-    ///         right trade — cancelling the decode would mean running it on another thread, and a
-    ///         decoder is single-threaded code whose whole contract is about what it does on the
-    ///         frame's thread. A hung fuzz run is a legible failure; a decoder that can be made to
-    ///         loop forever is exactly the finding, and it will be sitting in the stack trace.
+    ///         Generous, because it is checked after the fact: this measures a case that finished
+    ///         slowly, which is the ordinary reading of "too long" and the one worth reporting
+    ///         precisely. A case that does not finish at all is a different failure and is
+    ///         <see cref="CaseGuard" />'s, at <see cref="HardCaseCap" /> — an order of magnitude out,
+    ///         so the two never report the same input and the cheap exact check stays the one that
+    ///         normally speaks.
     ///     </para>
     ///     <para>
     ///         Wide enough that a machine under load does not report a finding it cannot reproduce.
@@ -151,6 +184,37 @@ public sealed class FuzzSession {
     ///     </para>
     /// </remarks>
     public TimeSpan CaseBudget { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>How long one case may run before the run is abandoned rather than measured.</summary>
+    /// <remarks>
+    ///     Enforced while the case runs, not after it, which is the only way it can be enforced at all
+    ///     — see <see cref="CaseGuard" />. Far above <see cref="CaseBudget" /> on purpose: this is the
+    ///     backstop for a case that is not coming back, not a second opinion on a slow one.
+    /// </remarks>
+    public TimeSpan HardCaseCap { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>How many bytes one case may be handed, garbage included, before it is abandoned.</summary>
+    /// <remarks>Churn, process-wide and coarse. Proportionality is <see cref="Weigh" />'s question.</remarks>
+    public long RunawayAllocation { get; set; } = 1L << 30;
+
+    /// <summary>How far the heap may grow during one case before it is abandoned.</summary>
+    /// <remarks>
+    ///     The one that describes a host running out of memory, as opposed to a target that is merely
+    ///     making a lot of garbage. See <see cref="CaseGuard" /> for why the two are separate numbers.
+    /// </remarks>
+    public long RunawayRetention { get; set; } = 512L << 20;
+
+    /// <summary>Whether a case that will not stop growing ends the process. See the guard.</summary>
+    public bool AbandonProcessOnRunaway { get; set; } = true;
+
+    /// <summary>Where a runaway's input is written the moment it is seen, or null not to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not the same thing as the caller writing the findings out of the outcome.</b> A caller
+    ///     only gets an outcome if the run returns, and the input this names is the one that might stop
+    ///     it returning — so the guard writes that one itself, from the watchdog, while the case is
+    ///     still running.
+    /// </remarks>
+    public string? FindingDirectory { get; set; }
 
     /// <summary>
     ///     How many cases run before allocation is held against the target, so that one-off
@@ -196,13 +260,37 @@ public sealed class FuzzSession {
 
     FuzzOutcome Run(long cases, TimeSpan budget) {
         clock.Restart();
+
+        // Armed before the corpus is replayed, not after: a committed regression that hangs is a
+        // regression, and Prepare runs it.
+        using var watch = new CaseGuard(target.Name, clock) {
+            Cap = HardCaseCap,
+            AllocationCeiling = RunawayAllocation,
+            RetentionCeiling = RunawayRetention,
+            AbandonProcess = AbandonProcessOnRunaway,
+            FindingDirectory = FindingDirectory
+        };
+
+        guard = watch;
+
+        try {
+            return Loop(cases, budget);
+        } finally {
+            guard = null;
+        }
+    }
+
+    FuzzOutcome Loop(long cases, TimeSpan budget) {
         Prepare();
 
         long executed = 0;
 
         var domain = target.Domain;
 
-        while (executed < cases && clock.Elapsed < budget && findings.Count < MaxFindings) {
+        // A runaway stops the run rather than counting against MaxFindings. There is nothing to learn
+        // from the cases after it, and the thread it was running on may still be busy losing the
+        // machine — so the sooner this returns something with the input in it, the better.
+        while (executed < cases && !abandoned && clock.Elapsed < budget && findings.Count < MaxFindings) {
             var first = corpus.Pick(picker.Next());
             var second = corpus.Pick(picker.Next());
 
@@ -250,6 +338,10 @@ public sealed class FuzzSession {
         // a defect in the encoder's own output, and a committed regression that throws again is the
         // reason the file is in the tree.
         foreach (var entry in corpus.Entries.ToArray()) {
+            if (abandoned) {
+                return;
+            }
+
             Execute(entry, measure: false, keep: false);
         }
     }
@@ -261,16 +353,33 @@ public sealed class FuzzSession {
         var started = clock.Elapsed;
         long signature;
 
+        // Two release stores and a reading the line above already took. Everything the guard measures
+        // is measured on its own thread, because this line runs eleven million times a build.
+        guard?.Enter(input, started);
+
         try {
             signature = target.Run(input);
         }
 #pragma warning disable CA1031 // Catching everything is the assertion: nothing may escape a decoder.
         catch (Exception exception) {
+            guard?.Leave();
             Record(new(target.Name, FuzzFailure.Threw, input, Describe(exception)));
 
             return;
         }
 #pragma warning restore CA1031
+
+        guard?.Leave();
+
+        // A case the guard gave up on came back after all, which happens for a slow one and not for
+        // the kind that ends a process. Its finding is the guard's rather than the two below: those
+        // would report the same input a second time under a name that describes it less well.
+        if (guard?.Breach is { } runaway) {
+            abandoned = true;
+            Record(runaway);
+
+            return;
+        }
 
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         var took = clock.Elapsed - started;

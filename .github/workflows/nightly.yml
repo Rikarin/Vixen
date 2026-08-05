@@ -41,6 +41,13 @@ jobs:
     # backstop for a decoder that has been made to loop for ever, which is itself a finding and
     # presents as a job that never ends. It has to stay ahead of the targets: at 150 it was the
     # fuzzing time exactly, so adding one target would have turned every nightly red on the clock.
+    #
+    # ⚠ AND IT NO LONGER DOES. There are twenty targets now, so the fuzzing alone is 200 minutes and
+    # this cap is twenty minutes behind it — the exact failure the comment above was written to
+    # prevent, arrived by the route it named. Left as a flag rather than nudged, because the choice
+    # is between raising the cap, lowering the seconds and shortening the target list, and none of the
+    # three is a number to nudge in passing. The queued Vixen.Net.Fuzz → Vixen.Fuzz rename edits this
+    # file anyway and is where the decision belongs. See Core/Vixen.Net.Fuzz/README.md § Running it.
     timeout-minutes: 180
 
     steps:
