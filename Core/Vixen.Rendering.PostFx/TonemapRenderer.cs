@@ -34,7 +34,18 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     TonemapKeys.UsedPermutationKeys,
     TonemapKeys.ConstantBufferBinding
 ), IPostProcessTarget {
+    /// <summary>How big the stand-in buffer is, in bytes.</summary>
+    /// <remarks>
+    ///     One <c>float</c>, which is what <c>Tonemap.rvn</c> declares <c>exposureBuffer</c> as. It is
+    ///     never written and never read — the variant that would read it is the one a fixed-exposure
+    ///     frame is not running — so all it has to be is a real allocation the layer can see.
+    /// </remarks>
+    const int StandInSize = 4;
+
     PostProcessOverlay applied;
+
+    BufferHandle standIn;
+    IGraphicsDevice? owner;
 
     /// <inheritdoc />
     /// <remarks>
@@ -87,9 +98,15 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The buffer wins where it is named, and the two are a permutation apart rather than
-    ///         a branch.</b> Naming one selects a variant that declares the binding and reads it;
-    ///         leaving it empty selects the variant that existed before auto-exposure did, with no
-    ///         buffer declared and none bound. A frame cannot accidentally get both.
+    ///         a branch.</b> Naming one selects a variant that reads it; leaving it empty selects the
+    ///         variant that existed before auto-exposure did, which reads <see cref="Exposure" />
+    ///         instead. A frame cannot accidentally get both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the permutation does <em>not</em> do is remove the binding.</b> Both variants
+    ///         declare it, because reflection describes a shader and not a variant — so a frame that
+    ///         leaves this empty still owes the slot a buffer, and gets a stand-in. See
+    ///         <c>Configure</c>.
     ///     </para>
     ///     <para>
     ///         <b>What it buys is that the number never crosses the bus.</b> The reduction produces it
@@ -360,13 +377,78 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         Sample(bindings, TonemapKeys.BloomSamplerBinding, Samplers!.LinearClamp);
         Sample(bindings, TonemapKeys.BloomDirtSamplerBinding, Samplers!.LinearClamp);
 
-        // ⚠ Bound only when the permutation reads it. Unlike the LUT above — whose binding exists in
-        // every variant, so a stand-in has to fill it — the exposure buffer folds out of the variant
-        // entirely when `UseExposureBuffer` is false, and there is no texture that would stand in for
-        // a buffer anyway.
+        // ⚠ The same stand-in rule as the three textures above, and it was the one binding here that
+        // did not follow it — on the belief that the permutation folds the binding away.
+        //
+        // **A permutation folds code, not bindings.** Reflection reports what a *shader* declares and
+        // not what a *variant* reads, so `exposureBuffer` is binding 9 of set 2 in every variant of
+        // `Tonemap.rvn`, and `EffectSetWriter` fills a set whole or not at all. A fixed-exposure frame
+        // that left the slot alone therefore drew every frame with a descriptor nothing had written:
+        //
+        //     vkCmdDraw(): the descriptor [... variable "exposureBuffer"] is being used in draw but
+        //     has never been updated via vkUpdateDescriptorSets()
+        //
+        // — undefined behaviour the spec permits a driver to do anything with, on the mode that is
+        // `StandardFrameAsset`'s *default*. What made it survive is that no golden ever rendered it:
+        // the tier images meter, because `post.localExposure` only runs with a meter.
+        //
+        // The stand-in is a buffer rather than a name because there is no graph resource to point at
+        // — `VolumetricFogRenderer.lightStandIn` for the same case and the same answer — and it
+        // declares no edge, which is right: nothing in the frame writes it and nothing reads it.
         if (measured) {
             ReadBuffer(bindings, TonemapKeys.ExposureBufferBinding, ExposureBuffer);
+        } else if (StandIn() is { IsValid: true } spare) {
+            bindings.Add(
+                new() {
+                    Binding = TonemapKeys.ExposureBufferBinding,
+                    Kind = DescriptorKind.StorageBuffer,
+                    Buffer = spare
+                }
+            );
         }
+    }
+
+    /// <summary>The buffer a frame with no meter puts in the slot, created once per device.</summary>
+    /// <remarks>
+    ///     Invalid before <see cref="PostEffectRenderer.Device" /> is set, which is a node that has not
+    ///     been built yet and therefore has nothing to bind either.
+    /// </remarks>
+    BufferHandle StandIn() {
+        if (Device is not { } device) {
+            return default;
+        }
+
+        if (standIn.IsValid && ReferenceEquals(owner, device)) {
+            return standIn;
+        }
+
+        ReleaseStandIn();
+
+        owner = device;
+
+        standIn = device.CreateBuffer(
+            new(StandInSize, BufferUsage.Storage, MemoryAccess.DeviceLocal, $"{this}.ExposureStandIn")
+        );
+
+        return standIn;
+    }
+
+    void ReleaseStandIn() {
+        if (owner is { } device && standIn.IsValid) {
+            device.Destroy(standIn);
+        }
+
+        standIn = default;
+        owner = null;
+    }
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing) {
+        if (disposing) {
+            ReleaseStandIn();
+        }
+
+        base.Dispose(disposing);
     }
 
     /// <summary>Writes one colour decision list into the pass's parameters.</summary>

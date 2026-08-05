@@ -474,7 +474,6 @@ sealed class TierScene : IDisposable {
 
         for (var frame = 0; frame < frames; frame++) {
             device.BeginFrame();
-            Renderer.MaterialDescriptors.BeginFrame();
 
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "tier")) {
                 if (frame == 0) {

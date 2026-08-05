@@ -263,6 +263,71 @@ public class DescriptorAllocatorTests : IDisposable {
         Assert.Equal(a, b);
     }
 
+    /// <summary>
+    ///     A frame that never says it began is refused rather than served from a stale cache.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The mistake this type could not previously tell from correct use.</b> A host that
+    ///         never calls <see cref="DescriptorAllocator.BeginFrame" /> gets sets, gets them fast —
+    ///         every request after the first is a cache hit — and gets no complaint from the
+    ///         validation layers, because the descriptors are perfectly well written. They are written
+    ///         with <em>last</em> frame's handles, and those name transient graph memory this frame is
+    ///         free to have given to something else. Whether that is visible depends on whether the
+    ///         graph happened to alias the same allocation, which is why it survives a test suite and
+    ///         surfaces the day a pass is added.
+    ///     </para>
+    ///     <para>
+    ///         Checked against the device's own frame because the allocator has no clock: its ring is
+    ///         defined against <see cref="IGraphicsDevice.FrameCount" /> and until that existed it
+    ///         could state the invariant and not test it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_frame_the_allocator_was_never_told_about_is_refused() {
+        using var allocator = new DescriptorAllocator(device, "Materials");
+
+        allocator.BeginFrame();
+        allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)]);
+
+        // A second device frame, and nothing tells the allocator. The write is deliberately the one
+        // the first frame already made, because that is the request a stale cache answers silently.
+        device.BeginFrame();
+        device.EndFrame();
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)])
+        );
+
+        Assert.Contains("Materials", refused.Message);
+        Assert.Contains("BeginFrame", refused.Message);
+
+        // And it is a refusal rather than a wedge: being told clears it.
+        allocator.BeginFrame();
+        allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)]);
+    }
+
+    /// <summary>Taking everything back is a frame boundary too, so it clears the guard.</summary>
+    /// <remarks>
+    ///     <see cref="DescriptorAllocator.Reset" /> is the after-<c>WaitIdle</c> path — a swapchain
+    ///     resize, a level teardown — where the caller has established that nothing is in flight. That
+    ///     is a stronger statement than <c>BeginFrame</c> makes, so a resize that then tripped the
+    ///     staleness guard would be reporting the one case that cannot be stale.
+    /// </remarks>
+    [Fact]
+    public void A_reset_counts_as_being_told() {
+        using var allocator = new DescriptorAllocator(device);
+
+        allocator.BeginFrame();
+        allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)]);
+
+        device.BeginFrame();
+        device.EndFrame();
+
+        allocator.Reset();
+        allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)]);
+    }
+
     /// <summary>Using one after disposing it says so, rather than handing out a destroyed set.</summary>
     [Fact]
     public void Using_a_disposed_allocator_is_refused() {

@@ -133,6 +133,24 @@ number into the shader's `CascadeCount` permutation — the shader reads four ca
 host fills two. Low ships two. If that reference gains a shadow, the fix has landed and the new
 picture is the right one.
 
+⚠ **`tier-high` and `tier-epic` were re-recorded when the local exposure stopped washing them.**
+They are the only two tiers whose `post.localExposure` is on, and the effect pivoted around the wrong
+number in both directions at once: `LocalExposureRenderer` anchored the pivot to `Photometry.MiddleGrey`,
+which is ISO 2720's calibration constant of 1.2 and not the 0.18 reflectance a frame is graded onto —
+2.74 stops — and in a metered frame it could not have known the exposure anyway, because the meter
+writes it into a buffer nothing reads back. The pivot therefore sat above nearly every texel in a
+photometric scene, all of which the shader classified as shadow and lifted by `shadowContrast`.
+
+What moved, and it is the mean that moved rather than a count: **27.2/255 of average channel, with a
+worst single channel of 58**, in the direction of *less* wash. Both pictures were pale and milky —
+lifted sky, a caster shadow washed towards the floor's own value, the emissive block near white — and
+both now carry the contrast the reference for the tier beside them always had. That is the check worth
+repeating, because it needs no judgement about what looks nice: **`tier-medium` does not run this node
+at all**, so it was never washed, and High and Epic now sit at its tonality with their local contrast
+intact instead of a stop above it. A local exposure that changes the overall brightness of a frame is a
+global exposure wearing a local one's clothes, which is what these two references used to be pictures
+of.
+
 ⚠ **`tier-high` and `tier-epic` differ by ten pixels.** Everything Epic adds over High in this frame
 is either invisible at 128² or belongs to the GI and reflection stacks the fixture cannot host, so
 the pair is held only to "differ at all" — zero would mean the tier stopped resolving. It is not
@@ -172,6 +190,14 @@ Ask these, in order:
 
 Only then regenerate, and commit the images in the same commit as the change that moved them —
 never in a commit of their own, which is a diff no reviewer can attach to anything.
+
+⚠ **Build between regenerating and re-checking, or the suite will look nondeterministic.**
+`--update-golden` writes to the `References` directory in the *source tree*, deliberately — rewriting
+the copy beside the binary would "pass" and change nothing anybody commits. But `Verify` reads that
+copy, and only a build refreshes it. So `dotnet test --no-build` immediately after a regeneration
+compares the new rendering against the *old* reference and fails with the identical numbers it failed
+with before, which reads exactly like a fixture that does not reproduce. It reproduces; run the
+`GoldenImages` target, or build first.
 
 ## Writing one
 

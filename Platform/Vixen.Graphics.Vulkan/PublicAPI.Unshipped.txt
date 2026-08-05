@@ -33,6 +33,7 @@ Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.TextureViewHandle hand
 Vixen.Graphics.Vulkan.VulkanDevice.Dispose() -> void
 Vixen.Graphics.Vulkan.VulkanDevice.EndFrame() -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
+Vixen.Graphics.Vulkan.VulkanDevice.FrameCount.get -> long
 Vixen.Graphics.Vulkan.VulkanDevice.FramesInFlight.get -> int
 Vixen.Graphics.Vulkan.VulkanDevice.GetAccelerationStructureAddress(Vixen.Graphics.AccelerationStructureHandle handle) -> ulong
 Vixen.Graphics.Vulkan.VulkanDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes

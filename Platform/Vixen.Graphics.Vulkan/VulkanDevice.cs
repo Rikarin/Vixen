@@ -263,6 +263,10 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     /// <inheritdoc />
     public int FramesInFlight { get; }
 
+    /// <inheritdoc />
+    /// <remarks>Incremented by <see cref="EndFrame" />, which is where <see cref="FrameSlot" /> moves.</remarks>
+    public long FrameCount => frame;
+
     /// <summary>Whether the validation layers are watching this device.</summary>
     public bool ValidationEnabled => instance.ValidationEnabled;
 

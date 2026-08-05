@@ -188,7 +188,12 @@ public sealed partial class WebGpuDevice : IGraphicsDevice {
     /// <inheritdoc />
     public int FramesInFlight { get; }
 
-    /// <summary>How many frames <see cref="BeginFrame" /> has started.</summary>
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Incremented by <see cref="EndFrame" />, which is what <see cref="FrameSlot" /> is derived
+    ///     from — so within a frame it names the frame <em>before</em> this one. That offset is why
+    ///     the interface promises only that it changes once per frame and not what it counts from.
+    /// </remarks>
     public long FrameCount { get; private set; }
 
     /// <summary>How many resources are alive, across every kind.</summary>

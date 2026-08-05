@@ -710,6 +710,17 @@ public sealed record LocalExposureAsset : ISceneRendererAsset {
     /// <summary>The view whose lens supplies the exposure value, or empty for <see cref="Ev100" />.</summary>
     public string View { get; init; } = "";
 
+    /// <summary>
+    ///     The buffer <c>!AutoExposure</c> published this frame's measured exposure in, or empty for
+    ///     an authored one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The one that matters, because this node only ever runs in a metered frame.</b> The
+    ///     pivot has to be the exposure the tonemap will apply, and in a metered frame that number
+    ///     exists only on the device. See <see cref="LocalExposureRenderer.ExposureBuffer" />.
+    /// </remarks>
+    public string ExposureBuffer { get; init; } = "";
+
     /// <summary>The name the result is published under.</summary>
     public string Output { get; init; } = "LocallyExposed";
 

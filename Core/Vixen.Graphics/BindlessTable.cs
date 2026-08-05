@@ -238,10 +238,23 @@ public sealed class BindlessTable : IDisposable {
     /// <summary>Starts a frame, making available the slots released
     /// <see cref="FramesInFlight" /> frames ago.</summary>
     /// <remarks>
-    ///     Call after <see cref="IGraphicsDevice.BeginFrame" />. A missed call does not leak — the
-    ///     indices stay in the ring and come back on the next one — but a table that is never told
-    ///     about frames never reuses a slot at all, so a level that streams textures in and out walks
-    ///     the high-water mark up to <see cref="Capacity" /> and then refuses.
+    ///     <para>
+    ///         Call after <see cref="IGraphicsDevice.BeginFrame" />. A missed call does not leak — the
+    ///         indices stay in the ring and come back on the next one — but a table that is never told
+    ///         about frames never reuses a slot at all, so a level that streams textures in and out
+    ///         walks the high-water mark up to <see cref="Capacity" /> and then refuses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deliberately not guarded the way <see cref="DescriptorAllocator.Allocate" /> is,
+    ///         and the asymmetry is the difference between the two misses.</b> The allocator's is a
+    ///         correctness bug that draws a plausible frame, so it has to be refused where it happens.
+    ///         This one costs no correctness and no memory: nothing here is ever handed back stale,
+    ///         because a slot is only reused once <see cref="FramesInFlight" /> visits have retired
+    ///         the frame that could still name it. What it costs is the high-water mark, and that
+    ///         already ends in <see cref="Add" />'s exhaustion throw — which names this call as one of
+    ///         its two causes. A throw here would fire on the first texture of a long-lived table
+    ///         whose owner has no per-frame tick at all, which is a legitimate way to use one.
+    ///     </para>
     /// </remarks>
     public void BeginFrame() {
         lock (gate) {

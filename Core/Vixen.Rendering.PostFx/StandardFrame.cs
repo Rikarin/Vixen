@@ -1041,10 +1041,21 @@ static class StandardFrame {
             nodes.Add(new AutoExposureAsset { Name = "Meter", Source = colour, UseHistogram = true });
 
             if (tier.LocalExposure) {
+                // ⚠ The meter's buffer and the camera, neither of which this emitted before — so the
+                // pivot was the node's hardcoded EV 12 in a frame whose exposure the meter had
+                // decided, on the two tiers that switch the effect on.
+                //
+                // The buffer is the one that matters: this branch is inside `if (metered)`, so every
+                // frame the expansion has ever run this node in reads its exposure off the device.
+                // The view is the fallback the node resolves when nothing measures — the same lens
+                // `!Tonemap` reads below, so a document that turns the meter off does not get a
+                // locally-right, globally-wrong picture instead.
                 nodes.Add(
                     new LocalExposureAsset {
                         Name = "Adapt",
                         Source = colour,
+                        ExposureBuffer = "Meter.Exposure",
+                        View = Camera,
                         Output = "SceneAdapted",
                         Taps = tier.LocalExposureTaps
                     }

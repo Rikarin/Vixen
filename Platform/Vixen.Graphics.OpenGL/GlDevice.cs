@@ -201,7 +201,8 @@ public sealed partial class GlDevice : IGraphicsDevice {
     /// <inheritdoc />
     public int FramesInFlight { get; }
 
-    /// <summary>How many frames <see cref="BeginFrame" /> has started.</summary>
+    /// <inheritdoc />
+    /// <remarks>Incremented by <see cref="BeginFrame" />, so it names this frame rather than the last.</remarks>
     public long FrameCount { get; private set; }
 
     /// <summary>How many resources are alive, across every kind.</summary>

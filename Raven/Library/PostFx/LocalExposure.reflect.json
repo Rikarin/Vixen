@@ -91,7 +91,7 @@
               "DefaultValue": "0.4"
             },
             {
-              "Name": "pivot",
+              "Name": "exposure",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -104,7 +104,7 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "-2.47"
+              "DefaultValue": "1"
             },
             {
               "Name": "maximumStops",
@@ -165,6 +165,33 @@
           "Members": [],
           "Size": 0,
           "IsWritable": false
+        },
+        {
+          "Binding": 5,
+          "Name": "exposureBuffer",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Vertex, Fragment",
+          "Members": [
+            {
+              "Name": "exposureBuffer",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 4,
+          "IsWritable": false
         }
       ]
     }
@@ -211,6 +238,18 @@
         "IsStruct": false
       },
       "DefaultValue": "6"
+    },
+    {
+      "Name": "UseExposureBuffer",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
     }
   ],
   "ValueParameters": [],
@@ -306,7 +345,7 @@
       "DefaultValue": "0.4"
     },
     {
-      "Name": "pivot",
+      "Name": "exposure",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -321,7 +360,7 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "-2.47"
+      "DefaultValue": "1"
     },
     {
       "Name": "maximumStops",
@@ -340,12 +379,31 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "4"
+    },
+    {
+      "Name": "exposureBuffer",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 5,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
     }
   ],
   "RequiredCapabilities": [],
   "UsedPermutationKeys": [
     "Mode",
-    "Taps"
+    "Taps",
+    "UseExposureBuffer"
   ],
   "Stages": [
     "Vertex",

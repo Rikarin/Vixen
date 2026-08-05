@@ -38,10 +38,20 @@ namespace Vixen.Rendering.PostFx;
 ///     </para>
 /// </remarks>
 public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostProcessTarget {
+    /// <summary>How big the stand-in buffer is, in bytes.</summary>
+    /// <remarks>
+    ///     One <c>float</c>, which is what <c>LocalExposure.rvn</c> declares <c>exposureBuffer</c> as.
+    ///     See <see cref="TonemapRenderer" /> for why a variant that never reads it still needs one.
+    /// </remarks>
+    const int StandInSize = 4;
+
     readonly List<FullScreenRenderer> passes = [];
     bool disposed;
 
     PostProcessOverlay applied;
+
+    BufferHandle standIn;
+    IGraphicsDevice? owner;
 
     /// <inheritdoc />
     /// <remarks>
@@ -95,13 +105,34 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
     ///         grey is, or the effect is a global exposure change wearing a local one's clothes.
     ///     </para>
     ///     <para>
-    ///         Taken from <see cref="View" />'s lens when there is one, and otherwise from
-    ///         <see cref="Ev100" />. It is the same number <c>!Tonemap</c> resolves, and a document
-    ///         that gives the two different values gets a frame that is locally right and globally
-    ///         wrong.
+    ///         Taken from <see cref="View" />'s lens when there is one, and otherwise from here — and
+    ///         <see cref="ExposureBuffer" /> beats both, which is the case that actually occurs. It is
+    ///         the same number <c>!Tonemap</c> resolves, and a document that gives the two different
+    ///         values gets a frame that is locally right and globally wrong.
     ///     </para>
     /// </remarks>
     public float Ev100 { get; set; } = 12f;
+
+    /// <summary>
+    ///     The buffer <c>AutoExposure</c> left this frame's measured exposure in, or empty for an
+    ///     authored one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not optional in practice.</b> <c>post.localExposure</c> is gated on the meter, so
+    ///         every frame the Standard Frame has ever run this node in is a metered one — and a
+    ///         metered frame's exposure is produced on the device and never read back. A pivot
+    ///         resolved on the host is therefore not "close enough" there; it is a number from a
+    ///         different frame's arithmetic entirely.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="TonemapRenderer.ExposureBuffer" />'s counterpart, naming the same resource,
+    ///         and the two have to agree: this pass moves radiance around and the tonemap shapes what
+    ///         is left, so a pivot the curve does not share is a local correction applied about the
+    ///         wrong middle.
+    ///     </para>
+    /// </remarks>
+    public string ExposureBuffer { get; init; } = "";
 
     /// <summary>The view whose lens supplies the exposure value, or null for <see cref="Ev100" />.</summary>
     public RenderView? View { get; set; }
@@ -124,19 +155,30 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
     /// <summary>The chain's passes, for a test or an inspector.</summary>
     public IReadOnlyList<FullScreenRenderer> Passes => passes;
 
-    /// <summary>The log-2 luminance the compression pivots around.</summary>
+    /// <summary>The linear exposure the pivot is derived from, when no buffer measures one.</summary>
     /// <remarks>
-    ///     <c>middleGrey / exposure</c> is the scene luminance that comes out as middle grey, and its
-    ///     log is where the pivot goes. At EV 12 that is about 4.6 cd/m², whose log-2 is 2.2 — a long
-    ///     way from the −2.5 a display-referred pipeline would use, which is the whole reason this is
-    ///     computed rather than typed.
+    ///     <para>
+    ///         The lens's where <see cref="View" /> has one, which is the order
+    ///         <see cref="TonemapRenderer" /> resolves in, and <see cref="Ev100" />'s otherwise.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The exposure, not the pivot — the shader turns one into the other now, and that
+    ///         is a correction rather than a tidy-up.</b> This used to hand over
+    ///         <c>log2(Photometry.MiddleGrey / exposure)</c>, and
+    ///         <see cref="Photometry.MiddleGrey" /> is 1.2: ISO 2720's calibration constant, the
+    ///         factor in <c>exposure = 1 / (1.2 · 2^EV)</c>. The scene luminance that renders as
+    ///         middle grey is <c>0.18 / exposure</c> — the reflectance, not the constant — so the
+    ///         pivot sat 2.74 stops above where it belonged, which in a photometric frame is above
+    ///         nearly every texel in it. Everything below the pivot is lifted by
+    ///         <see cref="ShadowContrast" />, so what the effect actually did was brighten the whole
+    ///         picture: a wash, on the two tiers that switch it on.
+    ///     </para>
     /// </remarks>
-    public float Pivot {
+    public float Exposure {
         get {
             var ev100 = View?.Camera?.Lens is { HasLens: true } lens ? lens.Ev100 : Ev100;
-            var exposure = MathF.Max(Photometry.ExposureFromEv100(ev100), 1e-9f);
 
-            return MathF.Log2(MathF.Max(Photometry.MiddleGrey / exposure, 1e-9f));
+            return MathF.Max(Photometry.ExposureFromEv100(ev100), 1e-9f);
         }
     }
 
@@ -199,7 +241,11 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
             applied.LocalShadowContrast?.Over(ShadowContrast) ?? ShadowContrast
         );
         pass.Parameters.Set(LocalExposureKeys.MaximumStops, MaximumStops);
-        pass.Parameters.Set(LocalExposureKeys.Pivot, Pivot);
+
+        var measured = !string.IsNullOrEmpty(ExposureBuffer);
+
+        pass.Parameters.Set(LocalExposureKeys.UseExposureBuffer, measured);
+        pass.Parameters.Set(LocalExposureKeys.Exposure, Exposure);
 
         // ⚠ The *blur's* texel size is the reduced target's and the apply's is the full frame's, and
         // the blur is what reads it. Handing the apply pass the reduced size would do nothing, since
@@ -219,6 +265,17 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
 
         if (mode == 1) {
             pass.Reads.Add(blurred);
+        }
+
+        // ⚠ Emptied, unlike before. `Configure` re-declares the read every frame, so a list nothing
+        // clears grows by one entry per frame for the life of the node — and both passes resolve it.
+        pass.BufferReads.Clear();
+
+        // ⚠ Both passes, not only the one that reads it. The two modes are one shader, so both
+        // variants declare the binding — and a set is written whole or not at all. `Blur` never calls
+        // `Pivot`, exactly as it never samples `baseLuminance`.
+        if (measured) {
+            pass.BufferReads.Add(ExposureBuffer);
         }
 
         pass.Descriptors.Bindings.Clear();
@@ -246,6 +303,53 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
             Kind = DescriptorKind.Sampler,
             Sampler = Samplers!.LinearClamp
         });
+
+        // The meter's buffer where there is one, and a stand-in where there is not — `TonemapRenderer`
+        // verbatim, and for the identical reason: the permutation folds the read and leaves the
+        // binding, so an unmetered frame that skipped this would draw with a descriptor nothing wrote.
+        if (measured) {
+            pass.Descriptors.Bindings.Add(new() {
+                Binding = LocalExposureKeys.ExposureBufferBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Resource = ExposureBuffer
+            });
+        } else if (StandIn() is { IsValid: true } spare) {
+            pass.Descriptors.Bindings.Add(new() {
+                Binding = LocalExposureKeys.ExposureBufferBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Buffer = spare
+            });
+        }
+    }
+
+    /// <summary>The buffer a frame with no meter puts in the slot, created once per device.</summary>
+    BufferHandle StandIn() {
+        if (Device is not { } device) {
+            return default;
+        }
+
+        if (standIn.IsValid && ReferenceEquals(owner, device)) {
+            return standIn;
+        }
+
+        ReleaseStandIn();
+
+        owner = device;
+
+        standIn = device.CreateBuffer(
+            new(StandInSize, BufferUsage.Storage, MemoryAccess.DeviceLocal, $"{this}.ExposureStandIn")
+        );
+
+        return standIn;
+    }
+
+    void ReleaseStandIn() {
+        if (owner is { } device && standIn.IsValid) {
+            device.Destroy(standIn);
+        }
+
+        standIn = default;
+        owner = null;
     }
 
     FullScreenRenderer Create(int index) =>
@@ -277,6 +381,8 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
         }
 
         disposed = true;
+
+        ReleaseStandIn();
 
         foreach (var pass in passes) {
             pass.Dispose();

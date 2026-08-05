@@ -202,6 +202,12 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
         pass.ColourTargets.Add(Output);
 
         pass.Reads.Clear();
+
+        // ⚠ Alongside the textures and not left alone, which it was. `Configure` re-declares every
+        // read each frame, so a list nothing empties grows by one entry per named buffer per frame —
+        // and the resolve is a `Select` over it, so a pass that has been running for an hour spends
+        // that resolving one buffer to one handle sixty thousand times before it draws.
+        pass.BufferReads.Clear();
         pass.Descriptors.Bindings.Clear();
 
         Configure(frame, pass.Parameters, pass.Descriptors.Bindings);
