@@ -123,7 +123,7 @@ public sealed class StandardFrameTierImageTests {
         // Edges rather than Flat: the frame is shaded, tonemapped and antialiased, so almost every
         // pixel is interpolated — and FXAA's blend decisions sit on a luminance comparison, which is
         // where two conformant drivers may land a pixel differently.
-        GoldenImage.Verify(name, scene.Frames(Frames), Tolerance.Edges);
+        GoldenImage.Verify(name, scene.Frames(Frames), Tolerance.Shaded);
     }
 
     /// <summary>
@@ -161,14 +161,14 @@ public sealed class StandardFrameTierImageTests {
         }
 
         foreach (var (left, right) in Pairs(pictures.Keys)) {
-            var comparison = GoldenImage.Compare(pictures[left], pictures[right], Tolerance.Edges);
+            var comparison = GoldenImage.Compare(pictures[left], pictures[right], Tolerance.Shaded);
             var required = Least(left, right);
 
             Assert.True(
                 comparison.Fraction > required,
                 $"{left} and {right} render the same picture: only {comparison.DifferingPixels} of "
                 + $"{comparison.TotalPixels} pixels ({comparison.Fraction:P3}) differ by more than "
-                + $"{Tolerance.Edges.Channel}/255 where {required:P3} is the least this pair may, and "
+                + $"{Tolerance.Shaded.Channel}/255 where {required:P3} is the least this pair may, and "
                 + $"the worst channel anywhere is {comparison.WorstChannel}/255. Either the tiers' "
                 + "knobs stopped reaching the frame, or the scene stopped containing anything they "
                 + "move."
