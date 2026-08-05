@@ -221,6 +221,7 @@ public sealed class FoliageCullPass : IDisposable {
 
     readonly IGraphicsDevice device;
     readonly DescriptorSetLayoutHandle setLayout;
+    readonly DescriptorSetLayoutHandle emptySetLayout;
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle counting;
     readonly PipelineHandle placing;
@@ -312,7 +313,10 @@ public sealed class FoliageCullPass : IDisposable {
             )
         );
 
-        layout = device.CreatePipelineLayout(new([setLayout], [], "foliage cull"));
+        // Padded below the material set on TerrainRenderer's terms: the shader's bindings are set 2
+        // and a pipeline layout is positional, so the two unused slots hold one empty layout twice.
+        emptySetLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "foliage cull empty"));
+        layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "foliage cull"));
 
         // One layout and two pipelines, because the two phases are one shader and a permutation. A
         // pipeline per phase is what a permutation *is* on a device.
@@ -784,6 +788,7 @@ public sealed class FoliageCullPass : IDisposable {
         device.Destroy(counting);
         device.Destroy(layout);
         device.Destroy(setLayout);
+        device.Destroy(emptySetLayout);
     }
 
     /// <summary>Where a level takes over, or an unreachable distance if the batch has no such level.</summary>

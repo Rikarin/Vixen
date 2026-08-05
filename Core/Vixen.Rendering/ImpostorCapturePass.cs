@@ -70,6 +70,7 @@ public sealed class ImpostorCapturePass : IDisposable {
     readonly IGraphicsDevice device;
     readonly BufferHandle constants;
     readonly DescriptorSetLayoutHandle setLayout;
+    readonly DescriptorSetLayoutHandle emptySetLayout;
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle pipeline;
     readonly DescriptorSetHandle[] sets;
@@ -129,7 +130,19 @@ public sealed class ImpostorCapturePass : IDisposable {
             )
         );
 
-        layout = device.CreatePipelineLayout(new([setLayout], [], "impostor capture"));
+        // ⚠ Padded below the material set, because a pipeline layout is positional and the shader's
+        // bindings are set 2 — DescriptorSetSlot.PerMaterial, where Raven puts every unmarked
+        // binding, and ImpostorCapture.reflect.json is the evidence. A layout holding this set alone
+        // puts it at index 0 while `Bake` binds it at index 2: undefined behaviour some desktop
+        // drivers absorb and MoltenVK refuses from inside pipeline creation. One empty layout stands
+        // in for both unused slots — repeating a handle in a pipeline layout is legal everywhere.
+        emptySetLayout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerFrame, [], "impostor capture empty")
+        );
+
+        layout = device.CreatePipelineLayout(
+            new([emptySetLayout, emptySetLayout, setLayout], [], "impostor capture")
+        );
 
         pipeline = device.CreateGraphicsPipeline(
             new(
@@ -305,5 +318,6 @@ public sealed class ImpostorCapturePass : IDisposable {
         device.Destroy(pipeline);
         device.Destroy(layout);
         device.Destroy(setLayout);
+        device.Destroy(emptySetLayout);
     }
 }
