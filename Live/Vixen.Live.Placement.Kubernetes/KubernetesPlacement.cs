@@ -25,7 +25,33 @@ public sealed record KubernetesPlacementOptions {
     /// <summary>Which orchestrator these pods belong to.</summary>
     public string Owner { get; init; } = "vixen";
 
+    /// <summary>The program a realm container runs, or empty for the image's own entrypoint.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Empty is the answer for a realm image, and the one this backend is designed
+    ///         around.</b> A realm image ends in <c>ENTRYPOINT ["./YourGame.Realm"]</c> — the
+    ///         template's Dockerfile does — and a pod's <c>args</c> are <em>appended</em> to it. That
+    ///         is what makes a pod's command the same string a container's <c>Cmd</c> and
+    ///         <c>Process.Start</c> carry, which is <see cref="RealmSpec" />'s whole premise.
+    ///     </para>
+    ///     <para>
+    ///         Set it only for an image that cannot carry an entrypoint of its own — a shared runtime
+    ///         image with the realm mounted into it, say. This is the container's <c>command</c>, with
+    ///         the meaning Kubernetes gives it: it <em>replaces</em> the image's entrypoint rather than
+    ///         adding to it. It is <c>DockerPlacementOptions.Entrypoint</c> under the name the pod
+    ///         spec uses.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<string> Command { get; init; } = [];
+
     /// <summary>Arguments to put before the encoded <see cref="RealmSpec" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Arguments, not a program.</b> They are appended to the container's <c>command</c> — the
+    ///     image's entrypoint, unless <see cref="Command" /> replaced it — so the first of them is
+    ///     never what gets executed, unless the image has no entrypoint at all. Which is a fact about
+    ///     a registry rather than a cluster, and therefore the one thing
+    ///     <see cref="KubernetesPlacement.ProbeAsync" /> cannot check for you.
+    /// </remarks>
     public IReadOnlyList<string> Arguments { get; init; } = [];
 
     /// <summary>Variables to set in every realm pod.</summary>
@@ -121,6 +147,19 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
     /// <summary>What this backend calls itself in a <see cref="PlacementProbe" />.</summary>
     public const string BackendName = "kubernetes";
 
+    /// <summary>How often a pod that has not started yet is asked whether it ever will.</summary>
+    static readonly TimeSpan Beat = TimeSpan.FromSeconds(1);
+
+    /// <summary>The waiting reasons a pod does not come back from.</summary>
+    static readonly string[] Hopeless = [
+        "CreateContainerError",
+        "CreateContainerConfigError",
+        "RunContainerError",
+        "InvalidImageName",
+        "ErrImagePull",
+        "ImagePullBackOff"
+    ];
+
     readonly Dictionary<string, Running> running = new(StringComparer.Ordinal);
     readonly List<Channel<PlacementEvent>> watchers = [];
     readonly CancellationTokenSource lifetime = new();
@@ -150,6 +189,16 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Half of "would this actually run" is not answerable here, and the probe says which
+    ///     half.</b> The Docker backend asks the daemon for an image's entrypoint before it accepts a
+    ///     placement; there is no equivalent call on an API server, because a cluster does not know
+    ///     what is in an image until a kubelet has pulled it — the <em>registry</em> knows. So what
+    ///     this can refuse is a configured <see cref="KubernetesPlacementOptions.Command" /> whose
+    ///     first word is a flag, which is always wrong; what it cannot tell you is whether an image
+    ///     with no <c>Command</c> carries an entrypoint. That one is discovered from the pod, in the
+    ///     <c>Lost</c> event's detail.
+    /// </remarks>
     public async ValueTask<PlacementProbe> ProbeAsync(CancellationToken cancellation) {
         string version;
 
@@ -163,9 +212,25 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
             return new(false, BackendName, "the API server did not say what it is");
         }
 
-        return options.Image.Length == 0
-            ? new(false, BackendName, $"Kubernetes {version}, but no image is configured")
-            : new(true, BackendName, $"Kubernetes {version}, running {options.Image} in {options.Namespace}");
+        if (options.Image.Length == 0) {
+            return new(false, BackendName, $"Kubernetes {version}, but no image is configured");
+        }
+
+        var program = Program(options.Command);
+
+        if (program.StartsWith('-')) {
+            return new(false, BackendName, $"Kubernetes {version}, but {WouldExec(options.Image, program)}");
+        }
+
+        var where = $"Kubernetes {version}, running {options.Image} in {options.Namespace}";
+
+        // What a realm would be launched as, with the spec itself elided — it is two hundred
+        // characters of key-value text and the interesting part is the word in front of it.
+        var appended = Argv([.. options.Arguments, RealmSpec.ArgumentName, "…"]);
+
+        return program.Length == 0
+            ? new(true, BackendName, $"{where}, with `{appended}` appended to whatever entrypoint it carries")
+            : new(true, BackendName, $"{where}, as `{Argv(options.Command)} {appended}`");
     }
 
     /// <inheritdoc />
@@ -177,6 +242,15 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
             throw new InvalidOperationException(
                 "This backend has no image. Set KubernetesPlacementOptions.Image to the realm's image."
             );
+        }
+
+        // Refused before a port is rented, so a misconfigured backend costs nothing to find out
+        // about. Only a configured Command can be checked from here; see ProbeAsync for the half
+        // that cannot be.
+        var program = Program(options.Command);
+
+        if (program.StartsWith('-')) {
+            throw new InvalidOperationException(WouldExec(options.Image, program));
         }
 
         if (!spec.IsValid) {
@@ -396,6 +470,12 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
                     new() {
                         Name = "realm",
                         Image = options.Image,
+
+                        // ⚠ Absent, not empty. `command: []` is a container with no program, and the
+                        // whole design is that the image supplies one — `args` are appended to the
+                        // image's entrypoint exactly as a container's `Cmd` is. A Command is set only
+                        // when an operator has said what to run instead.
+                        Command = options.Command.Count > 0 ? [.. options.Command] : null,
                         Args = [.. options.Arguments, .. bound.ToCommandLine()],
                         Ports =
                         [
@@ -423,36 +503,88 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
     async Task FollowAsync(Running record) {
         var name = record.Instance.Id.Value;
 
-        try {
-            await foreach (var line in cluster
-                .FollowLogAsync(name, options.Namespace, lifetime.Token)
-                .ConfigureAwait(false)) {
-                options.Output?.Invoke(record.Instance.Id, line);
+        // ⚠ A pod's log is not readable until its container has started, and the API server says so
+        // with a 400 rather than an empty stream. So a follow that begins when the pod is created
+        // ends at once — on a pod whose only sin is that it is still being scheduled or still
+        // pulling — and every realm would be reported Lost within milliseconds of being placed, its
+        // record dropped and its port given back, leaving a shard the orchestrator was told about
+        // that can never report ready and can never be stopped. The stream is re-attached for as long
+        // as the pod is still on its way up; what ends the wait is a pod that is running, gone, or
+        // stuck for a reason that will not resolve on its own.
+        while (true) {
+            try {
+                await foreach (var line in cluster
+                    .FollowLogAsync(name, options.Namespace, lifetime.Token)
+                    .ConfigureAwait(false)) {
+                    options.Output?.Invoke(record.Instance.Id, line);
 
-                if (record.Ready || !RealmSignals.TryReadReady(line, out _)) {
-                    continue;
+                    if (record.Ready || !RealmSignals.TryReadReady(line, out _)) {
+                        continue;
+                    }
+
+                    record.Ready = true;
+
+                    // ⚠ The realm's own idea of where it bound is inside the pod's network namespace,
+                    // so it is not the address a player can reach — which is the one difference from
+                    // every other backend. What a client is told is the node's external address and
+                    // the hostPort the scheduler honoured.
+                    var pod = await cluster.ReadPodAsync(name, options.Namespace, lifetime.Token)
+                        .ConfigureAwait(false);
+
+                    var endpoint = pod is null
+                        ? RealmEndpoint.None
+                        : await AddressAsync(pod, record.Port, lifetime.Token).ConfigureAwait(false);
+
+                    record.Endpoint = endpoint;
+
+                    Publish(
+                        new(PlacementEventKind.Ready, record.Instance.Id, record.Instance.Shard, endpoint, "ready")
+                    );
                 }
-
-                record.Ready = true;
-
-                // ⚠ The realm's own idea of where it bound is inside the pod's network namespace, so
-                // it is not the address a player can reach — which is the one difference from every
-                // other backend. What a client is told is the node's external address and the
-                // hostPort the scheduler honoured.
-                var pod = await cluster.ReadPodAsync(name, options.Namespace, lifetime.Token).ConfigureAwait(false);
-                var endpoint = pod is null
-                    ? RealmEndpoint.None
-                    : await AddressAsync(pod, record.Port, lifetime.Token).ConfigureAwait(false);
-
-                record.Endpoint = endpoint;
-
-                Publish(new(PlacementEventKind.Ready, record.Instance.Id, record.Instance.Shard, endpoint, "ready"));
+            } catch (Exception failure) when (failure is OperationCanceledException or IOException or HttpRequestException) {
+                // The stream ended with the pod, or with this backend.
+                break;
             }
-        } catch (Exception failure) when (failure is OperationCanceledException or IOException or HttpRequestException) {
-            // The stream ended with the pod, or with this backend.
+
+            // A stream that carried anything is a container that ran, so its end is the pod's.
+            if (record.Ready || lifetime.IsCancellationRequested) {
+                break;
+            }
+
+            if (!await StartingAsync(record).ConfigureAwait(false)) {
+                break;
+            }
+
+            try {
+                await Task.Delay(Beat, time, lifetime.Token).ConfigureAwait(false);
+            } catch (OperationCanceledException) {
+                break;
+            }
         }
 
         await FinishAsync(record).ConfigureAwait(false);
+    }
+
+    /// <summary>Whether a pod whose log will not stream yet is still on its way up.</summary>
+    /// <param name="record">The realm.</param>
+    /// <returns>True to wait for it, false to call it finished.</returns>
+    async Task<bool> StartingAsync(Running record) {
+        V1Pod? pod;
+
+        try {
+            pod = await cluster
+                .ReadPodAsync(record.Instance.Id.Value, options.Namespace, lifetime.Token)
+                .ConfigureAwait(false);
+        } catch (Exception failure) when (failure is IOException or HttpRequestException or OperationCanceledException) {
+            return false;
+        }
+
+        // Gone is finished; Running, Succeeded and Failed are all past the point where a log that
+        // would not open means "not yet". Only Pending — and the moment before a status exists at
+        // all — is worth waiting through, and then only while nothing has gone wrong.
+        return pod is not null
+            && pod.Status?.Phase is null or "" or "Pending"
+            && Stuck(pod).Length == 0;
     }
 
     async Task FinishAsync(Running record) {
@@ -480,13 +612,27 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
         // Asked covers the case where the orchestrator deleted it, which reads as neither.
         var expected = record.Asked || string.Equals(phase, "Succeeded", StringComparison.Ordinal);
 
+        var detail = expected
+            ? $"pod {phase}"
+            : $"pod {(phase.Length == 0 ? "gone" : phase)} without being asked";
+
+        // ⚠ This is the half of the exec question a cluster can answer, and it is the half that
+        // matters most: nothing here can read an image's entrypoint, so a pod whose args were
+        // promoted to a program is discovered rather than predicted. The kubelet says it exactly —
+        // `CreateContainerError: exec: "--realm-spec": executable file not found in $PATH` — in a
+        // container status that nothing else in this backend reads. Without it, a realm that never
+        // ran reports "pod Pending without being asked", which names neither cause nor cure.
+        if (Trouble(pod) is { Length: > 0 } trouble) {
+            detail = $"{detail} — {trouble}";
+        }
+
         Publish(
             new(
                 expected ? PlacementEventKind.Stopped : PlacementEventKind.Lost,
                 record.Instance.Id,
                 record.Instance.Shard,
                 record.Endpoint,
-                expected ? $"pod {phase}" : $"pod {(phase.Length == 0 ? "gone" : phase)} without being asked"
+                detail
             )
         );
     }
@@ -545,6 +691,74 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
 
     static int PortOf(V1Pod pod) =>
         pod.Spec?.Containers?.FirstOrDefault()?.Ports?.FirstOrDefault()?.HostPort ?? 0;
+
+    /// <summary>The first word of what the kubelet will exec, or empty when only the image knows.</summary>
+    /// <remarks>
+    ///     Kubernetes' rule, written down: a container's <c>command</c> replaces the image's
+    ///     <c>ENTRYPOINT</c> and its <c>args</c> replace the image's <c>CMD</c>. So with a
+    ///     <see cref="KubernetesPlacementOptions.Command" /> configured, its first word is the
+    ///     program; with none, the program is the image's entrypoint — or, if the image has none, the
+    ///     first argument, which for a realm is <c>--realm-spec</c>. Which of those two it is, is a
+    ///     question about a <em>registry</em>, and this backend talks to a cluster. Empty means "not
+    ///     answerable from here", not "fine".
+    /// </remarks>
+    static string Program(IReadOnlyList<string> command) => command.Count > 0 ? command[0] : "";
+
+    static string Argv(IReadOnlyList<string> words) => string.Join(' ', words.Select(Quote));
+
+    static string Quote(string word) =>
+        word.Contains(' ', StringComparison.Ordinal) ? $"\"{word}\"" : word;
+
+    static string WouldExec(string image, string program) =>
+        $"KubernetesPlacementOptions.Command begins with `{program}`, which is a flag rather than a "
+        + $"program, so `{image}` would be run as one. Command replaces the image's entrypoint and "
+        + $"says what to run; flags belong in Arguments, which is appended to it alongside "
+        + $"{RealmSpec.ArgumentName}.";
+
+    /// <summary>The waiting reason of a container that is not going to start on its own.</summary>
+    /// <returns>The reason and the kubelet's message, or empty.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not every <c>Waiting</c> is trouble, and telling them apart is the whole job.</b>
+    ///         <c>ContainerCreating</c> and <c>PodInitializing</c> are a pod on its way up and resolve
+    ///         by themselves; the ones below do not, and a pod sits in <c>Pending</c> carrying one of
+    ///         them for as long as anybody lets it. Doc 27 § Health makes recovery a <em>placement</em>
+    ///         rather than a resurrection, so a shard whose image will not pull or whose container
+    ///         will not exec is one the orchestrator should be told about and place elsewhere — not
+    ///         one to keep waiting on.
+    ///     </para>
+    ///     <para>
+    ///         The image-pull pair is in the list on purpose even though the kubelet keeps retrying:
+    ///         an orchestrator that rolled a <c>BuildVersion</c> a node cannot fetch wants to hear
+    ///         about it, and hearing about it late is the same outage with less information.
+    ///     </para>
+    /// </remarks>
+    static string Stuck(V1Pod? pod) {
+        if (pod?.Status?.ContainerStatuses?.FirstOrDefault()?.State?.Waiting is not { Reason: { } reason } waiting
+            || !Hopeless.Contains(reason, StringComparer.Ordinal)) {
+            return "";
+        }
+
+        return waiting.Message is { Length: > 0 } message ? $"{reason}: {message}" : reason;
+    }
+
+    /// <summary>What a pod says about why it is over, if it says anything.</summary>
+    /// <returns>A reason, or empty.</returns>
+    static string Trouble(V1Pod? pod) {
+        if (Stuck(pod) is { Length: > 0 } stuck) {
+            return stuck;
+        }
+
+        if (pod?.Status?.ContainerStatuses?.FirstOrDefault()?.State?.Terminated is not { } ended) {
+            return "";
+        }
+
+        // The exit code is what the Docker backend reports and this one never did — a realm that
+        // died of a signal and one that returned non-zero read identically as "pod Failed".
+        var code = ended.ExitCode.ToString(CultureInfo.InvariantCulture);
+
+        return ended.Reason is { Length: > 0 } why ? $"{why} (exit {code})" : $"exit {code}";
+    }
 
     void Publish(PlacementEvent placement) {
         lock (gate) {

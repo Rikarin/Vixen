@@ -156,7 +156,7 @@ deployment cannot drain politely, and should use `Placement.Process`.
 outlives the orchestrator which created it is a shard still serving players, and the labels are how
 the next orchestrator finds it.
 
-### The Kubernetes backend, and the two decisions in it
+### The Kubernetes backend, and the decisions in it
 
 ```csharp no-compile="the backend an orchestrator running inside a cluster uses"
 using var placement = new KubernetesPlacement(
@@ -186,6 +186,37 @@ prerequisite.
 pod, so there is no node and no external IP. It arrives with `Ready`. This is also the one backend
 that *overrules* the realm about where it is — everywhere else the realm's own word wins, and here the
 realm's view is inside the pod's network namespace, which is exactly the address a player cannot use.
+
+⚠ **The image supplies the program here too, and this backend can only half-check it.** A pod's `args`
+are *appended* to the image's entrypoint, exactly as a container's `Cmd` is — that is what makes the
+spec one string on all three backends — so an image with no `ENTRYPOINT` makes `--realm-spec` itself
+the program, and the kubelet answers `CreateContainerError: exec: "--realm-spec": executable file not
+found in $PATH` from a pod that already exists and is holding a `hostPort`. For an image that cannot
+carry an entrypoint, `Command` says what to run and replaces the image's, the way Docker's
+`Entrypoint` does.
+
+Where this differs from the Docker backend is what can be checked *before* anything is placed. Docker
+asks the daemon what an image's entrypoint is; there is no equivalent call here, because a **registry**
+knows an image's entrypoint and an API server does not until a kubelet has pulled it. So the split is:
+
+| | Docker | Kubernetes |
+| --- | --- | --- |
+| A configured program that is a flag | refused by `ProbeAsync`/`StartAsync` | refused by `ProbeAsync`/`StartAsync` |
+| An image with no entrypoint | refused, by inspecting the image | **cannot be known** — the probe says "appended to whatever entrypoint it carries" rather than implying a check |
+| What actually happened | the daemon's refusal, with the argv attached | the kubelet's container-status reason, carried into the `Lost` event |
+
+That last row is the half that matters most on this backend, because it is the only one that can name
+the program that was not found:
+
+```text
+Lost realm-8f3c… — pod Pending without being asked — CreateContainerError: exec: "--realm-spec": executable file not found in $PATH
+```
+
+**A pod's log cannot be followed until its container has started**, which is the other thing that
+differs. The API server refuses with a 400 rather than an empty stream, so the follow is re-attached
+while the pod is still coming up; only a pod that is running, gone, or stuck for a reason that will
+not resolve on its own — `CreateContainerError`, `ErrImagePull`, and the rest — ends the wait and
+produces the event above.
 
 ### Why the process is a seam
 
