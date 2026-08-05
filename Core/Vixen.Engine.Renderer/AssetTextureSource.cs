@@ -236,22 +236,29 @@ public sealed class AssetTextureSource : IDisposable {
     /// <summary>Says how many texels across a frame needs a texture to be.</summary>
     /// <param name="reference">Which texture.</param>
     /// <param name="width">
-    ///     The wanted width in texels — <see cref="TextureStreamer.WantedWidth(float,float,float,float)" /> computes one from
-    ///     a bounding radius and a view.
+    ///     The wanted width in texels —
+    ///     <see cref="TextureStreamer.WantedWidth(float,float,float,float)" /> computes one from a
+    ///     bounding radius and a view.
     /// </param>
     /// <remarks>
     ///     <para>
     ///         Does nothing when streaming is off, and nothing for a texture that is not streamed.
     ///         It holds for one frame: <see cref="Update" /> reads it and clears it, because a want
-    ///         is a statement about a camera and a camera moves.
+    ///         is a statement about a camera and a camera moves. Idempotent within a frame, and the
+    ///         largest of everything said wins, so six materials sizing one texture is one want.
+    ///     </para>
+    ///     <para>
+    ///         <b><see cref="TextureDemand" /> is what calls this</b>, once a frame, from
+    ///         <see cref="WorldRenderer.Draw" />. A project with a better signal — a sampling
+    ///         feedback buffer, an author's own priority — calls it instead or as well; this is the
+    ///         seam, and it is deliberately one method wide.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Not calling this is not the same as wanting nothing.</b> A texture
     ///         <see cref="TryGet" /> asked for and nobody sized wants to be <em>complete</em> — see
-    ///         <see cref="Update" /> — so a project with no heuristic gets today's picture wherever
-    ///         the budget allows one, and the budget rather than a guess is what makes it coarser.
-    ///         This is what narrows that, and it is the seam a view-driven or feedback-driven signal
-    ///         replaces.
+    ///         <see cref="Update" /> — so a texture the survey cannot see, a terrain layer or a
+    ///         particle's map, gets today's picture wherever the budget allows one, and the budget
+    ///         rather than a guess is what makes it coarser.
     ///     </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">This has been disposed.</exception>
