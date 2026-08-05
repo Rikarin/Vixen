@@ -242,6 +242,46 @@ the integrator's.
 draw and the networked predicted body are W7's device- and world-facing half; § D1 puts the physics
 join in its own assembly rather than a reference from here to Jolt, and it is not built.
 
+## Ripples are a sliding window, and every number in it is a bound
+
+[§ D12]. `WaterRipples` is a height field and its velocity, advanced by an explicit wave-equation step,
+with entities injecting into it — and the evaluator adds it, so a second boat rides the first one's
+wake and the buoyancy solver feels it.
+
+⚠ **This runs on the CPU even when a GPU simulation is running, and that is stated behaviour rather
+than duplication.** Buoyancy sampling a GPU texture cannot see the current frame's step without a
+stall. So the same injections are simulated here at a lower resolution, and the two are compared at a
+**stated tolerance that is not exact** — unlike everything else in this assembly. That asymmetry is
+why the ripple contribution is a separate argument to the evaluator: the closed-form part is exact and
+answerable at any past time, the simulated part is neither, and the network path asks for the first
+alone by passing no ripples at all.
+
+⚠ **An injection goes into the velocity, not the height.** Writing the height holds the surface at a
+shape until something else moves it, so a boat sitting still would carve a permanent hole in the lake;
+a velocity impulse propagates away as a ring, which is what a splash is.
+
+⚠ **The Courant limit is refused rather than discovered.** Past `c ≤ Δx ⁄ (Δt√2)` an explicit wave
+equation does not look wrong — it grows without bound in a few dozen steps and every consumer
+downstream reads a NaN. `WaterRippleSettings.Validate` is where that becomes a message.
+
+⚠ **The edge is damped to nothing rather than clamped**, or the boundary is a mirror and a wake
+returns to meet itself a second later — which reads as the lake having invisible walls exactly as far
+away as the window is wide. The test measures that against a mirrored control.
+
+⚠ **The window scrolls by shifting its contents, unlike `WaterField`, which forgets them.** A field is
+a function of bodies and ground that can be recomputed; a simulation's state *is* its history. The
+shift is by whole texels, which is why the origin snaps: a window moving by a fraction of a texel
+resamples its own state every step, and a resampling filter applied repeatedly is a low-pass filter —
+the wake would blur away while walking and be sharp again the moment the camera stopped.
+
+**The injection budget is spent in arrival order and the overflow is a number.** A scene over budget
+has *arbitrary* ripples rather than merely fewer, and a budget nobody can see is one nobody raises
+before shipping.
+
+**What is not here is the device half.** The compute dispatch over W0's ping-pong pair, the CPU/GPU
+seam test at its stated non-exact tolerance, and the wake and splash hooks for `Vixen.Vfx` are W8's
+other half and are not built.
+
 ## What is not here
 
 The renderer (`Vixen.Rendering.Water`), the editor (`Vixen.Editor.Water`), the Raven modules, the
