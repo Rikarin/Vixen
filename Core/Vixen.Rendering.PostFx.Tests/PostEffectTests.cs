@@ -156,6 +156,7 @@ public class PostEffectTests : IDisposable {
             new(AmbientCombineKeys.OcclusionBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(AmbientCombineKeys.ContactOcclusionBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(AmbientCombineKeys.ReflectionsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(AmbientCombineKeys.DepthBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(AmbientCombineKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
             new(AmbientCombineKeys.LinearSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
         );
@@ -300,6 +301,28 @@ public class PostEffectTests : IDisposable {
 
         Assert.Equal(1f / 320f, texel.X, 5);
         Assert.Equal(1f / 180f, texel.Y, 5);
+
+        // And the texel is what the march's first sample is measured in: it steps in to one texel
+        // of the buffer above rather than to `radius / Steps`, so the wall a pixel actually touches
+        // is inside the search. `bias` is what pays for standing that close — see the shader.
+        Assert.Equal(0.1f, effect.Pass.Parameters.Get(SsaoKeys.Bias), 5);
+    }
+
+    /// <summary>A document's own horizon bias reaches the march.</summary>
+    [Fact]
+    public void Ambient_occlusion_carries_its_horizon_bias() {
+        using var system = new RenderSystem();
+
+        var declared = new SsaoAsset {
+            Name = "Ssao",
+            Depth = "SceneDepth",
+            Normals = "SceneNormals",
+            Bias = 0.25f
+        };
+
+        using var node = (AmbientOcclusionRenderer)new PostEffectFactory().Create(declared, new(system))!;
+
+        Assert.Equal(0.25f, node.Bias, 5);
     }
 
     /// <summary>
@@ -1462,14 +1485,16 @@ public class PostEffectTests : IDisposable {
             .Where(binding => binding.Kind == DescriptorKind.SampledTexture)
             .ToArray();
 
-        Assert.Equal(7, textures.Length);
+        Assert.Equal(8, textures.Length);
 
-        // Every optional slot holds the direct plane.
+        // Every optional slot holds the direct plane — the depth the upsample would test against
+        // among them, which is exactly why its own switch has to be off below.
         foreach (var binding in (uint[]) [
                      AmbientCombineKeys.IrradianceBinding,
                      AmbientCombineKeys.OcclusionBinding,
                      AmbientCombineKeys.ContactOcclusionBinding,
-                     AmbientCombineKeys.ReflectionsBinding
+                     AmbientCombineKeys.ReflectionsBinding,
+                     AmbientCombineKeys.DepthBufferBinding
                  ]) {
             Assert.Equal("SceneColour", textures.Single(b => b.Binding == binding).Resource);
         }
@@ -1479,6 +1504,7 @@ public class PostEffectTests : IDisposable {
         Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseOcclusion));
         Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseContactOcclusion));
         Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseReflections));
+        Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseBilateral));
 
         // One read per distinct plane, not per binding.
         Assert.Equal(3, combine.Pass.Reads.Count);
@@ -1532,6 +1558,84 @@ public class PostEffectTests : IDisposable {
         Assert.Equal(2f, combine.Pass.Parameters.Get(AmbientCombineKeys.Intensity));
 
         Assert.Equal(7, combine.Pass.Reads.Count);
+    }
+
+    /// <summary>
+    ///     Naming a depth turns the bilateral upsample on, and each AO plane's texel comes off the
+    ///     texture the graph actually declared.
+    /// </summary>
+    /// <remarks>
+    ///     The AO pair runs at a fraction of the frame and this pass is the one place it meets the
+    ///     full-resolution frame, so the upsample lives here — and it can only find a reduced
+    ///     plane's texel centres if it is told that plane's own size. Guessing a scale would break
+    ///     the day a document runs one AO pass at half resolution and the other at full, which is
+    ///     what the two different sizes below stand for.
+    /// </remarks>
+    [Fact]
+    public void The_combine_upsamples_each_reduced_plane_by_its_own_texel() {
+        using var combine = new AmbientCombineRenderer {
+            Direct = "SceneColour",
+            Albedo = "SceneAlbedo",
+            Normals = "SceneNormals",
+            Occlusion = "AmbientOcclusion",
+            ContactOcclusion = "Contact",
+            Depth = "SceneDepth",
+            Output = "Out"
+        };
+
+        using var h = Build(combine);
+
+        h.Compositor.Imports["SceneAlbedo"] = Colour("SceneAlbedo");
+
+        // Half the frame's 320 × 180, and a quarter — two AO planes that disagree about their scale.
+        h.Compositor.Imports["AmbientOcclusion"] = Sized("AmbientOcclusion", 160, 90);
+        h.Compositor.Imports["Contact"] = Sized("Contact", 80, 45);
+
+        Frame(h);
+
+        Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseBilateral));
+
+        var occlusion = combine.Pass.Parameters.Get(AmbientCombineKeys.OcclusionTexel);
+        Assert.Equal(1f / 160f, occlusion.X, 5);
+        Assert.Equal(1f / 90f, occlusion.Y, 5);
+
+        var contact = combine.Pass.Parameters.Get(AmbientCombineKeys.ContactTexel);
+        Assert.Equal(1f / 80f, contact.X, 5);
+        Assert.Equal(1f / 45f, contact.Y, 5);
+
+        // The depth is a real read, not a stand-in: the plane test is what the pass is for.
+        var textures = combine.Pass.Descriptors.Bindings
+            .Where(binding => binding.Kind == DescriptorKind.SampledTexture)
+            .ToArray();
+
+        Assert.Equal("SceneDepth", textures.Single(b => b.Binding == AmbientCombineKeys.DepthBufferBinding).Resource);
+        Assert.Contains("SceneDepth", combine.Pass.Reads);
+    }
+
+    /// <summary>
+    ///     A depth with no AO plane beside it leaves the upsample off.
+    /// </summary>
+    /// <remarks>
+    ///     Four extra taps and an unprojection per pixel, deciding a term both switches discard.
+    ///     The guard is cheap and the alternative is a pass that pays for an answer nobody reads.
+    /// </remarks>
+    [Fact]
+    public void The_combine_does_not_upsample_planes_no_document_named() {
+        using var combine = new AmbientCombineRenderer {
+            Direct = "SceneColour",
+            Albedo = "SceneAlbedo",
+            Normals = "SceneNormals",
+            Depth = "SceneDepth",
+            Output = "Out"
+        };
+
+        using var h = Build(combine);
+
+        h.Compositor.Imports["SceneAlbedo"] = Colour("SceneAlbedo");
+
+        Frame(h);
+
+        Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseBilateral));
     }
 
     /// <summary>The factory leaves an empty optional null rather than a resource of no name.</summary>
@@ -1736,11 +1840,14 @@ public class PostEffectTests : IDisposable {
         return new() { System = system, Compositor = compositor, Graph = new(device), Consumer = consumer };
     }
 
-    ImportedTexture Colour(string name) {
+    ImportedTexture Colour(string name) => Sized(name, 320, 180);
+
+    /// <summary>An import of a stated size, for a plane that does not run at the frame's.</summary>
+    ImportedTexture Sized(string name, int width, int height) {
         var description = new TextureDescription(
             PixelFormat.Rgba16Float,
-            320,
-            180,
+            width,
+            height,
             TextureUsage.ColourTarget | TextureUsage.Sampled,
             Name: name
         );

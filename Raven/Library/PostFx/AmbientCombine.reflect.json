@@ -89,9 +89,89 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "1"
+            },
+            {
+              "Name": "useBilateral",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 20,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "inverseViewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 32,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "occlusionTexel",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 96,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.001, 0.001"
+            },
+            {
+              "Name": "contactTexel",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 104,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.001, 0.001"
+            },
+            {
+              "Name": "planeTolerance",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.05"
             }
           ],
-          "Size": 32,
+          "Size": 128,
           "IsWritable": false
         },
         {
@@ -166,6 +246,16 @@
         },
         {
           "Binding": 8,
+          "Name": "depthBuffer",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 9,
           "Name": "pointSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -175,7 +265,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 9,
+          "Binding": 10,
           "Name": "linearSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -297,6 +387,96 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "1"
+    },
+    {
+      "Name": "useBilateral",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 20,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "inverseViewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 32,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "occlusionTexel",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 96,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.001, 0.001"
+    },
+    {
+      "Name": "contactTexel",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 104,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.001, 0.001"
+    },
+    {
+      "Name": "planeTolerance",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 112,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.05"
     }
   ],
   "RequiredCapabilities": [],

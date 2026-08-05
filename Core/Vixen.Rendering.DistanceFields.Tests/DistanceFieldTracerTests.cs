@@ -222,6 +222,123 @@ public class DistanceFieldTracerTests {
         Assert.Equal(1f, open, 0.001f);
     }
 
+    /// <summary>
+    ///     The shells stand where the shader puts them: the first at the field's own cell, the rest
+    ///     spread evenly out to the radius.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The lockstep assertion, and the reason it records positions rather than compares a
+    ///     number. <c>DistanceField.Occlusion</c> in the shader library is this arithmetic exactly,
+    ///     and the two drifting apart is a frame lit differently from every test that passed — so
+    ///     what is pinned here is the sample placement itself, which is the half that changed.
+    /// </remarks>
+    [Fact]
+    public void TheShellsStandWhereTheShaderPutsThem() {
+        var recorder = new Recording(new AnalyticFields.HalfSpace(new(0, 1, 0), 0f));
+
+        DistanceFieldTracer.AmbientOcclusion(recorder, Vector3.Zero, new(0, 1, 0), 2f, 5, cell: 0.5f);
+
+        // First at the cell, last at the radius, three evenly between.
+        Assert.Equal([0.5f, 0.875f, 1.25f, 1.625f, 2f], recorder.Heights.Select(h => MathF.Round(h, 5)));
+    }
+
+    /// <summary>Without a cell the shells are the even spacing they always were.</summary>
+    /// <remarks>
+    ///     The default has to stay what an analytic field wants — one that resolves everything has
+    ///     no cell to anchor to, and inventing one for it would move every existing answer.
+    /// </remarks>
+    [Fact]
+    public void WithoutACellTheShellsAreEvenlySpaced() {
+        var recorder = new Recording(new AnalyticFields.HalfSpace(new(0, 1, 0), 0f));
+
+        DistanceFieldTracer.AmbientOcclusion(recorder, Vector3.Zero, new(0, 1, 0), 2f, 5);
+
+        Assert.Equal([0.4f, 0.8f, 1.2f, 1.6f, 2f], recorder.Heights.Select(h => MathF.Round(h, 5)));
+    }
+
+    /// <summary>
+    ///     A first shell at the cell needs no bias: over open ground the field one cell up reads
+    ///     exactly one cell, so the shortfall is zero by construction.
+    /// </summary>
+    /// <remarks>
+    ///     What lets the integral sample the near field at all. A screen-space march standing this
+    ///     close to its receiver has to floor the horizon to survive its own quantisation; a signed
+    ///     distance field has no such error, and the difference is why only one of the two fixes
+    ///     carries a bias term.
+    /// </remarks>
+    [Fact]
+    public void AShellAtTheCellDoesNotOccludeOpenGround() {
+        var floor = new AnalyticFields.HalfSpace(new(0, 1, 0), 0f);
+        var occlusion = DistanceFieldTracer.AmbientOcclusion(floor, Vector3.Zero, new(0, 1, 0), 2f, 5, cell: 0.5f);
+
+        Assert.Equal(1f, occlusion, 0.001f);
+    }
+
+    /// <summary>
+    ///     Where the first shell stands decides what the near field contributes: a shell pushed out
+    ///     past the geometry reports a ceiling as closed, one held in at the cell does not.
+    /// </summary>
+    /// <remarks>
+    ///     Each shell asks "what fraction of <em>this</em> distance is blocked", so a shell's answer
+    ///     depends on where it stands — which is what makes an arbitrary <c>radius / samples</c> a
+    ///     defect rather than a taste. Sample 13's clipmap has half-metre cells and its march asked
+    ///     for five samples over two metres, so the first shell sat at 0.4 — inside one cell, where
+    ///     a trilinear read is the surface's own interpolation and the sample measures nothing.
+    /// </remarks>
+    [Fact]
+    public void TheFirstShellDecidesWhatTheNearFieldContributes() {
+        // A ceiling one metre up, and nothing else: clearance at height h is 1 - h.
+        var ceiling = new AnalyticFields.HalfSpace(new(0, -1, 0), -1f);
+
+        float Occlusion(float cell) =>
+            DistanceFieldTracer.AmbientOcclusion(ceiling, Vector3.Zero, new(0, 1, 0), 2f, 5, cell: cell);
+
+        var near = Occlusion(0.1f);
+        var far = Occlusion(0.8f);
+
+        Assert.True(near > far, $"a shell held in at the cell ({near}) was not more open than one pushed out ({far})");
+        Assert.InRange(near, 0f, 1f);
+        Assert.InRange(far, 0f, 1f);
+    }
+
+    /// <summary>A cell wider than the radius collapses every shell onto the radius.</summary>
+    /// <remarks>
+    ///     The clamp, and it has to hold: a coarse clipmap level's cell can genuinely exceed a
+    ///     crease-scale radius, and shells marching backwards from it would sample below the
+    ///     surface — which is a field reporting a hit and a floor painted black.
+    /// </remarks>
+    [Fact]
+    public void ACellWiderThanTheRadiusClampsToIt() {
+        var recorder = new Recording(new AnalyticFields.HalfSpace(new(0, 1, 0), 0f));
+
+        var occlusion = DistanceFieldTracer.AmbientOcclusion(
+            recorder,
+            Vector3.Zero,
+            new(0, 1, 0),
+            1f,
+            4,
+            cell: 5f
+        );
+
+        Assert.All(recorder.Heights, height => Assert.Equal(1f, height, 0.001f));
+        Assert.InRange(occlusion, 0f, 1f);
+    }
+
+    /// <summary>A field that remembers where it was asked, for the placement assertions above.</summary>
+    sealed class Recording(IDistanceField inner) : IDistanceField {
+        readonly List<float> heights = [];
+
+        /// <summary>How far up the y axis each sample stood, in order.</summary>
+        public IReadOnlyList<float> Heights => heights;
+
+        public float Sample(Vector3 position) {
+            heights.Add(position.Y);
+            return inner.Sample(position);
+        }
+
+        public Vector3 SampleGradient(Vector3 position) => inner.SampleGradient(position);
+    }
+
     [Fact]
     public void OcclusionStaysInsideItsRange() {
         var box = new AnalyticFields.Union(

@@ -344,6 +344,13 @@ public sealed record SsaoAsset : ISceneRendererAsset {
     /// <summary>How fast occlusion falls off with distance.</summary>
     public float Falloff { get; init; } = 1f;
 
+    /// <summary>The elevation below which a horizon does not count, as a sine.</summary>
+    /// <remarks>
+    ///     The self-occlusion guard for the march's one-texel first sample — see
+    ///     <see cref="AmbientOcclusionRenderer.Bias" /> for the trade at both ends.
+    /// </remarks>
+    public float Bias { get; init; } = 0.1f;
+
     /// <summary>Resolution scale — half by default, which is where this effect belongs.</summary>
     public float Scale { get; init; } = 0.5f;
 }

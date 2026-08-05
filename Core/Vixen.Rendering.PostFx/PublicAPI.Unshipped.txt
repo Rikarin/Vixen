@@ -7,6 +7,8 @@ Vixen.Rendering.PostFx.AmbientCombineAsset.Albedo.init -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.AmbientCombineAsset() -> void
 Vixen.Rendering.PostFx.AmbientCombineAsset.ContactOcclusion.get -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.ContactOcclusion.init -> string
+Vixen.Rendering.PostFx.AmbientCombineAsset.Depth.get -> string
+Vixen.Rendering.PostFx.AmbientCombineAsset.Depth.init -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Direct.get -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Direct.init -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Enabled.get -> bool
@@ -23,26 +25,40 @@ Vixen.Rendering.PostFx.AmbientCombineAsset.Occlusion.get -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Occlusion.init -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Output.get -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Output.init -> string
+Vixen.Rendering.PostFx.AmbientCombineAsset.PlaneTolerance.get -> float
+Vixen.Rendering.PostFx.AmbientCombineAsset.PlaneTolerance.init -> float
 Vixen.Rendering.PostFx.AmbientCombineAsset.Reflections.get -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Reflections.init -> string
+Vixen.Rendering.PostFx.AmbientCombineAsset.View.get -> string
+Vixen.Rendering.PostFx.AmbientCombineAsset.View.init -> string
 Vixen.Rendering.PostFx.AmbientCombineRenderer -> sealed class
 Vixen.Rendering.PostFx.AmbientCombineRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.AmbientCombineRenderer.AmbientCombineRenderer() -> void
 Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactOcclusion.get -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactOcclusion.set -> string?
+Vixen.Rendering.PostFx.AmbientCombineRenderer.Depth.get -> string?
+Vixen.Rendering.PostFx.AmbientCombineRenderer.Depth.set -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Intensity.get -> float
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Intensity.set -> float
+Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Irradiance.get -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Irradiance.set -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Occlusion.get -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Occlusion.set -> string?
+Vixen.Rendering.PostFx.AmbientCombineRenderer.PlaneTolerance.get -> float
+Vixen.Rendering.PostFx.AmbientCombineRenderer.PlaneTolerance.set -> float
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Reflections.get -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Reflections.set -> string?
+Vixen.Rendering.PostFx.AmbientCombineRenderer.View.get -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.AmbientCombineRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer -> sealed class
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.AmbientOcclusionRenderer() -> void
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.BentNormal.get -> bool
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.BentNormal.set -> bool
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Bias.get -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Bias.set -> float
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Directions.get -> int
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Directions.set -> int
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Falloff.get -> float
@@ -1134,6 +1150,8 @@ Vixen.Rendering.PostFx.SsaoAsset : System.IEquatable<Vixen.Rendering.PostFx.Ssao
 Vixen.Rendering.PostFx.SsaoAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
 Vixen.Rendering.PostFx.SsaoAsset.BentNormal.get -> bool
 Vixen.Rendering.PostFx.SsaoAsset.BentNormal.init -> bool
+Vixen.Rendering.PostFx.SsaoAsset.Bias.get -> float
+Vixen.Rendering.PostFx.SsaoAsset.Bias.init -> float
 Vixen.Rendering.PostFx.SsaoAsset.Depth.get -> string
 Vixen.Rendering.PostFx.SsaoAsset.Depth.init -> string
 Vixen.Rendering.PostFx.SsaoAsset.Directions.get -> int
@@ -1489,7 +1507,12 @@ Vixen.Rendering.PostFx.VignetteRenderer.VignetteSmoothness.get -> float
 Vixen.Rendering.PostFx.VignetteRenderer.VignetteSmoothness.set -> float
 Vixen.Shaders.Generated.AmbientCombineConstants -> struct
 Vixen.Shaders.Generated.AmbientCombineConstants.AmbientCombineConstants() -> void
+Vixen.Shaders.Generated.AmbientCombineConstants.ContactTexel -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.AmbientCombineConstants.Intensity -> float
+Vixen.Shaders.Generated.AmbientCombineConstants.InverseViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.AmbientCombineConstants.OcclusionTexel -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.AmbientCombineConstants.PlaneTolerance -> float
+Vixen.Shaders.Generated.AmbientCombineConstants.UseBilateral -> float
 Vixen.Shaders.Generated.AmbientCombineConstants.UseContactOcclusion -> float
 Vixen.Shaders.Generated.AmbientCombineConstants.UseIrradiance -> float
 Vixen.Shaders.Generated.AmbientCombineConstants.UseOcclusion -> float
@@ -1584,6 +1607,7 @@ Vixen.Shaders.Generated.SkyConstants.InverseViewProjection -> Vixen.Core.Mathema
 Vixen.Shaders.Generated.SkyConstants.SkyConstants() -> void
 Vixen.Shaders.Generated.SkyKeys -> static class
 Vixen.Shaders.Generated.SsaoConstants -> struct
+Vixen.Shaders.Generated.SsaoConstants.Bias -> float
 Vixen.Shaders.Generated.SsaoConstants.Falloff -> float
 Vixen.Shaders.Generated.SsaoConstants.Intensity -> float
 Vixen.Shaders.Generated.SsaoConstants.InverseProjection -> Vixen.Core.Mathematics.Matrix4x4
@@ -1622,25 +1646,27 @@ const Vixen.Rendering.PostFx.AutoExposureRenderer.BinCount = 64 -> int
 const Vixen.Rendering.PostFx.AutoExposureRenderer.ExposureSize = 4 -> int
 const Vixen.Rendering.PostFx.AutoExposureRenderer.HistogramSize = 256 -> int
 const Vixen.Rendering.PostFx.MotionBlurRenderer.DefaultShutterFraction = 0.5 -> float
-const Vixen.Shaders.Generated.AmbientCombineConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.AmbientCombineConstants.Size = 128 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.AlbedoBinding = 2 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.AlbedoSet = 2 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.AmbientCombineKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.AmbientCombineKeys.ConstantBufferSize = 128 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.ContactOcclusionBinding = 6 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.ContactOcclusionSet = 2 -> int
+const Vixen.Shaders.Generated.AmbientCombineKeys.DepthBufferBinding = 8 -> uint
+const Vixen.Shaders.Generated.AmbientCombineKeys.DepthBufferSet = 2 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.DirectBinding = 1 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.DirectSet = 2 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.IrradianceBinding = 4 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.IrradianceSet = 2 -> int
-const Vixen.Shaders.Generated.AmbientCombineKeys.LinearSamplerBinding = 9 -> uint
+const Vixen.Shaders.Generated.AmbientCombineKeys.LinearSamplerBinding = 10 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.LinearSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.NormalsBinding = 3 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.NormalsSet = 2 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.OcclusionBinding = 5 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.OcclusionSet = 2 -> int
-const Vixen.Shaders.Generated.AmbientCombineKeys.PointSamplerBinding = 8 -> uint
+const Vixen.Shaders.Generated.AmbientCombineKeys.PointSamplerBinding = 9 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.PointSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.ReflectionsBinding = 7 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.ReflectionsSet = 2 -> int
@@ -2044,14 +2070,20 @@ static Vixen.Rendering.PostFx.RenderQuality.Resolve(Vixen.Rendering.Compositor.Q
 static Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Jitter(int frameIndex) -> Vixen.Core.Mathematics.Vector2
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Albedo -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.ContactOcclusion -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.AmbientCombineKeys.ContactTexel -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.AmbientCombineKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Direct -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Intensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AmbientCombineKeys.InverseViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Irradiance -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.LinearSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Normals -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Occlusion -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.AmbientCombineKeys.OcclusionTexel -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.AmbientCombineKeys.PlaneTolerance -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Reflections -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseBilateral -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseContactOcclusion -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseIrradiance -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseOcclusion -> Vixen.Shaders.ParameterKey<float>
@@ -2164,6 +2196,7 @@ static readonly Vixen.Shaders.Generated.SkyKeys.InverseViewProjection -> Vixen.S
 static readonly Vixen.Shaders.Generated.SkyKeys.Soften -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.SkyKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.SsaoKeys.BentNormal -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.SsaoKeys.Bias -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SsaoKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.SsaoKeys.Directions -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.SsaoKeys.Falloff -> Vixen.Shaders.ParameterKey<float>
