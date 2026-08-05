@@ -8,8 +8,10 @@ using Vixen.Engine.Cameras;
 using Vixen.Engine.Players;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Terrain;
+using Vixen.Rendering.Water;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Water.Physics;
 
 namespace Vixen.Editor.App;
 
@@ -66,6 +68,14 @@ static class MaterialIcons {
     /// <summary>Terrain, foliage and the splines that place them.</summary>
     public static Color4 Terrain { get; } = Hue(0x66BB6A);
 
+    /// <summary>Water, and the things that float on it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A blue distinct from <see cref="Camera" />'s indigo</b>, which is the only other cool
+    ///     hue here: a zone row and a virtual-camera row sit next to each other in an outliner far
+    ///     more often than either sits next to anything else.
+    /// </remarks>
+    public static Color4 Water { get; } = Hue(0x29B6F6);
+
     // ── Glyphs ──────────────────────────────────────────────────────────────────────────────────
     //
     // Every one of these is a `d` attribute on a 24 grid. They are readable as text, which is the
@@ -86,6 +96,13 @@ static class MaterialIcons {
 
     /// <summary>Three arcs spreading out. A field rather than a point.</summary>
     const string Waves = "M6.6 8.4a7.6 7.6 0 0 1 0 7.2M10.6 6.2a12 12 0 0 1 0 11.6M2.8 10.4a3.6 3.6 0 0 1 0 3.2";
+
+    /// <summary>A band of swell, filled. Water seen from the side, which is how a surface reads.</summary>
+    const string Swell = "M2 12.6c2.4 0 2.4-2.6 4.8-2.6s2.4 2.6 4.8 2.6 2.4-2.6 4.8-2.6 2.4 2.6 4.8 2.6v3.4"
+        + "c-2.4 0-2.4-2.6-4.8-2.6s-2.4 2.6-4.8 2.6-2.4-2.6-4.8-2.6-2.4 2.6-4.8 2.6z";
+
+    /// <summary>One crest, as a stroke. What is drawn over something that is in the water.</summary>
+    const string Crest = "M2.4 16.6c2.4 0 2.4-2.6 4.8-2.6s2.4 2.6 4.8 2.6 2.4-2.6 4.8-2.6 2.4 2.6 4.8 2.6";
 
     /// <summary>A body and a lens hood. A camera.</summary>
     const string Movie = "M2.6 6.4h12.2v11.2H2.6zM16.6 10.2l4.8-3.2v10l-4.8-3.2z";
@@ -362,6 +379,16 @@ static class MaterialIcons {
         // is the one thing that distinguishes it from the grass layer above and the blocker below.
         new(typeof(FoliageVolumeComponent), Struck(Grass, Bounds, Terrain)),
         new(typeof(FoliageBlockerComponent), Filled(Grass, Terrain)),
-        new(typeof(SplinePlacedComponent), Struck(SplineKnots, Spline, Terrain, 2f))
+        new(typeof(SplinePlacedComponent), Struck(SplineKnots, Spline, Terrain, 2f)),
+
+        // Water, and what floats on it. The zone is swell inside the volume brackets — the same
+        // "this is a painted region" reading `FoliageVolumeComponent` gets, because that is exactly
+        // what distinguishes a window over the water from the water in it.
+        new(typeof(WaterZoneComponent), Struck(Swell, Bounds, Water)),
+        new(typeof(WaterBodyComponent), Filled(Swell, Water)),
+
+        // And a hull with a waterline across it, which is the one thing a buoyancy row has to say.
+        new(typeof(BuoyancyBody), Struck(Cube, Crest, Water)),
+        new(typeof(BuoyancyState), Line(Crest, Water, 2.4f))
     ];
 }

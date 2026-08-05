@@ -145,6 +145,15 @@ sealed class ScenePresenter : IDisposable {
     /// <summary>The painted foliage and grass, drawn into the same pass as the ground they stand on.</summary>
     readonly VegetationPresenter vegetation;
 
+    /// <summary>The scene's water, drawn over the ground it covers.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A third presenter rather than a range in this one</b>, for
+    ///     <see cref="vegetation" />'s reason and one more: the water fold is stateful across frames —
+    ///     a zone's field is re-rasterised only when it has to be — and that state belongs to
+    ///     something with a lifetime rather than to a frame's collect.
+    /// </remarks>
+    readonly WaterPresenter water;
+
     TextureHandle colour;
     TextureViewHandle colourView;
     TextureHandle depth;
@@ -205,6 +214,11 @@ sealed class ScenePresenter : IDisposable {
         // The painted vegetation, drawn with the same instanced stages and into the same output as
         // the scene's shapes — which is what puts a tree behind a wall behind the wall.
         vegetation = new(device, instanceShaders, output);
+
+        // The water, on the gizmo heads' pipeline rather than the instanced one: a surface is
+        // geometry genuinely rebuilt every frame — the waves move — which is what `MeshRenderer` is
+        // for and what `MeshInstanceRenderer` deliberately is not.
+        water = new(device, meshShaders, output);
     }
 
     /// <summary>What the shapes in the scene are drawn as.</summary>
@@ -245,6 +259,20 @@ sealed class ScenePresenter : IDisposable {
 
     /// <summary>The vegetation half, for the tests that assert what a frame recorded.</summary>
     internal VegetationPresenter Vegetation => vegetation;
+
+    /// <summary>Where the scene's splines, sea states and ground come from, or null while nothing supplies them.</summary>
+    /// <remarks>
+    ///     <see cref="VegetationScene" />'s seam exactly, filled the same way: the water module
+    ///     contributes an implementation and the host hands it over. Null is a viewport with no water
+    ///     in it and nothing else different.
+    /// </remarks>
+    public IWaterScene? WaterScene {
+        get => water.Scene;
+        set => water.Scene = value;
+    }
+
+    /// <summary>The water half, for the panel that shows the fold's counts and the tests that assert them.</summary>
+    internal WaterPresenter Water => water;
 
     /// <summary>How many terrains the last <see cref="Upload" /> chose to draw.</summary>
     public int TerrainsDrawn => terrainDraws.Count;
@@ -341,7 +369,16 @@ sealed class ScenePresenter : IDisposable {
 
         // ⚠ Before the shapes, and outside the render pass like everything else here: a terrain's
         // upload is a buffer write and a texture copy, and Vulkan refuses a transfer inside a pass.
-        UploadTerrain(commands, viewport.Camera, size.Y <= 0 ? 1f : (float) size.X / size.Y);
+        var ratio = size.Y <= 0 ? 1f : (float) size.X / size.Y;
+
+        UploadTerrain(commands, viewport.Camera, ratio);
+
+        // ⚠ After the terrain and before the shapes, because the water fold asks the terrain seam how
+        // high the ground is — and because a lake is drawn *over* the ground it covers, which only
+        // works if the ground is already in the target when the blend happens. The world is the
+        // document's rather than a copy: the fold reads `WorldTransform`, which the application has
+        // resolved by the time a frame is uploaded.
+        water.Upload(document.World, viewport.Camera, ratio);
 
         surfaces.Build(document, viewport);
 
@@ -353,7 +390,10 @@ sealed class ScenePresenter : IDisposable {
 
         geometry.Build(document, viewport, size.Y);
 
-        Write(lines, geometry.World);
+        // ⚠ The water's diagnostics join the depth-tested list rather than the overlay's, because a
+        // flow arrow behind a hill is behind the hill — these describe places in the world, not
+        // handles you have to be able to reach through it.
+        Write(lines, geometry.World, water.DebugLines);
         Write(overlay, geometry.Overlay);
 
         // ⚠ The gizmo's key light follows the camera, and this is the half of it that reaches the
@@ -379,7 +419,11 @@ sealed class ScenePresenter : IDisposable {
         // frame that produced more entities than the instance ring holds drops whole batches, and a
         // stats overlay whose triangle count silently stops rising is the one readout that would hide
         // the overflow it exists to make visible.
-        stats.Triangles = meshes.Triangles;
+        // ⚠ The water's are added rather than left out, and the reason is the same one the note above
+        // gives about truncation: the surface is the largest single thing a pane can draw, and a
+        // readout that ignored it would say "0 tris" over a lake. `MeshRenderer.Dropped` is what says
+        // the ring overflowed; this is what says how much it was asked for.
+        stats.Triangles = meshes.Triangles + water.Triangles;
         stats.Segments = ((geometry.World.Count + geometry.Overlay.Count) / 2) + meshes.Segments;
     }
 
@@ -719,6 +763,15 @@ sealed class ScenePresenter : IDisposable {
                     // would be correct and pointless; drawn after nothing they are what the grid and
                     // the markers are then tested against.
                     meshes.Record(context.CommandList, view);
+
+                    // ⚠ The water after every opaque thing and before the lines, and both halves
+                    // matter. It blends premultiplied, so whatever it covers has to be in the target
+                    // already — a lake recorded before the ground would be composited against the
+                    // clear colour and read as a flat blue card. And it writes depth, so the grid
+                    // and the markers under it are hidden by it, which is what makes a submerged
+                    // object read as submerged rather than as floating over the water.
+                    var wet = water.Record(context.CommandList, viewProjection);
+
                     lines.Record(context.CommandList, viewProjection);
 
                     // Last, and with the depth test off. See the fields' own remarks. The solid
@@ -729,7 +782,8 @@ sealed class ScenePresenter : IDisposable {
                     overlay.Record(context.CommandList, viewProjection, depthTested: false);
                     handles.Record(context.CommandList, viewProjection, depthTested: false);
 
-                    viewport.Stats.Draws = ground + meshes.Draws + lines.Draws + overlay.Draws + handles.Draws;
+                    viewport.Stats.Draws =
+                        ground + wet + meshes.Draws + lines.Draws + overlay.Draws + handles.Draws;
                 });
             }
         );
@@ -751,6 +805,7 @@ sealed class ScenePresenter : IDisposable {
         lines.Dispose();
         overlay.Dispose();
         vegetation.Dispose();
+        water.Dispose();
 
         foreach (var terrain in terrains.Values) {
             terrain.Dispose();

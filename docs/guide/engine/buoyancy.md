@@ -36,6 +36,34 @@ here.
 
 ## Using it
 
+### ⚠ A game has to reference this package itself, and nothing will tell it to
+
+`Vixen.App.Hosting` links `Vixen.Rendering.Water` — so a zone and a body reach a game the moment it
+has a compositor with a `!WaterSurface` node in it. **It deliberately does not link this one.** § D1's
+sentence is that a game with water and no rigid bodies must not link Jolt to draw a lake, and a
+reference from the host is exactly that. `Vixen.Audio.Physics` is the same shape and is opted into the
+same way.
+
+What that costs is a failure mode worth stating plainly:
+
+> A `[ModuleInitializer]` cannot run in a process that never loads the assembly.
+
+`BuoyancyBody` and `BuoyancyState` are declared to `SceneComponentRegistry` from an initializer this
+assembly emits. In a game that has not referenced the package, that initializer never runs, and a
+scene naming `!BuoyancyBody` fails to load with *"This build has no component called
+'BuoyancyBody'"* — which is loud, and is the right failure, and does not say what to add. Add the
+package:
+
+```xml
+<ProjectReference Include="…/Vixen.Water.Physics/Vixen.Water.Physics.csproj" />
+```
+
+⚠ **The editor is the exception and links it unconditionally**, for a reason that has nothing to do
+with running physics: a component whose assembly is not loaded is missing from Add ▸ and takes a scene
+naming it down on load, so a boat could not be *authored* before it could be opted into. See
+`EditorApplication.BuiltInSubsystems`, which is the list that touches such an assembly early enough
+for a scene file to be read against it.
+
 ```csharp no-compile="the shape of a setup, not a compiling scene"
 // A raft: four pontoons at the corners, because one cannot lean.
 world.Add(raft, BuoyancyBody.Raft(halfLength: 2.5f, halfWidth: 1.5f, radius: 0.7f));

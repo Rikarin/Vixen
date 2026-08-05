@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using Vixen.Core;
 using Vixen.Engine.Diagnostics.Overlays;
 
@@ -96,6 +98,48 @@ public static class WaterDebug {
     [ConsoleCommand("water.showRipples", Help = "The ripple window's bounds and its injection budget")]
     public static void Ripples(ConsoleContext context) =>
         ShowRipples = Toggle(context, "water.showRipples", ShowRipples);
+
+    /// <summary>Puts all six verbs into a registry, naming every one of them.</summary>
+    /// <param name="into">Where they go.</param>
+    /// <returns>How many were registered, which is always six.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="into" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because <see cref="ConsoleCommands.RegisterFrom(Assembly)" /> has no callers, and
+    ///         cannot honestly acquire one.</b> That overload scans every type in an assembly for the
+    ///         attribute, which is annotated <see cref="RequiresUnreferencedCodeAttribute" /> and says
+    ///         so — a shipping title calling it takes the warning, or trims the commands away and
+    ///         finds out on device. Its own remarks name
+    ///         <see cref="ConsoleCommands.Register(string, string, Action{ConsoleContext})" /> as what
+    ///         a shipping title should use "until the generator that reads the attribute at compile
+    ///         time exists"; this is that call, made six times, where the six names are.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>[ConsoleCommand]</c> attributes above stay, and are not now redundant.</b>
+    ///         They are what the documentation graph reads to list the verbs, and they are what the
+    ///         compile-time generator will read when it exists. What changed is that reaching them no
+    ///         longer requires reflection.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registering them does not make them typable.</b> Nothing in this tree constructs a
+    ///         <see cref="ConsoleCommands" />, a <c>DiagnosticOverlays</c> or a <c>DebugDraw</c> outside
+    ///         its own tests, and no compositor node draws a frame's <c>DebugDraw</c> — so a game has a
+    ///         console only once doc 13's host wiring exists. This closes water's end of that link and
+    ///         no more; see <see cref="WaterOverlay" /> for the other half.
+    ///     </para>
+    /// </remarks>
+    public static int Register(ConsoleCommands into) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Register("water.showTiles", "Patch bounds, coloured by body kind, with the LOD level", Tiles);
+        into.Register("water.showLod", "The morph bands as rings, which is where a pop is diagnosed", Lod);
+        into.Register("water.showInfo", "The info field's four channels, individually", Info);
+        into.Register("water.showFlow", "Flow vectors on the surface and the spline velocity arrows", Flow);
+        into.Register("water.showBuoyancy", "Pontoons, their submerged fraction, and the forces", Buoyancy);
+        into.Register("water.showRipples", "The ripple window's bounds and its injection budget", Ripples);
+
+        return 6;
+    }
 
     /// <summary>The `cmd`, `cmd 1`, `cmd 0` triple every one of these accepts.</summary>
     /// <remarks>

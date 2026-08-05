@@ -344,6 +344,21 @@ position* for every swimming character and every boat it simulates, and
 draws. `Vixen.Water` therefore references `Vixen.Core.Mathematics` and nothing that opens a device,
 and the physics join is a separate small assembly rather than a reference from the kernel to Jolt.
 
+⚠ **`Vixen.Water.Physics` is opted into by a game, and that is this section's sentence rather than an
+omission.** `Vixen.App.Hosting` links `Vixen.Rendering.Water`, so zones and bodies reach every game
+with a `!WaterSurface` node; linking the physics join the same way would drag Jolt into every host
+that draws a lake, which is precisely what the split exists to prevent. What it costs has to be said
+plainly, because it is the one failure a separate assembly buys: **a `[ModuleInitializer]` cannot run
+in a process that never loads the assembly**, so a game that has not added the reference and loads a
+scene naming `!BuoyancyBody` fails with `SceneComponentException` — which is loud, is the right
+failure, and does not name the package. The guide page does.
+
+⚠ **The editor links it unconditionally, and for a reason that is not physics.** `BuoyancyBody` is a
+scene component: without the assembly loaded it is absent from Add ▸ and a scene naming it will not
+open, so a boat could not be *authored* before it could be opted into. That is `EditorApplication`'s
+`BuiltInSubsystems` list, which exists exactly to touch an assembly nothing else in a running editor
+calls into — and it has to run before the scene file is read, which it did not.
+
 ### D2. One evaluator, two hosts, and the seam is a test
 
 This is the design decision the rest hangs off.
@@ -838,10 +853,42 @@ vertex stage a frame ahead of a buoyancy solver and therefore a boat that hovers
 finished; `PointerAction` is moves, presses and releases, and a click count is a fact about time the
 event does not carry.
 
-⚠ **And the six `water.show*` verbs are flags with nothing behind them.** They cost a branch; what
-would read them is a viewport line pass water has no seam into. `stat water` and `stat watermesh` are
-built, because they need only numbers somebody already publishes — and they are doc 13's console
-registry's *first* consumers, which is worth recording.
+⚠ **The fourth thing, which is the one this phase kept getting wrong: the viewport drew none of it.**
+`ScenePresenter` had no occurrence of the word "water" in it. The gesture wrote a real `.vxspline` and
+created a real `WaterBodyComponent`, and an author saw the same dry ground they had before — doc 31's
+"built and not yet reachable" arriving through the one door this phase's exit criterion did not check,
+because a session test can find the tools bound and say nothing about what is on screen. It is closed
+the way the vegetation one was: an `IWaterScene` the module contributes, a `WaterPresenter` the host
+hands it to, and **`WaterZoneSystem.Fold(World)` rather than a second fold** — § D2 is a rule about
+hosts and the editor is one. The surface is CPU-evaluated through the same `WaterQuery` the vertex
+stage samples, which is the opposite call from the grass and is right for the opposite reason: a
+closed-form surface has an honest CPU preview and a hundred thousand blades do not.
+
+⚠ **And the scene could not be opened at all.** `EditorApplication` touches its subsystems' assemblies
+so their `[ModuleInitializer]`s run — and did it a hundred lines *after* the scene file was read, for
+the Add Component menu's benefit. A `Main.vxscene` naming a `!WaterZoneComponent` therefore died on
+the way up with "Nothing in this build claims the name". The touch happens before the read now, and
+the list has the ground, the water and the buoyancy join in it.
+
+⚠ **The six `water.show*` verbs were "flags with nothing behind them", and that has been out of date
+in both directions.** `WaterDebugDraw` is fully built and was instantiated only by its own tests: the
+dangling link moved one hop, from a flag with no drawing to a drawing with no host, and did not close.
+Both ends are closed here. `WaterDebug.Register(ConsoleCommands)` registers the six by name without
+the reflection `RegisterFrom(Assembly)` needs — that overload is annotated `RequiresUnreferencedCode`
+and has no callers anywhere, so the attributes alone were never a route. And `WaterModule` registers
+the same six as editor commands under the same names, with the pane draining `DebugDraw`'s world lines
+into its depth-tested line pass, so **`water.showFlow` draws flow arrows and spline velocities on a
+river.** Tiles, LOD bands and ripples stay inert in a pane, because a preview surface is a CPU grid
+with no device patches and no ripple simulation; `showInfo`'s charts are screen-space and a pane has
+no screen-space debug pass.
+
+⚠ **`stat water` and `stat watermesh` are built and still have no host, and that is doc 13's rather
+than water's.** Nothing in the tree constructs a `DiagnosticOverlays`, a `ConsoleCommands` or a
+`DebugDraw` outside its own tests, and no compositor node draws a frame's `DebugDraw` — so
+`FrameStatsOverlay`, `LogOverlay`, `ConsoleOverlay`, `FrameGraphOverlay`, `AudioOverlay` and
+`PhysicsDebugDrawSystem` are all exactly as unreachable as water's two. Water's `[ConsoleCommand]`s
+happen to be the only ones in the tree, so "the console verbs cannot be typed" and "there is no
+console" are the same sentence.
 
 ### Cost
 

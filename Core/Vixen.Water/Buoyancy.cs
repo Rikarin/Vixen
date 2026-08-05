@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Water;
@@ -22,7 +23,17 @@ namespace Vixen.Water;
 ///         small ones along its keel, and matching them to the hull mesh is how a boat ends up
 ///         floating a hand's width too high.
 ///     </para>
+///     <para>
+///         ⚠ <b><c>[DataContract]</c>, because without it <c>BuoyancyBody</c> is a scene component
+///         whose only load-bearing field cannot be written in a file.</b> That component is declared
+///         to <c>SceneComponentRegistry</c> and every one of its scalars round-trips; its
+///         <c>Pontoons</c> array does not, and a body with no pontoons floats nowhere and is not an
+///         error — so an authored boat loaded, looked complete in the inspector, and sank. Nothing
+///         reported it, because the only thing that could have was a scene naming a pontoon and there
+///         was not one in the tree. <see cref="SplinePoint" />'s reason exactly, one list over.
+///     </para>
 /// </remarks>
+[DataContract]
 public readonly record struct BuoyancyPontoon(Vector3 Offset, float Radius) {
     /// <summary>How much water it displaces when it is entirely under the surface, in m³.</summary>
     public float Volume => 4f / 3f * MathF.PI * Radius * Radius * Radius;
