@@ -151,13 +151,14 @@ Gameplay/                               # ── a top level of its own; see bel
 │                                       #   claim validator and the rewind budget (projectile flight is owed)
 ├── Vixen.Gameplay.Progression/         # ✅ XP, levels, talents, specialisations, professions, reputation
 ├── Vixen.Gameplay.Quests/              # ✅ quests, objectives, stages, dynamic events, world bosses
-├── Vixen.Gameplay.Ai/                  # ⚠ SHRUNK by doc 37: threat, aggro, leashing, spawn tables, dialogue.
-│                                       #   The three planners, the blackboard, the action surface and
-│                                       #   perception left for Core/Vixen.Ai — which is built. This
-│                                       #   references it rather than containing it.
+├── Vixen.Gameplay.Ai/                  # ✅ ⚠ SHRUNK TWICE — leashing and spawn tables. Threat and
+│                                       #   aggro went to Combat at G2; the planners, blackboard,
+│                                       #   action surface and perception are Core/Vixen.Ai's. This
+│                                       #   references neither. Dialogue is owed.
 ├── Vixen.Gameplay.Interaction/         # ✅ interactables, gathering, channelled use, doors
 ├── Vixen.Gameplay.Crafting/            # ✅ recipes, stations, quality, discovery
-├── Vixen.Gameplay.Movement/            # mounts, vehicles, seats, swimming, flight, gliding, water craft
+├── Vixen.Gameplay.Movement/            # 🟡 mounts and vehicles as one type with seats; the
+│                                       #   transform half waits on doc 16 #69 — see below
 ├── Vixen.Gameplay.Travel/              # ✅ portals, waypoints, taxi, summons — doc 27's client half
 ├── Vixen.Gameplay.Social/              # ✅ parties, squads, teams, guilds, ranks, friends, presence
 ├── Vixen.Gameplay.Chat/                # ✅ channels, routing, moderation, rate limits
@@ -535,17 +536,20 @@ node-stealing) are policies on the definition.
 (a recipe learned by experiment rather than by purchase), and skill gain. Nothing here is technically
 hard; the value is in it being *the same* system as gathering and using the same requirement algebra.
 
-> **Four of six built.** [`Vixen.Gameplay.Interaction`](../../Gameplay/Vixen.Gameplay.Interaction/README.md),
+> **Built, and G7 with it.** [`Vixen.Gameplay.Interaction`](../../Gameplay/Vixen.Gameplay.Interaction/README.md),
 > 15 tests, [`Vixen.Gameplay.Crafting`](../../Gameplay/Vixen.Gameplay.Crafting/README.md), 17,
 > [`Vixen.Gameplay.Exploration`](../../Gameplay/Vixen.Gameplay.Exploration/README.md), 16, and
-> [`Vixen.Gameplay.Travel`](../../Gameplay/Vixen.Gameplay.Travel/README.md), 14.
-> ⚠ **Movement is blocked on doc 16's owed parent-relative replication**, which this section itself
-> predicted — overview.md still has it ⬜ as item 69, so a passenger's transform cannot be replicated
-> correctly and building the networked half now would mean building a workaround. The vehicle *model*
-> is not blocked and is owed rather than impossible. ⚠ **The AI half turned out to be much smaller
-> than the cost row implies**: threat, aggro and taunt landed in `Vixen.Gameplay.Combat` at G2, and
-> the planners, blackboard, action surface and perception are `Core/Vixen.Ai`'s and built — what is
-> actually left is leashing, spawn tables and dialogue.
+> [`Vixen.Gameplay.Travel`](../../Gameplay/Vixen.Gameplay.Travel/README.md), 14,
+> [`Vixen.Gameplay.Movement`](../../Gameplay/Vixen.Gameplay.Movement/README.md), 17, and
+> [`Vixen.Gameplay.Ai`](../../Gameplay/Vixen.Gameplay.Ai/README.md), 23.
+> ⚠ **Movement's *transform* half is blocked on doc 16's owed parent-relative replication**, which
+> this section itself predicted — `overview.md` still has it ⬜ as item 69, so a passenger's position
+> cannot be replicated correctly and nothing here touches one. The seat model is built and is the
+> half that was never waiting on anything. ⚠ **The AI half turned out to be a fraction of what the
+> cost row implies**: threat, aggro and taunt landed in `Vixen.Gameplay.Combat` at G2, the planners,
+> blackboard, action surface and perception are `Core/Vixen.Ai`'s, and encounter scripting is an
+> *address* on an `EncounterDefinition` — so what was actually left is leashing and spawn tables, and
+> the library references neither of the two it was expected to.
 >
 > Four things worth carrying forward. ⚠ **A shared node has to be *claimed* for the duration of a
 > channel**, and that is this section's version of the duplication bug: without it two players who
@@ -572,6 +576,17 @@ hard; the value is in it being *the same* system as gathering and using the same
 > per cent. ⚠ **`TravelKind`'s five values change no behaviour at all**, which is the check that this
 > library really is only the fiction: the day one of them needs to branch is the day it stopped
 > being.
+>
+> On movement and AI: ⚠ **exactly one seat may steer, and the compiler reports both other
+> answers** — none is a vehicle nobody can drive, two is two clients each believing they are
+> authoritative over one rigid body, which would present as jitter and be diagnosed for a week.
+> ⚠ **Whether a passenger may take the wheel is a policy**, because a taxi nobody may steer and a raft
+> anybody may steer both ship. ⚠ **A leash needs two radii**: one makes a mob on the boundary flicker
+> between chasing and resetting once a frame, and coming back inside the *tether* rather than merely
+> inside the break is what clears it. ⚠ **A respawn timer starts at the death rather than at the tick
+> that noticed it**, or a server that fell behind repopulates faster than one that did not; and the
+> cap counts what is *alive* rather than what has been spawned, or a camp cleared twice is empty for
+> ever.
 
 **Movement** is mounts and vehicles: ground, flying, aquatic, submarine, boat, car. One `IVehicle` with
 seats, a driver, passengers, a control mapping, and physics config — a mount is a single-seat vehicle
@@ -881,7 +896,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G4** ✅ | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** ✅ | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
 | **G6** ✅ | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
-| **G7** 🟡 | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
+| **G7** ✅ | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
 | **G8** | **Owning** | Housing and decoration; collections, transmog, titles, achievements | 1.0 |
 | | **Total** | | **25.5** |
 

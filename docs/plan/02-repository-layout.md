@@ -437,7 +437,9 @@ Gameplay/                         # ── 28: what a game is made of, not what 
 ├── Vixen.Gameplay.Crafting/      # ✅ recipes, stations, quality, discovery
 ├── Vixen.Gameplay.Exploration/   # ✅ points of interest, map discovery, fog
 ├── Vixen.Gameplay.Travel/        # ✅ portals, waypoints, taxis — doc 27's client half
-└── Vixen.Gameplay.*/             #    movement, ai, housing…                               (G7–G8)
+├── Vixen.Gameplay.Movement/      # 🟡 vehicles with seats; the transform waits on doc 16 #69
+├── Vixen.Gameplay.Ai/            # ✅ leashing and spawn tables — the rest found other homes
+└── Vixen.Gameplay.*/             #    housing, collections…                                    (G8)
 
 Live/                             # ── 27: the online service layer ──
 ├── Vixen.Live.Abstractions/      # ✅ RealmId · ShardKey · RealmSpec · TransferTicket · endpoints
