@@ -1046,6 +1046,7 @@ Vixen.Graphics.VertexStepMode -> enum : byte
 Vixen.Graphics.VertexStepMode.Instance = 1 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.Vertex = 0 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.VertexStepMode() -> void
+const Vixen.Graphics.BindlessTable.ConventionalCapacity = 4096 -> int
 static Vixen.Graphics.AccelerationStructureHandle.Null.get -> Vixen.Graphics.AccelerationStructureHandle
 static Vixen.Graphics.AccelerationStructureInstance.FromRows(ulong bottomLevel, System.ReadOnlySpan<float> rows, int index = 0) -> Vixen.Graphics.AccelerationStructureInstance
 static Vixen.Graphics.AccelerationStructureInstance.Identity(ulong bottomLevel, int index = 0) -> Vixen.Graphics.AccelerationStructureInstance

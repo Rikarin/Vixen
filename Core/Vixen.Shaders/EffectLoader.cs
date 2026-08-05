@@ -59,17 +59,17 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///     <para>
     ///         The shader says a table has no length and the <em>layout</em> has to say one anyway,
     ///         because a descriptor pool is sized from it. This is where that number comes from, and
-    ///         it has to be the same one the <c>BindlessTable</c> was built with: the table hands out
-    ///         indices up to its own capacity and the set has to have a descriptor at every one of
-    ///         them.
+    ///         it has to be the same one the <see cref="BindlessTable" /> was built with: the table
+    ///         hands out indices up to its own capacity and the set has to have a descriptor at every
+    ///         one of them.
     ///     </para>
     ///     <para>
-    ///         ⚠ Four thousand and ninety-six rather than the device's ceiling, which is what a
-    ///         <c>DescriptorSetLayoutDescription</c> falls back to when nobody says. A desktop driver
-    ///         reports a million; reserving a million descriptors to hold a scene's worth of textures
-    ///         is hundreds of megabytes of descriptor memory for a table that will hold a few
-    ///         thousand. A project that genuinely needs more says so here and builds its table to
-    ///         match.
+    ///         ⚠ <see cref="BindlessTable.ConventionalCapacity" /> rather than the device's ceiling,
+    ///         which is what a <c>DescriptorSetLayoutDescription</c> falls back to when nobody says —
+    ///         and read from there rather than written again here, because a second copy of a number
+    ///         two sides have to agree on is a way for them to stop agreeing. See that constant for
+    ///         why it is four thousand. A project that genuinely needs more sets this and builds its
+    ///         table to match.
     ///     </para>
     ///     <para>
     ///         An <em>ask</em> rather than the answer: what a variant's layouts actually state is
@@ -78,7 +78,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///         clamp exists.
     ///     </para>
     /// </remarks>
-    public int BindlessCapacity { get; set; } = 4096;
+    public int BindlessCapacity { get; set; } = BindlessTable.ConventionalCapacity;
 
     /// <summary>Creates the effect one record describes.</summary>
     public Effect Load(EffectData data) {

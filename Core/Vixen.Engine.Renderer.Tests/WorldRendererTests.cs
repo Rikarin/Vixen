@@ -282,6 +282,38 @@ public sealed class WorldRendererTests : IDisposable {
         Assert.NotNull(early.Extraction.Materials);
     }
 
+    /// <summary>
+    ///     The table is built to the same capacity the effect path's set-4 layout states.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two numbers that have to be one.</b> The table owns a descriptor set allocated from a
+    ///         layout of its own length; <c>MeshRenderFeature</c> and <c>GpuClusterResolve</c> bind that
+    ///         set against pipelines whose set-4 layout <see cref="EffectLoader" /> built to
+    ///         <see cref="EffectLoader.BindlessCapacity" />. Different lengths are incompatible
+    ///         descriptor set layouts — undefined behaviour, and the kind a driver is free to tolerate,
+    ///         which is exactly what MoltenVK did while this renderer asked for the device's ceiling.
+    ///     </para>
+    ///     <para>
+    ///         Asserted against the loader's own default rather than against the literal, so the test
+    ///         fails on the drift rather than on the number: a project moving the constant moves both
+    ///         sides and this stays green, and a project moving one side alone finds out here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The device's ceiling is what the failure looked like — <see cref="NullDevice" /> reports
+    ///         five hundred thousand, so the pre-fix renderer produced a table of that and this assertion
+    ///         is what distinguishes the two.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheTableIsSizedToWhatTheEffectPathStates() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+
+        Assert.NotNull(renderer.Table);
+        Assert.Equal(new EffectLoader(device).BindlessCapacity, renderer.Table.Capacity);
+        Assert.NotEqual(device.Features.MaxBindlessDescriptors, renderer.Table.Capacity);
+    }
+
     static readonly AssetReference Rock = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
     static readonly AssetReference Painted = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
     static readonly AssetReference Bark = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);

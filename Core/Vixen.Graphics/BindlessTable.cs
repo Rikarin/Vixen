@@ -61,6 +61,34 @@ namespace Vixen.Graphics;
 ///     </para>
 /// </remarks>
 public sealed class BindlessTable : IDisposable {
+    /// <summary>The capacity a table and the layouts that index it agree on, absent a reason to differ.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>A number is only correct here if both sides say the same one.</strong> A pipeline
+    ///         declares set <see cref="DescriptorSetSlot.Bindless" /> with a length of its own — an
+    ///         unbounded binding has to be given one, because the layout is what a descriptor pool is
+    ///         sized from — and the set bound against it was allocated from
+    ///         <see cref="Layout" />, which states the length this table was built with. Two different
+    ///         numbers is two incompatible layouts, which is undefined behaviour that a forgiving
+    ///         driver renders correctly right up until one does not.
+    ///     </para>
+    ///     <para>
+    ///         So the number lives once, here, where the table that hands out the indices is. The
+    ///         effect path reads it as its own default (<c>EffectLoader.BindlessCapacity</c>) and the
+    ///         standard renderer builds its table with it; a project that outgrows four thousand
+    ///         textures changes both together and neither alone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Not the constructor's default, which is the device's ceiling — deliberately, because
+    ///         a table on its own has no opinion about how large a scene is and a caller who says
+    ///         nothing is asking for whatever the device allows. This is the engine's opinion, and it
+    ///         is four thousand rather than a million because a desktop driver reports a million and
+    ///         reserving a million descriptors for a scene's worth of textures is hundreds of
+    ///         megabytes of descriptor memory nothing will ever index.
+    ///     </para>
+    /// </remarks>
+    public const int ConventionalCapacity = 4096;
+
     readonly IGraphicsDevice device;
     readonly Dictionary<TextureViewHandle, Slot> live = [];
     readonly Stack<uint> free = new();
