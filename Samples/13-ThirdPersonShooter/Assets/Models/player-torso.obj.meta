@@ -2,7 +2,7 @@ guid: 6062672941ad4c16a4def0ef4a4afe5b
 metaVersion: 1
 importer: !ModelImporter
   version: 7
-  sourceHash: ef0bd4bbf3e2f6416eb98c9ae40850ad
+  sourceHash: 986f906440c818dfbeba8dbc6ce0bfeb
 subAssets:
   - id: 18e87fa0
     name: PlayerTorso Clusters

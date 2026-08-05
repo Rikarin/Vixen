@@ -267,8 +267,35 @@ public sealed class Arena : IDisposable {
 
         arena.BuildCollision(loop.World);
         arena.SupplyFrame(services);
+        SpawnGround(loop.World);
 
         return arena;
+    }
+
+    /// <summary>Puts the outskirts under the level: one entity carrying the heightfield and its
+    ///     grass rule, which is all the <c>!Terrain</c> node needs from a world.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Spawned in code rather than authored into <c>Arena.vxscene</c>, and the reason is
+    ///         the placement.</b> The terrain's grid starts at its own origin and grows positive, so
+    ///         an entity at the world origin would put 252 m of ground to the north-east of an arena
+    ///         centred on it. The translation below is what centres the two, and it is
+    ///         <see cref="TerrainSeed.HalfExtent" /> — the same constant the seed's own arithmetic
+    ///         uses, which is the point of it being a constant rather than a number in two files.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Both components or neither is worth grass. <c>TerrainGrassComponent</c> names a rule
+    ///         and the rule names a weight layer; a rule beside no terrain scatters nothing and
+    ///         reports nothing, because the layer it is looking for is on the heightfield.
+    ///     </para>
+    /// </remarks>
+    static void SpawnGround(World world) {
+        var ground = world.Create(
+            LocalTransform.At(new(-TerrainSeed.HalfExtent, 0f, -TerrainSeed.HalfExtent))
+        );
+
+        world.Add(ground, Rendering.Terrain.TerrainComponent.Of(TerrainSeed.TerrainPath));
+        world.Add(ground, Rendering.Terrain.TerrainGrassComponent.Of(TerrainSeed.GrassPath));
     }
 
     /// <summary>Adds the level's systems to the loop.</summary>

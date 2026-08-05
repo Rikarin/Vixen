@@ -2,7 +2,7 @@ guid: b3df5ce0be38474c91c62d19888648f2
 metaVersion: 1
 importer: !ModelImporter
   version: 7
-  sourceHash: a22067bccb24e29a475e57cf04cc6d75
+  sourceHash: 374206bc3e02a99f32955d3fceb3a81c
 subAssets:
   - id: cb163e50
     name: PlayerLeg Clusters

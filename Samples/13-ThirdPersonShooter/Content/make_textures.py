@@ -33,10 +33,19 @@ def streaks(size, cells, seed, vertical=True):
     return np.repeat(band[:, :1], size, axis=1) if not vertical else np.repeat(band[:1, :], size, axis=0)
 
 
-def emit(name, colour, height, rough, metal=False, alpha=None, strength=2.0):
+def emit(name, colour, height, rough, metal=False, alpha=None, strength=2.0, normal=True):
     files = []
     files.append((f"{name}-albedo.png", rgba(colour, alpha)))
-    files.append((f"{name}-normal.png", rgba(normal_map(height, strength))))
+
+    # ⚠ `normal=False` for the three terrain layers, and it is not a saving of taste. A terrain
+    # layer's normal map has nowhere in the engine to arrive: `TerrainLayerDescription.Normal` is
+    # written and read back by `TerrainStore` and never resolved —
+    # `TerrainRenderer.ResolveLayerTextures` asks for `Albedo` and `Surface` and stops — and
+    # `Terrain.rvn` declares `layerMaps` and `surfaceMaps` and no third array. Generating one would
+    # be three quarters of a megabyte the content build imports, the bundle carries and no shader can
+    # sample. The mesh materials keep theirs; see Content/README.md for what reads what.
+    if normal:
+        files.append((f"{name}-normal.png", rgba(normal_map(height, strength))))
 
     # Roughness in R, metalness in B — the ORM convention, green left for occlusion.
     orm = np.stack([np.ones_like(rough), rough, np.full_like(rough, 1.0 if metal else 0.0)], axis=-1)
@@ -107,7 +116,7 @@ def terrain_grass():
     mask = np.clip(clumps * 0.65 + blades * 0.35, 0, 1)
     colour = tint(mask, (0.07, 0.13, 0.04), (0.30, 0.44, 0.14))
 
-    emit("terrain-grass", colour, height, np.full((SIZE, SIZE), 0.86, np.float32), strength=1.6)
+    emit("terrain-grass", colour, height, np.full((SIZE, SIZE), 0.86, np.float32), strength=1.6, normal=False)
 
 
 def terrain_rock():
@@ -117,7 +126,7 @@ def terrain_rock():
 
     colour = tint(np.clip(plates * 0.7 + chips * 0.3, 0, 1), (0.22, 0.21, 0.20), (0.58, 0.57, 0.55))
 
-    emit("terrain-rock", colour, height, np.clip(0.60 + 0.25 * plates, 0, 1), strength=3.2)
+    emit("terrain-rock", colour, height, np.clip(0.60 + 0.25 * plates, 0, 1), strength=3.2, normal=False)
 
 
 def terrain_dirt():
@@ -127,7 +136,7 @@ def terrain_dirt():
 
     colour = tint(np.clip(clods * 0.6 + grit * 0.4, 0, 1), (0.16, 0.11, 0.07), (0.46, 0.35, 0.23))
 
-    emit("terrain-dirt", colour, height, np.full((SIZE, SIZE), 0.90, np.float32), strength=1.8)
+    emit("terrain-dirt", colour, height, np.full((SIZE, SIZE), 0.90, np.float32), strength=1.8, normal=False)
 
 
 # ── vegetation ──────────────────────────────────────────────────────────────

@@ -469,6 +469,43 @@ game: !Sequence
           view: Camera
           stage: Opaque
 
+    # ── the ground the arena stands on ──────────────────────────────────────────────────────────
+    # ⚠ **Here and not in a `!StandardFrame`'s `extensions: afterOpaque`, because this document has
+    # no extension points — every node in it is written out.** That splice's seat is "after the Main
+    # pass, sharing its depth, before velocity and particles", and this is that seat spelled by hand:
+    # opaque ground belongs with the opaque geometry, and after rather than before because the
+    # arena's own floor and walls are the near occluders that should already be in the depth buffer
+    # when 252 m of heightfield is rasterised behind them.
+    #
+    # Every name here is a default of `TerrainNodeAsset` and written out anyway: this frame's
+    # SceneHdr, SceneDepth, SceneAlbedo, SceneNormals and ShadowAtlas happen to be spelled the way
+    # the node expects, and a document that renamed one would fail at build with a resource nothing
+    # produced. Saying them makes the dependency visible rather than lucky.
+    #
+    # `depthLoad` is not a knob the node has and does not need one: it loads the depth it is given
+    # and writes it, which is what an opaque pass after another opaque pass does.
+    #
+    # ⚠ The host half is `TerrainFactory` in ThirdPersonShooterGame.OnConfigure. Registering the
+    # factory is the whole installation — the world renderer's terrain list, the extraction bridge
+    # and the asset source that turns a TerrainComponent's reference into a heightfield all come with
+    # it. Without that line this node's type is a name nothing in the build claims, which is a
+    # refusal from inside the compositor's own construction and not a frame that quietly lacks
+    # ground.
+    #
+    # `grass: true` is the scatter, off the terrain's own Grass weight layer through the
+    # TerrainGrassComponent beside the terrain in the scene. Its blades carry no albedo — nothing in
+    # Vixen.Rendering.Terrain assigns GrassDrawPass.Albedo — so what this exercises is the scatter,
+    # the wind and the cull rather than a textured card. See Assets/Terrain/Outskirts.vxgrass.
+    - !Terrain
+      name: Ground
+      output: SceneHdr
+      depth: SceneDepth
+      albedo: SceneAlbedo
+      normals: SceneNormals
+      shadowAtlas: ShadowAtlas
+      view: Camera
+      grass: true
+
     # ── where everything was last frame ─────────────────────────────────────────────────────────
     # The debt Taa.rvn has carried since it was written: it declares a motionVectors input and nothing
     # produced one. Motion blur wants the same texture.

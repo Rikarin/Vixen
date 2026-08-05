@@ -1,8 +1,0 @@
-guid: 4d946f15e2154962a34c6a8e3d9d69f8
-metaVersion: 1
-importer: !TextureImporter
-  version: 1
-  sourceHash: bedd85d57e04c329af7f1e184459b3c2
-  content: NormalMap
-  compression: None
-  generateMips: true

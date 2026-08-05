@@ -282,6 +282,7 @@ public sealed class WorldRenderer : IDisposable {
             Materials.Textures = Table;
 
             Paired(Materials, "ForwardPlus");
+            FilterTextures("ForwardPlus");
         }
     }
 
@@ -798,6 +799,49 @@ public sealed class WorldRenderer : IDisposable {
                 ParameterKeys.New<uint>(TexturedMetalRoughnessFeature.BaseColorIndexParameter(path))
             ] =
             ParameterKeys.New<TextureViewHandle>(new TexturedMetalRoughnessFeature().BaseColorMap);
+    }
+
+    /// <summary>
+    ///     Fills the one per-frame binding the material table's shader half declares.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The table's other half, and nothing wrote it.</b>
+    ///         <c>MaterialTextures</c> declares its array <c>[Bindless]</c> in set 4 <em>and</em> its
+    ///         filter <c>[PerFrame] [Shared] var materialSampler</c> in set 0 — a table is one
+    ///         sampler for every material by construction, which is the cost a table exists to
+    ///         charge. <see cref="Paired" /> above pairs the index and stops there, so a variant
+    ///         composed from <c>TexturedMetalRoughnessSurface</c> declared a set-0 binding with no
+    ///         filler.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And <c>EffectSetWriter</c> fills a set whole or not at all, so that was not a
+    ///         material sampled through a default filter: it was <em>every draw in the shading
+    ///         pass</em> refused, on a frame whose every other counter reported success. Only the
+    ///         textured variants, which is worse than all of them — the untextured half of the level
+    ///         drew and the textured half did not.
+    ///     </para>
+    ///     <para>
+    ///         Anisotropic repeat rather than <see cref="SamplerDescription.LinearRepeat" />: what
+    ///         this filters is surface detail on ground and walls seen at grazing angles, which is
+    ///         the case trilinear alone blurs to nothing. It is one sampler for the whole frame, so
+    ///         the sixteen taps are paid once in state and not once per material.
+    ///     </para>
+    /// </remarks>
+    /// <summary>What the table's filter is called in a shading pass's set 0.</summary>
+    /// <remarks>
+    ///     ⚠ Unqualified by any composition path, unlike the index <see cref="Paired" /> writes.
+    ///     <c>materialSampler</c> is <c>[Shared]</c>, so every feature that samples names the same
+    ///     one and it is hoisted to the pass rather than living under the feature that declared it.
+    ///     Spelling it the other way is a binding nothing writes, which is a set written short.
+    /// </remarks>
+    const string MaterialTexturesSampler = "materialSampler";
+
+    void FilterTextures(string shader) {
+        SceneBlock.Parameters.Set(
+            ParameterKeys.New<SamplerHandle>($"{shader}.{MaterialTexturesSampler}"),
+            Samplers.GetOrCreate(SamplerDescription.LinearRepeat with { Anisotropy = 16f, Name = "MaterialTable" })
+        );
     }
 
     /// <inheritdoc />

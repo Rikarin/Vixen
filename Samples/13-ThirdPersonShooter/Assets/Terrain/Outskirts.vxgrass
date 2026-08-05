@@ -1,0 +1,30 @@
+# The arena's one grass rule, bound to the terrain's Grass weight layer — blades grow on the gentle
+# ground outside the walls, thin out where the paint does, and are gone by 55 m, which is about where
+# the far hills take over from ground the player could walk on.
+#
+# ⚠ **No texture, and there is nowhere to put one.** `GrassType` carries a mesh reference and no
+# albedo, and nothing in `Vixen.Rendering.Terrain` ever assigns `GrassDrawPass.Albedo` — the binding
+# `Grass.rvn` declares as `albedoMap` is left at the pass's default view. So the committed
+# `grass-blade-albedo.png` has no seat on this rule; the blades draw in the shader's own tint. What
+# this rule does exercise is the half that is wired: the scatter off the weight layer, the slope and
+# weight filters, the wind, and the distance cull.
+name: Outskirts
+layer: Grass
+minWeight: 0.2
+maxWeight: 0.7
+density: 18
+jitter: 0.85
+minScale: 0.8
+maxScale: 1.4
+randomYaw: true
+alignToNormal: 0.4
+maxSlope: 0.7
+startCullDistance: 38
+endCullDistance: 55
+wind:
+  direction: 1 0.25
+  strength: 0.14
+  frequency: 0.3
+  speed: 1.6
+  flutter: 0.035
+  height: 0.55
