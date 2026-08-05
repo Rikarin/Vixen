@@ -41,13 +41,16 @@ namespace Vixen.Rendering.PostFx;
 ///         undefined memory and the resolve reads validity out of it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The lattice is sized on the first build and a resized frame is refused.</b> Rebuilding
-///         the textures mid-flight while frames still reference them is a use-after-free with
-///         latency; until resizing exists as a deliberate step, a host that resizes recreates the
-///         node. Owed with the rest of the renderer integration.
+///         ⚠ <b>The lattice is sized on the first build, and a resized frame is refused rather than
+///         rebuilt.</b> Rebuilding the textures mid-flight while frames still reference them is a
+///         use-after-free with latency, and <see cref="Build" /> is inside a frame. The resize is a
+///         step outside one: a host writes the new size through
+///         <see cref="Compositor.GraphicsCompositor.Resize" />, which idles the device and calls
+///         <see cref="Reset" /> here. The refusal stays as the backstop for a size that arrives any
+///         other way.
 ///     </para>
 /// </remarks>
-public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
+public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, IDisposable {
     /// <summary>How many planes the resolve writes.</summary>
     const int ProbePlanes = 4;
 
@@ -305,18 +308,21 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
             throw new InvalidOperationException(
                 $"'{this}' laid its probes over {atlas.Layout.Viewport} and the frame is now {size}. "
                 + "Resizing the lattice mid-flight would rebuild textures frames still reference — "
-                + "idle the device, call Reset(), and the next build lays a new lattice."
+                + "write the size through GraphicsCompositor.Resize (SceneRenderHost.FrameSize does), "
+                + "which idles the device and calls Reset(), and the next build lays a new lattice."
             );
         }
     }
 
+    /// <inheritdoc />
     /// <summary>Forgets the lattice, so the next build lays a new one at the frame's size.</summary>
     /// <remarks>
-    ///     The deliberate resize step. ⚠ The caller idles the device first — the textures released
-    ///     here may be referenced by frames still in flight, and this cannot know what a host's loop
-    ///     waits on. Everything accumulated starts over: probe history, placement, readback rings —
-    ///     a resize is a camera cut as far as the temporal chain is concerned, and pretending
-    ///     otherwise would reproject through a lattice that no longer exists.
+    ///     The deliberate resize step, and what <see cref="Compositor.GraphicsCompositor.Resize" />
+    ///     calls. ⚠ The caller idles the device first — the textures released here may be referenced
+    ///     by frames still in flight, and this cannot know what a host's loop waits on. Everything
+    ///     accumulated starts over: probe history, placement, readback rings — a resize is a camera
+    ///     cut as far as the temporal chain is concerned, and pretending otherwise would reproject
+    ///     through a lattice that no longer exists.
     /// </remarks>
     public void Reset() {
         ObjectDisposedException.ThrowIf(disposed, this);

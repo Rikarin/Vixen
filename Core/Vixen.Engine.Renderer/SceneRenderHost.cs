@@ -86,11 +86,30 @@ public sealed class SceneRenderHost : IDisposable {
     public GraphicsCompositor? Compositor { get; private set; }
 
     /// <summary>How many pixels the frame covers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Setting this is the resize seam, and it is seated here for two reasons the
+    ///         compositor cannot answer.</b> The device is one: <see cref="IResizeTarget.Reset" />
+    ///         releases textures frames in flight may still reference, so the walk has to be preceded
+    ///         by an idle, and a <see cref="GraphicsCompositor" /> has no device — <c>Build</c> takes
+    ///         one as an optional argument that is null in most of the tests that call it. The frame
+    ///         is the other: <c>Build</c> runs with a command list open and a graph half declared,
+    ///         where releasing a texture the frame has already imported is the very use-after-free the
+    ///         idle exists to prevent. A host writes the new size between frames, which is the only
+    ///         moment either can be done.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Before a document is loaded this is a no-op, not a queued size.</b>
+    ///         <see cref="Load" /> replaces the compositor, and a size written to the one being
+    ///         replaced would be discarded with it — so a host sets this after loading, which is the
+    ///         order <c>AppGraphics</c> already uses.
+    ///     </para>
+    /// </remarks>
     public Int2 FrameSize {
         get => Compositor?.FrameSize ?? default;
         set {
             if (Compositor is { } compositor) {
-                compositor.FrameSize = value;
+                compositor.Resize(value, device.WaitIdle);
             }
         }
     }

@@ -234,6 +234,78 @@ public sealed class SceneRenderHostTests : IDisposable {
         return host;
     }
 
+    /// <summary>A new frame size reaches the nodes that laid state out against the old one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The seam the window resize crash needed.</b> <c>AppGraphics.Resize</c> writes
+    ///         <see cref="SceneRenderHost.FrameSize" /> after a swapchain rebuild and nothing else;
+    ///         until this, no renderer holding size-dependent state was told, and the next
+    ///         <c>ScreenProbeGatherRenderer.Build</c> threw. The host is the seat because the idle the
+    ///         reset needs is a device call, and a compositor has no device.
+    ///     </para>
+    ///     <para>
+    ///         The probe stands in for the real node — this project cannot reference
+    ///         <c>Vixen.Rendering.PostFx</c> — and what is under test here is the wiring, not the
+    ///         lattice. <c>FrameResizeTests</c> in the PostFx tests drives the real one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_changed_frame_size_resets_the_nodes_that_depend_on_it() {
+        using var host = Build();
+
+        var probe = new ResizeProbe();
+
+        Assert.IsType<SceneRendererSequence>(host.Compositor!.Game).Children.Add(probe);
+
+        // Build() already sized the frame, so the probe is even now — a node added afterwards has
+        // laid nothing out.
+        probe.Resets = 0;
+
+        var list = device.BeginCommandList();
+
+        Assert.True(host.Draw(list));
+
+        host.FrameSize = new(1280, 720);
+
+        Assert.Equal(1, probe.Resets);
+        Assert.Equal(new Int2(1280, 720), host.FrameSize);
+
+        // Writing the same size again is not a resize — see GraphicsCompositor.Resize, and the
+        // Suboptimal rebuilds that would otherwise restart every temporal chain in the frame.
+        host.FrameSize = new(1280, 720);
+
+        Assert.Equal(1, probe.Resets);
+
+        host.FrameSize = new(640, 360);
+
+        Assert.Equal(2, probe.Resets);
+
+        // And the frame still builds at the new size afterwards.
+        Assert.True(host.Draw(list));
+
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
+        list.Dispose();
+    }
+
+    /// <summary>A size written before a document is loaded reaches nothing, and does not throw.</summary>
+    [Fact]
+    public void A_frame_size_without_a_compositor_is_a_no_op() {
+        using var host = new SceneRenderHost(device, effects);
+
+        host.FrameSize = new(1280, 720);
+
+        Assert.Equal(default, host.FrameSize);
+    }
+
+    /// <summary>A node that counts the resets the seam delivers.</summary>
+    sealed class ResizeProbe : SceneRenderer, IResizeTarget {
+        public int Resets { get; set; }
+
+        /// <inheritdoc />
+        public void Reset() => Resets++;
+    }
+
     /// <summary>A feature that does nothing but count what it was asked.</summary>
     sealed class CountingFeature : RootRenderFeature {
         public int Extractions { get; private set; }
