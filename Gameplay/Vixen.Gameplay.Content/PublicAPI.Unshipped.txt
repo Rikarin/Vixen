@@ -1,0 +1,14 @@
+#nullable enable
+Vixen.Gameplay.Content.DefinitionContent -> static class
+Vixen.Gameplay.Content.DefinitionLoad -> readonly struct
+Vixen.Gameplay.Content.DefinitionLoad : System.IEquatable<Vixen.Gameplay.Content.DefinitionLoad>
+Vixen.Gameplay.Content.DefinitionLoad.Catalog.get -> Vixen.Gameplay.DefinitionCatalog
+Vixen.Gameplay.Content.DefinitionLoad.Catalog.init -> Vixen.Gameplay.DefinitionCatalog
+Vixen.Gameplay.Content.DefinitionLoad.DefinitionLoad() -> void
+Vixen.Gameplay.Content.DefinitionLoad.DefinitionLoad(Vixen.Gameplay.DefinitionCatalog Catalog, System.Collections.Immutable.ImmutableArray<string> Problems) -> void
+Vixen.Gameplay.Content.DefinitionLoad.Problems.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Gameplay.Content.DefinitionLoad.Problems.init -> System.Collections.Immutable.ImmutableArray<string>
+const Vixen.Gameplay.Content.DefinitionContent.Label = "definitions" -> string
+static Vixen.Gameplay.Content.DefinitionContent.LoadAsync(Vixen.Assets.AssetManager assets, System.Collections.Generic.IEnumerable<string> labels, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Gameplay.Content.DefinitionLoad>
+static Vixen.Gameplay.Content.DefinitionContent.LoadAsync(Vixen.Assets.AssetManager assets, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Gameplay.Content.DefinitionLoad>
+static Vixen.Gameplay.Content.DefinitionContent.LoadFromAsync(Vixen.Assets.AssetManager assets, System.Collections.Generic.IEnumerable<string> addresses, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Gameplay.Content.DefinitionLoad>

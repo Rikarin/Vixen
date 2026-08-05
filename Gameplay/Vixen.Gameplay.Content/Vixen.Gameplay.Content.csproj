@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Content</RootNamespace>
+        <Description>
+            The step that finds a build's definitions: addresses out of a content catalog, bytes out
+            of Vixen.Assets, and one DefinitionCatalog with its tag table baked. Separate from the
+            kernel because the kernel deliberately links no asset system.
+        </Description>
+        <PackageTags>gameplay;definitions;content;addressables;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ This project exists because of the comment in Vixen.Gameplay.csproj: "Not Vixen.Engine,
+            not Vixen.Assets, not Vixen.Net, and none of the three by accident." Every gameplay
+            library depends on the kernel, so putting the asset system there would make every game
+            that touches an item link the addressables runtime — including a test that builds its
+            catalog by hand, which is most of them.
+
+            The split is Vixen.Net.Telemetry's, one tier up: the assembly that needs the heavy
+            dependency is the one that carries it, and a game composes it or does not.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Content.Tests" />
+    </ItemGroup>
+
+</Project>

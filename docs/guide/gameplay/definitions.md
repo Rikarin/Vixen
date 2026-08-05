@@ -4,7 +4,7 @@ slug: gameplay/definitions
 kind: guide
 area: Gameplay
 summary: Authored content addressed by a hash nobody maintains, baked into a catalog, and reloaded live when the change is additive.
-api: [T:Vixen.Gameplay.DefId, T:Vixen.Gameplay.Definition, T:Vixen.Gameplay.DefinitionCatalog, T:Vixen.Gameplay.DefinitionCatalogBuilder, T:Vixen.Gameplay.IDefinitionRegistry, T:Vixen.Gameplay.DefinitionRegistry, T:Vixen.Gameplay.DefinitionNotFoundException, T:Vixen.Gameplay.DefinitionSerialization, T:Vixen.Editor.Assets.Gameplay.DefinitionImporter, T:Vixen.Editor.Assets.Gameplay.DefinitionImportSettings]
+api: [T:Vixen.Gameplay.DefId, T:Vixen.Gameplay.Definition, T:Vixen.Gameplay.DefinitionCatalog, T:Vixen.Gameplay.DefinitionCatalogBuilder, T:Vixen.Gameplay.IDefinitionRegistry, T:Vixen.Gameplay.DefinitionRegistry, T:Vixen.Gameplay.DefinitionNotFoundException, T:Vixen.Gameplay.DefinitionSerialization, T:Vixen.Gameplay.Content.DefinitionContent, T:Vixen.Gameplay.Content.DefinitionLoad, T:Vixen.Editor.Assets.Gameplay.DefinitionImporter, T:Vixen.Editor.Assets.Gameplay.DefinitionImportSettings]
 tags: [gameplay, content, definitions, addressables, vxdef]
 since: 0.1
 status: preview
@@ -124,6 +124,45 @@ static class LiveUpdate {
         registry.TryReload(next, out var reason) ? "applied" : reason;
 }
 ```
+
+### Loading a build's definitions
+
+`Vixen.Gameplay.Content` is the step between the two: it takes the addresses a content build labelled
+and hands back one catalog with its tag table baked.
+
+```csharp compile
+using Vixen.Assets;
+using Vixen.Gameplay;
+using Vixen.Gameplay.Content;
+
+static class Booting {
+    public static async Task<DefinitionRegistry> LoadAsync(AssetManager assets, CancellationToken cancellation) {
+        var load = await DefinitionContent.LoadAsync(assets, cancellation);
+        var registry = new DefinitionRegistry();
+
+        foreach (var problem in load.Problems) {
+            // A .vxgroup broad enough to sweep up a texture. The rest still loaded.
+            Console.Error.WriteLine(problem);
+        }
+
+        registry.Reload(load.Catalog);
+
+        return registry;
+    }
+}
+```
+
+⚠ **A definition is copied out of its bundle rather than held by a ref-counted handle.** Ref-counting
+them individually would put a load call on the damage path and admit a state where a sword in a bag
+names a definition that has been unloaded — and a `DefId` that *sometimes* resolves is worse than one
+that never does. What is ref-counted is what a definition points at: its mesh, its icon, its sound.
+
+⚠ **A missing label contributes nothing; a missing address throws.** The first is content being broad
+and the second is the caller being wrong, and conflating them turns a typo into a rule that silently
+never fires.
+
+⚠ **Load every label in one call.** Two catalogs number their tags separately, so `Slot.Weapon` would
+be a different integer in each.
 
 ## See also
 

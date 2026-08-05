@@ -129,11 +129,12 @@ a damage-over-time effect that does double damage to anyone who refreshes it.
 
 ## What is owed
 
-- **The runtime load path.** The importer writes a definition artefact and
-  `DefinitionSerialization.FromBytes` reads one, but nothing yet resolves a `.vxdef` through
-  `Vixen.Assets`' ref-counted handles — doc 28 § Definitions' third consequence. That needs
-  `AssetManager` to grow a polymorphic load, and it belongs with G1, when something actually holds an
-  item.
+- ~~**The runtime load path.**~~ **Built**, as
+  [`Vixen.Gameplay.Content`](../Vixen.Gameplay.Content/README.md) — a separate assembly precisely
+  because of the reference list above: the kernel links no asset system, and every gameplay library
+  depends on the kernel. Doc 28 § Definitions' third consequence also turned out to be wrong about
+  the shape: definitions are copied out of their bundle and held whole rather than ref-counted
+  individually, because a `DefId` that sometimes resolves is worse than one that never does.
 - **`Vixen.Gameplay.Generators`.** Doc 28's library list gives it three jobs; two of them —
   definition codecs and the type registry a `!Tag` resolves through — are already done by
   `Vixen.Core.Serialization.Generator` and `Vixen.Core.Reflection.Generator`, which this library

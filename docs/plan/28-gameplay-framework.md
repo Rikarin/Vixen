@@ -71,6 +71,16 @@ Three consequences worth stating, because each removes a whole category of MMO b
 - **Definitions are ordinary addressable assets**, so they get ref-counted handles, label and glob
   loading, remote bundles, and catalog-overlay updates — all of `Vixen.Assets`, already built, with no
   gameplay-specific loading path. ADR-013 was right and this is where it pays.
+  > ⚠ **Built as [`Vixen.Gameplay.Content`](../../Gameplay/Vixen.Gameplay.Content/README.md), and
+  > "ref-counted handles" was the wrong half of this.** Label loading was right and is exactly how it
+  > works. Ref-counting the *definitions* is not: it puts a load call on the damage path, where a rule
+  > resolves half a dozen ids per hit, and it admits a state in which a sword sitting in somebody's
+  > bag names a definition that has been unloaded — **a `DefId` that sometimes resolves is worse than
+  > one that never does.** The catalog is loaded whole at boot and replaced wholesale by
+  > `DefinitionRegistry.Reload`. What *is* ref-counted is what a definition points at: its mesh, its
+  > icon, its sound. It is also a separate assembly rather than the kernel, because
+  > `Vixen.Gameplay.csproj` says "not `Vixen.Assets`, and none of the three by accident" and every
+  > gameplay library depends on the kernel. 12 tests.
 
 `.vxdef` is one importer over YAML type tags (ADR-005), so `!ItemDefinition`, `!QuestDefinition` and a
 game's own `!MyCustomDefinition` all reach a strongly-typed C# record through the generated type
@@ -142,6 +152,8 @@ Gameplay/                               # ── a top level of its own; see bel
 │                                       #   DefId constants for authored addresses, which needs the
 │                                       #   content build's address list and is therefore editor-time
 │
+├── Vixen.Gameplay.Content/             # ✅ labelled addresses → one DefinitionCatalog; the kernel
+│                                       #   links no asset system, so this is where Vixen.Assets is
 ├── Vixen.Gameplay.Items/               # ✅ definitions, instances, affixes, rarity, durability, sockets
 ├── Vixen.Gameplay.Inventory/           # ✅ containers, bags, equipment, banks, capacity, split/merge
 ├── Vixen.Gameplay.Loot/                # ✅ tables, weights, conditions, pity, personal/group, salvage

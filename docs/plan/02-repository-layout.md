@@ -432,6 +432,7 @@ tools, and folding either into `Core/` would have made a decision by accident.
 ```
 Gameplay/                         # ── 28: what a game is made of, not what it runs on ──
 ├── Vixen.Gameplay/               # ✅ the kernel: tags · DefId · attributes · effects · requirements
+├── Vixen.Gameplay.Content/       # ✅ the runtime load path: labelled addresses → one catalog
 ├── Vixen.Gameplay.Items/         # ✅ definitions, a 16-byte instance, affixes from a seed
 ├── Vixen.Gameplay.Inventory/     # ✅ one container type, transactional, with the conservation oracle
 ├── Vixen.Gameplay.Loot/          # ✅ weighted trees, conditions, durable pity, four distributions
