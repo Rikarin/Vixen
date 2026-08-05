@@ -56,6 +56,18 @@
         -->
         <ProjectReference Include="..\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
 
+        <!--
+          The quality tier's table. `GraphicsOptions.Quality` is a QualityTier — Vixen.Rendering's,
+          reachable already — but the numbers a tier folds to are RenderQuality.Resolve's, and that
+          lives here. Without this reference the tier reaches the document transform and nothing
+          else, which is why every numeric knob in that table was carried and read by nobody.
+
+          ⚠ Not a general licence to reach into the post-effect stack. What this assembly wants is
+          the resolved struct; the effects themselves are a project's, registered through
+          GraphicsOptions.Factories like every other node package.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+
         <!-- The action system. Named here rather than taken transitively through Vixen.Engine,
              because PlatformInput is what joins it to Vixen.Platform and that seam is this
              assembly's own — see PlatformInput.cs. -->

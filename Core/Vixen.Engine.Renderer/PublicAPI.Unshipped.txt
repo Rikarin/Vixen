@@ -153,6 +153,13 @@ Vixen.Engine.Renderer.TextureStreamer.Service(int maxLoads = 8) -> int
 Vixen.Engine.Renderer.TextureStreamer.TextureStreamer(Vixen.Engine.Renderer.ITextureStreamSource source, long budgetBytes, int pageSize = 65536) -> void
 Vixen.Engine.Renderer.TextureStreamer.Textures.get -> int
 Vixen.Engine.Renderer.TextureStreamer.Want(int texture, int width) -> void
+Vixen.Engine.Renderer.TextureStreamingQuality -> sealed record
+Vixen.Engine.Renderer.TextureStreamingQuality : System.IEquatable<Vixen.Engine.Renderer.TextureStreamingQuality>
+Vixen.Engine.Renderer.TextureStreamingQuality.MipBias.get -> float
+Vixen.Engine.Renderer.TextureStreamingQuality.MipBias.init -> float
+Vixen.Engine.Renderer.TextureStreamingQuality.PoolMegabytes.get -> int
+Vixen.Engine.Renderer.TextureStreamingQuality.PoolMegabytes.init -> int
+Vixen.Engine.Renderer.TextureStreamingQuality.TextureStreamingQuality() -> void
 Vixen.Engine.Renderer.WorldRenderer -> sealed class
 Vixen.Engine.Renderer.WorldRenderer : System.IDisposable
 Vixen.Engine.Renderer.WorldRenderer.Clusters.get -> Vixen.Rendering.VirtualGeometrySystem?
@@ -192,6 +199,8 @@ Vixen.Engine.Renderer.WorldRenderer.Table.get -> Vixen.Graphics.BindlessTable?
 Vixen.Engine.Renderer.WorldRenderer.TerrainExtraction.get -> Vixen.Rendering.Terrain.TerrainExtractionSystem?
 Vixen.Engine.Renderer.WorldRenderer.TerrainScene.get -> Vixen.Rendering.Terrain.TerrainSceneSource
 Vixen.Engine.Renderer.WorldRenderer.Terrains.get -> Vixen.Engine.Renderer.AssetTerrainSource?
+Vixen.Engine.Renderer.WorldRenderer.Textures.get -> Vixen.Engine.Renderer.TextureStreamingQuality
+Vixen.Engine.Renderer.WorldRenderer.Textures.set -> Vixen.Engine.Renderer.TextureStreamingQuality
 Vixen.Engine.Renderer.WorldRenderer.Transforms.get -> Vixen.Rendering.Features.TransformRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.UploadedBytes.get -> int
 Vixen.Engine.Renderer.WorldRenderer.VfxEffects.get -> Vixen.Rendering.Ecs.IVfxEffectSource?

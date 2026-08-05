@@ -333,6 +333,18 @@ public sealed class AssetTextureSource : IDisposable {
             entry.Layouted = Task.Run(
                 async () => {
                     await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
+
+                    // ⚠ Checked here rather than at the first page read, because this is the last
+                    // point at which falling back costs one header. A page is a byte range of a
+                    // mapped bundle and an LZ4-packed chunk has no such range — see Vixen.Assets on
+                    // building streamed payloads uncompressed — so a compressed texture is not a
+                    // failure, it is one that loads whole.
+                    if (!stream.CanSeek) {
+                        throw new NotSupportedException(
+                            $"'{address}' is in a compressed chunk, so it cannot be paged."
+                        );
+                    }
+
                     return await Ktx2.ReadLayoutAsync(stream).ConfigureAwait(false);
                 }
             );
@@ -364,17 +376,29 @@ public sealed class AssetTextureSource : IDisposable {
 
     /// <summary>Registers a texture with the streamer once its layout has been read.</summary>
     /// <remarks>
-    ///     ⚠ <b>A texture whose whole chain fits in one page falls back to being loaded whole.</b>
-    ///     There is nothing to stream in it, and registering it anyway would cost a residency entry
-    ///     and a swap for a texture that was never going to change resolution. The fallback re-reads
-    ///     a file that is by construction under one page, which is the cheapest read there is.
+    ///     <para>
+    ///         ⚠ <b>A texture whose whole chain fits in one page falls back to being loaded
+    ///         whole.</b> There is nothing to stream in it, and registering it anyway would cost a
+    ///         residency entry and a swap for a texture that was never going to change resolution.
+    ///         The fallback re-reads a file that is by construction under one page, which is the
+    ///         cheapest read there is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And so does one this cannot page at all.</b> A compressed chunk, a source that
+    ///         does not seek, a container this cannot parse — none of them are a reason for a
+    ///         material to sample the fallback slot, because the whole-file path handles every one
+    ///         of them and always did. A texture that is genuinely broken fails in the decode
+    ///         instead, and is counted there. This is what makes turning streaming on a decision
+    ///         about memory rather than a decision about which content ships.
+    ///     </para>
     /// </remarks>
     void Enrol(Entry entry) {
         var layouted = entry.Layouted!;
 
         if (layouted.IsFaulted) {
             entry.Layouted = null;
-            entry.Failed = true;
+            entry.StreamId = -1;
+            entry.Decoded = Decode(entry.Address!);
 
             return;
         }

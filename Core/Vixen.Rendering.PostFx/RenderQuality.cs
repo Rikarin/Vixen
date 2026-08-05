@@ -292,9 +292,18 @@ public sealed record VegetationQuality {
 
 /// <summary>Texture and effect budgets for one tier.</summary>
 /// <remarks>
-///     ⚠ All three entries are carried, not yet consumed — the streaming pool and mip bias belong
-///     to systems the compositor does not construct, and the particle budget to the VFX runtime.
-///     Foliage, grass and terrain live in their own group, <see cref="VegetationQuality" />.
+///     <para>
+///         The streaming pool and the mip bias are consumed, and not by the compositor: they belong
+///         to a system it does not construct, so <c>AppGraphics</c> resolves the tier and hands the
+///         two numbers to <c>WorldRenderer.Textures</c> before it mounts content. A pool is sized
+///         when the texture source is built and never afterwards, which is what makes a budget a
+///         budget — see <c>TextureStreamer</c>.
+///     </para>
+///     <para>
+///         ⚠ <see cref="ParticleBudgetScale" /> is still carried and not consumed; it belongs to the
+///         VFX runtime. Foliage, grass and terrain live in their own group,
+///         <see cref="VegetationQuality" />.
+///     </para>
 /// </remarks>
 [DataContract("TextureQuality")]
 public sealed record TextureQuality {

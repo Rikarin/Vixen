@@ -6,6 +6,28 @@ using Vixen.Rendering;
 
 namespace Vixen.Engine.Renderer;
 
+/// <summary>The texture numbers a host's quality tier resolved to.</summary>
+/// <remarks>
+///     <para>
+///         <c>RenderQuality</c>'s <c>textures</c> group, handed over rather than referenced —
+///         <c>TerrainFactory.Vegetation</c>'s arrangement and for its reason. This assembly must not
+///         depend on <c>Vixen.Rendering.PostFx</c> to know how big a pool to make, and the tier
+///         table must not know that a texture pool is what the number ends up as.
+///     </para>
+///     <para>
+///         ⚠ <b>The default is off, and off is exactly what existed before streaming did.</b> A zero
+///         pool loads every texture whole with no residency and no per-frame cost. A host that wants
+///         streaming says so with a number; nothing turns it on by inference.
+///     </para>
+/// </remarks>
+public sealed record TextureStreamingQuality {
+    /// <summary>How many megabytes of mip tail may be resident, or zero to load every texture whole.</summary>
+    public int PoolMegabytes { get; init; }
+
+    /// <summary>Levels added to every wanted width, positive for coarser.</summary>
+    public float MipBias { get; init; }
+}
+
 /// <summary>Where a streamed texture's bytes are read from.</summary>
 /// <remarks>
 ///     One method, and deliberately not a <c>Stream</c>: a pool reads byte ranges of one file at a
@@ -62,7 +84,15 @@ public interface ITextureStreamSource {
 public sealed class TexturePagePool : IPageStore {
     readonly ITextureStreamSource source;
     readonly Dictionary<int, Ktx2Layout> layouts = [];
-    readonly byte[] pool;
+
+    /// <summary>One array per slot, allocated when the slot is first written.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Lazily, because a budget is a ceiling and not a reservation.</b> A gigabyte budget at
+    ///     64 KiB a page is sixteen thousand slots, and allocating that up front would spend the
+    ///     whole budget on a menu screen with four textures on it. What a pool has to guarantee is
+    ///     that it never exceeds the budget, which per-slot arrays do exactly as well as one big one.
+    /// </remarks>
+    readonly byte[]?[] slots;
     readonly int[] lengths;
 
     /// <summary>Creates a pool over a source.</summary>
@@ -81,7 +111,7 @@ public sealed class TexturePagePool : IPageStore {
         SlotCount = slotCount;
         PageSize = pageSize;
 
-        pool = new byte[(long)slotCount * pageSize];
+        slots = new byte[slotCount][];
         lengths = new int[slotCount];
     }
 
@@ -148,7 +178,9 @@ public sealed class TexturePagePool : IPageStore {
             return false;
         }
 
-        bytes.CopyTo(pool.AsSpan(slot * PageSize));
+        var page = slots[slot] ??= new byte[PageSize];
+
+        bytes.CopyTo(page);
         lengths[slot] = bytes.Length;
         Placements++;
 
@@ -170,7 +202,7 @@ public sealed class TexturePagePool : IPageStore {
     /// <param name="length">How many of them are a page's.</param>
     public ReadOnlySpan<byte> Slot(int slot, out int length) {
         length = lengths[slot];
-        return pool.AsSpan(slot * PageSize, length);
+        return slots[slot] is { } page ? page.AsSpan(0, length) : [];
     }
 
     /// <summary>How many pages a layout's level data occupies at a page size.</summary>

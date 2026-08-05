@@ -441,6 +441,15 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>Where a material's textures come from, once content is mounted.</summary>
     public AssetTextureSource? Painted { get; private set; }
 
+    /// <summary>The texture numbers the host's tier resolved to, read by <see cref="Mount" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Set it before <see cref="Mount" />, or it says nothing.</b> The pool is sized when
+    ///     the source is built and a pool cannot be resized — its budget is the promise a pool
+    ///     exists to make. The default is a zero pool, which is the behaviour that existed before
+    ///     streaming did.
+    /// </remarks>
+    public TextureStreamingQuality Textures { get; set; } = new();
+
     /// <summary>The virtualized stack, if this renderer was given one.</summary>
     /// <remarks>
     ///     <para>
@@ -524,7 +533,14 @@ public sealed class WorldRenderer : IDisposable {
 
         // Only where there is a table to put them in: an AssetTextureSource with nothing indexing its
         // views would upload every texture in the level and hand the slots to nobody.
-        Painted = Table is null ? null : new AssetTextureSource(Device, assets);
+        Painted = Table is null
+            ? null
+            : new AssetTextureSource(
+                Device,
+                assets,
+                (long)Math.Max(0, Textures.PoolMegabytes) * 1024 * 1024,
+                Textures.MipBias
+            );
         Painter = painting = new(assets, Painted);
 
         // Only where there is a stack to register them with. A source that loaded hierarchies and had

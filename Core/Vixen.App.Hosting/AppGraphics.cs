@@ -10,6 +10,7 @@ using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 
 namespace Vixen.App;
@@ -165,6 +166,16 @@ public sealed class AppGraphics : IDisposable {
         }
 
         if (assets is not null) {
+            // Before Mount, necessarily: the pool is sized when the texture source is built, and a
+            // pool that could be resized afterwards would not be a budget. This is where
+            // `textures.streamingPoolMegabytes` stops being a number nobody reads.
+            var textures = RenderQuality.Resolve(options.Quality);
+
+            Renderer.Textures = new() {
+                PoolMegabytes = textures.StreamingPoolMegabytes,
+                MipBias = textures.MipBias
+            };
+
             Renderer.Mount(assets);
         }
 
