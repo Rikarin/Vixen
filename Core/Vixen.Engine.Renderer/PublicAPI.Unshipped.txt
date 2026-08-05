@@ -45,6 +45,11 @@ Vixen.Engine.Renderer.AssetTextureSource.Loaded.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.Requested.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Graphics.TextureViewHandle view) -> bool
 Vixen.Engine.Renderer.AssetTextureSource.Update(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Engine.Renderer.AssetTextureStreamSource -> sealed class
+Vixen.Engine.Renderer.AssetTextureStreamSource : Vixen.Engine.Renderer.ITextureStreamSource
+Vixen.Engine.Renderer.AssetTextureStreamSource.AssetTextureStreamSource(Vixen.Assets.AssetManager assets) -> void
+Vixen.Engine.Renderer.AssetTextureStreamSource.ReadAsync(int texture, long offset, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Engine.Renderer.AssetTextureStreamSource.Register(int texture, string address) -> void
 Vixen.Engine.Renderer.AssetVfxEffectSource -> sealed class
 Vixen.Engine.Renderer.AssetVfxEffectSource : Vixen.Rendering.Ecs.IVfxEffectSource
 Vixen.Engine.Renderer.AssetVfxEffectSource.AssetVfxEffectSource(Vixen.Assets.AssetManager assets) -> void
@@ -89,6 +94,8 @@ Vixen.Engine.Renderer.DebugView.Right.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Right.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Up.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Up.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Renderer.ITextureStreamSource -> interface
+Vixen.Engine.Renderer.ITextureStreamSource.ReadAsync(int texture, long offset, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Engine.Renderer.SceneRenderHost -> sealed class
 Vixen.Engine.Renderer.SceneRenderHost : System.IDisposable
 Vixen.Engine.Renderer.SceneRenderHost.Builder.get -> Vixen.Rendering.Compositor.CompositorBuilder
@@ -104,6 +111,44 @@ Vixen.Engine.Renderer.SceneRenderHost.Import(string name, Vixen.Rendering.Compos
 Vixen.Engine.Renderer.SceneRenderHost.Load(Vixen.Rendering.Compositor.GraphicsCompositorAsset asset) -> void
 Vixen.Engine.Renderer.SceneRenderHost.SceneRenderHost(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects) -> void
 Vixen.Engine.Renderer.SceneRenderHost.System.get -> Vixen.Rendering.RenderSystem
+Vixen.Engine.Renderer.TexturePagePool -> sealed class
+Vixen.Engine.Renderer.TexturePagePool : Vixen.Rendering.IPageStore
+Vixen.Engine.Renderer.TexturePagePool.Evict(Vixen.Rendering.PageKey key, int slot) -> void
+Vixen.Engine.Renderer.TexturePagePool.Evictions.get -> long
+Vixen.Engine.Renderer.TexturePagePool.LoadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Engine.Renderer.TexturePagePool.PageCount(int texture) -> int
+Vixen.Engine.Renderer.TexturePagePool.PageSize.get -> int
+Vixen.Engine.Renderer.TexturePagePool.PagesFor(int texture, int firstLevel) -> int
+Vixen.Engine.Renderer.TexturePagePool.Place(Vixen.Rendering.PageKey key, int slot, System.ReadOnlySpan<byte> bytes) -> bool
+Vixen.Engine.Renderer.TexturePagePool.Placements.get -> long
+Vixen.Engine.Renderer.TexturePagePool.Register(int texture, Vixen.Core.Imaging.Ktx2Layout layout) -> void
+Vixen.Engine.Renderer.TexturePagePool.Slot(int slot, out int length) -> System.ReadOnlySpan<byte>
+Vixen.Engine.Renderer.TexturePagePool.SlotCount.get -> int
+Vixen.Engine.Renderer.TexturePagePool.TexturePagePool(Vixen.Engine.Renderer.ITextureStreamSource source, int slotCount, int pageSize = 65536) -> void
+Vixen.Engine.Renderer.TexturePagePool.TryGetLayout(int texture, out Vixen.Core.Imaging.Ktx2Layout layout) -> bool
+Vixen.Engine.Renderer.TextureStreamer -> sealed class
+Vixen.Engine.Renderer.TextureStreamer : System.IDisposable
+Vixen.Engine.Renderer.TextureStreamer.Budget.get -> long
+Vixen.Engine.Renderer.TextureStreamer.ClearRequests() -> void
+Vixen.Engine.Renderer.TextureStreamer.CopyTail(int texture, int firstLevel, System.Span<byte> destination) -> int
+Vixen.Engine.Renderer.TextureStreamer.Dispose() -> void
+Vixen.Engine.Renderer.TextureStreamer.Evictions.get -> long
+Vixen.Engine.Renderer.TextureStreamer.IsRegistered(int texture) -> bool
+Vixen.Engine.Renderer.TextureStreamer.Loading.get -> int
+Vixen.Engine.Renderer.TextureStreamer.Loads.get -> long
+Vixen.Engine.Renderer.TextureStreamer.MipBias.get -> float
+Vixen.Engine.Renderer.TextureStreamer.MipBias.set -> float
+Vixen.Engine.Renderer.TextureStreamer.PageSize.get -> int
+Vixen.Engine.Renderer.TextureStreamer.PendingRequests.get -> int
+Vixen.Engine.Renderer.TextureStreamer.PinnedLevel(int texture) -> int
+Vixen.Engine.Renderer.TextureStreamer.Register(int texture, Vixen.Core.Imaging.Ktx2Layout layout) -> bool
+Vixen.Engine.Renderer.TextureStreamer.Rejections.get -> long
+Vixen.Engine.Renderer.TextureStreamer.ResidentBytes.get -> long
+Vixen.Engine.Renderer.TextureStreamer.ResidentLevel(int texture) -> int
+Vixen.Engine.Renderer.TextureStreamer.Service(int maxLoads = 8) -> int
+Vixen.Engine.Renderer.TextureStreamer.TextureStreamer(Vixen.Engine.Renderer.ITextureStreamSource source, long budgetBytes, int pageSize = 65536) -> void
+Vixen.Engine.Renderer.TextureStreamer.Textures.get -> int
+Vixen.Engine.Renderer.TextureStreamer.Want(int texture, int width) -> void
 Vixen.Engine.Renderer.WorldRenderer -> sealed class
 Vixen.Engine.Renderer.WorldRenderer : System.IDisposable
 Vixen.Engine.Renderer.WorldRenderer.Clusters.get -> Vixen.Rendering.VirtualGeometrySystem?
@@ -150,3 +195,4 @@ Vixen.Engine.Renderer.WorldRenderer.VfxEffects.set -> Vixen.Rendering.Ecs.IVfxEf
 Vixen.Engine.Renderer.WorldRenderer.ViewBlock.get -> Vixen.Rendering.ViewConstants
 Vixen.Engine.Renderer.WorldRenderer.WorldRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects, int vertexCapacity = 1048576, int indexCapacity = 2097152) -> void
 static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView
+static Vixen.Engine.Renderer.TextureStreamer.WantedWidth(float radius, float distance, float viewportHeight, float verticalFieldOfView) -> int
