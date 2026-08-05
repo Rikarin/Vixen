@@ -122,6 +122,7 @@ public sealed class GrassDispatch : IDisposable {
 
     readonly IGraphicsDevice device;
     readonly DescriptorSetLayoutHandle setLayout;
+    readonly DescriptorSetLayoutHandle emptySetLayout;
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle pipeline;
     readonly PipelineHandle argumentPipeline;
@@ -199,7 +200,10 @@ public sealed class GrassDispatch : IDisposable {
             )
         );
 
-        layout = device.CreatePipelineLayout(new([setLayout], [], "grass scatter"));
+        // Padded below the material set on TerrainRenderer's terms: the shader's bindings are set 2
+        // and a pipeline layout is positional, so the two unused slots hold one empty layout twice.
+        emptySetLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "grass scatter empty"));
+        layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "grass scatter"));
         pipeline = device.CreateComputePipeline(new(shader, layout, "grass scatter"));
 
         // One layout and two pipelines, because the two phases are one shader and a permutation.
@@ -514,6 +518,7 @@ public sealed class GrassDispatch : IDisposable {
         device.Destroy(pipeline);
         device.Destroy(layout);
         device.Destroy(setLayout);
+        device.Destroy(emptySetLayout);
     }
 
     /// <summary>Packs the uniform block the shader reads.</summary>
