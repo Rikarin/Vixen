@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Yaml;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 
@@ -437,23 +438,48 @@ public sealed class DockingWorkspace {
 
     /// <summary>Shows a saved arrangement, building the panels it names.</summary>
     /// <param name="yaml">What <see cref="Save" /> wrote.</param>
+    /// <returns>
+    ///     Whether the saved arrangement is the one now showing. <c>false</c> means it could not be
+    ///     used and <see cref="Reset" /> put the default preset up instead.
+    /// </returns>
     /// <remarks>
-    ///     A layout that names nothing this editor knows leaves an empty window, which is worse than
-    ///     a wrong one — so an arrangement whose panels are all unregistered falls back to the
-    ///     default preset rather than being applied.
+    ///     <para>
+    ///         A layout that names nothing this editor knows leaves an empty window, which is worse
+    ///         than a wrong one — so an arrangement whose panels are all unregistered falls back to
+    ///         the default preset rather than being applied.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A layout file that is not YAML at all lands here too, and it is the same
+    ///         answer.</b> <see cref="DockLayout.Load" /> salvages a stale layout and throws on a
+    ///         corrupt one, deliberately: it has no way to tell anybody that the file was unreadable,
+    ///         and this does. A file gets hand-edited or half-written by a machine that lost power,
+    ///         and neither is a reason for the editor not to open — but both are a reason to say the
+    ///         arrangement did not come back, which is what the returned <c>false</c> is for. Silence
+    ///         here would present a corrupt file as a first run, and the fix somebody would reach for
+    ///         is re-arranging every panel by hand over a file that will fail again tomorrow.
+    ///     </para>
     /// </remarks>
-    public void Load(string yaml) {
+    public bool Load(string yaml) {
         ArgumentNullException.ThrowIfNull(yaml);
 
-        var layout = DockLayout.Load(yaml);
+        DockLayout layout;
+
+        try {
+            layout = DockLayout.Load(yaml);
+        } catch (YamlParseException) {
+            Reset();
+            return false;
+        }
+
         var known = layout.Groups().SelectMany(group => group.Panels).Any(descriptors.ContainsKey);
 
         if (!known) {
             Reset();
-            return;
+            return false;
         }
 
         Install(layout);
+        return true;
     }
 
     /// <summary>Applies an arrangement and opens what it names.</summary>

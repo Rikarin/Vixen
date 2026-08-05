@@ -174,6 +174,15 @@ public static class EditorStrings {
     /// <summary>What the shell reports after putting the arrangement back.</summary>
     public static StringId LayoutReset { get; } = new("editor.notice.layout-reset", "Layout reset");
 
+    /// <summary>What start-up reports when the saved arrangement could not be put back.</summary>
+    /// <remarks>
+    ///     A corrupt layout file and a layout naming only panels that have gone both end here, and
+    ///     the notice does not distinguish them: what somebody needs to know is that the arrangement
+    ///     on screen is the default rather than theirs, and that re-arranging it is the way back.
+    /// </remarks>
+    public static StringId LayoutNotRestored { get; } =
+        new("editor.notice.layout-not-restored", "Saved layout could not be restored — showing the default");
+
     /// <summary>The confirming button on a dialog that asks nothing more specific.</summary>
     public static StringId DialogOk { get; } = new("editor.dialog.ok", "OK");
 
@@ -455,6 +464,7 @@ public static class EditorStrings {
         NotificationsEmpty,
         NotificationsClear,
         LayoutReset,
+        LayoutNotRestored,
         DialogOk,
         DialogCancel,
         StatusSelection,

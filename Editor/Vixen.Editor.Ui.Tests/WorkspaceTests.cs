@@ -167,10 +167,36 @@ public class WorkspaceTests : IDisposable {
         Three();
         workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
 
-        workspace.Load(LayoutPresets.Single("some.plugin.panel").Save());
+        Assert.False(workspace.Load(LayoutPresets.Single("some.plugin.panel").Save()));
 
         // An empty window is worse than a wrong one.
         Assert.True(workspace.IsOpen("scene"));
+    }
+
+    /// <summary>
+    ///     A layout file that is not YAML at all — hand-edited into nonsense, or half-written by a
+    ///     machine that lost power. <c>DockLayout.Load</c> throws on it rather than salvaging,
+    ///     because a corrupt file and a stale one want opposite answers and it has no way to say
+    ///     which it met. This is the caller that does: the default preset goes up, the editor opens,
+    ///     and the <c>false</c> is what start-up turns into a notice.
+    /// </summary>
+    [Fact]
+    public void A_layout_file_that_is_not_yaml_falls_back_to_the_default_rather_than_stopping_start_up() {
+        Three();
+        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+
+        Assert.False(workspace.Load("root: [unclosed"));
+
+        Assert.True(workspace.IsOpen("scene"));
+        Assert.True(workspace.IsOpen("hierarchy"));
+    }
+
+    [Fact]
+    public void A_layout_that_loads_says_so() {
+        Three();
+        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+
+        Assert.True(workspace.Load(LayoutPresets.Single("scene").Save()));
     }
 
     [Fact]
