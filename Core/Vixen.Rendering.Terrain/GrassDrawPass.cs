@@ -49,6 +49,14 @@ public sealed class GrassDrawPass : IDisposable {
     /// <summary>What each ring slot's constant block is aligned to. <c>GrassDispatch</c>'s 256.</summary>
     const int SlotAlignment = 256;
 
+    /// <summary>The cutout a field starts at — <c>GrassBlade.alphaCutoff</c>'s declared default.</summary>
+    /// <remarks>
+    ///     A half rather than something small, because a cutout's alpha is authored as a mask and its
+    ///     interesting values are 0 and 1; the mid-point is the one threshold that does not depend on
+    ///     how a particular map's edges were filtered.
+    /// </remarks>
+    const float DefaultAlphaCutoff = 0.5f;
+
     readonly IGraphicsDevice device;
     readonly int slots;
     readonly long constantStride;
@@ -233,6 +241,27 @@ public sealed class GrassDrawPass : IDisposable {
     /// <summary>What the blades are textured with, or default for the built-in white.</summary>
     public TextureViewHandle Albedo { get; set; }
 
+    /// <summary>The alpha below which a texel is a hole rather than a colour, 0…1.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What makes a cutout card a card.</b> A grass albedo is blades on transparent, and
+    ///         without the test the transparent margin draws as whatever colour the authoring tool
+    ///         left under the zero alpha — <c>Grass.rvn</c> writes into an opaque target, so there is
+    ///         no blend to hide it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Set here and nowhere else — <see cref="GrassVelocityPass" /> reads this one.</b>
+    ///         The two passes have to cut the same fragments out or the velocity of a pixel the
+    ///         colour pass dropped overwrites the ground's, and one number with one owner is the
+    ///         form of "the same" that survives somebody editing one of the two.
+    ///     </para>
+    ///     <para>
+    ///         Zero disables the test: no alpha is below it, including the opaque white default's,
+    ///         so a field with no albedo assigned is unaffected either way.
+    ///     </para>
+    /// </remarks>
+    public float AlphaCutoff { get; set; } = DefaultAlphaCutoff;
+
     /// <summary>How many draws the last <see cref="Record" /> issued.</summary>
     public int Draws { get; private set; }
 
@@ -322,6 +351,7 @@ public sealed class GrassDrawPass : IDisposable {
                 WindSpeed = wind.Speed,
                 WindFlutter = wind.Flutter,
                 WindHeight = wind.Height,
+                AlphaCutoff = AlphaCutoff,
                 TintRange = tint == default ? new(0.85f, 1.1f) : tint,
                 FadeRange = fade == default ? new(60f, 80f) : fade
             }.Write(block);
@@ -354,9 +384,11 @@ public sealed class GrassDrawPass : IDisposable {
 
     /// <summary>What the velocity pass binds where this pass binds its albedo.</summary>
     /// <remarks>
-    ///     The velocity fragment never samples it — the stipple is all it computes — but a set is
-    ///     written wholly or not at all, and the default's first-frame upload is this pass's, so the
-    ///     sibling borrows rather than staging a second white texel.
+    ///     ⚠ <b>The velocity fragment samples it now, for one channel.</b> It was bound before it was
+    ///     read — a set is written wholly or not at all — and the alpha test made the binding load
+    ///     bearing: the cutout decides where the blade is, and both passes have to agree. The default
+    ///     white's first-frame upload is this pass's, so the sibling still borrows rather than
+    ///     staging a second texel.
     /// </remarks>
     internal TextureViewHandle AlbedoOrDefault => Albedo.IsValid ? Albedo : defaultAlbedoView;
 
@@ -401,6 +433,7 @@ public sealed class GrassDrawPass : IDisposable {
             WindSpeed = wind.Speed,
             WindFlutter = wind.Flutter,
             WindHeight = wind.Height,
+            AlphaCutoff = AlphaCutoff,
             TintRange = tint == default ? new(0.85f, 1.1f) : tint,
             FadeRange = fade == default ? new(60f, 80f) : fade
         }.Write(block);

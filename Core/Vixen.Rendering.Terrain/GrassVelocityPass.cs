@@ -171,7 +171,13 @@ sealed class GrassVelocityPass : IDisposable {
             WindFlutter = wind.Flutter,
             WindHeight = wind.Height,
 
-            // Unread — the fragment computes a stipple and a delta, never a colour — but the block
+            // ⚠ The colour pass's own number, never a second one written here. `GrassBlade.Cutout`
+            // is the predicate both fragments run, and it reads this: a velocity block holding a
+            // different cutoff cuts a different silhouette out of the motion target than the
+            // picture has, which is a rim of the ground's motion around every blade.
+            AlphaCutoff = draw.AlphaCutoff,
+
+            // Unread — the fragment computes a cutout and a delta, never a colour — but the block
             // is written wholly, and the colour pass's default keeps the two blocks comparable.
             TintRange = new(0.85f, 1.1f),
             FadeRange = fade == default ? new(60f, 80f) : fade

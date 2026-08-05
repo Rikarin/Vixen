@@ -172,6 +172,22 @@
               "DefaultValue": ""
             },
             {
+              "Name": "alphaCutoff",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.5"
+            },
+            {
               "Name": "tintRange",
               "Type": {
                 "Scalar": "Float",
@@ -181,7 +197,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 112,
+              "Offset": 120,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -197,14 +213,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 120,
+              "Offset": 128,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
             }
           ],
-          "Size": 128,
+          "Size": 144,
           "IsWritable": false
         },
         {
@@ -607,6 +623,24 @@
       "DefaultValue": ""
     },
     {
+      "Name": "alphaCutoff",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 112,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.5"
+    },
+    {
       "Name": "tintRange",
       "Type": {
         "Scalar": "Float",
@@ -618,7 +652,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 112,
+      "Offset": 120,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -636,7 +670,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 120,
+      "Offset": 128,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
