@@ -215,6 +215,23 @@ a few dozen with one. Getting the bytes off the heap needs a tile-addressable fi
 texture needs the frame's command list, so the renderer drains what has arrived rather than the pool
 recording anything.
 
+⚠ **A tile edited while its load was in flight is refused rather than copied, and re-read next
+frame.** The read runs on a pool thread over `Terrain.Composite`, which the frame thread rewrites
+whenever a stroke, a spline or a layer toggle dirties a tile. So every page carries the
+`Terrain.RevisionOf` its tile was at when the read began, and `TerrainTilePages.Place` — which runs on
+the frame thread, after that frame's `Resolve` — throws away anything whose number has moved.
+`TerrainTilePages.StaleArrivals` counts them; it climbs while somebody is sculpting and sits still
+otherwise.
+
+Nothing here tears a sample, and that is what makes the failure worth naming: without the check what
+reaches the atlas is a well-formed heightfield that is half the ground before the stroke and half the
+ground after it, and it stays that way until something happens to re-request the tile. A tile refused
+is simply not resident, so it draws from the pinned tail for a frame — the same bargain as a full
+pool.
+
+⚠ **A source of your own owes `RevisionOf` a number that changes whenever its bytes do.** A
+file-backed source, which is what the seam exists for, answers a constant and is never refused.
+
 ## Examples
 
 Selecting the patches a view needs, which is the half that runs without a device:

@@ -70,6 +70,7 @@ Vixen.Terrain.Terrain.MoveLayer(int from, int to) -> void
 Vixen.Terrain.Terrain.RemoveLayer(Vixen.Terrain.TerrainEditLayer layer) -> bool
 Vixen.Terrain.Terrain.ReservedLayer(Vixen.Terrain.TerrainLayerKind kind, string? name = null) -> Vixen.Terrain.TerrainEditLayer
 Vixen.Terrain.Terrain.Resolve() -> int
+Vixen.Terrain.Terrain.RevisionOf(int tileX, int tileZ) -> int
 Vixen.Terrain.Terrain.Terrain(Vixen.Terrain.TerrainDescription description, float height = 0) -> void
 Vixen.Terrain.Terrain.Weights.get -> Vixen.Terrain.TerrainWeights
 Vixen.Terrain.TerrainAtlas -> readonly struct
