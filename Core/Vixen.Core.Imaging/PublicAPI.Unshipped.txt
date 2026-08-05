@@ -8,6 +8,36 @@ Vixen.Core.Imaging.Ktx2 -> static class
 Vixen.Core.Imaging.Ktx2Exception -> sealed class
 Vixen.Core.Imaging.Ktx2Exception : System.Exception
 Vixen.Core.Imaging.Ktx2Exception.Ktx2Exception(string message) -> void
+Vixen.Core.Imaging.Ktx2Layout -> sealed class
+Vixen.Core.Imaging.Ktx2Layout.Allocate(int firstLevel) -> Vixen.Core.Imaging.TextureData
+Vixen.Core.Imaging.Ktx2Layout.DataLength.get -> long
+Vixen.Core.Imaging.Ktx2Layout.DataOffset.get -> long
+Vixen.Core.Imaging.Ktx2Layout.Depth.get -> int
+Vixen.Core.Imaging.Ktx2Layout.FaceCount.get -> int
+Vixen.Core.Imaging.Ktx2Layout.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Core.Imaging.Ktx2Layout.Height.get -> int
+Vixen.Core.Imaging.Ktx2Layout.LayerCount.get -> int
+Vixen.Core.Imaging.Ktx2Layout.LevelCount.get -> int
+Vixen.Core.Imaging.Ktx2Layout.Levels.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Imaging.Ktx2Level>
+Vixen.Core.Imaging.Ktx2Layout.TailFor(long budget) -> int
+Vixen.Core.Imaging.Ktx2Layout.TailLength(int firstLevel) -> long
+Vixen.Core.Imaging.Ktx2Layout.Width.get -> int
+Vixen.Core.Imaging.Ktx2Level -> readonly struct
+Vixen.Core.Imaging.Ktx2Level : System.IEquatable<Vixen.Core.Imaging.Ktx2Level>
+Vixen.Core.Imaging.Ktx2Level.Depth.get -> int
+Vixen.Core.Imaging.Ktx2Level.Depth.init -> int
+Vixen.Core.Imaging.Ktx2Level.Height.get -> int
+Vixen.Core.Imaging.Ktx2Level.Height.init -> int
+Vixen.Core.Imaging.Ktx2Level.Ktx2Level() -> void
+Vixen.Core.Imaging.Ktx2Level.Ktx2Level(int Level, int Width, int Height, int Depth, long Offset, long Length) -> void
+Vixen.Core.Imaging.Ktx2Level.Length.get -> long
+Vixen.Core.Imaging.Ktx2Level.Length.init -> long
+Vixen.Core.Imaging.Ktx2Level.Level.get -> int
+Vixen.Core.Imaging.Ktx2Level.Level.init -> int
+Vixen.Core.Imaging.Ktx2Level.Offset.get -> long
+Vixen.Core.Imaging.Ktx2Level.Offset.init -> long
+Vixen.Core.Imaging.Ktx2Level.Width.get -> int
+Vixen.Core.Imaging.Ktx2Level.Width.init -> int
 Vixen.Core.Imaging.MipChain -> static class
 Vixen.Core.Imaging.MipChain.Srgb -> static class
 Vixen.Core.Imaging.MipOptions -> readonly struct
@@ -104,7 +134,13 @@ static Vixen.Core.Imaging.DataFormatDescriptor.Build(Vixen.Graphics.PixelFormat 
 static Vixen.Core.Imaging.EnvironmentPrefilter.RoughnessOf(int level, int levelCount) -> float
 static Vixen.Core.Imaging.EnvironmentPrefilter.Specular(Vixen.Core.Imaging.TextureData cube, int levelCount = 0, int samples = 128) -> Vixen.Core.Imaging.TextureData
 static Vixen.Core.Imaging.Ktx2.Identifier.get -> System.ReadOnlySpan<byte>
+static Vixen.Core.Imaging.Ktx2.LayoutLength(System.ReadOnlySpan<byte> head) -> int
 static Vixen.Core.Imaging.Ktx2.Read(System.ReadOnlySpan<byte> file) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.Ktx2.ReadLayout(System.ReadOnlySpan<byte> file) -> Vixen.Core.Imaging.Ktx2Layout
+static Vixen.Core.Imaging.Ktx2.ReadLayoutAsync(System.IO.Stream stream, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Core.Imaging.Ktx2Layout>
+static Vixen.Core.Imaging.Ktx2.ReadLevelAsync(System.IO.Stream stream, Vixen.Core.Imaging.Ktx2Layout layout, int level, System.Memory<byte> destination, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<int>
+static Vixen.Core.Imaging.Ktx2.ReadTail(System.ReadOnlySpan<byte> file, Vixen.Core.Imaging.Ktx2Layout layout, int firstLevel) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.Ktx2.ReadTailAsync(System.IO.Stream stream, Vixen.Core.Imaging.Ktx2Layout layout, int firstLevel, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Core.Imaging.TextureData>
 static Vixen.Core.Imaging.Ktx2.Write(Vixen.Core.Imaging.TextureData texture) -> byte[]
 static Vixen.Core.Imaging.MipChain.ExtentOf(int width, int height, int depth, int level) -> (int Width, int Height, int Depth)
 static Vixen.Core.Imaging.MipChain.Generate(Vixen.Core.Imaging.TextureData texture) -> void

@@ -160,6 +160,160 @@ public sealed class Ktx2Tests {
         Assert.Throws<Ktx2Exception>(() => Ktx2.Read(file));
     }
 
+    /// <summary>
+    ///     The reader's half of the smallest-first bargain: the tail of a file is one contiguous run
+    ///     from the front of its level data, so a streamer reads it with one seek and one read and
+    ///     never touches the large levels at all.
+    /// </summary>
+    [Fact]
+    public void AMipTailIsOneContiguousRunAtTheFrontOfTheLevelData() {
+        var texture = new TextureData(PixelFormat.R8UNorm, 16, 16);
+        var layout = Ktx2.ReadLayout(Ktx2.Write(texture));
+
+        Assert.Equal(5, layout.LevelCount);
+        Assert.Equal(layout.Levels[^1].Offset, layout.DataOffset);
+        Assert.Equal(256 + 64 + 16 + 4 + 1, layout.DataLength);
+
+        // Levels 2, 3 and 4 are 16, 4 and 1 bytes, and they are the first 21 of the level data.
+        Assert.Equal(21, layout.TailLength(2));
+        Assert.Equal(layout.DataLength, layout.TailLength(0));
+    }
+
+    [Fact]
+    public void ALayoutIsReadableFromTheHeadOfAFileAlone() {
+        var texture = new TextureData(PixelFormat.Rgba8UNorm, 8, 8);
+        var file = Ktx2.Write(texture);
+
+        var length = Ktx2.LayoutLength(file.AsSpan(0, Ktx2.HeaderLength));
+
+        Assert.Equal(Ktx2.HeaderLength + (4 * Ktx2.LevelIndexEntryLength), length);
+
+        var layout = Ktx2.ReadLayout(file.AsSpan(0, length));
+
+        Assert.Equal(PixelFormat.Rgba8UNorm, layout.Format);
+        Assert.Equal(8, layout.Width);
+        Assert.Equal(4, layout.LevelCount);
+        Assert.Equal(256, layout.Levels[0].Length);
+    }
+
+    /// <summary>
+    ///     A tail is a whole smaller texture rather than a larger one with holes, which is what lets
+    ///     a partially streamed texture be created and sampled by code that knows nothing about
+    ///     streaming.
+    /// </summary>
+    [Fact]
+    public void AMipTailDecodesToACompleteSmallerTexture() {
+        var texture = new TextureData(PixelFormat.Rgba8UNorm, 16, 8);
+
+        for (var level = 0; level < texture.LevelCount; level++) {
+            texture.LevelSpan(level).Fill((byte)(level + 1));
+        }
+
+        var file = Ktx2.Write(texture);
+        var layout = Ktx2.ReadLayout(file);
+        var tail = Ktx2.ReadTail(file, layout, 2);
+
+        Assert.Equal(4, tail.Width);
+        Assert.Equal(2, tail.Height);
+        Assert.Equal(texture.LevelCount - 2, tail.LevelCount);
+
+        // The tail's level 0 is the file's level 2, and it carries the file's bytes.
+        Assert.Equal(texture.Level(2).ToArray(), tail.Level(0).ToArray());
+        Assert.Equal(texture.Level(texture.LevelCount - 1).ToArray(), tail.Level(tail.LevelCount - 1).ToArray());
+    }
+
+    [Fact]
+    public void ATailOfLevelZeroIsTheWholeTexture() {
+        var texture = new TextureData(PixelFormat.Rgba8UNorm, 8, 4);
+        texture.PixelSpan().Fill(0x7E);
+
+        var file = Ktx2.Write(texture);
+        var tail = Ktx2.ReadTail(file, Ktx2.ReadLayout(file), 0);
+
+        Assert.Equal(texture.Pixels.ToArray(), tail.Pixels.ToArray());
+    }
+
+    /// <summary>
+    ///     The claim the whole partial reader rests on: reading a tail touches the tail's bytes and
+    ///     no others. A stream that counts what was asked of it proves that in a way an assertion
+    ///     about the result cannot.
+    /// </summary>
+    [Fact]
+    public async Task ReadingATailFromAStreamNeverTouchesTheLargeLevels() {
+        var texture = new TextureData(PixelFormat.R8UNorm, 64, 64);
+        texture.PixelSpan().Fill(0x40);
+
+        var file = Ktx2.Write(texture);
+        await using var stream = new CountingStream(file);
+
+        var layout = await Ktx2.ReadLayoutAsync(stream, TestContext.Current.CancellationToken);
+        var head = stream.BytesRead;
+
+        var tail = await Ktx2.ReadTailAsync(stream, layout, 3, TestContext.Current.CancellationToken);
+
+        Assert.Equal(8, tail.Width);
+        Assert.Equal(layout.TailLength(3), stream.BytesRead - head);
+
+        // Level 0 alone is 4096 bytes; the whole tail from level 3 down is 85.
+        Assert.True(stream.BytesRead < 4096);
+        Assert.Equal(texture.Level(3).ToArray(), tail.Level(0).ToArray());
+    }
+
+    [Fact]
+    public async Task OneLevelIsReadableOnItsOwn() {
+        var texture = new TextureData(PixelFormat.R8UNorm, 8, 8);
+
+        for (var level = 0; level < texture.LevelCount; level++) {
+            texture.LevelSpan(level).Fill((byte)(0xA0 + level));
+        }
+
+        var file = Ktx2.Write(texture);
+        await using var stream = new CountingStream(file);
+
+        var layout = await Ktx2.ReadLayoutAsync(stream, TestContext.Current.CancellationToken);
+        var buffer = new byte[layout.Levels[1].Length];
+
+        var read = await Ktx2.ReadLevelAsync(stream, layout, 1, buffer, TestContext.Current.CancellationToken);
+
+        Assert.Equal(16, read);
+        Assert.Equal(texture.Level(1).ToArray(), buffer);
+    }
+
+    [Fact]
+    public void TheTailThatFitsABudgetIsTheLargestOneThatDoes() {
+        var layout = Ktx2.ReadLayout(Ktx2.Write(new TextureData(PixelFormat.R8UNorm, 16, 16)));
+
+        Assert.Equal(0, layout.TailFor(long.MaxValue));
+        Assert.Equal(2, layout.TailFor(21));
+        Assert.Equal(3, layout.TailFor(20));
+
+        // A budget under one 1×1 level still answers the smallest level: a texture with nothing
+        // resident is one nothing can sample.
+        Assert.Equal(layout.LevelCount - 1, layout.TailFor(0));
+    }
+
+    [Fact]
+    public void ALayoutOfATruncatedIndexSaysSoRatherThanReadingPastIt() {
+        var file = Ktx2.Write(new TextureData(PixelFormat.R8UNorm, 8, 8));
+
+        var failure = Assert.Throws<Ktx2Exception>(() => Ktx2.ReadLayout(file.AsSpan(0, Ktx2.HeaderLength + 8)));
+
+        Assert.Contains("level index", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AStreamThatEndsInsideALevelSaysSo() {
+        var file = Ktx2.Write(new TextureData(PixelFormat.R8UNorm, 8, 8));
+        await using var whole = new CountingStream(file);
+
+        var layout = await Ktx2.ReadLayoutAsync(whole, TestContext.Current.CancellationToken);
+        await using var truncated = new CountingStream(file[..(file.Length - 32)]);
+
+        await Assert.ThrowsAsync<Ktx2Exception>(
+            async () => await Ktx2.ReadTailAsync(truncated, layout, 0, TestContext.Current.CancellationToken)
+        );
+    }
+
     [Fact]
     public void EveryFormatTheTableClaimsRoundTripsThroughItsNumber() {
         foreach (var format in VkFormats.Supported) {
@@ -177,4 +331,63 @@ public sealed class Ktx2Tests {
     static uint Read32(byte[] file, int offset) => BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(offset));
 
     static ulong Read64(byte[] file, int offset) => BinaryPrimitives.ReadUInt64LittleEndian(file.AsSpan(offset));
+
+    /// <summary>A seekable stream that counts what was asked of it.</summary>
+    /// <remarks>
+    ///     A partial reader's whole claim is about bytes it did <em>not</em> read, and only the
+    ///     stream can testify to that.
+    /// </remarks>
+    sealed class CountingStream(byte[] bytes) : Stream {
+        long position;
+
+        public int BytesRead { get; private set; }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => true;
+
+        public override bool CanWrite => false;
+
+        public override long Length => bytes.Length;
+
+        public override long Position {
+            get => position;
+            set => position = value;
+        }
+
+        public override int Read(Span<byte> buffer) {
+            var count = (int)Math.Min(buffer.Length, bytes.Length - position);
+
+            if (count <= 0) {
+                return 0;
+            }
+
+            bytes.AsSpan((int)position, count).CopyTo(buffer);
+            position += count;
+            BytesRead += count;
+
+            return count;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(Read(buffer.Span));
+
+        public override long Seek(long offset, SeekOrigin origin) {
+            position = origin switch {
+                SeekOrigin.Current => position + offset,
+                SeekOrigin.End => bytes.Length + offset,
+                _ => offset
+            };
+
+            return position;
+        }
+
+        public override void Flush() { }
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
 }

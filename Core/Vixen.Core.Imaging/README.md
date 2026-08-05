@@ -25,6 +25,14 @@ points at run the other way, so a streaming loader can read the small mips off t
 and show something before the rest arrives. It is the one part of the format that reads like a
 mistake and is not, so it has a test of its own.
 
+**And the loader that bargain was for.** `Ktx2.ReadLayout` parses the header and the level index —
+`80 + 24n` bytes at the front — and answers what the texture is and where each of its levels lives,
+having read none of them. `Ktx2.ReadTail` and `ReadTailAsync` then read levels *n* through the
+smallest, which is one contiguous run from the front of the level data: one seek and one read
+whatever the resolution asked for, and the large levels are never touched. A tail decodes to a
+*complete smaller* `TextureData` rather than a larger one with holes, so a partially streamed texture
+is created, viewed and sampled by code that knows nothing about streaming.
+
 **Implemented:** identifier, header, level index, data format descriptor, key/value data, and level
 data for uncompressed and block-compressed formats. **Not implemented:** supercompression — neither
 Basis Universal nor Zstd — and so no supercompression global data; it is written as absent and
