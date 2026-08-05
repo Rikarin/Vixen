@@ -746,7 +746,12 @@ static class StandardFrame {
                     View = Camera,
                     Output = FogVolume,
                     Slices = tier.VolumetricSlices,
-                    Far = tier.VolumetricFar
+                    Far = tier.VolumetricFar,
+
+                    // ⚠ The atlas is named unconditionally and this is the only gate. Detection is
+                    // the floor — a frame with no Sun node goes unshadowed whatever this says — and
+                    // the tier is a ceiling under it, because the taps are the feature's whole cost.
+                    Shadows = tier.VolumetricShadows
                 }
             );
         }

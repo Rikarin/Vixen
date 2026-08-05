@@ -126,6 +126,55 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
     /// </remarks>
     public Vector3 AmbientColour { get; set; } = new(0.35f, 0.42f, 0.55f);
 
+    /// <summary>The cascade atlas the frame's shadow node rendered.</summary>
+    /// <remarks>
+    ///     ⚠ Naming it is not what turns shadowing on — <see cref="Shadowed" /> is, and it is a fact
+    ///     about the frame rather than a setting. A name here that the frame never declared leaves
+    ///     the fog unshadowed, which is the honest outcome for a document whose volumetrics run
+    ///     without a sun.
+    /// </remarks>
+    public string ShadowAtlas { get; init; } = "ShadowAtlas";
+
+    /// <summary>The 1×1 texture bound into the shadow slot on a frame that has no atlas.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not decoration, and not optional.</b> A descriptor set is written whole or not at
+    ///     all, and a permutation does not fold an unused binding away — the layers report
+    ///     <c>shadowMap</c> as statically used in the variant that never taps it, which is the same
+    ///     finding that made the injection a shader of its own. So the slot is written on every
+    ///     frame, and this is what goes into it when there is no atlas to write. <c>TerrainRenderer</c>
+    ///     spends a device texture on the identical problem; a declared 1×1 costs the graph nothing
+    ///     and needs no upload, because nothing ever reads it.
+    /// </remarks>
+    public string ShadowStandIn { get; init; } = "FogShadowStandIn";
+
+    /// <summary>Where the shading pass published its cascades — <c>ShadowMapRenderer.ShaderName</c>.</summary>
+    public string ScenePass { get; set; } = "ForwardPlus";
+
+    /// <summary>The frame's constants, which is where the cascades and the biases were published.</summary>
+    /// <remarks>
+    ///     ⚠ Without it the fog is unshadowed however many shadow nodes the document has. The
+    ///     cascades do not travel on the graph — <c>ShadowMapRenderer.Publish</c> writes them into
+    ///     this collection under <see cref="ScenePass" />'s name, and this is the only way to them.
+    /// </remarks>
+    public SceneConstants? Frame { get; set; }
+
+    /// <summary>Whether the froxels may be shadowed at all — the tier's ceiling.</summary>
+    /// <remarks>
+    ///     ⚠ A ceiling under <see cref="Shadowed" />'s detection and not a second answer to it: false
+    ///     gives a glow where a shaft would have been, and true cannot conjure an atlas a frame never
+    ///     declared. It exists because the taps are the feature's whole cost — see
+    ///     <see cref="PostFidelityQuality.VolumetricShadows" />.
+    /// </remarks>
+    public bool Shadows { get; init; } = true;
+
+    /// <summary>Whether the last build found everything a shadowed march needs.</summary>
+    /// <remarks>
+    ///     Availability and not preference, on <c>TerrainSceneRenderer.DetectMode</c>'s rule: the
+    ///     atlas is a declared resource and the cascades are published parameters, so the frame has
+    ///     already stated the answer and a toggle could only contradict it.
+    /// </remarks>
+    public bool Shadowed { get; private set; }
+
     /// <summary>Where descriptor sets come from.</summary>
     public DescriptorAllocator? Allocator { get; set; }
 
@@ -163,6 +212,19 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
         Declare(frame, Scattered, Resolution);
         Declare(frame, Volume, Resolution);
 
+        // Both halves, because they publish separately and either alone is useless: the atlas is a
+        // graph resource the shadow node declared, and the matrices that index into it are
+        // parameters it published. An atlas with no cascades cannot be projected into, and cascades
+        // with no atlas have nothing to sample.
+        Shadowed = Shadows
+            && frame.Has(ShadowAtlas)
+            && Frame is { } constants
+            && constants.Parameters.Has(ParameterKeys.New<Matrix4x4>($"{ScenePass}.cascades[0].viewProjection"));
+
+        if (!Shadowed) {
+            DeclareStandIn(frame);
+        }
+
         Dispatched = ExtentOf(frame, Volume);
 
         // The three grid dimensions are permutations, so a variant is compiled per shape — which is
@@ -188,6 +250,28 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
         frame.DescriptionOf(ToString(), name) is { } description
             ? new(description.Width, description.Height, description.Depth)
             : Resolution;
+
+    /// <summary>The 1×1 that keeps the shadow slot written on a frame with no atlas.</summary>
+    /// <remarks>
+    ///     Single-channel depth-shaped, because that is what the binding is typed as — a tap reads
+    ///     <c>.r</c> and compares it. Its contents are never read: the variant that would read them
+    ///     is the one this frame is not running.
+    /// </remarks>
+    void DeclareStandIn(CompositorFrame frame) {
+        if (frame.Has(ShadowStandIn)) {
+            return;
+        }
+
+        var description = new TextureDescription(
+            PixelFormat.R32Float,
+            1,
+            1,
+            TextureUsage.Sampled,
+            Name: ShadowStandIn
+        );
+
+        frame.Add(ShadowStandIn, frame.Graph.CreateTexture(description), description);
+    }
 
     static void Declare(CompositorFrame frame, string name, Int3 size) {
         if (frame.Has(name)) {
@@ -281,9 +365,17 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
         node.Parameters.Set(VolumetricFogKeys.GridY, Dispatched.Y);
         node.Parameters.Set(VolumetricFogKeys.GridZ, Dispatched.Z);
 
+        node.Parameters.Set(VolumetricFogKeys.Shadowed, Shadowed);
+
         if (Camera() is { } camera) {
             node.Parameters.Set(VolumetricFogKeys.TanHalfFov, camera.TanHalfFov);
+
+            // ⚠ The same matrix the injection was given, from the same derivation. Two inversions of
+            // one camera is a lighting pass shadowing froxels the injection put somewhere else.
+            node.Parameters.Set(VolumetricFogKeys.InverseView, camera.InverseView);
         }
+
+        Shadow(node);
 
         node.Parameters.Set(VolumetricFogKeys.FogNear, Near);
         node.Parameters.Set(VolumetricFogKeys.FogFar, Far);
@@ -301,8 +393,29 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
         node.Writes.Add(target);
         node.Reads.Add(source);
 
+        // ⚠ On both dispatches, not just the one that taps it. Declaring the read is what orders
+        // this after the shadow passes and puts the barrier in — and the march's variant carries the
+        // binding whether or not it samples, because a permutation does not fold one away.
+        node.Reads.Add(Shadowed ? ShadowAtlas : ShadowStandIn);
+
         node.Descriptors.Bindings.Add(new() {
             Binding = VolumetricFogKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = target
+        });
+
+        node.Descriptors.Bindings.Add(new() {
+            Binding = VolumetricFogKeys.ShadowMapBinding,
+            Kind = DescriptorKind.SampledTexture,
+            Resource = Shadowed ? ShadowAtlas : ShadowStandIn
+        });
+
+        // ⚠ Point, where the volumes above are linear, and the difference is load-bearing: the tap
+        // compares after sampling, so a filtered read hands the compare the average of four casters
+        // — a depth no surface is at, which reads as a shadow edge that shimmers rather than one
+        // that steps. `ShadowMapRenderer.Publish` states the same rule for the scene pass.
+        node.Descriptors.Bindings.Add(new() {
+            Binding = VolumetricFogKeys.ShadowSamplerBinding,
+            Kind = DescriptorKind.Sampler,
+            Sampled = SamplerDescription.PointClamp
         });
 
         node.Descriptors.Bindings.Add(new() {
@@ -317,6 +430,87 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
             Kind = DescriptorKind.Sampler,
             Sampled = SamplerDescription.LinearClamp
         });
+    }
+
+    /// <summary>Copies the frame's published cascades and biases into one dispatch's parameters.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>TerrainSceneRenderer.FillLighting</c>'s shape, for its reason: the cascades are not
+    ///         graph resources and do not travel on an edge. <c>ShadowMapRenderer.Publish</c> writes
+    ///         them into the scene's parameters under its own shader name, and every consumer that is
+    ///         not the scene pass reads them back out under the same name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A missing cascade is padded degenerate rather than skipped.</b> A zero matrix
+    ///         fails <c>FrameShadow.Containing</c>'s <c>clip.w > 0</c> test, so the slot can never be
+    ///         selected — where a stale matrix left in place from a frame that fitted more would be
+    ///         selected, and would shadow the air from somewhere the sun no longer is.
+    ///     </para>
+    /// </remarks>
+    void Shadow(ComputeRenderer node) {
+        if (!Shadowed || Frame is not { } constants) {
+            return;
+        }
+
+        var parameters = constants.Parameters;
+        var lastSplit = 0f;
+
+        for (var cascade = 0; cascade < VolumetricFogCascadesElement.Count; cascade++) {
+            var index = cascade.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var published = ParameterKeys.New<Matrix4x4>($"{ScenePass}.cascades[{index}].viewProjection");
+            var fitted = parameters.Has(published);
+
+            if (fitted) {
+                lastSplit = Value(parameters, $"cascades[{index}].split", lastSplit);
+            }
+
+            node.Parameters.Set(Slot<Matrix4x4>(index, "viewProjection"), fitted ? parameters.Get(published) : default);
+            node.Parameters.Set(Slot<float>(index, "split"), lastSplit);
+
+            node.Parameters.Set(
+                Slot<float>(index, "depthScale"),
+                fitted ? Value(parameters, $"cascades[{index}].depthScale", 0f) : 0f
+            );
+        }
+
+        node.Parameters.Set(
+            VolumetricFogKeys.ShadowTexelSize,
+            Value(parameters, "shadowTexelSize", new Vector2(1f / 1024f, 1f / 1024f))
+        );
+
+        // ⚠ The scene pass's own biases, not this node's. A froxel and a wall are shadowed by the
+        // same atlas, and two constants would put the air's beam and the ground's shadow at
+        // different depths — visible as a shaft that does not meet the shadow it belongs to.
+        node.Parameters.Set(VolumetricFogKeys.ShadowConstantBias, Value(parameters, "shadowConstantBias", 0.008f));
+        node.Parameters.Set(VolumetricFogKeys.ShadowSlopeBias, Value(parameters, "shadowSlopeBias", 0.01f));
+        node.Parameters.Set(VolumetricFogKeys.ShadowFadeRange, Value(parameters, "shadowFadeRange", 10f));
+    }
+
+    /// <summary>One element of this shader's cascade array, by the name its plan expanded it to.</summary>
+    /// <remarks>
+    ///     ⚠ Built here rather than taken from <c>VolumetricFogKeys</c>, which has none: the
+    ///     generator emits <see cref="VolumetricFogCascadesElement" /> for writing a block directly
+    ///     and no keys for the elements. A compute node fills its block from parameters, so the keys
+    ///     have to exist — and the names are not a guess. <see cref="Effect.Parameters" /> holds one
+    ///     entry per array <em>element</em>, expanded from the reflection's single
+    ///     <c>cascades[].viewProjection</c> to <c>cascades[0]…[3]</c> at offset plus index times
+    ///     stride, which is exactly what these spell.
+    /// </remarks>
+    static ParameterKey<T> Slot<T>(string index, string member) =>
+        ParameterKeys.New<T>($"VolumetricFog.cascades[{index}].{member}");
+
+    /// <summary>One published scalar, under the shading pass's qualified name.</summary>
+    float Value(ParameterCollection parameters, string name, float fallback) {
+        var key = ParameterKeys.New<float>($"{ScenePass}.{name}");
+
+        return parameters.Has(key) ? parameters.Get(key) : fallback;
+    }
+
+    /// <summary>And one published vector, on the same terms.</summary>
+    Vector2 Value(ParameterCollection parameters, string name, Vector2 fallback) {
+        var key = ParameterKeys.New<Vector2>($"{ScenePass}.{name}");
+
+        return parameters.Has(key) ? parameters.Get(key) : fallback;
     }
 
     /// <summary>

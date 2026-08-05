@@ -49,9 +49,15 @@ The simplest route is the tier. `!StandardFrame` emits the whole arrangement:
   quality: High
 ```
 
-`High` and `Epic` fill the volume; `Low` and `Medium` leave the analytic fog alone. See
-[Choosing how hard the frame works](render-quality.md) for the three knobs — `post.volumetricFog`,
-`post.volumetricSlices` and `post.volumetricFar` — and how a project overrides them.
+`High` and `Epic` fill the volume and shadow it; `Low` and `Medium` leave the analytic fog alone. See
+[Choosing how hard the frame works](render-quality.md) for the four knobs — `post.volumetricFog`,
+`post.volumetricShadows`, `post.volumetricSlices` and `post.volumetricFar` — and how a project
+overrides them.
+
+⚠ `post.volumetricShadows` is the one to reach for when the feature costs too much before dropping
+`post.volumetricFog` altogether — but understand what you are keeping. Off, the volume is still
+filled and still composited, and what goes is the beams. That is a defensible trade only where the
+slice count is already low; otherwise it is paying for the marching and not for the reason to march.
 
 Authored by hand, it is two nodes:
 
@@ -95,6 +101,56 @@ about four metres — which is the right shape, because a beam's edge is somethi
 a hundred metres of haze is something you see the average of. Stretch the same sixty-four slices over
 a kilometre and the near slices become metres deep, which is coarse enough that a shadow edge
 crossing the volume reads as a staircase.
+
+### Shadowed in-scatter, which is the point
+
+Fog that no shadow falls through is a glow. It is brighter toward the sun and it thins with altitude,
+and both of those the analytic falloff already did for a fraction of the price. A *beam* is the
+absence of light behind a caster, and nothing derivable from a pixel's distance and height can
+produce one — so the lighting pass asks, per froxel, whether the sun reaches it.
+
+**It turns itself on.** There is no knob for the atlas. The pass looks for two things and uses them
+if the frame has both:
+
+| What it needs        | Who provides it in the standard frame                                  |
+| -------------------- | ---------------------------------------------------------------------- |
+| A cascade atlas      | The `Sun` node — the `shadows: Cascades` line                           |
+| The cascade matrices | The scene pass publishes them under its own name (`ForwardPlus`)        |
+
+Either alone is useless: an atlas with no matrices cannot be projected into, and matrices with no
+atlas have nothing to sample. A frame missing either fills the volume unshadowed, which is a real
+answer rather than a failure — the height gradient and the phase peak are still worth marching.
+
+⚠ **A hand-authored frame that renames things must say so.** `shadowAtlas:` and `scenePass:` on the
+node are how; the defaults match what the standard frame emits. A name the frame never declared is
+indistinguishable from a frame with no sun, so the fog goes quietly unshadowed.
+
+The cascade *selection* is shared with the ground's lit path rather than restated — containment
+rather than depth, the two-column atlas fold, the blend across the last tenth of a cascade, the fade
+at the shadow distance. A froxel that picked its cascade by a second copy of that rule would shadow
+the air on one side of the terrain boundary and the ground on the other.
+
+#### What it costs
+
+The tap is a 3×3 filter, and a froxel near a cascade edge blends two cascades — so up to eighteen
+depth comparisons per froxel, against one grid of 160 × 90 × slices. At sixty-four slices that is
+about 0.9 M froxels, and it is the dominant cost of the whole feature by a wide margin: the injection
+and the march are each one cheap pass over the same grid.
+
+The levers, cheapest first:
+
+- **`slices`.** Cost is linear in it and so is the shadow work. Dropping 64 → 32 halves it.
+- **`far`.** Does not change the cost at all — it changes where the resolution is spent. Free.
+- **Grid width and height** are fixed at 160 × 90 and deliberately not tiered. The volume is
+  filtered in all three axes on the way out and is reprojected in its own space, so its screen
+  resolution is not what the eye reads — a shaft's edge comes from the *slice* boundary crossing a
+  shadow edge, which is the depth axis. Widening the grid spends memory and bandwidth on a sharpness
+  the composite's trilinear read immediately gives back.
+
+⚠ A froxel has no surface normal, so the slope bias and the normal offset that a wall's shadow needs
+both vanish here — the air is biased by the constant term alone. This is not a simplification: a
+volume of air has no face to be oblique to and nothing to lift a sample off. The constant bias is the
+scene pass's own, deliberately, so the shaft and the shadow it belongs to meet.
 
 ### Where the passes run
 
@@ -173,8 +229,12 @@ priority of their own.
 1. `density` — how much there is. Everything else is shape.
 2. `far` — where the resolution is spent. See above.
 3. `phaseG` — 0 is an even glow, 0.7 is air, 0.9 is a searchlight beam.
-4. `ambientColour` — the floor the fog never goes below.
-5. `slices` — raise it if a shadow edge crossing the volume bands.
+4. `ambientColour` — the floor the fog never goes below. ⚠ Zero is not "no ambient", it is a valley
+   that goes black whenever the sun is behind the viewer: a phase function is normalised over the
+   sphere, so one directional light contributes almost nothing outside its forward peak. The
+   shadowing multiplies the sun's term only, for the same reason — shaded air still sees the sky.
+5. `slices` — raise it if a shadow edge crossing the volume bands, and lower it first if the feature
+   costs too much. It is the one knob that moves the shadow work.
 
 ## See also
 

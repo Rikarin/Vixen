@@ -1097,6 +1097,14 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             SunColour = declared.SunColour,
             PhaseG = declared.PhaseG,
             AmbientColour = declared.AmbientColour,
+            ShadowAtlas = declared.ShadowAtlas,
+            ScenePass = declared.ScenePass,
+            Shadows = declared.Shadows,
+
+            // ⚠ What the shadowing needs, and the only route to it: the cascades are not graph
+            // resources and do not travel on an edge. Without this the fog is unshadowed however
+            // many shadow nodes the document has.
+            Frame = builder.SceneConstants,
             Allocator = builder.Descriptors,
             Samplers = builder.Samplers,
             Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)

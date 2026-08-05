@@ -121,9 +121,155 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.35, 0.42, 0.55"
+            },
+            {
+              "Name": "inverseView",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cascades",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": 4,
+                "StructName": "ShadowCascade",
+                "IsMatrix": false,
+                "IsArray": true,
+                "IsStruct": true
+              },
+              "Offset": 128,
+              "Size": 320,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cascades[].viewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 128,
+              "Size": 64,
+              "ArrayStride": 80,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cascades[].split",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 192,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cascades[].depthScale",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 196,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shadowTexelSize",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 448,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1, 1"
+            },
+            {
+              "Name": "shadowConstantBias",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 456,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.008"
+            },
+            {
+              "Name": "shadowSlopeBias",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 460,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.01"
+            },
+            {
+              "Name": "shadowFadeRange",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 464,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "10"
             }
           ],
-          "Size": 64,
+          "Size": 480,
           "IsWritable": false
         },
         {
@@ -138,6 +284,16 @@
         },
         {
           "Binding": 2,
+          "Name": "shadowMap",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 3,
           "Name": "volumeSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -147,7 +303,17 @@
           "IsWritable": false
         },
         {
-          "Binding": 3,
+          "Binding": 4,
+          "Name": "shadowSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 5,
           "Name": "target",
           "Type": "StorageImage",
           "Count": 1,
@@ -211,6 +377,18 @@
         "IsStruct": false
       },
       "DefaultValue": "64"
+    },
+    {
+      "Name": "Shadowed",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
     }
   ],
   "ValueParameters": [],
@@ -340,6 +518,150 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "0.35, 0.42, 0.55"
+    },
+    {
+      "Name": "inverseView",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 64,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "cascades[].viewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 128,
+      "Size": 64,
+      "ArrayStride": 80,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "cascades[].split",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 192,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "cascades[].depthScale",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 196,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shadowTexelSize",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 448,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1, 1"
+    },
+    {
+      "Name": "shadowConstantBias",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 456,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.008"
+    },
+    {
+      "Name": "shadowSlopeBias",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 460,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.01"
+    },
+    {
+      "Name": "shadowFadeRange",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 464,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "10"
     }
   ],
   "RequiredCapabilities": [
@@ -351,7 +673,8 @@
     "GridX",
     "GridY",
     "GridZ",
-    "Pass"
+    "Pass",
+    "Shadowed"
   ],
   "Stages": [
     "Compute"
