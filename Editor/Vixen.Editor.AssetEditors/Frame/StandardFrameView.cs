@@ -417,13 +417,12 @@ public sealed class StandardFrameView : Control {
         }
 
         if (report.Volumes > report.Contributing) {
-            Line(
-                Summary,
-                "note",
-                $"{report.Volumes - report.Contributing} placed and not reaching: a zero weight, zero "
-                + "extents, a camera outside the blend radius, or a volume that says nothing.",
-                "warning"
-            );
+            // ⚠ Two short lines rather than one long one, and the reason is the panel's width: a
+            // sentence in this column wraps against the scroll content's width rather than the
+            // dock's, so a line past about sixty characters runs off the right edge mid-word. The
+            // cause list is the useful half and must not be the half that is cut.
+            Line(Summary, "note", $"{report.Volumes - report.Contributing} placed and not reaching.", "warning");
+            Line(Summary, "why", "Out of range, zero weight, zero extents, or says nothing.", "warning");
         }
 
         foreach (var parameter in report.Parameters) {
