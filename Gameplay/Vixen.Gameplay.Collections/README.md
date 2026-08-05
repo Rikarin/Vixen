@@ -112,10 +112,28 @@ perfectly real tag that nothing ever posts, and the kernel's empty-range trap ne
 `Compile` *can* catch is a criterion with no verb at all, and it does. Catching the other would need
 the composition's list of verbs anything actually posts, which nothing keeps yet.
 
+## Reading a wardrobe back
+
+`CollectionRecord.Restore` was always here. `Wardrobe.Seat` and `SeatTitle` are its other half, and
+the wardrobe's case is the interesting one: **unchecked here is not merely safe, it is right**.
+
+⚠ `Resolve` and `Worn` re-check the unlock every time they are asked, so an appearance a patch has
+taken back stops showing on its own — and if it is ever granted again, the player's choice is still
+there. Checking at load instead would throw that choice away for good. `Show` also wants a compiled
+`Collectible`, which is content this build may no longer have.
+
+⚠ **A slot must be stored by name and never by tag index.** A `GameplayTag` is an index into a
+pre-order walk of the build's tag tree, so adding one tag renumbers every tag after it — a wardrobe
+stored by index and read back on the next patch is a character whose helm override has silently
+become their boots. `Vixen.Live.Gameplay.WardrobeSection` is what does the naming.
+
 ## What is owed
 
 - **Account-wide durability.** Doc 28 puts collections in `Live.Progression.Cluster`; this is the
-  shape, and task **#27**'s bridge is where it becomes a row.
+  shape, and `IAccountGrain` is where it becomes a row. ⚠ The **wardrobe** is the half that is *not*
+  account-wide and it is built, as `Vixen.Live.Gameplay.WardrobeSection` — a mount earned on one
+  character is owned by all of them, but which of them is wearing it is one character's business, so
+  it goes in that character's profile and the unlocks do not.
 - **The appearance a worn item *has*.** `Resolve` answers in ids and never asks what an item looks
   like, which is why this library does not reference `Vixen.Gameplay.Items` even though the spine
   would allow it. Turning an id into a mesh is the renderer's.

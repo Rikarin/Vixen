@@ -236,6 +236,90 @@ public sealed class QuestJournal : IDisposable {
         return QuestRefusal.None;
     }
 
+    /// <summary>Everything they have finished with, in id order.</summary>
+    /// <remarks>Ordered, so two realms holding the same journal write the same bytes.</remarks>
+    public IEnumerable<KeyValuePair<DefId, QuestStatus>> History =>
+        history.OrderBy(pair => pair.Key).Select(pair => new KeyValuePair<DefId, QuestStatus>(new(pair.Key), pair.Value));
+
+    /// <summary>Puts a quest back on the journal with no checks at all.</summary>
+    /// <param name="quest">Which one.</param>
+    /// <param name="stage">Which stage they had reached.</param>
+    /// <param name="elapsed">How long they had been on it.</param>
+    /// <returns>The entry, or null when this build has no such quest.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="Accept" />, which asks the requirements.</b> A character who took
+    ///         a quest at level ten and logged out is not asked at level nine whether they may have
+    ///         it — and a patch that raised the requirement must not silently empty their journal on
+    ///         login. <c>Guild.Seat</c> and <c>HousePlot.Assign</c> are the same seam.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A quest this build does not have is refused rather than invented.</b> Unlike a
+    ///         profession's skill, a quest without a template has no stages, no objectives and no
+    ///         tags — there is nothing to hold. The codec above keeps the bytes, so a character who
+    ///         zones back to the build that has it finds the quest again.
+    ///     </para>
+    ///     <para>
+    ///         It builds the stage's tracker, so the caller seats the objective progress into
+    ///         <see cref="ActiveQuest.Tracker" /> afterwards. The tags the quest grants go on, because
+    ///         a restored journal whose tags are missing is a character every tag query answers wrong
+    ///         about.
+    ///     </para>
+    /// </remarks>
+    public ActiveQuest? Seat(DefId quest, int stage, float elapsed) {
+        if (Library.FindQuest(quest) is not { } template) {
+            return null;
+        }
+
+        if (active.TryGetValue(quest.Value, out var already)) {
+            already.Dispose();
+            active.Remove(quest.Value);
+        }
+
+        var entry = new ActiveQuest(template);
+
+        active[quest.Value] = entry;
+
+        foreach (var tag in template.GrantsTags) {
+            tags.Add(tag);
+        }
+
+        Begin(entry, Math.Clamp(stage, 0, Math.Max(0, template.Stages.Length - 1)));
+        entry.Elapsed = Math.Max(0f, elapsed);
+
+        return entry;
+    }
+
+    /// <summary>Puts a finished quest back in the history with no checks. The authority's, like <see cref="Seat" />.</summary>
+    /// <param name="quest">Which one.</param>
+    /// <param name="status">How it ended.</param>
+    /// <remarks>
+    ///     ⚠ <b>Kept even when this build has no such quest</b>, because history is what
+    ///     <see cref="QuestRepeat.Once" /> reads and losing it lets a character take a one-off quest
+    ///     a second time. That is the opposite trade from <see cref="Seat" /> and for the opposite
+    ///     reason: an id is all history needs.
+    /// </remarks>
+    public void SeatHistory(DefId quest, QuestStatus status) {
+        if (quest.IsSome) {
+            history[quest.Value] = status;
+        }
+    }
+
+    /// <summary>Says a restored quest was already finished but not handed in.</summary>
+    /// <param name="entry">Which one, from <see cref="Seat" />.</param>
+    /// <remarks>
+    ///     Separate from <see cref="Seat" /> because it has to happen <em>after</em> the objective
+    ///     progress is seated: <see cref="Seat" /> begins the stage, and a stage begins
+    ///     <see cref="QuestStatus.Active" />.
+    /// </remarks>
+    public static void SeatReady(ActiveQuest entry) {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        entry.Tracker?.Dispose();
+        entry.Tracker = null;
+        entry.Status = QuestStatus.ReadyToTurnIn;
+    }
+
     /// <summary>Gives a quest up, dropping its progress and its tags.</summary>
     /// <param name="quest">Which one.</param>
     /// <returns>Whether it was on the journal.</returns>

@@ -112,10 +112,51 @@ public sealed class ObjectiveTracker : IDisposable {
     public int ProgressOf(int index) =>
         (uint)index < (uint)progress.Length ? Math.Min((int)progress[index], required[index]) : 0;
 
+    /// <summary>How far along an objective is, unrounded.</summary>
+    /// <param name="index">Which one.</param>
+    /// <returns>The raw progress.</returns>
+    /// <remarks>
+    ///     ⚠ <b>What storage keeps, where <see cref="ProgressOf" /> is what a UI shows.</b> A timed
+    ///     objective's progress is seconds and is fractional, and truncating it on every save loses
+    ///     the fraction every time — so a player who logs in and out often enough makes no headway on
+    ///     a survival objective at all.
+    /// </remarks>
+    public float Exact(int index) => (uint)index < (uint)progress.Length ? progress[index] : 0f;
+
     /// <summary>How much an objective needs.</summary>
     /// <param name="index">Which one.</param>
     /// <returns>The count, scaled.</returns>
     public int RequiredOf(int index) => (uint)index < (uint)required.Length ? required[index] : 0;
+
+    /// <summary>Puts an objective's progress back with no checks and no events.</summary>
+    /// <param name="index">Which one.</param>
+    /// <param name="progress">How far, from <see cref="Exact" />.</param>
+    /// <param name="completed">Whether it is finished.</param>
+    /// <returns>Whether there is such an objective.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Silent, which is the whole point.</b> Replaying the events that made this progress
+    ///     would run every subscriber again — the quest would announce each objective completing, the
+    ///     stage would settle, and a reward chain would fire a second time. <c>Guild.Seat</c> and
+    ///     <c>HousePlot.Assign</c> are the same seam.
+    /// </remarks>
+    public bool Seat(int index, float progress, bool completed) {
+        if ((uint)index >= (uint)this.progress.Length) {
+            return false;
+        }
+
+        this.progress[index] = progress;
+        this.completed[index] = completed;
+
+        return true;
+    }
+
+    /// <summary>Puts a failure back with no checks and no events.</summary>
+    /// <param name="failed">Whether it had failed.</param>
+    /// <param name="objective">Which objective was to blame, or −1.</param>
+    public void SeatFailure(bool failed, int objective = -1) {
+        IsFailed = failed;
+        FailedBy = failed ? objective : -1;
+    }
 
     /// <summary>Whether an objective is finished.</summary>
     /// <param name="index">Which one.</param>

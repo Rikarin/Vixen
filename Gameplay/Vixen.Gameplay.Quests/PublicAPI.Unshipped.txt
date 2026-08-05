@@ -174,6 +174,7 @@ Vixen.Gameplay.Quests.ObjectiveTracker : System.IDisposable
 Vixen.Gameplay.Quests.ObjectiveTracker.Advanced -> System.Action<Vixen.Gameplay.Quests.ObjectiveAdvance>?
 Vixen.Gameplay.Quests.ObjectiveTracker.Count.get -> int
 Vixen.Gameplay.Quests.ObjectiveTracker.Dispose() -> void
+Vixen.Gameplay.Quests.ObjectiveTracker.Exact(int index) -> float
 Vixen.Gameplay.Quests.ObjectiveTracker.Fail(int objective = -1) -> bool
 Vixen.Gameplay.Quests.ObjectiveTracker.Failed -> System.Action<int>?
 Vixen.Gameplay.Quests.ObjectiveTracker.FailedBy.get -> int
@@ -186,6 +187,8 @@ Vixen.Gameplay.Quests.ObjectiveTracker.ProgressOf(int index) -> int
 Vixen.Gameplay.Quests.ObjectiveTracker.RequiredCount.get -> int
 Vixen.Gameplay.Quests.ObjectiveTracker.RequiredOf(int index) -> int
 Vixen.Gameplay.Quests.ObjectiveTracker.Rescale(float scale) -> int
+Vixen.Gameplay.Quests.ObjectiveTracker.Seat(int index, float progress, bool completed) -> bool
+Vixen.Gameplay.Quests.ObjectiveTracker.SeatFailure(bool failed, int objective = -1) -> void
 Vixen.Gameplay.Quests.ObjectiveTracker.Tick(float delta) -> int
 Vixen.Gameplay.Quests.QuestChange -> readonly struct
 Vixen.Gameplay.Quests.QuestChange : System.IEquatable<Vixen.Gameplay.Quests.QuestChange>
@@ -250,9 +253,12 @@ Vixen.Gameplay.Quests.QuestJournal.Count.get -> int
 Vixen.Gameplay.Quests.QuestJournal.Dispose() -> void
 Vixen.Gameplay.Quests.QuestJournal.Fail(Vixen.Gameplay.DefId quest) -> bool
 Vixen.Gameplay.Quests.QuestJournal.Find(Vixen.Gameplay.DefId quest) -> Vixen.Gameplay.Quests.ActiveQuest?
+Vixen.Gameplay.Quests.QuestJournal.History.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Vixen.Gameplay.DefId, Vixen.Gameplay.Quests.QuestStatus>>
 Vixen.Gameplay.Quests.QuestJournal.Library.get -> Vixen.Gameplay.Quests.QuestLibrary
 Vixen.Gameplay.Quests.QuestJournal.Owner.get -> Vixen.Gameplay.PlayerId
 Vixen.Gameplay.Quests.QuestJournal.QuestJournal(Vixen.Gameplay.Quests.QuestLibrary library, Vixen.Gameplay.GameplayEventBus bus, Vixen.Gameplay.PlayerId owner = default(Vixen.Gameplay.PlayerId), Vixen.Gameplay.IRequirementContext? context = null, Vixen.Gameplay.GameplayTagSet? tags = null) -> void
+Vixen.Gameplay.Quests.QuestJournal.Seat(Vixen.Gameplay.DefId quest, int stage, float elapsed) -> Vixen.Gameplay.Quests.ActiveQuest?
+Vixen.Gameplay.Quests.QuestJournal.SeatHistory(Vixen.Gameplay.DefId quest, Vixen.Gameplay.Quests.QuestStatus status) -> void
 Vixen.Gameplay.Quests.QuestJournal.StatusOf(Vixen.Gameplay.DefId quest) -> Vixen.Gameplay.Quests.QuestStatus
 Vixen.Gameplay.Quests.QuestJournal.Tags.get -> Vixen.Gameplay.GameplayTagSet
 Vixen.Gameplay.Quests.QuestJournal.Tick(float delta) -> int
@@ -444,6 +450,7 @@ const Vixen.Gameplay.Quests.QuestVerbs.Root = "Event" -> string
 const Vixen.Gameplay.Quests.QuestVerbs.Spend = "Event.Spend" -> string
 override Vixen.Gameplay.Quests.DynamicEventDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
 override Vixen.Gameplay.Quests.QuestDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Quests.QuestJournal.SeatReady(Vixen.Gameplay.Quests.ActiveQuest entry) -> void
 static Vixen.Gameplay.Quests.QuestLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog, Vixen.Gameplay.Quests.QuestObjectiveRegistry? objectives = null) -> Vixen.Gameplay.Quests.QuestLibrary
 static Vixen.Gameplay.Quests.QuestLibrary.Empty.get -> Vixen.Gameplay.Quests.QuestLibrary
 static Vixen.Gameplay.Quests.QuestObjectiveRegistry.Default.get -> Vixen.Gameplay.Quests.QuestObjectiveRegistry

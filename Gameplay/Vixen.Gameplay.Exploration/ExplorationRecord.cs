@@ -139,6 +139,55 @@ public sealed class ExplorationRecord {
         return true;
     }
 
+    /// <summary>Everything they have found on a map, in index order.</summary>
+    /// <param name="map">Which map.</param>
+    /// <returns>The indices. Ordered, so two realms holding the same record write the same bytes.</returns>
+    public IEnumerable<int> PointsOn(MapChart map) {
+        ArgumentNullException.ThrowIfNull(map);
+
+        return found.TryGetValue(map.Id.Value, out var set) ? set.Order() : [];
+    }
+
+    /// <summary>Puts a discovery back with no requirements and no announcement.</summary>
+    /// <param name="map">Which map.</param>
+    /// <param name="point">Which point, by index.</param>
+    /// <returns>Whether it was new to them.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="Discover" /> with a null context, which is the near-miss.</b> That
+    ///         skips the requirements but still raises <see cref="Found" /> and
+    ///         <see cref="Completed" /> — so a character logging in gets a toast for every landmark
+    ///         they have ever visited, and the map-complete fanfare again.
+    ///     </para>
+    ///     <para>
+    ///         The tags still go on, because a restored record whose tags are missing is a character
+    ///         every tag query answers wrong about. <c>Guild.Seat</c> and <c>HousePlot.Assign</c> are
+    ///         the same seam for the same reason.
+    ///     </para>
+    /// </remarks>
+    public bool Seat(MapChart map, int point) {
+        ArgumentNullException.ThrowIfNull(map);
+
+        if (!found.TryGetValue(map.Id.Value, out var set)) {
+            set = [];
+            found.Add(map.Id.Value, set);
+        }
+
+        if (!set.Add(point)) {
+            return false;
+        }
+
+        if ((uint)point < (uint)map.Points.Length && map.Points[point].Tag.IsSome) {
+            Tags.Add(map.Points[point].Tag);
+        }
+
+        if (map.Tag.IsSome && IsComplete(map)) {
+            Tags.Add(map.Tag);
+        }
+
+        return true;
+    }
+
     /// <summary>Whether a cell of the fog has been lifted.</summary>
     /// <param name="map">Which map.</param>
     /// <param name="column">Which column.</param>

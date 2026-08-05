@@ -828,6 +828,18 @@ item instance, which is one field and one visual-resolution rule.
 > [`.Collections`](../../Gameplay/Vixen.Gameplay.Collections/README.md) — **G8**, 72 tests. Four
 > findings.
 >
+> **Extended by #39, which found that this seam is the fifth of five.** `HousePlot.Assign` is not a
+> housing quirk — every library holding durable per-character state needs the same door, because the
+> methods that *make* the state are all wrong for reading it back. `ProgressionState.Seat` (and
+> `SeatSkill`, `SeatStanding`, `SeatTalents`, `SeatSpecialisation`), `QuestJournal.Seat`,
+> `ObjectiveTracker.Seat`, `ExplorationRecord.Seat`, `Wardrobe.Seat` and `Guild.Seat` all landed with
+> the same reasoning, and each of them was justified by a *specific* failure the rules would cause on
+> login rather than by symmetry — `SetLevel` zeroing the experience towards the next level, `Allocate`
+> wiping a build a patch made illegal with no refund, `Accept` re-asking a quest's requirements, and
+> `Discover` toasting every landmark the character has ever visited. The general rule is worth writing
+> down here: **a durable object's rules are for the transition and never for the state, and a library
+> that only offers the transition cannot be persisted.**
+>
 > **The hibernation claim is a claim about the API, and it is now enforceable by reading it.** "Ten
 > thousand houses are ten thousand rows, not ten thousand processes" only holds if a plot has nothing
 > that must keep running — so *no method in either library takes a `now`*. There is no timer, no decay

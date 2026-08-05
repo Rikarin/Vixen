@@ -79,6 +79,26 @@ library that depended on containers would make a game with no items unable to ha
 banking it would mean a cap raised in a patch instantly levelling everybody who had been grinding at
 the old one, which is a decision a game makes deliberately or not at all.
 
+## Reading a character back
+
+`Seat`, `SeatSkill`, `SeatStanding`, `SeatTalents` and `SeatSpecialisation` are the unchecked door
+storage comes in through, and `HousePlot.Assign` is the precedent. Each exists for a specific failure
+the checked path causes on login rather than for symmetry:
+
+⚠ **`SetLevel` zeroes the experience.** That is right for a boost and wrong for a load — restoring
+with it throws away everything earned towards the next level, every single time.
+
+⚠ **`Allocate` re-validates the build.** A patch that moves a node's prerequisite would silently wipe
+every character who had taken it, on login, with no refund and no message. A game that wants them
+respecced does it as a migration that also gives the points back.
+
+⚠ **`Train` clamps to today's cap.** Clamping on load makes a patch that lowers one destroy the
+difference for everybody permanently; the next `Train` clamps, which is late enough to be reversible.
+A skill in a profession this build has never heard of is kept for the same reason.
+
+`Skills`, `Standings` and `Allocations` are the way back out, in id order so two realms holding the
+same character write the same bytes.
+
 ## What is owed
 
 - **Quests**, which are G3's other half and where most of the XP comes from.

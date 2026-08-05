@@ -4,7 +4,7 @@ slug: live/gameplay-bridge
 kind: guide
 area: Live
 summary: Where doc 28's rules meet doc 27's storage — the third player identity, and four views that answer in the frame and write down afterwards without ever awaiting a grain.
-api: [T:Vixen.Live.Gameplay.IGameplayIdentity, T:Vixen.Live.Gameplay.GameplayIdentityMap, T:Vixen.Live.Gameplay.LedgerBridge, T:Vixen.Live.Gameplay.PendingWrite, T:Vixen.Live.Gameplay.BridgeRefusal, T:Vixen.Live.Gameplay.LockoutBridge, T:Vixen.Live.Gameplay.PendingLockout, T:Vixen.Live.Gameplay.SocialBridge, T:Vixen.Live.Gameplay.GuildEdit, T:Vixen.Live.Gameplay.GuildEditKind, T:Vixen.Live.Gameplay.PendingGraph, T:Vixen.Live.Gameplay.SocialLink, T:Vixen.Live.Gameplay.PlayerProfile, T:Vixen.Live.Gameplay.ProfileSectionId, T:Vixen.Live.Gameplay.ProfileSections, T:Vixen.Live.Gameplay.IProfileSection, T:Vixen.Live.Gameplay.ProfileBinder, T:Vixen.Live.Gameplay.ProfileFormatException, T:Vixen.Live.Gameplay.CheckpointPolicy, T:Vixen.Live.Gameplay.CheckpointReason, T:Vixen.Live.Gameplay.ProfilePityStore]
+api: [T:Vixen.Live.Gameplay.IGameplayIdentity, T:Vixen.Live.Gameplay.GameplayIdentityMap, T:Vixen.Live.Gameplay.LedgerBridge, T:Vixen.Live.Gameplay.PendingWrite, T:Vixen.Live.Gameplay.BridgeRefusal, T:Vixen.Live.Gameplay.LockoutBridge, T:Vixen.Live.Gameplay.PendingLockout, T:Vixen.Live.Gameplay.SocialBridge, T:Vixen.Live.Gameplay.GuildEdit, T:Vixen.Live.Gameplay.GuildEditKind, T:Vixen.Live.Gameplay.PendingGraph, T:Vixen.Live.Gameplay.SocialLink, T:Vixen.Live.Gameplay.PlayerProfile, T:Vixen.Live.Gameplay.ProfileSectionId, T:Vixen.Live.Gameplay.ProfileSections, T:Vixen.Live.Gameplay.IProfileSection, T:Vixen.Live.Gameplay.ProfileBinder, T:Vixen.Live.Gameplay.ProfileFormatException, T:Vixen.Live.Gameplay.CheckpointPolicy, T:Vixen.Live.Gameplay.CheckpointReason, T:Vixen.Live.Gameplay.ProfilePityStore, T:Vixen.Live.Gameplay.ProgressionSection, T:Vixen.Live.Gameplay.QuestSection, T:Vixen.Live.Gameplay.ExplorationSection, T:Vixen.Live.Gameplay.WardrobeSection]
 tags: [live, mmo, gameplay, persistence, ledger, guild, lockout, profile]
 since: 0.1
 status: preview
@@ -27,6 +27,7 @@ It is five things:
 | `LockoutBridge` | Doc 28's `ILockoutStore` over the fleet-wide `IInstanceGrain`. |
 | `SocialBridge` | Doc 28's `ISocialStore` over `IGuildGrain`, and friends and blocks. |
 | `PlayerProfile` · `CheckpointPolicy` | `PlayerRecord.Profile` given a shape, and when it is written. |
+| `ProgressionSection` · `QuestSection` · `ExplorationSection` · `WardrobeSection` · `ProfilePityStore` | The five codecs that fill it. |
 
 ## What it is for
 
@@ -179,8 +180,11 @@ preserved.
 
 ```csharp no-compile="what a game's composition root does once"
 var binder = new ProfileBinder()
-    .Add(pity)
-    .Add(questJournal);
+    .Add(new ProgressionSection(progression, checkpoint))
+    .Add(new QuestSection(journal, checkpoint))
+    .Add(new ExplorationSection(exploration, checkpoint))
+    .Add(new WardrobeSection(wardrobe, catalog.Tags, checkpoint))
+    .Add(new ProfilePityStore(checkpoint));
 
 binder.Load(PlayerProfile.Read(record.Profile));
 ```
@@ -188,6 +192,38 @@ binder.Load(PlayerProfile.Read(record.Profile));
 ⚠ **Two sections claiming one id are refused rather than last-wins.** Section names are hashed, so a
 collision is possible; one section silently reading the other's bytes presents as a character whose
 quests are full of somebody else's fog.
+
+Five are shipped: `ProgressionSection`, `QuestSection`, `ExplorationSection`, `WardrobeSection` and
+`ProfilePityStore`. Each one loads through a **seating** method on its gameplay object rather than
+through the rules that made the state, and every one of those seams was added for a failure the
+rules would otherwise cause on login:
+
+| Codec | What replaying the rules would do |
+|---|---|
+| `ProgressionSection` | `SetLevel` zeroes the experience towards the next level — **every login**. |
+| `ProgressionSection` | `Allocate` re-validates a talent build, so a patch that moved a prerequisite wipes it with no refund and no message. |
+| `ProgressionSection` | `Train` clamps to today's cap, so a patch that lowers one destroys the difference permanently — where the next `Train` clamps late enough to be reversible. |
+| `QuestSection` | `Accept` asks the requirements, so a character who took a quest at level ten is asked again at level nine. |
+| `QuestSection` | Replaying the objective advances announces every objective again and fires a reward chain twice. |
+| `ExplorationSection` | `Discover` with a null context skips the requirements and *still* raises `Found` — a toast for every landmark ever visited, plus the map-complete fanfare. |
+| `WardrobeSection` | `Show` refuses an appearance that has since been taken back, throwing the player's choice away for good. |
+
+Two rules about **what a codec may write down** are worth reading together, because they are the
+same rule:
+
+⚠ **Nothing build-scoped goes in the bytes.** A `GameplayTag` is an index into a pre-order walk of
+the tag tree, so *adding one tag renumbers every tag after it* — `WardrobeSection` therefore writes
+slot **names**. A gameplay `PlayerId` is a session id widened, so `ProfilePityStore` writes only the
+loot table: a profile already names the character, and keeping the id would mean every lookup missing
+after a transfer with the rows still sitting in the profile. A `DefId` is safe in both places,
+because it is a hash of an address rather than a position in a table.
+
+⚠ **What this build does not understand is preserved, section by section and entry by entry.** A
+profession or a talent tree with no definition here is carried through; a quest's *history* is kept
+for a quest this build has lost, because history is what `QuestRepeat.Once` reads and an id is all it
+needs. The one deliberate exception is an *active* quest with no template: it has no stages, no
+objectives and no tags, so there is nothing to hold — the bytes stay in the profile and it comes back
+on a build that knows it.
 
 ### The checkpoint
 

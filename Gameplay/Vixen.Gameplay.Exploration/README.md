@@ -57,6 +57,19 @@ finding it.
 A four-thousand-square grid is sixteen million bits per character per map. `Compile` reports anything
 over a million cells rather than letting it reach a save file.
 
+## Reading a record back
+
+`Seat` and `PointsOn` are the unchecked door, and the near-miss is worth naming: **`Discover` with a
+null context is not a restore**. It skips the requirements and still raises `Found` and `Completed`,
+so a character logging in gets a toast for every landmark they have ever visited and the map-complete
+fanfare again. `Seat` is silent — but it still applies the tags, because a restored record whose tags
+are missing is a character every tag query answers wrong about.
+
+`FogOf` and `RestoreFog` were already the pair for the bitmap. ⚠ **`RestoreFog` refuses a bitmap of
+the wrong size and that refusal is load-bearing**: a bitmap read into a grid of a different width is
+not visibly wrong, it is an explored map that has quietly become diagonal stripes. Losing one map's
+fog on the patch that resized it is the honest outcome.
+
 ## What is owed
 
 - **A vista's "you have to climb here" rule**, which is a scene question — `PointKind.Vista` is
@@ -64,4 +77,4 @@ over a million cells rather than letting it reach a save file.
 - **Account-wide discovery.** Doc 28 puts collections in `Live.Progression.Cluster` and a map is
   per character today; whether finding a landmark on one character reveals it on another is a game's
   decision and nothing here makes it.
-- **Durability**, on the same terms as everything else: task **#27**'s bridge.
+- ~~**Durability**~~, on the same terms as everything else: built, as `Vixen.Live.Gameplay.ExplorationSection`.

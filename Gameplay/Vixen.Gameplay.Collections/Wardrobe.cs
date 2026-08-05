@@ -71,6 +71,47 @@ public sealed class Wardrobe {
         return true;
     }
 
+    /// <summary>Puts a slot's override back with no checks at all.</summary>
+    /// <param name="slot">Which slot.</param>
+    /// <param name="appearance">What it is shown as. <see cref="DefId.None" /> takes the override off.</param>
+    /// <returns>Whether anything moved.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Unchecked, and here that is not merely safe but <em>right</em>.</b>
+    ///         <see cref="Resolve" /> already re-checks the unlock every time it draws, so an
+    ///         appearance a patch has taken back falls through to the worn item on its own. Checking
+    ///         again at load would throw the player's choice away permanently, where leaving it
+    ///         stored means a re-granted appearance simply starts showing again.
+    ///     </para>
+    ///     <para>
+    ///         It is <c>Guild.Seat</c>'s and <c>HousePlot.Assign</c>'s seam otherwise:
+    ///         <see cref="Show" /> is what a player does and it wants a compiled
+    ///         <see cref="Collectible" />, which is content this build may no longer have.
+    ///     </para>
+    /// </remarks>
+    public bool Seat(GameplayTag slot, DefId appearance) {
+        if (!slot.IsSome) {
+            return false;
+        }
+
+        if (!appearance.IsSome) {
+            return overrides.Remove(slot);
+        }
+
+        if (overrides.TryGetValue(slot, out var already) && already == appearance) {
+            return false;
+        }
+
+        overrides[slot] = appearance;
+
+        return true;
+    }
+
+    /// <summary>Puts the worn title back without asking whether they still have it.</summary>
+    /// <param name="title">Which, or <see cref="DefId.None" /> for none.</param>
+    /// <remarks>⚠ <see cref="Worn" /> re-checks it every time, which is why this does not have to.</remarks>
+    public void SeatTitle(DefId title) => Title = title;
+
     /// <summary>Stops showing one slot as something else.</summary>
     /// <param name="slot">Which slot.</param>
     /// <returns>Whether there was an override.</returns>

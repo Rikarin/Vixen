@@ -66,6 +66,7 @@ Vixen.Gameplay.Progression.ProgressionState -> sealed class
 Vixen.Gameplay.Progression.ProgressionState : Vixen.Gameplay.IRequirementContext
 Vixen.Gameplay.Progression.ProgressionState.Allocate(Vixen.Gameplay.DefId tree, Vixen.Gameplay.Progression.TalentAllocation allocation) -> Vixen.Gameplay.Progression.TalentVerdict
 Vixen.Gameplay.Progression.ProgressionState.AllocationIn(Vixen.Gameplay.DefId tree) -> Vixen.Gameplay.Progression.TalentAllocation
+Vixen.Gameplay.Progression.ProgressionState.Allocations.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Vixen.Gameplay.DefId, Vixen.Gameplay.Progression.TalentAllocation>>
 Vixen.Gameplay.Progression.ProgressionState.Award(int experience) -> Vixen.Gameplay.Progression.ExperienceGain
 Vixen.Gameplay.Progression.ProgressionState.Earn(Vixen.Gameplay.DefId faction, int amount) -> int
 Vixen.Gameplay.Progression.ProgressionState.Experience.get -> int
@@ -76,11 +77,18 @@ Vixen.Gameplay.Progression.ProgressionState.Level.get -> int
 Vixen.Gameplay.Progression.ProgressionState.Library.get -> Vixen.Gameplay.Progression.ProgressionLibrary
 Vixen.Gameplay.Progression.ProgressionState.Modifiers(Vixen.Gameplay.ModifierSource source, System.Collections.Generic.ICollection<Vixen.Gameplay.Modifier> into) -> int
 Vixen.Gameplay.Progression.ProgressionState.ProgressionState(Vixen.Gameplay.Progression.ProgressionLibrary library) -> void
+Vixen.Gameplay.Progression.ProgressionState.Seat(int level, int experience, long total) -> void
+Vixen.Gameplay.Progression.ProgressionState.SeatSkill(Vixen.Gameplay.DefId profession, int skill) -> void
+Vixen.Gameplay.Progression.ProgressionState.SeatSpecialisation(Vixen.Gameplay.DefId specialisation) -> void
+Vixen.Gameplay.Progression.ProgressionState.SeatStanding(Vixen.Gameplay.DefId faction, int standing) -> void
+Vixen.Gameplay.Progression.ProgressionState.SeatTalents(Vixen.Gameplay.DefId tree, Vixen.Gameplay.Progression.TalentAllocation allocation) -> void
 Vixen.Gameplay.Progression.ProgressionState.SetLevel(int level) -> void
 Vixen.Gameplay.Progression.ProgressionState.SkillIn(Vixen.Gameplay.DefId profession) -> int
+Vixen.Gameplay.Progression.ProgressionState.Skills.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Vixen.Gameplay.DefId, int>>
 Vixen.Gameplay.Progression.ProgressionState.Specialisation.get -> Vixen.Gameplay.DefId
 Vixen.Gameplay.Progression.ProgressionState.Specialise(Vixen.Gameplay.DefId specialisation) -> bool
 Vixen.Gameplay.Progression.ProgressionState.StandingWith(Vixen.Gameplay.DefId faction) -> int
+Vixen.Gameplay.Progression.ProgressionState.Standings.get -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Vixen.Gameplay.DefId, int>>
 Vixen.Gameplay.Progression.ProgressionState.Tags.get -> Vixen.Gameplay.GameplayTagSet
 Vixen.Gameplay.Progression.ProgressionState.TalentPoints.get -> int
 Vixen.Gameplay.Progression.ProgressionState.TalentPoints.set -> int

@@ -134,6 +134,100 @@ public sealed class ProgressionState : IRequirementContext {
         Refresh();
     }
 
+    /// <summary>Puts a level back exactly as it was, with no checks and nothing zeroed.</summary>
+    /// <param name="level">Their level.</param>
+    /// <param name="experience">How far into it they are.</param>
+    /// <param name="total">How much they have earned in all.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="SetLevel" />, which zeroes the experience.</b> That is right for a
+    ///         boost and wrong for a load: restoring a character with <see cref="SetLevel" /> throws
+    ///         away everything they had earned towards the next one, every single login. This is the
+    ///         seam <c>Guild.Seat</c> and <c>HousePlot.Assign</c> are, one library over.
+    ///     </para>
+    ///     <para>
+    ///         The level is still clamped to the curve, because a curve whose maximum a patch lowered
+    ///         would otherwise leave characters above a cap that every other rule reads as impossible.
+    ///         The experience is not, because it is spent by the next <see cref="Award" /> anyway.
+    ///     </para>
+    /// </remarks>
+    public void Seat(int level, int experience, long total) {
+        Level = Math.Clamp(level, 1, Library.Curve.MaximumLevel);
+        Experience = Math.Max(0, experience);
+        TotalExperience = Math.Max(0, total);
+        Refresh();
+    }
+
+    /// <summary>Puts a profession's skill back with no checks. The authority's, like <see cref="Seat" />.</summary>
+    /// <param name="profession">Which one.</param>
+    /// <param name="skill">How much.</param>
+    /// <remarks>
+    ///     ⚠ <b>Not clamped to the track, and not dropped when this build has no such profession.</b>
+    ///     Clamping on load makes a patch that lowers a cap destroy the difference for everybody the
+    ///     first time they log in — and reverting the patch does not bring it back. The next
+    ///     <see cref="Train" /> clamps, which is late enough to be reversible. Dropping an unknown
+    ///     profession is the same mistake the profile container refuses to make about a section it
+    ///     does not recognise.
+    /// </remarks>
+    public void SeatSkill(DefId profession, int skill) {
+        if (profession.IsSome) {
+            professions[profession.Value] = skill;
+            Refresh();
+        }
+    }
+
+    /// <summary>Puts a faction standing back with no checks. The authority's, like <see cref="Seat" />.</summary>
+    /// <param name="faction">Which one.</param>
+    /// <param name="standing">How much.</param>
+    public void SeatStanding(DefId faction, int standing) {
+        if (faction.IsSome) {
+            reputations[faction.Value] = standing;
+            Refresh();
+        }
+    }
+
+    /// <summary>Puts a talent allocation back with no validation at all.</summary>
+    /// <param name="tree">Which tree.</param>
+    /// <param name="allocation">What they had taken.</param>
+    /// <remarks>
+    ///     ⚠ <b>Deliberately not <see cref="Allocate" />, and this is the one where the difference
+    ///     hurts most.</b> Re-validating a saved build against today's tree means a patch that moved a
+    ///     node's prerequisite silently wipes every character who had taken it — on login, with no
+    ///     refund and no message. A game that wants those characters respecced does it on purpose, as
+    ///     a migration that also gives the points back.
+    /// </remarks>
+    public void SeatTalents(DefId tree, TalentAllocation allocation) {
+        ArgumentNullException.ThrowIfNull(allocation);
+
+        if (tree.IsSome) {
+            talents[tree.Value] = allocation.Copy();
+            Refresh();
+        }
+    }
+
+    /// <summary>Puts a specialisation back without asking whether they would still qualify.</summary>
+    /// <param name="specialisation">Which one.</param>
+    /// <remarks>⚠ <see cref="SeatTalents" />' reason: a requirement a patch tightened is not a reason to un-specialise somebody.</remarks>
+    public void SeatSpecialisation(DefId specialisation) {
+        Specialisation = specialisation;
+        Refresh();
+    }
+
+    /// <summary>Every profession they have any skill in, in id order.</summary>
+    /// <remarks>Ordered, so two realms holding the same character write the same bytes.</remarks>
+    public IEnumerable<KeyValuePair<DefId, int>> Skills =>
+        professions.OrderBy(pair => pair.Key).Select(pair => new KeyValuePair<DefId, int>(new(pair.Key), pair.Value));
+
+    /// <summary>Every faction they have any standing with, in id order.</summary>
+    public IEnumerable<KeyValuePair<DefId, int>> Standings =>
+        reputations.OrderBy(pair => pair.Key).Select(pair => new KeyValuePair<DefId, int>(new(pair.Key), pair.Value));
+
+    /// <summary>Every tree they have taken anything in, in id order.</summary>
+    public IEnumerable<KeyValuePair<DefId, TalentAllocation>> Allocations =>
+        talents.Where(pair => pair.Value.Count > 0)
+            .OrderBy(pair => pair.Key)
+            .Select(pair => new KeyValuePair<DefId, TalentAllocation>(new(pair.Key), pair.Value));
+
     /// <summary>How much skill they have in a profession.</summary>
     /// <param name="profession">Which one.</param>
     /// <returns>The skill, or zero.</returns>

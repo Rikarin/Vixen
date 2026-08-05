@@ -334,4 +334,23 @@ public class PlayerProfileTests {
 
         Assert.Equal(one.Save().ToArray(), two.Save().ToArray());
     }
+
+    [Fact]
+    public void ACountSurvivesTheCharacterBeingCalledSomethingElse() {
+        // ⚠ A profile is one character's, so PityKey.Player is redundant here — and writing it down
+        // would put a realm-scoped gameplay id in the database. The failure that causes is quiet and
+        // is exactly the support ticket doc 28 named: after a transfer the id is different, every
+        // lookup misses, and the counters read zero with the rows still sitting in the profile.
+        var store = new ProfilePityStore();
+        var table = DefId.From("loot/skarr");
+
+        store.Record(new(7, table), false);
+        store.Record(new(7, table), false);
+
+        var moved = new ProfilePityStore();
+
+        moved.Load(store.Save());
+
+        Assert.Equal(2, moved.AttemptsOf(new(0x1_0000_0007ul, table)));
+    }
 }

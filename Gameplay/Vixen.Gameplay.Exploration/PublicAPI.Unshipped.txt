@@ -20,9 +20,11 @@ Vixen.Gameplay.Exploration.ExplorationRecord.HasFound(Vixen.Gameplay.Exploration
 Vixen.Gameplay.Exploration.ExplorationRecord.IsComplete(Vixen.Gameplay.Exploration.MapChart map) -> bool
 Vixen.Gameplay.Exploration.ExplorationRecord.IsRevealed(Vixen.Gameplay.Exploration.MapChart map, int column, int row) -> bool
 Vixen.Gameplay.Exploration.ExplorationRecord.Library.get -> Vixen.Gameplay.Exploration.ExplorationLibrary
+Vixen.Gameplay.Exploration.ExplorationRecord.PointsOn(Vixen.Gameplay.Exploration.MapChart map) -> System.Collections.Generic.IEnumerable<int>
 Vixen.Gameplay.Exploration.ExplorationRecord.RestoreFog(Vixen.Gameplay.Exploration.MapChart map, System.ReadOnlySpan<ulong> bits) -> bool
 Vixen.Gameplay.Exploration.ExplorationRecord.Reveal(Vixen.Gameplay.Exploration.MapChart map, int column, int row, int radius = 1) -> int
 Vixen.Gameplay.Exploration.ExplorationRecord.RevealedOn(Vixen.Gameplay.Exploration.MapChart map) -> float
+Vixen.Gameplay.Exploration.ExplorationRecord.Seat(Vixen.Gameplay.Exploration.MapChart map, int point) -> bool
 Vixen.Gameplay.Exploration.ExplorationRecord.Tags.get -> Vixen.Gameplay.GameplayTagSet
 Vixen.Gameplay.Exploration.ExplorationRecord.Visited.get -> int
 Vixen.Gameplay.Exploration.MapChart -> sealed class

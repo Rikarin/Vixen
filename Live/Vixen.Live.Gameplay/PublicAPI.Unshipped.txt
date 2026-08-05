@@ -25,6 +25,14 @@ Vixen.Live.Gameplay.CheckpointReason.Logout = 3 -> Vixen.Live.Gameplay.Checkpoin
 Vixen.Live.Gameplay.CheckpointReason.Manual = 4 -> Vixen.Live.Gameplay.CheckpointReason
 Vixen.Live.Gameplay.CheckpointReason.None = 0 -> Vixen.Live.Gameplay.CheckpointReason
 Vixen.Live.Gameplay.CheckpointReason.Transfer = 2 -> Vixen.Live.Gameplay.CheckpointReason
+Vixen.Live.Gameplay.ExplorationSection -> sealed class
+Vixen.Live.Gameplay.ExplorationSection : Vixen.Live.Gameplay.IProfileSection
+Vixen.Live.Gameplay.ExplorationSection.ExplorationSection(Vixen.Gameplay.Exploration.ExplorationRecord record, Vixen.Live.Gameplay.CheckpointPolicy? checkpoint = null) -> void
+Vixen.Live.Gameplay.ExplorationSection.Id.get -> Vixen.Live.Gameplay.ProfileSectionId
+Vixen.Live.Gameplay.ExplorationSection.Load(System.ReadOnlyMemory<byte> bytes) -> void
+Vixen.Live.Gameplay.ExplorationSection.Resized.get -> int
+Vixen.Live.Gameplay.ExplorationSection.Save() -> System.ReadOnlyMemory<byte>
+Vixen.Live.Gameplay.ExplorationSection.Touch() -> void
 Vixen.Live.Gameplay.GameplayIdentityMap -> sealed class
 Vixen.Live.Gameplay.GameplayIdentityMap : Vixen.Live.Gameplay.IGameplayIdentity
 Vixen.Live.Gameplay.GameplayIdentityMap.Admit(Vixen.Live.PlayerKey key, Vixen.Net.Sessions.PlayerId session) -> Vixen.Gameplay.PlayerId
@@ -165,6 +173,19 @@ Vixen.Live.Gameplay.ProfileSectionId.ProfileSectionId(uint Value) -> void
 Vixen.Live.Gameplay.ProfileSectionId.Value.get -> uint
 Vixen.Live.Gameplay.ProfileSectionId.Value.init -> uint
 Vixen.Live.Gameplay.ProfileSections -> static class
+Vixen.Live.Gameplay.ProgressionSection -> sealed class
+Vixen.Live.Gameplay.ProgressionSection : Vixen.Live.Gameplay.IProfileSection
+Vixen.Live.Gameplay.ProgressionSection.Id.get -> Vixen.Live.Gameplay.ProfileSectionId
+Vixen.Live.Gameplay.ProgressionSection.Load(System.ReadOnlyMemory<byte> bytes) -> void
+Vixen.Live.Gameplay.ProgressionSection.ProgressionSection(Vixen.Gameplay.Progression.ProgressionState state, Vixen.Live.Gameplay.CheckpointPolicy? checkpoint = null) -> void
+Vixen.Live.Gameplay.ProgressionSection.Save() -> System.ReadOnlyMemory<byte>
+Vixen.Live.Gameplay.ProgressionSection.Touch() -> void
+Vixen.Live.Gameplay.QuestSection -> sealed class
+Vixen.Live.Gameplay.QuestSection : Vixen.Live.Gameplay.IProfileSection
+Vixen.Live.Gameplay.QuestSection.Id.get -> Vixen.Live.Gameplay.ProfileSectionId
+Vixen.Live.Gameplay.QuestSection.Load(System.ReadOnlyMemory<byte> bytes) -> void
+Vixen.Live.Gameplay.QuestSection.QuestSection(Vixen.Gameplay.Quests.QuestJournal journal, Vixen.Live.Gameplay.CheckpointPolicy? checkpoint = null) -> void
+Vixen.Live.Gameplay.QuestSection.Save() -> System.ReadOnlyMemory<byte>
 Vixen.Live.Gameplay.SocialBridge -> sealed class
 Vixen.Live.Gameplay.SocialBridge : Vixen.Gameplay.Social.ISocialStore
 Vixen.Live.Gameplay.SocialBridge.Admitted(Vixen.Live.PlayerKey key, Vixen.Gameplay.PlayerId player) -> int
@@ -205,8 +226,20 @@ Vixen.Live.Gameplay.SocialLink.SocialLink() -> void
 Vixen.Live.Gameplay.SocialLink.SocialLink(Vixen.Live.PlayerKey Player, Vixen.Gameplay.Social.SocialTie Tie) -> void
 Vixen.Live.Gameplay.SocialLink.Tie.get -> Vixen.Gameplay.Social.SocialTie
 Vixen.Live.Gameplay.SocialLink.Tie.init -> Vixen.Gameplay.Social.SocialTie
+Vixen.Live.Gameplay.WardrobeSection -> sealed class
+Vixen.Live.Gameplay.WardrobeSection : Vixen.Live.Gameplay.IProfileSection
+Vixen.Live.Gameplay.WardrobeSection.Id.get -> Vixen.Live.Gameplay.ProfileSectionId
+Vixen.Live.Gameplay.WardrobeSection.Load(System.ReadOnlyMemory<byte> bytes) -> void
+Vixen.Live.Gameplay.WardrobeSection.Save() -> System.ReadOnlyMemory<byte>
+Vixen.Live.Gameplay.WardrobeSection.Touch() -> void
+Vixen.Live.Gameplay.WardrobeSection.UnknownSlots.get -> int
+Vixen.Live.Gameplay.WardrobeSection.WardrobeSection(Vixen.Gameplay.Collections.Wardrobe wardrobe, Vixen.Gameplay.GameplayTagTable tags, Vixen.Live.Gameplay.CheckpointPolicy? checkpoint = null) -> void
+const Vixen.Live.Gameplay.ExplorationSection.Version = 1 -> int
 const Vixen.Live.Gameplay.LedgerBridge.RestoreAccount = "world/restore" -> string
 const Vixen.Live.Gameplay.PlayerProfile.Version = 1 -> int
+const Vixen.Live.Gameplay.ProgressionSection.Version = 1 -> int
+const Vixen.Live.Gameplay.QuestSection.Version = 1 -> int
+const Vixen.Live.Gameplay.WardrobeSection.Version = 1 -> int
 override Vixen.Live.Gameplay.PendingGraph.GetHashCode() -> int
 override Vixen.Live.Gameplay.ProfileSectionId.ToString() -> string
 static Vixen.Live.Gameplay.GameplayIdentityMap.From(Vixen.Net.Sessions.PlayerId session) -> Vixen.Gameplay.PlayerId

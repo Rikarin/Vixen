@@ -126,10 +126,33 @@ needs `Vixen.Gameplay.Items`; moving currency needs the economy. A game with que
 **It does not know what time it is.** A world boss's schedule is authored here and enacted in
 `Live.Instances.Cluster`, because a schedule one realm decides is a boss every shard sees differently.
 
+## Reading a journal back
+
+`QuestJournal.Seat`, `SeatHistory`, `SeatReady` and `ObjectiveTracker.Seat`/`SeatFailure` are the
+unchecked door, on `HousePlot.Assign`'s precedent. Two reasons, and they are different:
+
+⚠ **`Accept` asks the requirements.** A character who took a quest at level ten and logged out is not
+asked at level nine whether they may still have it, and a patch that raised a requirement must not
+silently empty their journal.
+
+⚠ **Seating is silent.** Replaying the advances that made the progress would run every subscriber
+again — the quest announcing each objective, the stage settling, and a reward chain firing a second
+time.
+
+⚠ **`ObjectiveTracker.Exact` is what storage reads and `ProgressOf` is what a UI shows.** A timed
+objective's progress is fractional seconds, and truncating it on every save loses the fraction every
+time — a player who logs in and out often enough makes no headway on a survival objective at all.
+
+⚠ **A quest this build has lost is refused by `Seat` and kept by `SeatHistory`**, which looks
+inconsistent and is not: history is what `QuestRepeat.Once` reads, so losing an id lets somebody take
+a one-off quest again — and an id is all history needs. An active quest with no template has no
+stages, no objectives and no tags, so there is nothing to hold.
+
 ## What is owed
 
-- **Durability.** A journal is in memory. Which stage a character is on, and an event's contributions,
-  are durable state — task **#27**, `Live/Vixen.Live.Gameplay`, and the same shape `IPityStore` has.
+- ~~**Durability.**~~ Built, as `Vixen.Live.Gameplay.QuestSection`. Which stage a character is on and
+  how far each objective has got are written on the checkpoint cadence; an event's contributions are
+  not, because a dynamic event outlives nobody's session.
 - **Quest sharing.** `Shareable` is authored and nothing reads it; handing a quest to a party member
   needs the party, which is G4's.
 - **Daily and weekly resets.** `QuestRepeat` is authored and `Once` is the only value the journal

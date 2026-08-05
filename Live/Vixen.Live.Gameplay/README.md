@@ -8,7 +8,7 @@ Spec: doc 27 § Persistence and ADR-021, doc 28 § Economy.
 ## State
 
 **Built: the identity join, the economy on the ledger, the profile container, the checkpoint policy,
-a durable pity store, a durable lockout store and a durable social store. 78 tests.**
+a durable lockout store, a durable social store and all five profile section codecs. 102 tests.**
 
 | | |
 |---|---|
@@ -18,11 +18,11 @@ a durable pity store, a durable lockout store and a durable social store. 78 tes
 | `IProfileSection` · `ProfileBinder` · `ProfileSections` | The seam a game registers its codecs with. |
 | `CheckpointPolicy` · `CheckpointReason` | When counters are written down. |
 | `ProfilePityStore` | Doc 28's durable pity counters, as a section. |
+| `ProgressionSection` · `QuestSection` · `ExplorationSection` · `WardrobeSection` | The other four codecs. |
 | `LockoutBridge` · `PendingLockout` | `ILockoutStore` in the frame, `IInstanceGrain` afterwards. |
 | `SocialBridge` · `GuildEdit` · `PendingGraph` · `SocialLink` | `ISocialStore` in the frame, `IGuildGrain` afterwards. |
 
-**Owed:** the remaining section codecs — progression, quests, exploration and wardrobe — task **#39**.
-`ProfilePityStore` is the worked example.
+**Owed:** nothing. #39 closed the last of it.
 
 ## A sync store over async truth has a cold-read problem the interface cannot express
 
@@ -83,6 +83,38 @@ number stops looking like the online fraction of a roster.
 ⚠ **A refusal does not roll the view back.** Undoing a join two frames later is a player who was in
 the guild, saw the roster, said hello and was silently ejected — and the next `Warmed` corrects it
 from the authority anyway.
+
+## Every codec loads through a seat and never through the rules
+
+Each of the five goes in through a *seating* method on its gameplay object, and every one of those
+seams exists because replaying the rules does something specific and bad on login.
+
+| Codec | What the rules would do instead |
+|---|---|
+| `ProgressionSection` | `SetLevel` zeroes the experience towards the next level — every login. |
+| `ProgressionSection` | `Allocate` re-validates a build, so a moved prerequisite wipes it with no refund and no message. |
+| `ProgressionSection` | `Train` clamps to today's cap, destroying the difference permanently; the next `Train` clamps late enough to be reversible. |
+| `QuestSection` | `Accept` asks the requirements, so somebody who took a quest at level ten is asked again at level nine. |
+| `QuestSection` | Replaying the advances announces every objective again and fires a reward chain twice. |
+| `ExplorationSection` | `Discover(map, point, null)` skips the requirements and *still* raises `Found` — a toast per landmark, plus the map-complete fanfare. |
+| `WardrobeSection` | `Show` refuses an appearance since taken back, throwing the player's choice away for good. |
+
+⚠ **Nothing build-scoped goes in the bytes, and there are two ways to get that wrong.** A
+`GameplayTag` is an index into a pre-order walk of the tag tree — *adding one tag renumbers every tag
+after it* — so `WardrobeSection` writes slot **names**. A gameplay `PlayerId` is a session id
+widened, so `ProfilePityStore` writes only the loot table; a profile already names the character, and
+keeping the id meant every lookup missing after a transfer with the rows still in the profile. A
+`DefId` is safe in both places because it hashes an address rather than indexing a table.
+
+⚠ **What this build does not understand is preserved entry by entry, not just section by section.** A
+profession or a tree with no definition here is carried through, and a quest's *history* survives the
+quest itself being gone — history is what `QuestRepeat.Once` reads, and an id is all it needs. The
+one exception is an *active* quest with no template: no stages, no objectives, no tags, nothing to
+hold. The bytes stay in the profile and it comes back on a build that knows it.
+
+⚠ **A resized map loses its fog, once, and `ExplorationSection.Resized` is how anybody finds out.** A
+bitmap read into a grid of a different width is not visibly wrong — it is an explored map that has
+quietly become diagonal stripes.
 
 ## Assets go in the ledger; counters go in the profile
 

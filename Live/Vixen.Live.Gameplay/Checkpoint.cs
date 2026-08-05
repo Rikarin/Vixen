@@ -159,9 +159,18 @@ public sealed class CheckpointPolicy {
 ///         bad luck, and a run that has ended is zero — decrementing would carry a hundred failures
 ///         into the next hundred attempts and make the guarantee unbounded.
 ///     </para>
+///     <para>
+///         ⚠ <b>One of these is one character's, and <see cref="PityKey.Player" /> is ignored.</b> A
+///         profile already names the character, so the player half is redundant — and storing it
+///         would put a realm-scoped gameplay id in the database, which is the one thing
+///         <see cref="IGameplayIdentity" /> exists to prevent. The failure that would cause is quiet
+///         and exactly the support ticket doc 28 named: after a transfer the id is different, every
+///         lookup misses, and a character's pity counters read zero with the rows still sitting in
+///         the profile.
+///     </para>
 /// </remarks>
 public sealed class ProfilePityStore : IPityStore, IProfileSection {
-    readonly Dictionary<PityKey, int> attempts = [];
+    readonly Dictionary<uint, int> attempts = [];
     readonly CheckpointPolicy? checkpoint;
 
     /// <summary>Makes one.</summary>
@@ -175,20 +184,20 @@ public sealed class ProfilePityStore : IPityStore, IProfileSection {
     public int Count => attempts.Count;
 
     /// <inheritdoc />
-    public int AttemptsOf(PityKey key) => attempts.GetValueOrDefault(key);
+    public int AttemptsOf(PityKey key) => attempts.GetValueOrDefault(key.Table.Value);
 
     /// <inheritdoc />
     public void Record(PityKey key, bool hit) {
         if (hit) {
             // Cleared, not decremented — see the remarks on the type.
-            if (attempts.Remove(key)) {
+            if (attempts.Remove(key.Table.Value)) {
                 checkpoint?.Touch();
             }
 
             return;
         }
 
-        attempts[key] = attempts.GetValueOrDefault(key) + 1;
+        attempts[key.Table.Value] = attempts.GetValueOrDefault(key.Table.Value) + 1;
         checkpoint?.Touch();
     }
 
@@ -198,7 +207,7 @@ public sealed class ProfilePityStore : IPityStore, IProfileSection {
             return default;
         }
 
-        var bytes = new byte[4 + (attempts.Count * 16)];
+        var bytes = new byte[4 + (attempts.Count * 8)];
         var span = bytes.AsSpan();
 
         BinaryPrimitives.WriteInt32LittleEndian(span, attempts.Count);
@@ -207,11 +216,10 @@ public sealed class ProfilePityStore : IPityStore, IProfileSection {
 
         // Ordered, so two realms holding the same counts write the same bytes and a checkpoint on an
         // unchanged character is a no-op rather than a rewrite.
-        foreach (var (key, count) in attempts.OrderBy(pair => pair.Key.Player).ThenBy(pair => pair.Key.Table.Value)) {
-            BinaryPrimitives.WriteUInt64LittleEndian(span[offset..], key.Player);
-            BinaryPrimitives.WriteUInt32LittleEndian(span[(offset + 8)..], key.Table.Value);
-            BinaryPrimitives.WriteInt32LittleEndian(span[(offset + 12)..], count);
-            offset += 16;
+        foreach (var (table, count) in attempts.OrderBy(pair => pair.Key)) {
+            BinaryPrimitives.WriteUInt32LittleEndian(span[offset..], table);
+            BinaryPrimitives.WriteInt32LittleEndian(span[(offset + 4)..], count);
+            offset += 8;
         }
 
         return bytes;
@@ -229,12 +237,10 @@ public sealed class ProfilePityStore : IPityStore, IProfileSection {
         var count = BinaryPrimitives.ReadInt32LittleEndian(span);
         var offset = 4;
 
-        for (var index = 0; index < count && offset + 16 <= span.Length; index++) {
-            var player = BinaryPrimitives.ReadUInt64LittleEndian(span[offset..]);
-            var table = BinaryPrimitives.ReadUInt32LittleEndian(span[(offset + 8)..]);
-
-            attempts[new(player, new DefId(table))] = BinaryPrimitives.ReadInt32LittleEndian(span[(offset + 12)..]);
-            offset += 16;
+        for (var index = 0; index < count && offset + 8 <= span.Length; index++) {
+            attempts[BinaryPrimitives.ReadUInt32LittleEndian(span[offset..])] =
+                BinaryPrimitives.ReadInt32LittleEndian(span[(offset + 4)..]);
+            offset += 8;
         }
     }
 }

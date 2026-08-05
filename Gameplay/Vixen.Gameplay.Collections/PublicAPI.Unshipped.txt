@@ -169,6 +169,8 @@ Vixen.Gameplay.Collections.Wardrobe.Overrides.get -> System.Collections.Generic.
 Vixen.Gameplay.Collections.Wardrobe.Record.get -> Vixen.Gameplay.Collections.CollectionRecord
 Vixen.Gameplay.Collections.Wardrobe.Resolve(Vixen.Gameplay.GameplayTag slot, Vixen.Gameplay.DefId worn) -> Vixen.Gameplay.DefId
 Vixen.Gameplay.Collections.Wardrobe.Restore(Vixen.Gameplay.GameplayTag slot) -> bool
+Vixen.Gameplay.Collections.Wardrobe.Seat(Vixen.Gameplay.GameplayTag slot, Vixen.Gameplay.DefId appearance) -> bool
+Vixen.Gameplay.Collections.Wardrobe.SeatTitle(Vixen.Gameplay.DefId title) -> void
 Vixen.Gameplay.Collections.Wardrobe.Show(Vixen.Gameplay.Collections.Collectible appearance) -> bool
 Vixen.Gameplay.Collections.Wardrobe.Title.get -> Vixen.Gameplay.DefId
 Vixen.Gameplay.Collections.Wardrobe.Wardrobe(Vixen.Gameplay.Collections.CollectionRecord record) -> void
