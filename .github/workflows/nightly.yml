@@ -42,9 +42,9 @@ jobs:
     # and twentieth targets put the fuzzing at 200 minutes and left the cap twenty minutes behind it —
     # a job guaranteed to end on the clock having reported nothing.
     #
-    # Twenty targets less the one in VIXEN_FUZZ_SKIP is nineteen, at ten minutes each, so the fuzzing
-    # is 190 minutes. 240 is that plus checkout, restore, build and spirv-tools, plus a fifth again in
-    # headroom.
+    # Twenty targets, at ten minutes each, so the fuzzing is 200 minutes — raven is back in, so there
+    # is no longer a target to subtract. 255 is that plus checkout, restore, build and spirv-tools
+    # (about twelve minutes), plus a fifth again in headroom.
     #
     # The cap was raised rather than the seconds cut, because depth is the only thing this job adds
     # over the gate that already runs on every build — cutting the per-target budget to fit the cap
@@ -52,7 +52,7 @@ jobs:
     # that has been made to loop for ever, which is itself a finding and presents as a job that never
     # ends, so it has to stay comfortably ahead of the targets or it fires on healthy runs and stops
     # meaning anything. See Core/Vixen.Fuzz/README.md § Running it.
-    timeout-minutes: 240
+    timeout-minutes: 255
 
     steps:
       - uses: actions/checkout@v4
@@ -79,23 +79,22 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y spirv-tools
         shell: bash
 
-      # ⚠ VIXEN_FUZZ_SKIP is raven, and it is here because this is the leg bounded by the clock.
-      # raven has still never completed a time-bounded run: the parser hang behind the first failure
-      # is fixed, and the next 600-second run got four minutes further and died of a binder stack
-      # overflow — the one runaway CaseGuard provokes and cannot report, because the CLR ends the
-      # process at the overflow with no thread left to write a finding. That would take the other
-      # nineteen targets' results with it every night, and no artifact would say why. raven still runs
-      # on every build, where the budget is 1,500 cases and it finishes in about two seconds, so this
-      # costs depth on one target rather than coverage of it. The skip is visible in the results.
+      # VIXEN_FUZZ_SKIP is empty, and raven is back in the nightly. It was skipped for two failures
+      # that stopped a time-bounded run dead, and both are fixed: the parser hang first, then the
+      # binder stack overflow that killed the run four minutes in. That second one is the reason the
+      # skip existed rather than a quarantine — the CLR ends the process at the guard page with no
+      # thread left to write a finding, so it took the other nineteen targets' results with it and no
+      # artifact said why. The binder now reports RVN2005 for a signature that reaches its own type,
+      # and the input is Corpus/raven/70ae34e20b4880ee.bin.
       #
-      # Empty this out when the binder recursion is bounded — see Core/Vixen.Fuzz/README.md § Running
-      # it, which is also where the case for leaving it in and reading the artifacts is written down.
+      # ⚠ Put a target back in here only when its runaway can be *reported*. A skip buys nothing
+      # against a failure the harness can record — that is a finding, and the artifacts are how it
+      # gets read. See Core/Vixen.Fuzz/README.md § Running it.
       - name: Fuzz
         run: dotnet test Core/Vixen.Fuzz.Tests -c Release
         shell: bash
         env:
           VIXEN_FUZZ_SECONDS: ${{ github.event.inputs.seconds || '600' }}
-          VIXEN_FUZZ_SKIP: raven
 
       # The bytes, not just the message. A finding whose input only exists in an assertion string is
       # one somebody has to retype; the fix for each of these is to move the file into
