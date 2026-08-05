@@ -173,6 +173,13 @@ public class LibraryReflectionTests {
         // command buffers is a constant both sides declare.
         ("Terrain", "FoliageCull"),
 
+        // And the draw that consumes it — the survivors, the parameters and the patched indirect
+        // commands, all bound by name in FoliageDrawPass. The lit variant is published separately
+        // on GrassLit's terms: its block carries the frame's lighting and the preview's must not
+        // grow when it does.
+        ("Terrain", "Foliage"),
+        ("Terrain", "FoliageLit"),
+
         // The sprite the CPU particle expansion is drawn with — and published because of what
         // happens when it is not.
         //

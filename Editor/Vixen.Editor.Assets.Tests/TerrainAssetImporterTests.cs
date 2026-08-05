@@ -22,6 +22,7 @@ public sealed class TerrainAssetImporterTests {
         Assert.Contains(".vxfoliage", importer.Extensions);
         Assert.Contains(".vxgrass", importer.Extensions);
         Assert.Contains(".vxspline", importer.Extensions);
+        Assert.Contains(".vxfol", importer.Extensions);
     }
 
     /// <summary>Each extension is recorded under the alias of the type actually written.</summary>
@@ -37,6 +38,7 @@ public sealed class TerrainAssetImporterTests {
         Assert.Equal("FoliageType", TerrainAssetImporter.AliasOf(".vxfoliage"));
         Assert.Equal("GrassType", TerrainAssetImporter.AliasOf(".vxgrass"));
         Assert.Equal("SplineAsset", TerrainAssetImporter.AliasOf(".vxspline"));
+        Assert.Equal("FoliageVolume", TerrainAssetImporter.AliasOf(".vxfol"));
         Assert.Null(TerrainAssetImporter.AliasOf(".vxmat"));
     }
 
@@ -134,6 +136,78 @@ public sealed class TerrainAssetImporterTests {
 
         Assert.True(result.Succeeded);
         Assert.DoesNotContain(result.Diagnostics, message => message.Severity == ImportSeverity.Error);
+    }
+
+    /// <summary>A foliage document is compiled to the record the runtime opens.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The trap the grass chunk closed, one asset kind over.</b> These shipped as YAML text
+    ///     until the runtime path existed, and <c>AssetTerrainSource</c> hands the payload to the
+    ///     binary serializer — so a text chunk is a forest that quietly never stands. Asserted by
+    ///     reading the artefact back the way the runtime does.
+    /// </remarks>
+    [Fact]
+    public async Task AFoliageChunkIsTheSerializedRecord() {
+        var (_, result) = await Import(
+            "pine.vxfoliage",
+            """
+            name: Pine
+            mesh: vx:9e8a44c9930c64e388ca034c5fe4c426
+            radius: 3
+            castShadows: true
+            """
+        );
+
+        Assert.True(result.Succeeded);
+
+        var artefact = Assert.Single(result.Artifacts);
+        var written = Serializer.Read<FoliageType>(artefact.Content.Span);
+
+        Assert.Equal("FoliageType", artefact.Type);
+        Assert.Equal("Pine", written.Name);
+        Assert.Equal(3f, written.Radius);
+        Assert.True(written.CastShadows);
+    }
+
+    /// <summary>A volume's instances are carried forward as the store's own bytes.</summary>
+    [Fact]
+    public async Task AVolumeChunkIsTheStoresOwnBytes() {
+        var volume = new FoliageVolume(new(32f));
+        var type = volume.AddType(FoliageType.Of("Pine") with { Radius = 2f });
+
+        volume.Add(type, new(new(8f, 0f, 8f), Vixen.Core.Mathematics.Quaternion.Identity, 1f));
+
+        var bytes = new byte[FoliageStore.ByteCount(volume)];
+
+        FoliageStore.Write(volume, bytes);
+
+        var (_, result) = await ImportBytes("meadow.vxfol", bytes);
+
+        Assert.True(result.Succeeded);
+
+        var artefact = Assert.Single(result.Artifacts);
+
+        Assert.Equal("FoliageVolume", artefact.Type);
+        Assert.True(artefact.Content.Span.SequenceEqual(bytes));
+
+        // And read back the way the runtime reads it: same instance, same cell.
+        var reread = new FoliageVolume(new(32f));
+
+        reread.AddType(FoliageType.Of("Pine") with { Radius = 2f });
+
+        Assert.Equal(1, FoliageStore.Read(reread, artefact.Content.Span));
+    }
+
+    /// <summary>Bytes that are not a foliage file are an error naming the reason, not instances.</summary>
+    [Fact]
+    public async Task AVolumeWithoutTheMagicIsRefused() {
+        var (_, result) = await ImportBytes("meadow.vxfol", [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(
+            result.Diagnostics,
+            message => message.Severity == ImportSeverity.Error
+                && message.Message.Contains("magic", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A spline that cannot be built is an error.</summary>
@@ -251,6 +325,26 @@ public sealed class TerrainAssetImporterTests {
         var files = new MemoryFileProvider();
 
         files.Seed(path, text);
+
+        var importer = new TerrainAssetImporter();
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
+
+        return (context, await importer.ImportAsync(context, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>Imports a binary source — the volume path, which never sees a StreamReader.</summary>
+    static async Task<(ImportContext Context, ImportResult Result)> ImportBytes(string name, byte[] bytes) {
+        var path = new VirtualPath("/Assets/" + name);
+        var files = new MemoryFileProvider();
+
+        files.Seed(path, bytes);
 
         var importer = new TerrainAssetImporter();
         var context = new ImportContext(

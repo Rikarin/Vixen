@@ -4,7 +4,7 @@ slug: rendering/foliage-rendering
 kind: guide
 area: Rendering
 summary: Cells culled as objects, instances culled within them, LOD decided per instance, and one indirect command per level.
-api: [T:Vixen.Rendering.Terrain.FoliageRenderer, T:Vixen.Rendering.Terrain.FoliageDraw, T:Vixen.Rendering.Terrain.FoliageBatch, T:Vixen.Rendering.Terrain.FoliageCullPass, T:Vixen.Rendering.Terrain.FoliageCullInstanceRecord, T:Vixen.Rendering.Terrain.FoliageCullBatchRecord, T:Vixen.Rendering.Terrain.FoliageCullViewRecord, T:Vixen.Shaders.Generated.FoliageCullKeys, R:Terrain/FoliageCull, T:Vixen.Rendering.Terrain.FoliageOccluders]
+api: [T:Vixen.Rendering.Terrain.FoliageRenderer, T:Vixen.Rendering.Terrain.FoliageDraw, T:Vixen.Rendering.Terrain.FoliageBatch, T:Vixen.Rendering.Terrain.FoliageCullPass, T:Vixen.Rendering.Terrain.FoliageCullInstanceRecord, T:Vixen.Rendering.Terrain.FoliageCullBatchRecord, T:Vixen.Rendering.Terrain.FoliageCullViewRecord, T:Vixen.Shaders.Generated.FoliageCullKeys, R:Terrain/FoliageCull, T:Vixen.Rendering.Terrain.FoliageOccluders, T:Vixen.Rendering.Terrain.FoliageDrawPass, T:Vixen.Rendering.Terrain.FoliageMesh, T:Vixen.Rendering.Terrain.FoliageVolumeComponent, T:Vixen.Rendering.Terrain.FoliageSceneEntry, T:Vixen.Shaders.Generated.FoliageKeys, T:Vixen.Shaders.Generated.FoliageConstants, T:Vixen.Shaders.Generated.FoliageLitKeys, T:Vixen.Shaders.Generated.FoliageLitConstants, T:Vixen.Shaders.Generated.FoliageLitCascadesElement, R:Terrain/Foliage, R:Terrain/FoliageLit]
 tags: [foliage, rendering, culling, lod, instancing]
 since: 0.1
 status: preview
@@ -132,6 +132,72 @@ trees vanishing when the camera turns.
 ⚠ **Four levels, and the stride is a constant both sides declare.** A stride that disagreed would not
 fail — it would read level 2 of one cell out of level 0 of the next, which draws as the wrong mesh in
 the right place.
+
+## The draw
+
+`FoliageDrawPass` is what consumes the cull: the pipeline built from `Foliage.rvn`, one descriptor
+set over the cull's three buffers, and one `DrawIndexedIndirect` per level per batch out of the
+commands the placing dispatch patched.
+
+⚠ **The instance id is the survivor slot, and that is the whole indirection.** The cull patched each
+command's `firstInstance` to its batch's run, so the vertex stage reads `survivors[SV_InstanceID]`
+and then the thirty-two-byte instance it names. No transform is compacted, copied or re-uploaded
+between the cull and the draw — a frame's cull re-aims the draws at a subset of a buffer that never
+moved.
+
+⚠ **The fade is the cull's, not remeasured.** `FoliageCullParameters.fade` was computed from the same
+distance the cull binned by, and the draw stipples with the grass's own pattern — a tree's far LOD
+dissolving over fading blades dissolves against one dither rather than two interfering ones.
+
+⚠ **A type is drawn only once its mesh is real.** There is no honest stand-in for a tree the way the
+grass has a built-in blade, so a type whose mesh has not loaded is skipped — its chunks are not even
+uploaded — and `FoliageDrawPass.MissingMeshes` / `TerrainSceneRenderer.FoliageMeshesMissing` are
+where the wait is visible. A number that falls over a level's first frames is content arriving; one
+that stays up is a `.vxfoliage` whose mesh reference nothing can resolve.
+
+⚠ **One albedo for the pass, white by default — this increment's honest ceiling.** A `.vxfoliage`
+names a mesh and nothing about its material; until the material seam exists (the impostor bake needs
+the same answer) a forest draws flat-shaded in its tint, which reads as "no material yet" rather than
+as foliage that is broken.
+
+## Using it from a game
+
+A scene stands its painted foliage up with `FoliageVolumeComponent`: the `.vxfol` the editor saved
+beside the scene, and the `.vxfoliage` palette entries in the order the volume's chunks index —
+
+```csharp no-compile="a fragment; the references are the project's"
+world.Add(entity, FoliageVolumeComponent.Of("Levels/Forest.vxfol", "Foliage/Pine.vxfoliage", "Foliage/Rock.vxfoliage"));
+```
+
+— plus the same `!Terrain` node in the frame document the ground already needs; the node owns one
+`FoliageCullPass`/`FoliageDrawPass` pair per volume. The extraction bridge resolves the palette
+first and the instances after it, because the store drops chunks past the palette; a palette still
+loading waits quietly (`TerrainExtractionSystem.Waiting`), and one whose type refuses itself drops
+the whole volume loudly (`RefusedFoliage`) — the order is what the instances index, so dropping one
+entry would re-dress every stand after it.
+
+⚠ **The palette's order is load-bearing.** Append to it; never sort it.
+
+⚠ **A type's mesh reference must be a `vx:` reference** — `vx:<model>#<mesh>`, the same scalar a
+`MeshRenderable` carries — because the runtime resolves it through the scene's own mesh source, one
+load per pine however many volumes place it.
+
+The document's quality knobs are `foliageDensityScale:`, `foliageCullDistanceScale:` and
+`foliageCellBudget:` on the tier record — density feeds the cull's hashed keep, the distance scale
+multiplies every type's authored cull distances (and deliberately not its LOD thresholds), and the
+budget bounds how many cells stay uploaded. A volume that fits the budget uploads whole and streams
+nothing; a bigger one uploads the cells around the camera through `FoliageStreamer`.
+
+⚠ **The foliage follows the terrain's lighting mode.** Under a lit frame the instances draw with
+`FoliageLit` — the frame's sun, the cascade term sampled per *fragment* (a tree spans many cascade
+texels where a grass blade spans a fraction of one), the sky's harmonics for ambient, and under a
+split frame the raw signed mesh normal to `SceneNormals`. The mesh's normal, not the ground's — a
+trunk is a cylinder the sun goes behind, where a blade is optically the meadow it covers.
+
+⚠ **`FoliageType.CastShadows` is carried, not yet consumed** — shadow casting for foliage is the
+caster increment's, and the flag is readable off the volume's palette when it lands. Hi-Z occlusion
+is plumbed the same way: `FoliageCullPass.Prepare` takes `FoliageOccluders`, and the node hands in
+none until the frame publishes a depth pyramid for the ground stack.
 
 ## Examples
 

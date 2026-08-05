@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Foliage;
 using Vixen.Terrain;
 using TerrainMap = Vixen.Terrain.Terrain;
 
@@ -36,18 +38,30 @@ internal static class TerrainSeed {
     /// <summary>Where the terrain file lives, relative to the sample's directory.</summary>
     public const string TerrainPath = "Assets/Terrain/Meadow.vxterrain";
 
+    /// <summary>Where the foliage instances live — the <c>.vxfol</c> the volume component names.</summary>
+    public const string FoliagePath = "Assets/Terrain/Meadow.vxfol";
+
+    /// <summary>And the palette entry describing what they are — the pines' <c>.vxfoliage</c>.</summary>
+    public const string FoliageTypePath = "Assets/Terrain/Meadow.vxfoliage";
+
     /// <summary>Half the terrain's span, in metres — the entity is translated by this, so the
     ///     grid's origin lands at the world's.</summary>
     public const float HalfExtent = 63f;
 
-    /// <summary>Writes the terrain beside a project directory.</summary>
+    /// <summary>Writes the terrain and its foliage beside a project directory.</summary>
     /// <param name="projectDirectory">The sample's directory — the one holding <c>Assets/</c>.</param>
-    /// <returns>The path it wrote.</returns>
+    /// <returns>The path it wrote the terrain to.</returns>
     public static string Write(string projectDirectory) {
         var path = Path.Combine(projectDirectory, TerrainPath);
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, TerrainStore.Write(Build()));
+
+        var foliage = BuildFoliage();
+        var bytes = new byte[FoliageStore.ByteCount(foliage)];
+
+        FoliageStore.Write(foliage, bytes);
+        File.WriteAllBytes(Path.Combine(projectDirectory, FoliagePath), bytes);
 
         return path;
     }
@@ -88,6 +102,74 @@ internal static class TerrainSeed {
         map.Resolve();
 
         return map;
+    }
+
+    /// <summary>The pines standing on the hills — the instances behind the committed <c>.vxfol</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Placed by arithmetic, in world space</b> — the terrain entity is translated by
+    ///         <see cref="HalfExtent" />, so a sample <c>(x, z)</c> stands at
+    ///         <c>(x − 63, height, z − 63)</c> and the volume's component rides an entity at the
+    ///         origin. A golden-angle spiral rather than a grid, so the stand reads as scattered; the
+    ///         filters keep pines off the apron (where the spheres are), off the steep rock, and out
+    ///         of the pit.
+    ///     </para>
+    ///     <para>
+    ///         The palette here has to agree with <c>Meadow.vxfoliage</c> — the file is the review's
+    ///         copy and this is the generator's, and the chunk indices in the <c>.vxfol</c> are
+    ///         positions in it.
+    ///     </para>
+    /// </remarks>
+    public static FoliageVolume BuildFoliage() {
+        var volume = new FoliageVolume(new(32f));
+        var pine = volume.AddType(
+            FoliageType.Of("Pine") with {
+                Mesh = "vx:035fb27fd0e2477784c28cfcf76b9a47#1323b116",
+                Radius = 2.5f,
+                MinScale = 0.8f,
+                MaxScale = 1.3f,
+                StartCullDistance = 90f,
+                EndCullDistance = 110f
+            }
+        );
+
+        var placed = 0;
+
+        for (var candidate = 0; placed < 48 && candidate < 400; candidate++) {
+            // A golden-angle spiral over the hills: radius sweeps the ring between the apron and
+            // the terrain's edge, the angle never repeats, and the same seed writes the same file.
+            var angle = candidate * 2.399963f;
+            var radius = 20f + (candidate % 97) / 97f * 38f;
+            var x = HalfExtent + (radius * MathF.Cos(angle));
+            var z = HalfExtent + (radius * MathF.Sin(angle));
+
+            if (x < 2f || z < 2f || x > (HalfExtent * 2f) - 2f || z > (HalfExtent * 2f) - 2f) {
+                continue;
+            }
+
+            // Two sample-space filters: no pine in the pit, none on the steepest ground — the same
+            // judgements the paint pass makes, eyeballed at seed scale.
+            if (MathF.Abs(x - (HalfExtent + 18f)) < 5f && MathF.Abs(z - (HalfExtent + 4f)) < 5f) {
+                continue;
+            }
+
+            var height = HeightAt((int)x, (int)z);
+            var scale = 0.8f + (candidate * 37 % 100) / 100f * 0.5f;
+            var yaw = candidate * 1.7f;
+
+            volume.Add(
+                pine,
+                new(
+                    new(x - HalfExtent, height, z - HalfExtent),
+                    Quaternion.FromYawPitchRoll(yaw, 0f, 0f),
+                    scale
+                )
+            );
+
+            placed++;
+        }
+
+        return volume;
     }
 
     /// <summary>The height at a sample, in metres, in the terrain's own space.</summary>

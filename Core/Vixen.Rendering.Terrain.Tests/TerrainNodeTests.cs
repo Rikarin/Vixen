@@ -489,6 +489,226 @@ public sealed class TerrainNodeTests : IDisposable {
         constants.Dispose();
     }
 
+    // ------------------------------------------------------------------ the foliage
+
+    static FoliageType Pine =>
+        FoliageType.Of("Pine") with {
+            Mesh = "vx:9e8a44c9930c64e388ca034c5fe4c426",
+            Radius = 2f
+        };
+
+    /// <summary>A volume with one type and a stand of instances in front of the test camera.</summary>
+    static FoliageVolume Stand(int count = 24) {
+        var volume = new FoliageVolume(new(32f));
+        var type = volume.AddType(Pine);
+
+        for (var index = 0; index < count; index++) {
+            volume.Add(type, new(new(24f + (index % 8), 0f, 24f + (index / 8)), Quaternion.Identity, 1f));
+        }
+
+        return volume;
+    }
+
+    /// <summary>A world's foliage component reaches the frame list once its palette resolves.</summary>
+    [Fact]
+    public void AWorldsFoliageComponentReachesTheFrameList() {
+        using var world = new World();
+        var scene = new TerrainSceneSource();
+        var volume = Stand();
+        var system = new TerrainExtractionSystem(scene) { Assets = new OneOfEach(null, foliage: Pine, volume: volume) };
+
+        var entity = world.Create(
+            FoliageVolumeComponent.Of("forest.vxfol", "pine.vxfoliage"),
+            new WorldTransform { Value = Matrix4x4.FromTranslation(new(8f, 0f, 8f)) }
+        );
+
+        system.Extract(world);
+
+        var entry = Assert.Single(scene.Foliage);
+
+        Assert.Same(volume, entry.Volume);
+        Assert.Equal(new Vector3(8f, 0f, 8f), entry.Origin);
+        Assert.Equal(1, system.FoliageCount);
+
+        world.Destroy(entity);
+        system.Extract(world);
+        Assert.Empty(scene.Foliage);
+    }
+
+    /// <summary>A palette still loading waits quietly; one whose type refuses itself is dropped loudly.</summary>
+    [Fact]
+    public void FoliageWaitingAndRefusedAreDifferentAnswers() {
+        using var world = new World();
+        var scene = new TerrainSceneSource();
+
+        world.Create(
+            FoliageVolumeComponent.Of("forest.vxfol", "pine.vxfoliage"),
+            new WorldTransform { Value = Matrix4x4.Identity }
+        );
+
+        // The type has not resolved: the volume waits, counted.
+        var waiting = new TerrainExtractionSystem(scene) { Assets = new OneOfEach(null, volume: Stand()) };
+
+        waiting.Extract(world);
+
+        Assert.Empty(scene.Foliage);
+        Assert.Equal(1, waiting.Waiting);
+
+        // The type arrives broken — a spacing of zero. The whole volume is dropped rather than the
+        // one entry, because the palette's order is what the instances index.
+        var refused = new TerrainExtractionSystem(scene) {
+            Assets = new OneOfEach(null, foliage: Pine with { Radius = 0f }, volume: Stand())
+        };
+
+        refused.Extract(world);
+
+        Assert.Empty(scene.Foliage);
+        Assert.Equal(1, refused.RefusedFoliage);
+    }
+
+    /// <summary>The whole path: a volume in the world, two cull dispatches, and indirect draws.</summary>
+    [Fact]
+    public void AFoliageVolumeDrawsThroughTheDocument() {
+        var (builder, factory) = Builder();
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+        var volume = Stand();
+
+        factory.Scene!.Foliage.Add(new(volume, Vector3.Zero, 0f));
+        factory.Scene.Meshes = new OneTriangle();
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Draw(compositor);
+
+        Assert.Equal(1, node.FoliageVolumesDrawn);
+        Assert.Equal(0, node.FoliageMeshesMissing);
+        Assert.False(node.WaitingForShaders);
+
+        // The two cull phases dispatched, and the survivors drew indirect — one draw per level per
+        // batch, and a one-mesh type declares one level.
+        Assert.Equal(2, device.Recorder!.OfKind(RecordedCommandKind.Dispatch).Count);
+        Assert.NotEmpty(device.Recorder.OfKind(RecordedCommandKind.DrawIndexedIndirect));
+
+        node.Dispose();
+    }
+
+    /// <summary>A mesh that has not arrived is a counter, not a crash and not a silent nothing.</summary>
+    [Fact]
+    public void AFoliageMeshStillLoadingIsCounted() {
+        var (builder, factory) = Builder();
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+
+        factory.Scene!.Foliage.Add(new(Stand(), Vector3.Zero, 0f));
+        factory.Scene.Meshes = new OneTriangle(loaded: false);
+
+        Draw(compositor);
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.Equal(1, node.FoliageVolumesDrawn);
+        Assert.Equal(1, node.FoliageMeshesMissing);
+        Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.DrawIndexedIndirect));
+
+        node.Dispose();
+    }
+
+    /// <summary>An empty volume records neither a dispatch nor a draw.</summary>
+    [Fact]
+    public void AnEmptyFoliageVolumeRecordsNothing() {
+        var (builder, factory) = Builder();
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+        var empty = new FoliageVolume(new(32f));
+
+        empty.AddType(Pine);
+
+        factory.Scene!.Foliage.Add(new(empty, Vector3.Zero, 0f));
+        factory.Scene.Meshes = new OneTriangle();
+
+        Draw(compositor);
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.Equal(1, node.FoliageVolumesDrawn);
+        Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.Dispatch));
+        Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.DrawIndexedIndirect));
+
+        node.Dispose();
+    }
+
+    /// <summary>The tier's cell budget reaches the streamer of a volume too big to fit it.</summary>
+    /// <remarks>
+    ///     Two volumes, one assertion each way: a volume past the budget streams at exactly the
+    ///     tier's number, and one inside it streams nothing at all — the terrain surface's own
+    ///     "fits by construction" line, which is what spares a small stand the first-frames hole
+    ///     while pages land.
+    /// </remarks>
+    [Fact]
+    public void TheFoliageCellBudgetReachesTheStreamer() {
+        var (builder, factory) = Builder();
+
+        factory.Vegetation = new() { FoliageCellBudget = 4 };
+
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+
+        // Nine cells against a budget of four: streamed, at the budget.
+        var wide = new FoliageVolume(new(32f));
+        var type = wide.AddType(Pine);
+
+        for (var x = 0; x < 3; x++) {
+            for (var z = 0; z < 3; z++) {
+                wide.Add(type, new(new((x * 32f) + 16f, 0f, (z * 32f) + 16f), Quaternion.Identity, 1f));
+            }
+        }
+
+        // One cell against the same budget: whole, no streamer.
+        var small = Stand();
+
+        factory.Scene!.Foliage.Add(new(wide, Vector3.Zero, 0f));
+        factory.Scene.Foliage.Add(new(small, Vector3.Zero, 0f));
+        factory.Scene.Meshes = new OneTriangle();
+
+        Draw(compositor);
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.Equal(4, node.FoliageCellsOf(wide));
+        Assert.Equal(0, node.FoliageCellsOf(small));
+
+        node.Dispose();
+    }
+
+    /// <summary>A frame publishing its lighting draws the foliage with the lit shaders too.</summary>
+    [Fact]
+    public void ALitFrameDrawsTheFoliageLit() {
+        var (builder, factory) = Builder();
+        var constants = LitFrame(builder);
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LitDocument));
+
+        factory.Scene!.Foliage.Add(new(Stand(), Vector3.Zero, 0f));
+        factory.Scene.Meshes = new OneTriangle();
+
+        Draw(compositor, shadowAtlas: true);
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.True(node.Lit);
+        Assert.Equal(1, node.FoliageVolumesDrawn);
+        Assert.NotEmpty(device.Recorder!.OfKind(RecordedCommandKind.DrawIndexedIndirect));
+
+        node.Dispose();
+        constants.Dispose();
+    }
+
     // ------------------------------------------------------------------ the standard frame
 
     /// <summary>The node splices at the standard frame's afterOpaque seam and the result builds.</summary>
@@ -611,11 +831,16 @@ public sealed class TerrainNodeTests : IDisposable {
             }
         );
 
-    /// <summary>An asset source with one terrain and one grass rule, or neither.</summary>
-    sealed class OneOfEach(TerrainMap? map, GrassType? grass = null) : ITerrainAssetSource {
+    /// <summary>An asset source with one of each kind, or nothing at all.</summary>
+    sealed class OneOfEach(TerrainMap? map, GrassType? grass = null, FoliageType? foliage = null, FoliageVolume? volume = null)
+        : ITerrainAssetSource {
         public TerrainMap? Terrain(string reference) => map;
 
         public GrassType? Grass(string reference) => grass ?? (map is null ? null : GrassType.Of("meadow"));
+
+        public FoliageType? Foliage(string reference) => foliage;
+
+        public FoliageVolume? Volume(string reference, IReadOnlyList<FoliageType> palette) => volume;
     }
 
     /// <summary>Answers every key, with the stages the shader's name implies.</summary>
@@ -623,12 +848,26 @@ public sealed class TerrainNodeTests : IDisposable {
         public Effect? TryGet(EffectKey key) =>
             new() {
                 Key = key,
-                Stages = key.ShaderName == "GrassScatter"
+                Stages = key.ShaderName is "GrassScatter" or "FoliageCull"
                     ? [new(ShaderStage.Compute, [1, 2, 3, 4], "main")]
                     : [
                         new(ShaderStage.Vertex, [1, 2, 3, 4], "main"),
                         new(ShaderStage.Fragment, [5, 6, 7, 8], "main")
                     ]
             };
+    }
+
+    /// <summary>A mesh source with one triangle for every reference, or nothing at all.</summary>
+    sealed class OneTriangle(bool loaded = true) : Vixen.Rendering.Ecs.IMeshSource {
+        public bool TryGet(Vixen.Core.AssetReference reference, out MeshData mesh) {
+            mesh = new() {
+                Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
+                Normals = [Vector3.UnitY, Vector3.UnitY, Vector3.UnitY],
+                TexCoords = [Vector2.Zero, Vector2.UnitX, Vector2.UnitY],
+                Indices = [0, 1, 2]
+            };
+
+            return loaded;
+        }
     }
 }

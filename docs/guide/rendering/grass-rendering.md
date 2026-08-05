@@ -211,6 +211,10 @@ document, which [the terrain page](terrain-rendering.md) shows. The node owns on
 and reads the rule's own wind, scales and cull distances; the document's `grassDensityScale:` and
 `grassResidentCells:` are the quality knobs over them.
 
+The stored half — painted trees and rocks — rides the same node through its own component:
+[the foliage page](foliage-rendering.md)'s `FoliageVolumeComponent`, culled on the GPU and drawn
+indirect where a grass field is scattered and drawn indirect.
+
 ⚠ **One rule per terrain entity, for now.** The ECS holds one component of a type per entity, and a
 multi-rule scene format is a decision this increment did not rush. A rule bound to a weight layer
 the terrain has not painted grows nothing and is counted on the node

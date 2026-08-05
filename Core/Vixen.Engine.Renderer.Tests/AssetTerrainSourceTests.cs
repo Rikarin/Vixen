@@ -38,6 +38,8 @@ namespace Tests;
 public sealed class AssetTerrainSourceTests {
     const string TerrainAddress = "Assets/Terrain/Meadow.vxterrain";
     const string GrassAddress = "Assets/Terrain/Meadow.vxgrass";
+    const string FoliageAddress = "Assets/Terrain/Pine.vxfoliage";
+    const string VolumeAddress = "Assets/Terrain/Meadow.vxfol";
 
     /// <summary>A multi-tile terrain round-trips: heights, a painted layer, and a hole.</summary>
     [Fact]
@@ -71,6 +73,58 @@ public sealed class AssetTerrainSourceTests {
         Assert.Equal("Meadow", loaded.Name);
         Assert.Equal("Grass", loaded.Layer);
         Assert.Equal(24f, loaded.Density);
+        Assert.Equal(0, source.Failed);
+    }
+
+    /// <summary>The foliage join: a .vxfoliage reference in, the authored type out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same trap the grass half closed, one asset kind over.</b> The importer wrote
+    ///     <c>.vxfoliage</c> chunks as YAML text until the runtime path existed, and text handed to
+    ///     the binary serializer is a forest that quietly never stands — this holds the serialized
+    ///     spelling end to end.
+    /// </remarks>
+    [Fact]
+    public void AFoliageReferenceBecomesTheTypeTheBuildWrote() {
+        var pine = FoliageType.Of("Pine") with { Mesh = "vx:9e8a44c9930c64e388ca034c5fe4c426", Radius = 3f };
+        var source = new AssetTerrainSource(Content(Map(), null, pine));
+
+        Assert.True(Settles(() => source.Foliage(FoliageAddress) is not null));
+
+        var loaded = source.Foliage(FoliageAddress)!.Value;
+
+        Assert.Equal("Pine", loaded.Name);
+        Assert.Equal(3f, loaded.Radius);
+        Assert.True(loaded.CastShadows);
+        Assert.Equal(0, source.Failed);
+    }
+
+    /// <summary>A volume's bytes become instances, dressed in the palette the caller resolved.</summary>
+    [Fact]
+    public void AVolumeReferenceBecomesItsInstances() {
+        var pine = FoliageType.Of("Pine") with { Radius = 2f };
+        var authored = new FoliageVolume(new(32f));
+        var type = authored.AddType(pine);
+
+        for (var index = 0; index < 5; index++) {
+            authored.Add(type, new(new(index * 3f, 0f, 8f), Vixen.Core.Mathematics.Quaternion.Identity, 1f));
+        }
+
+        var bytes = new byte[FoliageStore.ByteCount(authored)];
+
+        FoliageStore.Write(authored, bytes);
+
+        var source = new AssetTerrainSource(Content(Map(), null, volume: bytes));
+        var palette = new List<FoliageType> { pine };
+
+        Assert.True(Settles(() => source.Volume(VolumeAddress, palette) is not null));
+
+        var loaded = source.Volume(VolumeAddress, palette)!;
+
+        Assert.Equal(5, loaded.InstanceCount);
+        Assert.Equal("Pine", loaded.Palette[0].Name);
+
+        // The same object next frame — the compositor node keys its device state by it.
+        Assert.Same(loaded, source.Volume(VolumeAddress, palette));
         Assert.Equal(0, source.Failed);
     }
 
@@ -126,8 +180,8 @@ public sealed class AssetTerrainSourceTests {
         return map;
     }
 
-    /// <summary>A content manager holding the two chunks, written the way the build writes them.</summary>
-    static AssetManager Content(TerrainMap terrain, GrassType? grass) {
+    /// <summary>A content manager holding the chunks, written the way the build writes them.</summary>
+    static AssetManager Content(TerrainMap terrain, GrassType? grass, FoliageType? foliage = null, byte[]? volume = null) {
         var files = new VirtualFileSystem();
         var storage = new MemoryFileProvider();
 
@@ -151,6 +205,21 @@ public sealed class AssetTerrainSourceTests {
             var grassId = database.WriteRaw(ContentHash.TypeId(typeof(GrassType)), [], Serializer.ToBytes(rule));
 
             entries.Add(new(GrassAddress, grassId, "Main", ContentProvider.Local, [], [], 0));
+        }
+
+        if (foliage is { } kind) {
+            // The importer's foliage spelling, on the grass rule's terms exactly.
+            var foliageId = database.WriteRaw(ContentHash.TypeId(typeof(FoliageType)), [], Serializer.ToBytes(kind));
+
+            entries.Add(new(FoliageAddress, foliageId, "Main", ContentProvider.Local, [], [], 0));
+        }
+
+        if (volume is not null) {
+            // A .vxfol is carried forward as its bytes — FoliageStore's own format, no serializer
+            // in between — so the stamp is a tool-payload id the source never reads.
+            var volumeId = database.WriteRaw(ContentHash.TypeId(typeof(FoliageStore)), [], volume);
+
+            entries.Add(new(VolumeAddress, volumeId, "Main", ContentProvider.Local, [], [], 0));
         }
 
         var bundle = new BundleWriter();

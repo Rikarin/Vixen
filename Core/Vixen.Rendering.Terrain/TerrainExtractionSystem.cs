@@ -35,7 +35,9 @@ namespace Vixen.Rendering.Terrain;
 [UpdateInGroup(SystemPhase.PreRender)]
 public sealed class TerrainExtractionSystem : SystemBase, IDeclaredAccess {
     readonly QueryDescription terrains = new QueryDescription().WithAll<TerrainComponent, WorldTransform>();
+    readonly QueryDescription foliage = new QueryDescription().WithAll<FoliageVolumeComponent, WorldTransform>();
     readonly TerrainSceneSource scene;
+    readonly List<Vixen.Foliage.FoliageType> palette = [];
 
     /// <summary>Builds the bridge over the frame list it fills.</summary>
     /// <param name="scene">Where each frame's terrains land.</param>
@@ -55,7 +57,7 @@ public sealed class TerrainExtractionSystem : SystemBase, IDeclaredAccess {
     /// <summary>How many terrains the last pass put in the list.</summary>
     public int TerrainCount { get; private set; }
 
-    /// <summary>How many entities named a terrain that has not resolved.</summary>
+    /// <summary>How many entities named a terrain or foliage asset that has not resolved.</summary>
     /// <remarks>
     ///     A number that stays up is a reference nothing can load — "the ground is missing" and
     ///     "the ground has not arrived yet" are different problems, and only the second fixes
@@ -65,6 +67,17 @@ public sealed class TerrainExtractionSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>How many grass rules were dropped because their own validation refused them.</summary>
     public int RefusedGrass { get; private set; }
+
+    /// <summary>How many foliage volumes the last pass put in the list.</summary>
+    public int FoliageCount { get; private set; }
+
+    /// <summary>How many foliage volumes were dropped because a palette type refused itself.</summary>
+    /// <remarks>
+    ///     The whole volume rather than the one type, deliberately: the palette's <em>order</em> is
+    ///     what the instances index, so dropping entry two would dress every later chunk in the
+    ///     wrong species — worse than drawing nothing with a counter saying why.
+    /// </remarks>
+    public int RefusedFoliage { get; private set; }
 
     /// <inheritdoc />
     /// <remarks>
@@ -76,6 +89,7 @@ public sealed class TerrainExtractionSystem : SystemBase, IDeclaredAccess {
         .Read<WorldTransform>()
         .Read<TerrainComponent>()
         .Read<TerrainGrassComponent>()
+        .Read<FoliageVolumeComponent>()
         .Build();
 
     /// <inheritdoc />
@@ -91,10 +105,13 @@ public sealed class TerrainExtractionSystem : SystemBase, IDeclaredAccess {
         ArgumentNullException.ThrowIfNull(world);
 
         scene.Terrains.Clear();
+        scene.Foliage.Clear();
 
         TerrainCount = 0;
+        FoliageCount = 0;
         Waiting = 0;
         RefusedGrass = 0;
+        RefusedFoliage = 0;
 
         if (Assets is not { } assets) {
             return;
@@ -154,6 +171,70 @@ public sealed class TerrainExtractionSystem : SystemBase, IDeclaredAccess {
                 );
 
                 TerrainCount++;
+            }
+        }
+
+        ExtractFoliage(world, assets);
+    }
+
+    /// <summary>Refills the foliage half of the frame list: the palette first, then the volume.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every palette type has to resolve before the volume can be asked for at all</b> —
+    ///     <see cref="ITerrainAssetSource.Volume" />'s remarks say why the bytes cannot be read
+    ///     without them. A palette part-way through loading is <see cref="Waiting" />; one whose
+    ///     type refuses itself is <see cref="RefusedFoliage" />, dropped whole for the order's sake.
+    /// </remarks>
+    void ExtractFoliage(World world, ITerrainAssetSource assets) {
+        foreach (var chunk in world.Chunks(foliage)) {
+            var transforms = chunk.ReadValues<WorldTransform>();
+            var entities = chunk.Entities;
+
+            for (var index = 0; index < chunk.Count; index++) {
+                var authored = world.Get<FoliageVolumeComponent>(entities[index]);
+
+                if (authored.Volume is not { Length: > 0 } reference
+                    || authored.Palette is not { Length: > 0 } names) {
+                    continue;
+                }
+
+                palette.Clear();
+
+                var waiting = false;
+                var refused = false;
+
+                foreach (var name in names) {
+                    if (assets.Foliage(name) is not { } type) {
+                        waiting = true;
+                        break;
+                    }
+
+                    // Refused here rather than thrown from the cull's Upload mid-frame — the grass
+                    // path's own trade, made at the same seam for the same reason.
+                    if (type.Validate() is not null) {
+                        refused = true;
+                        break;
+                    }
+
+                    palette.Add(type);
+                }
+
+                if (refused) {
+                    RefusedFoliage++;
+                    continue;
+                }
+
+                if (waiting) {
+                    Waiting++;
+                    continue;
+                }
+
+                if (assets.Volume(reference, palette) is not { } volume) {
+                    Waiting++;
+                    continue;
+                }
+
+                scene.Foliage.Add(new(volume, transforms[index].Value.Translation, authored.Range));
+                FoliageCount++;
             }
         }
     }

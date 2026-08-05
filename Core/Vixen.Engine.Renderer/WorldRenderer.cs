@@ -535,6 +535,11 @@ public sealed class WorldRenderer : IDisposable {
         Terrains = new(assets);
         TerrainScene.Textures = Painted is null ? null : new AssetTerrainTextures(Painted);
 
+        // The foliage's third seam: a .vxfoliage names a mesh, and the same source the scene's
+        // mesh components load through is what resolves it — one load per pine however many
+        // volumes place it.
+        TerrainScene.Meshes = Source;
+
         if (TerrainExtraction is { } terrains) {
             terrains.Assets = Terrains;
         }

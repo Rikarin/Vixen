@@ -172,6 +172,7 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14014 | Information | `Rebuilt '{Address}' with the distance field in it. The first build ran before OnInitialise and the clipmap node captured a null.` | 0.1.0 |
 | 14015 | Information | `Stopping after {Frames} frame(s): {Objects} object(s) extracted, {Variants} shader variant(s) compiled.` | 0.1.0 |
 | 14016 | Information | `The ground: {Terrains} terrain(s) and {Fields} grass field(s) drawn in the last frame; extraction saw {Extracted} terrain(s), {Waiting} still loading, {Refused} refused grass rule(s).` — zero drawn with zero waiting is a scene problem; zero drawn with one waiting is content that never arrived | 0.1.0 |
+| 14017 | Information | `The pines: {Volumes} foliage volume(s) drawn in the last frame, {Missing} mesh(es) still missing; extraction saw {Extracted} volume(s), {Refused} refused.` — drawn with meshes missing is content that never arrived; volumes refused is a broken palette type | 0.1.0 |
 | 14021 | Information | `Built {Triangles} triangles into {Clusters} clusters over {Pages} page(s) on {Adapter} ({Kind}). The host never learns how many are drawn.` | 0.1.0 |
 | 14022 | Error | `There is no window to present to.` — `Samples/12` needs a real display | 0.1.0 |
 | 14023 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
