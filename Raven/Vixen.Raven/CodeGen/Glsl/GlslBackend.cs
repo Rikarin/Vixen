@@ -12,7 +12,7 @@ namespace Vixen.Raven.CodeGen.Glsl;
 ///     Generates Vulkan GLSL from the Raven IR — one translation unit per entry point,
 ///     because a GLSL program is compiled a stage at a time.
 /// </summary>
-public sealed class GlslBackend(GlslOptions? options = null) : ITargetBackend {
+internal sealed class GlslBackend(GlslOptions? options = null) : ITargetBackend {
     readonly GlslOptions options = options ?? new GlslOptions();
 
     public string Name => "glsl";

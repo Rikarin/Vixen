@@ -84,13 +84,21 @@ public sealed class SemanticModel {
     ///     Every member body in this tree, normalized to a block with an explicit
     ///     parameter list and return type. This is the entry point for lowering.
     /// </summary>
-    public IReadOnlyList<BoundBody> GetBoundBodies() {
+    /// <remarks>
+    ///     <c>internal</c>, with the whole bound tree, because "the entry point for lowering" names
+    ///     its one caller and that caller is in this assembly. A consumer's entry point is
+    ///     <see cref="Lowering.Lowerer.Lower" /> and what it hands back is the IR, which is the
+    ///     representation both backends and the reflection are written against; the bound tree is
+    ///     the shape in between and changes whenever binding does.
+    /// </remarks>
+    internal IReadOnlyList<BoundBody> GetBoundBodies() {
         EnsureBound();
         return boundBodies;
     }
 
     /// <summary>The bound node produced for a syntax node, for inspection and testing.</summary>
-    public BoundNode? GetBoundNode(SyntaxNode node) {
+    /// <remarks>Testing is <c>InternalsVisibleTo</c>, so this needs no more reach than that.</remarks>
+    internal BoundNode? GetBoundNode(SyntaxNode node) {
         EnsureBound();
         return FindBound(node);
     }

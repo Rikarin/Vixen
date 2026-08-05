@@ -12,7 +12,7 @@ namespace Vixen.Raven.Symbols.Source;
 ///     shape but no common base node, so the declaration pass reads them through
 ///     this instead of switching everywhere.
 /// </summary>
-public sealed class TypeDeclarationInfo {
+internal sealed class TypeDeclarationInfo {
     public MemberDeclarationSyntax Syntax { get; }
     public SyntaxList<AttributeListSyntax> AttributeLists { get; }
     public SyntaxList<SyntaxToken> Modifiers { get; }

@@ -16,7 +16,7 @@ namespace Vixen.Raven.CodeGen.Spirv;
 ///     id, both because the spec requires type uniqueness and because duplicated
 ///     aggregates would fail validation.
 /// </remarks>
-public sealed class SpirvModule {
+internal sealed class SpirvModule {
     /// <summary>The word every SPIR-V binary starts with.</summary>
     public const uint MagicNumber = 0x07230203;
 

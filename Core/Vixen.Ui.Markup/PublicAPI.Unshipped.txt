@@ -436,9 +436,6 @@ Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.UsingKeyword.get -> Vixen.Core.Synta
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.WithName(Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.WithUsingKeyword(Vixen.Core.Syntax.SyntaxToken usingKeyword) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
 Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions -> static class
-Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions.<G>$7B1EA48CCC2BB39DA1D1E341962695C5 -> sealed class
-Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions.<G>$7B1EA48CCC2BB39DA1D1E341962695C5.<M>$932AAD0A0D9D67B956721CD7F9CDA72D -> static class
-Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions.<G>$7B1EA48CCC2BB39DA1D1E341962695C5.Kind.get -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.VxmlSyntaxNode -> abstract class
 Vixen.Ui.Markup.Syntax.VxmlSyntaxNode : Vixen.Core.Syntax.SyntaxNode
 Vixen.Ui.Markup.Syntax.VxmlSyntaxNode.Kind.get -> Vixen.Ui.Markup.Syntax.SyntaxKind

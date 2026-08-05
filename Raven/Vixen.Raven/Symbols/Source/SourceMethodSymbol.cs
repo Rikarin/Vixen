@@ -12,7 +12,7 @@ namespace Vixen.Raven.Symbols.Source;
 ///     A callable declared in source: <c>func</c>, <c>init</c>, <c>~init</c>, an
 ///     operator, a conversion operator, or a local function.
 /// </summary>
-public sealed class SourceMethodSymbol : MethodSymbol {
+internal sealed class SourceMethodSymbol : MethodSymbol {
     readonly Binder binder;
 
     Binder? methodBinder;

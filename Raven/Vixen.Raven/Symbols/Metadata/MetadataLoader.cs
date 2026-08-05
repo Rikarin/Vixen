@@ -26,7 +26,7 @@ namespace Vixen.Raven.Symbols.Metadata;
 ///         that needs a lookup happens on first read.
 ///     </para>
 /// </remarks>
-public sealed class MetadataLoader {
+internal sealed class MetadataLoader {
     readonly DiagnosticBag diagnostics;
     readonly Dictionary<string, MetadataNamedTypeSymbol> byQualifiedName = new(StringComparer.Ordinal);
     readonly List<CompiledLibrary> libraries = [];

@@ -9,7 +9,7 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols.Source;
 
 /// <summary>A parameter declared in source.</summary>
-public sealed class SourceParameterSymbol : ParameterSymbol {
+internal sealed class SourceParameterSymbol : ParameterSymbol {
     readonly Binder binder;
     readonly ParameterSyntax syntax;
     bool resolving;

@@ -7,7 +7,7 @@ using System.Text;
 namespace Vixen.Raven.CodeGen.Spirv;
 
 /// <summary>What an operand word means, which is all that separates encoding from reading.</summary>
-public enum SpirvOperandKind {
+internal enum SpirvOperandKind {
     /// <summary>A reference to a result id.</summary>
     Id,
 
@@ -22,7 +22,7 @@ public enum SpirvOperandKind {
 }
 
 /// <summary>One operand of a <see cref="SpirvInstruction" />.</summary>
-public readonly struct SpirvOperand {
+internal readonly struct SpirvOperand {
     public SpirvOperandKind Kind { get; }
 
     /// <summary>The single word, for ids, enumerants and 32-bit literals.</summary>
@@ -137,7 +137,7 @@ public readonly struct SpirvOperand {
 ///     renders as the assembly listing, so the listing can never drift from what was
 ///     actually emitted.
 /// </summary>
-public sealed class SpirvInstruction(SpirvOp op, uint? resultType, uint? result, params SpirvOperand[] operands) {
+internal sealed class SpirvInstruction(SpirvOp op, uint? resultType, uint? result, params SpirvOperand[] operands) {
     public SpirvOp Op { get; } = op;
     public uint? ResultType { get; } = resultType;
     public uint? Result { get; } = result;

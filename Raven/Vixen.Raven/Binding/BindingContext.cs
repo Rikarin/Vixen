@@ -14,7 +14,7 @@ namespace Vixen.Raven.Binding;
 ///     and the syntax → bound-node / syntax → symbol maps the
 ///     <see cref="SemanticModel" /> answers queries from.
 /// </summary>
-public sealed class BindingContext(Compilation compilation, DiagnosticBag diagnostics) {
+internal sealed class BindingContext(Compilation compilation, DiagnosticBag diagnostics) {
     public Compilation Compilation { get; } = compilation;
 
     public DiagnosticBag Diagnostics { get; } = diagnostics;

@@ -24,7 +24,7 @@ namespace Vixen.Raven.Symbols.Metadata;
 ///         this machine — is worse than none.
 ///     </para>
 /// </remarks>
-public sealed class MetadataNamedTypeSymbol : NamedTypeSymbol {
+internal sealed class MetadataNamedTypeSymbol : NamedTypeSymbol {
     readonly MetadataLoader loader;
     readonly List<MetadataNamedTypeSymbol> nestedTypes = [];
 

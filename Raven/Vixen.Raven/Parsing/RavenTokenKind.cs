@@ -11,7 +11,7 @@ namespace Vixen.Raven.Parsing;
 ///     <c>=</c> is an <c>EqualsToken</c> in an initializer and an
 ///     <c>OperatorToken</c> in an assignment expression).
 /// </summary>
-public enum RavenTokenKind {
+internal enum RavenTokenKind {
     None,
     EndOfFile,
     NewLine,

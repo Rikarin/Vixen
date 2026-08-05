@@ -9,7 +9,7 @@ namespace Vixen.Raven.Binding;
 ///     The outermost scope: everything declared anywhere in the compilation, plus
 ///     the intrinsic types and functions.
 /// </summary>
-public sealed class GlobalBinder(BindingContext context) : Binder(null) {
+internal sealed class GlobalBinder(BindingContext context) : Binder(null) {
     public override BindingContext Context { get; } = context;
 
     private protected override void LookupInScope(string name, List<Symbol> results) {
@@ -24,7 +24,7 @@ public sealed class GlobalBinder(BindingContext context) : Binder(null) {
 }
 
 /// <summary>A type declaration's scope: its type parameters and its members, inherited ones included.</summary>
-public sealed class NamedTypeBinder(Binder next, NamedTypeSymbol type) : Binder(next) {
+internal sealed class NamedTypeBinder(Binder next, NamedTypeSymbol type) : Binder(next) {
     public NamedTypeSymbol Type { get; } = type;
 
     public override NamedTypeSymbol? ContainingType => Type;
@@ -48,7 +48,7 @@ public sealed class NamedTypeBinder(Binder next, NamedTypeSymbol type) : Binder(
 ///     A member's scope: the parameters and type parameters of a method, indexer or
 ///     accessor, and the return type <c>return</c> is checked against.
 /// </summary>
-public sealed class MemberBinder : Binder {
+internal sealed class MemberBinder : Binder {
     readonly ParameterSymbol[] parameters;
     readonly TypeParameterSymbol[] typeParameters;
 
@@ -89,7 +89,7 @@ public sealed class MemberBinder : Binder {
 ///     A statement scope. Locals are added as their declarations are bound, so a
 ///     name is only visible after the point it is declared.
 /// </summary>
-public sealed class BlockBinder(Binder next, bool isLoopBody = false) : Binder(next) {
+internal sealed class BlockBinder(Binder next, bool isLoopBody = false) : Binder(next) {
     readonly List<Symbol> declared = [];
 
     public override bool IsInLoop => isLoopBody || base.IsInLoop;
@@ -124,6 +124,6 @@ public sealed class BlockBinder(Binder next, bool isLoopBody = false) : Binder(n
 ///     nodes from method bodies land in its own maps rather than the compilation's
 ///     declaration state.
 /// </summary>
-public sealed class ContextBinder(Binder next, BindingContext context) : Binder(next) {
+internal sealed class ContextBinder(Binder next, BindingContext context) : Binder(next) {
     public override BindingContext Context { get; } = context;
 }

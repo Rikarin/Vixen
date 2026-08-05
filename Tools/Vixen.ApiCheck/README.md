@@ -105,12 +105,20 @@ surface is a promise is the set somebody can install from nuget.org.
 
 The `net10.0-ios`, `-android` and `-browser` projects are not covered. They are outside
 `Vixen.slnx` for the reason `CompileMobile` documents, so `Compile` has not built them and there
-would be nothing to read. `Raven/` and `Tools/` are not covered: they are compilers and build-time
-tooling.
+would be nothing to read. `Tools/` is not covered: it is build-time tooling that ships to nobody.
 
-`Editor/` is not covered **except for one project**. `Vixen.Editor.Plugin` is not an application, it
-is the contract a third party compiles against, and
+Two projects outside those folders are named explicitly, each because it makes a promise the folder
+rule would miss.
+
+`Vixen.Editor.Plugin` is not an application, it is the contract a third party compiles against, and
 [docs/plan/11](../../docs/plan/11-editor.md) § `Vixen.Editor.Plugin` asks for a stricter
-compatibility policy there than anywhere else. A stricter promise nobody diffed is not a promise, so
-it is named explicitly in `ApiCheckedProjects` and carries its baselines like everything in the
-RUNTIME profile.
+compatibility policy there than anywhere else. A stricter promise nobody diffed is not a promise.
+
+`Vixen.Raven` is a package, not the CLI around it — its `.csproj` says *"the compiler is useful on
+its own, without the engine"* and carries a description, tags and a readme to prove it. It was the
+only shipped assembly in the tree with no baseline at all: 4 913 entries approved by nothing, in the
+assembly with the most churn. Adding it cost 1 162 of those entries first, which is the point of
+reading a baseline rather than generating one — the SPIR-V and GLSL emitters, the symbol table's
+`Source` and `Metadata` construction, the binder and its bound tree, and the lexer's token kind were
+public only because nothing had made them `internal`. `Vixen.Raven.Cli` and the tests beside it are
+still not covered, because neither packs.

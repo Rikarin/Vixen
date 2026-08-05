@@ -9,7 +9,7 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Binding;
 
 /// <summary>Expression-aware conversion classification and insertion.</summary>
-public abstract partial class Binder {
+internal abstract partial class Binder {
     /// <summary>
     ///     An untyped integer literal takes the shape the context asks for:
     ///     <c>val x: uint = 1</c> and <c>val v: float3 = 0</c> both work.

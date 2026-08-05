@@ -12,7 +12,7 @@ namespace Vixen.Raven.Binding;
 readonly record struct BoundArgument(string? Name, BoundExpression Expression, ExpressionSyntax Syntax);
 
 /// <summary>Calls, constructions, overload resolution and indexing.</summary>
-public abstract partial class Binder {
+internal abstract partial class Binder {
     BoundExpression BindInvocation(InvocationExpressionSyntax syntax) {
         var callee = BindExpression(syntax.Expression);
         var arguments = BindArguments(syntax.ArgumentList.Arguments);

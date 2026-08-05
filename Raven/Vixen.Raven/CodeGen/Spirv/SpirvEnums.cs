@@ -6,7 +6,7 @@ using Vixen.Core.Syntax.Diagnostics;
 namespace Vixen.Raven.CodeGen.Spirv;
 
 /// <summary>Values a module declares support for.</summary>
-public enum SpirvCapability {
+internal enum SpirvCapability {
     Matrix = 0,
     Shader = 1,
     Float64 = 10,
@@ -83,7 +83,7 @@ public enum SpirvCapability {
 ///     recognises, and the capability it was meant to enable is rejected by the validator with a
 ///     message about the capability.
 /// </remarks>
-public static class SpirvExtensions {
+internal static class SpirvExtensions {
     /// <summary>
     ///     <c>SPV_EXT_descriptor_indexing</c> — unbounded descriptor arrays and non-uniform indexing.
     /// </summary>
@@ -104,16 +104,16 @@ public static class SpirvExtensions {
     public const string RayQuery = "SPV_KHR_ray_query";
 }
 
-public enum SpirvAddressingModel {
+internal enum SpirvAddressingModel {
     Logical = 0
 }
 
-public enum SpirvMemoryModel {
+internal enum SpirvMemoryModel {
     Simple = 0,
     GLSL450 = 1
 }
 
-public enum SpirvExecutionModel {
+internal enum SpirvExecutionModel {
     Vertex = 0,
     TessellationControl = 1,
     TessellationEvaluation = 2,
@@ -122,7 +122,7 @@ public enum SpirvExecutionModel {
     GLCompute = 5
 }
 
-public enum SpirvExecutionMode {
+internal enum SpirvExecutionMode {
     /// <summary>Fragment shaders must declare one of the two origins; Vulkan wants this one.</summary>
     OriginUpperLeft = 7,
     LocalSize = 17
@@ -136,7 +136,7 @@ public enum SpirvExecutionMode {
 ///     and memory semantics as constants so that a specialization constant can supply one. This
 ///     enum is what those constants hold.
 /// </remarks>
-public enum SpirvScope {
+internal enum SpirvScope {
     /// <summary>The whole dispatch — what an atomic on a storage buffer needs.</summary>
     Device = 1,
 
@@ -144,7 +144,7 @@ public enum SpirvScope {
     Workgroup = 2
 }
 
-public enum SpirvStorageClass {
+internal enum SpirvStorageClass {
     UniformConstant = 0,
     Input = 1,
     Uniform = 2,
@@ -175,17 +175,17 @@ public enum SpirvStorageClass {
     StorageBuffer = 12
 }
 
-public enum SpirvDim {
+internal enum SpirvDim {
     Dim2D = 1,
     Dim3D = 2,
     Cube = 3
 }
 
-public enum SpirvImageFormat {
+internal enum SpirvImageFormat {
     Unknown = 0
 }
 
-public enum SpirvDecoration {
+internal enum SpirvDecoration {
     Block = 2,
     BufferBlock = 3,
     RowMajor = 4,
@@ -217,7 +217,7 @@ public enum SpirvDecoration {
     NonUniform = 5300
 }
 
-public enum SpirvBuiltIn {
+internal enum SpirvBuiltIn {
     Position = 0,
     PointSize = 1,
     FragCoord = 15,
@@ -245,7 +245,7 @@ public enum SpirvBuiltIn {
 ///     missing here. Kept as an enumerant rather than flattened to its number, because that is
 ///     what puts <c>BuiltIn VertexIndex</c> rather than <c>BuiltIn 42</c> in a listing.
 /// </remarks>
-public static class SpirvBuiltIns {
+internal static class SpirvBuiltIns {
     public static SpirvBuiltIn Of(Symbols.StageBuiltIn builtIn) =>
         builtIn switch {
             Symbols.StageBuiltIn.DispatchThreadId => SpirvBuiltIn.GlobalInvocationId,
@@ -261,19 +261,19 @@ public static class SpirvBuiltIns {
 }
 
 
-public enum SpirvFunctionControl {
+internal enum SpirvFunctionControl {
     None = 0
 }
 
-public enum SpirvLoopControl {
+internal enum SpirvLoopControl {
     None = 0
 }
 
-public enum SpirvSelectionControl {
+internal enum SpirvSelectionControl {
     None = 0
 }
 
-public enum SpirvMemorySemantics {
+internal enum SpirvMemorySemantics {
     None = 0
 }
 
@@ -281,7 +281,7 @@ public enum SpirvMemorySemantics {
 ///     The GLSL.std.450 extended instruction set, which is where most of the maths
 ///     intrinsics live. Numbers are from the extended instruction spec.
 /// </summary>
-public enum GlslStd450 {
+internal enum GlslStd450 {
     Round = 1,
     RoundEven = 2,
     Trunc = 3,

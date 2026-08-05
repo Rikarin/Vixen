@@ -8,7 +8,7 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Binding;
 
 /// <summary>A literal whose value the lexer/binder has already computed.</summary>
-public sealed class BoundLiteralExpression(SyntaxNode syntax, TypeSymbol type, object? value)
+internal sealed class BoundLiteralExpression(SyntaxNode syntax, TypeSymbol type, object? value)
     : BoundExpression(syntax) {
     public override BoundKind Kind => BoundKind.LiteralExpression;
     public override TypeSymbol Type { get; } = type;
@@ -16,7 +16,7 @@ public sealed class BoundLiteralExpression(SyntaxNode syntax, TypeSymbol type, o
 }
 
 /// <summary>A reference to a local variable.</summary>
-public sealed class BoundLocalExpression(SyntaxNode syntax, LocalSymbol local) : BoundExpression(syntax) {
+internal sealed class BoundLocalExpression(SyntaxNode syntax, LocalSymbol local) : BoundExpression(syntax) {
     public LocalSymbol Local { get; } = local;
     public override BoundKind Kind => BoundKind.LocalExpression;
     public override TypeSymbol Type => Local.Type;
@@ -24,7 +24,7 @@ public sealed class BoundLocalExpression(SyntaxNode syntax, LocalSymbol local) :
 }
 
 /// <summary>A reference to a parameter of the enclosing method or lambda.</summary>
-public sealed class BoundParameterExpression(SyntaxNode syntax, ParameterSymbol parameter) : BoundExpression(syntax) {
+internal sealed class BoundParameterExpression(SyntaxNode syntax, ParameterSymbol parameter) : BoundExpression(syntax) {
     public ParameterSymbol Parameter { get; } = parameter;
     public override BoundKind Kind => BoundKind.ParameterExpression;
     public override TypeSymbol Type => Parameter.Type;
@@ -32,7 +32,7 @@ public sealed class BoundParameterExpression(SyntaxNode syntax, ParameterSymbol 
 }
 
 /// <summary>A field access; <paramref name="receiver" /> is null for statics.</summary>
-public sealed class BoundFieldExpression(SyntaxNode syntax, BoundExpression? receiver, FieldSymbol field)
+internal sealed class BoundFieldExpression(SyntaxNode syntax, BoundExpression? receiver, FieldSymbol field)
     : BoundExpression(syntax) {
     public BoundExpression? Receiver { get; } = receiver;
     public FieldSymbol Field { get; } = field;
@@ -44,7 +44,7 @@ public sealed class BoundFieldExpression(SyntaxNode syntax, BoundExpression? rec
 }
 
 /// <summary>A property or indexer access.</summary>
-public sealed class BoundPropertyExpression(
+internal sealed class BoundPropertyExpression(
     SyntaxNode syntax,
     BoundExpression? receiver,
     PropertySymbol property,
@@ -61,13 +61,13 @@ public sealed class BoundPropertyExpression(
 }
 
 /// <summary><c>self</c>.</summary>
-public sealed class BoundSelfExpression(SyntaxNode syntax, TypeSymbol type) : BoundExpression(syntax) {
+internal sealed class BoundSelfExpression(SyntaxNode syntax, TypeSymbol type) : BoundExpression(syntax) {
     public override BoundKind Kind => BoundKind.SelfExpression;
     public override TypeSymbol Type { get; } = type;
 }
 
 /// <summary><c>base</c>.</summary>
-public sealed class BoundBaseExpression(SyntaxNode syntax, TypeSymbol type) : BoundExpression(syntax) {
+internal sealed class BoundBaseExpression(SyntaxNode syntax, TypeSymbol type) : BoundExpression(syntax) {
     public override BoundKind Kind => BoundKind.BaseExpression;
     public override TypeSymbol Type { get; } = type;
 }
@@ -76,7 +76,7 @@ public sealed class BoundBaseExpression(SyntaxNode syntax, TypeSymbol type) : Bo
 ///     A type in expression position — the receiver of a static member access, or
 ///     the callee of a construction such as <c>float4(…)</c>.
 /// </summary>
-public sealed class BoundTypeExpression(SyntaxNode syntax, TypeSymbol type) : BoundExpression(syntax) {
+internal sealed class BoundTypeExpression(SyntaxNode syntax, TypeSymbol type) : BoundExpression(syntax) {
     public TypeSymbol ReferencedType { get; } = type;
     public override BoundKind Kind => BoundKind.TypeExpression;
     public override TypeSymbol Type => ReferencedType;
@@ -84,7 +84,7 @@ public sealed class BoundTypeExpression(SyntaxNode syntax, TypeSymbol type) : Bo
 }
 
 /// <summary>A namespace in expression position; only ever a qualifier.</summary>
-public sealed class BoundNamespaceExpression(SyntaxNode syntax, NamespaceSymbol @namespace)
+internal sealed class BoundNamespaceExpression(SyntaxNode syntax, NamespaceSymbol @namespace)
     : BoundExpression(syntax) {
     public NamespaceSymbol Namespace { get; } = @namespace;
     public override BoundKind Kind => BoundKind.NamespaceExpression;
@@ -97,7 +97,7 @@ public sealed class BoundNamespaceExpression(SyntaxNode syntax, NamespaceSymbol 
 ///     outside a call. Overload resolution turns it into a
 ///     <see cref="BoundInvocationExpression" />.
 /// </summary>
-public sealed class BoundMethodGroupExpression(
+internal sealed class BoundMethodGroupExpression(
     SyntaxNode syntax,
     BoundExpression? receiver,
     IReadOnlyList<MethodSymbol> methods,
@@ -113,7 +113,7 @@ public sealed class BoundMethodGroupExpression(
 }
 
 /// <summary>A resolved call. Arguments are already converted to the parameter types.</summary>
-public sealed class BoundInvocationExpression(
+internal sealed class BoundInvocationExpression(
     SyntaxNode syntax,
     BoundExpression? receiver,
     MethodSymbol method,
@@ -134,7 +134,7 @@ public sealed class BoundInvocationExpression(
 ///     user-defined type's <c>init</c>. <see cref="Constructor" /> is null for
 ///     built-in vector/matrix construction.
 /// </summary>
-public sealed class BoundObjectCreationExpression(
+internal sealed class BoundObjectCreationExpression(
     SyntaxNode syntax,
     TypeSymbol type,
     MethodSymbol? constructor,
@@ -149,7 +149,7 @@ public sealed class BoundObjectCreationExpression(
 }
 
 /// <summary>An inserted conversion. Every representation change is explicit in the bound tree.</summary>
-public sealed class BoundConversionExpression(
+internal sealed class BoundConversionExpression(
     SyntaxNode syntax,
     BoundExpression operand,
     TypeSymbol type,
@@ -163,7 +163,7 @@ public sealed class BoundConversionExpression(
     public override IEnumerable<BoundNode> Children => [Operand];
 }
 
-public sealed class BoundUnaryExpression(
+internal sealed class BoundUnaryExpression(
     SyntaxNode syntax,
     UnaryOperatorKind operatorKind,
     BoundExpression operand,
@@ -176,7 +176,7 @@ public sealed class BoundUnaryExpression(
     public override IEnumerable<BoundNode> Children => [Operand];
 }
 
-public sealed class BoundBinaryExpression(
+internal sealed class BoundBinaryExpression(
     SyntaxNode syntax,
     BinaryOperatorKind operatorKind,
     BoundExpression left,
@@ -195,7 +195,7 @@ public sealed class BoundBinaryExpression(
 ///     An assignment. Compound forms (<c>x += y</c>) carry the underlying
 ///     <see cref="OperatorKind" />; a simple assignment leaves it null.
 /// </summary>
-public sealed class BoundAssignmentExpression(
+internal sealed class BoundAssignmentExpression(
     SyntaxNode syntax,
     BoundExpression target,
     BoundExpression value,
@@ -209,7 +209,7 @@ public sealed class BoundAssignmentExpression(
     public override IEnumerable<BoundNode> Children => [Target, Value];
 }
 
-public sealed class BoundConditionalExpression(
+internal sealed class BoundConditionalExpression(
     SyntaxNode syntax,
     BoundExpression condition,
     BoundExpression whenTrue,
@@ -225,7 +225,7 @@ public sealed class BoundConditionalExpression(
 }
 
 /// <summary>Indexing into an array or a vector/matrix.</summary>
-public sealed class BoundArrayAccessExpression(
+internal sealed class BoundArrayAccessExpression(
     SyntaxNode syntax,
     BoundExpression receiver,
     IReadOnlyList<BoundExpression> indices,
@@ -239,7 +239,7 @@ public sealed class BoundArrayAccessExpression(
 }
 
 /// <summary><c>a..b</c>.</summary>
-public sealed class BoundRangeExpression(
+internal sealed class BoundRangeExpression(
     SyntaxNode syntax,
     BoundExpression? left,
     BoundExpression? right,
@@ -263,7 +263,7 @@ public sealed class BoundRangeExpression(
     }
 }
 
-public sealed class BoundTupleExpression(
+internal sealed class BoundTupleExpression(
     SyntaxNode syntax,
     IReadOnlyList<BoundExpression> elements,
     TypeSymbol type
@@ -280,10 +280,10 @@ public sealed class BoundTupleExpression(
 ///     from an element by type alone once <c>int[][]</c> exists, and lowering has to be able to
 ///     tell them apart — one contributes itself, the other contributes its elements.
 /// </summary>
-public sealed record BoundCollectionElement(BoundExpression Expression, bool IsSpread);
+internal sealed record BoundCollectionElement(BoundExpression Expression, bool IsSpread);
 
 /// <summary><c>[a, b, ..c]</c> — bound as an array of the elements' common type.</summary>
-public sealed class BoundCollectionExpression(
+internal sealed class BoundCollectionExpression(
     SyntaxNode syntax,
     IReadOnlyList<BoundCollectionElement> elements,
     TypeSymbol type
@@ -299,7 +299,7 @@ public sealed class BoundCollectionExpression(
 ///     Stands in for an expression that failed to bind. It carries any operands that
 ///     did bind, so the semantic model still answers questions about them.
 /// </summary>
-public sealed class BoundErrorExpression(SyntaxNode syntax, IReadOnlyList<BoundExpression>? operands = null)
+internal sealed class BoundErrorExpression(SyntaxNode syntax, IReadOnlyList<BoundExpression>? operands = null)
     : BoundExpression(syntax) {
     public IReadOnlyList<BoundExpression> Operands { get; } = operands ?? [];
     public override BoundKind Kind => BoundKind.ErrorExpression;

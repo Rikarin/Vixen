@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
+using System.Reflection.Emit;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
@@ -225,6 +227,56 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
         Assert.DoesNotContain(surface, entry => entry.Contains("EqualityContract", StringComparison.Ordinal));
         Assert.DoesNotContain(surface, entry => entry.Contains("PrintMembers", StringComparison.Ordinal));
         Assert.DoesNotContain(surface, entry => entry.Contains("Clone", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     An extension block's grouping type is the compiler's, and its name says so by being one
+    ///     no source file could write.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ It carries no <c>[CompilerGenerated]</c>, which is why the attribute check is not
+    ///     enough on its own — <c>Vixen.Raven</c>'s first baseline had three
+    ///     <c>&lt;G&gt;$7B1EA48CCC2BB39DA1D1E341962695C5</c> lines under its syntax extensions. The
+    ///     name carries a hash of the block's shape, so freezing one would report a type removed and
+    ///     a type added the next time an unrelated member was added to the same block.
+    /// </remarks>
+    [Fact]
+    public void UnspeakablyNamedTypes_AreNotSurface() {
+        var surface = ApiSurfaceReader.Read(EmitAssemblyWithAnUnspeakableNestedType());
+
+        Assert.Contains("Sample.Extensions -> static class", surface);
+        Assert.DoesNotContain(surface, entry => entry.Contains('<', StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, entry => entry.Contains('$', StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Writes the shape by hand, because the pinned Roslyn is a C# version older than the one
+    ///     that emits it: an <c>extension</c> block is C# 14 and <c>Microsoft.CodeAnalysis.CSharp</c>
+    ///     here is 4.11. Metadata names are free-form strings, so the fixture states the fact under
+    ///     test — a public nested type whose name no source file could write — without needing a
+    ///     compiler that would produce one.
+    /// </summary>
+    string EmitAssemblyWithAnUnspeakableNestedType() {
+        var assembly = new PersistedAssemblyBuilder(new("Sample"), typeof(object).Assembly);
+        var module = assembly.DefineDynamicModule("Sample");
+
+        var container = module.DefineType(
+            "Sample.Extensions",
+            TypeAttributes.Public | TypeAttributes.Abstract | TypeAttributes.Sealed
+        );
+
+        container
+            .DefineNestedType("<G>$7B1EA48CCC2BB39DA1D1E341962695C5", TypeAttributes.NestedPublic | TypeAttributes.Sealed)
+            .CreateType();
+
+        container.CreateType();
+
+        var path = Path.Combine(directory, "Sample.dll");
+        using (var stream = File.Create(path)) {
+            assembly.Save(stream);
+        }
+
+        return path;
     }
 
     [Fact]

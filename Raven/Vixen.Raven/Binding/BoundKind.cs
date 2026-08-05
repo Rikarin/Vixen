@@ -5,7 +5,7 @@
 namespace Vixen.Raven.Binding;
 
 /// <summary>Discriminator for <see cref="BoundNode" />, mirroring Roslyn's bound tree.</summary>
-public enum BoundKind {
+internal enum BoundKind {
     // Expressions
     LiteralExpression,
     LocalExpression,

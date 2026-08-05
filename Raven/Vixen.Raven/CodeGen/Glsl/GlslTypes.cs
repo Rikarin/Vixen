@@ -7,7 +7,7 @@ using Vixen.Raven.IR;
 namespace Vixen.Raven.CodeGen.Glsl;
 
 /// <summary>Mapping the IR type model onto GLSL's spelling.</summary>
-public static class GlslTypes {
+internal static class GlslTypes {
     /// <summary>Words a generated identifier must not collide with.</summary>
     static readonly HashSet<string> Reserved = new(StringComparer.Ordinal) {
         "attribute",

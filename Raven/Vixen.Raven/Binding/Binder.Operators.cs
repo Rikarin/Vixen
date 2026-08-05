@@ -6,14 +6,14 @@ using Vixen.Raven.Symbols;
 namespace Vixen.Raven.Binding;
 
 /// <summary>The operand and result types a binary operator was resolved to.</summary>
-public readonly record struct BinaryOperatorSignature(
+internal readonly record struct BinaryOperatorSignature(
     TypeSymbol LeftType,
     TypeSymbol RightType,
     TypeSymbol ResultType
 );
 
 /// <summary>Built-in operator resolution.</summary>
-public abstract partial class Binder {
+internal abstract partial class Binder {
     /// <summary>
     ///     <c>mat * vec</c>, <c>vec * mat</c> and <c>mat * mat</c>, which are real
     ///     products rather than element-wise operations.

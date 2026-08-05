@@ -9,7 +9,7 @@ namespace Vixen.Raven.CodeGen.Spirv;
 ///     actually used are listed — an enum of all 400 would be noise, and anything
 ///     missing is a compile error rather than a silently wrong word.
 /// </summary>
-public enum SpirvOp {
+internal enum SpirvOp {
     Nop = 0,
     Undef = 1,
     Name = 5,
@@ -196,6 +196,6 @@ public enum SpirvOp {
 }
 
 /// <summary>Opcode spellings, for the disassembly listing.</summary>
-public static class SpirvOpNames {
+internal static class SpirvOpNames {
     public static string Of(SpirvOp op) => "Op" + op;
 }

@@ -275,10 +275,40 @@ public static class ApiSurfaceReader {
     ///     would change them whenever the compiler changed its mind.
     /// </summary>
     static bool IsCompilerGenerated(ISymbol symbol) =>
-        symbol.GetAttributes().Any(attribute =>
+        HasUnspeakableName(symbol)
+        || symbol.GetAttributes().Any(attribute =>
             attribute.AttributeClass?.ToDisplayString(TypeFormat)
                 is "System.Runtime.CompilerServices.CompilerGeneratedAttribute"
         );
+
+    /// <summary>
+    ///     A name no source file can write, which is the CLR's own marker for something the
+    ///     compiler emitted: angle brackets are illegal in a C# identifier and legal in metadata
+    ///     precisely so that generated members cannot collide with declared ones.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Needed alongside the attribute, not instead of it.</b> C# 14's extension blocks
+    ///         emit a public nested grouping type per block — <c>&lt;G&gt;$7B1EA48CCC2BB39DA1D1E341962695C5</c>
+    ///         — carrying no <c>[CompilerGenerated]</c>, so <c>Vixen.Raven</c>'s first baseline had
+    ///         three lines of it under <c>RavenSyntaxExtensions</c>. The extension methods themselves
+    ///         are listed, correctly, in their speakable static-method form.
+    ///     </para>
+    ///     <para>
+    ///         Those lines are worse than noise: the name carries a hash of the block's shape, so
+    ///         adding one member to an unrelated extension would have reported a type removed and a
+    ///         type added — a breaking-change alarm on a change that broke nothing, in the file whose
+    ///         only job is to be believed.
+    ///     </para>
+    ///     <para>
+    ///         The generic arity marker is a backtick rather than a bracket (<c>List`1</c>), and a
+    ///         type argument never reaches this check because <see cref="ISymbol.Name" /> is the bare
+    ///         name — so nothing a human declared can match.
+    ///     </para>
+    /// </remarks>
+    static bool HasUnspeakableName(ISymbol symbol) =>
+        symbol.Name.Contains('<', StringComparison.Ordinal)
+        || symbol.Name.Contains('>', StringComparison.Ordinal);
 
     /// <summary>Root namespaces a code generator owns outright, whose types no human declares.</summary>
     /// <remarks>

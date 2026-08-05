@@ -9,7 +9,7 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Binding;
 
 /// <summary>Expression binding: names to symbols, expressions to types.</summary>
-public abstract partial class Binder {
+internal abstract partial class Binder {
     /// <summary>
     ///     Binds an expression. The result may denote a namespace, a type or a
     ///     method group as well as a value — use <see cref="BindValue" /> where only a

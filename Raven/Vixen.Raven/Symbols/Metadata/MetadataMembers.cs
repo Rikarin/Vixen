@@ -21,7 +21,7 @@ namespace Vixen.Raven.Symbols.Metadata;
 ///         coincide.
 ///     </para>
 /// </remarks>
-public sealed class MetadataFieldSymbol : FieldSymbol {
+internal sealed class MetadataFieldSymbol : FieldSymbol {
     readonly MetadataNamedTypeSymbol containingType;
     readonly LibraryField model;
 
@@ -50,7 +50,7 @@ public sealed class MetadataFieldSymbol : FieldSymbol {
 }
 
 /// <summary>A callable read out of a compiled library.</summary>
-public sealed class MetadataMethodSymbol : MethodSymbol {
+internal sealed class MetadataMethodSymbol : MethodSymbol {
     readonly MetadataNamedTypeSymbol containingType;
     readonly LibraryMethod model;
     readonly TypeParameterSymbol[] typeParameters;
@@ -103,7 +103,7 @@ public sealed class MetadataMethodSymbol : MethodSymbol {
 }
 
 /// <summary>A parameter of a library method.</summary>
-public sealed class MetadataParameterSymbol : ParameterSymbol {
+internal sealed class MetadataParameterSymbol : ParameterSymbol {
     readonly MetadataNamedTypeSymbol declaringType;
     readonly MetadataMethodSymbol method;
     readonly LibraryParameter model;
@@ -133,7 +133,7 @@ public sealed class MetadataParameterSymbol : ParameterSymbol {
 }
 
 /// <summary>A property read out of a compiled library.</summary>
-public sealed class MetadataPropertySymbol : PropertySymbol {
+internal sealed class MetadataPropertySymbol : PropertySymbol {
     readonly MetadataNamedTypeSymbol containingType;
     readonly LibraryProperty model;
 
