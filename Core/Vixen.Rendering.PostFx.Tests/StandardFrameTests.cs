@@ -275,6 +275,73 @@ public class StandardFrameTests {
         Assert.True(Node<AutoExposureAsset>(document, "Meter").UseHistogram);
     }
 
+    /// <summary>
+    ///     The volumetric dispatches sit between the shadows and the scene, and the composite sits
+    ///     after the temporal resolve.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Both halves matter and they pull in opposite directions. The dispatches need shadows and
+    ///     lights, so they go before anything draws; the composite must be after TAA, because the
+    ///     accumulator averages radiance and must only ever see the finished frame. Splitting the
+    ///     feature across the accumulator is safe only because the volume does its temporal work in
+    ///     its own space rather than the screen's.
+    /// </remarks>
+    [Fact]
+    public void The_volume_is_filled_before_the_scene_and_read_after_the_resolve() {
+        var names = Names(Expand(AllOn));
+
+        var lamps = Array.IndexOf(names, "Lamps");
+        var volumetrics = Array.IndexOf(names, "Volumetrics");
+        var main = Array.IndexOf(names, "Main");
+        var accumulate = Array.IndexOf(names, "Accumulate");
+        var air = Array.IndexOf(names, "Air");
+
+        Assert.True(lamps < volumetrics, "the dispatches come after the shadow atlases they read");
+        Assert.True(volumetrics < main, "and before anything that draws the scene");
+        Assert.True(accumulate < air, "the composite is after TAA — the invariant the seat exists for");
+    }
+
+    /// <summary>
+    ///     The composite reads the volume the dispatch wrote, at the numbers the dispatch used.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The far plane and the slice count are the grid's Z distribution, and the composite
+    ///     inverts it to find a slice. Two derivations of those numbers is a composite that reads
+    ///     the wrong slice for every pixel — smooth, plausible, and wrong everywhere.
+    /// </remarks>
+    [Fact]
+    public void The_composite_reads_the_volume_at_the_dispatchs_own_numbers() {
+        var document = Expand(AllOn);
+
+        var volume = Node<VolumetricFogAsset>(document, "Volumetrics");
+        var air = Node<FogAsset>(document, "Air");
+
+        Assert.Equal(volume.Output, air.Volume);
+        Assert.Equal(volume.Far, air.VolumeFar);
+        Assert.Equal(volume.Slices, air.VolumeSlices);
+    }
+
+    /// <summary>
+    ///     A tier without the volume still fogs, and a frame without fog has no dispatches at all.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The two knobs are not the same knob. Off leaves the analytic falloff every tier has
+    ///     always had; what it removes is the marching of the first stretch of it. And the composite
+    ///     lives inside the fog pass, so a tier that switched the volume on with fog off would spend
+    ///     three dispatches on a volume nothing reads.
+    /// </remarks>
+    [Theory]
+    [InlineData(QualityTier.Low, false, false)]
+    [InlineData(QualityTier.Medium, true, false)]
+    [InlineData(QualityTier.High, true, true)]
+    [InlineData(QualityTier.Epic, true, true)]
+    public void The_dispatches_follow_the_tier(QualityTier quality, bool fog, bool volumetric) {
+        var names = Names(Expand(AllOn with { Quality = quality }));
+
+        Assert.Equal(fog, names.Contains("Air"));
+        Assert.Equal(volumetric, names.Contains("Volumetrics"));
+    }
+
     /// <summary>The ceiling configuration is sample 13's graph, in sample 13's order.</summary>
     /// <remarks>
     ///     A hardcoded list, not a read of the sample file: the sample is hand-authored and
@@ -287,7 +354,7 @@ public class StandardFrameTests {
 
         Assert.Equal(
             [
-                "Cull", "Clipmap", "Probes", "Cache", "Sun", "Lamps", "Sky", "Main", "Velocity",
+                "Cull", "Clipmap", "Probes", "Cache", "Sun", "Lamps", "Volumetrics", "Sky", "Main", "Velocity",
                 "Sparks", "Occluders", "SunPages", "Gather", "Mirrors", "Occlusion",
                 "ContactOcclusion", "Combine", "Accumulate", "Air", "Defocus", "Shutter", "Meter",
                 "Adapt", "Flare", "Glow", "Tonemap", "Edges", "Recover", "Glass"
