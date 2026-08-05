@@ -30,6 +30,18 @@ namespace Vixen.Rendering.PostFx;
 ///         accumulator that would reproject it as though it were a surface.
 ///     </para>
 ///     <para>
+///         ⚠ <b>That last sentence was an assertion before it was a fact.</b> The seat was argued for
+///         on the grounds of a self-reprojecting volume while the volume answered every frame from
+///         scratch — which made the seat convenient rather than earned, and left every shadow edge
+///         crawling at the sampling rate of a 160 × 90 × 64 grid. <see cref="Reprojects" /> is what
+///         closed it: a pair of volumes this node owns and alternates, a sample point offset within
+///         each froxel per frame, and the previous frame's answer found through
+///         <c>ViewConstants.PreviousViewProjection</c> in the <em>grid's</em> coordinates — tile from
+///         <c>xy/w</c>, slice from the grid's own logarithmic distribution applied to <c>w</c>. A
+///         screen-space reprojection would find where a froxel's pixel was and know nothing about
+///         which slice it was in, which is the axis a shaft's edge actually lives on.
+///     </para>
+///     <para>
 ///         ⚠ <b>The volumes are declared only if the document did not.</b> A document that names
 ///         <c>FogMedia</c> and <c>FogScattered</c> re-points them — at a different resolution, or at
 ///         an import a host owns — and this stands aside, which is
@@ -55,6 +67,8 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
     const int StandInSize = 256;
 
     readonly List<ComputeRenderer> steps = [];
+    readonly TextureHandle[] volumes = new TextureHandle[2];
+    readonly TextureViewHandle[] views = new TextureViewHandle[2];
 
     PostProcessOverlay applied;
 
@@ -63,9 +77,16 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
     TextureViewHandle standInView;
     IGraphicsDevice? owner;
 
+    Int3 allocated;
+    int parity;
+    int frames;
+
     /// <summary>What the shadow stand-in is, for the import and for the frame's record of it.</summary>
     TextureDescription StandInDescription =>
         new(PixelFormat.R32Float, 1, 1, TextureUsage.Sampled, Name: ShadowStandIn);
+
+    /// <summary>What the previous frame's scattering volume is published under.</summary>
+    string HistoryName => $"{this}.ScatteredHistory";
 
     /// <inheritdoc />
     /// <remarks>
@@ -93,10 +114,22 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
 
     /// <summary>How many froxels across, down and deep.</summary>
     /// <remarks>
-    ///     The two screen axes are a resolution and the third is a decision about how finely to cut
-    ///     the frustum — which is why the depth takes no scale from the frame. Doubling the slices
-    ///     doubles the cost of the march and is what removes the banding a shallow grid shows where a
-    ///     shadow edge crosses it.
+    ///     <para>
+    ///         The two screen axes are a resolution and the third is a decision about how finely to cut
+    ///         the frustum — which is why the depth takes no scale from the frame. Doubling the slices
+    ///         doubles the cost of the march and is what removes the banding a shallow grid shows where
+    ///         a shadow edge crosses it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The screen axes stay at 160 × 90, and reprojection is the thing that could have
+    ///         changed that.</b> A froxel is <c>d · 2·tan(fovX/2) / 160</c> wide and
+    ///         <c>d · ((far/near)^(1/slices) − 1)</c> deep, so at 91° horizontal with 64 slices over
+    ///         0.5–64 m it is 0.013 d against 0.079 d: the depth axis is six times coarser, and three
+    ///         times at Epic. Whichever axis the camera drags the history along, the coarse one is the
+    ///         one that shows. And the pair <see cref="Reprojects" /> needs made width dearer rather
+    ///         than cheaper — four volumes now instead of three, about 30 MB at this shape and 118 at
+    ///         twice it.
+    ///     </para>
     /// </remarks>
     public Int3 Resolution { get; set; } = new(160, 90, 64);
 
@@ -228,6 +261,54 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
     /// </remarks>
     public bool Clustered { get; private set; }
 
+    /// <summary>
+    ///     How much of the reprojected history survives into this frame's scattering volume.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A froxel grid is coarse — 160 × 90 by a few dozen slices — and a shadow edge crossing it
+    ///         lands on a different sample every time the camera moves a fraction of a froxel. What the
+    ///         eye reads from that is not softness, it is crawl. Offsetting the sample point each frame
+    ///         and averaging is what turns the coarseness into detail rather than noise.
+    ///     </para>
+    ///     <para>
+    ///         The trade is lag: at 0.9 a shaft takes about ten frames to answer a light that moved.
+    ///         Lower it for a scene whose sun swings, and expect the edges to shimmer for it.
+    ///     </para>
+    /// </remarks>
+    public float Feedback { get; set; } = 0.9f;
+
+    /// <summary>Whether the last build alternated a pair of volumes and reprojected between them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Availability again, and the thing that withholds it is a document.</b> The pair has to
+    ///     be memory this node owns — a resource the graph declares lives for one frame, and next
+    ///     frame's would be aliased over something in this one — so a document that names
+    ///     <see cref="Scattered" /> itself re-points it at a resource this node cannot alternate, and
+    ///     the volume falls back to answering each frame from scratch. Which is what it did before
+    ///     there was a history at all.
+    /// </remarks>
+    public bool Reprojects { get; private set; }
+
+    /// <summary>Whether there is a previous frame's volume worth blending with.</summary>
+    /// <remarks>
+    ///     False for the first frame and for the first after a resolution change, where the "history"
+    ///     is memory the allocator just handed back. <c>TemporalAntialiasingRenderer.HasHistory</c>'s
+    ///     rule, and its warning: on some drivers that memory is the last thing that lived there.
+    /// </remarks>
+    public bool HasHistory { get; private set; }
+
+    /// <summary>The volume this frame's scattering is written into.</summary>
+    /// <remarks>
+    ///     Exposed for <c>TemporalAntialiasingRenderer.Target</c>'s reason: "the two alternate" is the
+    ///     property the whole effect rests on and the only place it is visible. Both are imported under
+    ///     the same two names every frame, so the swap is in the handles rather than in anything the
+    ///     graph or the command stream says.
+    /// </remarks>
+    public TextureHandle ScatteringTarget => volumes[parity];
+
+    /// <summary>The one it reprojects out of.</summary>
+    public TextureHandle ScatteringHistory => volumes[1 - parity];
+
     /// <summary>The device this node's own resources are created on. Falls back to the frame's.</summary>
     /// <remarks>
     ///     ⚠ <b>Required, and a build without one dispatches nothing.</b> Two of the bindings are
@@ -276,8 +357,14 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
         // The document's declaration wins, and the extent it declared is what everything downstream
         // uses. Declaring here only fills in for a document that named no volumes at all.
         Declare(frame, Media, Resolution);
-        Declare(frame, Scattered, Resolution);
         Declare(frame, Volume, Resolution);
+
+        // ⚠ Before the scattering pair, because the pair is sized by what the frame ended up with
+        // rather than by this node's own copy of the numbers — a document that declared the output
+        // volume at another extent must not get a history one froxel wider than what fills it.
+        Dispatched = ExtentOf(frame, Volume);
+
+        DeclareScattered(frame, device, Dispatched);
 
         // Both halves, because they publish separately and either alone is useless: the atlas is a
         // graph resource the shadow node declared, and the matrices that index into it are
@@ -302,8 +389,6 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
         // `TerrainSceneRenderer` records about the same two buffers.
         Clustered = PublishedBuffer("lightBuffer").IsValid && PublishedBuffer("clusters").IsValid;
 
-        Dispatched = ExtentOf(frame, Volume);
-
         // The three grid dimensions are permutations, so a variant is compiled per shape — which is
         // what lets Integrate's march be a counted loop rather than a dynamic one.
         Inject(Groups(Dispatched.X, Dispatched.Y, Dispatched.Z));
@@ -317,7 +402,138 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
         foreach (var step in steps) {
             BuildChild(step, compositor, frame);
         }
+
+        // ⚠ Flipped once the frame is built rather than at the start of it, so everything above
+        // agrees about which of the pair is this frame's. `TemporalAntialiasingRenderer` swaps at the
+        // same point in its own frame and for the same reason.
+        if (Reprojects) {
+            parity = 1 - parity;
+            HasHistory = true;
+        }
+
+        frames++;
     }
+
+    /// <summary>
+    ///     The subpixel offset to sample a froxel at, in froxels, for a frame index.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Halton (2, 3, 5) centred on zero — <c>TemporalAntialiasingRenderer.Jitter</c>'s sequence
+    ///         with a third axis, and for its reason: it fills the froxel more evenly than random
+    ///         offsets at <em>every</em> prefix length, which is what matters when the camera stops
+    ///         after eight frames rather than after a thousand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Three axes and not two. The depth axis is the one a shaft's edge actually lives on —
+    ///         a slice boundary crossing a shadow edge is what the banding is — so jittering only the
+    ///         screen axes would leave the artefact this exists for untouched.
+    ///     </para>
+    /// </remarks>
+    public static Vector3 Jitter(int frameIndex) =>
+        new(
+            Halton(frameIndex + 1, 2) - 0.5f,
+            Halton(frameIndex + 1, 3) - 0.5f,
+            Halton(frameIndex + 1, 5) - 0.5f
+        );
+
+    /// <summary>Van der Corput's radical inverse in a given base — one term of a Halton sequence.</summary>
+    static float Halton(int index, int radix) {
+        var result = 0f;
+        var fraction = 1f / radix;
+
+        while (index > 0) {
+            result += index % radix * fraction;
+            index /= radix;
+            fraction /= radix;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    ///     Publishes this frame's scattering volume and the one to reproject out of, or declares a
+    ///     single transient when there is no pair to alternate.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Imported and not declared, which is the whole of why a pair works at all.</b> A
+    ///         resource the graph declares lives for one frame and is handed back to the pool, so next
+    ///         frame's history would be aliased over something in this one — the same finding
+    ///         <c>AutoExposureRenderer</c> records about its exposure buffer and
+    ///         <c>TemporalAntialiasingRenderer</c> about its colour history. An import is memory
+    ///         somebody else owns, which is exactly what these are.
+    ///     </para>
+    ///     <para>
+    ///         A document that named <see cref="Scattered" /> itself wins and gets no reprojection: it
+    ///         re-pointed the volume at something this node does not own and cannot alternate, and
+    ///         answering each frame from scratch is the honest outcome rather than quietly ignoring
+    ///         the declaration.
+    ///     </para>
+    /// </remarks>
+    void DeclareScattered(CompositorFrame frame, IGraphicsDevice device, Int3 size) {
+        if (frame.Has(Scattered)) {
+            Reprojects = false;
+            return;
+        }
+
+        Allocate(device, size);
+
+        if (!volumes[0].IsValid) {
+            Declare(frame, Scattered, size);
+            Reprojects = false;
+            return;
+        }
+
+        var description = VolumeDescription(Scattered, size);
+
+        frame.Add(Scattered, frame.Graph.ImportTexture(volumes[parity], views[parity], description), description);
+
+        var history = VolumeDescription(HistoryName, size);
+
+        frame.Add(
+            HistoryName,
+            frame.Graph.ImportTexture(volumes[1 - parity], views[1 - parity], history),
+            history
+        );
+
+        Reprojects = true;
+    }
+
+    /// <summary>Creates the pair, or recreates it when the grid changed shape.</summary>
+    /// <remarks>
+    ///     A reshape invalidates the history rather than resampling it: reprojecting a differently cut
+    ///     grid is a resample of a resample, and the frame after a quality change is the one nobody is
+    ///     looking at anyway.
+    /// </remarks>
+    void Allocate(IGraphicsDevice device, Int3 size) {
+        if (allocated == size && volumes[0].IsValid && ReferenceEquals(owner, device)) {
+            return;
+        }
+
+        ReleaseVolumes();
+
+        var description = VolumeDescription(HistoryName, size);
+
+        for (var i = 0; i < 2; i++) {
+            volumes[i] = device.CreateTexture(description);
+            views[i] = device.CreateTextureView(volumes[i]);
+        }
+
+        allocated = size;
+        HasHistory = false;
+    }
+
+    static TextureDescription VolumeDescription(string name, Int3 size) =>
+        new(
+            PixelFormat.Rgba16Float,
+            Math.Max(size.X, 1),
+            Math.Max(size.Y, 1),
+            TextureUsage.Storage | TextureUsage.Sampled,
+            Math.Max(size.Z, 1),
+            Dimension: TextureDimension.Texture3D,
+            Name: name
+        );
 
     /// <summary>How many 8×8×1 groups cover an extent.</summary>
     static Int3 Groups(int x, int y, int z) => new((x + 7) / 8, (y + 7) / 8, z);
@@ -416,6 +632,11 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
         node.Parameters.Set(VolumetricFogInjectKeys.FogHeight, Height);
         node.Parameters.Set(VolumetricFogInjectKeys.HeightFalloffRate, HeightFalloffRate);
 
+        // ⚠ The same offset the lighting pass gets, from this one call. Two derivations of one
+        // sequence is a density written for one point in the froxel and lit at another — and the
+        // averaging downstream would then make that permanent rather than reveal it.
+        node.Parameters.Set(VolumetricFogInjectKeys.Jitter, Offset());
+
         node.Groups = groups;
 
         node.Reads.Clear();
@@ -447,6 +668,20 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
 
         node.Parameters.Set(VolumetricFogKeys.Shadowed, Shadowed);
         node.Parameters.Set(VolumetricFogKeys.UseClusteredLights, Clustered);
+
+        // ⚠ Pass 0's alone. The march runs over an already-averaged volume, and putting it through
+        // the history as well would average an integral of averages — more lag for nothing.
+        var reprojects = Reprojects && pass == 0;
+
+        node.Parameters.Set(VolumetricFogKeys.Reproject, reprojects);
+        node.Parameters.Set(VolumetricFogKeys.HistoryBlend, reprojects && HasHistory ? Feedback : 0f);
+        node.Parameters.Set(VolumetricFogKeys.Jitter, Offset());
+
+        // ⚠ Falls back to this frame's own matrix rather than to zero, which is
+        // `TerrainSceneRenderer`'s rule about the same field: a view nobody advanced reports a
+        // previous projection of zero, and reprojecting through it puts every froxel at the origin.
+        // With this frame's matrix the reprojection is the identity, which is what "no motion" means.
+        node.Parameters.Set(VolumetricFogKeys.PreviousViewProjection, Previous());
 
         if (Camera() is { } camera) {
             node.Parameters.Set(VolumetricFogKeys.TanHalfFov, camera.TanHalfFov);
@@ -534,6 +769,46 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
             Kind = DescriptorKind.StorageBuffer,
             Buffer = Clustered ? PublishedBuffer("clusters") : lightStandIn
         });
+
+        // ⚠ The source volume where there is no history to read, and never this dispatch's target.
+        // A permutation does not fold the binding away, so the march and the frame with no pair still
+        // write the slot — and the only other 3D textures here are the ones these passes write.
+        // Pointing it at the storage image this dispatch writes is the two-layouts-at-once refusal
+        // that made the injection a shader of its own; pointing it at what the dispatch already
+        // samples costs nothing and is a legal second view of one image.
+        var history = reprojects ? HistoryName : source;
+
+        if (reprojects) {
+            node.Reads.Add(history);
+        }
+
+        node.Descriptors.Bindings.Add(new() {
+            Binding = VolumetricFogKeys.HistoryBinding, Kind = DescriptorKind.SampledTexture, Resource = history
+        });
+    }
+
+    /// <summary>Where in its froxel this frame samples, or dead centre when nothing averages it.</summary>
+    /// <remarks>
+    ///     ⚠ Zero without a history, and that is not a small point. An offset sample is only detail if
+    ///     something averages the offsets back out; on its own it is the same coarse grid asking a
+    ///     different wrong question every frame, which is the crawl this feature exists to remove
+    ///     rather than a cheaper version of removing it.
+    /// </remarks>
+    Vector3 Offset() => Reprojects ? Jitter(frames) : Vector3.Zero;
+
+    /// <summary>Where the camera was looking last frame, for the reprojection.</summary>
+    /// <remarks>
+    ///     ⚠ This frame's own matrix where nothing advanced the view, which is
+    ///     <c>TerrainSceneRenderer</c>'s rule about the same field. A zero matrix is not "no motion" —
+    ///     it sends every froxel to the origin, and the history read would then be one texel smeared
+    ///     over the whole volume.
+    /// </remarks>
+    Matrix4x4 Previous() {
+        if (View is not { } view) {
+            return Matrix4x4.Identity;
+        }
+
+        return view.PreviousViewProjection == default ? view.ViewProjection : view.PreviousViewProjection;
     }
 
     /// <summary>The handle a buffer the shading pass published under its own name resolved to.</summary>
@@ -579,6 +854,8 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
     }
 
     void Release() {
+        ReleaseVolumes();
+
         if (owner is { } device) {
             if (lightStandIn.IsValid) {
                 device.Destroy(lightStandIn);
@@ -597,6 +874,27 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
         standInView = default;
         standIn = default;
         owner = null;
+    }
+
+    void ReleaseVolumes() {
+        if (owner is { } device) {
+            for (var i = 0; i < 2; i++) {
+                if (views[i].IsValid) {
+                    device.Destroy(views[i]);
+                }
+
+                if (volumes[i].IsValid) {
+                    device.Destroy(volumes[i]);
+                }
+            }
+        }
+
+        views[0] = default;
+        views[1] = default;
+        volumes[0] = default;
+        volumes[1] = default;
+        allocated = default;
+        HasHistory = false;
     }
 
     /// <inheritdoc />

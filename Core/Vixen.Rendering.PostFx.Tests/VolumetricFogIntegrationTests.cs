@@ -60,6 +60,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
             new(VolumetricFogKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Compute),
             new(VolumetricFogKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
             new(VolumetricFogKeys.ShadowMapBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
+            new(VolumetricFogKeys.HistoryBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
             new(VolumetricFogKeys.VolumeSamplerBinding, DescriptorKind.Sampler, ShaderStage.Compute),
             new(VolumetricFogKeys.ShadowSamplerBinding, DescriptorKind.Sampler, ShaderStage.Compute),
             new(VolumetricFogKeys.LightBufferBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
@@ -595,6 +596,218 @@ public class VolumetricFogIntegrationTests : IDisposable {
         Assert.Equal(64f, step.Parameters.Get(VolumetricFogKeys.FogFar), 5);
     }
 
+    // --- The volume's own temporal work ----------------------------------------
+
+    /// <summary>
+    ///     The reprojection's slice coordinate lands exactly on the texel a froxel was written to.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half-texel question, answered rather than assumed.</b> A froxel's radiance is
+    ///         stored at texel <c>z</c>, whose centre is at <c>(z + 0.5) / GridZ</c> in texture
+    ///         coordinates — and the depth it was <em>evaluated</em> at is
+    ///         <c>CentreDepth(z)</c>, the geometric midpoint. So the question is whether
+    ///         <c>SliceOf(CentreDepth(z)) / GridZ</c> is that texel centre or half a texel off it. If
+    ///         it were off, every reprojected read would blend two slices that are not the one being
+    ///         written, and the volume would very gradually smear itself along its own depth axis —
+    ///         which reads as haze, not as a bug.
+    ///     </para>
+    ///     <para>
+    ///         It lands exactly, because <c>CentreDepth</c>'s half-power and <c>SliceOf</c>'s
+    ///         logarithm are inverses. That is a fact about those two functions and not a coincidence
+    ///         about the numbers, but it is one line from being untrue in either of them.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(31)]
+    [InlineData(63)]
+    public void The_reprojected_slice_lands_on_the_texel_the_froxel_was_written_to(int z) {
+        const int Slices = 64;
+        const float Near = 0.5f;
+        const float Far = 64f;
+
+        // FroxelGrid.CentreDepth at zero jitter — the geometric midpoint of slice z.
+        var depth = SliceDepth(z, Slices, Near, Far) * MathF.Pow(Far / Near, 0.5f / Slices);
+
+        // FroxelGrid.SliceOf, divided by the slice count, which is what Reprojected uses for w.
+        var ratio = MathF.Log(MathF.Max(depth, Near) / Near) / MathF.Max(MathF.Log(Far / Near), 1e-6f);
+
+        Assert.Equal((z + 0.5f) / Slices, ratio, 5);
+    }
+
+    /// <summary>The jitter is centred on the froxel and never leaves it.</summary>
+    /// <remarks>
+    ///     ⚠ Centred, so that the average of the sequence is the froxel's own centre — an offset
+    ///     sequence biased to one side would converge on a grid shifted half a froxel from the one the
+    ///     composite reads. And bounded by ±½ so a sample never lands in the neighbour's cell, which
+    ///     would be averaging two froxels rather than sampling one more finely.
+    /// </remarks>
+    [Fact]
+    public void The_jitter_is_centred_on_the_froxel_and_stays_inside_it() {
+        const int Samples = 1024;
+
+        var sum = Vector3.Zero;
+
+        for (var i = 0; i < Samples; i++) {
+            var offset = VolumetricFogRenderer.Jitter(i);
+
+            Assert.InRange(offset.X, -0.5f, 0.5f);
+            Assert.InRange(offset.Y, -0.5f, 0.5f);
+            Assert.InRange(offset.Z, -0.5f, 0.5f);
+
+            sum += offset;
+        }
+
+        // ⚠ Over a long run rather than over the first handful. A Halton prefix is only balanced at
+        // the lengths its radix divides — the base-5 axis is visibly off centre at 64 terms and
+        // converges from there — so a short window here would be asserting the radix rather than the
+        // centring. What has to hold is that the sequence has no bias, which is a limit.
+        Assert.Equal(0f, sum.X / Samples, 2);
+        Assert.Equal(0f, sum.Y / Samples, 2);
+        Assert.Equal(0f, sum.Z / Samples, 2);
+    }
+
+    /// <summary>The injection and the lighting pass sample the same point, and it moves each frame.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves.</b> Equal, because a density written for one point in a froxel and lit at
+    ///     another is <c>FroxelGrid.Centre</c>'s own recorded failure — and the averaging would then
+    ///     bake it in rather than reveal it. Different frame to frame, because an offset that never
+    ///     moves is a grid shifted off centre rather than a finer one.
+    /// </remarks>
+    [Fact]
+    public void Both_dispatches_are_handed_one_offset_and_it_moves() {
+        using var h = Build();
+
+        Frame(h);
+
+        var first = h.Fog.Steps[0].Parameters.Get(VolumetricFogInjectKeys.Jitter);
+
+        Assert.Equal(first, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Jitter));
+
+        Frame(h);
+
+        var second = h.Fog.Steps[0].Parameters.Get(VolumetricFogInjectKeys.Jitter);
+
+        Assert.Equal(second, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Jitter));
+        Assert.NotEqual(first, second);
+    }
+
+    /// <summary>
+    ///     The first frame blends nothing, and the second blends at the authored feedback.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Zero and not "a small amount". The pair is freshly allocated memory, and
+    ///     <c>lerp</c> against whatever was in it at a weight of zero is still that value if it happens
+    ///     to be a NaN — which is why the shader branches on the weight rather than trusting the
+    ///     arithmetic. This is the host half of that contract.
+    /// </remarks>
+    [Fact]
+    public void The_first_frame_has_no_history_and_the_second_one_does() {
+        using var h = Build();
+
+        Frame(h);
+
+        Assert.True(h.Fog.Reprojects);
+        Assert.Equal(0f, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.HistoryBlend), 5);
+
+        Frame(h);
+
+        Assert.True(h.Fog.HasHistory);
+        Assert.Equal(h.Fog.Feedback, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.HistoryBlend), 5);
+    }
+
+    /// <summary>Two volumes, alternating, and the march is not part of it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two and not three, and imported rather than declared.</b> A resource the graph
+    ///         declares lives for one frame and goes back to the pool, so a history the graph owned
+    ///         would be aliased over something in the frame that reads it — which is the finding
+    ///         <c>AutoExposureRenderer</c> records about its own buffer. Alternation is the only place
+    ///         that is visible, because both are published under the same two names every frame.
+    ///     </para>
+    ///     <para>
+    ///         The march's half is the other claim: it reprojects nothing, because it runs over a
+    ///         volume the blend already averaged.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_two_volumes_alternate_and_the_march_reprojects_nothing() {
+        using var h = Build();
+
+        Frame(h);
+
+        var first = h.Fog.ScatteringHistory;
+        var second = h.Fog.ScatteringTarget;
+
+        Assert.True(first.IsValid);
+        Assert.NotEqual(first, second);
+
+        Assert.True(h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Reproject));
+        Assert.False(h.Fog.Steps[2].Parameters.Get(VolumetricFogKeys.Reproject));
+
+        Frame(h);
+
+        Assert.Equal(first, h.Fog.ScatteringTarget);
+        Assert.Equal(second, h.Fog.ScatteringHistory);
+    }
+
+    /// <summary>
+    ///     A document that names the scattering volume itself gets no reprojection, and no jitter with
+    ///     it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The jitter half is the one that would be easy to lose.</b> An offset sample is only
+    ///     detail if something averages the offsets back out; without a history it is the same coarse
+    ///     grid asking a different wrong question every frame, which is the crawl this feature exists
+    ///     to remove rather than a cheaper way of removing it. So the two switch off together.
+    /// </remarks>
+    [Fact]
+    public void A_document_that_declares_the_volume_itself_gets_neither_history_nor_jitter() {
+        using var h = Build(declared: true);
+
+        Frame(h);
+
+        Assert.False(h.Fog.Reprojects);
+        Assert.False(h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Reproject));
+        Assert.Equal(Vector3.Zero, h.Fog.Steps[0].Parameters.Get(VolumetricFogInjectKeys.Jitter));
+        Assert.Equal(Vector3.Zero, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.Jitter));
+    }
+
+    /// <summary>A frame with no shadow atlas builds, dispatches, and marches unshadowed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This path had never run anywhere, and it did not work.</b> Every tier that fills a
+    ///         volume also shadows it, so <c>Shadowed == false</c> was reachable only through a
+    ///         hand-authored document nobody had authored — and the first thing that took it threw
+    ///         out of <c>RenderGraph.Compile</c>: the march declares a read of whatever fills the
+    ///         shadow slot, and the stand-in was a texture the graph created and no pass wrote.
+    ///         "The contents it would read are whatever was in that memory last frame" is exactly the
+    ///         right refusal and exactly what a placeholder is, so the stand-in became an import this
+    ///         node owns.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through a whole frame rather than on the node's fields, because the fields
+    ///         were never the part that was broken.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_frame_with_no_atlas_marches_the_volume_unshadowed() {
+        using var h = Build();
+        Frame(h);
+
+        Assert.False(h.Fog.Shadowed);
+
+        foreach (var step in new[] { h.Fog.Steps[1], h.Fog.Steps[2] }) {
+            Assert.False(step.Parameters.Get(VolumetricFogKeys.Shadowed));
+            Assert.Equal(h.Fog.ShadowStandIn, Binding(step, VolumetricFogKeys.ShadowMapBinding).Resource);
+        }
+
+        // The three dispatches all ran: the injection, the lighting and the march.
+        Assert.Equal(3, device.Recorder!.CountOf(RecordedCommandKind.Dispatch));
+    }
+
     static ResourceBinding Binding(ComputeRenderer step, uint binding) =>
         Assert.Single(step.Descriptors.Bindings, entry => entry.Binding == binding);
 
@@ -617,7 +830,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
         }
     }
 
-    Harness Build() {
+    Harness Build(bool declared = false) {
         var size = new Int2(320, 180);
         var system = new RenderSystem();
         var constants = new SceneConstants(device, "Scene");
@@ -637,6 +850,18 @@ public class VolumetricFogIntegrationTests : IDisposable {
         var compositor = new GraphicsCompositor(system) { FrameSize = size };
         compositor.Game = fog;
 
+        // ⚠ The marched volume stands in for the composite that would read it. Without a consumer the
+        // graph culls the march — correctly, it writes a transient nothing reads — and the fixture
+        // would then be asserting two dispatches while believing it had asserted three.
+        compositor.Imports[fog.Volume] = Volume(fog.Volume, fog.Resolution);
+
+        // A hand-authored document re-pointing the scattering volume at a resource of its own, which
+        // is what `GraphicsCompositor`'s rule about a declaration an import already covers looks like
+        // from the node's side.
+        if (declared) {
+            compositor.Imports[fog.Scattered] = Volume(fog.Scattered, fog.Resolution);
+        }
+
         return new() {
             System = system,
             Compositor = compositor,
@@ -644,6 +869,22 @@ public class VolumetricFogIntegrationTests : IDisposable {
             Fog = fog,
             Frame = constants
         };
+    }
+
+    ImportedTexture Volume(string name, Int3 size) {
+        var description = new TextureDescription(
+            PixelFormat.Rgba16Float,
+            size.X,
+            size.Y,
+            TextureUsage.Storage | TextureUsage.Sampled,
+            size.Z,
+            Dimension: TextureDimension.Texture3D,
+            Name: name
+        );
+
+        var texture = device.CreateTexture(description);
+
+        return new(texture, device.CreateTextureView(texture), description);
     }
 
     /// <summary>An effect for whatever is asked for, with the layout its shader declared.</summary>
