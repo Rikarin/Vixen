@@ -171,6 +171,17 @@ public sealed class LightExtractionSystem(ForwardLightingRenderFeature feature) 
         render.Unit = light.Unit;
         render.Temperature = light.Temperature;
 
+        // ⚠ The radius too, because `Point` and `Spot` take none — their factories describe punctual
+        // geometry, and a *sphere* light is a point with an authored radius. Assigned only where the
+        // factory said nothing, so a shape that folded the field into its geometry (a rect's radius
+        // is its half-height) keeps what the factory computed. Dropped, the shader's widening term
+        // — `radius / distance` in `Lighting.Resolve` — vanishes and a lamp's glow collapses to a
+        // pinpoint: still a bright speck in a metal reflection, invisible on everything rough, which
+        // is the zero-value trap's usual shape of "the light exists and the picture says it doesn't".
+        if (light.Kind is not (LightKind.Tube or LightKind.Rect)) {
+            render.Radius = light.Radius;
+        }
+
         return render;
     }
 }

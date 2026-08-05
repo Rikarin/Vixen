@@ -61,6 +61,29 @@ public sealed class LightExtractionTests {
         Assert.Equal(Vector3.Zero, light.Direction);
     }
 
+    /// <summary>
+    ///     ⚠ A punctual light's authored radius survives extraction — a point with a radius is a
+    ///     sphere light.
+    /// </summary>
+    /// <remarks>
+    ///     The factories describe punctual geometry and take no radius, so <c>Convert</c> has to carry
+    ///     it across itself — and when it did not, the field the shader widens the specular lobe by
+    ///     (<c>radius / distance</c> in <c>Lighting.Resolve</c>) reached the GPU as zero. Sample 13's
+    ///     lanterns author 0.12–0.16 m and showed the failure's shape exactly: a bright speck in every
+    ///     metal reflection and no visible glow on anything rough.
+    /// </remarks>
+    [Theory]
+    [InlineData(LightKind.Point)]
+    [InlineData(LightKind.Spot)]
+    public void APunctualLightKeepsItsAuthoredRadius(LightKind kind) {
+        var authored = Lights.Default(kind) with { Radius = 0.14f };
+
+        var light = LightExtractionSystem.Convert(authored, Matrix4x4.Identity);
+
+        Assert.Equal(0.14f, light.Radius);
+        Assert.Equal(0.14f, light.ToGpu().Radius);
+    }
+
     [Fact]
     public void ASpotLightCarriesBothItsPositionAndItsAim() {
         var matrix = Matrix4x4.FromQuaternion(
@@ -160,6 +183,26 @@ public sealed class LightExtractionTests {
 
         Assert.Equal(3, system.LightCount);
         Assert.Equal(3, feature.Lights.Count);
+    }
+
+    /// <remarks>
+    ///     The whole route rather than <c>Convert</c> alone: a lamp authored in a world, extracted,
+    ///     and read back as the packed record the cluster binning and the shading loop consume.
+    /// </remarks>
+    [Fact]
+    public void AnExtractedLampsRadiusReachesThePackedRecord() {
+        using var world = new World();
+        var feature = new ForwardLightingRenderFeature();
+        var system = new LightExtractionSystem(feature);
+
+        var entity = world.Create();
+        Lights.Attach(world, entity, Lights.Default(LightKind.Point) with { Radius = 0.16f });
+        world.Add(entity, new WorldTransform { Value = Matrix4x4.FromTranslation(new Vector3(0f, 3.4f, 0f)) });
+
+        system.Extract(world);
+
+        Assert.Equal(0.16f, feature.Lights[0].Radius);
+        Assert.Equal(0.16f, feature.Lights[0].ToGpu().Radius);
     }
 
     /// <remarks>
