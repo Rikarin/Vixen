@@ -4,7 +4,7 @@ slug: gameplay/economy
 kind: guide
 area: Gameplay
 summary: Every transaction is one balanced, idempotent intent against a ledger seam; the trade confirm-lock needs a revision doc 28 does not mention, and everything is escrowed when it is offered rather than when it is taken.
-api: [T:Vixen.Gameplay.Economy.EconomyAccount, T:Vixen.Gameplay.Economy.AssetMove, T:Vixen.Gameplay.Economy.EconomyIntent, T:Vixen.Gameplay.Economy.EconomyVerdict, T:Vixen.Gameplay.Economy.EconomyResult, T:Vixen.Gameplay.Economy.IEconomyLedger, T:Vixen.Gameplay.Economy.MemoryEconomyLedger, T:Vixen.Gameplay.Economy.CurrencyScope, T:Vixen.Gameplay.Economy.CurrencyDefinition, T:Vixen.Gameplay.Economy.CurrencyConversionDefinition, T:Vixen.Gameplay.Economy.CurrencyConversion, T:Vixen.Gameplay.Economy.CurrencyExchange, T:Vixen.Gameplay.Economy.Currency, T:Vixen.Gameplay.Economy.VendorStockDefinition, T:Vixen.Gameplay.Economy.VendorDefinition, T:Vixen.Gameplay.Economy.VendorStock, T:Vixen.Gameplay.Economy.Vendor, T:Vixen.Gameplay.Economy.VendorState, T:Vixen.Gameplay.Economy.VendorRefusal, T:Vixen.Gameplay.Economy.BuybackEntry, T:Vixen.Gameplay.Economy.TradeStatus, T:Vixen.Gameplay.Economy.TradeRefusal, T:Vixen.Gameplay.Economy.TradeOffer, T:Vixen.Gameplay.Economy.TradeSession, T:Vixen.Gameplay.Economy.EconomyLibrary, T:Vixen.Gameplay.Economy.EconomyModule, T:Vixen.Gameplay.Economy.MailId, T:Vixen.Gameplay.Economy.MailRefusal, T:Vixen.Gameplay.Economy.MailAttachment, T:Vixen.Gameplay.Economy.MailMessage, T:Vixen.Gameplay.Economy.PostOffice, T:Vixen.Gameplay.Economy.ListingId, T:Vixen.Gameplay.Economy.AuctionRefusal, T:Vixen.Gameplay.Economy.ListingStatus, T:Vixen.Gameplay.Economy.AuctionListing, T:Vixen.Gameplay.Economy.AuctionHouse, T:Vixen.Gameplay.Economy.TradeRecord, T:Vixen.Gameplay.Economy.IMarketModel, T:Vixen.Gameplay.Economy.MovingAverageMarket]
+api: [T:Vixen.Gameplay.Economy.EconomyAccount, T:Vixen.Gameplay.Economy.AssetMove, T:Vixen.Gameplay.Economy.EconomyIntent, T:Vixen.Gameplay.Economy.EconomyVerdict, T:Vixen.Gameplay.Economy.EconomyResult, T:Vixen.Gameplay.Economy.IEconomyLedger, T:Vixen.Gameplay.Economy.MemoryEconomyLedger, T:Vixen.Gameplay.Economy.KeyHorizon, T:Vixen.Gameplay.Economy.CurrencyScope, T:Vixen.Gameplay.Economy.CurrencyDefinition, T:Vixen.Gameplay.Economy.CurrencyConversionDefinition, T:Vixen.Gameplay.Economy.CurrencyConversion, T:Vixen.Gameplay.Economy.CurrencyExchange, T:Vixen.Gameplay.Economy.Currency, T:Vixen.Gameplay.Economy.VendorStockDefinition, T:Vixen.Gameplay.Economy.VendorDefinition, T:Vixen.Gameplay.Economy.VendorStock, T:Vixen.Gameplay.Economy.Vendor, T:Vixen.Gameplay.Economy.VendorState, T:Vixen.Gameplay.Economy.VendorRefusal, T:Vixen.Gameplay.Economy.BuybackEntry, T:Vixen.Gameplay.Economy.TradeStatus, T:Vixen.Gameplay.Economy.TradeRefusal, T:Vixen.Gameplay.Economy.TradeOffer, T:Vixen.Gameplay.Economy.TradeSession, T:Vixen.Gameplay.Economy.EconomyLibrary, T:Vixen.Gameplay.Economy.EconomyModule, T:Vixen.Gameplay.Economy.MailId, T:Vixen.Gameplay.Economy.MailRefusal, T:Vixen.Gameplay.Economy.MailAttachment, T:Vixen.Gameplay.Economy.MailMessage, T:Vixen.Gameplay.Economy.PostOffice, T:Vixen.Gameplay.Economy.ListingId, T:Vixen.Gameplay.Economy.AuctionRefusal, T:Vixen.Gameplay.Economy.ListingStatus, T:Vixen.Gameplay.Economy.AuctionListing, T:Vixen.Gameplay.Economy.AuctionHouse, T:Vixen.Gameplay.Economy.TradeRecord, T:Vixen.Gameplay.Economy.IMarketModel, T:Vixen.Gameplay.Economy.MovingAverageMarket]
 tags: [gameplay, economy, currency, vendor, trade, auction, mail, ledger, mmo]
 since: 0.1
 status: preview
@@ -56,6 +56,34 @@ sender attach a sword, post it, sell it, and have the recipient claim a second o
 which the refund fails and somebody's gold is gone. ⚠ **The deposit comes back on a sale and is
 destroyed on an expiry**, which is what prices listing something nobody wants. ⚠ **A listing with a
 bid may not be withdrawn**, or a seller cancels every auction they are about to lose.
+
+### The key set is the one thing here that leaks
+
+A `MemoryEconomyLedger` remembers every key it has applied, and by default it remembers them for ever
+— which over a week of uptime is every key of that week. Give it a `KeyHorizon` and sweep it off the
+frame path:
+
+```csharp no-compile="illustrative — the realm's own housekeeping cadence"
+var ledger = new MemoryEconomyLedger(KeyHorizon.Outliving(TimeSpan.FromMinutes(2)));
+
+// Wherever the realm already does housekeeping. Not from a rule, and not from Post.
+ledger.Forget(DateTimeOffset.UtcNow);
+```
+
+⚠ **The argument is the retry window, not the horizon, and that is the whole of the type.** The two
+failure modes are not comparable: too long costs memory, which is visible in a graph and recoverable
+by restarting; too short duplicates an item, which is invisible, permanent and indistinguishable from
+an exploit when a player reports it. So `Outliving` is the only bounded constructor, its
+`Guaranteed` retention is always strictly longer than the window it was built from, and a horizon
+shorter than the retries it must outlive cannot be written down.
+
+⚠ **Which is why the default is the leak.** There is no default horizon, because a number nobody chose
+is not safer than an unbounded set — it is the same risk with the evidence removed.
+
+⚠ **And a departing player's rows are the realm's to take away.** `Release` hands everything an account
+holds to the world account it was seeded out of and drops the rows. It is deliberately not an intent:
+nothing has moved, the player still owns what they left with, and writing a movement would put a
+handover in the journal as a transaction.
 
 ## Examples
 

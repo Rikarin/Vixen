@@ -20,7 +20,17 @@ namespace Vixen.Samples.Mmo.Soak;
 ///     conservation oracle can be broken, it is broken here.
 /// </remarks>
 public sealed class Shard {
-    readonly MemoryEconomyLedger projection = new();
+    /// <summary>What this sample says the slowest retry it will ever see is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A number a game chooses, and the one number here that can duplicate an item.</b> Two
+    ///     minutes is what this sample's client would go on resending an unacknowledged claim for. A
+    ///     realm whose support tool replays yesterday's failed settlements has a retry window of a day
+    ///     and needs to say so — <c>KeyHorizon.Outliving</c> takes the window rather than the horizon
+    ///     precisely so that this line is the one somebody argues about.
+    /// </remarks>
+    public static readonly TimeSpan RetryWindow = TimeSpan.FromMinutes(2);
+
+    readonly MemoryEconomyLedger projection = new(KeyHorizon.Outliving(RetryWindow));
 
     long sequence;
 
@@ -102,13 +112,27 @@ public sealed class Shard {
 
     /// <summary>How many idempotency keys the projection is still holding.</summary>
     /// <remarks>
-    ///     ⚠ <b>It only ever goes up, and over thirty minutes that is what the soak's memory growth
-    ///     turns out to be.</b> The set is what makes a retried trade write nothing the second time,
-    ///     so it cannot simply be cleared — but a key older than the longest retry anybody will
-    ///     attempt is a key guarding against nothing. A shard that runs for a week keeps every key of
-    ///     that week.
+    ///     ⚠ <b>This is the number that only ever went up, and it was the whole of the soak's memory
+    ///     growth.</b> The set is what makes a retried trade write nothing the second time, so it
+    ///     cannot simply be cleared — but a key older than the longest retry anybody will attempt is
+    ///     a key guarding against nothing. It is bounded now, and what bounds it is
+    ///     <see cref="RetryWindow" /> rather than a size.
     /// </remarks>
     public int Keys => projection.Keys;
+
+    /// <summary>How many keys have aged out.</summary>
+    public long Forgotten => projection.Forgotten;
+
+    /// <summary>Ages out the keys no retry can still carry.</summary>
+    /// <param name="now">The realm's clock.</param>
+    /// <returns>How many were dropped.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="Flush" /> because it is the same kind of thing: housekeeping a realm
+    ///     does off the frame path.</b> It is cheap enough to call every tick and correct to call once
+    ///     a minute — the horizon is measured in <paramref name="now" />, not in calls — and the reason
+    ///     it is not called from <c>Post</c> is that a rule mid-frame must not pay for it.
+    /// </remarks>
+    public int Forget(DateTimeOffset now) => projection.Forget(now);
 
     /// <summary>What the players on this shard are holding, of one asset.</summary>
     /// <param name="asset">Which.</param>
@@ -164,7 +188,12 @@ public sealed class Shard {
     public long Release(PlayerId player) {
         var purse = Ledger.Balance(new(player, string.Empty), MmoAddresses.Gold);
 
-        Ledger.Restore(new(player, string.Empty), MmoAddresses.Gold, 0);
+        // ⚠ This line used to be `Ledger.Restore(…, 0)`, which does nothing: Restore refuses a
+        // non-positive amount. So it read as the mirror of admission and was dead, and every player
+        // who ever left a shard left their purse behind in its projection — a row per player per
+        // asset per arrival, none of which any query would name again. The oracle never saw it,
+        // because it counts the players who are *here*.
+        projection.Release(new(player, string.Empty), new(PlayerId.None, LedgerBridge.RestoreAccount));
         Lockouts.Forget(player);
         Social.Forget(player);
         Identity.Release(player);

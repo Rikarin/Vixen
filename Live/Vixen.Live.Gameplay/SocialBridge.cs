@@ -311,13 +311,42 @@ public sealed class SocialBridge : ISocialStore {
     /// <param name="player">Who.</param>
     /// <returns>Whether they were here.</returns>
     /// <remarks>
-    ///     ⚠ <b>Their pending writes are kept</b>, for <see cref="LockoutBridge.Forget" />'s reason,
-    ///     and <b>the guild is kept too if anybody else is still in it</b> — a guild is not one
-    ///     player's, and dropping it when one member logs out would make the next member's chat go
-    ///     cold.
+    ///     <para>
+    ///         ⚠ <b>Their pending writes are kept</b>, for <see cref="LockoutBridge.Forget" />'s
+    ///         reason, and <b>the guild is kept too if anybody else is still in it</b> — a guild is not
+    ///         one player's, and dropping it when one member logs out would make the next member's chat
+    ///         go cold.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Their graph goes, and so does every seat they hold in somebody else's — this is
+    ///         the exact mirror of <see cref="Admitted" />.</b> A gameplay id is a realm-scoped
+    ///         integer that is never issued twice, so a tie left pointing at a departed one is dead
+    ///         weight that a re-admission does not replace: they come back as a different number and
+    ///         get seated again beside the old one. Over map travel that is a leak in every graph at
+    ///         once, and it is only findable from here because only the durable set knows who held a
+    ///         tie to whom.
+    ///     </para>
     /// </remarks>
     public bool Forget(PlayerId player) {
         warmGraphs.Remove(player);
+
+        // Before the id stops resolving. Shard release order is Forget-then-Release for this reason,
+        // and doing it the other way round leaves the sweep with nothing to look up.
+        if (identity.TryResolve(player, out var key)) {
+            foreach (var (owner, set) in durable) {
+                if (!set.ContainsKey(key)) {
+                    continue;
+                }
+
+                var host = identity.PlayerFor(owner);
+
+                if (host.IsSome && host != player && warmGraphs.Contains(host)) {
+                    graphs.Of(host).Seat(player, SocialTie.None);
+                }
+            }
+        }
+
+        graphs.Forget(player);
 
         if (membership.Remove(player, out var id) && guilds.TryGetValue(id, out var guild)) {
             guild.Unseat(player);

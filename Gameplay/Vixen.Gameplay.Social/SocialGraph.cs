@@ -322,10 +322,37 @@ public sealed class SocialGraphs {
         return graph;
     }
 
+    /// <summary>Drops one player's graph.</summary>
+    /// <param name="player">Who has left.</param>
+    /// <returns>Whether there was one.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Without this a realm holds a graph for every player who has ever been on it.</b>
+    ///         <see cref="Of" /> makes one on demand and nothing ever took one away, so a shard that
+    ///         admits and releases a player five hundred times an hour — which is what map travel
+    ///         is — keeps five hundred graphs an hour. <c>Samples/14-Mmo</c>'s soak measured a
+    ///         hundred and thirty megabytes of them over thirty minutes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It drops the departed player's own graph and nothing else, which is not the whole
+    ///         job.</b> Anybody still here who had a tie to them is left holding a
+    ///         <see cref="PlayerId" /> that will never be issued again. Cleaning that up needs the
+    ///         durable half — it is the realm that knows who held a tie to whom, because a gameplay id
+    ///         is not durable and a graph is keyed by one — so it belongs to
+    ///         <c>Vixen.Live.Gameplay</c>'s bridge and is the exact mirror of its admission sweep.
+    ///     </para>
+    /// </remarks>
+    public bool Forget(PlayerId player) => graphs.Remove(player);
+
     /// <summary>Whether one player has blocked another.</summary>
     /// <param name="who">The one who might have blocked.</param>
     /// <param name="whom">The one who might be blocked.</param>
     /// <returns>Whether they have.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Asking does not make a graph, unlike <see cref="Of" />.</b> A rule that consults this
+    ///     for every whisper, invite and trade would otherwise mint a permanent graph for both parties
+    ///     to every interaction in the world — which makes a *question* the thing that leaks.
+    /// </remarks>
     public bool HasBlocked(PlayerId who, PlayerId whom) =>
         graphs.TryGetValue(who, out var graph) && graph.HasBlocked(whom);
 

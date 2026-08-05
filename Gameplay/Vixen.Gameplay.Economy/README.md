@@ -132,6 +132,37 @@ one sale of one, and an unweighted mean lets somebody move the reference by list
 absurd number. ⚠ **A fixed window rather than a time decay**, because a decay answers differently
 depending on when it is asked and makes a displayed price flicker while nobody trades.
 
+### The key set is the one thing in this library that leaks, and the fix is safety-critical
+
+`MemoryEconomyLedger` remembers every key it has applied so that a retried trade writes nothing the
+second time. Nothing removed one, and a shard that runs for a week kept every key of that week —
+`Samples/14-Mmo`'s soak measured about a megabyte a minute.
+
+⚠ **The two failure modes are not comparable, and the whole of `KeyHorizon` follows from that.** Too
+long costs memory: visible in a graph, recovered by a restart. Too short duplicates an item:
+invisible, permanent, and indistinguishable from an exploit when a player reports it. So there is
+**no default horizon** — a number nobody chose is not safer than an unbounded set, it is the same risk
+with the evidence removed — and the only bounded constructor takes the **retry window** rather than
+the horizon, which makes a horizon shorter than the retries it must outlive unrepresentable.
+
+⚠ **`Guaranteed` is the number a safety argument is made of, and it is not `Length`.** Forgetting
+happens a generation at a time, so a key added just before a rotation is dropped one `Interval`
+earlier than the nominal horizon. The worst case is what the guarantee is about, and a test that
+posts at a rotation instead of just before one passes with the bound stated wrongly.
+
+⚠ **Sweeping is explicit and never lazy.** `Forget(now)` is called off the frame path; doing it inside
+`Post` would put the cost on a rule mid-frame and would make a quiet realm's keys expire on the next
+busy realm's clock.
+
+### Letting a player go is not a movement of value
+
+`Release` hands everything an account holds to the world account it was seeded out of and drops the
+rows, because a realm that only ever seeds balances keeps every departed player's purse. ⚠ **It moves
+the balances rather than deleting them**, so `Total` — the arithmetic check that finds duplication
+bugs — still sums to zero. ⚠ **And it is not an `EconomyIntent`**: nothing has moved, the player still
+owns what they left with, and a key in the journal saying value changed hands is a lie an auditor
+would later have to explain.
+
 ## What is owed
 
 - **Durability.** Everything here is in memory; the ledger that matters is doc 27's, behind task

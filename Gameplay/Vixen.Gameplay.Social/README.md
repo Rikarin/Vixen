@@ -107,6 +107,24 @@ the authority precisely because it is the one that knows which of two rank-zero 
 `Block` drops the friendship and both requests, so "blocked friend" is not a state this graph can be
 in — and a flags enum would invite storage to write one.
 
+### A graph is made on demand and somebody has to take it away
+
+`SocialGraphs.Of` mints one for any id that does not have one, and nothing ever removed one — so a
+realm held a graph for every player who had ever been on it. `Samples/14-Mmo`'s soak, where map travel
+means admitting and releasing five hundred players an hour, measured **130 MB of them over thirty
+minutes**. `Forget` is the missing half.
+
+⚠ **`HasBlocked` deliberately does not mint one.** A rule consults it for every whisper, invite and
+trade, so a question that created a permanent graph for both parties would make *asking* the thing
+that leaks.
+
+⚠ **Dropping the departed player's own graph is only half the job, and the other half cannot live
+here.** A gameplay id is never issued twice, so anybody still online who had a tie to them keeps an id
+no re-admission will replace — they come back as a different number and are seated beside their own
+ghost. Only the durable set knows who held a tie to whom, and a graph is keyed by a gameplay id, so
+the reverse sweep belongs to `Vixen.Live.Gameplay.SocialBridge.Forget` and is the exact mirror of its
+admission sweep.
+
 ## What is owed
 
 - ~~**Durability.**~~ Built. A roster and a friends list are a grain's — doc 27 hands `IGuildGrain`

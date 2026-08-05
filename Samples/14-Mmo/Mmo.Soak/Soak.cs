@@ -47,6 +47,9 @@ public readonly record struct SoakSettings(int Shards, int Players, int Ticks, u
 public sealed class Soak(SoakSettings settings) {
     static readonly string[] Maps = [MmoMaps.Greenmarch, MmoMaps.Thornwood, MmoMaps.Barrowdeep];
 
+    /// <summary>Tick zero, as a wall clock. Fixed, so the run's retention is part of the seed.</summary>
+    static readonly DateTimeOffset Origin = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     /// <summary>Every account in the run.</summary>
     readonly List<PlayerKey> roster = [];
 
@@ -183,8 +186,15 @@ public sealed class Soak(SoakSettings settings) {
 
         // ⚠ The outbox, every tick. See Shard.Flush: this is off a realm's frame path in a real
         // shard, and the soak's two hundred megabytes of growth was its absence.
+        //
+        // ⚠ And the key sweep beside it, which was the other hundred and sixty. The clock is derived
+        // from the tick rather than read, because a soak whose retention depends on how fast the
+        // machine ran it is a soak whose memory number is not reproducible.
+        var now = Origin + TimeSpan.FromSeconds(tick / 30.0);
+
         foreach (var shard in fleet.Shards) {
             shard.Flush();
+            shard.Forget(now);
         }
 
         // Churn: somebody logs out and somebody else logs in, which is what keeps admission and
@@ -225,7 +235,7 @@ public sealed class Soak(SoakSettings settings) {
         Write($"allocated      {perTick / 1024:N1} KB a tick ({cost.Allocated / 1_048_576.0:N1} MB over the run)");
         Write($"gen0           {cost.Gen0:N0}");
         Write($"live           {(cost.Live - cost.Settled) / 1_048_576.0:N1} MB grown");
-        Write($"ledger keys    {fleet.Shards.Sum(shard => shard.Keys):N0} held");
+        Write($"ledger keys    {fleet.Shards.Sum(shard => shard.Keys):N0} held, {fleet.Shards.Sum(shard => shard.Forgotten):N0} aged out past {Shard.RetryWindow.TotalMinutes:N0} min of retries");
         Write($"outbox         {fleet.Shards.Sum(shard => shard.Ledger.Pending):N0} unsettled");
         Write(string.Empty);
 
@@ -237,6 +247,13 @@ public sealed class Soak(SoakSettings settings) {
         failed += Budget("ledger divergences", divergences, 0);
         failed += Budget("cold reads", cold, 0);
         failed += Budget("state-shaped guild writes", stateWrites, 0);
+
+        // ⚠ Zero because this fleet settles every tick and never re-posts an operation, so nothing
+        // should ever be recognised from the outbox instead of the projection. It going non-zero here
+        // would mean the horizon had dropped a key before the write carrying it was durable — which
+        // LedgerBridge catches, and which is the only reason that would be a counter rather than a
+        // purse that had quietly doubled.
+        failed += Budget("replays answered by the outbox", fleet.Shards.Sum(shard => shard.Ledger.Deduplicated), 0);
 
         // ⚠ Not zero — a tick's own writes are legitimately in flight — but bounded. An outbox that
         // grows is a realm that drains and forgets to settle, which is a leak that looks like nothing
@@ -258,13 +275,12 @@ public sealed class Soak(SoakSettings settings) {
         failed += Budget("allocation, KB a tick", (int)(perTick / 1024), 64);
         failed += Budget("tick p99, µs", (int)p99.TotalMicroseconds, 2_000);
 
-        // ⚠ **This one misses, and it is the thing the soak found.** Eight shards holding five
-        // hundred players are a fixed working set, so a fleet that has settled should not grow —
-        // and this one grows by roughly a megabyte a minute, for ever. It is the idempotency-key
-        // set: every trade adds `(player, kind, operation)` to the projection's guard, nothing ever
-        // removes one, and a shard that runs for a week keeps every key of that week. The guard is
-        // load-bearing — it is what makes a retried trade write nothing the second time — so the fix
-        // is a horizon rather than a clear. See the README, and task #43.
+        // ⚠ **This is the budget the soak was built to miss, and the one it now holds.** Eight shards
+        // holding five hundred players are a fixed working set, so a fleet that has settled should not
+        // grow — and this grew by roughly a megabyte a minute, for ever. Two causes, found in that
+        // order: the projection's idempotency-key set, which nothing ever removed a key from; and
+        // every departed player's balance rows, left behind by a `Restore(…, 0)` that looked like the
+        // mirror of admission and did nothing at all.
         failed += Budget("memory grown, MB", (int)((cost.Live - cost.Settled) / 1_048_576), 32);
 
         Write(string.Empty);

@@ -209,6 +209,31 @@ replay re-runs every intent since the account was made: slow for a year-old char
 chance to get it wrong. The seed comes out of a world account so the projection's own conservation
 holds.
 
+⚠ **There is no `Restore(…, 0)` that undoes a seed**, and a realm that thinks there is keeps every
+departed player's purse — `Restore` refuses a non-positive amount, so the line reads as the mirror of
+admission and does nothing at all. The mirror is `MemoryEconomyLedger.Release`.
+
+### The outbox is asked before the projection, and that order is a guard
+
+A realm has two records of what it has already done. The projection's key set is bounded by a
+`KeyHorizon`; the outbox is exact for everything started here and not yet confirmed. **The exact one
+is asked first**, which shrinks what the horizon has to cover from *every retry there will ever be* to
+*every retry after the write is durable* — and inside that window a horizon set too short cannot
+double anything, whatever it says.
+
+⚠ **Asking the projection first would mean the movements had already been applied a second time by the
+time anything noticed.** The database would still refuse the duplicate write, because that is what its
+own key is for; what it cannot fix is that the realm's balances would already have moved twice, on a
+realm whose database is right. `Deduplicated` counts it.
+
+### A departing player is unseated from every graph, not just their own
+
+`Forget` drops their graph *and* sweeps the durable set for anybody still here who held a tie to them
+— the exact mirror of `Admitted`. A gameplay id is never issued twice, so a tie left pointing at a
+departed one is never replaced: they come back as a different number and are seated beside the old
+one. ⚠ **The order in a realm's release path matters**: `Forget` before the identity map lets them go,
+or the sweep has nothing to look up.
+
 ## See also
 
 - [`Vixen.Live.Persistence`](../Vixen.Live.Persistence/README.md) — the ledger and the repositories.

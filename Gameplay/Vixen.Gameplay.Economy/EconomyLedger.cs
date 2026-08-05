@@ -191,23 +191,69 @@ public interface IEconomyLedger {
 
 /// <summary>An <see cref="IEconomyLedger" /> in memory. For tests, and for a single-process game.</summary>
 /// <remarks>
-///     ⚠ <b>A player's account may not go negative and a world account may.</b> That asymmetry is what
-///     makes a world account a <em>source</em> or a <em>sink</em>: a vendor's stock comes from
-///     somewhere and a fee goes nowhere, and modelling either with a real balance would mean seeding
-///     the world with every coin it will ever mint. A player who cannot pay is refused, which is the
-///     check the whole thing exists for.
+///     <para>
+///         ⚠ <b>Built with <see cref="KeyHorizon.Never" />, so a long-running realm leaks until it
+///         says otherwise.</b> Every applied key is kept for ever by default, which over a week of
+///         uptime is every key of that week — <c>Samples/14-Mmo</c>'s soak measures it at about a
+///         megabyte a minute. Pass a <see cref="KeyHorizon" /> and call <see cref="Forget" /> off the
+///         frame path; see that type for why the default is the leak rather than a chosen number.
+///     </para>
+///     <para>
+///         ⚠ <b>A player's account may not go negative and a world account may.</b> That asymmetry
+///         is what makes a world account a <em>source</em> or a <em>sink</em>: a vendor's stock comes
+///         from somewhere and a fee goes nowhere, and modelling either with a real balance would mean
+///         seeding the world with every coin it will ever mint. A player who cannot pay is refused,
+///         which is the check the whole thing exists for.
+///     </para>
 /// </remarks>
 public sealed class MemoryEconomyLedger : IEconomyLedger {
     readonly Dictionary<(EconomyAccount Account, uint Asset), long> balances = [];
     readonly Dictionary<string, long> applied = new(StringComparer.Ordinal);
 
+    /// <summary>The keys of each generation, so a sweep drops a share rather than scanning.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty for an unbounded horizon, and not merely unused.</b> A ledger nobody sweeps must
+    ///     not pay a second reference per key to keep a list it will never read.
+    /// </remarks>
+    readonly List<string>[] generations;
+
     long sequence;
+    long forgotten;
+    int generation;
+    DateTimeOffset opened;
+    bool swept;
+
+    /// <summary>One that forgets nothing.</summary>
+    public MemoryEconomyLedger() : this(KeyHorizon.Never) { }
+
+    /// <summary>One that forgets a key once no retry can still carry it.</summary>
+    /// <param name="horizon">How long a key is kept. See the type for why there is no default.</param>
+    public MemoryEconomyLedger(KeyHorizon horizon) {
+        Horizon = horizon;
+        generations = horizon.IsBounded ? new List<string>[KeyHorizon.Buckets] : [];
+
+        for (var index = 0; index < generations.Length; index++) {
+            generations[index] = [];
+        }
+    }
+
+    /// <summary>How long an applied key is remembered.</summary>
+    public KeyHorizon Horizon { get; }
 
     /// <summary>How many intents have been applied, not counting replays.</summary>
     public long Applied => sequence;
 
-    /// <summary>How many distinct keys it has seen.</summary>
+    /// <summary>How many distinct keys it is holding.</summary>
     public int Keys => applied.Count;
+
+    /// <summary>How many keys have been dropped past the horizon.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Worth reporting even though it is never alarming on its own.</b> A shard whose
+    ///     <see cref="Keys" /> is flat and whose <see cref="Forgotten" /> is zero is one whose sweep
+    ///     is not being called — which looks exactly like a healthy shard until the memory graph does
+    ///     not come back down.
+    /// </remarks>
+    public long Forgotten => forgotten;
 
     /// <inheritdoc />
     public long Balance(EconomyAccount account, DefId asset) =>
@@ -235,6 +281,55 @@ public sealed class MemoryEconomyLedger : IEconomyLedger {
         }
 
         return total;
+    }
+
+    /// <summary>Hands everything an account holds to another, and stops keeping rows for it.</summary>
+    /// <param name="account">Whose view is being dropped — a player who has left this realm.</param>
+    /// <param name="into">Where the balances go. The world account the realm seeded them out of.</param>
+    /// <returns>How many rows were dropped.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The mirror of a realm seeding a player's balances when they arrive, and a realm that
+    ///         does not do it holds every departed player's purse for ever.</b> Five hundred players
+    ///         travelling between shards is a row per player per asset per arrival, none of which any
+    ///         query will ever name again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not an <see cref="EconomyIntent" />, and it must not be one.</b> Nothing has moved:
+    ///         the player still owns what they left with, and the realm that admits them next will seed
+    ///         it from the database. An intent would put a key in the journal saying value changed
+    ///         hands, which is a lie an auditor would later have to explain — and two realms writing
+    ///         one for the same handover would make the ledger disagree with itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The balances are moved rather than deleted, which is why this takes a
+    ///         destination.</b> Deleting the rows would leave whatever seeded them holding the negative
+    ///         of a purse nothing balances, and <see cref="Total" /> — the ledger's own arithmetic
+    ///         check — would stop summing to zero. A leak fixed by breaking the invariant that finds
+    ///         duplication bugs is a bad trade.
+    ///     </para>
+    /// </remarks>
+    public int Release(EconomyAccount account, EconomyAccount into) {
+        if (!account.IsValid || !into.IsValid || account == into) {
+            return 0;
+        }
+
+        var dropped = 0;
+
+        foreach (var (asset, amount) in Holdings(account).ToArray()) {
+            balances.Remove((account, asset.Value));
+            balances[(into, asset.Value)] = Balance(into, asset) + amount;
+            dropped++;
+        }
+
+        // A row that has already been spent to nothing is still a row, and a realm that only dropped
+        // the non-zero ones would leak one per player who left with an empty purse.
+        foreach (var key in balances.Keys.Where(entry => entry.Account == account).ToArray()) {
+            balances.Remove(key);
+            dropped++;
+        }
+
+        return dropped;
     }
 
     /// <inheritdoc />
@@ -288,6 +383,78 @@ public sealed class MemoryEconomyLedger : IEconomyLedger {
 
         applied.Add(intent.Key, ++sequence);
 
+        if (generations.Length > 0) {
+            generations[generation].Add(intent.Key);
+        }
+
         return new(EconomyVerdict.Applied, sequence);
+    }
+
+    /// <summary>Drops every key that is older than the horizon guarantees.</summary>
+    /// <param name="now">The caller's clock.</param>
+    /// <returns>How many keys were dropped.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Called off the frame path, on whatever cadence a realm already has for housekeeping.</b>
+    ///         It costs one generation's worth of dictionary removals when a generation is due and a
+    ///         subtraction when one is not, so calling it every tick is cheap and calling it every
+    ///         minute is equally correct — the horizon is measured in <paramref name="now" /> and not
+    ///         in calls.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is forgotten until this is called, which is deliberate.</b> Sweeping
+    ///         lazily inside <see cref="Post" /> would put the cost on a rule mid-frame, and — worse —
+    ///         would make a quiet realm's keys expire on the next busy one's clock. A realm that never
+    ///         calls this leaks, and leaking is the failure this type is willing to have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A clock that jumps forward past the whole horizon empties the set rather than
+    ///         catching up one generation per call.</b> Both are correct — everything held is older
+    ///         than the horizon either way — and the difference is that the second spends the next
+    ///         eight calls doing it, which is a stall a host that paused the process for an hour does
+    ///         not need on top of the pause. A clock that jumps <em>backwards</em> forgets nothing
+    ///         until it has caught up, which is the safe direction.
+    ///     </para>
+    /// </remarks>
+    public int Forget(DateTimeOffset now) {
+        if (generations.Length == 0) {
+            return 0;
+        }
+
+        // The first call is what starts the clock. Taking a construction-time stamp instead would
+        // mean a ledger built at boot and first swept an hour later drops its whole first hour.
+        if (!swept) {
+            swept = true;
+            opened = now;
+
+            return 0;
+        }
+
+        var dropped = 0;
+        var rotations = 0;
+
+        while (now - opened >= Horizon.Interval && rotations < generations.Length) {
+            generation = (generation + 1) % generations.Length;
+
+            var stale = generations[generation];
+
+            foreach (var key in stale) {
+                if (applied.Remove(key)) {
+                    dropped++;
+                }
+            }
+
+            stale.Clear();
+            opened += Horizon.Interval;
+            rotations++;
+        }
+
+        if (rotations == generations.Length) {
+            opened = now;
+        }
+
+        forgotten += dropped;
+
+        return dropped;
     }
 }

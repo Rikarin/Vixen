@@ -81,6 +81,7 @@ public sealed class LedgerBridge : IEconomyLedger {
     public const string RestoreAccount = "world/restore";
 
     readonly List<PendingWrite> outbox = [];
+    readonly HashSet<IdempotencyKey> inFlight = [];
     readonly IGameplayIdentity identity;
     readonly IEconomyLedger projection;
 
@@ -110,6 +111,26 @@ public sealed class LedgerBridge : IEconomyLedger {
 
     /// <summary>How many answers said the projection and the database disagree. Never anything but zero.</summary>
     public int Divergences { get; private set; }
+
+    /// <summary>How many posts were recognised from the outbox rather than from the projection.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A realm has two records of what it has already done, and this counts the ones the
+    ///         exact record answered.</b> The outbox holds every operation started here and not yet
+    ///         confirmed; the projection's key set holds every operation applied here inside its
+    ///         <c>KeyHorizon</c>. Both give the right answer, and the outbox is asked first because it
+    ///         cannot be wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Non-zero means one of two things and both are worth knowing.</b> Either a caller is
+    ///         retrying an operation faster than the database is settling it, or the horizon is shorter
+    ///         than a settle takes — and in the second case this is what stands between a forgotten key
+    ///         and a purse that doubles. The database would still refuse the duplicate write, because
+    ///         that is what its own key is for; what it cannot fix is that the realm's own balances
+    ///         would already have moved twice.
+    ///     </para>
+    /// </remarks>
+    public int Deduplicated { get; private set; }
 
     /// <summary>Why the last <see cref="Post" /> was refused.</summary>
     public BridgeRefusal LastRefusal { get; private set; }
@@ -143,6 +164,20 @@ public sealed class LedgerBridge : IEconomyLedger {
             return new(EconomyVerdict.Malformed, 0, "an account names somebody who is not on this realm");
         }
 
+        var key = KeyOf(intent, movements);
+
+        // ⚠ Before the projection, and the order is the whole of the guard. The outbox is an exact
+        // record of every operation this realm has started and not finished, so asking it first
+        // shrinks the window a KeyHorizon has to cover from "every retry there will ever be" to
+        // "every retry after the write is durable" — and inside that window a horizon set too short
+        // cannot double anything, whatever it says. Asking the projection first would mean the
+        // movements had already been applied a second time by the time anything noticed.
+        if (inFlight.Contains(key)) {
+            Deduplicated++;
+
+            return new(EconomyVerdict.Replayed, 0, "this operation is still in the outbox");
+        }
+
         var result = projection.Post(intent);
 
         if (!result.Ok) {
@@ -157,9 +192,8 @@ public sealed class LedgerBridge : IEconomyLedger {
             return result;
         }
 
-        var key = KeyOf(intent, movements);
-
         outbox.Add(new(key, new() { Key = key, LeaseEpoch = LeaseEpoch, Movements = movements, Detail = intent.Detail }, intent.Detail));
+        inFlight.Add(key);
 
         return result;
     }
@@ -172,13 +206,27 @@ public sealed class LedgerBridge : IEconomyLedger {
     /// <param name="asset">What.</param>
     /// <param name="amount">How much. Zero and below do nothing.</param>
     /// <returns>Whether it took.</returns>
+    /// <remarks>
+    ///     ⚠ <b>There is no <c>Restore(…, 0)</c> that undoes this, and a realm that thinks there is
+    ///     keeps every departed player's purse.</b> The mirror is <c>MemoryEconomyLedger.Release</c>,
+    ///     which hands the rows back to <see cref="RestoreAccount" /> and drops them — because letting
+    ///     a player go is not a movement of value and must not be written to the journal as one.
+    /// </remarks>
     public bool Restore(EconomyAccount account, DefId asset, long amount) {
         if (amount <= 0) {
             return false;
         }
 
-        // Its own key space, so a restore can never collide with a real operation's key and a second
-        // load of the same character is a replay rather than a doubling.
+        // ⚠ Its own key space, and a fresh key every time. That is not idempotence and does not
+        // pretend to be: two Restore calls for one account and asset seed it twice. The counter is
+        // there so a *legitimate* re-seed — a reconnect onto a recycled session id, which produces
+        // the same gameplay id — is not silently refused, and refusing to seed a player is worse than
+        // the caller having to not ask twice.
+        //
+        // ⚠ Which makes every restore key ballast in the projection's guard: it can never match
+        // anything, and it is kept for as long as a real key is. A realm that admits five hundred
+        // players an hour adds five hundred keys an hour that guard nothing — one of the reasons
+        // MemoryEconomyLedger's set needs a KeyHorizon rather than merely deserving one.
         var result = projection.Post(
             EconomyIntent.Transfer(
                 $"restore/{account.Player.Value}/{asset.Value}/{++restored}",
@@ -219,6 +267,7 @@ public sealed class LedgerBridge : IEconomyLedger {
         // point of a key derived from the operation.
         if (result.Ok) {
             outbox.RemoveAt(index);
+            inFlight.Remove(key);
 
             return true;
         }

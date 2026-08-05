@@ -62,24 +62,48 @@ mark.
 | conservation violations | **0** |
 | disconnected by the rollout | **0** |
 | version spread at the end | **0** |
-| tick p99 | 76 µs |
-| allocation | 34.6 KB a tick |
-| **memory grown** | **168 MB** |
+| tick p99 | 178 µs |
+| allocation | 35.5 KB a tick |
+| **memory grown** | **13 MB**, from 168 |
 
-### The idempotency-key set grows without bound
+### Three things a realm has to take away again
 
 Eight shards holding five hundred players are a fixed working set, so a settled fleet should not
-grow — and this one grows by roughly a megabyte a minute, for ever.
+grow — and this one grew by roughly a megabyte a minute, for ever. **The interesting part is that the
+first answer was wrong.** The obvious suspect was the idempotency-key set, it was written up as the
+whole cause, and bounding it removed forty-five megabytes of a hundred and sixty-eight. The rest was
+found by ablation: turning off map travel dropped the growth to 8 MB, and everything below follows
+from that one measurement.
 
-It is `MemoryEconomyLedger`'s idempotency guard. Every posted intent adds `(player, kind, operation)`
-to a set, nothing ever removes one, and the run finishes holding **199 379 keys**. A shard that runs
-for a week keeps every key of that week.
+**The key set, which is the one that cannot simply be cleared.** Every posted intent adds
+`(player, kind, operation)` to `MemoryEconomyLedger`'s guard, and it is what makes doc 27's rule true
+— *"a retried trade, a retried mail claim, a retried auction settlement writes nothing the second
+time"*. So it gets a `KeyHorizon`, and **how long that horizon is is safety-critical rather than a
+tuning knob**: a retry arriving after it is applied again. The type is built from the *retry window*
+instead of from the horizon, so the number in this sample's source is the two minutes a client would
+go on resending for, and a horizon shorter than the window it must outlive is unrepresentable.
 
-⚠ **The guard cannot simply be cleared.** It is what makes doc 27's rule true — *"a retried trade, a
-retried mail claim, a retried auction settlement writes nothing the second time"* — and it is what
-makes the auction, the trade and the mail safe. What it needs is a **horizon**, and how long that
-horizon is is a safety-critical number rather than a tuning knob: a retry arriving after it is no
-longer recognised as a replay and is applied again. Task **#43**.
+⚠ **And a horizon on its own is not enough, because a key can age out while its write is still in
+flight.** `LedgerBridge` now asks the outbox before it asks the projection — the outbox is an exact
+record of what this realm has started and not finished, so inside that window a horizon set too short
+cannot double anything. It shrinks what the horizon has to cover to "retries after the write is
+durable", and `LedgerBridge.Deduplicated` is the counter that says it happened.
+
+**Every departed player's purse, left behind by a line that did nothing.** `Shard.Release` called
+`Ledger.Restore(…, 0)`, which reads as the mirror of admission and is a no-op — `Restore` refuses a
+non-positive amount. So every player who ever left a shard left a balance row on it. The real mirror
+is `MemoryEconomyLedger.Release`, which hands the rows to the world account they were seeded out of
+and drops them; it is deliberately **not** an intent, because letting a player go is not a movement of
+value and writing one would put a lie in the journal.
+
+**Every departed player's social graph, and their seat in everybody else's.** This was a hundred and
+thirty of the hundred and sixty-eight megabytes. `SocialGraphs.Of` makes a graph on demand and nothing
+ever took one away, so a shard that admits and releases a player five hundred times an hour — which is
+what map travel is — kept five hundred graphs an hour. ⚠ **Dropping the departed player's own graph is
+only half of it:** a gameplay id is never issued twice, so a friend still online is left holding an id
+that no re-admission will ever replace — they come back as a different number and are seated beside
+their own ghost. Only the durable set knows who held a tie to whom, so the sweep lives in
+`SocialBridge.Forget` and is the exact mirror of `SocialBridge.Admitted`.
 
 ### A drained outbox that is never settled is a leak nothing looks like
 
@@ -115,11 +139,12 @@ zero.
 | cold reads | 0 | A lockout read cold admits somebody to a raid they are saved to. |
 | state-shaped guild writes | 0 | A partial roster written back deletes everybody offline. |
 | outbox left unsettled | 8 per shard | A tick's own writes are in flight; growth is a leak. |
+| replays answered by the outbox | 0 | This fleet never re-posts an operation, so it can only mean a key aged out before its write was durable. |
 | disconnected by the rollout | 0 | Every step of a rollout is a drain and never a kill. |
 | version spread at the end | 0 | Doc 27's rollout assertion. |
 | allocation | 64 KB a tick | Catches the regression `09-NetworkSoak` found: an allocation per player per tick. |
 | tick p99 | 2 000 µs | Generous: eight shards on one core of a laptop. It is a regression guard, not a latency claim. |
-| memory grown | 32 MB | **Currently missed at 168 MB.** See above. |
+| memory grown | 32 MB | Held at 13 MB. It was missed at 168 for the three reasons above. |
 
 ## See also
 
