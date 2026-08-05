@@ -90,17 +90,23 @@ jobs:
       matrix:
         target: ${{ fromJSON(needs.targets.outputs.matrix) }}
 
-    # Derived by the runner from this target's own budget, so it cannot drift the way the single
+    # This target's own budget plus the runner's overhead, so it cannot drift the way the single
     # job's did: that number was the target count times the per-target seconds, recomputed by hand,
     # and it was wrong twice — once by twenty minutes, which is a nightly guaranteed to end on the
     # clock having reported nothing. Thirty minutes is the runner's own overhead (checkout, restore,
     # a Release build of the engine and spirv-tools measured at about twelve) plus slack, because a
     # cap that fires on a healthy run stops meaning anything.
     #
+    # ⚠ Stored in the JSON rather than computed here, because **Actions expressions have no
+    # arithmetic** — only comparison and logic. `${{ matrix.target.seconds / 60 + 30 }}` is not a
+    # slower way to write this; it is a workflow the API refuses outright, with
+    # `Unexpected symbol: '/'`, before a single job runs. `minutes` and `seconds` are held in step
+    # by FuzzGateTests.TheNightlyMatrixIsTheRegistry rather than by whoever edits the file next.
+    #
     # It is not a budget. VIXEN_FUZZ_SECONDS bounds the fuzzing and CaseGuard bounds a single case;
     # this is the third backstop, for the process that stops making progress in a way neither of
     # those can see. See Core/Vixen.Fuzz/README.md § The nightly's budgets.
-    timeout-minutes: ${{ matrix.target.seconds / 60 + 30 }}
+    timeout-minutes: ${{ matrix.target.minutes }}
 
     steps:
       - uses: actions/checkout@v4

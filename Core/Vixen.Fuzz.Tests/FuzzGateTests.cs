@@ -357,6 +357,19 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
             Assert.True(seconds > 0, $"{name} has a nightly budget of {seconds} seconds.");
             Assert.True(seconds % 60 == 0, $"{name}'s {seconds} seconds is not a whole number of minutes.");
 
+            // ⚠ The runner's cap is stored beside the budget rather than derived from it, because
+            // Actions expressions have no arithmetic: `${{ … seconds / 60 + 30 }}` is a workflow the
+            // API refuses outright — `Unexpected symbol: '/'`, before a job runs — not a slow one.
+            // Storing it means the two can drift, and this is the thing that stops them.
+            var minutes = entry.GetProperty("minutes").GetInt32();
+
+            Assert.True(
+                minutes == (seconds / 60) + 30,
+                $"{name} budgets {seconds}s and caps its job at {minutes} min, which must be "
+                + $"{(seconds / 60) + 30} — the budget plus the runner's overhead. nightly.yml reads "
+                + "`minutes` verbatim and cannot compute it."
+            );
+
             // A budget nobody can explain is one nobody can revise, and these are the only place the
             // measurement behind a number is written down where CI also reads it.
             Assert.False(
