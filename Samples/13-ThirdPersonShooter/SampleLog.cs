@@ -267,6 +267,27 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
+        EventId = 14058,
+        Level = LogLevel.Information,
+        Message = "Ground: {Terrains} terrain(s) and {Fields} grass field(s) drawn, {Extracted} "
+            + "extracted with {Waiting} still loading, {RefusedGrass} grass rule(s) refused. Zero "
+            + "drawn with zero extracted is a scene that carries no TerrainComponent; zero drawn "
+            + "with one extracted is content that never arrived, which draws as no ground at all "
+            + "rather than as an error — different bugs, and the picture is the same absence for "
+            + "both. A layer whose texture reference did not parse is the third: that one draws the "
+            + "renderer's white default, and white ground under a dusk sky is the loudest thing in "
+            + "the frame."
+    )]
+    public static partial void GroundSummary(
+        ILogger logger,
+        int terrains,
+        int fields,
+        int extracted,
+        int waiting,
+        int refusedGrass
+    );
+
+    [LoggerMessage(
         EventId = 14057,
         Level = LogLevel.Information,
         Message = "Textures: {Painted} of {Requested} material texture(s) loaded, {Failed} failed. "

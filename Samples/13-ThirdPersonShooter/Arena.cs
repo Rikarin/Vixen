@@ -290,9 +290,17 @@ public sealed class Arena : IDisposable {
     ///     </para>
     /// </remarks>
     static void SpawnGround(World world) {
-        var ground = world.Create(
-            LocalTransform.At(new(-TerrainSeed.HalfExtent, 0f, -TerrainSeed.HalfExtent))
-        );
+        var placement = LocalTransform.At(new(-TerrainSeed.HalfExtent, 0f, -TerrainSeed.HalfExtent));
+
+        // ⚠ **Both transforms, and the world one is not redundant.**
+        // `TerrainExtractionSystem`'s query is `WithAll<TerrainComponent, WorldTransform>`, and a
+        // `WorldTransform` is written by the transform pass for entities that have one — it is not
+        // added to an entity that arrived without it. Every other object in this level came out of
+        // the scene asset carrying both; an entity created in code carries what it was created with,
+        // so a terrain spawned with a `LocalTransform` alone is one the ground's extraction cannot
+        // see. It reports zero terrains extracted with zero waiting, which reads as "the scene has
+        // no TerrainComponent" — and the scene does have one.
+        var ground = world.Create(placement, new WorldTransform { Value = placement.ToMatrix() });
 
         world.Add(ground, Rendering.Terrain.TerrainComponent.Of(TerrainSeed.TerrainPath));
         world.Add(ground, Rendering.Terrain.TerrainGrassComponent.Of(TerrainSeed.GrassPath));
@@ -1215,6 +1223,22 @@ public sealed class Arena : IDisposable {
         // little resident is a blurrier wall, and nothing resident at all is the flat base level,
         // which over a generated noise texture is indistinguishable from the map working. The
         // counters are the only place the difference is stated.
+        // What the terrain splice did, on the streaming line's terms below: the ground has no
+        // counter in any of the summaries above, and a frame with no ground in it looks exactly like
+        // a frame whose ground is behind the walls.
+        if (graphics.Renderer.Host.Builder.Nodes.Values
+                .OfType<Rendering.Terrain.TerrainSceneRenderer>()
+                .FirstOrDefault() is { } ground) {
+            SampleLog.GroundSummary(
+                logger,
+                ground.TerrainsDrawn,
+                ground.GrassFieldsDrawn,
+                graphics.Renderer.TerrainExtraction?.TerrainCount ?? 0,
+                graphics.Renderer.TerrainExtraction?.Waiting ?? 0,
+                graphics.Renderer.TerrainExtraction?.RefusedGrass ?? 0
+            );
+        }
+
         var painted = graphics.Renderer.Painted;
         var streamer = painted?.Streaming;
 
