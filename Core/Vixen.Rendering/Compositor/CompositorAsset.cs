@@ -643,6 +643,52 @@ public sealed record BufferReadbackAsset : ISceneRendererAsset {
     public int Latency { get; init; }
 }
 
+/// <summary>A snapshot of one target in another.</summary>
+/// <remarks>
+///     <para>
+///         <b>[35 § B1](../../../docs/plan/35-water.md#b1-there-is-no-shading-model-that-can-read-the-scene-behind-it),
+///         and the blocker there was the copy rather than the pass.</b> A shading model that
+///         integrates absorption over the distance to whatever is behind it has to read the scene
+///         colour and then write into it, and writing into a target you are also sampling is
+///         undefined — not slow, not approximate, undefined. So the read has to come from a second
+///         resource, and that resource has to be a real one the graph knows the lifetime of rather
+///         than a barrier somebody remembers to place.
+///     </para>
+///     <para>
+///         <b>Not water's alone.</b> Anything that reads the frame so far and then contributes to it
+///         wants this: refraction, a distortion pass, a heat haze, a UI that blurs what is behind it.
+///         The node is written for the general case and water is its first consumer.
+///     </para>
+///     <para>
+///         ⚠ <b>Both resources have to declare the usage.</b> The source needs
+///         <see cref="TextureUsage.CopySource" /> and the destination
+///         <see cref="TextureUsage.CopyDestination" />, and neither is in
+///         <see cref="RenderResourceAsset" />'s default. Missing one is a validation error on a debug
+///         driver and silently nothing on a release one, so the build refuses it by name instead.
+///     </para>
+///     <para>
+///         <b>A copy and not a full-screen blit.</b> A blit is a pipeline, a descriptor set and a
+///         draw; a copy is a transfer-queue operation the driver can do while the graphics queue is
+///         busy. The two are only interchangeable when the formats and sizes match — and when they do
+///         not, this refuses rather than silently rescaling, because a scene-colour copy that is
+///         quietly half resolution is a refraction that is quietly wrong.
+///     </para>
+/// </remarks>
+[DataContract("Copy")]
+public sealed record TextureCopyAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>What to copy, which must be declared as a copy source.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>Where it goes, which must be declared as a copy destination.</summary>
+    public string Destination { get; init; } = string.Empty;
+}
+
 /// <summary>One stage drawn from one view.</summary>
 [DataContract("SingleStage")]
 public sealed record SingleStageAsset : ISceneRendererAsset {

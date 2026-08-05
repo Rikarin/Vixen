@@ -1,0 +1,520 @@
+{
+  "Sets": [
+    {
+      "Set": 2,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "WaterPerMaterialUniforms",
+          "Type": "UniformBuffer",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [
+            {
+              "Name": "inverseViewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cameraPosition",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "scattering",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 80,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.03, 0.06, 0.09"
+            },
+            {
+              "Name": "absorption",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 96,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.35, 0.06, 0.02"
+            },
+            {
+              "Name": "phaseG",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 108,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.7"
+            },
+            {
+              "Name": "behindScale",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1, 1, 1"
+            },
+            {
+              "Name": "sunColour",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 128,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1, 0.96, 0.9"
+            },
+            {
+              "Name": "sunDirection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 144,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0, -1, 0"
+            },
+            {
+              "Name": "skyColour",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 160,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.35, 0.45, 0.6"
+            },
+            {
+              "Name": "surfaceF0",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 172,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.02"
+            },
+            {
+              "Name": "foamColour",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 176,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.9, 0.93, 0.95"
+            }
+          ],
+          "Size": 192,
+          "IsWritable": false
+        },
+        {
+          "Binding": 1,
+          "Name": "sceneColourCopy",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 2,
+          "Name": "sceneDepth",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 3,
+          "Name": "waterSurface",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 4,
+          "Name": "waterNormal",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 5,
+          "Name": "reflectionPlane",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 6,
+          "Name": "pointSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 7,
+          "Name": "linearSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        }
+      ]
+    }
+  ],
+  "VertexInputs": [],
+  "Outputs": [
+    {
+      "Location": 0,
+      "Name": "result",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "SV_Target"
+    }
+  ],
+  "PushConstants": [],
+  "SpecConstants": [],
+  "Permutations": [
+    {
+      "Name": "Reflections",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "true"
+    },
+    {
+      "Name": "Foam",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "true"
+    }
+  ],
+  "ValueParameters": [],
+  "Parameters": [
+    {
+      "Name": "inverseViewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "cameraPosition",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 64,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "scattering",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 80,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.03, 0.06, 0.09"
+    },
+    {
+      "Name": "absorption",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 96,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.35, 0.06, 0.02"
+    },
+    {
+      "Name": "phaseG",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 108,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.7"
+    },
+    {
+      "Name": "behindScale",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 112,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1, 1, 1"
+    },
+    {
+      "Name": "sunColour",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 128,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1, 0.96, 0.9"
+    },
+    {
+      "Name": "sunDirection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 144,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0, -1, 0"
+    },
+    {
+      "Name": "skyColour",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 160,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.35, 0.45, 0.6"
+    },
+    {
+      "Name": "surfaceF0",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 172,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.02"
+    },
+    {
+      "Name": "foamColour",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 176,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.9, 0.93, 0.95"
+    }
+  ],
+  "RequiredCapabilities": [],
+  "UsedPermutationKeys": [
+    "Foam",
+    "Reflections"
+  ],
+  "Stages": [
+    "Vertex",
+    "Fragment"
+  ]
+}

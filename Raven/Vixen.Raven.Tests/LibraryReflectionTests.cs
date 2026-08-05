@@ -83,6 +83,14 @@ public class LibraryReflectionTests {
         ("SurfaceCache", "SurfaceCacheLight"),
         ("SurfaceCache", "SurfaceCacheGather"),
         ("Reflections", "ReflectionTrace"),
+
+        // Doc 35 § D8's pass. Published because WaterRenderer binds all five of its planes and every
+        // one of its coefficients by name, and because its two permutations — the reflection plane
+        // and the foam — are asked for by key. ⚠ Also because of `behindScale`, whose *declared*
+        // default is 1: a key interned from a string carries no default, EffectConstants would write
+        // it as zero, and the frame behind the water would be perfectly black — which reads as
+        // "the water is opaque" rather than as a parameter nobody set.
+        ("Water", "Water"),
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see
@@ -226,7 +234,7 @@ public class LibraryReflectionTests {
     static IrModule Library(out IEnumerable<string> usedPermutationKeys) {
         var trees = new[] {
                 "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows", "VirtualShadows", "ScreenProbes",
-                "SurfaceCache", "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx", "Terrain"
+                "SurfaceCache", "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx", "Terrain", "Water"
             }
             .SelectMany(package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
             .OrderBy(file => file, StringComparer.Ordinal)

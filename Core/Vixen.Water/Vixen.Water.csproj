@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Water</RootNamespace>
+        <Description>
+            The water kernel: one definition of where the surface is. A body is a spline and a
+            profile, a sea state is a spectrum summed as Gerstner waves, and a zone rasterises both
+            into a field of surface height, flow and the ground beneath. The evaluator over that
+            field is what the vertex stage, the buoyancy solver and a gameplay query all call — so a
+            boat floats at the height the water is drawn at. Pure arithmetic over arrays and structs,
+            with no device and no world, which is also what a dedicated server runs.
+        </Description>
+        <PackageTags>water;ocean;river;buoyancy;gerstner;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            One reference, for Vixen.Terrain's reason (docs/plan/35 § D1): the kernel is what the
+            dedicated server runs. A headless build has no device and still has to answer how deep
+            the water is at a position for every swimming character and every boat it simulates, so
+            nothing here may open one. The physics join is a separate assembly rather than a
+            reference from here to Jolt.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!-- What the generated descriptors are registered into. -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
+            The descriptors the editor's YAML binder reads — a .vxwaves is a document an author
+            edits. Analyzers do not flow through a ProjectReference, so each assembly that declares a
+            contract runs this itself.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Water.Tests" />
+    </ItemGroup>
+
+</Project>

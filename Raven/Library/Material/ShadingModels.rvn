@@ -165,6 +165,29 @@ shader HairShading : IShadingModel {
     }
 }
 
+/// A water surface: the interface, and nothing about the volume under it — docs/plan/35 § D8.
+///
+/// Unreal's `SingleLayerWater`, split where this library's slots already split. What a water surface
+/// does with a light *at the interface* is reflect it, and that is a lobe; what water does to light
+/// that goes *through* it is absorb and scatter it over a path length, and that needs the scene
+/// behind and the depth buffer — so it is a pass (`Vixen.Shaders.Water.WaterVolume`) and not a lobe.
+///
+/// ⚠ **No diffuse term, and that is the decision rather than an omission.** Water's own diffuse
+/// albedo is nil; every photon a viewer reads as "the colour of the water" was scattered by the
+/// volume, and `WaterVolume.InScatter` is what accounts for it. A Lambert lobe here would count the
+/// same photons twice — which reads as water that is too bright in the shallows and gets *lighter*
+/// as it deepens, because the lobe does not know the volume saturates.
+///
+/// ⚠ **`f0` is the interface's and is not a base colour.** Water against air is about 0.02, which is
+/// what makes a lake a mirror at a grazing angle and nearly invisible looking straight down — the
+/// Fresnel curve is doing all of that, and a material that raises `f0` to tint the water has made it
+/// metal.
+shader SingleLayerWaterShading : IShadingModel {
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        return SpecularModels.Ggx(d.f0, a, alpha) * a.NdotL
+    }
+}
+
 /// Banded light and a hard-edged highlight: the non-PBR case, and the proof the model admits one.
 ///
 /// It is a shading model rather than a surface feature for the reason the whole slot exists — cel

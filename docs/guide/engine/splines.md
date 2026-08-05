@@ -8,7 +8,7 @@ api: [T:Vixen.Core.Mathematics.Spline, T:Vixen.Core.Mathematics.SplinePoint, T:V
 tags: [mathematics, spline, curve, camera, terrain, roads]
 since: 0.1
 status: preview
-related: [engine/terrain-heightfield, engine/terrain-painting, editor/terrain-mode, engine/foliage]
+related: [engine/terrain-heightfield, engine/terrain-painting, editor/terrain-mode, engine/foliage, engine/water-surface]
 ---
 
 ## What it is

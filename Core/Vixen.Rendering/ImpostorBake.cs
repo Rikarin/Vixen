@@ -62,6 +62,7 @@ public sealed class ImpostorBake : IDisposable {
     readonly TextureViewHandle[] normalLevels;
 
     DescriptorSetLayoutHandle setLayout;
+    DescriptorSetLayoutHandle emptySetLayout;
     PipelineLayoutHandle pipelineLayout;
     PipelineHandle dilating;
     PipelineHandle reducing;
@@ -269,7 +270,17 @@ public sealed class ImpostorBake : IDisposable {
             )
         );
 
-        pipelineLayout = device.CreatePipelineLayout(new([setLayout], [], "impostor finish"));
+        // ⚠ Padded below the material set, because a pipeline layout is positional and the shader's
+        // bindings are set 2 — DescriptorSetSlot.PerMaterial, where Raven puts every unmarked
+        // binding, and ImpostorFinish.reflect.json is the evidence. A layout holding this set alone
+        // puts it at index 0 while `Chain` binds it at index 2: undefined behaviour some desktop
+        // drivers absorb and MoltenVK refuses from inside pipeline creation. One empty layout stands
+        // in for both unused slots — repeating a handle in a pipeline layout is legal everywhere.
+        emptySetLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "impostor finish empty"));
+        pipelineLayout = device.CreatePipelineLayout(
+            new([emptySetLayout, emptySetLayout, setLayout], [], "impostor finish")
+        );
+
         dilating = device.CreateComputePipeline(new(dilate, pipelineLayout, "impostor dilate"));
         reducing = device.CreateComputePipeline(new(reduce, pipelineLayout, "impostor reduce"));
 
@@ -405,6 +416,7 @@ public sealed class ImpostorBake : IDisposable {
             device.Destroy(dilating);
             device.Destroy(pipelineLayout);
             device.Destroy(setLayout);
+            device.Destroy(emptySetLayout);
         }
 
         foreach (var view in albedoLevels) {

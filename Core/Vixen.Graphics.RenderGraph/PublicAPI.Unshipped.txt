@@ -22,6 +22,26 @@ Vixen.Graphics.RenderGraph.PassKind.Compute = 1 -> Vixen.Graphics.RenderGraph.Pa
 Vixen.Graphics.RenderGraph.PassKind.Graphics = 0 -> Vixen.Graphics.RenderGraph.PassKind
 Vixen.Graphics.RenderGraph.PassKind.PassKind() -> void
 Vixen.Graphics.RenderGraph.PassKind.Transfer = 2 -> Vixen.Graphics.RenderGraph.PassKind
+Vixen.Graphics.RenderGraph.PingPongPair -> readonly struct
+Vixen.Graphics.RenderGraph.PingPongPair : System.IEquatable<Vixen.Graphics.RenderGraph.PingPongPair>
+Vixen.Graphics.RenderGraph.PingPongPair.PingPongPair() -> void
+Vixen.Graphics.RenderGraph.PingPongPair.PingPongPair(Vixen.Graphics.RenderGraph.GraphTexture Read, Vixen.Graphics.RenderGraph.GraphTexture Write) -> void
+Vixen.Graphics.RenderGraph.PingPongPair.Read.get -> Vixen.Graphics.RenderGraph.GraphTexture
+Vixen.Graphics.RenderGraph.PingPongPair.Read.init -> Vixen.Graphics.RenderGraph.GraphTexture
+Vixen.Graphics.RenderGraph.PingPongPair.Write.get -> Vixen.Graphics.RenderGraph.GraphTexture
+Vixen.Graphics.RenderGraph.PingPongPair.Write.init -> Vixen.Graphics.RenderGraph.GraphTexture
+Vixen.Graphics.RenderGraph.PingPongTextures -> sealed class
+Vixen.Graphics.RenderGraph.PingPongTextures : System.IDisposable
+Vixen.Graphics.RenderGraph.PingPongTextures.Advance() -> void
+Vixen.Graphics.RenderGraph.PingPongTextures.Clear(Vixen.Graphics.RenderGraph.RenderGraph graph, Vixen.Core.Mathematics.Color4 clear = default(Vixen.Core.Mathematics.Color4)) -> void
+Vixen.Graphics.RenderGraph.PingPongTextures.Description.get -> Vixen.Graphics.TextureDescription
+Vixen.Graphics.RenderGraph.PingPongTextures.Dispose() -> void
+Vixen.Graphics.RenderGraph.PingPongTextures.HasHistory.get -> bool
+Vixen.Graphics.RenderGraph.PingPongTextures.Import(Vixen.Graphics.RenderGraph.RenderGraph graph) -> Vixen.Graphics.RenderGraph.PingPongPair
+Vixen.Graphics.RenderGraph.PingPongTextures.PingPongTextures(Vixen.Graphics.IGraphicsDevice device, in Vixen.Graphics.TextureDescription description) -> void
+Vixen.Graphics.RenderGraph.PingPongTextures.ReadTexture.get -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.RenderGraph.PingPongTextures.StepCount.get -> long
+Vixen.Graphics.RenderGraph.PingPongTextures.WriteTexture.get -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.RenderGraph.RenderGraph -> sealed class
 Vixen.Graphics.RenderGraph.RenderGraph.AddPass(string name, System.Action<Vixen.Graphics.RenderGraph.RenderGraphPassBuilder> setup) -> void
 Vixen.Graphics.RenderGraph.RenderGraph.BarrierCount.get -> int
@@ -81,5 +101,6 @@ Vixen.Graphics.RenderGraph.TransientResourcePool.Reuses.get -> int
 Vixen.Graphics.RenderGraph.TransientResourcePool.TextureAt(int slot) -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.RenderGraph.TransientResourcePool.TransientResourcePool(Vixen.Graphics.IGraphicsDevice device) -> void
 Vixen.Graphics.RenderGraph.TransientResourcePool.ViewAt(int slot) -> Vixen.Graphics.TextureViewHandle
+const Vixen.Graphics.RenderGraph.PingPongTextures.RestingState = Vixen.Graphics.ResourceState.ShaderRead -> Vixen.Graphics.ResourceState
 static Vixen.Graphics.RenderGraph.GraphBuffer.None.get -> Vixen.Graphics.RenderGraph.GraphBuffer
 static Vixen.Graphics.RenderGraph.GraphTexture.None.get -> Vixen.Graphics.RenderGraph.GraphTexture

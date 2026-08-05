@@ -56,6 +56,17 @@ tiles agree by construction.
 
 ## Roads are the reserved layer, and that is the whole of their non-destructiveness
 
+`Terrain.ReservedLayer(kind)` is the accessor all three generators share, and it refuses
+`TerrainLayerKind.Manual`: an author's layers are many and named by the author, so there is no such
+thing as *the* manual layer. There is one layer per generator and not one per thing generated — two
+roads crossing have to agree about the height at the junction, and two layers would give the answer to
+whichever composited last.
+
+The third kind, `TerrainLayerKind.Water`, is [`docs/plan/35-water.md`](../../docs/plan/35-water.md)
+§ B4 and needed no change to the contract at all — which is the strongest evidence [§ D4] got the
+storage model right: the feature that most obviously wants non-destructive terrain deformation was not
+in scope when the mechanism was designed.
+
 `TerrainSpline` writes into a `TerrainLayerKind.Splines` edit layer — [§ D4] — so moving a road,
 narrowing it or deleting it re-runs into the same layer and the author's own sculpting underneath is
 untouched. A road written into the base heightfield is a road that can never be moved.

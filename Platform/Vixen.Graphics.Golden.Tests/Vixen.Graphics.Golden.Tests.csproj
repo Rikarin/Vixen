@@ -43,6 +43,17 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.RayTracing\Vixen.Rendering.RayTracing.csproj" />
 
         <!--
+            Doc 35 § D2's other half. The water surface is defined once and evaluated by two hosts,
+            and the seam between them is a test with a stated tolerance of *exact* — so the device
+            leg needs the C# evaluator to compare against, in the same process, on the same numbers.
+            The kernel opens no device, which is what makes referencing it from here harmless.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Water\Vixen.Water.csproj" />
+
+        <!-- And its pass, for doc 35 § W2's exit criterion: the look, proven before the meshing. -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+
+        <!--
             The user interface's GPU half. Its geometry is already checked without a device, and what
             a picture adds is the only thing that check cannot reach: whether the shaders agree with
             it. A distance field evaluated with the wrong sign, a projection that flips y, an atlas

@@ -1,0 +1,85 @@
+package Vixen.Shaders.Water
+
+import Vixen.Shaders.Core
+
+// One invocation, one query, one surface sample out.
+//
+// This shader exists for `WaterSurfaceSeamDeviceTests` and for nothing else. It is the device half of
+// **docs/plan/35 § D2**: the water surface is defined once, evaluated by a C# host and by
+// `Water/Surface.rvn`, and the two are held together by a test with a stated tolerance of *exact*.
+// Nothing here does any arithmetic of its own — it reads a query, calls the library, and writes what
+// came back — because anything it computed would be a third implementation nobody is holding to
+// anything.
+//
+// ⚠ **Why the test is worth having.** Both engines doc 35 surveys evaluate the surface twice and
+// neither pins the two together. Unreal ships `Max Wave Height Offset` per body to correct the drift,
+// which is a knob whose existence is a bug report — and the symptoms are the ones that make people
+// believe water is hard: a boat that hovers above the crests in a swell, a swimming state that
+// flickers at the shoreline, a buoy that sinks when the frame rate drops.
+
+/// One question: where, when, and how much of the sea state survives here.
+///
+/// Sixteen bytes, four-aligned, which is what a `float4` of the same fields would be — so the host
+/// can upload an array of these without a padding rule written down twice.
+struct WaterProbeQuery {
+    /// Where, on the ground plane — world X and Z.
+    var position: float2
+
+    /// The simulation's water time, in seconds.
+    var waterTime: float
+
+    /// How much of the sea state survives here, 0..1. The host applies the attenuation curve.
+    var damping: float
+}
+
+/// What came back: the displacement in `.xyz` and the normal's y in `.w` of the second.
+struct WaterProbeResult {
+    /// How far the point moved, in all three axes.
+    var offset: float3
+
+    /// Padding, so the pair is two `float4`s and the readback is one stride nobody has to compute.
+    var pad: float
+
+    /// Which way the surface faces there.
+    var normal: float3
+
+    /// Padding.
+    var pad2: float
+}
+
+shader WaterSurfaceProbe {
+    /// The sea state. Defaulted, so the probe needs no composition from the host that runs it.
+    ///
+    /// ⚠ The wave buffer and its count are `BufferedWaterWaves`' declarations, and composing it makes
+    /// them this shader's bindings — which is why they are not written out again here.
+    compose val sea: IWaterWaves = BufferedWaterWaves
+
+    /// One question per invocation.
+    [PerDraw] var queries: Buffer<WaterProbeQuery>
+
+    /// One answer per invocation.
+    [PerDraw] var results: RWBuffer<WaterProbeResult>
+
+    /// How many questions there are, since the dispatch is rounded up to whole groups.
+    [PerDraw] var queryCount: int
+
+    [ComputeShader(64, 1, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+
+        if (index >= queryCount) {
+            return
+        }
+
+        val query = queries[index]
+        val displaced = sea.Displace(query.position, query.waterTime, query.damping)
+
+        var result: WaterProbeResult
+        result.offset = displaced.offset
+        result.pad = 0f
+        result.normal = displaced.normal
+        result.pad2 = 0f
+
+        results[index] = result
+    }
+}
