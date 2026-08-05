@@ -1415,6 +1415,8 @@ Vixen.Rendering.PostFx.VegetationQuality.GrassResidentCells.get -> int?
 Vixen.Rendering.PostFx.VegetationQuality.GrassResidentCells.init -> int?
 Vixen.Rendering.PostFx.VegetationQuality.TerrainLodNearRange.get -> float?
 Vixen.Rendering.PostFx.VegetationQuality.TerrainLodNearRange.init -> float?
+Vixen.Rendering.PostFx.VegetationQuality.TerrainStreamingMegabytes.get -> int?
+Vixen.Rendering.PostFx.VegetationQuality.TerrainStreamingMegabytes.init -> int?
 Vixen.Rendering.PostFx.VegetationQuality.VegetationQuality() -> void
 Vixen.Rendering.PostFx.VignetteAsset -> sealed record
 Vixen.Rendering.PostFx.VignetteAsset : System.IEquatable<Vixen.Rendering.PostFx.VignetteAsset>
@@ -2026,6 +2028,8 @@ required Vixen.Rendering.PostFx.ResolvedQuality.TaaVarianceClipping.get -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.TaaVarianceClipping.init -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.TerrainLodNearRange.get -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.TerrainLodNearRange.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.TerrainStreamingMegabytes.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.TerrainStreamingMegabytes.init -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.TraceScale.get -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.TraceScale.init -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.Vignette.get -> bool

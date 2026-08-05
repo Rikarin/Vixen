@@ -65,11 +65,39 @@ all of `TextureQuality`): they map to systems the compositor does not construct 
 land in the asset first so a project's tiers do not change shape when their consumers learn to
 read them.
 
-`VegetationQuality` is consumed, but by hand-off rather than by reference: `Vixen.Rendering.Terrain`
+`VegetationQuality` is consumed, by hand-off rather than by reference. `Vixen.Rendering.Terrain`
 cannot see this assembly — the dependency runs the other way — so `TerrainFactory` declares its own
-plain-numbered `TerrainVegetationQuality` and the host folds a resolved tier into it. The document
-may also state any of those numbers directly on its `!Terrain` node, which out-votes the factory.
-A knob added to `VegetationQuality` is not wired until that copy grows the same field.
+plain-numbered `TerrainVegetationQuality`, and `AppGraphics` folds a resolved tier into
+`TerrainFactory.Vegetation` for every terrain factory it finds in `GraphicsOptions.Factories`. That
+fold is the hand-off: registering the factory is still the whole installation, and a game that
+filled the budgets itself is left alone. All seven entries land — the two density scales, the two
+cull scales, the grass and foliage cell counts and the near range — plus
+`terrainStreamingMegabytes`, which becomes `TerrainStreamer`'s byte budget.
+
+A `!Terrain` node may state any of those numbers directly, per field, and a written value out-votes
+the factory's tier while its siblings still fall through:
+
+```yaml
+- !Terrain
+  name: Ground
+  foliageCellBudget: 96      # this document has decided
+  # every other budget is the host's resolved tier
+```
+
+⚠ **A knob added to `VegetationQuality` is wired only when both halves are added**:
+`TerrainVegetationQuality` must grow the same field *and* `AppGraphics`' fold must assign it.
+Either one missing and the number is carried the whole length of the waterfall and dropped at the
+last step, which is what happened to the foliage budgets. `TerrainNodeTests` checks the two records
+against each other so the omission fails a test rather than a frame.
+
+⚠ **What the terrain fold cannot see is a `!StandardFrame`'s own `quality:` or inline `preset:`.**
+Those are read inside the build, by an expansion that has replaced the node before anything else
+holds the document, so a frame document naming its own tier moves the post chain and not the
+ground. `GraphicsOptions.Quality` and the project preset are what reach the vegetation; the
+`!Terrain` node's own scalars are its document-level vote.
+
+`GrassBladesPerCell` exists on the terrain-side record and in no tier: it is the scatter dispatch's
+shape rather than a budget, so a document or the game sets it.
 
 ## Examples
 

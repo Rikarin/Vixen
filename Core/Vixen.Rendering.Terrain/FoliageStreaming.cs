@@ -178,9 +178,35 @@ public sealed class FoliageStreamer : IDisposable {
     /// <param name="volume">The volume.</param>
     /// <exception cref="ArgumentNullException"><paramref name="volume" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Everything resident is dropped, which is why this is not called every frame.</b> A
-    ///     window that moved renumbers every cell — the index is a position within the rectangle — so
-    ///     keeping the old residency would keep it against the wrong cells.
+    ///     <para>
+    ///         ⚠ <b>Everything resident is dropped, which is why this is not called every frame.</b> A
+    ///         window that moved renumbers every cell — the index is a position within the rectangle —
+    ///         so keeping the old residency would keep it against the wrong cells.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing in the frame calls this, and that is a fact about the volumes rather than
+    ///         an omission.</b> The one place a streamer is built is <c>TerrainSceneRenderer</c>'s
+    ///         foliage stand, and the volumes it streams come from <c>AssetTerrainSource.Volume</c>,
+    ///         which deserialises a volume once and — when a palette moves — constructs a <em>new</em>
+    ///         one rather than mutating the cached instance. A new instance is a new key in the
+    ///         renderer's stand table, so it gets a fresh stand and a correctly windowed streamer: the
+    ///         re-windowing happens by construction. The paths that do paint into a volume
+    ///         (<c>FoliageEdit</c>, <c>FoliageGrowth.Simulate</c>) are the editor's, and the editor
+    ///         draws through <c>VegetationPresenter</c>, which uploads a volume whole and owns no
+    ///         streamer at all.
+    ///     </para>
+    ///     <para>
+    ///         What would need this is a writer that mutates a volume <em>in place</em> after a frame
+    ///         has built a stand for it — planting or felling in a running game, an ecology stepped at
+    ///         run time, or a hot-reload that refills the cached volume instead of replacing it. The
+    ///         symptom would not be missing trees: <see cref="IsResident" /> answers true outside the
+    ///         window, deliberately, so a cell painted beyond it uploads. It is that the window stops
+    ///         covering the volume and the budget stops bounding the upload — which is the whole
+    ///         saving. The call belongs beside the grown-volume test in
+    ///         <c>TerrainSceneRenderer.UploadFoliage</c>, guarded on the volume's bounds having left
+    ///         <see cref="Grid" />, so that the residency is dropped when the window moved and not
+    ///         merely when an instance was added.
+    ///     </para>
     /// </remarks>
     public void Rebuild(FoliageVolume volume) {
         ArgumentNullException.ThrowIfNull(volume);

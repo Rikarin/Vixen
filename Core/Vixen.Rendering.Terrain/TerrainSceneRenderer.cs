@@ -718,7 +718,12 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             // tiles is TerrainRenderer's own line for "fits by construction". Attached before the
             // first Upload, which is the streamer's stated requirement.
             if (description.TilesX * description.TilesZ > 16) {
-                surface.Streaming = new(description, new TerrainTileSource(entry.Terrain));
+                // The tier's pool rather than the constructor's default: the streamer divides these
+                // bytes into slots, so this is the one number that decides how much of a large
+                // terrain a frame holds at once.
+                var pool = (long)Math.Max(1, Vegetation.TerrainStreamingMegabytes) << 20;
+
+                surface.Streaming = new(description, new TerrainTileSource(entry.Terrain), pool);
             }
 
             set = new(surface, nearRange);
@@ -796,6 +801,11 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// <summary>How many cells one volume's streamer may keep uploaded, or zero for a volume that
     ///     fits its budget and streams nothing — the tier's number, for a test.</summary>
     internal int FoliageCellsOf(FoliageVolume volume) => stands.GetValueOrDefault(volume)?.Streamer?.Cells ?? 0;
+
+    /// <summary>How many tile slots one terrain's streamer holds, or zero for a terrain that fits by
+    ///     construction and streams nothing — the tier's byte budget divided down, for a test.</summary>
+    internal int TerrainTileSlotsOf(TerrainMap terrain) =>
+        sets.GetValueOrDefault(terrain)?.Surface.Streaming?.Pages.SlotCount ?? 0;
 
     /// <summary>The device state for one volume, made on the frame the volume first appears.</summary>
     /// <remarks>

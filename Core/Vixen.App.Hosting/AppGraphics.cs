@@ -10,6 +10,8 @@ using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.PostFx;
+using Vixen.Rendering.Terrain;
 using Vixen.Shaders;
 
 namespace Vixen.App;
@@ -42,6 +44,11 @@ namespace Vixen.App;
 ///     </para>
 /// </remarks>
 public sealed class AppGraphics : IDisposable {
+    // What an untouched TerrainFactory.Vegetation equals, so a game that filled it by hand can be
+    // told from one that never mentioned it. A record, so this is member-for-member equality — the
+    // nullable-slot trick Scene uses is not available for a property whose default is not null.
+    static readonly TerrainVegetationQuality DefaultVegetation = new();
+
     readonly GraphicsOptions options;
     readonly Platform.IWindow? window;
     readonly ILogger logger;
@@ -110,6 +117,21 @@ public sealed class AppGraphics : IDisposable {
         View = new(options.View);
         Renderer.Host.Builder.Views[options.View] = View;
 
+        // The project's quality preset is the waterfall's middle layer, and the object holding it is
+        // in the factory list: PostEffectFactory takes the loaded asset rather than an address, so
+        // the game that loaded it put it there. Found in a pass of its own rather than in the loop
+        // below — the terrain factory may be registered first, and the tier it is handed must not
+        // depend on the order a game happened to register two factories in.
+        var preset = default(RenderQualityAsset);
+
+        foreach (var factory in options.Factories) {
+            if (factory is PostEffectFactory { Preset: { } project }) {
+                preset = project;
+
+                break;
+            }
+        }
+
         // Also before Load, and for a stricter version of the same reason: a node kind nothing has
         // bound is not a warning, it is a CompositorBindingException from inside the build. This is
         // where a project's own node packages get their say — see GraphicsOptions.Factories.
@@ -120,8 +142,20 @@ public sealed class AppGraphics : IDisposable {
             // is the world renderer's own frame list — an object that does not exist when
             // OnConfigure registers the factory. Registering it is the whole installation; a factory
             // whose Scene was assigned by the game already is left alone.
-            if (factory is Vixen.Rendering.Terrain.TerrainFactory terrain) {
+            if (factory is TerrainFactory terrain) {
                 terrain.Scene ??= Renderer.TerrainScene;
+
+                // ⚠ And the same recognition is where the quality tier crosses an assembly boundary
+                // the waterfall cannot: Vixen.Rendering.Terrain must not reference
+                // Vixen.Rendering.PostFx, so the resolved numbers travel as a plain-numbered copy
+                // and this is the hand-off. Without it a shipped game runs the terrain stack's
+                // constructor defaults whatever tier it selected, and every vegetation budget is
+                // carried the whole length of the waterfall and dropped at the last step.
+                //
+                // Before Load, necessarily: the factory's Create reads these while the frame builds.
+                if (terrain.Vegetation == DefaultVegetation) {
+                    terrain.Vegetation = VegetationOf(RenderQuality.Resolve(options.Quality, preset));
+                }
             }
         }
 
@@ -585,6 +619,44 @@ public sealed class AppGraphics : IDisposable {
 
         return PostProcessSettings.None;
     }
+
+    /// <summary>One resolved tier's vegetation budgets, in the terrain stack's own vocabulary.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one place the two vocabularies are matched up, and adding a knob to
+    ///         <c>VegetationQuality</c> without adding it here carries the number the whole length of
+    ///         the waterfall and drops it.</b> The records are deliberately not the same type: the
+    ///         waterfall lives in <c>Vixen.Rendering.PostFx</c> and the consumer in
+    ///         <c>Vixen.Rendering.Terrain</c>, which must not reference it — see
+    ///         <see cref="TerrainVegetationQuality" />. Two of the names differ across the seam
+    ///         (<c>TerrainLodNearRange</c> is the terrain stack's <c>TerrainNearRange</c>), which is
+    ///         the other reason this is written out rather than reflected over.
+    ///     </para>
+    ///     <para>
+    ///         <c>GrassBladesPerCell</c> is absent because no tier decides it: it is the scatter
+    ///         dispatch's shape rather than a budget, so it keeps the record's own default and a
+    ///         document or the game says otherwise.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this cannot see is a <c>!StandardFrame</c>'s own <c>quality:</c> or inline
+    ///         <c>preset:</c>.</b> Those are read inside the build, by an expansion that has already
+    ///         replaced the node by the time anything holds the document — so a frame document that
+    ///         names its own tier moves the post chain and not the ground. The <c>!Terrain</c> node's
+    ///         own scalars are the document-level vote that does reach here, and they out-vote this
+    ///         per field.
+    ///     </para>
+    /// </remarks>
+    static TerrainVegetationQuality VegetationOf(ResolvedQuality quality) =>
+        new() {
+            GrassDensityScale = quality.GrassDensityScale,
+            GrassCullDistanceScale = quality.GrassCullDistanceScale,
+            GrassResidentCells = quality.GrassResidentCells,
+            FoliageDensityScale = quality.FoliageDensityScale,
+            FoliageCullDistanceScale = quality.FoliageCullDistanceScale,
+            FoliageCellBudget = quality.FoliageCellBudget,
+            TerrainNearRange = quality.TerrainLodNearRange,
+            TerrainStreamingMegabytes = quality.TerrainStreamingMegabytes
+        };
 
     /// <summary>Builds the swapchain if there is not one, and says what the frame is now sized to.</summary>
     void EnsureSwapChain() {
