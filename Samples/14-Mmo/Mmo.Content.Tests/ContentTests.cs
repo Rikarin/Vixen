@@ -69,11 +69,11 @@ public sealed class ContentTests : IAsyncLifetime {
     [Fact]
     public void EveryDefinitionIsAtTheAddressItsPathSays() {
         // The whole cross-reference scheme rests on this: `items/rarity-fine` in a YAML file resolves
-        // because Assets/Items/rarity-fine.vxdef is at that address and nowhere else.
-        var rarity = Catalog.Find(DefId.From("items/rarity-fine"));
+        // because Assets/items/rarities/fine.vxdef is at that address and nowhere else.
+        var rarity = Catalog.Find(DefId.From("items/rarities/fine"));
 
         Assert.NotNull(rarity);
-        Assert.Equal("items/rarity-fine", rarity.Address);
+        Assert.Equal("items/rarities/fine", rarity.Address);
     }
 
     [Theory]

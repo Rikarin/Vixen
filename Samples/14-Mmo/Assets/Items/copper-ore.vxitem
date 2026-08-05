@@ -1,7 +1,0 @@
-!ItemDefinition
-displayName: Copper Ore
-rarity: items/rarity-common
-itemLevel: 1
-maximumStack: 200
-binding: None
-tags: [ Item.Reagent.Ore ]

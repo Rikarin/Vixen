@@ -71,6 +71,11 @@ public sealed class MmoLibraries {
         Housing = HousingLibrary.Compile(catalog);
         Collections = CollectionLibrary.Compile(catalog);
 
+        // ⚠ Last, and it takes the libraries rather than the catalog. A creature is the one
+        // definition here that is a *join* — abilities from Combat, drops from Loot, tags from the
+        // kernel — so this is where a dangling reference between libraries is caught. See Creatures.
+        Creatures = CreatureLibrary.Compile(catalog, Abilities, Loot);
+
         // Last, because it reads every library above. Compiled exactly once: a library holds
         // resolved tag ranges, and two copies compiled from two catalogs answer differently.
         Problems = [.. Collect()];
@@ -142,6 +147,9 @@ public sealed class MmoLibraries {
     /// <summary>Mounts, pets, looks, titles and the achievements over them.</summary>
     public CollectionLibrary Collections { get; }
 
+    /// <summary>The things that stand in the world and hit back. The game's own, not a library's.</summary>
+    public CreatureLibrary Creatures { get; }
+
     /// <summary>Composes, seeds the tags, reads the definitions and compiles everything.</summary>
     /// <param name="definitions">The catalog's contents, as <c>(address, artefact bytes)</c>.</param>
     /// <returns>The libraries.</returns>
@@ -182,7 +190,8 @@ public sealed class MmoLibraries {
             .Concat(Prefix("Movement", Movement.Problems))
             .Concat(Prefix("Ai", Spawns.Problems))
             .Concat(Prefix("Housing", Housing.Problems))
-            .Concat(Prefix("Collections", Collections.Problems));
+            .Concat(Prefix("Collections", Collections.Problems))
+            .Concat(Prefix("Creatures", Creatures.Problems));
 
     static IEnumerable<string> Prefix(string library, IReadOnlyList<string> problems) =>
         problems.Select(problem => $"{library}: {problem}");

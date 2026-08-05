@@ -51,6 +51,23 @@
         <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Social\Vixen.Gameplay.Social.csproj" />
         <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Travel\Vixen.Gameplay.Travel.csproj" />
 
+        <!--
+            ⚠ The generators, named explicitly because analyzers do not flow through a
+            ProjectReference — and this project declares a definition type of its own.
+
+            Without them `CreatureDefinition` compiles, has no type descriptor, and
+            `GameplayConfig.Build` refuses it with *"no .vxdef can name it"* — about a type in the
+            very project being built. That is the same trap Samples/13-ThirdPersonShooter's csproj
+            warns about for scene components, hit from the other direction. A shipped game gets them
+            from the Vixen.Sdk package; a project inside this repository names them.
+        -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
         <!-- Reading the authored tree back needs the importer that wrote it. -->
         <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Content\Vixen.Gameplay.Content.csproj" />
     </ItemGroup>

@@ -49,14 +49,19 @@ public sealed class CoverageTests : IAsyncLifetime {
 
     [Theory]
     [MemberData(nameof(Authored))]
-    public void ALibraryHasSomethingAuthoredForIt(string library, Func<DefinitionCatalog, int> count) {
-        Assert.True(count(Catalog) > 0, $"{library} has nothing authored, so the sample does not exercise it.");
+    public void ALibraryIsExercisedAtTheScaleTheSampleClaims(string library, Func<DefinitionCatalog, int> count, int floor) {
+        // ⚠ A floor rather than `> 0`, and the difference is not pedantry. The `> 0` version passed
+        // for months while the world had no creatures in it at all: one authored file per library is
+        // "the mechanism compiles", and the README claims something much stronger than that.
+        var measured = count(Catalog);
+
+        Assert.True(measured >= floor, $"{library} has {measured} authored and the sample claims at least {floor}.");
     }
 
     [Fact]
     public void TheCompositionTakesEveryLibrary() {
         // Twenty-one modules: doc 28's twenty libraries plus the kernel they all depend on.
-        Assert.Equal(21, AuthoredContent.Composition!.Modules.Count);
+        Assert.Equal(22, AuthoredContent.Composition!.Modules.Count);
     }
 
     [Fact]
@@ -68,7 +73,7 @@ public sealed class CoverageTests : IAsyncLifetime {
         Assert.Contains(AuthoredContent.Composition!.Modules, module => module.Name == "Inventory");
 
         // The bag is where Inventory's one authored number lives, so it is the thing to check.
-        var bag = ItemLibrary.Compile(Catalog).Find(DefId.From("items/wardens-pack"));
+        var bag = ItemLibrary.Compile(Catalog).Find(DefId.From("items/bags/wardens-pack"));
 
         Assert.NotNull(bag);
     }
@@ -78,8 +83,10 @@ public sealed class CoverageTests : IAsyncLifetime {
         // ⚠ Nothing in Gameplay/ checks this, and it cannot: a scene is an engine asset and the
         // gameplay libraries do not know what one is. So an instance pointing at a map nobody built
         // compiles clean and fails when somebody tries to enter it.
-        var scenes = Directory.EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "Assets", "Scenes"), "*.vxscene")
-            .Select(path => "maps/" + Path.GetFileNameWithoutExtension(path).ToLowerInvariant())
+        // The address of a scene is its path, exactly as a definition's is — see AuthoredContent.
+        var root = Path.Combine(AppContext.BaseDirectory, "Assets");
+        var scenes = Directory.EnumerateFiles(root, "*.vxscene", SearchOption.AllDirectories)
+            .Select(path => Path.ChangeExtension(Path.GetRelativePath(root, path), null).Replace('\\', '/').ToLowerInvariant())
             .ToHashSet(StringComparer.Ordinal);
 
         var named = InstanceLibrary.Compile(Catalog).Instances.Select(instance => instance.Definition.Scene)
@@ -93,26 +100,31 @@ public sealed class CoverageTests : IAsyncLifetime {
         }
     }
 
-    public static TheoryData<string, Func<DefinitionCatalog, int>> Authored => new() {
-        { "Items", catalog => ItemLibrary.Compile(catalog).Count },
-        { "Loot", catalog => LootLibrary.Compile(catalog).Count },
-        { "Combat", catalog => AbilityLibrary.Compile(catalog).Count },
-        { "Shooting", catalog => WeaponLibrary.Compile(catalog).Count },
-        { "Progression", catalog => ProgressionLibrary.Compile(catalog).Trees.Count() },
-        { "Quests", catalog => QuestLibrary.Compile(catalog).Quests.Count() },
-        { "Social", catalog => SocialLibrary.Compile(catalog).Charters.Count() },
-        { "Chat", catalog => ChatLibrary.Compile(catalog).Channels.Count() },
-        { "Economy", catalog => EconomyLibrary.Compile(catalog).Currencies.Count() },
-        { "Instances", catalog => InstanceLibrary.Compile(catalog).Instances.Count() },
-        { "Pvp", catalog => PvpLibrary.Compile(catalog).Maps.Count() },
-        { "Interaction", catalog => InteractionLibrary.Compile(catalog).Interactables.Count() },
-        { "Crafting", catalog => CraftingLibrary.Compile(catalog).Recipes.Count() },
-        { "Exploration", catalog => ExplorationLibrary.Compile(catalog).Maps.Count() },
-        { "Travel", catalog => TravelLibrary.Compile(catalog).Points.Count() },
-        { "Movement", catalog => MovementLibrary.Compile(catalog).Vehicles.Count() },
-        { "Ai", catalog => SpawnLibrary.Compile(catalog).Tables.Count() },
-        { "Housing", catalog => HousingLibrary.Compile(catalog).Plots.Count() },
-        { "Collections", catalog => CollectionLibrary.Compile(catalog).Collectibles.Length }
+    public static TheoryData<string, Func<DefinitionCatalog, int>, int> Authored => new() {
+        { "Items", catalog => ItemLibrary.Compile(catalog).Count, 300 },
+        { "Loot", catalog => LootLibrary.Compile(catalog).Count, 40 },
+        { "Combat", catalog => AbilityLibrary.Compile(catalog).Count, 100 },
+        { "Shooting", catalog => WeaponLibrary.Compile(catalog).Count, 6 },
+        { "Progression: trees", catalog => ProgressionLibrary.Compile(catalog).Trees.Count(), 3 },
+        { "Progression: professions", catalog => ProgressionLibrary.Compile(catalog).Professions.Count(), 6 },
+        { "Progression: reputations", catalog => ProgressionLibrary.Compile(catalog).Reputations.Count(), 8 },
+        { "Quests", catalog => QuestLibrary.Compile(catalog).Quests.Count(), 50 },
+        { "Quests: events", catalog => QuestLibrary.Compile(catalog).Events.Count(), 6 },
+        { "Social", catalog => SocialLibrary.Compile(catalog).Policies.Count(), 4 },
+        { "Chat", catalog => ChatLibrary.Compile(catalog).Channels.Count(), 8 },
+        { "Economy: currencies", catalog => EconomyLibrary.Compile(catalog).Currencies.Count(), 6 },
+        { "Economy: vendors", catalog => EconomyLibrary.Compile(catalog).Vendors.Count(), 20 },
+        { "Instances", catalog => InstanceLibrary.Compile(catalog).Instances.Count(), 4 },
+        { "Pvp", catalog => PvpLibrary.Compile(catalog).Maps.Count(), 4 },
+        { "Interaction", catalog => InteractionLibrary.Compile(catalog).Interactables.Count(), 30 },
+        { "Crafting", catalog => CraftingLibrary.Compile(catalog).Recipes.Count(), 40 },
+        { "Exploration", catalog => ExplorationLibrary.Compile(catalog).Maps.Count(), 6 },
+        { "Travel", catalog => TravelLibrary.Compile(catalog).Points.Count(), 12 },
+        { "Movement", catalog => MovementLibrary.Compile(catalog).Vehicles.Count(), 12 },
+        { "Ai", catalog => SpawnLibrary.Compile(catalog).Tables.Count(), 25 },
+        { "Housing: furniture", catalog => HousingLibrary.Compile(catalog).Furniture.Count(), 25 },
+        { "Collections", catalog => CollectionLibrary.Compile(catalog).Collectibles.Length, 30 },
+        { "Collections: achievements", catalog => CollectionLibrary.Compile(catalog).Achievements.Length, 18 }
     };
 }
 

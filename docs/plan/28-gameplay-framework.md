@@ -666,6 +666,29 @@ one.
 > everything, every invariant holding and nothing exercised — which is what the applied/refused floors
 > exist to catch, and why the loop now steers itself towards the states it is checking.
 >
+> ### The gap `Samples/14-Mmo` found: there is no fighter
+>
+> ⚠ **Every *part* of a fight is in these twenty libraries and nothing is a fighter.** `Ai` says what
+> spawns and how far it may be pulled, `Combat` says what an ability does and how threat accrues,
+> `Loot` says what drops and `Items` says what the drop is — and **nothing says *"a level 6 boar with
+> 240 health, the `Creature.Beast.Boar` tag, these two abilities, this table and this leash"***. The
+> sample was written, passed every test, and had nothing alive in it: four spawn tables naming
+> creatures that did not exist, and every Kill objective waiting on a tag no definition granted.
+>
+> ⚠ **The gap is structural rather than an oversight, and that is why it is worth recording here.** A
+> creature needs `Items`, `Combat`, `Loot` and `Ai` at once, and the spine allows only `Items` and
+> `Combat` to be depended on — so the type cannot live in any existing library without breaking the
+> spine or duplicating addresses as strings. It went into the sample's own assembly, which is legal
+> for the reason the spine is worth having: **a game may reference all twenty; the rule is about the
+> libraries, not about their users.** Whether the engine should grow a `Vixen.Gameplay.Encounters`
+> for it is task #45, and doing it in a game first is the reversible order.
+>
+> ⚠ **A corollary worth stating: a cross-library address reference is checked by nothing.** A loot
+> entry names an item, a vendor names a currency, a recipe names a profession — and no library can
+> validate any of it, because the spine forbids the dependency and a `DefId` is a hash, so an id for
+> nothing is indistinguishable from an id for something. The check can only be written where every
+> library is present at once, which today is a game's own test. #42.
+>
 > **Amended by #39, which built the durable half and found what the checked API could not express.**
 > ⚠ **State has to come back in through an unchecked door, and G8 had already found the same thing.**
 > `Guild.Seat`, `Guild.Unseat` and `SocialGraph.Seat` are `HousePlot.Assign`'s seam for

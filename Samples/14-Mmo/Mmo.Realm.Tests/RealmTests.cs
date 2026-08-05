@@ -58,7 +58,7 @@ public sealed class RealmTests {
         var libraries = Empty;
 
         Assert.Empty(libraries.Problems);
-        Assert.Equal(21, libraries.Composition.Modules.Count);
+        Assert.Equal(22, libraries.Composition.Modules.Count);
         Assert.NotNull(libraries.Collections);
     }
 

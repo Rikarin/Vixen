@@ -37,7 +37,7 @@ public static class MmoAddresses {
     public const string ThornwoodAddress = MmoMaps.Thornwood;
 
     /// <summary>The five-player instance.</summary>
-    public const string BarrowdeepAddress = "instances/barrowdeep";
+    public const string BarrowdeepAddress = "instances/hollowmoor-deep";
 
     /// <summary>The battleground.</summary>
     public const string RavensfordAddress = "pvp/ravensford";
@@ -60,8 +60,8 @@ public static class MmoAddresses {
     /// <summary>The level curve.</summary>
     public const string CurveAddress = "progression/curve";
 
-    /// <summary>The world boss.</summary>
-    public const string ColossusAddress = "events/rootbound-colossus";
+    /// <summary>The Thornwood's world boss.</summary>
+    public const string ColossusAddress = "events/thornwood-rising";
 
     /// <summary>What a hearthstone does.</summary>
     public const string HearthstoneAddress = "travel/hearthstone";

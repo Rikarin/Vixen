@@ -1,6 +1,0 @@
-# Account-wide, which is why collections live in IAccountGrain and not in a
-# character's profile: a pony earned on one character is owned by all of them.
-!CollectibleDefinition
-displayName: Moorland Pony
-kind: Mount
-tag: Collected.Mount.Pony

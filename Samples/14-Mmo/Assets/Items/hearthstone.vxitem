@@ -1,7 +1,0 @@
-!ItemDefinition
-displayName: Hearthstone
-rarity: items/rarity-common
-itemLevel: 1
-maximumStack: 1
-binding: Bound
-tags: [ Item.Tool.Hearthstone ]

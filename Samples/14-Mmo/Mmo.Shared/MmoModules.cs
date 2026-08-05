@@ -82,5 +82,8 @@ public static class MmoModules {
             .Use<GameplayAiModule>()
             .Use<HousingModule>()
             .Use<CollectionsModule>()
+
+            // The game's own, and last so the report reads engine-then-game.
+            .Use<MmoModule>()
             .Build();
 }

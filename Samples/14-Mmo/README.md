@@ -10,14 +10,15 @@ hundred connections, thirty minutes, a rolling upgrade in the middle.
 
 ## State
 
-**Built: the content, the seven projects, the composition and the soak. 112 definition files, four
-maps, 61 tests, and a fleet that runs thirty minutes in ten seconds.**
+**Built: the content, the eight projects, the composition and the soak. 981 definitions and 19
+scenes across six zones, 72 tests, and a fleet that runs thirty minutes in ten seconds.**
 
 **Owed:** the UI (**#38**).
 
 | | Sees | |
 |---|---|---|
-| `Assets/**` | — | 112 `.vxdef` and friends, and four `.vxscene` layouts. |
+| `Assets/**` | — | 981 definitions and 19 scene layouts, **generated**. |
+| `Mmo.Content.Authoring` | — | The generator. Tables in, `Assets/` out. |
 | `Mmo.Contracts` | everybody | `[Replicated]` components, broadcasts, the gate's DTOs, the map names. No Orleans, no engine, AOT-clean. |
 | `Mmo.Shared` | client, realm | The composition, the compiled libraries, and the rules both ends run. |
 | `Mmo.Cluster` | realm, orchestrator, gate | One grain the sample adds: `IWorldEventGrain`. |
@@ -52,30 +53,96 @@ things are*; the game reads these roots by name and puts its own components on t
 
 ## What each library gets
 
-| Library | Where |
-|---|---|
-| `Items` | Four rarities, an affix pool, ten items. `Storied` rolls three affixes and only the Barrow King drops one. |
-| `Inventory` | ⚠ **No definitions, and that is not a gap** — a container is sized by what the game hands it, and `items/wardens-pack` is where the number lives. |
-| `Loot` | Six tables, one nested inside another, and a pity policy on the Barrow King. |
-| `Combat` | Nine abilities across three classes: a threat opener, a cast, a channel, a cone, a ground target. |
-| `Shooting` | One hitscan rifle with falloff, penetration, spread and a recoil pattern — so the lag-compensation path is live. |
-| `Progression` | A 1–20 curve, three talent trees, three specialisations, two professions, two reputations. |
-| `Quests` | A five-step chain across both public maps, a daily, and two dynamic events that chain into each other. |
-| `Social` | Party, raid, battleground team, and a four-rank guild charter. |
-| `Chat` | Say, party, guild, whisper, trade — two realm-routed and three over the gate. |
-| `Economy` | Three currencies (one account-scoped and capped, one decaying), two vendors. |
-| `Instances` | Barrowdeep, two difficulties, three encounters, one of them a gate. |
-| `Pvp` | Ravensford and an arena variant on the same scene. |
-| `Interaction` | Ore, herbs and a forge — two nodes and a station. |
-| `Crafting` | Three recipes, one per `RecipeSource`: known, taught and **discovered**. |
-| `Exploration` | Two charts, nine points of interest, a 64×48 and a 64×64 fog grid. |
-| `Travel` | Two waypoints, a flight path, an instance entrance and a hearthstone. |
-| `Movement` | A ground mount, a flying mount, and Ravensford's four-seat payload waggon. |
-| `Ai` | Two spawn camps with leashes — see below. |
-| `Housing` | A guild freehold and four pieces of furniture. |
-| `Collections` | Eight collectibles and five achievements, one of which cascades off the others. |
+Six zones (Greenmarch → Thornwood → Ashfen → Kettlerock → Saltmere → Hollowmoor), three classes,
+fourteen creature families, eight factions.
+
+| Library | | |
+|---|---:|---|
+| `Items` | 325 | Ten slots × three armour classes × six zones, eight weapon kinds, reagents, consumables, eighteen gems, bags. Five rarities; `Storied` rolls three affixes and sockets two gems. |
+| `Combat` | 122 | Nine ability *shapes* × four ranks × three classes, level-gated, plus one signature per creature family. |
+| `Quests` | 60 | An eight-step chain per zone, each step gating the next, plus a daily and a weekly. |
+| **`Ai`** | **84** | **56 creatures** across four ranks (normal/elite/rare/boss) and 28 leashed camps. |
+| `Loot` | 52 | A table per family, a pity table per family, a table per gathering node, salvage per armour class. |
+| `Interaction` | 42 | Ore, herb and hide nodes per zone; a station per making profession per zone. |
+| `Crafting` | 42 | Four professions with their own reagent lines, banded across the zones, one per `RecipeSource`. |
+| **`Economy`** | **46** | **40 vendors** — general, armourer, weaponsmith, reagents, victualler, lapidary, quartermaster — and six currencies, one account-scoped, one decaying, two convertible one-way. |
+| `Collections` | 56 | Mounts, pets, appearances, titles and toys per zone, with twenty achievements over them. |
+| `Housing` | 31 | The freehold and five pieces of furniture per zone. |
+| `Effects` | 30 | Four per class, three per zone's consumables. |
+| `Progression` | 21 | 1–25 curve, three trees of **twenty nodes in three branches with two capstones**, six professions, eight reputations. |
+| `Exploration` | 6 | A chart per zone with six points and a fog grid. |
+| `Movement` | 13 | A ground and a flying mount per zone, and the payload waggon. |
+| `Travel` | 12 | A waystone per zone, a flight path per adjacent pair, a hearthstone. |
+| `Shooting` | 12 | Ballistics for every ranged weapon — hitscan, so the lag-compensation path is live. |
+| `Chat` | 8 | Say, yell, party, raid, guild, officer, whisper, trade. |
+| `Social` | 5 | Party, raid, warband, battleground team, and the guild charter. |
+| `Instances` | 4 | A five-player dungeon per zone from the third onwards, two difficulties, three encounters. |
+| `Pvp` | 4 | Three battlegrounds and an arena. |
+| `Inventory` | — | ⚠ **No definitions, and that is not a gap** — a container is sized by what the game hands it, and the bag items are where the number lives. |
+
+⚠ **`CreatureDefinition` is the sample's own type, and doc 28 has no equivalent.** Every *part* of a
+fight is in the libraries and nothing is a fighter — see below.
 
 ## What writing the content found
+
+### There was nothing alive in it
+
+The first pass authored 112 definitions, passed every test, and had **no creatures at all**. Four
+spawn tables named `creatures/boar` and friends; none of those addresses existed. Every `Kill`
+objective waited on a tag — `Creature.Beast.Boar`, `Creature.Undead` — that **no definition granted**,
+so they compiled clean and could never advance.
+
+It was not an authoring oversight. ⚠ **Doc 28's twenty libraries have no creature type.** `Ai` says
+what spawns and how far it may be pulled, `Combat` says what an ability does, `Loot` says what drops
+and `Items` says what the drop is — and nothing says *"a level 6 boar with 240 health, this tag,
+these abilities, this table"*. The gap is structural: such a type needs `Items`, `Combat`, `Loot` and
+`Ai` at once, and the spine allows only `Items` and `Combat` to be depended on, so it cannot live in
+any existing library. It lives in `Mmo.Shared` here, because **a game may reference all twenty** —
+the spine is a rule about the libraries rather than about their users. Task **#45** is whether the
+engine should grow a `Vixen.Gameplay.Encounters` to hold it.
+
+`CreatureLibrary` is where the join is checked, and it can be checked *only* here: it takes the other
+libraries rather than the catalog, so a creature casting an ability that does not exist is a content
+problem rather than a null at run time.
+
+### And the check that should have caught it had a hole
+
+`ReferenceTests` verified loot → item, vendor → item, recipe → profession, quest → reward and five
+more. It did not verify `SpawnEntryDefinition.Creature`. The one reference site pointing at the
+living world was the one missing — in the file the README called the most copyable thing here.
+
+It now covers spawns, encounter scripts, affix pools, event chains, Collect targets and creature
+casts, and it is mutation-verified. But the lesson is the general one, and it is #42's argument:
+**a reference check is only as good as its enumeration of reference sites**, and a hand-maintained
+list will always be missing the field somebody added last week.
+
+`CoverageTests` had the same shape of problem: it asserted `> 0` per library, which passed for months
+while the world was empty. It asserts a **floor** now — 300 items, 100 abilities, 50 quests, 40
+vendors — because "one authored file" and "exercised at the scale the README claims" are different
+claims.
+
+### The content is generated, and the exemplars are not
+
+981 files is not something to hand-type, and a real MMO's content is authored in tooling over tables
+and exported. `Mmo.Content.Authoring` is that pipeline with the tooling left out:
+`Tools/Vixen.UnicodeTableGen` is the precedent for a generator whose output this repository commits.
+
+Every emitted file says so in its header. The tables — zones, classes, slots, rarities, families,
+professions, factions, vendor kinds — are the part worth reading, and they are one file.
+
+⚠ Three generator bugs the content test caught, all of which would have shipped: four professions
+refining the same ore (the crafting library refuses two *discovered* recipes with the same inputs,
+because only one could ever be found); nine dungeons and battlegrounds naming scenes nobody wrote;
+and a `Vendors` loop closing one YAML level too many, which the writer now refuses with the tag name
+rather than throwing on a negative string length somewhere unhelpful.
+
+### A game's own definition type needs the generators
+
+⚠ `CreatureDefinition` compiled fine, had no type descriptor, and `GameplayConfig.Build` refused it
+with *"no `.vxdef` can name it"* — **about a type in the project being built**. Analyzers do not flow
+through a `ProjectReference`, so `Mmo.Shared` has to name the reflection and serialization generators
+explicitly. `13-ThirdPersonShooter`'s csproj warns about this for scene components; it is the same
+trap from the other direction, and a shipped game gets them from the SDK package instead.
 
 ### `Vixen.Gameplay.Ai` had a leash with nowhere to author one
 

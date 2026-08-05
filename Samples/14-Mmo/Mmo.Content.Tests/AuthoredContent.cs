@@ -56,6 +56,10 @@ public sealed class AuthoredContent {
     /// <summary>How many files were read.</summary>
     public int Files { get; }
 
+    /// <summary>The artefacts, as MmoLibraries.Load wants them.</summary>
+    /// <remarks>Kept so a test can build the game's own libraries over exactly what the realm reads.</remarks>
+    public ImmutableArray<(string Address, ReadOnlyMemory<byte> Bytes)> Definitions { get; private set; } = [];
+
     /// <summary>What the sample composes. Built before anything is read, and the reason it can be.</summary>
     public static GameplayComposition? Composition { get; private set; }
 
@@ -81,6 +85,7 @@ public sealed class AuthoredContent {
             builder.AddTag(tag);
         }
         var problems = ImmutableArray.CreateBuilder<ContentProblem>();
+        var artefacts = ImmutableArray.CreateBuilder<(string, ReadOnlyMemory<byte>)>();
         var importer = new DefinitionImporter();
         var files = 0;
 
@@ -113,10 +118,11 @@ public sealed class AuthoredContent {
 
             foreach (var artefact in result.Artifacts) {
                 builder.Add(address, artefact.Content.Span);
+                artefacts.Add((address, artefact.Content));
             }
         }
 
-        return new(builder.Build(), problems.ToImmutable(), files);
+        return new(builder.Build(), problems.ToImmutable(), files) { Definitions = artefacts.ToImmutable() };
     }
 
     static string Address(string root, string file) =>

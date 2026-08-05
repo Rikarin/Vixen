@@ -29,7 +29,7 @@ public sealed class CompositionTests {
     [Fact]
     public void TwentyLibrariesAndTheKernelCompose() {
         // Build() is where the checking happens, so reaching this line is most of the assertion.
-        Assert.Equal(21, composition.Modules.Count);
+        Assert.Equal(22, composition.Modules.Count);
     }
 
     [Fact]

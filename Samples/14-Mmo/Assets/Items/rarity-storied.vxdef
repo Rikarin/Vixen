@@ -1,6 +1,0 @@
-# The top rung. Barrowdeep's last boss is the only thing that drops one.
-!ItemRarityDefinition
-displayName: Storied
-order: 3
-affixes: 3
-tag: Item.Rarity.Storied

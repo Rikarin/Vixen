@@ -1,8 +1,0 @@
-!TravelPointDefinition
-displayName: Warden's Rest
-kind: Waypoint
-to: maps/greenmarch
-destination: wardens-rest
-seconds: 4
-cost: 0
-unlockedBy: Discovered.Greenmarch.WardensRest

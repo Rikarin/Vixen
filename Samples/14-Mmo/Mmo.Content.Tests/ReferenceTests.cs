@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Gameplay;
+using Vixen.Gameplay.Ai;
 using Vixen.Gameplay.Collections;
+using Vixen.Gameplay.Instances;
+using Vixen.Gameplay.Items;
 using Vixen.Gameplay.Crafting;
 using Vixen.Gameplay.Economy;
 using Vixen.Gameplay.Interaction;
@@ -10,6 +13,7 @@ using Vixen.Gameplay.Loot;
 using Vixen.Gameplay.Progression;
 using Vixen.Gameplay.Quests;
 using Vixen.Gameplay.Travel;
+using Vixen.Samples.Mmo.Rules;
 using Xunit;
 
 namespace Vixen.Samples.Mmo.Content.Tests;
@@ -131,6 +135,71 @@ public sealed class ReferenceTests : IAsyncLifetime {
             Resolves(point.Definition.From, $"{point.Definition.Address} leaves");
             Resolves(point.Definition.To, $"{point.Definition.Address} arrives at");
             Resolves(point.Definition.Currency, $"{point.Definition.Address} charges");
+        }
+    }
+
+    [Fact]
+    public void EverySpawnTableSpawnsSomethingThatExists() {
+        // ⚠ The one that was missing, and four dangling creature addresses sat in the tree because
+        // of it — in a sample whose README claimed every library was exercised. A reference check is
+        // only as good as its enumeration of reference sites, which is the argument for #42's
+        // CollectReferences: a hand-maintained list will always be missing the field somebody added.
+        foreach (var table in SpawnLibrary.Compile(Catalog).Tables) {
+            foreach (var entry in table.Entries) {
+                Resolves(entry.Address, $"{table.Definition.Address} spawns");
+            }
+        }
+    }
+
+    [Fact]
+    public void EveryEncounterScriptExists() {
+        // The other half of the same hole: a dungeon pointing at a behaviour tree nobody wrote.
+        foreach (var instance in InstanceLibrary.Compile(Catalog).Instances) {
+            foreach (var encounter in instance.Definition.Encounters) {
+                Resolves(encounter.Script, $"{instance.Definition.Address}'s {encounter.Id} runs");
+            }
+        }
+    }
+
+    [Fact]
+    public void EveryCreatureCastsAndDropsSomethingThatExists() {
+        // CreatureLibrary already checks this and reports it as a content problem — asserted here
+        // too because the check belongs to the *sample's* own definition type, and a test that only
+        // trusted the library would not notice the library being deleted.
+        var libraries = MmoLibraries.Load(
+            content.Definitions.Select(entry => (entry.Address, entry.Bytes))
+        );
+
+        Assert.Empty(libraries.Creatures.Problems);
+        Assert.True(libraries.Creatures.Count > 0, "No creatures at all, which is where this started.");
+    }
+
+    [Fact]
+    public void EveryItemsAffixPoolExists() {
+        foreach (var item in ItemLibrary.Compile(Catalog).All) {
+            foreach (var pool in item.Definition.AffixPools) {
+                Resolves(pool, $"{item.Definition.Address} rolls from");
+            }
+        }
+    }
+
+    [Fact]
+    public void EveryEventChainsIntoAnEventThatExists() {
+        foreach (var dynamic in QuestLibrary.Compile(Catalog).Events) {
+            foreach (var next in dynamic.Definition.OnSuccess.Concat(dynamic.Definition.OnFailure)) {
+                Resolves(next, $"{dynamic.Definition.Address} chains into");
+            }
+        }
+    }
+
+    [Fact]
+    public void EveryCollectObjectiveNamesSomethingThatExists() {
+        foreach (var quest in QuestLibrary.Compile(Catalog).Quests) {
+            foreach (var stage in quest.Definition.Stages) {
+                foreach (var objective in stage.Objectives) {
+                    Resolves(objective.Target, $"{quest.Definition.Address} asks for");
+                }
+            }
         }
     }
 

@@ -1,8 +1,0 @@
-!LootTableDefinition
-displayName: Salvaged plate
-rolls: 1
-entries:
-  - item: items/copper-bar
-    chance: 1
-    minimum: 1
-    maximum: 3
