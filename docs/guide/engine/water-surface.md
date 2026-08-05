@@ -4,7 +4,7 @@ slug: engine/water-surface
 kind: guide
 area: Engine
 summary: One definition of the water surface — a body from a spline and a profile, a sea state from a spectrum, a field of height, flow and ground, and the evaluator that the renderer, the buoyancy solver and a gameplay query all call.
-api: [T:Vixen.Water.WaterZone, T:Vixen.Water.WaterZoneState, T:Vixen.Water.WaterZoneUpdate, T:Vixen.Water.WaterInfoPrecision, T:Vixen.Water.WaterQuery, T:Vixen.Water.IWaterFieldSource, T:Vixen.Water.WaterEvaluator, T:Vixen.Water.WaterSample, T:Vixen.Water.WaterAttenuation, T:Vixen.Water.IWaterRipples, T:Vixen.Water.WaterBody, T:Vixen.Water.WaterBodyKind, T:Vixen.Water.WaterProfilePoint, T:Vixen.Water.WaterBodyContribution, T:Vixen.Water.WaterField, T:Vixen.Water.WaterFieldDescription, T:Vixen.Water.WaterFieldSample, T:Vixen.Water.IWaterGround, T:Vixen.Water.FlatWaterGround, T:Vixen.Water.WaterWaveSpectrum, T:Vixen.Water.WaterWaveCount, T:Vixen.Water.GerstnerWave, T:Vixen.Water.WaterMath, T:Vixen.Water.WaterSurfaceMesh, T:Vixen.Water.WaterFieldPyramid, T:Vixen.Water.WaterCarve, T:Vixen.Water.WaterCarveProfile, T:Vixen.Water.Buoyancy, T:Vixen.Water.BuoyancyPontoon, T:Vixen.Water.BuoyancySettings, T:Vixen.Water.BuoyancyForce, T:Vixen.Water.WaterRipples, T:Vixen.Water.WaterRippleSettings]
+api: [T:Vixen.Water.WaterZone, T:Vixen.Water.WaterZoneState, T:Vixen.Water.WaterZoneUpdate, T:Vixen.Water.WaterInfoPrecision, T:Vixen.Water.WaterQuery, T:Vixen.Water.IWaterFieldSource, T:Vixen.Water.WaterEvaluator, T:Vixen.Water.WaterSample, T:Vixen.Water.WaterAttenuation, T:Vixen.Water.IWaterRipples, T:Vixen.Water.WaterBody, T:Vixen.Water.WaterBodyKind, T:Vixen.Water.WaterProfilePoint, T:Vixen.Water.WaterBodyContribution, T:Vixen.Water.WaterField, T:Vixen.Water.WaterFieldDescription, T:Vixen.Water.WaterFieldSample, T:Vixen.Water.IWaterGround, T:Vixen.Water.FlatWaterGround, T:Vixen.Water.WaterWaveSpectrum, T:Vixen.Water.WaterWaveCount, T:Vixen.Water.GerstnerWave, T:Vixen.Water.WaterMath, T:Vixen.Water.WaterSurfaceMesh, T:Vixen.Water.WaterFieldPyramid, T:Vixen.Water.WaterCarve, T:Vixen.Water.WaterCarveProfile, T:Vixen.Water.Buoyancy, T:Vixen.Water.BuoyancyPontoon, T:Vixen.Water.BuoyancySettings, T:Vixen.Water.BuoyancyForce, T:Vixen.Water.WaterRipples, T:Vixen.Water.WaterRippleSettings, T:Vixen.Water.WaterWavesAsset, T:Vixen.Rendering.Water.IWaterWaveSource, T:Vixen.Engine.Renderer.AssetWaterSource]
 tags: [water, ocean, river, buoyancy, gerstner, terrain]
 since: 0.1
 status: preview
@@ -221,6 +221,38 @@ grows without bound in a few dozen steps and everything downstream reads a NaN.
 ⚠ **The ripple window shifts its contents when it scrolls, unlike the info field, which forgets
 them.** A field can be recomputed from bodies and ground; a simulation's state *is* its history, and
 throwing it away when the camera walks would delete every wake in the scene.
+
+### The one asset kind: a sea state in a file
+
+`.vxwaves` is what § D6 admits, and the reason it is admitted is sharing. Everything else water puts
+in a scene is per-body or per-zone, so it travels with the entity and merges where the entity does. A
+sea state is neither: it is shared between every body in a region **and between levels**, so a
+coastline authored across four streamed sublevels would otherwise hold four copies of one wind and
+drift out of step the first time somebody edited three of them.
+
+| Piece | Where |
+|---|---|
+| `WaterWavesAsset` | the kernel — a name and a `WaterWaveSpectrum`, no device, no world |
+| `WaterWavesImporter` | `Vixen.Editor.Assets` — validates, then writes the serialized record |
+| `IWaterWaveSource` | the seam `WaterZoneSystem.Waves` is set to |
+| `AssetWaterSource` | `Vixen.Engine.Renderer` — the game's answer, and the splines' too |
+
+⚠ **The name becomes a value in exactly one place.** The fold substitutes a resolved spectrum into
+the `WaterZoneComponent` every consumer reads, so the vertex stage and the underwater shape cannot
+disagree about what sea this is — a frame where they did is a boat riding a different swell from the
+one drawn under it.
+
+⚠ **A sea state that has not loaded falls back to the zone's inline spectrum, which is the opposite
+of a body's missing spline.** A body with no curve has no shape to draw and is not rendered at all; a
+zone with no spectrum has a perfectly good window, and rendering it dead flat reads as the water
+stack being broken rather than as one asset still streaming. `WaterZoneSystem.UnresolvedWaves` — and
+`stat water`'s `no waves` row — are the only evidence, which is why they exist.
+
+⚠ **A `.vxwaves` and a `.vxspline` both ship as serialized records, not as text.** A game does not
+carry the YAML dialect; that is the editor's format. This was the bug in the spline half:
+`SplineAsset.Points` was a getter-only `IReadOnlyList`, both serialisers skip a member they cannot
+write to, and every curve round-tripped to a name, a closed flag and *no points* — with no error
+anywhere, because everything downstream asks `CanBuild` and draws nothing when the answer is no.
 
 ## Examples
 

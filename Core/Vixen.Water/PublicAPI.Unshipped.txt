@@ -308,6 +308,13 @@ Vixen.Water.WaterWaveSpectrum.WindDirection.get -> float
 Vixen.Water.WaterWaveSpectrum.WindDirection.init -> float
 Vixen.Water.WaterWaveSpectrum.WindSpeed.get -> float
 Vixen.Water.WaterWaveSpectrum.WindSpeed.init -> float
+Vixen.Water.WaterWavesAsset -> sealed class
+Vixen.Water.WaterWavesAsset.Name.get -> string
+Vixen.Water.WaterWavesAsset.Name.set -> string
+Vixen.Water.WaterWavesAsset.Spectrum.get -> Vixen.Water.WaterWaveSpectrum
+Vixen.Water.WaterWavesAsset.Spectrum.set -> Vixen.Water.WaterWaveSpectrum
+Vixen.Water.WaterWavesAsset.Validate() -> string?
+Vixen.Water.WaterWavesAsset.WaterWavesAsset() -> void
 Vixen.Water.WaterZone -> readonly struct
 Vixen.Water.WaterZone : System.IEquatable<Vixen.Water.WaterZone>
 Vixen.Water.WaterZone.Bytes.get -> long
@@ -356,6 +363,7 @@ const Vixen.Water.WaterMath.PiB = 0.00096702576 -> float
 const Vixen.Water.WaterMath.PiC = 6.2772E-07 -> float
 const Vixen.Water.WaterMath.PiD = 1.2154201E-10 -> float
 const Vixen.Water.WaterMath.Tau = 6.2831855 -> float
+const Vixen.Water.WaterWavesAsset.Extension = ".vxwaves" -> string
 static Vixen.Water.Buoyancy.Evaluate(in Vixen.Water.WaterEvaluator evaluator, in Vixen.Water.BuoyancyPontoon pontoon, Vixen.Core.Mathematics.Vector3 centre, Vixen.Core.Mathematics.Vector3 velocity, float gravity, in Vixen.Water.BuoyancySettings settings, float waterTime, Vixen.Water.IWaterRipples? ripples = null) -> Vixen.Water.BuoyancyForce
 static Vixen.Water.Buoyancy.RestDisplacement(System.ReadOnlySpan<Vixen.Water.BuoyancyPontoon> pontoons, float mass, in Vixen.Water.BuoyancySettings settings) -> float
 static Vixen.Water.Buoyancy.Solve(in Vixen.Water.WaterEvaluator evaluator, System.ReadOnlySpan<Vixen.Water.BuoyancyPontoon> pontoons, in Vixen.Core.Mathematics.Matrix4x4 placement, Vixen.Core.Mathematics.Vector3 velocity, float gravity, in Vixen.Water.BuoyancySettings settings, float waterTime, System.Span<Vixen.Water.BuoyancyForce> into, Vixen.Water.IWaterRipples? ripples = null) -> int

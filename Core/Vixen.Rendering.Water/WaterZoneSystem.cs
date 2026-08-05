@@ -35,6 +35,36 @@ public interface IWaterSplineSource {
     Spline? SplineFor(string name, in Matrix4x4 placement);
 }
 
+/// <summary>Where a zone's sea state comes from.</summary>
+/// <remarks>
+///     <para>
+///         <see cref="IWaterSplineSource" />'s twin, one asset kind over, and a seam for the same
+///         reason: a test's spectrum is a literal, an editor's is a document being dragged, and a
+///         game's is a loaded <c>.vxwaves</c>. The fold has no business knowing which.
+///     </para>
+///     <para>
+///         ⚠ <b>Answering null falls back to the zone's inline spectrum rather than to a flat sea.</b>
+///         See <see cref="WaterZoneComponent.WaveAsset" /> for why this is the opposite of a body's
+///         unresolved spline: a zone still has a perfectly good window, and rendering it dead flat
+///         reads as the water stack being broken rather than as one asset still streaming.
+///         <see cref="WaterZoneSystem.UnresolvedWaves" /> is what says it happened.
+///     </para>
+///     <para>
+///         ⚠ <b>No placement argument, and the absence is deliberate.</b> A spline is geometry and is
+///         asked for in world space; a sea state is a wind and a seed, and a spectrum that depended on
+///         where the zone entity sat would be one a client and a server could disagree about — which
+///         is the one thing
+///         [§ D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)
+///         makes determinism an exit criterion for.
+///     </para>
+/// </remarks>
+public interface IWaterWaveSource {
+    /// <summary>The sea state a zone names, or <see langword="null" /> if it is not available.</summary>
+    /// <param name="name">What the component named.</param>
+    /// <returns>The spectrum, or null.</returns>
+    WaterWaveSpectrum? SpectrumFor(string name);
+}
+
 /// <summary>
 ///     Folds a world's zones and bodies into the fields everything else reads.
 /// </summary>
@@ -87,6 +117,14 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     /// <summary>Where a body's curve comes from.</summary>
     public IWaterSplineSource? Splines { get; set; }
 
+    /// <summary>Where a zone's sea state comes from, for the zones that name a <c>.vxwaves</c>.</summary>
+    /// <remarks>
+    ///     Left unset, every zone uses its own inline <see cref="WaterZoneComponent.Waves" /> and any
+    ///     that named an asset counts into <see cref="UnresolvedWaves" /> — which is a running frame
+    ///     with plausible water and a number that says the sharing is not wired, rather than a flat sea.
+    /// </remarks>
+    public IWaterWaveSource? Waves { get; set; }
+
     /// <summary>Where the ground under the water is.</summary>
     /// <remarks>
     ///     ⚠ <b>The terrain is a first-class producer and not a component somebody remembers to
@@ -115,6 +153,17 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     /// </remarks>
     public int UnresolvedBodies { get; private set; }
 
+    /// <summary>How many zones named a <c>.vxwaves</c> that could not be used.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A zone counted here is still drawing water</b> — its inline
+    ///     <see cref="WaterZoneComponent.Waves" /> is what it falls back to — so this is the only
+    ///     evidence that the sea somebody is looking at is not the one they authored. Without it, a
+    ///     misspelt asset name is a sea that looks fine and is a different sea on the server.
+    ///     Both failures count into it: an asset nothing could supply, and one that arrived carrying a
+    ///     spectrum <see cref="WaterWaveSpectrum.Validate" /> refuses.
+    /// </remarks>
+    public int UnresolvedWaves { get; private set; }
+
     /// <summary>How many bodies were rebuilt by the last fold.</summary>
     /// <remarks>
     ///     ⚠ <b>The reading that says the cache is working.</b> A number that equals
@@ -139,12 +188,21 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     /// <summary>The state of a zone, by the entity carrying it.</summary>
     public IReadOnlyDictionary<Entity, WaterZoneState> States => states;
 
-    /// <summary>What each zone entity said, as the last fold read it.</summary>
+    /// <summary>What each zone entity said, as the last fold read it — with its names resolved.</summary>
     /// <remarks>
-    ///     Beside <see cref="States" /> rather than folded into it, because the two are different
-    ///     things: a <see cref="WaterZoneState" /> is the kernel's — a window, a field and when it was
-    ///     last right — and the component is the document's, carrying the sea state and the
-    ///     attenuation that the <em>renderer</em> needs and the kernel has no use for.
+    ///     <para>
+    ///         Beside <see cref="States" /> rather than folded into it, because the two are different
+    ///         things: a <see cref="WaterZoneState" /> is the kernel's — a window, a field and when it
+    ///         was last right — and the component is the document's, carrying the sea state and the
+    ///         attenuation that the <em>renderer</em> needs and the kernel has no use for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not quite verbatim: a zone naming a <c>.vxwaves</c> that resolved has that
+    ///         spectrum in its <see cref="WaterZoneComponent.Waves" /> rather than the one on disk.</b>
+    ///         The name becomes a value in one place — see <c>Resolve</c> — so that every consumer
+    ///         reads one field and none of them has to know the asset exists. What a consumer wanting
+    ///         the authored document must do is read the world, not this.
+    ///     </para>
     /// </remarks>
     public IReadOnlyList<(Entity Entity, WaterZoneComponent Component)> Zones => zones;
 
@@ -287,20 +345,27 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     void GatherZones(World world) {
         zones.Clear();
         ZoneCount = 0;
+        UnresolvedWaves = 0;
 
+        // ⚠ One entity at a time, and not a span — GatherBodies' reason, one component over.
+        // WaterZoneComponent names its .vxwaves by *string*, which makes it a managed component: its
+        // values live in the world's store and the chunk holds handles, so ReadValues would throw.
+        // There are a handful of zones in a scene where there are hundreds of bodies, so the cost of
+        // the slower path is a rounding error against the fold it sits in.
         foreach (var chunk in world.Chunks(zoneQuery)) {
-            var authored = chunk.ReadValues<WaterZoneComponent>();
             var entities = chunk.Entities;
 
             for (var i = 0; i < chunk.Count; i++) {
+                var authored = world.Read<WaterZoneComponent>(entities[i]);
+
                 // A zone that cannot be rasterised is skipped rather than thrown over: an author
                 // dragging a resolution through an invalid value should see the last good frame, not
                 // an exception from a system.
-                if (authored[i].Zone.Validate() is not null) {
+                if (authored.Zone.Validate() is not null) {
                     continue;
                 }
 
-                zones.Add((entities[i], authored[i]));
+                zones.Add((entities[i], Resolve(authored)));
                 ZoneCount++;
             }
         }
@@ -384,6 +449,47 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
         foreach (var entity in stale) {
             built.Remove(entity);
         }
+    }
+
+    /// <summary>Substitutes a named sea state into the component, where one resolves.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The name becomes a value here and nowhere else, which is what makes the sharing
+    ///         real.</b> Every consumer — the vertex stage through <see cref="Zones" />, the underwater
+    ///         shape through <see cref="ShapeFor" /> — reads <see cref="WaterZoneComponent.Waves" />
+    ///         and is unchanged by this asset existing. Resolving in two places instead would be two
+    ///         answers to "what sea is this", and the frame they disagree on is a boat riding a
+    ///         different swell from the one drawn under it.
+    ///     </para>
+    ///     <para>
+    ///         It is the same seam <see cref="Build" /> is for a body's spline, and deliberately the
+    ///         same shape: a name, a source that may not have it, and a count for when it does not.
+    ///     </para>
+    /// </remarks>
+    WaterZoneComponent Resolve(WaterZoneComponent component) {
+        if (component.WaveAsset is not { Length: > 0 } name) {
+            return component;
+        }
+
+        if (Waves?.SpectrumFor(name) is not { } spectrum) {
+            UnresolvedWaves++;
+
+            return component;
+        }
+
+        // ⚠ Validated here rather than trusted, because an asset is a file somebody can edit outside
+        // the editor and the importer that would refuse it. An unsummable spectrum substituted in is a
+        // zone that draws nothing where the inline one would have drawn a sea — see
+        // WaterMeshRenderer.Stage, which generates zero waves from a spectrum that does not validate.
+        // It counts as unresolved for the same reason a missing file does: the sea on screen is not
+        // the one the zone named.
+        if (spectrum.Validate() is not null) {
+            UnresolvedWaves++;
+
+            return component;
+        }
+
+        return component with { Waves = spectrum };
     }
 
     WaterZoneState StateOf(Entity entity, in WaterZoneComponent component) {

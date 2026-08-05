@@ -50,6 +50,16 @@
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
 
+        <!--
+            And the binary ones, on Vixen.Foliage's terms. A .vxwaves ships as its serialized
+            WaterWavesAsset rather than as text — docs/plan/35 § D6's one asset kind has a runtime
+            reader, `AssetWaterSource` — and a type no serializer is registered for cannot be written
+            by the importer or read by a game, on a trimmed build or otherwise.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
     </ItemGroup>
 
     <ItemGroup>

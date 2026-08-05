@@ -116,9 +116,15 @@ from.
 and its reason: a kernel that referenced the ECS would be a kernel a dedicated server could not link
 without also linking a world.
 
-⚠ **`WaterBodyComponent` is a *managed* component** because it names its spline by string, so the fold
-reaches it one entity at a time rather than as a span. The transforms beside it are unmanaged and are
-read as a span, which is why only one of the two loops looks unusual.
+⚠ **Both components are *managed* ones** because each names an asset by string — a body its spline, a
+zone its `.vxwaves` — so the fold reaches them one entity at a time rather than as a span. The
+transforms beside a body are unmanaged and are read as a span, which is why only one of the two loops
+looks unusual.
+
+⚠ **A named sea state becomes a value in `GatherZones` and nowhere else.** The component published in
+`Zones` carries the resolved spectrum, so the vertex stage and the underwater shape read one field
+and neither has to know the asset exists. Resolving in two places would be two answers to "what sea is
+this", and the frame they disagree on is a boat riding a different swell from the one drawn under it.
 
 ⚠ **Bodies are cached by identity, and that is what makes the whole amortisation real.** A fold that
 built a fresh `WaterBody` every frame hands the zone a different list every frame, marks the field
@@ -126,9 +132,16 @@ dirty every frame, and re-rasterises every frame — the cost § D3's threshold 
 full and invisible in a picture. `RebuiltBodies` and `UploadCount` are the readings that say it is
 working; both should track the *change* count and not the frame count.
 
-Two diagnostics rather than one: `ZonelessBodies` is a body no zone's window reached, and
-`UnresolvedBodies` is one whose spline has not loaded. The fixes are different — a zone's extent
-against an asset name — so one number for both would send an author to the wrong place.
+Three diagnostics rather than one: `ZonelessBodies` is a body no zone's window reached,
+`UnresolvedBodies` is one whose spline has not loaded, and `UnresolvedWaves` is a *zone* whose sea
+state could not be used. The fixes are different — a zone's extent, an asset name, an asset name
+again — so one number for all three would send an author to the wrong place.
+
+⚠ **The third is not like the other two, and `stat water` draws it differently on purpose.** A
+zoneless or unresolved body is water that is not on screen; a zone whose sea state did not load has
+water that looks entirely convincing and is the wrong sea, which on a client is a boat that rides
+differently from the one on the server. It is warned, not flagged red, and it is the only evidence
+there is.
 
 ## The alpha is the waterline mask
 

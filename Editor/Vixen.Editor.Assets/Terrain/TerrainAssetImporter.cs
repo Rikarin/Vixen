@@ -49,14 +49,15 @@ public sealed record TerrainAssetImportSettings : IImportSettings {
 ///         a build over a file somebody is in the middle of.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The layer and the spline are written forward as their documents; the grass and
-///         foliage types as their serialized records, because those two have runtime readers.</b>
+///         ⚠ <b>The layer is written forward as its document; the grass, foliage and spline as their
+///         serialized records, because those three have runtime readers.</b>
 ///         <c>AssetTerrainSource</c> opens a <c>.vxgrass</c> or <c>.vxfoliage</c> chunk and hands it
-///         to the binary serializer — a game does not carry the YAML dialect, which is the editor's
-///         format — so a text chunk is ground that quietly never grows and a forest that quietly
-///         never stands. The layer and spline documents have no runtime consumer yet (a layer rides
-///         inside its <c>.vxterrain</c>), and they stay text until one exists, on
-///         <c>MaterialImporter</c>'s precedent for the split.
+///         to the binary serializer, and <c>AssetWaterSource</c> opens a <c>.vxspline</c> the same
+///         way — a game does not carry the YAML dialect, which is the editor's format — so a text
+///         chunk is ground that quietly never grows, a forest that quietly never stands, and a lake
+///         that quietly never appears. The layer has no runtime consumer (it rides inside its
+///         <c>.vxterrain</c>) and stays text until one exists, on <c>MaterialImporter</c>'s precedent
+///         for the split.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The fifth kind is not YAML at all.</b> A <c>.vxfol</c> is
@@ -175,13 +176,14 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
             return context.Finish();
         }
 
-        // The grass and foliage types are compiled to the records the runtime reads back — the
-        // class remarks say why those two are — and the layer and spline are carried forward as
-        // their documents.
+        // The grass, foliage and spline documents are compiled to the records the runtime reads back
+        // — the class remarks say why — and the layer is carried forward as its document.
         if (extension.Equals(GrassExtension, StringComparison.OrdinalIgnoreCase)) {
             WriteGrass(root, text, context);
         } else if (extension.Equals(FoliageExtension, StringComparison.OrdinalIgnoreCase)) {
             WriteFoliage(root, text, context);
+        } else if (extension.Equals(SplineExtension, StringComparison.OrdinalIgnoreCase)) {
+            WriteSpline(root, text, context);
         } else {
             Inspect(extension, root, context);
             context.Write(SubAssetId.Main, alias, System.Text.Encoding.UTF8.GetBytes(text));
@@ -286,6 +288,48 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
         }
 
         context.Write(SubAssetId.Main, nameof(FoliageType), Serializer.ToBytes(type));
+    }
+
+    /// <summary>Writes a spline document as the serialized record <c>AssetWaterSource</c> opens.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This used to be a text chunk, and the class remarks said it would stay one "until
+    ///         a runtime consumer exists".</b> One does: doc 35 § D6 makes a water body a spline
+    ///         reference, and <c>AssetWaterSource</c> is what resolves the name a
+    ///         <c>WaterBodyComponent</c> carries. A game does not carry the YAML dialect — that is the
+    ///         editor's format — so a text chunk here is a lake that quietly never appears.
+    ///     </para>
+    ///     <para>
+    ///         On <see cref="WriteGrass" />'s terms otherwise, including the text fallback for a
+    ///         document this build cannot read.
+    ///     </para>
+    /// </remarks>
+    static void WriteSpline(YamlMapping root, string text, ImportContext context) {
+        SplineAsset spline;
+
+        try {
+            spline = YamlSerializer.Deserialize<SplineAsset>(root);
+        } catch (Exception failure) when (failure is not OperationCanceledException) {
+            context.Report(
+                ImportSeverity.Warning,
+                $"It could not be read as a {nameof(SplineAsset)}: {failure.Message}. The file is "
+                + "still imported, because a field this build does not know is what an asset written "
+                + "by a newer editor looks like."
+            );
+
+            context.Write(SubAssetId.Main, nameof(SplineAsset), System.Text.Encoding.UTF8.GetBytes(text));
+
+            return;
+        }
+
+        if (spline.Validate() is { } problem) {
+            // An error rather than a warning, and Severity's own rule says why: a curve with one
+            // control point cannot be built, and everything downstream of it asks CanBuild and
+            // silently draws nothing.
+            context.Report(Severity(SplineExtension, problem), problem);
+        }
+
+        context.Write(SubAssetId.Main, nameof(SplineAsset), Serializer.ToBytes(spline));
     }
 
     /// <summary>Reads the document as its own type and reports what the type says about itself.</summary>

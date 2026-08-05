@@ -293,11 +293,19 @@ public sealed class AppGraphics : IDisposable {
     ///         underwater shape, and a buoyancy solver reads its clock.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A game still has to point it at its splines and its ground.</b>
+    ///         ⚠ <b>A game still has to point it at its splines, its sea states and its ground.</b>
     ///         <see cref="Vixen.Rendering.Water.WaterZoneSystem.Splines" /> is null until something
-    ///         supplies one, and every body then counts into <c>UnresolvedBodies</c>; <c>Ground</c>
-    ///         defaults to a flat plane at zero, which is right for an open ocean and visibly wrong
-    ///         for a lake in a valley.
+    ///         supplies one, and every body then counts into <c>UnresolvedBodies</c>;
+    ///         <see cref="Vixen.Rendering.Water.WaterZoneSystem.Waves" /> is null until something
+    ///         supplies one, and every zone naming a <c>.vxwaves</c> falls back to its inline
+    ///         spectrum and counts into <c>UnresolvedWaves</c>; <c>Ground</c> defaults to a flat plane
+    ///         at zero, which is right for an open ocean and visibly wrong for a lake in a valley.
+    ///     </para>
+    ///     <para>
+    ///         <c>Vixen.Engine.Renderer</c>'s <c>AssetWaterSource</c> is the implementation of the
+    ///         first two for a game with a content build, and it is not wired here for
+    ///         <c>AssetTerrainSource</c>'s reason: the host owns a device and a world, and an asset
+    ///         manager is the application's.
     ///     </para>
     /// </remarks>
     public Vixen.Rendering.Water.WaterZoneSystem Water { get; }

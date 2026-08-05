@@ -4,7 +4,7 @@ slug: editor/water-mode
 kind: guide
 area: Editor
 summary: One mode and three verbs — draw a body's curve on the ground, drag its profile handles, and preview what its carve did to the terrain — plus the zone panel that turns a resolution into metres.
-api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics]
+api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics, T:Vixen.Editor.Assets.Water.WaterWavesImporter, T:Vixen.Editor.Assets.Water.WaterWavesImportSettings]
 tags: [editor, water, mode, river, lake, undo]
 since: 0.1
 status: preview
@@ -86,11 +86,21 @@ The derived half is the point of it. A resolution is meaningless and a metre per
 
 | Readout | Why it is there |
 |---|---|
+| Sea state | Which spectrum this zone actually draws — the named `.vxwaves` or the panel's own |
 | Metres per texel | Whether a shoreline can be resolved at all — a two-metre falloff at two metres a texel is neither a ramp nor a cut |
 | Info texture | What a resolution costs, in megabytes, before somebody types one |
 | Vertices, full window | What the surface mesh draws at its finest, which is one vertex per texel by construction |
 | Height quantum | What half precision does to a horizon, stated in centimetres rather than left to be discovered as a stepped sea |
 | Maximum amplitude | It decides the node error metric, the far-mesh cut *and* the collision bounds |
+
+⚠ **Naming a `.vxwaves` does not grey out the four sea-state fields below it.** The inline spectrum
+is what the zone falls back to while the asset loads and what it keeps if the name is wrong, so a
+panel that hid it would be hiding the sea that is actually on screen. `stat water`'s `no waves` row —
+in *warning* rather than in red, because that water is drawing — is what says which one won.
+
+⚠ **Create ▸ Sea state writes the panel's current spectrum, not the default one.** An author who has
+spent a minute finding a sea they like and then presses it means *that* sea; a template that threw it
+away would make the shared asset the slower route to the thing they already had.
 
 ⚠ **The arithmetic is the kernel's.** `WaterZone.MetresPerTexel`, `Bytes` and `HeightQuantum` are the
 same properties the renderer sizes its texture from, and `Validate` is the same rule it refuses by —

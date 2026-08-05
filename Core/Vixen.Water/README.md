@@ -98,6 +98,14 @@ frames. An FFT needs a per-frame dispatch chain and a CPU path that either reads
 runs a second transform, and neither can answer that question. When the FFT lands it is a second
 model behind the same evaluator, and the seam test is what makes adding it safe.
 
+**And it is the one asset kind water adds.** `WaterWavesAsset` is a `.vxwaves` — a name and a
+spectrum — because a sea state is shared between every body in a region *and between levels*, which
+is the only water thing that is. Everything else lives in the scene, where its merge is. The importer
+is `Vixen.Editor.Assets`', the seam is `IWaterWaveSource`, and `AssetWaterSource` is the game's
+answer; a zone that names one and does not get it keeps its inline spectrum and counts, because a
+zone rendering a dead-flat sea reads as the renderer being broken rather than as an asset still
+streaming.
+
 ## Depth is computed, never stored
 
 [§ D3]. `WaterField` carries surface height, flow in two channels, the ground beneath, and coverage.

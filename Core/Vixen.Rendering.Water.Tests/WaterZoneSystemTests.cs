@@ -477,4 +477,136 @@ public sealed class WaterZoneSystemTests : IDisposable {
 
         Assert.NotNull(wrong.Zone.Validate());
     }
+
+    // --- The sea state a zone names — docs/plan/35 § D6's one asset kind -------
+
+    /// <summary>A source holding one sea state under one name.</summary>
+    sealed class Sea(string name, WaterWaveSpectrum spectrum) : IWaterWaveSource {
+        public int Calls { get; private set; }
+
+        public WaterWaveSpectrum? SpectrumFor(string asked) {
+            Calls++;
+
+            return asked == name ? spectrum : null;
+        }
+    }
+
+    /// <summary>A named sea state replaces the inline one, in the component every consumer reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted through <see cref="WaterZoneSystem.Zones" /> rather than through a resolver
+    ///     the test calls itself.</b> The whole design is that the name becomes a value in exactly one
+    ///     place, so that the vertex stage and the underwater shape cannot disagree about what sea
+    ///     this is — and the only way to check that is to read what those two read.
+    /// </remarks>
+    [Fact]
+    public void A_zone_naming_a_sea_state_draws_that_one() {
+        var gale = WaterWaveSpectrum.Default with { WindSpeed = 24f, Count = WaterWaveCount.ThirtyTwo };
+
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "NorthSea" });
+
+        var system = System();
+
+        system.Waves = new Sea("NorthSea", gale);
+        system.Fold(world);
+
+        var (_, component) = Assert.Single(system.Zones);
+
+        Assert.Equal(24f, component.Waves.WindSpeed);
+        Assert.Equal(WaterWaveCount.ThirtyTwo, component.Waves.Count);
+        Assert.Equal(0, system.UnresolvedWaves);
+    }
+
+    /// <summary>
+    ///     ⚠ A name that does not resolve keeps the zone's own waves and counts — it does not flatten
+    ///     the sea.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The opposite of a body whose spline is missing, deliberately.</b> A body with no
+    ///         curve has no shape to draw and is not rendered; a zone with no spectrum has a perfectly
+    ///         good window, and rendering it dead flat reads as the water stack being broken rather
+    ///         than as one asset still streaming — which is a bug report about the renderer for a
+    ///         problem in the content.
+    ///     </para>
+    ///     <para>
+    ///         The assertion that matters is the wind speed, not the count: a fallback that quietly
+    ///         became <see cref="WaterWaveSpectrum.Default" /> would also leave the count at one and
+    ///         would be a different sea again.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sea_state_that_has_not_loaded_falls_back_to_the_zones_own_and_is_counted() {
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "Missing" });
+
+        var system = System();
+
+        system.Waves = new Sea("NorthSea", WaterWaveSpectrum.Default);
+        system.Fold(world);
+
+        var (_, component) = Assert.Single(system.Zones);
+
+        Assert.Equal(WaterWaveSpectrum.Calm.WindSpeed, component.Waves.WindSpeed);
+        Assert.Equal(WaterWaveSpectrum.Calm.Count, component.Waves.Count);
+        Assert.Equal(1, system.UnresolvedWaves);
+    }
+
+    /// <summary>And with no source at all, which is the host that never wired one.</summary>
+    [Fact]
+    public void A_zone_naming_a_sea_state_with_no_source_is_counted() {
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "NorthSea" });
+
+        var system = System();
+
+        system.Fold(world);
+
+        Assert.Equal(1, system.UnresolvedWaves);
+        Assert.Equal(WaterWaveSpectrum.Calm.WindSpeed, system.Zones[0].Component.Waves.WindSpeed);
+    }
+
+    /// <summary>
+    ///     ⚠ An asset that arrives carrying a spectrum the evaluator refuses counts, and is not used.
+    /// </summary>
+    /// <remarks>
+    ///     A file somebody edited outside the editor, past the importer that would have refused it.
+    ///     Substituting it in would generate <em>zero</em> waves — see <c>WaterMeshRenderer.Stage</c>,
+    ///     which asks <c>Validate</c> before it generates — so the zone would draw a mirror where the
+    ///     inline spectrum would have drawn a sea. It counts for the same reason a missing file does:
+    ///     the sea on screen is not the one the zone named.
+    /// </remarks>
+    [Fact]
+    public void A_sea_state_the_evaluator_refuses_is_counted_and_not_used() {
+        var backwards = WaterWaveSpectrum.Default with { MinimumWavelength = 60f, MaximumWavelength = 4f };
+
+        Assert.NotNull(backwards.Validate());
+
+        Zone(WaterZoneComponent.Default with { Waves = WaterWaveSpectrum.Calm, WaveAsset = "Broken" });
+
+        var system = System();
+
+        system.Waves = new Sea("Broken", backwards);
+        system.Fold(world);
+
+        Assert.Equal(1, system.UnresolvedWaves);
+        Assert.Equal(WaterWaveSpectrum.Calm.MinimumWavelength, system.Zones[0].Component.Waves.MinimumWavelength);
+    }
+
+    /// <summary>A zone naming nothing never reaches the source.</summary>
+    /// <remarks>
+    ///     The negative control for the count: a fold that asked for the empty name would count every
+    ///     zone in a project that uses no sea-state assets, and the diagnostic would read as broken
+    ///     from the first frame of every scene.
+    /// </remarks>
+    [Fact]
+    public void A_zone_naming_no_sea_state_never_asks() {
+        Zone(WaterZoneComponent.Default);
+
+        var system = System();
+        var sea = new Sea("NorthSea", WaterWaveSpectrum.Default);
+
+        system.Waves = sea;
+        system.Fold(world);
+
+        Assert.Equal(0, sea.Calls);
+        Assert.Equal(0, system.UnresolvedWaves);
+    }
 }

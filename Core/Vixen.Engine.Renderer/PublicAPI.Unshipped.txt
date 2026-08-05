@@ -70,6 +70,14 @@ Vixen.Engine.Renderer.AssetVirtualGeometrySource.Registered.get -> int
 Vixen.Engine.Renderer.AssetVirtualGeometrySource.Release(Vixen.Core.AssetReference reference) -> bool
 Vixen.Engine.Renderer.AssetVirtualGeometrySource.Requested.get -> int
 Vixen.Engine.Renderer.AssetVirtualGeometrySource.TryGet(Vixen.Core.AssetReference reference, out int mesh, out Vixen.Core.Mathematics.BoundingSphere bounds) -> Vixen.Rendering.Ecs.ClusterState
+Vixen.Engine.Renderer.AssetWaterSource -> sealed class
+Vixen.Engine.Renderer.AssetWaterSource : Vixen.Rendering.Water.IWaterSplineSource
+Vixen.Engine.Renderer.AssetWaterSource : Vixen.Rendering.Water.IWaterWaveSource
+Vixen.Engine.Renderer.AssetWaterSource.AssetWaterSource(Vixen.Assets.AssetManager assets) -> void
+Vixen.Engine.Renderer.AssetWaterSource.Failed.get -> int
+Vixen.Engine.Renderer.AssetWaterSource.Requested.get -> int
+Vixen.Engine.Renderer.AssetWaterSource.SpectrumFor(string name) -> Vixen.Water.WaterWaveSpectrum?
+Vixen.Engine.Renderer.AssetWaterSource.SplineFor(string name, in Vixen.Core.Mathematics.Matrix4x4 placement) -> Vixen.Core.Mathematics.Spline?
 Vixen.Engine.Renderer.DebugDrawRenderer -> sealed class
 Vixen.Engine.Renderer.DebugDrawRenderer : System.IDisposable
 Vixen.Engine.Renderer.DebugDrawRenderer.DebugDrawRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.LineShaders shaders, Vixen.Rendering.RenderOutput output, int worldCapacity = 65536, int screenCapacity = 65536) -> void

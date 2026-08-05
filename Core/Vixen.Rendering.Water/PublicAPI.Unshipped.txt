@@ -1,6 +1,8 @@
 #nullable enable
 Vixen.Rendering.Water.IWaterSplineSource -> interface
 Vixen.Rendering.Water.IWaterSplineSource.SplineFor(string name, in Vixen.Core.Mathematics.Matrix4x4 placement) -> Vixen.Core.Mathematics.Spline?
+Vixen.Rendering.Water.IWaterWaveSource -> interface
+Vixen.Rendering.Water.IWaterWaveSource.SpectrumFor(string name) -> Vixen.Water.WaterWaveSpectrum?
 Vixen.Rendering.Water.UnderwaterShape -> sealed class
 Vixen.Rendering.Water.UnderwaterShape : Vixen.Rendering.Ecs.IPostProcessShape
 Vixen.Rendering.Water.UnderwaterShape.Contains(Vixen.Core.Mathematics.Vector3 world, out float distanceOutside) -> bool
@@ -246,6 +248,8 @@ Vixen.Rendering.Water.WaterStatistics.Rebuilt.get -> int
 Vixen.Rendering.Water.WaterStatistics.Rebuilt.init -> int
 Vixen.Rendering.Water.WaterStatistics.Unresolved.get -> int
 Vixen.Rendering.Water.WaterStatistics.Unresolved.init -> int
+Vixen.Rendering.Water.WaterStatistics.UnresolvedWaves.get -> int
+Vixen.Rendering.Water.WaterStatistics.UnresolvedWaves.init -> int
 Vixen.Rendering.Water.WaterStatistics.Uploads.get -> int
 Vixen.Rendering.Water.WaterStatistics.Uploads.init -> int
 Vixen.Rendering.Water.WaterStatistics.WaterStatistics() -> void
@@ -306,6 +310,7 @@ Vixen.Rendering.Water.WaterZoneComponent.Precision -> Vixen.Water.WaterInfoPreci
 Vixen.Rendering.Water.WaterZoneComponent.Resolution -> int
 Vixen.Rendering.Water.WaterZoneComponent.ScrollThreshold -> float
 Vixen.Rendering.Water.WaterZoneComponent.WaterZoneComponent() -> void
+Vixen.Rendering.Water.WaterZoneComponent.WaveAsset -> string
 Vixen.Rendering.Water.WaterZoneComponent.Waves -> Vixen.Water.WaterWaveSpectrum
 Vixen.Rendering.Water.WaterZoneSystem -> sealed class
 Vixen.Rendering.Water.WaterZoneSystem : Vixen.Ecs.Systems.IDeclaredAccess
@@ -322,10 +327,13 @@ Vixen.Rendering.Water.WaterZoneSystem.Splines.get -> Vixen.Rendering.Water.IWate
 Vixen.Rendering.Water.WaterZoneSystem.Splines.set -> Vixen.Rendering.Water.IWaterSplineSource?
 Vixen.Rendering.Water.WaterZoneSystem.States.get -> System.Collections.Generic.IReadOnlyDictionary<Vixen.Core.Entity, Vixen.Water.WaterZoneState>
 Vixen.Rendering.Water.WaterZoneSystem.UnresolvedBodies.get -> int
+Vixen.Rendering.Water.WaterZoneSystem.UnresolvedWaves.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.View.get -> Vixen.Rendering.RenderView
 Vixen.Rendering.Water.WaterZoneSystem.WaterTime.get -> float
 Vixen.Rendering.Water.WaterZoneSystem.WaterTime.set -> float
 Vixen.Rendering.Water.WaterZoneSystem.WaterZoneSystem(Vixen.Rendering.RenderView view) -> void
+Vixen.Rendering.Water.WaterZoneSystem.Waves.get -> Vixen.Rendering.Water.IWaterWaveSource?
+Vixen.Rendering.Water.WaterZoneSystem.Waves.set -> Vixen.Rendering.Water.IWaterWaveSource?
 Vixen.Rendering.Water.WaterZoneSystem.ZoneCount.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.ZonelessBodies.get -> int
 Vixen.Rendering.Water.WaterZoneSystem.Zones.get -> System.Collections.Generic.IReadOnlyList<(Vixen.Core.Entity Entity, Vixen.Rendering.Water.WaterZoneComponent Component)>

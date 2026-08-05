@@ -130,6 +130,16 @@ public readonly record struct WaterStatistics {
     /// <summary>How many named a spline nothing could supply.</summary>
     public int Unresolved { get; init; }
 
+    /// <summary>How many <em>zones</em> named a <c>.vxwaves</c> that could not be used.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A third diagnostic and not a fourth column on the second, because this one is still
+    ///     drawing.</b> A zoneless or unresolved body is water that is not there; a zone whose sea
+    ///     state did not load has water that looks entirely convincing and is the wrong sea — which on
+    ///     a client is a boat that rides differently from the one on the server. It is the only
+    ///     evidence of that.
+    /// </remarks>
+    public int UnresolvedWaves { get; init; }
+
     /// <summary>How many bodies the fold rebuilt.</summary>
     /// <remarks>
     ///     ⚠ <b>The reading that says the amortisation is real.</b> A number equal to
@@ -173,7 +183,7 @@ public readonly record struct WaterMeshStatistics {
 ///     separately.
 /// </remarks>
 public sealed class WaterOverlay : IDiagnosticOverlay {
-    const int Rows = 7;
+    const int Rows = 8;
 
     /// <inheritdoc />
     public string Name => "water";
@@ -211,6 +221,7 @@ public sealed class WaterOverlay : IDiagnosticOverlay {
             Bodies = zones.BodyCount,
             Zoneless = zones.ZonelessBodies,
             Unresolved = zones.UnresolvedBodies,
+            UnresolvedWaves = zones.UnresolvedWaves,
             Rebuilt = zones.RebuiltBodies,
             Rasterisations = rasterisations
         };
@@ -238,9 +249,13 @@ public sealed class WaterOverlay : IDiagnosticOverlay {
         WaterRows.Draw(in region, 2, "zoneless", statistics.Zoneless, theme.Text, statistics.Zoneless > 0 ? theme.Bad : theme.Muted);
         WaterRows.Draw(in region, 3, "unresolved", statistics.Unresolved, theme.Text, statistics.Unresolved > 0 ? theme.Bad : theme.Muted);
 
-        WaterRows.Draw(in region, 4, "rebuilt", statistics.Rebuilt, theme.Text, statistics.Rebuilt > statistics.Bodies ? theme.Warning : theme.Muted);
-        WaterRows.Draw(in region, 5, "rasters", statistics.Rasterisations, theme.Text, theme.Muted);
-        WaterRows.Draw(in region, 6, "uploads", statistics.Uploads, theme.Text, theme.Muted);
+        // ⚠ Warning rather than bad, and the shade is the diagnosis. The two rows above it are water
+        // that is not on screen; this one is water that is, drawn from a sea state nobody authored.
+        WaterRows.Draw(in region, 4, "no waves", statistics.UnresolvedWaves, theme.Text, statistics.UnresolvedWaves > 0 ? theme.Warning : theme.Muted);
+
+        WaterRows.Draw(in region, 5, "rebuilt", statistics.Rebuilt, theme.Text, statistics.Rebuilt > statistics.Bodies ? theme.Warning : theme.Muted);
+        WaterRows.Draw(in region, 6, "rasters", statistics.Rasterisations, theme.Text, theme.Muted);
+        WaterRows.Draw(in region, 7, "uploads", statistics.Uploads, theme.Text, theme.Muted);
     }
 }
 

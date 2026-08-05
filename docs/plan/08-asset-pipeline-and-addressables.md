@@ -377,6 +377,7 @@ Importer set for 1.0:
 | `StyleImporter` | vcss | parsed stylesheet + utility-class extraction |
 | `AssetImporter` | vxmat vxscene vxprefab vxgroup vxanim vxvfx … | Vixen-authored YAML assets |
 | `NavMeshImporter` | vxnavmesh | `NavMesh` — the bake, run at build time from the collision mesh the asset names |
+| `WaterWavesImporter` | vxwaves | `WaterWavesAsset` — a sea state, which is the one asset kind [35 § D6](35-water.md) admits; a water body stays in the scene because that is where its merge is |
 | `ScriptImporter` | cs | script metadata (execution order, default field values) |
 | `VideoImporter` | ✅ webm mkv (mp4 claimed and refused with the reason) | `VideoClip` + the container beside it |
 | `FolderImporter` | folders | folder assets (group inheritance, addressable roots) |
