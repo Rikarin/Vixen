@@ -92,12 +92,29 @@ public sealed class ThemeTokens {
     ///     genuinely heterogeneous: a colour is a string <i>or</i> a map of shades, and a font size
     ///     is a pair. Forcing that through a typed deserialiser would mean either a schema nobody
     ///     wants to write or a converter per field, and the DOM walk is shorter than either.
+    ///     <para>
+    ///         ⚠ <b>A file that is not YAML at all is a diagnostic like any other, not an exception.</b>
+    ///         Everything else this reads reports through <see cref="Diagnostics" /> — a colour that is
+    ///         a list, a radius that is not a number, a root that is not a mapping — and a theme file
+    ///         is hand-written, so the one failure that threw was the likeliest one to happen. It came
+    ///         out of <see cref="YamlReader" /> and stopped whoever was building a stylesheet, with the
+    ///         other diagnostics in the file unreported.
+    ///     </para>
     /// </remarks>
     public static ThemeTokens Parse(string yaml) {
         ArgumentNullException.ThrowIfNull(yaml);
 
         var tokens = new ThemeTokens();
-        if (YamlReader.Read(yaml) is not YamlMapping root) {
+        YamlNode document;
+
+        try {
+            document = YamlReader.Read(yaml);
+        } catch (YamlParseException failure) {
+            tokens.Diagnostics.Add($"the theme file is not YAML: {failure.Message}");
+            return tokens;
+        }
+
+        if (document is not YamlMapping root) {
             tokens.Diagnostics.Add("the theme file is not a mapping");
             return tokens;
         }
