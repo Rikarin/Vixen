@@ -257,7 +257,14 @@ public sealed class WorldRenderer : IDisposable {
         Host.System.AddFeature(Particles);
 
         if (device.Features.HasBindless) {
-            Table = new(device);
+            // ⚠ The capacity is stated rather than left to the device, and it is stated as the same
+            // constant `EffectLoader.BindlessCapacity` defaults to. The set this table allocates is
+            // bound against pipelines whose set-4 layout the effect path built; a table sized to the
+            // device's ceiling and a layout sized to four thousand are two incompatible descriptor
+            // set layouts, which is undefined behaviour that MoltenVK happens to render correctly.
+            // The second cost is the pool: a table built to a desktop driver's million-descriptor
+            // ceiling reserves hundreds of megabytes to hold a scene's worth of textures.
+            Table = new(device, capacity: BindlessTable.ConventionalCapacity);
             Materials.Textures = Table;
 
             Paired(Materials, "ForwardPlus");
