@@ -1,0 +1,5 @@
+return 1
+enum E {
+    Off,
+    On = 5
+}

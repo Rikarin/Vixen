@@ -51,6 +51,14 @@ sealed class VxmlParser : SyntaxParser {
 
     readonly Blender? blender;
 
+    /// <summary>
+    ///     The one parse loop this grammar offers reuse at (see <c>ReuseCandidate.Context</c>).
+    ///     Content is the only list VXML builds, so every candidate comes from here and goes back
+    ///     here; a language with a second grammar over the same tokens — Raven's enum bodies — needs
+    ///     a second value, and this constant is where that would start.
+    /// </summary>
+    internal const int ContentContext = 0;
+
     /// <summary>How many green nodes this parse took from the previous tree.</summary>
     int reused;
 
@@ -415,7 +423,7 @@ sealed class VxmlParser : SyntaxParser {
         // unbalanced `</` two lines above turns `<panel class="root">` from a start tag into stray
         // characters inside a tag nobody closed — and splicing the old element in over that stream
         // is a tree that no full reparse would ever produce.
-        if (blender.TryReuse(fullStart, Tokens, out var next) is not { } green) {
+        if (blender.TryReuse(ContentContext, fullStart, Tokens, out var next) is not { } green) {
             return null;
         }
 

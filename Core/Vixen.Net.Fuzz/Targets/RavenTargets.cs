@@ -194,9 +194,22 @@ public sealed class RavenTarget : IFuzzTarget {
 
     /// <summary>Edits the file and requires the incremental reparse to equal a full one.</summary>
     /// <remarks>
-    ///     ⚠ The edit is a pure function of the input's own bytes, not of where the run had got to.
-    ///     A finding carries the input and nothing else, so an oracle that consulted the generator
-    ///     would hand somebody a corpus file that does not reproduce it.
+    ///     <para>
+    ///         ⚠ The edit is a pure function of the input's own bytes, not of where the run had got
+    ///         to. A finding carries the input and nothing else, so an oracle that consulted the
+    ///         generator would hand somebody a corpus file that does not reproduce it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Shape" /> is the check that earns this its keep, and the printed
+    ///         comparison above it would have come back clean.</b> Two of the corpus entries are
+    ///         reparses that built a <i>different tree</i> and printed the same characters:
+    ///         <c>raven/f756b11be5af90ca.bin</c> renames an enum to the <c>shader</c> keyword, and
+    ///         <c>raven/6adb822d47389491.bin</c> eats an enum header entirely — either way the
+    ///         members underneath keep their text, lex token for token as they did, and land where
+    ///         the member grammar is reading, so the blender lent an enum member to a loop that
+    ///         cannot parse one. Both took forty thousand cases to reach, well past the fifteen
+    ///         hundred the gate runs, which is what the corpus is for.
+    ///     </para>
     /// </remarks>
     static long Reparse(SyntaxTree tree, string text) {
         if (tree.Text is not { } source) {
