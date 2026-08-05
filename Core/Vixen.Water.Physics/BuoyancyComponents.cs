@@ -35,7 +35,7 @@ namespace Vixen.Water.Physics;
 /// </remarks>
 [Component]
 [DataContract]
-public struct BuoyancyBody {
+public struct BuoyancyBody : IDefaultComponent<BuoyancyBody> {
     /// <summary>The spheres, in the body's own frame.</summary>
     public BuoyancyPontoon[] Pontoons;
 
@@ -70,6 +70,15 @@ public struct BuoyancyBody {
             MaximumForce = 0f,
             FlowDrag = 2f
         };
+
+    /// <remarks>
+    ///     ⚠ <b>The zero that is not survivable here is the damping, and it is the one
+    ///     <see cref="Settings" /> does not cover.</b> An unset <see cref="Coefficient" /> becomes one
+    ///     there; an unset <see cref="Damping" /> stays zero and is a hull that oscillates on the
+    ///     surface forever, which reads as the solver being wrong rather than as three fields nobody
+    ///     filled in.
+    /// </remarks>
+    static BuoyancyBody IDefaultComponent<BuoyancyBody>.DefaultValue => Default;
 
     /// <summary>This component as the kernel's own description.</summary>
     /// <remarks>

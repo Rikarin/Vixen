@@ -76,6 +76,21 @@
                           ReferenceOutputAssembly="false" />
 
         <!--
+          Declares this assembly's [Component] [DataContract] types to SceneComponentRegistry.
+
+          ⚠ A serializer and a declaration are two different generators, and having only the first is
+          the shape Vixen.Rendering.Terrain's own remarks describe from the other side. Water had it
+          the other way round: WaterZoneComponent and WaterBodyComponent could be written and could
+          not be *named*, so every unit test over them passed and a scene carrying one failed to
+          compile with "which nothing declared as a scene component". A missing analyzer emits no
+          code, so there is nothing for the build to reject — SceneWaterComponentTests is where that
+          now shows.
+        -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
           The shader binding generator, over the reflection checked in beside the library shader. A
           binding index is assigned by Raven from declaration order within a set, so adding a texture
           above another in Water.rvn renumbers it — and a pass holding the old number gets a validation

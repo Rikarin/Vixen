@@ -42,6 +42,20 @@
         <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+          Declares BuoyancyBody and BuoyancyState to SceneComponentRegistry.
+
+          ⚠ The registry the generated initializer calls is Vixen.Engine's, which this project reaches
+          only through Vixen.Physics and never names — and the generator emits nothing at all when it
+          cannot see SceneComponentRegistry, so an assembly that lost that transitive path would go
+          back to silently declaring nothing. That is the same omission Vixen.Rendering.Water had, and
+          the reason it happened twice: neither project's reference list has a line about it to notice
+          missing.
+        -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

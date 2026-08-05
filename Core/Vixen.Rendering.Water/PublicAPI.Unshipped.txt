@@ -161,6 +161,7 @@ Vixen.Rendering.Water.WaterAsset.View.get -> string
 Vixen.Rendering.Water.WaterAsset.View.init -> string
 Vixen.Rendering.Water.WaterAsset.WaterAsset() -> void
 Vixen.Rendering.Water.WaterBodyComponent -> struct
+Vixen.Rendering.Water.WaterBodyComponent : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Water.WaterBodyComponent>
 Vixen.Rendering.Water.WaterBodyComponent.AudioIntensity -> float
 Vixen.Rendering.Water.WaterBodyComponent.BedRamp -> float
 Vixen.Rendering.Water.WaterBodyComponent.Depth -> float
@@ -478,6 +479,7 @@ Vixen.Rendering.Water.WaterSurfacePass.Upload(Vixen.Water.WaterSurfaceMesh mesh,
 Vixen.Rendering.Water.WaterSurfacePass.WaterSurfacePass(Vixen.Graphics.IGraphicsDevice device, (Vixen.Rendering.Water.WaterMeshShaders Near, Vixen.Rendering.Water.WaterMeshShaders Far) shaders, System.ReadOnlySpan<Vixen.Graphics.PixelFormat> formats, Vixen.Graphics.PixelFormat depthFormat, int gridQuads = 32) -> void
 Vixen.Rendering.Water.WaterTiles -> static class
 Vixen.Rendering.Water.WaterZoneComponent -> struct
+Vixen.Rendering.Water.WaterZoneComponent : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Water.WaterZoneComponent>
 Vixen.Rendering.Water.WaterZoneComponent.AttenuationDepth -> float
 Vixen.Rendering.Water.WaterZoneComponent.CoarsestTexel -> float
 Vixen.Rendering.Water.WaterZoneComponent.Extent -> float
