@@ -419,7 +419,17 @@ public sealed class TriangleTree {
         var across = Vector3.Cross(direction, edge2);
         var determinant = Vector3.Dot(edge1, across);
 
-        if (MathF.Abs(determinant) < MathUtil.ZeroTolerance) {
+        // ⚠ Against the triangle's and the ray's own scale, never against an absolute epsilon. The
+        // determinant is edge1 · (direction × edge2), so it carries the model's units *squared* and
+        // the direction's once — and a fixed threshold is therefore a statement about how big a
+        // model has to be before its triangles can be hit at all. Measured: at a 1/1024 scale, five
+        // of nine shapes charted differently because rays passed straight through geometry.
+        // Cauchy–Schwarz bounds |determinant| by |edge1|·|across|, so the ratio below is a squared
+        // cosine and the comparison is dimensionless. Squared throughout to keep the square roots
+        // out of a loop that runs per triangle per ray.
+        var span = edge1.LengthSquared() * across.LengthSquared();
+
+        if (determinant * determinant <= MathUtil.ZeroTolerance * MathUtil.ZeroTolerance * span) {
             return false;
         }
 
@@ -440,7 +450,14 @@ public sealed class TriangleTree {
 
         distance = Vector3.Dot(edge2, along) * inverse;
 
-        if (distance <= MathUtil.ZeroTolerance) {
+        // ⚠ The same lesson on the other side of the intersection. `distance` is in units of
+        // `direction`, so `distance × |direction|` is a length and an absolute epsilon on it says
+        // how close to a surface a ray may start — in metres, whatever the model is measured in.
+        // Relative to the triangle's own edge instead. The sign is tested separately because
+        // squaring loses it, and a hit behind the origin is not a hit.
+        if (distance <= 0f
+            || distance * distance * direction.LengthSquared()
+            <= MathUtil.ZeroTolerance * MathUtil.ZeroTolerance * edge1.LengthSquared()) {
             return false;
         }
 
@@ -587,7 +604,21 @@ public sealed class TriangleTree {
         // NaN that poisons every distance computed from it. Meshes are full of them — every UV
         // sphere has a fan of them at each pole, where a whole ring of vertices is one point — so
         // this is the common case dressed as the exceptional one.
-        if (area <= MathUtil.ZeroTolerance) {
+        //
+        // ⚠ And "no area" is relative to the triangle, not to a constant. An absolute epsilon sends
+        // every triangle of a small model down the edge path — where the answer is still a point on
+        // the triangle, but pinned to its rim, which is silently wrong for anything interpolating an
+        // interior quantity there. Measured before this: a query landing at x = -0.4 inside the fan
+        // at unit scale landed at -0.387 on its rim at 1/1024.
+        //
+        // ⚠ The normalisation is the squared extent and not the extent, and getting that wrong is
+        // how this was first written. `va`, `vb` and `vc` are differences of *products of dot
+        // products* — degree four in the model's units, not degree two — so dividing by a squared
+        // length leaves the comparison scaling as the model squared and moves the bug rather than
+        // removing it.
+        var extent = MathF.Max(ab.LengthSquared(), ac.LengthSquared());
+
+        if (area <= MathUtil.ZeroTolerance * extent * extent) {
             return NearestOnEdges(point, a, b, c, out barycentric);
         }
 
@@ -643,7 +674,10 @@ public sealed class TriangleTree {
         var direction = to - from;
         var lengthSquared = direction.LengthSquared();
 
-        if (lengthSquared <= MathUtil.ZeroTolerance) {
+        // ⚠ Exactly zero, and not an epsilon. A squared length is the model's units squared, so any
+        // fixed threshold here collapses real segments on a small model onto their first endpoint;
+        // and the only value that actually breaks the division below is zero itself.
+        if (lengthSquared <= 0f) {
             along = 0f;
 
             return from;
