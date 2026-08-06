@@ -370,6 +370,13 @@ into the atlas.
 mesh therefore arrives with whatever UVs the provider gave it, and a mesh with no UVs cannot be
 retextured. This is named rather than solved, and it is the honest limit on the mesh panels.
 
+⚠️ **Amended by [41 — Automatic retopology](41-automatic-retopology.md).** That limit was drawn
+correctly for a document about inference and wrongly for the pipeline: a remesher is arithmetic — no
+weights, no licence, no download — so it goes in `Core/` beside doc 24's kernel, and its patch layout
+yields an atlas for nearly free. Doc 41 § R8 is what turns *"refuses a mesh with no UVs"* into
+*"remesh it first"*. ⚠ It is still **not a general unwrapper** — it unwraps meshes it produced — so
+the sentence above survives for a mesh whose topology is the point.
+
 ### D7. Refinement is a re-run, and provenance is what makes it possible
 
 "Modify an existing material or model" is not an edit-in-place; it is a re-run with one input changed,
@@ -642,9 +649,10 @@ more is a question about who is using the editor, and it is not this document's 
    [B3](#b3-comfyui-is-gpl-30--manageable-and-it-constrains-the-shape).
 5. **A mirror of anybody's weights.** The button fetches from the source, on the author's machine,
    under the author's acceptance. [D8](#d8-the-download-button-states-the-terms-and-then-gets-out-of-the-way).
-6. **A modelling package.** No retopology, no unwrapper, no sculpting.
-   [D6](#d6-retexturing-is-where-vixen-has-an-unusual-advantage) names the limit rather than
-   quietly growing past it.
+6. **A modelling package.** No sculpting. ⚠️ **Retopology and the unwrapper are no longer on this
+   list** — [41](41-automatic-retopology.md) took them, on the argument that they are deterministic
+   arithmetic rather than inference and so belong in `Core/` rather than behind a provider.
+   [D6](#d6-retexturing-is-where-vixen-has-an-unusual-advantage) records the amendment.
 
 ---
 
