@@ -92,6 +92,45 @@ residual, so which side of it a platform lands on cannot change the answer; a *q
 sits where the iteration is still making progress, and that one would. `ExhaustionFloorTests` is what
 holds that distinction to account.
 
+## The flattener is a ladder, and most charts stop on the first rung
+
+`Flatten` takes a mesh and a chart per face. LSCM is one sparse least-squares solve and is exact on
+anything developable; ARAP's local–global loop is paid for only when the first rung missed
+`DistortionThreshold`; and a third pass works on the folded neighbourhood alone. The local–global
+loop's matrix is a cotangent Laplacian that does not change between iterations, which is exactly the
+case `ConjugateGradient`'s warm start exists for — the matrix, its incomplete Cholesky and both
+solution arrays are built once, above the loop.
+
+⚠ **The two rungs are not ordered by quality and the numbers say so.** On a slit sphere LSCM measures
+1.04 angular against ARAP's 1.26, and 1.72 area against ARAP's 1.22. A conformal map wins on the
+metric it optimizes and loses forty per cent on the one an artist sees, which is § D6's argument from
+the inside.
+
+| | angular | area | L² | L^∞ |
+|---|---|---|---|---|
+| sphere cut open | 1.2579 | 1.2219 | 1.0402 | 1.3830 |
+| torus, slit both ways | 1.1981 | 1.1689 | 1.0277 | 2.2551 |
+| hemisphere | 1.1882 | 1.1786 | 1.0251 | 1.1759 |
+| saddle | 1.1631 | 1.1544 | 1.0222 | 1.4682 |
+| cylinder, slit | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| flat 40:1 strip | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+
+⚠ **A chart that is not a disk is refused before any solve runs.** An annulus, a handle, a chart in
+two pieces and a bowtie all have *no* injective map to the plane, so producing coordinates for one
+would be producing a fold with extra steps. The test is the Euler characteristic — `χ = 2 − 2g − b`,
+one only for a disk — plus a separate check for the pinch χ cannot see, because two triangles meeting
+at a single vertex give `5 − 6 + 2 = 1`.
+
+⚠ **A cotangent goes negative on an obtuse triangle, and a Laplacian with a negative weight is not
+guaranteed positive definite.** Conjugate gradient on an indefinite matrix does not throw and does not
+diverge — it converges to a saddle and the chart comes back folded. Every weight is therefore raised
+to a small positive floor relative to the chart's largest, which makes the matrix positive definite by
+construction, and the count *and the worst cotangent* go in the report. Clamping to zero would remove
+the edge and can disconnect a vertex; uniform weights mix two discretizations; mean-value coordinates
+are the principled fix and are ruled out because their matrix is not symmetric. Intrinsic Delaunay
+flipping is the upgrade a large reported cotangent would justify. `CotangentWeights` has the whole
+argument.
+
 ## The packer, and what it measures
 
 `Pack` is four rungs over one occupancy bitmap. The rectangle rung is a skyline over bounding boxes;

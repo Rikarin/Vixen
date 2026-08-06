@@ -724,11 +724,22 @@ public sealed class EditMesh {
             );
         }
 
+        var lengthSquared = total.LengthSquared();
+
         // ⚠ Against zero rather than against an absolute epsilon, and the capsule is what found it.
         // The Newell sum is twice the face's area, so a fixed tolerance is a statement about how big a
         // face has to be — and the triangles round a hemisphere's pole are genuinely small. A
         // primitive built at a tenth of the scale would have had every face declared degenerate.
-        return total.LengthSquared() > 0f ? Vector3.Normalize(total) : Vector3.Zero;
+        //
+        // ⚠ And the division is written out rather than delegated to `Vector3.Normalize`, because that
+        // method carries exactly the absolute epsilon this line exists to avoid: it returns zero below
+        // `MathUtil.ZeroTolerance` of length, which is 1e-6. The comment above was therefore true of
+        // this line and false of the method, and the two together made a face's normal depend on how
+        // big the model was. Found by docs/plan/42 § U2's scale gate — a flat strip whose quads span a
+        // hundredth of a unit triangulates by ear clipping at one scale and falls back to a fan at a
+        // thousandth of it, because `Triangulate` reads a zero normal as "no plane to clip in". Two
+        // different triangulations of one surface is two different unwraps of it.
+        return lengthSquared > 0f ? total * (1f / MathF.Sqrt(lengthSquared)) : Vector3.Zero;
     }
 
     /// <summary>A face's area.</summary>
