@@ -43,6 +43,18 @@ Vixen.Core.Mathematics.BoundingSphere.Intersects(Vixen.Core.Mathematics.Bounding
 Vixen.Core.Mathematics.BoundingSphere.Intersects(Vixen.Core.Mathematics.Plane plane) -> Vixen.Core.Mathematics.PlaneIntersectionType
 Vixen.Core.Mathematics.BoundingSphere.IsEmpty.get -> bool
 Vixen.Core.Mathematics.BoundingSphere.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.ClosestTriangle -> readonly struct
+Vixen.Core.Mathematics.ClosestTriangle : System.IEquatable<Vixen.Core.Mathematics.ClosestTriangle>
+Vixen.Core.Mathematics.ClosestTriangle.Barycentric.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.ClosestTriangle.Barycentric.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.ClosestTriangle.ClosestTriangle() -> void
+Vixen.Core.Mathematics.ClosestTriangle.ClosestTriangle(int Triangle, Vixen.Core.Mathematics.Vector3 Point, float DistanceSquared, Vixen.Core.Mathematics.Vector3 Barycentric) -> void
+Vixen.Core.Mathematics.ClosestTriangle.DistanceSquared.get -> float
+Vixen.Core.Mathematics.ClosestTriangle.DistanceSquared.init -> float
+Vixen.Core.Mathematics.ClosestTriangle.Point.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.ClosestTriangle.Point.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.ClosestTriangle.Triangle.get -> int
+Vixen.Core.Mathematics.ClosestTriangle.Triangle.init -> int
 Vixen.Core.Mathematics.Color -> readonly struct
 Vixen.Core.Mathematics.Color : System.IEquatable<Vixen.Core.Mathematics.Color>
 Vixen.Core.Mathematics.Color : System.IFormattable
@@ -340,6 +352,13 @@ Vixen.Core.Mathematics.SplinePoint.TangentIn.get -> Vixen.Core.Mathematics.Vecto
 Vixen.Core.Mathematics.SplinePoint.TangentIn.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Core.Mathematics.SplinePoint.TangentOut.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Core.Mathematics.SplinePoint.TangentOut.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.TriangleTree -> sealed class
+Vixen.Core.Mathematics.TriangleTree.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Core.Mathematics.TriangleTree.Closest(Vixen.Core.Mathematics.Vector3 point) -> Vixen.Core.Mathematics.ClosestTriangle
+Vixen.Core.Mathematics.TriangleTree.DistanceSquared(Vixen.Core.Mathematics.Vector3 point) -> float
+Vixen.Core.Mathematics.TriangleTree.Raycast(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, out bool backface) -> bool
+Vixen.Core.Mathematics.TriangleTree.TriangleCount.get -> int
+Vixen.Core.Mathematics.TriangleTree.TriangleTree(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices) -> void
 Vixen.Core.Mathematics.Vector2 -> readonly struct
 Vixen.Core.Mathematics.Vector2 : System.IEquatable<Vixen.Core.Mathematics.Vector2>
 Vixen.Core.Mathematics.Vector2 : System.IFormattable
@@ -643,6 +662,7 @@ static Vixen.Core.Mathematics.ColorSpace.SrgbToLinear(float value) -> float
 static Vixen.Core.Mathematics.DelaunayTetrahedralization.Build(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions) -> Vixen.Core.Mathematics.DelaunayTetrahedralization
 static Vixen.Core.Mathematics.ExactPredicates.InSphere(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, Vixen.Core.Mathematics.Vector3 d, Vixen.Core.Mathematics.Vector3 e) -> int
 static Vixen.Core.Mathematics.ExactPredicates.InSphere(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, Vixen.Core.Mathematics.Vector3 d, Vixen.Core.Mathematics.Vector3 e, int indexA, int indexB, int indexC, int indexD, int indexE) -> int
+static Vixen.Core.Mathematics.ExactPredicates.Orient2D(Vixen.Core.Mathematics.Vector2 a, Vixen.Core.Mathematics.Vector2 b, Vixen.Core.Mathematics.Vector2 c) -> int
 static Vixen.Core.Mathematics.ExactPredicates.Orient3D(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, Vixen.Core.Mathematics.Vector3 d) -> int
 static Vixen.Core.Mathematics.Int2.Clamp(Vixen.Core.Mathematics.Int2 value, Vixen.Core.Mathematics.Int2 min, Vixen.Core.Mathematics.Int2 max) -> Vixen.Core.Mathematics.Int2
 static Vixen.Core.Mathematics.Int2.Max(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2
@@ -810,6 +830,8 @@ static Vixen.Core.Mathematics.Spline.SmoothTangents(System.ReadOnlySpan<Vixen.Co
 static Vixen.Core.Mathematics.SplineAsset.Through(string name, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, bool closed = false) -> Vixen.Core.Mathematics.SplineAsset
 static Vixen.Core.Mathematics.SplinePoint.At(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.SplinePoint
 static Vixen.Core.Mathematics.SplinePoint.Smooth(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 tangent, float roll = 0) -> Vixen.Core.Mathematics.SplinePoint
+static Vixen.Core.Mathematics.TriangleTree.ClosestPointOnTriangle(Vixen.Core.Mathematics.Vector3 point, Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.TriangleTree.ClosestPointOnTriangle(Vixen.Core.Mathematics.Vector3 point, Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, out Vixen.Core.Mathematics.Vector3 barycentric) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Core.Mathematics.Vector2.Abs(Vixen.Core.Mathematics.Vector2 value) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Core.Mathematics.Vector2.Clamp(Vixen.Core.Mathematics.Vector2 value, Vixen.Core.Mathematics.Vector2 min, Vixen.Core.Mathematics.Vector2 max) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Core.Mathematics.Vector2.Cross(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> float
