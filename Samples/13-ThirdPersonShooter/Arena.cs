@@ -1309,10 +1309,15 @@ public sealed class Arena : IDisposable {
             return;
         }
 
+        // ⚠ Level zero alone. A nested scope's span is already inside its parent's — the screen-probe
+        // gather times its five dispatches one level down — so summing every scope reports more GPU
+        // time than the frame has and turns the remainder check below into noise.
         var attributed = 0d;
 
         foreach (var scope in frame.Scopes) {
-            attributed += frame.MillisecondsOf(scope);
+            if (scope.Level == 0) {
+                attributed += frame.MillisecondsOf(scope);
+            }
         }
 
         var total = frame.Milliseconds;
@@ -1346,7 +1351,12 @@ public sealed class Arena : IDisposable {
         for (var index = 0; index < ranked.Count; index++) {
             var cost = frame.MillisecondsOf(ranked[index]);
 
-            SampleLog.GpuPassCost(logger, index + 1, ranked[index].Name, cost, total > 0d ? cost / total * 100d : 0d);
+            // Nested scopes are ranked beside their parents deliberately — the question a breakdown
+            // answers is "what is the most expensive thing in this frame", and a stage inside a pass
+            // is a candidate answer. The arrow is what stops it being read as a second pass.
+            var name = ranked[index].Level == 0 ? ranked[index].Name : "└ " + ranked[index].Name;
+
+            SampleLog.GpuPassCost(logger, index + 1, name, cost, total > 0d ? cost / total * 100d : 0d);
         }
 
         // ⚠ Passes can overlap on a GPU that runs them concurrently, so `attributed` may exceed the

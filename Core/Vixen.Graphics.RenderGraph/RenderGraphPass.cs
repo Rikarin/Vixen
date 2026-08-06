@@ -217,4 +217,29 @@ public sealed class RenderGraphContext {
     /// <summary>The physical buffer behind a virtual one.</summary>
     /// <param name="buffer">The virtual buffer.</param>
     public BufferHandle Buffer(GraphBuffer buffer) => graph.Resolve(buffer).Buffer;
+
+    /// <summary>Times a named region inside this pass, one level under the pass's own scope.</summary>
+    /// <param name="name">What to call it.</param>
+    /// <returns>A token for <see cref="EndScope" />, or null when nothing was opened.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For the pass that is several dispatches wearing one name, and for nothing else.</b>
+    ///         The graph gives every pass a scope without anybody opting in, and that flat list is the
+    ///         timeline's shape on purpose — a bar per pass sums to the frame and needs no reading.
+    ///         This is the exception it does not cover: a compute pass whose body records four or five
+    ///         unrelated dispatches is one bar that can only say <i>that</i> it was expensive, never
+    ///         <i>which part</i> was. Sample 13's screen-probe gather is the case that forced it — half
+    ///         a frame under one name, with a trace, a resolve, an accumulate and a filter inside.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A reader must sum level zero alone.</b> A nested scope's time is already inside its
+    ///         parent's, so adding every scope up double-counts the nesting and reports more GPU time
+    ///         than the frame has. <see cref="GpuScope.Level" /> is what tells the two apart.
+    ///     </para>
+    /// </remarks>
+    public int? BeginScope(string name) => graph.Profiler?.Begin(CommandList, name);
+
+    /// <summary>Closes a region opened by <see cref="BeginScope" />.</summary>
+    /// <param name="token">What <see cref="BeginScope" /> returned. Null does nothing.</param>
+    public void EndScope(int? token) => graph.Profiler?.Close(CommandList, token);
 }
