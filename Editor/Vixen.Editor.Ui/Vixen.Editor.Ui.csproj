@@ -28,6 +28,15 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
 
         <!--
+            The Tailwind-shaped utilities, which is the other half of how a panel is styled: the
+            hand-written half is `EditorTheme`, and everything a class name can say is this. The
+            editor is the application doc 14 § 4b names as the reason the system exists — two hundred
+            visual components in one repository, where "the accent is teal now" should be one line of
+            one file rather than a sweep.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Styling.Utilities\Vixen.Ui.Styling.Utilities.csproj" />
+
+        <!--
             Keybindings are (InputKey, ModifierKeys) pairs, which is Vixen.Input's vocabulary. It
             arrives transitively through Vixen.Ui as well; naming it says that a chord is an input
             concept rather than a UI one, and it is what a rebinding UI would capture through.
@@ -72,6 +81,21 @@
             bare UiDocument with no project on disk — the same bargain Vixen.Ui makes with
             Vixen.Platform — and it is Vixen.Editor.App's job to join the two.
         -->
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **The markup is embedded as well as compiled, and that is the utility system's build
+            step standing in for itself.** `Vixen.Ui.Styling.Utilities`' README lists build-step
+            integration as waiting on the asset pipeline: until it lands, something has to scan the
+            source for class names so the generator knows which rules to emit. `EditorStyles` does it
+            at startup, over these copies, with the same scanner a build step would use.
+
+            The scan is deliberately over-inclusive — see `CandidateScanner` — so embedding the
+            markup verbatim is exactly the input it wants.
+        -->
+        <EmbeddedResource Include="**/*.vxml" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+        <EmbeddedResource Include="Theming\*.yaml" />
     </ItemGroup>
 
     <ItemGroup>

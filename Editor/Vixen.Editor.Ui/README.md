@@ -216,6 +216,42 @@ The tests beside it ask which panel is open and which command ran, which stays t
 palette at all — the inspector bugs that started this work were invisible to every one of them and
 obvious in the first screenshot.
 
+### Utility classes
+
+`EditorStyles` is the other half of the sheet: `Theming/vixen.ui.yaml` is the design tokens, the
+embedded `.vxml` is scanned for every class name that could be a utility, and what comes out is a
+generated sheet in `@layer utilities` with only the rules something refers to. `EditorTheme.Install`
+loads it immediately after the hand-written sheet, so one call still installs everything.
+
+**The yaml declares no colours of its own.** Every one is a `var(--…)` reference to a token
+`EditorTheme` already puts on the root — so `bg-surface` and `background: var(--surface)` are the
+same declaration, and the light/dark toggle and a user's theme file move both. A yaml full of hex
+would have been a second palette that agreed with the first until the day one of them was edited.
+
+⚠ **The utility layer loses every argument it has with the sheet above**, which is what the layer is
+*for* — origin, then layer, then specificity, then order, and an unlayered rule beats a layered one
+whatever the last two say. So `task-row { padding: 6px }` beats `p-3` with neither saying
+`!important`, and a utility only takes effect on a property no hand-written rule sets for that
+element. New panels get the whole vocabulary; retro-fitting one onto styled chrome means deleting the
+hand-written rule first.
+
+⚠ **The generated sheet has to load at the same origin as this one.** A layer is the cascade's
+*second* question; the origin is its first. Loaded as `Author` the utilities would beat every rule in
+`EditorTheme` outright and the layer would settle nothing — `StylesheetTests` keeps that arrangement
+in the suite as a measured fact rather than a claim in a comment, alongside the same test with the
+`@layer` wrapper replaced by `@media all`, which is how the utilities README's layer test was found
+to have been asserting document order all along.
+
+⚠ **Not every family the generator emits is one the engine reads.** `overflow-x-*` and `overflow-y-*`
+are the pair to know about: the unprefixed `overflow` is read and the per-axis forms are interned by
+nothing, so they compute cleanly and do nothing. `UtilityFamilySupportTests` is the list, resolved
+against real elements, and [the guide page](../../docs/guide/editor/utility-styles.md) has it as a
+table.
+
+⚠ **The scan is a startup cost standing in for a build step**, which the utility system's README
+lists as waiting on the asset pipeline. It only sees `.vxml`, so the chrome still built in C# with
+`AddClass("…")` is invisible to it — a panel that wants utilities should be written in markup.
+
 ## The console
 
 A virtualised list over `Vixen.Core.Diagnostics`' `RingBufferSink`, which is the log the crash

@@ -13,7 +13,15 @@
 @for (var task in Running) {
     <task-row key="@task">
         <task-line>
-            <task-title>@task.Title</task-title>
+            <!--
+                ⚠ The two utilities that make a long title stop pushing the cancel button off the
+                row, and the pair is the classic one: a flex item's `min-width` is `auto`, so
+                `overflow: hidden` on its own cannot shrink it below its content and `truncate`
+                does nothing. `EditorTheme` sets neither property on `task-title`, which is why
+                these take effect at all — a utility is in `@layer utilities` and loses to any
+                unlayered rule that names the same property.
+            -->
+            <task-title class="truncate min-w-0">@task.Title</task-title>
 
             <IconButton LeadingIcon.Geometry="@ControlIcons.Close"
                         Variant="Subtle"
