@@ -836,12 +836,49 @@ quantizer to make the settings panel usable, and that is the extent of it.
 
 ## Exit criteria (measured)
 
+⚠️ **Measured as of R3, and three of these are not met.** The table below each criterion is what the
+implementation actually does, not what it was hoped to do. Where a number is short, the cause is named
+rather than the target moved.
+
 1. **The AI case.** A 4M-triangle TRELLIS output → 5,000 quads. 100% quads, `MeshReport.IsSolid`,
    max deviation < 0.4% of the bounding-box diagonal, zero singularities on features, complete on one
    desktop machine in under 60 s including the bake.
+
+   ⚠️ **Not measurable on the data available, and that is a fact about the corpus rather than about
+   the remesher.** The sixteen TRELLIS files to hand are 13.5 K–25.4 K triangles, not 4 M — they are
+   the generator's *post-processed* exports, already decimated and already atlased, fully unwelded
+   (every triangle carrying its own three vertices) with `TEXCOORD_0` and a 2 K albedo. Welded at 1e-5
+   of the diagonal, one of them collapses from 76 293 vertices to 12 688 positions with an
+   edge-valence histogram of `{1: 1, 2: 38 147, 3: 2, 4: 4}` — **seven defective edges out of 38 154**,
+   and no degenerate triangles. That is a good weld/de-speck/repair case and a poor test of the
+   staircase noise [§ B1](#b1-ai-generated-meshes-are-the-worst-input-a-remesher-can-be-given-) is
+   written about. The synthetic corpus in `BrokenMeshSpace` covers the latter; the raw extraction is
+   still owed.
+
+   ⚠️ **Of the criterion's shape, `IsSolid` holds on a closed smooth surface only.** A sphere comes
+   back solid at 896 quads with 1.0 % maximum deviation and no singularity on a feature. The
+   hard-surface fixtures do not: their partitions contain patches whose four sides do not line up, and
+   the extractor refuses those rather than emit a folded grid — so what is missing is holes rather
+   than corruption, and the warnings count them.
+
+   ⚠️ **And the quad budget overshoots by an order of magnitude** — 5 047 against a target of 400 on a
+   box. The cause is measured and structural: a patch's quad count is a *product* of two side lengths,
+   so a partition whose patches are long and thin overshoots quadratically. Scaling the target down
+   corrects the count to 444 **and takes the feature error from 5.1e-5 to 5.1e-2**, so it was measured
+   and removed; the report warns instead. Compacting the partition is the real fix and it is layout
+   work.
+
 2. **The hard-surface case.** A boolean result from doc 24's blockout mode: **every feature polyline is
    a chain of output edges, to 1e-5** — `FeatureReproductionError` at a tolerance of exact, which is
    the criterion QuadWild's structure exists to make achievable and ZRemesher's snap cannot meet.
+
+   ⚠️ **Met on straight hard surface and missed on a boolean, which is the half that matters.**
+   Measured against the bounding-box diagonal: box **5.15e-5**, plate with a hole **2.42e-5**,
+   cylinder 9.88e-5 — and union **8.61e-3**, difference **1.27e-2**, three orders short. The cause is
+   named: those partitions cannot satisfy the consistency system while every feature arc is held at
+   one quad or more, so the quantizer permits an arc to collapse — and **a collapsed feature arc is a
+   crease that is gone**. The fallback warns every time it fires, so the failure is visible rather
+   than silent, but the criterion is not met and this is the row to fix first.
 3. **Determinism.** Ten runs × {1, 4, 16} threads × three platforms, byte-identical output.
 4. **Symmetry.** A symmetric input with `Symmetry` on: output vertex *k* and its mirror are exact
    negations, and every vertex on the plane has an exactly zero coordinate.
@@ -852,6 +889,25 @@ quantizer to make the settings panel usable, and that is the extent of it.
 7. **Robustness.** A corpus of 200 deliberately broken meshes — non-manifold, self-intersecting,
    open, disconnected, zero-area — produces a valid all-quad result or a `RemeshReport` naming the
    stage that refused, and **never** an exception or a hang.
+
+   ⚠️ **The corpus became a generator rather than a list, and the "hang" half turned out to be the
+   wrong worry.** `BrokenMeshSpace` is a CsCheck space of recipes rather than eighteen chosen defects,
+   shrinking to something small enough to paste into a test. Five loops were suspected of
+   non-termination and **every one was refuted**: the pre-remesh is bounded by its iteration count,
+   ear clipping removes a corner or returns on every pass, and the packer's scale search caps at
+   sixteen attempts and refuses. ⚠ **What is unbounded is growth, not time** — a pre-remesh handed a
+   target far below the mesh's own mean quadruples its triangle count every round, and the tenth alone
+   allocates 763 MB. So the guard watches allocation as well as the clock, which "never a hang" would
+   not have asked for.
+
+8. **Quad quality, which the criteria above do not ask for and should.** ⚠️ `MinScaledJacobian` is
+   **0.000 on box, cylinder, stairs, plate, union and difference, and −0.083 on the sphere** — a zero
+   is a quad with no area and a negative one is a quad folded over itself, so there are degenerate
+   quads in every result and inverted ones in one. The all-quad guarantee is genuinely met and is
+   orthogonal to this: **four sides is not four *usable* sides, and `IsAllQuad` cannot tell the
+   difference.** Added as a criterion because the field was in
+   [Part 4](#part-4--what-the-report-says)'s report from the day the report existed and was read by
+   nothing, which is precisely the failure that section is written to prevent.
 
 ---
 
