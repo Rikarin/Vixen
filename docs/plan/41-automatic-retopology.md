@@ -855,30 +855,52 @@ rather than the target moved.
    written about. The synthetic corpus in `BrokenMeshSpace` covers the latter; the raw extraction is
    still owed.
 
-   ⚠️ **Of the criterion's shape, `IsSolid` holds on a closed smooth surface only.** A sphere comes
-   back solid at 896 quads with 1.0 % maximum deviation and no singularity on a feature. The
-   hard-surface fixtures do not: their partitions contain patches whose four sides do not line up, and
-   the extractor refuses those rather than emit a folded grid — so what is missing is holes rather
-   than corruption, and the warnings count them.
+   ⚠️ **`IsSolid` now holds on six of the seven fixtures, and the four defects that stopped it were
+   one defect.** A cut with a loose end is a *slit*: the flood crosses round it, the same patch lies on
+   both sides, and the boundary walk traverses that arc once in each direction. `Prune` removes the
+   slits it may, and [§ D4](#d4-feature-detection-and-chaining-happens-before-the-field-and-that-is-the-whole-design)
+   forbids it removing a feature polyline's own loose end — a crease that runs off into a flat region
+   legitimately dead-ends. Measured across the fixtures: **every** duplicated arc in **every** patch was
+   an opposed pair, box carried 7 loose ends and a union 25, and **a sphere carried 0 — the one fixture
+   that came back solid.** The layout now walks each loose end on along the field until it lands on
+   existing structure, which is [§ D7](#d7-layout-and-quantization-as-a-flow-problem-rather-than-an-ilp)'s
+   partition finishing its own cuts. A cylinder is the exception: one patch of seventy-seven can be
+   neither divided — every arc bounding it is a single mesh edge, so there is nowhere for a fourth
+   corner — nor merged, because the merge is capped and an uncapped one dissolves every cut on a box.
+   It leaves a twelve-edge rim.
 
-   ⚠️ **And the quad budget overshoots by an order of magnitude** — 5 047 against a target of 400 on a
-   box. The cause is measured and structural: a patch's quad count is a *product* of two side lengths,
-   so a partition whose patches are long and thin overshoots quadratically. Scaling the target down
-   corrects the count to 444 **and takes the feature error from 5.1e-5 to 5.1e-2**, so it was measured
-   and removed; the report warns instead. Compacting the partition is the real fix and it is layout
-   work.
+   ⚠️ **The budget still overshoots, and it is now measurably not the layout's.** Box 5 047 → 2 678,
+   union 18 795 quantized against 598 emitted → 3 000 quantized and 3 000 emitted. But **the density
+   field on its own implies 1 454 to 2 207 quads against a 400 budget before any partition exists** —
+   `curvatureTerm` and `featureTerm` are both ≤ 1, so every target length comes out at or below `base`
+   and `base = √(area / quads)` therefore under-counts by construction. Against what it is actually
+   asked for the layout is now within about 1.4×, where a union was 8.5× over. Scaling the target down
+   to close the rest was measured and removed — it corrects a box to 444 **and takes the feature error
+   from 5.1e-5 to 5.1e-2** — so the report warns instead. **The remaining row belongs to
+   [§ D9](#d9-adaptivity-is-one-scalar-field-and-everything-writes-into-it)'s field, not to the
+   partition.**
 
 2. **The hard-surface case.** A boolean result from doc 24's blockout mode: **every feature polyline is
    a chain of output edges, to 1e-5** — `FeatureReproductionError` at a tolerance of exact, which is
    the criterion QuadWild's structure exists to make achievable and ZRemesher's snap cannot meet.
 
-   ⚠️ **Met on straight hard surface and missed on a boolean, which is the half that matters.**
-   Measured against the bounding-box diagonal: box **5.15e-5**, plate with a hole **2.42e-5**,
-   cylinder 9.88e-5 — and union **8.61e-3**, difference **1.27e-2**, three orders short. The cause is
-   named: those partitions cannot satisfy the consistency system while every feature arc is held at
-   one quad or more, so the quantizer permits an arc to collapse — and **a collapsed feature arc is a
-   crease that is gone**. The fallback warns every time it fires, so the failure is visible rather
-   than silent, but the criterion is not met and this is the row to fix first.
+   ⚠️ **The booleans were three orders short and are now within a factor of five and thirty.**
+   Measured against the bounding-box diagonal: box 5.15e-5 → **5.87e-5**, cylinder 9.88e-5 →
+   **2.43e-5**, union **8.61e-3 → 4.46e-5**, difference **1.27e-2 → 2.83e-4**. Two causes were found
+   and both were about where a crease *starts* rather than what runs along it. A collapsed arc merges
+   its two ends into one output vertex — § D7 permits exactly that — and the merged vertex was placed
+   on the *lower-indexed* end, so a plain arc collapsing beside a crease took the crease's endpoint
+   with it. And an arc whose **two** ends both carry creases may not collapse at all, because the one
+   vertex left would have to stand for two distinct points of the feature graph; those are now floored
+   at one quad. The fallback that lets a feature arc collapse still exists and still warns, and it now
+   fires on a box alone.
+
+   ⚠️ **The plate moved the wrong way, 2.42e-5 → 2.86e-4, and it is a different defect.** Its worst arc
+   is a three-vertex chain on the hole's rim with a chord sagitta of 1.56e-3 — the chain is genuinely
+   *curved*, two samples straddle the bend, and the output edge between them cuts it. Apportioning
+   samples onto the chain's own vertices was measured as a remedy and made a union and a cylinder
+   worse, because the relaxation slides them off again; it was removed. **A curved feature's sampling
+   rate is the row left here, and it is not the row this phase was about.**
 3. **Determinism.** Ten runs × {1, 4, 16} threads × three platforms, byte-identical output.
 4. **Symmetry.** A symmetric input with `Symmetry` on: output vertex *k* and its mirror are exact
    negations, and every vertex on the plane has an exactly zero coordinate.
@@ -908,6 +930,17 @@ rather than the target moved.
    difference.** Added as a criterion because the field was in
    [Part 4](#part-4--what-the-report-says)'s report from the day the report existed and was read by
    nothing, which is precisely the failure that section is written to prevent.
+
+   ⚠️ **Unmoved by the layout fix, and now attributed rather than suspected.** It is not one quad but
+   2–5 % of them: box 71 of 2 678 at or below zero, union 144 of 3 000, sphere 4 of 896, with medians
+   of 0.82 to 0.93 throughout. Two measurements place the cause. **A sphere has no slit, no skipped
+   patch and no warning but the budget, and still reports four inverted faces** — so the defect
+   survives a provably clean partition. And **turning the relaxation off makes it worse everywhere**
+   (sphere 4 → 23, stairs 99 → 188), so the smoothing is repairing it rather than causing it. What is
+   left is § D8's interior: a Coons interpolation of the four boundary chains projected onto the
+   conditioned surface folds where the patch curves, because a bilinear blend of curved boundaries is
+   not injective. **The fix is a real per-patch parameterization — harmonic or mean-value — and it is a
+   piece of work of its own rather than a tolerance.**
 
 ---
 

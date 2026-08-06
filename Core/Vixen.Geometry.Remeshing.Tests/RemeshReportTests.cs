@@ -110,12 +110,14 @@ public class RemeshReportTests {
     ///         arithmetic does not have.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured on a 400-quad budget: one of the five fixtures comes out closed
-    ///         <i>and</i> manifold.</b> A sphere does, at <c>χ = 2</c>, summing to exactly 8. A box's
-    ///         result has no rim but is not manifold; a cylinder, a plate and a flight of stairs come
-    ///         out with a rim, which <c>RemesherTests</c> already records as R3's open layout-quality
-    ///         gap rather than a new finding. The guard excludes them, and
-    ///         <see cref="The_euler_check_is_not_vacuous" /> is what stops the guard excluding
+    ///         ⚠ <b>Measured on a 400-quad budget: four of the five fixtures now come out closed
+    ///         <i>and</i> manifold, where one did.</b> A sphere always did, at <c>χ = 2</c>, summing to
+    ///         exactly 8; a box, a plate and a flight of stairs joined it when the layout stopped
+    ///         leaving slits in the partition — every one of them used to lose patches to the
+    ///         extractor's refusal and come back either non-manifold or with a rim. A cylinder still
+    ///         comes out with a twelve-edge rim from one patch the layout could neither divide nor
+    ///         merge, which <c>RemesherTests</c> records as the remaining gap. The guard excludes it,
+    ///         and <see cref="The_euler_check_is_not_vacuous" /> is what stops the guard excluding
     ///         everything.
     ///     </para>
     /// </remarks>
@@ -149,10 +151,22 @@ public class RemeshReportTests {
 
     /// <summary>At least one fixture is closed, or the check above is vacuous everywhere.</summary>
     /// <remarks>
-    ///     ⚠ <b>A guarded theory that skips every case is a passing test that asserts nothing</b>, and
-    ///     the guard above is exactly the shape that invites it. This is the assertion that the guard
-    ///     lets something through — and it names the fixture, so that the day a layout fix closes the
-    ///     cylinder this test fails and gets tightened rather than quietly covering more than it claims.
+    ///     <para>
+    ///         ⚠ <b>A guarded theory that skips every case is a passing test that asserts nothing</b>,
+    ///         and the guard above is exactly the shape that invites it. This is the assertion that the
+    ///         guard lets something through — and it names the fixtures, so that the day a layout fix
+    ///         closes the cylinder this test fails and gets tightened rather than quietly covering more
+    ///         than it claims.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It has already done that once, which is the argument for writing it this way.</b>
+    ///         The list read <c>["sphere"]</c> for as long as the partition left dangling cuts in it: a
+    ///         cut with a loose end is a slit, the flood puts the same patch on both sides of it, and
+    ///         the extractor refuses every patch whose boundary walks an arc twice — so the box, the
+    ///         plate and the stairs all came back holed. Walking those loose ends out to existing
+    ///         structure closed three of the four, and this assertion is what made the improvement
+    ///         announce itself instead of silently widening a guard.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_euler_check_is_not_vacuous() {
@@ -166,7 +180,7 @@ public class RemeshReportTests {
             }
         }
 
-        Assert.Equal(["sphere"], closed);
+        Assert.Equal(["box", "sphere", "plate", "stairs"], closed);
     }
 
     /// <summary>The mean deviation, against a brute-force recomputation over every conditioned triangle.</summary>
