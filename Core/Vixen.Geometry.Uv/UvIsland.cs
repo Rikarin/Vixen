@@ -68,4 +68,34 @@ public readonly record struct UvPlacement(
     float Scale,
     int Rotation,
     Int2 Tile
-);
+) {
+    /// <summary>Where one of the island's coordinates ends up.</summary>
+    /// <param name="island">The island this placement is for.</param>
+    /// <param name="coordinate">One of its coordinates.</param>
+    /// <returns>The atlas coordinate, in the unit square offset by <see cref="Tile" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The transform written out, so that a caller and the packer cannot disagree about what
+    ///         <see cref="Rotation" /> meant. Subtract the island's lower corner, turn, scale, offset.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A quarter turn is a subtraction and a swap, and that is the point.</b> There is no
+    ///         resampling and no interpolation anywhere in it, so repacking an artist's layout returns
+    ///         the island's own shape rather than a shape very close to it — docs/plan/42's exit
+    ///         criterion 7.
+    ///     </para>
+    /// </remarks>
+    public Vector2 Apply(in UvIsland island, Vector2 coordinate) {
+        var local = coordinate - island.Minimum;
+        var size = island.Size;
+
+        var turned = (Rotation & 3) switch {
+            1 => new Vector2(size.Y - local.Y, local.X),
+            2 => new Vector2(size.X - local.X, size.Y - local.Y),
+            3 => new Vector2(local.Y, size.X - local.X),
+            _ => local
+        };
+
+        return Offset + (turned * Scale) + new Vector2(Tile.X, Tile.Y);
+    }
+}

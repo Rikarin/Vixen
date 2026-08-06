@@ -83,6 +83,46 @@ All of it is `internal`. Nothing a caller of the three stages holds is a matrix.
 standard counterexample and it is in the tests. That is detected, falls back to Jacobi, and is
 *reported*, because the failure is otherwise a NaN that arrives as a coordinate.
 
+⚠ **A fixed budget still needs a floor at the limit of the arithmetic, and that is not the tolerance
+§ D5 forbids.** Measured while writing it: a 3×2 least-squares system converged at iteration 4, sat
+still until iteration 40, and then ran away to `1e+10` by iteration 80, because `beta = next / rho`
+with both operands at the underflow floor is not a number. A budget of 64 — `SolverIterations`'
+default — lands inside that. The floor sits where a `double` stops carrying information about the
+residual, so which side of it a platform lands on cannot change the answer; a *quality* threshold
+sits where the iteration is still making progress, and that one would. `ExhaustionFloorTests` is what
+holds that distinction to account.
+
+## The packer, and what it measures
+
+`Pack` is four rungs over one occupancy bitmap. The rectangle rung is a skyline over bounding boxes;
+the irregular rung is the same skyline against each island's *rasterized underside*, so a concave
+island settles onto a bump instead of resting a box on it; the super-patch rung groups
+near-rectangular neighbours into one composite first; and everything past `CoreLimit` takes a tail
+sweep that scans the skyline's steps rather than every column.
+
+⚠ **Rasterized masks rather than no-fit polygons, and the reason is rotation.** An NFP needs a unique
+polygon per *pair* per *orientation* — sixteen orientations of a thousand islands is a quarter of a
+billion polygons. A bitmask overlap test is a word-wise `AND`, and it gets *more* accurate as the
+atlas grows.
+
+⚠ **The margin is grown into the mask once and never applied again.** The grid holds grown shapes and
+a candidate is tested with its raw one, so the empty gap between two islands — and between an island
+and the sheet's edge — is exactly `Margin`. Not half of it each, and not twice it because both of them
+padded.
+
+Measured on 422 irregular islands at 2048² with a four-texel margin:
+
+| Rung | Texture delivered | Atlas consumed |
+|---|---|---|
+| Rectangle | 32.99 % | 85.08 % |
+| **Irregular** | **52.96 %** | 68.30 % |
+
+⚠ **`EffectiveEfficiency` cannot carry that comparison, and the reason is worth writing down.** It is
+island *plus its margin band* over atlas area, so a bounding-box packer — whose band is drawn around a
+box — consumes more of the sheet while delivering less of it. The figure that ranks packers is
+`PackingEfficiency`; the effective one says what the margin cost, which is the 15 points between the
+two columns.
+
 ## Deterministic
 
 Same input, same settings, byte-identical coordinates, at any thread count on any platform. That
