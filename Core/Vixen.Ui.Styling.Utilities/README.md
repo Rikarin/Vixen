@@ -22,7 +22,32 @@ every component is in the same repository as every token.
 | `UtilityGenerator` | The stylesheet, into `@layer utilities`. |
 | `CandidateScanner` | Deliberately over-inclusive extraction from source text. |
 | `ApplyExpander` | `@apply` inside VCSS. |
-| Build-step integration, token hot reload | ⏳ waits on the asset pipeline |
+| Build step | `build/Vixen.Ui.Styling.Utilities.targets` + `Tools/Vixen.StyleGen`. A project with a `vixen.ui.yaml` gets its sheet with no code of its own. |
+| Token hot reload | ⏳ waits on the asset pipeline |
+
+## The build step
+
+`build/Vixen.Ui.Styling.Utilities.targets` is imported by a `PackageReference` to this assembly, and
+that is the whole of what a project has to do. Before `CoreCompile` it finds the project's
+`vixen.ui.yaml`, scans **every source file and every `.vxml`** for class names, and writes the sheet
+into `obj/` twice: as a `const string` added to `@(Compile)`, and as a `.vcss` file for the tools.
+`Tools/Vixen.StyleGen/README.md` is the detail.
+
+**Scanning the C# is not a bonus, it is the case that was broken.** Most of the editor's chrome is
+built in code with `AddClass("flex")`, and the startup bootstrap this replaces could only ever see
+embedded markup — so a utility asked for from C# was silently missing. The scanner does not parse
+anything, which is exactly what lets it be pointed at a `.cs` file.
+
+⚠ **It is a process rather than a source generator, and the reason is a dependency.** `ThemeTokens`
+reads YAML through `Vixen.Core.Yaml`, which is YamlDotNet; a Roslyn analyzer's dependencies do not
+travel with it, because `OutputItemType="Analyzer"` contributes one DLL.
+`Vixen.Ui.Markup.Generators` escapes the same trap by *linking* its front end's source, which works
+because that front end is Vixen's own code and does not work here. See that project file's comment,
+which is the best statement of the problem in the tree.
+
+⚠ **`Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs` has deliberately not been converted.** It is the
+hundred and thirty lines the step replaces, kept as the reference for what a project used to have to
+write. Converting it is three deletions and two lines of MSBuild, and it belongs in its own change.
 
 ## The ideas
 

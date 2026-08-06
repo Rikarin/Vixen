@@ -28,6 +28,27 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
 
         <!--
+            The Tailwind-shaped utilities, which is the other half of how a panel is styled: the
+            hand-written half is `EditorTheme`, and everything a class name can say is this. The
+            editor is the application doc 14 § 4b names as the reason the system exists — two hundred
+            visual components in one repository, where "the accent is teal now" should be one line of
+            one file rather than a sweep.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Styling.Utilities\Vixen.Ui.Styling.Utilities.csproj" />
+
+        <!--
+            ⚠ **A build-order reference and nothing else** — `ReferenceOutputAssembly="false"`, so no
+            assembly is referenced and nothing of the tool reaches the editor's output. It is here
+            for the same reason the two analyzer references below are: MSBuild assets and build steps
+            do not travel through a ProjectReference, so a project inside this repository names what
+            a PackageReference would have brought. A game outside it references
+            Vixen.Ui.Styling.Utilities as a package and gets the tool and the .targets from it.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.StyleGen\Vixen.StyleGen.csproj"
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all" />
+
+        <!--
             Keybindings are (InputKey, ModifierKeys) pairs, which is Vixen.Input's vocabulary. It
             arrives transitively through Vixen.Ui as well; naming it says that a chord is an input
             concept rather than a UI one, and it is what a rebinding UI would capture through.
@@ -79,11 +100,26 @@
     </ItemGroup>
 
     <!--
+        The utility build step: `Theming/vixen.ui.yaml` is found by the glob in the .targets below,
+        every source file and every .vxml in this project is scanned for class names, and the sheet
+        is compiled into obj/. Nothing in this assembly embeds a resource, walks a manifest or runs a
+        scanner — the whole of the wiring is the two lines here and the accessor in EditorStyles.cs.
+
+        ⚠ The generated type is internal by default and stays that way. `EditorStyles` is the public
+        face, because a public *generated* type is a public API baseline entry and a documentation
+        page for a class whose entire content is a string constant.
+    -->
+    <PropertyGroup>
+        <VixenUtilityStylesClass>EditorUtilityStyles</VixenUtilityStylesClass>
+    </PropertyGroup>
+
+    <!--
         What a PackageReference to Vixen.Ui would have imported on its own: the **/*.vxml glob and
         the two properties the generator asks MSBuild for. At the bottom of the file rather than the
         top for the reason the .targets itself gives — the glob has to run after DefaultItemExcludes
         is final, or a .vxml copied into bin/ by a previous build is compiled a second time.
     -->
     <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
+    <Import Project="..\..\Core\Vixen.Ui.Styling.Utilities\build\Vixen.Ui.Styling.Utilities.targets" />
 
 </Project>
