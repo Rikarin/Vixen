@@ -8,7 +8,7 @@ api: [T:Vixen.Geometry.Remeshing.RemeshSettings, T:Vixen.Geometry.Remeshing.Atla
 tags: [geometry, retopology, remesh, quad, mesh]
 since: 0.1
 status: preview
-related: [engine/attribute-transfer, engine/map-baking, engine/uv-packing, engine/edit-meshes, engine/mesh-operations, engine/mesh-booleans, core/triangle-tree]
+related: [engine/attribute-transfer, engine/map-baking, engine/uv-packing, engine/remesh-debug-dumps, engine/edit-meshes, engine/mesh-operations, engine/mesh-booleans, core/triangle-tree]
 ---
 
 ## What it is
