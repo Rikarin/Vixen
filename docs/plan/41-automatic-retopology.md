@@ -483,8 +483,16 @@ negations to the last bit.
 
 ### D12. The output carries the input, or it is useless
 
-A transfer stage, driven by closest-point queries against the conditioned source (a BVH — `MeshCollision`
-already has the shape of one):
+A transfer stage, driven by closest-point queries against the conditioned source (a BVH —
+`Vixen.Core.Mathematics.TriangleTree`):
+
+⚠ **Corrected.** This paragraph credited `MeshCollision` with "already has the shape of one", and it
+does not: it is union-find shell labelling plus one axis-aligned box per shell, with no tree in it and
+no query on it. The structure that *is* one was `Vixen.Rendering.DistanceFields`' internal
+`TriangleTree`, whose own remarks said it belonged in `Vixen.Core.Mathematics` as soon as a second
+caller existed. This is that caller, so it moved, and it grew the query this stage needs —
+`Closest(point)` returns the triangle index and the barycentric coordinates that the table below
+interpolates against, which the scalar `DistanceSquared` could not.
 
 | Quantity | How |
 |---|---|
@@ -539,8 +547,15 @@ rather than an ILP ([D7](#d7-layout-and-quantization-as-a-flow-problem-rather-th
 ⚠ **Cross-platform bit-exactness constrains the arithmetic**: no fused-multiply-add where the
 non-fused result differs, no `float` reductions in a nondeterministic order, no dependence on
 `double`-vs-`float` intermediate width. Where an exact predicate is needed —
-orientation tests during tracing and the layout — `Vixen.Geometry`'s `ExactPredicates` already exists
-and doc 24's boolean is the precedent for using it rather than a tolerance.
+orientation tests during tracing and the layout — `Vixen.Core.Mathematics`' `ExactPredicates` already
+exists and doc 24's boolean is the precedent for using it rather than a tolerance.
+
+⚠ **Corrected, twice.** The assembly is `Vixen.Core.Mathematics`, not `Vixen.Geometry`. And what
+already existed was `Orient3D` and two `InSphere` overloads — there was **no `Orient2D`**, which is the
+predicate a separatrix traced in a tangent plane and a patch layout actually ask for. It exists now,
+filtered in `double` with a `BigInteger` fallback exactly as `Orient3D` is, and
+[42 § D5](42-uv-unwrapping.md#d5-flattening-is-a-ladder-and-the-solver-under-it-is-conjugate-gradient-with-a-warm-start)'s
+flipped-triangle count is its other caller.
 
 ### D15. Quads are wanted for what happens *after*, and that is worth being explicit about
 

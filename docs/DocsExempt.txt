@@ -666,6 +666,7 @@ T:Vixen.Core.LeakTracker sweep-pending
 T:Vixen.Core.Mathematics.BoundingBox sweep-pending
 T:Vixen.Core.Mathematics.BoundingFrustum sweep-pending
 T:Vixen.Core.Mathematics.BoundingSphere sweep-pending
+T:Vixen.Core.Mathematics.ClosestTriangle sweep-with-TriangleTree — what TriangleTree.Closest returns and meaningless apart from it; the reason it carries barycentrics rather than only a distance is on the type itself and in docs/plan/41-automatic-retopology.md § D12
 T:Vixen.Core.Mathematics.Color sweep-pending
 T:Vixen.Core.Mathematics.Color3 sweep-pending
 T:Vixen.Core.Mathematics.Color4 sweep-pending
@@ -686,6 +687,7 @@ T:Vixen.Core.Mathematics.PlaneIntersectionType sweep-pending
 T:Vixen.Core.Mathematics.Quaternion sweep-pending
 T:Vixen.Core.Mathematics.Ray sweep-pending
 T:Vixen.Core.Mathematics.Rectangle sweep-pending
+T:Vixen.Core.Mathematics.TriangleTree sweep-with-the-maths-primitives — a median-split BVH over a triangle soup, exempt on the same terms as everything else in this assembly; its build rule and the tie-break a byte-identical rebake depends on are in TriangleTree.cs's own remarks
 T:Vixen.Core.Mathematics.Vector2 sweep-pending
 T:Vixen.Core.Mathematics.Vector3 sweep-pending
 T:Vixen.Core.Mathematics.Vector4 sweep-pending
