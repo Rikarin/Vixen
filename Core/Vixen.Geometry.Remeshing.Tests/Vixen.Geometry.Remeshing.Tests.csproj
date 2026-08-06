@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Ui.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <!--
+            docs/plan/41's robustness criterion is a statement about every broken mesh rather than
+            about a corpus somebody assembled: a valid all-quad result or a report naming the stage
+            that refused, and never an exception or a hang.
+        -->
+        <PackageReference Include="CsCheck" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ Compiled into both geometry test assemblies rather than referenced from one, which is
+            why its namespace is `Vixen.Geometry.Testing` and matches neither. It watches the case
+            that is running now — the half of "never an exception or a hang" that no assertion after
+            the call can reach — and both docs/plan/41 and docs/plan/42 end their robustness criteria
+            in those words. `Core/Vixen.Video.Codecs.Tests` links `Vixen.Video.Tests`' builders the
+            same way. See the file's own remarks for why this is not `Vixen.Fuzz`'s `CaseGuard`.
+        -->
+        <Compile Include="..\Vixen.Geometry.Uv.Tests\Shared\RunawayGuard.cs" Link="Shared\RunawayGuard.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Geometry.Remeshing\Vixen.Geometry.Remeshing.csproj" />
+    </ItemGroup>
+</Project>
