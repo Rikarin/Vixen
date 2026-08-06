@@ -34,6 +34,38 @@ public sealed record SourceAttributes {
     /// <summary>Skinning weights per source <i>position</i>, or null for none.</summary>
     public SkinBinding? Weights { get; init; }
 
+    /// <summary>Where each bone's mirror sits, entry <i>i</i> being bone <i>i</i>'s, or null for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Only <see cref="RemeshSettings.Symmetry" /> reads this, and it is what makes a
+    ///         symmetric remesh of a <i>rigged</i> mesh possible at all.</b>
+    ///         <c>docs/plan/41-automatic-retopology.md</c> § D11 solves one half and reflects it, so a
+    ///         mirrored vertex's weights are the kept half's weights — but they belong to the
+    ///         <i>mirrored</i> bone, and a reflected left elbow drives the right one. This says which
+    ///         bone that is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A centre bone maps to itself, and that is a real entry rather than a gap.</b> A
+    ///         spine is its own mirror; leaving it out is indistinguishable from a map that is short,
+    ///         and a map that is short is refused. The map must cover every bone the binding names.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Indices, and never names — the string matching belongs to whoever has the
+    ///         skeleton.</b> § D2 puts this assembly below anything that knows what a bone is called,
+    ///         and a naming convention baked in here would be a convention every rig in the engine had
+    ///         to share. <c>ProxyShapeDocument.Sided</c> is the convention this repository already
+    ///         carries — <c>_l</c>/<c>_r</c>, <c>left</c>/<c>right</c> and their spellings — and a
+    ///         caller holding names turns it into one of these in a loop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Symmetry with weights and no map <i>refuses</i> rather than guessing.</b> The
+    ///         alternative to a refusal is mirroring a weight onto the bone it already named, which
+    ///         produces a character whose left arm drives their right leg — found by an animator three
+    ///         weeks later and never by a test.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<int>? BoneMirror { get; init; }
+
     /// <summary>Nothing at all — a source that is only geometry, which is the generated-blob case.</summary>
     public static SourceAttributes None { get; } = new();
 }
