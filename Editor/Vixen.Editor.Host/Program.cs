@@ -30,6 +30,21 @@ namespace Vixen.Editor.App;
 ///         command on the first frame, which is how the frames after it prove that a background task
 ///         the editor started actually finished.
 ///     </para>
+///     <para>
+///         ⚠ <b><c>--hot-reload DIR</c> is a development mode and is off unless it is asked for.</b>
+///         It opens a <c>FileSystemWatcher</c> over a directory of <c>.vcss</c> files and reloads
+///         them into the running editor as they are saved. Off by default because a watcher is a
+///         handle and a pool callback, and because <c>--frames N</c> — which is what CI runs — has
+///         nobody there to save a file. The two do not interact: the flag adds a poll to the frame
+///         loop and nothing to the way the loop ends.
+///     </para>
+///     <para>
+///         <b>It is not what reloads a <c>.vxml</c>.</b> Markup becomes a different <c>Build</c> only
+///         after something has recompiled it, which is <c>dotnet watch</c>'s job — and that channel
+///         is always on, because the editor registers its <c>HotReloadHost</c> with the runtime's
+///         metadata-update handler whatever the arguments say. See
+///         <c>Editor/Vixen.Editor.Host/README.md</c> for the command.
+///     </para>
 /// </remarks>
 static class Program {
     static int Main(string[] arguments) {
@@ -77,8 +92,14 @@ static class Program {
         // Open Project were declared-and-disabled, and this is the answer: nothing is swapped.
         var command = Option(arguments, "--run");
 
+        // ⚠ Read once, outside the loop, and it survives an Open Project — unlike `--run` and the
+        // frame budget below. Those two belong to the run that was asked for; a development mode is
+        // a property of the session, and a developer who opened a second project to look at a panel
+        // has not stopped editing that panel's stylesheet.
+        var styles = Option(arguments, "--hot-reload");
+
         while (true) {
-            var host = new EditorHost(platform, window, project) { Command = command };
+            var host = new EditorHost(platform, window, project, styles) { Command = command };
 
             try {
                 var code = host.Run(frames);

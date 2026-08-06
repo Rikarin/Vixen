@@ -67,25 +67,33 @@ public sealed class HotReloadWatcher : IDisposable {
 
     /// <summary>Applies whatever has changed since the last call.</summary>
     /// <returns>One report per file reloaded.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One report per <i>file</i>, not per event.</b> That is the coalescing: however many
+    ///     times an editor touched a path between two calls, the path is in the set once and its text
+    ///     is read once — and the text that is read is the one the file finally holds, rather than
+    ///     whatever it held at each intermediate write.
+    /// </remarks>
     public IReadOnlyList<ReloadReport> Poll() {
-        string[] changed;
+        (string Path, int Sheet)[] changed;
 
+        // ⚠ Both dictionaries are read under the one lock, and the sheet index is taken here rather
+        // than in the loop below. `Load` writes `sheets` and a pool thread writes `pending`; reading
+        // either outside the gate is the same torn read whichever one happens to be racing.
         lock (gate) {
             if (pending.Count == 0) {
                 return [];
             }
 
-            changed = [.. pending];
+            changed = [
+                .. pending.Where(sheets.ContainsKey).Select(path => (Path: path, Sheet: sheets[path]))
+            ];
+
             pending.Clear();
         }
 
         var reports = new List<ReloadReport>(changed.Length);
 
-        foreach (var path in changed) {
-            if (!sheets.TryGetValue(path, out var sheet)) {
-                continue;
-            }
-
+        foreach (var (path, sheet) in changed) {
             // A file being written when we read it is the normal case, not an exception worth
             // taking the application down for — it will raise another event when it is finished.
             string css;
@@ -110,9 +118,20 @@ public sealed class HotReloadWatcher : IDisposable {
     /// <summary>Stops watching.</summary>
     public void Dispose() => watcher.Dispose();
 
-    void OnChanged(object sender, FileSystemEventArgs args) {
+    void OnChanged(object sender, FileSystemEventArgs args) => Notify(args.FullPath);
+
+    /// <summary>Records that a path changed, from wherever the notice came.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A seam, and it is what makes the coalescing testable at all.</b> The claim is that
+    ///     three events for one save become one reload, and a test that produced three events by
+    ///     writing a real file three times would be asserting on what the operating system chose to
+    ///     deliver — which on one machine is three and on the next is one, so the test passes either
+    ///     way and proves nothing. Driving the notice directly is the only way the assertion is about
+    ///     this class.
+    /// </remarks>
+    internal void Notify(string path) {
         lock (gate) {
-            pending.Add(Path.GetFullPath(args.FullPath));
+            pending.Add(Path.GetFullPath(path));
         }
     }
 }
