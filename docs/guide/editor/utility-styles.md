@@ -3,7 +3,7 @@ title: Utility styles
 slug: editor/utility-styles
 kind: guide
 area: Editor
-summary: Styling an editor panel with Tailwind-shaped class names, the one palette they resolve against, and which families the engine actually reads.
+summary: Styling an editor panel with Tailwind-shaped class names — the build step that compiles them, the one palette they resolve against, and which families the engine actually reads.
 api: [T:Vixen.Editor.Ui.EditorStyles]
 tags: [editor, styling, theming, utilities, vxml]
 since: 0.2
@@ -13,11 +13,13 @@ related: [editor/index, editor/inspectors-in-markup]
 
 ## What it is
 
-`EditorStyles` is the utility half of the editor's stylesheet. It reads the editor's design tokens
-from `Theming/vixen.ui.yaml`, scans the editor's embedded `.vxml` for every class name that could be
-a utility, and generates a VCSS sheet — inside `@layer utilities` — containing only the rules
-something in the editor actually refers to.
+`EditorStyles` is the editor's utility stylesheet, compiled at build time. `Theming/vixen.ui.yaml` is
+the design tokens; every source file and every `.vxml` in the assembly is scanned for class names; the
+sheet — inside `@layer utilities`, containing only the rules something actually refers to — is
+generated into `obj/` before the compiler runs and carried in the binary as a constant.
 
+There is no code behind it. `EditorStyles` is a name for that constant, and the machinery is
+`Core/Vixen.Ui.Styling.Utilities/build/Vixen.Ui.Styling.Utilities.targets` plus `Tools/Vixen.StyleGen`.
 `EditorTheme.Install` loads it, immediately after the hand-written sheet and at the same origin, so
 one call installs the whole stack.
 
@@ -39,14 +41,27 @@ deleting the hand-written rule first.
 
 ## Using it
 
-Write the class names in the markup. Nothing else is needed — the panel's document already has the
-sheet in it, because `EditorShell` installed it.
+Write the class names. In markup:
 
 ```vxml
 <task-line>
     <task-title class="truncate min-w-0">@task.Title</task-title>
 </task-line>
 ```
+
+…or in C#, which the build step scans as well:
+
+```csharp no-compile="a fragment against a panel's own element tree"
+row.AddClass("flex");
+row.AddClass("items-center");
+```
+
+**A class name assembled at run time is still invisible.** The scanner does not parse anything, but it
+cannot see a name that is never written down: `$"level-{severity}"` is `level-` and a variable. Such a
+name goes in the project's `@(VixenStyleSafelist)` item, or gets written out in full in a switch the
+scanner can read. The editor has four such sites today — `ThemeService`'s `dark`, `ConsoleView`'s and
+`MessageLogView`'s `level-*`, and whatever a plugin puts in `EditorCommand.ClassName` — and not one of
+them names a utility, so the safelist is empty.
 
 **One palette, not two.** Every colour in `vixen.ui.yaml` is a `var(--…)` reference to a custom
 property `EditorTheme` already declares on the root, so `bg-surface` and a hand-written
@@ -60,11 +75,6 @@ because `ThemeTokens.Radius` holds numbers and `--radius-panel` is a reference. 
 **The spacing base is 2, not Tailwind's 4.** The editor's chrome is drawn on a two-pixel rhythm — 2,
 4, 6, 8 and 10 all appear in `EditorTheme`, and a 6px gutter is the commonest — so `p-3` is six
 pixels and every measurement the sheet already uses is a whole number of steps.
-
-**A class name assembled at run time is invisible.** The scanner is deliberately over-inclusive and
-does not parse anything, but it cannot see a name that is never written down: `$"level-{severity}"`
-is `level-` and a variable. Such a name goes in `EditorStyles.Safelist`, or gets written out in full
-in a switch the scanner can read.
 
 **Which families the engine reads is not obvious, and getting it wrong is silent.** The list below is
 resolved against real elements by `UtilityFamilySupportTests`; anything in the second column emits a
@@ -91,19 +101,31 @@ about it — and note that scrolling itself is `ScrollView`, not a property.
 
 ## Examples
 
-Compiling the sheet outside a document, which is what a "show me what my theme does" button would do,
-and which is how the diagnostics are read:
+Turning the step on in another project is two lines and a file. The `.targets` arrives with the
+package; inside this repository it is imported by hand, for the same reason the VXML generator is.
 
-```csharp no-compile="reads the editor assembly's embedded markup, which needs the editor built"
-var css = EditorStyles.Compile(out var unrecognised);
+```xml
+<PropertyGroup>
+    <VixenUtilityStylesClass>MyStyles</VixenUtilityStylesClass>
+</PropertyGroup>
+
+<ItemGroup>
+    <!-- A run-time class name the scanner cannot see, and the hand-written sheets when they exist. -->
+    <VixenStyleSafelist Include="text-rare" />
+    <VixenStyleBase Include="Theme/panels.vcss" />
+</ItemGroup>
 ```
 
-`unrecognised` is not a diagnostic to log and forget. The scanner is over-inclusive, so most of what
-lands in it is prose out of a comment — but a *misspelt* utility lands in it too, and a misspelt
-utility is a style that silently does nothing, which neither the compiler nor the markup binder can
-see. `StylesheetTests` asks the narrower question instead: every class name actually written in a
-`class` attribute in the editor's markup is either a utility the theme can emit or a rule `EditorTheme`
-wrote, and anything else is a typo.
+The theme file is found rather than declared: one `**/vixen.ui.yaml` per project, and two is an error
+because two would be two palettes.
+
+⚠ **The generated sheet is not the whole story about whether a class name works.** A misspelt utility
+is a style that silently does nothing — neither the compiler nor the markup binder can see one,
+because `class` is a string and every string parses. The build step writes every candidate it did not
+recognise to `obj/…/<Assembly>.unrecognised.txt`, and with the C# scanned that file is mostly ordinary
+English out of comments, so it cannot be a warning list. `StylesheetTests` asks the narrow question
+instead: every class name actually written in a `class` attribute in the editor's markup is either a
+utility the theme can emit or a rule `EditorTheme` wrote, and anything else is a typo.
 
 ## See also
 

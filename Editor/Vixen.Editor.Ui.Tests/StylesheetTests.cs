@@ -12,11 +12,19 @@ namespace Vixen.Editor.Ui.Tests;
 
 /// <summary>The editor's utility sheet, checked against the engine rather than against its own text.</summary>
 /// <remarks>
-///     ⚠ <b>A misspelt utility is a style that silently does nothing</b>, and neither the compiler nor
-///     the markup binder can see one: <c>class</c> is a string, and every string parses. So the check
-///     has to be here, and it has to be about what the cascade computes rather than about what the
-///     generator printed — a generator emitting valid CSS the engine then read differently would pass
-///     every comparison of text.
+///     <para>
+///         ⚠ <b>A misspelt utility is a style that silently does nothing</b>, and neither the compiler
+///         nor the markup binder can see one: <c>class</c> is a string, and every string parses. So
+///         the check has to be here, and it has to be about what the cascade computes rather than
+///         about what the generator printed — a generator emitting valid CSS the engine then read
+///         differently would pass every comparison of text.
+///     </para>
+///     <para>
+///         The sheet itself arrives through <c>EditorStyles</c>, which is a name for a constant the
+///         build step wrote. Nothing in this file scans anything at run time; the two fixtures it
+///         reads are the build step's <i>inputs</i>, and they are here because the question "is every
+///         class name in the markup a real utility" is one only the inputs can answer.
+///     </para>
 /// </remarks>
 public partial class StylesheetTests {
     /// <summary>Class names in the editor's markup that are <c>EditorTheme</c>'s rather than utilities.</summary>
@@ -36,11 +44,11 @@ public partial class StylesheetTests {
             var data = new TheoryData<string>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
 
-            foreach (var markup in Markup()) {
-                foreach (Match match in ClassAttribute.Matches(markup)) {
+            foreach (var markup in Directory.EnumerateFiles(Fixtures("markup"), "*.vxml", SearchOption.AllDirectories)) {
+                foreach (Match match in ClassAttribute.Matches(File.ReadAllText(markup))) {
                     foreach (var name in match.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
                         // `@Mark(entry.Slot)` is a whole class name at run time and nothing at compile
-                        // time. Those go through EditorStyles.Safelist instead.
+                        // time. Those go through the `VixenStyleSafelist` item instead.
                         if (!name.StartsWith('@') && seen.Add(name)) {
                             data.Add(name);
                         }
@@ -54,10 +62,11 @@ public partial class StylesheetTests {
 
     /// <summary>
     ///     ⚠ <b>The one that catches a typo.</b> Asserting on <c>UtilityGenerator.Unrecognised</c>
-    ///     directly cannot work — the scanner is over-inclusive on purpose, so most of what lands
-    ///     there is prose out of a comment. What <i>can</i> be asserted is the set actually written in
-    ///     a <c>class</c> attribute: every one of those is either a utility the theme can emit or a
-    ///     rule <c>EditorTheme</c> wrote, and anything else is a style that will silently do nothing.
+    ///     directly cannot work — the scanner is over-inclusive on purpose, and now that it reads the
+    ///     C# as well, the report the build step writes is sixty kilobytes of ordinary English. What
+    ///     <i>can</i> be asserted is the set actually written in a <c>class</c> attribute: every one
+    ///     of those is either a utility the theme can emit or a rule <c>EditorTheme</c> wrote, and
+    ///     anything else is a style that will silently do nothing.
     /// </summary>
     /// <param name="name">The class name.</param>
     [Theory]
@@ -67,7 +76,7 @@ public partial class StylesheetTests {
             return;
         }
 
-        var generator = new UtilityGenerator(EditorStyles.Tokens());
+        var generator = new UtilityGenerator(Tokens());
 
         generator.Generate([name]);
 
@@ -79,9 +88,9 @@ public partial class StylesheetTests {
 
     /// <summary>
     ///     ⚠ <b>The gate above, sabotaged.</b> A test that only ever sees correct input cannot say
-    ///     whether it would notice wrong input, and this is the wrong input: four class names that a
-    ///     reviewer's eye slides straight over. Every one of them has to reach
-    ///     <c>Unrecognised</c>, because that is the only place a misspelt utility ever shows up.
+    ///     whether it would notice wrong input, and this is the wrong input: five class names a
+    ///     reviewer's eye slides straight over. Every one has to reach <c>Unrecognised</c>, because
+    ///     that is the only place a misspelt utility ever shows up.
     /// </summary>
     /// <param name="misspelt">The class name somebody nearly got right.</param>
     [Theory]
@@ -91,7 +100,7 @@ public partial class StylesheetTests {
     [InlineData("min-width-0")]
     [InlineData("bg-surfaces")]
     public void A_misspelt_utility_lands_in_unrecognised(string misspelt) {
-        var generator = new UtilityGenerator(EditorStyles.Tokens());
+        var generator = new UtilityGenerator(Tokens());
 
         generator.Generate([misspelt]);
 
@@ -109,7 +118,7 @@ public partial class StylesheetTests {
     /// </remarks>
     [Fact]
     public void The_tokens_are_the_editors_own_and_not_a_copy_of_them() {
-        var tokens = EditorStyles.Tokens();
+        var tokens = Tokens();
 
         Assert.Empty(tokens.Diagnostics);
         Assert.NotEmpty(tokens.Colors);
@@ -124,11 +133,23 @@ public partial class StylesheetTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ <b>The cheapest possible check that the build step ran at all, and it earns its place.</b>
+    ///     A project whose <c>.targets</c> import went missing compiles perfectly and produces a sheet
+    ///     with nothing in it — every utility in every panel then quietly does nothing, and no test
+    ///     that asserts about a specific rule can tell that case from a rule that was renamed.
+    /// </summary>
+    [Fact]
+    public void The_build_step_produced_a_sheet() {
+        Assert.Contains("@layer utilities", EditorStyles.Utilities, StringComparison.Ordinal);
+        Assert.True(EditorStyles.RuleCount > 0, "the generated sheet has no rules in it at all");
+    }
+
     /// <summary>A utility written in the editor's markup reaches the element the markup put it on.</summary>
     /// <remarks>
     ///     End to end, and every link in it is real: the class name is in <c>TaskCenter.vxml</c>, the
-    ///     scanner found it in the embedded copy, the generator emitted a rule for it, and
-    ///     <c>EditorTheme.Install</c> loaded that rule into the document the panel was built into.
+    ///     build step scanned it, the generator emitted a rule for it, the compiler put the rule in
+    ///     this assembly as a constant, and <c>EditorTheme.Install</c> loaded it into the document.
     ///     Nothing here is a fixture.
     /// </remarks>
     [Fact]
@@ -227,25 +248,6 @@ public partial class StylesheetTests {
         Assert.Equal("44px", ui.StyleOf(title, "min-width"));
     }
 
-    /// <summary>The scan sees the markup at all, which every test above quietly depends on.</summary>
-    [Fact]
-    public void The_markup_is_embedded_and_scanned() {
-        Assert.NotEmpty(EditorStyles.Markup());
-        Assert.Contains("truncate", EditorStyles.Candidates());
-        Assert.Contains("min-w-0", EditorStyles.Candidates());
-        Assert.Contains("@layer utilities", EditorStyles.Utilities, StringComparison.Ordinal);
-    }
-
-    /// <summary>Everything in the safelist is a real utility, or the safelist is protecting a typo.</summary>
-    [Fact]
-    public void The_safelist_is_all_utilities() {
-        var generator = new UtilityGenerator(EditorStyles.Tokens());
-
-        generator.Generate(EditorStyles.Safelist);
-
-        Assert.Empty(generator.Unrecognised);
-    }
-
     /// <summary>An editor document with the whole sheet stack in it, as <c>EditorShell</c> builds one.</summary>
     static UiTest Editor() {
         var ui = UiTest.Create();
@@ -255,6 +257,11 @@ public partial class StylesheetTests {
         return ui;
     }
 
+    /// <summary>The same tokens the build step read, from the copy beside the test assembly.</summary>
+    static ThemeTokens Tokens() => ThemeTokens.Parse(File.ReadAllText(Fixtures("vixen.ui.yaml")));
+
+    static string Fixtures(string name) => Path.Combine(AppContext.BaseDirectory, "__fixtures__", name);
+
     /// <summary>The same sheet with its layer taken away, for the sabotage test.</summary>
     /// <remarks>
     ///     <c>@media all</c> rather than deleting the wrapper, because the braces have to stay
@@ -263,15 +270,4 @@ public partial class StylesheetTests {
     /// </remarks>
     static string Unlayered(string css) =>
         css.Replace("@layer utilities {", "@media all {", StringComparison.Ordinal);
-
-    static IEnumerable<string> Markup() {
-        var assembly = typeof(EditorStyles).Assembly;
-
-        foreach (var name in EditorStyles.Markup()) {
-            using var stream = assembly.GetManifestResourceStream(name)!;
-            using var reader = new StreamReader(stream);
-
-            yield return reader.ReadToEnd();
-        }
-    }
 }

@@ -273,13 +273,16 @@ public class UtilityFamilySupportTests {
     ///     still the editor's, which is what makes <c>bg-surface</c> here the same declaration the
     ///     hand-written sheet writes.
     /// </remarks>
+    static ThemeTokens Tokens() =>
+        ThemeTokens.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "__fixtures__", "vixen.ui.yaml")));
+
     static UiTest Sheet(params string[] utilities) {
         var ui = UiTest.Create();
 
         // The token block only, so the `var(--…)` colours resolve without the hand-written rules
         // being present to win against — those have their own tests in `StylesheetTests`.
         ui.Document.Load(EditorTheme.Css, StyleOrigin.UserAgent);
-        ui.Document.Load(new UtilityGenerator(EditorStyles.Tokens()).Generate(utilities), StyleOrigin.UserAgent);
+        ui.Document.Load(new UtilityGenerator(Tokens()).Generate(utilities), StyleOrigin.UserAgent);
 
         return ui;
     }

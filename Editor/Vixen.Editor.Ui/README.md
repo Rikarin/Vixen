@@ -218,10 +218,18 @@ obvious in the first screenshot.
 
 ### Utility classes
 
-`EditorStyles` is the other half of the sheet: `Theming/vixen.ui.yaml` is the design tokens, the
-embedded `.vxml` is scanned for every class name that could be a utility, and what comes out is a
-generated sheet in `@layer utilities` with only the rules something refers to. `EditorTheme.Install`
-loads it immediately after the hand-written sheet, so one call still installs everything.
+`EditorStyles` is the other half of the sheet, and there is no code behind it.
+`Theming/vixen.ui.yaml` is the design tokens; every source file and every `.vxml` in this assembly is
+scanned for class names at **build time** by `Vixen.Ui.Styling.Utilities.targets`; the sheet — inside
+`@layer utilities`, with only the rules something refers to — is compiled into `obj/` before the
+compiler runs and carried in the binary as a constant. `EditorTheme.Install` loads it immediately
+after the hand-written sheet, so one call still installs everything.
+
+That is a build step and not a startup scan, and the difference is not only start-up time.
+`Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs` is what this looked like before it — a hundred and thirty
+lines that embed the markup as resources, walk the manifest and run the scanner — and it could only
+ever see *markup*. Most of this assembly's chrome is built in C# with `AddClass("…")`, so every
+utility a code-built panel asked for was silently missing. The step scans `@(Compile)` too.
 
 **The yaml declares no colours of its own.** Every one is a `var(--…)` reference to a token
 `EditorTheme` already puts on the root — so `bg-surface` and `background: var(--surface)` are the
@@ -248,9 +256,15 @@ nothing, so they compute cleanly and do nothing. `UtilityFamilySupportTests` is 
 against real elements, and [the guide page](../../docs/guide/editor/utility-styles.md) has it as a
 table.
 
-⚠ **The scan is a startup cost standing in for a build step**, which the utility system's README
-lists as waiting on the asset pipeline. It only sees `.vxml`, so the chrome still built in C# with
-`AddClass("…")` is invisible to it — a panel that wants utilities should be written in markup.
+⚠ **A class name assembled at run time is still invisible to the scan**, because it is never written
+down whole. There are four such sites here — `ThemeService`'s `dark`, `ConsoleView`'s and
+`MessageLogView`'s `level-*`, and whatever a plugin puts in `EditorCommand.ClassName` — and none of
+them names a utility, so `@(VixenStyleSafelist)` is empty. A future one that does has to go in it.
+
+⚠ **The three theme sheets are still C# string constants**, so the step is given no `--base` files
+and `EditorStyles.Utilities` is the whole of what it produces. When they become `.vcss` the project
+adds `<VixenStyleBase Include="…" />` and the same step emits them ahead of the layer, `@apply`
+expanded — an item change rather than a redesign.
 
 ## The console
 
