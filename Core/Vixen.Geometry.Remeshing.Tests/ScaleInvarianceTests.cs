@@ -168,7 +168,13 @@ public class ScaleInvarianceTests {
     /// <param name="settings">What conditioning may do.</param>
     /// <param name="strength">How much has to agree. See <see cref="Agreement" />.</param>
     /// <param name="rate">The fraction the counts may differ by, for <see cref="Agreement.Rate" />.</param>
-    static void Compare(
+    /// <remarks>
+    ///     ⚠ <b>Internal so that <see cref="ConditioningPropertyTests" /> asserts exactly this and not
+    ///     a second opinion about it.</b> Which of the three strengths applies where is measured rather
+    ///     than assumed — see <see cref="Agreement" /> — and a property test that restated the
+    ///     comparison in its own words would be free to restate it more weakly without anybody noticing.
+    /// </remarks>
+    internal static void Compare(
         string name,
         EditMesh mesh,
         ConditioningSettings settings,

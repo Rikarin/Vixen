@@ -26,6 +26,18 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            ⚠ Compiled into both geometry test assemblies rather than referenced from one, which is
+            why its namespace is `Vixen.Geometry.Testing` and matches neither. It watches the case
+            that is running now — the half of "never an exception or a hang" that no assertion after
+            the call can reach — and both docs/plan/41 and docs/plan/42 end their robustness criteria
+            in those words. `Core/Vixen.Video.Codecs.Tests` links `Vixen.Video.Tests`' builders the
+            same way. See the file's own remarks for why this is not `Vixen.Fuzz`'s `CaseGuard`.
+        -->
+        <Compile Include="..\Vixen.Geometry.Uv.Tests\Shared\RunawayGuard.cs" Link="Shared\RunawayGuard.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Geometry.Remeshing\Vixen.Geometry.Remeshing.csproj" />
     </ItemGroup>
 </Project>
