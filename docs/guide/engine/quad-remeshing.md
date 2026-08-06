@@ -8,7 +8,7 @@ api: [T:Vixen.Geometry.Remeshing.Remesher, T:Vixen.Geometry.Remeshing.RemeshSett
 tags: [geometry, remesh, retopology, quad, mesh, blockout]
 since: 0.1
 status: preview
-related: [engine/edit-meshes, engine/mesh-operations, engine/uv-packing]
+related: [engine/edit-meshes, engine/mesh-operations, engine/uv-packing, engine/remesh-debug-dumps]
 ---
 
 ## What it is

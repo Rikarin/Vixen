@@ -262,8 +262,18 @@ static class ShapeCorpus {
 
     /// <summary>Two bulges joined by a narrow waist — closed, and the case the concavity term is for.</summary>
     /// <param name="scale">A uniform scale on every position.</param>
+    /// <param name="sides">How many positions go round the lathe.</param>
+    /// <param name="steps">How many stations run along it.</param>
     /// <returns>The mesh, which is a closed surface of genus zero.</returns>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The resolution is a parameter because a determinism sweep pays for it linearly and
+    ///         gains nothing from it.</b> Ten runs at each of twelve configurations is a hundred and
+    ///         twenty unwraps, and what they need from the fixture is that it charts into several
+    ///         islands and splits across sixteen workers — not that it is finely tessellated. The
+    ///         defaults are the shape every other test in this corpus was written against and are
+    ///         unchanged.
+    ///     </para>
     ///     <para>
     ///         ⚠ <b>The shape the charting phase is actually judged on.</b> Every other closed shape in
     ///         this corpus is convex or nearly so, and a convex surface has no <i>right</i> place to cut
@@ -278,10 +288,8 @@ static class ShapeCorpus {
     ///         reads it as darker and one that is not reads the whole thing as uniformly exposed.
     ///     </para>
     /// </remarks>
-    public static EditMesh Dumbbell(float scale = 1f) {
+    public static EditMesh Dumbbell(float scale = 1f, int sides = 32, int steps = 40) {
         var mesh = new EditMesh();
-        const int Around = 32;
-        const int Stations = 40;
 
         // A lathe whose radius has two bulges and a waist: sin θ opens and closes the poles, and the
         // cos²θ factor is what pinches the middle. ⚠ The 0.10 is the waist radius against a bulge of
@@ -298,12 +306,12 @@ static class ShapeCorpus {
 
         var south = mesh.AddPosition(scale * Point(0f, 0f));
         var north = mesh.AddPosition(scale * Point(1f, 0f));
-        var ring = new int[Stations - 1, Around];
+        var ring = new int[steps - 1, sides];
 
-        for (var station = 1; station < Stations; station++) {
-            for (var around = 0; around < Around; around++) {
+        for (var station = 1; station < steps; station++) {
+            for (var around = 0; around < sides; around++) {
                 ring[station - 1, around] = mesh.AddPosition(
-                    scale * Point((float)station / Stations, (float)around / Around)
+                    scale * Point((float)station / steps, (float)around / sides)
                 );
             }
         }
@@ -311,8 +319,8 @@ static class ShapeCorpus {
         Span<int> triangle = stackalloc int[3];
         Span<int> quad = stackalloc int[4];
 
-        for (var around = 0; around < Around; around++) {
-            var next = (around + 1) % Around;
+        for (var around = 0; around < sides; around++) {
+            var next = (around + 1) % sides;
 
             triangle[0] = south;
             triangle[1] = ring[0, next];
@@ -320,14 +328,14 @@ static class ShapeCorpus {
             mesh.AddFace(triangle);
 
             triangle[0] = north;
-            triangle[1] = ring[Stations - 2, around];
-            triangle[2] = ring[Stations - 2, next];
+            triangle[1] = ring[steps - 2, around];
+            triangle[2] = ring[steps - 2, next];
             mesh.AddFace(triangle);
         }
 
-        for (var station = 0; station + 1 < Stations - 1; station++) {
-            for (var around = 0; around < Around; around++) {
-                var next = (around + 1) % Around;
+        for (var station = 0; station + 1 < steps - 1; station++) {
+            for (var around = 0; around < sides; around++) {
+                var next = (around + 1) % sides;
 
                 quad[0] = ring[station, around];
                 quad[1] = ring[station, next];
