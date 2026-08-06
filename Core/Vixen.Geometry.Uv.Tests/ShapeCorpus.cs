@@ -260,6 +260,114 @@ static class ShapeCorpus {
             }
         );
 
+    /// <summary>Two bulges joined by a narrow waist — closed, and the case the concavity term is for.</summary>
+    /// <param name="scale">A uniform scale on every position.</param>
+    /// <returns>The mesh, which is a closed surface of genus zero.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The shape the charting phase is actually judged on.</b> Every other closed shape in
+    ///         this corpus is convex or nearly so, and a convex surface has no <i>right</i> place to cut
+    ///         — any seam is as good as any other, so a decomposition weighted by concavity has nothing
+    ///         to find and the test cannot fail. Here there is exactly one answer a person would give,
+    ///         the waist, and docs/plan/42 § D3's approximate convex decomposition either finds it or
+    ///         does not.
+    ///     </para>
+    ///     <para>
+    ///         It is also the shape the occlusion term can see: the waist is the only part of the surface
+    ///         that other parts of the surface are in front of, so a visibility estimate that is wired up
+    ///         reads it as darker and one that is not reads the whole thing as uniformly exposed.
+    ///     </para>
+    /// </remarks>
+    public static EditMesh Dumbbell(float scale = 1f) {
+        var mesh = new EditMesh();
+        const int Around = 32;
+        const int Stations = 40;
+
+        // A lathe whose radius has two bulges and a waist: sin θ opens and closes the poles, and the
+        // cos²θ factor is what pinches the middle. ⚠ The 0.10 is the waist radius against a bulge of
+        // about 0.40, and it has to be that severe to be a fixture: a shallow pinch has a per-edge
+        // dihedral of a couple of degrees, which is indistinguishable from the tessellation of any
+        // smooth surface, so a concavity term would have nothing to find and the test could not fail.
+        static Vector3 Point(float along, float around) {
+            var theta = along * MathF.PI;
+            var phi = around * MathF.Tau;
+            var radius = MathF.Sin(theta) * (0.10f + (0.90f * MathF.Cos(theta) * MathF.Cos(theta)));
+
+            return new(-MathF.Cos(theta), radius * MathF.Cos(phi), radius * MathF.Sin(phi));
+        }
+
+        var south = mesh.AddPosition(scale * Point(0f, 0f));
+        var north = mesh.AddPosition(scale * Point(1f, 0f));
+        var ring = new int[Stations - 1, Around];
+
+        for (var station = 1; station < Stations; station++) {
+            for (var around = 0; around < Around; around++) {
+                ring[station - 1, around] = mesh.AddPosition(
+                    scale * Point((float)station / Stations, (float)around / Around)
+                );
+            }
+        }
+
+        Span<int> triangle = stackalloc int[3];
+        Span<int> quad = stackalloc int[4];
+
+        for (var around = 0; around < Around; around++) {
+            var next = (around + 1) % Around;
+
+            triangle[0] = south;
+            triangle[1] = ring[0, next];
+            triangle[2] = ring[0, around];
+            mesh.AddFace(triangle);
+
+            triangle[0] = north;
+            triangle[1] = ring[Stations - 2, around];
+            triangle[2] = ring[Stations - 2, next];
+            mesh.AddFace(triangle);
+        }
+
+        for (var station = 0; station + 1 < Stations - 1; station++) {
+            for (var around = 0; around < Around; around++) {
+                var next = (around + 1) % Around;
+
+                quad[0] = ring[station, around];
+                quad[1] = ring[station, next];
+                quad[2] = ring[station + 1, next];
+                quad[3] = ring[station + 1, around];
+
+                mesh.AddFace(quad);
+            }
+        }
+
+        return mesh;
+    }
+
+    /// <summary>A flat plate whose faces carry two different groups, split down the middle.</summary>
+    /// <param name="scale">A uniform scale on every position.</param>
+    /// <returns>The mesh, which is one disk carrying two groups.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Flat on purpose, so that nothing but the group boundary can justify a cut.</b> A plate
+    ///     is isometric, so the distortion recursion has no reason to split it and the merge-back pass
+    ///     has every reason to put it back together — which makes the chart count a clean statement about
+    ///     whether docs/plan/42 § D3's <i>"material and face-group boundaries partition first and
+    ///     unconditionally"</i> is actually unconditional.
+    /// </remarks>
+    public static EditMesh GroupedPlate(float scale = 1f) {
+        var mesh = Grid(12, 8, false, false, (u, v) => scale * new Vector3((u * 2f) - 1f, 0f, (v * 2f) - 1f));
+
+        for (var face = 0; face < mesh.FaceCount; face++) {
+            var loop = mesh.CornersOf(face);
+            var middle = 0f;
+
+            foreach (var corner in loop) {
+                middle += mesh.Positions[corner].X;
+            }
+
+            mesh.SetGroup(face, middle < 0f ? 3 : 7);
+        }
+
+        return mesh;
+    }
+
     /// <summary>Two triangles meeting at exactly one position — a disk by Euler characteristic and not one.</summary>
     /// <returns>The mesh.</returns>
     public static EditMesh Bowtie() {

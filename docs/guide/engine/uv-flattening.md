@@ -8,7 +8,7 @@ api: [T:Vixen.Geometry.Uv.UvUnwrap, T:Vixen.Geometry.Uv.UvSettings, T:Vixen.Geom
 tags: [geometry, uv, unwrap, flatten, lscm, arap, distortion]
 since: 0.1
 status: preview
-related: [engine/uv-packing, engine/edit-meshes]
+related: [engine/uv-charting, engine/uv-packing, engine/edit-meshes]
 ---
 
 ## What it is

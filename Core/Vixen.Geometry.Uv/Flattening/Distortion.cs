@@ -183,13 +183,32 @@ static class Distortion {
     /// <param name="charts">What every chart measured.</param>
     /// <returns>The four measures over the union, and the total flip count.</returns>
     /// <remarks>
-    ///     ⚠ <b>Area-weighted rather than averaged over charts.</b> A mesh whose forty-first chart is
-    ///     one triangle would otherwise let that triangle carry a fortieth of the headline number, and
-    ///     a charter that fragments would look like a flattener that improved.
+    ///     <para>
+    ///         ⚠ <b>Area-weighted rather than averaged over charts.</b> A mesh whose forty-first chart is
+    ///         one triangle would otherwise let that triangle carry a fortieth of the headline number,
+    ///         and a charter that fragments would look like a flattener that improved.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every chart is normalized by <i>its own</i> gauge before it is weighted in, and
+    ///         doing it once globally is a defect U3 found the hard way.</b> A stretch is a ratio of
+    ///         surface length to parameter length, so it carries the map's scale until it is divided by
+    ///         that map's average — and <b>each chart has its own</b>, because LSCM fixes a chart's
+    ///         scale from the distance between two pinned vertices and two charts of one mesh are pinned
+    ///         independently. Measured on this repository's dumbbell: six charts each measuring between
+    ///         1.002 and 1.018 on their own, one of which came out at 0.165 of the others' scale,
+    ///         combined to <b>2.245</b> under a single global gauge — a number no chart had, above a
+    ///         threshold every chart passed. The sum below is therefore <c>Σᵢ stretchᵢ · normalᵢ²</c>
+    ///         rather than <c>(Σᵢ stretchᵢ) · normal²</c>, which is the same thing exactly when every
+    ///         chart shares a scale and is why a corpus of uniform strips never showed it.
+    ///     </para>
+    ///     <para>
+    ///         The angular and area measures need no such correction: the first is a ratio of two
+    ///         singular values and the second is already divided by its own chart's average ratio, so
+    ///         both are scale-free before they arrive.
+    ///     </para>
     /// </remarks>
     public static UvDistortion Combine(IReadOnlyList<Measured> charts) {
         var surface = 0d;
-        var parameter = 0d;
         var measurable = 0d;
         var angular = 0d;
         var area = 0d;
@@ -199,26 +218,28 @@ static class Distortion {
 
         foreach (var chart in charts) {
             surface += chart.SurfaceArea;
-            parameter += chart.ParameterArea;
             measurable += chart.MeasurableArea;
             angular += chart.AngularSum;
             area += chart.AreaSum;
-            stretch += chart.StretchSum;
-            worst = Math.Max(worst, chart.WorstStretch);
             flipped += chart.Distortion.Flipped;
+
+            var gauge = chart.SurfaceArea > 0d && chart.ParameterArea > 0d
+                ? chart.ParameterArea / chart.SurfaceArea
+                : 0d;
+
+            stretch += chart.StretchSum * gauge;
+            worst = Math.Max(worst, chart.WorstStretch * Math.Sqrt(gauge));
         }
 
         if (!(surface > 0d)) {
             return new(0f, 0f, 0f, 0f, flipped);
         }
 
-        var normal = Math.Sqrt(parameter / surface);
-
         return new(
             (float)(measurable > 0d ? angular / measurable : 0d),
             (float)(area / surface),
-            (float)(measurable > 0d ? Math.Sqrt(stretch / measurable) * normal : 0d),
-            (float)(worst * normal),
+            (float)(measurable > 0d ? Math.Sqrt(stretch / measurable) : 0d),
+            (float)worst,
             flipped
         );
     }

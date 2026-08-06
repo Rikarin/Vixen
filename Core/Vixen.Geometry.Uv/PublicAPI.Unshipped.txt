@@ -1,4 +1,6 @@
 #nullable enable
+Vixen.Geometry.Uv.IChartDecomposition -> interface
+Vixen.Geometry.Uv.IChartDecomposition.Decompose(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyList<int> faces, int parts) -> System.Collections.Generic.IReadOnlyList<int>?
 Vixen.Geometry.Uv.PackOverflow -> enum : byte
 Vixen.Geometry.Uv.PackOverflow.NextTile = 1 -> Vixen.Geometry.Uv.PackOverflow
 Vixen.Geometry.Uv.PackOverflow.PackOverflow() -> void
@@ -117,6 +119,8 @@ Vixen.Geometry.Uv.UvReport.Warnings.get -> System.Collections.Generic.IReadOnlyL
 Vixen.Geometry.Uv.UvReport.Warnings.init -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Geometry.Uv.UvSettings -> sealed record
 Vixen.Geometry.Uv.UvSettings : System.IEquatable<Vixen.Geometry.Uv.UvSettings>
+Vixen.Geometry.Uv.UvSettings.Decomposition.get -> Vixen.Geometry.Uv.IChartDecomposition?
+Vixen.Geometry.Uv.UvSettings.Decomposition.init -> Vixen.Geometry.Uv.IChartDecomposition?
 Vixen.Geometry.Uv.UvSettings.DistortionThreshold.get -> float
 Vixen.Geometry.Uv.UvSettings.DistortionThreshold.init -> float
 Vixen.Geometry.Uv.UvSettings.FeatureAngle.get -> float
@@ -162,6 +166,11 @@ Vixen.Geometry.Uv.UvTexelDensity.Variance.init -> float
 Vixen.Geometry.Uv.UvUnwrap -> static class
 required Vixen.Geometry.Uv.PackSettings.Resolution.get -> int
 required Vixen.Geometry.Uv.PackSettings.Resolution.init -> int
+static Vixen.Geometry.Uv.UvUnwrap.All(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.Uv.UvSettings settings, Vixen.Geometry.Uv.PackSettings packing, Vixen.Core.Threading.JobScheduler? scheduler, out System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> uvs) -> Vixen.Geometry.Uv.UvReport
+static Vixen.Geometry.Uv.UvUnwrap.All(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.Uv.UvSettings settings, Vixen.Geometry.Uv.PackSettings packing, out System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> uvs) -> Vixen.Geometry.Uv.UvReport
+static Vixen.Geometry.Uv.UvUnwrap.Charts(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.Uv.UvSettings settings) -> System.Collections.Generic.IReadOnlyList<int>
+static Vixen.Geometry.Uv.UvUnwrap.Charts(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.Uv.UvSettings settings, Vixen.Core.Threading.JobScheduler? scheduler, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<int>
+static Vixen.Geometry.Uv.UvUnwrap.Charts(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.Uv.UvSettings settings, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.Uv.UvUnwrap.Flatten(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyList<int> chartOfFace, Vixen.Geometry.Uv.UvSettings settings) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland>
 static Vixen.Geometry.Uv.UvUnwrap.Flatten(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyList<int> chartOfFace, Vixen.Geometry.Uv.UvSettings settings, Vixen.Core.Threading.JobScheduler? scheduler, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland>
 static Vixen.Geometry.Uv.UvUnwrap.Flatten(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyList<int> chartOfFace, Vixen.Geometry.Uv.UvSettings settings, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland>

@@ -8,8 +8,14 @@ var charts = UvUnwrap.Charts(mesh, settings);              // where do we cut?
 var islands = UvUnwrap.Flatten(mesh, charts, settings);    // how does a chart become flat?
 var placed = UvUnwrap.Pack(islands, new() { Resolution = 2048, Margin = 4 });   // where does each sit?
 
-var report = UvUnwrap.All(mesh, settings, out var uvs);    // and the common case
+// And the common case, which is the importer's.
+var report = UvUnwrap.All(mesh, settings, new() { Resolution = 2048, Margin = 4 }, out var uvs);
 ```
+
+⚠ **`All` takes the packer's settings too, and that is not boilerplate.** `PackSettings.Resolution`
+is required because the margin is counted in texels, and a fused verb that supplied a default
+resolution would be picking the one number § B4 says is the most commonly wrong thing in a packing
+implementation.
 
 ## Three problems, and conflating them is the first mistake
 
@@ -40,6 +46,51 @@ The recursion splits only what fails `DistortionThreshold`, and a merge-back pas
 charts together again wherever their union still passes. Growing regions until a stretch bound trips,
 with nothing that ever puts two back together, is exactly why the established tools fragment — fifty
 charts where a dozen would do.
+
+Measured on the eleven-shape corpus, at the default threshold of 1.15:
+
+| | charts | L² | L^∞ | angular | area |
+|---|---|---|---|---|---|
+| the recursion alone | 3.64 | | | | |
+| **and the merge-back pass** | **3.09** | **1.0059** | 1.3736 | 1.0509 | 1.0587 |
+
+⚠ **The merge pass's 15 % is not spread evenly, and where it lands is the interesting part.** Nine of
+the eleven shapes already chart to three or fewer and it does nothing at all to them; the whole of the
+gain is on the two that fragment — a closed torus goes 14 charts to 11, a dumbbell 9 to 6. Doc 42
+§ D3 calls step 4 "the cheap half of the fix" and step 3's top-down direction "the expensive half",
+and that is exactly the shape of it: the recursion is what produces 3.64 rather than fifty, and the
+merge pass cleans up after the cases where a threshold tripped repeatedly.
+
+⚠ **These do not line up against the published figures and it would be dishonest to pretend
+otherwise.** MeshTailor's 10.4 charts, xatlas's 51.6 and Blender's 74.3 are averages over
+GarmentCodeData — large, nearly developable garment surfaces — and this is eleven primitives chosen
+so each one fails a different way. The levels are not comparable; xatlas cannot be run here; and
+doc 42 § Part 6 says only that a τ-driven recursion with a merge-back pass "should land far below
+xatlas and above MeshTailor". What is measurable in this repository is that it does not fragment.
+
+## A seam is a walk on the mesh's own edges
+
+Every cut is a set of **existing edges**, found by search on the dual graph under `SeamCost`'s seven
+terms — concavity, occlusion, feature alignment, material boundary, symmetry, length, and any seam
+that was already there. Nothing is placed in space and snapped afterwards, so there is no snapping
+stage and there are no snapping artefacts. ⚠ **`Length` is the term the other six are traded
+against**, and it is paid for where whole candidate cuts are compared rather than per edge, because
+"short" is a property of a path.
+
+⚠ **The growth metric steps between face centroids and not across the shared edge's length.** An
+edge's length is a *cut capacity* and a traversal metric wants a *distance*, and on a surface of
+revolution the two are close to opposite — a narrow waist has short circumferential edges, so
+crossing it looks cheap under edge length while being the longest way round under any real geodesic.
+Measured before the fix: the dumbbell was cut lengthwise down the model instead of round its waist.
+
+⚠ **Occlusion rays are cast at a rescaled copy of the mesh, and that is a workaround rather than a
+modelling choice.** `TriangleTree.Raycast` rejects a triangle whose Möller–Trumbore determinant falls
+under an absolute `MathUtil.ZeroTolerance`, and that determinant scales as the **square** of the
+model — so at a thousandth scale every ray silently missed, the visibility term read zero, and the
+charter cut somewhere else. Five of nine shapes charted differently at 1/1024 before `SeamGraph`
+normalized the geometry it casts at. The fix belongs in `TriangleTree`, whose test should be relative
+to the triangle's own scale; that assembly is owned elsewhere. This is the third time `ZeroTolerance`
+has met a cross product in this repository.
 
 ## Coordinates are per corner
 
@@ -114,6 +165,16 @@ the inside.
 | saddle | 1.1631 | 1.1544 | 1.0222 | 1.4682 |
 | cylinder, slit | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
 | flat 40:1 strip | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+
+⚠ **A whole-mesh figure normalizes each chart by its own gauge, and doing it once globally was a
+defect the charter found.** A stretch is a ratio of surface length to parameter length, so it carries
+the map's scale until it is divided by that map's average — and **each chart has its own**, because
+LSCM fixes a chart's scale from the distance between two pinned vertices and two charts are pinned
+independently. Measured on the dumbbell: six charts each between 1.002 and 1.018 on their own, one of
+which came out at 0.165 of the others' scale, **combined to 2.245** — a number no chart had, above a
+threshold every chart passed. `Distortion.Combine` now sums `Σᵢ stretchᵢ · gaugeᵢ`, which is the same
+thing exactly when every chart shares a scale, and is why a corpus of uniform strips never showed it.
+The single-chart figures in the table above are unchanged: with one chart the two forms are identical.
 
 ⚠ **A chart that is not a disk is refused before any solve runs.** An annulus, a handle, a chart in
 two pieces and a bowtie all have *no* injective map to the plane, so producing coordinates for one

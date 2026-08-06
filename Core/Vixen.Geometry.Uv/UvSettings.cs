@@ -61,6 +61,17 @@ public sealed record UvSettings {
     /// <summary>What a seam costs to run somewhere.</summary>
     public SeamCost SeamCost { get; init; } = new();
 
+    /// <summary>How a region that failed its bound is broken up, or <c>null</c> for the built-in one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The default path never calls one, and that is deliberate.</b> docs/plan/42 § D3 keeps
+    ///     PartUV's recursion and replaces its learned top with a classical concavity-driven split, so
+    ///     leaving this null selects an approximate convex decomposition over the dual graph that owes
+    ///     nobody anything. The hook exists so that a learned part field can be dropped in behind it
+    ///     under § D14's rules — <i>it proposes and never decides</i>, because whatever it returns is
+    ///     still flattened, still measured, and still has to pass <see cref="DistortionThreshold" />.
+    /// </remarks>
+    public IChartDecomposition? Decomposition { get; init; }
+
     /// <summary>The angle, in degrees, above which a shared edge counts as a hard feature.</summary>
     public float FeatureAngle { get; init; } = 40f;
 
