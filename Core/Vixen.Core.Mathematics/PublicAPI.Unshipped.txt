@@ -352,10 +352,25 @@ Vixen.Core.Mathematics.SplinePoint.TangentIn.get -> Vixen.Core.Mathematics.Vecto
 Vixen.Core.Mathematics.SplinePoint.TangentIn.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Core.Mathematics.SplinePoint.TangentOut.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Core.Mathematics.SplinePoint.TangentOut.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.TriangleHit -> readonly struct
+Vixen.Core.Mathematics.TriangleHit : System.IEquatable<Vixen.Core.Mathematics.TriangleHit>
+Vixen.Core.Mathematics.TriangleHit.Backface.get -> bool
+Vixen.Core.Mathematics.TriangleHit.Backface.init -> bool
+Vixen.Core.Mathematics.TriangleHit.Barycentric.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.TriangleHit.Barycentric.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.TriangleHit.Distance.get -> float
+Vixen.Core.Mathematics.TriangleHit.Distance.init -> float
+Vixen.Core.Mathematics.TriangleHit.Point.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.TriangleHit.Point.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.TriangleHit.Triangle.get -> int
+Vixen.Core.Mathematics.TriangleHit.Triangle.init -> int
+Vixen.Core.Mathematics.TriangleHit.TriangleHit() -> void
+Vixen.Core.Mathematics.TriangleHit.TriangleHit(int Triangle, Vixen.Core.Mathematics.Vector3 Point, float Distance, Vixen.Core.Mathematics.Vector3 Barycentric, bool Backface) -> void
 Vixen.Core.Mathematics.TriangleTree -> sealed class
 Vixen.Core.Mathematics.TriangleTree.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Core.Mathematics.TriangleTree.Closest(Vixen.Core.Mathematics.Vector3 point) -> Vixen.Core.Mathematics.ClosestTriangle
 Vixen.Core.Mathematics.TriangleTree.DistanceSquared(Vixen.Core.Mathematics.Vector3 point) -> float
+Vixen.Core.Mathematics.TriangleTree.Raycast(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.TriangleHit
 Vixen.Core.Mathematics.TriangleTree.Raycast(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, out bool backface) -> bool
 Vixen.Core.Mathematics.TriangleTree.TriangleCount.get -> int
 Vixen.Core.Mathematics.TriangleTree.TriangleTree(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices) -> void

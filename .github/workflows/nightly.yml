@@ -38,6 +38,10 @@ on:
         description: 'VIXEN_FUZZ_SKIP — targets to leave out of this run, comma separated'
         required: false
         default: ''
+      iterations:
+        description: 'VIXEN_PROPERTY_ITER — multiplier for the property leg (blank: the per-suite defaults)'
+        required: false
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}
@@ -187,6 +191,95 @@ jobs:
         with:
           name: fuzz-results-${{ matrix.target.name }}
           path: Core/Vixen.Fuzz.Tests/TestResults/
+          if-no-files-found: ignore
+
+  # ── The properties nobody has time for on a push ─────────────────────────────────────────────────
+  #
+  # docs/plan/41's robustness criterion and docs/plan/42's exit criteria are statements about every
+  # broken mesh and every set of islands, not about the corpora somebody assembled — so they are
+  # written as CsCheck properties over generators. The gate runs each of those a hundred-odd times,
+  # which is a regression test. This is the search.
+  #
+  # ⚠ THE MULTIPLIER IS NOT CsCheck_Iter, AND THE DIFFERENCE IS WHY THIS LEG NEEDED A HELPER. That
+  # variable sets the *default* iteration count, and every property in these two suites passes iter:
+  # explicitly — a number chosen so one slow property does not dominate a build. An explicit argument
+  # wins, so CsCheck_Iter would be read here and silently do nothing, which is worse than not
+  # offering it. PropertyBudget.Iterations multiplies what each property already asked for and keeps
+  # their relative weights; VIXEN_PROPERTY_ITER is what this leg raises.
+  #
+  # ⚠ The seed is deliberately not pinned. CsCheck draws a fresh one per run, so this walks somewhere
+  # new every night rather than further down one path — which is how a one-in-twenty flake in the
+  # least-squares solver was found in the first place. The cost is that a failure here is not
+  # reproducible from the workflow alone; the fix is the seed CsCheck prints on failure, which goes
+  # into CsCheck_Seed and brings the case back exactly. That is the same bargain the fuzz leg makes
+  # with its corpus.
+  #
+  # Two projects rather than one job over the solution: they fail independently, and a remesher that
+  # takes its own process down should not cost the unwrapper its results — which is the lesson the
+  # fuzz matrix above records at length.
+  properties:
+    name: properties (${{ matrix.suite.name }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - name: remeshing
+            project: Core/Vixen.Geometry.Remeshing.Tests
+            # Conditioning runs the whole seven-stage pipeline per case and the field solve is the
+            # slow half, so this one buys fewer cases per minute than the unwrapper does.
+            iterations: 15
+          - name: uv
+            project: Core/Vixen.Geometry.Uv.Tests
+            iterations: 20
+
+    # ⚠ These two numbers are measured rather than chosen. The uv suite's property tests take 1m42s
+    # at the build's own counts and 6m57s at a multiplier of four — 4.1x, so the multiplier really
+    # does multiply and the arithmetic is linear. Twenty is therefore about half an hour of
+    # properties on this laptop, and a hosted runner is slower than a laptop, which is what the rest
+    # of the ninety minutes is for. Raise them when a night finishes with hours to spare; do not
+    # raise them to a number nobody has timed.
+    #
+    # ⚠ Not a budget — RunawayGuard bounds a single case on wall clock *and on allocation*, which is
+    # the backstop that matters here: the measured runaway in this code is a pre-remesh that
+    # quadruples its triangle count every round and allocates 763 MB on the tenth, and no timeout
+    # catches that before the runner dies. This is the third backstop, for the process that stops
+    # making progress in a way neither of those can see.
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-properties-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-properties-
+
+      # Release, because these are numerical and the gate's own determinism tests run there — a
+      # property that only holds under a debug build is not a property.
+      - name: Run the properties
+        run: |
+          set -euo pipefail
+          echo "${{ matrix.suite.name }}: every property at ${{ matrix.suite.iterations }}x its build count"
+          dotnet test ${{ matrix.suite.project }} -c Release
+        shell: bash
+        env:
+          VIXEN_PROPERTY_ITER: ${{ github.event.inputs.iterations || matrix.suite.iterations }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: property-results-${{ matrix.suite.name }}
+          path: ${{ matrix.suite.project }}/TestResults/
           if-no-files-found: ignore
 
   # ── The SQL nobody has ever executed ────────────────────────────────────────────────────────────

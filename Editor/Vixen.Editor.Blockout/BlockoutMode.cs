@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Geometry;
+using Vixen.Geometry.Remeshing;
 using Vixen.Input;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui;
@@ -368,6 +369,13 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>Cuts the first selected solid by the second's surface.</summary>
     public const string TrimCommand = "blockout.trim";
 
+    /// <summary>Replaces the selected solids with all-quad meshes of the same shape.</summary>
+    /// <remarks>
+    ///     docs/plan/41 § D16's blockout row. Its natural input is a boolean result, whose
+    ///     triangulation has no loops to cut and no rings to select — see <see cref="BlockoutRetopology" />.
+    /// </remarks>
+    public const string RetopologizeCommand = "blockout.retopologize";
+
     /// <summary>Writes the selection into a mesh asset and points the entity at it.</summary>
     public const string BakeCommand = "blockout.bake";
 
@@ -392,6 +400,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>And every handoff verb.</summary>
     public static IReadOnlyList<string> HandoffCommands { get; } = [
+        RetopologizeCommand,
         BakeCommand,
         EditableCommand,
         ExportObjCommand,
@@ -617,6 +626,12 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Make(PlaneCutCommand, "Plane Cut", () => BlockoutBoolean.PlaneCut(Scene!, (Plane ?? Ground).AsPlane()));
         Make(TrimCommand, "Trim", () => BlockoutBoolean.Trim(Scene!));
 
+        // ⚠ Doc 41 § D16's blockout row, and an Object-mode verb like the booleans above it: a
+        // retopology replaces every face of a solid, so which faces are selected has nothing to say
+        // about it. No chord, deliberately — it is seconds of work and is run once a shape is
+        // settled, which is a menu verb by the same rule the plan's own tables use.
+        Make(RetopologizeCommand, "Retopologize", () => BlockoutRetopology.Run(Scene!, Retopology));
+
         Make(BakeCommand, "Bake To Mesh Asset", () => {
             if (Baker is { } baker) {
                 BlockoutHandoff.Bake(Scene!, baker);
@@ -744,6 +759,15 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>How many copies an array verb makes.</summary>
     public int Copies { get; set; } = 3;
+
+    /// <summary>What <see cref="RetopologizeCommand" /> asks for, which the settings panel edits.</summary>
+    /// <remarks>
+    ///     ⚠ <b>State on the mode rather than a dialog, which is what every other dial here is.</b>
+    ///     <see cref="Step" />, <see cref="UvScale" /> and <see cref="Copies" /> are all settings a verb
+    ///     reads at the moment it runs; a retopology that opened a modal would be the one verb in this
+    ///     mode that stops a designer mid-gesture to ask a question.
+    /// </remarks>
+    public RemeshSettings Retopology { get; set; } = new() { TargetQuads = 2000 };
 
     /// <summary>What puts a baked mesh into the project, or null while nothing can.</summary>
     /// <remarks>The application's, because importing an asset is the asset database's job and this

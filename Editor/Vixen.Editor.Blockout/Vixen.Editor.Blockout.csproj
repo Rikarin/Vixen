@@ -39,6 +39,32 @@
             sentence a fact about the build rather than about the code.
         -->
         <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+
+        <!--
+            ⚠ The first reference this assembly names outside Editor/, and it is a decision rather
+            than an oversight being corrected.
+
+            Everything above arrives through a sibling: `Vixen.Geometry` — the mesh kernel the
+            Description calls "not this" — is transitive through Vixen.Editor.SceneView, and that
+            arrangement is doc 24 § D1's, because the kernel is Core/ and the copies into MeshData
+            and into the scene file belong beside the code that draws and saves them.
+
+            The remesher is different in kind. It is not a copy or an adapter; it is a verb this mode
+            offers — docs/plan/41 § D16 gives Blockout its own row, "a Retopologize verb, one undo
+            entry, result selected", and names a boolean result as its natural input, which is
+            geometry only this assembly produces. There is no seam to route it through: an interface
+            like IMeshBaker exists because importing an asset is the asset database's job and this
+            assembly must not do it, whereas remeshing a mesh is arithmetic over triangles with no
+            device, no model and no assets, which is exactly what makes Vixen.Geometry.Remeshing a
+            Core/ assembly rather than an Editor/ one. Naming it directly is what the layering
+            permits and what the plan asks for; hiding it behind an abstraction would be ceremony
+            around a pure function.
+
+            It brings Vixen.Geometry.Uv with it — the remesher's packer, docs/plan/42 § D2 — which
+            BlockoutUvPanel then uses for the same reason and would otherwise have had to name
+            itself.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Geometry.Remeshing\Vixen.Geometry.Remeshing.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -133,7 +133,7 @@ public class FieldPropertyTests {
                     Assert.NotEqual(0, single.Index);
                 }
             },
-            iter: 120,
+            iter: PropertyBudget.Iterations(120),
             threads: 1
         );
 
@@ -172,7 +172,7 @@ public class FieldPropertyTests {
 
                 Assert.True(found.Count >= 4, $"{recipe}: {found.Count} singularities on a sphere.");
             },
-            iter: 60,
+            iter: PropertyBudget.Iterations(60),
             threads: 1
         );
     }

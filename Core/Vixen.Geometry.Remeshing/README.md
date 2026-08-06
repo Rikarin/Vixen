@@ -71,6 +71,64 @@ the assumption that a loop, a ring and a loop cut are statements about four-side
 with triangles and pentagons in it has no rings to cut, and the mesh kernel's whole vocabulary stops
 working on it. `NonQuadCount` is asserted zero.
 
+## Quantization is a flow, not an integer program
+
+Patch sides become arcs, the consistency constraints become conservation at the nodes, and "as close
+as possible to the size the density field asked for" becomes the deviation cost. Two routers over the
+one formulation: the exact one is a successive-shortest-path search with node potentials, the
+approximate one routes by fewest arcs and is for interactive preview. Measured energies, exact against
+approximate — 210 against 508 on a box, 132 against 255 on a sphere, 283 against 592 on a cylinder,
+214 against 728 on a flight of stairs.
+
+⚠ **A patch side may quantize to zero and that is legitimate** — it is how a five-sided patch becomes
+four-sided, and the extraction merges that side's two ends into one output vertex. A patch whose whole
+width or height comes to zero is a bug, and it is checked.
+
+## What is measured today, and what is not
+
+Every result is **100 % quads** on every fixture, and every feature polyline is reproduced at the order
+the exit criterion asks for on straight hard surface — `5.15e-5` of the diagonal on a box, `2.42e-5`
+on a plate with a hole, `9.88e-5` on a cylinder.
+
+⚠ **`MeshReport.IsSolid` holds on a closed smooth surface and not yet on hard surface, and the quad
+budget is overshot.** Both come from one place: the patches the separatrix tracing produces are longer
+round than they are wide, which overshoots a quad budget *quadratically* — a patch's count is a
+product of two side lengths — and leaves a handful of patches whose four sides do not line up. Those
+are refused rather than emitted as a folded grid, so what is missing is holes rather than corruption,
+and `RemeshReport.Warnings` counts them and says why. Compacting the partition is layout work, and it
+is recorded here as owed rather than described as done.
+
+## The output carries the input, or it is useless
+
+Stage seven is what makes a remesh a pipeline rather than a demo. Normals, texture coordinates and
+face groups are written back into the mesh; **vertex colours and skinning weights come back beside it**
+in a `TransferResult`, because `EditMesh` has a normal layer and a coordinate layer and nothing else,
+and growing it a colour channel and a bone channel would put a renderer's and a rig's vocabulary into
+geometry types that have never heard of either.
+
+⚠ **Face groups are decided by the majority of covered *area*, never by the nearest face.**
+Nearest-face assignment shreds along a material boundary — every other quad flips — and the sawtooth
+seam it leaves reads as a UV bug and gets debugged as one. Measured on a plane split on a straight
+line with a fourteen-quad target: the area rule gives **14** boundary edges, which is the floor for a
+straight cut, and the nearest-face rule gives **17**.
+
+⚠ **Skinning weights are clamped to the target's influence limit, and the clamp is not optional.** A
+target with room for four handed five silently loses one, and which one depends on the order the
+interpolation accumulated them in. Sorted by descending weight with the bone index as the tie-break,
+the survivor is a function of the input.
+
+## The bake is a rasterizer this assembly had to grow
+
+There is no CPU mesh-to-texture rasterizer in this repository. The two things that bake a mesh into a
+texture are GPU-only and project along an *axis* rather than through a parameterization; the half-space
+coverage rule that is reusable lives in `Vixen.Rendering`, one layer up, which the layering test
+forbids referencing — **and it is pixel-centre only, which silently loses the outermost row of texels
+of every chart in an atlas.** So `AtlasRaster` is conservative coverage by separating axes, written
+here, and `MapBaker` casts along the output's interpolated normal both ways and takes the nearer hit.
+
+⚠ **Content is rasterized in one pass and dilated in a second**, and the gutter only ever writes where
+coverage is false — so one chart's dilation cannot overwrite the chart abutting it in the atlas.
+
 ## Deterministic, and it is a gate
 
 Same input, same settings, byte-identical output, at any thread count on any platform. Four choices

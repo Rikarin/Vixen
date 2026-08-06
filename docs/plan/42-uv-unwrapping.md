@@ -337,6 +337,38 @@ a residual test is a floating-point comparison whose outcome can differ across p
 exactly the class of bug [B6](#b6-determinism-again-) exists to prevent. If profiling later says the
 factorization is worth it, that is a contained change behind one interface.
 
+⚠ **The cotangent Laplacian and the conjugate gradient disagree on the first obtuse triangle, and
+this section did not say so.** Added by U2, which had to decide. A cotangent goes negative past 90°,
+the Laplacian is positive semi-definite only when every weight is non-negative, and CG is valid only
+on a definite one. The failure is silent in the worst way: an indefinite system does not throw and does
+not diverge, it converges to a **saddle**, and the chart comes back folded with nothing anywhere naming
+the triangle. **The decision is to raise every weight to a small positive floor relative to the chart's
+largest**, which makes the matrix positive definite by construction rather than usually, and to report
+both the count and the *most negative cotangent* — the count alone does not discriminate, because an
+ordinary quad grid over a hemisphere produces one negative weight per quad and so does a strip of 170°
+slivers. Clamping to zero was rejected because a zero weight removes the edge and can disconnect a
+vertex, which `ConjugateGradient` then masks out and leaves wherever the initialization put it;
+uniform weights were rejected because they mix two discretizations and make the obtuse triangle the
+stiffest thing in the chart; **mean-value coordinates are the principled fix and are ruled out by the
+solver rather than by taste — their matrix is not symmetric**, and every line of
+[B1](#b1-there-is-no-sparse-linear-solver-anywhere-in-the-repository-)'s CG assumes it is. Intrinsic
+Delaunay flipping loses nothing and is the upgrade a large reported cotangent would justify; it is a
+phase of its own.
+
+⚠ **Rung 1 is harder to fold than "no injectivity guarantee" suggests, and rung 3 has to be tested
+anyway.** U2 could not construct an input a *free-boundary* LSCM folds: not a sphere with a hairline
+slit, not a hyperbolic fan, not a strip of 170° slivers, not a forty-to-one ribbon. The guarantee
+really is absent and the failure is rare, which is a reason to keep the rung ordering and **not** a
+reason to skip covering the third rung — a rung reached by nothing is a rung nobody has run, so the
+repair pass is tested against a fold injected on purpose.
+
+⚠ **A chart that is not a disk is refused before any solve runs, and the test is the Euler
+characteristic.** An annulus, a handle, a chart in two pieces and a bowtie have *no* injective map to
+the plane, so producing coordinates for one is producing a fold with extra steps. `χ = 2 − 2g − b` is
+one only for a disk, which catches genus and boundary in one number — a boundary-loop count passes a
+torus with a single hole. It is blind to a pinch, where two fans meet at one vertex and give
+`5 − 6 + 2 = 1`, so that is checked separately.
+
 ### D6. Distortion is measured four ways, because the failures are different
 
 Angular (conformal) and area (authalic) distortion, the L² and L^∞ stretch of Sander et al., and the
@@ -495,16 +527,55 @@ open question and the one that can reorder everything after it.
 Cholesky, and the determinism harness around it. ⚠ **Everything else is blocked on this**, which is why
 it is not folded into U2.
 
-### U2 — Flattening · 1.25 EM
+### U2 — Flattening · 1.25 EM ✅
 
 LSCM, then ARAP/symmetric-Dirichlet local–global, the bijectivity check, the repair pass, and the four
 distortion measures. Tested per-chart against known-hard inputs.
 
-### U3 — Charting and seams · 1.75 EM
+Landed. The local step is ARAP's closest rotation rather than the symmetric Dirichlet's, and the
+difference is a line search: a barrier against inversion needs one, a line search is a floating-point
+comparison deciding how many steps to take, and that is [B6](#b6-determinism-again-)'s excluded class.
+The barrier's job is done instead by the flip count refusing the chart. ⚠ **A latent blocker turned up
+on the way**: `EditMesh.Normal` delegated to `Vector3.Normalize`, which carries an absolute
+`MathUtil.ZeroTolerance` of `1e-6` — so a face whose Newell sum was smaller reported *no* normal, and
+`Triangulate` reads a missing normal as "no plane to ear-clip in" and fans instead. One surface
+therefore triangulated two different ways at two model scales, which is two different unwraps of it.
+Fixed in `EditMesh` by dividing by its own length, which is what that line's own comment already said
+it did.
+
+### U3 — Charting and seams · 1.75 EM ✅
 
 Concavity decomposition, the recursive τ loop, the merge-back pass, graph-walk seam tracing on the
 seven-term cost, and the canonical ordering. ⚠ **The phase that decides whether the output looks
 professional**, and the one to measure against xatlas's 51.6 charts.
+
+Landed, with `UvUnwrap.Charts` and `UvUnwrap.All` — the two entry points the README had been
+documenting and neither of which existed. **Measured on an eleven-shape corpus: 3.09 charts at an L²
+stretch of 1.0059, against 3.64 charts with the merge-back pass disabled.** So the recursion is what
+produces the low count and the merge pass takes a further 15 % off it, concentrated entirely on the
+two shapes that fragment at all — closed torus 14 → 11, dumbbell 9 → 6, and the nine that already
+chart to three or fewer are untouched. ⚠ **That is not a like-for-like comparison with the published
+10.4 / 51.6 / 74.3 and this document will not present it as one**: those are averages over
+GarmentCodeData and this is eleven primitives chosen so each fails differently.
+
+⚠ **Three findings worth carrying forward, two of them defects in phases already marked done.**
+
+1. **The growth metric must step between face centroids, not across the shared edge's length.** An
+   edge's length is a *cut capacity*; a traversal metric wants a *distance*, and on a surface of
+   revolution the two are close to opposite — a narrow waist has short circumferential edges, so
+   crossing it looks cheap. The dumbbell was cut lengthwise down the model instead of round its waist.
+2. **`Distortion.Combine` normalized every chart by one global gauge**, and a stretch carries the
+   map's scale until it is divided by *that map's* average — which each chart has its own of, because
+   LSCM fixes scale from two independently chosen pins. Six charts each measuring 1.002 to 1.018
+   combined to **2.245**, a number no chart had, above a threshold every chart passed. U2 never saw it
+   because its fixtures are uniform strips of one surface, where the two forms agree exactly.
+3. ⚠ **`TriangleTree.Raycast` rejects a triangle whose Möller–Trumbore determinant falls under an
+   absolute `MathUtil.ZeroTolerance`, and that determinant scales as the square of the model.** So the
+   occlusion term silently read zero on a small model and five of nine shapes charted differently at
+   1/1024 scale. This is the **third** time `ZeroTolerance` has met a cross product here — after
+   `EditMesh.Normal` and `ManifoldMesh.TriangleNormal`. Worked around by casting at a rescaled copy;
+   ⚠ **the fix belongs in `TriangleTree`, whose test should be relative to the triangle's own scale**,
+   and that assembly was owned by other work at the time.
 
 ### U4 — Packing · 1.5 EM
 
@@ -587,8 +658,26 @@ pretend otherwise until U3 is measured.
 1. **Against xatlas, on its own terms.** A 500-mesh corpus — imported, CAD, generated, blockout exports
    — with **fewer charts and no worse L² stretch than xatlas on at least 80 % of it**, and never more
    than 1.25× its stretch on any of it.
+
+   🟡 **Still not measurable — xatlas cannot be run here — but U3 has now measured the thing the
+   criterion was reaching for.** On the eleven-shape corpus: **3.09 charts at 1.0059 L²**, against 3.64
+   charts with the merge-back pass off. ⚠ **The published averages are over a garment dataset and this
+   corpus is eleven primitives, so the levels do not compare** — what the numbers support is the
+   weaker claim [Part 6](#part-6--where-this-lands-against-the-alternatives) actually makes, which is
+   that a τ-driven recursion with a merge-back pass does not fragment. The 500-mesh comparison stays
+   open and stays honest about being open.
+
+   The per-rung baseline U2 left, on a fixed set
+   of shapes chosen so each fails differently. Through the full ladder: sphere cut open 1.0402 L² /
+   1.3830 L^∞ / 1.2579 angular / 1.2219 area; torus slit both ways 1.0277 / 2.2551 / 1.1981 / 1.1689;
+   hemisphere 1.0251 / 1.1759 / 1.1882 / 1.1786; saddle 1.0222 / 1.4682 / 1.1631 / 1.1544; slit
+   cylinder and a flat 40:1 strip exactly 1 on all four. ⚠ **Both rungs are quoted because one column
+   says the wrong thing about both**: on the sphere, LSCM alone measures **1.04 angular against ARAP's
+   1.26** and **1.72 area against ARAP's 1.22**. The conformal map wins on the metric it optimizes.
 2. **Correctness.** Zero flipped triangles on 100 % of the corpus, or an explicit refusal naming the
-   chart. No exceptions, no hangs.
+   chart. No exceptions, no hangs. ✅ Met on U2's corpus: every disk in it flattens with zero flips, and
+   every non-disk — annulus, closed surface, genus-one-with-a-hole, disconnected, pinched — is refused
+   by name before a solve runs.
 3. **Packing.** ⚠️ **Restated, because as written this criterion was won by the packer it was meant to
    rule out.** It named `EffectiveEfficiency`, which counts an island *and its margin band* against the
    sheet — and a bounding-box packer's band is drawn around a box, so it consumes **more** of the atlas

@@ -8,7 +8,7 @@ api: [T:Vixen.Geometry.MeshBoolean, T:Vixen.Geometry.BooleanOperation, T:Vixen.G
 tags: [geometry, blockout, csg, boolean]
 since: 0.1
 status: preview
-related: [engine/edit-meshes, engine/mesh-operations, engine/blockout-shapes, editor/booleans]
+related: [engine/edit-meshes, engine/mesh-operations, engine/blockout-shapes, editor/booleans, engine/quad-remeshing]
 ---
 
 ## What it is

@@ -35,6 +35,14 @@
             same way. See the file's own remarks for why this is not `Vixen.Fuzz`'s `CaseGuard`.
         -->
         <Compile Include="..\Vixen.Geometry.Uv.Tests\Shared\RunawayGuard.cs" Link="Shared\RunawayGuard.cs" />
+
+        <!--
+            The nightly leg's iteration multiplier, linked beside the guard for the same reason and
+            into the same namespace. ⚠ CsCheck's own CsCheck_Iter sets the *default* count and every
+            property here passes iter: explicitly, so the variable would be read and silently do
+            nothing. See the type's own remarks.
+        -->
+        <Compile Include="..\Vixen.Geometry.Uv.Tests\Shared\PropertyBudget.cs" Link="Shared\PropertyBudget.cs" />
     </ItemGroup>
 
     <ItemGroup>
