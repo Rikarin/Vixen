@@ -5,6 +5,8 @@ using Vixen.Core;
 using Vixen.Editor.AssetEditors.Compositor;
 using Vixen.Editor.NodeGraph;
 using Vixen.Rendering.Compositor;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
@@ -269,5 +271,92 @@ public class CompositorDocumentTests {
 
         Assert.NotNull(yaml);
         Assert.Contains("Opaque", yaml, StringComparison.Ordinal);
+    }
+}
+
+/// <summary>
+///     The settings panel, which is a <see cref="KeyValueList" /> since the five hand-rolled row
+///     builders in the editor were folded into one control.
+/// </summary>
+/// <remarks>
+///     ⚠ <b>Laid out, not merely built.</b> A row's two halves are the control's business now, so an
+///     assertion that only counted rows would pass against a panel whose editors are all zero pixels
+///     wide — which is exactly what a value slot holding text <i>and</i> an element would produce,
+///     because the layout treats a node that measures its own text as a leaf.
+/// </remarks>
+public class CompositorSettingsTests {
+    [Fact]
+    public void SelectingANodeFillsTheRowsWithRealEditors() {
+        using var harness = new ViewHarness();
+        var view = Open(harness, out var document);
+
+        var stage = document.Graph.Add("Draw/Single Stage");
+        view.GraphView.Select([stage.Id]);
+        harness.Ui.Frame();
+
+        Assert.True(view.Fields.Count > 0, "the node has fields and the panel showed none");
+        Assert.Equal(view.RowCount, view.Fields.Count);
+
+        foreach (var row in view.Fields.Rows) {
+            Assert.NotNull(row.KeyPart.Text);
+            Assert.True(row.ValuePart.Bounds.Width > 0f, $"'{row.KeyPart.Text}' has no room for its editor");
+
+            var editor = Assert.Single(row.ValuePart.Children);
+            Assert.True(editor.Bounds.Width > 0f, $"'{row.KeyPart.Text}' has an editor of no width");
+        }
+
+        // Equal halves, out of the shared theme rather than out of anything this panel says.
+        var first = view.Fields.Rows[0];
+        Assert.Equal(first.KeyPart.Bounds.Width, first.ValuePart.Bounds.Width, 0.5f);
+    }
+
+    /// <summary>
+    ///     ⚠ And selecting a different node rebuilds rather than reuses. A pooled row would still be
+    ///     holding the previous type's editor and the handler that writes to the previous node's port.
+    /// </summary>
+    [Fact]
+    public void SelectingAnotherNodeRebuildsTheRows() {
+        using var harness = new ViewHarness();
+        var view = Open(harness, out var document);
+
+        var stage = document.Graph.Add("Draw/Single Stage");
+        var pass = document.Graph.Add("Frame/Render Pass");
+
+        view.GraphView.Select([stage.Id]);
+        harness.Ui.Frame();
+
+        var before = view.Fields.Rows.Select(row => row.KeyPart.Text).ToArray();
+
+        view.GraphView.Select([pass.Id]);
+        harness.Ui.Frame();
+
+        Assert.Equal(view.Fields.Count, view.Fields.Rows.Count);
+        Assert.NotEqual(before, view.Fields.Rows.Select(row => row.KeyPart.Text).ToArray());
+    }
+
+    /// <summary>
+    ///     Nothing selected is a sentence, and the sentence is not a row — a bare element parented
+    ///     among the rows would take a position in the stripe's alternation and shift every one of
+    ///     them.
+    /// </summary>
+    [Fact]
+    public void NothingSelectedIsASentenceBesideTheList() {
+        using var harness = new ViewHarness();
+        var view = Open(harness, out _);
+
+        Assert.Equal(0, view.Fields.Count);
+        Assert.NotNull(view.Caption.Text);
+        Assert.Contains("Select a node", view.Caption.Text, StringComparison.Ordinal);
+    }
+
+    static CompositorView Open(ViewHarness harness, out CompositorDocument document) {
+        var path = harness.Project.Write("Assets/Forward.vxcomp", string.Empty);
+        document = new(harness.Project.Project, AssetId.New(), path);
+
+        var view = harness.Ui.Document.Root.Add<CompositorView>();
+        view.Show(document);
+
+        harness.Ui.Frame();
+        return view;
     }
 }

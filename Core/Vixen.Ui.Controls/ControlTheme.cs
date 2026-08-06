@@ -478,6 +478,101 @@ public static class ControlTheme {
         alert.variant-danger { border-color: var(--danger); }
         alert.variant-danger alert-title { color: var(--danger); }
 
+        /* ── Key/value lists ──────────────────────────────────────────────────
+           Three rules do the work and each of them is load-bearing.
+
+           ⚠ `flex-basis: 0px` *and* `min-width: 0px`, together. The basis alone
+           divides the row in half only while both halves fit: a flex item's
+           automatic minimum size is its own content, so a long unbreakable key
+           refuses to shrink below its string and pushes past the value column —
+           measured at 388px inside a 200px row before the minimum was written.
+           The minimum alone is not enough either, because without a zero basis a
+           short key and a long value divide the *leftover* space rather than the
+           whole of it, and the split moves with the data. Both, or neither works.
+
+           ⚠ `white-space: nowrap` on both halves, and it is about height rather
+           than about width. A key with spaces in it wraps, and a wrapped key in a
+           50%-wide column is seven lines tall — one row of a uniform list
+           suddenly 196px high. Clipped is the defined behaviour here: this
+           renderer has no `text-overflow`, so `overflow: hidden` cuts the glyphs
+           at the column edge and there is no ellipsis to be had. Said out loud
+           because a reader will look for one.
+
+           ⚠ The stripe is `:nth-child`, not a class the builder applies. The
+           cascade re-resolves it when a row is inserted or removed in the middle;
+           a class does not, and a list that striped wrongly after a mutation is
+           the failure this control exists downstream of. It is also why nothing
+           but a row may be a child — every element counts, including a parked
+           one, which is why `Trim` parks at the end and never in the middle. */
+        key-value-list { flex-direction: column; }
+
+        key-value-row {
+            flex-direction: row;
+            align-items: center;
+            min-height: 1.4em;
+            padding: 2px 6px;
+            color: var(--text);
+
+            /* ⚠ The gutter is a `gap` on the row and not padding inside the value, which reads as
+               the tidier way to write it and is measurably wrong. A flex item's computed base size
+               is `max(flex-basis, its padding and border)` — CSS's rule, not this engine's — so
+               eight pixels of padding on one of two `flex-basis: 0` children gives that child eight
+               more pixels than the other: 98 against 90 in a 200-pixel row. A gap is taken off the
+               free space before it is divided, so both halves stay equal and the split is half of
+               what is left rather than half of the row. Equal is the property anyone cares about;
+               exactly-50%-with-a-gutter is not a thing that exists. */
+            gap: 8px;
+        }
+
+        key-value-row:nth-child(even) { background-color: var(--surface-sunken); }
+
+        /* After the stripe, deliberately: the two selectors have the same
+           specificity, so source order is what decides — and a heading has to win
+           whichever side of the alternation it lands on. */
+        key-value-row.heading {
+            background-color: var(--surface-sunken);
+            border-width: 0px 0px 1px 0px;
+            border-color: var(--border);
+            color: var(--text);
+        }
+
+        key-value-list > .parked { display: none; }
+
+        key-value-key {
+            flex-grow: 1;
+            flex-shrink: 1;
+            flex-basis: 0px;
+            min-width: 0px;
+            overflow: hidden;
+            white-space: nowrap;
+            color: var(--text-muted);
+        }
+
+        key-value-value {
+            flex-grow: 1;
+            flex-shrink: 1;
+            flex-basis: 0px;
+            min-width: 0px;
+            flex-direction: row;
+            align-items: center;
+            gap: 4px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        key-value-row.heading key-value-key, key-value-row.heading key-value-value { color: var(--text); }
+
+        /* Which editors fill the half they are dropped into, listed rather than
+           `> *`: a checkbox, a switch and a badge are all the size they are, and
+           stretching one across a settings panel is how a tick box ends up eight
+           inches from its label. Same list and same argument as `property-editor`. */
+        key-value-value textbox, key-value-value textarea, key-value-value numeric-input,
+        key-value-value search-box, key-value-value select, key-value-value multi-select,
+        key-value-value combo-box, key-value-value slider, key-value-value progress-bar {
+            flex-grow: 1;
+            min-width: 0px;
+        }
+
         empty-state { flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px; }
         empty-state icon { width: 40px; height: 40px; color: var(--text-muted); }
         empty-title { color: var(--text); }
