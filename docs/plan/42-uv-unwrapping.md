@@ -543,11 +543,39 @@ therefore triangulated two different ways at two model scales, which is two diff
 Fixed in `EditMesh` by dividing by its own length, which is what that line's own comment already said
 it did.
 
-### U3 — Charting and seams · 1.75 EM
+### U3 — Charting and seams · 1.75 EM ✅
 
 Concavity decomposition, the recursive τ loop, the merge-back pass, graph-walk seam tracing on the
 seven-term cost, and the canonical ordering. ⚠ **The phase that decides whether the output looks
 professional**, and the one to measure against xatlas's 51.6 charts.
+
+Landed, with `UvUnwrap.Charts` and `UvUnwrap.All` — the two entry points the README had been
+documenting and neither of which existed. **Measured on an eleven-shape corpus: 3.09 charts at an L²
+stretch of 1.0059, against 3.64 charts with the merge-back pass disabled.** So the recursion is what
+produces the low count and the merge pass takes a further 15 % off it, concentrated entirely on the
+two shapes that fragment at all — closed torus 14 → 11, dumbbell 9 → 6, and the nine that already
+chart to three or fewer are untouched. ⚠ **That is not a like-for-like comparison with the published
+10.4 / 51.6 / 74.3 and this document will not present it as one**: those are averages over
+GarmentCodeData and this is eleven primitives chosen so each fails differently.
+
+⚠ **Three findings worth carrying forward, two of them defects in phases already marked done.**
+
+1. **The growth metric must step between face centroids, not across the shared edge's length.** An
+   edge's length is a *cut capacity*; a traversal metric wants a *distance*, and on a surface of
+   revolution the two are close to opposite — a narrow waist has short circumferential edges, so
+   crossing it looks cheap. The dumbbell was cut lengthwise down the model instead of round its waist.
+2. **`Distortion.Combine` normalized every chart by one global gauge**, and a stretch carries the
+   map's scale until it is divided by *that map's* average — which each chart has its own of, because
+   LSCM fixes scale from two independently chosen pins. Six charts each measuring 1.002 to 1.018
+   combined to **2.245**, a number no chart had, above a threshold every chart passed. U2 never saw it
+   because its fixtures are uniform strips of one surface, where the two forms agree exactly.
+3. ⚠ **`TriangleTree.Raycast` rejects a triangle whose Möller–Trumbore determinant falls under an
+   absolute `MathUtil.ZeroTolerance`, and that determinant scales as the square of the model.** So the
+   occlusion term silently read zero on a small model and five of nine shapes charted differently at
+   1/1024 scale. This is the **third** time `ZeroTolerance` has met a cross product here — after
+   `EditMesh.Normal` and `ManifoldMesh.TriangleNormal`. Worked around by casting at a rescaled copy;
+   ⚠ **the fix belongs in `TriangleTree`, whose test should be relative to the triangle's own scale**,
+   and that assembly was owned by other work at the time.
 
 ### U4 — Packing · 1.5 EM
 
@@ -631,7 +659,15 @@ pretend otherwise until U3 is measured.
    — with **fewer charts and no worse L² stretch than xatlas on at least 80 % of it**, and never more
    than 1.25× its stretch on any of it.
 
-   🟡 **Not yet measurable — xatlas cannot be run here — so U2 left a baseline instead**, on a fixed set
+   🟡 **Still not measurable — xatlas cannot be run here — but U3 has now measured the thing the
+   criterion was reaching for.** On the eleven-shape corpus: **3.09 charts at 1.0059 L²**, against 3.64
+   charts with the merge-back pass off. ⚠ **The published averages are over a garment dataset and this
+   corpus is eleven primitives, so the levels do not compare** — what the numbers support is the
+   weaker claim [Part 6](#part-6--where-this-lands-against-the-alternatives) actually makes, which is
+   that a τ-driven recursion with a merge-back pass does not fragment. The 500-mesh comparison stays
+   open and stays honest about being open.
+
+   The per-rung baseline U2 left, on a fixed set
    of shapes chosen so each fails differently. Through the full ladder: sphere cut open 1.0402 L² /
    1.3830 L^∞ / 1.2579 angular / 1.2219 area; torus slit both ways 1.0277 / 2.2551 / 1.1981 / 1.1689;
    hemisphere 1.0251 / 1.1759 / 1.1882 / 1.1786; saddle 1.0222 / 1.4682 / 1.1631 / 1.1544; slit

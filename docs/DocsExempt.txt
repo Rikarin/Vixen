@@ -1753,7 +1753,6 @@ T:Vixen.Fuzz.Targets.SnapshotTarget sweep-pending
 T:Vixen.Fuzz.Targets.SyncListTarget sweep-pending
 T:Vixen.Fuzz.Targets.UdpTransportTarget sweep-pending
 T:Vixen.Fuzz.Targets.WebSocketUpgradeTarget sweep-pending
-T:Vixen.Geometry.Uv.SeamCost	docs/plan/42 § U3 — what a seam costs to run somewhere is the charter's, and the charter is the phase after this one. The page comes with it.
 T:Vixen.Graphics.AdapterKind sweep-pending
 T:Vixen.Graphics.AddressMode sweep-pending
 T:Vixen.Graphics.BarrierGroup sweep-pending
