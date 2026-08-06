@@ -8,7 +8,7 @@ api: [T:Vixen.Geometry.Uv.UvUnwrap, T:Vixen.Geometry.Uv.UvIsland, T:Vixen.Geomet
 tags: [geometry, uv, atlas, packing, texture, texel-density, udim]
 since: 0.1
 status: preview
-related: [engine/edit-meshes, engine/mesh-operations]
+related: [engine/uv-flattening, engine/edit-meshes, engine/mesh-operations]
 ---
 
 ## What it is
@@ -112,6 +112,42 @@ descending area, then by the island's *shape*, and only then by the index it arr
 ⚠ **There is no annealing, no genetic search and no random restart anywhere in it.** Those are the
 irregular-packing literature's three standard answers and every one of them is excluded, because the
 content hash has to be a function of the input and a golden must not move.
+
+## Examples
+
+**Repack an artist's layout without touching a seam.** The islands arrive from another package; the
+placements come back as transforms, so the island's own shape is returned rather than a shape close to
+it.
+
+```csharp no-compile="a fragment; `islands` was read from a file"
+var placements = UvUnwrap.Pack(islands, new() { Resolution = 2048, Margin = 4 }, out var report);
+
+// What the rearrangement bought, before and after the margin's bill.
+Report(report.PackingEfficiency, report.EffectiveEfficiency);
+```
+
+**Hold every chart to one texel density and spill into UDIM tiles rather than shrinking.**
+
+```csharp no-compile="a fragment; continues from above"
+var placements = UvUnwrap.Pack(
+    islands,
+    new() { Resolution = 2048, Margin = 4, TexelDensity = 512f, Overflow = PackOverflow.NextTile },
+    out var report
+);
+
+foreach (var placement in placements) {
+    var tile = placement.Tile;   // (0, 0) until the first sheet is full
+}
+```
+
+**Compare two rungs on the same islands**, which is the comparison `PackingEfficiency` is for.
+
+```csharp no-compile="a fragment; continues from above"
+UvUnwrap.Pack(islands, new() { Resolution = 2048, Margin = 4, Quality = PackQuality.Rectangle }, out var boxes);
+UvUnwrap.Pack(islands, new() { Resolution = 2048, Margin = 4, Quality = PackQuality.Irregular }, out var shapes);
+
+Report(shapes.PackingEfficiency - boxes.PackingEfficiency);   // measured at 19.97 points
+```
 
 ## See also
 
