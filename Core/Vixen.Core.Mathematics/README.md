@@ -31,14 +31,15 @@ order, the depth range and the UV origin, once. Every line of it is asserted by
 | `Rectangle`, `Viewport` | The 2D half: half-open containment so tiles do not overlap, and `Project`/`Unproject`/`GetPickingRay`. |
 | `NineSlice` | Four inset edges and the cut of a rectangle into the nine they describe. Unitless, so the same four numbers cut a destination box in pixels and a texture region in UVs — which is what lets `Vixen.Ui` and `Vixen.Rendering` stretch a panel and a sprite the same way without referencing each other. |
 | `Color`, `Color3`, `Color4`, `ColorSpace` | 8-bit storage and linear working values, with the sRGB boundary spelled out at every crossing. |
-| `ExactPredicates` | Orientation and in-sphere, answered exactly — see below. |
+| `ExactPredicates` | Orientation in the plane and in space, and in-sphere, answered exactly — see below. |
 | `DelaunayTetrahedralization` | Bowyer–Watson over those predicates, and the completeness check that says the result is the tetrahedralisation rather than most of one. |
 
-## Two of these answer a sign, not a number
+## Three of these answer a sign, not a number
 
 `ExactPredicates` is the one place in the library where "close enough" is not a tolerance to be
-chosen but a category error. `Orient3D` asks which side of a plane a point is on and `InSphere` asks
-whether a point is inside a circumsphere; both have three possible answers, and a floating-point
+chosen but a category error. `Orient2D` asks which side of a line a point is on, `Orient3D` asks the
+same about a plane and `InSphere` asks
+whether a point is inside a circumsphere; all three have three possible answers, and a floating-point
 determinant that comes back `-1e-19` where the truth is `0` has not made a small error — it has given
 the wrong one. A tetrahedralisation built on wrong ones is not a slightly wrong mesh, it is not a
 mesh.

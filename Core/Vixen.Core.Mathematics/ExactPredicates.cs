@@ -6,8 +6,8 @@ using BigInteger = System.Numerics.BigInteger;
 namespace Vixen.Core.Mathematics;
 
 /// <summary>
-///     The two geometric predicates a Delaunay tetrahedralisation is made of — which side of a
-///     plane a point is on, and whether a point is inside a circumsphere — answered exactly.
+///     The geometric predicates a Delaunay tetrahedralisation is made of — which side of a line or
+///     a plane a point is on, and whether a point is inside a circumsphere — answered exactly.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -49,6 +49,59 @@ public static class ExactPredicates {
     // Generous by a factor of about four over what the operation counts require. See the remarks.
     const double OrientBound = 32.0 * Roundoff;
     const double SphereBound = 128.0 * Roundoff;
+
+    /// <summary>
+    ///     Which side of the line through <paramref name="a" /> and <paramref name="b" /> the point
+    ///     <paramref name="c" /> lies on.
+    /// </summary>
+    /// <param name="a">The line's first point.</param>
+    /// <param name="b">Its second.</param>
+    /// <param name="c">The point being tested.</param>
+    /// <returns>
+    ///     <c>+1</c> when the triangle <c>(a, b, c)</c> is counter-clockwise, <c>-1</c> when it is
+    ///     clockwise, and <c>0</c> when the three points are collinear.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         The value whose sign this is is <c>det[a - c; b - c]</c>, which is twice the signed
+    ///         area of the triangle and is also the cross product <c>(b - a) × (c - a)</c>. Both
+    ///         readings give the same answer, so there is no convention to remember beyond
+    ///         "counter-clockwise is positive".
+    ///     </para>
+    ///     <para>
+    ///         Fully antisymmetric, like <see cref="Orient3D" />: swapping any two arguments flips
+    ///         the sign, so a cyclic rotation — two swaps — leaves it alone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero here means collinear, and a tolerance cannot produce it.</b> Three points
+    ///         that are exactly collinear can have a <see langword="float" /> cross product that is
+    ///         nowhere near zero: <c>(7, 21)</c>, <c>(2²⁴, 3·2²⁴)</c> and <c>(2, 6)</c> all sit on
+    ///         <c>y = 3x</c>, and the naive expression evaluates to <c>16</c> for one argument order
+    ///         and to <c>-67108864</c> for another. The error is in the coordinate
+    ///         <em>subtractions</em>, not in the products, so no epsilon scaled to the inputs
+    ///         rescues it — which is why the separatrix tracing and the patch layout of
+    ///         <c>docs/plan/41-automatic-retopology.md</c> § D7 and the flipped-triangle count of
+    ///         <c>docs/plan/42-uv-unwrapping.md</c> § D5 call this rather than a cross product. A
+    ///         flipped triangle there is a correctness failure, not a quality one.
+    ///     </para>
+    /// </remarks>
+    public static int Orient2D(Vector2 a, Vector2 b, Vector2 c) {
+        double acx = a.X - (double)c.X, acy = a.Y - (double)c.Y;
+        double bcx = b.X - (double)c.X, bcy = b.Y - (double)c.Y;
+
+        var left = acx * bcy;
+        var right = acy * bcx;
+
+        var determinant = left - right;
+        var permanent = Math.Abs(left) + Math.Abs(right);
+        var bound = OrientBound * permanent;
+
+        if (determinant > bound || determinant < -bound) {
+            return determinant > 0d ? 1 : -1;
+        }
+
+        return ExactOrient2D(a, b, c);
+    }
 
     /// <summary>
     ///     Which side of the plane through <paramref name="a" />, <paramref name="b" /> and
@@ -266,6 +319,16 @@ public static class ExactPredicates {
         }
 
         return -1;
+    }
+
+    static int ExactOrient2D(Vector2 a, Vector2 b, Vector2 c) {
+        var scaled = new BigInteger[6];
+        ToCommonScale([a.X, a.Y, b.X, b.Y, c.X, c.Y], scaled);
+
+        BigInteger acx = scaled[0] - scaled[4], acy = scaled[1] - scaled[5];
+        BigInteger bcx = scaled[2] - scaled[4], bcy = scaled[3] - scaled[5];
+
+        return ((acx * bcy) - (acy * bcx)).Sign;
     }
 
     static int ExactOrient3D(Vector3 a, Vector3 b, Vector3 c, Vector3 d) {

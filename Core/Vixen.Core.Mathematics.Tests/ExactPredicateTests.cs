@@ -36,6 +36,136 @@ public class ExactPredicateTests {
             static (x, y, z) => new Vector3(x / 4f, y / 4f, z / 4f)
         );
 
+    static readonly Gen<Vector2> Plane =
+        Gen.Select(Gen.Int[-8, 8], Gen.Int[-8, 8], static (x, y) => new Vector2(x / 4f, y / 4f));
+
+    // --- Orientation in the plane -------------------------------------------
+
+    /// <summary>Counter-clockwise is positive, and collinear is zero.</summary>
+    [Fact]
+    public void The_planar_orientation_sign_is_positive_counter_clockwise() {
+        var a = new Vector2(0f, 0f);
+        var b = new Vector2(1f, 0f);
+
+        Assert.Equal(1, ExactPredicates.Orient2D(a, b, new(0f, 1f)));
+        Assert.Equal(-1, ExactPredicates.Orient2D(a, b, new(0f, -1f)));
+        Assert.Equal(0, ExactPredicates.Orient2D(a, b, new(7f, 0f)));
+    }
+
+    /// <summary>Swapping two arguments flips the sign; rotating all three does not.</summary>
+    /// <remarks>
+    ///     A separatrix walk names its two neighbours in whichever order the half-edge ring hands
+    ///     them over, and a patch's corners are enumerated from whichever one the layout reached
+    ///     first. Both are cyclic rotations of the same triangle, so both must be the same answer,
+    ///     or "which side" depends on where the walk started.
+    /// </remarks>
+    [Fact]
+    public void Planar_orientation_is_antisymmetric() {
+        Gen.Select(Plane, Plane, Plane)
+            .Sample(
+                static points => {
+                    var (a, b, c) = points;
+                    var reference = ExactPredicates.Orient2D(a, b, c);
+
+                    Assert.Equal(-reference, ExactPredicates.Orient2D(b, a, c));
+                    Assert.Equal(-reference, ExactPredicates.Orient2D(a, c, b));
+                    Assert.Equal(-reference, ExactPredicates.Orient2D(c, b, a));
+
+                    // The two cyclic rotations, which are two swaps each.
+                    Assert.Equal(reference, ExactPredicates.Orient2D(b, c, a));
+                    Assert.Equal(reference, ExactPredicates.Orient2D(c, a, b));
+                }
+            );
+    }
+
+    /// <summary>The predicate agrees with exact integer arithmetic, on every generated case.</summary>
+    [Fact]
+    public void Planar_orientation_matches_exact_integer_arithmetic() {
+        Gen.Select(Plane, Plane, Plane)
+            .Sample(
+                static points => {
+                    var (a, b, c) = points;
+
+                    Assert.Equal(ReferenceOrient2D(a, b, c), ExactPredicates.Orient2D(a, b, c));
+                }
+            );
+    }
+
+    /// <summary>
+    ///     Collinear points are reported collinear even where the naive cross product is nowhere
+    ///     near zero.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the case a toleranced predicate gets wrong, and it is the whole reason
+    ///         this method exists.</b> All three points sit exactly on <c>y = 3x</c> — every
+    ///         coordinate is an integer a <see langword="float" /> holds exactly — and yet
+    ///         <c>(b − a) × (c − a)</c> evaluated in <see langword="float" /> is <c>16</c>, and
+    ///         <c>-67108864</c> for another argument order of the same three points. The error is
+    ///         in the coordinate <em>subtractions</em>, which lose bits long before any product is
+    ///         formed, so an epsilon scaled to the inputs cannot separate this from a real
+    ///         orientation.
+    ///     </para>
+    ///     <para>
+    ///         That the naive value also disagrees with itself across permutations is the second
+    ///         half of the same failure: a predicate that is not antisymmetric gives a tracing walk
+    ///         two different answers about one edge depending on which end it arrived from.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Collinear_points_are_collinear_even_where_the_cross_product_is_not_zero() {
+        // 2^24 is where consecutive integers stop being representable; the subtraction against it
+        // is what rounds.
+        var a = new Vector2(7f, 21f);
+        var b = new Vector2(16777216f, 50331648f);
+        var c = new Vector2(2f, 6f);
+
+        Assert.NotEqual(0f, NaiveOrient2D(a, b, c));
+        Assert.NotEqual(0f, NaiveOrient2D(b, a, c));
+
+        Assert.Equal(0, ExactPredicates.Orient2D(a, b, c));
+        Assert.Equal(0, ExactPredicates.Orient2D(b, a, c));
+        Assert.Equal(0, ExactPredicates.Orient2D(a, c, b));
+        Assert.Equal(0, ExactPredicates.Orient2D(c, b, a));
+    }
+
+    /// <summary>Wherever the naive computation is decisive, the exact one says the same thing.</summary>
+    /// <remarks>
+    ///     The other half of the previous test. Being right where floating point is wrong is worth
+    ///     nothing if the predicate is inverted, or measuring some other determinant, everywhere
+    ///     else — and this is the only test here whose reference is arbitrary coordinates rather
+    ///     than a lattice.
+    /// </remarks>
+    [Fact]
+    public void Planar_orientation_agrees_with_the_naive_computation_away_from_zero() {
+        Gen.Select(
+                Gen.Float[-100f, 100f],
+                Gen.Float[-100f, 100f],
+                Gen.Float[-100f, 100f],
+                Gen.Float[-100f, 100f],
+                Gen.Float[-100f, 100f],
+                Gen.Float[-100f, 100f]
+            )
+            .Sample(
+                static values => {
+                    var (ax, ay, bx, by, cx, cy) = values;
+                    var a = new Vector2(ax, ay);
+                    var b = new Vector2(bx, by);
+                    var c = new Vector2(cx, cy);
+                    var naive = NaiveOrient2D(a, b, c);
+
+                    // Coordinates below 100 make the products smaller than 40 000, where a float
+                    // ulp is about 0.004, so a value of 1 is a hundred times any error the naive
+                    // expression can accumulate and its sign is certainly the true one.
+                    if (MathF.Abs(naive) < 1f) {
+                        return;
+                    }
+
+                    Assert.Equal(MathF.Sign(naive), ExactPredicates.Orient2D(a, b, c));
+                }
+            );
+    }
+
     // --- Orientation --------------------------------------------------------
 
     /// <summary>
@@ -333,6 +463,26 @@ public class ExactPredicateTests {
         Assert.Equal(scaled, MathF.Round(scaled));
 
         return new((long)scaled);
+    }
+
+    /// <summary>The cross product anybody would write, in <see langword="float" />.</summary>
+    /// <remarks>
+    ///     Present as a <em>foil</em>, not as a reference: this is precisely the computation
+    ///     <see cref="ExactPredicates.Orient2D" /> exists to replace, and two of the tests above are
+    ///     about where it disagrees with the truth.
+    /// </remarks>
+    static float NaiveOrient2D(Vector2 a, Vector2 b, Vector2 c) {
+        var ab = b - a;
+        var ac = c - a;
+
+        return (ab.X * ac.Y) - (ab.Y * ac.X);
+    }
+
+    static int ReferenceOrient2D(Vector2 a, Vector2 b, Vector2 c) {
+        BigInteger acx = Exact(a.X) - Exact(c.X), acy = Exact(a.Y) - Exact(c.Y);
+        BigInteger bcx = Exact(b.X) - Exact(c.X), bcy = Exact(b.Y) - Exact(c.Y);
+
+        return ((acx * bcy) - (acy * bcx)).Sign;
     }
 
     static int ReferenceOrient3D(Vector3 a, Vector3 b, Vector3 c, Vector3 d) {

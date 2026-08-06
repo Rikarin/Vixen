@@ -202,9 +202,19 @@ approximate answers and a shell is exact and already in the edge table.
 
 ## What is not here yet
 
-**Triangulation is ear clipping now**, in each face's own plane, falling back to a fan for a loop no
-triangulation is right for. Every face still produces exactly `Count − 2` triangles whatever route it
-took, because that is what lets the face table and the triangle list be walked together.
+**Triangulation is ear clipping now**, falling back to a fan for a loop no triangulation is right
+for. Every face still produces exactly `Count − 2` triangles whatever route it took, because that is
+what lets the face table and the triangle list be walked together.
+
+**And it gives the same indices for a model in metres and the same model in millimetres**, which is
+not free and is why the flattening drops the axis the face most nearly faces along rather than
+building a basis in its plane: two coordinates *copied* out of the position round nowhere, where two
+dot products round twice per corner. Ear clipping then asks `ExactPredicates.Orient2D` rather than a
+cross product, and requires a candidate corner to turn by more than its own coordinates' last bits
+before believing which way — a staircase's nose corners are collinear by construction, and nothing
+representable puts them exactly on the line. Doc 41 § D14 wants byte-identical remesher output and
+doc 08 caches on a content hash, so a triangulation that moved under a unit conversion would re-page
+every meshlet of an asset that had one.
 
 **The layers are named and typed rather than a dictionary**: per-corner normals and texture
 coordinates, and a per-face group. A general layer system is what a DCC needs and is not what a
