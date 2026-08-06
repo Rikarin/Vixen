@@ -6,6 +6,7 @@ using Vixen.Audio.Assets;
 using Vixen.Editor.Core;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Audio;
 
@@ -525,6 +526,12 @@ public sealed class AudioMixerEditorFactory : IAssetEditorFactory {
     /// <inheritdoc />
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
+
+        // ⚠ A mixer is a row of strips that scrolls sideways, and its faders fill whatever height they
+        // are given. Let the panel scroll and the faders stretch to their content instead of to the
+        // window — which is a mixer with no bounded height at all, and a horizontal strip that has
+        // lost the box it was scrolling inside.
+        DockPanel.Fills(panel);
 
         var view = panel.Add<AudioMixerView>();
         view.Show((AudioMixerDocument) document);

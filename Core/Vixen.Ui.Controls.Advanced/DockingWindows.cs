@@ -159,7 +159,14 @@ public sealed partial class DockingHost {
             root.Children[^1].Remove();
         }
 
-        BuildGroup(entry.Group, root).SetStyle("flex-grow", "1");
+        var group = BuildGroup(entry.Group, root);
+
+        // ⚠ The basis travels with the grow factor wherever one is written — see `DockingHost.Rebuild`.
+        // A torn-off window is the case where forgetting it is least visible and worst: the window has
+        // a size the operating system gave it, and a group that sized itself to its content instead
+        // would put the panel's bottom somewhere past the window's.
+        group.SetStyle("flex-grow", "1");
+        group.SetStyle("flex-basis", "0px");
 
         entry.Preview = root.Add("dock-preview");
         entry.Preview.AddClass("hidden");

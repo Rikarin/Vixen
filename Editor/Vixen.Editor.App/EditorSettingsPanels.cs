@@ -164,6 +164,10 @@ sealed partial class EditorApplication {
                 HistoryPanel,
                 EditorStrings.PanelHistory,
                 panel => {
+                    // The history's markup already puts its toolbar outside a `<ScrollView>`; a panel
+                    // that scrolled too would nest one in the other.
+                    panel.Scrolls = false;
+
                     // ⚠ Mounted through the reload host rather than built directly, which is the
                     // difference between "this panel is written in markup" and "this panel is
                     // developed in markup". `HotReloadHost` is what the runtime's metadata-update

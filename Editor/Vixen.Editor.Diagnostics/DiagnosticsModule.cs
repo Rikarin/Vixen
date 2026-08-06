@@ -179,6 +179,12 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             "profiler",
             new StringId("editor.panel.profiler", "Profiler"),
             panel => {
+                // ⚠ The profiler keeps its toolbar and its two grids outside its own scroller and
+                // scrolls only the flame chart, which is the one part with an unbounded number of
+                // rows. It also sizes a grid at `height: 34%` of the panel — a percentage that needs
+                // the panel's height to be the panel's height and not the content's.
+                panel.Scrolls = false;
+
                 Contextual(panel);
 
                 panel.Add<ProfilerView>().Show(profiler);
@@ -189,6 +195,11 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             "gpu",
             new StringId("editor.panel.gpu", "GPU"),
             panel => {
+                // ⚠ The timeline lays its bars out absolutely inside a `width: 100%` lane strip whose
+                // laid-out width it then reads back to place them. Every one of those three facts
+                // wants the panel's box, not a content-sized one.
+                panel.Scrolls = false;
+
                 Contextual(panel);
 
                 var timeline = panel.Add<GpuTimelineView>();
@@ -206,6 +217,9 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             "memory",
             new StringId("editor.panel.memory", "Memory"),
             panel => {
+                // Its own scroller, with the refresh button and the status line kept out of it.
+                panel.Scrolls = false;
+
                 Contextual(panel);
 
                 var memory = panel.Add<MemoryView>();

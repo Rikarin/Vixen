@@ -1804,6 +1804,14 @@ sealed partial class EditorApplication : IDisposable {
                 "scene",
                 new StringId("editor.panel.scene", "Scene"),
                 panel => {
+                    // ⚠ The panel must not scroll, and this is the case that would be a bug rather
+                    // than an annoyance. A viewport sizes its render target from its own laid-out box
+                    // and turns a pointer into a pick with `(x - AbsoluteLeft) * RenderScale` — so an
+                    // offset the panel applied and the viewport knew nothing about would move every
+                    // click a scroll's worth away from what the user aimed at, on a panel that never
+                    // needed to scroll because the viewport fills it by construction.
+                    panel.Scrolls = false;
+
                     ContextualViewport(panel);
 
                     // ⚠ A layout rather than a control, and every pane in it is a whole
@@ -1846,6 +1854,13 @@ sealed partial class EditorApplication : IDisposable {
                 "inspector",
                 new StringId("editor.panel.inspector", "Inspector"),
                 panel => {
+                    // ⚠ `InspectorView` owns a scroll region of its own and keeps its header out of
+                    // it on purpose, so that the search box and the lock cannot scroll away from
+                    // somebody who is using them to find the row they scrolled past. A panel that
+                    // scrolled the whole view would put the header back inside a scroller and give
+                    // the wheel two bars to choose between.
+                    panel.Scrolls = false;
+
                     inspector = panel.Add<InspectorView>();
                     inspector.EditedDocument = scene;
 

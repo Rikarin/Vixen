@@ -324,6 +324,12 @@ public sealed class ShaderEditorFactory : IAssetEditorFactory {
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
 
+        // ⚠ `CodeEditor` virtualises: it computes the first visible line from its own `ScrollTop`,
+        // how many rows to build from its own height, and where the caret goes from
+        // `Scroller.Content.AbsoluteLeft`. A panel that scrolled it would slide a window that has
+        // already decided which lines exist, so the file would end where the built rows do.
+        DockPanel.Fills(panel);
+
         var view = panel.Add<CodeEditorView>();
         view.Show((CodeDocument) document);
 
@@ -355,6 +361,9 @@ public sealed class MarkupEditorFactory : IAssetEditorFactory {
     /// <inheritdoc />
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
+
+        // A `CodeEditor` with a preview beside it — see `CodeEditorFactory.CreateView`.
+        DockPanel.Fills(panel);
 
         var view = panel.Add<PreviewCodeEditorView>();
         view.Show((CodeDocument) document);
