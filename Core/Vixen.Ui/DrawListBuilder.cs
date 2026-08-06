@@ -180,15 +180,28 @@ public sealed class DrawListBuilder {
                 into.Add(new DrawCommand(DrawCommandKind.Border, x, y, width, height, Fade(stroke, alpha), radius, thickness));
             }
 
-            // Between the border and the children, which is where CSS puts an element's own content:
-            // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
-            EmitText(document, element, into, alpha);
-            element.OnDraw(new DrawContext(element, into, alpha));
         }
 
         var clips = element.Style.TryGet(overflow, out var value) && value != visible;
         if (clips) {
             into.Add(new DrawCommand(DrawCommandKind.ClipPush, x, y, width, height, default, radius, 0f));
+        }
+
+        if (shown) {
+            // Between the border and the children, which is where CSS puts an element's own content:
+            // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
+            //
+            // ⚠ <b>Inside the clip, and it used to be outside it.</b> `overflow` clips an element's
+            // *content*, and an element's own text is content — the background and the border are
+            // the two things it does not clip, which is why the push is below them and not above.
+            // Emitting the text first meant `overflow: hidden` clipped an element's children and
+            // never its own string, so a label too long for a fixed column drew straight across
+            // whatever was beside it. Five places in the editor had written `overflow: hidden` on a
+            // text-bearing element believing otherwise, and every one of them was a column that
+            // silently overdrew its neighbour. It survived because a clip is invisible to the
+            // element tree: every rectangle was the right size and the glyphs went somewhere else.
+            EmitText(document, element, into, alpha);
+            element.OnDraw(new DrawContext(element, into, alpha));
         }
 
         // Paint order rather than document order, which are the same list unless some child carries
