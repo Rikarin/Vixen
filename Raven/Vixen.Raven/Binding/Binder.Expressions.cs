@@ -206,6 +206,18 @@ internal abstract partial class Binder {
             case BoundTypeExpression typeExpression:
                 return BindMemberOfType(null, typeExpression.ReferencedType, name, typeArguments, syntax);
 
+            // ⚠ A method group is the one receiver that is typed as an error without one having
+            // been reported, so the fallthrough below would swallow it in silence — and silence
+            // here reaches the backend. `min.y` is a one-token edit of `scale.y`, and it bound
+            // clean, lowered to a void-typed multiply, and emitted `OpFMul %void`; its mirror
+            // `float(min.y) * scale.y` emitted `OpIMul %void`, from the same expression, which is
+            // what says the opcode was read off the operands and the type off nothing at all.
+            // Both are in Corpus/raven. Named as a missing member rather than as a value misuse
+            // because that is the shape the author wrote: a member of something that has none.
+            case BoundMethodGroupExpression group:
+                Report(SemanticDiagnostics.MemberNotFound, syntax, group.Methods[0].Name, name);
+                return new BoundErrorExpression(syntax);
+
             default:
                 return receiver.Type.IsErrorType
                     ? new BoundErrorExpression(syntax)
@@ -647,12 +659,48 @@ internal abstract partial class Binder {
         );
     }
 
+    /// <summary>Binds <c>a .. b</c> into a sequence of the two ends' common type.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The ends are converted, not merely measured.</b> Finding the common type and
+    ///         leaving both ends as they were is what <c>for (i in 3f .. 4)</c> did: the loop
+    ///         variable took the range's <c>float</c> element type and the lowered loop stored the
+    ///         untouched <c>int</c> limit into it, so the module carried
+    ///         <c>OpStore %i_limit %int_4</c> — an <c>f32</c> pointer and an <c>i32</c> object — with
+    ///         nothing reported anywhere before <c>spirv-val</c>. <c>Corpus/raven</c> has it.
+    ///         <see cref="BindConditional" /> is the shape this now follows, and had all along.
+    ///     </para>
+    ///     <para>
+    ///         Two ends with no common type at all are reported rather than defaulted to
+    ///         <c>int</c>, for the same reason: a default that neither end converts to is a range
+    ///         whose element type is a fiction, and the loop below it lowers against the fiction.
+    ///     </para>
+    /// </remarks>
     BoundExpression BindRange(RangeExpressionSyntax syntax) {
         var left = BindValue(syntax.Left);
         var right = BindValue(syntax.Right);
 
-        var element = Conversions.FindCommonType(left.Type, right.Type) ?? BuiltInTypes.Int;
-        return new BoundRangeExpression(syntax, left, right, new SequenceTypeSymbol(element));
+        var element = Conversions.FindCommonType(left.Type, right.Type);
+
+        if (element is null) {
+            if (!left.Type.IsErrorType && !right.Type.IsErrorType) {
+                Report(
+                    SemanticDiagnostics.CannotConvert,
+                    syntax,
+                    right.Type.ToDisplayString(),
+                    left.Type.ToDisplayString()
+                );
+            }
+
+            element = ErrorTypeSymbol.Instance;
+        }
+
+        return new BoundRangeExpression(
+            syntax,
+            Convert(left, element, syntax.Left),
+            Convert(right, element, syntax.Right),
+            new SequenceTypeSymbol(element)
+        );
     }
 
     BoundExpression BindTuple(TupleExpressionSyntax syntax) {
@@ -713,11 +761,13 @@ internal abstract partial class Binder {
             }
         }
 
-        return new BoundCollectionExpression(
-            syntax,
-            elements,
-            new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance, 1, length)
-        );
+        // Nothing contributed, so there is nothing to infer from and no context to infer against.
+        if (elementType is null) {
+            Report(SemanticDiagnostics.EmptyCollectionHasNoElementType, syntax);
+            elementType = ErrorTypeSymbol.Instance;
+        }
+
+        return new BoundCollectionExpression(syntax, elements, new ArrayTypeSymbol(elementType, 1, length));
 
         static int? Add(int? total, int? contribution) =>
             total is { } a && contribution is { } b ? a + b : null;

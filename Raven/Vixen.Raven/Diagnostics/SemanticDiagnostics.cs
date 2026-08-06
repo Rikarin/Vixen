@@ -1263,4 +1263,35 @@ public static class SemanticDiagnostics {
         Declaration,
         DiagnosticSeverity.Warning
     );
+
+    // --- Collection literals -----------------------------------------------
+
+    /// <summary>A <c>[]</c> with nothing in it to take an element type from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A collection literal in Raven is inferred from its contents and never from the place
+    ///         it is going — there is no target-typed <c>[]</c>, and
+    ///         docs/plan/07-raven-shader-pipeline.md § B describes the literal entirely in terms of
+    ///         what its elements contribute, a spread included. So an empty one has no element type
+    ///         there is any way to learn. It also has no length worth having: an array is sized, and
+    ///         zero is not a size (<c>RVN2116</c>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The type it used to get instead was <c>?[0]</c>, and every position that could
+    ///         reject it did — except the one that does not look.</b> Assigning it reported
+    ///         <c>RVN2020</c> and declaring it reported <c>RVN2116</c>, so the only survivor was
+    ///         <c>[]</c> as an expression statement, where nothing asks what it is: the binder said
+    ///         nothing, the lowerer said <c>RVN3001</c>, and the SPIR-V backend — which the fuzz
+    ///         harness runs whatever the lowerer thought — emitted
+    ///         <c>OpCompositeConstruct %void</c>. It is <c>Corpus/raven/9352e56acef97227.bin</c>.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor EmptyCollectionHasNoElementType = new(
+        "RVN2139",
+        "Empty collection literal",
+        "'[]' has no elements to take an element type from, and Raven does not infer one from "
+        + "context; write the elements, or an array declaration with a size",
+        Binding,
+        DiagnosticSeverity.Error
+    );
 }

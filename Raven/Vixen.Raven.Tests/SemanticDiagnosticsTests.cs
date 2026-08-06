@@ -831,6 +831,61 @@ public class SemanticDiagnosticsTests {
         );
     }
 
+    /// <summary>
+    ///     A member taken of a method group is reported rather than swallowed — <c>RVN2011</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A method group is the one receiver typed as an error without an error having
+    ///         been reported</b>, so the guard that suppresses a cascade from an already-reported
+    ///         receiver used to swallow it — the same shape as <c>RVN2030</c> and a namespace, and
+    ///         found the same way. <c>min.y</c> is one token away from <c>scale.y</c>, and it
+    ///         compiled with nothing reported at all: the <c>val</c> took a void type, the multiply
+    ///         around it took a void result, and the SPIR-V emitter wrote <c>OpFMul %void</c>.
+    ///     </para>
+    ///     <para>
+    ///         <c>Corpus/raven/431a0d0b2f2420d6.bin</c>, <c>dc5d446954c9cf71.bin</c> and
+    ///         <c>f6f5082753f2dd15.bin</c> are the three nightly findings this one line closes, and
+    ///         the first two are the pair that named the fault: <c>OpFMul</c> with a non-float
+    ///         result and <c>OpIMul</c> with a non-int one, from the same expression, which is what
+    ///         says the opcode came from the operands and the result type from nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_member_of_a_method_group_is_reported() {
+        var diagnostic = Assert.Single(AssertDiagnostics(InMethod("        var x = min.y"), "RVN2011"));
+
+        Assert.Contains("min", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("'y'", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>An empty collection literal has no element type to infer — <c>RVN2139</c>.</summary>
+    /// <remarks>
+    ///     ⚠ Every position that asks what <c>[]</c> is already rejected it, which is why this took
+    ///     a fuzzer to find: the survivor was <c>[]</c> as an expression statement, where nothing
+    ///     asks. It bound to <c>?[0]</c>, and the emitter wrote <c>OpCompositeConstruct %void</c> —
+    ///     <c>Corpus/raven/9352e56acef97227.bin</c>.
+    /// </remarks>
+    [Fact]
+    public void An_empty_collection_literal_is_reported() {
+        var diagnostic = Assert.Single(AssertDiagnostics(InMethod("        []"), "RVN2139"));
+
+        Assert.Contains("[]", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A range whose ends share no type is reported rather than defaulted to <c>int</c>.
+    /// </summary>
+    /// <remarks>
+    ///     The companion to <c>SpirvValidationTests</c>'s converted-endpoints row: where a common
+    ///     type exists both ends are converted to it, and where none does the range is not quietly
+    ///     given an element type neither end could produce.
+    /// </remarks>
+    [Fact]
+    public void A_range_whose_ends_have_no_common_type_is_reported() {
+        Assert.Single(AssertDiagnostics(InMethod("        for (i in true .. 4) {\n        }"), "RVN2020"));
+    }
+
     /// <summary>Wraps a method body in a shader so error cases stay readable.</summary>
     static string InMethod(string body, string members = "") =>
         $$"""
