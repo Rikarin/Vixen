@@ -4,11 +4,11 @@ slug: engine/retopology
 kind: guide
 area: Engine
 summary: What to ask a quad remesh for, and everything it measured about what it gave back.
-api: [T:Vixen.Geometry.Remeshing.RemeshSettings, T:Vixen.Geometry.Remeshing.ConditioningSettings, T:Vixen.Geometry.Remeshing.RemeshGuide, T:Vixen.Geometry.Remeshing.RemeshReport, T:Vixen.Geometry.Remeshing.ConditioningReport, T:Vixen.Geometry.Remeshing.RemeshStage, T:Vixen.Geometry.Remeshing.RemeshStageTiming, T:Vixen.Geometry.Remeshing.Singularity]
+api: [T:Vixen.Geometry.Remeshing.RemeshSettings, T:Vixen.Geometry.Remeshing.AtlasSettings, T:Vixen.Geometry.Remeshing.ConditioningSettings, T:Vixen.Geometry.Remeshing.RemeshGuide, T:Vixen.Geometry.Remeshing.RemeshReport, T:Vixen.Geometry.Remeshing.ConditioningReport, T:Vixen.Geometry.Remeshing.RemeshStage, T:Vixen.Geometry.Remeshing.RemeshStageTiming, T:Vixen.Geometry.Remeshing.Singularity]
 tags: [geometry, retopology, remesh, quad, mesh]
 since: 0.1
 status: preview
-related: [engine/uv-packing, engine/edit-meshes, engine/mesh-operations, engine/mesh-booleans, core/triangle-tree]
+related: [engine/attribute-transfer, engine/map-baking, engine/uv-packing, engine/edit-meshes, engine/mesh-operations, engine/mesh-booleans, core/triangle-tree]
 ---
 
 ## What it is
@@ -156,6 +156,8 @@ var settings = new RemeshSettings {
 
 ## See also
 
+- [Attribute transfer](engine/attribute-transfer) — stage seven, and what stops a remesh being a downgrade.
+- [Map baking](engine/map-baking) — the normal and displacement maps the atlas is filled with.
 - [UV packing](engine/uv-packing) — where the atlas comes from, and the packer this shares.
 - [Edit meshes](engine/edit-meshes) — the kernel a remesh hands quads back to.
 - [Mesh booleans](engine/mesh-booleans) — the hard-surface case, and what a blockout retopologises.

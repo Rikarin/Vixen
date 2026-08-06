@@ -350,7 +350,14 @@ public class RemesherTests {
             Assert.Contains(report.Stages, timing => timing.Stage == stage);
         }
 
-        Assert.Equal(TimeSpan.Zero, report.Stages.Single(timing => timing.Stage == RemeshStage.Transfer).Elapsed);
+        // ⚠ This asserted TimeSpan.Zero while stage seven was a recorded seam and nothing else. R5
+        // and R6 filled it, so the assertion is inverted rather than deleted: the stage that carries
+        // the attributes and derives the atlas cannot take no time, and a zero here now means the
+        // transfer silently did not run.
+        var transfer = report.Stages.Single(timing => timing.Stage == RemeshStage.Transfer);
+
+        Assert.True(transfer.Elapsed > TimeSpan.Zero, "Stage seven did no work at all.");
+        Assert.True(transfer.Elements > 0, "Stage seven carried nothing.");
         Assert.True(report.Conditioning.Triangles > 0);
     }
 

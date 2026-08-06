@@ -128,6 +128,93 @@ public class TriangleTreeTests {
         Assert.True(backface);
     }
 
+    // --- The ray hit, which is the query a bake asks ------------------------
+
+    /// <summary>The hit names the triangle, the point, the distance and where on it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The boolean overload answers a sign vote and this one answers a bake.</b>
+    ///     <c>docs/plan/41-automatic-retopology.md</c> § D12 casts along the output's interpolated
+    ///     normal and writes the source's normal at the hit into an atlas texel, which needs the
+    ///     triangle and the weights on it — neither of which a <c>bool</c> and a backface flag carry.
+    /// </remarks>
+    [Fact]
+    public void ARayHitNamesTheTriangleAndWhereOnIt() {
+        var tree = new TriangleTree([A, B, C], [0, 1, 2]);
+        var hit = tree.Raycast(new(0.25f, 0.25f, 2f), new(0, 0, -4f));
+
+        Assert.Equal(0, hit.Triangle);
+        Assert.False(hit.Backface);
+        Assert.Equal(0.5f, hit.Distance, 4);
+        Assert.Equal(0.25f, hit.Point.X, 4);
+        Assert.Equal(0.25f, hit.Point.Y, 4);
+        Assert.Equal(0f, hit.Point.Z, 4);
+        Assert.Equal(1f, Total(hit.Barycentric), 4);
+
+        var rebuilt = (A * hit.Barycentric.X) + (B * hit.Barycentric.Y) + (C * hit.Barycentric.Z);
+
+        Assert.Equal(hit.Point.X, rebuilt.X, 4);
+        Assert.Equal(hit.Point.Y, rebuilt.Y, 4);
+        Assert.Equal(hit.Point.Z, rebuilt.Z, 4);
+    }
+
+    /// <summary>The direction's length is the search radius, so a short ray stops short.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Bounding by the direction rather than by a separate limit is what keeps the two from
+    ///     disagreeing</b>, and it is what lets a bake express its cage as a fraction of the model's
+    ///     diagonal — a limit in metres is a claim about how big the model is.
+    /// </remarks>
+    [Fact]
+    public void ARayShorterThanTheSurfaceStopsShortOfIt() {
+        var tree = new TriangleTree([A, B, C], [0, 1, 2]);
+
+        Assert.Equal(-1, tree.Raycast(new(0.25f, 0.25f, 2f), new(0, 0, -1.5f)).Triangle);
+        Assert.Equal(0, tree.Raycast(new(0.25f, 0.25f, 2f), new(0, 0, -2.5f)).Triangle);
+    }
+
+    /// <summary>A miss says so rather than naming a triangle at an infinite distance.</summary>
+    [Fact]
+    public void ARayHitThatMissesNamesNothing() {
+        var tree = new TriangleTree([A, B, C], [0, 1, 2]);
+        var hit = tree.Raycast(new(5f, 5f, 1f), new(0, 0, -4f));
+
+        Assert.Equal(-1, hit.Triangle);
+        Assert.Equal(float.PositiveInfinity, hit.Distance);
+        Assert.Equal(Vector3.Zero, hit.Barycentric);
+    }
+
+    /// <summary>An empty tree is a miss and not an exception.</summary>
+    [Fact]
+    public void AnEmptyTreeIsHitByNothing() {
+        Assert.Equal(-1, new TriangleTree([], []).Raycast(Vector3.Zero, Vector3.UnitZ).Triangle);
+    }
+
+    /// <summary>The two overloads agree about which triangle is nearest and which way it faced.</summary>
+    /// <remarks>
+    ///     They share a traversal and a tie-break, so a disagreement would mean one of them had
+    ///     drifted — and the sign vote that the boolean one exists for is built entirely out of the
+    ///     backface flag.
+    /// </remarks>
+    [Fact]
+    public void TheTwoRaycastsAgreeAboutTheNearestHit() {
+        Vector3[] vertices = [
+            new(0, 0, 1), new(1, 0, 1), new(0, 1, 1),
+            new(0, 0, 5), new(1, 0, 5), new(0, 1, 5)
+        ];
+
+        int[] indices = [0, 1, 2, 3, 5, 4];
+
+        var tree = new TriangleTree(vertices, indices);
+        var origin = new Vector3(0.25f, 0.25f, 0f);
+
+        Assert.True(tree.Raycast(origin, new(0, 0, 1), out var backface));
+
+        var hit = tree.Raycast(origin, new(0, 0, 10f));
+
+        Assert.Equal(0, hit.Triangle);
+        Assert.Equal(backface, hit.Backface);
+        Assert.Equal(1f, hit.Distance * 10f, 4);
+    }
+
     // --- Distance -----------------------------------------------------------
 
     [Fact]

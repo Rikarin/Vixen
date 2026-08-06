@@ -64,9 +64,39 @@ public static class Remesher {
         RemeshSettings settings,
         out RemeshReport report,
         JobScheduler? scheduler = null
+    ) =>
+        Remesh(source, SourceAttributes.None, settings, out report, out _, scheduler);
+
+    /// <summary>The same, carrying the channels the mesh has no room for as well.</summary>
+    /// <param name="source">The input. Read, never modified.</param>
+    /// <param name="attributes">
+    ///     The source's colours and skinning weights, or <see cref="SourceAttributes.None" />. ⚠
+    ///     <b>This overload is what makes a character remeshable</b> — docs/plan/41 § D12 and doc 33.
+    ///     Normals, coordinates and face groups ride inside <see cref="EditMesh" /> and need no
+    ///     argument; a weight has nowhere to live but beside it.
+    /// </param>
+    /// <param name="settings">What the output should be, and what it should keep.</param>
+    /// <param name="report">What happened, per stage, and how good the result is.</param>
+    /// <param name="transferred">The colours and weights that came out, and what could not be carried.</param>
+    /// <param name="scheduler">Workers for the field solve, or <see langword="null" />.</param>
+    /// <returns>The all-quad result, or an empty mesh when a stage refused.</returns>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="source" />, <paramref name="attributes" /> or <paramref name="settings" />
+    ///     is null.
+    /// </exception>
+    public static EditMesh Remesh(
+        EditMesh source,
+        SourceAttributes attributes,
+        RemeshSettings settings,
+        out RemeshReport report,
+        out TransferResult transferred,
+        JobScheduler? scheduler = null
     ) {
         ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(attributes);
         ArgumentNullException.ThrowIfNull(settings);
+
+        transferred = new([], null, 0, 0, []);
 
         var stages = new List<RemeshStageTiming>();
         var warnings = new List<string>();
@@ -159,17 +189,41 @@ public static class Remesher {
         stages.Add(new(RemeshStage.Extract, clock.Elapsed - mark, output.FaceCount));
         warnings.AddRange(extraction.Warnings);
 
-        // ⑦ Transfer is R5's — normals, coordinates, colours, materials, weights and the baked maps.
-        // The stage is recorded so the report's shape does not change when it lands.
-        stages.Add(new(RemeshStage.Transfer, TimeSpan.Zero, 0));
-
         if (output.FaceCount == 0) {
             warnings.Add("The extract stage produced no faces.");
+            stages.Add(new(RemeshStage.Transfer, TimeSpan.Zero, 0));
 
             report = Refused(conditioning, stages, warnings);
 
             return new();
         }
+
+        // ⑦ Transfer — § D12's attributes, then § D13's atlas. The order is not interchangeable:
+        // both write the texture-coordinate layer and the atlas is the one that wins, so the
+        // transfer runs first with its own coordinate pass disabled.
+        mark = clock.Elapsed;
+        var carried = 0;
+
+        if (settings.TransferAttributes) {
+            transferred = AttributeTransfer.Transfer(
+                source,
+                attributes,
+                output,
+                settings.Transfer with { KeepTexCoords = settings.Transfer.KeepTexCoords && !settings.GenerateUvs }
+            );
+
+            warnings.AddRange(transferred.Warnings);
+            carried += output.CornerCount;
+        }
+
+        if (settings.GenerateUvs) {
+            var atlas = LayoutAtlas.Build(output, extraction.Grids, settings.Atlas);
+
+            warnings.AddRange(atlas.Warnings);
+            carried += atlas.Charts;
+        }
+
+        stages.Add(new(RemeshStage.Transfer, clock.Elapsed - mark, carried));
 
         var (quads, others) = RemeshMetrics.Faces(output);
         var (found, onFeatures) = RemeshMetrics.Singularities(output, extraction, layout, features);

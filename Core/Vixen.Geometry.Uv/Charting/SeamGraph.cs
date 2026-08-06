@@ -59,7 +59,7 @@ sealed class SeamGraph {
     ///     <para>
     ///         ⚠ <b>The visibility rays are cast at a rescaled copy of the mesh, and that is a workaround
     ///         for an absolute tolerance one assembly down rather than a modelling choice.</b>
-    ///         <see cref="TriangleTree.Raycast" /> rejects a triangle whose Möller–Trumbore determinant
+    ///         <see cref="TriangleTree.Raycast(Vector3, Vector3, out bool)" /> rejects a triangle whose Möller–Trumbore determinant
     ///         falls below <c>MathUtil.ZeroTolerance</c> — an absolute <c>1e-6</c> — and that determinant
     ///         is <c>edge · (direction × edge)</c>, which for a unit direction scales as the <b>square</b>
     ///         of the model. So the same mesh at a thousandth of its size has determinants a millionth
@@ -503,7 +503,7 @@ sealed class SeamGraph {
     ///     <para>
     ///         docs/plan/42 § D4's visibility term, which is Seamster's inconspicuousness: a seam that
     ///         nobody can see costs nothing to have. It is estimated by ambient occlusion over the
-    ///         surface, which is <see cref="TriangleTree.Raycast" />'s job.
+    ///         surface, which is <see cref="TriangleTree.Raycast(Vector3, Vector3, out bool)" />'s job.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>An open patch reads as fully exposed and that is the right answer, not a failure.</b>

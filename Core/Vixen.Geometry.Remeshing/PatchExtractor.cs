@@ -5,6 +5,47 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Geometry.Remeshing;
 
+/// <summary>One patch's grid, kept because docs/plan/41 § D13's atlas is a statement about it.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A quantized quad patch <i>is</i> a rectangle, and this is the rectangle.</b> § D13:
+///         the layout is already a chart decomposition with zero in-chart distortion, so the atlas
+///         comes off it directly rather than from re-cutting the output with a general charter —
+///         which doc 42 § D2 keeps here for exactly that reason while moving the packing out. Losing
+///         the grid at the end of extraction and recovering it afterwards from the faces would mean
+///         inferring what was known for certain.
+///     </para>
+///     <para>
+///         ⚠ <b>The faces of one patch are contiguous and <see cref="FirstFace" /> is where they
+///         start</b>, because <see cref="PatchExtractor" /> adds them in one nested loop and nothing
+///         reorders them afterwards. A patch that was skipped contributes no grid at all, so the
+///         index is not the patch's own.
+///     </para>
+/// </remarks>
+sealed class PatchGrid {
+    /// <summary>Which patch of the layout it came from.</summary>
+    public required int Patch { get; init; }
+
+    /// <summary>How many quads across.</summary>
+    public required int Wide { get; init; }
+
+    /// <summary>How many quads up.</summary>
+    public required int Tall { get; init; }
+
+    /// <summary>The output positions, indexed <c>[i][j]</c> over <c>[0, Wide] × [0, Tall]</c>.</summary>
+    public required int[][] Vertices { get; init; }
+
+    /// <summary>Where this patch's run of output faces begins.</summary>
+    public required int FirstFace { get; init; }
+
+    /// <summary>The four boundary chains, in output positions, as the sides were walked.</summary>
+    /// <remarks>Side 0 runs C0 → C1, side 1 runs C1 → C2, and so on anticlockwise.</remarks>
+    public required int[][] Sides { get; init; }
+
+    /// <summary>Whether each side is made only of feature arcs — where a seam is least visible.</summary>
+    public required bool[] IsFeature { get; init; }
+}
+
 /// <summary>What extraction produced, and everything the report needs to measure it.</summary>
 sealed class Extraction {
     internal Extraction(
@@ -13,6 +54,7 @@ sealed class Extraction {
         int[] sourceOf,
         bool[] pinned,
         int[][] samples,
+        PatchGrid[] grids,
         string[] warnings
     ) {
         Mesh = mesh;
@@ -20,8 +62,12 @@ sealed class Extraction {
         SourceOf = sourceOf;
         Pinned = pinned;
         Samples = samples;
+        Grids = grids;
         Warnings = warnings;
     }
+
+    /// <summary>Every patch that produced a grid, in patch order. § D13's chart decomposition.</summary>
+    public PatchGrid[] Grids { get; }
 
     /// <summary>The all-quad result.</summary>
     public EditMesh Mesh { get; }
@@ -112,12 +158,27 @@ static class PatchExtractor {
         }
 
         var skipped = new Dictionary<string, int>();
+        var grids = new List<PatchGrid>(layout.Patches.Count);
 
-        foreach (var patch in layout.Patches) {
-            var refused = Fill(mesh, output, layout, samples, patch, projector, arcOf, sourceOf, pinned);
+        for (var index = 0; index < layout.Patches.Count; index++) {
+            var refused = Fill(
+                mesh,
+                output,
+                layout,
+                samples,
+                layout.Patches[index],
+                index,
+                projector,
+                arcOf,
+                sourceOf,
+                pinned,
+                out var grid
+            );
 
             if (refused is not null) {
                 skipped[refused] = skipped.GetValueOrDefault(refused) + 1;
+            } else if (grid is not null) {
+                grids.Add(grid);
             }
         }
 
@@ -131,6 +192,7 @@ static class PatchExtractor {
             [.. sourceOf],
             [.. pinned],
             samples,
+            [.. grids],
             [.. warnings]
         );
 
@@ -299,11 +361,15 @@ static class PatchExtractor {
         PatchLayout layout,
         int[][] samples,
         LayoutPatch patch,
+        int index,
         SurfaceProjector projector,
         List<int> arcOf,
         List<int> sourceOf,
-        List<bool> pinned
+        List<bool> pinned,
+        out PatchGrid? built
     ) {
+        built = null;
+
         var side = new int[4][];
 
         for (var at = 0; at < 4; at++) {
@@ -397,6 +463,7 @@ static class PatchExtractor {
         }
 
         var group = mesh.Group(patch.Triangles[0]);
+        var first = output.FaceCount;
 
         for (var i = 0; i < wide; i++) {
             for (var j = 0; j < tall; j++) {
@@ -404,7 +471,25 @@ static class PatchExtractor {
             }
         }
 
-        _ = layout;
+        var feature = new bool[4];
+
+        for (var at = 0; at < 4; at++) {
+            // A side is a run of arcs and it is a feature side only when every one of them is —
+            // half a crease is not a place a seam is invisible, which is what § D13's preference is
+            // actually about.
+            feature[at] = patch.Sides[at].Length > 0
+                && patch.Sides[at].All(use => layout.Arcs[use.Arc].IsFeature);
+        }
+
+        built = new() {
+            Patch = index,
+            Wide = wide,
+            Tall = tall,
+            Vertices = grid,
+            FirstFace = first,
+            Sides = side,
+            IsFeature = feature
+        };
 
         return null;
     }

@@ -98,6 +98,37 @@ are refused rather than emitted as a folded grid, so what is missing is holes ra
 and `RemeshReport.Warnings` counts them and says why. Compacting the partition is layout work, and it
 is recorded here as owed rather than described as done.
 
+## The output carries the input, or it is useless
+
+Stage seven is what makes a remesh a pipeline rather than a demo. Normals, texture coordinates and
+face groups are written back into the mesh; **vertex colours and skinning weights come back beside it**
+in a `TransferResult`, because `EditMesh` has a normal layer and a coordinate layer and nothing else,
+and growing it a colour channel and a bone channel would put a renderer's and a rig's vocabulary into
+geometry types that have never heard of either.
+
+⚠ **Face groups are decided by the majority of covered *area*, never by the nearest face.**
+Nearest-face assignment shreds along a material boundary — every other quad flips — and the sawtooth
+seam it leaves reads as a UV bug and gets debugged as one. Measured on a plane split on a straight
+line with a fourteen-quad target: the area rule gives **14** boundary edges, which is the floor for a
+straight cut, and the nearest-face rule gives **17**.
+
+⚠ **Skinning weights are clamped to the target's influence limit, and the clamp is not optional.** A
+target with room for four handed five silently loses one, and which one depends on the order the
+interpolation accumulated them in. Sorted by descending weight with the bone index as the tie-break,
+the survivor is a function of the input.
+
+## The bake is a rasterizer this assembly had to grow
+
+There is no CPU mesh-to-texture rasterizer in this repository. The two things that bake a mesh into a
+texture are GPU-only and project along an *axis* rather than through a parameterization; the half-space
+coverage rule that is reusable lives in `Vixen.Rendering`, one layer up, which the layering test
+forbids referencing — **and it is pixel-centre only, which silently loses the outermost row of texels
+of every chart in an atlas.** So `AtlasRaster` is conservative coverage by separating axes, written
+here, and `MapBaker` casts along the output's interpolated normal both ways and takes the nearer hit.
+
+⚠ **Content is rasterized in one pass and dilated in a second**, and the gutter only ever writes where
+coverage is false — so one chart's dilation cannot overwrite the chart abutting it in the atlas.
+
 ## Deterministic, and it is a gate
 
 Same input, same settings, byte-identical output, at any thread count on any platform. Four choices
