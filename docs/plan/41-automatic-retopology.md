@@ -521,6 +521,13 @@ arbitrary imported mesh with bad UVs still has no unwrapper — though it can no
 remeshed, which is a legitimate answer for a great many meshes and an unacceptable one for a mesh whose
 topology is the point. **Doc 40 § D6's second sentence is amended, not deleted.**
 
+⚠️ **Amended by [42 — UV unwrapping](42-uv-unwrapping.md), in one half and not the other.** The
+privileged charting stays here — a quantized quad patch *is* a rectangle, and re-cutting it with a
+general charter would be worse in every respect. What moves is the packing: **the super-chart merging
+and rectangle packing above become calls into `Vixen.Geometry.Uv`**, so there is one packer with one
+margin rule rather than two. And the escape hatch for "a mesh whose topology is the point" now exists —
+doc 42 unwraps it without touching a triangle.
+
 ### D14. Determinism is a gate, not an aspiration
 
 **The same input and the same settings produce byte-identical output, at any thread count, on any
@@ -838,8 +845,8 @@ quantizer to make the settings panel usable, and that is the extent of it.
 1. **A sculpting package.** No brushes, no dynamesh, no subdivision *authoring*. The remesher takes a
    mesh and returns a mesh.
 2. **A general UV unwrapper.** [D13](#d13-uvs-come-nearly-free-from-the-layout-and-that-closes-doc-40s-other-gap)
-   unwraps what it produced, by reusing a structure it had to compute. An arbitrary mesh's UVs are still
-   not this document's problem.
+   unwraps what it produced, by reusing a structure it had to compute. ⚠️ An arbitrary mesh's UVs are
+   [42](42-uv-unwrapping.md)'s problem, and this document's packer is now one of its callers.
 3. **A runtime feature.** Import time and edit time. No shipped game remeshes anything, and
    `Vixen.Rendering` never learns that this exists.
 4. **A GPU pass.** [D17](#d17-cpu-jobs-and-not-the-gpu--named-so-nobody-quietly-changes-it), and it is
