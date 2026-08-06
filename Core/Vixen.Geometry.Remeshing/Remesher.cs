@@ -102,14 +102,15 @@ public static class Remesher {
         // it cuts the source, calls back in with the setting cleared, and reflects what comes out. A
         // stage would have had to thread "which half" through all seven.
         //
-        // ⚠ Symmetry and attribute transfer do not compose yet, and this is where that shows. The
-        // mirror pass predates stage seven — it was written against the overload that has no
-        // attributes — so a symmetric remesh returns the empty `transferred` assigned above rather
-        // than the source's normals, colours and skin weights. That is wrong and it is visible
-        // rather than silent: `SymmetryTransferTests` asserts it, and composing them means teaching the
-        // pass to mirror an attribute set as well as a mesh, which is not a line of glue.
+        // ⚠ It runs stage seven itself rather than letting the inner call do it, and that is the
+        // whole reason it takes the attributes. A colour is indexed per corner and a weight per
+        // position of the mesh the caller handed in, and the plane cut renumbered both — so the
+        // transfer has to be made from the uncut source onto the half's output, and then reflected.
+        // Reflecting it is not glue: a mirrored vertex's weights belong to the *mirrored* bone, which
+        // is what `SourceAttributes.BoneMirror` is for and what a symmetric remesh of a rigged mesh
+        // is refused without.
         if (settings.Symmetry is { } plane) {
-            return SymmetryPass.Remesh(source, settings, plane, out report, scheduler);
+            return SymmetryPass.Remesh(source, attributes, settings, plane, out report, out transferred, scheduler);
         }
 
         var stages = new List<RemeshStageTiming>();
