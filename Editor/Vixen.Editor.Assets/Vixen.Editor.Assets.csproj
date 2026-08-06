@@ -85,6 +85,19 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.VirtualGeometry\Vixen.Rendering.VirtualGeometry.csproj" />
 
         <!--
+            docs/plan/41 § D16's importer row and docs/plan/42 § D13's: a generated GLB dropped into
+            the project comes out retopologised, atlased and baked. Both are `Core/` arithmetic over
+            triangles with no device and no model, which is what lets a content build run them — and
+            they arrive together because the remesher references the unwrapper for its packer
+            (docs/plan/41 § D13, amended). `Vixen.Geometry` comes with them, which is the first time
+            this assembly has named the mesh kernel; the two copies between `MeshData` and `EditMesh`
+            are in ModelGeometry, on the same argument doc 24 § D1 makes for putting them in the
+            caller rather than in the kernel.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Geometry.Remeshing\Vixen.Geometry.Remeshing.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Geometry.Uv\Vixen.Geometry.Uv.csproj" />
+
+        <!--
             The terrain toolset's four authored assets — docs/plan/31 § T4, T5, T6 and T8 each shipped
             the content and deferred the file to here, deliberately, so that it would be one job. What
             the importer needs from these two is each type's own Validate(): the sentence that turns

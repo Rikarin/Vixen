@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.IO;
+using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
+using Vixen.Core.Yaml;
+using Vixen.Geometry.Remeshing;
 using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 
@@ -154,6 +158,12 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
         var refused = 0;
         var pageBytes = 0L;
 
+        // ⚠ Before anything else reads a mesh, and that ordering is the whole of the wiring.
+        // docs/plan/41 § D16 and docs/plan/42 § D13 both put these ahead of the compilers: clusters,
+        // pages and a distance field built from the source triangles and then thrown away when the
+        // retopology replaced them would be the most expensive no-op in the pipeline.
+        await RetopologiseAsync(context, settings, read, cancellationToken).ConfigureAwait(false);
+
         foreach (var mesh in read.Meshes) {
             if (settings.GenerateMeshlets && mesh.Indices.Length > 0) {
                 // Skinned meshes are included, unlike the distance field below. A cluster carries the
@@ -294,5 +304,103 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
         }
 
         return context.Finish();
+    }
+
+    /// <summary>docs/plan/41 § D16 and docs/plan/42 § D13, over every mesh the file carried.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The meshes are replaced in place rather than added beside the originals.</b> A
+    ///         retopologised mesh is not a second level of detail — doc 22's cluster hierarchy is what
+    ///         provides those, and it is built from whatever this leaves behind. Keeping both would
+    ///         double every model in the bundle and leave two sub-assets with a claim on one address.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A guide's file is declared as a dependency, which is what puts it in the cache
+    ///         key.</b> Otherwise editing the curve would leave every model that follows it importing
+    ///         from cache, which is the class of staleness that looks like the setting doing nothing.
+    ///     </para>
+    /// </remarks>
+    static async ValueTask RetopologiseAsync(
+        ImportContext context,
+        ModelImportSettings settings,
+        ReadModel read,
+        CancellationToken cancellationToken
+    ) {
+        if (!settings.Retopologize && settings.Unwrap == UnwrapMode.Never) {
+            return;
+        }
+
+        var guides = await GuidesAsync(context, settings, cancellationToken).ConfigureAwait(false);
+
+        for (var index = 0; index < read.Meshes.Length; index++) {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var result = ModelRetopology.Run(read.Meshes[index], settings, guides);
+
+            foreach (var message in result.Messages) {
+                context.Report(ImportSeverity.Information, message);
+            }
+
+            if (!result.Remeshed && !result.Unwrapped) {
+                continue;
+            }
+
+            // The name, the material and the cluster references are the mesh's identity and the
+            // geometry is not — so what comes back keeps the record it replaced apart from its arrays.
+            result.Mesh.MaterialIndex = read.Meshes[index].MaterialIndex;
+            read.Meshes[index] = result.Mesh;
+        }
+    }
+
+    /// <summary>The guide curves the settings name, read from their assets.</summary>
+    static async ValueTask<IReadOnlyList<RemeshGuide>> GuidesAsync(
+        ImportContext context,
+        ModelImportSettings settings,
+        CancellationToken cancellationToken
+    ) {
+        if (settings.RetopologyGuides.Count == 0) {
+            return [];
+        }
+
+        var guides = new List<RemeshGuide>();
+
+        foreach (var reference in settings.RetopologyGuides) {
+            if (string.IsNullOrWhiteSpace(reference.Spline)) {
+                continue;
+            }
+
+            var path = new VirtualPath(reference.Spline.StartsWith('/') ? reference.Spline : "/" + reference.Spline);
+
+            context.DependsOnFile(path);
+
+            try {
+                await using var stream = await context.Files.OpenReadAsync(path, cancellationToken).ConfigureAwait(false);
+                using var reader = new StreamReader(stream);
+
+                var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+                var asset = YamlSerializer.Deserialize<SplineAsset>(YamlReader.Read(text));
+
+                if (!asset.CanBuild) {
+                    context.Report(
+                        ImportSeverity.Warning,
+                        $"The guide '{reference.Spline}' has fewer than two control points, so it is not a curve."
+                    );
+
+                    continue;
+                }
+
+                guides.Add(ModelRetopology.ToGuide(asset.Build(), reference.Strength));
+            } catch (Exception failure) when (failure is not OperationCanceledException) {
+                // A warning rather than an error, and deliberately: a guide is a hint about edge flow,
+                // so a missing one costs topology quality and never validity. Refusing the import
+                // would make a renamed curve break every model that ever mentioned it.
+                context.Report(
+                    ImportSeverity.Warning,
+                    $"The guide '{reference.Spline}' could not be read and was skipped: {failure.Message}"
+                );
+            }
+        }
+
+        return guides;
     }
 }

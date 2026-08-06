@@ -68,15 +68,16 @@ public static class Remesher {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(settings);
 
+        // § D11's exact mirror, and it is a wrapper around this method rather than a stage inside it:
+        // it cuts the source, calls back in with the setting cleared, and reflects what comes out. A
+        // stage would have had to thread "which half" through all seven.
+        if (settings.Symmetry is { } plane) {
+            return SymmetryPass.Remesh(source, settings, plane, out report, scheduler);
+        }
+
         var stages = new List<RemeshStageTiming>();
         var warnings = new List<string>();
         var clock = Stopwatch.StartNew();
-
-        if (settings.Symmetry is not null) {
-            // R7 owns § D11's exact mirror. Saying so is better than quietly producing an asymmetric
-            // result on a setting whose whole point is that it is exact.
-            warnings.Add("Symmetry was requested and is not applied yet — docs/plan/41 § D11 is R7's.");
-        }
 
         // ① Condition. The pre-remesh needs a length before the density field exists, so the base is
         // taken off the source's own area — the same formula § D9 uses, on the surface as it arrived.

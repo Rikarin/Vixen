@@ -20,12 +20,12 @@ namespace Vixen.Cli;
 ///         only be checked by running a process is one whose behaviour is not checked.
 ///     </para>
 ///     <para>
-///         <b><c>new</c>, <c>run</c> and <c>build</c> are missing rather than stubbed.</b> They are
-///         the three that need something that does not exist yet: <c>new</c> needs the
-///         <c>Vixen.Sdk</c> package layout to scaffold against, and <c>build</c> and <c>run</c> wrap
-///         <c>dotnet publish</c> of a game project, which is doc 17's shipping story. A verb that
-///         parses and then apologises is worse than one that is not there, because a build script can
-///         only discover the second kind.
+///         <b>A verb that parses and then apologises is worse than one that is not there, because a
+///         build script can only discover the second kind.</b> That rule is why <c>new</c>, <c>run</c>
+///         and <c>build</c> were absent until doc 17's shipping story gave them something to wrap, and
+///         it is why <c>live up</c>, <c>live down</c> and <c>live upgrade --content</c> still are. It
+///         is also why <c>remesh</c> has no <c>--bake</c>: docs/plan/41 § D16's example line has one
+///         and the bake is R5's, so the flag arrives with the maps it would write.
 ///     </para>
 /// </remarks>
 public static class VixenCommand {
@@ -44,9 +44,205 @@ public static class VixenCommand {
         root.Subcommands.Add(Build(output, error));
         root.Subcommands.Add(Run(output, error));
         root.Subcommands.Add(Live(output, error));
+        root.Subcommands.Add(RemeshCommand(output, error));
+        root.Subcommands.Add(UnwrapCommand(output, error));
+        root.Subcommands.Add(Uv(output, error));
 
         return root;
     }
+
+    /// <summary>`vixen remesh` — docs/plan/41 § D16's CLI row, batchable over a directory.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The section's example line reads <c>--bake</c> and this verb has no such flag.</b>
+    ///         The normal and displacement bake is R5's and the remesher does not perform it —
+    ///         <c>RemeshSettings.TransferAttributes</c> is declared and unread by every stage. A flag
+    ///         that parsed and wrote no maps is the apologising verb this file's header refuses; it
+    ///         arrives when the bake does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither this nor <c>unwrap</c> opens a project</b>, unlike every other verb here.
+    ///         The case both plans were written for is a directory of generated GLBs that are not
+    ///         assets yet, so a file is the unit and <c>--project</c> would be a question with no
+    ///         answer.
+    ///     </para>
+    /// </remarks>
+    static Command RemeshCommand(TextWriter? output, TextWriter? error) {
+        var (input, into) = Files("The mesh file to retopologise.");
+
+        var quads = new Option<int>("--quads") {
+            Description = "How many quads to aim for, per mesh.",
+            DefaultValueFactory = _ => 5000
+        };
+
+        var adaptivity = new Option<float>("--adaptivity") {
+            Description = "Zero for uniform squares, one to let curvature decide the density.",
+            DefaultValueFactory = _ => 0.5f
+        };
+
+        var angle = new Option<float>("--feature-angle") {
+            Description = "The angle, in degrees, above which a shared edge is a hard feature.",
+            DefaultValueFactory = _ => 35f
+        };
+
+        var symmetry = new Option<string?>("--symmetry") {
+            Description =
+                "Mirror across an axis plane through the origin: x, y or z. docs/plan/41 § D11 — the "
+                + "half is solved, the seam is snapped exactly and the other half is its reflection."
+        };
+
+        var seams = new Option<bool>("--keep-uv-seams") {
+            Description = "Treat the source's coordinate seams as features, so an existing atlas survives."
+        };
+
+        var guides = new Option<string[]>("--guide") {
+            Description = "A .vxspline whose curve the edge flow should follow. Repeatable.",
+            AllowMultipleArgumentsPerToken = false,
+            DefaultValueFactory = _ => []
+        };
+
+        var strength = new Option<float>("--guide-strength") {
+            Description = "How hard the guides pull, in [0, 1].",
+            DefaultValueFactory = _ => 1f
+        };
+
+        var command = new Command("remesh", "Retopologise a mesh file into all-quads.") {
+            input, into, quads, adaptivity, angle, symmetry, seams, guides, strength
+        };
+
+        command.SetAction(parseResult => {
+                var axis = parseResult.GetValue(symmetry);
+
+                if (axis is { Length: > 0 } named && Axis(named) is null) {
+                    (error ?? Console.Error).WriteLine($"'{named}' is not an axis. It is x, y or z.");
+
+                    return (int) ExitCode.UsageError;
+                }
+
+                var pull = parseResult.GetValue(strength);
+
+                return (int) GeometryRunner.Remesh(
+                    parseResult.GetRequiredValue(input),
+                    parseResult.GetRequiredValue(into),
+                    new() {
+                        TargetQuads = parseResult.GetValue(quads),
+                        Adaptivity = parseResult.GetValue(adaptivity),
+                        FeatureAngle = parseResult.GetValue(angle),
+                        KeepUvSeams = parseResult.GetValue(seams),
+                        Symmetry = axis is { Length: > 0 } ? Axis(axis) : null
+                    },
+                    [.. (parseResult.GetValue(guides) ?? []).Select(path => (path, pull))],
+                    output ?? Console.Out,
+                    error ?? Console.Error
+                );
+            }
+        );
+
+        return command;
+    }
+
+    /// <summary>`vixen unwrap` — docs/plan/42 § D13's CLI row, all three stages.</summary>
+    static Command UnwrapCommand(TextWriter? output, TextWriter? error) {
+        var (input, into) = Files("The mesh file to unwrap.");
+        var (resolution, margin, density) = Atlas();
+
+        var angle = new Option<float>("--feature-angle") {
+            Description = "The angle, in degrees, a seam prefers to run along.",
+            DefaultValueFactory = _ => 40f
+        };
+
+        var command = new Command("unwrap", "Cut, flatten and pack a mesh file's texture coordinates.") {
+            input, into, resolution, margin, density, angle
+        };
+
+        command.SetAction(parseResult => (int) GeometryRunner.Unwrap(
+                parseResult.GetRequiredValue(input),
+                parseResult.GetRequiredValue(into),
+                new() { FeatureAngle = parseResult.GetValue(angle) },
+                new() {
+                    Resolution = parseResult.GetValue(resolution),
+                    Margin = parseResult.GetValue(margin),
+                    TexelDensity = parseResult.GetValue(density)
+                },
+                output ?? Console.Out,
+                error ?? Console.Error
+            )
+        );
+
+        return command;
+    }
+
+    /// <summary>`vixen uv pack` — docs/plan/42's third stage alone, which is the UV-Packer comparison.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A group with one verb rather than a bare <c>vixen pack</c>, because "pack" on its own
+    ///     is what a build tool calls bundling content</b> — which this repository already has under
+    ///     <c>content build</c>, and two unrelated meanings of one word on one command line is a
+    ///     mistake somebody makes at four in the afternoon.
+    /// </remarks>
+    static Command Uv(TextWriter? output, TextWriter? error) {
+        var (input, into) = Files("The mesh file whose islands to repack.");
+        var (resolution, margin, density) = Atlas();
+
+        var pack = new Command(
+            "pack",
+            "Repack a mesh file's existing islands. Seams and island shapes are untouched."
+        ) { input, into, resolution, margin, density };
+
+        pack.SetAction(parseResult => (int) GeometryRunner.Pack(
+                parseResult.GetRequiredValue(input),
+                parseResult.GetRequiredValue(into),
+                new() {
+                    Resolution = parseResult.GetValue(resolution),
+                    Margin = parseResult.GetValue(margin),
+                    TexelDensity = parseResult.GetValue(density)
+                },
+                output ?? Console.Out,
+                error ?? Console.Error
+            )
+        );
+
+        return new Command("uv", "Work with a mesh file's texture coordinates.") { pack };
+    }
+
+    /// <summary>The input and output arguments the three geometry verbs share.</summary>
+    static (Argument<string> Input, Argument<string> Output) Files(string description) =>
+        (
+            new Argument<string>("input") { Description = description },
+            new Argument<string>("output") {
+                Description = "Where to write it. The extension chooses the format: .obj, .gltf or .glb."
+            }
+        );
+
+    /// <summary>The three atlas options the two packing verbs share.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The resolution is here because the margin is in texels</b> — docs/plan/42 § B4 and
+    ///     § D8. A margin expressed as a fraction of UV space means a different number of texels on
+    ///     every island of every atlas, which is how a bleed appears on the small islands only.
+    /// </remarks>
+    static (Option<int> Resolution, Option<int> Margin, Option<float> Density) Atlas() =>
+        (
+            new Option<int>("--resolution") {
+                Description = "The atlas resolution the margin is counted in texels of.",
+                DefaultValueFactory = _ => 1024
+            },
+            new Option<int>("--margin") {
+                Description = "How many texels of empty space each island keeps around it.",
+                DefaultValueFactory = _ => 4
+            },
+            new Option<float>("--density") {
+                Description = "Texels per world unit to hold across every chart, or zero to fill the atlas.",
+                DefaultValueFactory = _ => 0f
+            }
+        );
+
+    /// <summary>An axis name as the plane through the origin it stands for.</summary>
+    static Vixen.Core.Mathematics.Plane? Axis(string? name) =>
+        name?.ToLowerInvariant() switch {
+            "x" => new Vixen.Core.Mathematics.Plane(Vixen.Core.Mathematics.Vector3.UnitX, 0f),
+            "y" => new Vixen.Core.Mathematics.Plane(Vixen.Core.Mathematics.Vector3.UnitY, 0f),
+            "z" => new Vixen.Core.Mathematics.Plane(Vixen.Core.Mathematics.Vector3.UnitZ, 0f),
+            _ => null
+        };
 
     /// <summary>`vixen live` — doc 27 § Diagnostics, in a terminal, because 3 a.m.</summary>
     /// <remarks>

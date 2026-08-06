@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Geometry.Remeshing;
+using Vixen.Geometry.Uv;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.VirtualGeometry;
 
@@ -157,6 +160,94 @@ public sealed record ModelImportSettings : IImportSettings {
     /// </remarks>
     public int MeshletFallbackTriangles { get; init; } = 4096;
 
+    /// <summary>Whether every mesh in the model is retopologised into quads on the way in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>docs/plan/41 § D16's importer row, and it is the AI pipeline's hook.</b> A generated
+    ///         GLB dropped into the project is four million triangles of marching-cubes noise with no
+    ///         UVs; with this on it comes out as <see cref="RetopologyQuads" /> quads with an atlas,
+    ///         which is smaller, looks better under a moving light, subdivides and can be rigged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off by default, and it stays off.</b> Retopology is destructive in the way that
+    ///         matters: an artist's topology is a decision, and an importer that silently replaced it
+    ///         would be an importer nobody could use on a hand-modelled asset. It is also the most
+    ///         expensive thing this importer can do, by a margin over the distance field.
+    ///     </para>
+    /// </remarks>
+    public bool Retopologize { get; init; }
+
+    /// <summary>How many quads to aim for per mesh.</summary>
+    /// <remarks>
+    ///     The budget, not a guarantee — docs/plan/41's <c>Remesher.BudgetTolerance</c>: a patch's quad
+    ///     count is a product of two side lengths, so a partition of snaky patches overshoots
+    ///     quadratically and the report says by how much rather than the layout being scaled to fit.
+    /// </remarks>
+    public int RetopologyQuads { get; init; } = 5000;
+
+    /// <summary>Zero for uniform squares, one to let curvature decide the density.</summary>
+    public float RetopologyAdaptivity { get; init; } = 0.5f;
+
+    /// <summary>The angle, in degrees, above which a shared edge is a hard feature.</summary>
+    public float RetopologyFeatureAngle { get; init; } = 35f;
+
+    /// <summary>Whether the source's coordinate seams are features the retopology keeps.</summary>
+    /// <remarks>
+    ///     docs/plan/41 § D4, so that a retexture-then-remesh round trip does not shred an atlas. It
+    ///     needs the source to carry coordinates; a mesh with none has no seams and this does nothing.
+    /// </remarks>
+    public bool RetopologyKeepUvSeams { get; init; }
+
+    /// <summary>Which axis to mirror across — <c>none</c>, <c>x</c>, <c>y</c> or <c>z</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>docs/plan/41 § D11, and an axis rather than a plane on purpose.</b> The exactness the
+    ///         section promises — output vertex <i>k</i> and its mirror are exact negations, every
+    ///         vertex on the plane has an exactly zero coordinate — holds for an axis through the
+    ///         origin, where the snap is a store of zero and the reflection is a sign-bit flip. An
+    ///         arbitrary plane in a settings file would be four numbers that usually miss that case and
+    ///         silently give a rounded mirror instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It is the model's own space, so a character exported off-centre gets its symmetry
+    ///         about the wrong plane. That is the file to fix rather than the setting.
+    ///     </para>
+    /// </remarks>
+    public SymmetryAxis RetopologySymmetry { get; init; } = SymmetryAxis.None;
+
+    /// <summary>Guide curves the retopology's edge flow should follow, as <c>.vxspline</c> asset paths.</summary>
+    /// <remarks>
+    ///     <b>docs/plan/41 § D10: "ours are an asset, not a paint session".</b> A painted guide dies
+    ///     with the mesh it was painted on, so re-generating the source throws the direction away. A
+    ///     curve saved beside the mesh survives it — which is why this is a list of paths to
+    ///     <c>SplineAsset</c> files rather than a list of polylines pasted into the <c>.meta</c>.
+    /// </remarks>
+    public List<RetopologyGuideReference> RetopologyGuides { get; init; } = [];
+
+    /// <summary>When to generate texture coordinates for the model's meshes.</summary>
+    /// <remarks>
+    ///     <b>docs/plan/42 § D13's importer row: "generate when the source has no UVs, or always, or
+    ///     never".</b> <see cref="UnwrapMode.WhenMissing" /> is the one worth defaulting to if a
+    ///     project ever does — it fixes the generated-mesh case and leaves an artist's atlas alone —
+    ///     and it is still off here for the reason <see cref="Retopologize" /> is.
+    /// </remarks>
+    public UnwrapMode Unwrap { get; init; } = UnwrapMode.Never;
+
+    /// <summary>The atlas resolution the unwrap packs for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The packer needs this because the margin is in texels and packing happens in UV
+    ///     units</b> — docs/plan/42 § B4 and § D8. A margin expressed as a fraction of UV space is a
+    ///     margin that means a different number of texels on every island of every atlas.
+    /// </remarks>
+    public int UnwrapResolution { get; init; } = 1024;
+
+    /// <summary>How many texels of empty space each island keeps around it.</summary>
+    public int UnwrapMargin { get; init; } = 4;
+
+    /// <summary>Texels per world unit to hold across every chart, or zero to fill the atlas instead.</summary>
+    /// <remarks>docs/plan/42 § D9: density is a constraint when it is set, and an observation when it is not.</remarks>
+    public float UnwrapTexelDensity { get; init; }
+
     /// <summary>These as the bake wants them.</summary>
     /// <returns>The build settings.</returns>
     public DistanceFieldBuildSettings ToDistanceFieldSettings() =>
@@ -175,4 +266,86 @@ public sealed record ModelImportSettings : IImportSettings {
             GroupSize = MeshletGroupSize,
             FallbackTriangles = MeshletFallbackTriangles
         };
+
+    /// <summary>These as the remesher wants them.</summary>
+    /// <param name="guides">The curves the guide references resolved to, or empty.</param>
+    /// <returns>The remesh settings.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The mapper rather than a nullable <c>RemeshSettings</c> on the record, which is what
+    ///     docs/plan/41 § D16 asks for.</b> The section was written before anybody opened this file:
+    ///     every other expensive stage here is a flat <c>bool</c> plus its dials plus a
+    ///     <c>To…Settings()</c>, because a <c>.meta</c> is authored by hand as often as by the
+    ///     inspector and a nested record is a second level of indentation for every one of them. The
+    ///     house pattern wins; § D16's row is amended rather than followed.
+    /// </remarks>
+    public RemeshSettings ToRemeshSettings(IReadOnlyList<RemeshGuide>? guides = null) =>
+        new() {
+            TargetQuads = RetopologyQuads,
+            Adaptivity = RetopologyAdaptivity,
+            FeatureAngle = RetopologyFeatureAngle,
+            KeepUvSeams = RetopologyKeepUvSeams,
+            Guides = guides ?? [],
+            Symmetry = RetopologySymmetry switch {
+                SymmetryAxis.X => new Plane(Vector3.UnitX, 0f),
+                SymmetryAxis.Y => new Plane(Vector3.UnitY, 0f),
+                SymmetryAxis.Z => new Plane(Vector3.UnitZ, 0f),
+                _ => null
+            }
+        };
+
+    /// <summary>These as the unwrapper's first two stages want them.</summary>
+    /// <returns>The unwrap settings.</returns>
+    public UvSettings ToUvSettings() => new() { FeatureAngle = RetopologyFeatureAngle };
+
+    /// <summary>These as the packer wants them.</summary>
+    /// <returns>The pack settings.</returns>
+    public PackSettings ToPackSettings() =>
+        new() {
+            Resolution = UnwrapResolution,
+            Margin = UnwrapMargin,
+            TexelDensity = UnwrapTexelDensity
+        };
 }
+
+/// <summary>Which plane through the origin a retopology mirrors across.</summary>
+/// <remarks>
+///     An axis rather than a plane, because docs/plan/41 § D11's exactness is a property of the
+///     axis-aligned case: the snap is a store of zero and the reflection is a sign-bit flip, and both
+///     are exact for every float. See <see cref="ModelImportSettings.RetopologySymmetry" />.
+/// </remarks>
+public enum SymmetryAxis {
+    /// <summary>No symmetry. The whole mesh is solved.</summary>
+    None,
+
+    /// <summary>The <c>YZ</c> plane — the one a character is symmetric about.</summary>
+    X,
+
+    /// <summary>The <c>XZ</c> plane.</summary>
+    Y,
+
+    /// <summary>The <c>XY</c> plane.</summary>
+    Z
+}
+
+/// <summary>When an import generates texture coordinates.</summary>
+public enum UnwrapMode {
+    /// <summary>Never. Whatever the file carries is what the mesh has.</summary>
+    Never,
+
+    /// <summary>Only for meshes that arrived without any, which is the generated-mesh case.</summary>
+    WhenMissing,
+
+    /// <summary>Always, replacing whatever the file carried.</summary>
+    Always
+}
+
+/// <summary>One guide curve a retopology should follow, named by the asset that holds it.</summary>
+/// <param name="Spline">The project-relative path of a <c>.vxspline</c>, e.g. <c>Curves/spine.vxspline</c>.</param>
+/// <param name="Strength">How hard the field is pulled toward it, in <c>[0, 1]</c>.</param>
+/// <remarks>
+///     ⚠ <b>A path rather than the curve itself, and docs/plan/41 § D10 is why.</b> A guide that lived
+///     in the <c>.meta</c> would be a guide that belongs to one import of one file; a guide that is an
+///     asset can be authored once on a curve, shared between the three meshes it applies to, and reused
+///     after the source has been regenerated — which is the case the whole AI pipeline consists of.
+/// </remarks>
+public readonly record struct RetopologyGuideReference(string Spline, float Strength = 1f);
