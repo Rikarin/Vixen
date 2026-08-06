@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Geometry.Uv</RootNamespace>
+        <Description>
+            UV unwrapping as three separable stages: where to cut, how a chart becomes flat, and
+            where each island sits. Each one is a public entry point over a value a caller can hold
+            and hand back, so "just repack these islands" is supported rather than a side effect of
+            unwrapping. Margins are counted in texels, which is why the packer is told the atlas
+            resolution.
+        </Description>
+        <PackageTags>geometry;uv;unwrap;atlas;packing;texture;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            docs/plan/42 § D2. Three references, and the direction matters more than the count:
+            `Vixen.Geometry.Remeshing` references *this*, never the reverse, because the unwrapper
+            has to run on meshes nobody remeshed and that is the entire point of the document.
+
+            ⚠ `Vixen.Core.Threading` is not free — it carries `Vixen.Core` and
+            `Vixen.Core.Diagnostics` with it, so the real closure is five assemblies rather than the
+            three named here. `UvLayeringTests` states all five rather than letting the transitive
+            pair arrive unremarked.
+
+            ⚠ And `MeshData` is deliberately out of reach. It lives in `Vixen.Rendering`, one layer
+            up, and the `EditMesh` bridge is in the editor. That is the correct side of the line to
+            be on: a seam is two corners at one shared position with different coordinates, which
+            `EditMesh` represents for nothing and a per-vertex structure represents by splitting.
+        -->
+        <ProjectReference Include="..\Vixen.Geometry\Vixen.Geometry.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Geometry.Uv.Tests" />
+    </ItemGroup>
+
+</Project>

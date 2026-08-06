@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Geometry.Remeshing</RootNamespace>
+        <Description>
+            A quad remesher: a triangle soup becomes an all-quad mesh with clean edge loops, hard
+            features reproduced exactly because they are layout boundaries rather than something
+            snapped to afterwards, and the source's attributes carried across. Seven stages, each one
+            an inspectable artefact, and the same input produces the same bytes on any thread count.
+            Arithmetic over triangles with no model, no native dependency and no device — which is
+            what lets a content build run it.
+        </Description>
+        <PackageTags>geometry;retopology;remesh;quad;mesh;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            docs/plan/41 § D2, amended by docs/plan/42 § D2 for the fourth entry.
+
+            ⚠ `Vixen.Core.Threading` is not free — it carries `Vixen.Core` and
+            `Vixen.Core.Diagnostics`, so the closure is six assemblies rather than the four named
+            here. `RemeshingLayeringTests` names all six.
+
+            ⚠ The reference to `Vixen.Geometry.Uv` is one-way and doc 42 § D2 is why: the remesher
+            keeps its privileged charting, because a quantized quad patch *is* a rectangle and
+            re-cutting it with a general charter would be worse in every respect — but it stops
+            owning a second packer. One packer, one margin rule.
+
+            Not referenced, and the absences are the design: no graphics, no assets, no editor. The
+            four callers that are not the editor (the asset compiler, the CLI, the blockout mode and
+            a game's own tooling) are why this is `Core/` and not `Editor/`, which is the one place
+            this document parts company with docs/plan/40 § D9 — and it parts company because that
+            section's reasons are all statements about *models*, and there is no model here.
+        -->
+        <ProjectReference Include="..\Vixen.Geometry\Vixen.Geometry.csproj" />
+        <ProjectReference Include="..\Vixen.Geometry.Uv\Vixen.Geometry.Uv.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Geometry.Remeshing.Tests" />
+    </ItemGroup>
+
+</Project>

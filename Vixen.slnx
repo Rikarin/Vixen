@@ -133,6 +133,28 @@
     -->
     <Project Path="Core/Vixen.Geometry/Vixen.Geometry.csproj" />
     <Project Path="Core/Vixen.Geometry.Tests/Vixen.Geometry.Tests.csproj" />
+    <!--
+      UV unwrapping (docs/plan/42) and quad retopology (docs/plan/41), beside the kernel rather than
+      inside it: both want Vixen.Core.Threading, and adding a threading reference to Vixen.Geometry
+      would put it in every consumer of the mesh kernel including a blockout verb that needs one
+      thread.
+      ⚠ Under Core/ and not Editor/, which is where docs/plan/40 § D9 put inference — and the
+      contrast is the argument rather than an inconsistency. That section's reasons are all
+      statements about *models*: a shipped game infers nothing, the weights are the author's to
+      accept, the runtime must not grow. There is no model in either of these. They are arithmetic
+      over triangles, with four callers that are not the editor — Tools/Vixen.AssetCompiler running
+      headless on CI, the CLI over a directory, doc 24's blockout mode retopologising a boolean
+      result, and a game's own build-time tooling.
+      ⚠ The edge runs Remeshing → Uv and never the reverse (docs/plan/42 § D2). The remesher keeps
+      its privileged charting, because a quantized quad patch *is* a rectangle and re-cutting it with
+      a general charter would be worse in every respect; what it gives up is owning a second packer.
+      The unwrapper has to run on meshes nobody remeshed, which is the whole of why it is a separate
+      assembly rather than a folder in the other one.
+    -->
+    <Project Path="Core/Vixen.Geometry.Uv/Vixen.Geometry.Uv.csproj" />
+    <Project Path="Core/Vixen.Geometry.Uv.Tests/Vixen.Geometry.Uv.Tests.csproj" />
+    <Project Path="Core/Vixen.Geometry.Remeshing/Vixen.Geometry.Remeshing.csproj" />
+    <Project Path="Core/Vixen.Geometry.Remeshing.Tests/Vixen.Geometry.Remeshing.Tests.csproj" />
     <Project Path="Core/Vixen.Foliage/Vixen.Foliage.csproj" />
     <Project Path="Core/Vixen.Foliage.Tests/Vixen.Foliage.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.Terrain/Vixen.Rendering.Terrain.csproj" />
