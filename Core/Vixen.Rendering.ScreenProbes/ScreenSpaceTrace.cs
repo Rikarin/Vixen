@@ -48,6 +48,26 @@ public sealed class ScreenSpaceTrace {
     /// <summary>The clip-divide guard — the Raven library's <c>Const.Epsilon</c>, by value.</summary>
     const float Epsilon = 0.0001f;
 
+    /// <summary>How many cells a march must cross before it asks a coarser level again.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The backoff on the ascent, and it is what stops a grazing ray costing thousands of
+    ///         iterations.</b> A cell that could not be skipped is evidence that its level is too
+    ///         coarse <i>here</i>, and a ray running along a surface meets that evidence at every
+    ///         step: without a backoff the march climbs a level after every advance, is refused, and
+    ///         descends again — two iterations bought per texel and nothing learned, for as long as
+    ///         the ray grazes.
+    ///     </para>
+    ///     <para>
+    ///         The evidence decays with distance, so the ceiling is bought back one level per this
+    ///         many skips rather than held for ever. ⚠ It changes only how fast an answer is found:
+    ///         staying at a finer level tests more cells than it has to, which is the conservative
+    ///         direction — the same march, never a different hit. <c>ScreenProbeTrace.rvn</c> and
+    ///         <c>ReflectionTrace.rvn</c> carry the same number, and the device tests hold them to it.
+    ///     </para>
+    /// </remarks>
+    const int AscentCredit = 8;
+
     readonly ReconstructedScreenSurface surface;
 
     /// <summary>Builds a trace over one frame's buffers.</summary>
@@ -299,14 +319,18 @@ public sealed class ScreenSpaceTrace {
         var along = 0f;
         var level = pyramid.Levels - 1;
 
+        // The coarsest level still worth asking, and what buys one back — see AscentCredit.
+        var ceiling = level;
+        var credit = 0;
+
         // A DDA visits O(levels · perimeter) cells; anything past this is a defect, and a budget
         // that ends a march is a miss in the only sense that matters.
         var budget = (16 * (viewport.X + viewport.Y + pyramid.Levels)) + 64;
 
         while (along < 1f && budget-- > 0) {
             var at = from + (delta * along);
-            var px = (int)MathF.Floor(at.X);
-            var py = (int)MathF.Floor(at.Y);
+            var px = Entering(at.X, delta.X);
+            var py = Entering(at.Y, delta.Y);
 
             // Off the viewport, the rest of the ray is not the screen's to answer.
             if (px < 0 || py < 0 || px >= viewport.X || py >= viewport.Y) {
@@ -323,15 +347,27 @@ public sealed class ScreenSpaceTrace {
             var leave = MathF.Max(at.Z, from.Z + (delta.Z * exit));
 
             // The whole crossing stays nearer than the cell's nearest surface — nothing here can
-            // stop the ray. Skip it, and try a coarser cell for the next one.
+            // stop the ray. Skip it, and try a coarser cell once the backoff has been paid off.
             if (enter > nearest) {
                 along = exit;
-                level = Math.Min(level + 1, pyramid.Levels - 1);
+
+                if (++credit >= AscentCredit) {
+                    credit = 0;
+                    ceiling = Math.Min(ceiling + 1, pyramid.Levels - 1);
+                }
+
+                if (level < ceiling) {
+                    level++;
+                }
 
                 continue;
             }
 
             if (level > 0) {
+                // This level is too coarse here, and saying so is the whole of AscentCredit's job:
+                // without it the next skip climbs straight back into the cell that just refused.
+                ceiling = level - 1;
+                credit = 0;
                 level--;
 
                 continue;
@@ -371,6 +407,26 @@ public sealed class ScreenSpaceTrace {
 
         return false;
     }
+
+    /// <summary>Which column or row a point stands in — the one the ray is entering, not leaving.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A DDA lands exactly on a cell boundary every step</b>, because the step it takes is
+    ///         the crossing itself. A plain floor answers that landing with the cell on the
+    ///         <i>lower</i> side, which for a ray travelling the other way is the cell it has just
+    ///         finished with: its exit is the point the ray is already standing on, the forward guard
+    ///         in <see cref="ExitOf" /> nudges the ray a hundredth of a texel instead, and the whole
+    ///         iteration — a fetch, a compare, and on the levels above, a descent — buys nothing.
+    ///     </para>
+    ///     <para>
+    ///         Half-open intervals on the side the ray comes from is the rule that makes a DDA cover
+    ///         the line exactly once, and it is what this restores. It differs from a floor only for
+    ///         a point exactly on a boundary, which is every step of a march and no step of anything
+    ///         else.
+    ///     </para>
+    /// </remarks>
+    static int Entering(float at, float delta) =>
+        delta < 0f ? (int)MathF.Ceiling(at) - 1 : (int)MathF.Floor(at);
 
     /// <summary>Where the ray leaves one cell's rectangle, in the ray parameter — always forward.</summary>
     static float ExitOf(Vector3 from, Vector3 delta, Int2 origin, int size, float along) {
