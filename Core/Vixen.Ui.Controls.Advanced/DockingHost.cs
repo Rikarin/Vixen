@@ -3,19 +3,67 @@
 
 using System.Globalization;
 using Vixen.Core.Mathematics;
+using Vixen.Input;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Controls.Advanced;
 
 /// <summary>One dockable panel: a title, an id, and whatever the application puts in it.</summary>
 /// <remarks>
-///     ⚠ <b>A panel is created once and moved thereafter, never rebuilt.</b> That is what
-///     <c>UiDocument.Reparent</c> exists for and it is the whole reason docking is hard: a panel torn
-///     out of one group and dropped into another has to keep its scroll position, its selection, its
-///     focus and whatever the user has half-typed into it. A host that rebuilt the panel would pass
-///     every structural test and lose the user's work.
+///     <para>
+///         ⚠ <b>A panel is created once and moved thereafter, never rebuilt.</b> That is what
+///         <c>UiDocument.Reparent</c> exists for and it is the whole reason docking is hard: a panel
+///         torn out of one group and dropped into another has to keep its scroll position, its
+///         selection, its focus and whatever the user has half-typed into it. A host that rebuilt the
+///         panel would pass every structural test and lose the user's work.
+///     </para>
+///     <para>
+///         ⚠ <b>It scrolls vertically by default, and it does so <i>itself</i> rather than by holding
+///         a <c>ScrollView</c>.</b> This is the same judgement <see cref="DockGroupView" /> records
+///         for its tab strip, one axis over: <c>overflow: hidden</c> in the theme is the draw list's
+///         clip stack, <see cref="UiElement.OffsetY" /> is a post-layout translation, and between them
+///         that is the whole of scrolling. What a <c>ScrollView</c> would add here is a box — and a
+///         box is the thing this must not add. Every panel's content is laid out against the panel
+///         today, so <c>height: 34%</c> on a profiler's grid, <c>height: 49%</c> on a quad viewport
+///         and <c>width: 100%</c> on a GPU timeline's lanes all resolve against it. Interposing
+///         <c>scroll-content</c> — which is <c>align-self: flex-start</c> with a shrink-to-fit height —
+///         re-parents every one of those percentages onto a box whose size is what the content wanted,
+///         which is circular. That is not a hypothetical: <c>StandardFrameView</c> carries a written
+///         post-mortem of exactly that failure, measured on device three times.
+///     </para>
+///     <para>
+///         ⚠ <b>The second reason is that a wrapper could not have been transparent anyway.</b> A
+///         panel's whole compatibility surface is <c>Action&lt;DockPanel&gt;</c> and every builder
+///         fills it with <c>panel.Add&lt;T&gt;()</c> — which is <see cref="UiElement.Add{T}" />, not
+///         virtual, straight to <c>UiDocument.Create</c>. Worse, a couple of dozen asset editors are
+///         handed the panel typed as a bare <see cref="UiElement" /> through
+///         <c>IAssetEditorFactory.CreateView</c>, so even an override on this type would be bypassed
+///         by every one of them. A redirect could not be made transparent; it could only be made
+///         <i>inconsistently</i> transparent, which is worse than not doing it. Nothing here moves a
+///         builder's children: <see cref="UiElement.Children" /> means exactly what it always meant.
+///     </para>
+///     <para>
+///         <b>The price, said out loud.</b> Once a panel has overflowed it grows one extra child, the
+///         <see cref="ScrollBar" />, appended after the content and absolutely positioned by the
+///         theme. It is created on first overflow rather than at construction so that a panel whose
+///         content fits — and a panel that has opted out — has children that are content and nothing
+///         else. Code that walks a panel's children should skip anything it did not put there, which
+///         is the rule <c>Control.Part</c> already states for every other control in the set.
+///     </para>
+///     <para>
+///         <b>Vertical only.</b> Horizontal scrolling is a thing a panel asks for by putting
+///         something horizontally scrollable in itself; a panel that grew a second bar because one
+///         label was too long would spend a row of chrome on a problem wrapping already solves.
+///     </para>
 /// </remarks>
 public sealed partial class DockPanel : Control {
+    /// <summary>How much of the panel one page key moves, short of a full one.</summary>
+    /// <remarks>
+    ///     The same bargain <see cref="DockGroupView.PageFraction" /> makes and for the same reason: a
+    ///     page that moved the whole viewport leaves nothing on screen that was there before.
+    /// </remarks>
+    const float PageMargin = 24f;
+
     /// <inheritdoc />
     protected override string TagName => "dock-panel";
 
@@ -38,10 +86,336 @@ public sealed partial class DockPanel : Control {
     [UiProperty(Default = true)]
     public partial bool CanClose { get; set; }
 
+    /// <summary>Whether its content scrolls vertically when there is more of it than fits.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>On by default, because the alternative default is content the user cannot reach.</b>
+    ///         A panel is a box whose height is whatever the user last dragged a splitter to, and
+    ///         almost every panel in an editor is a list, a form or a stack of sections — none of
+    ///         which has any say in that height.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off for anything that fills its box rather than stacking inside it.</b> A viewport,
+    ///         a node canvas and a timeline all size a render target or a virtualised window from
+    ///         their own laid-out box and hit-test in their own space — so a scroll offset they do not
+    ///         know about is every pick landing somewhere else, and a scrollbar over them is permanent
+    ///         chrome over content that was never too tall. Anything that already owns a scroll region
+    ///         is the other half of the same rule: two scrollbars is a wheel that moves the wrong one.
+    ///         <see cref="Fills" /> is how a view that has been handed the panel as a bare
+    ///         <see cref="UiElement" /> says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The class follows the property</b>, for the reason <see cref="ScrollBar" /> spells
+    ///         out: the clipping and the containing block are theme rules keyed on <c>.scrolls</c>, and
+    ///         a panel whose class said one thing while its offsets said the other would slide its
+    ///         content out from under an unclipped box and draw it over its neighbours.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Default = true, Changed = nameof(OnScrollsChanged))]
+    public partial bool Scrolls { get; set; }
+
+    /// <summary>How far down the content the panel is, in pixels.</summary>
+    public float ScrollTop { get; private set; }
+
+    /// <summary>How far down it can go.</summary>
+    public float MaximumScroll => MathF.Max(0f, Extent - Height);
+
+    /// <summary>Whether there is more content than the panel is showing.</summary>
+    public bool Overflows => MaximumScroll > 0.5f;
+
+    /// <summary>The bar down the right, once there has been something to scroll.</summary>
+    /// <remarks>
+    ///     <see langword="null" /> until the first time the content overflowed, and kept afterwards —
+    ///     hidden by a class rather than removed, because a bar that was created and destroyed as the
+    ///     content grew and shrank would restructure the tree on a layout pass and take the thumb out
+    ///     from under whoever was dragging it.
+    /// </remarks>
+    public ScrollBar? Bar { get; private set; }
+
     /// <summary>Raised when the title changes, so the tab showing it can follow.</summary>
     internal event Action<DockPanel>? TitleChanged;
 
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        if (Scrolls) {
+            AddClass("scrolls");
+        }
+
+        AddHandler<WheelEvent>(static (element, args) => ((DockPanel) element).Wheeled(args));
+        AddHandler<KeyEvent>(static (element, args) => ((DockPanel) element).Keyed(args));
+        AddHandler<FocusEvent>(static (element, args) => ((DockPanel) element).Refocused(args));
+
+        // ⚠ The pass rather than `Control.WhenResized`, and it is the case that method documents as
+        // not being its own: whether a panel overflows depends on what is *in* it. A section expanded,
+        // a list filtered or a row added changes the content's height without changing the panel's box
+        // at all, so a refresh gated on this element's size would leave the bar describing the panel
+        // as it was two edits ago.
+        settle = _ => Refresh();
+        Document.LayoutFinished += settle;
+    }
+
+    Action<UiDocument>? settle;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Unhooked, because a panel outlives a great deal and does not outlive this.</b> Closing
+    ///     a tab removes the panel; a handler left on the document would go on measuring a subtree
+    ///     nothing can see, once per pass, for the rest of the session.
+    /// </remarks>
+    protected override void OnRemoved() {
+        if (settle is not null) {
+            Document.LayoutFinished -= settle;
+            settle = null;
+        }
+
+        base.OnRemoved();
+    }
+
+    /// <summary>Says that an element fills its panel, so the panel must not scroll.</summary>
+    /// <param name="element">Anything inside the panel, or the panel itself.</param>
+    /// <returns>Whether a panel was found to tell.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A walk up rather than a property, because the caller usually does not have a
+    ///     <see cref="DockPanel" />.</b> An asset editor's <c>CreateView</c> is handed "where the
+    ///     controls go" as a bare <see cref="UiElement" />, which is right — an editor view has no
+    ///     business knowing it is in a dock — and a factory that had to cast would be a factory that
+    ///     silently stopped opting out the day somebody hosted it in a splitter instead. Written as a
+    ///     question about an element rather than an instruction to a panel for the same reason: the
+    ///     thing that knows it fills its box is the view, not the box.
+    /// </remarks>
+    public static bool Fills(UiElement element) {
+        ArgumentNullException.ThrowIfNull(element);
+
+        for (var walk = element; walk is not null; walk = walk.Parent) {
+            if (walk is DockPanel panel) {
+                panel.Scrolls = false;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Scrolls by a distance, clamped to what there is.</summary>
+    /// <param name="delta">How far, positive towards the end of the content.</param>
+    public void Scroll(float delta) => ScrollTo(ScrollTop + delta);
+
+    /// <summary>Scrolls to a position, clamped to what there is.</summary>
+    /// <param name="offset">How far from the top of the content.</param>
+    /// <remarks>
+    ///     ⚠ <b>The offset goes onto every content child, not onto one wrapper</b>, which is the whole
+    ///     of what not having a wrapper costs. They all move by the same amount, so the arithmetic is
+    ///     identical; the loop is over a handful of elements and runs only when the offset actually
+    ///     changes.
+    /// </remarks>
+    public void ScrollTo(float offset) {
+        var clamped = Math.Clamp(offset, 0f, MaximumScroll);
+
+        if (ScrollTop.Equals(clamped)) {
+            return;
+        }
+
+        ScrollTop = clamped;
+        Slide();
+    }
+
+    /// <summary>Scrolls until an element inside the panel is visible, if it is not already.</summary>
+    /// <param name="element">The element.</param>
+    /// <remarks>
+    ///     ⚠ <b>The minimum movement that works</b>, rather than centring — the reason
+    ///     <c>ScrollView.ScrollIntoView</c> gives, which is that centring on every focus change makes a
+    ///     form jump under somebody tabbing down it one field at a time.
+    /// </remarks>
+    public void Reveal(UiElement element) {
+        ArgumentNullException.ThrowIfNull(element);
+
+        if (!Overflows) {
+            return;
+        }
+
+        var target = element.Bounds;
+        var viewport = Bounds;
+
+        if (target.Height <= 0f && target.Width <= 0f) {
+            return;
+        }
+
+        if (target.Top < viewport.Top) {
+            ScrollTo(ScrollTop - (viewport.Top - target.Top));
+        } else if (target.Bottom > viewport.Bottom) {
+            ScrollTo(ScrollTop + (target.Bottom - viewport.Bottom));
+        }
+    }
+
+    /// <summary>Brings the bar and the offset up to date with the content's size.</summary>
+    /// <remarks>
+    ///     Public and idempotent for the reason <c>ScrollView.Refresh</c> is: a caller that has just
+    ///     filled a panel and wants to read <see cref="Overflows" /> before the next pass has a way to
+    ///     say so.
+    /// </remarks>
+    public void Refresh() {
+        if (!Scrolls) {
+            // ⚠ Not merely "do nothing". A panel that scrolled and then opted out — which is what a
+            // view calling `Fills` from its own creation looks like, one pass after the panel was made
+            // — would otherwise keep whatever offset it had, and the content would stay pushed up with
+            // no bar left to bring it back.
+            Reset();
+            return;
+        }
+
+        // ⚠ Clamped again here rather than only when scrolled, because what it clamps against is the
+        // content's height and that changes without anybody assigning to the offset at all. Growing
+        // the pane or collapsing a section shortens the range, and an offset past the end of it is a
+        // panel scrolled into empty space with no way back.
+        var clamped = Math.Clamp(ScrollTop, 0f, MaximumScroll);
+
+        if (!ScrollTop.Equals(clamped)) {
+            ScrollTop = clamped;
+            Slide();
+        }
+
+        var overflows = Overflows;
+
+        if (!overflows && Bar is null) {
+            // The common case for a panel that fits, and it stays free: no element, no theme lookup,
+            // nothing in `Children` that the application did not put there.
+            return;
+        }
+
+        var bar = Bar ??= Add<ScrollBar>();
+
+        bar.Orientation = Orientation.Vertical;
+        bar.ViewportSize = Height;
+        bar.ContentSize = Extent;
+        bar.Value = ScrollTop;
+
+        if (overflows) {
+            bar.RemoveClass("hidden");
+        } else {
+            bar.AddClass("hidden");
+        }
+
+        if (subscribed) {
+            return;
+        }
+
+        subscribed = true;
+        bar.Scrolled += (_, value) => ScrollTo(value);
+    }
+
+    bool subscribed;
+
+    /// <summary>How tall the content is, measured from where layout put it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="UiElement.Top" /> rather than <see cref="UiElement.AbsoluteTop" />, because
+    ///     the offset this is used to compute is already in the second one.</b> Measuring the scrolled
+    ///     position to decide how far to scroll is the loop that makes a list run away from the
+    ///     pointer. The bar is excluded because it is absolutely positioned and pinned to the panel's
+    ///     own bottom, so counting it would make every panel overflow by exactly its own height.
+    /// </remarks>
+    float Extent {
+        get {
+            var bottom = 0f;
+
+            foreach (var child in Children) {
+                if (ReferenceEquals(child, Bar)) {
+                    continue;
+                }
+
+                bottom = MathF.Max(bottom, child.Top + child.Height);
+            }
+
+            return bottom;
+        }
+    }
+
+    void Slide() {
+        foreach (var child in Children) {
+            if (!ReferenceEquals(child, Bar)) {
+                child.OffsetY = -ScrollTop;
+            }
+        }
+
+        if (Bar is { } bar) {
+            bar.Value = ScrollTop;
+        }
+    }
+
+    /// <summary>Puts the content back where layout put it and takes the bar away.</summary>
+    void Reset() {
+        if (ScrollTop != 0f) {
+            ScrollTop = 0f;
+            Slide();
+        }
+
+        Bar?.AddClass("hidden");
+    }
+
+    void OnScrollsChanged(bool previous, bool current) {
+        if (current) {
+            AddClass("scrolls");
+        } else {
+            RemoveClass("scrolls");
+            Reset();
+        }
+    }
+
     void OnTitleChanged(string? previous, string? current) => TitleChanged?.Invoke(this);
+
+    void Wheeled(WheelEvent args) {
+        if (!Scrolls) {
+            return;
+        }
+
+        var before = ScrollTop;
+        ScrollTo(ScrollTop + args.DeltaY);
+
+        // ⚠ Handled only if it actually moved — the rule <c>ScrollView</c> states, and it matters more
+        // here than there. A panel is the outermost scroller in an editor, so a panel that swallowed
+        // every wheel would be one whose inner list could never hand a fully-scrolled wheel back, and
+        // a panel that claimed a wheel it did nothing with would stop the group under it from ever
+        // seeing one.
+        if (!ScrollTop.Equals(before)) {
+            args.Handled = true;
+        }
+    }
+
+    void Keyed(KeyEvent args) {
+        if (!Scrolls || args.Action != KeyAction.Pressed || !args.Has(ModifierKeys.None)) {
+            return;
+        }
+
+        var page = MathF.Max(1f, Height - PageMargin);
+
+        var moved = args.Key switch {
+            InputKey.PageDown => ScrollTop + page,
+            InputKey.PageUp => ScrollTop - page,
+            InputKey.Home => 0f,
+            InputKey.End => MaximumScroll,
+            _ => float.NaN
+        };
+
+        if (float.IsNaN(moved)) {
+            return;
+        }
+
+        var before = ScrollTop;
+        ScrollTo(moved);
+
+        if (!ScrollTop.Equals(before)) {
+            args.Handled = true;
+        }
+    }
+
+    void Refocused(FocusEvent args) {
+        // Routed rather than a callback on the focused element, which is the only way a field five
+        // levels down inside a panel gets scrolled to by something that knows nothing about it.
+        if (Scrolls && args.Gained && args.Next is { } focused && !ReferenceEquals(focused, this)) {
+            Reveal(focused);
+        }
+    }
 }
 
 /// <summary>One tab in a group's strip.</summary>

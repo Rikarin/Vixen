@@ -61,6 +61,42 @@ another keeps its scroll position, its selection and whatever the user had half-
 **A splitter drag rebuilds nothing.** It writes `flex-grow` on two elements, so moving one is a
 restyle of two rather than a tear-down at sixty hertz.
 
+**A panel scrolls vertically by default, and it scrolls *itself*.** `DockPanel.Scrolls` is on unless
+something says otherwise; the panel clips with `overflow: hidden` and slides its content children
+with `OffsetY`, and grows one `ScrollBar` the first time it overflows. There is no `ScrollView`
+inside a panel, and that is the decision rather than an omission:
+
+- **A box would become the containing block for everything in every panel.** Panel content is laid
+  out against the panel today — a profiler grid at `height: 34%`, a quad viewport at `height: 49%`,
+  a timeline's lanes at `width: 100%`. `scroll-content` is `align-self: flex-start` with a
+  shrink-to-fit height, so interposing one re-parents all of those percentages onto a box whose size
+  is what the content asked for. `StandardFrameView` carries a written post-mortem of exactly that,
+  measured on device.
+- **A redirect could not have been transparent.** A panel's whole contract is `Action<DockPanel>` and
+  every builder calls `panel.Add<T>()`, which is `UiElement.Add` — not virtual. Two dozen asset
+  editors are handed the panel typed as a bare `UiElement` through `IAssetEditorFactory.CreateView`
+  and would bypass an override on the panel type entirely. So `Children` still means what it always
+  meant: what the builder put there, plus the bar once there has been something to scroll.
+- **It is the tab strip's judgement, one axis over.** `DockGroupView` slides its tabs inside a clipped
+  viewport rather than holding a `ScrollView`, for the same reason: clipping is a theme declaration
+  and an offset is a post-layout translation, and between them that is the whole of scrolling.
+
+**The opt-out is `DockPanel.Fills(element)`**, which walks up to the panel an element is in — because
+the thing that knows it fills its box is the view, and the view usually does not have a `DockPanel`.
+Two kinds of content take it: anything that sizes a render target or a virtualised window from its
+own laid-out box and hit-tests in its own space (a viewport, a node canvas, a timeline, the code
+editor), where a scroll offset it does not know about is a constant error in every pick; and anything
+that already owns a scroll region with a header deliberately kept outside it (the inspector, the
+profiler, the import settings, the frame view, the undo history), where a second one is two bars and
+a wheel that moves the wrong one.
+
+**Every box between the host and a panel declares `flex-basis: 0px`.** `flex-grow` only shares out
+what is left after the items are measured, so a growing item whose basis is `auto` starts at its
+content's height and is never asked to shrink. Before this, a thousand-pixel console produced a
+thousand-pixel surface, group, body and panel inside a correctly-sized host: nothing clipped, because
+there was nothing to clip. It is the same declaration `DockSplitterView.Apply` already writes onto
+the two halves of a split so that a ratio means the ratio it says.
+
 **Floating groups get a real OS window where there can be one.** A window is a `UiSurface` of the
 *same* document rather than a document of its own, which is the decision the whole feature rests on:
 moving a panel into a torn-off window is then the `Reparent` above, so it keeps its scroll position,

@@ -834,6 +834,11 @@ public sealed class AnimationGraphEditorFactory : IAssetEditorFactory {
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
 
+        // ⚠ `StateMapView` places its boxes absolutely inside a clipped box and hit-tests them with
+        // `args.X - AbsoluteLeft`, so it fails the same way a node canvas would even though it has no
+        // pan of its own: a scroll offset it does not know about moves every state under the cursor.
+        DockPanel.Fills(panel);
+
         var view = panel.Add<AnimationGraphView>();
         view.Show((AnimationGraphDocument) document);
 

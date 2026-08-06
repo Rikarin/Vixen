@@ -7,6 +7,7 @@ using Vixen.Editor.NodeGraph;
 using Vixen.Editor.VfxGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Vfx;
 
@@ -256,6 +257,10 @@ public sealed class VfxEditorFactory : IAssetEditorFactory {
     /// <inheritdoc />
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
+
+        // A node canvas with its own pan and zoom — see `ShaderGraphView.CreateView`. The editor also
+        // lays out as a row, so a vertical scroll over it would have nothing to say.
+        DockPanel.Fills(panel);
 
         var view = panel.Add<VfxGraphView>();
         view.Show((VfxDocument) document);

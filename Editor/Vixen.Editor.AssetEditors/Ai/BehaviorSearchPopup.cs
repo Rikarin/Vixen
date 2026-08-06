@@ -5,6 +5,7 @@ using Vixen.Ai;
 using Vixen.Editor.Core;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Ai;
 
@@ -223,6 +224,9 @@ public sealed class BehaviorTreeEditorFactory : IAssetEditorFactory {
     /// <inheritdoc />
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
+
+        // A node canvas with its own pan and zoom — see `ShaderGraphView.CreateView`.
+        DockPanel.Fills(panel);
 
         var view = panel.Add<BehaviorTreeView>();
 

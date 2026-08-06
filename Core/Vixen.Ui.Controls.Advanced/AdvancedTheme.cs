@@ -37,16 +37,45 @@ public static class AdvancedTheme {
         /* ⚠ `min-width: 0px` so a tab strip too wide for the window cannot widen the whole docking
            area — see `dock-tabs-viewport` for the other half of it. `dock-group` has always had the
            declaration and nothing above it did, so the group dutifully clipped a box that everything
-           between it and the root had already agreed to make big enough. */
-        docking-host { flex-direction: column; position: relative; flex-grow: 1; min-width: 0px; }
+           between it and the root had already agreed to make big enough.
+
+           ⚠ `min-height: 0px` is the same defect one axis over, and it was invisible until a panel
+           tried to scroll. A flex item's automatic minimum is its content's, so a host holding a
+           thousand-pixel console in a six-hundred-pixel window came out a thousand pixels tall: the
+           group clipped nothing because there was nothing to clip, and every panel below computed
+           "content taller than me" as false. Nothing looked wrong — the window simply had a docking
+           area larger than itself. */
+        docking-host {
+            flex-direction: column;
+            position: relative;
+            flex-grow: 1;
+            min-width: 0px;
+            min-height: 0px;
+        }
 
         /* Where panels wait. `display: none` rather than removal, because an element outside a
            document is a removed element and removal is final. */
         dock-detached { display: none; }
 
-        dock-surface { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: hidden; }
+        /* ⚠ `flex-basis: 0px` here and on every box between this and a panel, and it is the whole
+           reason a panel can be shorter than its content. `flex-grow` only shares out what is *left*
+           after the items have been measured, so a growing item whose basis is `auto` starts at its
+           content's height and grows from there — it is never asked to shrink, and no minimum it
+           declares is ever consulted. A thousand-pixel console in a six-hundred-pixel window therefore
+           produced a thousand-pixel surface, group, body and panel, nested inside a host that was
+           correctly six hundred: everything below the host quietly agreed there was nothing to clip.
+           This is the same declaration, and the same sentence, that `DockSplitterView.Apply` already
+           writes onto the two halves of a split so that a ratio means the ratio it says. */
+        dock-surface {
+            flex-direction: column;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-width: 0px;
+            min-height: 0px;
+            overflow: hidden;
+        }
 
-        dock-split { flex-grow: 1; }
+        dock-split { flex-grow: 1; flex-basis: 0px; min-width: 0px; min-height: 0px; }
         dock-split.horizontal { flex-direction: row; }
         dock-split.vertical { flex-direction: column; }
 
@@ -62,6 +91,7 @@ public static class AdvancedTheme {
            clamp, which is the guard that does not distort the ratio it is guarding. */
         dock-group {
             flex-direction: column;
+            flex-basis: 0px;
             min-width: 0px;
             min-height: 0px;
             overflow: hidden;
@@ -121,11 +151,34 @@ public static class AdvancedTheme {
         dock-tab:checked { background-color: var(--surface); color: var(--text); }
         dock-tab icon { width: 10px; height: 10px; }
 
-        dock-body { flex-direction: column; flex-grow: 1; overflow: hidden; }
+        dock-body { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; overflow: hidden; }
 
         /* Every panel of a group is in its body; the selected one is the one with a size. */
-        dock-panel { display: none; flex-direction: column; flex-grow: 1; }
+        dock-panel {
+            display: none;
+            flex-direction: column;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-height: 0px;
+        }
+
         dock-panel.selected { display: flex; }
+
+        /* ⚠ The whole of a scrolling panel's layout, and it is three declarations rather than a
+           control. `overflow: hidden` is the draw list's clip stack and the hit tester's, so content
+           slid up by `OffsetY` is neither drawn nor clickable outside the panel; `position: relative`
+           makes the panel the containing block its own absolutely-positioned bar is pinned to. Note
+           what is *not* here: no extra box, so every percentage length inside a panel still resolves
+           against the panel, which is why this is a class on `dock-panel` and not a `ScrollView`. */
+        dock-panel.scrolls { position: relative; overflow: hidden; }
+
+        /* ⚠ Without this a tall panel does not scroll, it compresses. A column flex container shrinks
+           its items to fit before it lets them overflow, so a stack of sections in a short panel comes
+           out squashed and the content height this measures against is the panel's own — which is the
+           definition of never overflowing. Opting out of shrinking is what "there may be more of this
+           than fits" means. Items that fill by growing are unaffected: `flex-grow` still hands them
+           the whole panel and their own scrollers take it from there. */
+        dock-panel.scrolls > * { flex-shrink: 0; }
 
         dock-float {
             position: absolute;

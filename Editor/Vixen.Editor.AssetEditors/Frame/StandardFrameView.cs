@@ -11,6 +11,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.HotReload;
 
 namespace Vixen.Editor.AssetEditors.Frame;
@@ -530,6 +531,12 @@ public sealed class StandardFrameEditorFactory : IAssetEditorFactory {
     /// <inheritdoc />
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
+
+        // ⚠ This view owns the scroller and keeps its banner outside it, and it is also the view whose
+        // remarks record what nesting one scroll region in another did to it: the inner content became
+        // `align-self: flex-start` against its own width, and the fixed-width provenance column
+        // resolved to nothing. A panel that scrolled would rebuild that arrangement from the outside.
+        DockPanel.Fills(panel);
 
         var view = panel.Add<StandardFrameView>();
 

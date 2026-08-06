@@ -164,6 +164,10 @@ sealed partial class EditorApplication {
                 HistoryPanel,
                 EditorStrings.PanelHistory,
                 panel => {
+                    // The history's markup already puts its toolbar outside a `<ScrollView>`; a panel
+                    // that scrolled too would nest one in the other.
+                    panel.Scrolls = false;
+
                     historyView = BuildContext.Build<UndoHistory>(Shell.Document, panel);
 
                     // ⚠ Asked every refresh rather than handed a stack. The inspector arbitrates

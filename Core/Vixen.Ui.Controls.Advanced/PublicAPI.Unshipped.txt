@@ -433,12 +433,23 @@ Vixen.Ui.Controls.Advanced.DockNode -> abstract class
 Vixen.Ui.Controls.Advanced.DockNode.DockNode() -> void
 Vixen.Ui.Controls.Advanced.DockPanel -> sealed class
 Vixen.Ui.Controls.Advanced.DockPanel : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DockPanel.Bar.get -> Vixen.Ui.Controls.ScrollBar?
 Vixen.Ui.Controls.Advanced.DockPanel.CanClose.get -> bool
 Vixen.Ui.Controls.Advanced.DockPanel.CanClose.set -> bool
 Vixen.Ui.Controls.Advanced.DockPanel.ClearCanClose() -> void
+Vixen.Ui.Controls.Advanced.DockPanel.ClearScrolls() -> void
 Vixen.Ui.Controls.Advanced.DockPanel.ClearTitle() -> void
 Vixen.Ui.Controls.Advanced.DockPanel.DockPanel() -> void
 Vixen.Ui.Controls.Advanced.DockPanel.Id.get -> string
+Vixen.Ui.Controls.Advanced.DockPanel.MaximumScroll.get -> float
+Vixen.Ui.Controls.Advanced.DockPanel.Overflows.get -> bool
+Vixen.Ui.Controls.Advanced.DockPanel.Refresh() -> void
+Vixen.Ui.Controls.Advanced.DockPanel.Reveal(Vixen.Ui.UiElement element) -> void
+Vixen.Ui.Controls.Advanced.DockPanel.Scroll(float delta) -> void
+Vixen.Ui.Controls.Advanced.DockPanel.ScrollTo(float offset) -> void
+Vixen.Ui.Controls.Advanced.DockPanel.ScrollTop.get -> float
+Vixen.Ui.Controls.Advanced.DockPanel.Scrolls.get -> bool
+Vixen.Ui.Controls.Advanced.DockPanel.Scrolls.set -> bool
 Vixen.Ui.Controls.Advanced.DockPanel.Title.get -> string?
 Vixen.Ui.Controls.Advanced.DockPanel.Title.set -> string?
 Vixen.Ui.Controls.Advanced.DockSplitNode -> sealed class
@@ -1180,6 +1191,8 @@ override Vixen.Ui.Controls.Advanced.DockGroupView.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.DockGroupView.OnRemoved() -> void
 override Vixen.Ui.Controls.Advanced.DockGroupView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockPanel.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DockPanel.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DockPanel.OnRemoved() -> void
 override Vixen.Ui.Controls.Advanced.DockPanel.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockSplitNode.Collect(System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode> into) -> void
 override Vixen.Ui.Controls.Advanced.DockSplitNode.ToYaml() -> Vixen.Core.Yaml.YamlNode
@@ -1270,6 +1283,7 @@ static Vixen.Ui.Controls.Advanced.CStyleTokenizer.CSharp.get -> Vixen.Ui.Control
 static Vixen.Ui.Controls.Advanced.CStyleTokenizer.Raven.get -> Vixen.Ui.Controls.Advanced.CStyleTokenizer
 static Vixen.Ui.Controls.Advanced.DockLayout.Load(string yaml) -> Vixen.Ui.Controls.Advanced.DockLayout
 static Vixen.Ui.Controls.Advanced.DockNode.FromYaml(Vixen.Core.Yaml.YamlNode? node) -> Vixen.Ui.Controls.Advanced.DockNode?
+static Vixen.Ui.Controls.Advanced.DockPanel.Fills(Vixen.Ui.UiElement element) -> bool
 static Vixen.Ui.Controls.Advanced.Hsv.FromRgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.Hsv
 static Vixen.Ui.Controls.Advanced.OkLch.FromSrgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.OkLch
 static Vixen.Ui.Controls.Advanced.PlainTokenizer.Instance.get -> Vixen.Ui.Controls.Advanced.PlainTokenizer
@@ -1292,6 +1306,7 @@ static readonly Vixen.Ui.Controls.Advanced.CurveEditor.ValueStepProperty -> Vixe
 static readonly Vixen.Ui.Controls.Advanced.DataGrid.FrozenColumnsProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.DataGrid.MultiSelectProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.DockPanel.CanCloseProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.DockPanel.ScrollsProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.DockPanel.TitleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.GridSizeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.MaximumZoomProperty -> Vixen.Ui.UiPropertyKey
