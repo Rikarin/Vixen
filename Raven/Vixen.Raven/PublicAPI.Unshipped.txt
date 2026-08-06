@@ -3449,6 +3449,7 @@ static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.PermutationTypeNotSu
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.PermutationValueTypeMismatch -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.PushConstantHasNoSet -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.PushConstantMustBeAValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.RecursiveCall -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.RecursiveStructLayout -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ResourceMustBeShaderField -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ResourceSetConflict -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

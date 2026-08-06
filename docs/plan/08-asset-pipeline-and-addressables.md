@@ -217,6 +217,16 @@ and emitter; a round-trip test over the fixture corpus asserts byte fidelity so 
 rewriting a `.meta` never produces a spurious diff. That property is what makes `.meta` files safe to
 rewrite on migration.
 
+⚠ **A key stated twice in one mapping is refused**, alongside the anchors and the complex keys the
+dialect has never had. It had not been: the reader let the second entry replace the first, so it was
+last-wins, while `MetaScanner`'s three-line envelope scan stops at the first match and is first-wins —
+and on a merge artefact with two `metaVersion:` lines the two readers of this one format returned 11
+and 1. **Neither was wrong, because the format had defined nothing for either to be wrong about**, and
+that is what the refusal fixes rather than a reader. These are committed text that people resolve
+conflicts in, so a repeated key is what a bad merge looks like; choosing one silently is two different
+compilations of one asset depending on which code path looked at it. Found by `Vixen.Fuzz`'s `meta`
+target, which runs both readers over the same bytes and compares.
+
 ### Sub-asset IDs
 
 `id` is an 8-hex-digit stable hash of `(importerType, subAssetKind, subAssetName)`.

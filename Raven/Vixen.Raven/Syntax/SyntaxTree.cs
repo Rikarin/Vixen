@@ -81,7 +81,7 @@ public sealed class SyntaxTree : ISyntaxTree {
         }
 
         var blender = new Blender(
-            MemberCandidates(root, ReuseContext.MemberList, diagnostics, oldText),
+            MemberCandidates(root, ReuseContext.MemberList, diagnostics, tokens),
             changes,
             tokens
         );
@@ -126,19 +126,19 @@ public sealed class SyntaxTree : ISyntaxTree {
         SyntaxNode node,
         int context,
         IReadOnlyList<Diagnostic> reported,
-        SourceText text
+        IReadOnlyList<LexedToken> tokens
     ) {
         foreach (var child in node.ChildNodesAndTokens()) {
             if (child is MemberDeclarationSyntax member) {
-                if (Clean(member, reported, text)) {
+                if (Clean(member, reported, tokens)) {
                     yield return new(member, context);
                 }
 
-                foreach (var nested in MemberCandidates(member, Inside(member), reported, text)) {
+                foreach (var nested in MemberCandidates(member, Inside(member), reported, tokens)) {
                     yield return nested;
                 }
             } else if (child is CompilationUnitSyntax or SyntaxListNode) {
-                foreach (var nested in MemberCandidates(child, context, reported, text)) {
+                foreach (var nested in MemberCandidates(child, context, reported, tokens)) {
                     yield return nested;
                 }
             }
@@ -178,19 +178,32 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///         <i>next</i> token's leading trivia, so it is outside the member's full span too.
     ///     </para>
     ///     <para>
-    ///         Skipping forward over whitespace is what closes that gap. It is an approximation of
-    ///         "the diagnostic this member's parse would have produced", and it approximates in the
-    ///         safe direction: a node wrongly refused is a node reparsed, which costs time, and a node
+    ///         Skipping forward to that token is what closes that gap. It is an approximation of "the
+    ///         diagnostic this member's parse would have produced", and it approximates in the safe
+    ///         direction: a node wrongly refused is a node reparsed, which costs time, and a node
     ///         wrongly reused is a diagnostic that silently disappears from an editor.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the skip is over the lexer's trivia, not over whitespace, which is the third
+    ///         defect in this one window.</b> It used to walk <see cref="char.IsWhiteSpace(char)" />
+    ///         and stop at the first character that was not — so a <i>comment</i> between the member
+    ///         and the offending token ended the window early and the member looked clean. The
+    ///         smallest case is <c>var threshold: float/* ck */tp</c>: the block comment is the next
+    ///         token's leading trivia, <c>tp</c> is where <c>ExpectSingleNewLine</c> stands and
+    ///         reports, and the window stopped at the <c>/</c> eight characters short of it. Whitespace
+    ///         is only the commonest thing that can sit there; <see cref="LexedToken" /> already knows
+    ///         which tokens the parser navigates over, so asking it is both exact and free of a second
+    ///         opinion about what trivia is. A line terminator counts as skippable here even though the
+    ///         parser sees one, because a member's terminator is precisely what it is looking at.
+    ///         <br />
+    ///         Found by <c>Vixen.Fuzz</c>'s <c>raven</c> target — an incremental reparse reporting
+    ///         thirty-eight diagnostics where a full parse reported thirty-nine — and its input is
+    ///         <c>Corpus/raven/1ceee2894c870b9f.bin</c>.
+    ///     </para>
     /// </remarks>
-    static bool Clean(SyntaxNode node, IReadOnlyList<Diagnostic> reported, SourceText text) {
+    static bool Clean(SyntaxNode node, IReadOnlyList<Diagnostic> reported, IReadOnlyList<LexedToken> tokens) {
         var span = node.FullSpan;
-        var end = span.End;
-
-        while (end < text.Length && char.IsWhiteSpace(text[end])) {
-            end++;
-        }
+        var end = NextVisible(span.End, tokens);
 
         foreach (var diagnostic in reported) {
             var at = diagnostic.Location.SourceSpan;
@@ -203,6 +216,41 @@ public sealed class SyntaxTree : ISyntaxTree {
         }
 
         return !AnythingMissing(node);
+    }
+
+    /// <summary>Where the parser stands after a node ends: the next token it does not skip.</summary>
+    /// <remarks>
+    ///     The list is ordered by position, so the first candidate is found by binary search and the
+    ///     trivia run after it is walked. A node that ends at the last token — or one followed by
+    ///     nothing but trivia, which the end-of-file token makes impossible in practice — keeps its own
+    ///     end, so the window never contracts below what the node owns.
+    /// </remarks>
+    static int NextVisible(int from, IReadOnlyList<LexedToken> tokens) {
+        int low = 0, high = tokens.Count - 1, first = tokens.Count;
+
+        while (low <= high) {
+            var middle = (low + high) / 2;
+
+            if (tokens[middle].Position >= from) {
+                first = middle;
+                high = middle - 1;
+            } else {
+                low = middle + 1;
+            }
+        }
+
+        for (var index = first; index < tokens.Count; index++) {
+            var token = tokens[index];
+
+            // A newline is parser-visible — statement grammars are newline-sensitive — and is still
+            // skipped over here, because the diagnostic being reached for is the one that says a
+            // member's terminating line break was not there.
+            if (!token.IsTrivia && !token.IsEndOfLine) {
+                return token.Position;
+            }
+        }
+
+        return from;
     }
 
     /// <summary>Whether a subtree holds a token the parser fabricated.</summary>

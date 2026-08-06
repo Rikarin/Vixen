@@ -31,6 +31,15 @@ public readonly record struct MetaEnvelope(AssetId Guid, int MetaVersion, string
 ///         and the caller falls back to a full parse — a wrong answer here would be a corrupt index,
 ///         so it says "no" rather than guessing.
 ///     </para>
+///     <para>
+///         ⚠ <b>Taking the first match is only safe because a document may not state a key twice.</b>
+///         Scanning stops at the first <c>metaVersion:</c> and <see cref="YamlReader" /> used to take
+///         the last, so a merge artefact carrying two of them made the two readers of one format
+///         disagree about the version an asset compiles under — 11 against 1, on 142 bytes, found by
+///         <c>Vixen.Fuzz</c>'s <c>meta</c> target. The refusal lives in the reader because it is the
+///         one that parses; what this scanner owes in exchange is to keep reading top-down, so that
+///         "the first" and "the only" are the same answer.
+///     </para>
 /// </remarks>
 public static class MetaScanner {
     /// <summary>Reads the envelope out of a document.</summary>

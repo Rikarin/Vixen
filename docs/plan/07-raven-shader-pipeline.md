@@ -960,6 +960,7 @@ span mapping.
 | ✅ | **A spread element in a collection** — flattening `[1, ..xs, 5]` needs `xs`'s length, which an array type now carries. Lowering emits one extract per index; a spread of an *unsized* array is still `RVN3002`, which is now a statement about that array rather than about spreads |
 | ✅ | **Assigning to a uniform** — now `RVN2119`, checked at the root of the access chain so `tint.rgb = …` and `lights[i].color = …` are caught too. It went unreported for as long as it did because a shader with nothing writable had no correct alternative to name; `RWBuffer<T>` is that alternative |
 | ✅ | **Flow analysis** — definite assignment (`RVN2127`), reachability (`RVN2128`) and falling off the end of a value-returning function (`RVN2129`). See [§ Flow analysis](#flow-analysis-what-is-true-on-every-path) |
+| ✅ | **Recursion** — `RVN2139`, naming the route. Four passes behind the binder carried a visited set explaining that the language has none, and nothing enforced it: both signatures are complete before either body is bound, so `RVN2005` never fires, lowering terminates, and the module is emitted. What refused it was `spirv-val` — `[VUID-StandaloneSpirv-None-04634]`, a driver-level message about a file nobody wrote, and only where a validator happens to be installed. The nodes are the functions a backend emits, so an accessor and a constructor are in the graph too |
 
 #### Backends
 

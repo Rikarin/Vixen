@@ -276,6 +276,32 @@ public static class YamlReader {
                     );
                 }
 
+                // ⚠ A key the document states twice is refused rather than resolved, and the reason is
+                // that the format had never said which one wins. YAML requires keys to be unique;
+                // nothing here enforced it, so the second entry reached YamlMapping.Set — whose
+                // replace-in-place behaviour states a *caller's* contract, for a migration rewriting a
+                // value it computed — and quietly became last-wins. MetaScanner reads the same file
+                // top-down and stops at the first match, so it is first-wins, and the two answered
+                // differently about `metaVersion` on a 142-byte sidecar: 11 against 1
+                // (Vixen.Fuzz `meta`, Corpus/meta/4934f8ea81bae860.bin). Neither reader was wrong,
+                // because the format defined nothing for either to be wrong about.
+                //
+                // A duplicate key is what a hand-merged .meta looks like — these are committed text
+                // that people resolve conflicts in — and choosing one silently is two compilations of
+                // one asset depending on which code path looked. Refused here, alongside the empty key
+                // and the complex key, so that it is a parse error naming the file
+                // ([08](../../../docs/plan/08-asset-pipeline-and-addressables.md)) rather than a
+                // coin toss. Ordinal, because it is a statement about the document's own text.
+                if (mapping.TryGet(key.Value, out _)) {
+                    throw new YamlParseException(
+                        $"The key '{key.Value}' appears more than once in this mapping. YAML requires a mapping's "
+                        + "keys to be unique, and this dialect refuses a repeat rather than choosing one of the "
+                        + "values — a merge that left both is a file to fix, not a file to guess at.",
+                        key.Start.Line,
+                        key.Start.Column
+                    );
+                }
+
                 parser.MoveNext();
 
                 var value = ReadNode();

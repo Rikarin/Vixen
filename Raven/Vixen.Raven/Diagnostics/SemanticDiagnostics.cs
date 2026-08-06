@@ -1263,4 +1263,47 @@ public static class SemanticDiagnostics {
         Declaration,
         DiagnosticSeverity.Warning
     );
+
+    // --- Calls -------------------------------------------------------------
+
+    /// <summary>
+    ///     A call graph that comes back to where it started — <c>RVN2139</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Neither <see cref="CircularDefinition" /> nor
+    ///         <see cref="RecursiveStructLayout" />, and the three together are the same distinction
+    ///         drawn twice. <c>RVN2005</c> is resolution that does not terminate — a signature reaching
+    ///         its own type — and it fires while a symbol is being built. <c>RVN2008</c> is a type with
+    ///         no finite size, checked at layout because it resolves in one step. This is a
+    ///         <em>body</em> that reaches itself: both signatures are complete before either body is
+    ///         bound, so nothing is re-entered, nothing recurses, and every guard the compiler already
+    ///         had says the declaration is fine. It is only when somebody asks for a program that the
+    ///         answer stops existing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An error rather than a warning, and reported here rather than left to the
+    ///         backend.</b> SPIR-V has no call stack in its execution model and forbids recursion
+    ///         outright, so a cycle is not something that lowers badly — there is no program to emit.
+    ///         Left alone, a recursive shader compiled with nothing to say and produced a module
+    ///         <c>spirv-val</c> refuses with
+    ///         <c>[VUID-StandaloneSpirv-None-04634]</c>, which is a driver-level message about a file
+    ///         nobody wrote, and only on a machine that happens to have a validator on it. Found by
+    ///         <c>Vixen.Fuzz</c>'s <c>raven</c> target, whose validity oracle is that validator; see
+    ///         <c>RecursionCheck</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The route, not the function</b> — the <c>RVN2008</c> rule. <c>A</c> calling
+    ///         <c>B</c> calling <c>A</c> is what nobody sees by reading, and a message naming only
+    ///         <c>A</c> sends the author to the half of it that is not the problem.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor RecursiveCall = new(
+        "RVN2139",
+        "Recursive call",
+        "'{0}' is reached from its own body — {1} — and Raven has no recursion: a shader has no call "
+        + "stack, and SPIR-V requires an entry point's call graph to have no cycles",
+        Binding,
+        DiagnosticSeverity.Error
+    );
 }
