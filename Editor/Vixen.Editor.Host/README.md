@@ -53,6 +53,10 @@ Measured on this checkout, on a probe driving exactly that path: **28–378 ms f
 tree**, over three consecutive edits, with the process never restarting. Adding an element and
 adding a field to `@code` were both applied in place.
 
+And measured on this editor, which is the only measurement that settles it. With the window open on
+the Undo History panel, adding a `<TextBlock>` to `UndoHistory.vxml` and saving put the new line on
+screen in **789 ms**, with the window never closing and every other panel where it was.
+
 ### ⚠ Which panels reload, and which do not
 
 **Only a component mounted through `HotReloadHost.Mount` is rebuilt**, and in this editor the only
