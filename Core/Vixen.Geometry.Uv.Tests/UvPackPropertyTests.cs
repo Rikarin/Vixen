@@ -133,7 +133,7 @@ public class UvPackPropertyTests {
 
                 Assert.True(moved == 0, $"{what}: the atlas moved by {moved} texels.");
             },
-            iter: 150,
+            iter: PropertyBudget.Iterations(150),
             threads: 1
         );
     }
@@ -163,7 +163,7 @@ public class UvPackPropertyTests {
                 Assert.Equal(straight.EffectiveEfficiency, permuted.EffectiveEfficiency);
                 Assert.Equal(straight.ChartCount, permuted.ChartCount);
             },
-            iter: 100,
+            iter: PropertyBudget.Iterations(100),
             threads: 1
         );
     }
@@ -260,7 +260,7 @@ public class UvPackPropertyTests {
 
                 Assert.True(gap >= margin, $"{what}: the closest two islands are {gap} texels apart.");
             },
-            iter: 150,
+            iter: PropertyBudget.Iterations(150),
             threads: 1
         );
 
@@ -310,7 +310,7 @@ public class UvPackPropertyTests {
                 Assert.Equal(margin, PackedAtlas.MinimumBorder(map, resolution));
                 Assert.Equal(margin, PackedAtlas.MinimumGap(map, resolution, margin + 6));
             },
-            iter: 80,
+            iter: PropertyBudget.Iterations(80),
             threads: 1
         );
 
@@ -373,7 +373,7 @@ public class UvPackPropertyTests {
                         }
                     );
                 },
-                iter: 300,
+                iter: PropertyBudget.Iterations(300),
                 threads: 1
             );
     }

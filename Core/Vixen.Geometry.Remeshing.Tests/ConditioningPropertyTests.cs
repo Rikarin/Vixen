@@ -116,7 +116,7 @@ public class ConditioningPropertyTests {
                         );
                     }
                 },
-                iter: 200,
+                iter: PropertyBudget.Iterations(200),
                 threads: 1
             );
     }
@@ -164,7 +164,7 @@ public class ConditioningPropertyTests {
                     )
                 );
             },
-            iter: 150,
+            iter: PropertyBudget.Iterations(150),
             threads: 1
         );
     }
@@ -232,7 +232,7 @@ public class ConditioningPropertyTests {
                 Near(recipe.ToString(), "triangles", small.Report.Triangles, large.Report.Triangles);
                 Near(recipe.ToString(), "vertices", small.Vertices, large.Vertices);
             },
-            iter: 150,
+            iter: PropertyBudget.Iterations(150),
             threads: 1
         );
     }
@@ -278,7 +278,7 @@ public class ConditioningPropertyTests {
                     )
                 );
             },
-            iter: 100,
+            iter: PropertyBudget.Iterations(100),
             threads: 1
         );
     }
@@ -341,7 +341,7 @@ public class ConditioningPropertyTests {
                     )
                 );
             },
-            iter: 150,
+            iter: PropertyBudget.Iterations(150),
             threads: 1
         );
 
@@ -365,7 +365,7 @@ public class ConditioningPropertyTests {
                 Assert.True(small > 0f, $"{recipe} has no extent at all.");
                 Assert.True(large / small > 1e5f, $"{recipe} only grew by {large / small:E2}.");
             },
-            iter: 100,
+            iter: PropertyBudget.Iterations(100),
             threads: 1
         );
     }
