@@ -98,15 +98,23 @@ public static class Remesher {
 
         transferred = new([], null, 0, 0, []);
 
+        // § D11's exact mirror, and it is a wrapper around this method rather than a stage inside it:
+        // it cuts the source, calls back in with the setting cleared, and reflects what comes out. A
+        // stage would have had to thread "which half" through all seven.
+        //
+        // ⚠ Symmetry and attribute transfer do not compose yet, and this is where that shows. The
+        // mirror pass predates stage seven — it was written against the overload that has no
+        // attributes — so a symmetric remesh returns the empty `transferred` assigned above rather
+        // than the source's normals, colours and skin weights. That is wrong and it is visible
+        // rather than silent: `SymmetryTransferTests` asserts it, and composing them means teaching the
+        // pass to mirror an attribute set as well as a mesh, which is not a line of glue.
+        if (settings.Symmetry is { } plane) {
+            return SymmetryPass.Remesh(source, settings, plane, out report, scheduler);
+        }
+
         var stages = new List<RemeshStageTiming>();
         var warnings = new List<string>();
         var clock = Stopwatch.StartNew();
-
-        if (settings.Symmetry is not null) {
-            // R7 owns § D11's exact mirror. Saying so is better than quietly producing an asymmetric
-            // result on a setting whose whole point is that it is exact.
-            warnings.Add("Symmetry was requested and is not applied yet — docs/plan/41 § D11 is R7's.");
-        }
 
         // ① Condition. The pre-remesh needs a length before the density field exists, so the base is
         // taken off the source's own area — the same formula § D9 uses, on the surface as it arrived.

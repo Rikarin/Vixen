@@ -387,20 +387,24 @@ public class RemesherTests {
         }
     }
 
-    /// <summary>A guide's strength and a symmetry plane are read rather than silently dropped.</summary>
+    /// <summary>A symmetry plane produces a symmetric mesh rather than a warning.</summary>
     /// <remarks>
-    ///     ⚠ Symmetry is R7's and saying so in the report is better than producing an asymmetric result
-    ///     on a setting whose whole point is that it is exact.
+    ///     ⚠ <b>This test used to assert the opposite.</b> Until R7 the setting was read only to say
+    ///     "not applied yet", and a test that asserted the apology was the only thing standing between
+    ///     the field and a caller who believed it. § D11 is implemented now; what it promises bit-for-bit
+    ///     is asserted in <see cref="SymmetryTests" />, and this is the report's half of it.
     /// </remarks>
     [Fact]
-    public void Symmetry_is_reported_as_not_yet_applied() {
-        Remesher.Remesh(
+    public void Symmetry_is_applied_rather_than_apologised_for() {
+        var quads = Remesher.Remesh(
             Fixture("sphere"),
             new() { TargetQuads = 200, Symmetry = new Plane(Vector3.UnitX, 0f) },
             out var report
         );
 
-        Assert.Contains(report.Warnings, warning => warning.Contains("Symmetry", StringComparison.Ordinal));
+        Assert.True(quads.FaceCount > 0, string.Join(" · ", report.Warnings));
+        Assert.DoesNotContain(report.Warnings, warning => warning.Contains("not applied yet", StringComparison.Ordinal));
+        Assert.Equal(0, report.NonQuadCount);
     }
 
     static void Same(EditMesh first, EditMesh again, string what) {
