@@ -89,6 +89,67 @@ public class ExhaustionFloorTests {
     }
 
     /// <summary>
+    ///     ⚠ The same claim on the rectangular path, whose floor is anchored to a different quantity —
+    ///     and which is where a floor that could never fire went unnoticed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="LeastSquaresSolver" /> iterates on <c>Aᵀr</c> and not on <c>r</c>, so it
+    ///         cannot measure its floor against a cold start's residual energy the way
+    ///         <see cref="ConjugateGradient" /> does — see that method's remarks for the whole argument.
+    ///         The anchor it uses instead is <c>‖b‖²·Σⱼ mⱼ‖aⱼ‖²</c>, which is <b>never smaller</b> than
+    ///         the <c>‖Aᵀb‖²</c> it replaced and on a badly angled system is a million times larger.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So this half of the fact matters more here than it did there.</b> Raising a floor is
+    ///         exactly how one turns into the quality threshold § D5 forbids, and the only thing
+    ///         standing between the two is that it still fires after descent has stopped rather than
+    ///         during it.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TheLeastSquaresFloorNeverFiresWhileTheIterationIsStillDescending(bool preconditioned) {
+        var fired = 0;
+
+        foreach (var extent in (int[])[4, 8, 12]) {
+            foreach (var mode in (int[])[1, 2, 3]) {
+                var matrix = PoissonGrid.Matrix(extent);
+                var answer = PoissonGrid.Eigenvector(extent, mode, mode);
+                var right = new double[answer.Length];
+
+                for (var index = 0; index < answer.Length; index++) {
+                    right[index] = PoissonGrid.Eigenvalue(extent, mode, mode) * answer[index];
+                }
+
+                var initial = Math.Sqrt(right.Sum(value => value * value));
+                var solution = new double[answer.Length];
+
+                var report = new LeastSquaresSolver(matrix, preconditioned)
+                    .Solve(right, solution, DefaultBudget);
+
+                if (!report.StoppedEarly) {
+                    continue;
+                }
+
+                fired++;
+
+                Assert.True(
+                    report.Residual <= Converged * initial,
+                    $"The floor fired at iteration {report.Iterations} of {DefaultBudget} on a {extent}×{extent} "
+                    + $"grid with residual {report.Residual:E3} against an initial {initial:E3} — a ratio of "
+                    + $"{report.Residual / initial:E3}, which is descent rather than exhaustion. "
+                    + "LeastSquaresSolver.Solve's remarks claim this cannot happen, and the determinism "
+                    + "gate depends on the claim."
+                );
+            }
+        }
+
+        Assert.True(fired > 0, $"The floor never fired with preconditioned={preconditioned}, so this proved nothing.");
+    }
+
+    /// <summary>
     ///     ⚠ And the other half: a budget the system cannot converge inside must spend all of it. If
     ///     the guard were a quality threshold in disguise it would cut this short, and the iteration
     ///     count would become a thing two platforms could disagree about.
@@ -111,6 +172,37 @@ public class ExhaustionFloorTests {
         }
 
         var report = new ConjugateGradient(matrix, PreconditionerKind.None)
+            .Solve(right, new double[right.Length], Budget);
+
+        Assert.False(
+            report.StoppedEarly,
+            $"The guard fired at iteration {report.Iterations} with residual {report.Residual:E3}."
+        );
+
+        Assert.Equal(Budget, report.Iterations);
+    }
+
+    /// <summary>
+    ///     ⚠ And the rectangular path's half of it, on the raised floor. CGLS works against
+    ///     <c>AᵀA</c>'s spectrum, so it needs <i>more</i> iterations than the square path on the same
+    ///     grid, not fewer — a floor that cut this short would be a quality threshold.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnUnconvergedLeastSquaresSystemSpendsItsWholeBudget(bool preconditioned) {
+        // ⚠ Not an eigenvector, for the reason spelled out on the square version above.
+        const int Extent = 20;
+        const int Budget = 20;
+
+        var matrix = PoissonGrid.Matrix(Extent);
+        var right = new double[Extent * Extent];
+
+        for (var index = 0; index < right.Length; index++) {
+            right[index] = ((index * 37) % 101) - 50;
+        }
+
+        var report = new LeastSquaresSolver(matrix, preconditioned)
             .Solve(right, new double[right.Length], Budget);
 
         Assert.False(

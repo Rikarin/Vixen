@@ -191,6 +191,78 @@ public class LeastSquaresSolverTests {
         Assert.Equal(nearReport.Residual, farReport.Residual, 10);
     }
 
+    /// <summary>
+    ///     ⚠ The same runaway on a <b>well-conditioned</b> system, which is what showed the floor was
+    ///     anchored to the wrong quantity rather than the budget being too generous.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the draw that found it</b>, from
+    ///         <see cref="It_agrees_with_the_dense_normal_equations_unpreconditioned" /> under
+    ///         <c>CsCheck_Seed=40HqaXqxtqC1</c>, kept rather than tidied. <c>AᵀA</c> is
+    ///         <c>[[3.477, −4.050], [−4.050, 17.640]]</c> — eigenvalues 2.4 and 18.7, so <c>cond(A)</c>
+    ///         is under 3 and there is nothing to blame on the matrix. What is unusual is the
+    ///         <i>angle</i>: <c>‖Aᵀb‖</c> is <c>0.023</c> where <c>‖b‖</c> is <c>6.69</c>, because most
+    ///         of <c>b</c> lies outside the two columns. That is an ordinary inconsistent least-squares
+    ///         system — which is what least squares is for — and the worse the fit the wider the gap.
+    ///     </para>
+    ///     <para>
+    ///         A floor of <c>1e-30·‖Aᵀb‖²</c> sits at <c>5.5e-34</c> here and <c>rho</c> bottoms out at
+    ///         <c>7.9e-31</c>, the rounding in forming <c>Aᵀr</c> from a residual that stays size 6.69
+    ///         forever. So the guard was 1400× below anything reachable: the answer was exact after two
+    ///         iterations and the remaining budget amplified noise about 20× per step — <c>1e+20</c> by
+    ///         iteration 80, <c>1e+153</c> by 400. <see cref="LeastSquaresSolver.Solve" />'s remarks
+    ///         carry the arithmetic.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Do not tidy the entries.</b> Rounding the matrix to two decimals, or perturbing a
+    ///         tidier line fit to the same <c>‖Aᵀb‖/‖b‖</c> ratio, both give systems whose noise
+    ///         <i>stalls</i> instead of amplifying — the guard is just as broken and the fixture proves
+    ///         nothing. An unreachable floor is what the bug is; whether the noise then grows is a
+    ///         property of the particular system, and this is one where it does. The draw also carried
+    ///         three <c>1e-49</c>-ish entries in <c>b</c> which read like the cause and were not: zeroing
+    ///         them reproduces the same <c>1e+153</c> to the last bit.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_right_hand_side_nearly_orthogonal_to_the_columns_does_not_run_away() {
+        // ⚠ Rows 4 to 6 are empty and stay in: they are what keeps ‖r‖ at 6.69 while ‖Aᵀr‖ goes to
+        // nothing, which is the gap between the two anchors made visible.
+        double[] dense = [
+            1d, 0d,
+            -1.5737297494940137d, 2.5737297494940137d,
+            0d, 1d,
+            0d, 1.340878896323332d,
+            0d, 0d,
+            0d, 0d,
+            0d, 0d,
+            0d, -1d,
+            0d, -2d,
+            0d, -1.7939783038167443d
+        ];
+
+        double[] right = [
+            0d, 0d, 26d / 69d, 2.694218410329402d, 0d, 4d, -1d, -3d, 0.5269647119219467d, 3.321654550839906d
+        ];
+
+        var matrix = ToSparse(dense, 10, 2);
+
+        var near = new double[2];
+        var nearReport = new LeastSquaresSolver(matrix, preconditioned: false).Solve(right, near, 8);
+
+        var far = new double[2];
+        var farReport = new LeastSquaresSolver(matrix, preconditioned: false).Solve(right, far, 4000);
+
+        Assert.True(farReport.StoppedEarly, "The floor never fired, so this proves nothing.");
+        Assert.Equal(near[0], far[0], 12);
+        Assert.Equal(near[1], far[1], 12);
+        Assert.Equal(nearReport.Residual, farReport.Residual, 10);
+
+        // ⚠ And against the dense oracle rather than against itself: two budgets agreeing on a runaway
+        // would satisfy everything above.
+        AssertFitsAtLeastAsWell(farReport.Residual, SolveNormalEquations(dense, right, 10, 2), dense, right, 10, 2);
+    }
+
     /// <summary>⚠ Relative again: the same fit at either end of six orders of magnitude.</summary>
     [Theory]
     [InlineData(1e-3d)]

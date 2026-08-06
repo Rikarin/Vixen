@@ -191,6 +191,18 @@ the edge and can disconnect a vertex; uniform weights mix two discretizations; m
 are the principled fix and are ruled out because their matrix is not symmetric. Intrinsic Delaunay
 flipping is the upgrade a large reported cotangent would justify. `CotangentWeights` has the whole
 argument.
+⚠ **A floor is a constant times an anchor, and the anchor is the part that is easy to get wrong.**
+The square path measures `rho` — a residual energy — against a cold start's residual energy, which is
+the same quantity, so the ratio is a relative residual and the argument above is complete. CGLS does
+not iterate on the residual: it iterates on the gradient `Aᵀr`, and a least-squares residual does not
+go to zero, it converges to whatever part of `b` lies outside the column space and stays there. So an
+anchor of `‖Aᵀb‖²` is unreachable exactly when `b` is nearly orthogonal to the columns — which is not
+an exotic system, it is the ordinary inconsistent one, and the worse the fit the further out of reach
+the floor goes. Found by a property test on a **well-conditioned** 10×2 draw, `cond(A) < 3`: the
+floor sat at `5.5e-34`, `rho` bottomed out at `7.9e-31` with the answer already exact, and the rest of
+the budget amplified noise to a residual of `1e+20`. The anchor is `‖b‖²·Σⱼ mⱼ‖aⱼ‖²` — the largest
+gradient energy a cold start's residual could carry — which is never below the old one and is
+reachable whatever angle `b` sits at.
 
 ## The packer, and what it measures
 
@@ -243,6 +255,11 @@ with both operands at the underflow floor is not a number. A budget of 64 — `S
 default — lands inside that. The floor sits where a `double` stops carrying information about the
 residual, so which side of it a platform lands on cannot change the answer; a *quality* threshold
 sits where the iteration is still making progress, and that one would.
+
+⚠ **What it is a floor *of* differs between the two solvers**, and anchoring the rectangular one to
+`‖Aᵀb‖²` rather than `‖b‖²·Σⱼ mⱼ‖aⱼ‖²` gave it a guard nothing could reach on any system where `b` is
+nearly orthogonal to the columns — an ordinary inconsistent least-squares fit. See the section above
+and `LeastSquaresSolver.Solve`'s remarks.
 
 ## See also
 
