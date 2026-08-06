@@ -4,11 +4,11 @@ slug: core/triangle-tree
 kind: guide
 area: Core
 summary: A bounding-volume hierarchy over a triangle soup, for the two questions a bake asks it — what is nearest, and what does this ray hit.
-api: [T:Vixen.Core.Mathematics.TriangleTree, T:Vixen.Core.Mathematics.ClosestTriangle]
+api: [T:Vixen.Core.Mathematics.TriangleTree, T:Vixen.Core.Mathematics.ClosestTriangle, T:Vixen.Core.Mathematics.TriangleHit]
 tags: [mathematics, geometry, bvh, raycast, bake]
 since: 0.1
 status: preview
-related: [engine/retopology, engine/edit-meshes]
+related: [engine/retopology, engine/attribute-transfer, engine/map-baking, engine/edit-meshes]
 ---
 
 ## What it is
@@ -18,7 +18,9 @@ about it: how far away is the nearest surface, what does a ray hit, and — the 
 needs — *which* triangle is nearest and where on it.
 
 `ClosestTriangle` is what that last question returns: the triangle's index, the point on it, the
-squared distance, and the barycentric coordinates of the point within the triangle.
+squared distance, and the barycentric coordinates of the point within the triangle. `TriangleHit` is
+its counterpart for a ray — the triangle, the point, how far along, the weights there, and whether the
+face was struck from behind.
 
 ## What it is for
 
@@ -80,6 +82,29 @@ foreach (var position in outputPositions) {
 projects onto an edge, onto a vertex, or onto a triangle with no area. An interpolation written against
 that guarantee does not need to renormalise, and one that renormalises anyway will not be wrong.
 
+Casting a ray and reading what it struck, which is what a map bake does per texel:
+
+```csharp compile
+using Vixen.Core.Mathematics;
+
+public static class Casting {
+    public static TriangleHit Run(TriangleTree tree, Vector3 point, Vector3 normal, float radius) =>
+        // ⚠ The direction's length *is* the search radius, so the hit's distance comes back as a
+        // fraction in (0, 1] and there is no separate limit that could disagree with it.
+        tree.Raycast(point, normal * radius);
+}
+```
+
+⚠ **Bounding the search by the direction rather than by a distance is the scale rule this type is
+under throughout.** A bake's cage is a fraction of the model's diagonal; a limit expressed in metres is
+a claim about how big the model is, and it is the same claim that let rays pass straight through
+geometry at a thousandth scale before the tolerances here were made relative.
+
+There are two `Raycast` overloads and they answer different questions. The one taking `out bool`
+reports only whether the nearest face was struck from behind, which is what a winding-number sign vote
+needs and all it needs. The one returning a `TriangleHit` reports the whole hit, which is what a bake
+needs and what the boolean one cannot express.
+
 ## Deterministic, which is why it can sit under a bake
 
 ⚠ **Ties in the centroid comparison break on triangle index, so the tree does not depend on the sort's
@@ -90,4 +115,6 @@ distance-field bakes and the content hash both rely on.
 ## See also
 
 - [Retopology settings and reports](engine/retopology) — the attribute transfer this exists for.
+- [Attribute transfer](engine/attribute-transfer) — every closest-point query in it comes here.
+- [Map baking](engine/map-baking) — the ray query's caller.
 - [Edit meshes](engine/edit-meshes) — where a triangle soup usually comes from.

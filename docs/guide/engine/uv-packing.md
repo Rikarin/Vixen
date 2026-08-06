@@ -8,7 +8,7 @@ api: [T:Vixen.Geometry.Uv.UvUnwrap, T:Vixen.Geometry.Uv.UvIsland, T:Vixen.Geomet
 tags: [geometry, uv, atlas, packing, texture, texel-density, udim]
 since: 0.1
 status: preview
-related: [engine/uv-charting, engine/uv-flattening, engine/edit-meshes, engine/mesh-operations]
+related: [engine/uv-charting, engine/uv-flattening, engine/map-baking, engine/edit-meshes, engine/mesh-operations]
 ---
 
 ## What it is

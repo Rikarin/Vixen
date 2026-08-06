@@ -133,8 +133,20 @@ public sealed record RemeshSettings {
     /// </remarks>
     public bool TransferAttributes { get; init; } = true;
 
+    /// <summary>What stage seven may carry, and what the target can hold.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="TransferSettings.KeepTexCoords" /> is overruled by
+    ///     <see cref="GenerateUvs" /> and never the other way round.</b> Both write the same layer,
+    ///     and a remesh that regenerated the atlas and then overwrote it with the source's old
+    ///     coordinates would be indistinguishable from one where the atlas stage failed.
+    /// </remarks>
+    public TransferSettings Transfer { get; init; } = new();
+
     /// <summary>Whether an atlas is generated from the patch layout.</summary>
     public bool GenerateUvs { get; init; } = true;
+
+    /// <summary>Where the atlas comes out, when <see cref="GenerateUvs" /> asks for one.</summary>
+    public AtlasSettings Atlas { get; init; } = new();
 
     /// <summary>How many iterations the cross-field solver runs at each level of its hierarchy.</summary>
     /// <remarks>

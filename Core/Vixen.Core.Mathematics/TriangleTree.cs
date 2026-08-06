@@ -32,6 +32,40 @@ namespace Vixen.Core.Mathematics;
 /// </param>
 public readonly record struct ClosestTriangle(int Triangle, Vector3 Point, float DistanceSquared, Vector3 Barycentric);
 
+/// <summary>Everything a ray found, rather than only whether it found anything.</summary>
+/// <remarks>
+///     <para>
+///         <c>docs/plan/41-automatic-retopology.md</c> § D12's bake casts along the output's
+///         interpolated normal and writes what it struck into an atlas texel: the source normal
+///         there, and how far along the ray it was. Both of those are
+///         <see cref="Barycentric" /> and <see cref="Distance" />, and the
+///         <see cref="TriangleTree.Raycast(Vector3, Vector3, out bool)" /> that predates this
+///         reports neither — it exists for a sign vote, which asks only whether the nearest face
+///         was struck from behind.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Distance" /> is in units of the direction handed in, not of the
+///         model.</b> A caller that passes a unit normal reads a length; one that passes an
+///         un-normalised direction reads a fraction of it. The bake passes a direction whose
+///         length <em>is</em> its search radius, so the answer it wants is the fraction.
+///     </para>
+/// </remarks>
+/// <param name="Triangle">Which triangle, indexed as the caller's indices were, or <c>-1</c> for a miss.</param>
+/// <param name="Point">Where on it the ray struck, or the origin for a miss.</param>
+/// <param name="Distance">
+///     How far along the ray, in units of the direction, or <see cref="float.PositiveInfinity" />
+///     for a miss.
+/// </param>
+/// <param name="Barycentric">The weights of the triangle's three vertices at <paramref name="Point" />.</param>
+/// <param name="Backface">Whether the face was struck from behind.</param>
+public readonly record struct TriangleHit(
+    int Triangle,
+    Vector3 Point,
+    float Distance,
+    Vector3 Barycentric,
+    bool Backface
+);
+
 /// <summary>A bounding-volume hierarchy over a triangle soup, and the three questions asked of it.</summary>
 /// <remarks>
 ///     <para>
@@ -142,7 +176,14 @@ public sealed class TriangleTree {
     ///     </para>
     /// </remarks>
     public ClosestTriangle Closest(Vector3 point) {
-        if (nodes.Length == 0) {
+        // ⚠ The triangle count, not the node count. A tree over an empty soup still builds its
+        // root — `Build` adds a node before it decides whether to split — so `nodes` is never empty
+        // and a guard on it lets the traversal reach a node whose `Count` is zero and whose `Left`
+        // is therefore the default zero, which is the root. It then descends into itself until the
+        // fixed-size stack overruns. `Closest` survives it only because an empty node's box is at an
+        // infinite distance and its bound test happens to reject it; the ray overloads have no such
+        // luck, and the boolean one has carried this since before the move out of `DistanceFields`.
+        if (order.Length == 0) {
             return new(-1, point, float.PositiveInfinity, Vector3.Zero);
         }
 
@@ -209,7 +250,14 @@ public sealed class TriangleTree {
     public bool Raycast(Vector3 origin, Vector3 direction, out bool backface) {
         backface = false;
 
-        if (nodes.Length == 0) {
+        // ⚠ The triangle count, not the node count. A tree over an empty soup still builds its
+        // root — `Build` adds a node before it decides whether to split — so `nodes` is never empty
+        // and a guard on it lets the traversal reach a node whose `Count` is zero and whose `Left`
+        // is therefore the default zero, which is the root. It then descends into itself until the
+        // fixed-size stack overruns. `Closest` survives it only because an empty node's box is at an
+        // infinite distance and its bound test happens to reject it; the ray overloads have no such
+        // luck, and the boolean one has carried this since before the move out of `DistanceFields`.
+        if (order.Length == 0) {
             return false;
         }
 
@@ -259,6 +307,100 @@ public sealed class TriangleTree {
         }
 
         return hit;
+    }
+
+    /// <summary>The nearest triangle a ray strikes, and everything about the hit.</summary>
+    /// <param name="origin">Where the ray starts.</param>
+    /// <param name="direction">
+    ///     Which way it goes, and how far. ⚠ <b>Its length is the search radius</b> — a hit is kept
+    ///     only where <see cref="TriangleHit.Distance" /> lands in <c>(0, 1]</c>, so a caller bounds
+    ///     the search by scaling the direction rather than by passing a separate limit that could
+    ///     disagree with it.
+    /// </param>
+    /// <returns>The nearest hit, or a <see cref="TriangleHit" /> of <c>-1</c> for a miss.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the query a bake asks and the boolean overload cannot answer.</b>
+    ///         <c>docs/plan/41-automatic-retopology.md</c> § D12 casts along the output's normal and
+    ///         writes the source's normal at the hit into an atlas texel; that needs the triangle and
+    ///         the barycentric weights on it, and <see cref="Raycast(Vector3, Vector3, out bool)" />
+    ///         reports a sign vote's worth of the same traversal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Bounding by the direction's length rather than by an absolute distance is the
+    ///         scale rule this file already applies twice.</b> A bake's search radius is a fraction
+    ///         of the model's diagonal, and a limit expressed in metres is a claim about how big the
+    ///         model is — the same claim that let rays pass straight through geometry at 1/1024
+    ///         scale.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Ties go to the triangle the traversal reached first</b>, exactly as
+    ///         <see cref="Closest" />'s do, and for the same reason: the build's tie-break on
+    ///         triangle index makes the traversal order a function of the input alone.
+    ///     </para>
+    /// </remarks>
+    public TriangleHit Raycast(Vector3 origin, Vector3 direction) {
+        var miss = new TriangleHit(-1, origin, float.PositiveInfinity, Vector3.Zero, false);
+
+        // ⚠ The triangle count, not the node count. A tree over an empty soup still builds its
+        // root — `Build` adds a node before it decides whether to split — so `nodes` is never empty
+        // and a guard on it lets the traversal reach a node whose `Count` is zero and whose `Left`
+        // is therefore the default zero, which is the root. It then descends into itself until the
+        // fixed-size stack overruns. `Closest` survives it only because an empty node's box is at an
+        // infinite distance and its bound test happens to reject it; the ray overloads have no such
+        // luck, and the boolean one has carried this since before the move out of `DistanceFields`.
+        if (order.Length == 0) {
+            return miss;
+        }
+
+        // The same finite stand-in the boolean overload uses, and for the same reason: a true
+        // infinity makes 0 × ∞ a NaN for a ray lying exactly in a slab plane it travels parallel to.
+        const float ParallelInverse = 1e30f;
+
+        var inverse = new Vector3(
+            direction.X == 0 ? ParallelInverse : 1f / direction.X,
+            direction.Y == 0 ? ParallelInverse : 1f / direction.Y,
+            direction.Z == 0 ? ParallelInverse : 1f / direction.Z
+        );
+
+        Span<int> stack = stackalloc int[MaxDepth];
+        var depth = 0;
+        stack[depth++] = 0;
+
+        // One, because the direction's length is the radius. Every box and every triangle is tested
+        // against the bound that is already the best, so the search shrinks as it goes.
+        var nearest = 1f;
+        var best = miss;
+
+        while (depth > 0) {
+            var node = nodes[stack[--depth]];
+
+            if (!IntersectsBox(origin, inverse, node.Bounds, nearest)) {
+                continue;
+            }
+
+            if (node.Count > 0) {
+                for (var slot = node.Start; slot < node.Start + node.Count; slot++) {
+                    var triangle = order[slot];
+                    Triangle(triangle, out var a, out var b, out var c);
+
+                    if (!IntersectsTriangle(origin, direction, a, b, c, out var distance, out var behind, out var weights)
+                        || distance >= nearest) {
+                        continue;
+                    }
+
+                    nearest = distance;
+                    best = new(triangle, origin + (direction * distance), distance, weights, behind);
+                }
+
+                continue;
+            }
+
+            stack[depth++] = node.Left;
+            stack[depth++] = node.Right;
+        }
+
+        return best;
     }
 
     /// <summary>Recursively builds a node over one range of the triangle order.</summary>
@@ -410,9 +552,36 @@ public sealed class TriangleTree {
         Vector3 c,
         out float distance,
         out bool backface
+    ) =>
+        IntersectsTriangle(origin, direction, a, b, c, out distance, out backface, out _);
+
+    /// <summary>The same, and where on the triangle the ray struck.</summary>
+    /// <param name="origin">Where the ray starts.</param>
+    /// <param name="direction">Which way it goes.</param>
+    /// <param name="a">The triangle's first vertex.</param>
+    /// <param name="b">Its second.</param>
+    /// <param name="c">Its third.</param>
+    /// <param name="distance">How far along the ray the hit is, in units of <paramref name="direction" />.</param>
+    /// <param name="backface">Whether the ray struck the face from behind.</param>
+    /// <param name="barycentric">
+    ///     The weights of the three vertices at the hit. ⚠ <b>Summing to one by construction</b> —
+    ///     Möller–Trumbore's <c>u</c> and <c>v</c> are already two of the three, so the first is
+    ///     their complement and no division normalises it.
+    /// </param>
+    /// <returns>Whether it hit at all.</returns>
+    static bool IntersectsTriangle(
+        Vector3 origin,
+        Vector3 direction,
+        Vector3 a,
+        Vector3 b,
+        Vector3 c,
+        out float distance,
+        out bool backface,
+        out Vector3 barycentric
     ) {
         distance = 0;
         backface = false;
+        barycentric = Vector3.Zero;
 
         var edge1 = b - a;
         var edge2 = c - a;
@@ -467,6 +636,7 @@ public sealed class TriangleTree {
         // the front face, and the sign falls out of the intersection rather than costing a second
         // dot product. Getting this round the wrong way inverts every field the vote produces.
         backface = determinant < 0;
+        barycentric = new(1f - u - v, u, v);
 
         return true;
     }
