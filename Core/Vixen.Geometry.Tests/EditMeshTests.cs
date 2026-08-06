@@ -312,6 +312,82 @@ public class EditMeshTests {
         Assert.Equal(3f, Area(mesh, triangles), 4);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void A_concave_face_triangulates_the_same_whichever_axis_it_faces_along(int axis) {
+        // ⚠ Both ways along each axis, and the negative one is the case worth having. Flattening a
+        // face drops the axis its normal is most nearly parallel to, and the two coordinates left
+        // over are anticlockwise only for a normal pointing the positive way — the other three faces
+        // of a box need them swapped back. Get that wrong and every corner reads as reflex, ear
+        // clipping finds nothing and falls back to the fan, and the fan of an L covers a square that
+        // is not there.
+        foreach (var sign in new[] { 1f, -1f }) {
+            var mesh = new EditMesh();
+
+            // The same L as above, turned to face along the axis under test.
+            foreach (var corner in new[] {
+                         Vector2.Zero, new(2f, 0f), new(2f, 1f), new(1f, 1f), new(1f, 2f), new Vector2(0f, 2f)
+                     }) {
+                var placed = axis switch {
+                    0 => new Vector3(0f, corner.X, corner.Y),
+                    1 => new Vector3(corner.Y, 0f, corner.X),
+                    _ => new Vector3(corner.X, corner.Y, 0f)
+                };
+
+                mesh.AddPosition(sign < 0f ? -placed : placed);
+            }
+
+            mesh.AddFace(sign < 0f ? [5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5]);
+
+            var triangles = mesh.Triangulate();
+
+            Assert.Equal(12, triangles.Length);
+            Assert.Equal(3f, Area(mesh, triangles), 4);
+        }
+    }
+
+    /// <summary>Every shape, so that a kind added without a generator escapes this too.</summary>
+    public static TheoryData<ShapeKind> Kinds {
+        get {
+            var data = new TheoryData<ShapeKind>();
+
+            foreach (var kind in Enum.GetValues<ShapeKind>()) {
+                data.Add(kind);
+            }
+
+            return data;
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(Kinds))]
+    public void Triangulating_a_shape_gives_the_same_indices_whatever_units_it_was_authored_in(ShapeKind kind) {
+        var mesh = MeshShapes.Create(kind);
+        var reference = mesh.Triangulate();
+
+        // A thousandth and a thousandfold: metres against millimetres, and metres against kilometres.
+        // Neither factor is a power of two, so every coordinate is genuinely re-rounded rather than
+        // having its exponent shifted — which is the whole point, and is what a unit conversion in an
+        // importer does.
+        foreach (var scale in new[] { 1e-3f, 1f, 1e+3f }) {
+            var scaled = new EditMesh(mesh);
+
+            for (var index = 0; index < scaled.PositionCount; index++) {
+                scaled.MovePosition(index, scaled.Positions[index] * scale);
+            }
+
+            // ⚠ The indices themselves, not the triangles as places in space or their total area.
+            // Doc 41's § D14 makes byte-identical remesher output a gate and doc 08 caches compiled
+            // assets on a content hash, so a triangulation that depends on the units a model was
+            // authored in re-pages every meshlet of an asset somebody converted — and doc 22's
+            // crack-freedom is an equality over shared boundary vertices, which a different diagonal
+            // across a shared quad breaks outright.
+            Assert.Equal(reference, scaled.Triangulate());
+        }
+    }
+
     /// <summary>The total area of a triangle list, which is what a triangulation must preserve.</summary>
     static float Area(EditMesh mesh, int[] triangles) {
         var total = 0f;
