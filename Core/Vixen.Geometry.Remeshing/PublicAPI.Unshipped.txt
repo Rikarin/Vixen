@@ -1,1 +1,140 @@
 #nullable enable
+Vixen.Geometry.Remeshing.ConditioningReport -> readonly struct
+Vixen.Geometry.Remeshing.ConditioningReport : System.IEquatable<Vixen.Geometry.Remeshing.ConditioningReport>
+Vixen.Geometry.Remeshing.ConditioningReport.ConditioningReport() -> void
+Vixen.Geometry.Remeshing.ConditioningReport.ConditioningReport(int Welded, int Reoriented, int Unorientable, int Despecked, int Cut, int Filled, bool Shrinkwrapped, int Triangles, Vixen.Geometry.MeshReport Mesh) -> void
+Vixen.Geometry.Remeshing.ConditioningReport.Cut.get -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Cut.init -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Despecked.get -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Despecked.init -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Filled.get -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Filled.init -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Mesh.get -> Vixen.Geometry.MeshReport
+Vixen.Geometry.Remeshing.ConditioningReport.Mesh.init -> Vixen.Geometry.MeshReport
+Vixen.Geometry.Remeshing.ConditioningReport.Reoriented.get -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Reoriented.init -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Shrinkwrapped.get -> bool
+Vixen.Geometry.Remeshing.ConditioningReport.Shrinkwrapped.init -> bool
+Vixen.Geometry.Remeshing.ConditioningReport.Triangles.get -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Triangles.init -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Unorientable.get -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Unorientable.init -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Welded.get -> int
+Vixen.Geometry.Remeshing.ConditioningReport.Welded.init -> int
+Vixen.Geometry.Remeshing.ConditioningSettings -> sealed record
+Vixen.Geometry.Remeshing.ConditioningSettings : System.IEquatable<Vixen.Geometry.Remeshing.ConditioningSettings>
+Vixen.Geometry.Remeshing.ConditioningSettings.ConditioningSettings() -> void
+Vixen.Geometry.Remeshing.ConditioningSettings.FillHoles.get -> bool
+Vixen.Geometry.Remeshing.ConditioningSettings.FillHoles.init -> bool
+Vixen.Geometry.Remeshing.ConditioningSettings.HoleSize.get -> float
+Vixen.Geometry.Remeshing.ConditioningSettings.HoleSize.init -> float
+Vixen.Geometry.Remeshing.ConditioningSettings.PreRemeshIterations.get -> int
+Vixen.Geometry.Remeshing.ConditioningSettings.PreRemeshIterations.init -> int
+Vixen.Geometry.Remeshing.ConditioningSettings.Shrinkwrap.get -> bool
+Vixen.Geometry.Remeshing.ConditioningSettings.Shrinkwrap.init -> bool
+Vixen.Geometry.Remeshing.ConditioningSettings.SpeckArea.get -> float
+Vixen.Geometry.Remeshing.ConditioningSettings.SpeckArea.init -> float
+Vixen.Geometry.Remeshing.ConditioningSettings.WeldTolerance.get -> float
+Vixen.Geometry.Remeshing.ConditioningSettings.WeldTolerance.init -> float
+Vixen.Geometry.Remeshing.RemeshGuide -> readonly struct
+Vixen.Geometry.Remeshing.RemeshGuide : System.IEquatable<Vixen.Geometry.Remeshing.RemeshGuide>
+Vixen.Geometry.Remeshing.RemeshGuide.Points.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>
+Vixen.Geometry.Remeshing.RemeshGuide.Points.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3>
+Vixen.Geometry.Remeshing.RemeshGuide.RemeshGuide() -> void
+Vixen.Geometry.Remeshing.RemeshGuide.RemeshGuide(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3> Points, float Strength) -> void
+Vixen.Geometry.Remeshing.RemeshGuide.Strength.get -> float
+Vixen.Geometry.Remeshing.RemeshGuide.Strength.init -> float
+Vixen.Geometry.Remeshing.RemeshReport -> readonly struct
+Vixen.Geometry.Remeshing.RemeshReport : System.IEquatable<Vixen.Geometry.Remeshing.RemeshReport>
+Vixen.Geometry.Remeshing.RemeshReport.Conditioning.get -> Vixen.Geometry.Remeshing.ConditioningReport
+Vixen.Geometry.Remeshing.RemeshReport.Conditioning.init -> Vixen.Geometry.Remeshing.ConditioningReport
+Vixen.Geometry.Remeshing.RemeshReport.FeatureReproductionError.get -> float
+Vixen.Geometry.Remeshing.RemeshReport.FeatureReproductionError.init -> float
+Vixen.Geometry.Remeshing.RemeshReport.IsAllQuad.get -> bool
+Vixen.Geometry.Remeshing.RemeshReport.MaxDeviation.get -> float
+Vixen.Geometry.Remeshing.RemeshReport.MaxDeviation.init -> float
+Vixen.Geometry.Remeshing.RemeshReport.MeanDeviation.get -> float
+Vixen.Geometry.Remeshing.RemeshReport.MeanDeviation.init -> float
+Vixen.Geometry.Remeshing.RemeshReport.Mesh.get -> Vixen.Geometry.MeshReport
+Vixen.Geometry.Remeshing.RemeshReport.Mesh.init -> Vixen.Geometry.MeshReport
+Vixen.Geometry.Remeshing.RemeshReport.MinScaledJacobian.get -> float
+Vixen.Geometry.Remeshing.RemeshReport.MinScaledJacobian.init -> float
+Vixen.Geometry.Remeshing.RemeshReport.NonQuadCount.get -> int
+Vixen.Geometry.Remeshing.RemeshReport.NonQuadCount.init -> int
+Vixen.Geometry.Remeshing.RemeshReport.QuadCount.get -> int
+Vixen.Geometry.Remeshing.RemeshReport.QuadCount.init -> int
+Vixen.Geometry.Remeshing.RemeshReport.RemeshReport() -> void
+Vixen.Geometry.Remeshing.RemeshReport.RemeshReport(int QuadCount, int NonQuadCount, System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.Singularity> Singularities, int SingularitiesOnFeatures, float MaxDeviation, float MeanDeviation, float MinScaledJacobian, float FeatureReproductionError, Vixen.Geometry.Remeshing.ConditioningReport Conditioning, Vixen.Geometry.MeshReport Mesh, System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.RemeshStageTiming> Stages, System.Collections.Generic.IReadOnlyList<string> Warnings) -> void
+Vixen.Geometry.Remeshing.RemeshReport.Singularities.get -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.Singularity>
+Vixen.Geometry.Remeshing.RemeshReport.Singularities.init -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.Singularity>
+Vixen.Geometry.Remeshing.RemeshReport.SingularitiesOnFeatures.get -> int
+Vixen.Geometry.Remeshing.RemeshReport.SingularitiesOnFeatures.init -> int
+Vixen.Geometry.Remeshing.RemeshReport.Stages.get -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.RemeshStageTiming>
+Vixen.Geometry.Remeshing.RemeshReport.Stages.init -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.RemeshStageTiming>
+Vixen.Geometry.Remeshing.RemeshReport.Warnings.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Geometry.Remeshing.RemeshReport.Warnings.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Geometry.Remeshing.RemeshSettings -> sealed record
+Vixen.Geometry.Remeshing.RemeshSettings : System.IEquatable<Vixen.Geometry.Remeshing.RemeshSettings>
+Vixen.Geometry.Remeshing.RemeshSettings.Adaptivity.get -> float
+Vixen.Geometry.Remeshing.RemeshSettings.Adaptivity.init -> float
+Vixen.Geometry.Remeshing.RemeshSettings.Conditioning.get -> Vixen.Geometry.Remeshing.ConditioningSettings
+Vixen.Geometry.Remeshing.RemeshSettings.Conditioning.init -> Vixen.Geometry.Remeshing.ConditioningSettings
+Vixen.Geometry.Remeshing.RemeshSettings.DensityMask.get -> System.Collections.Generic.IReadOnlyList<float>
+Vixen.Geometry.Remeshing.RemeshSettings.DensityMask.init -> System.Collections.Generic.IReadOnlyList<float>
+Vixen.Geometry.Remeshing.RemeshSettings.FeatureAngle.get -> float
+Vixen.Geometry.Remeshing.RemeshSettings.FeatureAngle.init -> float
+Vixen.Geometry.Remeshing.RemeshSettings.FieldIterations.get -> int
+Vixen.Geometry.Remeshing.RemeshSettings.FieldIterations.init -> int
+Vixen.Geometry.Remeshing.RemeshSettings.FreezeBorder.get -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.FreezeBorder.init -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.GenerateUvs.get -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.GenerateUvs.init -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.Guides.get -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.RemeshGuide>
+Vixen.Geometry.Remeshing.RemeshSettings.Guides.init -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Remeshing.RemeshGuide>
+Vixen.Geometry.Remeshing.RemeshSettings.KeepCreases.get -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.KeepCreases.init -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.KeepGroups.get -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.KeepGroups.init -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.KeepUvSeams.get -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.KeepUvSeams.init -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.RemeshSettings() -> void
+Vixen.Geometry.Remeshing.RemeshSettings.Symmetry.get -> Vixen.Core.Mathematics.Plane?
+Vixen.Geometry.Remeshing.RemeshSettings.Symmetry.init -> Vixen.Core.Mathematics.Plane?
+Vixen.Geometry.Remeshing.RemeshSettings.TargetEdgeLength.get -> float
+Vixen.Geometry.Remeshing.RemeshSettings.TargetEdgeLength.init -> float
+Vixen.Geometry.Remeshing.RemeshSettings.TargetQuads.get -> int
+Vixen.Geometry.Remeshing.RemeshSettings.TargetQuads.init -> int
+Vixen.Geometry.Remeshing.RemeshSettings.TransferAttributes.get -> bool
+Vixen.Geometry.Remeshing.RemeshSettings.TransferAttributes.init -> bool
+Vixen.Geometry.Remeshing.RemeshStage -> enum : byte
+Vixen.Geometry.Remeshing.RemeshStage.Condition = 0 -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.RemeshStage.Extract = 5 -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.RemeshStage.Features = 1 -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.RemeshStage.Field = 2 -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.RemeshStage.Layout = 3 -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.RemeshStage.Quantize = 4 -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.RemeshStage.RemeshStage() -> void
+Vixen.Geometry.Remeshing.RemeshStage.Transfer = 6 -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.RemeshStageTiming -> readonly struct
+Vixen.Geometry.Remeshing.RemeshStageTiming : System.IEquatable<Vixen.Geometry.Remeshing.RemeshStageTiming>
+Vixen.Geometry.Remeshing.RemeshStageTiming.Elapsed.get -> System.TimeSpan
+Vixen.Geometry.Remeshing.RemeshStageTiming.Elapsed.init -> System.TimeSpan
+Vixen.Geometry.Remeshing.RemeshStageTiming.Elements.get -> int
+Vixen.Geometry.Remeshing.RemeshStageTiming.Elements.init -> int
+Vixen.Geometry.Remeshing.RemeshStageTiming.RemeshStageTiming() -> void
+Vixen.Geometry.Remeshing.RemeshStageTiming.RemeshStageTiming(Vixen.Geometry.Remeshing.RemeshStage Stage, System.TimeSpan Elapsed, int Elements) -> void
+Vixen.Geometry.Remeshing.RemeshStageTiming.Stage.get -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.RemeshStageTiming.Stage.init -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.Remesher -> static class
+Vixen.Geometry.Remeshing.Singularity -> readonly struct
+Vixen.Geometry.Remeshing.Singularity : System.IEquatable<Vixen.Geometry.Remeshing.Singularity>
+Vixen.Geometry.Remeshing.Singularity.Index.get -> int
+Vixen.Geometry.Remeshing.Singularity.Index.init -> int
+Vixen.Geometry.Remeshing.Singularity.Position.get -> int
+Vixen.Geometry.Remeshing.Singularity.Position.init -> int
+Vixen.Geometry.Remeshing.Singularity.Singularity() -> void
+Vixen.Geometry.Remeshing.Singularity.Singularity(int Position, int Valence, int Index) -> void
+Vixen.Geometry.Remeshing.Singularity.Valence.get -> int
+Vixen.Geometry.Remeshing.Singularity.Valence.init -> int
+const Vixen.Geometry.Remeshing.Remesher.BudgetTolerance = 1.35 -> float
+static Vixen.Geometry.Remeshing.Remesher.Remesh(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.RemeshSettings settings, out Vixen.Geometry.Remeshing.RemeshReport report, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.EditMesh
