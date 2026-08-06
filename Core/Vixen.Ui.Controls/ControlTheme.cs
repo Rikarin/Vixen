@@ -504,7 +504,14 @@ public static class ControlTheme {
            the failure this control exists downstream of. It is also why nothing
            but a row may be a child — every element counts, including a parked
            one, which is why `Trim` parks at the end and never in the middle. */
-        key-value-list { flex-direction: column; }
+        /* ⚠ The floor is the price of `min-width: 0` on the columns, and without it the control is
+           invisible. A flex container's own intrinsic width is what its children ask for, and a
+           column that has been told its minimum is zero asks for nothing — so a list in a parent
+           that does not size it comes out 20 pixels wide, which is its padding and its gap and no
+           text at all. Found by taking a picture of it, which is the only thing that could have:
+           every rectangle in the tree was consistent, equal and wrong. 160px is two readable halves;
+           a caller in a column parent is stretched past it and never sees this. */
+        key-value-list { flex-direction: column; min-width: 160px; }
 
         key-value-row {
             flex-direction: row;

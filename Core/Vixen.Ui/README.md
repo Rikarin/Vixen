@@ -387,6 +387,19 @@ inherited the value, and a child that declares `visibility: visible` reappears i
 parent. `opacity: 0` skips the subtree outright, because opacity multiplies and nothing below can
 bring it back.
 
+⚠ **An element's own text is inside its own clip, and for a long time it was not.** `overflow` clips
+an element's *content*; the background and the border are the two things it does not clip, which is
+why the `ClipPush` sits between them and the text rather than above all three. Emitting the text
+first meant `overflow: hidden` clipped an element's children and never its own string — so a label
+too long for a fixed-width column drew straight across whatever was beside it, and five panels in
+the editor had written `overflow: hidden` on a text-bearing element believing otherwise.
+
+**It survived every kind of test this framework had**, and the shape of that is worth copying: *a
+clip is invisible to the element tree*. Every rectangle was the right size, every string was the
+right string, and the glyphs went somewhere nothing was looking. It was found by taking a picture of
+a key/value row, and the regression test is an assertion about the *order* of the commands, which is
+the whole of what a clip is.
+
 ⚠ **Opacity is carried down as a multiplier rather than composited as a group, and the difference is
 visible.** CSS renders a translucent element's subtree into its own surface and blends that once, so
 two overlapping children of a half-opaque panel do *not* show through each other. Multiplying each

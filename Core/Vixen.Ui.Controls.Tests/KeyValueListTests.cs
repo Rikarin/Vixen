@@ -194,9 +194,43 @@ public class KeyValueListTests {
         Assert.Equal(short_.Bounds.Height, long_.Bounds.Height, 0.5f);
         Assert.Null(harness.StyleOf(long_.KeyPart, "text-overflow"));
         Assert.Equal("nowrap", harness.StyleOf(long_.KeyPart, "white-space"));
-
-        // And the clip is real: the column emits one, so the overhanging glyphs are cut.
         Assert.Equal("hidden", harness.StyleOf(long_.KeyPart, "overflow"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the clip is real, which the three declarations above do not establish.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The version of this test that asserted <c>overflow: hidden</c> resolves passed against a
+    ///     renderer that emitted an element's own text <i>before</i> its own clip — so every long key
+    ///     drew straight across the value column while every rectangle in the tree stayed the right
+    ///     size. The picture found it; this is the assertion that keeps it found. Counted in pixels
+    ///     inside the value's rectangle, with the value itself left empty, so anything at all in
+    ///     there came from the key.
+    /// </remarks>
+    [Fact]
+    public void A_long_key_does_not_draw_into_the_value_column() {
+        using var ui = ControlHarness.Open(200f, 60f, "root { background-color: #000000; flex-direction: column; }");
+
+        var list = ui.Document.Root.Add<KeyValueList>();
+        ui.Frame();
+
+        var row = list.AddRow("AVeryLongUnbreakableKeyNameNobodyWouldChoose");
+        ui.Frame();
+
+        // ⚠ The value's *column*, taken as its horizontal span over the row's full height. An empty
+        // value slot has no text and no children and therefore no height at all, so sampling its own
+        // rectangle scans nothing and reports zero however badly the key overdraws — which is the
+        // first version of this test, and it passed with the renderer bug reinstated.
+        var slot = row.ValuePart.Bounds;
+        var line = row.Bounds;
+
+        Assert.Equal(0L, ui.InkIn((int) slot.X, (int) line.Y, (int) slot.Width, (int) line.Height));
+
+        // And the key half is not blank, so the zero above is a clip rather than a row that drew
+        // nothing at all.
+        var key = row.KeyPart.Bounds;
+        Assert.True(ui.InkIn((int) key.X, (int) line.Y, (int) key.Width, (int) line.Height) > 0L);
     }
 
     /// <summary>
@@ -313,6 +347,69 @@ public class KeyValueListTests {
 
         // And the stripe reached elements the markup made, not just ones a test made.
         Assert.Equal([false, true, false], rows.Select(harness.IsShaded));
+    }
+
+    /// <summary>
+    ///     ⚠ A list nobody sized is still a list, which is not free: <c>min-width: 0</c> on both
+    ///     columns means the container's own intrinsic width is zero, so in a parent that does not
+    ///     stretch it — a row, which is CSS's initial — it collapses to its padding and its gap. The
+    ///     floor in the theme is what stops that, and this is the case that has no column above it.
+    /// </summary>
+    [Fact]
+    public void A_list_in_a_row_does_not_collapse() {
+        using var ui = ControlHarness.Open(400f, 200f);
+
+        var list = ui.Document.Root.Add<KeyValueList>();
+        ui.Frame();
+
+        var row = list.AddRow("Draw calls", "1 204");
+        ui.Frame();
+
+        Assert.True(list.Bounds.Width >= 160f, $"the list collapsed to {list.Bounds.Width}px");
+        Assert.True(row.KeyPart.Bounds.Width > 0f, "the key column has no width");
+        Assert.Equal(row.KeyPart.Bounds.Width, row.ValuePart.Bounds.Width, 0.5f);
+    }
+
+    /// <summary>
+    ///     The list, drawn — the one question every assertion above is unable to answer.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Rectangles are not a picture.</b> Everything else here reads a resolved colour or a
+    ///     measured box, and every one of them would pass against a list whose stripe is the same
+    ///     shade as its surface, whose key text is drawn over its value's, or whose slider is a
+    ///     hairline. The alternation, the shared column edge and the editor in the value half are
+    ///     things that are either visibly right or visibly wrong, and this is where somebody looks.
+    ///     <para>
+    ///         The fixture is deliberately narrow and holds one over-long key, because the picture
+    ///         worth committing is the one with the failure case in it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_list_looks_right() {
+        // ⚠ On `--surface`, because an unstriped row has no background of its own — the zebra is
+        // *one* shade painted on alternate rows, and against the harness's bare root the other half
+        // is whatever is behind the document. A picture taken without this is a picture of dark text
+        // on black for every second row, which is a fixture with no panel in it rather than a
+        // control with a bug in it, and the two look identical.
+        using var ui = ControlHarness.Open(280f, 180f, "root { background-color: var(--surface); flex-direction: column; }");
+
+        var list = ui.Document.Root.Add<KeyValueList>();
+        ui.Frame();
+
+        var heading = list.AddRow("Rasteriser");
+        heading.IsHeading = true;
+
+        list.AddRow("Draw calls", "1 204");
+        list.AddRow("AVeryLongUnbreakableKeyName", "98 331");
+        list.AddRow("Culled", "12");
+
+        var volume = list.AddRow("Volume").Content<Slider>();
+        volume.Minimum = 0f;
+        volume.Maximum = 1f;
+        volume.Value = 0.5f;
+
+        ui.Frame();
+        ui.Screenshot("key-value-list");
     }
 
     /// <summary>A document with the theme, a font, and a way to ask what the cascade decided.</summary>
