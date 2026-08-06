@@ -136,4 +136,13 @@ without admitting the cycles that come with them; reading one is an error naming
 **Complex keys.** A mapping or a sequence used as a key is refused rather than flattened, so nothing
 downstream has to be defensive about a shape that cannot occur.
 
+**Duplicate keys.** A key stated twice in one mapping is refused, compared as written. YAML requires
+uniqueness and this reader did not enforce it, so the second entry reached `YamlMapping.Set` — whose
+replace-in-place is a *caller's* affordance, for a migration rewriting a value it computed — and the
+reader quietly became last-wins, while `MetaScanner`'s top-down line scan is first-wins. The two
+disagreed about `metaVersion` on a 142-byte sidecar, 11 against 1, and neither was wrong because the
+format had defined nothing for either to be wrong about. These files are merged and hand-edited by
+people, so a repeated key is what a bad conflict resolution looks like; picking one silently is two
+different compilations of one asset depending on which reader looked.
+
 Licensed under Apache-2.0.

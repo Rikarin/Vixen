@@ -178,6 +178,16 @@ public sealed class YamlMapping : YamlNode, IEnumerable<KeyValuePair<string, Yam
     ///         delete the sentence an artist wrote above it. A caller that means to change the
     ///         comment sets one on the new node and it wins.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Replacing is a caller's affordance and never a reading of a document.</b> The
+    ///         caller here is a migration that computed a key and means to overwrite it; a
+    ///         <em>document</em> that states one key twice is refused by <see cref="YamlReader" />
+    ///         instead, because the format defines no winner and quietly taking the last one made this
+    ///         reader disagree with <see cref="Meta.MetaScanner" />'s first-wins line scan about the
+    ///         very version number a sidecar is read for. Anything that reaches this method with a key
+    ///         it already holds is therefore a caller, which is what makes replacing the right answer
+    ///         here and the wrong one there.
+    ///     </para>
     /// </remarks>
     public YamlMapping Set(string key, YamlNode value) {
         ArgumentException.ThrowIfNullOrEmpty(key);

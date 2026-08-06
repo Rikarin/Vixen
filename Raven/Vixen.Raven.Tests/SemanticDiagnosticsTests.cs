@@ -395,6 +395,109 @@ public class SemanticDiagnosticsTests {
               """
         );
 
+    // --- Recursion ---------------------------------------------------------
+
+    /// <summary>
+    ///     A body that reaches itself is refused, and the message names the route — <c>RVN2139</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing reported this before, in any phase.</b> Both signatures are complete
+    ///         before either body is bound, so <c>RVN2005</c> — which is about resolution that does
+    ///         not terminate — never fires; lowering terminates because every pass behind the binder
+    ///         carries a visited set with a comment saying the language has no recursion; and the
+    ///         emitter happily writes the cycle out. What refused it was <c>spirv-val</c>, with
+    ///         <c>[VUID-StandaloneSpirv-None-04634]</c>, on a machine that happened to have one
+    ///         installed.
+    ///     </para>
+    ///     <para>
+    ///         Found by <c>Vixen.Fuzz</c>'s <c>raven</c> target — the first row is the reduction of
+    ///         <c>Corpus/raven/b3f413d871e6a766.bin</c>, a one-token mutation of the shipped compute
+    ///         example that turned <c>float(id.x)</c> into <c>Weight(id)</c>.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    // Direct: the shape the fuzzer found, on an expression body.
+    [InlineData("    func F(x: float): float => F(x) * 2f\n", "S.F → S.F")]
+    // Through a second function, which is the route nobody sees by reading.
+    [InlineData("    func F(x: float): float => G(x)\n    func G(x: float): float => F(x)\n", "S.F → S.G → S.F")]
+    // Through a property's getter, which is a function the backend emits like any other.
+    [InlineData(
+        "    var P: float {\n        get => F(1f)\n    }\n\n    func F(x: float): float => P\n",
+        "S.P.get → S.F → S.P.get"
+    )]
+    public void A_call_graph_with_a_cycle_is_refused(string members, string route) {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(
+                $$"""
+                  package A
+
+                  shader S {
+                  {{members}}
+                      [ComputeShader(1, 1, 1)]
+                      func Main() {
+                      }
+                  }
+
+                  """,
+                "RVN2139"
+            )
+        );
+
+        Assert.Contains(route, diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+    }
+
+    /// <summary>
+    ///     Reading a property whose <em>setter</em> closes the ring is not a cycle, and a check that
+    ///     added an edge to both accessors would say it was.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The one over-approximation this check had to avoid. An edge per accessor is cheaper and
+    ///     turns a legal shader into a hard error, which is a worse failure than the one being fixed:
+    ///     an author cannot suppress it and cannot see why it is wrong.
+    /// </remarks>
+    [Fact]
+    public void A_reference_is_an_edge_to_the_accessor_it_runs() =>
+        AssertNoDiagnostics(
+            """
+            package A
+
+            struct S {
+                var backing: float
+
+                var P: float {
+                    get => backing
+                    set => backing = F(value)
+                }
+
+                func F(x: float): float => P * x
+            }
+
+            """
+        );
+
+    /// <summary>Two functions calling one shared helper is a diamond and not a cycle.</summary>
+    [Fact]
+    public void A_call_graph_that_merely_reconverges_is_not_a_cycle() =>
+        AssertNoDiagnostics(
+            """
+            package A
+
+            shader S {
+                func Shared(x: float): float => x * 2f
+                func Left(x: float): float => Shared(x)
+                func Right(x: float): float => Shared(x) + Left(x)
+
+                [ComputeShader(1, 1, 1)]
+                func Main() {
+                    var total = Right(1f)
+                }
+            }
+
+            """
+        );
+
     // --- Attributes --------------------------------------------------------
 
     /// <summary>
