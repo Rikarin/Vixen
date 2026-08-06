@@ -303,6 +303,11 @@ shader ReflectionTrace {
             size = size * 2
         }
 
+        // The coarsest level still worth asking, and what buys one back — `ScreenSpaceTrace`'s
+        // `AscentCredit`, by value, because the two marches are held to the same cell sequence.
+        var ceiling = pyramidLevels - 1
+        var credit = 0
+
         val width = int(screenViewport.x)
         val height = int(screenViewport.y)
 
@@ -315,8 +320,25 @@ shader ReflectionTrace {
                 return int2(-1, -1)
             }
 
-            val px = int(floor(fromX + deltaX * along))
-            val py = int(floor(fromY + deltaY * along))
+            val atX = fromX + deltaX * along
+            val atY = fromY + deltaY * along
+
+            // ⚠ The cell the ray is ENTERING, not the one it is leaving. A DDA lands exactly on a
+            // boundary every step, and a plain floor answers that landing with the cell on the lower
+            // side — which, for a ray travelling the other way, is the one it has just finished. Its
+            // exit is then the point the ray already stands on, the forward guard below nudges a
+            // hundredth of a texel instead of a whole one, and the iteration buys nothing.
+            // `ScreenSpaceTrace.Entering` is the same rule.
+            var px = int(floor(atX))
+            var py = int(floor(atY))
+
+            if (deltaX < 0f) {
+                px = int(ceil(atX)) - 1
+            }
+
+            if (deltaY < 0f) {
+                py = int(ceil(atY)) - 1
+            }
 
             // Off the viewport, the rest of the ray is not the screen's to answer.
             if (px < 0 || py < 0 || px >= width || py >= height) {
@@ -369,15 +391,30 @@ shader ReflectionTrace {
 
             if (enter > nearest) {
                 // The whole crossing stays nearer than the cell's nearest surface — nothing here
-                // can stop the ray. Skip it, and try a coarser cell for the next one.
+                // can stop the ray. Skip it, and try a coarser cell once the backoff is paid off.
                 along = exit
+                credit = credit + 1
 
-                if (level < pyramidLevels - 1) {
+                if (credit >= 8) {
+                    credit = 0
+
+                    if (ceiling < pyramidLevels - 1) {
+                        ceiling = ceiling + 1
+                    }
+                }
+
+                if (level < ceiling) {
                     level = level + 1
                     size = size * 2
                 }
             } else {
                 if (level > 0) {
+                    // ⚠ This level is too coarse *here*, and recording that is what stops a grazing
+                    // ray costing thousands of iterations: without it the next skip climbs straight
+                    // back into the cell that just refused, is refused again, and descends — two
+                    // iterations a texel, for as long as the ray runs along a surface.
+                    ceiling = level - 1
+                    credit = 0
                     level = level - 1
                     size = size / 2
                 } else {
