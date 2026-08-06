@@ -125,6 +125,7 @@ Vixen.Geometry.Remeshing.RemeshStageTiming.RemeshStageTiming() -> void
 Vixen.Geometry.Remeshing.RemeshStageTiming.RemeshStageTiming(Vixen.Geometry.Remeshing.RemeshStage Stage, System.TimeSpan Elapsed, int Elements) -> void
 Vixen.Geometry.Remeshing.RemeshStageTiming.Stage.get -> Vixen.Geometry.Remeshing.RemeshStage
 Vixen.Geometry.Remeshing.RemeshStageTiming.Stage.init -> Vixen.Geometry.Remeshing.RemeshStage
+Vixen.Geometry.Remeshing.Remesher -> static class
 Vixen.Geometry.Remeshing.Singularity -> readonly struct
 Vixen.Geometry.Remeshing.Singularity : System.IEquatable<Vixen.Geometry.Remeshing.Singularity>
 Vixen.Geometry.Remeshing.Singularity.Index.get -> int
@@ -135,3 +136,5 @@ Vixen.Geometry.Remeshing.Singularity.Singularity() -> void
 Vixen.Geometry.Remeshing.Singularity.Singularity(int Position, int Valence, int Index) -> void
 Vixen.Geometry.Remeshing.Singularity.Valence.get -> int
 Vixen.Geometry.Remeshing.Singularity.Valence.init -> int
+const Vixen.Geometry.Remeshing.Remesher.BudgetTolerance = 1.35 -> float
+static Vixen.Geometry.Remeshing.Remesher.Remesh(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.RemeshSettings settings, out Vixen.Geometry.Remeshing.RemeshReport report, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.EditMesh
