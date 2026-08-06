@@ -42,6 +42,13 @@ sealed class LeastSquaresSolver {
 
     readonly SparseMatrix transpose;
     readonly double[] inverseDiagonal;
+
+    /// <summary>
+    ///     <c>Σⱼ mⱼ‖aⱼ‖²</c> over the columns: what turns a residual's size into the largest gradient
+    ///     that residual could produce. See <see cref="Solve" />'s floor.
+    /// </summary>
+    readonly double columnEnergy;
+
     readonly double[] residual;
     readonly double[] gradient;
     readonly double[] applied;
@@ -69,7 +76,7 @@ sealed class LeastSquaresSolver {
         gradient = new double[matrix.ColumnCount];
         applied = new double[matrix.ColumnCount];
         direction = new double[matrix.ColumnCount];
-        inverseDiagonal = ColumnScaling(transpose, preconditioned);
+        inverseDiagonal = ColumnScaling(transpose, preconditioned, out columnEnergy);
     }
 
     /// <summary>Runs the budget, starting from whatever <paramref name="solution" /> already holds.</summary>
@@ -81,6 +88,40 @@ sealed class LeastSquaresSolver {
     /// <returns>What happened. <see cref="SolveReport.Residual" /> is <c>‖b − Ax‖</c>, not <c>‖Aᵀ(b − Ax)‖</c>.</returns>
     /// <exception cref="ArgumentException">A vector is the wrong length.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="iterations" /> is negative.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The exhaustion floor is anchored to <c>‖b‖</c> and not to <c>‖Aᵀb‖</c>, and
+    ///         anchoring it to the gradient was a bug that survived a property suite for a while.</b>
+    ///         <see cref="ConjugateGradient" /> iterates on the residual and measures its floor against
+    ///         the residual a cold start would have carried, which is the same quantity in the same
+    ///         units. CGLS iterates on the <i>gradient</i> <c>Aᵀr</c>, and the two are not
+    ///         interchangeable: for a square system <c>r</c> goes to zero, but a least-squares
+    ///         <c>r</c> converges to whatever part of <c>b</c> lies outside <c>A</c>'s column space
+    ///         and stays there. What goes to zero is <c>Aᵀr</c>, and how far down it can go is set by
+    ///         the rounding in forming it — about <c>ε‖aⱼ‖‖r‖</c> per column, so
+    ///         <c>ε²‖r‖²·Σⱼ mⱼ‖aⱼ‖²</c> in <c>rho</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So a floor of <c>1e-30·‖Aᵀb‖²</c> is unreachable exactly when <c>b</c> is nearly
+    ///         orthogonal to the columns</b> — which is not an exotic system, it is the ordinary
+    ///         inconsistent least-squares one, and the worse the fit the further out of reach the floor
+    ///         goes. Measured on a well-conditioned 10×2 draw with <c>‖b‖ = 6.7</c> and
+    ///         <c>‖Aᵀb‖ = 0.023</c>: the cancellation in <c>Aᵀb</c> put the floor at <c>5.5e-34</c>,
+    ///         <c>rho</c> bottomed out at <c>7.9e-31</c> on iteration 2 with the answer already exact,
+    ///         and the guard sat 1400× below a number that could not fall any further. The remaining
+    ///         78 iterations of the budget amplified rounding noise to a residual of <c>1e+20</c>.
+    ///         <c>‖b‖²·Σⱼ mⱼ‖aⱼ‖²</c> is the largest gradient energy a residual the size of a cold
+    ///         start's could carry, so <c>1e-30</c> of it is where <c>Aᵀr</c> stops meaning anything
+    ///         whatever angle <c>b</c> sits at. It is never below the old anchor — Cauchy–Schwarz — so
+    ///         nothing that stopped before stops later.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is still a floor and not the tolerance § D5 forbids</b>, for the reason on
+    ///         <see cref="ConjugateGradient.Exhausted" />: the test it spells out is
+    ///         <c>‖Aᵀr‖ₘ &gt; 1e-15·‖A‖ₘ‖b‖</c>, a relative gradient of <c>1e-15</c>, which is where a
+    ///         <c>double</c> has stopped carrying one. <c>ExhaustionFloorTests</c> holds it to that.
+    ///     </para>
+    /// </remarks>
     public SolveReport Solve(
         double[] right,
         double[] solution,
@@ -112,12 +153,10 @@ sealed class LeastSquaresSolver {
             return new(0, kind, false, false, 0d);
         }
 
-        // The gradient a cold start would have begun from, which is what the exhaustion floor is
-        // measured against. See ConjugateGradient.Exhausted for why there is one at all — this is the
-        // path it was measured diverging on.
-        transpose.Multiply(right, gradient, scheduler, batchSize);
-        Scale(gradient, applied);
-        var floor = ConjugateGradient.Exhausted * ConjugateGradient.Dot(gradient, applied);
+        // The exhaustion floor. See ConjugateGradient.Exhausted for why there is one at all — this is
+        // the path it was measured diverging on — and the remarks on this method for why the anchor is
+        // the residual a cold start would have carried and not the gradient it would have begun from.
+        var floor = ConjugateGradient.Exhausted * columnEnergy * ConjugateGradient.Dot(right, right);
 
         Matrix.Multiply(solution, product, scheduler, batchSize);
 
@@ -177,21 +216,25 @@ sealed class LeastSquaresSolver {
     }
 
     /// <summary>The reciprocal of each column's sum of squares, or one where the column is empty.</summary>
+    /// <param name="transpose">The transposed system, whose rows are the columns being scaled.</param>
+    /// <param name="preconditioned">Whether to scale at all.</param>
+    /// <param name="energy">
+    ///     <c>Σⱼ mⱼ‖aⱼ‖²</c> with the scaling applied — <c>‖A‖²_F</c> unpreconditioned, and the count
+    ///     of columns that carry anything under Jacobi. <see cref="Solve" />'s floor is this times a
+    ///     residual energy, and summing it here is what keeps it out of the per-solve path.
+    /// </param>
     /// <remarks>
     ///     ⚠ <b>The empty column is not a hypothetical.</b> LSCM has two unknowns per vertex and the
     ///     constraints come from triangles, so a vertex that no surviving triangle references — a
     ///     stray left by conditioning, docs/plan/41 § D3 — is two columns of nothing. One is the
     ///     identity for those unknowns, which leaves them where the warm start put them instead of
-    ///     making the whole solve NaN.
+    ///     making the whole solve NaN. Such a column contributes nothing to <paramref name="energy" />
+    ///     either, which is right: no residual reaches it, so it can carry no gradient.
     /// </remarks>
-    static double[] ColumnScaling(SparseMatrix transpose, bool preconditioned) {
+    static double[] ColumnScaling(SparseMatrix transpose, bool preconditioned, out double energy) {
+        // ⚠ Both legs need the column norms now — the unpreconditioned one does not scale by them but
+        // its floor is still measured in them — so they are gathered before the branch.
         var scaling = new double[transpose.RowCount];
-
-        if (!preconditioned) {
-            Array.Fill(scaling, 1d);
-            return scaling;
-        }
-
         var largest = 0d;
 
         for (var column = 0; column < transpose.RowCount; column++) {
@@ -209,11 +252,18 @@ sealed class LeastSquaresSolver {
             }
         }
 
-        // Relative to the largest column, because the whole matrix carries the mesh's units and an
-        // absolute floor here would be a claim about how big the model is.
+        var total = 0d;
+
         for (var column = 0; column < scaling.Length; column++) {
-            scaling[column] = scaling[column] > RelativeEpsilon * largest ? 1d / scaling[column] : 1d;
+            var norm = scaling[column];
+
+            // Relative to the largest column, because the whole matrix carries the mesh's units and an
+            // absolute floor here would be a claim about how big the model is.
+            scaling[column] = preconditioned && norm > RelativeEpsilon * largest ? 1d / norm : 1d;
+            total += norm * scaling[column];
         }
+
+        energy = total;
 
         return scaling;
     }

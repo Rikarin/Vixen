@@ -72,6 +72,16 @@ sealed class ConjugateGradient {
     ///         good, so a local–global loop whose right-hand side stopped moving would grind through
     ///         its whole budget on noise — which is the case the anchor exists for.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The constant is shared with <see cref="LeastSquaresSolver" /> and the anchor it
+    ///         multiplies is not.</b> Here <c>rho</c> is the residual energy and the anchor is a cold
+    ///         start's residual energy — the same quantity, so the ratio is a relative residual and the
+    ///         paragraph above is the whole argument. CGLS iterates on <c>Aᵀr</c> instead, and its
+    ///         residual does <i>not</i> go to zero, so the corresponding anchor is a different
+    ///         expression and getting it wrong there produced a floor nothing could reach.
+    ///         <see cref="LeastSquaresSolver.Solve" /> carries that arithmetic. Anyone porting this
+    ///         floor to a third iteration should read both.
+    ///     </para>
     /// </remarks>
     internal const double Exhausted = 1e-30;
 
