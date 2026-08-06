@@ -31,8 +31,6 @@ namespace Vixen.Editor.Debugger;
 ///     </para>
 /// </remarks>
 public sealed partial class FrameDebuggerView : Control {
-    readonly List<UiElement> stateRows = [];
-
     FrameCapture capture = FrameCapture.Empty;
     int selected;
 
@@ -61,7 +59,14 @@ public sealed partial class FrameDebuggerView : Control {
     public TreeView Tree { get; private set; } = null!;
 
     /// <summary>What is bound at the selected call.</summary>
-    public UiElement StatePane { get; private set; } = null!;
+    /// <remarks>
+    ///     ⚠ <b>A <see cref="KeyValueList" /> rather than the hand-rolled pair of elements this used
+    ///     to build.</b> The pooling loop, the two columns and the heading-versus-row class swap were
+    ///     all here in miniature and are all the control's now; what is left below is the part that
+    ///     is about a graphics capture. The one thing that changed on screen is that the rows stripe,
+    ///     which is what a two-hundred-line list of bound resources wanted all along.
+    /// </remarks>
+    public KeyValueList StatePane { get; private set; } = null!;
 
     /// <summary>What the capture is taken with, or <see langword="null" /> when nothing can.</summary>
     /// <remarks>
@@ -156,7 +161,8 @@ public sealed partial class FrameDebuggerView : Control {
             }
         };
 
-        StatePane = body.Add<UiElement>("debugger-state");
+        StatePane = body.Add<KeyValueList>();
+        StatePane.AddClass("debugger-state");
 
         Restate();
     }
@@ -232,41 +238,26 @@ public sealed partial class FrameDebuggerView : Control {
     }
 
     void ShowState() {
-        var rows = capture.StateAt(selected).Rows();
         var slot = 0;
         string? group = null;
 
-        foreach (var row in rows) {
+        foreach (var row in capture.StateAt(selected).Rows()) {
             if (!string.Equals(group, row.Group, StringComparison.Ordinal)) {
                 group = row.Group;
-                Row(ref slot, "state-heading", row.Group, null);
+                Row(ref slot, row.Group, null, heading: true);
             }
 
-            Row(ref slot, "state-row", row.Label, row.Value);
+            Row(ref slot, row.Label, row.Value, heading: false);
         }
 
-        for (var index = slot; index < stateRows.Count; index++) {
-            stateRows[index].AddClass("parked");
-        }
+        StatePane.Trim(slot);
     }
 
-    void Row(ref int slot, string className, string label, string? value) {
-        while (stateRows.Count <= slot) {
-            var built = StatePane.Add<UiElement>("state-line");
+    void Row(ref int slot, string key, string? value, bool heading) {
+        var row = StatePane.Row(slot++);
 
-            built.Add<UiElement>("state-label");
-            built.Add<UiElement>("state-value");
-
-            stateRows.Add(built);
-        }
-
-        var row = stateRows[slot++];
-
-        row.RemoveClass("parked");
-        row.RemoveClass(className == "state-row" ? "state-heading" : "state-row");
-        row.AddClass(className);
-
-        row.Children[0].Text = label;
-        row.Children[1].Text = value;
+        row.IsHeading = heading;
+        row.Key = key;
+        row.Value = value;
     }
 }
