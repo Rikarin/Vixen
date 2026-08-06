@@ -1079,7 +1079,14 @@ public sealed partial class DockingHost : Control {
 
         if (Layout.Root is { } root) {
             var view = Build(root, Surface);
+
+            // ⚠ Both, and for the reason `DockSplitterView.Apply` gives for writing the same pair:
+            // with the default `auto` basis a growing item starts at its content's height and is
+            // never asked to shrink, so the whole arrangement came out as tall as its tallest panel's
+            // content inside a surface that was correctly the size of the window. Nothing clipped,
+            // and no panel could tell that it had more content than room.
             view.SetStyle("flex-grow", "1");
+            view.SetStyle("flex-basis", "0px");
         }
 
         for (var i = 0; i < Layout.Floating.Count; i++) {
@@ -1176,7 +1183,11 @@ public sealed partial class DockingHost : Control {
         view.OffsetX = window.X;
         view.OffsetY = window.Y;
 
-        BuildGroup(window.Group, view).SetStyle("flex-grow", "1");
+        var group = BuildGroup(window.Group, view);
+
+        group.SetStyle("flex-grow", "1");
+        group.SetStyle("flex-basis", "0px");
+
         windows.Add(view);
 
         // The index is what a drag would write back through `SetFloating`, and it is carried on the

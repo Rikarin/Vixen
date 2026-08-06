@@ -89,9 +89,14 @@ public static class AdvancedTheme {
            gets 48 pixels plus its share of what is left — and a splitter saved at 25% comes
            back at 28%. What stops a half being dragged to nothing is DockSplitNode's ratio
            clamp, which is the guard that does not distort the ratio it is guarding. */
+        /* ⚠ No `flex-basis: 0px` here, unlike every other box in the chain, and the asymmetry is the
+           point: a group is the one of them whose grow factor is written *inline* — 1 by the host for
+           the root group, a ratio by `DockSplitterView.Apply` for the halves of a split — so the basis
+           belongs beside it, where the two are set together or not at all. Declared here it would also
+           reach a `dock-group` that nothing had given a grow factor to, which is what a test or a
+           sample building one by hand has, and a zero basis with no grow is a box with no size. */
         dock-group {
             flex-direction: column;
-            flex-basis: 0px;
             min-width: 0px;
             min-height: 0px;
             overflow: hidden;
