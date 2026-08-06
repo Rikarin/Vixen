@@ -576,16 +576,84 @@ first question anyone reading the code will have.
 
 The 2025–26 work on predicting cross fields and, more interestingly, **sparse singularity structure**
 is genuinely promising for the one part of this pipeline that is aesthetics rather than mathematics
-([D6](#d6-singularity-placement-gets-its-own-pass-because-it-is-what-topology-looks-like)). Three rules,
-taken straight from doc 38 § D5 and doc 40 § D9 rather than invented:
+([D6](#d6-singularity-placement-gets-its-own-pass-because-it-is-what-topology-looks-like)). Four rules,
+the first three taken straight from doc 38 § D5 and doc 40 § D9 rather than invented:
 
 1. **It lives in a plugin**, with its own ONNX Runtime dependency. `Core/` gains nothing.
 2. **It seeds and never decides.** The prediction initializes the field and proposes singularity
    positions; the deterministic solver then runs to completion over it, and the validator has the last
    word. A model that is wrong makes the topology *worse-looking*, never *invalid*.
 3. **The seed is part of the content hash**, model version included, or determinism is a lie.
+4. ⚠ **No third-party training data, ever** —
+   [D19](#d19-if-a-prior-is-ever-trained-the-corpus-is-one-we-generate) is the whole of the argument,
+   and it is a rule rather than a preference.
 
 ⚠ **And it is explicitly not on the critical path.** Everything in Parts 3 and 5 ships without it.
+
+### D19. If a prior is ever trained, the corpus is one we generate
+
+There are three tiers of "learned" here, and **only the middle one involves a dataset at all**:
+
+| Tier | Data | Notes |
+|---|---|---|
+| **Per-shape self-supervised** (NeurCross-class) | **None** | Fits a neural SDF and a cross field on the single input mesh simultaneously — an optimizer that happens to be an MLP. No corpus, no weights, nothing to license. ⚠ SGD on a device is exactly what [D14](#d14-determinism-is-a-gate-not-an-aspiration) forbids, which rule 2 above is what makes survivable |
+| **Trained on synthetic shapes** | **Ours** | *Learning Sparse Singularities* (TOG 2026) trains on **1,000 samples** — scripted parametric primitives and compound gears, singularities annotated by rule — and lets a conventional method connect what it predicts |
+| **Distilled from our own solver** | **Ours** | After R4 the deterministic pipeline *is* a label generator: predict in one shot what the hierarchy reaches in many iterations |
+
+⚠ **We already own the generator the middle row needs.** `MeshShapes` is twelve parametric shapes,
+`MeshBoolean` is CSG and `MeshOperations` is the rest — which is the role OpenSCAD plays in that
+paper, in-repo and under test. **The corpus becomes a test fixture built by a script**, and at a
+thousand samples this is a couple of GPU-days rather than a training programme.
+
+⚠ **A corpus regenerable from a script is also the only kind [D14](#d14-determinism-is-a-gate-not-an-aspiration)
+can live with.** The seed goes into the content hash; a hash whose provenance is "an 800,000-object
+scrape somebody downloaded in 2026" is not auditable, and a build cannot be reproduced from it.
+
+#### Why not free 3-D assets from the internet
+
+Two reasons, and the practical one comes first.
+
+⚠ **The free corpora do not contain the label we want.** What a prior would buy is D6's aesthetic
+judgement — *where would an artist put the loops* — and the supervision for that is a production quad
+mesh with good edge flow. Thingi10K is 3-D-printing STLs, Objaverse is Sketchfab uploads, ABC is CAD
+B-reps. None of them is artist retopology, and a prior trained on Objaverse learns what amateur
+Sketchfab topology looks like.
+
+Then the terms, which are restrictive in their own right:
+
+| Corpus | Terms | Usable for weights shipped with a commercial engine? |
+|---|---|---|
+| **Objaverse 1.0** (~800 K) | Per object: CC-BY 721 K · CC-BY-NC 25 K · CC-BY-NC-SA 52 K · CC-BY-SA 16 K · **CC0 3.5 K**. The collection is ODC-By | Only filtered — and CC0 is 0.4 % of it |
+| **Objaverse-XL** (10 M+) | Mixed; the Polycam portion is non-commercial, on request and approval | ⛔ No |
+| **ShapeNet** | Click-through agreement: **non-commercial research and education only** | ⛔ No |
+| **ABC** (1 M CAD) | Onshape terms of use; "freely usable for research" | ⛔ Research only |
+| **Thingi10K** | Ten different open-source licences, per model | Only filtered |
+
+Four hazards, worst first:
+
+1. **Non-commercial is a disqualification, not a filtering nuisance.** This is a commercial engine.
+2. ⚠ **ShareAlike is the genuinely unsettled one.** Whether model weights are a derivative work of
+   their training data is not settled law in any jurisdiction. If they are, CC-BY-SA input makes the
+   weights CC-BY-SA, which conflicts with Apache-2.0. Treat SA as no.
+3. **Attribution survives but is not free.** 721 K CC-BY objects means a 721 K-entry attribution
+   manifest shipped beside the weights, permanently.
+4. ⚠ **A collection's licence grants nothing about the objects in it.** ODC-By on the Objaverse
+   *dataset* is not a licence to the models, and the two are conflated constantly.
+
+Whether training is itself covered by fair use or by a text-and-data-mining exception is under active
+litigation in the United States and differs again in the EU (DSM Art. 4, with an opt-out) and the UK.
+**This document takes no position on it and does not need to**, because rule 4 removes the question.
+
+#### The ceiling this puts on R9, stated in advance
+
+⚠ **The corpus that would teach artist edge flow is a studio's asset library, and that is neither
+free nor licensable.** So the best a legitimately-trained prior can do is *better singularity
+placement on CAD-like and primitive-like shapes* — not topology that looks like a character artist
+made it.
+
+That is worth writing down before anybody builds it, because it means
+[D6](#d6-singularity-placement-gets-its-own-pass-because-it-is-what-topology-looks-like)'s hand-written
+placement pass **carries the aesthetic load permanently**, and is not a stopgap until R9 arrives.
 
 ---
 
@@ -678,6 +746,13 @@ panel and a live preview at the approximate quantization, and the debug overlays
 has produced enough real results to say whether singularity placement is actually the remaining
 complaint.
 
+⚠ **Two of the three tiers in [D19](#d19-if-a-prior-is-ever-trained-the-corpus-is-one-we-generate) are
+cheaper than the estimate suggests, and one of them is free.** Evaluating a NeurCross-class per-shape
+optimizer costs no corpus at all and should be the first thing tried, because it answers *"would a
+neural field even be better than D5's?"* without anyone building a dataset. The synthetic corpus is a
+script over `MeshShapes` and `MeshBoolean`, so most of the 1.0 EM is the ONNX plumbing doc 38 already
+built once and the evaluation harness — **not data work**.
+
 ### Cost
 
 | Phase | EM | Blocked on |
@@ -726,7 +801,10 @@ And the two rows going the other way, which are real:
 organic results on day one.** The mathematics is public; the thousand small decisions about what looks
 right are not, and they are most of what people are actually praising when they praise ZRemesher.
 [D6](#d6-singularity-placement-gets-its-own-pass-because-it-is-what-topology-looks-like) is the honest
-attempt at the largest of them and it will not be the last word.
+attempt at the largest of them, and ⚠ **it is where the aesthetics stay** — the corpus that would teach
+edge flow to a network is a studio's asset library, which is neither free nor licensable, so
+[D19](#d19-if-a-prior-is-ever-trained-the-corpus-is-one-we-generate)'s ceiling means D6 is carrying
+this permanently rather than until R9 lands.
 
 ⚠ **And it is not interactive.** Quad Remesher answers a mid-poly mesh in a few seconds; a hierarchical
 solve plus an exact flow quantization plus a bake is a build step. R7's preview runs the approximate
@@ -772,6 +850,11 @@ quantizer to make the settings panel usable, and that is the extent of it.
    no cage; this is right for one that should have.
 7. **A model.** [D18](#d18-a-learned-field-prior-is-a-plugin-that-seeds-and-never-decides) is optional,
    plugin-resident, and seeds a solver that would have run anyway.
+8. **A training programme, or a consumer of scraped 3-D assets.**
+   [D19](#d19-if-a-prior-is-ever-trained-the-corpus-is-one-we-generate) — if a prior is ever trained,
+   the corpus is a script in this repository. ⚠ **Nothing here downloads somebody else's models to
+   learn from**, and the reason is as much that the free corpora hold the wrong label as that their
+   terms forbid it.
 
 ---
 
@@ -810,6 +893,18 @@ quantizer to make the settings panel usable, and that is the extent of it.
 - Barill, G., Dickson, N., Schmidt, R., Levin, D., Jacobson, A. *Fast Winding Numbers for Soups and
   Clouds.* SIGGRAPH 2018 — the inside/outside test [D3](#d3-conditioning-is-a-stage-with-a-report-not-hygiene)'s
   shrinkwrap needs on input that is neither.
+- Dong, Q. et al. *NeurCross: A Self-Supervised Neural Approach for Representing Cross Fields in Quad
+  Mesh Generation.* TOG 44(4), 2025. [doi:10.1145/3731159](https://doi.org/10.1145/3731159) ·
+  [project page](https://qiujiedong.github.io/publications/NeurCross/) — the tier of
+  [D19](#d19-if-a-prior-is-ever-trained-the-corpus-is-one-we-generate) that needs no corpus at all.
+- *Learning Sparse Singularities for Cross Field Design.* TOG, 2026.
+  [doi:10.1145/3787520](https://doi.org/10.1145/3787520) — 1,000 scripted synthetic samples and
+  rule-based annotation, which is the methodology
+  [D19](#d19-if-a-prior-is-ever-trained-the-corpus-is-one-we-generate) copies.
+- [Objaverse-XL](https://huggingface.co/datasets/allenai/objaverse-xl) ·
+  [ShapeNet terms](https://shapenet.org/terms) · [ABC](https://deep-geometry.github.io/abc-dataset/) ·
+  [Thingi10K](https://github.com/Thingi10K/Thingi10K) — the corpora
+  [D19](#why-not-free-3-d-assets-from-the-internet) declines, and the terms it declines them on.
 - [Bigger-and-Stronger/quad-meshing-survey](https://github.com/Bigger-and-Stronger/quad-meshing-survey)
   — the continuously updated bibliography the 2024–2026 learning-based survey in
   [Part 1](#the-four-families) is drawn from.
