@@ -340,12 +340,27 @@ public enum UnwrapMode {
 }
 
 /// <summary>One guide curve a retopology should follow, named by the asset that holds it.</summary>
-/// <param name="Spline">The project-relative path of a <c>.vxspline</c>, e.g. <c>Curves/spine.vxspline</c>.</param>
-/// <param name="Strength">How hard the field is pulled toward it, in <c>[0, 1]</c>.</param>
 /// <remarks>
-///     ⚠ <b>A path rather than the curve itself, and docs/plan/41 § D10 is why.</b> A guide that lived
-///     in the <c>.meta</c> would be a guide that belongs to one import of one file; a guide that is an
-///     asset can be authored once on a curve, shared between the three meshes it applies to, and reused
-///     after the source has been regenerated — which is the case the whole AI pipeline consists of.
+///     <para>
+///         ⚠ <b>A path rather than the curve itself, and docs/plan/41 § D10 is why.</b> A guide that
+///         lived in the <c>.meta</c> would be a guide that belongs to one import of one file; a guide
+///         that is an asset can be authored once on a curve, shared between the three meshes it
+///         applies to, and reused after the source has been regenerated — which is the case the whole
+///         AI pipeline consists of.
+///     </para>
+///     <para>
+///         ⚠ <b>A <c>[DataContract]</c> record with settable properties, on <c>SubAssetRename</c>'s
+///         shape, and not a positional <c>readonly record struct</c>.</b> The YAML serializer refuses a
+///         type it has no descriptor for and the descriptor generator wants the attribute — which
+///         showed up here as "RetopologyGuideReference has no descriptor" on the first round trip, and
+///         would otherwise have showed up as a list of guides that silently never reached the meta.
+///     </para>
 /// </remarks>
-public readonly record struct RetopologyGuideReference(string Spline, float Strength = 1f);
+[DataContract]
+public sealed record RetopologyGuideReference {
+    /// <summary>The project-relative path of a <c>.vxspline</c>, e.g. <c>Curves/spine.vxspline</c>.</summary>
+    public string Spline { get; set; } = string.Empty;
+
+    /// <summary>How hard the field is pulled toward it, in <c>[0, 1]</c>.</summary>
+    public float Strength { get; set; } = 1f;
+}
