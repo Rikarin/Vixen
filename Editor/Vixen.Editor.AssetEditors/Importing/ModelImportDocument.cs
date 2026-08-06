@@ -97,6 +97,67 @@ public sealed class ModelImportEdits {
     [Inspector]
     [Tooltip("A cut through the finished hierarchy at a fixed budget. What WebGL2 draws and what the physics cook reads.")]
     public int MeshletFallbackTriangles { get; set; } = 4096;
+
+    /// <summary>Whether every mesh in the model is retopologised into quads on the way in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Off, and unlike the two expensive settings above it this one is destructive.</b>
+    ///     docs/plan/41 § D16: an artist's topology is a decision, and this replaces it. It is the AI
+    ///     pipeline's hook — a generated blob with no coordinates comes out as a quad cage with an
+    ///     atlas — and it is the wrong thing to turn on for a hand-modelled asset.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Replace the file's topology with all-quads. Destructive by definition, and the point of it for a generated mesh.")]
+    public bool Retopologize { get; set; }
+
+    /// <summary>How many quads to aim for per mesh.</summary>
+    [Inspector]
+    [Tooltip("A budget rather than a guarantee: a patch's quad count is a product of two sides, so a snaky partition overshoots and the report says by how much.")]
+    public int RetopologyQuads { get; set; } = 5000;
+
+    /// <summary>Zero for uniform squares, one to let curvature decide the density.</summary>
+    [Inspector]
+    [Tooltip("Weighted by anisotropy rather than by curvature, so a sphere is left smooth instead of chasing noise.")]
+    public float RetopologyAdaptivity { get; set; } = 0.5f;
+
+    /// <summary>The angle, in degrees, above which a shared edge is a hard feature.</summary>
+    [Inspector]
+    [Tooltip("A crease above this becomes a boundary of the layout, so it comes out as a chain of edges rather than something snapped to.")]
+    public float RetopologyFeatureAngle { get; set; } = 35f;
+
+    /// <summary>Whether the source's coordinate seams are features the retopology keeps.</summary>
+    [Inspector]
+    [Tooltip("So a retexture-then-remesh round trip does not shred an atlas. Needs the source to carry coordinates.")]
+    public bool RetopologyKeepUvSeams { get; set; }
+
+    /// <summary>Which axis plane through the origin to mirror across.</summary>
+    [Inspector]
+    [Tooltip("Exact: the seam snaps to zero and the mirror is a sign flip, so vertex k and its mirror correspond bit for bit. The model's own space.")]
+    public SymmetryAxis RetopologySymmetry { get; set; } = SymmetryAxis.None;
+
+    /// <summary>Guide curves the retopology's edge flow should follow.</summary>
+    [Inspector]
+    [Tooltip("Paths to .vxspline assets. A curve saved beside the mesh survives the mesh being regenerated, which a painted guide does not.")]
+    public List<RetopologyGuideReference> RetopologyGuides { get; set; } = [];
+
+    /// <summary>When to generate texture coordinates for the model's meshes.</summary>
+    [Inspector]
+    [Tooltip("Never, only for meshes that arrived without any, or always. The middle one fixes generated meshes and leaves an artist's atlas alone.")]
+    public UnwrapMode Unwrap { get; set; } = UnwrapMode.Never;
+
+    /// <summary>The atlas resolution the unwrap packs for.</summary>
+    [Inspector]
+    [Tooltip("The packer needs it because the margin is counted in texels, and a margin in UV units means a different number of texels on every island.")]
+    public int UnwrapResolution { get; set; } = 1024;
+
+    /// <summary>How many texels of empty space each island keeps around it.</summary>
+    [Inspector]
+    [Tooltip("What stops one island's mip bleeding into the next. Four is enough for a full mip chain at most resolutions.")]
+    public int UnwrapMargin { get; set; } = 4;
+
+    /// <summary>Texels per world unit to hold across every chart, or zero to fill the atlas instead.</summary>
+    [Inspector]
+    [Tooltip("Set it and every chart gets the same density — no more a face at half the resolution of the boots. Zero packs for efficiency instead.")]
+    public float UnwrapTexelDensity { get; set; }
 }
 
 /// <summary>A model's import settings, open for editing.</summary>

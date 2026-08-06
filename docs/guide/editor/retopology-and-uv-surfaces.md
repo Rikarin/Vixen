@@ -177,6 +177,59 @@ score would hide exactly that case.
 moves one coordinate. Editing an island by hand needs an undo model, a selection model and a snapping
 model, and is a different surface.
 
+## Examples
+
+Turning one generated file into an atlased quad mesh, which is the whole of the AI pipeline's last
+step:
+
+```console
+vixen remesh generated.glb clean.glb --quads 5000 --adaptivity 0.7
+vixen unwrap clean.glb clean-uv.glb --resolution 2048 --margin 4
+```
+
+The same thing inside the import, so that dropping the file into the project is the only step:
+
+```yaml
+!ModelImporter
+retopologize: true
+retopologyQuads: 5000
+unwrap: WhenMissing
+unwrapResolution: 2048
+```
+
+A character, where symmetry is the setting that matters and the axis is what makes it exact:
+
+```yaml
+!ModelImporter
+retopologize: true
+retopologyQuads: 8000
+retopologySymmetry: X
+retopologyGuides:
+  - spline: Curves/spine.vxspline
+```
+
+Repacking a layout somebody else cut, which leaves the seams and the island shapes exactly as they
+arrived and only moves them:
+
+```console
+vixen uv pack from-blender.glb repacked.glb --resolution 4096 --margin 8
+```
+
+Driving the three stages from a panel, where each one is separately re-runnable:
+
+```csharp no-compile="needs a mesh to look at"
+var panel = new BlockoutUvPanel { Mesh = mesh, Packing = new() { Resolution = 2048, Margin = 4 } };
+
+panel.Pack();                                  // charts and flattens first, then places
+
+panel.Packing = panel.Packing with { Margin = 16 };
+panel.Pack();                                  // repacks the same islands, seams untouched
+
+foreach (var view in panel.Views.Where(island => island.IsBad)) {
+    Highlight(view, BlockoutUvPanel.Heat(view));
+}
+```
+
 ## See also
 
 - [Retopology settings and reports](engine/retopology) — what the settings mean and what the report measures
