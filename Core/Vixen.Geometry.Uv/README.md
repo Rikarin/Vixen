@@ -66,6 +66,23 @@ And packing efficiency is reported twice, before and after margin. Raw used-area
 flatters a packer that leaves no room to bleed into; the gap between the two is what a margin setting
 actually costs.
 
+## The sparse solver is written here, because there was not one
+
+`Solving/` is a compressed-sparse-row matrix, a preconditioned conjugate gradient with Jacobi and
+incomplete-Cholesky(0), and a CGLS least-squares path that never forms `AᵀA`. Doc 42 § B1: nothing
+sparse existed anywhere in the repository and no numerics package is referenced, which is why U1 is a
+phase of its own. § D5 explains why it is conjugate gradient and not a sparse Cholesky — the
+factorization is asymptotically better in a local–global loop and is a large piece of numerical
+software to own, and CG **warm-started from the previous iterate** converges in very few steps
+precisely because consecutive solves are close. `Solve` therefore takes the previous answer *in* the
+array it writes the next one to.
+
+All of it is `internal`. Nothing a caller of the three stages holds is a matrix.
+
+⚠ **IC(0) does not exist for every SPD matrix.** A pivot can go non-positive — Kershaw's 4×4 is the
+standard counterexample and it is in the tests. That is detected, falls back to Jacobi, and is
+*reported*, because the failure is otherwise a NaN that arrives as a coordinate.
+
 ## Deterministic
 
 Same input, same settings, byte-identical coordinates, at any thread count on any platform. That
@@ -73,6 +90,19 @@ rules out the standard answers in the irregular-packing literature — no simula
 genetic search, no random restarts — and it is why every solver here runs a **fixed iteration budget
 rather than a residual tolerance**. A residual test is a floating-point comparison whose outcome can
 differ across platforms.
+
+Only the sparse multiply is parallel, and the dot products deliberately are not: doc 41 § D14 rules
+out a floating-point reduction in a nondeterministic order, and a dot product split across threads is
+exactly one. Each row of a multiply sums in ascending column order and writes only its own element,
+so neither the worker count nor the batch size moves a bit.
+
+⚠ **A fixed budget still needs a floor at the limit of the arithmetic, and that is not the tolerance
+§ D5 forbids.** Measured while writing this: a 3×2 least-squares system converged at iteration 4, sat
+still until iteration 40, and then ran away to `1e+10` by iteration 80, because `beta = next / rho`
+with both operands at the underflow floor is not a number. A budget of 64 — `SolverIterations`'
+default — lands inside that. The floor sits where a `double` stops carrying information about the
+residual, so which side of it a platform lands on cannot change the answer; a *quality* threshold
+sits where the iteration is still making progress, and that one would.
 
 ## See also
 
