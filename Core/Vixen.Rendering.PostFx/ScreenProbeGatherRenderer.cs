@@ -456,7 +456,14 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
                     context => {
                         var commands = context.CommandList;
 
+                        // ⚠ The stages are timed one level under the pass, because this pass is five
+                        // dispatches wearing one name and the flat timeline could only ever say the
+                        // name was expensive. See RenderGraphContext.BeginScope: a reader sums level
+                        // zero alone, or it counts this pass twice.
+                        var stage = context.BeginScope($"{this}.Upload");
+
                         texture!.Upload(device, commands);
+                        context.EndScope(stage);
 
                         if (Tracer is { } tracer) {
                             // Imposed, not configured: the resolve reads validity out of every
@@ -472,10 +479,14 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
                                 // The chain first, into the same list: the trace may only skip by
                                 // texels the reduce has written, and the pyramid's own barriers
                                 // order the two.
+                                stage = context.BeginScope($"{this}.Pyramid");
+
                                 var chain = Pyramid is { Reduction: HiZReduction.Nearest } pyramid
                                     && pyramid.Build(commands, context.View(depth), atlas.Layout.Viewport)
                                         ? Pyramid
                                         : null;
+
+                                context.EndScope(stage);
 
                                 tracer.ScreenPyramid = chain?.View ?? default;
                                 tracer.ScreenPyramidLevels = chain is null ? 0 : chain.Levels + 1;
@@ -486,12 +497,18 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
                                 tracer.ScreenPyramidLevels = 0;
                             }
 
+                            stage = context.BeginScope($"{this}.Trace");
                             tracer.Record(commands, texture);
+                            context.EndScope(stage);
+
                             TraceSkipped = tracer.Skipped;
                         }
 
                         if (Resolver is { } resolver) {
+                            stage = context.BeginScope($"{this}.Resolve");
                             resolver.Record(commands, texture);
+                            context.EndScope(stage);
+
                             ResolveSkipped = resolver.Skipped;
                         }
 
@@ -499,11 +516,18 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
                             // The surfaces are a placement old, so the camera handed over is the
                             // one they were placed under — not this frame's.
                             accumulator.ViewProjection = placedViewProjection;
+
+                            stage = context.BeginScope($"{this}.Accumulate");
                             accumulator.Record(commands, atlas!, texture, history!);
+                            context.EndScope(stage);
+
                             AccumulateSkipped = accumulator.Skipped;
 
                             if (SpatialFilter is { } filter) {
+                                stage = context.BeginScope($"{this}.Filter");
                                 filter.Record(commands, history!);
+                                context.EndScope(stage);
+
                                 FilterSkipped = filter.Skipped;
                             }
                         }
