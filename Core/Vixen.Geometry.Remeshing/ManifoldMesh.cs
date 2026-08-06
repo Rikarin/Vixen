@@ -209,12 +209,15 @@ sealed class ManifoldMesh {
     ///     <see cref="EditMesh.Normal" /> records the capsule's poles for: a fixed tolerance is a
     ///     statement about how big a triangle has to be to count, and a primitive built at a tenth of
     ///     the scale would have all of them declared degenerate.
+    ///
+    ///     ⚠ <b>Corrected in R2, because the original was that fixed tolerance without meaning to
+    ///     be.</b> It crossed the raw edges and handed the result to
+    ///     <see cref="Vector3.Normalize" />, which returns zero below <c>MathUtil.ZeroTolerance</c> —
+    ///     an absolute <c>1e-6</c>. A cross product scales as the square of the model, so every
+    ///     triangle of a millimetre-wide sphere came back with no normal at all. See
+    ///     <see cref="ScaleSafe" />.
     /// </remarks>
-    public Vector3 TriangleNormal(int triangle) {
-        var cross = Cross(triangle);
-
-        return cross.LengthSquared() > 0f ? Vector3.Normalize(cross) : Vector3.Zero;
-    }
+    public Vector3 TriangleNormal(int triangle) => ScaleSafe.Normal(this, triangle);
 
     /// <summary>Twice a triangle's area, as a vector.</summary>
     /// <param name="triangle">Its index.</param>
@@ -504,9 +507,7 @@ sealed class ManifoldMesh {
         }
 
         for (var vertex = 0; vertex < points.Length; vertex++) {
-            normals[vertex] = normals[vertex].LengthSquared() > 0f
-                ? Vector3.Normalize(normals[vertex])
-                : Vector3.Zero;
+            normals[vertex] = ScaleSafe.Unit(normals[vertex]);
 
             tangents[vertex] = Tangent(points, ring, ringStarts, normals[vertex], vertex);
         }
@@ -521,11 +522,10 @@ sealed class ManifoldMesh {
         }
 
         if (ringStarts[vertex + 1] > ringStarts[vertex]) {
-            var along = points[ring[ringStarts[vertex]]] - points[vertex];
-            var flat = along - (normal * Vector3.Dot(along, normal));
+            var flat = ScaleSafe.Flatten(points[ring[ringStarts[vertex]]] - points[vertex], normal);
 
             if (flat.LengthSquared() > 0f) {
-                return Vector3.Normalize(flat);
+                return flat;
             }
         }
 
@@ -534,7 +534,7 @@ sealed class ManifoldMesh {
         // `EditMesh.Triangulate` uses to pick a plane.
         var guide = MathF.Abs(normal.X) < 0.9f ? Vector3.UnitX : Vector3.UnitY;
 
-        return Vector3.Normalize(Vector3.Cross(normal, guide));
+        return ScaleSafe.Unit(Vector3.Cross(normal, guide));
     }
 
     /// <summary>The next half-edge round the same triangle.</summary>

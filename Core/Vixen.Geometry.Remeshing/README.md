@@ -48,6 +48,22 @@ changed, and a caller can refuse to continue on the report.
 Non-manifold edges are repaired by **cutting, not merging**: cutting keeps the geometry and costs a
 seam, merging invents a surface that was never there.
 
+## Singularities go on the corners, and not on the lines between them
+
+⚠ **"Zero singularities on features" means zero on the *interiors* of the feature chains, and a cube
+is why the distinction is not pedantry.** A singularity on a hard edge is a visible pinch and the
+placement pass repels them from one; a singularity at a box's corner is exactly where an artist puts
+one, and it is where the surface is genuinely not developable. On a cube every vertex is a feature
+corner and every edge is a feature edge, and the Euler characteristic says eight quarter turns have
+to exist somewhere — so reading the criterion as "off every feature vertex" makes the simplest
+hard-surface shape unsatisfiable.
+
+The placement pass is **monotone**: each of its three corrections scores the field before and after,
+on how many singularities sit on feature lines and on how much turning there is in total, and puts
+the field back unless it improved. It reaches zero on a cube and on a boolean of two boxes; on a
+flight of stairs and on a box with a cylindrical bore it improves the count without reaching zero,
+and the report says so rather than the code claiming otherwise.
+
 ## All-quad, and that is what makes it editable
 
 ⚠ **Quad-*dominant* is not good enough and the reason is downstream.** `MeshOperations` is built on
