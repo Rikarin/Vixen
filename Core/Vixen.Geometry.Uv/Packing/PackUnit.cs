@@ -38,6 +38,27 @@ sealed class PackUnit {
     /// <summary>The lowest island index inside it. ⚠ The explicit tie-break docs/plan/42 § D7 requires.</summary>
     public required int Order { get; init; }
 
+    /// <summary>A key taken from the island's own coordinates, below <see cref="Signature" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Signature" /> is a hash of the <i>mask</i>, and a mask is the island
+    ///         rounded to whole texels.</b> Its remarks say the input index is a safe final tie-break
+    ///         "for two shapes that really are identical — where swapping them changes nothing anybody
+    ///         can see", and that argument is one quantization step short: two islands whose coverage
+    ///         grids agree do not have the same coordinates, and the atlas is baked from the
+    ///         coordinates. Small islands agree on their mask constantly, because a mask a few texels
+    ///         across cannot express the difference between them.
+    ///     </para>
+    ///     <para>
+    ///         <b>Measured before this key existed:</b> over four hundred generated island sets, each
+    ///         packed twice with the second run's islands permuted, 177 sets placed at least one island
+    ///         somewhere else — and 28 of them rasterized to a <i>different atlas</i>, two texels
+    ///         apart. See <c>UvPackPropertyTests</c>, which is where the failure came from and where
+    ///         the property is now stated.
+    ///     </para>
+    /// </remarks>
+    public required ulong Content { get; init; }
+
     /// <summary>A key taken from the shape, which orders two equal areas without asking who arrived first.</summary>
     public ulong Signature => Orientations[0].Signature;
 
