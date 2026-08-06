@@ -102,6 +102,11 @@ public sealed class EditMesh {
     /// </remarks>
     public const float DefaultCoplanarTolerance = 0.99996f;
 
+    // How far from collinear three corners must be before ear clipping believes the direction they
+    // turn: thirty-two times the unit roundoff of binary32, as a fraction of the same expression's
+    // permanent. Generous on purpose, and see TurnsBeyondRounding for why it is a ratio.
+    const double CornerMargin = 32.0 * 5.9604644775390625e-8;
+
     readonly List<Vector3> positions = [];
     readonly List<int> corners = [];
     readonly List<MeshFace> faces = [];
@@ -425,10 +430,27 @@ public sealed class EditMesh {
 
     /// <summary>Ear-clips one face into the run of triangles it owns.</summary>
     /// <remarks>
-    ///     ⚠ <b>In the face's own plane, found from its normal, because ear clipping is planar.</b>
-    ///     An n-gon that somebody has dragged a corner of is not exactly planar; projecting onto the
-    ///     two axes most nearly in its plane is what makes the containment test meaningful, and using
-    ///     the world axes instead is what makes a vertical wall triangulate as a line.
+    ///     <para>
+    ///         ⚠ <b>In a plane found by <i>dropping</i> the axis the face most nearly faces along,
+    ///         because ear clipping is planar.</b> An n-gon that somebody has dragged a corner of is
+    ///         not exactly planar, and the world axes cannot be used as they come — projecting a
+    ///         vertical wall onto <c>xz</c> triangulates it as a line. Dropping the axis its normal is
+    ///         most nearly parallel to leaves a projection whose determinant is that normal's largest
+    ///         component, which is at least <c>1/√3</c> and so can never collapse.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two coordinates that remain are <i>copies</i>, and that is the point of doing
+    ///         it this way rather than with a basis in the face's own plane.</b> An orthonormal basis
+    ///         costs a normalise and two dot products per corner, and every one of them rounds — so
+    ///         three corners that are exactly collinear in space arrive at
+    ///         <see cref="IsEar" /> very slightly not collinear, and <i>which way</i> they miss
+    ///         depends on the units the model was authored in. Doc 41's § D14 asks for byte-identical
+    ///         remesher output and doc 08 hashes content, so a triangulation that changed under a
+    ///         metres-to-centimetres conversion would re-page every meshlet in the asset. Copying two
+    ///         floats introduces no rounding at all, and ear clipping's decisions are then a question
+    ///         about the positions themselves that <see cref="ExactPredicates.Orient2D" /> answers
+    ///         exactly.
+    ///     </para>
     /// </remarks>
     void Triangulate(int face, int[] into, ref int at) {
         var entry = faces[face];
@@ -445,28 +467,35 @@ public sealed class EditMesh {
             return;
         }
 
-        var normal = Normal(face);
+        // ⚠ The Newell sum rather than Normal's unit vector, and not because it is cheaper. Only
+        // the largest component's identity and sign are read below, and both survive a scaling that
+        // Normal does not: its normalise gives up on any vector shorter than MathUtil.ZeroTolerance,
+        // which a face of a sphere a millimetre across is.
+        var newell = NewellSum(face);
 
-        if (normal.LengthSquared() <= 0f) {
+        var absX = MathF.Abs(newell.X);
+        var absY = MathF.Abs(newell.Y);
+        var absZ = MathF.Abs(newell.Z);
+
+        if (absX == 0f && absY == 0f && absZ == 0f) {
             Fan(entry, into, ref at);
             return;
         }
 
-        // Two axes spanning the face's plane, taken from whichever world axis is least parallel to
-        // its normal so the cross product cannot collapse.
-        var guide = MathF.Abs(normal.X) < 0.9f ? Vector3.UnitX : Vector3.UnitY;
-        var across = Vector3.Normalize(Vector3.Cross(normal, guide));
-        var along = Vector3.Cross(normal, across);
+        // Which axis to drop. The pairs kept are the cyclic ones — (y, z), (z, x), (x, y) — so a
+        // normal pointing along the positive dropped axis leaves the loop anticlockwise; a negative
+        // one is put back the right way round by swapping them.
+        var axis = absX >= absY && absX >= absZ ? 0 : absY >= absZ ? 1 : 2;
+        var flip = (axis == 0 ? newell.X : axis == 1 ? newell.Y : newell.Z) < 0f;
 
         var loop = new List<int>(entry.Count);
         var flat = new List<Vector2>(entry.Count);
 
         for (var corner = 0; corner < entry.Count; corner++) {
             var index = corners[entry.Start + corner];
-            var position = positions[index];
 
             loop.Add(index);
-            flat.Add(new(Vector3.Dot(position, across), Vector3.Dot(position, along)));
+            flat.Add(Flatten(positions[index], axis, flip));
         }
 
         var written = at;
@@ -474,38 +503,37 @@ public sealed class EditMesh {
         // Every pass either clips an ear — which shortens the loop — or falls back and returns, so
         // this terminates without a counter guarding it.
         while (loop.Count > 3) {
-            var clipped = false;
+            // ⚠ Two sweeps, and the first one's margin is the second half of what makes a staircase
+            // in metres and the same staircase in millimetres triangulate alike. A stair's nose
+            // corners are collinear *by construction* — that is what a flight of steps is — and no
+            // float sequence puts them exactly on the line, so the corner between two of them turns
+            // by a last-bit amount whose sign the units decide. Its ear is a zero-area sliver
+            // nobody wants either way, so the first sweep asks for a corner that turns by more than
+            // the coordinates can round by, and only a loop offering none at all settles for one
+            // that merely turns.
+            var corner = FindEar(flat, true);
 
-            for (var corner = 0; corner < loop.Count; corner++) {
-                var previous = (corner + loop.Count - 1) % loop.Count;
-                var next = (corner + 1) % loop.Count;
-
-                if (!IsEar(flat, previous, corner, next)) {
-                    continue;
-                }
-
-                into[at++] = loop[previous];
-                into[at++] = loop[corner];
-                into[at++] = loop[next];
-
-                loop.RemoveAt(corner);
-                flat.RemoveAt(corner);
-
-                clipped = true;
-                break;
+            if (corner < 0) {
+                corner = FindEar(flat, false);
             }
 
-            if (clipped) {
-                continue;
+            if (corner < 0) {
+                // ⚠ A self-intersecting loop, which no triangulation of it is right for. The fan is
+                // wrong too and it is wrong *predictably* — and the alternative, emitting fewer
+                // triangles than the face owns, breaks the one-to-one walk every other reader
+                // relies on.
+                at = written;
+                Fan(entry, into, ref at);
+
+                return;
             }
 
-            // ⚠ A self-intersecting loop, which no triangulation of it is right for. The fan is
-            // wrong too and it is wrong *predictably* — and the alternative, emitting fewer triangles
-            // than the face owns, breaks the one-to-one walk every other reader relies on.
-            at = written;
-            Fan(entry, into, ref at);
+            into[at++] = loop[(corner + loop.Count - 1) % loop.Count];
+            into[at++] = loop[corner];
+            into[at++] = loop[(corner + 1) % loop.Count];
 
-            return;
+            loop.RemoveAt(corner);
+            flat.RemoveAt(corner);
         }
 
         for (var corner = 1; corner + 1 < loop.Count; corner++) {
@@ -524,41 +552,65 @@ public sealed class EditMesh {
         }
     }
 
+    /// <summary>Two of a position's three coordinates, with the third dropped.</summary>
+    /// <remarks>
+    ///     Note that nothing is computed: both components are one of the input's own, unchanged. See
+    ///     <see cref="Triangulate(int, int[], ref int)" /> for why that matters.
+    /// </remarks>
+    static Vector2 Flatten(Vector3 position, int axis, bool flip) {
+        var flat = axis switch {
+            0 => new Vector2(position.Y, position.Z),
+            1 => new Vector2(position.Z, position.X),
+            _ => new Vector2(position.X, position.Y)
+        };
+
+        return flip ? new(flat.Y, flat.X) : flat;
+    }
+
+    /// <summary>The first corner of a flattened loop that is an ear, or <c>-1</c> if none is.</summary>
+    /// <param name="flat">The loop.</param>
+    /// <param name="certain">Whether to insist the corner turn by more than a rounding.</param>
+    static int FindEar(List<Vector2> flat, bool certain) {
+        for (var corner = 0; corner < flat.Count; corner++) {
+            var previous = (corner + flat.Count - 1) % flat.Count;
+            var next = (corner + 1) % flat.Count;
+
+            if (IsEar(flat, previous, corner, next, certain)) {
+                return corner;
+            }
+        }
+
+        return -1;
+    }
+
     /// <summary>Whether a corner of a flattened loop is an ear: convex, and containing nothing.</summary>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Every question here is a sign, and a sign is the one thing a <c>float</c>
-    ///         expression compared against zero cannot be trusted to answer.</b> This read
-    ///         <c>((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X)) &lt;= 0f</c> until doc 41's
-    ///         determinism work gave the repository a two-dimensional orientation predicate. The
-    ///         error is in the subtractions rather than in the products, so no input-scaled epsilon
-    ///         rescues it: three points on <c>y = 3x</c> whose coordinates are all integers a
-    ///         <c>float</c> holds exactly evaluate to <c>+16</c> in one argument order and
-    ///         <c>-67108864</c> in another, so the naive form is not even antisymmetric.
-    ///     </para>
-    ///     <para>
-    ///         What that buys is not a different triangulation of an ordinary face — it is the
-    ///         guarantee that a reflex corner is never cut as an ear, which is how ear clipping
-    ///         produces overlapping triangles on the near-degenerate n-gons a boolean makes when a cut
-    ///         passes almost exactly through a vertex. <c>MeshBoolean</c> already refuses to classify
-    ///         a point against a plane with a tolerance, for the same reason and on doc 24 § D5's
-    ///         argument; this is that decision applied to the other predicate the kernel asks.
-    ///     </para>
-    ///     <para>
-    ///         The cost is confined to n-gons: a face of three corners returns before reaching here,
-    ///         so a triangle mesh pays nothing, and the predicate's filtered path is a handful of
-    ///         <c>double</c> operations when the answer is not close.
-    ///     </para>
+    ///     ⚠ <b>Every sign here is <see cref="ExactPredicates.Orient2D" />'s rather than a cross
+    ///     product's, because every one of them is compared against zero.</b> Three points that are
+    ///     exactly collinear can have a float cross product nowhere near zero — the error is in the
+    ///     coordinate subtractions, which lose bits before any product is formed, so no epsilon
+    ///     scaled to the inputs separates it from a real orientation. Whether the sign is worth
+    ///     acting on is a second question, and <see cref="TurnsBeyondRounding" /> is the one that
+    ///     asks it.
     /// </remarks>
-    static bool IsEar(List<Vector2> flat, int previous, int corner, int next) {
+    /// <param name="flat">The loop.</param>
+    /// <param name="previous">The corner before the candidate.</param>
+    /// <param name="corner">The candidate.</param>
+    /// <param name="next">The corner after it.</param>
+    /// <param name="certain">Whether to insist the candidate turn by more than a rounding.</param>
+    static bool IsEar(List<Vector2> flat, int previous, int corner, int next, bool certain) {
         var a = flat[previous];
         var b = flat[corner];
         var c = flat[next];
 
         // Anticlockwise in the projected plane, which is what the face's own normal makes it. A
-        // reflex corner has the opposite sign and is never an ear, and a collinear one has no area
-        // to cut.
+        // reflex corner has the opposite sign, and a collinear one has no area to give away; neither
+        // is an ear.
         if (ExactPredicates.Orient2D(a, b, c) <= 0) {
+            return false;
+        }
+
+        if (certain && !TurnsBeyondRounding(a, b, c)) {
             return false;
         }
 
@@ -577,6 +629,38 @@ public sealed class EditMesh {
         }
 
         return true;
+    }
+
+    /// <summary>
+    ///     Whether <c>(a, b, c)</c> turns by more than the last bits of its own coordinates could
+    ///     account for.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is not a second opinion about the sign — it is a question about whether the
+    ///         sign means anything.</b> <see cref="ExactPredicates.Orient2D" /> answers exactly, for
+    ///         the coordinates as stored, and that is the right answer to a different question: three
+    ///         points a hair off collinear have a definite orientation and it is worth nothing,
+    ///         because rewriting the same shape in another unit moves each coordinate by a rounding
+    ///         and lands the triple on the other side. The comparison below is between the
+    ///         determinant and the <em>permanent</em> of the same expression — the two are homogeneous
+    ///         of the same degree, so their ratio is dimensionless and survives any rescaling that
+    ///         does not itself overflow.
+    ///     </para>
+    ///     <para>
+    ///         The factor is generous by design, and it costs nothing when it is wrong: a corner it
+    ///         rejects is a sliver, and the second sweep will take it anyway if the loop has nothing
+    ///         better to offer.
+    ///     </para>
+    /// </remarks>
+    static bool TurnsBeyondRounding(Vector2 a, Vector2 b, Vector2 c) {
+        double acx = a.X - (double)c.X, acy = a.Y - (double)c.Y;
+        double bcx = b.X - (double)c.X, bcy = b.Y - (double)c.Y;
+
+        var left = acx * bcy;
+        var right = acy * bcx;
+
+        return Math.Abs(left - right) > CornerMargin * (Math.Abs(left) + Math.Abs(right));
     }
 
     /// <summary>Builds a mesh from a triangle soup, welding its positions and grouping its faces.</summary>
@@ -710,6 +794,35 @@ public sealed class EditMesh {
     ///     triangle.
     /// </remarks>
     public Vector3 Normal(int face) {
+        var total = NewellSum(face);
+        var largest = MathF.Max(MathF.Abs(total.X), MathF.Max(MathF.Abs(total.Y), MathF.Abs(total.Z)));
+
+        // ⚠ Against zero rather than against an absolute epsilon, and the capsule is what found it.
+        // The Newell sum is twice the face's area, so a fixed tolerance is a statement about how big a
+        // face has to be — and the triangles round a hemisphere's pole are genuinely small. A
+        // primitive built at a tenth of the scale would have had every face declared degenerate.
+        if (largest == 0f) {
+            return Vector3.Zero;
+        }
+
+        // ⚠ Divided down by its own largest component first, and not for elegance:
+        // Vector3.Normalize gives up below MathUtil.ZeroTolerance, which is that absolute epsilon
+        // again by another door — a sphere half a millimetre across has faces whose Newell sum is
+        // shorter than 1e-6 and every one of them would come back zero. Reducing first also keeps
+        // the sum of squares away from the bottom of the exponent range, where it would flush to
+        // zero and take the direction with it.
+        var reduced = new Vector3(total.X / largest, total.Y / largest, total.Z / largest);
+
+        return reduced * (1f / reduced.Length());
+    }
+
+    /// <summary>Newell's area-weighted normal for a face, before it is scaled to unit length.</summary>
+    /// <remarks>
+    ///     Its length is twice the face's area, so a caller that only needs a <i>direction</i> — which
+    ///     axis the face most nearly faces along, say — should read this rather than
+    ///     <see cref="Normal" /> and stay out of the normalise entirely.
+    /// </remarks>
+    Vector3 NewellSum(int face) {
         var entry = faces[face];
         var total = Vector3.Zero;
 
@@ -724,11 +837,7 @@ public sealed class EditMesh {
             );
         }
 
-        // ⚠ Against zero rather than against an absolute epsilon, and the capsule is what found it.
-        // The Newell sum is twice the face's area, so a fixed tolerance is a statement about how big a
-        // face has to be — and the triangles round a hemisphere's pole are genuinely small. A
-        // primitive built at a tenth of the scale would have had every face declared degenerate.
-        return total.LengthSquared() > 0f ? Vector3.Normalize(total) : Vector3.Zero;
+        return total;
     }
 
     /// <summary>A face's area.</summary>
