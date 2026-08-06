@@ -266,9 +266,22 @@ public static class Remesher {
     ///         ⚠ <b>A patch's quad count is a <i>product</i> of two side lengths, so a partition of
     ///         snaky patches overshoots the budget quadratically.</b> A region of area <c>A</c> that is
     ///         compact has a perimeter of about <c>4√A</c> and quantizes to about <c>A</c> quads; one
-    ///         whose perimeter is three times that quantizes to about nine times as many. Measured on a
-    ///         box at a 400-quad budget: 5,047. The density field is not what is wrong there — the
-    ///         partition is.
+    ///         whose perimeter is three times that quantizes to about nine times as many. That was the
+    ///         dominant term while the partition still contained slits — a cut with a loose end is
+    ///         walked once in each direction, so it counts its own length twice into the perimeter and
+    ///         adds no area at all. Measured on a box at a 400-quad budget: 5,047 then, 2,678 once
+    ///         <see cref="PatchLayout" /> walked its loose ends out; on a union, 18,795 then and 3,000
+    ///         now.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is left is <i>not</i> the partition's, and this comment used to say it was.</b>
+    ///         § D9's density field asks for 1,454 to 2,207 quads on these fixtures against a budget of
+    ///         400, before any partition exists: <c>curvatureTerm</c> and <c>featureTerm</c> are both at
+    ///         most one, so every target length comes out at or below <c>base</c>, and
+    ///         <c>base = √(area / quads)</c> is derived as though they were exactly one. Against what it
+    ///         is actually handed, the layout now lands within about 1.4×. The warning below is still
+    ///         phrased about the partition because that is what a caller can act on, and the row belongs
+    ///         to the field.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Scaling every target down to hit the count was tried and is <i>worse</i>, which is
@@ -276,9 +289,7 @@ public static class Remesher {
     ///         reproduction error from <c>5.1e-5</c> to <c>5.1e-2</c>, because the arcs that pay for the
     ///         reduction are the ones running along the creases and a crease quantized to one segment
     ///         cuts every corner it used to follow. docs/plan/41's second exit criterion is the one this
-    ///         phase exists to make achievable, and a quad count is not worth it. The report says the
-    ///         budget was missed and by how much; making the patches compact enough to meet it is a
-    ///         layout problem and it is stated as one.
+    ///         phase exists to make achievable, and a quad count is not worth it.
     ///     </para>
     /// </remarks>
     static Quantization Budget(PatchLayout layout, RemeshSettings settings, List<string> warnings) {

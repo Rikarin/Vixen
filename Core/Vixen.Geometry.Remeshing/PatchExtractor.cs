@@ -215,6 +215,17 @@ static class PatchExtractor {
     ///         ⚠ <b>The merge is transitive, which is why it is a union-find and not a pair swap.</b> A
     ///         chain of three collapsed arcs is one vertex, not two.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A class containing an end of a feature arc is placed <i>there</i>, and picking the
+    ///         lower index instead is a crease moved.</b> The merged position is one point standing for
+    ///         several source vertices, so where it goes is a decision rather than a detail: put it on the
+    ///         vertex that has no crease through it and the arc that <i>does</i> starts somewhere its
+    ///         chain never went. Measured on a union, the worst feature arc was a single straight edge —
+    ///         chord sagitta exactly zero, so nothing about its sampling could be wrong — reporting
+    ///         <c>1.66e-2</c> of the diagonal purely because a collapsed neighbour had won the tie and
+    ///         taken its endpoint with it. docs/plan/41 § D7 permits the collapse and § D4 says what it
+    ///         may not cost.
+    ///     </para>
     /// </remarks>
     static Dictionary<int, int> Corners(
         ManifoldMesh mesh,
@@ -226,10 +237,16 @@ static class PatchExtractor {
         List<bool> pinned
     ) {
         var parent = new Dictionary<int, int>();
+        var creased = new HashSet<int>();
 
         foreach (var arc in layout.Arcs) {
             parent.TryAdd(arc.Vertices[0], arc.Vertices[0]);
             parent.TryAdd(arc.Vertices[^1], arc.Vertices[^1]);
+
+            if (arc.IsFeature) {
+                creased.Add(arc.Vertices[0]);
+                creased.Add(arc.Vertices[^1]);
+            }
         }
 
         int Root(int vertex) {
@@ -248,10 +265,17 @@ static class PatchExtractor {
             var one = Root(layout.Arcs[arc].Vertices[0]);
             var two = Root(layout.Arcs[arc].Vertices[^1]);
 
-            // The lower index wins, so which arc happened to be visited first decides nothing.
-            if (one != two) {
-                parent[Math.Max(one, two)] = Math.Min(one, two);
+            if (one == two) {
+                continue;
             }
+
+            // An end of a feature arc wins outright; otherwise the lower index does, so which arc
+            // happened to be visited first decides nothing either way.
+            var winner = creased.Contains(one) != creased.Contains(two)
+                ? creased.Contains(one) ? one : two
+                : Math.Min(one, two);
+
+            parent[one == winner ? two : one] = winner;
         }
 
         var placed = new Dictionary<int, int>();
@@ -565,6 +589,7 @@ static class PatchExtractor {
         var count = output.PositionCount;
         var neighbours = Adjacency(output);
         var moving = new Vector3[count];
+        var held = Held(layout, extraction, count);
 
         for (var round = 0; round < RelaxIterations; round++) {
             for (var vertex = 0; vertex < count; vertex++) {
@@ -577,7 +602,7 @@ static class PatchExtractor {
                 // A corner sits on the source and stays there. A corner that is not on a feature is
                 // still an arc end, and moving one end of an arc but not the other is how a straight
                 // crease acquires a kink.
-                if (extraction.Pinned[vertex] && source >= 0 && features.IsFeatureVertex(source)) {
+                if (held[vertex] || (extraction.Pinned[vertex] && source >= 0 && features.IsFeatureVertex(source))) {
                     continue;
                 }
 
@@ -607,6 +632,42 @@ static class PatchExtractor {
                 output.MovePosition(vertex, moving[vertex]);
             }
         }
+    }
+
+    /// <summary>Every output position that ends a feature arc, which the relaxation may not move.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read off the <i>arc</i> rather than off the source vertex, and the difference is
+    ///         docs/plan/41's second exit criterion.</b> An end that <see cref="Corners" /> merged with
+    ///         another — which is what a collapsed arc does — carries the <i>root</i>'s source index, and
+    ///         the root need not be a feature vertex even when the arc it terminates is a crease. The
+    ///         relaxation then moved it freely and dragged the first output edge of a hard edge off the
+    ///         hard edge.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured, and it is why the error survived on arcs that are a single straight
+    ///         edge.</b> On a union, the worst feature arc was a two-vertex chain with a chord sagitta of
+    ///         exactly zero — nothing about its samples could be wrong — reporting <c>1.66e-2</c> of the
+    ///         diagonal, because one of its two ends had drifted. Interior samples were never the
+    ///         problem: <see cref="Slide" /> already keeps those on the chain.
+    ///     </para>
+    /// </remarks>
+    static bool[] Held(PatchLayout layout, Extraction extraction, int count) {
+        var held = new bool[count];
+
+        for (var arc = 0; arc < layout.Arcs.Count; arc++) {
+            if (!layout.Arcs[arc].IsFeature) {
+                continue;
+            }
+
+            foreach (var end in (int[]) [extraction.Samples[arc][0], extraction.Samples[arc][^1]]) {
+                if ((uint) end < (uint) count) {
+                    held[end] = true;
+                }
+            }
+        }
+
+        return held;
     }
 
     /// <summary>The nearest point of an arc's own chain — where a feature vertex is allowed to be.</summary>
