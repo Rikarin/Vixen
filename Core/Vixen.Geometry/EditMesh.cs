@@ -525,16 +525,40 @@ public sealed class EditMesh {
     }
 
     /// <summary>Whether a corner of a flattened loop is an ear: convex, and containing nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every question here is a sign, and a sign is the one thing a <c>float</c>
+    ///         expression compared against zero cannot be trusted to answer.</b> This read
+    ///         <c>((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X)) &lt;= 0f</c> until doc 41's
+    ///         determinism work gave the repository a two-dimensional orientation predicate. The
+    ///         error is in the subtractions rather than in the products, so no input-scaled epsilon
+    ///         rescues it: three points on <c>y = 3x</c> whose coordinates are all integers a
+    ///         <c>float</c> holds exactly evaluate to <c>+16</c> in one argument order and
+    ///         <c>-67108864</c> in another, so the naive form is not even antisymmetric.
+    ///     </para>
+    ///     <para>
+    ///         What that buys is not a different triangulation of an ordinary face — it is the
+    ///         guarantee that a reflex corner is never cut as an ear, which is how ear clipping
+    ///         produces overlapping triangles on the near-degenerate n-gons a boolean makes when a cut
+    ///         passes almost exactly through a vertex. <c>MeshBoolean</c> already refuses to classify
+    ///         a point against a plane with a tolerance, for the same reason and on doc 24 § D5's
+    ///         argument; this is that decision applied to the other predicate the kernel asks.
+    ///     </para>
+    ///     <para>
+    ///         The cost is confined to n-gons: a face of three corners returns before reaching here,
+    ///         so a triangle mesh pays nothing, and the predicate's filtered path is a handful of
+    ///         <c>double</c> operations when the answer is not close.
+    ///     </para>
+    /// </remarks>
     static bool IsEar(List<Vector2> flat, int previous, int corner, int next) {
         var a = flat[previous];
         var b = flat[corner];
         var c = flat[next];
 
         // Anticlockwise in the projected plane, which is what the face's own normal makes it. A
-        // reflex corner has the opposite sign and is never an ear.
-        var area = Cross(a, b, c);
-
-        if (area <= 0f) {
+        // reflex corner has the opposite sign and is never an ear, and a collinear one has no area
+        // to cut.
+        if (ExactPredicates.Orient2D(a, b, c) <= 0) {
             return false;
         }
 
@@ -545,16 +569,15 @@ public sealed class EditMesh {
 
             var point = flat[index];
 
-            if (Cross(a, b, point) >= 0f && Cross(b, c, point) >= 0f && Cross(c, a, point) >= 0f) {
+            if (ExactPredicates.Orient2D(a, b, point) >= 0
+                && ExactPredicates.Orient2D(b, c, point) >= 0
+                && ExactPredicates.Orient2D(c, a, point) >= 0) {
                 return false;
             }
         }
 
         return true;
     }
-
-    static float Cross(Vector2 a, Vector2 b, Vector2 c) =>
-        ((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X));
 
     /// <summary>Builds a mesh from a triangle soup, welding its positions and grouping its faces.</summary>
     /// <param name="source">The positions, one per drawing vertex.</param>
