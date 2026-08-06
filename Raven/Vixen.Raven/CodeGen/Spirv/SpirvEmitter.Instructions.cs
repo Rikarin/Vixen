@@ -541,16 +541,53 @@ partial class SpirvEmitter {
     static SpirvOp Comparison(IrTypeKind component, SpirvOp real, SpirvOp signed, SpirvOp unsigned) =>
         Real(component) ? real : Unsigned(component) ? unsigned : signed;
 
+    /// <summary>Emits one <c>convert</c>: a numeric conversion, a broadcast, or both.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A splat is a component conversion <i>and</i> a broadcast, and doing only the
+    ///         broadcast is silent in GLSL and invalid in SPIR-V.</b> The IR draws no distinction —
+    ///         <c>GlslEmitter</c> writes one constructor call, <c>float3(i)</c>, which converts and
+    ///         widens in a single token — so a <c>Splat</c> from <c>i32</c> to <c>f32x3</c> is a
+    ///         conversion the IR considers spelled and the SPIR-V emitter has to spell twice. Sending
+    ///         the scalar straight to <see cref="Splat" /> produced
+    ///         <c>OpCompositeConstruct %v3float %int_0 %int_0 %int_0</c>, which <c>spirv-val</c>
+    ///         refuses with "Expected Constituents to be scalars or vectors of the same type as
+    ///         Result Type components" — six of the nightly's thirteen <c>raven</c> findings, from
+    ///         six unrelated edits that all reduce to a scalar of one component type reaching a
+    ///         vector of another. Every one of those is in <c>Corpus/raven</c> now. The conversion goes
+    ///         <i>before</i> the broadcast rather than after so that it is one instruction on a
+    ///         scalar instead of one on every lane.
+    ///     </para>
+    ///     <para>
+    ///         The binder is right to allow the shapes that get here: <c>float3 * 0</c> and an
+    ///         <c>int</c> argument to a <c>float2</c> parameter are both ordinary implicit
+    ///         conversions, so this is the backend's to express and not the front end's to refuse —
+    ///         docs/plan/07-raven-shader-pipeline.md § C, which is where the two backends were
+    ///         required to land together and to accept the same set.
+    ///     </para>
+    /// </remarks>
     uint EmitConvert(IrConvertInstruction convert) {
         var value = Value(convert.Operand);
+        var source = convert.Operand.Type;
+        var target = convert.Result.Type;
 
-        if (convert.ConversionKind == IrConversionKind.Splat) {
-            return Splat(convert.Result.Type, value);
-        }
+        return convert.ConversionKind == IrConversionKind.Splat
+            ? Splat(target, EmitNumericConvert(convert, value, source, target.ComponentType))
+            : EmitNumericConvert(convert, value, source, target);
+    }
 
-        var resultType = types.Type(convert.Result.Type);
-        var from = convert.Operand.Type.ComponentType.Kind;
-        var to = convert.Result.Type.ComponentType.Kind;
+    /// <summary>Changes what a value's components are, leaving its shape alone.</summary>
+    /// <param name="convert">
+    ///     The instruction being emitted. Only for the message when the conversion is one SPIR-V
+    ///     cannot express, which names the whole conversion and not the half that failed.
+    /// </param>
+    /// <param name="value">The id to convert.</param>
+    /// <param name="source">What <paramref name="value" /> is.</param>
+    /// <param name="target">What it should become; the same shape, or the scalar a splat starts from.</param>
+    /// <returns>The converted id, or <paramref name="value" /> when nothing has to change.</returns>
+    uint EmitNumericConvert(IrConvertInstruction convert, uint value, IrType source, IrType target) {
+        var from = source.ComponentType.Kind;
+        var to = target.ComponentType.Kind;
 
         if (from == to) {
             // Nothing changes representation, so nothing is emitted.
@@ -561,7 +598,7 @@ partial class SpirvEmitter {
         // a width change and a signedness change are two instructions, and the width-changing one
         // cannot also change signedness.
         if (IsInteger(from) && IsInteger(to)) {
-            return EmitIntegerConvert(convert, value, from, to);
+            return EmitIntegerConvert(value, target, from, to);
         }
 
         var op = (from, to) switch {
@@ -578,7 +615,7 @@ partial class SpirvEmitter {
                 $"The conversion from '{convert.Operand.Type.Name}' to '{convert.Result.Type.Name}'",
                 convert.Result.Type
             )
-            : Emit(op, resultType, SpirvOperand.Id(value));
+            : Emit(op, types.Type(target), SpirvOperand.Id(value));
     }
 
     /// <summary>
@@ -596,9 +633,14 @@ partial class SpirvEmitter {
     ///         Componentwise, so this holds for vectors too, even though nothing currently builds a
     ///         64-bit one.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <paramref name="target" /> rather than <c>convert.Result.Type</c>, because a splat
+    ///         converts to the result's <em>component</em> and broadcasts afterwards — reading the
+    ///         result type here would emit a vector <c>OpSConvert</c> over a scalar operand.
+    ///     </para>
     /// </remarks>
-    uint EmitIntegerConvert(IrConvertInstruction convert, uint value, IrTypeKind from, IrTypeKind to) {
-        var resultType = types.Type(convert.Result.Type);
+    uint EmitIntegerConvert(uint value, IrType target, IrTypeKind from, IrTypeKind to) {
+        var resultType = types.Type(target);
 
         // Same width: the bits do not move, only what they are read as.
         if (Wide(from) == Wide(to)) {
@@ -612,7 +654,7 @@ partial class SpirvEmitter {
         // The width change, keeping the source's signedness so the extension is the right one.
         var converted = Emit(
             Unsigned(from) ? SpirvOp.UConvert : SpirvOp.SConvert,
-            types.Type(Componentwise(convert.Result.Type, intermediate)),
+            types.Type(Componentwise(target, intermediate)),
             SpirvOperand.Id(value)
         );
 

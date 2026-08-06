@@ -1,0 +1,73 @@
+package Vixen.Test
+
+// A compute shader, end to end: this file parses, binds, lowers, and generates GLSL that
+// `glslc` accepts and SPIR-V that `spirv-val` accepts.
+//
+// It replaces a file that demonstrated `class`, `string` as a type, `long`, `null`, `int?` and
+// force-unwrap `!` — six things the language deliberately does not have (see ../README.md).
+// That file had stopped parsing entirely, and fixing it would have meant deleting everything it
+// showed. What it did earn on its way out was one real bug: `else if` had never parsed.
+
+shader Threshold {
+    const val Epsilon = 0.0001f
+
+    /// A `[Permutation]` key: each variant is compiled with one value, and the branch the value
+    /// does not take is eliminated rather than predicated.
+    [Permutation] val UseSoftKnee: bool = true
+
+    var threshold: float
+    var knee: float
+    var scale: float4
+
+    /// The workgroup size is written on the stage attribute, so it cannot be separated from the
+    /// stage it sizes. A dimension left off is 1.
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3, [Semantic("SV_GroupIndex")] slot: uint) {
+        val weight = Weight(id)
+
+        // `else if` chains, which the retired Example2 is the reason anyone noticed were broken.
+        var band = 0
+        []
+
+        var accumulated = 0f
+        for (i in 0 .. 4) {
+            accumulated += Curve(weight, i)
+        }
+
+        // Dead-branch elimination: only one of these two survives into a given variant.
+        if (UseSoftKnee) {
+            accumulated = SoftKnee(accumulated)
+        } else {
+            accumulated = HardKnee(accumulated)
+        }
+
+        Consume(accumulated, band, slot)
+    }
+
+    /// This invocation's position in the whole dispatch, folded into one number.
+    func Weight(id: uint3): float => float(id.x) * scale.x + float(id.y) * scale.y
+
+    func Curve(weight: float, index: int): float {
+        val t = saturate(weight - float(index) * Epsilon)
+        return t * t * (3f - 2f * t)
+    }
+
+    func SoftKnee(value: float): float {
+        val over = max(value - threshold, 0f)
+        return threshold + over / (1f + over / max(knee, Epsilon))
+    }
+
+    func HardKnee(value: float): float => min(value, threshold)
+
+    /// Where the result would go once there is somewhere to put it.
+    ///
+    /// A compute shader has nothing writable yet: no storage buffers and no storage images, so
+    /// there is no resource to store into and a `stream` is refused (RVN3006 — a compute stage
+    /// has no interstage interface). Both are open items in docs/plan/07; until one lands, a
+    /// compute shader can compute but not persist, and this file says so rather than pretending
+    /// otherwise by assigning to a uniform, which is not writable in either target.
+    func Consume(value: float, band: int, slot: uint) {
+        var unused = value * float(band) * float(slot)
+        unused = saturate(unused)
+    }
+}

@@ -1,0 +1,198 @@
+package Vixen.Test
+
+import Vixen.Core
+import Vixen.BaseShaders
+
+// A syntax sample: everything the language has, in one file. It parses, binds, lowers and
+// generates — a construct with no semantics behind it does not belong here.
+
+/// A stateless base: it contributes a method and no storage, which is the inheritance that
+/// lowers correctly today. A base with fields is RVN3002 — see docs/plan/07 § J.
+shader ExampleBase {
+    func Scale(value: float): float => value * 2f
+}
+
+/// A protocol base contributes neither storage nor bodies, and is what `compose` slots are
+/// typed against.
+protocol CustomShader {
+}
+
+shader TestShader : ExampleBase, CustomShader {
+    const val Multiplier = 42
+    const val Epsilon = 0.0001f
+
+    var world: mat4
+    var tint: float4 = float4(1, 1, 1, 1)
+    var albedo: Texture2D
+    var albedoSampler: Sampler
+
+    // Sized, because a length is part of an array's type on both targets: an unsized array is
+    // RVN2126 wherever it is written, and a count the host decides is a `Buffer<T>` instead.
+    var lookup: int[4]
+    var grid: float[2][3]
+
+    // Get-only. A shader's `var` is a binding the host uploads, so a setter would store into host
+    // state — RVN2119, and a store both reference compilers reject. Everything mutable in this file
+    // is therefore either a local or a member of the `Counter` struct below.
+    var prop: float {
+        get => Epsilon
+    }
+
+    /// The host's starting value, read but never written.
+    var seed: int
+
+    func Fold(): int {
+        var total = 0
+        var steps = 0
+
+        for (i in 1 .. 10) {
+            total += i * Multiplier
+            steps++
+            ++steps
+        }
+
+        while (total > 0) {
+            total -= 1
+        }
+
+        if (total > 42) {
+            total = 0
+        } else if (total > 0) {
+            total = 1
+        } else {
+            total = steps
+        }
+
+        return total
+    }
+
+    // Not `init`: a shader is never constructed, so a constructor on one could never run
+    // (RVN2092). `init` belongs on a struct — see `FooBar` below.
+    func Reseed(): int {
+        var value = seed
+        value = lookup[0]
+        value = CoreClass.GetLength<int, Mode>(value)
+        return value
+    }
+
+    func Test<Asd>() { }
+
+    func Classify(x: int): int {
+        var kind = 0
+        switch (x) {
+            case 0:
+                kind = 1
+                break
+            case 1:
+            case 2:
+                kind = 2
+                break
+            default:
+                kind = 3
+        }
+
+        return kind
+    }
+
+    func Bounds(): (int, float) {
+        val pair = (Multiplier, Epsilon)
+        val named = (count: Multiplier, scale: Epsilon)
+        return pair
+    }
+
+    // Sized, not `int[]`: a collection literal infers its own length, and an unsized array is
+    // a type no backend can express — so `int[]` here would be a return type nothing could
+    // return. The spread's six elements are flattened by lowering, which needs `direct`'s length.
+    func Collect(): int[6] {
+        val direct = [1, 2, 3, 4]
+        val spread = [1, ..direct, 5]
+        return spread
+    }
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func VSMain(position: float3): float4 {
+        val scaled = position * Epsilon
+        return world * float4(scaled, 1)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func PSMain(uv: float2): float4 {
+        val sampled = albedo.Sample(albedoSampler, uv)
+        val lit = 0
+        return float4(sampled.rgb * lit, sampled.a)
+    }
+
+    func TestMethod(count: int = 42, scale: float = 1f): float4 {
+        val widened: double = count
+        val picked = count > 0 ? tint : float4(0, 0, 0, 1)
+        return picked
+    }
+}
+
+protocol Shaded {
+    var Tint: float4 {
+        get => float4(0, 0, 0, 1)
+    }
+}
+
+struct FooBar {
+    var value: float
+
+    init(initial: float) {
+        value = initial
+    }
+
+    func Scaled(by: float): float => value * by
+
+    FooBar operator +(a: FooBar, b: FooBar) => a
+}
+
+/// Mutable state belongs to a struct rather than to a shader: a struct is a value the shader owns,
+/// so a setter and a property observer both have somewhere to store into.
+struct Counter {
+    var count: int
+
+    var observed: float {
+        willSet {
+            count++
+        }
+
+        didSet => count--
+    }
+
+    var scaled: int {
+        get => count * 2
+        set => count = value / 2
+    }
+
+    func Reset() {
+        count = 0
+    }
+}
+
+enum Mode {
+    Off,
+    On = 5,
+    Auto
+}
+
+struct Widget<T> where T : Shaded {
+    var item: T
+
+    func Item(): T {
+        return item
+    }
+}
+
+struct Messenger {
+    val userId: int
+    val channel: int
+}
+
+/// Static members, and a generic method whose type arguments are written explicitly at the
+/// call site.
+struct CoreClass {
+    static func GetLength<T, U>(value: int): int => value
+}

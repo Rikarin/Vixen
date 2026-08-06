@@ -315,6 +315,45 @@ complete before either body is bound, so nothing is ever re-entered and resoluti
 Fixed in the binder (`RVN2139`), naming the route rather than the function, over the same
 `(member, body kind)` nodes the lowerer keys its function table on — so a cycle through a property
 accessor or a constructor is the same defect and not a second one. `raven/b3f413d871e6a766.bin`.
+#### Then a full nightly, and eleven more that were four defects and a fifth underneath
+
+Runs `31049261231` and `31075211542` produced identical hashes over ~91 M cases, so these were stable
+rather than flakes. `spirv-val` sorted them into four complaints, which looked like one fault stated
+four ways and was not. **Three of the four were the front end and one was the backend**, and the way
+to tell them apart was to ask a question the validator's message does not answer: *did anything
+before `spirv-val` know?*
+
+- **`OpCompositeConstruct` whose constituents are the wrong component type** — seven findings, and
+  the only class where nothing upstream knew. `EmitConvert` sent a `Splat` conversion straight to the
+  broadcast, so an `int` widened to a `float3` became
+  `OpCompositeConstruct %v3float %int_0 %int_0 %int_0`. The IR is not at fault and the binder is not:
+  `float3 * 0` and an `int` argument to a `float2` parameter are ordinary implicit conversions, and
+  `GlslEmitter` writes both halves in one token — `float3(i)` converts *and* widens. SPIR-V has to
+  spell it twice and spelled it once. Six of the seven are this; the seventh was a `void` from the
+  bullet below.
+- **`OpFMul %void` and `OpIMul %void`** — two findings, and the pair that named the fault. Opposite
+  errors from the same expression means the opcode was read off the operands and the result type off
+  something that disagreed, and what disagreed was `min.y`: a member taken of a *method group*, which
+  is the one receiver typed as an error without an error having been reported. Same shape as the
+  namespace above, one guard along. `RVN2011` now.
+- **`OpStore` of an `i32` through an `f32` pointer** — one finding. `for (i in 3f .. 4)`. `BindRange`
+  found the ends' common type and then converted neither of them, so the loop variable was `float`
+  and the limit it was compared against stayed `int`. `BindConditional`, ten lines above it, had done
+  this correctly all along.
+- **`OpCompositeConstruct %void`** — one finding. `[]` in expression-statement position. Every
+  position that asks what an empty collection literal *is* already rejected it; the survivor was the
+  one that does not ask. `RVN2140` now.
+
+⚠ **A fix can uncover the next one, and one did.** With the splat emitted correctly,
+`5cc192ddcce49da6` stopped failing on its constituents and started failing on
+`VUID-StandaloneSpirv-Flat-04744`: `func PSMain(uv: int)` declared an undecorated integer fragment
+input, because `Flat` was applied where the `stream var`s are declared and not where an entry point's
+own parameters are. The GLSL backend had the identical hole and no oracle watching for it. Both are
+fixed at the one place every stage variable passes through.
+
+All eleven inputs are in `Corpus/raven`. The two the same runs found that are **not** in this list —
+a parse-level input and an entry point whose call graph has a cycle — are somebody else's, and are
+deliberately not committed: promotion follows the fix.
 
 ### And guidance, which such a target should turn off
 
