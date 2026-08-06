@@ -22,9 +22,11 @@ namespace Vixen.Ui.Controls.Tests;
 ///         does not fit.
 ///     </para>
 ///     <para>
-///         The fixture is <see cref="ControlFixture" /> for the theme and the font, adopted by
-///         <c>UiTest</c> for <c>ColorOf</c>. A list measured without a font is a list of zero-width
-///         keys, and the automatic-minimum-size case — the one that matters — cannot happen at all.
+///         The fixture is <see cref="ControlFixture" />, for the real theme and a real font. Both
+///         halves matter: a document with no theme has no stripe to resolve, and a list measured
+///         without a font is a list of zero-width keys — so the automatic-minimum-size case, the one
+///         that matters, cannot happen at all. The first draft of this file measured 0 against 8 and
+///         proved nothing.
 ///     </para>
 /// </remarks>
 public class KeyValueListTests {
