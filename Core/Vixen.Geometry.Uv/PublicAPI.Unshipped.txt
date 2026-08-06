@@ -1,1 +1,167 @@
 #nullable enable
+Vixen.Geometry.Uv.PackOverflow -> enum : byte
+Vixen.Geometry.Uv.PackOverflow.NextTile = 1 -> Vixen.Geometry.Uv.PackOverflow
+Vixen.Geometry.Uv.PackOverflow.PackOverflow() -> void
+Vixen.Geometry.Uv.PackOverflow.Refuse = 2 -> Vixen.Geometry.Uv.PackOverflow
+Vixen.Geometry.Uv.PackOverflow.Scale = 0 -> Vixen.Geometry.Uv.PackOverflow
+Vixen.Geometry.Uv.PackQuality -> enum : byte
+Vixen.Geometry.Uv.PackQuality.Irregular = 1 -> Vixen.Geometry.Uv.PackQuality
+Vixen.Geometry.Uv.PackQuality.PackQuality() -> void
+Vixen.Geometry.Uv.PackQuality.Rectangle = 0 -> Vixen.Geometry.Uv.PackQuality
+Vixen.Geometry.Uv.PackQuality.SuperPatch = 2 -> Vixen.Geometry.Uv.PackQuality
+Vixen.Geometry.Uv.PackSettings -> sealed record
+Vixen.Geometry.Uv.PackSettings : System.IEquatable<Vixen.Geometry.Uv.PackSettings>
+Vixen.Geometry.Uv.PackSettings.CoreLimit.get -> int
+Vixen.Geometry.Uv.PackSettings.CoreLimit.init -> int
+Vixen.Geometry.Uv.PackSettings.Margin.get -> int
+Vixen.Geometry.Uv.PackSettings.Margin.init -> int
+Vixen.Geometry.Uv.PackSettings.Overflow.get -> Vixen.Geometry.Uv.PackOverflow
+Vixen.Geometry.Uv.PackSettings.Overflow.init -> Vixen.Geometry.Uv.PackOverflow
+Vixen.Geometry.Uv.PackSettings.PackSettings() -> void
+Vixen.Geometry.Uv.PackSettings.Quality.get -> Vixen.Geometry.Uv.PackQuality
+Vixen.Geometry.Uv.PackSettings.Quality.init -> Vixen.Geometry.Uv.PackQuality
+Vixen.Geometry.Uv.PackSettings.Rotations.get -> int
+Vixen.Geometry.Uv.PackSettings.Rotations.init -> int
+Vixen.Geometry.Uv.PackSettings.TexelDensity.get -> float
+Vixen.Geometry.Uv.PackSettings.TexelDensity.init -> float
+Vixen.Geometry.Uv.SeamCost -> sealed record
+Vixen.Geometry.Uv.SeamCost : System.IEquatable<Vixen.Geometry.Uv.SeamCost>
+Vixen.Geometry.Uv.SeamCost.Concavity.get -> float
+Vixen.Geometry.Uv.SeamCost.Concavity.init -> float
+Vixen.Geometry.Uv.SeamCost.Existing.get -> float
+Vixen.Geometry.Uv.SeamCost.Existing.init -> float
+Vixen.Geometry.Uv.SeamCost.Feature.get -> float
+Vixen.Geometry.Uv.SeamCost.Feature.init -> float
+Vixen.Geometry.Uv.SeamCost.Length.get -> float
+Vixen.Geometry.Uv.SeamCost.Length.init -> float
+Vixen.Geometry.Uv.SeamCost.Material.get -> float
+Vixen.Geometry.Uv.SeamCost.Material.init -> float
+Vixen.Geometry.Uv.SeamCost.SeamCost() -> void
+Vixen.Geometry.Uv.SeamCost.Symmetry.get -> float
+Vixen.Geometry.Uv.SeamCost.Symmetry.init -> float
+Vixen.Geometry.Uv.SeamCost.Visibility.get -> float
+Vixen.Geometry.Uv.SeamCost.Visibility.init -> float
+Vixen.Geometry.Uv.UvDistortion -> readonly struct
+Vixen.Geometry.Uv.UvDistortion : System.IEquatable<Vixen.Geometry.Uv.UvDistortion>
+Vixen.Geometry.Uv.UvDistortion.Angular.get -> float
+Vixen.Geometry.Uv.UvDistortion.Angular.init -> float
+Vixen.Geometry.Uv.UvDistortion.Area.get -> float
+Vixen.Geometry.Uv.UvDistortion.Area.init -> float
+Vixen.Geometry.Uv.UvDistortion.Flipped.get -> int
+Vixen.Geometry.Uv.UvDistortion.Flipped.init -> int
+Vixen.Geometry.Uv.UvDistortion.StretchL2.get -> float
+Vixen.Geometry.Uv.UvDistortion.StretchL2.init -> float
+Vixen.Geometry.Uv.UvDistortion.StretchLInf.get -> float
+Vixen.Geometry.Uv.UvDistortion.StretchLInf.init -> float
+Vixen.Geometry.Uv.UvDistortion.UvDistortion() -> void
+Vixen.Geometry.Uv.UvDistortion.UvDistortion(float Angular, float Area, float StretchL2, float StretchLInf, int Flipped) -> void
+Vixen.Geometry.Uv.UvIsland -> readonly struct
+Vixen.Geometry.Uv.UvIsland : System.IEquatable<Vixen.Geometry.Uv.UvIsland>
+Vixen.Geometry.Uv.UvIsland.Coordinates.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2>
+Vixen.Geometry.Uv.UvIsland.Coordinates.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2>
+Vixen.Geometry.Uv.UvIsland.Corners.get -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Geometry.Uv.UvIsland.Corners.init -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Geometry.Uv.UvIsland.Maximum.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Geometry.Uv.UvIsland.Maximum.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Geometry.Uv.UvIsland.Minimum.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Geometry.Uv.UvIsland.Minimum.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Geometry.Uv.UvIsland.Scale.get -> float
+Vixen.Geometry.Uv.UvIsland.Scale.init -> float
+Vixen.Geometry.Uv.UvIsland.Size.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Geometry.Uv.UvIsland.TriangleCount.get -> int
+Vixen.Geometry.Uv.UvIsland.UvIsland() -> void
+Vixen.Geometry.Uv.UvIsland.UvIsland(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> Coordinates, System.Collections.Generic.IReadOnlyList<int> Corners, Vixen.Core.Mathematics.Vector2 Minimum, Vixen.Core.Mathematics.Vector2 Maximum, float Scale) -> void
+Vixen.Geometry.Uv.UvPlacement -> readonly struct
+Vixen.Geometry.Uv.UvPlacement : System.IEquatable<Vixen.Geometry.Uv.UvPlacement>
+Vixen.Geometry.Uv.UvPlacement.Apply(in Vixen.Geometry.Uv.UvIsland island, Vixen.Core.Mathematics.Vector2 coordinate) -> Vixen.Core.Mathematics.Vector2
+Vixen.Geometry.Uv.UvPlacement.Island.get -> int
+Vixen.Geometry.Uv.UvPlacement.Island.init -> int
+Vixen.Geometry.Uv.UvPlacement.Offset.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Geometry.Uv.UvPlacement.Offset.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Geometry.Uv.UvPlacement.Rotation.get -> int
+Vixen.Geometry.Uv.UvPlacement.Rotation.init -> int
+Vixen.Geometry.Uv.UvPlacement.Scale.get -> float
+Vixen.Geometry.Uv.UvPlacement.Scale.init -> float
+Vixen.Geometry.Uv.UvPlacement.Tile.get -> Vixen.Core.Mathematics.Int2
+Vixen.Geometry.Uv.UvPlacement.Tile.init -> Vixen.Core.Mathematics.Int2
+Vixen.Geometry.Uv.UvPlacement.UvPlacement() -> void
+Vixen.Geometry.Uv.UvPlacement.UvPlacement(int Island, Vixen.Core.Mathematics.Vector2 Offset, float Scale, int Rotation, Vixen.Core.Mathematics.Int2 Tile) -> void
+Vixen.Geometry.Uv.UvReport -> readonly struct
+Vixen.Geometry.Uv.UvReport : System.IEquatable<Vixen.Geometry.Uv.UvReport>
+Vixen.Geometry.Uv.UvReport.BoundaryJaggedness.get -> float
+Vixen.Geometry.Uv.UvReport.BoundaryJaggedness.init -> float
+Vixen.Geometry.Uv.UvReport.ChartCount.get -> int
+Vixen.Geometry.Uv.UvReport.ChartCount.init -> int
+Vixen.Geometry.Uv.UvReport.Compactness.get -> float
+Vixen.Geometry.Uv.UvReport.Compactness.init -> float
+Vixen.Geometry.Uv.UvReport.Convexity.get -> float
+Vixen.Geometry.Uv.UvReport.Convexity.init -> float
+Vixen.Geometry.Uv.UvReport.Distortion.get -> Vixen.Geometry.Uv.UvDistortion
+Vixen.Geometry.Uv.UvReport.Distortion.init -> Vixen.Geometry.Uv.UvDistortion
+Vixen.Geometry.Uv.UvReport.EffectiveEfficiency.get -> float
+Vixen.Geometry.Uv.UvReport.EffectiveEfficiency.init -> float
+Vixen.Geometry.Uv.UvReport.IsInjective.get -> bool
+Vixen.Geometry.Uv.UvReport.PackingEfficiency.get -> float
+Vixen.Geometry.Uv.UvReport.PackingEfficiency.init -> float
+Vixen.Geometry.Uv.UvReport.SeamLength.get -> float
+Vixen.Geometry.Uv.UvReport.SeamLength.init -> float
+Vixen.Geometry.Uv.UvReport.SeamLengthNormalized.get -> float
+Vixen.Geometry.Uv.UvReport.SeamLengthNormalized.init -> float
+Vixen.Geometry.Uv.UvReport.Stages.get -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvStageTiming>
+Vixen.Geometry.Uv.UvReport.Stages.init -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvStageTiming>
+Vixen.Geometry.Uv.UvReport.TexelDensity.get -> Vixen.Geometry.Uv.UvTexelDensity
+Vixen.Geometry.Uv.UvReport.TexelDensity.init -> Vixen.Geometry.Uv.UvTexelDensity
+Vixen.Geometry.Uv.UvReport.UvReport() -> void
+Vixen.Geometry.Uv.UvReport.UvReport(int ChartCount, float Compactness, float Convexity, float SeamLength, float SeamLengthNormalized, float BoundaryJaggedness, Vixen.Geometry.Uv.UvDistortion Distortion, float PackingEfficiency, float EffectiveEfficiency, Vixen.Geometry.Uv.UvTexelDensity TexelDensity, System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvStageTiming> Stages, System.Collections.Generic.IReadOnlyList<string> Warnings) -> void
+Vixen.Geometry.Uv.UvReport.Warnings.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Geometry.Uv.UvReport.Warnings.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Geometry.Uv.UvSettings -> sealed record
+Vixen.Geometry.Uv.UvSettings : System.IEquatable<Vixen.Geometry.Uv.UvSettings>
+Vixen.Geometry.Uv.UvSettings.DistortionThreshold.get -> float
+Vixen.Geometry.Uv.UvSettings.DistortionThreshold.init -> float
+Vixen.Geometry.Uv.UvSettings.FeatureAngle.get -> float
+Vixen.Geometry.Uv.UvSettings.FeatureAngle.init -> float
+Vixen.Geometry.Uv.UvSettings.FlattenIterations.get -> int
+Vixen.Geometry.Uv.UvSettings.FlattenIterations.init -> int
+Vixen.Geometry.Uv.UvSettings.KeepGroups.get -> bool
+Vixen.Geometry.Uv.UvSettings.KeepGroups.init -> bool
+Vixen.Geometry.Uv.UvSettings.MaxDepth.get -> int
+Vixen.Geometry.Uv.UvSettings.MaxDepth.init -> int
+Vixen.Geometry.Uv.UvSettings.SeamCost.get -> Vixen.Geometry.Uv.SeamCost
+Vixen.Geometry.Uv.UvSettings.SeamCost.init -> Vixen.Geometry.Uv.SeamCost
+Vixen.Geometry.Uv.UvSettings.SolverIterations.get -> int
+Vixen.Geometry.Uv.UvSettings.SolverIterations.init -> int
+Vixen.Geometry.Uv.UvSettings.UvSettings() -> void
+Vixen.Geometry.Uv.UvStage -> enum : byte
+Vixen.Geometry.Uv.UvStage.Chart = 0 -> Vixen.Geometry.Uv.UvStage
+Vixen.Geometry.Uv.UvStage.Flatten = 1 -> Vixen.Geometry.Uv.UvStage
+Vixen.Geometry.Uv.UvStage.Pack = 2 -> Vixen.Geometry.Uv.UvStage
+Vixen.Geometry.Uv.UvStage.UvStage() -> void
+Vixen.Geometry.Uv.UvStageTiming -> readonly struct
+Vixen.Geometry.Uv.UvStageTiming : System.IEquatable<Vixen.Geometry.Uv.UvStageTiming>
+Vixen.Geometry.Uv.UvStageTiming.Elapsed.get -> System.TimeSpan
+Vixen.Geometry.Uv.UvStageTiming.Elapsed.init -> System.TimeSpan
+Vixen.Geometry.Uv.UvStageTiming.Elements.get -> int
+Vixen.Geometry.Uv.UvStageTiming.Elements.init -> int
+Vixen.Geometry.Uv.UvStageTiming.Stage.get -> Vixen.Geometry.Uv.UvStage
+Vixen.Geometry.Uv.UvStageTiming.Stage.init -> Vixen.Geometry.Uv.UvStage
+Vixen.Geometry.Uv.UvStageTiming.UvStageTiming() -> void
+Vixen.Geometry.Uv.UvStageTiming.UvStageTiming(Vixen.Geometry.Uv.UvStage Stage, System.TimeSpan Elapsed, int Elements) -> void
+Vixen.Geometry.Uv.UvTexelDensity -> readonly struct
+Vixen.Geometry.Uv.UvTexelDensity : System.IEquatable<Vixen.Geometry.Uv.UvTexelDensity>
+Vixen.Geometry.Uv.UvTexelDensity.Maximum.get -> float
+Vixen.Geometry.Uv.UvTexelDensity.Maximum.init -> float
+Vixen.Geometry.Uv.UvTexelDensity.Mean.get -> float
+Vixen.Geometry.Uv.UvTexelDensity.Mean.init -> float
+Vixen.Geometry.Uv.UvTexelDensity.Minimum.get -> float
+Vixen.Geometry.Uv.UvTexelDensity.Minimum.init -> float
+Vixen.Geometry.Uv.UvTexelDensity.UvTexelDensity() -> void
+Vixen.Geometry.Uv.UvTexelDensity.UvTexelDensity(float Minimum, float Mean, float Maximum, float Variance) -> void
+Vixen.Geometry.Uv.UvTexelDensity.Variance.get -> float
+Vixen.Geometry.Uv.UvTexelDensity.Variance.init -> float
+Vixen.Geometry.Uv.UvUnwrap -> static class
+required Vixen.Geometry.Uv.PackSettings.Resolution.get -> int
+required Vixen.Geometry.Uv.PackSettings.Resolution.init -> int
+static Vixen.Geometry.Uv.UvUnwrap.Pack(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, Vixen.Geometry.Uv.PackSettings settings) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
+static Vixen.Geometry.Uv.UvUnwrap.Pack(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, Vixen.Geometry.Uv.PackSettings settings, Vixen.Core.Threading.JobScheduler? scheduler, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
+static Vixen.Geometry.Uv.UvUnwrap.Pack(System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvIsland> islands, Vixen.Geometry.Uv.PackSettings settings, out Vixen.Geometry.Uv.UvReport report) -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.Uv.UvPlacement>
