@@ -152,10 +152,20 @@ public class RemeshDeterminismTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What that costs, on a 400-quad budget with one fixed permutation:</b> a sphere and
-    ///         a plate come out <i>bit-identical</i>; a box goes from 5,047 quads to 3,312; a cylinder
-    ///         from 3,836 to 1,720 and its worst deviation from <c>1.86e-2</c> to <c>1.64e-1</c>; and a
-    ///         flight of stairs stops producing anything at all. The two that survive are the two whose
+    ///         a plate come out <i>bit-identical</i>; a box goes from 2,678 quads to 2,607; a flight of
+    ///         stairs from 3,353 to 3,465; and a cylinder from 2,730 to 1,571 with its worst deviation
+    ///         going from <c>9.21e-3</c> to <c>1.55e-1</c>. The two that survive are the two whose
     ///         conditioning renumbers them back into a canonical order anyway.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The finding got smaller, and the reason says something about where it came
+    ///         from.</b> These numbers were 5,047 → 3,312 on a box and 3,836 → 1,720 on a cylinder, and
+    ///         <i>a flight of stairs used to stop producing anything at all</i> under the permutation.
+    ///         What changed is not this test's subject: once <see cref="PatchLayout" /> stopped leaving
+    ///         dangling cuts, the partition stopped depending on which of several slits the flood
+    ///         happened to walk first. A sensitivity that large was partly a defect wearing a
+    ///         determinism costume — the residue below is the genuine index-order dependence, and a
+    ///         cylinder is where it still bites.
     ///     </para>
     ///     <para>
     ///         So the assertion here is the one that must hold on <i>every</i> fixture — all quads, and

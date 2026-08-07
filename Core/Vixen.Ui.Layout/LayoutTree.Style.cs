@@ -144,16 +144,31 @@ public sealed partial class LayoutTree {
         MarkDirtyAndPropagate(index);
     }
 
-    /// <summary>Sets what happens to content that does not fit.</summary>
+    /// <summary>Sets what happens to content that does not fit, on both axes.</summary>
     /// <param name="node">The node.</param>
     /// <param name="overflow">The overflow mode.</param>
-    public void SetOverflow(LayoutNodeId node, Overflow overflow) {
+    /// <remarks>The <c>overflow</c> shorthand: the same mode across and down.</remarks>
+    public void SetOverflow(LayoutNodeId node, Overflow overflow) => SetOverflow(node, overflow, overflow);
+
+    /// <summary>Sets what happens to content that does not fit, per axis.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="horizontal">What happens across it — <c>overflow-x</c>.</param>
+    /// <param name="vertical">What happens down it — <c>overflow-y</c>.</param>
+    /// <remarks>
+    ///     ⚠ <b>No coercion between the axes.</b> CSS computes a <c>visible</c> to <c>auto</c> when the
+    ///     other axis is not visible, because a scrollport is one rectangle and painting outside it on
+    ///     one axis only is undefined there. Nothing here has a scrollport: the clip is a rectangle
+    ///     with one pair of edges past any viewport, which the renderer expresses exactly. So the axis
+    ///     the stylesheet named is the axis that changes, which is also what the author wrote.
+    /// </remarks>
+    public void SetOverflow(LayoutNodeId node, Overflow horizontal, Overflow vertical) {
         var index = Validate(node);
-        if (styles[index].Overflow == overflow) {
+        if (styles[index].OverflowX == horizontal && styles[index].OverflowY == vertical) {
             return;
         }
 
-        styles[index].Overflow = overflow;
+        styles[index].OverflowX = horizontal;
+        styles[index].OverflowY = vertical;
         MarkDirtyAndPropagate(index);
     }
 

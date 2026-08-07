@@ -54,6 +54,18 @@ public sealed class StyleTree {
     ElementLinks[] links = new ElementLinks[64];
     AncestorBloom[] blooms = new AncestorBloom[64];
 
+    /// <summary>Whether each element draws text of its own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only thing in this store that is not a name, a state or a link</b>, and it is here
+    ///     for exactly one selector. CSS's <c>:empty</c> means "no child <i>nodes</i>", and in the DOM
+    ///     text is a node — so a paragraph with words in it is not empty. Vixen puts text on the
+    ///     element instead of in a node of its own (<c>UiElement.Text</c>), so a store that only
+    ///     counted children would call every label empty, and <c>:empty</c> would hide precisely the
+    ///     elements it was written to keep. A bit is the whole of what the tree needs to know:
+    ///     <i>which</i> text is <c>Vixen.Ui</c>'s business and no selector can ask.
+    /// </remarks>
+    bool[] hasText = new bool[64];
+
     /// <summary>Each element's inline block, or -1 for none.</summary>
     /// <remarks>
     ///     ⚠ <b>A raw index rather than an <see cref="InlineStyleId" />?</b>, so that "none" is a
@@ -128,6 +140,7 @@ public sealed class StyleTree {
         states[index] = ElementState.None;
         attributes[index] = default;
         inlines[index] = NoInline;
+        hasText[index] = false;
 
         var classStart = classArena.Count;
         foreach (var className in classNames) {
@@ -267,6 +280,7 @@ public sealed class StyleTree {
             states[to] = states[i];
             blooms[to] = blooms[i];
             inlines[to] = inlines[i];
+            hasText[to] = hasText[i];
             alive[to] = true;
 
             var classStart = newClasses.Count;
@@ -333,6 +347,7 @@ public sealed class StyleTree {
         Array.Clear(attributes, live, count - live);
         Array.Clear(links, live, count - live);
         Array.Clear(blooms, live, count - live);
+        Array.Clear(hasText, live, count - live);
         Array.Clear(alive, live, count - live);
 
         count = live;
@@ -476,6 +491,24 @@ public sealed class StyleTree {
     /// <param name="element">The element.</param>
     /// <param name="state">The new state.</param>
     public void SetState(StyleNodeId element, ElementState state) => states[Validate(element)] = state;
+
+    /// <summary>Says whether an element draws text, which is half of what <c>:empty</c> asks.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="hasText">Whether it has text.</param>
+    /// <remarks>
+    ///     ⚠ <b>Not a state flag, deliberately.</b> An <see cref="ElementState" /> would have come with
+    ///     compaction, reparenting and invalidation already written, and would have been wrong the
+    ///     first time a control assigned a whole state — <c>UiElement.State</c>'s setter replaces the
+    ///     value rather than or-ing into it, so a hover would have quietly erased the element's text
+    ///     as far as the cascade was concerned. It is also not transient, which is what that enum is
+    ///     for.
+    /// </remarks>
+    public void SetHasText(StyleNodeId element, bool hasText) => this.hasText[Validate(element)] = hasText;
+
+    /// <summary>Whether an element draws text.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>Whether it does.</returns>
+    public bool HasText(StyleNodeId element) => hasText[Validate(element)];
 
     /// <summary>Gives an element declarations of its own, or takes them away.</summary>
     /// <param name="element">The element.</param>
@@ -709,6 +742,10 @@ public sealed class StyleTree {
 
     internal int IndexInParentOf(int index) => links[index].IndexInParent;
 
+    internal int ChildCountOf(int index) => links[index].ChildCount;
+
+    internal bool HasTextAt(int index) => hasText[index];
+
     internal int SiblingCountOf(int index) {
         var parent = links[index].Parent;
         return parent < 0 ? 1 : links[parent].ChildCount;
@@ -914,6 +951,7 @@ public sealed class StyleTree {
         Array.Resize(ref links, next);
         Array.Resize(ref blooms, next);
         Array.Resize(ref inlines, next);
+        Array.Resize(ref hasText, next);
         Array.Resize(ref alive, next);
     }
 

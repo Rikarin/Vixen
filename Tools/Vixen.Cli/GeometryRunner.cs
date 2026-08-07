@@ -174,10 +174,12 @@ public static class GeometryRunner {
     ///     <para>
     ///         ⚠ <b>The islands come off the file's drawing vertices rather than through
     ///         <see cref="EditMesh" />, and that is the correct side of the split.</b> A seam is two
-    ///         drawing vertices at one position with different coordinates; Assimp has already split
-    ///         them, so a connected component of triangles over shared vertex <i>indices</i> is exactly
-    ///         an island. Welding into the kernel first and then trying to recover the seams would be
-    ///         throwing the answer away and looking for it.
+    ///         drawing vertices at one position with different coordinates, so welding into the kernel
+    ///         first and then trying to recover the seams would be throwing the answer away and looking
+    ///         for it. <see cref="ModelGeometry.Islands" /> is where that reading lives, and its remarks
+    ///         carry the trap: a component over shared vertex <i>indices</i> is an island only in a file
+    ///         that shares an index wherever the position and the coordinate agree, and a generated GLB
+    ///         shares nothing at all.
     ///     </para>
     /// </remarks>
     public static ExitCode Pack(
@@ -214,7 +216,7 @@ public static class GeometryRunner {
                 continue;
             }
 
-            var islands = Islands(mesh);
+            var islands = ModelGeometry.Islands(mesh);
 
             try {
                 var placements = UvUnwrap.Pack(islands, packing, out var report);
@@ -230,89 +232,8 @@ public static class GeometryRunner {
         return Finish(written, refused, output, progress, error);
     }
 
-    /// <summary>The file's existing charts, as islands the packer takes.</summary>
-    static List<UvIsland> Islands(MeshData mesh) {
-        var parent = new int[mesh.Positions.Length];
-
-        for (var vertex = 0; vertex < parent.Length; vertex++) {
-            parent[vertex] = vertex;
-        }
-
-        int Find(int vertex) {
-            while (parent[vertex] != vertex) {
-                parent[vertex] = parent[parent[vertex]];
-                vertex = parent[vertex];
-            }
-
-            return vertex;
-        }
-
-        void Union(int left, int right) {
-            var a = Find(left);
-            var b = Find(right);
-
-            if (a != b) {
-                parent[Math.Max(a, b)] = Math.Min(a, b);
-            }
-        }
-
-        for (var index = 0; index + 2 < mesh.Indices.Length; index += 3) {
-            Union(mesh.Indices[index], mesh.Indices[index + 1]);
-            Union(mesh.Indices[index + 1], mesh.Indices[index + 2]);
-        }
-
-        var corners = new Dictionary<int, List<int>>();
-
-        for (var index = 0; index + 2 < mesh.Indices.Length; index += 3) {
-            var root = Find(mesh.Indices[index]);
-
-            if (!corners.TryGetValue(root, out var into)) {
-                corners[root] = into = [];
-            }
-
-            into.Add(index);
-            into.Add(index + 1);
-            into.Add(index + 2);
-        }
-
-        var islands = new List<UvIsland>();
-
-        // Ordered by root, because docs/plan/42 § D12 makes the packing order part of the determinism
-        // gate and a dictionary's enumeration order is not a promise.
-        foreach (var root in corners.Keys.Order()) {
-            var slots = corners[root];
-            var coordinates = new Vector2[slots.Count];
-            var low = new Vector2(float.MaxValue, float.MaxValue);
-            var high = new Vector2(float.MinValue, float.MinValue);
-            var area = 0f;
-            var world = 0f;
-
-            for (var slot = 0; slot < slots.Count; slot++) {
-                coordinates[slot] = mesh.TexCoords[mesh.Indices[slots[slot]]];
-                low = Vector2.Min(low, coordinates[slot]);
-                high = Vector2.Max(high, coordinates[slot]);
-            }
-
-            for (var slot = 0; slot + 2 < slots.Count; slot += 3) {
-                area += Area(coordinates[slot], coordinates[slot + 1], coordinates[slot + 2]);
-
-                world += Area(
-                    mesh.Positions[mesh.Indices[slots[slot]]],
-                    mesh.Positions[mesh.Indices[slots[slot + 1]]],
-                    mesh.Positions[mesh.Indices[slots[slot + 2]]]
-                );
-            }
-
-            // Coordinates per world unit, which is what the island's Scale means: the packer is
-            // allowed to move an island and has to be able to say when it resized one.
-            islands.Add(new(coordinates, slots, low, high, world > 0f ? MathF.Sqrt(area / world) : 1f));
-        }
-
-        return islands;
-    }
-
     /// <summary>The mesh with its coordinates moved to where the packer put them.</summary>
-    static MeshData Repacked(MeshData mesh, List<UvIsland> islands, IReadOnlyList<UvPlacement> placements) {
+    static MeshData Repacked(MeshData mesh, IReadOnlyList<UvIsland> islands, IReadOnlyList<UvPlacement> placements) {
         var coordinates = (Vector2[]) mesh.TexCoords.Clone();
 
         foreach (var placement in placements) {
@@ -329,11 +250,6 @@ public static class GeometryRunner {
 
         return mesh with { TexCoords = coordinates };
     }
-
-    static float Area(Vector2 a, Vector2 b, Vector2 c) =>
-        MathF.Abs(((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X))) * 0.5f;
-
-    static float Area(Vector3 a, Vector3 b, Vector3 c) => Vector3.Cross(b - a, c - a).Length() * 0.5f;
 
     /// <summary>Reads the input, having checked that both paths are usable.</summary>
     static ReadModel? Open(string input, string output, TextWriter error) {

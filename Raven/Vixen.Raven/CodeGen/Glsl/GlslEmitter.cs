@@ -411,8 +411,18 @@ sealed class GlslEmitter {
             var name = Reserve("in_" + input.Name);
             inputNames.Add(name);
             declared++;
+
+            // ⚠ The same rule the stream inputs below state, and this is the copy that was
+            // missing: an integer varying has to be `flat` whether it arrived as a `stream var` or
+            // as a parameter of the fragment entry point, and GLSL rejects the declaration without
+            // it. Its SPIR-V twin is `VUID-StandaloneSpirv-Flat-04744`, which is what the nightly's
+            // `Corpus/raven/5cc192ddcce49da6.bin` reduces to once its splat is emitted correctly.
+            var flat = entryPoint.Stage == ShaderStage.Fragment && StageInterface.MustBeFlat(input.Type)
+                ? "flat "
+                : string.Empty;
+
             writer.Line(
-                $"layout(location = {locations[i]}) in {Declare(input.Type, name, input.Name)};"
+                $"layout(location = {locations[i]}) {flat}in {Declare(input.Type, name, input.Name)};"
                 + Comment(input.Semantic)
             );
         }

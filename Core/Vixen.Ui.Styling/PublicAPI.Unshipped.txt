@@ -274,6 +274,7 @@ Vixen.Ui.Styling.SimpleSelector.ValueId.init -> int
 Vixen.Ui.Styling.SimpleSelectorKind -> enum : byte
 Vixen.Ui.Styling.SimpleSelectorKind.Attribute = 4 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Class = 3 -> Vixen.Ui.Styling.SimpleSelectorKind
+Vixen.Ui.Styling.SimpleSelectorKind.Empty = 9 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Id = 2 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Is = 8 -> Vixen.Ui.Styling.SimpleSelectorKind
 Vixen.Ui.Styling.SimpleSelectorKind.Not = 7 -> Vixen.Ui.Styling.SimpleSelectorKind
@@ -415,6 +416,7 @@ Vixen.Ui.Styling.StyleTree.GetParent(Vixen.Ui.Styling.StyleNodeId element) -> Vi
 Vixen.Ui.Styling.StyleTree.GetState(Vixen.Ui.Styling.StyleNodeId element) -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.Styling.StyleTree.GetTagName(Vixen.Ui.Styling.StyleNodeId element) -> string
 Vixen.Ui.Styling.StyleTree.HasClass(Vixen.Ui.Styling.StyleNodeId element, string className) -> bool
+Vixen.Ui.Styling.StyleTree.HasText(Vixen.Ui.Styling.StyleNodeId element) -> bool
 Vixen.Ui.Styling.StyleTree.InlineAt(int index) -> Vixen.Ui.Styling.InlineStyleId?
 Vixen.Ui.Styling.StyleTree.IsAlive(Vixen.Ui.Styling.StyleNodeId element) -> bool
 Vixen.Ui.Styling.StyleTree.LiveCount.get -> int
@@ -423,6 +425,7 @@ Vixen.Ui.Styling.StyleTree.Names.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleTree.Remove(Vixen.Ui.Styling.StyleNodeId element) -> void
 Vixen.Ui.Styling.StyleTree.RemoveClass(Vixen.Ui.Styling.StyleNodeId element, string className) -> bool
 Vixen.Ui.Styling.StyleTree.SetAttribute(Vixen.Ui.Styling.StyleNodeId element, string name, string value) -> void
+Vixen.Ui.Styling.StyleTree.SetHasText(Vixen.Ui.Styling.StyleNodeId element, bool hasText) -> void
 Vixen.Ui.Styling.StyleTree.SetInlineStyle(Vixen.Ui.Styling.StyleNodeId element, Vixen.Ui.Styling.InlineStyleId? style) -> void
 Vixen.Ui.Styling.StyleTree.SetState(Vixen.Ui.Styling.StyleNodeId element, Vixen.Ui.Styling.ElementState state) -> void
 Vixen.Ui.Styling.StyleTree.StyleTree(Vixen.Ui.Styling.NameTable names) -> void

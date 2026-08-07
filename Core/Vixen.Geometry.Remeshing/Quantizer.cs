@@ -124,7 +124,13 @@ static class Quantizer {
         // matter. Imposing it protects docs/plan/41's second exit criterion; it also makes the system
         // strictly harder, and a partition where it cannot be met has to produce a mesh rather than a
         // refusal. Measured: a box quantizes with the floor on some partitions and not on others, and
-        // the fallback is the difference between 5,047 quads and nothing at all.
+        // the fallback is the difference between a result and nothing at all.
+        //
+        // ⚠ It fires far less than it did, and the reason is the layout rather than this solver. A
+        // partition with slits in it puts one arc into three or four constraints instead of two, which
+        // is what made the floor unsatisfiable; once PatchLayout walks its loose ends out, a union and
+        // a difference both quantize with the floor on where neither used to. A box is the one fixture
+        // still falling back.
         return solved.IsFeasible ? solved : Attempt(layout, mode, scale, false);
     }
 
@@ -137,6 +143,23 @@ static class Quantizer {
 
         if (!holdFeatures) {
             warnings.Add("A feature arc had to be allowed to collapse for the layout to quantize.");
+        }
+
+        // ⚠ An arc is not a feature arc and still may not collapse, when both of its ends are ends of
+        // ones. Collapsing it merges its two ends into a single output vertex — § D7's permitted zero —
+        // and where both ends carry a crease that single vertex has to stand for two distinct points of
+        // the feature graph, so one of the two creases starts somewhere its own chain never went.
+        // Measured on a union: the worst feature arc was a single straight edge with a chord sagitta of
+        // exactly zero, reporting 1.66e-2 of the diagonal because a plain neighbour had collapsed across
+        // it. § D4 makes a hard edge a chain of output edges by construction, and that is a claim about
+        // where the chain *starts* as much as about what runs along it.
+        var creased = new HashSet<int>();
+
+        for (var arc = 0; arc < arcs; arc++) {
+            if (layout.Arcs[arc].IsFeature) {
+                creased.Add(layout.Arcs[arc].Vertices[0]);
+                creased.Add(layout.Arcs[arc].Vertices[^1]);
+            }
         }
 
         for (var arc = 0; arc < arcs; arc++) {
@@ -154,18 +177,40 @@ static class Quantizer {
             // feature reproduction error went from 5.1e-5 to 5.1e-2 the moment the budget scaling
             // pushed a feature arc to nothing. § D4 makes a hard edge a chain of output edges by
             // construction, and a chain of no edges is not one.
-            lower[arc] = holdFeatures && layout.Arcs[arc].IsFeature ? 1 : 0;
+            lower[arc] = holdFeatures
+                && (layout.Arcs[arc].IsFeature
+                    || (creased.Contains(layout.Arcs[arc].Vertices[0])
+                        && creased.Contains(layout.Arcs[arc].Vertices[^1])))
+                ? 1
+                : 0;
         }
 
         var graph = Graph.Build(layout, arcs);
+
+        // ⚠ <b>The best answer seen so far, kept because a repair round can make the system
+        // unsolvable and used to take the whole result down with it.</b> Forcing a collapsed patch
+        // open raises a lower bound, and a lower bound that the consistency constraints cannot absorb
+        // turns a routing that <i>was</i> feasible into one that is not — measured on two of sixteen
+        // image-to-3D meshes, where round zero solved cleanly with eight collapsed patches out of 312
+        // and round one came back "could not be satisfied" and refused all 312.
+        int[]? best = null;
+        var collapsed = 0;
 
         for (var round = 0; round <= RepairRounds; round++) {
             var counts = Route(graph, targets, lower, mode, out var feasible);
 
             if (!feasible) {
-                warnings.Add("The consistency system could not be satisfied, so the layout was refused.");
+                if (best is null) {
+                    warnings.Add("The consistency system could not be satisfied, so the layout was refused.");
 
-                return new(counts, Energy(counts, targets), false, [.. warnings]);
+                    return new(counts, Energy(counts, targets), false, [.. warnings]);
+                }
+
+                warnings.Add(
+                    $"Forcing the collapsed patches open made the system unsolvable, so {collapsed} were left out."
+                );
+
+                return new(best, Energy(best, targets), true, [.. warnings]);
             }
 
             var forced = Collapsed(layout, counts, lower);
@@ -174,10 +219,22 @@ static class Quantizer {
                 return new(counts, Energy(counts, targets), true, [.. warnings]);
             }
 
-            if (round == RepairRounds) {
-                warnings.Add($"{forced} patches collapsed to nothing and could not be forced open.");
+            best = counts;
+            collapsed = forced;
 
-                return new(counts, Energy(counts, targets), false, [.. warnings]);
+            // ⚠ <b>A patch that will not open is a hole and not a refusal, and reading it as one cost
+            // every generated mesh in the corpus its remesh.</b> The counts here satisfy every
+            // consistency constraint — `Route` said so — so the arcs the rest of the partition shares
+            // with this patch are sound and its neighbours extract exactly as they would have.
+            // `PatchExtractor.Fill` already skips a patch whose side came out at zero and counts it in
+            // `patches were skipped`, which is the same answer `PatchLayout` gives a patch it can
+            // neither divide nor merge. Refusing the whole model over four patches out of 398 is the
+            // one thing docs/plan/41's robustness criterion is written against: "one such component
+            // must not cost the rest of the model its remesh".
+            if (round == RepairRounds) {
+                warnings.Add($"{forced} patches collapsed to nothing, could not be forced open and were left out.");
+
+                return new(counts, Energy(counts, targets), true, [.. warnings]);
             }
 
             warnings.Add($"{forced} patches quantized to zero in one direction and were forced open.");

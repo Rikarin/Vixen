@@ -98,6 +98,31 @@ dependency map bounds what the *rules* reach; inheritance bounds what a *changed
 no dependency map can see it. A `.selected` that sets `background` touches one element; the same
 highlight written with `color` touches the row and every cell, and that is correct.
 
+### `:empty` is not a child count
+
+CSS means "no child *nodes*", and in the DOM a run of text is a node — which is why a paragraph with
+words in it is not empty. Vixen hangs text off the element instead of giving it a node
+(`UiElement.Text`, and doc 09 records why), so the obvious translation is the wrong one: a `:empty`
+that counted children alone would match every label in the document.
+
+Both rules in this repository that wanted `:empty` make that concrete. `node-search-port:empty` and
+`node-port-lane:empty` are on leaves whose entire content is text — a search row's port name, a
+vector lane's letter — and both are written to hide the element *when there is nothing to say*.
+Counting children would have matched them always instead of never: the dead rule replaced by a
+backwards one, which is worse.
+
+So `StyleTree` carries a has-text bit beside the child count, `Vixen.Ui` sets it from
+`OnTextChanged`, and the matcher reads both. Whitespace counts as text, matching Selectors 3 and —
+more to the point — matching the `string.IsNullOrEmpty` test the layout tree already makes
+load-bearing for the same element, since two subsystems disagreeing about whether one label has text
+is a worse bug than either answer.
+
+Nothing is owed to the invalidator. A text change goes through `Document.Invalidate`, which is a cold
+pass, and so does every structural change; the incremental path only narrows class and state
+changes, and neither can move `:empty`. What *is* owed is the sharing key: `:empty` asks what an
+element holds and the key says only what it is, so it joins position and attribute selectors in
+turning sharing off for the sheet.
+
 ## Transitions and animations
 
 The cascade works on interned strings and is right to — deciding *which* declaration wins needs no
@@ -292,7 +317,8 @@ row rather than per grid: a hundred rows of a hundred cells cost 102 cascades ra
 Cheaper than being wrong.
 
 Sharing is also refused outright when any rule in the sheet matches on something the key cannot
-carry — a position pseudo-class, a sibling combinator, or an attribute selector. Coarser than a
+carry — a position pseudo-class, a sibling combinator, an attribute selector, or `:empty`, which
+asks what an element *holds* where the key says only what it *is*. Coarser than a
 browser, which decides per element, and deliberately so: the per-element version wants the
 invalidation machinery that is not written yet, and a sharing cache that is subtly wrong is far worse
 than no sharing cache.

@@ -76,7 +76,22 @@ public sealed record UvSettings {
     public float FeatureAngle { get; init; } = 40f;
 
     /// <summary>Whether face-group boundaries partition first, unconditionally.</summary>
-    /// <remarks>They do by default: a material boundary is somewhere the texture already changes.</remarks>
+    /// <remarks>
+    ///     <para>
+    ///         They do by default: a material boundary is somewhere the texture already changes, so a
+    ///         seam there costs nothing that has not already been paid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"Face group" means one somebody assigned, and the charter checks — this setting is
+    ///         read together with <see cref="EditMesh.GroupSource" /> and never on its own.</b> A mesh
+    ///         built by <see cref="EditMesh.FromTriangles" /> carries the coplanarity guess instead, and
+    ///         on any faceted surface that is one group per triangle: measured on a 25 439-triangle
+    ///         image-to-3D mesh, honouring it produced 24 197 charts, because the count was decided
+    ///         before charting began and every recursion and merge-back afterwards was working inside a
+    ///         single triangle. Turning this off is not the fix for that — it would also throw away the
+    ///         real material boundaries on the meshes that have them.
+    ///     </para>
+    /// </remarks>
     public bool KeepGroups { get; init; } = true;
 
     /// <summary>How many iterations the flattener's local–global loop runs, per chart.</summary>

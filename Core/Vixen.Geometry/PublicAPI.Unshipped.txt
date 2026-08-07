@@ -22,6 +22,8 @@ Vixen.Geometry.EditMesh.FaceCount.get -> int
 Vixen.Geometry.EditMesh.Faces.get -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.MeshFace>
 Vixen.Geometry.EditMesh.FacesAt(int position) -> System.ReadOnlySpan<int>
 Vixen.Geometry.EditMesh.FacesOf(int edge) -> System.ReadOnlySpan<int>
+Vixen.Geometry.EditMesh.GroupSource.get -> Vixen.Geometry.MeshGroupSource
+Vixen.Geometry.EditMesh.GroupSource.set -> Vixen.Geometry.MeshGroupSource
 Vixen.Geometry.EditMesh.IsEmpty.get -> bool
 Vixen.Geometry.EditMesh.MovePosition(int index, Vixen.Core.Mathematics.Vector3 position) -> void
 Vixen.Geometry.EditMesh.Normal(int face) -> Vixen.Core.Mathematics.Vector3
@@ -65,6 +67,10 @@ Vixen.Geometry.MeshFace.Smoothing.get -> int
 Vixen.Geometry.MeshFace.Smoothing.init -> int
 Vixen.Geometry.MeshFace.Start.get -> int
 Vixen.Geometry.MeshFace.Start.init -> int
+Vixen.Geometry.MeshGroupSource -> enum : int
+Vixen.Geometry.MeshGroupSource.Assigned = 1 -> Vixen.Geometry.MeshGroupSource
+Vixen.Geometry.MeshGroupSource.Coplanarity = 0 -> Vixen.Geometry.MeshGroupSource
+Vixen.Geometry.MeshGroupSource.MeshGroupSource() -> void
 Vixen.Geometry.MeshLoop -> readonly struct
 Vixen.Geometry.MeshLoop : System.IEquatable<Vixen.Geometry.MeshLoop>
 Vixen.Geometry.MeshLoop.Group.get -> int

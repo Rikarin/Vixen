@@ -961,7 +961,7 @@ public static class MeshOperations {
             return null;
         }
 
-        var taken = new EditMesh();
+        var taken = new EditMesh { GroupSource = mesh.GroupSource };
         var moved = new Dictionary<int, int>();
 
         foreach (var face in chosen) {
@@ -1016,6 +1016,12 @@ public static class MeshOperations {
             }
 
             made.Add(mesh.AddFace(loop, other.Faces[face].Group + shift, other.Faces[face].Smoothing));
+        }
+
+        // An assignment coming in makes the result an assignment: the appended faces' ids mean what
+        // they meant, and the ones already here still mean what they meant.
+        if (other.GroupSource is MeshGroupSource.Assigned) {
+            mesh.GroupSource = MeshGroupSource.Assigned;
         }
 
         return made;

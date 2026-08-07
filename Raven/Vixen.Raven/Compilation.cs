@@ -30,6 +30,7 @@ public sealed class Compilation {
     Binder? globalBinder;
     NamespaceSymbol? globalNamespace;
     MetadataLoader? metadata;
+    bool recursionChecked;
 
     readonly SortedSet<string> usedPermutationKeys = new(StringComparer.Ordinal);
 
@@ -258,6 +259,7 @@ public sealed class Compilation {
             all.AddRange(GetSemanticModel(tree).Diagnostics);
         }
 
+        ReportRecursion();
         all.AddRange(declarationDiagnostics.ToArray());
 
         return all
@@ -265,6 +267,34 @@ public sealed class Compilation {
             .ThenBy(d => d.Location.SourceSpan.Start)
             .ThenBy(d => d.Id, StringComparer.Ordinal)
             .ToArray();
+    }
+
+    /// <summary>Refuses a call graph with a cycle in it — <c>RVN2139</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Here rather than in <see cref="SemanticModel" />, because a call graph is the
+    ///         compilation's and not a file's.</b> Two structs in two files calling each other's
+    ///         methods is the same defect as one function calling itself, and a per-tree check would
+    ///         close the second and leave the first — through which the identical
+    ///         <c>spirv-val</c> refusal escapes. Every model is bound by the loop above, so by this
+    ///         point every body in the compilation exists.
+    ///     </para>
+    ///     <para>
+    ///         Guarded, because <see cref="GetDiagnostics" /> is a query a caller may run more than
+    ///         once and the bag it reports into is kept for the compilation's lifetime.
+    ///     </para>
+    /// </remarks>
+    void ReportRecursion() {
+        if (recursionChecked) {
+            return;
+        }
+
+        recursionChecked = true;
+
+        RecursionCheck.Report(
+            syntaxTrees.SelectMany(tree => GetSemanticModel(tree).GetBoundBodies()).ToArray(),
+            declarationDiagnostics
+        );
     }
 
     void EnsureDeclarations() {

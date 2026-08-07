@@ -29,10 +29,12 @@ public sealed partial class Panel : Control {
 /// <summary>A surface with an optional header and footer.</summary>
 /// <remarks>
 ///     ⚠ <b>The body exists from the start and the other two do not.</b> A card is nearly always
-///     just a body, and an empty header still costs its padding — there is no <c>:empty</c> in the
-///     selector language, so a theme cannot collapse one it was given. Asking for
-///     <see cref="Header" /> is what creates it, which makes "has a header" and "was given a header"
-///     the same fact.
+///     just a body, and an empty header still costs its padding. Asking for <see cref="Header" /> is
+///     what creates it, which makes "has a header" and "was given a header" the same fact — so a
+///     theme does not have to notice the difference. It now <i>can</i>: <c>:empty</c> is in the
+///     selector language, and <c>card-header:empty { display: none }</c> collapses one that was
+///     asked for and then never filled. This class does not write that rule, because creating a part
+///     and leaving it bare is a caller's mistake rather than a state to style around.
 /// </remarks>
 public sealed partial class Card : Control {
     UiElement? header;

@@ -4,7 +4,7 @@ slug: engine/edit-meshes
 kind: guide
 area: Engine
 summary: Faces over shared positions, an edge table that reports rather than refuses, and face groups.
-api: [T:Vixen.Geometry.EditMesh, T:Vixen.Geometry.MeshFace, T:Vixen.Geometry.MeshEdge, T:Vixen.Geometry.MeshReport, T:Vixen.Geometry.MeshTopology, T:Vixen.Geometry.MeshSelection, T:Vixen.Geometry.MeshElementKind]
+api: [T:Vixen.Geometry.EditMesh, T:Vixen.Geometry.MeshFace, T:Vixen.Geometry.MeshGroupSource, T:Vixen.Geometry.MeshEdge, T:Vixen.Geometry.MeshReport, T:Vixen.Geometry.MeshTopology, T:Vixen.Geometry.MeshSelection, T:Vixen.Geometry.MeshElementKind]
 tags: [geometry, mesh, blockout, modelling]
 since: 0.1
 status: preview
@@ -73,6 +73,19 @@ afterwards.
 walls facing the same way are two groups because no edge joins them. A boolean returns triangles, and
 a face that was one wall before the cut has to still be one wall afterwards or the next extrude acts
 on a sliver.
+
+**`GroupSource` says where those ids came from, and two stages of the content pipeline need to
+know.** `MeshGroupSource.Coplanarity` is the guess `Regroup` — and therefore `FromTriangles` — makes
+about shape. `MeshGroupSource.Assigned` is a statement somebody made: `SetGroup`, a shape out of
+`MeshShapes`, or a reader carrying a file's declared material across.
+
+⚠ **A retopology reads a group boundary as a crease and an unwrap makes it a chart boundary, and
+both are only right for `Assigned`.** On a faceted surface — anything out of a generator, a sculpt or
+a marching-cubes extraction — hardly any two neighbouring triangles are within half a degree of
+coplanar, so the coplanarity guess is close to one group per triangle. Measured on a 25 439-triangle
+image-to-3D mesh, read as material that gave 24 197 charts and a patch layout that refused outright.
+Both stages check `GroupSource` before they read a boundary; a mesh you build face by face and mean
+the groups on should say so.
 
 ## Examples
 

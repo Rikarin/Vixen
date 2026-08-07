@@ -87,6 +87,35 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(100f, tree.GetWidth(child), Tolerance);
     }
 
+    [Theory]
+    [InlineData(Overflow.Hidden, Overflow.Visible, 100f)]
+    [InlineData(Overflow.Visible, Overflow.Hidden, 300f)]
+    [InlineData(Overflow.Visible, Overflow.Scroll, 300f)]
+    public void The_opt_out_is_the_main_axis_s_own_overflow(Overflow horizontal, Overflow vertical, float expected) {
+        // ⚠ §4.5's escape hatch is per axis in the specification — "overflow other than visible in
+        // the main axis" — and the container here is a row, so only `overflow-x` can open it. An item
+        // that clips what hangs *below* it has said nothing about being squeezed sideways, and a
+        // reading that collapsed the two would silently drop the floor from every panel in the editor
+        // that scrolls vertically.
+        using var tree = new LayoutTree();
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(100f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(50f));
+
+        var child = tree.CreateNode();
+        tree.SetFlexShrink(child, 1f);
+        tree.SetFlexBasis(child, StyleLength.Points(300f));
+        tree.SetOverflow(child, horizontal, vertical);
+        tree.SetContext(child, 300f);
+        tree.SetMeasureFunction(child, MeasureFixedContent);
+        tree.AddChild(root, child);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(expected, tree.GetWidth(child), Tolerance);
+    }
+
     [Fact]
     public void The_floor_never_exceeds_what_the_item_asked_for() {
         // The floor is min(content, specified): an item with a 150-point width does not get a

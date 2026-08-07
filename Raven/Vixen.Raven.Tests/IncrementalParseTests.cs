@@ -192,6 +192,16 @@ public class IncrementalParseTests {
     ///         whitespace between them belonging to the next token's trivia. So the reuse gate has to
     ///         look past the node it is judging.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the fourth is how far past.</b> The gate skipped whitespace and stopped at the
+    ///         first character that was not, so a <i>comment</i> sitting between the member and the
+    ///         offending token ended the window early and the member looked clean again — the same
+    ///         defect as the second, surviving its fix in the one shape that fix did not cover. It
+    ///         walks the lexer's trivia now rather than <c>char.IsWhiteSpace</c>. Found by
+    ///         <c>Vixen.Fuzz</c>'s <c>raven</c> target on a mutant with a block comment inside a field
+    ///         declaration, reported as thirty-eight diagnostics against a full parse's thirty-nine;
+    ///         its input is <c>Corpus/raven/1ceee2894c870b9f.bin</c>.
+    ///     </para>
     /// </remarks>
     [Theory]
     // A member that is itself broken, with the edit in a later one that is not.
@@ -202,6 +212,15 @@ public class IncrementalParseTests {
     // A broken member inside a shader, so the candidate walk reaches it by nesting rather than at
     // the top level.
     [InlineData("package A.B\n\nshader S {\n    func F(): int {\n        return @@@\n    }\n}\n\nstruct T {\n    var EDIT: float\n}\n")]
+    // A comment between a member and the token its missing terminator is reported at. The field ends
+    // after `float`; `/* c */` is the next token's leading trivia and `tp` is where the parser stands,
+    // so a window that skips whitespace only stops eight characters short of the diagnostic.
+    [InlineData("package A.B\n\nstruct A {\n    var x: float/* c */tp\n}\n\nstruct B {\n    var EDIT: float\n}\n")]
+    // The same shape one level out: two declarations on one line with a comment between them, so the
+    // first one's missing terminator is reported at `struct` and the comment is what the old window
+    // stopped at. A line comment cannot produce this — nothing follows one on its line — which is why
+    // both rows use a block comment.
+    [InlineData("package A.B\n\nstruct A {\n}/* c */struct B {\n}\n\nstruct C {\n    var EDIT: float\n}\n")]
     public void Errors_in_untouched_members_survive_a_reparse(string source) {
         var oldTree = Parse(source);
 

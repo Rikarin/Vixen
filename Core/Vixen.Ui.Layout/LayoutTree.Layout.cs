@@ -631,13 +631,17 @@ public sealed partial class LayoutTree {
         results[index].MeasuredDimensions[(int) Dimension.Height] =
             BoundAxis(index, FlexDirection.Column, direction, availableHeight - marginAxisColumn, ownerHeight, ownerWidth);
 
-        var overflow = styles[index].Overflow;
+        // ⚠ One reading per axis. A scroll container's fit-content size is the room it was offered
+        // rather than the room its content wants — that is what stops a list of two hundred rows from
+        // making its own panel two hundred rows tall — and it is true only of the axis that scrolls.
+        var mainOverflow = OverflowOn(index, FlexAxis.DimensionOf(mainAxis));
+        var crossOverflow = OverflowOn(index, FlexAxis.DimensionOf(crossAxis));
 
         if (sizingModeMainDim == SizingMode.MaxContent
-            || (overflow != Overflow.Scroll && sizingModeMainDim == SizingMode.FitContent)) {
+            || (mainOverflow != Overflow.Scroll && sizingModeMainDim == SizingMode.FitContent)) {
             results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)] =
                 BoundAxis(index, mainAxis, direction, maxLineMainDim, mainAxisOwnerSize, ownerWidth);
-        } else if (sizingModeMainDim == SizingMode.FitContent && overflow == Overflow.Scroll) {
+        } else if (sizingModeMainDim == SizingMode.FitContent && mainOverflow == Overflow.Scroll) {
             results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)] = MathF.Max(
                 MathF.Min(
                     availableInnerMainDim + paddingAndBorderAxisMain,
@@ -648,7 +652,7 @@ public sealed partial class LayoutTree {
         }
 
         if (sizingModeCrossDim == SizingMode.MaxContent
-            || (overflow != Overflow.Scroll && sizingModeCrossDim == SizingMode.FitContent)) {
+            || (crossOverflow != Overflow.Scroll && sizingModeCrossDim == SizingMode.FitContent)) {
             results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(crossAxis)] = BoundAxis(
                 index,
                 crossAxis,
@@ -657,7 +661,7 @@ public sealed partial class LayoutTree {
                 crossAxisOwnerSize,
                 ownerWidth
             );
-        } else if (sizingModeCrossDim == SizingMode.FitContent && overflow == Overflow.Scroll) {
+        } else if (sizingModeCrossDim == SizingMode.FitContent && crossOverflow == Overflow.Scroll) {
             results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(crossAxis)] = MathF.Max(
                 MathF.Min(
                     availableInnerCrossDim + paddingAndBorderAxisCross,

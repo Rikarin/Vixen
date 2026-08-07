@@ -28,6 +28,19 @@ public class ViewTests : IDisposable {
 
     NodeGraphView View => fixture.View;
 
+    /// <summary>Every rule in the three sheets this editor loads compiles.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A selector Vixen cannot compile is dropped, and dropping is silent to everything but
+    ///     this list.</b> <c>node-search-port:empty</c> sat in the node graph's theme for as long as
+    ///     the theme existed, matching nothing, hiding nothing, and telling no one — and the way it
+    ///     eventually surfaced was not the port it failed to hide but hot reload, which used to roll
+    ///     a sheet back on any diagnostic and so let one dead rule veto every reload in the editor.
+    ///     Asserting the list is empty is the cheap version of noticing.
+    /// </remarks>
+    [Fact]
+    public void Every_selector_in_the_themes_this_editor_loads_compiles() =>
+        Assert.Empty(fixture.Ui.Styles.Compiler.Diagnostics);
+
     [Fact]
     public void A_node_is_drawn_with_the_ports_its_type_declares() {
         var node = graph.Add("Test/Combine", new(60f, 60f));
