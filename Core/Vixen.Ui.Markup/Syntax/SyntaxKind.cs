@@ -34,6 +34,9 @@ public enum SyntaxKind : ushort {
     /// <summary><c>@tag element-name</c>.</summary>
     TagDirective,
 
+    /// <summary><c>@inherits Some.Base</c>.</summary>
+    InheritsDirective,
+
     /// <summary><c>@code { … }</c>.</summary>
     CodeBlock,
 
@@ -95,6 +98,9 @@ public enum SyntaxKind : ushort {
 
     /// <summary><c>@tag</c>.</summary>
     TagKeyword,
+
+    /// <summary><c>@inherits</c>.</summary>
+    InheritsKeyword,
 
     /// <summary><c>@code</c>.</summary>
     CodeKeyword,

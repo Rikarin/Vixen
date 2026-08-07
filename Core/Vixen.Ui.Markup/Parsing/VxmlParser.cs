@@ -257,13 +257,15 @@ sealed class VxmlParser : SyntaxParser {
 
         var seenNamespace = false;
         var seenTag = false;
+        var seenInherits = false;
 
         // ⚠ `@namespace`, `@tag` and `@using` interleave freely, because there is no reason for them
         // not to and a header order nobody can remember is a diagnostic nobody wants. A *second*
         // `@namespace` or `@tag` stops the loop rather than replacing the first, so it falls through
         // to the content parser and gets the same "unexpected" diagnostic every other stray
         // directive does — and, like them, survives in the tree as trivia.
-        while (At(VxmlTokenKind.UsingKeyword) || At(VxmlTokenKind.NamespaceKeyword) || At(VxmlTokenKind.TagKeyword)) {
+        while (At(VxmlTokenKind.UsingKeyword) || At(VxmlTokenKind.NamespaceKeyword) || At(VxmlTokenKind.TagKeyword)
+               || At(VxmlTokenKind.InheritsKeyword)) {
             if (At(VxmlTokenKind.NamespaceKeyword)) {
                 if (seenNamespace) {
                     break;
@@ -281,6 +283,16 @@ sealed class VxmlParser : SyntaxParser {
 
                 seenTag = true;
                 directives.Add(ParseTagDirective());
+                continue;
+            }
+
+            if (At(VxmlTokenKind.InheritsKeyword)) {
+                if (seenInherits) {
+                    break;
+                }
+
+                seenInherits = true;
+                directives.Add(ParseInheritsDirective());
                 continue;
             }
 
@@ -329,6 +341,12 @@ sealed class VxmlParser : SyntaxParser {
         var keyword = Take(SyntaxKind.TagKeyword);
         var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
         return SyntaxFactory.TagDirective(keyword, name);
+    }
+
+    InheritsDirectiveSyntax ParseInheritsDirective() {
+        var keyword = Take(SyntaxKind.InheritsKeyword);
+        var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
+        return SyntaxFactory.InheritsDirective(keyword, name);
     }
 
     // ================================================================== Content

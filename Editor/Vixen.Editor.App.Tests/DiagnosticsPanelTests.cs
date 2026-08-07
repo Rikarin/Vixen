@@ -215,10 +215,16 @@ public class DiagnosticsPanelTests {
     /// <remarks>
     ///     ⚠ <b>A second finder rather than a wider one, because a component is not in the element
     ///     tree at all.</b> Doc 36 § F7's first wave made the memory and statistics panels markup, and
-    ///     the markup compiler's base type is <c>Component</c> — it builds elements and is not one, so
+    ///     a markup <c>Component</c> builds elements without being one, so
     ///     <c>Descendants(…).OfType&lt;T&gt;()</c> cannot see it however the constraint is relaxed.
     ///     What links the two is <see cref="UiDocument.ComponentAt" />: every component registers
     ///     itself against the host element it drew into, which is the element the walk *does* find.
+    ///
+    ///     ⚠ And this is the cost <c>@inherits</c> exists to avoid, kept rather than removed. Wave 1b
+    ///     ported two panels whose callers hold them as elements, and neither this finder nor any
+    ///     assertion in <c>Vixen.Editor.AssetEditors.Tests</c> had to change for them. These two
+    ///     panels have no public parts, so <c>Component</c> is still the right base and this is still
+    ///     how a test reaches one.
     /// </remarks>
     static T Built<T>(EditorSession session, string panel) where T : Component {
         session.Open(panel);

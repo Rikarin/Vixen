@@ -127,6 +127,30 @@ sealed class Region {
         slots.Clear();
     }
 
+    /// <summary>Stops everything this region subscribed, and leaves its elements alone.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Clear" /> without the removal, for the one caller whose elements are
+    ///     already going.</b> A markup-authored <see cref="UiElement" /> disposes its composition from
+    ///     <c>OnRemoved</c>, which the document raises <i>while</i> it is taking the subtree out — so
+    ///     the elements below it need no removing, and removing them anyway would mean a nested
+    ///     <c>Document.Remove</c> per element inside the walk that is already removing them. What does
+    ///     have to stop is the effects: an effect outliving its element keeps assigning to it and
+    ///     keeps it alive through its closure, which is the whole reason regions track subscriptions.
+    /// </remarks>
+    internal void Stop() {
+        foreach (var subscription in subscriptions) {
+            subscription.Dispose();
+        }
+
+        subscriptions.Clear();
+
+        foreach (var slot in slots) {
+            if (slot is Region region) {
+                region.Stop();
+            }
+        }
+    }
+
     /// <summary>Moves this region's contents into its place among its siblings.</summary>
     /// <remarks>
     ///     Building appends, so a rebuilt region's elements arrive at the end of the parent. Moving

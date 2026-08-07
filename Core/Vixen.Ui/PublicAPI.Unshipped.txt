@@ -37,7 +37,7 @@ Vixen.Ui.Composition.BuildContext.Mount.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.On(Vixen.Ui.UiElement target, string name, System.Action handler, params string[] modifiers) -> void
 Vixen.Ui.Composition.BuildContext.On<TEvent>(Vixen.Ui.UiElement target, string name, System.Action<TEvent> handler, params string[] modifiers) -> void
 Vixen.Ui.Composition.BuildContext.Rebuild(Vixen.Ui.Composition.Component component) -> void
-Vixen.Ui.Composition.BuildContext.Slot(Vixen.Ui.UiElement? parent, string name) -> void
+Vixen.Ui.Composition.BuildContext.Slot(Vixen.Ui.UiElement? parent, string name) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.Switch(Vixen.Ui.UiElement? parent, System.Func<int> arm, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, int> build) -> void
 Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, System.Func<object?> text) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, string text) -> Vixen.Ui.UiElement
@@ -912,6 +912,7 @@ static Vixen.Ui.BoxStyle.Rounded(Vixen.Ui.CornerRadii corners) -> Vixen.Ui.BoxSt
 static Vixen.Ui.BoxStyle.Vertical(Vixen.Core.Mathematics.Color4 end, Vixen.Ui.CornerRadii corners = default(Vixen.Ui.CornerRadii)) -> Vixen.Ui.BoxStyle
 static Vixen.Ui.Composition.BuildContext.Build<T>(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> T
 static Vixen.Ui.Composition.BuildContext.BuildInto(Vixen.Ui.Composition.Component component, Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> Vixen.Ui.Composition.BuildContext
+static Vixen.Ui.Composition.BuildContext.Compose(Vixen.Ui.UiElement host, System.Action<Vixen.Ui.Composition.BuildContext> build, string? scope = null) -> System.IDisposable
 static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement

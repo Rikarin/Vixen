@@ -101,6 +101,17 @@ public sealed class BuildContext {
     /// <summary>The component whose <c>Build</c> is running, so a <c>&lt;slot&gt;</c> knows whose it is.</summary>
     Component? owner;
 
+    /// <summary>The scope class of a markup-authored element, when this context is composing one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="owner" /> rather than inside it, because the other thing markup
+    ///     compiles to is not a <see cref="Component" />.</b> A <c>.vxml</c> with <c>@inherits</c>
+    ///     produces a <see cref="UiElement" />, which has no <c>Scope</c> to ask for — and the
+    ///     alternative, an interface both implement, would put two internal members of
+    ///     <see cref="Component" /> on the public surface to say something a nullable string already
+    ///     says. <see cref="Element" /> reads whichever of the two is set; they are never both.
+    /// </remarks>
+    string? scope;
+
     BuildContext(UiDocument document, UiElement mount) {
         Document = document;
         Mount = mount;
@@ -155,6 +166,82 @@ public sealed class BuildContext {
         var context = new BuildContext(document, mount);
         context.Adopt(component, mount);
         return context;
+    }
+
+    /// <summary>Builds a markup-authored element's own tree into itself.</summary>
+    /// <param name="host">The element, which is both the owner of the build and its anchor.</param>
+    /// <param name="build">Its <c>Build</c> body, as the emitter wrote it.</param>
+    /// <param name="scope">
+    ///     The class its scoped stylesheet welds onto every selector, or null when it declared none.
+    /// </param>
+    /// <returns>
+    ///     What stops it. The caller — generated code, in <c>OnRemoved</c> — disposes it when the
+    ///     element leaves the tree.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole of what a <c>@inherits</c> component needs from the runtime, and it is
+    ///         deliberately one method.</b> A <c>.vxml</c> whose class is a <see cref="UiElement" />
+    ///         gets the <i>same</i> <see cref="BuildContext" /> a <see cref="Component" /> does, so it
+    ///         gets the same <see cref="Bind(System.Action)" />, the same <see cref="Switch" />, the
+    ///         same keyed <see cref="For{T}" /> reconciliation and the same region discipline. That
+    ///         equality is the point: a second, weaker way to build a tree from markup would make the
+    ///         markup a worse way to write the imperative code it replaced.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called from <c>OnCreated</c>, which is why the element is already in a
+    ///         document.</b> <c>UiDocument.Adopt</c> binds, attaches and then calls the hook,
+    ///         in that order and for this reason — a part added to an unattached parent would be laid
+    ///         out relative to nothing. So <c>host.Document</c> is answerable here and the anchor is
+    ///         the element itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Disposal stops the effects and does not remove the elements.</b> The one caller
+    ///         disposes from <c>OnRemoved</c>, which the document raises top-down <i>before</i> it
+    ///         detaches anything — so the subtree is already going, and removing it again from inside
+    ///         the walk that is removing it would be a nested <c>Document.Remove</c> per element. See
+    ///         <c>Region.Stop</c>.
+    ///     </para>
+    /// </remarks>
+    public static IDisposable Compose(UiElement host, Action<BuildContext> build, string? scope = null) {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(build);
+
+        var context = new BuildContext(host.Document, host) { scope = scope };
+
+        // ⚠ Before the build, exactly as `Component.Mount` does it and for the same reason: `Element`
+        // reads the scope for every element the body makes, and a class added afterwards would leave
+        // the element's own children unscoped for the first pass — which is not a race, it is simply
+        // wrong, because nothing goes back over them.
+        if (scope is { } named) {
+            host.AddClass(named);
+        }
+
+        build(context);
+        return new Unsubscribe(context.StopEverything);
+    }
+
+    /// <summary>Stops every subscription this context made, wherever it hung it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every region and not the host's, because a region hangs off the element its content
+    ///     has as a <i>parent</i>.</b> An <c>@for</c> written inside a nested <c>&lt;div&gt;</c> opens
+    ///     its region against that div — see <see cref="Open" /> — so the host's region tree does not
+    ///     contain it, and walking only that stopped the loop from reconciling while leaving every
+    ///     row's own bindings running against removed elements. Caught by
+    ///     <c>An_inherits_component_stops_the_effects_inside_its_loops_too</c>, which was written
+    ///     because "the host's region covers it" was an assumption rather than a fact.
+    ///
+    ///     ⚠ <b>Sound here only because a composed element owns its whole context.</b>
+    ///     <see cref="Compose" /> makes one per element, so every region in this dictionary belongs
+    ///     to that element. A <see cref="Component" /> shares the document's context with its
+    ///     siblings and cannot do this — which is why <see cref="Unmount" /> takes the host's region
+    ///     and lives with the same gap.
+    /// </remarks>
+    void StopEverything() {
+        foreach (var region in regions.Values) {
+            region.Stop();
+        }
     }
 
     void Adopt(Component component, UiElement parent) {
@@ -223,12 +310,21 @@ public sealed class BuildContext {
         // into one of its slots was created while building the caller and does not get it. That
         // distinction is the whole feature, and it falls out of `owner` rather than being decided
         // here.
-        if (owner?.Scope is { } scope) {
-            element.AddClass(scope);
+        if (Scope is { } named) {
+            element.AddClass(named);
         }
 
         return element;
     }
+
+    /// <summary>The scope class the elements being built carry, or null when they are not scoped.</summary>
+    /// <remarks>
+    ///     The running <see cref="Component" />'s, or the markup-authored element's when the context
+    ///     is composing one. Never both: <see cref="Child{T}" /> saves and restores
+    ///     <see cref="owner" /> around a nested component, and a composed element gets a context of
+    ///     its own.
+    /// </remarks>
+    string? Scope => owner is { } running ? running.Scope : scope;
 
     /// <summary>Creates whatever a capitalised tag named, and builds it if it is a component.</summary>
     /// <typeparam name="T">The component type or the element type.</typeparam>
@@ -270,7 +366,7 @@ public sealed class BuildContext {
                 Document.Adopt(element, null, target);
                 RegionOf(target).Add(element);
 
-                if (owner?.Scope is { } elementScope) {
+                if (Scope is { } elementScope) {
                     element.AddClass(elementScope);
                 }
 
@@ -595,9 +691,23 @@ public sealed class BuildContext {
     /// <summary>Declares where a caller's children go.</summary>
     /// <param name="parent">Its parent, or null for the mount point.</param>
     /// <param name="name">The slot's name.</param>
-    public void Slot(UiElement? parent, string name) {
+    /// <returns>The slot element, for a caller that has to route its own content into it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>It returns the element because a <c>@inherits</c> component has no
+    ///     <see cref="Component.Slots" /> to be declared into.</b> A <see cref="Component" /> is
+    ///     handed its content by <see cref="Inner(Component)" />, which reads the dictionary
+    ///     <see cref="Component.Declare" /> fills; a <see cref="UiElement" /> answers the same
+    ///     question with <see cref="UiElement.ContentHost" />, which is a property it overrides — so
+    ///     generated code takes the element back and returns it from there. One call site does the
+    ///     declaring either way, which is why this is a return value rather than a second method.
+    /// </remarks>
+    public UiElement Slot(UiElement? parent, string name) {
         ArgumentNullException.ThrowIfNull(name);
-        owner?.Declare(name, Element(parent, "slot"));
+
+        var slot = Element(parent, "slot");
+        owner?.Declare(name, slot);
+
+        return slot;
     }
 
     // ================================================================== Control flow

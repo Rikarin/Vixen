@@ -391,8 +391,14 @@ public class EmitterTests {
     static object Property(object instance, string name) =>
         instance.GetType().GetProperty(name)!.GetValue(instance)!;
 
-    /// <summary>Emits, compiles, loads and builds — the whole pipeline, end to end.</summary>
-    static (Component Component, object Instance, UiDocument Document) Run(string source) {
+    /// <summary>A property or a field, because markup puts <c>ref</c> targets in both.</summary>
+    static object? Member(object instance, string name) =>
+        instance.GetType().GetProperty(name) is { } property
+            ? property.GetValue(instance)
+            : instance.GetType().GetField(name)!.GetValue(instance);
+
+    /// <summary>Emits, compiles and loads one generated type.</summary>
+    static Type Load(string source, string name) {
         var compilation = Compile(Emit(source));
         Assert.Empty(Errors(compilation));
 
@@ -400,7 +406,12 @@ public class EmitterTests {
         var result = compilation.Emit(image);
         Assert.True(result.Success);
 
-        var type = Assembly.Load(image.ToArray()).GetType("Greeter")!;
+        return Assembly.Load(image.ToArray()).GetType(name)!;
+    }
+
+    /// <summary>Emits, compiles, loads and builds — the whole pipeline, end to end.</summary>
+    static (Component Component, object Instance, UiDocument Document) Run(string source) {
+        var type = Load(source, "Greeter");
         var document = new UiDocument(400f, 400f);
 
         var built = typeof(BuildContext)
@@ -411,7 +422,593 @@ public class EmitterTests {
         return ((Component)built, built, document);
     }
 
+    // ================================================================== The @for key rule
+
+    /// <summary>
+    ///     One component, two keys. <c>Stable</c> keys each row on a field that does not change and
+    ///     <c>Whole</c> keys it on the record, which for immutable data is its value.
+    /// </summary>
+    const string Rows = """
+                        @component Greeter
+                        @using Vixen.Ui.Reactive
+
+                        @code {
+                            public record struct Row(string Label, int Count);
+                            public Signal<Row[]> Items { get; } = new([]);
+                        }
+
+                        <stable>
+                            @for (var row in Items.Value) {
+                                <li key="@(row.Label, 0)">@row.Count</li>
+                            }
+                        </stable>
+
+                        <whole>
+                            @for (var row in Items.Value) {
+                                <li key="@row">@row.Count</li>
+                            }
+                        </whole>
+                        """;
+
+    /// <summary>
+    ///     ⚠ <b>The sabotage: a row keyed on a stable field of immutable data shows the first
+    ///     reading for ever.</b> <c>BuildContext.For</c> matches the key, <i>reuses the region and
+    ///     does not re-run the body</i> — so every per-item binding stays closed over the item as it
+    ///     was when that key first appeared. Which is the exact opposite of what <c>VXML2004</c>
+    ///     teaches a reader: it warns against keying on the index, from which the natural conclusion
+    ///     is that any stable field is safe.
+    /// </summary>
+    /// <remarks>
+    ///     The stable key is written as a tuple so that <c>VXML2011</c> does not fire on the half of
+    ///     this test that is deliberately wrong — the warning's job is to stop a reader writing
+    ///     <c>key="@row.Label"</c>, and its job here would be to stop the test being written at all.
+    /// </remarks>
+    [Fact]
+    public void A_row_keyed_on_a_stable_field_of_immutable_data_freezes_at_the_first_reading() {
+        var (component, instance, document) = Run(Rows);
+
+        using var owned = document;
+        var stable = component.Root.Children[0];
+        var whole = component.Root.Children[1];
+        var items = instance.GetType().GetProperty("Items")!;
+        var row = instance.GetType().GetNestedType("Row")!;
+
+        void Show(int count) {
+            var array = Array.CreateInstance(row, 1);
+            array.SetValue(Activator.CreateInstance(row, "cpu", count), 0);
+
+            items.GetValue(instance)!.GetType().GetProperty("Value")!.SetValue(items.GetValue(instance), array);
+            document.Effects.Flush();
+        }
+
+        Show(1);
+        Assert.Equal(["1"], stable.Children.Select(Text));
+        Assert.Equal(["1"], whole.Children.Select(Text));
+
+        Show(2);
+
+        // The key survived, so the region did, so the body never ran again.
+        Assert.Equal(["1"], stable.Children.Select(Text));
+        Assert.Equal(["2"], whole.Children.Select(Text));
+    }
+
+    // ================================================================== @inherits
+
+    /// <summary>
+    ///     A <c>.vxml</c> that names a base, and the whole point of it: the class is a
+    ///     <see cref="UiElement" />, so a caller adds it with <c>Add&lt;T&gt;</c>, holds it as its own
+    ///     type and finds it by walking the tree — none of which a <see cref="Component" /> can be
+    ///     made to do, because a component is not in the tree at all.
+    /// </summary>
+    const string Meter = """
+                         @component Meter
+                         @inherits Panel
+                         @tag meter
+                         @using Vixen.Ui.Reactive
+
+                         @code {
+                             public Signal<int> Count { get; } = new(0);
+                             public Signal<string[]> Items { get; } = new([]);
+                             public Vixen.Ui.UiElement Body = null!;
+                             public int Composed;
+                             public int Runs;
+
+                             // Counted rather than inferred: an effect that outlives its element is
+                             // only visible as an effect that *ran*, and the element it would have
+                             // written to may not complain.
+                             public int Read() { Runs++; return Count.Value; }
+
+                             // The same, from inside a loop body — whose effects are tracked on a
+                             // region opened against the *nested* element the loop is in, not on the
+                             // host's. Whether disposal reaches those is a different question.
+                             // Reads `Count` so the effect depends on it, and returns the item alone
+                             // so the row's text stays the item — the reconciliation test above
+                             // identifies rows by it.
+                             public int RowRuns;
+                             public string Row(string item) { RowRuns++; _ = Count.Value; return item; }
+
+                             partial void OnComposed() => Composed++;
+                         }
+
+                         <meter-body ref="@Body">
+                             <span>Count: @Read()</span>
+
+                             @if (Count.Value > 0) {
+                                 <em>positive</em>
+                             }
+
+                             @for (var item in Items.Value) {
+                                 <li key="@item">@Row(item)</li>
+                             }
+                         </meter-body>
+                         """;
+
+    [Fact]
+    public void An_inherits_component_is_an_element_a_caller_can_add_and_find() {
+        using var document = new UiDocument(400f, 400f);
+        var meter = Add(document, Meter);
+
+        // The three things a component could not do, in order: it is a `UiElement`; `Add<T>` made
+        // it, so its own type is what the caller holds; and a walk of the tree reaches it.
+        Assert.IsAssignableFrom<UiElement>(meter);
+        Assert.Equal("meter", ((UiElement)meter).Tag);
+        Assert.Same(meter, Descendants(document.Root).Single(child => child.Tag == "meter"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The claim the choice of <c>@inherits</c> over a wider <c>Descendants</c> rests
+    ///     on.</b> An element-flavoured class gets the <i>same</i> <c>BuildContext</c>, so it gets
+    ///     the same effects, the same <c>@if</c> primitive and the same keyed <c>@for</c>
+    ///     reconciliation. If any of that were weaker the markup would be a worse way to write the
+    ///     imperative code it replaced.
+    /// </summary>
+    [Fact]
+    public void An_inherits_component_gets_every_reactive_property_a_component_does() {
+        using var document = new UiDocument(400f, 400f);
+        var meter = Add(document, Meter);
+        var body = (UiElement)Member(meter, "Body")!;
+
+        document.Effects.Flush();
+        Assert.Equal(["Count: ", "0"], body.Children[0].Children.Select(child => child.Text));
+
+        ((Signal<int>)Property(meter, "Count")).Value = 3;
+        document.Effects.Flush();
+
+        Assert.Equal(["Count: ", "3"], body.Children[0].Children.Select(child => child.Text));
+        Assert.Equal(["span", "em"], body.Children.Select(child => child.Tag));
+
+        var items = (Signal<string[]>)Property(meter, "Items");
+        items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        var b = body.Children.Single(child => child.Tag == "li" && Text(child) == "b");
+
+        items.Value = ["b", "a"];
+        document.Effects.Flush();
+
+        // Keyed reconciliation, which is the one thing an imperative rebuild cannot do by accident.
+        Assert.Same(b, body.Children.Single(child => child.Tag == "li" && Text(child) == "b"));
+        Assert.Equal(["b", "a"], body.Children.Where(child => child.Tag == "li").Select(Text));
+    }
+
+    /// <summary>
+    ///     An effect that outlived its element would keep assigning to it and keep it alive through
+    ///     its closure. A component's are disposed by the region its host hangs from; an element's
+    ///     have no such region above them, so the generated <c>OnRemoved</c> stops them.
+    /// </summary>
+    [Fact]
+    public void An_inherits_component_stops_its_effects_when_it_leaves_the_tree() {
+        using var document = new UiDocument(400f, 400f);
+        var meter = Add(document, Meter);
+        var body = (UiElement)Member(meter, "Body")!;
+
+        // A write the effect does see, so that the count below is a difference rather than a zero.
+        ((Signal<int>)Property(meter, "Count")).Value = 1;
+        document.Effects.Flush();
+
+        var ran = (int)Member(meter, "Runs")!;
+        Assert.True(ran > 0);
+
+        ((UiElement)meter).Remove();
+
+        // The base's own hook still ran, so the generated override chained rather than replaced it.
+        Assert.Equal(1, (int)Member(meter, "Removals")!);
+        Assert.True(body.IsRemoved);
+
+        // ⚠ Counted, not inferred from an exception. The first version of this test wrote the signal
+        // and asserted that flushing did not throw — which passed with the disposal deleted, because
+        // assigning `Text` to a removed element happens not to complain. What an undisposed effect
+        // actually does is *run*, holding its elements alive through its closure, so that is what is
+        // measured.
+        ((Signal<int>)Property(meter, "Count")).Value = 9;
+        document.Effects.Flush();
+
+        Assert.Equal(ran, (int)Member(meter, "Runs")!);
+    }
+
+    /// <summary>
+    ///     And the effects inside an <c>@for</c> body, which are tracked somewhere else entirely.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A loop's per-item effects hang off the region of the element the loop is
+    ///     <i>in</i>, not off the host's</b> — <c>BuildContext.Open</c> takes the parent it was given
+    ///     — so a disposal that only walked the host's region would stop the loop from reconciling
+    ///     and leave every row's bindings running against removed elements. That is the shape of leak
+    ///     regions exist to prevent, and it is worth an assertion of its own rather than an
+    ///     assumption that one region tree covers the other.
+    /// </remarks>
+    [Fact]
+    public void An_inherits_component_stops_the_effects_inside_its_loops_too() {
+        using var document = new UiDocument(400f, 400f);
+        var meter = Add(document, Meter);
+
+        ((Signal<string[]>)Property(meter, "Items")).Value = ["a", "b"];
+        ((Signal<int>)Property(meter, "Count")).Value = 1;
+        document.Effects.Flush();
+
+        var ran = (int)Member(meter, "RowRuns")!;
+        Assert.True(ran >= 2);
+
+        ((UiElement)meter).Remove();
+
+        ((Signal<int>)Property(meter, "Count")).Value = 9;
+        document.Effects.Flush();
+
+        Assert.Equal(ran, (int)Member(meter, "RowRuns")!);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the <c>Component</c> flavour has the gap the one above closes.</b> Pinned rather
+    ///     than fixed: <c>BuildContext.Unmount</c> clears the host's region, and a component shares
+    ///     the document's context with every other component in it — so it cannot stop "every region
+    ///     I made", because it did not make them alone. The composed element can, and does.
+    ///
+    ///     This is here so the difference is a recorded fact with a failing assertion waiting for
+    ///     whoever narrows it, rather than something rediscovered by a panel that stops updating.
+    /// </summary>
+    [Fact]
+    public void A_component_leaves_the_effects_inside_a_nested_loop_running_when_it_unmounts() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string[]> Items { get; } = new([]);
+                                  public Signal<int> Count { get; } = new(0);
+                                  public int RowRuns;
+                                  public string Row(string item) { RowRuns++; _ = Count.Value; return item; }
+                              }
+
+                              <body>
+                                  @for (var item in Items.Value) {
+                                      <li key="@item">@Row(item)</li>
+                                  }
+                              </body>
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        ((Signal<string[]>)Property(instance, "Items")).Value = ["a", "b"];
+        document.Effects.Flush();
+
+        var ran = (int)Member(instance, "RowRuns")!;
+        Assert.True(ran >= 2);
+
+        component.Root.Remove();
+
+        ((Signal<int>)Property(instance, "Count")).Value = 9;
+        document.Effects.Flush();
+
+        // Still running. Change this to `Equal` when the component path grows the same reach.
+        Assert.NotEqual(ran, (int)Member(instance, "RowRuns")!);
+    }
+
+    [Fact]
+    public void The_composed_hook_runs_once_the_whole_body_is_built() {
+        using var document = new UiDocument(400f, 400f);
+        var meter = Add(document, Meter);
+
+        Assert.Equal(1, (int)Member(meter, "Composed")!);
+        Assert.NotNull(Member(meter, "Body"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An unknown base is Roslyn's error, on the characters after <c>@inherits</c>.</b>
+    ///     Nothing here resolves a type — the emitter writes the name where a base type goes under a
+    ///     <c>#line</c>, which is the same bargain the tag name is emitted under.
+    /// </summary>
+    [Fact]
+    public void An_unknown_base_is_reported_at_the_inherits_directive() {
+        const string Source = """
+                              @component Counter
+                              @inherits Nope
+                              <div />
+                              """;
+
+        // The first, because a base that does not resolve is also a base the scaffold's own calls
+        // cannot be checked against — one real mistake and a cascade behind it.
+        var span = Errors(Compile(Emit(Source)))[0].Location.GetMappedLineSpan();
+
+        Assert.Equal(Path, span.Path);
+        Assert.Equal(1, span.StartLinePosition.Line);
+        Assert.Equal(10, span.StartLinePosition.Character);
+    }
+
+    /// <summary>
+    ///     The other half of the claim, and the reason <c>@inherits</c> exists: without it the same
+    ///     call site does not compile, and a walk of the tree does not reach the object.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted rather than assumed, because it is the whole argument.</b> The rejected
+    ///     alternative to this header was widening <c>Add&lt;T&gt;</c> and <c>Descendants</c> to see
+    ///     components — and the first half of that cannot be written at all: <c>Add&lt;T&gt;</c> is
+    ///     <c>where T : UiElement, new()</c>, and a second overload differing only in its constraint
+    ///     is CS0695. What the tree does hold is the component's <i>host</i>, which is why
+    ///     <c>UiDocument.ComponentAt</c> is the join every consumer of a ported panel had to learn.
+    /// </remarks>
+    [Fact]
+    public void A_component_cannot_be_added_as_an_element_and_is_only_reachable_through_its_host() {
+        const string Caller = """
+                              public static class Adds {
+                                  public static object Make(Vixen.Ui.UiElement parent) => Element<Callout>(parent);
+
+                                  static T Element<T>(Vixen.Ui.UiElement parent)
+                                      where T : Vixen.Ui.UiElement, new() => parent.Add<T>(null, null, default);
+                              }
+                              """;
+
+        // `Callout` is a `Component` in the fixture, so it fails the constraint — at the type
+        // argument, which is exactly where a ported panel's callers failed.
+        var errors = Errors(Compile(Emit("@component Greeter\n<div />"), Caller));
+        Assert.Contains(errors, error => error.Id is "CS0311" or "CS0315" or "CS0453");
+
+        // And the walk: the host element is in the tree under the component's tag, the component is
+        // not in the tree at all, and `ComponentAt` is the only way across.
+        var (component, _, document) = Run("@component Greeter\n<div />");
+
+        using var owned = document;
+        var host = Descendants(document.Root).Single(child => child.Tag == "greeter");
+
+        Assert.Same(component.Root, host);
+        Assert.Same(component, document.ComponentAt(host));
+        Assert.DoesNotContain(Descendants(document.Root), child => ReferenceEquals(child, component));
+    }
+
+    /// <summary>
+    ///     The two things a <c>UiElement</c> answers differently from a <c>Component</c>, and both
+    ///     have to keep working rather than merely compile.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><c>&lt;slot /&gt;</c> becomes <c>ContentHost</c>.</b> A component is handed its
+    ///     content by a dictionary <c>Component.Declare</c> fills; an element has one place for it
+    ///     and a virtual property that names it — which is what <c>BuildContext.Inner(UiElement)</c>
+    ///     already reads for every control in the library.
+    ///
+    ///     ⚠ And <c>&lt;style scoped&gt;</c> loads from the generated <c>OnCreated</c>, because a
+    ///     <c>UiElement</c> has no <c>Style</c> property for <c>Component.Mount</c> to read. The
+    ///     scope class has to reach the elements the body made, not just the host: a sheet welded to
+    ///     a class nothing carries is a sheet that matches nothing.
+    /// </remarks>
+    [Fact]
+    public void An_inherits_component_projects_content_through_ContentHost_and_scopes_its_styles() {
+        const string Source = """
+                              @component Meter
+                              @inherits Panel
+                              <meter-body>
+                                  <slot />
+                              </meter-body>
+                              <style scoped>.row { display: flex; }</style>
+                              """;
+
+        using var document = new UiDocument(400f, 400f);
+        var meter = (UiElement)Add(document, Source);
+        var body = meter.Children.Single();
+
+        Assert.Equal("slot", BuildContext.Inner(meter).Tag);
+        Assert.Same(body.Children.Single(), BuildContext.Inner(meter));
+
+        var scope = ScopedStyles.ScopeOf(meter.GetType());
+        Assert.True(meter.HasClass(scope));
+        Assert.True(body.HasClass(scope));
+    }
+
+    /// <summary>
+    ///     A named slot needs a component. An element has one place for content because
+    ///     <c>ContentHost</c> is one property, and a second name would be an element nothing can
+    ///     address — a hole in the tree that looks like a feature.
+    /// </summary>
+    [Fact]
+    public void A_named_slot_in_an_inherits_component_is_refused() {
+        var component = Markup.Binding.Binder.Bind(
+            Markup.Syntax.SyntaxTree.ParseText(
+                "@component Meter\n@inherits Panel\n<slot name=\"footer\" />",
+                Path
+            ),
+            out var diagnostics
+        );
+
+        Assert.NotNull(component);
+        Assert.Contains("VXML2012", diagnostics.Select(d => d.Descriptor.Id));
+    }
+
+    // ================================================================== ref
+
+    /// <summary>
+    ///     <c>ref</c> on a capitalised tag hands back the <i>component</i>, not the element it drew
+    ///     — which is the opposite of what <c>class</c> and <c>on:</c> do, and is right for the same
+    ///     reason: what a caller holds a component for is its methods.
+    /// </summary>
+    [Fact]
+    public void A_ref_hands_back_whatever_the_tag_named() {
+        const string Source = """
+                              @component Greeter
+                              @code {
+                                  public Vixen.Ui.UiElement? Box;
+                                  public Dial? Knob;
+                                  public Callout? Note;
+                              }
+                              <div ref="@Box">
+                                  <Dial ref="@Knob" />
+                                  <Callout ref="@Note" />
+                              </div>
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var box = (UiElement)Member(instance, "Box")!;
+
+        Assert.Same(component.Root.Children.Single(), box);
+        Assert.Equal("dial", ((UiElement)Member(instance, "Knob")!).Tag);
+
+        // The component object, whose own host is the `callout` element beside the dial.
+        Assert.Equal("callout", BuildContext.Host((Component)Member(instance, "Note")!).Tag);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A <c>ref</c> in a dead arm is simply not assigned, and that is the honest
+    ///     answer.</b> An arm that is not live built no element, so there is nothing to hand back;
+    ///     when it becomes live the assignment runs, and when it leaves the member points at a
+    ///     removed element — which <see cref="UiElement.IsRemoved" /> answers and nothing else can,
+    ///     because clearing it would mean the region knowing the member's name.
+    /// </summary>
+    [Fact]
+    public void A_ref_under_an_if_is_assigned_when_the_arm_becomes_live() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+                              @code {
+                                  public Signal<int> Count { get; } = new(0);
+                                  public Vixen.Ui.UiElement? Warning;
+                              }
+                              <div>
+                                  @if (Count.Value > 0) {
+                                      <warn ref="@Warning" />
+                                  }
+                              </div>
+                              """;
+
+        var (_, instance, document) = Run(Source);
+
+        using var owned = document;
+        document.Effects.Flush();
+        Assert.Null(Member(instance, "Warning"));
+
+        ((Signal<int>)Property(instance, "Count")).Value = 1;
+        document.Effects.Flush();
+
+        var warning = (UiElement)Member(instance, "Warning")!;
+        Assert.Equal("warn", warning.Tag);
+
+        ((Signal<int>)Property(instance, "Count")).Value = 0;
+        document.Effects.Flush();
+
+        // Stale rather than null, and detectable.
+        Assert.Same(warning, Member(instance, "Warning"));
+        Assert.True(warning.IsRemoved);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Who typechecks a <c>ref</c>: Roslyn, at the member name inside the quotes.</b> The
+    ///     member is written where an assignment's target goes, so a wrong type, a missing member
+    ///     and a readonly one are all reported on the <c>.vxml</c> — which is the philosophy the
+    ///     rest of the language is built on, and the reason a <c>ref</c> needed no new checking.
+    /// </summary>
+    [Fact]
+    public void A_ref_of_the_wrong_type_is_reported_at_the_member_in_the_vxml() {
+        const string Source = """
+                              @component Counter
+                              @code { public string Box = ""; }
+                              <div ref="@Box" />
+                              """;
+
+        var error = Assert.Single(Errors(Compile(Emit(Source))));
+        var span = error.Location.GetMappedLineSpan();
+
+        // Column 11 is `Box` inside the quotes, and the error is the *conversion* — which Roslyn
+        // reports at the value, so without the second directive it would have landed past the `/>`.
+        Assert.Equal(Path, span.Path);
+        Assert.Equal(2, span.StartLinePosition.Line);
+        Assert.Equal(11, span.StartLinePosition.Character);
+    }
+
+    /// <summary>A rebuild reassigns, because the assignment is a statement in the body.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Which is the whole answer to "what happens on a hot reload".</b> The elements do not
+    ///     survive a rebuild and cannot; the member is written again by the same statement that
+    ///     wrote it the first time, so nothing has to remember that a <c>ref</c> exists.
+    /// </remarks>
+    [Fact]
+    public void A_rebuild_points_every_ref_at_the_new_elements() {
+        const string Source = """
+                              @component Greeter
+                              @code { public Vixen.Ui.UiElement? Box; }
+                              <div ref="@Box" />
+                              """;
+
+        using var document = new UiDocument(400f, 400f);
+        var component = (Component)Activator.CreateInstance(Load(Source, "Greeter"))!;
+
+        // The hot-reload path exactly: one instance, kept, built twice.
+        var context = BuildContext.BuildInto(component, document, document.Root);
+        var first = (UiElement)Member(component, "Box")!;
+
+        context.Rebuild(component);
+
+        var second = (UiElement)Member(component, "Box")!;
+        Assert.NotSame(first, second);
+        Assert.Equal("div", second.Tag);
+        Assert.True(first.IsRemoved);
+    }
+
     // ================================================================== Helpers
+
+    /// <summary>Emits, compiles, loads and adds an element-flavoured class to a document.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The call site is compiled rather than reflected, and that is the assertion.</b>
+    ///     <c>parent.Add&lt;Meter&gt;()</c> has to <i>type-check</i> — its constraint is
+    ///     <c>where T : UiElement, new()</c>, which is exactly what a <c>Component</c> cannot
+    ///     satisfy and is the whole complaint <c>@inherits</c> answers. Reflection would have proved
+    ///     nothing about the constraint, and cannot call this method anyway: its last parameter is a
+    ///     <c>ReadOnlySpan&lt;string&gt;</c>.
+    /// </remarks>
+    static object Add(UiDocument document, string source) {
+        // ⚠ The constraint is the assertion, so it is named. `UiElement.Add<T>` is
+        // `where T : UiElement, new()` — exactly what a `Component` cannot satisfy — and this file
+        // compiling is the proof that a generated `@inherits` class does. The three explicit
+        // arguments are the harness's Roslyn (4.11) not reading `params ReadOnlySpan<string>` out of
+        // metadata; a project on the current compiler writes `parent.Add<Meter>()`.
+        const string Caller = """
+                              public static class Adds {
+                                  public static object Make(Vixen.Ui.UiElement parent) => Element<Meter>(parent);
+
+                                  static T Element<T>(Vixen.Ui.UiElement parent)
+                                      where T : Vixen.Ui.UiElement, new() => parent.Add<T>(null, null, default);
+                              }
+                              """;
+
+        var compilation = Compile(Emit(source), Caller);
+        Assert.Empty(Errors(compilation));
+
+        using var image = new MemoryStream();
+        Assert.True(compilation.Emit(image).Success);
+
+        return Assembly.Load(image.ToArray())
+            .GetType("Adds")!
+            .GetMethod("Make")!
+            .Invoke(null, [document.Root])!;
+    }
+
+    static IEnumerable<UiElement> Descendants(UiElement element) {
+        foreach (var child in element.Children) {
+            yield return child;
+
+            foreach (var found in Descendants(child)) {
+                yield return found;
+            }
+        }
+    }
 
     // ------------------------------------------------------------ @namespace
 
@@ -492,10 +1089,14 @@ public class EmitterTests {
         return ComponentEmitter.Emit(component!, Path, @namespace);
     }
 
-    static CSharpCompilation Compile(string generated) =>
+    static CSharpCompilation Compile(string generated, string? caller = null) =>
         CSharpCompilation.Create(
             "Generated",
-            [Parse(RuntimeContract.Components, "Components.cs"), Parse(generated, "Counter.g.cs")],
+            [
+                Parse(RuntimeContract.Components, "Components.cs"),
+                Parse(generated, "Counter.g.cs"),
+                .. caller is null ? Array.Empty<Microsoft.CodeAnalysis.SyntaxTree>() : [Parse(caller, "Caller.cs")]
+            ],
             References,
             new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );

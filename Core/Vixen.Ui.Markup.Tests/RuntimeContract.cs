@@ -51,6 +51,33 @@ static class RuntimeContract {
                                          protected override void Build(BuildContext ctx) => ctx.Element(null, "callout-body");
                                      }
 
+                                     // What an `@inherits` file names. An ordinary element with the
+                                     // two hooks the generated scaffold overrides, so the test can
+                                     // see that both are chained rather than replaced.
+                                     //
+                                     // ⚠ Not `Gauge` above, which answers a different question. That
+                                     // one exists to be a control that names its own classes, so a
+                                     // `class` attribute has something to clobber; this one exists
+                                     // to be *derived from*, and counts the calls it received. A
+                                     // fixture doing both would fail one of them for the other's
+                                     // reason.
+                                     public class Panel : UiElement {
+                                         protected override string TagName => "panel";
+
+                                         public int Creations { get; private set; }
+                                         public int Removals { get; private set; }
+
+                                         protected override void OnCreated() {
+                                             base.OnCreated();
+                                             Creations++;
+                                         }
+
+                                         protected override void OnRemoved() {
+                                             Removals++;
+                                             base.OnRemoved();
+                                         }
+                                     }
+
                                      public class Label : Component {
                                          public string Title { get; set; } = "";
                                          public int Step { get; set; }

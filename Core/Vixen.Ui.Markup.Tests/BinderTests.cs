@@ -185,6 +185,83 @@ public class BinderTests {
     public void A_parameter_that_could_not_be_written_in_C_sharp_is_refused(string source) =>
         Assert.Contains("VXML2008", Ids(source));
 
+    // ================================================================== @inherits and ref
+
+    [Fact]
+    public void An_inherits_directive_reaches_the_bound_component_and_its_absence_is_null() {
+        Assert.Equal("Panel", BindClean("@component A\n@inherits Panel\n<div />").Inherits!.Text);
+        Assert.Equal("Vixen.Ui.Controls.Control", BindClean("@component A\n@inherits Vixen.Ui.Controls.Control\n<div />").Inherits!.Text);
+        Assert.Null(BindClean("@component A\n<div />").Inherits);
+    }
+
+    /// <summary>
+    ///     A <c>ref</c> is a reference to a member, so it takes an expression for the same reason
+    ///     <c>key</c> and <c>on:</c> do — and the value goes to Roslyn untouched.
+    /// </summary>
+    [Fact]
+    public void A_ref_is_an_expression_and_a_quoted_name_is_refused() {
+        var attribute = Assert.Single(FirstElement("@component A\n<div ref=\"@Tree\" />").Attributes);
+
+        Assert.Equal(BoundAttributeKind.Ref, attribute.Kind);
+        Assert.Equal("Tree", attribute.Expression!.Text);
+        Assert.Contains("VXML2003", Ids("@component A\n<div ref=\"Tree\" />"));
+    }
+
+    /// <summary>
+    ///     ⚠ Refused at every depth of the body, not only at its roots. The body runs once per item
+    ///     and there is one member to assign, and a <c>ref</c> three elements down is assigned as
+    ///     many times as one on the root.
+    /// </summary>
+    [Theory]
+    [InlineData("@component A\n@for (var i in xs) { <p key=\"@i\" ref=\"@Row\" /> }")]
+    [InlineData("@component A\n@for (var i in xs) { <p key=\"@i\"><span ref=\"@Row\" /></p> }")]
+    [InlineData("@component A\n@for (var i in xs) { <p key=\"@i\">@if (i > 0) { <b ref=\"@Row\" /> }</p> }")]
+    public void A_ref_inside_a_loop_is_refused(string source) => Assert.Contains("VXML2010", Ids(source));
+
+    [Fact]
+    public void A_ref_outside_a_loop_is_fine_including_under_an_if() {
+        Assert.Empty(Ids("@component A\n<div ref=\"@Panel\" />"));
+        Assert.Empty(Ids("@component A\n@if (x) { <div ref=\"@Panel\" /> }"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The one rule about <c>@for</c> that is the opposite of what <c>VXML2004</c>
+    ///     teaches.</b> A key that survives keeps its region and its body is not re-run, so a row
+    ///     keyed on a member of the item is a row frozen at the values the item had when that key
+    ///     first appeared. Syntax is all the evidence there is — whether the item holds signals is
+    ///     type resolution — and this is the shape the mistake always takes.
+    /// </summary>
+    [Theory]
+    [InlineData("@component A\n@for (var row in xs) { <p key=\"@row.Label\" /> }")]
+    [InlineData("@component A\n@for (var row in xs) { <p key=\"@row.Id.Value\" /> }")]
+    [InlineData("@component A\n@for (var row in xs) { <p key=\"@row?.Label\" /> }")]
+    public void A_key_that_projects_the_item_is_warned_about(string source) =>
+        Assert.Contains("VXML2011", Ids(source));
+
+    /// <summary>
+    ///     ⚠ <b>And deliberately silent where the evidence runs out.</b> A compound key is a correct
+    ///     answer to the same problem, so a rule that guessed at anything mentioning the variable
+    ///     would fire on the fix it recommends.
+    /// </summary>
+    [Theory]
+    [InlineData("@component A\n@for (var row in xs) { <p key=\"@row\" /> }")]
+    [InlineData("@component A\n@for (var row in xs) { <p key=\"@(row, generation)\" /> }")]
+    [InlineData("@component A\n@for (var row in xs) { <p key=\"@rows[row]\" /> }")]
+    [InlineData("@component A\n@for (var row in xs) { <p key=\"@rowIndex\" /> }")]
+    public void A_key_that_is_the_item_or_a_compound_is_not_warned_about(string source) =>
+        Assert.DoesNotContain("VXML2011", Ids(source));
+
+    /// <summary>
+    ///     A <c>UiElement</c> has one place for content and a <c>Component</c> has as many as it
+    ///     declares, so a second name on an <c>@inherits</c> file is an element nothing can address.
+    /// </summary>
+    [Fact]
+    public void A_named_slot_needs_a_component_and_the_default_one_does_not() {
+        Assert.Contains("VXML2012", Ids("@component A\n@inherits Panel\n<slot name=\"footer\" />"));
+        Assert.Empty(Ids("@component A\n@inherits Panel\n<slot />"));
+        Assert.Empty(Ids("@component A\n<slot name=\"footer\" />"));
+    }
+
     static BoundComponent BindClean(string source) {
         var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);
 

@@ -364,6 +364,15 @@ sealed class VxmlLexer {
             return;
         }
 
+        // A name and not an identifier, because a base type is dotted — and `IsNamePart` already
+        // takes a `.` for `@using` and `@namespace`, which is the same shape of thing.
+        if (AtDirective("inherits")) {
+            Emit(tokens, VxmlTokenKind.InheritsKeyword, 9);
+            SkipWhitespace(tokens);
+            LexName(tokens);
+            return;
+        }
+
         if (AtDirective("code")) {
             Emit(tokens, VxmlTokenKind.CodeKeyword, 5);
             LexCodeBody(tokens);

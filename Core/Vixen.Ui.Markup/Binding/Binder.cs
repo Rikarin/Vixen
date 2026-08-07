@@ -60,6 +60,25 @@ public sealed class Binder {
     /// <summary>Whether the walk is inside an <c>@for</c> body, where elements need keys.</summary>
     bool inLoop;
 
+    /// <summary>
+    ///     How many <c>@for</c> bodies the walk is inside, for the rules that hold all the way down.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A depth beside <see cref="inLoop" /> rather than a fix to it.</b> That flag is
+    ///     deliberately cleared when the walk enters a loop root's children, because only the roots
+    ///     of a body need keys — once inside one, children move with it. <c>ref</c> needs the
+    ///     opposite question: a <c>ref</c> nested three elements deep in a loop body is assigned
+    ///     once per item exactly as one on the root is.
+    /// </remarks>
+    int loops;
+
+    /// <summary>The innermost <c>@for</c>'s variable, so a key can be compared against it.</summary>
+    string? item;
+
+    /// <summary>Whether the file declared <c>@inherits</c>, so its class is an element.</summary>
+    /// <remarks>Read before the content is bound, because <c>&lt;slot&gt;</c> means less on one.</remarks>
+    bool isElement;
+
     Binder(SourceText text, string filePath, DiagnosticBag diagnostics) {
         this.text = text;
         this.filePath = filePath;
@@ -92,6 +111,8 @@ public sealed class Binder {
             Report(MarkupDiagnostics.MissingComponentDirective, document.Component?.Span ?? new TextSpan(0, 0));
             return null;
         }
+
+        isElement = document.Inherits is { Name.IsMissing: false };
 
         var usings = ImmutableArray.CreateBuilder<string>();
         foreach (var @using in document.Usings) {
@@ -138,10 +159,16 @@ public sealed class Binder {
         var @namespace = document.Namespace is { Name.IsMissing: false } named ? named.Name.Text : null;
         var tag = document.Tag is { Name.IsMissing: false } tagged ? tagged.Name.Text : null;
 
+        // Carried as an expression for its span alone. Nothing here resolves it — the emitter writes
+        // it where a base type goes, under its own `#line`, and a base that does not exist or cannot
+        // be derived from is Roslyn's error on the characters the author wrote.
+        var inherits = document.Inherits is { Name.IsMissing: false } based ? Expression(based.Name) : null;
+
         return new(
             directive.Identifier.Text,
             @namespace,
             tag,
+            inherits,
             usings.ToImmutable(),
             code.ToImmutable(),
             content,
@@ -293,6 +320,10 @@ public sealed class Binder {
             Report(MarkupDiagnostics.DuplicateSlot, element.StartTag.Name.Span, name);
         }
 
+        if (isElement && !string.Equals(name, "default", StringComparison.Ordinal)) {
+            Report(MarkupDiagnostics.NamedSlotOnElement, element.StartTag.Name.Span, name);
+        }
+
         return new BoundSlot(name);
     }
 
@@ -325,9 +356,17 @@ public sealed class Binder {
     }
 
     BoundFor BindFor(ForSyntax @for) {
+        var variable = @for.Identifier.IsMissing ? "item" : @for.Identifier.Text;
+
         var outer = inLoop;
+        var outerVariable = item;
+
         inLoop = true;
+        item = variable;
+        loops++;
         var body = BindContent(@for.Body.Content);
+        loops--;
+        item = outerVariable;
         inLoop = outer;
 
         BoundExpression? key = null;
@@ -338,12 +377,36 @@ public sealed class Binder {
             }
         }
 
-        return new(
-            @for.Identifier.IsMissing ? "item" : @for.Identifier.Text,
-            Expression(@for.Sequence),
-            key,
-            body
-        );
+        return new(variable, Expression(@for.Sequence), key, body);
+    }
+
+    /// <summary>Whether a key expression reads a member of the loop variable instead of the variable.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Characters, because the alternative is a semantic model.</b> The rule worth
+    ///         enforcing is "key on the value when the item is immutable data, on the object when it
+    ///         holds signals", and deciding which of those an item is means resolving its type and
+    ///         asking whether its properties are <c>Signal&lt;T&gt;</c> — the typechecking this binder
+    ///         deliberately does not do. <c>row.Label</c> is the shape that shape always takes, and
+    ///         recognising it costs a <c>StartsWith</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An under-approximation on purpose.</b> <c>@(row.A, row.B)</c> and
+    ///         <c>@Key(row)</c> are the same mistake and are not caught, because the syntactic
+    ///         evidence runs out — and a rule that guessed would fire on <c>@(row, generation)</c>,
+    ///         which is a correct compound key. A warning that is right whenever it speaks is worth
+    ///         more than one that is complete.
+    ///     </para>
+    /// </remarks>
+    static bool ProjectsFrom(string key, string variable) {
+        if (!key.StartsWith(variable, StringComparison.Ordinal) || key.Length <= variable.Length) {
+            return false;
+        }
+
+        // `.` and `?.` only. `row[0]` indexes a collection the item happens to be, `row!` is the same
+        // item with an annotation, and neither throws away the identity a member access does.
+        var rest = key[variable.Length..];
+        return rest.StartsWith('.') || rest.StartsWith("?.", StringComparison.Ordinal);
     }
 
     BoundSwitch BindSwitch(SwitchSyntax @switch) {
@@ -387,12 +450,33 @@ public sealed class Binder {
             return null;
         }
 
-        // An event or a binding is a reference to something, so a string cannot be one. Saying so
-        // here rather than letting Roslyn say it means the message can name the fix.
+        // An event, a binding, a key or a ref is a reference to something, so a string cannot be one.
+        // Saying so here rather than letting Roslyn say it means the message can name the fix.
         if (kind is BoundAttributeKind.Event or BoundAttributeKind.Bind or BoundAttributeKind.Key
+                or BoundAttributeKind.Ref
             && value is not [BoundExpressionPart]) {
             Report(MarkupDiagnostics.ExpectedExpressionValue, attribute.Name.Span, written);
             return null;
+        }
+
+        // ⚠ Refused rather than assigned N times. See `MarkupDiagnostics.RefInLoop`: the body runs
+        // once per item and there is one member, and the last-one-wins reading is worse than it looks
+        // because a surviving key's body is not re-run at all.
+        if (kind == BoundAttributeKind.Ref && loops > 0) {
+            Report(MarkupDiagnostics.RefInLoop, attribute.Name.Span);
+            return null;
+        }
+
+        if (kind == BoundAttributeKind.Key
+            && item is { } loopVariable
+            && value is [BoundExpressionPart keyed]
+            && ProjectsFrom(keyed.Expression.Text, loopVariable)) {
+            Report(
+                MarkupDiagnostics.ProjectedKey,
+                attribute.Value?.Span ?? attribute.Name.Span,
+                keyed.Expression.Text,
+                loopVariable
+            );
         }
 
         // A parameter on a component becomes a property assignment, so its name has to be one.
@@ -462,6 +546,16 @@ public sealed class Binder {
     (BoundAttributeKind? Kind, string Name, ImmutableArray<string> Modifiers) Classify(string written, TextSpan span) {
         if (string.Equals(written, "key", StringComparison.Ordinal)) {
             return (BoundAttributeKind.Key, written, []);
+        }
+
+        // ⚠ An expression and not a bare name, which is the same call `key` and `on:` make. What
+        // follows the `@` is written where an assignment's target goes, so `ref="@Parts"`,
+        // `ref="@_tree"` and `ref="@Row.Field"` all work and a member that is readonly, missing or of
+        // the wrong type is Roslyn's error on the characters between the quotes. A bare name would
+        // have needed a rule about what a name may be, and then a second one about what it may
+        // resolve to — which is the typechecker this design exists not to write.
+        if (string.Equals(written, "ref", StringComparison.Ordinal)) {
+            return (BoundAttributeKind.Ref, written, []);
         }
 
         var colon = written.IndexOf(':', StringComparison.Ordinal);

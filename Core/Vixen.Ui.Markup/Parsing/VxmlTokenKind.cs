@@ -82,6 +82,9 @@ enum VxmlTokenKind {
     /// <summary><c>@tag</c>.</summary>
     TagKeyword,
 
+    /// <summary><c>@inherits</c>.</summary>
+    InheritsKeyword,
+
     /// <summary><c>@code</c>.</summary>
     CodeKeyword,
 
