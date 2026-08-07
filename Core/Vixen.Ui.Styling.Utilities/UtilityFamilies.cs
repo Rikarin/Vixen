@@ -49,7 +49,15 @@ enum ValueKind : byte {
     BorderEdge,
 
     /// <summary>A whole <c>box-shadow</c> declaration named by a token: <c>shadow-lg</c>.</summary>
-    Shadow
+    Shadow,
+
+    /// <summary>A gradient stop, which is a colour or a position: <c>from-accent</c>, <c>from-40%</c>.</summary>
+    /// <remarks>
+    ///     ⚠ Composed — it emits a <see cref="UtilityComposition" /> fragment and no declaration of
+    ///     its own. The colour and the position are separate fragments because Tailwind lets them be
+    ///     written separately: <c>from-accent from-40%</c> is two classes setting two things.
+    /// </remarks>
+    GradientStop
 }
 
 /// <summary>The utilities a class name can name, and what each one emits.</summary>
@@ -80,12 +88,30 @@ public static class UtilityFamilies {
     ///     of longhands from where it puts a width — <c>border-t-2</c> is <c>border-top-width</c> and
     ///     <c>border-t-accent</c> is <c>border-top-color</c>. Null on every other kind.
     /// </param>
+    /// <param name="Position">
+    ///     Where a <see cref="ValueKind.GradientStop" /> family puts a percentage, which is a
+    ///     different fragment from where it puts a colour — <c>from-accent</c> is
+    ///     <c>--tw-gradient-from</c> and <c>from-40%</c> is <c>--tw-gradient-from-position</c>. Null
+    ///     on every other kind.
+    /// </param>
+    /// <param name="Alongside">
+    ///     Declarations emitted verbatim whenever the family resolves, whatever its value.
+    ///     <para>
+    ///         ⚠ <b>This is what a <i>composing</i> utility needs and no other kind does.</b>
+    ///         <c>via-accent</c> has to say two things at once: the colour it was given, and — because
+    ///         a middle stop is the one thing a <c>var()</c> fallback cannot conjure — that the stop
+    ///         list is now the three-stop form. The second is a constant, identical for every
+    ///         <c>via-*</c> in the theme, so it belongs to the family rather than to the value.
+    ///     </para>
+    /// </param>
     sealed record Family(
         string Name,
         ValueKind Kind,
         string[] Properties,
         Dictionary<string, string>? Keywords = null,
-        string[]? ColorProperties = null
+        string[]? ColorProperties = null,
+        string? Position = null,
+        UtilityDeclaration[]? Alongside = null
     );
 
     static readonly Dictionary<string, Family> Registry = new(StringComparer.Ordinal);
@@ -245,6 +271,40 @@ public static class UtilityFamilies {
         Color("ring", "outline-color");
         Color("fill", "fill");
         Color("stroke", "stroke");
+
+        // ── Gradients: the composed families ────────────────────────────────────────────────
+        //
+        // ⚠ <b>None of these three emits `background-image`.</b> They set the fragments in
+        // `UtilityComposition`, and `bg-linear-*` is the only thing here that emits a declaration a
+        // consumer could read. That is the whole shape doc 43 calls `composed`, and the reason it is
+        // done this way rather than folded together when the sheet is generated is written out on
+        // `UtilityComposition` itself: `hover:from-accent-hover` is decided at use time.
+        GradientStop("from", UtilityComposition.GradientFrom, UtilityComposition.GradientFromPosition);
+        GradientStop("to", UtilityComposition.GradientTo, UtilityComposition.GradientToPosition);
+
+        // The one family with an alongside declaration. `from-*` and `to-*` need none, because the
+        // two-stop list is already `--tw-gradient-stops`' initial value.
+        GradientStop(
+            "via",
+            UtilityComposition.GradientVia,
+            UtilityComposition.GradientViaPosition,
+            new UtilityDeclaration(UtilityComposition.GradientStops, UtilityComposition.StopList(via: true))
+        );
+
+        // The assembler. Eight directions, and the direction is written into each one rather than
+        // parked in a fragment of its own — Tailwind keeps a `--tw-gradient-position` so that
+        // `bg-radial` and `bg-conic` can share one stop list, and neither of those has a renderer
+        // here to speak of. Adding them later is a fragment and three keywords, not a rewrite.
+        //
+        // ⚠ `bg-linear` is registered *after* `bg`, and it still wins for `bg-linear-to-r`, because
+        // `SplitName` sorts longest-first at the bottom of this method rather than trusting the order
+        // things appear in here. `bg-accent` is unaffected.
+        Keywords("bg-linear", "background-image", new() {
+            ["to-t"] = Linear("to top"), ["to-tr"] = Linear("to top right"),
+            ["to-r"] = Linear("to right"), ["to-br"] = Linear("to bottom right"),
+            ["to-b"] = Linear("to bottom"), ["to-bl"] = Linear("to bottom left"),
+            ["to-l"] = Linear("to left"), ["to-tl"] = Linear("to top left")
+        });
 
         // ── Borders ─────────────────────────────────────────────────────────────────────────
         // ⚠ `border-2` is two *pixels* where `p-2` is two spacing steps, which is Tailwind's choice
@@ -504,6 +564,17 @@ public static class UtilityFamilies {
 
                 break;
 
+            // Both readings, for the same reason `text-` and `border-` take two: a percentage and a
+            // colour are two different fragments, and probing one would leave the other unmeasured.
+            case ValueKind.GradientStop:
+                yield return "40%";
+
+                foreach (var colour in First(tokens.Colors.Keys)) {
+                    yield return colour;
+                }
+
+                break;
+
             case ValueKind.FontSize:
                 // Both readings of `text-`, because they are two different properties: a size token
                 // sets `font-size` and `line-height`, and anything else falls through to `color`.
@@ -557,8 +628,21 @@ public static class UtilityFamilies {
 
         // Negation is applied to the result rather than threaded through every branch below, because
         // `-mt-4` sets exactly what `mt-4` sets and the only difference is the sign of the number.
-        return Resolve(family, candidate, tokens, declarations)
-            && (!candidate.Negative || TryNegate(candidate, declarations));
+        if (!Resolve(family, candidate, tokens, declarations)
+            || (candidate.Negative && !TryNegate(candidate, declarations))) {
+            return false;
+        }
+
+        // ⚠ Last, and after negation, and only once the value has resolved. After negation because a
+        // stop list is not a number and flipping its sign is meaningless; only once the value has
+        // resolved because a family that appended its constants first would leave `via-nonsense` —
+        // a typo — emitting a three-stop list for a colour nobody supplied, which is a rule that
+        // exists and silently changes the gradient.
+        if (family.Alongside is not null) {
+            declarations.AddRange(family.Alongside);
+        }
+
+        return true;
     }
 
     static bool Resolve(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
@@ -601,8 +685,29 @@ public static class UtilityFamilies {
             ValueKind.Color => TryColor(candidate, tokens, out var colour) && Emit(family, colour, declarations),
             ValueKind.BorderEdge => TryBorderEdge(family, candidate, tokens, declarations),
             ValueKind.Shadow => TryShadow(family, candidate, tokens, declarations),
+            ValueKind.GradientStop => TryGradientStop(family, candidate, tokens, declarations),
             _ => false
         };
+    }
+
+    /// <summary>A gradient stop: a percentage is where it sits, anything else is what colour it is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Percentage-first, and unlike <c>text-</c> this order shadows nothing.</b> A colour
+    ///     token cannot be named <c>40%</c>, because <c>%</c> is not a character a theme key is
+    ///     written with — so the two readings of <c>from-</c> are separated by the value's shape and
+    ///     no palette can collide with either.
+    /// </remarks>
+    static bool TryGradientStop(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
+        var value = candidate.Arbitrary ?? candidate.Value;
+
+        if (value.EndsWith('%') && float.TryParse(value[..^1], CultureInfo.InvariantCulture, out _)) {
+            declarations.Add(new UtilityDeclaration(family.Position!, value));
+            return true;
+        }
+
+        return candidate.Arbitrary is not null
+            ? EmitInto(family.Properties, candidate.Arbitrary, declarations)
+            : TryColor(candidate, tokens, out var colour) && Emit(family, colour, declarations);
     }
 
     /// <summary>The values that are sizes rather than lengths, and so cannot be negated.</summary>
@@ -945,4 +1050,25 @@ public static class UtilityFamilies {
 
     static void Radius(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Radius, properties));
+
+    /// <summary>Registers a composed family: a colour fragment, a position fragment, and no declaration.</summary>
+    static void GradientStop(string name, string colour, string position, params UtilityDeclaration[] alongside) =>
+        Register(new Family(
+            name,
+            ValueKind.GradientStop,
+            [colour],
+            Position: position,
+            Alongside: alongside.Length == 0 ? null : alongside
+        ));
+
+    /// <summary>One gradient assembler: the direction, and the stop list the fragments compose into.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The stop list is reached through <see cref="UtilityComposition.Reference" />, so the
+    ///     two-stop form is what an absent <c>via-*</c> falls back to</b> rather than something this
+    ///     string has to remember to spell. <c>from-red to-blue</c> with no <c>via</c> is a two-stop
+    ///     gradient; the version of this that wrote <c>var(--tw-gradient-stops)</c> bare would make it
+    ///     no gradient at all.
+    /// </remarks>
+    static string Linear(string direction) =>
+        $"linear-gradient({direction}, {UtilityComposition.Reference(UtilityComposition.GradientStops)})";
 }

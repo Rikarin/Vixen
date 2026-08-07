@@ -95,6 +95,50 @@ does not change the conclusion; the number does need to be right before it is us
 | **absent** | not emitted at all | **223** |
 | **composed** | in Tailwind it sets a `--tw-*` that another utility assembles; not a property row | **12** |
 
+### The composition mechanism
+
+**Landed.** `Core/Vixen.Ui.Styling.Utilities/UtilityComposition.cs`, with `from-*`, `via-*`, `to-*` and
+`bg-linear-*` as the worked consumer. Three of the twelve `composed` roots are now emitted; the other
+nine — `space-x/y-*`, `divide-*`, `mask-radial-*`, `ring-offset-*` and the static set — are more
+surface on the same mechanism rather than more mechanism. It is written up in
+[the guide](../guide/ui/utility-composition.md).
+
+**Two designs, and the argument that settled it.** (a) the utilities really set custom properties and
+the cascade resolves the `var()` references at use time; (b) the generator folds the fragments into
+one declaration as it emits. (b) is cheaper and it is wrong, **because of variants**:
+`from-accent hover:from-accent-hover` is two rules with two different selectors, and which one
+supplies the colour depends on where the pointer is *now*. The generator resolves one candidate at a
+time and writes one rule per class name, so composing at emit time would have to either drop the
+variant silently — the failure this whole document exists to eliminate — or emit a rule whose selector
+names two classes at once, `.bg-linear-to-r.hover\:from-accent-hover:hover`, a cross-product growing
+as assemblers × fragment-bearing classes × variants and not enumerable until the whole candidate set
+has been seen. `CompositionTests` holds both halves as tests, including the two computed values that
+differ, which is the proof by contradiction that no single emitted declaration could have been both.
+
+⚠ **An unset custom property poisons the whole declaration, and this was the trap.** Per CSS a `var()`
+that resolves to nothing and carries no fallback makes the declaration *invalid at computed-value
+time* — `VarSubstitution` already implements exactly that, by returning null — so the naive
+`linear-gradient(var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to))` makes
+`from-red to-blue` with no `via` paint **no gradient at all**, silently. The answer is the `var()`
+fallback chain, which the engine has had since `VarSubstitution` was written: every fragment is
+declared with an initial value and is only ever mentioned through `UtilityComposition.Reference`, so
+the two-stop list is what `--tw-gradient-stops` is worth when nobody set it. `--tw-gradient-stops`'
+initial value *is* the two-stop list, which is why only `via-*` has to override it.
+
+**`@property` was not needed, and its absence is a known quantity rather than a discovery.** Vixen has
+no registered custom properties. Two things registration would still buy, neither of them blocking:
+`inherits: false`, without which a fragment set on a box is visible to its descendants — correct CSS
+for an unregistered custom property, and a divergence from Tailwind, which registers them precisely to
+stop the leak; and a *type*, which is what would let a gradient be transitioned. Both are refinements
+to a mechanism that works without them, so neither is a prerequisite task.
+
+**What it gates.** v4 uses the identical pattern for transforms (A7 / #23), `box-shadow` and filters
+(A8 / #28). The five `--` placeholders the table counts — `--blur`, `--rotate`, `--scale`,
+`--translate-x`, `--translate-y` — are this shape built without the second half: a fragment nothing
+assembles. They are deliberately *not* registered as fragments, so the parity gate goes on calling
+them inert and `InertProperties.txt` goes on recording the debt. Giving them assemblers is what those
+two tasks now are.
+
 ⚠ **`partial` is a fifth state the brief did not ask for, and collapsing it in either direction would
 be the same mistake this survey exists to catch.** `border-t-2` is the case that forces it: the layout
 reads `border-top-width` and insets the content box, and the draw list paints nothing, because
@@ -894,7 +938,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
 | A9 🟢 | `color-mix()` in `StyleValueParser` | `Vixen.Ui.Styling` | **#12** | 0.25 |
 | A10 🟢 | `oklch()`/`oklab()` colour syntax | `Vixen.Ui.Styling` | **#12** | 0.25 |
-| A11 🟡 | Backgrounds: `background-image`, gradients, position, size, repeat | `DrawListBuilder`, `UiShape` | — | 0.75 |
+| A11 🟡 | Backgrounds: `background-image`, gradients, position, size, repeat. The utility half is done — see [the composition mechanism](#the-composition-mechanism) — so what is left is the consumer | `DrawListBuilder`, `UiShape` | **#30** | 0.6 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
 | A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |

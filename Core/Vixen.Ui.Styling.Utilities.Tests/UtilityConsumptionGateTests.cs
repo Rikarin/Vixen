@@ -166,6 +166,77 @@ public class UtilityConsumptionGateTests {
         );
     }
 
+    /// <summary>Every composed fragment is assembled, and the property it assembles into is explained.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The clause that stops "composed" being a hiding place.</b> A fragment escapes the
+    ///         differential — it is half a declaration, and half a declaration moves nothing — so
+    ///         something has to hold the other half accountable, or registering a
+    ///         <see cref="UtilityComposition" /> fragment would become the cheapest way to make a
+    ///         property stop being counted. Two things do. A fragment that no assembler references
+    ///         reaches no property, is never classified as composed at all, and falls through to
+    ///         <c>Inert</c> like anything else. And a fragment that <i>is</i> assembled inherits the
+    ///         obligation of the property it assembles into, which this checks: that property is
+    ///         judged by the same frame-running differential as everything else, and is either acted
+    ///         on or carries its own line.
+    ///     </para>
+    ///     <para>
+    ///         <b>The debt moves rather than disappearing, and lands where it is actually owed.</b>
+    ///         Seven gradient fragments and one <c>background-image</c> is one line naming <c>#43</c>,
+    ///         not eight — and it is the right one, because what the engine owes is a draw list that
+    ///         paints a gradient, not seven custom properties.
+    ///     </para>
+    ///     <para>
+    ///         An allow-list line naming a fragment is refused for the same reason. It would be a debt
+    ///         recorded against a thing that cannot be paid: no consumer will ever read
+    ///         <c>--tw-gradient-from</c>, so the entry could never expire, which is precisely the rot
+    ///         <c>InertProperties.txt</c> was designed not to have.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void No_composed_fragment_escapes_the_obligation_of_what_it_assembles_into() {
+        var allowed = InertAllowList.Load();
+        var measured = UtilityConsumptionProbe.Take();
+        var problems = new List<string>();
+
+        // Every registered fragment is emitted by some family and reaches some property. One that is
+        // neither is a table entry nothing uses, which is the other direction of rot.
+        foreach (var fragment in UtilityComposition.Fragments) {
+            if (!measured.Emitted.Contains(fragment)) {
+                problems.Add($"  {fragment,-32} is registered as a fragment and no family emits it.");
+            } else if (!measured.Composed.ContainsKey(fragment)) {
+                problems.Add($"  {fragment,-32} is emitted and nothing assembles it — no var() reaches it.");
+            }
+        }
+
+        // And what it assembles into is on the hook, exactly as if the fragment were not there.
+        foreach (var (fragment, into) in measured.Composed) {
+            foreach (var property in into.Where(property =>
+                         !measured.Consumers.ContainsKey(property) && !allowed.ContainsKey(property))) {
+                problems.Add(
+                    $"  {fragment,-32} composes into {property}, which nothing acts on and which has no line."
+                );
+            }
+        }
+
+        foreach (var property in allowed.Keys.Where(UtilityComposition.IsFragment)) {
+            problems.Add(
+                $"  {property,-32} is a fragment and must not be allow-listed — put the line on what it composes into."
+            );
+        }
+
+        Assert.True(
+            problems.Count == 0,
+            $"""
+             {problems.Count} problem(s) with the composed families. A `--tw-*` fragment is exempt from
+             the differential because it is half a declaration, and the price of that exemption is that
+             the other half is accounted for:
+
+             {string.Join("\n", problems.OrderBy(problem => problem, StringComparer.Ordinal))}
+             """
+        );
+    }
+
     /// <summary>Every allow-list entry names a task, and the task is one the plan document knows.</summary>
     /// <remarks>
     ///     <para>
@@ -282,7 +353,16 @@ public class UtilityConsumptionGateTests {
             .Append(measured.Consumers.Count)
             .Append(" acted on, ")
             .Append(measured.Inert.Count)
-            .AppendLine(" inert.");
+            .Append(" inert, ")
+            .Append(measured.Composed.Count)
+            .AppendLine(" composed.");
+
+        foreach (var (fragment, into) in measured.Composed.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
+            ledger.Append("  ")
+                .Append(fragment.PadRight(32))
+                .Append("composed into ")
+                .AppendLine(string.Join(", ", into));
+        }
 
         foreach (var (property, utilities) in measured.Inert.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
             var entry = allowed.GetValueOrDefault(property);

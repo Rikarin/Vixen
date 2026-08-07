@@ -30,6 +30,14 @@
 border-inline-end-color      #21  per-edge colours reached the draw list; the logical pair did not
 border-inline-start-color    #21  ditto
 
+# ── Backgrounds — A11. `bg-linear-to-r` assembles the `from-*`/`via-*`/`to-*` fragments into a real
+# `linear-gradient(…)` and the cascade resolves it correctly; the draw list has no `background-image`
+# channel to paint it down. One line and not eight: the seven `--tw-gradient-*` fragments compose into
+# this property and are accounted for through it, because what is owed is a gradient that paints and
+# not seven custom properties. `BoxStyle` already carries `GradientEnd`, `GradientAxis` and
+# `HasGradient`, so closing this is wiring rather than a shader.
+background-image             #30  the two-stop gradient exists in BoxStyle; nothing parses this into it
+
 # ── Paint the renderer has no channel for — A6.
 fill                         #24  `fill`/`stroke` on the OnDraw paths, with `DrawContext`
 stroke                       #24  ditto

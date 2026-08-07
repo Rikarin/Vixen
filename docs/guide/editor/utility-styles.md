@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Ui.EditorStyles]
 tags: [editor, styling, theming, utilities, vxml]
 since: 0.2
 status: preview
-related: [editor/index, editor/inspectors-in-markup]
+related: [editor/index, editor/inspectors-in-markup, ui/utility-composition]
 ---
 
 ## What it is
@@ -94,6 +94,7 @@ cascade computes it, and nothing happens.
 | `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`/`-s`/`-e`, both **widths** and **colours** | |
 | `overflow-hidden`, `overflow-scroll`, `truncate` | **`overflow-x-*` and `overflow-y-*`** — nothing interns either property |
 | `cursor-`, `pointer-events-`, `transition`, `duration-`, `ease-`, `aspect-` | `select-` (`user-select`) |
+| | `bg-linear-*` with `from-`/`via-`/`to-` — the gradient assembles correctly and the draw list has no `background-image` channel to paint it |
 
 ⚠ **`overflow-auto` is in neither column.** The draw list clips on any value that is not `visible`, so
 it clips; the layout's keyword table has `visible`, `hidden` and `scroll` and not `auto`, so the
@@ -132,5 +133,7 @@ utility the theme can emit or a rule `EditorTheme` wrote, and anything else is a
 
 - [The editor shell](index.md) — `EditorShell`, which installs the sheet stack.
 - [Inspectors in markup](inspectors-in-markup.md) — the other place editor UI is written in VXML.
+- [Composed utilities](../ui/utility-composition.md) — the families that set a `--tw-*` fragment
+  instead of a declaration, and why the cascade is what assembles them.
 - `EditorTheme`, `ThemeService` — the hand-written half of the sheet, and the tokens both halves
   resolve against.
