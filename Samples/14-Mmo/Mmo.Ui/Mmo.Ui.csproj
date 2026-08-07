@@ -52,7 +52,12 @@
             markup verbatim is exactly the input it wants.
         -->
         <EmbeddedResource Include="**/*.vxml" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
-        <EmbeddedResource Include="Theme\*.yaml;Theme\*.vcss" />
+
+        <!--
+            ⚠ The `.vcss` line that used to be here is gone: `Vixen.Ui.targets` globs them now, and
+            naming them again is a duplicate item the SDK refuses. That glob is the change this
+            sample's own remarks were waiting on — a stylesheet on disk that the build knows about.
+        -->
     </ItemGroup>
 
     <ItemGroup>

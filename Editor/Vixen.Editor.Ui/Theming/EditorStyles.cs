@@ -6,7 +6,7 @@ namespace Vixen.Editor.Ui;
 /// <summary>The utility half of the editor's stylesheet, compiled at build time.</summary>
 /// <remarks>
 ///     <para>
-///         <b>There is no code here, and that is the feature.</b> <c>Theming/vixen.ui.yaml</c> is the
+///         <b>There is no code here, and that is the feature.</b> <c>Theming/vixen.ui.vcss</c> is the
 ///         design tokens, every source file and every <c>.vxml</c> in this assembly is scanned for
 ///         class names, and the sheet is generated into <c>obj/</c> by
 ///         <c>Vixen.Ui.Styling.Utilities.targets</c> before the compiler runs. What is left over is
@@ -22,8 +22,8 @@ namespace Vixen.Editor.Ui;
 ///         as the reference for what the step replaced.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The tokens are not a second palette, and the yaml goes to some trouble to stay that
-///         way.</b> Every colour in it is a <c>var(--…)</c> reference to a custom property
+///         ⚠ <b>The tokens are not a second palette, and the <c>@theme</c> block goes to some trouble
+///         to stay that way.</b> Every colour in it is a <c>var(--…)</c> reference to a custom property
 ///         <see cref="EditorTheme" /> already declares on the root — so <c>bg-surface</c> and a
 ///         hand-written <c>background: var(--surface)</c> are the same declaration, the light/dark
 ///         toggle moves both, and a user theme loaded through <see cref="ThemeService" /> moves both

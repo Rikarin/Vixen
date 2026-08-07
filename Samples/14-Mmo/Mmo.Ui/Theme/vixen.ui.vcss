@@ -1,0 +1,107 @@
+/* SPDX-FileCopyrightText: Copyright (c) Rikarin
+   SPDX-License-Identifier: Apache-2.0
+
+   The design tokens for Greenmarch's interface. One file, and "the accent is teal now" is one line
+   of it — which is the argument that made Tailwind win, and it applies more strongly here than to a
+   website because every panel in the game is in the same repository as every token.
+
+   ⚠ The rarity colours are content rather than chrome, and they are still here. A rarity is a fact
+   about an item and its colour is a fact about the *interface*: the same five names appear on a
+   tooltip border, a bag slot, a loot roll and a chat link, and a game that let each of those pick
+   its own would have five slightly different purples.
+
+   ⚠ **This was `vixen.ui.yaml`.** Under Tailwind v4 a design token *is* a custom property in an
+   `@theme` block, so a game's tokens are a stylesheet like every other one and there is no second
+   format. docs/plan/43 § D1 is the decision; `Core/Vixen.Ui.Styling.Utilities/README.md` is the
+   detail.
+
+   ⚠ **And the engine ships a default palette now, which this game keeps.** Everything below layers
+   over `ThemeTokens.CreateDefault()` — v4's own twenty-six ramps in oklch — so `bg-slate-800` works
+   here alongside `bg-ink-700`, and the named colours below are the ones this game means rather than
+   the ones it has. A game that wants only its own says `--color-*: initial;`, which is what the
+   editor does. */
+
+@theme {
+    /* 4px, which makes p-2 eight and p-4 sixteen and everybody able to see that one is twice the
+       other. A named scale reads better in a design tool and worse in a stylesheet. It is also the
+       engine's default, so this line is a statement rather than a change. */
+    --spacing: 4px;
+
+    --dark-mode: media;
+
+    /* The frame: a dark, slightly warm slate, because a HUD sits over a world and pure grey reads as
+       a hole cut in it. */
+    --color-ink: #0f1115;
+    --color-ink-700: #1b1f27;
+    --color-ink-600: #252b36;
+    --color-ink-500: #333b49;
+    --color-ink-400: #4a5567;
+    --color-ink-300: #6b7688;
+    --color-ink-200: #9aa3b2;
+    --color-ink-100: #d7dce4;
+
+    --color-parchment: #e8e0cc;
+    --color-accent: #2f9e8f;
+    --color-accent-600: #25806f;
+    --color-accent-300: #63c3b5;
+
+    /* The four bars everybody reads without looking. */
+    --color-health: #b3423a;
+    --color-mana: #3f6fb5;
+    --color-rage: #a8642a;
+    --color-focus: #6f9b3a;
+    --color-cast: #c8a24a;
+
+    /* Rarity. ⚠ Five, and they are *this game's* five — worn, common, fine, rare, storied, from
+       Mmo.Content.Authoring's own table. Naming them after another game's ladder would give the
+       interface colours for rarities no item has and none for the ones every item has. */
+    --color-worn: #7a7a7a;
+    --color-common: #d7dce4;
+    --color-fine: #3fa34d;
+    --color-rare: #3f7fd0;
+    --color-storied: #a463d8;
+
+    /* What a number means when it is not a colour: a refusal, a warning, a completion. */
+    --color-refuse: #c4453c;
+    --color-warn: #d99a2b;
+    --color-done: #4c9e4c;
+
+    /* ⚠ `--radius` with no suffix is `rounded` on its own, which is v4's `DEFAULT` shade written the
+       way a stylesheet writes it: the namespace's own name. The scale otherwise overrides four of
+       v4's eight steps and leaves the rest. */
+    --radius-none: 0px;
+    --radius-sm: 2px;
+    --radius: 4px;
+    --radius-md: 6px;
+    --radius-lg: 10px;
+    --radius-full: 9999px;
+
+    --text-xs: 10px;
+    --text-xs--line-height: 14px;
+    --text-sm: 12px;
+    --text-sm--line-height: 16px;
+    --text-base: 14px;
+    --text-base--line-height: 20px;
+    --text-lg: 17px;
+    --text-lg--line-height: 24px;
+    --text-xl: 22px;
+    --text-xl--line-height: 30px;
+
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    /* A shadow is a designed thing: its offset, blur and alpha are chosen together to read as one
+       height above the surface, which is why a token is a whole declaration rather than numbers to
+       assemble. */
+    --shadow-panel: 0 2px 12px rgba(0, 0, 0, 0.55);
+    --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.45);
+
+    /* A HUD's breakpoints are about how much room the world gets, not about phones. The engine's
+       five page-sized defaults are cleared first, because `sm:` at 640px is a question no HUD asks
+       and a variant that resolves is worse than one that does not exist. */
+    --breakpoint-*: initial;
+    --breakpoint-md: 1280px;
+    --breakpoint-lg: 1920px;
+}

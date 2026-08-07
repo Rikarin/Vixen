@@ -17,20 +17,23 @@ Vixen.Ui.Styling.Utilities.FontSizeToken.LineHeight.init -> float
 Vixen.Ui.Styling.Utilities.FontSizeToken.Size.get -> float
 Vixen.Ui.Styling.Utilities.FontSizeToken.Size.init -> float
 Vixen.Ui.Styling.Utilities.ThemeTokens -> sealed class
+Vixen.Ui.Styling.Utilities.ThemeTokens.Apply(string css) -> void
 Vixen.Ui.Styling.Utilities.ThemeTokens.Colors.get -> System.Collections.Generic.Dictionary<string, string>
-Vixen.Ui.Styling.Utilities.ThemeTokens.Content.get -> System.Collections.Generic.List<string>
 Vixen.Ui.Styling.Utilities.ThemeTokens.DarkMode.get -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
 Vixen.Ui.Styling.Utilities.ThemeTokens.DarkMode.set -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
 Vixen.Ui.Styling.Utilities.ThemeTokens.Diagnostics.get -> System.Collections.Generic.List<string>
+Vixen.Ui.Styling.Utilities.ThemeTokens.FontFamily.get -> System.Collections.Generic.Dictionary<string, string>
 Vixen.Ui.Styling.Utilities.ThemeTokens.FontSize.get -> System.Collections.Generic.Dictionary<string, Vixen.Ui.Styling.Utilities.FontSizeToken>
 Vixen.Ui.Styling.Utilities.ThemeTokens.FontWeight.get -> System.Collections.Generic.Dictionary<string, float>
-Vixen.Ui.Styling.Utilities.ThemeTokens.Radius.get -> System.Collections.Generic.Dictionary<string, float>
+Vixen.Ui.Styling.Utilities.ThemeTokens.Radius.get -> System.Collections.Generic.Dictionary<string, string>
+Vixen.Ui.Styling.Utilities.ThemeTokens.RootRuleFor(string css) -> string
 Vixen.Ui.Styling.Utilities.ThemeTokens.Screens.get -> System.Collections.Generic.Dictionary<string, float>
 Vixen.Ui.Styling.Utilities.ThemeTokens.Shadow.get -> System.Collections.Generic.Dictionary<string, string>
 Vixen.Ui.Styling.Utilities.ThemeTokens.SpacingBase.get -> float
 Vixen.Ui.Styling.Utilities.ThemeTokens.SpacingBase.set -> float
 Vixen.Ui.Styling.Utilities.ThemeTokens.ThemeTokens() -> void
 Vixen.Ui.Styling.Utilities.ThemeTokens.TryGetColor(string name, out string value) -> bool
+Vixen.Ui.Styling.Utilities.ThemeTokens.Variables.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
 Vixen.Ui.Styling.Utilities.UtilityCandidate -> readonly struct
 Vixen.Ui.Styling.Utilities.UtilityCandidate : System.IEquatable<Vixen.Ui.Styling.Utilities.UtilityCandidate>
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Arbitrary.get -> string?
@@ -80,17 +83,10 @@ Vixen.Ui.Styling.Utilities.VariantEffect.SelectorSuffix.init -> string
 Vixen.Ui.Styling.Utilities.VariantEffect.VariantEffect() -> void
 Vixen.Ui.Styling.Utilities.VariantEffect.VariantEffect(string SelectorSuffix, string SelectorPrefix, string? AtRule) -> void
 Vixen.Ui.Styling.Utilities.Variants -> static class
-const Vixen.Ui.Styling.Utilities.ThemeTokens.DefaultKey = "DEFAULT" -> string
-const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFrom = "--tw-gradient-from" -> string
-const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFromPosition = "--tw-gradient-from-position" -> string
-const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientStops = "--tw-gradient-stops" -> string
-const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientTo = "--tw-gradient-to" -> string
-const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientToPosition = "--tw-gradient-to-position" -> string
-const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientVia = "--tw-gradient-via" -> string
-const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientViaPosition = "--tw-gradient-via-position" -> string
-const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string
 static Vixen.Ui.Styling.Utilities.CandidateScanner.Scan(string text, System.Collections.Generic.ISet<string> into) -> void
-static Vixen.Ui.Styling.Utilities.ThemeTokens.Parse(string yaml) -> Vixen.Ui.Styling.Utilities.ThemeTokens
+static Vixen.Ui.Styling.Utilities.ThemeTokens.CreateDefault() -> Vixen.Ui.Styling.Utilities.ThemeTokens
+static Vixen.Ui.Styling.Utilities.ThemeTokens.Parse(string css) -> Vixen.Ui.Styling.Utilities.ThemeTokens
+static Vixen.Ui.Styling.Utilities.ThemeTokens.Strip(string css) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Fragments.get -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Styling.Utilities.UtilityComposition.InitialValueOf(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.IsFragment(string property) -> bool
@@ -103,3 +99,13 @@ static Vixen.Ui.Styling.Utilities.UtilityGenerator.Escape(string name) -> string
 static Vixen.Ui.Styling.Utilities.UtilityParser.TryParse(string candidate, out Vixen.Ui.Styling.Utilities.UtilityCandidate parsed) -> bool
 static Vixen.Ui.Styling.Utilities.Variants.IsArbitrary(Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool
 static Vixen.Ui.Styling.Utilities.Variants.TryResolve(string variant, Vixen.Ui.Styling.Utilities.ThemeTokens tokens, out Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool
+const Vixen.Ui.Styling.Utilities.ThemeTokens.DefaultKey = "DEFAULT" -> string
+const Vixen.Ui.Styling.Utilities.ThemeTokens.PixelsPerRem = 16 -> float
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFrom = "--tw-gradient-from" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFromPosition = "--tw-gradient-from-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientStops = "--tw-gradient-stops" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientTo = "--tw-gradient-to" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientToPosition = "--tw-gradient-to-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientVia = "--tw-gradient-via" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientViaPosition = "--tw-gradient-via-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string

@@ -1,0 +1,154 @@
+/* SPDX-FileCopyrightText: Copyright (c) Rikarin
+   SPDX-License-Identifier: Apache-2.0
+
+   The editor's design tokens, layered over the engine's shipped `@theme`.
+
+   ⚠ **This file declares no colours of its own, and that is the entire point.** Every colour below
+   is a `var(--…)` reference to a custom property `EditorTheme.vcss` already puts on the root, so
+   there is one palette and not two: `bg-surface` and the hand-written
+   `panel { background: var(--surface); }` read the same declaration, a user's theme file overriding
+   `--surface` through `ThemeService` moves both, and `root.dark` moves both again when the theme is
+   toggled. A theme that copied the hex out of `EditorTheme` would be a second palette that agreed
+   with the first until the day somebody edited one of them.
+
+   ⚠ **A token whose value names itself is an alias, and the generator will not emit it.** Every
+   entry here is of that shape — `--radius-row: var(--radius-row)` says "whatever the document
+   already declares under that name" — so `ThemeTokens.RootRuleFor` skips it rather than writing a
+   `root` rule that shadows the real value with a self-reference. That rule is what makes the
+   pointer idiom safe; without it every radius in the editor would go square.
+
+   ⚠ **The colour names are the token names, verbatim**, which is what makes the mapping checkable
+   by eye — and the price is that the family prefix and the token name sometimes both say the same
+   word: `text-text-muted` is the muted text colour, and `border-border` is the hairline. Renaming
+   either half to read better is how a second vocabulary starts.
+
+   ⚠ **This file used to be `vixen.ui.yaml` and the YAML is deleted rather than ported.** It already
+   declared nothing but `var()` pointers into a stylesheet, which is `@theme` with a translation
+   step in front of it — and the two limitations it carried in its own comments were both the same
+   bug, a token store holding parsed values where the theme holds references. Both are gone below.
+
+   **An opacity modifier on one of these works.** `bg-accent/50` emits
+   `color-mix(in oklab, var(--accent) 50%, transparent)`, which never takes the colour apart.
+   `opacity-50` on the element is still the right answer when the *whole* element should be
+   translucent; the modifier is for when only the fill is. */
+
+@theme {
+    /* ── What the editor does not want from the engine's defaults ────────────
+       Both of these are `initial`, which is v4's own way of emptying a namespace, and both are
+       decisions rather than tidiness.
+
+       ⚠ **The colours, because the editor's palette is a designed thing and a superset of it is
+       not.** `EditorTheme.vcss`' remarks are the argument: near-black tool-window density, four
+       surfaces whose depth comes from luminance steps rather than borders, and a hairline that is
+       *darker* than the surface it edges. Twenty-six general-purpose hue ramps sitting beside that
+       would be twenty-six ways to write a colour that is not in it, all of them resolving cleanly.
+       A game wants the opposite and gets the opposite, which is the whole point of shipping the
+       palette as a default rather than as a floor.
+
+       ⚠ **The breakpoints, because a tool window is not a page.** A panel is sized by the dock that
+       holds it and not by the display, so `md:` would be asking the wrong question — the answer a
+       panel wants is its own width, which a media query cannot see. Cleared rather than left
+       available and misleading. Container queries are the mechanism that actually answers it; see
+       docs/plan/43 § D3. */
+    --color-*: initial;
+    --breakpoint-*: initial;
+
+    /* ⚠ Four, and it used to be two. The editor's chrome was drawn on a two-pixel rhythm and a base
+       of 2 made every measurement in the sheet a whole number of steps; the chrome is being redone,
+       and an engine whose spacing base differs from Tailwind's by a factor of two means every `p-4`
+       a Tailwind author writes is half the size they expect. The exception goes with the rhythm
+       that justified it. */
+    --spacing: 4px;
+
+    /* ── The palette ─────────────────────────────────────────────────────────
+       The four surfaces the whole depth model is made of. See `EditorTheme.vcss`' remarks: depth
+       here comes from luminance steps rather than from borders, and these are the steps. */
+    --color-workspace: var(--workspace);
+    --color-surface: var(--surface);
+    --color-surface-sunken: var(--surface-sunken);
+    --color-surface-raised: var(--surface-raised);
+    --color-surface-hover: var(--surface-hover);
+
+    /* The hairline, which is *darker* than the surface it edges — a seam rather than a bevel. */
+    --color-border: var(--border);
+    --color-border-active: var(--border-active);
+
+    --color-text: var(--text);
+    --color-text-muted: var(--text-muted);
+
+    --color-accent: var(--accent);
+    --color-accent-text: var(--accent-text);
+    --color-accent-soft: var(--accent-soft);
+    --color-accent-deep: var(--accent-deep);
+
+    --color-danger: var(--danger);
+    --color-warning: var(--warning);
+
+    /* The parts a control draws itself out of, which are tokens because a slider, a scrollbar and a
+       progress bar are the same three colours arranged differently. */
+    --color-track: var(--track-color);
+    --color-fill: var(--fill-color);
+    --color-thumb: var(--thumb-color);
+    --color-selection: var(--selection-color);
+    --color-caret: var(--caret-color);
+
+    /* Chrome is the strip around the working surface — menu bar, toolbar, status bar — and it is its
+       own ramp because it sits *on* the desk rather than being one of the cards laid on it. */
+    --color-chrome: var(--chrome);
+    --color-chrome-sunken: var(--chrome-sunken);
+    --color-chrome-text: var(--chrome-text);
+
+    /* ⚠ Three shades each, and the soft/strong pair is not decoration. A green button hovered with
+       the generic neutral grey reads as the colour draining out of it at the one instant it most
+       needs to look live. */
+    --color-play: var(--play);
+    --color-play-soft: var(--play-soft);
+    --color-play-strong: var(--play-strong);
+    --color-pause: var(--pause);
+    --color-pause-soft: var(--pause-soft);
+    --color-pause-strong: var(--pause-strong);
+    --color-stop: var(--stop);
+    --color-stop-soft: var(--stop-soft);
+    --color-stop-strong: var(--stop-strong);
+
+    --color-marquee-edge: var(--marquee-edge);
+    --color-marquee-fill: var(--marquee-fill);
+
+    /* ── Radii ───────────────────────────────────────────────────────────────
+       ⚠ **This is the entry the old YAML could not write, and the reason it could not is gone.**
+       Its comment read: "`radius` is missing on purpose … `ThemeTokens.Radius` is a
+       `Dictionary<string, float>`: it parses numbers, so `var(--radius-row)` is rejected with a
+       diagnostic rather than stored." So the editor had three radii on the root, no radius tokens,
+       and `rounded-[var(--radius-row)]` as the way to say it. `Radius` holds text now, which is what
+       every other namespace already did, and these three are ordinary tokens.
+
+       The engine's own `--radius-xs … --radius-4xl` are deliberately *not* cleared: they are v4's
+       scale, they collide with nothing here, and a new panel wanting `rounded-md` should have it. */
+    --radius-panel: var(--radius-panel);
+    --radius-control: var(--radius-control);
+    --radius-row: var(--radius-row);
+
+    /* Shadows are strings, so the elevation token survives the round trip whole — which is also the
+       shape a shadow token should have: offset, blur and alpha are chosen together to read as one
+       height above the surface. */
+    --shadow-elevation: var(--elevation);
+
+    /* ⚠ `EditorTheme.vcss` declares no font-size tokens — it writes sizes inline, mostly as `em`
+       against the host's — so this is a new scale rather than a mirror of an existing one, and it is
+       kept to the four sizes the chrome actually uses. It overrides four steps of v4's scale and
+       leaves the other nine alone. The line height is a length here rather than a ratio, which is
+       CSS's own distinction and not this file's. */
+    --text-xs: 10px;
+    --text-xs--line-height: 14px;
+    --text-sm: 11px;
+    --text-sm--line-height: 16px;
+    --text-base: 12px;
+    --text-base--line-height: 18px;
+    --text-lg: 14px;
+    --text-lg--line-height: 20px;
+
+    /* ⚠ No `--dark-mode`. Neither strategy is what the editor does: its dark theme is `ThemeService`
+       putting a `dark` class on the *root* and the tokens in `EditorTheme.vcss` being redeclared
+       under `root.dark`. A `dark:` variant would be a second mechanism selecting the same thing.
+       Write `bg-surface` and let the token move. */
+}

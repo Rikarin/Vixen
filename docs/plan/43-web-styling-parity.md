@@ -527,6 +527,43 @@ scalar, the easy case) or continued build-time resolution, which is a documented
 divergence. Vixen's `SpacingBase` is already one number, so the *model* matches; only the emission
 does not.
 
+✅ **Landed, and `vixen.ui.yaml` is gone from the tree.** `ThemeTokens.Parse` reads `@theme` blocks
+out of stylesheet text, `CreateDefault()` is v4.3.3's own theme embedded as
+`Core/Vixen.Ui.Styling.Utilities/Theme/vixen.default.vcss`, and a project's blocks layer over it with
+v4's `initial` semantics — namespace, everything, or one token. Both token files in the tree are now
+`vixen.ui.vcss`, and the `.targets` glob is the only MSBuild change. Six things the sizing above did
+not know:
+
+- **`ThemeTokens.Radius` really did dissolve, and nothing else had to move.** It is
+  `Dictionary<string,string>`, `TryRadius` emits what it holds, and the editor's three radii are
+  ordinary tokens spelled `--radius-row: var(--radius-row)`. What that spelling costs is one rule
+  nobody would guess: **a theme token whose value references its own name must never be emitted**,
+  because the `root` rule the generator writes lands *after* the sheet that declares the real value
+  and would shadow it with a self-reference resolving to nothing. Every radius in the editor goes
+  square, from a declaration that reads like a tautology. `RootRuleFor` skips them and
+  `A_token_that_references_its_own_name_is_never_emitted` pins it.
+- ⚠ **The generator does *not* resolve a name to `var(--name)`, and the paragraph above should not
+  have said it would.** It emits the token's value, as it always did — which is what keeps the
+  editor's output byte-identical, because the editor's values are already `var(--surface)` and
+  friends. The variable is emitted *as well*, into a `root` rule holding only what a sheet actually
+  references, closed transitively. Emitting all 347 to serve the handful anyone says `var()` against
+  is three hundred interned strings on every document's root for nothing.
+- **The YAML dependency was the whole of why `Tools/Vixen.StyleGen` is a process**, and it is gone.
+  `Vixen.Ui.Styling.Utilities` now has no package references at all, so the "an analyzer's
+  dependencies do not travel with it" argument that runs through that project file, its README and
+  the runner's remarks no longer applies. Making the step an `IIncrementalGenerator` is a separate
+  change; the blocker is what lifted.
+- ⚠ **"22 hues × 11 steps" is v4.0's count and is stale.** v4.3.3 ships **26** ramps — `mauve`,
+  `olive`, `mist` and `taupe` arrived after 4.0 — for 288 colour declarations and 347 in total.
+- **A namespace can look like a member of another one, and two do.** `--text-shadow-*` falls inside
+  `--text-*` and would become a font size called `shadow-sm` whose value is a box-shadow;
+  `--font-weight-*` falls inside `--font-*` and would become a font stack called `weight-bold`. Both
+  are guarded, and both would have parsed cleanly and produced a utility that resolved to nonsense.
+- **Reading is not a cost anyone will notice.** 347 declarations parse in **≈ 0.45 ms**, and the
+  candidate space does not grow with the palette: the generator emits only what was scanned, and
+  `UtilityFamilies.Probes` takes the ordinally first key of each scale rather than the cross product.
+  The editor's whole generated sheet is 23 rules.
+
 ### D2. `color-mix()` dissolves task #12 and opens a smaller one
 
 Confirmed by compiling it rather than recalling it — `bg-blue-500/50` in v4.3.3 is:
@@ -717,6 +754,18 @@ yet: every theme colour is a hex token, in gamut by construction, and the early-
 untouched. **The baselines will move when this palette lands**, and that movement is the fix
 arriving, not a regression — the pixels that change are the ones that were being clipped.
 
+⚠ ✅ **The palette landed and the baselines still did not move, and the reason is worth writing down
+because it is the opposite of what the paragraph above predicted.** All 43 are byte-identical after
+the shipped `@theme`. Shipping a palette is not the same act as *drawing* with one: the only two
+suites that take pictures are `Vixen.Ui.Controls.Tests`, whose projects have no theme file and never
+run the generator at all, and `Vixen.Editor.Ui.Tests`, whose theme clears `--color-*` and keeps the
+hex ramp `EditorTheme` was designed around. Not one element in either carries a class that resolves
+to an oklch token. **What expires the prediction is a stylesheet that paints with a v4 colour**, and
+nothing in the tree does yet — the palette is reachable, which was the deliverable, and the first
+panel that writes `bg-blue-500` is what will move a picture. The spacing change went the same way for
+a duller reason: the editor's base moved from 2 to 4, and its markup writes exactly two spacing
+classes, `min-w-0` and a `p-3` that appears only in a comment.
+
 ⚠ **Three things a reader should not take on trust from the above.** First, the specification now
 offers **three** gamut mapping algorithms — binary search, EdgeSeeker, ray-trace — and lets an
 implementation choose; the one implemented is the only one whose constants the prose pins down.
@@ -778,9 +827,12 @@ change to match v3.
 
 ⚠ **A utility class written outside `Vixen.Editor.Ui` resolves to nothing, with no diagnostic.**
 `Core/Vixen.Ui.Styling.Utilities/build/Vixen.Ui.Styling.Utilities.targets` globs `@(Compile)` plus
-`**/*.vxml;**/*.vcss` **within the consuming project**, finds `**/vixen.ui.yaml` **within the
-consuming project**, and errors if there is more than one — *"One project is one palette."* The
-generation target does not even run without a token file. So `Vixen.Editor.Profiler`,
+`**/*.vxml;**/*.vcss` **within the consuming project**, finds `**/vixen.ui.vcss` **within the
+consuming project**, and errors if there is more than one — *"One project is one palette."* ⚠ The
+shipped default has made this **worse rather than better**: the target used to not run at all without
+a token file, which was at least loud, and a project with none now generates v4's palette against its
+own sources — so an assembly that meant to share the editor's tokens and forgot gets Tailwind's
+instead of nothing. So `Vixen.Editor.Profiler`,
 `Vixen.Editor.Debugger` and `Vixen.Editor.AssetEditors` produce no utility sheet at all, and a panel
 ported to VXML in one of them has to fall back to tag-based theme rules. That workaround has already
 been taken once.
@@ -810,7 +862,7 @@ concept.
 
 ⚠ **The guide page master added — [`docs/guide/editor/utility-styles.md`](../guide/editor/utility-styles.md)
 § Examples — documents the workaround rather than the shape.** *"Turning the step on in another project
-is two lines and a file"*, and the file is a second `vixen.ui.yaml`: a second palette, which is the
+is two lines and a file"*, and the file is a second `vixen.ui.vcss`: a second palette, which is the
 failure the token model exists to prevent. It also still carries *"`overflow-auto` is in neither
 column"*, which F3 has since made untrue. Both should be revised when C4 lands.
 
@@ -1187,7 +1239,7 @@ mixed-content paragraph sit behind it.
 | C0 🟢 | The next-longest-prefix fallback in `SplitName` (F8) — unblocks every per-edge/per-corner family | 0.1 |
 | C1 🟢 | Arbitrary properties, and v4's `bg-(--var)` shorthand | 0.15 |
 | C2 🟢 | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5) | 0.1 |
-| C3 🟢 | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet (D1) | 0.5 |
+| C3 ✅ | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet, and v4.3.3's palette ships as the engine default in oklch (D1, D4) | 0.5 |
 | C4 🟢 | Cross-assembly token sharing, shape C (Part 3) | 0.3 |
 | C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |
 | C6 🟢 | Doc 09's five missing families — `space`, `divide`, `mix-blend`, `origin`, `scroll` | 0.25 |

@@ -100,10 +100,14 @@
     </ItemGroup>
 
     <!--
-        The utility build step: `Theming/vixen.ui.yaml` is found by the glob in the .targets below,
+        The utility build step: `Theming/vixen.ui.vcss` is found by the glob in the .targets below,
         every source file and every .vxml in this project is scanned for class names, and the sheet
-        is compiled into obj/. Nothing in this assembly embeds a resource, walks a manifest or runs a
-        scanner — the whole of the wiring is the two lines here and the accessor in EditorStyles.cs.
+        is compiled into obj/. Nothing in this assembly walks a manifest or runs a scanner — the whole
+        of the wiring is the two lines here and the accessor in EditorStyles.cs.
+
+        ⚠ It does embed one resource, and by a glob rather than by hand: `Vixen.Ui.targets` picks up
+        `**/*.vcss`, which is how `Theming/EditorTheme.vcss` — fourteen hundred lines that used to be
+        a C# raw string literal — reaches `EditorTheme.Css`.
 
         ⚠ The generated type is internal by default and stays that way. `EditorStyles` is the public
         face, because a public *generated* type is a public API baseline entry and a documentation

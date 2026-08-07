@@ -8,22 +8,53 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <summary>A theme, a generator, and a style engine to load the result into.</summary>
 sealed class UtilityFixture {
     /// <summary>The theme doc 09 gives as the worked example, so tests read against the plan.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>--*: initial;</c> first, and it is not tidiness.</b> Every namespace has a shipped
+    ///     default now — v4's twenty-six colour ramps, its type scale, its radii — and a fixture that
+    ///     inherited them would stop being doc 09's worked example and start being doc 09's example
+    ///     <i>plus</i> three hundred tokens nobody chose. Tests that ask "what does this theme not
+    ///     have" would then answer differently for a reason unrelated to what they measure. The
+    ///     shipped default gets its own tests; this one is the plan's, verbatim.
+    /// </remarks>
     public const string Theme = """
-        theme:
-          colors:
-            surface:  { 1: "#101014", 2: "#17171d", 3: "#1f1f26" }
-            accent:   { DEFAULT: "#4f7cff", hover: "#6a91ff" }
-            muted:    "#8a8a99"
-          spacing:    { base: 4 }
-          radius:     { sm: 2, md: 4, lg: 8, full: 9999 }
-          fontSize:   { xs: [11,16], sm: [12,18], base: [14,20], lg: [17,24], xl: [21,28] }
-          fontWeight: { normal: 400, medium: 500, semibold: 600, bold: 700 }
-          screens:    { sm: 640, md: 768, lg: 1024, xl: 1280 }
-          shadow:
-            DEFAULT: "0px 1px 2px rgba(0, 0, 0, 0.3)"
-            lg:      "0px 8px 24px rgba(0, 0, 0, 0.45)"
-        darkMode: media
-        content: ["Assets/**/*.vxml", "Assets/**/*.cs"]
+        @theme {
+            --*: initial;
+
+            --color-surface-1: #101014;
+            --color-surface-2: #17171d;
+            --color-surface-3: #1f1f26;
+            --color-accent: #4f7cff;
+            --color-accent-hover: #6a91ff;
+            --color-muted: #8a8a99;
+
+            --spacing: 4px;
+
+            --radius-sm: 2px;
+            --radius-md: 4px;
+            --radius-lg: 8px;
+            --radius-full: 9999px;
+
+            --text-xs: 11px;   --text-xs--line-height: 16px;
+            --text-sm: 12px;   --text-sm--line-height: 18px;
+            --text-base: 14px; --text-base--line-height: 20px;
+            --text-lg: 17px;   --text-lg--line-height: 24px;
+            --text-xl: 21px;   --text-xl--line-height: 28px;
+
+            --font-weight-normal: 400;
+            --font-weight-medium: 500;
+            --font-weight-semibold: 600;
+            --font-weight-bold: 700;
+
+            --breakpoint-sm: 640px;
+            --breakpoint-md: 768px;
+            --breakpoint-lg: 1024px;
+            --breakpoint-xl: 1280px;
+
+            --shadow: 0px 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0px 8px 24px rgba(0, 0, 0, 0.45);
+
+            --dark-mode: media;
+        }
         """;
 
     public UtilityFixture(string? theme = null) {

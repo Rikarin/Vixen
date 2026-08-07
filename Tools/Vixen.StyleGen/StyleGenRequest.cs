@@ -11,8 +11,16 @@ namespace Vixen.StyleGen;
 ///     build step, and it is only findable if the parse has a value to compare against.
 /// </remarks>
 internal sealed record StyleGenRequest {
-    /// <summary>The <c>vixen.ui.yaml</c>, or <c>null</c> for the built-in defaults.</summary>
-    internal string? Tokens { get; init; }
+    /// <summary>The <c>.vcss</c> files whose <c>@theme</c> blocks layer over the shipped defaults.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A list, and it used to be one <c>vixen.ui.yaml</c>.</b> Under v4 a token is a custom
+    ///     property in a stylesheet, so "the theme" is however many <c>@theme</c> blocks a project
+    ///     wrote, applied in the order given — which is what makes clearing a namespace in one file
+    ///     and refilling it in the next mean anything. The <c>.targets</c> still finds exactly one by
+    ///     convention; the plural is here because <see cref="Base" /> sheets can carry an
+    ///     <c>@theme</c> too and they arrive through the same door.
+    /// </remarks>
+    internal IReadOnlyList<string> Themes { get; init; } = [];
 
     /// <summary>Every file whose text is searched for class names.</summary>
     /// <remarks>

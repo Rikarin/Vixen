@@ -20,6 +20,29 @@
     </ItemGroup>
 
     <!--
+        ⚠ **The other half of the pair, and it did not exist until doc 43's `@theme` work.** A .vxml
+        compiled and a .vcss did not: there was no item type, no glob and no loader for one, so the
+        only stylesheet on disk in the whole tree — the MMO sample's `hud.vcss` — was embedded by
+        hand and read back through GetManifestResourceStream in a file whose own comments call
+        itself a placeholder. Everything else was a `const string` inside a .cs, which is how
+        `ControlTheme`, `AdvancedTheme` and `EditorTheme` came to be 3 260 lines of CSS edited
+        through a raw string literal.
+
+        An EmbeddedResource and not an AdditionalFiles, because a stylesheet is *content* rather than
+        compiler input: nothing generates code from it, the assembly carries it so a shipped game has
+        no build artefact to deploy, and the logical name is the default — RootNamespace plus the
+        folder path — which is what lets a caller name it without MSBuild knowing anything.
+
+        ⚠ And it is what finally gives the `hot-reload DIR` switch something to watch. That has always
+        globbed `*.vcss` and there has never been one in a source tree for it to find, so the style
+        half of hot reload has been reachable and untested since it was written. See
+        `Editor/Vixen.Editor.Host/README.md`.
+    -->
+    <ItemGroup Condition="'$(EnableVixenStyleSheets)' != 'false'">
+        <EmbeddedResource Include="**/*.vcss" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+    </ItemGroup>
+
+    <!--
         The two the generator asks MSBuild for. RootNamespace and the folders below the project
         directory are what a component's namespace is built from — the same convention a
         hand-written .cs file in the same folder already follows — and the project directory is also

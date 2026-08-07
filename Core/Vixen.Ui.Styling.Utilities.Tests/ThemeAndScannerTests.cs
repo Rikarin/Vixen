@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -16,59 +18,255 @@ public class ThemeAndScannerTests {
         Assert.Empty(tokens.Diagnostics);
         Assert.Equal(4f, tokens.SpacingBase);
         Assert.Equal(DarkModeStrategy.Media, tokens.DarkMode);
-        Assert.Equal(["Assets/**/*.vxml", "Assets/**/*.cs"], tokens.Content);
 
         Assert.Equal("#17171d", tokens.Colors["surface-2"]);
         Assert.Equal("#8a8a99", tokens.Colors["muted"]);
-        Assert.Equal(8f, tokens.Radius["lg"]);
+        Assert.Equal("8px", tokens.Radius["lg"]);
         Assert.Equal(600f, tokens.FontWeight["semibold"]);
         Assert.Equal(768f, tokens.Screens["md"]);
         Assert.Equal(new FontSizeToken(17f, 24f), tokens.FontSize["lg"]);
     }
 
+    /// <summary>The engine's shipped tokens are v4's, in the oklch they were authored in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted against the text and not against a colour object, on purpose.</b> Two of
+    ///     every three v4 colours are outside sRGB; anything that compared them by converting first
+    ///     would be comparing whatever the conversion clamped to, and would pass with the chroma
+    ///     already thrown away. See docs/plan/43 § D4, which records that exact trap costing real
+    ///     time here once already.
+    /// </remarks>
     [Fact]
-    public void A_colour_family_can_be_a_value_or_a_set_of_shades() {
-        // `muted: "#8a8a99"` and `accent: { DEFAULT: …, hover: … }` are both legal and mean
-        // different things, which is why the config is read from the YAML DOM rather than
-        // deserialised into a record: a typed schema would have to pick one shape.
-        var tokens = ThemeTokens.Parse(UtilityFixture.Theme);
+    public void The_shipped_default_is_Tailwind_v4s_own_theme() {
+        var tokens = ThemeTokens.CreateDefault();
 
-        Assert.Equal("#4f7cff", tokens.Colors["accent"]);
-        Assert.Equal("#6a91ff", tokens.Colors["accent-hover"]);
-        Assert.False(tokens.Colors.ContainsKey("accent-DEFAULT"));
+        Assert.Empty(tokens.Diagnostics);
+
+        Assert.Equal("oklch(62.3% 0.214 259.815)", tokens.Colors["blue-500"]);
+        Assert.Equal("oklch(69.6% 0.17 162.48)", tokens.Colors["emerald-500"]);
+        Assert.Equal("#fff", tokens.Colors["white"]);
+
+        // 26 ramps of 11, plus black and white.
+        Assert.Equal((26 * 11) + 2, tokens.Colors.Count);
+
+        // `rem` is resolved at 16px, because there is no root font size downstream to resolve it
+        // against — the one documented divergence from v4's emission.
+        Assert.Equal(4f, tokens.SpacingBase);
+        Assert.Equal("8px", tokens.Radius["lg"]);
+        Assert.Equal(768f, tokens.Screens["md"]);
+
+        // `--text-sm: 0.875rem` with `--text-sm--line-height: calc(1.25 / 0.875)`: 14px, and a ratio
+        // of 1.4286 multiplied out rather than carried.
+        Assert.Equal(new FontSizeToken(14f, 20f), tokens.FontSize["sm"]);
     }
 
+    /// <summary>A namespace can be emptied, which is how a project opts out of the shipped default.</summary>
+    /// <remarks>
+    ///     ⚠ <b>And the second half is the one that could regress silently.</b> Clearing has to leave
+    ///     the <i>other</i> namespaces alone: a <c>--color-*: initial;</c> that also took the radii
+    ///     with it would look correct in every colour test and quietly square every corner in the
+    ///     application.
+    /// </remarks>
+    [Fact]
+    public void Clearing_a_namespace_empties_that_one_and_no_other() {
+        var tokens = ThemeTokens.Parse("@theme { --color-*: initial; --color-brand: #123456; }");
+
+        Assert.Equal("#123456", Assert.Single(tokens.Colors).Value);
+        Assert.False(tokens.Colors.ContainsKey("blue-500"));
+        Assert.Equal("8px", tokens.Radius["lg"]);
+        Assert.Equal(768f, tokens.Screens["md"]);
+    }
+
+    /// <summary>One token can be cleared on its own, and the rest of its namespace stays.</summary>
+    [Fact]
+    public void Clearing_one_token_leaves_its_neighbours() {
+        var tokens = ThemeTokens.Parse("@theme { --color-blue-500: initial; }");
+
+        Assert.False(tokens.Colors.ContainsKey("blue-500"));
+        Assert.True(tokens.Colors.ContainsKey("blue-600"));
+    }
+
+    /// <summary><c>--*: initial;</c> takes everything, which is what the test fixtures want.</summary>
+    [Fact]
+    public void Clearing_everything_leaves_nothing_but_the_defaults_of_the_scalars() {
+        var tokens = ThemeTokens.Parse("@theme { --*: initial; }");
+
+        Assert.Empty(tokens.Colors);
+        Assert.Empty(tokens.Radius);
+        Assert.Empty(tokens.FontSize);
+        Assert.Empty(tokens.Screens);
+        Assert.Empty(tokens.Shadow);
+        Assert.Empty(tokens.Variables);
+    }
+
+    /// <summary>A later block wins, which is what "layer your theme over the default" means.</summary>
+    [Fact]
+    public void A_later_block_beats_an_earlier_one() {
+        var tokens = ThemeTokens.Parse("@theme { --color-brand: #111111; }\n@theme { --color-brand: #222222; }");
+
+        Assert.Equal("#222222", tokens.Colors["brand"]);
+    }
+
+    /// <summary>A font size may omit its line height, and 1.4 is what "no opinion" is worth.</summary>
     [Fact]
     public void A_font_size_may_omit_its_line_height() {
-        var tokens = ThemeTokens.Parse("theme:\n  fontSize: { base: 14 }\n");
+        // ⚠ Cleared first, because the shipped default gives `base` a line-height ratio of 1.5 and
+        // the point of this test is the *absence* of an opinion. Over the default the answer would
+        // be 21 and the test would be measuring v4's type scale.
+        var tokens = ThemeTokens.Parse("@theme { --*: initial; --text-base: 14px; }");
 
         Assert.Empty(tokens.Diagnostics);
         Assert.Equal(14f, tokens.FontSize["base"].Size);
         Assert.Equal(20f, tokens.FontSize["base"].LineHeight);
     }
 
-    [Fact]
-    public void A_token_that_is_not_what_it_should_be_is_reported_rather_than_guessed_at() {
-        var tokens = ThemeTokens.Parse("theme:\n  radius: { sm: notanumber }\n  colors: { bad: [1, 2] }\n");
+    /// <summary>
+    ///     ⚠ <b>The line height may be written before the size, and the answer is the same.</b> Which
+    ///     order two declarations appear in is the author's business, and a reader that folded the
+    ///     pair as each arrived would have nowhere to put a ratio whose size has not landed — it
+    ///     would sit in the line-height slot, and the size arriving second could not tell it from a
+    ///     length.
+    /// </summary>
+    [Theory]
+    [InlineData("--text-sm: 0.875rem; --text-sm--line-height: calc(1.25 / 0.875);")]
+    [InlineData("--text-sm--line-height: calc(1.25 / 0.875); --text-sm: 0.875rem;")]
+    public void A_ratio_and_its_size_may_be_written_in_either_order(string declarations) {
+        var tokens = ThemeTokens.Parse($"@theme {{ --*: initial; {declarations} }}");
 
-        Assert.Equal(2, tokens.Diagnostics.Count);
-        Assert.Empty(tokens.Radius);
+        Assert.Empty(tokens.Diagnostics);
+        Assert.Equal(new FontSizeToken(14f, 20f), tokens.FontSize["sm"]);
     }
 
     /// <summary>
-    ///     And a file that is not YAML at all goes down the same channel, rather than out of the
-    ///     reader and into whoever was building a stylesheet. A theme file is hand-written, so this is
-    ///     the likeliest of the failures here — and the malformed tag is the shape the <c>meta</c>
-    ///     fuzz found reaching a library constructor before <c>YamlReader</c> refused it.
+    ///     ⚠ <b>A unitless line height is a ratio and one with a unit is a length</b>, which is CSS's
+    ///     own distinction rather than a heuristic. v4 writes every one of its own as a ratio; a
+    ///     theme carrying a designer's pixel pairs writes lengths, and both have to land.
+    /// </summary>
+    [Fact]
+    public void A_line_height_with_a_unit_is_a_length_and_not_a_multiplier() {
+        var tokens = ThemeTokens.Parse("@theme { --text-sm: 11px; --text-sm--line-height: 16px; }");
+
+        Assert.Equal(new FontSizeToken(11f, 16f), tokens.FontSize["sm"]);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A radius token can be a reference now, and that is the whole of a limitation the
+    ///     editor's theme file carried in its own comments.</b> <c>ThemeTokens.Radius</c> was a
+    ///     <c>Dictionary&lt;string, float&gt;</c>, so <c>var(--radius-row)</c> was rejected with a
+    ///     diagnostic rather than stored — and the editor, whose three radii are custom properties on
+    ///     the root, therefore declared no radius tokens at all.
+    /// </summary>
+    [Fact]
+    public void A_radius_token_may_be_a_reference_rather_than_a_number() {
+        var tokens = ThemeTokens.Parse("@theme { --radius-row: var(--radius-row); }");
+
+        Assert.Empty(tokens.Diagnostics);
+        Assert.Equal("var(--radius-row)", tokens.Radius["row"]);
+    }
+
+    [Fact]
+    public void A_token_that_is_not_what_it_should_be_is_reported_rather_than_guessed_at() {
+        var tokens = ThemeTokens.Parse("@theme { --*: initial; --spacing: wide; --breakpoint-md: soon; }");
+
+        Assert.Equal(2, tokens.Diagnostics.Count);
+        Assert.Empty(tokens.Screens);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Text that is not a theme is not an error, and that is the difference the format
+    ///     makes.</b> A YAML reader had a cliff — a malformed tag threw out of it and stopped whoever
+    ///     was building a stylesheet — and its own remarks called that the likeliest failure of all.
+    ///     A stylesheet has no cliff: a block that does not close is a block that yields no
+    ///     declarations, and a file with no <c>@theme</c> in it is most files.
     /// </summary>
     [Theory]
-    [InlineData("theme: !!Te]V\n")]
-    [InlineData("theme:\n  colors: { bad: [1, 2\n")]
-    [InlineData(":")]
-    public void A_theme_file_that_is_not_YAML_is_reported_rather_than_thrown(string yaml) {
-        var tokens = ThemeTokens.Parse(yaml);
+    [InlineData("")]
+    [InlineData(".card { color: red; }")]
+    [InlineData("@theme { --color-brand: #fff")]
+    [InlineData("@theme")]
+    public void Text_that_declares_no_tokens_is_not_a_failure(string css) {
+        var tokens = ThemeTokens.Parse(css);
 
-        Assert.Contains("not YAML", Assert.Single(tokens.Diagnostics), StringComparison.Ordinal);
+        Assert.Empty(tokens.Diagnostics);
+        Assert.Equal("oklch(62.3% 0.214 259.815)", tokens.Colors["blue-500"]);
+    }
+
+    /// <summary>Comments and wrapped values survive the scan, because v4's own file has both.</summary>
+    [Fact]
+    public void A_comment_and_a_wrapped_value_read_the_same_as_one_line() {
+        var tokens = ThemeTokens.Parse(
+            """
+            @theme {
+                /* a colour; with a brace { and a semicolon inside the comment */
+                --color-brand:
+                    #123456;
+                --shadow-two: 0 1px 2px rgb(0 0 0 / 0.1),
+                    0 2px 4px rgb(0 0 0 / 0.1);
+            }
+            """);
+
+        Assert.Empty(tokens.Diagnostics);
+        Assert.Equal("#123456", tokens.Colors["brand"]);
+        Assert.Equal("0 1px 2px rgb(0 0 0 / 0.1), 0 2px 4px rgb(0 0 0 / 0.1)", tokens.Shadow["two"]);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The whole deliverable, end to end and through the real cascade: a class name nobody
+    ///     configured reaches an element as a colour outside sRGB, and the mapper repairs it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Every link is real — the shipped <c>@theme</c>, the generator, the style engine, the
+    ///         parser and <c>GamutMap</c> — because each of them is a place the chroma could quietly
+    ///         be thrown away and none of them would fail if it were.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The out-of-gamut assertion is the load-bearing one, and it is here because a
+    ///         reference that clamps looks exactly like a reference that agrees.</b> doc 43 § D4
+    ///         records that trap costing real time: a test asserting three v4 colours were fine
+    ///         <i>looked</i> verified against an implementation that clamped before printing. Two of
+    ///         these three are outside sRGB — <c>blue-500</c> past white in linear blue,
+    ///         <c>emerald-500</c> past black in linear red — and a palette transcribed to hex would
+    ///         pass "the utility resolves" while having deleted the thing worth shipping.
+    ///     </para>
+    ///     <para>
+    ///         The repair is asserted as a <i>property</i> rather than against numbers: what the
+    ///         specification promises is that the mapped colour is showable and that its hue is held
+    ///         while chroma is reduced. Pinning the mapper's own output here would restate
+    ///         <c>GamutMapTests</c> and would fail for a reason unrelated to the palette.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("blue-500", false)]
+    [InlineData("emerald-500", false)]
+    [InlineData("red-500", true)]
+    public void A_shipped_colour_reaches_an_element_unclamped_and_is_mapped_at_presentation(string token, bool showable) {
+        var fixture = new UtilityFixture(string.Empty);
+        var computed = fixture.Computed([$"bg-{token}"], "background-color");
+
+        Assert.NotNull(computed);
+
+        var colour = new StyleValueParser(new NameTable(), new NameTable()).Parse(computed);
+        var linear = new Vector3(colour.Color.R, colour.Color.G, colour.Color.B);
+
+        Assert.Equal(StyleValueKind.Color, colour.Kind);
+        Assert.Equal(showable, GamutMap.InGamut(linear, ColorGamut.Srgb));
+
+        var mapped = GamutMap.Map(linear, ColorGamut.Srgb);
+
+        Assert.True(GamutMap.InGamut(mapped, ColorGamut.Srgb), "the mapper returned a colour that still cannot be shown");
+
+        // A colour already inside the gamut is returned untouched — the early-out — and one outside
+        // it comes back different, which is the pair that says the mapping happened rather than that
+        // the branch was never taken.
+        Assert.Equal(showable, mapped == linear);
+    }
+
+    /// <summary>Stripping takes the block and leaves everything around it.</summary>
+    [Fact]
+    public void Stripping_removes_the_block_and_nothing_else() {
+        const string css = ".a { color: red; }\n@theme { --color-brand: #fff; }\n.b { color: blue; }";
+
+        Assert.Equal(".a { color: red; }\n\n.b { color: blue; }", ThemeTokens.Strip(css));
     }
 
     [Fact]

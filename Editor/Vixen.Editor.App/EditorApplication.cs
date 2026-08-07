@@ -320,13 +320,20 @@ sealed partial class EditorApplication : IDisposable {
     ///         cannot use.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Not the editor's own chrome, and that is worth being blunt about.</b>
-    ///         <c>EditorTheme</c> and its four neighbours are C# string constants compiled into the
-    ///         assembly — there is no <c>.vcss</c> on disk for a watcher to watch, and there would
-    ///         still be none in a published editor if there were one in the source tree. What this
-    ///         watches is a directory of the developer's own sheets, loaded at <c>Author</c> origin
-    ///         after all five so they win the cascade: iterate there, then paste the result back into
-    ///         the constant. See <c>Editor/Vixen.Editor.Host/README.md</c>.
+    ///         ⚠ <b>It can now be pointed at the editor's own chrome, and the limit that remains is a
+    ///         cascade question rather than a plumbing one.</b> <c>Theming/EditorTheme.vcss</c> is a
+    ///         real file since doc 43's <c>@theme</c> work — before it there was no <c>.vcss</c> in
+    ///         the tree at all and this channel had nothing to watch. But what is found here loads at
+    ///         <c>Author</c> origin and the shipped copy is at <c>UserAgent</c>, so an edit
+    ///         <i>layers over</i> the sheet rather than replacing it: changed values are live, and a
+    ///         <b>deleted</b> rule does not disappear, because the copy underneath still has it.
+    ///         Replacing in place wants <c>UiDocument.Replace</c> against the index
+    ///         <c>EditorTheme.Install</c> hands back, which nothing calls.
+    ///     </para>
+    ///     <para>
+    ///         A published editor still carries the sheet in its assembly and has no file to watch,
+    ///         which is why the switch names a directory and defaults to nothing.
+    ///         See <c>Editor/Vixen.Editor.Host/README.md</c>.
     ///     </para>
     /// </remarks>
     HotReloadWatcher? styleWatcher;

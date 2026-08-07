@@ -264,13 +264,13 @@ public class UtilityFamilyTests {
         // A mix does not take the colour apart, so all three of these keep their modifier.
         var fixture = new UtilityFixture(
             """
-            theme:
-              colors:
-                referenced: "var(--brand)"
-                wide:       "oklch(0.623 0.214 259.815)"
-                plain:      "#4f7cff"
-              spacing: { base: 4 }
-            content: []
+            @theme {
+                --*: initial;
+                --color-referenced: var(--brand);
+                --color-wide: oklch(0.623 0.214 259.815);
+                --color-plain: #4f7cff;
+                --spacing: 4px;
+            }
             """
         );
 

@@ -10,7 +10,7 @@ namespace Vixen.Samples.Mmo.Ui;
 /// <summary>The game's stylesheet: its tokens, its own rules, and the utilities it actually uses.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Three inputs and one output.</b> <c>Theme/vixen.ui.yaml</c> is the tokens,
+///         <b>Three inputs and one output.</b> <c>Theme/vixen.ui.vcss</c> is the tokens,
 ///         <c>Theme/hud.vcss</c> is the handful of rules a utility cannot say, and the markup is
 ///         scanned for every class name that could be a utility. What comes out is one sheet, and
 ///         the only rules in it are the ones something in this game refers to.
@@ -55,9 +55,9 @@ public static class MmoStyles {
         "text-health", "text-mana", "text-rage", "text-focus", "text-cast"
     ];
 
-    /// <summary>The design tokens, read from the game's <c>vixen.ui.yaml</c>.</summary>
+    /// <summary>The design tokens, read from the game's <c>vixen.ui.vcss</c>.</summary>
     /// <returns>Them.</returns>
-    public static ThemeTokens Tokens() => ThemeTokens.Parse(Text("Theme.vixen.ui.yaml"));
+    public static ThemeTokens Tokens() => ThemeTokens.Parse(Text("Theme.vixen.ui.vcss"));
 
     /// <summary>Every class name this game's markup mentions, plus the ones it assembles.</summary>
     /// <returns>The candidates, in no particular order.</returns>

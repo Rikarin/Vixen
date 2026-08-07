@@ -68,19 +68,29 @@ static class UtilityConsumptionProbe {
     ///     <c>color</c> emitted by nothing at all — a property that then never appears in the ledger in
     ///     either column, which is worse than being reported wrong.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>And <c>--*: initial;</c> before any of it, which keeps the gate measuring what it
+    ///     says it measures.</b> The engine ships a default <c>@theme</c> now, so a theme file that
+    ///     did not clear it would give every scale dozens of tokens — and
+    ///     <c>UtilityFamilies.Probes</c> takes the ordinally <i>first</i> key of each. The probe
+    ///     value would then be whichever v4 token happened to sort first, chosen by nobody, and a
+    ///     failure message would name it. One token per kind is only one token per kind if nothing
+    ///     else got in.
+    /// </remarks>
     public const string ProbeTheme = """
-        theme:
-          colors:
-            paint: "#3366cc"
-          spacing:    { base: 4 }
-          radius:     { probe: 6 }
-          fontSize:   { probe: [13, 20] }
-          fontWeight: { probe: 700 }
-          screens:    { probe: 640 }
-          shadow:
-            probe: "0px 3px 6px rgba(0, 0, 0, 0.5)"
-        darkMode: media
-        content: []
+        @theme {
+            --*: initial;
+
+            --color-paint: #3366cc;
+            --spacing: 4px;
+            --radius-probe: 6px;
+            --text-probe: 13px;
+            --text-probe--line-height: 20px;
+            --font-weight-probe: 700;
+            --breakpoint-probe: 640px;
+            --shadow-probe: 0px 3px 6px rgba(0, 0, 0, 0.5);
+            --dark-mode: media;
+        }
         """;
 
     /// <summary>The parts of the arrangement every scene shares.</summary>

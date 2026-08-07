@@ -31,17 +31,23 @@ internal sealed record StyleGenResult(
 ///         the pattern rather than the placeholder.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Out of process, and the reason is a dependency rather than a preference.</b> The
-///         obvious shape for "read some files at build time and emit code" is an
-///         <c>IIncrementalGenerator</c>, and it cannot be one here: <see cref="ThemeTokens" /> reads
-///         YAML through <c>Vixen.Core.Yaml</c>, which is YamlDotNet, and an analyzer's dependencies
-///         do not travel with it — <c>OutputItemType="Analyzer"</c> contributes one DLL, so every
-///         consuming project would have to put the rest on the analyzer path itself.
+///         ⚠ <b>Out of process, and the reason it had to be has expired.</b> The obvious shape for
+///         "read some files at build time and emit code" is an <c>IIncrementalGenerator</c>, and it
+///         could not be one here: <see cref="ThemeTokens" /> read YAML through
+///         <c>Vixen.Core.Yaml</c>, which is YamlDotNet, and an analyzer's dependencies do not travel
+///         with it — <c>OutputItemType="Analyzer"</c> contributes one DLL, so every consuming project
+///         would have had to put the rest on the analyzer path itself.
 ///         <c>Vixen.Ui.Markup.Generators</c> escapes the same trap by <em>linking</em> its front
 ///         end's source into the analyzer, which works because that front end is Vixen's own code and
-///         does not work here, because YamlDotNet is a package with no source to link. Running the
-///         shipped assembly in a process avoids the question entirely, at the cost of one process
-///         launch per build that changed a scanned file.
+///         could not have worked for a package.
+///     </para>
+///     <para>
+///         Under <c>@theme</c> there is no YamlDotNet: a token is a custom property in a stylesheet
+///         and the reader is a text scan over <c>Vixen.Ui.Styling.Utilities</c>' own code, which has
+///         no package references left at all. So the blocker has lifted and this is still a process,
+///         which is a decision now rather than a constraint. Making it a generator is a real change
+///         and belongs in its own commit; the cost of leaving it is one process launch per build that
+///         changed a scanned file.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It writes a file, and that is worth more than it looks.</b> A generated constant is
@@ -59,10 +65,46 @@ internal static class StyleGenRunner {
         ArgumentNullException.ThrowIfNull(request);
 
         var errors = new List<string>();
-        var tokens = ReadTokens(request.Tokens, errors);
 
-        foreach (var diagnostic in tokens.Diagnostics) {
-            errors.Add($"{request.Tokens}: {diagnostic}");
+        // ⚠ **The shipped defaults first, and every project gets them.** v4's model is that `@theme`
+        // *has* defaults and a project layers over them — `--color-*: initial;` is how you say you
+        // want none of it — so a project with no theme file of its own is not a project with no
+        // tokens. It is the whole reason `bg-blue-500` works in a game that wrote nothing.
+        var tokens = ThemeTokens.CreateDefault();
+        var seen = 0;
+
+        // The base sheets are read here rather than where they are emitted, because an `@theme` block
+        // in one of them has to reach the token set *before* anything is generated against it. Read
+        // twice would be the alternative, and the second read is where a file changing under the
+        // build stops being harmless.
+        var sheets = new List<(string Path, string Css)>();
+
+        foreach (var path in request.Themes) {
+            if (!File.Exists(path)) {
+                errors.Add($"{path}: there is no theme file here");
+                continue;
+            }
+
+            sheets.Add((path, File.ReadAllText(path)));
+        }
+
+        var themeCount = sheets.Count;
+
+        foreach (var path in request.Base) {
+            if (!File.Exists(path)) {
+                errors.Add($"{path}: the base stylesheet is not there");
+                continue;
+            }
+
+            sheets.Add((path, File.ReadAllText(path)));
+        }
+
+        foreach (var (path, text) in sheets) {
+            tokens.Apply(text);
+
+            for (; seen < tokens.Diagnostics.Count; seen++) {
+                errors.Add($"{path}: {tokens.Diagnostics[seen]}");
+            }
         }
 
         var candidates = new HashSet<string>(StringComparer.Ordinal);
@@ -92,13 +134,12 @@ internal static class StyleGenRunner {
         var css = new StringBuilder();
         var expander = new ApplyExpander(tokens);
 
-        foreach (var path in request.Base) {
-            if (!File.Exists(path)) {
-                errors.Add($"{path}: the base stylesheet is not there");
-                continue;
-            }
-
-            css.Append(expander.Expand(File.ReadAllText(path))).Append('\n');
+        foreach (var (path, text) in sheets.Skip(themeCount)) {
+            // ⚠ Stripped, because `@theme` is a build-time construct and the cascade has never heard
+            // of it. Its declarations have already been read into `tokens` above and whatever the
+            // sheet references comes back as a `root` rule below, so leaving the block in would be a
+            // second copy of the same values that the loader then drops with a diagnostic.
+            css.Append(expander.Expand(ThemeTokens.Strip(text))).Append('\n');
 
             foreach (var diagnostic in expander.Diagnostics) {
                 errors.Add($"{path}: {diagnostic}");
@@ -107,7 +148,20 @@ internal static class StyleGenRunner {
 
         css.Append(utilities);
 
-        return new StyleGenResult(css.ToString(), utilities, [.. generator.Unrecognised], errors, generator.RuleCount);
+        // ⚠ **The variables last to compute and first to emit.** Which of three hundred and
+        // forty-seven theme declarations a sheet needs is only knowable once the sheet exists, so
+        // the scan runs over the finished text — and the block it produces goes at the *top*, where
+        // a hand-written `root { --accent: … }` further down still wins on source order. A theme
+        // variable that beat the sheet declaring it would make the token model unopinionated in the
+        // one direction it must not be.
+        var root = tokens.RootRuleFor(css.ToString());
+
+        return new StyleGenResult(
+            root.Length > 0 ? root + '\n' + css : css.ToString(),
+            utilities,
+            [.. generator.Unrecognised],
+            errors,
+            generator.RuleCount);
     }
 
     /// <summary>Writes whatever the request asked to be written.</summary>
@@ -215,19 +269,6 @@ internal static class StyleGenRunner {
         }
 
         return escaped.ToString();
-    }
-
-    static ThemeTokens ReadTokens(string? path, List<string> errors) {
-        if (path is null) {
-            return new ThemeTokens();
-        }
-
-        if (!File.Exists(path)) {
-            errors.Add($"{path}: there is no theme file here");
-            return new ThemeTokens();
-        }
-
-        return ThemeTokens.Parse(File.ReadAllText(path));
     }
 
     static void WriteIfDifferent(string path, string content) {

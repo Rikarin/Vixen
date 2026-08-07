@@ -13,8 +13,8 @@ related: [editor/index, editor/inspectors-in-markup, ui/utility-composition]
 
 ## What it is
 
-`EditorStyles` is the editor's utility stylesheet, compiled at build time. `Theming/vixen.ui.yaml` is
-the design tokens; every source file and every `.vxml` in the assembly is scanned for class names; the
+`EditorStyles` is the editor's utility stylesheet, compiled at build time. `Theming/vixen.ui.vcss` is
+the design tokens — an `@theme { … }` block, layered over the palette the engine ships; every source file and every `.vxml` in the assembly is scanned for class names; the
 sheet — inside `@layer utilities`, containing only the rules something actually refers to — is
 generated into `obj/` before the compiler runs and carried in the binary as a constant.
 
@@ -63,18 +63,28 @@ scanner can read. The editor has four such sites today — `ThemeService`'s `dar
 `MessageLogView`'s `level-*`, and whatever a plugin puts in `EditorCommand.ClassName` — and not one of
 them names a utility, so the safelist is empty.
 
-**One palette, not two.** Every colour in `vixen.ui.yaml` is a `var(--…)` reference to a custom
+**One palette, not two.** Every colour in `vixen.ui.vcss` is a `var(--…)` reference to a custom
 property `EditorTheme` already declares on the root, so `bg-surface` and a hand-written
 `background: var(--surface)` are the same declaration. The light/dark toggle moves both, and a user's
-theme file loaded through `ThemeService` moves both again. Two consequences follow: an opacity
-modifier such as `bg-accent/50` silently does nothing, because the generator makes a translucent
-colour by parsing a hex triple and `var(--accent)` is not one; and `rounded-panel` does not exist,
-because `ThemeTokens.Radius` holds numbers and `--radius-panel` is a reference. Write `opacity-50` and
-`rounded-[var(--radius-panel)]`.
+theme file loaded through `ThemeService` moves both again. The two limitations that used to follow
+from that are gone: `bg-accent/50` emits
+`color-mix(in oklab, var(--accent) 50%, transparent)` and keeps its opacity, and `rounded-panel`,
+`rounded-control` and `rounded-row` are real tokens now that a radius can hold a reference rather than
+only a number.
 
-**The spacing base is 2, not Tailwind's 4.** The editor's chrome is drawn on a two-pixel rhythm — 2,
-4, 6, 8 and 10 all appear in `EditorTheme`, and a 6px gutter is the commonest — so `p-3` is six
-pixels and every measurement the sheet already uses is a whole number of steps.
+**The editor clears two of the engine's namespaces, and both are decisions.** The engine ships
+Tailwind v4's default `@theme` — twenty-six colour ramps in `oklch()`, a type scale, radii,
+breakpoints — so a game writing `bg-blue-500` needs no theme file at all. The editor says
+`--color-*: initial;`, because its palette is designed around four surfaces and a hairline darker than
+the surface it edges, and twenty-six general-purpose ramps beside that would be twenty-six ways to
+write a colour that is not in it. It says `--breakpoint-*: initial;` because a tool window is not a
+page: a panel is sized by the dock that holds it, so `md:` asks the wrong question. It keeps the v4
+radius scale, which collides with nothing.
+
+**The spacing base is 4, which is Tailwind's.** It was 2 until the `@theme` change, justified by the
+chrome being drawn on a two-pixel rhythm — but that made `p-4` mean 8px in the editor where it means
+16px everywhere else in the Tailwind world, so every measurement a designer brought with them was half
+size. The chrome is being redone and the exception went with it.
 
 **Which families the engine reads is not obvious, and getting it wrong is silent.** The list below is
 resolved against real elements by `UtilityFamilySupportTests`; anything in the second column emits a
@@ -118,8 +128,9 @@ package; inside this repository it is imported by hand, for the same reason the 
 </ItemGroup>
 ```
 
-The theme file is found rather than declared: one `**/vixen.ui.yaml` per project, and two is an error
-because two would be two palettes.
+The theme file is found rather than declared: one `**/vixen.ui.vcss` per project, and two is an error
+because two would be two palettes. It is also optional — a project without one gets the engine's
+shipped `@theme` and nothing else.
 
 ⚠ **The generated sheet is not the whole story about whether a class name works.** A misspelt utility
 is a style that silently does nothing — neither the compiler nor the markup binder can see one,

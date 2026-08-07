@@ -32,8 +32,8 @@
             Copied rather than embedded, because a fixture that has to be fetched through a manifest
             is the shape this change was getting rid of.
         -->
-        <None Include="..\Vixen.Editor.Ui\Theming\vixen.ui.yaml"
-              Link="__fixtures__\vixen.ui.yaml"
+        <None Include="..\Vixen.Editor.Ui\Theming\vixen.ui.vcss"
+              Link="__fixtures__\vixen.ui.vcss"
               CopyToOutputDirectory="PreserveNewest" />
         <None Include="..\Vixen.Editor.Ui\**\*.vxml"
               LinkBase="__fixtures__\markup"
