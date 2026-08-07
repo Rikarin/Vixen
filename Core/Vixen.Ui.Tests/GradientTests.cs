@@ -89,6 +89,33 @@ public class GradientTests {
         Assert.Equal(Hex("#ff0000"), GradientCommand(document).Color);
     }
 
+    [Fact]
+    public void A_stop_may_be_a_color_mix() {
+        // Falls out of the stop splitter already being depth-aware and the stop being parsed by
+        // `StyleValueParser` — but worth a test, because `color-mix(in oklab, …, …)` is the first
+        // value to reach here with commas *inside* a stop, and a splitter that had been written the
+        // naive way would have read this as four stops and refused the gradient as a three-stop one.
+        //
+        // ⚠ It is also the shape `from-accent/50` compiles to, so it is not hypothetical. And it
+        // leaves task #47 — which space a gradient *lerps between* its stops in — exactly where it
+        // was: a stop is resolved to a linear colour before the shader sees it, so the question of
+        // what happens between two stops is still open and still separate.
+        using var document = Drawn(
+            ".probe { background-image: linear-gradient(to right, "
+            + "color-mix(in oklab, #ff0000 50%, transparent), #0000ff); }"
+        );
+
+        var style = Assert.Single(Gradients(document));
+        var start = GradientCommand(document).Color;
+        var red = Hex("#ff0000");
+
+        Assert.Equal(Hex("#0000ff"), style.GradientEnd);
+        Assert.Equal(red.R, start.R, 3);
+        Assert.Equal(red.G, start.G, 3);
+        Assert.Equal(red.B, start.B, 3);
+        Assert.Equal(0.5f, start.A, 3);
+    }
+
     /// <summary>And the hand-written form, which the cascade normalises to `rgb(…)` instead.</summary>
     /// <remarks>
     ///     ⚠ Both notations, in one property, in one document. `background-color: #f00` comes back

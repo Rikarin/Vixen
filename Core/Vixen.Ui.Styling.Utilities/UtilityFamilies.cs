@@ -839,6 +839,32 @@ public static class UtilityFamilies {
         return true;
     }
 
+    /// <summary>A theme colour, with the <c>/50</c> modifier folded in if there was one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This used to rewrite the colour as <c>rgba()</c>, and could only do so when the
+    ///         token was a hex triple — so every token that was not one had its opacity silently
+    ///         dropped.</b> Which sounds like an edge case and is the ordinary case the moment tokens
+    ///         become references: <c>--accent: var(--blue-500)</c>, or an <c>@theme</c> block written
+    ///         in <c>oklch()</c> as <c>docs/plan/43</c> § D4 calls for, are both "not a hex triple".
+    ///         The utility resolved, emitted valid CSS, and painted at full opacity.
+    ///     </para>
+    ///     <para>
+    ///         <b><c>color-mix()</c> removes the condition rather than widening it.</b> The colour
+    ///         goes in as text and is never taken apart here, so this works for a hex code, an
+    ///         <c>oklch()</c>, a <c>var()</c> — whatever the token holds and whatever it will hold
+    ///         later. It is what Tailwind v4 emits for the same modifier, and for a hex colour it is
+    ///         arithmetically the same answer the <c>rgba()</c> rewrite gave: mixing against
+    ///         <c>transparent</c> with premultiplied alpha leaves the colour where it was and moves
+    ///         only the alpha.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>in oklab</c>, not <c>in oklch</c>.</b> A hue is not premultiplied, and
+    ///         <c>transparent</c> is black at zero alpha whose hue is 0° — so the polar space would
+    ///         drag every colour's hue towards red on its way to being translucent. See
+    ///         <c>Vixen.Ui.Styling.ColorFunctions.Mix</c>, which has the arithmetic.
+    ///     </para>
+    /// </remarks>
     static bool TryColor(UtilityCandidate candidate, ThemeTokens tokens, out string value) {
         value = string.Empty;
 
@@ -855,17 +881,9 @@ public static class UtilityFamilies {
             return true;
         }
 
-        // `#rrggbb` plus an opacity becomes `rgba(...)`, because CSS has no way to say "this colour
-        // but at half alpha" without rewriting it. Anything not a hex triple is passed through with
-        // the opacity dropped rather than mangled — with a note, since it is a real limitation.
-        if (!Vixen.Core.Mathematics.Color.TryParseHex(colour, out var parsed)) {
-            value = colour;
-            return true;
-        }
-
         value = string.Create(
             CultureInfo.InvariantCulture,
-            $"rgba({parsed.R}, {parsed.G}, {parsed.B}, {(opacity * parsed.A / 255f).ToString("0.###", CultureInfo.InvariantCulture)})"
+            $"color-mix(in oklab, {colour} {(opacity * 100f).ToString("0.###", CultureInfo.InvariantCulture)}%, transparent)"
         );
 
         return true;

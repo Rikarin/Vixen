@@ -557,6 +557,33 @@ Ottosson's published values** — the maths is there and the CSS surface is not.
 
 Once both land, `ThemeTokens.Colors` holding `var(--accent)` stops being a limitation.
 
+✅ **Both landed** — `ColorFunctions` and `StyleValueParser`, A9 and A10 in Part 6. Four things the
+sizing above did not know, all of them checked rather than reasoned about:
+
+- **The order of operations is already right and needed no change.** `StyleResolver.Substitute`
+  rewrites the value's text and re-interns it during `Build`; `StyleValueParser` only ever runs on
+  what a `ComputedStyle` holds. So `color-mix(in oklab, var(--accent) 50%, transparent)` and the same
+  mix with the hex written in place arrive as *byte-identical* text. The mix needs no notion of
+  `var()`. ⚠ What it does need is the other half of the same fact: ExCSS does not normalise inside a
+  function it does not know, so the endpoints arrive as `#4f7cff` and as `red` rather than as
+  `rgb(…)`. A mix that accepted only `rgb()` endpoints would have passed every literal test and
+  failed on every variable — which is the shape this whole section exists to fix.
+- ⚠ **"Both percentages zero is invalid" is wrong.** An older CSS Color 5 draft said so and the claim
+  is widely repeated; the current CSS Values 5 algorithm produces **transparent black**, and produces
+  it without a special case. The three cases implemented are: one omitted is the other's complement;
+  both given are scaled *to* 100% with any shortfall multiplying the result's alpha (`red 20%,
+  blue 60%` is 25/75 at 80% alpha); both zero is `rgba(0, 0, 0, 0)`.
+- **Premultiplied alpha is the whole mechanism**, CSS Color 4 § 12.3, and without it
+  `color-mix(in oklab, blue 50%, transparent)` gives a *dark* blue rather than a translucent one —
+  invisible against a dark background. ⚠ Which is also why the opacity modifier must say `in oklab`:
+  hue is not premultiplied, `transparent` is black at hue 0°, and `in oklch` therefore rotates every
+  colour towards red on its way to being translucent. Browsers do the same; it is why v4's own
+  emission names the rectangular space.
+- **Changing `TryColor` moved exactly one assertion and zero pixels**, because nothing outside the
+  tests uses `/opacity` today — and nothing does *because* the editor's token file carried a warning
+  saying it did not work. Every colour in `Editor/Vixen.Editor.Ui/Theming/vixen.ui.yaml` is a
+  `var()`, so the whole editor palette was in the silently-dropped class. The warning is gone.
+
 ### D3. Container queries are a feature, not a variant ⚠
 
 v4 builds container queries in: `@container` marks the container, and `@sm:`…`@7xl:`, `@max-*`,
@@ -597,6 +624,26 @@ functionally, but three things follow from adopting the v4 shape:
 3. The gamut question is real and is not the styling layer's: `oklch(0.7 0.2 30)` can be outside
    sRGB, and the UI renderer's swapchain format decides what happens. Clamping in `Color4` is the
    honest default and it is what a browser on an sRGB display does.
+
+⚠ **The interim behaviour, now that the parsing has landed: nothing is clamped, and the out-of-gamut
+linear triple is carried through with its negative channels intact.** Three reasons, and the third is
+the one that matters for whoever picks this up.
+
+*Per-channel clipping is not a smaller version of the right answer, it is a different answer.* Clip
+`oklch(0.7 0.4 30)` channel-wise and the hue moves — a vivid red clips towards orange — whereas the
+specified repair reduces chroma while holding lightness and hue. A parser that clipped would be
+shipping a wrong colour under the name of a placeholder.
+
+*It needs a gamut this assembly does not have.* The repair is against the **display's** gamut, not
+sRGB's: on a P3 panel `oklch(0.7 0.3 30)` is in gamut and must not be touched at all. Wide-gamut
+support is a stated goal, so a parse-time decision would have to be undone.
+
+*And carrying it makes the real fix strictly easier.* An unclamped value still holds the chroma the
+mapper needs; a clamped one has already destroyed it, and no downstream pass can recover a colour
+from its own clipping. Nothing breaks in the meantime: `ColorSpace.LinearToSrgb` is the exact
+piecewise transfer function, whose linear segment handles negatives without producing NaN — a
+`pow()` approximation there would not, which is how "carry it unclamped" would otherwise turn into a
+black element three layers downstream. `ColorFunctionTests` pins both halves of that.
 
 ### D5. What v4 removed, renamed, and added
 
@@ -1009,8 +1056,8 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A6 🟢 | `user-select`, `outline`, `fill`/`stroke` on `OnDraw` paths, and `overflow-clip` | `UiDocument`, `DrawContext` | **#24** | 0.25 |
 | A7 🟡 | Transforms: a real `transform` property, decomposed, animatable | layout + draw + `Animator` | **#23** | 0.6 |
 | A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
-| A9 🟢 | `color-mix()` in `StyleValueParser` | `Vixen.Ui.Styling` | **#12** | 0.25 |
-| A10 🟢 | `oklch()`/`oklab()` colour syntax | `Vixen.Ui.Styling` | **#12** | 0.25 |
+| A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
+| A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
 | A11 🟢 | Backgrounds. **Two-stop `linear-gradient()` paints**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, and it layers over `background-color` as CSS does. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. **Owed:** `via-*` (a third stop), stop positions, `bg-radial`/`bg-conic`, and `background-position`/`-size`/`-repeat`. All four need `UiShape` to grow past its five `Vector4`s and the box shader to change with it — see [what a third stop costs](#what-a-third-stop-costs) | `DrawListBuilder`, `BackgroundGradient`, `UiShape` | **#43** | 0.35 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
