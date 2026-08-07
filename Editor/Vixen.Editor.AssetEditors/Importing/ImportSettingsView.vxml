@@ -12,6 +12,11 @@
     control this wave is not porting. A `Component` here would have rewritten that file and every
     caller of `Edited`, for no gain.
 
+    ⚠ **`class="hidden"` on a control tag, which it could not say when this was first written.**
+    `BuildContext.Attribute` used to treat `class` as the element's complete set and remove whatever
+    the new value did not name — including the classes a `Control` gives itself in `OnCreated`. It
+    now removes only the names the attribute itself last wrote.
+
     ⚠ **The nesting is what `ContentHost` is for, and it is why this reads as HTML.** A child
     written inside a capitalised tag hangs from `BuildContext.Inner`, which for a control is its
     `ContentHost` — the viewport for a `ScrollView`, the collapsible part for an `Expander`. So
@@ -33,7 +38,7 @@
     know" is about the file rather than about any one section, and a warning that scrolls away is a
     warning nobody sees twice.
 -->
-<Alert ref="@Unknown" Title="This sidecar has settings this editor does not know" />
+<Alert ref="@Unknown" class="hidden" Title="This sidecar has settings this editor does not know" />
 
 <!--
     ⚠ Three sections are taller than any panel, and without this they were squeezed into one. The
@@ -76,19 +81,19 @@
     /// <summary>The scroll region the three sections are in.</summary>
     public ScrollView Scroll { get; private set; } = null!;
 
-    /// <summary>The state the markup could not declare, applied once the tree exists.</summary>
+    /// <summary>The one thing the markup cannot declare, applied once the tree exists.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two of these three are markup's fault and the third is not.</b> The <c>hidden</c>
-    ///     class cannot be written as <c>class="hidden"</c> because
-    ///     <c>BuildContext.Attribute</c> treats <c>class</c> as the complete set and a
-    ///     <c>Control</c> has already given itself <c>variant-default</c> and <c>size-md</c> — a
-    ///     runtime bug, not this file's. The two <c>display: none</c>s are an inline style, which
-    ///     markup deliberately has no way to write: an inspector inside a foldout that is already
-    ///     labelled does not need its own search box, and hiding a part of a control is the sort of
-    ///     thing a caller says rather than a stylesheet.
+    ///     ⚠ <b>An inline style, which markup deliberately has no way to write</b> — a
+    ///     <c>style="…"</c> would land in the selector engine's attribute arena rather than in the
+    ///     cascade. It is also not a loss here: an inspector inside a foldout that is already
+    ///     labelled does not need its own search box, and hiding a part of somebody else's control
+    ///     is the sort of thing a caller says rather than a stylesheet.
+    ///
+    ///     ⚠ The <c>hidden</c> class used to be here too, because a <c>class</c> attribute removed
+    ///     whatever it did not name and a <c>Control</c> names its own. That is fixed, so the class
+    ///     is written where it belongs — on the tag.
     /// </remarks>
     partial void OnComposed() {
-        Unknown.AddClass("hidden");
         Settings.Search.SetStyle("display", "none");
         Addressable.Search.SetStyle("display", "none");
     }

@@ -19,12 +19,12 @@
     for. Nothing here checks the members: `Parts = n0` is written under the `.vxml`'s own `#line`,
     so a wrong type is Roslyn's error on the name between the quotes.
 
-    ⚠ **The `hidden` class is set in `OnComposed` and not written as `class="hidden"`**, which is
-    the one thing this port could not say in markup. `BuildContext.Attribute` treats `class` as the
-    complete set and removes what is not in it — and a `Control` gives itself `variant-default` and
-    `size-md` in `OnCreated`, before any attribute is applied. So `class` on a control tag silently
-    deletes the control's own classes, which is a bug in the runtime rather than in this file, and
-    is not this wave's to fix.
+    ⚠ **`class="hidden"` on a control tag, which it could not say when this was first written.**
+    `BuildContext.Attribute` used to treat `class` as the element's complete set and remove whatever
+    the new value did not name — including the `variant-default` and `size-md` a `Control` gives
+    itself in `OnCreated`, before any attribute is applied. It now removes only the names the
+    attribute itself last wrote, so a `class` here no longer reaches past what the markup owns, and
+    the workaround this file had — an `AddClass` from `OnComposed` — is gone.
 -->
 @component ModelImportView
 @namespace Vixen.Editor.AssetEditors.Importing
@@ -43,6 +43,7 @@
     `ref` into a dead `@if` arm is null, which is the honest behaviour and the wrong one here.
 -->
 <EmptyState ref="@Empty"
+            class="hidden"
             Title="Not imported yet"
             Description="Nothing has been produced from this file, so there is nothing to list. Import the project and the meshes, skeleton and clips appear here." />
 
@@ -60,15 +61,6 @@
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
-
-    /// <summary>Hides the empty state until something asks for it.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The hook exists precisely so that this runs with every <c>ref</c> assigned.</b> A
-    ///     control's <c>OnCreated</c> would have been too early — the markup has not built yet — and
-    ///     the first <c>Show</c> too late, because a model editor is opened and looked at before
-    ///     anybody presses anything.
-    /// </remarks>
-    partial void OnComposed() => Empty.AddClass("hidden");
 
     /// <summary>Shows a model.</summary>
     /// <param name="model">The document.</param>

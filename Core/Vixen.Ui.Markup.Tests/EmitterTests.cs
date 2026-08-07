@@ -500,10 +500,10 @@ public class EmitterTests {
     ///     type and finds it by walking the tree — none of which a <see cref="Component" /> can be
     ///     made to do, because a component is not in the tree at all.
     /// </summary>
-    const string Gauge = """
-                         @component Gauge
+    const string Meter = """
+                         @component Meter
                          @inherits Panel
-                         @tag gauge
+                         @tag meter
                          @using Vixen.Ui.Reactive
 
                          @code {
@@ -521,7 +521,7 @@ public class EmitterTests {
                              partial void OnComposed() => Composed++;
                          }
 
-                         <gauge-body ref="@Body">
+                         <meter-body ref="@Body">
                              <span>Count: @Read()</span>
 
                              @if (Count.Value > 0) {
@@ -531,19 +531,19 @@ public class EmitterTests {
                              @for (var item in Items.Value) {
                                  <li key="@item">@item</li>
                              }
-                         </gauge-body>
+                         </meter-body>
                          """;
 
     [Fact]
     public void An_inherits_component_is_an_element_a_caller_can_add_and_find() {
         using var document = new UiDocument(400f, 400f);
-        var gauge = Add(document, Gauge);
+        var meter = Add(document, Meter);
 
         // The three things a component could not do, in order: it is a `UiElement`; `Add<T>` made
         // it, so its own type is what the caller holds; and a walk of the tree reaches it.
-        Assert.IsAssignableFrom<UiElement>(gauge);
-        Assert.Equal("gauge", ((UiElement)gauge).Tag);
-        Assert.Same(gauge, Descendants(document.Root).Single(child => child.Tag == "gauge"));
+        Assert.IsAssignableFrom<UiElement>(meter);
+        Assert.Equal("meter", ((UiElement)meter).Tag);
+        Assert.Same(meter, Descendants(document.Root).Single(child => child.Tag == "meter"));
     }
 
     /// <summary>
@@ -556,19 +556,19 @@ public class EmitterTests {
     [Fact]
     public void An_inherits_component_gets_every_reactive_property_a_component_does() {
         using var document = new UiDocument(400f, 400f);
-        var gauge = Add(document, Gauge);
-        var body = (UiElement)Member(gauge, "Body")!;
+        var meter = Add(document, Meter);
+        var body = (UiElement)Member(meter, "Body")!;
 
         document.Effects.Flush();
         Assert.Equal(["Count: ", "0"], body.Children[0].Children.Select(child => child.Text));
 
-        ((Signal<int>)Property(gauge, "Count")).Value = 3;
+        ((Signal<int>)Property(meter, "Count")).Value = 3;
         document.Effects.Flush();
 
         Assert.Equal(["Count: ", "3"], body.Children[0].Children.Select(child => child.Text));
         Assert.Equal(["span", "em"], body.Children.Select(child => child.Tag));
 
-        var items = (Signal<string[]>)Property(gauge, "Items");
+        var items = (Signal<string[]>)Property(meter, "Items");
         items.Value = ["a", "b"];
         document.Effects.Flush();
 
@@ -590,20 +590,20 @@ public class EmitterTests {
     [Fact]
     public void An_inherits_component_stops_its_effects_when_it_leaves_the_tree() {
         using var document = new UiDocument(400f, 400f);
-        var gauge = Add(document, Gauge);
-        var body = (UiElement)Member(gauge, "Body")!;
+        var meter = Add(document, Meter);
+        var body = (UiElement)Member(meter, "Body")!;
 
         // A write the effect does see, so that the count below is a difference rather than a zero.
-        ((Signal<int>)Property(gauge, "Count")).Value = 1;
+        ((Signal<int>)Property(meter, "Count")).Value = 1;
         document.Effects.Flush();
 
-        var ran = (int)Member(gauge, "Runs")!;
+        var ran = (int)Member(meter, "Runs")!;
         Assert.True(ran > 0);
 
-        ((UiElement)gauge).Remove();
+        ((UiElement)meter).Remove();
 
         // The base's own hook still ran, so the generated override chained rather than replaced it.
-        Assert.Equal(1, (int)Member(gauge, "Removals")!);
+        Assert.Equal(1, (int)Member(meter, "Removals")!);
         Assert.True(body.IsRemoved);
 
         // ⚠ Counted, not inferred from an exception. The first version of this test wrote the signal
@@ -611,19 +611,19 @@ public class EmitterTests {
         // assigning `Text` to a removed element happens not to complain. What an undisposed effect
         // actually does is *run*, holding its elements alive through its closure, so that is what is
         // measured.
-        ((Signal<int>)Property(gauge, "Count")).Value = 9;
+        ((Signal<int>)Property(meter, "Count")).Value = 9;
         document.Effects.Flush();
 
-        Assert.Equal(ran, (int)Member(gauge, "Runs")!);
+        Assert.Equal(ran, (int)Member(meter, "Runs")!);
     }
 
     [Fact]
     public void The_composed_hook_runs_once_the_whole_body_is_built() {
         using var document = new UiDocument(400f, 400f);
-        var gauge = Add(document, Gauge);
+        var meter = Add(document, Meter);
 
-        Assert.Equal(1, (int)Member(gauge, "Composed")!);
-        Assert.NotNull(Member(gauge, "Body"));
+        Assert.Equal(1, (int)Member(meter, "Composed")!);
+        Assert.NotNull(Member(meter, "Body"));
     }
 
     /// <summary>
@@ -706,23 +706,23 @@ public class EmitterTests {
     [Fact]
     public void An_inherits_component_projects_content_through_ContentHost_and_scopes_its_styles() {
         const string Source = """
-                              @component Gauge
+                              @component Meter
                               @inherits Panel
-                              <gauge-body>
+                              <meter-body>
                                   <slot />
-                              </gauge-body>
+                              </meter-body>
                               <style scoped>.row { display: flex; }</style>
                               """;
 
         using var document = new UiDocument(400f, 400f);
-        var gauge = (UiElement)Add(document, Source);
-        var body = gauge.Children.Single();
+        var meter = (UiElement)Add(document, Source);
+        var body = meter.Children.Single();
 
-        Assert.Equal("slot", BuildContext.Inner(gauge).Tag);
-        Assert.Same(body.Children.Single(), BuildContext.Inner(gauge));
+        Assert.Equal("slot", BuildContext.Inner(meter).Tag);
+        Assert.Same(body.Children.Single(), BuildContext.Inner(meter));
 
-        var scope = ScopedStyles.ScopeOf(gauge.GetType());
-        Assert.True(gauge.HasClass(scope));
+        var scope = ScopedStyles.ScopeOf(meter.GetType());
+        Assert.True(meter.HasClass(scope));
         Assert.True(body.HasClass(scope));
     }
 
@@ -735,7 +735,7 @@ public class EmitterTests {
     public void A_named_slot_in_an_inherits_component_is_refused() {
         var component = Markup.Binding.Binder.Bind(
             Markup.Syntax.SyntaxTree.ParseText(
-                "@component Gauge\n@inherits Panel\n<slot name=\"footer\" />",
+                "@component Meter\n@inherits Panel\n<slot name=\"footer\" />",
                 Path
             ),
             out var diagnostics
@@ -880,7 +880,7 @@ public class EmitterTests {
     /// <summary>Emits, compiles, loads and adds an element-flavoured class to a document.</summary>
     /// <remarks>
     ///     ⚠ <b>The call site is compiled rather than reflected, and that is the assertion.</b>
-    ///     <c>parent.Add&lt;Gauge&gt;()</c> has to <i>type-check</i> — its constraint is
+    ///     <c>parent.Add&lt;Meter&gt;()</c> has to <i>type-check</i> — its constraint is
     ///     <c>where T : UiElement, new()</c>, which is exactly what a <c>Component</c> cannot
     ///     satisfy and is the whole complaint <c>@inherits</c> answers. Reflection would have proved
     ///     nothing about the constraint, and cannot call this method anyway: its last parameter is a
@@ -891,10 +891,10 @@ public class EmitterTests {
         // `where T : UiElement, new()` — exactly what a `Component` cannot satisfy — and this file
         // compiling is the proof that a generated `@inherits` class does. The three explicit
         // arguments are the harness's Roslyn (4.11) not reading `params ReadOnlySpan<string>` out of
-        // metadata; a project on the current compiler writes `parent.Add<Gauge>()`.
+        // metadata; a project on the current compiler writes `parent.Add<Meter>()`.
         const string Caller = """
                               public static class Adds {
-                                  public static object Make(Vixen.Ui.UiElement parent) => Element<Gauge>(parent);
+                                  public static object Make(Vixen.Ui.UiElement parent) => Element<Meter>(parent);
 
                                   static T Element<T>(Vixen.Ui.UiElement parent)
                                       where T : Vixen.Ui.UiElement, new() => parent.Add<T>(null, null, default);

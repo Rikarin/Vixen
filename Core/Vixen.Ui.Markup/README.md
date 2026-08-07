@@ -376,10 +376,6 @@ of a string.
   would land in the selector engine's attribute arena rather than in the cascade. What that costs is
   real, though: a panel that wanted a computed width had to move onto a `ProgressBar`, and hiding a
   part of a control is still a `SetStyle` call from `OnComposed`.
-- **`class` on a control tag deletes the control's own classes.** `BuildContext.Attribute` treats
-  `class` as the complete set, and a `Control` gave itself `variant-default` and `size-md` in
-  `OnCreated` before any attribute was applied. A runtime bug rather than a markup one, and the
-  reason two ported panels call `AddClass` from `OnComposed` instead of writing `class="hidden"`.
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.
 

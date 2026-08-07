@@ -54,6 +54,13 @@ static class RuntimeContract {
                                      // What an `@inherits` file names. An ordinary element with the
                                      // two hooks the generated scaffold overrides, so the test can
                                      // see that both are chained rather than replaced.
+                                     //
+                                     // ⚠ Not `Gauge` above, which answers a different question. That
+                                     // one exists to be a control that names its own classes, so a
+                                     // `class` attribute has something to clobber; this one exists
+                                     // to be *derived from*, and counts the calls it received. A
+                                     // fixture doing both would fail one of them for the other's
+                                     // reason.
                                      public class Panel : UiElement {
                                          protected override string TagName => "panel";
 
