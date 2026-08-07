@@ -1,0 +1,25 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component FactSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+
+<KeyValueList>
+    @for (var fact in Rows) {
+        <KeyValueRow key="@fact" Key="@fact.Name" Value="@fact.Value" />
+    }
+
+    <KeyValueRow Key="Volume">
+        <Slider Minimum="0" Maximum="1" Value="0.5" />
+    </KeyValueRow>
+</KeyValueList>
+
+@code {
+    /// <summary>One fact, so the loop has something with an identity of its own to key on.</summary>
+    public sealed record Fact(string Name, string Value);
+
+    /// <summary>What the loop walks.</summary>
+    public IReadOnlyList<Fact> Rows { get; init; } = [];
+}

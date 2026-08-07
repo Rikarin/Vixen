@@ -191,18 +191,25 @@ public static class ProfilerTheme {
         statistic-label { width: 170px; flex-shrink: 0; color: var(--text-muted); }
         statistic-value { width: 170px; flex-shrink: 0; text-align: right; }
 
-        statistic-track {
+        /*
+         * ⚠ The budget bar is a `ProgressBar` and was a `statistic-track` holding a
+         * `statistic-fill` whose width was written per row with `SetStyle`. Markup cannot write an
+         * inline declaration — `class` and `binding-path` are the only universal attributes, and a
+         * `style="…"` lands in the selector engine's attribute arena rather than in the cascade — so
+         * the port had to reach for the control that was always the right one. `min-width` is
+         * overridden because the control library's own rule floors a progress bar at 80px for a
+         * dialog, and this is a column.
+         */
+        statistic-row progress-bar {
             width: 120px;
-            height: 6px;
+            min-width: 0px;
             flex-shrink: 0;
-            border-radius: 3px;
-            background-color: var(--surface-sunken);
-            overflow: hidden;
+            --track-color: var(--surface-sunken);
+            --fill-color: var(--accent);
         }
 
-        statistic-fill { height: 6px; background-color: var(--accent); border-radius: 3px; }
-        statistic-row.near statistic-fill { background-color: var(--warning); }
-        statistic-row.over statistic-fill { background-color: var(--danger); }
+        statistic-row.near progress-bar { --fill-color: var(--warning); }
+        statistic-row.over progress-bar { --fill-color: var(--danger); }
         statistic-row.near statistic-value { color: var(--warning); }
         statistic-row.over statistic-value { color: var(--danger); }
         statistic-detail { flex-grow: 1; color: var(--text-muted); font-size: 0.85em; overflow: hidden; }

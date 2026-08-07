@@ -86,7 +86,19 @@ sealed class EditorHost : IDisposable {
     bool lost;
     bool resized;
 
-    public EditorHost(IPlatform platform, IWindow window, string? projectRoot = null) {
+    /// <param name="platform">The platform.</param>
+    /// <param name="window">The main window.</param>
+    /// <param name="projectRoot">Which project to open, or null for the last one.</param>
+    /// <param name="styleDirectory">
+    ///     A directory of <c>.vcss</c> files to reload as they are saved, or null — which is every
+    ///     run but a developer's. See <c>Program</c>'s <c>--hot-reload</c>.
+    /// </param>
+    public EditorHost(
+        IPlatform platform,
+        IWindow window,
+        string? projectRoot = null,
+        string? styleDirectory = null
+    ) {
         this.platform = platform;
         this.window = window;
 
@@ -135,6 +147,13 @@ sealed class EditorHost : IDisposable {
         // unmapped codepoint resolves to glyph zero rather than to a box, so the bar read "L+S" for
         // Save. The shell decides again now that there is something to ask.
         editor.Shell.RefreshShortcutFormat();
+
+        // ⚠ Last, and only when asked. Everything above is what every run does; this opens a
+        // `FileSystemWatcher` and loads sheets on top of the five the editor ships, which is a
+        // development mode and not a default. `--frames N` never passes it — see `Program`.
+        if (styleDirectory is { Length: > 0 } styles) {
+            editor.WatchStyles(styles);
+        }
     }
 
     /// <summary>A command to run once, on the first frame, and then forget.</summary>

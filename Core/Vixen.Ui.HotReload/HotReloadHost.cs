@@ -74,23 +74,69 @@ public sealed class HotReloadHost {
     /// <param name="css">The new text.</param>
     /// <returns>What happened.</returns>
     /// <remarks>
-    ///     ⚠ <b>A stylesheet that does not load puts the previous one back.</b> Half a stylesheet is
-    ///     worse than the old one — a rule the author is midway through typing drops the colour off
-    ///     everything it used to match — and the previous text is right there, so restoring it costs
-    ///     one more load and turns a mangled screen into a message.
+    ///     <para>
+    ///         ⚠ <b>A stylesheet that does not load puts the previous one back.</b> Half a stylesheet
+    ///         is worse than the old one — a rule the author is midway through typing drops the
+    ///         colour off everything it used to match — and the previous text is right there, so
+    ///         restoring it costs one more load and turns a mangled screen into a message.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What rolls it back is a diagnostic this save <i>introduced</i>, not a diagnostic
+    ///         the document happens to have.</b> A reload replays every sheet — that is what makes a
+    ///         deleted rule stop applying — so the diagnostics afterwards are the whole document's,
+    ///         and one unsupported selector anywhere in any sheet would roll back every save of every
+    ///         other sheet for ever. Found in the editor, whose own chrome contains a
+    ///         <c>:empty</c> the selector compiler does not implement: the style channel was wired,
+    ///         the file was saved, the event arrived, and the reload silently undid itself every
+    ///         time. The baseline is what the document was already complaining about, and only what
+    ///         is new to it counts.
+    ///     </para>
     /// </remarks>
     public ReloadReport ReloadStyles(int sheet, string css) {
         ArgumentNullException.ThrowIfNull(css);
 
         var previous = Document.Styles.SheetText(sheet);
+        var before = Diagnostics();
+
         Document.ReloadStyles(sheet, css);
 
-        var errors = Diagnostics();
+        var errors = Introduced(before, Diagnostics());
         if (!errors.IsEmpty) {
             Document.ReloadStyles(sheet, previous);
         }
 
         return Report(new(ReloadChannel.Styles, 0, FocusRestored: true, errors));
+    }
+
+    /// <summary>What is in the second list that the first did not already account for.</summary>
+    /// <remarks>
+    ///     A multiset difference rather than a set one: two rules with the same mistake are two
+    ///     diagnostics with the same text, and losing one of them to a set would let a save that
+    ///     doubled a broken selector through unremarked.
+    /// </remarks>
+    static ImmutableArray<string> Introduced(ImmutableArray<string> before, ImmutableArray<string> after) {
+        if (before.IsEmpty) {
+            return after;
+        }
+
+        var remaining = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var diagnostic in before) {
+            remaining[diagnostic] = remaining.GetValueOrDefault(diagnostic) + 1;
+        }
+
+        var introduced = ImmutableArray.CreateBuilder<string>();
+
+        foreach (var diagnostic in after) {
+            if (remaining.TryGetValue(diagnostic, out var count) && count > 0) {
+                remaining[diagnostic] = count - 1;
+                continue;
+            }
+
+            introduced.Add(diagnostic);
+        }
+
+        return introduced.ToImmutable();
     }
 
     /// <summary>
