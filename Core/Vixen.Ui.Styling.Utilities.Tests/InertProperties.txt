@@ -30,13 +30,15 @@
 border-inline-end-color      #21  per-edge colours reached the draw list; the logical pair did not
 border-inline-start-color    #21  ditto
 
-# ── Backgrounds — A11. `bg-linear-to-r` assembles the `from-*`/`via-*`/`to-*` fragments into a real
-# `linear-gradient(…)` and the cascade resolves it correctly; the draw list has no `background-image`
-# channel to paint it down. One line and not eight: the seven `--tw-gradient-*` fragments compose into
-# this property and are accounted for through it, because what is owed is a gradient that paints and
-# not seven custom properties. `BoxStyle` already carries `GradientEnd`, `GradientAxis` and
-# `HasGradient`, so closing this is wiring rather than a shader.
-background-image             #43  the two-stop gradient exists in BoxStyle; nothing parses this into it
+# ── Backgrounds — A11. Closed. `background-image` is parsed into `BoxStyle` and painted, so its line
+# is gone and the seven `--tw-gradient-*` fragments are accounted for through it.
+#
+# ⚠ What is *not* closed is `via-*`, stop positions, and `bg-radial`/`bg-conic` — and none of that can
+# be written here, because this file is keyed by property and all of it lives inside `background-image`.
+# A line kept for them would fail the expiry check the moment the property became read, which it now is.
+# Partial support inside one property is the one shape this gate cannot express; the remainder is
+# tracked as A11 in docs/plan/43-web-styling-parity.md and refused loudly at runtime rather than
+# approximated — see `GradientRefusal`.
 
 # ── Paint the renderer has no channel for — A6.
 fill                         #24  `fill`/`stroke` on the OnDraw paths, with `DrawContext`

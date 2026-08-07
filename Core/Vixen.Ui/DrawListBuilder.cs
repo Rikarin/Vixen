@@ -44,6 +44,8 @@ public sealed class DrawListBuilder {
     /// <summary>The four <c>border-*-radius</c> longhands, clockwise from the top left.</summary>
     readonly int[] borderRadii;
 
+    readonly int backgroundImage;
+    readonly GradientReader gradients;
     readonly int textColor;
     readonly OverflowReader overflow;
     readonly int visibility;
@@ -70,6 +72,13 @@ public sealed class DrawListBuilder {
         parser = new StyleValueParser(values, keywords);
 
         backgroundColor = properties.Intern("background-color");
+
+        // ⚠ <b>The image is a second layer and not an alternative to the colour.</b> CSS paints
+        // `background-image` over `background-color`, so an element with both draws twice — which
+        // matters the moment a gradient's near stop is `transparent`, as every `bg-linear-*` with no
+        // `from-*` is. Reading one and skipping the other would be a coin toss dressed as a choice.
+        backgroundImage = properties.Intern("background-image");
+        gradients = new GradientReader(values, parser);
 
         // ⚠ The longhands, never the shorthands, and *all* of them. A shorthand is expanded before
         // it is interned — by ExCSS while parsing when the value is literal, and by
@@ -226,6 +235,8 @@ public sealed class DrawListBuilder {
                     )
                 );
             }
+
+            EmitGradient(element, into, x, y, width, height, corners, radius, alpha);
 
             // The border is drawn after the background and before the children, which is the order
             // CSS paints them in — a child overlapping the edge covers the border, and a background
@@ -791,4 +802,72 @@ public sealed class DrawListBuilder {
         corners.IsUniformCircular(out _)
             ? command
             : command with { Offset = into.AddBox(BoxStyle.Rounded(corners)), Length = 1 };
+
+    /// <summary>Paints the <c>background-image</c> layer, when it is a gradient this engine draws.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This emits a command where the background colour did not, and that is deliberate.</b>
+    ///         <c>bg-linear-to-r from-accent to-surface-3</c> sets no <c>background-color</c> at all, so
+    ///         an element whose only background is a gradient has no colour for the caller above to
+    ///         find — and a gradient that painted only over an existing fill would be invisible on
+    ///         exactly the elements Tailwind's own gradient utilities produce.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A refused gradient paints nothing rather than falling back to one of its stops.</b>
+    ///         The near colour is right along one edge and wrong everywhere else, which is a picture
+    ///         somebody has to squint at; an absent gradient is a question they ask immediately. See
+    ///         <see cref="GradientRefusal" /> for the whole argument.
+    ///     </para>
+    /// </remarks>
+    void EmitGradient(
+        UiElement element,
+        DrawList into,
+        float x,
+        float y,
+        float width,
+        float height,
+        CornerRadii corners,
+        float radius,
+        float alpha
+    ) {
+        if (!element.Style.TryGet(backgroundImage, out var id)) {
+            return;
+        }
+
+        var gradient = gradients.Read(id);
+
+        if (!gradient.IsPaintable) {
+            return;
+        }
+
+        var axis = gradient.Axis(width, height);
+
+        // A zero axis is the side buffer's sentinel for "no gradient", so a degenerate box would
+        // write a record that says *flat* and then paint the near stop over the whole element. There
+        // is nothing to see either way at this size; not emitting says so honestly.
+        if (axis == Vector2.Zero) {
+            return;
+        }
+
+        // ⚠ Unconditionally into the side buffer, unlike `Styled`. The cheap path exists because a
+        // uniformly rounded box needs nothing but its scalar radius — and a gradient is precisely a
+        // box that needs more than that, so the test that skips the record has to be skipped here.
+        var offset = into.AddBox(new BoxStyle(corners, Fade(gradient.End, alpha), axis));
+
+        into.Add(
+            new DrawCommand(
+                DrawCommandKind.Rectangle,
+                x,
+                y,
+                width,
+                height,
+                Fade(gradient.Start, alpha),
+                radius,
+                0f
+            ) {
+                Offset = offset,
+                Length = 1
+            }
+        );
+    }
 }
