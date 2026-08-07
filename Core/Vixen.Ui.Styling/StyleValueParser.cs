@@ -128,6 +128,10 @@ public sealed class StyleValueParser {
             return ParseColorMix(arguments);
         }
 
+        if (name.Equals("color", StringComparison.OrdinalIgnoreCase)) {
+            return ParsePredefined(arguments);
+        }
+
         // `rgb()` and `rgba()` are the same function in CSS Color 4, and ExCSS emits the first for
         // an opaque colour and the second when there is alpha.
         var isRgb = name.Equals("rgb", StringComparison.OrdinalIgnoreCase)
@@ -223,6 +227,76 @@ public sealed class StyleValueParser {
             polar
                 ? ColorFunctions.FromOklch(lightness, MathF.Max(second, 0f), third, alpha)
                 : ColorFunctions.FromOklab(lightness, second, third, alpha)
+        );
+    }
+
+    /// <summary>Parses <c>color(&lt;space&gt; c1 c2 c3 / α)</c> for the predefined RGB spaces.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing is clamped, and for this function that is the entire point.</b> CSS
+    ///         Color 4 § 10 uses <c>color(display-p3 1.0844 0.43 0.1)</c> as its own worked example
+    ///         of a colour outside sRGB but inside P3 — the case that exists to be shown on a wide
+    ///         display, and that a clamp at parse time would destroy before anything could know what
+    ///         display it was going to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the spaces whose transfer function this actually implements are accepted.</b>
+    ///         <c>display-p3</c> shares sRGB's transfer curve — the specification's table says so in
+    ///         as many words — so decoding it needs nothing new. <c>a98-rgb</c>, <c>prophoto-rgb</c>
+    ///         and <c>rec2020</c> each have their own curve, and guessing sRGB's for them would give a
+    ///         colour that is wrong by a few percent in the midtones: plausible, and invisible until
+    ///         someone matches against a browser. They are refused instead.
+    ///     </para>
+    /// </remarks>
+    static StyleValue ParsePredefined(ReadOnlySpan<char> arguments) {
+        Span<Range> ranges = stackalloc Range[6];
+        var count = Split(arguments, ranges);
+
+        if (count is < 4 or > 5) {
+            return StyleValue.Unknown;
+        }
+
+        var space = arguments[ranges[0]];
+        ColorGamut gamut;
+        bool encoded;
+
+        if (space.Equals("srgb", StringComparison.OrdinalIgnoreCase)) {
+            (gamut, encoded) = (ColorGamut.Srgb, true);
+        } else if (space.Equals("srgb-linear", StringComparison.OrdinalIgnoreCase)) {
+            (gamut, encoded) = (ColorGamut.Srgb, false);
+        } else if (space.Equals("display-p3", StringComparison.OrdinalIgnoreCase)) {
+            (gamut, encoded) = (ColorGamut.DisplayP3, true);
+        } else if (space.Equals("display-p3-linear", StringComparison.OrdinalIgnoreCase)) {
+            (gamut, encoded) = (ColorGamut.DisplayP3, false);
+        } else {
+            return StyleValue.Unknown;
+        }
+
+        Span<float> channels = stackalloc float[3];
+
+        for (var index = 0; index < 3; index++) {
+            if (!TryComponent(arguments[ranges[index + 1]], 1f, out channels[index])) {
+                return StyleValue.Unknown;
+            }
+
+            if (encoded) {
+                channels[index] = ColorSpace.SrgbToLinear(channels[index]);
+            }
+        }
+
+        var alpha = 1f;
+
+        if (count == 5 && !TryComponent(arguments[ranges[4]], 1f, out alpha)) {
+            return StyleValue.Unknown;
+        }
+
+        // Into the engine's working space — linear, sRGB primaries, unbounded. A P3 colour that is
+        // outside sRGB arrives here as a linear triple with a channel outside [0, 1], which is
+        // exactly how every other out-of-gamut colour in this parser is already carried.
+        var linear = GamutMap.ToLinearSrgb(new Vector3(channels[0], channels[1], channels[2]), gamut);
+
+        return StyleValue.FromColor(
+            new Color4(linear.X, linear.Y, linear.Z, Math.Clamp(alpha, 0f, 1f))
         );
     }
 

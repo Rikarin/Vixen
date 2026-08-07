@@ -676,6 +676,7 @@ Vixen.Graphics.ISwapChain : System.IDisposable
 Vixen.Graphics.ISwapChain.AcquireNextImage(out Vixen.Graphics.TextureViewHandle view) -> Vixen.Graphics.SwapChainStatus
 Vixen.Graphics.ISwapChain.CurrentTexture.get -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.ISwapChain.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.ISwapChain.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Graphics.ISwapChain.ImageCount.get -> int
 Vixen.Graphics.ISwapChain.Present() -> Vixen.Graphics.SwapChainStatus
 Vixen.Graphics.ISwapChain.PresentMode.get -> Vixen.Graphics.PresentMode
@@ -952,6 +953,8 @@ Vixen.Graphics.SwapChainDescription -> readonly struct
 Vixen.Graphics.SwapChainDescription : System.IEquatable<Vixen.Graphics.SwapChainDescription>
 Vixen.Graphics.SwapChainDescription.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.Graphics.SwapChainDescription.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.SwapChainDescription.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
+Vixen.Graphics.SwapChainDescription.Gamut.init -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Graphics.SwapChainDescription.ImageCount.get -> int
 Vixen.Graphics.SwapChainDescription.ImageCount.init -> int
 Vixen.Graphics.SwapChainDescription.PresentMode.get -> Vixen.Graphics.PresentMode
@@ -961,7 +964,7 @@ Vixen.Graphics.SwapChainDescription.Size.init -> Vixen.Core.Mathematics.Int2
 Vixen.Graphics.SwapChainDescription.Surface.get -> Vixen.Core.SurfaceHandle
 Vixen.Graphics.SwapChainDescription.Surface.init -> Vixen.Core.SurfaceHandle
 Vixen.Graphics.SwapChainDescription.SwapChainDescription() -> void
-Vixen.Graphics.SwapChainDescription.SwapChainDescription(Vixen.Core.SurfaceHandle Surface, Vixen.Core.Mathematics.Int2 Size, Vixen.Graphics.PixelFormat Format = Vixen.Graphics.PixelFormat.Bgra8UNormSrgb, Vixen.Graphics.PresentMode PresentMode = Vixen.Graphics.PresentMode.Fifo, int ImageCount = 3) -> void
+Vixen.Graphics.SwapChainDescription.SwapChainDescription(Vixen.Core.SurfaceHandle Surface, Vixen.Core.Mathematics.Int2 Size, Vixen.Graphics.PixelFormat Format = Vixen.Graphics.PixelFormat.Bgra8UNormSrgb, Vixen.Graphics.PresentMode PresentMode = Vixen.Graphics.PresentMode.Fifo, int ImageCount = 3, Vixen.Core.Mathematics.ColorGamut Gamut = Vixen.Core.Mathematics.ColorGamut.Srgb) -> void
 Vixen.Graphics.SwapChainStatus -> enum : byte
 Vixen.Graphics.SwapChainStatus.DeviceLost = 3 -> Vixen.Graphics.SwapChainStatus
 Vixen.Graphics.SwapChainStatus.OutOfDate = 1 -> Vixen.Graphics.SwapChainStatus

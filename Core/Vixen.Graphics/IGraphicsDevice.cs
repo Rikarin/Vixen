@@ -75,6 +75,21 @@ public interface ISwapChain : IDisposable {
     /// <summary>The format of its images.</summary>
     PixelFormat Format { get; }
 
+    /// <summary>The gamut its images are shown in, which may be narrower than the one requested.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a presentation pass must gamut-map against, and never a constant.</b> A surface
+    ///     that offered no wide colour space with enough precision behind it stays at
+    ///     <see cref="ColorGamut.Srgb" /> however wide a gamut was asked for, and a caller that went
+    ///     on mapping to P3 regardless would be sending over-saturated colours to an ordinary
+    ///     display.
+    ///     <para>
+    ///         Defaulted rather than required, because a backend that has not implemented wide gamut
+    ///         is not thereby unimplemented — sRGB is the true answer for it, and making every
+    ///         backend restate that would be ceremony that can only be got wrong.
+    ///     </para>
+    /// </remarks>
+    ColorGamut Gamut => ColorGamut.Srgb;
+
     /// <summary>Their size in pixels.</summary>
     Int2 Size { get; }
 
@@ -137,12 +152,19 @@ public interface ISwapChain : IDisposable {
 ///     the only one every driver must support.
 /// </param>
 /// <param name="ImageCount">How many images to ask for.</param>
+/// <param name="Gamut">
+///     The display gamut to ask for. A preference like <see cref="Format" />: a backend that cannot
+///     pair the wider space with enough precision to be worth having falls back to
+///     <see cref="ColorGamut.Srgb" />, so read <see cref="ISwapChain.Format" /> and the backend's
+///     reported gamut back rather than assuming the request was met.
+/// </param>
 public readonly record struct SwapChainDescription(
     SurfaceHandle Surface,
     Int2 Size,
     PixelFormat Format = PixelFormat.Bgra8UNormSrgb,
     PresentMode PresentMode = PresentMode.Fifo,
-    int ImageCount = 3
+    int ImageCount = 3,
+    ColorGamut Gamut = ColorGamut.Srgb
 );
 
 /// <summary>A logical device: what creates resources, records work and submits it.</summary>
