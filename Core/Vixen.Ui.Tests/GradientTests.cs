@@ -116,6 +116,32 @@ public class GradientTests {
         Assert.Equal(0.5f, start.A, 3);
     }
 
+    [Fact]
+    public void A_composed_stop_may_carry_a_mix_through_a_custom_property() {
+        // ⚠ The two halves of the previous test put together, and the shape `from-accent/50`
+        // actually compiles to: `UtilityComposition.StopList` builds the gradient out of `var()`
+        // references, and the *colour* — commas and all — lives in the custom property. So the
+        // substitution has to hand the reader a stop containing commas, and the reader's
+        // depth-aware `SplitCommas` has to keep it whole. Either half being wrong reads the same
+        // way from outside: a gradient refused as having three stops.
+        using var document = Drawn(
+            """
+            .probe {
+                --tw-gradient-from: color-mix(in oklab, #ff0000 50%, transparent);
+                --tw-gradient-to: #0000ff;
+                background-image: linear-gradient(to right, var(--tw-gradient-from) 0%, var(--tw-gradient-to) 100%);
+            }
+            """
+        );
+
+        var style = Assert.Single(Gradients(document));
+        var start = GradientCommand(document).Color;
+
+        Assert.Equal(Hex("#0000ff"), style.GradientEnd);
+        Assert.Equal(Hex("#ff0000").R, start.R, 3);
+        Assert.Equal(0.5f, start.A, 3);
+    }
+
     /// <summary>And the hand-written form, which the cascade normalises to `rgb(…)` instead.</summary>
     /// <remarks>
     ///     ⚠ Both notations, in one property, in one document. `background-color: #f00` comes back
