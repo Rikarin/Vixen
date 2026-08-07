@@ -8,7 +8,7 @@ api: [T:Vixen.Core.Mathematics.GamutMap, T:Vixen.Core.Mathematics.ColorGamut]
 tags: [colour, oklab, oklch, css, wide-gamut, display-p3]
 since: 0.1
 status: preview
-related: [ui/styling, rendering/swapchain]
+related: [ui/utility-composition, rendering/look-profiles]
 ---
 
 ## What it is
@@ -45,19 +45,19 @@ clamps.
 
 ## Using it
 
-```csharp
+```csharp compile
 using Vixen.Core.Mathematics;
 
-// A vivid Tailwind blue, as the parser produces it: linear, and past white on the blue channel.
-var blue = new Vector3(0.078f, 0.435f, 1.053f);
+public static class Showing {
+    public static Vector3 OnThisDisplay(ColorGamut display) {
+        // A vivid Tailwind blue, as the parser produces it: linear, and past white on blue.
+        var blue = new Vector3(0.078f, 0.435f, 1.053f);
 
-if (!GamutMap.InGamut(blue, ColorGamut.Srgb)) {
-    var safe = GamutMap.Map(blue, ColorGamut.Srgb);
+        // On an sRGB display this reduces chroma; on a P3 one it returns `blue` untouched, because
+        // the intent is relative colorimetric and the colour is already showable.
+        return GamutMap.Map(blue, display);
+    }
 }
-
-// On a wide display nothing happens at all — the intent is relative colorimetric, so a colour
-// already inside the gamut is returned untouched.
-var untouched = GamutMap.Map(blue, ColorGamut.DisplayP3);
 ```
 
 `FromLinearSrgb` and `ToLinearSrgb` rebase a colour between gamuts without repairing it. A
@@ -72,7 +72,7 @@ behind it stays in sRGB, and mapping to P3 regardless would over-saturate an ord
 
 **Choosing what to map against.** The gamut comes from the swapchain, never from a constant:
 
-```csharp
+```csharp no-compile="a fragment; the swapchain and the colour come from the caller"
 var target = swapChain.Gamut;                       // what the surface actually granted
 var shown = GamutMap.Map(colour, target);
 ```
@@ -95,6 +95,6 @@ prose pins down and which has reference implementations to check against.
 ## See also
 
 - [CSS Color 4 §14.2](https://www.w3.org/TR/css-color-4/#binsearch) — the algorithm and its pseudocode.
-- [docs/plan/43](../../plan/43-web-styling-parity.md) § D4 — why the palette forces this decision.
+- `docs/plan/43-web-styling-parity.md` § D4 — why the palette forces this decision.
 - `Vixen.Core.Mathematics.Oklab` — the space the search walks, and the one the distance is measured in.
 - `Vixen.Core.Mathematics.ColorSpace` — the sRGB transfer function, which is a different thing from a gamut.
