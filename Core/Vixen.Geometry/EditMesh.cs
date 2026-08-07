@@ -22,6 +22,37 @@ namespace Vixen.Geometry;
 /// </remarks>
 public readonly record struct MeshFace(int Start, int Count, int Group, int Smoothing = 0);
 
+/// <summary>Where a mesh's face groups came from, and therefore what a group boundary means.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A group id says nothing on its own about whether the boundary around it is real, and
+///         two stages of the content pipeline treat it as though it did.</b> docs/plan/41 § D4 makes a
+///         group boundary a hard feature and docs/plan/42 § D3 makes it partition the charts "first and
+///         unconditionally" — both because a group boundary is somewhere a material changes, so a seam
+///         there costs nothing that has not already been paid. That reasoning holds for
+///         <see cref="Assigned" /> and is simply false for <see cref="Coplanarity" />.
+///     </para>
+///     <para>
+///         ⚠ <b>The failure this exists to prevent is silent and enormous.</b>
+///         <see cref="EditMesh.Regroup" /> groups faces that are coplanar to within about half a
+///         degree; on a faceted surface out of a generator or a sculpt almost no two adjacent triangles
+///         are, so <i>every</i> triangle is its own group. Read as material boundaries that is every
+///         edge of the mesh declared a crease and every triangle declared its own chart — measured on a
+///         25 439-triangle image-to-3D mesh as 13 965 charts and a patch layout that refused outright.
+///     </para>
+/// </remarks>
+public enum MeshGroupSource {
+    /// <summary>Coplanar connected components, as <see cref="EditMesh.Regroup" /> computes them.</summary>
+    /// <remarks>
+    ///     The default, because it is what <see cref="EditMesh.FromTriangles" /> produces and the safe
+    ///     reading of an unknown mesh: a guess about shape, never a statement about materials.
+    /// </remarks>
+    Coplanarity = 0,
+
+    /// <summary>An assignment somebody made: a material a file declared, or a group a tool put a face in.</summary>
+    Assigned = 1
+}
+
 /// <summary>An edge, as the two shared positions it runs between.</summary>
 /// <param name="A">The lower of the two position indices.</param>
 /// <param name="B">The higher.</param>
@@ -149,6 +180,10 @@ public sealed class EditMesh {
         faces.AddRange(other.faces);
         normals.AddRange(other.normals);
         texCoords.AddRange(other.texCoords);
+
+        // ⚠ Copied with the group ids and not derivable from them: a clone whose groups silently became
+        // a coplanarity guess is a clone that unwraps and remeshes differently from what it copied.
+        GroupSource = other.GroupSource;
     }
 
     /// <summary>The shared positions — the graph a snap, a weld and a drag run on.</summary>
@@ -159,6 +194,23 @@ public sealed class EditMesh {
 
     /// <summary>The faces.</summary>
     public IReadOnlyList<MeshFace> Faces => faces;
+
+    /// <summary>Where <see cref="MeshFace.Group" /> came from, and so what a group boundary means.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Set for you by the two calls that decide it</b>: <see cref="Regroup" /> — and therefore
+    ///         <see cref="FromTriangles" /> — leaves it at <see cref="MeshGroupSource.Coplanarity" />, and
+    ///         <see cref="SetGroup" /> moves it to <see cref="MeshGroupSource.Assigned" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Settable because a mesh can be built face by face by something that already knows the
+    ///         answer, and losing the answer there is the failure this property exists to name.</b> A
+    ///         reader that carried a file's declared material onto every face, or a stage that rebuilt a
+    ///         mesh out of one whose groups were assigned, has to say so; the default is the safe reading
+    ///         and never the true one by accident.
+    ///     </para>
+    /// </remarks>
+    public MeshGroupSource GroupSource { get; set; }
 
     /// <summary>Per-corner normals, or empty when the mesh carries none.</summary>
     /// <remarks>
@@ -360,10 +412,17 @@ public sealed class EditMesh {
     /// <summary>Puts a face in a group.</summary>
     /// <param name="face">Which.</param>
     /// <param name="group">Which group.</param>
+    /// <remarks>
+    ///     ⚠ <b>Assigning a group moves the whole mesh to <see cref="MeshGroupSource.Assigned" />, and
+    ///     that is the point of the call rather than a side effect of it.</b> Somebody putting a face in
+    ///     a group is exactly the statement <see cref="Regroup" />'s coplanarity guess is not making, and
+    ///     it is the statement a remesh and an unwrap both read a boundary out of.
+    /// </remarks>
     public void SetGroup(int face, int group) {
         var entry = faces[face];
 
         faces[face] = entry with { Group = group };
+        GroupSource = MeshGroupSource.Assigned;
     }
 
     /// <summary>Puts a face in a smoothing group.</summary>
@@ -690,6 +749,15 @@ public sealed class EditMesh {
     ///         are one thing — Unreal's PolyGroups exactly — and it is what an extrude will act on
     ///         instead of the triangulation.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Those groups are a guess and the mesh comes back saying so —
+    ///         <see cref="GroupSource" /> is <see cref="MeshGroupSource.Coplanarity" />.</b> A triangle
+    ///         soup off a generator or a sculpt is faceted, almost no two of its adjacent triangles are
+    ///         within half a degree of coplanar, and the answer here is one group per triangle. A caller
+    ///         that reads a group boundary as a material boundary — a remesh's features, an unwrap's
+    ///         charts — has to check first, and a caller that knows the real assignment should overwrite
+    ///         both the ids and <see cref="GroupSource" />.
+    ///     </para>
     /// </remarks>
     public static EditMesh FromTriangles(
         ReadOnlySpan<Vector3> source,
@@ -722,11 +790,23 @@ public sealed class EditMesh {
     /// <summary>Puts every face into a group with the coplanar faces it is connected to.</summary>
     /// <param name="coplanar">How nearly parallel two faces must be to share a group.</param>
     /// <remarks>
-    ///     Connected <i>and</i> coplanar: two parallel walls facing the same way are two groups because
-    ///     no edge joins them, and the two triangles of a cube's side are one because an edge does.
+    ///     <para>
+    ///         Connected <i>and</i> coplanar: two parallel walls facing the same way are two groups
+    ///         because no edge joins them, and the two triangles of a cube's side are one because an edge
+    ///         does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This discards whatever the groups meant and says so, by putting
+    ///         <see cref="GroupSource" /> back to <see cref="MeshGroupSource.Coplanarity" />.</b> The
+    ///         result is a guess about shape: on a block-out it is the wall an extrude acts on, and on a
+    ///         faceted surface it is one group per triangle. Downstream, only the first of those may be
+    ///         read as a material boundary, so the two have to stay distinguishable.
+    ///     </para>
     /// </remarks>
     public void Regroup(float coplanar = DefaultCoplanarTolerance) {
         Rebuild();
+
+        GroupSource = MeshGroupSource.Coplanarity;
 
         var parent = new int[faces.Count];
         var facing = new Vector3[faces.Count];

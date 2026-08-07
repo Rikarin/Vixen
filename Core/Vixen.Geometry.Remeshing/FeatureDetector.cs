@@ -177,7 +177,13 @@ static class FeatureDetector {
             var one = half / 3;
             var two = twin / 3;
 
-            if (settings.KeepGroups && mesh.Group(one) != mesh.Group(two)) {
+            // ⚠ A group boundary is a crease only when somebody assigned the groups. Where they came
+            // from `EditMesh.Regroup`'s coplanarity guess this test is true across almost every edge of
+            // a faceted surface, which declares the whole mesh one enormous feature graph — see
+            // MeshGroupSource, and docs/plan/41 § D4 for what the source is meant to mean.
+            if (settings.KeepGroups
+                && mesh.GroupSource is MeshGroupSource.Assigned
+                && mesh.Group(one) != mesh.Group(two)) {
                 sources[half] |= FeatureSource.Group;
                 sources[twin] |= FeatureSource.Group;
             }

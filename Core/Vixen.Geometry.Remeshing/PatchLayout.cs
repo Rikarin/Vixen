@@ -67,9 +67,10 @@ sealed class LayoutPatch {
 ///     <para>
 ///         ⚠ <b>Every repair here is bounded and every failure is a warning rather than an
 ///         exception.</b> docs/plan/41's robustness criterion is "a valid all-quad result or a report
-///         naming the stage that refused, and never an exception or a hang". A partition that cannot be
-///         made usable in <see cref="RepairRounds" /> rounds says so in
-///         <see cref="Warnings" /> and <see cref="IsUsable" /> goes false.
+///         naming the stage that refused, and never an exception or a hang". A patch that cannot be
+///         made usable in <see cref="RepairRounds" /> rounds is counted in <see cref="Warnings" /> and
+///         left out; <see cref="IsUsable" /> goes false only when <i>none</i> of them came out, which is
+///         the one case where there is no partition to hand on.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The zero cases are real inputs and each has an answer.</b> A mesh with no features and
@@ -83,9 +84,18 @@ sealed class LayoutPatch {
 sealed class PatchLayout {
     /// <summary>How many times the partition may be rebuilt after a repair.</summary>
     /// <remarks>
-    ///     Each round either finishes or adds cuts, and adding cuts cannot go on forever because every
-    ///     cut is an edge of a finite mesh. The cap is what turns a repair that oscillates into a
-    ///     warning.
+    ///     <para>
+    ///         Each round either finishes or adds cuts, and adding cuts cannot go on forever because
+    ///         every cut is an edge of a finite mesh. The cap is what turns a repair that oscillates
+    ///         into a warning.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reaching the cap is not a refusal, and it used to be.</b> The last round runs no
+    ///         repair at all and returns what it built. A layout that has 391 usable patches out of 398
+    ///         is a result with seven holes in it and a warning saying so; refusing it costs the whole
+    ///         model its remesh over the seven, which is the opposite of what every other repair here
+    ///         does with a patch it cannot fix.
+    ///     </para>
     /// </remarks>
     public const int RepairRounds = 6;
 
@@ -223,6 +233,22 @@ sealed class PatchLayout {
             // slits are two patches the extractor refuses, which is two holes.
             Extend(mesh, field, features, cut);
 
+            // ⚠ <b>The last round repairs nothing, which is the promise the `cutting` comment below
+            // makes and the loop did not keep.</b> `Merge` dissolves a small patch's longest arc and
+            // the `Extend` above walks the loose end that leaves straight back out along the same
+            // edges, so the two undo each other exactly, every round, while both keep reporting that
+            // they repaired something — `cutting` was written for the same oscillation between a cut
+            // and a merge and does not catch this one, because this one needs no cut. Measured on a
+            // 14 359-triangle generated mesh, rounds four, five and six were identical: 398 patches,
+            // 1 659 arcs, 390 of them perfectly usable, and the whole layout refused at the end of
+            // round six because `redo` was still true.
+            //
+            // ⚠ <b>A build-only round rather than "return what the last repairing round built", and
+            // the difference is not cosmetic.</b> A repair mutates `cut` after the arcs have been built
+            // from it, so a round that repairs cannot also be a round whose layout is returned — the
+            // arcs and the partition it is handed on beside would disagree.
+            var repairing = round < RepairRounds;
+
             var split = Splits(mesh, features, cut, forced);
             var (arcs, arcOfHalf, forwardOfHalf) = BuildArcs(mesh, features, density, cut, split);
 
@@ -231,7 +257,7 @@ sealed class PatchLayout {
             // vertex, so at one quad it is a zero-area face and at zero quads it is nothing at all —
             // both of which reach `Validate` as a non-manifold edge rather than as an error anybody
             // can attribute. Split it and rebuild.
-            if (Reopen(mesh, arcs, forced) && round < RepairRounds) {
+            if (Reopen(mesh, arcs, forced) && repairing) {
                 continue;
             }
 
@@ -248,7 +274,7 @@ sealed class PatchLayout {
             // every round exhausted all six repairs and the whole layout was refused, which is a
             // fixture that used to come back with 2,958 quads. The rounds after this one only run the
             // repairs that were already convergent, so the last one always produces a layout.
-            var cutting = round < RepairRounds / 2;
+            var cutting = repairing && round < RepairRounds / 2;
 
             foreach (var triangles in patches) {
                 var loops = Loops(mesh, cut, triangles);
@@ -263,7 +289,7 @@ sealed class PatchLayout {
                 }
 
                 if (loops.Count > 1) {
-                    if (Bridge(mesh, cut, triangles, loops)) {
+                    if (repairing && Bridge(mesh, cut, triangles, loops)) {
                         redo = true;
                     } else {
                         degenerate++;
@@ -297,8 +323,9 @@ sealed class PatchLayout {
                     // too small or degenerate merges into a neighbour. Dropping it instead is what
                     // leaves the output full of holes — measured on a box, nineteen arcs with a patch
                     // on only one side of them and seventy boundary edges to show for it.
-                    if (Divide(mesh, arcs, uses, forced)
-                        || (triangles.Length <= MergeTriangles && Merge(mesh, features, cut, arcs, uses))) {
+                    if (repairing && Divide(mesh, arcs, uses, forced)) {
+                        redo = true;
+                    } else if (repairing && triangles.Length <= MergeTriangles && Merge(mesh, features, cut, arcs, uses)) {
                         redo = true;
                     } else {
                         degenerate++;
@@ -344,16 +371,19 @@ sealed class PatchLayout {
                     warnings.Add($"{dangling} cuts still dead-end, so their patches are bounded by a slit.");
                 }
 
+                if (patches.Count > built.Count) {
+                    warnings.Add(
+                        $"{built.Count} of {patches.Count} patches came out usable after {round} repair round(s)."
+                    );
+                }
+
                 return new([.. arcs], [.. built], cut, split, [.. warnings], exhausted, built.Count > 0);
-            }
-
-            if (round == RepairRounds) {
-                warnings.Add($"The partition still had unusable patches after {RepairRounds} repairs.");
-
-                return Refused(arcs, warnings, exhausted, cut, split);
             }
         }
 
+        // Unreachable: the last round repairs nothing, so `redo` is false and the block above answers.
+        // Kept because the compiler cannot see that, and written as a refusal rather than as a throw
+        // because docs/plan/41's robustness criterion has no room for an exception out of a stage.
         return Refused([], warnings, exhausted, cut, new bool[mesh.VertexCount]);
     }
 

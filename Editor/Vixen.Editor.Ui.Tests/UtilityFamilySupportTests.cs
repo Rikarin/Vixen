@@ -26,13 +26,15 @@ namespace Vixen.Editor.Ui.Tests;
 ///         <see cref="Inert" /> is the first question for the families that do not — kept in the
 ///         suite rather than deleted, because a family becoming real is a thing this file should
 ///         notice, and because "it resolves, and that is all it does" is exactly the fact somebody
-///         reaching for <c>overflow-y-auto</c> needs told.
+///         reaching for <c>select-none</c> needs told. The per-axis <c>overflow</c> pair is the
+///         standing proof that the notice is worth having: it sat in <see cref="Inert" /> until the
+///         engine learned it, and moving it was a row in each table and a test that reversed.
 ///     </para>
 ///     <para>
-///         The two <c>Fact</c>s at the bottom are the ones that prove inertness rather than asserting
-///         it, by looking at what the layout and the draw list did rather than at what the cascade
-///         stored. They are the shape the rest of this table would take if every property had as
-///         cheap an observable.
+///         The two <c>Fact</c>s at the bottom look at what the layout and the draw list did rather
+///         than at what the cascade stored, which is the only way either question gets a real answer.
+///         One of them still proves inertness and the other now proves the opposite. They are the
+///         shape the rest of this table would take if every property had as cheap an observable.
 ///     </para>
 /// </remarks>
 public class UtilityFamilySupportTests {
@@ -107,15 +109,16 @@ public class UtilityFamilySupportTests {
         { "border-b", "border-bottom-width", "1px" },
         { "border-border-active", "border-top-color", "#5f8ddb" },
 
-        // Overflow, and only the unprefixed one.
+        // Overflow, all three properties and all four keywords. ⚠ `auto` is here because the layout
+        // maps it onto `Overflow.Scroll` — the two differ only by a scrollbar gutter nothing draws.
         { "truncate", "overflow", "hidden" },
         { "overflow-scroll", "overflow", "scroll" },
-
-        // ⚠ These four were in `Inert` until the per-axis clip landed. `auto` maps onto `Scroll` in
-        // the layout's keyword table rather than becoming a fourth member, because CSS gives the two
-        // the same layout and differs only over reserving a scrollbar gutter — which nothing here
-        // draws.
         { "overflow-auto", "overflow", "auto" },
+        { "overflow-x-scroll", "overflow-x", "scroll" },
+
+        // ⚠ These were in `Inert` until the per-axis clip landed. `auto` maps onto `Scroll` in the
+        // layout's keyword table rather than becoming a fourth member, because CSS gives the two the
+        // same layout and differs only over reserving a scrollbar gutter — which nothing here draws.
         { "overflow-x-auto", "overflow-x", "auto" },
         { "overflow-y-auto", "overflow-y", "auto" },
         { "overflow-y-scroll", "overflow-y", "scroll" },
@@ -139,22 +142,29 @@ public class UtilityFamilySupportTests {
     ///         does not change.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>overflow-x-*</c> and <c>overflow-y-*</c> are the dangerous two</b>, because the
-    ///         unprefixed <c>overflow</c> <i>is</i> read and the per-axis pair looks like it must be.
-    ///         Neither <c>overflow-x</c> nor <c>overflow-y</c> is interned by anything, and scrolling
-    ///         in this engine is <c>ScrollView</c> rather than a property in any case —
-    ///         <see cref="The_per_axis_overflow_utilities_do_not_clip" /> is the proof.
+    ///         <b>History: <c>overflow-x-*</c> and <c>overflow-y-*</c> used to be the dangerous two</b>,
+    ///         because the unprefixed <c>overflow</c> was read and the per-axis pair looked like it must
+    ///         be, and neither <c>overflow-x</c> nor <c>overflow-y</c> was interned by anything. They
+    ///         are read now — <c>OverflowReader</c> resolves all three for the clip stack and the hit
+    ///         test alike — and they have moved to <see cref="Supported" />, with
+    ///         <see cref="The_per_axis_overflow_utilities_clip_the_axis_they_name_and_no_other" />
+    ///         holding the draw list to it. Kept here as the worked example of what this table is for:
+    ///         the rows above are not permanent, and one of them changing tables is the outcome the
+    ///         file exists to make visible.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The per-axis pair and <c>overflow-auto</c> used to be here and are not any
-    ///         more.</b> Both were real: neither <c>overflow-x</c> nor <c>overflow-y</c> was interned
-    ///         by anything, and <c>auto</c> was a third case in neither table — the draw list clipped
-    ///         on any value that was not <c>visible</c> while the layout's keyword table knew only
-    ///         <c>visible</c>, <c>hidden</c> and <c>scroll</c>, so the box clipped in the picture and
-    ///         stayed visible to flexbox. Both are implemented now and have moved to
-    ///         <see cref="Supported" />; <see cref="A_per_axis_overflow_clips_one_axis_only" /> is the
-    ///         proof, and it is the *same* test inverted rather than a new one, so the file records
-    ///         that the gap closed rather than quietly forgetting it existed.
+    ///         <b>History: <c>overflow-auto</c> used to be a third case in neither table.</b> The draw
+    ///         list clips on any value that is not <c>visible</c>, so it always clipped; the layout's
+    ///         keyword table had <c>visible</c>, <c>hidden</c> and <c>scroll</c> and not <c>auto</c>, so
+    ///         the layout went on treating the box as visible and the advice was to write
+    ///         <c>overflow-scroll</c> instead. <c>LayoutStyleBuilder</c> maps <c>auto</c> onto
+    ///         <c>Overflow.Scroll</c> now, which is the same thing CSS means by it — the two keywords
+    ///         disagree only about a scrollbar gutter, and nothing here draws one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A clip is still not a scrollbar.</b> <c>overflow-y-auto</c> cuts the content off
+    ///         and nothing offers to scroll it; scrolling in this engine is <c>ScrollView</c>, a
+    ///         control that owns its bars and offsets its content.
     ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Inert => new() {
@@ -220,10 +230,13 @@ public class UtilityFamilySupportTests {
 
     /// <summary>
     ///     ⚠ <b>Support proved rather than asserted, for the pair somebody is most likely to reach
-    ///     for.</b> This test used to assert the opposite and was the proof of the gap: a
-    ///     <c>overflow-y-hidden</c> computed <c>hidden</c> on a property no builder interned, and the
-    ///     draw list came out identical to the unstyled one. It is inverted rather than replaced,
-    ///     because the interesting fact about this pair is that it was inert and now is not.
+    ///     for.</b> Both utilities make the draw list push exactly one clip around the element's
+    ///     children, so a count tells them apart from nothing and from each other. What does is the
+    ///     rectangle: <c>overflow-hidden</c>'s is the element's box on both axes, and
+    ///     <c>overflow-y-hidden</c>'s is that box vertically and a pair of edges past any viewport
+    ///     horizontally. That is how one axis alone is expressed by a clip stack that only knows how
+    ///     to cut with a rectangle, and it is the whole reason this engine can do what CSS cannot —
+    ///     there, a lone <c>overflow-y</c> coerces its partner and clips both.
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>Counting clips is not enough — the axis has to be checked.</b> A per-axis clip is a
@@ -232,18 +245,24 @@ public class UtilityFamilySupportTests {
     ///     what says which axis was meant.
     /// </remarks>
     [Fact]
-    public void A_per_axis_overflow_clips_one_axis_only() {
+    public void The_per_axis_overflow_utilities_clip_the_axis_they_name_and_no_other() {
         using var ui = Sheet("overflow-hidden", "overflow-y-hidden", "w-8", "h-8");
 
-        Assert.Equal(1, Clips(ui, "overflow-hidden"));
-        Assert.Equal(1, Clips(ui, "overflow-y-hidden"));
+        var both = Clip(ui, "overflow-hidden");
+        var vertical = Clip(ui, "overflow-y-hidden");
 
-        var vertical = ClipRect(ui, "overflow-y-hidden");
-        var both = ClipRect(ui, "overflow-hidden");
-
-        // The vertical clip leaves the horizontal edges alone, and the unprefixed one does not.
-        Assert.True(vertical.Width > both.Width, "overflow-y must not constrain the horizontal axis");
+        Assert.Equal(both.Y, vertical.Y);
         Assert.Equal(both.Height, vertical.Height);
+
+        // ⚠ The unnamed axis is measured against the viewport rather than against
+        // `DrawListBuilder.UnboundedClip`, which is internal to `Vixen.Ui` and shared with its own
+        // test assembly and not with this one. "Off both ends of the document" is the claim that
+        // matters anyway — the constant's exact value is that builder's business.
+        Assert.True(vertical.X < 0f, "the unnamed axis begins left of the document");
+        Assert.True(
+            vertical.X + vertical.Width > ui.Document.Viewport.ViewportWidth,
+            "and ends right of it"
+        );
     }
 
     /// <summary>
@@ -267,44 +286,27 @@ public class UtilityFamilySupportTests {
         Assert.True(second.AbsoluteLeft > first.AbsoluteLeft, "a block would have stacked them");
     }
 
-    /// <summary>How many clips one element's subtree contributes to the frame.</summary>
+    /// <summary>The one clip an element's subtree contributes to the frame.</summary>
     /// <remarks>
     ///     ⚠ Sized, because <c>DrawListBuilder</c> gives up on a zero-area box before it ever looks at
-    ///     <c>overflow</c> — an unsized probe would emit no clip either way and the test would pass
-    ///     with both halves measuring nothing.
+    ///     <c>overflow</c> — an unsized probe would emit no clip at all, and <c>Single</c> is what
+    ///     stops that reading as a pass. The probe is removed and the frame run again so the caller
+    ///     can measure a second utility against a list holding only that one's clip.
     /// </remarks>
-    static int Clips(UiTest ui, string utility) {
+    static DrawCommand Clip(UiTest ui, string utility) {
         var element = ui.Create("probe", ui.Document.Root, null, utility, "w-8", "h-8");
 
         ui.Frame();
 
-        var pushes = ui.Document.Drawing.Commands.Count(command => command.Kind == DrawCommandKind.ClipPush);
+        var push = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.ClipPush
+        );
 
         element.Remove();
         ui.Frame();
 
-        return pushes;
-    }
-
-    /// <summary>The rectangle one element's clip was pushed with.</summary>
-    /// <remarks>
-    ///     ⚠ Its unclipped axis is not infinite but <c>DrawListBuilder.UnboundedClip</c>, a large
-    ///     finite number — <c>float.MaxValue</c> would make <c>-∞ + ∞</c> a NaN right edge, and a NaN
-    ///     in the clip stack unclips everything below it. So this compares widths rather than testing
-    ///     for a sentinel: what the test cares about is which axis was left alone, not what number
-    ///     stood in for "all of it".
-    /// </remarks>
-    static (float Width, float Height) ClipRect(UiTest ui, string utility) {
-        var element = ui.Create("probe", ui.Document.Root, null, utility, "w-8", "h-8");
-
-        ui.Frame();
-
-        var clip = ui.Document.Drawing.Commands.First(command => command.Kind == DrawCommandKind.ClipPush);
-
-        element.Remove();
-        ui.Frame();
-
-        return (clip.Width, clip.Height);
+        return push;
     }
 
     /// <summary>A document with just these utilities in it, generated against the editor's tokens.</summary>
