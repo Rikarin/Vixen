@@ -96,6 +96,16 @@ sealed class ManifoldMesh {
         Defects = defects;
     }
 
+    /// <summary>Where the per-triangle groups came from, carried from the mesh conditioning started at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Conditioning rewrites the triangulation and never changes what a group id means, so this
+    ///     is the source mesh's answer and dropping it is a silent behaviour change in both
+    ///     directions.</b> <see cref="FeatureDetector" /> reads a group boundary as a crease: lost, a
+    ///     material boundary stops being a feature; invented, every edge of a faceted surface becomes
+    ///     one.
+    /// </remarks>
+    public MeshGroupSource GroupSource { get; private init; }
+
     /// <summary>The vertices.</summary>
     public ReadOnlySpan<Vector3> Positions => positions;
 
@@ -269,6 +279,8 @@ sealed class ManifoldMesh {
             mesh.AddFace(loop, groups[triangle]);
         }
 
+        mesh.GroupSource = GroupSource;
+
         return mesh;
     }
 
@@ -286,15 +298,24 @@ sealed class ManifoldMesh {
             );
         }
 
-        return Build([.. soup.Positions], [.. soup.Triangles], [.. soup.Groups]);
+        return Build([.. soup.Positions], [.. soup.Triangles], [.. soup.Groups], soup.GroupSource);
     }
 
     /// <summary>Builds the view from raw arrays, which the constructor takes ownership of.</summary>
     /// <param name="points">The vertices.</param>
     /// <param name="indices">Three per triangle.</param>
     /// <param name="faceGroups">One per triangle, or empty for all-zero.</param>
+    /// <param name="source">
+    ///     Where <paramref name="faceGroups" /> came from. ⚠ Defaults to the coplanarity guess, which is
+    ///     the safe reading: a caller that does not know may not have a group boundary read as a crease.
+    /// </param>
     /// <returns>The view.</returns>
-    public static ManifoldMesh Build(Vector3[] points, int[] indices, int[] faceGroups) {
+    public static ManifoldMesh Build(
+        Vector3[] points,
+        int[] indices,
+        int[] faceGroups,
+        MeshGroupSource source = MeshGroupSource.Coplanarity
+    ) {
         ArgumentNullException.ThrowIfNull(points);
         ArgumentNullException.ThrowIfNull(indices);
         ArgumentNullException.ThrowIfNull(faceGroups);
@@ -319,7 +340,9 @@ sealed class ManifoldMesh {
             tangents,
             built.Boundary,
             defects
-        );
+        ) {
+            GroupSource = source
+        };
     }
 
     /// <summary>The half-edge opposite each half-edge, or <c>-1</c>.</summary>

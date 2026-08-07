@@ -375,7 +375,7 @@ static class Charter {
 
             // ⚠ A material boundary partitions first and unconditionally, so it is also the one
             // boundary the merge pass may not undo. docs/plan/42 § D3.
-            if (settings.KeepGroups
+            if (Grouped(mesh, settings)
                 && mesh.Faces[charts[pair.Item1][0]].Group != mesh.Faces[charts[pair.Item2][0]].Group) {
                 continue;
             }
@@ -413,14 +413,38 @@ static class Charter {
         return pairs;
     }
 
+    /// <summary>Whether this mesh's group boundaries are the ones § D3 partitions on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The rule is about <i>material</i> boundaries and a group id alone does not say
+    ///         whether it is one — which is the whole of <see cref="MeshGroupSource" />.</b> § D3 makes
+    ///         a group boundary partition unconditionally because the texture already changes there; a
+    ///         group that <see cref="EditMesh.Regroup" /> computed from coplanarity makes no such claim,
+    ///         and on a faceted surface it is one group per triangle. Measured on sixteen image-to-3D
+    ///         GLBs, honouring the coplanarity guess gave between 13 165 and 24 197 charts, one per
+    ///         triangle to within a rounding — every one of them decided before a single distortion
+    ///         measurement was taken.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The answer is not to relax the rule.</b> A mesh whose groups <i>were</i> assigned —
+    ///         a block-out shape, a file whose materials the reader carried across, a face selection
+    ///         somebody put in a group — still partitions first and still may not be merged back, and a
+    ///         test holds that. This distinguishes the two cases rather than choosing between them.
+    ///     </para>
+    /// </remarks>
+    static bool Grouped(EditMesh mesh, UvSettings settings) =>
+        settings.KeepGroups && mesh.GroupSource is MeshGroupSource.Assigned;
+
     /// <summary>The candidate regions the recursion starts from.</summary>
     /// <remarks>
     ///     ⚠ <b>Material and face-group boundaries partition first and unconditionally.</b>
     ///     docs/plan/42 § D3, and it is unconditional because a group boundary is somewhere the texture
     ///     already changes — a seam there costs nothing that has not already been paid. Everything else
-    ///     the charter does is a trade; this one is not.
+    ///     the charter does is a trade; this one is not — see <see cref="Grouped" /> for what counts as
+    ///     one.
     /// </remarks>
     static List<int[]> Seeds(SeamGraph graph, EditMesh mesh, UvSettings settings) {
+        var grouped = Grouped(mesh, settings);
         var seen = new bool[mesh.FaceCount];
         var seeds = new List<int[]>();
         var stack = new Stack<int>();
@@ -448,7 +472,7 @@ static class Charter {
                         continue;
                     }
 
-                    if (settings.KeepGroups && mesh.Faces[neighbour].Group != group) {
+                    if (grouped && mesh.Faces[neighbour].Group != group) {
                         continue;
                     }
 

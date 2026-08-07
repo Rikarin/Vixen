@@ -247,8 +247,19 @@ public static class MeshShapes {
     ///     interest.</remarks>
     public static EditMesh Create(in ShapeParameters parameters) {
         var shape = parameters.Clamped();
+        var mesh = Built(shape);
 
-        return shape.Kind switch {
+        // ⚠ Every shape here numbers its faces with the six named groups below, so the result carries
+        // an assignment rather than a coplanarity guess and has to say so — a remesh reads a group
+        // boundary as a crease and an unwrap reads it as a chart boundary, and a cylinder whose wall
+        // and cap were one group would lose the rim both stages exist to keep.
+        mesh.GroupSource = MeshGroupSource.Assigned;
+
+        return mesh;
+    }
+
+    static EditMesh Built(in ShapeParameters shape) =>
+        shape.Kind switch {
             ShapeKind.Plane => Plane(shape),
             ShapeKind.Cylinder => Cylinder(shape),
             ShapeKind.Cone => Cone(shape),
@@ -262,7 +273,6 @@ public static class MeshShapes {
             ShapeKind.DoorFrame => Opening(shape, round: false),
             _ => Box(shape)
         };
-    }
 
     /// <summary>Builds a shape of a kind at its default size.</summary>
     /// <param name="kind">Which shape.</param>
@@ -350,6 +360,9 @@ public static class MeshShapes {
 
             mesh.AddFace(quad, edge < sides.Length ? sides[edge] : capGroup + 1);
         }
+
+        // The caller named the cap's group and may have named every side's, so these are assignments.
+        mesh.GroupSource = MeshGroupSource.Assigned;
 
         return mesh;
     }
