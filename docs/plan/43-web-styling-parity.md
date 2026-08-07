@@ -20,7 +20,7 @@ after the fact.** Read forwards it says: the utility layer is allowed to be as s
 happens to be, and the renderer's shape is not itself under review. Read the other way — which is the
 way the requirement reads — a family that emits a property nothing reads is *a named gap in the
 engine*, and the right response is a task against the engine, not a smaller family table. This
-document takes the second reading. The README has been corrected in the same commit.
+document takes the second reading. The README has been corrected alongside it.
 
 **The claim this document has to earn.** Tailwind's utility index is the specification. Every root in
 it is either implemented, or inert with a named task against the engine feature it is waiting for, or
@@ -761,7 +761,7 @@ clone lines go.
 
 ## Part 5 — Three tracks, and why the ordering is forced
 
-**A · Properties.** The 84 the engine acts on become the 258 the utilities name — fewer in practice,
+**A · Properties.** The 86 the engine acts on become the 258 the utilities name — fewer in practice,
 since 8 are vendor-prefixed shims and a further group belongs to the modes in Track B. Each item is a
 consumer change — a name interned, a value parsed, a draw command emitted — and most are independent
 of each other.

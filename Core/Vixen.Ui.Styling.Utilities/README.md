@@ -79,7 +79,7 @@ it is bigger than `p-sm` by a little or a lot.
 > specification and the renderer is what has to grow** — a family that emits a property no consumer
 > reads names a hole in the engine, and the answer is a task against the engine, not a shorter table.
 > [doc 43](../../docs/plan/43-web-styling-parity.md) measures the distance: **328 Tailwind v4 roots,
-> of which 51 work, 27 half work, 15 are inert and 223 are absent.**
+> of which 51 work, 29 half work, 13 are inert and 223 are absent.**
 
 What the family set *is* chosen against is order of work. The border edges, the logical edges,
 `flex-1` and `box-sizing` came first because the engine already read every longhand they emit, which
