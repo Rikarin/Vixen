@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.CommandLine;
+using System.Globalization;
 using System.Text;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Models;
@@ -204,6 +205,187 @@ public sealed class GeometryCommandTests : IDisposable {
         var parsed = VixenCommand.Create().Parse(["remesh", "in.obj", "out.obj", "--bake"]);
 
         Assert.NotEmpty(parsed.Errors);
+    }
+
+    /// <summary>What the remesh actually wrote is quads, read back off the file rather than off the report.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>docs/plan/41 § Part 4's first promise, checked against the artefact.</b>
+    ///         <c>RemeshReport.QuadCount</c> counted quads all along while the file held triangles,
+    ///         because everything went out through <see cref="MeshData" /> — a vertex buffer, which has
+    ///         one vertex per corner and no polygon larger than a triangle.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The vertex count is half the assertion and it is the half a face count misses.</b>
+    ///         Splitting each quad into two triangles and giving every corner its own vertex produces a
+    ///         file whose faces parse and whose surface is a heap of disconnected islands: measured on a
+    ///         5 766-quad result, 23 064 positions and 23 064 boundary edges, the only two-face edges
+    ///         being the diagonals inside each split quad.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task What_the_remesh_writes_is_quads_that_share_their_corners() {
+        var input = Write("sphere.obj", MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 16, Steps = 8 }));
+        var output = Path.Combine(root, "sphere-quads.obj");
+
+        Assert.Equal(ExitCode.Success, (await Run("remesh", input, output, "--quads", "200")).Code);
+
+        var (positions, faces) = Obj(output);
+
+        Assert.NotEmpty(faces);
+        Assert.All(faces, face => Assert.Equal(4, face.Length));
+
+        // One position per quad give or take, rather than four. A fully split result has exactly
+        // 4 × faces, which is what this refuses.
+        Assert.True(positions < faces.Count * 2, $"{positions} positions for {faces.Count} quads is still split.");
+
+        var valence = Valence(faces);
+
+        Assert.True(
+            valence.GetValueOrDefault(2) > valence.GetValueOrDefault(1),
+            $"more boundary edges than interior ones: {string.Join(", ", valence.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}:{pair.Value}"))}"
+        );
+    }
+
+    /// <summary>An unwrap writes a connected surface, and keeps a coordinate per corner so seams survive.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The two halves pull against each other and both are required.</b> Sharing positions is
+    ///     what makes the surface connected; sharing <i>coordinates</i> would weld every seam shut, and
+    ///     an atlas with no seams is not an atlas. OBJ indexes <c>v</c> and <c>vt</c> separately for
+    ///     exactly this, so the file has fewer positions than corners and one <c>vt</c> per corner.
+    /// </remarks>
+    [Theory]
+    [InlineData("unwrap")]
+    [InlineData("pack")]
+    public async Task What_an_unwrap_writes_is_a_connected_surface_with_its_seams_intact(string verb) {
+        var seed = Path.Combine(root, "seed.obj");
+        var input = Write("sphere.obj", MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 16, Steps = 8 }));
+
+        Assert.Equal(ExitCode.Success, (await Run("unwrap", input, seed)).Code);
+
+        var output = Path.Combine(root, "atlas.obj");
+
+        var code = verb == "unwrap"
+            ? (await Run("unwrap", input, output)).Code
+            : (await Run("uv", "pack", seed, output)).Code;
+
+        Assert.Equal(ExitCode.Success, code);
+
+        var (positions, faces) = Obj(output);
+        var corners = faces.Sum(face => face.Length);
+
+        Assert.NotEmpty(faces);
+        Assert.True(positions < corners, $"{positions} positions for {corners} corners is one vertex per corner.");
+
+        var valence = Valence(faces);
+
+        Assert.True(
+            valence.GetValueOrDefault(2) > valence.GetValueOrDefault(1),
+            $"more boundary edges than interior ones: {string.Join(", ", valence.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}:{pair.Value}"))}"
+        );
+
+        // A seam is a position whose corners disagree about the coordinate. Welding the positions is
+        // what connects the surface; if it had welded the coordinates with them there would be no
+        // position left carrying two, and the atlas would have no seams to cut along.
+        Assert.Contains(Seams(output), pair => pair.Value.Count > 1);
+    }
+
+    /// <summary>glTF cannot hold a quad, so the writer says it triangulated rather than doing it quietly.</summary>
+    /// <remarks>
+    ///     <b>docs/plan/41 § Part 4 wants quads and glTF 2.0's <c>mode</c> has no n-gon, so <c>.glb</c>
+    ///     genuinely cannot carry one.</b> Refusing the format would take away the container the rest of
+    ///     the pipeline reads; triangulating in silence is what let a triangles-only output ship as a
+    ///     quad tool. The third option is the note.
+    /// </remarks>
+    [Theory]
+    [InlineData(".glb")]
+    [InlineData(".gltf")]
+    public async Task A_triangles_only_format_says_that_it_triangulated(string extension) {
+        var input = Write("box.obj", MeshShapes.Create(ShapeKind.Box));
+
+        var (code, said, _) = await Run("remesh", input, Path.Combine(root, "box-quads" + extension), "--quads", "200");
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("triangles only", said, StringComparison.Ordinal);
+        Assert.Contains(extension, said, StringComparison.Ordinal);
+
+        // And the OBJ, which can, says nothing.
+        var quiet = (await Run("remesh", input, Path.Combine(root, "box-quads.obj"), "--quads", "200")).Output;
+
+        Assert.DoesNotContain("triangles only", quiet, StringComparison.Ordinal);
+    }
+
+    /// <summary>An OBJ's position count and its faces, as position indices.</summary>
+    static (int Positions, List<int[]> Faces) Obj(string path) {
+        var positions = 0;
+        var faces = new List<int[]>();
+
+        foreach (var line in File.ReadLines(path)) {
+            if (line.StartsWith("v ", StringComparison.Ordinal)) {
+                positions++;
+            } else if (line.StartsWith("f ", StringComparison.Ordinal)) {
+                faces.Add(
+                    [
+                        .. line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1)
+                            .Select(corner => int.Parse(corner.Split('/')[0], CultureInfo.InvariantCulture))
+                    ]
+                );
+            }
+        }
+
+        return (positions, faces);
+    }
+
+    /// <summary>Which texture coordinates each position is used with, read off the face lines.</summary>
+    static Dictionary<int, HashSet<int>> Seams(string path) {
+        var seams = new Dictionary<int, HashSet<int>>();
+
+        foreach (var line in File.ReadLines(path)) {
+            if (!line.StartsWith("f ", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            foreach (var corner in line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1)) {
+                var parts = corner.Split('/');
+
+                if (parts.Length < 2 || parts[1].Length == 0) {
+                    continue;
+                }
+
+                var position = int.Parse(parts[0], CultureInfo.InvariantCulture);
+
+                if (!seams.TryGetValue(position, out var used)) {
+                    seams[position] = used = [];
+                }
+
+                used.Add(int.Parse(parts[1], CultureInfo.InvariantCulture));
+            }
+        }
+
+        return seams;
+    }
+
+    /// <summary>How many edges have how many faces, over the faces' position indices.</summary>
+    static Dictionary<int, int> Valence(List<int[]> faces) {
+        var edges = new Dictionary<(int Low, int High), int>();
+
+        foreach (var face in faces) {
+            for (var corner = 0; corner < face.Length; corner++) {
+                var a = face[corner];
+                var b = face[(corner + 1) % face.Length];
+                var key = (Math.Min(a, b), Math.Max(a, b));
+
+                edges[key] = edges.GetValueOrDefault(key) + 1;
+            }
+        }
+
+        var valence = new Dictionary<int, int>();
+
+        foreach (var count in edges.Values) {
+            valence[count] = valence.GetValueOrDefault(count) + 1;
+        }
+
+        return valence;
     }
 
     /// <summary>Writes a kernel mesh as an OBJ the reader can take.</summary>
