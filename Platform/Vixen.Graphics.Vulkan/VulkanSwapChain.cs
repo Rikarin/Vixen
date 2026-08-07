@@ -415,15 +415,27 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         };
     }
 
-    /// <summary>What gamut a chosen colour space actually delivers.</summary>
+    /// <summary>What gamut a chosen colour space asks the engine to map to.</summary>
     /// <remarks>
-    ///     Read back rather than assumed, because the request is a preference: a surface that offers
-    ///     no usable wide pairing leaves the swapchain in sRGB, and a caller that carried on mapping
-    ///     colours to P3 anyway would be showing over-saturated ones on an sRGB display.
+    ///     <para>
+    ///         Read back rather than assumed, because the request is a preference: a surface that
+    ///         offers no usable wide pairing leaves the swapchain in sRGB, and a caller that carried
+    ///         on mapping colours to P3 anyway would be showing over-saturated ones on an ordinary
+    ///         display.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>For extended sRGB the answer is a deliberate approximation, and worth knowing
+    ///         which way it errs.</b> That space is unbounded — its primaries are sRGB's and values
+    ///         simply run past them — so there is no gamut the <i>swapchain</i> imposes at all, and
+    ///         Rec. 2020 is the engine's way of saying "send it, do not repair it". The physical
+    ///         panel still has a gamut, and what happens to a colour beyond it is then the
+    ///         compositor's decision rather than this engine's: on macOS, <c>CAMetalLayer</c> owns
+    ///         it. That is a reasonable place for it to be decided and it is <em>not</em> CSS
+    ///         Color 4's algorithm, so a caller who needs the specified mapping specifically should
+    ///         ask for <see cref="ColorGamut.DisplayP3" /> storage and map to it itself.
+    ///     </para>
     /// </remarks>
     internal static ColorGamut GamutOf(ColorSpaceKHR space) => space switch {
-        // Unbounded sRGB primaries. Anything representable is representable here, so the honest
-        // answer for "what may I send" is the widest gamut the engine names.
         ColorSpaceKHR.SpaceExtendedSrgbLinearExt => ColorGamut.Rec2020,
         ColorSpaceKHR.SpaceDisplayP3NonlinearExt or ColorSpaceKHR.SpaceDisplayP3LinearExt => ColorGamut.DisplayP3,
         ColorSpaceKHR.SpaceBT2020LinearExt => ColorGamut.Rec2020,

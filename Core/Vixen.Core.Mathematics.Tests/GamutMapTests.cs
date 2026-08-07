@@ -61,6 +61,36 @@ public sealed class GamutMapTests {
         Assert.Equal(1f, white.Z, 4);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The derivation checked against numbers this code did not produce.</b> The linear
+    ///     sRGB to Display P3 matrix is widely published as
+    ///     <c>[0.822462 0.177538 0; 0.033194 0.966806 0; 0.017083 0.072397 0.910520]</c>, and
+    ///     transforming the three basis vectors recovers its columns. A round-trip test alone would
+    ///     pass on a matrix and its exact inverse however wrong both were; this is the assertion
+    ///     that says the primaries and the white-point scaling are right.
+    /// </summary>
+    [Fact]
+    public void The_derived_P3_matrix_matches_the_published_one() {
+        var red = GamutMap.FromLinearSrgb(new Vector3(1f, 0f, 0f), ColorGamut.DisplayP3);
+        var green = GamutMap.FromLinearSrgb(new Vector3(0f, 1f, 0f), ColorGamut.DisplayP3);
+        var blue = GamutMap.FromLinearSrgb(new Vector3(0f, 0f, 1f), ColorGamut.DisplayP3);
+
+        Assert.Equal(0.822462f, red.X, 4);
+        Assert.Equal(0.033194f, red.Y, 4);
+        Assert.Equal(0.017083f, red.Z, 4);
+
+        Assert.Equal(0.177538f, green.X, 4);
+        Assert.Equal(0.966806f, green.Y, 4);
+        Assert.Equal(0.072397f, green.Z, 4);
+
+        // sRGB blue and P3 blue share a chromaticity — (0.150, 0.060) in both — so the top two
+        // entries of this column are exactly zero, and a derivation that got the primaries from the
+        // wrong P3 would not reproduce that.
+        Assert.Equal(0f, blue.X, 5);
+        Assert.Equal(0f, blue.Y, 5);
+        Assert.Equal(0.910520f, blue.Z, 4);
+    }
+
     [Theory]
     [InlineData(ColorGamut.Srgb)]
     [InlineData(ColorGamut.DisplayP3)]
