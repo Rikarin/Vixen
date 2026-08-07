@@ -49,10 +49,10 @@ public class UvPackPropertyTests {
 
     /// <summary>The same over § D13's quantized quad patches, which is the super-patch rung's own input.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="IslandSpace.Set" /> is star-heavy and the grouping never fires on it</b>, so
-    ///     the <see cref="PackQuality.SuperPatch" /> row of the theory below was running the irregular
-    ///     rung under a different name. <see cref="IslandSpace.Patches" /> has the measurement and the
-    ///     argument.
+    ///     ⚠ <b><see cref="IslandSpace.Set" /> is star-heavy and the grouping never fires on it</b> —
+    ///     0 of 4,604 islands reach the 0.8 box fill its candidate list is filtered on — so the
+    ///     <see cref="PackQuality.SuperPatch" /> row of the theory below was exercising the rung with
+    ///     nothing to group. <see cref="IslandSpace.Patches" /> has the measurement and the argument.
     /// </remarks>
     static readonly Gen<(IslandRecipe[] Recipes, int[] Order)> PermutedPatches = Permutations(IslandSpace.Patches);
 

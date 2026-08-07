@@ -239,20 +239,30 @@ public class UvUnwrapPipelinePropertyTests {
     ///     <para>
     ///         ⚠ <b>This is a finding rather than a tolerance, and it is written as an assertion about
     ///         the defect's <i>shape</i> so that it cannot quietly grow.</b> Over the space of surfaces,
-    ///         the packer's texel gap comes out one short of the margin on about one set in a hundred:
-    ///         measured at 128², 600 recipes per margin, <b>0 of 571 sets at a margin of 1, 4 of 560 at
-    ///         2, 4 of 570 at 3, 6 of 574 at 4 and 9 of 560 at 6</b> — always short by exactly one,
-    ///         never by two, at every margin and at 128², 256², 512² and 1024² alike.
+    ///         the packer's texel gap comes out short of the margin on a set in a few hundred:
+    ///         re-measured at 128², 600 recipes per margin, <b>1 of 564 sets at a margin of 1, 1 of 567
+    ///         at 2, 2 of 561 at 3, 10 of 554 at 4 and 2 of 556 at 6</b>. ⚠ <b>The rate is the part
+    ///         that is not stable and must not be quoted as though it were</b> — sixteen occurrences
+    ///         across 2,802 sets is too few to separate a margin's rate from the seed, and an earlier
+    ///         measurement of the same sweep put the counts at 0, 4, 4, 6 and 9. What is stable, and
+    ///         what is asserted below, is the <i>shape</i>: in all sixteen the shortfall is exactly
+    ///         one texel, never two, and every offending pair is on the exact diagonal.
     ///     </para>
     ///     <para>
-    ///         <b>Every offending pair is at exactly 45°, which is what this asserts and what makes it a
-    ///         statement rather than a slackened bound.</b> Measured on the smallest reproducer —
-    ///         <c>new(ShapeKind.Cone, 5, 2, [SurfaceDefect.Pinched], 1f)</c> at 128² with a margin of six
-    ///         — the two offending texels are at <c>d = (6, 6)</c> and <c>d = (−6, −6)</c> between two
-    ///         66-texel right triangles whose hypotenuses face each other. The margin is enforced per
-    ///         axis, so a contact on the diagonal is <c>margin</c> apart in <i>each</i> axis rather than
+    ///         <b>That every offending pair is at exactly 45° is what this asserts and what makes it a
+    ///         statement rather than a slackened bound.</b> The margin is enforced per axis, so a
+    ///         contact on the diagonal is <c>margin</c> apart in <i>each</i> axis rather than
     ///         <c>margin + 1</c>, and the Chebyshev probe — which is the right metric, because a mip tap
-    ///         averages a box and not a cross — reads that as one texel short.
+    ///         averages a box and not a cross — reads that as one texel short. Smallest reproducer:
+    ///         <c>new(ShapeKind.Cone, 5, 2, [SurfaceDefect.Pinched], 1f)</c> at 128² with a margin of
+    ///         six, where the offending texels sit at <c>d = (6, 6)</c> and <c>d = (−6, −6)</c> between
+    ///         two right triangles whose hypotenuses face each other.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>At the build's counts this path is all but dormant, and that is worth knowing
+    ///         before reading a green run as evidence.</b> A rate near one set in three hundred against
+    ///         a dozen cases a build means the assertion below fires a few times a year on the gate and
+    ///         a few times a night overnight. It is a tripwire on a known shape, not a measurement.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>It is not the mechanism the packer's own remarks blame, and that is the part worth
@@ -260,10 +270,11 @@ public class UvUnwrapPipelinePropertyTests {
     ///         <see cref="UvPackPropertyTests.No_island_ever_comes_nearer_than_the_margin_to_another_island_or_to_the_edge" />
     ///         measured the same one-texel shortfall at the same rate over <see cref="IslandSpace" /> and
     ///         attributed it to slivers — "every offending pair in every one of them had a sliver under a
-    ///         texel thick in it" — and excluded islands below a texel on that basis. The islands here
-    ///         are 35 to 66 texels across and pass that exclusion. So the sliver was a coincidence of
-    ///         that generator, the cause is the diagonal, and the fix is in the conservative bound rather
-    ///         than in the exclusion.
+    ///         texel thick in it" — and excluded islands below a texel on that basis. ⚠ <b>The sweep
+    ///         above applies that same exclusion and the shortfall survives it</b>, on islands the
+    ///         packer never shrank under a texel. So the sliver was a coincidence of that generator,
+    ///         the cause is the diagonal, and the fix is in the conservative bound rather than in the
+    ///         exclusion.
     ///     </para>
     /// </remarks>
     static void Diagonal(string what, int[] map, int gap) {

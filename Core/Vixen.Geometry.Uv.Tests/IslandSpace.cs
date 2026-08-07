@@ -30,10 +30,18 @@ enum IslandShape : byte {
     ///     <para>
     ///         <b>The consequence was that one of the packer's three rungs could not fire at all.</b>
     ///         <c>Packer.SuperPatches</c> only considers an island whose mask covers <c>0.8</c> of its
-    ///         own box. Measured over 200 sampled sets: <b>0 of 4,526 islands</b> drawn from
-    ///         <see cref="IslandSpace.Set" /> reach that, at a mean box fill of <b>57.0 %</b> — so every
-    ///         <see cref="PackQuality.SuperPatch" /> case in this assembly was running the irregular
-    ///         rung under a different name. A box fills 100 % by construction.
+    ///         own box. Measured over 200 sampled sets: <b>0 of 4,604 islands</b> drawn from
+    ///         <see cref="IslandSpace.Set" /> reach that, at a mean box fill of <b>57.3 %</b> — so on
+    ///         that generator the grouping's candidate list is empty on every set and no composite is
+    ///         ever built. A box fills 100 % by construction.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"No composite is built" is the claim, and it is not the same as "the two rungs
+    ///         agree".</b> Measured over the same 200 sets, <see cref="PackQuality.SuperPatch" /> still
+    ///         produced a different atlas from <see cref="PackQuality.Irregular" /> on 149 of them,
+    ///         because the rung re-sorts its units on the way to the same fallback. So a test that
+    ///         swept the three qualities was not running identical code — it was running the grouping
+    ///         with nothing to group, which is the one part of it worth testing.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Added beside <see cref="Rectangle" /> rather than replacing it.</b> The diamond is
@@ -161,9 +169,10 @@ static class IslandSpace {
     ///         distribution is star-heavy — 6 star, 4 rectangle, 4 convex, 2 sliver, 1 degenerate — and
     ///         its "rectangle" is a <i>diamond</i>: <see cref="IslandShape.Box" />'s remarks have the
     ///         mechanism. <c>Packer.SuperPatches</c> only considers an island whose mask covers 0.8 of
-    ///         its own bounding box, and measured over 200 sampled sets, <b>0 of 4,526 islands</b> drawn
-    ///         from <see cref="Set" /> reach that, at a mean box fill of <b>57.0 %</b>. Every property
-    ///         that swept the three rungs was therefore running the irregular one three times.
+    ///         its own bounding box, and measured over 200 sampled sets, <b>0 of 4,604 islands</b> drawn
+    ///         from <see cref="Set" /> reach that, at a mean box fill of <b>57.3 %</b>. Every property
+    ///         that swept the three rungs was therefore running the grouping with an empty candidate
+    ///         list.
     ///     </para>
     ///     <para>
     ///         <b>docs/plan/41 § D13 is explicit about what the real input is: "a quad patch with agreed
@@ -177,8 +186,8 @@ static class IslandSpace {
     ///         grouping's <i>rejection</i> path, and the two are decided by the same comparison — so a
     ///         quarter of the draw is left to <see cref="Recipe" />, which is roughly what a layout with
     ///         a few collapsed patches in it looks like. Measured over the same 200 sampled sets:
-    ///         <b>4,035 of 5,295 islands</b> reach the grouping's threshold, at a mean box fill of
-    ///         <b>89.8 %</b>, against none of 4,606 from <see cref="Set" />.
+    ///         <b>3,869 of 5,103 islands</b> reach the grouping's threshold, at a mean box fill of
+    ///         <b>89.6 %</b>, against none of 4,604 from <see cref="Set" />.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Heights come from a short list rather than from a range</b>, because the grouping
