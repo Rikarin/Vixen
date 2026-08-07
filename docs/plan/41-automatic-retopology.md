@@ -1070,6 +1070,23 @@ rather than the target moved.
    - **3 to 11 faces per fixture are in patches one quad wide**, which have no interior vertex at all.
      No interior construction of any kind reaches them, so the blend was never their cause either.
 
+   ⚠️ **Confirmed a second time from the output mesh alone, with no reference to which patch anything
+   came from.** Call an output edge a crease when its two quads meet at 40° or more. An inverted quad
+   is then several times more likely to have one: box **9.5% against 0.3%**, a factor of 29; cylinder
+   23.3% against 3.0%; stairs 10.4% against 2.0%; plate 2.9% against 0.4%; union 10.1% against 1.8%;
+   difference 7.1% against 3.3%. **The sphere is the control and it has no creased edge at all** — and
+   it is the fixture the parameterization cleared. § D4's promise is that a feature polyline is a cut
+   by construction and therefore never runs through a patch's interior; a quad folded across a crease
+   is that promise not being kept. `QuadQualityTests.InvertedQuadsClusterOnTheCreases` asserts the
+   ratio rather than a count, so it states the cause and stops holding when the layout is fixed.
+
+   ⚠️ **`stairs` and `difference` are not a separate defect.** They were suspected of having a cause
+   of their own because they alone got worse under the budget fix. They do not: the parameterization
+   does not close them (`stairs` −0.966 → −0.976 over 47 → 42 faces, `difference` −1.000 → −0.990 over
+   30 → 29), and their crease correlation — 5.2× and 2.2× — sits inside the range the other four
+   hard-surface fixtures cover, with `difference` the *weakest* of the six and `box` the strongest.
+   Same root, same fix, one item.
+
    Whole-fixture worst scaled Jacobian is therefore **unmoved** (box −0.965 → −0.961, cylinder −0.997
    → −0.997, stairs −0.966 → −0.976, plate −0.840 → −0.838, union −0.991 → −0.991, difference −1.000 →
    −0.990, sphere −0.079 → −0.081), and over the 16-file real corpus at a 5 000-quad budget the count

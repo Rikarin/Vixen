@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Geometry.Remeshing.Tests;
@@ -144,6 +145,144 @@ public class QuadQualityTests {
             + "reached the folded quad behind it, which is the whole defect."
         );
     }
+
+    /// <summary>Where the quads that are still inverted actually are: on the creases.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The attribution for what <see cref="PatchParameterization" /> did not close, measured
+    ///         off the output mesh and nothing else.</b> An output edge whose two quads meet at
+    ///         <see cref="Sharp" /> or more is a crease; a quad that has one is on a crease. On every
+    ///         hard-surface fixture an inverted quad is several times more likely to be one of those:
+    ///         box 9.5% against 0.3% — a factor of 29 — cylinder 23.3% against 3.0%, stairs 10.4%
+    ///         against 2.0%, plate 2.9% against 0.4%, union 10.1% against 1.8%, difference 7.1%
+    ///         against 3.3%.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sphere is the control and it is the one that makes this an argument.</b> It has
+    ///         <i>no</i> creased edge at all, so it has no on-crease bucket to be worse in — and it is
+    ///         the fixture the parameterization cleared. docs/plan/41 § D4 says a feature polyline is a
+    ///         cut by construction and therefore never runs through a patch's interior; a quad folded
+    ///         across a crease is that promise not being kept, which makes the rest of this file's
+    ///         defect § D7's layout rather than § D8's extraction.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bound is a ratio and not a count, on purpose.</b> Asserting a number of inverted
+    ///         faces pins today's output and breaks on any change that moves a patch boundary; asserting
+    ///         that the inversions are still concentrated on creases states the <i>cause</i>, and it is
+    ///         what stops being true when the layout is fixed.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("box")]
+    [InlineData("cylinder")]
+    [InlineData("stairs")]
+    [InlineData("plate")]
+    [InlineData("union")]
+    [InlineData("difference")]
+    public void InvertedQuadsClusterOnTheCreases(string name) {
+        var quads = Remesher.Remesh(RemesherTests.Fixture(name), new() { TargetQuads = 400 }, out var report);
+
+        Assert.True(report.QuadCount > 0, string.Join(" · ", report.Warnings));
+
+        var creased = Creases(quads);
+        var on = (Bad: 0, All: 0);
+        var off = (Bad: 0, All: 0);
+
+        for (var face = 0; face < quads.FaceCount; face++) {
+            var loop = quads.CornersOf(face);
+            var normal = ScaleSafe.Unit(quads.Normal(face));
+
+            if (normal.LengthSquared() <= 0f) {
+                continue;
+            }
+
+            var touches = false;
+            var folded = false;
+
+            for (var at = 0; at < loop.Length; at++) {
+                var here = quads.Positions[loop[at]];
+                var next = loop[(at + 1) % loop.Length];
+                var previous = loop[(at + loop.Length - 1) % loop.Length];
+
+                touches |= creased.Contains(Edge(loop[at], next));
+
+                var ahead = ScaleSafe.Unit(quads.Positions[next] - here);
+                var behind = ScaleSafe.Unit(quads.Positions[previous] - here);
+
+                folded |= ahead.LengthSquared() > 0f
+                    && behind.LengthSquared() > 0f
+                    && Vector3.Dot(Vector3.Cross(ahead, behind), normal) < 0f;
+            }
+
+            if (touches) {
+                on = (on.Bad + (folded ? 1 : 0), on.All + 1);
+            } else {
+                off = (off.Bad + (folded ? 1 : 0), off.All + 1);
+            }
+        }
+
+        Assert.True(on.All > 0 && off.All > 0, $"{name}: the fixture has no crease to compare against.");
+
+        var onCrease = (float) on.Bad / on.All;
+        var away = (float) off.Bad / off.All;
+
+        Assert.True(
+            onCrease > away * 2f,
+            $"{name}: {onCrease:P2} of the quads on a crease are inverted against {away:P2} of the ones "
+            + "away from any. The inversions are no longer concentrated on the creases, so the cause "
+            + "docs/plan/41's criterion 8 now names — a patch the layout let span a feature — has "
+            + "changed. Re-attribute it before loosening this."
+        );
+    }
+
+    /// <summary>How sharp an output edge has to be before it counts as a crease, in degrees.</summary>
+    /// <remarks>
+    ///     ⚠ Well above the wobble a relaxed quad grid has on a smooth surface and well below a box's
+    ///     90°, so nothing about which fixture is which depends on where exactly it sits.
+    /// </remarks>
+    public const float Sharp = 40f;
+
+    /// <summary>Every output edge whose two quads meet sharply, plus every open rim.</summary>
+    static HashSet<(int, int)> Creases(EditMesh quads) {
+        var faces = new Dictionary<(int, int), List<int>>();
+
+        for (var face = 0; face < quads.FaceCount; face++) {
+            var loop = quads.CornersOf(face);
+
+            for (var at = 0; at < loop.Length; at++) {
+                var edge = Edge(loop[at], loop[(at + 1) % loop.Length]);
+
+                if (!faces.TryGetValue(edge, out var found)) {
+                    faces[edge] = found = [];
+                }
+
+                found.Add(face);
+            }
+        }
+
+        var creased = new HashSet<(int, int)>();
+        var limit = MathF.Cos(Sharp * MathF.PI / 180f);
+
+        foreach (var (edge, found) in faces) {
+            if (found.Count != 2) {
+                creased.Add(edge);
+
+                continue;
+            }
+
+            var one = ScaleSafe.Unit(quads.Normal(found[0]));
+            var two = ScaleSafe.Unit(quads.Normal(found[1]));
+
+            if (one.LengthSquared() > 0f && two.LengthSquared() > 0f && Vector3.Dot(one, two) < limit) {
+                creased.Add(edge);
+            }
+        }
+
+        return creased;
+    }
+
+    /// <summary>An edge, with its two positions in ascending order.</summary>
+    static (int, int) Edge(int one, int two) => one < two ? (one, two) : (two, one);
 
     /// <summary>
     ///     ⚠ <b>The guard that keeps this file honest: at least one fixture must still be bad.</b> A
