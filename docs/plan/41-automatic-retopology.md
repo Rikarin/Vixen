@@ -1016,10 +1016,12 @@ rather than the target moved.
    not have asked for.
 
 8. **Quad quality, which the criteria above do not ask for and should.** ⚠️ `MinScaledJacobian` is
-   **−0.965 on box, −0.997 on cylinder, −0.966 on stairs, −0.840 on plate, −0.991 on union, −1.000 on
-   difference and −0.079 on the sphere** — a zero is a quad with no area and a negative one is a quad
-   folded over itself, so there are **inverted** quads in six results of seven and the sphere is the
-   only one anywhere near usable.
+   **−0.874 on box, −0.985 on cylinder, −0.901 on stairs, −0.418 on plate, −0.804 on union, −0.981 on
+   difference and −0.044 on the sphere** — a zero is a quad with no area and a negative one is a quad
+   folded over itself, so there are still **inverted** quads on every fixture. The history below is
+   kept because two of this criterion's three attributions were wrong and each was wrong in a way the
+   next one has to avoid; the figures it opened with were −0.965, −0.997, −0.966, −0.840, −0.991,
+   −1.000 and −0.079.
 
    ⚠️ **Four of those numbers are a correction, and nothing about the output changed to earn it.**
    This row read *"0.000 on box, cylinder, stairs, plate, union and difference, and −0.083 on the
@@ -1090,9 +1092,66 @@ rather than the target moved.
    Whole-fixture worst scaled Jacobian is therefore **unmoved** (box −0.965 → −0.961, cylinder −0.997
    → −0.997, stairs −0.966 → −0.976, plate −0.840 → −0.838, union −0.991 → −0.991, difference −1.000 →
    −0.990, sphere −0.079 → −0.081), and over the 16-file real corpus at a 5 000-quad budget the count
-   of inverted faces falls **3 692 → 3 505**, about 5%, with the worst per file unchanged. ⚠️ **The
-   next piece of work is the layout, not the interior**: the criterion stays open and its remaining
-   cause is now named.
+   of inverted faces falls **3 692 → 3 505**, about 5%, with the worst per file unchanged.
+
+   ⚠️⚠️ **"The next piece of work is the layout" was wrong, and it was wrong in the way this document
+   is written to catch: an attribution taken from a correlation rather than from the quantity it
+   claims.** The claim has an exact form that can be counted — for every feature edge of the
+   conditioned mesh, are its two triangles in different patches? — and counted, the number that are
+   **not** is **0 on box, cylinder, stairs, plate, union and difference alike**, before any change was
+   made to anything. **No patch has ever spanned a crease.** § D4's promise is kept, and
+   `CreasesBoundPatchesTests` now asserts it in that form so it cannot be argued about again. The
+   correlation with a 40° output edge is real and its arrow runs the other way: a crease **is** a patch
+   boundary, so every quad in a grid's boundary row has one — and the boundary row is where the folds
+   were, because it is the row built against the rim.
+
+   ⚠️ **What the folds actually were is the transfinite blend, and what sent patches to it was the
+   parameterization's own verification.** Two gates, both arithmetic rather than geometric:
+
+   - `IsEmbedded` refused any triangle whose parameter-domain signed area was zero. Tutte's boundary
+     here is a **square**, whose four sides are straight, so a patch triangle with all three corners on
+     one side is collinear in the domain **by construction** — an ear, not a fold. Measured, *every*
+     patch it refused had **zero** flipped triangles and one to four such ears; on the cylinder that
+     was 18 patches and 45 inverted quads.
+   - `Agrees` then lifted the square's rim back through `Lift`, which takes only strictly positive
+     triangles and so answered a rim point sitting on one of those ears with the nearest triangle it
+     would accept — off by the ear's own height. It read as a rim disagreeing by **0.02 to 0.31** of the
+     patch diagonal against a tolerance of 0.004. The rim is now resolved along the pinned chain, which
+     is the same parameterization the output samples were placed with, so no triangle search can lie
+     about it.
+
+   Beyond the two gates, three further findings. Neither interior construction wins everywhere — a
+   uniform grid on the square is not uniform on the surface, and on a patch quantized nine quads one
+   way and two the other the lifted row can run backwards — so `Fill` builds **both** and keeps
+   whichever folds less, the embedding taking every tie. The **relaxation** is the last thing to touch a
+   position and had no idea what a fold is; it now refuses a move that folds one of its own faces, with
+   the fold's depth as a tie-break, applied as the sweep goes so the promise is global. And a move may
+   not **collapse** a corner either: converging further welds two output positions into one, which an
+   `.obj` reader sees as a single vertex and so as a non-manifold edge.
+
+   **Measured, per fixture, worst scaled Jacobian and inverted faces, before → after:** box −0.961/24 →
+   **−0.874/21**, cylinder −0.997/64 → **−0.985/35**, stairs −0.976/42 → **−0.901/22**, plate −0.838/9
+   → **−0.418/6**, union −0.991/38 → **−0.804/22**, difference −0.990/29 → **−0.981/15**, sphere
+   −0.081/4 → **−0.044/1**. Every fixture improves on both numbers at once; the total falls **210 →
+   122**. Over the 16-file corpus at a 5 000-quad budget, parsed from the written `.obj`: inverted faces
+   **3 505 → 887**, a fall of **75%**, with the worst per file better on **all sixteen** and the corpus
+   worst **−1.000 → −0.943**. Face counts are **identical** file for file, and boundary edges — holes —
+   go **3 548 → 3 544**, so nothing has been traded.
+
+   ⚠️ **Two things are honestly worse and neither is rounded away.** Position-welded non-manifold edges
+   over the corpus go **75 → 87**: letting the guarded relaxation run to convergence took them to 99,
+   the collapse guard recovered 12, and coincident positions are back at baseline (22 → 23) so the
+   remaining 12 have a different cause and are **not** yet attributed. And `FeatureReproductionError`
+   moves within its existing noise (box 2.92e-4 → 2.49e-4, union 3.18e-4 → 3.84e-4, difference 8.26e-4
+   → 8.09e-4) — it is not made materially worse here, and the 3–8× regression from the budget fix
+   remains its own open item.
+
+   ⚠️ **The criterion stays open and its remaining cause is a different one again.** What is left is a
+   fold no **single-vertex** move can improve — the relaxation has stopped moving by its budget, and 32
+   rounds and 96 rounds give byte-identical answers. Closing the rest wants a real **untangler**, which
+   moves several vertices at once. Of the 122 remaining fixture folds, **26** are in patches only one
+   quad wide, which have no interior vertex for any construction to place; that is 5–15% of their faces
+   and no longer disproportionate, so a side of one is not the special case it was thought to be.
 
 ---
 

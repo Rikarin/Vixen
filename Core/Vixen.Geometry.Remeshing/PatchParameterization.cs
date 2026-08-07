@@ -44,19 +44,24 @@ namespace Vixen.Geometry.Remeshing;
 ///         of interior quads would shear.
 ///     </para>
 ///     <para>
-///         ⚠⚠ <b>It does what it claims and it is <i>not</i> the whole of the inverted-quad defect —
-///         measured, and § D8's attribution is narrowed rather than confirmed.</b> On the sphere, the
-///         one fixture with no hard edge, the patches this fills come back with no inverted quad at
-///         all: 0 of 175, worst corner <c>+0.474</c>, against 4 of 130 in the patches it still
-///         refuses. On the six hard-surface fixtures it does not close them — the box keeps 11
-///         inverted faces of 215 in patches it filled, the stairs 11 of 210 — and those quads are
-///         near-<i>planar</i> bow-ties, their two halves 176° to 180° apart with edges within a factor
-///         of three of each other. A planar bow-tie is not a blend that folded and it is not curvature
-///         either; the patch is bounded by a map that is provably an embedding, so what is left is
-///         the region itself doubling back, which is a patch spanning a crease the layout should have
-///         cut at. A further 3 to 11 faces per fixture are in patches only one quad wide, which have
-///         no interior vertex at all and which no interior construction reaches.
-///         <c>QuadQualityTests</c> holds the per-fixture numbers.
+///         ⚠⚠ <b>It was refusing most of the patches it should have filled, and the refusals were
+///         arithmetic rather than geometric.</b> It once read here that the residual folds were
+///         near-<i>planar</i> bow-ties inside patches this had filled, and therefore a patch region
+///         doubling back across a crease — a layout defect. That is measured to be false: the number of
+///         feature edges with the same patch on both sides is <b>0</b> on every fixture, and
+///         <c>CreasesBoundPatchesTests</c> holds that. The bow-ties were in patches this <i>refused</i>,
+///         which fell back to the blend. <see cref="IsEmbedded" /> refused every collinear boundary ear
+///         and <see cref="Agrees" /> refused every rim point that landed on one; between them they cost
+///         the cylinder 23 patches and the union 19. Both are fixed and each carries its own note.
+///     </para>
+///     <para>
+///         ⚠ <b>An embedding of the patch is still not a good <i>grid</i> on the patch, and that is the
+///         part no theorem covers.</b> Tutte guarantees the map; the grid is laid out <i>uniformly on
+///         the square</i>, and a harmonic map distributes by its own weights rather than by arc length.
+///         On a patch the quantizer cut nine quads one way and two the other, the lifted row at
+///         <c>v = ½</c> can run backwards along the surface relative to the row at <c>v = 0</c> and the
+///         straight-sided cell between them crosses itself. So <c>PatchExtractor.Fill</c> builds this
+///         <i>and</i> the blend and keeps whichever folds less, with this one taking every tie.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every answer is verified and a refusal falls back to the blend rather than to a
