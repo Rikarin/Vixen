@@ -66,7 +66,7 @@ and every parameter are emitted under.
 The generated partial has no accessibility modifier, which makes it `internal`. A panel another
 assembly constructs needs a one-line companion file:
 
-```csharp
+```csharp no-compile="the companion file; the other half is the generated partial — Editor/Vixen.Editor.AssetEditors/Importing/ModelImportView.cs"
 public sealed partial class ModelImportView;
 ```
 
