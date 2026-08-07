@@ -22,6 +22,7 @@ cd references
 git clone --depth 1 https://github.com/stride3d/stride.git         stride
 git clone --depth 1 https://github.com/genaray/Arch.git            arch
 git clone --depth 1 https://github.com/facebook/yoga.git           yoga
+git clone --depth 1 https://github.com/DioxusLabs/taffy.git        taffy
 git clone --depth 1 https://github.com/ru-ace/Flexbox.git          flexbox
 git clone --depth 1 https://github.com/fedeAlterio/SignalsDotnet.git signals-dotnet
 git clone --depth 1 https://github.com/PurrNet/PurrNet.git         purrnet
@@ -51,6 +52,7 @@ for f in auxiliary/GraphemeBreakTest.txt auxiliary/GraphemeBreakProperty.txt \
 | `stride` | The architectural spine — asset pipeline, render features, effect system. Read, not copied. | — |
 | `arch` | The archetype-chunk ECS model, and the benchmark suite Vixen's ECS has to match. | ADR-004 |
 | `yoga` | **The conformance fixtures**, which get ported before the flexbox implementation is written. The most valuable thing in this list. | ADR-006 |
+| `taffy` | **`tests/xml/` — 5 524 more conformance fixtures**, and the only oracle that exists for `display: block` and CSS Grid. Language-neutral XML rather than code, generated from HTML laid out by Chrome-for-Testing, so `Tools/Vixen.TaffyTestGen` vets and consolidates them rather than translating them. ⚠ **MIT only, not the ecosystem's usual dual MIT/Apache-2.0** — no patent grant, which is a reason to take the fixtures and not the algorithms. | doc 43 § B0 |
 | `flexbox` | A C# flexbox implementation, as an algorithm reference. It is .NET Framework 4.6 and allocation-heavy; the *algorithm* is what is wanted. | ADR-006 |
 | `signals-dotnet` | The reactive graph model behind the UI framework's signals. | ADR-007 |
 | `purrnet` | Networking: replication, interest management, the RPC surface. MIT. | doc 16 |

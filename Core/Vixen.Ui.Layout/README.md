@@ -10,7 +10,10 @@ algorithm is the valuable part.
 
 ## State
 
-**Flexbox is complete and the conformance suite is green: 552 tests, 534 of them Yoga's.**
+**Flexbox is complete and the conformance suite is green: 2 990 tests, of which 534 are Yoga's and
+2 408 are Taffy's.** Yoga's are all green. Of Taffy's, 2 026 pass, 176 ask for a property this store
+has no field for, and 206 are known gaps listed with a diagnosis each — see
+[the corpus README](../Vixen.Ui.Layout.Tests/Taffy/README.md).
 
 | | |
 |---|---|
@@ -20,6 +23,7 @@ algorithm is the valuable part.
 | `LayoutTree.CalculateLayout` | The algorithm: flex basis, line breaking, the two-pass free-space distribution, justification, cross-axis alignment, multi-line alignment, absolute positioning, pixel-grid rounding. |
 | `LayoutTree.Order` | §5.4 `order`, the one part that is not Yoga's. One redirection: the algorithm reaches children only through `ChildIds`, so sorting what that returns is the whole property. |
 | `Generated/` | 534 conformance fixtures, translated from Yoga by `Tools/Vixen.YogaTestGen`. |
+| `Taffy/` | 5 524 more, from Taffy, vetted by `Tools/Vixen.TaffyTestGen`. A second browser-derived opinion on flexbox, and the oracle block and grid will be judged by. |
 
 Every expected number in those fixtures came out of a real browser laying out a real HTML fixture.
 That is what makes this a *conformance* suite rather than a regression suite, and it is the specific
@@ -45,6 +49,31 @@ suite sets both to the same value, so it cannot tell a correct per-axis reading 
 byte-for-byte Yoga's — including the width-propagation rule in step 2, which stays keyed on the main
 axis rather than on `overflow-x` precisely so that plain `overflow: scroll` on a column keeps
 answering what the fixtures expect.
+
+### A second corpus, and what it found
+
+**[Taffy's 5 524 fixtures](../Vixen.Ui.Layout.Tests/Taffy/README.md) now run beside Yoga's 534**, per
+doc 43 § B0. They are the same kind of artefact from a different engine — HTML laid out by
+Chrome-for-Testing — and they exist here for block and grid, which have no oracle at all. Flexbox got
+them first on purpose: it is the one mode where the answer is already known, so a wrong harness would
+be visibly wrong there rather than invisibly wrong inside grid later.
+
+**2 002 of the 2 208 runnable flex fixtures pass.** Thirteen of the original failures were the
+bridge and were fixed — `start` is not a spelling of `flex-start`, and `self-start` resolves against
+the item's own direction — and the 206 that remain are Vixen's, catalogued in `Taffy/KnownGaps.txt`.
+
+The largest bucket is **the paragraph above, one level further out.** §4.5's floor is applied to a
+measured leaf and not to a flex item that is itself a container, whose min-content size comes from
+its descendants. `align_baseline_child_padding`: two 50px siblings in a 90px content box, Chrome
+shrinks one to 40 and floors the other at 50, Vixen shrinks both to 45. `AutomaticMinimumSizeTests`
+could not see it because it was written around the case Yoga's fixtures also miss. After that come
+§9.7's min/max violation loop, `aspect-ratio` against a clamped cross size, and min-larger-than-max
+precedence.
+
+⚠ **And the new corpus has its own blind spot, which the old one covers.** Taffy's fixtures set
+`direction` on every one of their 22 776 nodes, so `Direction.Inherit` is never stored: breaking
+`ResolveDirection` so that it ignores its owner leaves **all 2 241 Taffy tests green** and fails
+**374 of Yoga's 534**. Ten times the size is not a superset, and neither suite retires the other.
 
 **`order` is not in Yoga at all**, which is a harder version of the same problem. §4.5 was a rule the
 fixtures merely failed to exercise; here the oracle does not implement the property and never could
@@ -161,7 +190,9 @@ It reports every fixture it could not translate and why. Nine are skipped today,
 
 **CSS Grid**, which doc 09 schedules as a separate algorithm over this same store. It is a harder
 specification than flexbox and it does not share the flex line machinery, so it lands as its own
-piece rather than as a variation on this one.
+piece rather than as a variation on this one. **Its oracle is here already**: 2 040 Taffy fixtures,
+every one of them refused today at the single point of the `display` keyword. `display: block` is the
+same story with 884 more, plus 84 for `float`.
 
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
 of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to

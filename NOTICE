@@ -62,6 +62,40 @@ Components currently in use:
     the obligation and has to include the upstream text itself.
 
 --------------------------------------------------------------------------------
+Conformance corpora — incorporated as data
+--------------------------------------------------------------------------------
+
+Distinct from both of the categories above, and from the reference material
+below. These are third-party test fixtures that are translated or transcribed and
+then COMMITTED into this repository, because CI has no reference clone to
+generate them from. No implementation code is taken; the expected numbers are,
+and those are the copyrightable part. Recorded here per ADR-015, which counts
+this as its own case rather than as a stricter kind of reading.
+
+  Yoga — conformance suite
+    MIT — https://github.com/facebook/yoga
+    534 fixtures translated from tests/generated/*.cpp by Tools/Vixen.YogaTestGen
+    into Core/Vixen.Ui.Layout.Tests/Generated/. Yoga also appears under reference
+    material below, for the separate matter of its algorithm (ADR-006).
+
+  Taffy — conformance suite
+    MIT — https://github.com/DioxusLabs/taffy
+    5 524 fixtures vetted and consolidated verbatim from tests/xml/ by
+    Tools/Vixen.TaffyTestGen into Core/Vixen.Ui.Layout.Tests/Taffy/Corpus/. Taffy
+    is MIT only — unlike most of the Rust ecosystem it is NOT dual MIT/Apache-2.0,
+    so it carries no express patent grant and the compatibility argument rests on
+    MIT alone. No Taffy source is read, ported or linked; only the fixtures, which
+    Taffy generates from HTML laid out by Chrome-for-Testing.
+
+  Unicode Character Database — UAX #9, #14, #29 conformance data
+    Unicode-3.0 — https://www.unicode.org/Public/UCD/latest/
+
+  text-rendering-tests
+    Apache-2.0, fonts under OFL-1.1 — https://github.com/unicode-org/text-rendering-tests
+    The one case where the test *fonts* are redistributed too; see
+    Core/Vixen.Ui.Text.Tests/Fonts/README.md.
+
+--------------------------------------------------------------------------------
 Reference material — read, not incorporated
 --------------------------------------------------------------------------------
 

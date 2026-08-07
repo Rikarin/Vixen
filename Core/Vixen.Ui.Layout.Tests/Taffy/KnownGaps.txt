@@ -1,0 +1,117 @@
+# Flexbox fixtures in Taffy's corpus that Vixen does not yet get right.
+#
+# Every name here is a fixture that LAYS OUT and disagrees with Chrome. That is a different thing
+# from the fixtures TaffyStyleMap refuses, which ask for a property this store has no field for and
+# are skipped with a reason; those are not listed. It is also a different thing from a translation
+# bug — thirteen of the original failures were this bridge conflating `start` with `flex-start`, and
+# those were fixed rather than listed. Anything written down here is believed to be Vixen's.
+#
+# Names are given without the __{border,content}_box_{ltr,rtl} suffix, so one line covers up to four
+# fixtures — and not always all four. align_baseline_multiline_column, align_baseline_multiline_column2
+# and padding_border_overrides_size_flex_basis_0_growable each fail in their two border-box variants
+# and pass in their two content-box ones, because box-sizing decides whether the bug is reachable.
+#
+# TaffyFlexConformanceTests asserts both that every failure is listed here AND that the totals are
+# exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
+# any one of these turns the suite red until the count and the line are both updated.
+
+# ── CSS Flexbox §4.5, the automatic minimum size, when the content size comes from a DESCENDANT ──
+#
+# ⚠ This is the single biggest thing the corpus found, and the layout README predicted it almost
+# exactly: it says Yoga's generator "emits no fixture that shrinks a measured leaf past its own
+# content", and AutomaticMinimumSizeTests was hand-written to cover that. But it covers the *leaf*
+# case — a node with a measure function. A flex item that is itself a container has a min-content
+# size too, computed from what is inside it, and that floor is not applied. align_baseline_child_padding
+# is the clearest: two 50px-wide siblings in a 90px content box, and Chrome shrinks one to 40 and
+# the other not at all, because the second is floored at min(specified 50, content 60) = 50.
+# Vixen shrinks both to 45.
+align_baseline_child_margin
+align_baseline_child_margin_percent
+align_baseline_child_padding
+align_items_center_child_with_margin_bigger_than_parent
+align_items_center_child_without_margin_bigger_than_parent
+align_items_flex_end_child_with_margin_bigger_than_parent
+align_items_flex_end_child_without_margin_bigger_than_parent
+flex_basis_smaller_than_content_column
+flex_basis_smaller_than_content_row
+flex_basis_smaller_then_content_with_flex_grow_large_size
+flex_basis_smaller_then_content_with_flex_grow_small_size
+flex_basis_unconstraint_column
+nested_overflowing_child
+padding_border_overrides_size_flex_basis_0_growable
+percentage_flex_basis_cross_min_height
+measure_child_with_min_size_greater_than_available_space
+absolute_child_with_max_height_larger_shrinkable_grandchild
+
+# ── CSS Flexbox §9.7, resolving flexible lengths: min/max violations are frozen and redistributed ──
+#
+# `min_width` is two flex-grow:1 children in a 100px row, one with min-width:60. Chrome freezes the
+# violating item at 60 and gives the whole remaining 40 to its sibling. Vixen raises the item's
+# basis to 60 and then splits the leftover evenly — 80 and 20. The loop that re-runs distribution
+# after clamping is what is missing, not the clamp.
+min_width
+min_height
+flex_grow_0_min_size
+taffy_issue_696_min_height
+
+# ── aspect-ratio against min/max and stretch ──
+#
+# The ratio is applied, but not re-applied after the cross size is clamped or stretched, so the
+# transfer goes one way only. aspect_ratio_flex_row_fill_max_width: a leaf with aspect-ratio 2 and
+# max-height 20 should be 40x20; Vixen leaves it 80 wide.
+aspect_ratio_flex_column_fill_max_height
+aspect_ratio_flex_column_fill_max_width
+aspect_ratio_flex_column_fill_min_height
+aspect_ratio_flex_column_stretch_fill_max_height
+aspect_ratio_flex_column_stretch_fill_max_width
+aspect_ratio_flex_column_stretch_fill_width
+aspect_ratio_flex_row_fill_max_width
+aspect_ratio_flex_row_fill_min_width
+aspect_ratio_flex_row_stretch_fill_height
+aspect_ratio_flex_row_stretch_fill_max_height
+aspect_ratio_flex_row_stretch_fill_max_width
+absolute_aspect_ratio_aspect_ratio_overrides_height_of_full_inset
+absolute_aspect_ratio_fill_max_height
+absolute_aspect_ratio_fill_max_width
+absolute_aspect_ratio_fill_min_height
+absolute_aspect_ratio_fill_min_width
+
+# ── Baseline alignment past the simple case ──
+#
+# A wrapped column's per-line baselines, and baseline under wrap-reverse.
+align_baseline_multiline_column
+align_baseline_multiline_column2
+align_baseline_wrap_reverse
+absolute_layout_align_self_baseline_wrap_reverse
+
+# ── CSS Sizing §5: when the min is larger than the max, the MIN wins ──
+#
+# min-width:50 max-width:40 is 50, not 40. Vixen applies max last and unconditionally.
+absolute_minmax_bottom_right_min_max
+absolute_minmax_bottom_right_min_max_preferred
+
+# ── A percentage gap on an auto-sized container, which is cyclic ──
+#
+# column-gap:20% on a shrink-to-fit row: the gap depends on the width that depends on the gap.
+gap_column_gap_percentage_cyclic_partially_shrinkable
+gap_column_gap_percentage_cyclic_shrinkable
+gap_column_gap_percentage_cyclic_unshrinkable
+
+# ── align-content: stretch across the lines of a wrapped row ──
+align_content_stretch_row_wrap
+
+# ── display:none on the ROOT of the tree ──
+#
+# Chrome generates no box at all, so 0x0; Vixen lays the root out regardless and answers 100x100.
+# Yoga behaves as Vixen does. Degenerate, but it is a real disagreement with the browser.
+display_none_only_node
+
+# ── Taffy's own regression fixtures, from downstream bug reports. Cause not yet diagnosed. ──
+#
+# Listed separately and honestly: these were not investigated individually, only observed to fail.
+# They are the ones most likely to collapse into the buckets above once one of those is fixed.
+bevy_issue_7976_3_level
+bevy_issue_7976_4_level
+bevy_issue_8082
+bevy_issue_9530
+bevy_issue_10343_flex
