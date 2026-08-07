@@ -378,6 +378,14 @@ of a string.
   part of a control is still a `SetStyle` call from `OnComposed`.
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.
+- **A `Component` unmounting does not stop the effects inside a nested `@for`.** A region hangs off
+  the element its content has as a *parent*, so a loop written inside a `<div>` opens its region
+  against that div and `BuildContext.Unmount` — which clears the host's — never reaches it. The loop
+  stops reconciling and every row's own bindings go on running against removed elements. An
+  `@inherits` element does not have this, because `Compose` gives it a context of its own and can
+  stop every region in it; a component shares the document's and cannot. Pinned by
+  `A_component_leaves_the_effects_inside_a_nested_loop_running_when_it_unmounts`, whose assertion is
+  written the wrong way round on purpose and is waiting to be inverted.
 
 ⚠ **Two bugs in this project were found by compiling it into a source generator rather than by any
 test here.** `VXML1002` and `VXML1003` read their span off a node still under construction — a node

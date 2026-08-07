@@ -219,7 +219,29 @@ public sealed class BuildContext {
         }
 
         build(context);
-        return new Unsubscribe(() => context.RegionOf(host).Stop());
+        return new Unsubscribe(context.StopEverything);
+    }
+
+    /// <summary>Stops every subscription this context made, wherever it hung it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every region and not the host's, because a region hangs off the element its content
+    ///     has as a <i>parent</i>.</b> An <c>@for</c> written inside a nested <c>&lt;div&gt;</c> opens
+    ///     its region against that div — see <see cref="Open" /> — so the host's region tree does not
+    ///     contain it, and walking only that stopped the loop from reconciling while leaving every
+    ///     row's own bindings running against removed elements. Caught by
+    ///     <c>An_inherits_component_stops_the_effects_inside_its_loops_too</c>, which was written
+    ///     because "the host's region covers it" was an assumption rather than a fact.
+    ///
+    ///     ⚠ <b>Sound here only because a composed element owns its whole context.</b>
+    ///     <see cref="Compose" /> makes one per element, so every region in this dictionary belongs
+    ///     to that element. A <see cref="Component" /> shares the document's context with its
+    ///     siblings and cannot do this — which is why <see cref="Unmount" /> takes the host's region
+    ///     and lives with the same gap.
+    /// </remarks>
+    void StopEverything() {
+        foreach (var region in regions.Values) {
+            region.Stop();
+        }
     }
 
     void Adopt(Component component, UiElement parent) {

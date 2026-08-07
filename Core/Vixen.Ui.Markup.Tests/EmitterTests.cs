@@ -518,6 +518,15 @@ public class EmitterTests {
                              // written to may not complain.
                              public int Read() { Runs++; return Count.Value; }
 
+                             // The same, from inside a loop body — whose effects are tracked on a
+                             // region opened against the *nested* element the loop is in, not on the
+                             // host's. Whether disposal reaches those is a different question.
+                             // Reads `Count` so the effect depends on it, and returns the item alone
+                             // so the row's text stays the item — the reconciliation test above
+                             // identifies rows by it.
+                             public int RowRuns;
+                             public string Row(string item) { RowRuns++; _ = Count.Value; return item; }
+
                              partial void OnComposed() => Composed++;
                          }
 
@@ -529,7 +538,7 @@ public class EmitterTests {
                              }
 
                              @for (var item in Items.Value) {
-                                 <li key="@item">@item</li>
+                                 <li key="@item">@Row(item)</li>
                              }
                          </meter-body>
                          """;
@@ -615,6 +624,84 @@ public class EmitterTests {
         document.Effects.Flush();
 
         Assert.Equal(ran, (int)Member(meter, "Runs")!);
+    }
+
+    /// <summary>
+    ///     And the effects inside an <c>@for</c> body, which are tracked somewhere else entirely.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A loop's per-item effects hang off the region of the element the loop is
+    ///     <i>in</i>, not off the host's</b> — <c>BuildContext.Open</c> takes the parent it was given
+    ///     — so a disposal that only walked the host's region would stop the loop from reconciling
+    ///     and leave every row's bindings running against removed elements. That is the shape of leak
+    ///     regions exist to prevent, and it is worth an assertion of its own rather than an
+    ///     assumption that one region tree covers the other.
+    /// </remarks>
+    [Fact]
+    public void An_inherits_component_stops_the_effects_inside_its_loops_too() {
+        using var document = new UiDocument(400f, 400f);
+        var meter = Add(document, Meter);
+
+        ((Signal<string[]>)Property(meter, "Items")).Value = ["a", "b"];
+        ((Signal<int>)Property(meter, "Count")).Value = 1;
+        document.Effects.Flush();
+
+        var ran = (int)Member(meter, "RowRuns")!;
+        Assert.True(ran >= 2);
+
+        ((UiElement)meter).Remove();
+
+        ((Signal<int>)Property(meter, "Count")).Value = 9;
+        document.Effects.Flush();
+
+        Assert.Equal(ran, (int)Member(meter, "RowRuns")!);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the <c>Component</c> flavour has the gap the one above closes.</b> Pinned rather
+    ///     than fixed: <c>BuildContext.Unmount</c> clears the host's region, and a component shares
+    ///     the document's context with every other component in it — so it cannot stop "every region
+    ///     I made", because it did not make them alone. The composed element can, and does.
+    ///
+    ///     This is here so the difference is a recorded fact with a failing assertion waiting for
+    ///     whoever narrows it, rather than something rediscovered by a panel that stops updating.
+    /// </summary>
+    [Fact]
+    public void A_component_leaves_the_effects_inside_a_nested_loop_running_when_it_unmounts() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<string[]> Items { get; } = new([]);
+                                  public Signal<int> Count { get; } = new(0);
+                                  public int RowRuns;
+                                  public string Row(string item) { RowRuns++; _ = Count.Value; return item; }
+                              }
+
+                              <body>
+                                  @for (var item in Items.Value) {
+                                      <li key="@item">@Row(item)</li>
+                                  }
+                              </body>
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        ((Signal<string[]>)Property(instance, "Items")).Value = ["a", "b"];
+        document.Effects.Flush();
+
+        var ran = (int)Member(instance, "RowRuns")!;
+        Assert.True(ran >= 2);
+
+        component.Root.Remove();
+
+        ((Signal<int>)Property(instance, "Count")).Value = 9;
+        document.Effects.Flush();
+
+        // Still running. Change this to `Equal` when the component path grows the same reach.
+        Assert.NotEqual(ran, (int)Member(instance, "RowRuns")!);
     }
 
     [Fact]
