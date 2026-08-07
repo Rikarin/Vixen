@@ -982,9 +982,24 @@ rather than the target moved.
    not have asked for.
 
 8. **Quad quality, which the criteria above do not ask for and should.** ⚠️ `MinScaledJacobian` is
-   **0.000 on box, cylinder, stairs, plate, union and difference, and −0.083 on the sphere** — a zero
-   is a quad with no area and a negative one is a quad folded over itself, so there are degenerate
-   quads in every result and inverted ones in one. The all-quad guarantee is genuinely met and is
+   **−0.965 on box, −0.997 on cylinder, −0.966 on stairs, −0.840 on plate, −0.991 on union, −1.000 on
+   difference and −0.079 on the sphere** — a zero is a quad with no area and a negative one is a quad
+   folded over itself, so there are **inverted** quads in six results of seven and the sphere is the
+   only one anywhere near usable.
+
+   ⚠️ **Four of those numbers are a correction, and nothing about the output changed to earn it.**
+   This row read *"0.000 on box, cylinder, stairs, plate, union and difference, and −0.083 on the
+   sphere"*, and concluded from the zeroes that the defect was an absence of area with inversion on
+   one fixture only. It was not: `RemeshMetrics.ScaledJacobian` returned `0f` **from the whole
+   function** on the first face with a collapsed corner, so the field was a sentinel meaning "a
+   degenerate face exists somewhere" and every face behind that one went unmeasured. Box, cylinder,
+   plate and union each carry 2 to 6 such faces early in their output, which is why exactly those four
+   read zero. Measured with the scan repaired to contribute zero for a degenerate corner and carry on:
+   the counts of *inverted* faces are box 24 of 554, cylinder 62 of 687, stairs 47 of 646, plate 11 of
+   513, union 38 of 600, difference 30 of 541, sphere 4 of 372. **The 2–5 % figure below survives; the
+   claim that the zeroes meant flatness does not.**
+
+   The all-quad guarantee is genuinely met and is
    orthogonal to this: **four sides is not four *usable* sides, and `IsAllQuad` cannot tell the
    difference.** Added as a criterion because the field was in
    [Part 4](#part-4--what-the-report-says)'s report from the day the report existed and was read by

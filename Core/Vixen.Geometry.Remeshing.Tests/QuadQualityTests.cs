@@ -35,22 +35,32 @@ public class QuadQualityTests {
     ///     work.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Two of these got worse when § D9's <c>base</c> started being solved from the budget, and
-    ///     the bound is per fixture now rather than one number for all seven so that the two are
-    ///     visible instead of averaged into a looser universal.</b> Five fixtures hold above
-    ///     <c>−0.5</c>, which was the old shared bound; a flight of stairs measures <c>−0.966</c> and a
-    ///     boolean difference <c>−1.000</c>, both of which are quads folded fully back on themselves in
-    ///     patches the extractor should have refused. They appear at a 400 budget and not at 2,000, so
-    ///     they are what the coarser grid does to a patch that was already marginal — the same
-    ///     <c>MinScaledJacobian</c> row docs/plan/41 § Part 4 has carried unread since R3, now with a
-    ///     second cause under it.
+    ///     <para>
+    ///         ⚠ <b>Four of these bounds got much worse without the output changing at all, because
+    ///         they were reading a metric that stopped scanning at the first degenerate face.</b>
+    ///         <see cref="RemeshMetrics.ScaledJacobian" /> returned <c>0f</c> from the whole function on
+    ///         a collapsed corner, so box, cylinder, plate and union reported <c>0.000</c> — "there is a
+    ///         flat quad somewhere" — and every face after that one went unmeasured. Their true worst
+    ///         corners are <c>−0.965</c>, <c>−0.997</c>, <c>−0.840</c> and <c>−0.991</c>: quads folded
+    ///         almost completely back on themselves, on fixtures that had been recorded as merely
+    ///         degenerate. The bounds below are the measured values and the defect they characterise is
+    ///         bigger than it was written down as, not smaller.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bounds are loose on purpose — they are where the implementation is today and not
+    ///         where it should be, and tightening them is the work.</b> Only the sphere is anywhere near
+    ///         usable, at <c>−0.079</c> over 4 bad faces of 372; the rest run 11 to 62 inverted faces
+    ///         out of 513 to 687. docs/plan/41 § D8 names the cause and it is unchanged by this
+    ///         measurement: a Coons blend of four curved boundary chains is not injective, so the patch
+    ///         interior folds, and the fix is a real per-patch parameterization.
+    ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("box", -0.5f)]
-    [InlineData("cylinder", -0.5f)]
+    [InlineData("box", -0.97f)]
+    [InlineData("cylinder", -1f)]
     [InlineData("stairs", -1f)]
-    [InlineData("plate", -0.5f)]
-    [InlineData("union", -0.5f)]
+    [InlineData("plate", -0.85f)]
+    [InlineData("union", -1f)]
     [InlineData("difference", -1f)]
     [InlineData("sphere", -0.5f)]
     public void TheWorstQuadIsRecordedEvenWhereItIsDegenerate(string name, float bound) {
@@ -67,6 +77,58 @@ public class QuadQualityTests {
             $"{name}: the worst quad's scaled Jacobian is {report.MinScaledJacobian:F3} against a recorded "
             + $"{bound:F3}. Below -0.5 is not a sliver, it is a quad folded most of the way back on itself, "
             + "and the extractor should have refused its patch."
+        );
+    }
+
+    /// <summary>A degenerate face does not end the scan, so a worse face behind it is still found.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The bug that made four fixtures read <c>0.000</c> while holding inverted quads.</b>
+    ///         <see cref="RemeshMetrics.ScaledJacobian" /> is documented as "the minimum over every
+    ///         corner of every face" and returned <c>0f</c> from the function itself on a face with a
+    ///         collapsed corner — so the value was a sentinel meaning "a degenerate face exists", and
+    ///         everything after the first one was never looked at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two faces and the order matters.</b> The degenerate one is built first, so the old
+    ///         code returns before it reaches the folded one; anything that reports the fold has kept
+    ///         scanning. A fixture cannot make this point — it would only pin today's numbers, and the
+    ///         numbers are what the bug was hiding.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ADegenerateFaceDoesNotHideAWorseOneBehindIt() {
+        var mesh = new EditMesh();
+
+        // A quad with two corners on one position: a collapsed corner, whose angle is undefined.
+        var flat = new[] {
+            mesh.AddPosition(new(0f, 0f, 0f)),
+            mesh.AddPosition(new(1f, 0f, 0f)),
+            mesh.AddPosition(new(1f, 0f, 0f)),
+            mesh.AddPosition(new(0f, 1f, 0f))
+        };
+
+        mesh.AddFace(flat);
+
+        // And a dart behind it, whose third corner is reflex — the quad folds back through itself.
+        // ⚠ Not a symmetric bow-tie: that one's Newell sum cancels to exactly zero, so it reads as a
+        // face with no normal and scores zero rather than negative, which would not tell the two
+        // behaviours apart.
+        var folded = new[] {
+            mesh.AddPosition(new(0f, 0f, 1f)),
+            mesh.AddPosition(new(4f, 0f, 1f)),
+            mesh.AddPosition(new(1f, 1f, 1f)),
+            mesh.AddPosition(new(0f, 4f, 1f))
+        };
+
+        mesh.AddFace(folded);
+
+        var worst = RemeshMetrics.ScaledJacobian(mesh);
+
+        Assert.True(
+            worst < 0f,
+            $"the scan reported {worst:F3}. A zero means it stopped at the collapsed corner and never "
+            + "reached the folded quad behind it, which is the whole defect."
         );
     }
 

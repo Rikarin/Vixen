@@ -164,8 +164,29 @@ static class RemeshMetrics {
     /// <param name="output">The result.</param>
     /// <returns>The minimum over every corner of every face, or one where there are none.</returns>
     /// <remarks>
-    ///     The sine of the corner's angle, signed against the face's own normal — so a quad folded over
-    ///     on itself reports a negative and a quad that has collapsed to a line reports zero.
+    ///     <para>
+    ///         The sine of the corner's angle, signed against the face's own normal — so a quad folded
+    ///         over on itself reports a negative and a quad that has collapsed to a line reports zero.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A degenerate corner contributes zero and the scan carries on; it used to return
+    ///         zero and stop, which made the field read as a sentinel rather than as a minimum.</b> The
+    ///         three degenerate cases — a face with fewer than three corners, a face whose Newell normal
+    ///         cancels to nothing, and a corner with a zero-length edge — each returned <c>0f</c> from
+    ///         the whole function, so the first one encountered ended the scan and every face after it
+    ///         went unmeasured. Measured at a 400-quad budget: box reported <c>0.000</c> and its true
+    ///         worst corner is <c>−0.965</c>, cylinder <c>0.000</c> against <c>−0.997</c>, plate
+    ///         <c>0.000</c> against <c>−0.840</c>, union <c>0.000</c> against <c>−0.991</c>. Four of
+    ///         seven fixtures were reporting "there is a flat quad somewhere" while holding quads folded
+    ///         almost completely back on themselves, and docs/plan/41 § D8 read those zeroes as the
+    ///         defect being an absence of area. It is not: it is inversion, on six fixtures of seven.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero is still the right contribution for a collapsed corner rather than skipping
+    ///         it.</b> A corner whose two edges have no direction has no angle to measure, and a
+    ///         degenerate quad is not a good quad — dropping it from the minimum would let a result full
+    ///         of collapsed faces report the quality of the ones that survived.
+    ///     </para>
     /// </remarks>
     public static float ScaledJacobian(EditMesh output) {
         ArgumentNullException.ThrowIfNull(output);
@@ -176,13 +197,17 @@ static class RemeshMetrics {
             var loop = output.CornersOf(face);
 
             if (loop.Length < 3) {
-                return 0f;
+                worst = MathF.Min(worst, 0f);
+
+                continue;
             }
 
             var normal = ScaleSafe.Unit(output.Normal(face));
 
             if (normal.LengthSquared() <= 0f) {
-                return 0f;
+                worst = MathF.Min(worst, 0f);
+
+                continue;
             }
 
             for (var at = 0; at < loop.Length; at++) {
@@ -191,7 +216,9 @@ static class RemeshMetrics {
                 var behind = ScaleSafe.Unit(output.Positions[loop[(at + loop.Length - 1) % loop.Length]] - here);
 
                 if (ahead.LengthSquared() <= 0f || behind.LengthSquared() <= 0f) {
-                    return 0f;
+                    worst = MathF.Min(worst, 0f);
+
+                    continue;
                 }
 
                 worst = MathF.Min(worst, Vector3.Dot(Vector3.Cross(ahead, behind), normal));
