@@ -210,6 +210,15 @@ public sealed class AssetMetaTarget : IFuzzTarget {
             // Worth knowing all the same, and noted here because nothing else says it: a caller that
             // reads `envelope.MetaVersion` for a file with no such key is told 0, which is not a
             // version any writer has ever produced.
+            //
+            // ⚠ This guard also hid a real defect for as long as the scanner matched its keys
+            // ordinally: `MetaVersion: 5` made the scanner say 0 — the key was *present* and simply
+            // not recognised — and the zero sent the comparison down the absent-key branch. Both
+            // readers now match the envelope's keys case-insensitively, so a zero here means absent
+            // again and the narrowing is honest. It is still narrower than it looks: the case bug's
+            // worse half was that `MetaMigrationChain` accepted the same document instead of
+            // refusing it, and a differential between two readers cannot see a reader that should
+            // have thrown and returned.
             if (envelope.MetaVersion != 0 && envelope.MetaVersion != meta.MetaVersion) {
                 throw new InvalidOperationException(
                     $"MetaScanner read metaVersion {envelope.MetaVersion} where AssetMetaFile read {meta.MetaVersion}."

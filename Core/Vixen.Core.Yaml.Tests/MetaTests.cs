@@ -435,6 +435,77 @@ public sealed class MetaTests {
         // than reporting an envelope the parser will never agree with.
         Assert.False(MetaScanner.TryScan(text, out _));
     }
+
+    /// <summary>The scanner and the parser agree about a key whose case is not the schema's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two readers of one format, and the whole point of the scanner is that it may be used
+    ///         instead of the parser.</b> <c>YamlSerializer</c> binds members case-insensitively, so it
+    ///         reads <c>MetaVersion: 5</c> as five; the scanner compared its keys ordinally and read the
+    ///         same line as nothing at all, leaving the envelope at zero. An index built from the
+    ///         scanner would file the asset at version zero while the compiler built it at five.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every key, not just the one that was found.</b> <c>Guid</c> is the one that matters
+    ///         most — a scanner that declines a capitalised <c>guid:</c> sends the caller to the full
+    ///         parse and costs only time, but the same comparison is what made <c>metaVersion</c>
+    ///         silently wrong, and there is no reason for the three to disagree about their own rule.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Guid", "MetaVersion", "Importer")]
+    [InlineData("GUID", "METAVERSION", "IMPORTER")]
+    [InlineData("guid", "metaVersion", "importer")]
+    public void TheScannerReadsAKeyWhateverItsCase(string guid, string version, string importer) {
+        var text = $"""
+            {guid}: 9e8a44c9930c64e388ca034c5fe4c426
+            {version}: 1
+            {importer}: !TextureImporter
+              version: 3
+            """;
+
+        Assert.True(MetaScanner.TryScan(text, out var envelope));
+        Assert.Equal(1, envelope.MetaVersion);
+        Assert.Equal("TextureImporter", envelope.ImporterTag);
+
+        // The parser is the oracle: whatever it says the file means, the scanner must say too.
+        Assert.Equal(AssetMetaFile.Read(text).MetaVersion, envelope.MetaVersion);
+    }
+
+    /// <summary>A sidecar from a newer editor is refused however its version key is capitalised.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of the case bug that is not a disagreement but a silence.</b>
+    ///         <see cref="MetaMigrationChain.VersionOf" /> looked the key up through
+    ///         <see cref="YamlMapping" />'s indexer, which is ordinal — correctly, since a YAML
+    ///         mapping's keys are case-sensitive. But <c>YamlSerializer</c> binds members
+    ///         case-insensitively, so <c>MetaVersion: 5</c> bound to the record as five and reached the
+    ///         version gate as the default one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the file was not misreported, it was accepted.</b> No migration ran and a
+    ///         document from a newer editor was read as though it were the oldest — the exact
+    ///         corruption <c>MetaVersionException</c>'s message describes. A differential oracle
+    ///         comparing two readers' answers cannot see this one, because the reader that should have
+    ///         thrown returned.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("metaVersion")]
+    [InlineData("MetaVersion")]
+    [InlineData("METAVERSION")]
+    public void ANewerSidecarIsRefusedWhateverTheKeysCase(string version) {
+        var text = $"""
+            guid: 9e8a44c9930c64e388ca034c5fe4c426
+            {version}: 5
+            importer: !TextureImporter
+              version: 3
+            """;
+
+        var refused = Assert.Throws<MetaVersionException>(() => AssetMetaFile.Read(text));
+
+        Assert.Contains("5", refused.Message, StringComparison.Ordinal);
+    }
 }
 
 /// <summary>An asset that references others, which is what the <c>vx:</c> scalar exists for.</summary>

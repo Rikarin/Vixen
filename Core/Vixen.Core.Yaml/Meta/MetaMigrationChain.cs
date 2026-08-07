@@ -116,15 +116,37 @@ public sealed class MetaMigrationChain {
     /// <param name="root">The document.</param>
     /// <returns>Its version, or <c>1</c> if it does not say.</returns>
     /// <remarks>
-    ///     A document with no <c>metaVersion</c> is treated as the first version rather than as
-    ///     broken: hand-written files exist, and the value it would have had is the one that was
-    ///     current when hand-writing it was plausible.
+    ///     <para>
+    ///         A document with no <c>metaVersion</c> is treated as the first version rather than as
+    ///         broken: hand-written files exist, and the value it would have had is the one that was
+    ///         current when hand-writing it was plausible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The key is found case-insensitively, and the indexer that used to find it is not —
+    ///         which turned "a newer file is refused" into "a newer file is silently misread".</b>
+    ///         <see cref="YamlMapping" />'s lookup is ordinal and correctly so, because a YAML mapping's
+    ///         keys are case-sensitive; but <c>YamlSerializer</c> binds <i>members</i>
+    ///         case-insensitively, so a sidecar saying <c>MetaVersion: 5</c> bound to the record as five
+    ///         and arrived here as the default one. The guard never fired, no migration ran, and a
+    ///         document from a newer editor was read as though it were the oldest — which is exactly the
+    ///         corruption <see cref="MetaVersionException" />'s own message says it exists to prevent.
+    ///         Three readers of one envelope, so the envelope's keys get one rule and it is the
+    ///         serializer's.
+    ///     </para>
     /// </remarks>
     public static int VersionOf(YamlMapping root) {
         ArgumentNullException.ThrowIfNull(root);
 
-        return root["metaVersion"] is YamlScalar scalar && int.TryParse(scalar.Value, out var version)
-            ? version
-            : 1;
+        foreach (var entry in root.Entries) {
+            if (!string.Equals(entry.Key, "metaVersion", StringComparison.OrdinalIgnoreCase)) {
+                continue;
+            }
+
+            return entry.Value is YamlScalar scalar && int.TryParse(scalar.Value, out var version)
+                ? version
+                : 1;
+        }
+
+        return 1;
     }
 }
