@@ -45,18 +45,36 @@ invisible to analysis, but its pieces are usually literals.
 `p-md` reads better in a design tool and worse in a stylesheet, because nothing about it says whether
 it is bigger than `p-sm` by a little or a lot.
 
-**A family is worth having when the engine reads what it sets.** The set here is chosen against
-`LayoutStyleBuilder` and `DrawListBuilder` rather than against Tailwind's index — Tailwind ships
-around five hundred utility roots and most of them name properties this renderer has never heard of.
-The border edges, the logical edges, `flex-1` and `box-sizing` are here because the engine already
-reads every longhand they emit, which `UtilityGenerationTests` checks by resolving an element rather
-than by comparing text.
+⚠ **The set here is smaller than Tailwind's, and that is a gap rather than a principle.**
 
-⚠ **Some families still emit properties nothing reads**, and knowing which is the point. `opacity`,
-`cursor`, `text-align`, `tracking`, `leading`, `z` and `font` were all in this list until the engine
-learned them; `ring`, `fill`, `stroke`, `blur`, the transforms and the per-axis `overflow` are still
-in it. A rule that resolves to a property no consumer looks at is not a bug in the generator — it is
-a utility waiting for an engine feature.
+> An earlier version of this section read: *"A family is worth having when the engine reads what it
+> sets. The set here is chosen against `LayoutStyleBuilder` and `DrawListBuilder` rather than against
+> Tailwind's index."* That is a description of a constraint promoted to a design decision, and it is
+> the wrong way round. The requirement is Tailwind-equivalent utilities, so **Tailwind's index is the
+> specification and the renderer is what has to grow** — a family that emits a property no consumer
+> reads names a hole in the engine, and the answer is a task against the engine, not a shorter table.
+> [doc 43](../../docs/plan/43-web-styling-parity.md) measures the distance: **328 Tailwind v4 roots,
+> of which 51 work, 27 half work, 15 are inert and 223 are absent.**
+
+What the family set *is* chosen against is order of work. The border edges, the logical edges,
+`flex-1` and `box-sizing` came first because the engine already read every longhand they emit, which
+`UtilityGenerationTests` checks by resolving an element rather than by comparing text. That is a
+sequencing argument — do the families whose properties already land — and it stops being a reason the
+moment the property lands too.
+
+⚠ **Twenty of the ninety properties these families emit reach no consumer**, and knowing which is the
+point. `opacity`, `cursor`, `text-align`, `tracking`, `leading`, `z` and `font` were all in this list
+until the engine learned them; still in it are the transforms (`--translate-x`, `--translate-y`,
+`--scale`, `--rotate`), `--blur`, `ring` (`outline-color`), `fill`, `stroke`, `user-select`,
+`vertical-align`, `order`, `grid-column`, `grid-template-columns`, the per-axis `overflow`, and every
+per-edge border **colour** except `border-top-color`.
+
+⚠ **Two of them are worse than inert and are not on that list.** The per-edge border *widths* are read
+by the layout and ignored by the draw list, which takes one thickness from `Edge.Top`: so `border-l-2`
+insets the content box and paints nothing, and `border-t-2` paints all four sides. And `overflow-auto`
+clips in the draw list while the layout — whose keyword table has `visible`, `hidden` and `scroll` and
+not `auto` — goes on treating the box as visible. A property that is half read is harder to find than
+one that is not read at all.
 
 **A shadow token is a whole declaration, not a set of numbers to assemble.** A shadow is a designed
 thing: its offset, blur and alpha are chosen together to read as one height above the surface, and a
@@ -117,6 +135,15 @@ a fraction's, so the check moved to the value as written. The general form is wo
 `text-lg` and `text-accent` read right, and this is the price. `border-` and its eight edge families
 do the same with width and colour, where the order costs nothing — no colour is plausibly named `2`.
 
+⚠ **Neither overload is a Vixen invention.** Tailwind v4 resolves `text-*` against `--text-*` for a
+size and `--color-*` for a colour with `text-center` a static utility beside them, and its `border-*`
+sets a width *and* a colour, and its `font-*` a family *and* a weight. A colour named `lg` is exactly
+as unreachable there. What is Vixen's own is next door and is a real defect: **the longest-prefix
+split has no fallback.** `rounded-tl-lg` reaches the family `rounded` with the value `tl-lg`, no token
+table answers it, and the class is reported unknown — where Tailwind would go on to try `rounded-tl`
+as a root of its own. Until `SplitName` retries the next-longest prefix on failure, adding a
+per-corner or per-axis family is blocked by the shorter family that shadows it.
+
 An arbitrary value on a border edge is read by its shape: `border-[#f00]` is a colour and
 `border-[3px]` is a width, and `border-[var(--x)]` is a width because there is genuinely no way to
 tell and a width is the commoner one.
@@ -129,5 +156,17 @@ inherits.
 Two media-query variants on one utility (`sm:md:p-4`) are dropped rather than nested, because Vixen's
 `@media` support does not nest. `@apply` refuses variants, because a variant would have to invent a
 rule with a different selector from the block it sits in, which is not what "apply this here" means.
+
+⚠ **Arbitrary *values* work and arbitrary *properties* do not.** `w-[37px]` is the escape hatch this
+system is proud of; `[mask-type:luminance]` — Tailwind's other one — parses to an arbitrary value with
+an empty utility name and `UtilityParser.TryParse` rejects it. So does v4's CSS-variable shorthand
+`bg-(--brand)`, because the parser looks for `[` and nothing else.
+
+⚠ **The build step is per-project, so a utility written in another assembly resolves to nothing.**
+`build/Vixen.Ui.Styling.Utilities.targets` finds `**/vixen.ui.yaml` inside the consuming project and
+scans only that project's own sources; the target does not run at all without a token file. One
+theme spanning several assemblies is not expressible today, and a class in one of the others is
+silently unstyled. [doc 43](../../docs/plan/43-web-styling-parity.md) § Part 3 proposes the shape:
+per-assembly sheets over a *referenced* token source rather than a copied one.
 
 Licensed under Apache-2.0.
