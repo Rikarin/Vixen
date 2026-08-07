@@ -74,7 +74,9 @@ public sealed partial class ModelImportView;
 
 `OnComposed` runs once the whole body has been built, which is where wiring belongs — every `ref` in
 the file is assigned, including those under a live `@if` arm. It runs again after a hot reload.
-`OnUnmounted` runs when an `@inherits` element leaves the tree, before its effects are disposed.
+`OnUnmounted` runs when the panel leaves the tree, before its effects are disposed — for an
+`@inherits` element when the element is removed, and for a `Component` when the element it drew
+itself into is removed or the branch that built it closes. Whichever comes first; it runs once.
 
 Neither is an override, so neither costs anything when nobody implements it. `@code` may not override
 `OnCreated` or `OnRemoved`: the generated scaffold uses both, and these two run in the same places.
