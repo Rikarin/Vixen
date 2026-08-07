@@ -75,6 +75,21 @@ public interface ISwapChain : IDisposable {
     /// <summary>The format of its images.</summary>
     PixelFormat Format { get; }
 
+    /// <summary>The gamut its images are shown in, which may be narrower than the one requested.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a presentation pass must gamut-map against, and never a constant.</b> A surface
+    ///     that offered no wide colour space with enough precision behind it stays at
+    ///     <see cref="ColorGamut.Srgb" /> however wide a gamut was asked for, and a caller that went
+    ///     on mapping to P3 regardless would be sending over-saturated colours to an ordinary
+    ///     display.
+    ///     <para>
+    ///         Defaulted rather than required, because a backend that has not implemented wide gamut
+    ///         is not thereby unimplemented — sRGB is the true answer for it, and making every
+    ///         backend restate that would be ceremony that can only be got wrong.
+    ///     </para>
+    /// </remarks>
+    ColorGamut Gamut => ColorGamut.Srgb;
+
     /// <summary>Their size in pixels.</summary>
     Int2 Size { get; }
 

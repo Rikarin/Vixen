@@ -109,14 +109,7 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     /// <inheritdoc />
     public PresentMode PresentMode { get; private set; }
 
-    /// <summary>The gamut the swapchain actually got, which may be narrower than the one asked for.</summary>
-    /// <remarks>
-    ///     ⚠ <b>This is what a presentation pass must map against, and it is not the requested
-    ///     gamut.</b> A surface that offered no wide space with enough precision behind it leaves
-    ///     this at <see cref="ColorGamut.Srgb" />; a caller that went on mapping to P3 regardless
-    ///     would be sending over-saturated colours to an ordinary display, which is the failure this
-    ///     property exists to make impossible to write.
-    /// </remarks>
+    /// <inheritdoc />
     public ColorGamut Gamut { get; private set; }
 
     /// <inheritdoc />
