@@ -229,6 +229,11 @@ jobs:
             project: Core/Vixen.Geometry.Remeshing.Tests
             # Conditioning runs the whole seven-stage pipeline per case and the field solve is the
             # slow half, so this one buys fewer cases per minute than the unwrapper does.
+            #
+            # ⚠ RemeshPipelinePropertyTests calls Remesher.Remesh rather than one stage of it, and it
+            # is the most expensive thing in this leg by an order of magnitude: 11 s for its 14 cases
+            # at the build's counts, 2m10s at fifteen times them. Its build counts are single digits
+            # for exactly that reason, and the multiplier still fits — see the timeout note below.
             iterations: 15
           - name: uv
             project: Core/Vixen.Geometry.Uv.Tests
@@ -240,6 +245,15 @@ jobs:
     # properties on this laptop, and a hosted runner is slower than a laptop, which is what the rest
     # of the ninety minutes is for. Raise them when a night finishes with hours to spare; do not
     # raise them to a number nobody has timed.
+    #
+    # ⚠ Both multipliers were re-measured when the two pipeline-level properties landed, and both
+    # still fit. Remeshing: RemeshPipelinePropertyTests is 11 s at the build's counts and 2m10s at
+    # 15x, which is the whole of what it adds to a leg that was already the slow one. Uv:
+    # UvUnwrapPipelinePropertyTests is 1 s at the build's counts, because a 128-face primitive
+    # unwraps in milliseconds where a 400-quad remesh takes seconds. ⚠ The headroom is not
+    # symmetric — a *single* remesh case has been measured at 93 s, on an input whose quad budget is
+    # overshot 584-fold, so the remeshing multiplier is the one that would break first and it is the
+    # one to leave alone.
     #
     # ⚠ Not a budget — RunawayGuard bounds a single case on wall clock *and on allocation*, which is
     # the backstop that matters here: the measured runaway in this code is a pre-remesh that

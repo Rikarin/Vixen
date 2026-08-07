@@ -15,8 +15,34 @@ namespace Vixen.Geometry.Uv.Tests;
 ///     the island's own size lives.
 /// </remarks>
 enum IslandShape : byte {
-    /// <summary>An axis-aligned box. The rectangle rung's exact case.</summary>
+    /// <summary>A four-cornered fan. ⚠ A <i>diamond</i> and not a box — see <see cref="Box" />.</summary>
     Rectangle,
+
+    /// <summary>Two triangles making an axis-aligned box, which fills its own bounding box exactly.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Rectangle" /> is not one, and that is why it exists.</b> Its summary said
+    ///         "an axis-aligned box. The rectangle rung's exact case" and
+    ///         <see cref="IslandSpace.Build" /> builds every non-degenerate shape as a fan of corners
+    ///         placed round a circle — so four corners at 0, τ/4, τ/2 and 3τ/4 make a <i>diamond</i>,
+    ///         whose area is exactly half its bounding box.
+    ///     </para>
+    ///     <para>
+    ///         <b>The consequence was that one of the packer's three rungs could not fire at all.</b>
+    ///         <c>Packer.SuperPatches</c> only considers an island whose mask covers <c>0.8</c> of its
+    ///         own box. Measured over 200 sampled sets: <b>0 of 4,526 islands</b> drawn from
+    ///         <see cref="IslandSpace.Set" /> reach that, at a mean box fill of <b>57.0 %</b> — so every
+    ///         <see cref="PackQuality.SuperPatch" /> case in this assembly was running the irregular
+    ///         rung under a different name. A box fills 100 % by construction.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Added beside <see cref="Rectangle" /> rather than replacing it.</b> The diamond is
+    ///         still a perfectly good non-convex-free test island and several properties have been
+    ///         measured against a corpus containing it; what was missing was the shape doc 41 § D13
+    ///         actually produces.
+    ///     </para>
+    /// </remarks>
+    Box,
 
     /// <summary>A convex fan. Round, so a quarter turn changes its bounding box very little.</summary>
     Convex,
@@ -113,6 +139,64 @@ static class IslandSpace {
     /// </remarks>
     public static readonly Gen<IslandRecipe[]> Set = Recipe.Array[2, 48];
 
+    /// <summary>One quantized quad patch: a rectangle at one of four heights the grouping can agree on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Declared before <see cref="Patch" /> because a static field initializer that reads a
+    ///     later one reads its default</b>, which here is a null generator and a
+    ///     <see cref="NullReferenceException" /> from inside CsCheck rather than from anything a reader
+    ///     would associate with this file.
+    /// </remarks>
+    static readonly Gen<IslandRecipe> Quantized = Gen.Select(
+        Gen.OneOfConst(0.04f, 0.08f, 0.16f, 0.32f),
+        Gen.Single[0.4f, 2.5f],
+        Gen.Single[0.25f, 4f],
+        (size, aspect, scale) => new IslandRecipe(IslandShape.Box, 4, size, aspect, scale)
+    );
+
+    /// <summary>The islands doc 41 § D13 hands the packer: quantized quad patches, which are rectangles.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Recipe" /> cannot generate what the remesher feeds this packer, and the
+    ///         consequence was that one of the packer's three rungs could not fire at all.</b> Its
+    ///         distribution is star-heavy — 6 star, 4 rectangle, 4 convex, 2 sliver, 1 degenerate — and
+    ///         its "rectangle" is a <i>diamond</i>: <see cref="IslandShape.Box" />'s remarks have the
+    ///         mechanism. <c>Packer.SuperPatches</c> only considers an island whose mask covers 0.8 of
+    ///         its own bounding box, and measured over 200 sampled sets, <b>0 of 4,526 islands</b> drawn
+    ///         from <see cref="Set" /> reach that, at a mean box fill of <b>57.0 %</b>. Every property
+    ///         that swept the three rungs was therefore running the irregular one three times.
+    ///     </para>
+    ///     <para>
+    ///         <b>docs/plan/41 § D13 is explicit about what the real input is: "a quad patch with agreed
+    ///         integer side counts <i>is</i> a rectangle", and the merging of neighbouring patches into
+    ///         super-charts is a call into this packer.</b> So this is the one input where the
+    ///         super-patch rung is the whole point, and it is the one input the generator did not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rectangle-dominant rather than rectangle-only, and the mix is what makes it a
+    ///         test.</b> A layout that came out entirely of quantized quads would never reach the
+    ///         grouping's <i>rejection</i> path, and the two are decided by the same comparison — so a
+    ///         quarter of the draw is left to <see cref="Recipe" />, which is roughly what a layout with
+    ///         a few collapsed patches in it looks like. Measured over the same 200 sampled sets:
+    ///         <b>4,035 of 5,295 islands</b> reach the grouping's threshold, at a mean box fill of
+    ///         <b>89.8 %</b>, against none of 4,606 from <see cref="Set" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Heights come from a short list rather than from a range</b>, because the grouping
+    ///         only takes a neighbour whose height is within seven tenths of the seed's: a continuous
+    ///         draw makes near-agreement rare and the composite is nearly always one island wide, which
+    ///         is the same as not grouping at all.
+    ///     </para>
+    /// </remarks>
+    public static readonly Gen<IslandRecipe> Patch = Gen.Frequency((3, Quantized), (1, Recipe));
+
+    /// <summary>A whole layout's worth of them, which is where the grouping has something to group.</summary>
+    /// <remarks>
+    ///     ⚠ Six at the bottom rather than two: the grouping needs at least two candidates of agreeing
+    ///     height before it builds a composite at all, and a pair drawn from a mix of four shapes is
+    ///     usually not two rectangles.
+    /// </remarks>
+    public static readonly Gen<IslandRecipe[]> Patches = Patch.Array[6, 48];
+
     /// <summary>Turns a recipe into the island it describes.</summary>
     /// <param name="recipe">The recipe.</param>
     /// <returns>The island, as a triangle fan about its own centre.</returns>
@@ -124,6 +208,31 @@ static class IslandSpace {
     public static UvIsland Build(IslandRecipe recipe) {
         if (recipe.Shape == IslandShape.Degenerate) {
             return new([Vector2.Zero, Vector2.Zero, Vector2.Zero], [0, 1, 2], Vector2.Zero, Vector2.Zero, recipe.Scale);
+        }
+
+        if (recipe.Shape == IslandShape.Box) {
+            var wide = recipe.Size * recipe.Aspect;
+            var tall = recipe.Size;
+            var lower = new Vector2(-wide, -tall);
+            var upper = new Vector2(wide, tall);
+
+            // ⚠ Two triangles and not a fan, which is the whole difference. A fan about the centre
+            // would put four more coordinates on the boundary and the mask would be the same, but the
+            // corners of a quantized quad patch are four and the packer's content key hashes them.
+            return new(
+                [
+                    lower,
+                    new(wide, -tall),
+                    upper,
+                    lower,
+                    upper,
+                    new(-wide, tall)
+                ],
+                [0, 1, 2, 3, 4, 5],
+                lower,
+                upper,
+                recipe.Scale
+            );
         }
 
         var corners = recipe.Shape == IslandShape.Rectangle ? 4 : Math.Max(3, recipe.Corners);

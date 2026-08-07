@@ -45,9 +45,21 @@ namespace Vixen.Geometry.Uv.Tests;
 /// </remarks>
 public class UvPackPropertyTests {
     /// <summary>An island set together with a permutation of its own indices.</summary>
-    static readonly Gen<(IslandRecipe[] Recipes, int[] Order)> Permuted = IslandSpace.Set.SelectMany(
-        recipes => Gen.Shuffle(Enumerable.Range(0, recipes.Length).ToArray()).Select(order => (recipes, order))
-    );
+    static readonly Gen<(IslandRecipe[] Recipes, int[] Order)> Permuted = Permutations(IslandSpace.Set);
+
+    /// <summary>The same over § D13's quantized quad patches, which is the super-patch rung's own input.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="IslandSpace.Set" /> is star-heavy and the grouping never fires on it</b>, so
+    ///     the <see cref="PackQuality.SuperPatch" /> row of the theory below was running the irregular
+    ///     rung under a different name. <see cref="IslandSpace.Patches" /> has the measurement and the
+    ///     argument.
+    /// </remarks>
+    static readonly Gen<(IslandRecipe[] Recipes, int[] Order)> PermutedPatches = Permutations(IslandSpace.Patches);
+
+    static Gen<(IslandRecipe[] Recipes, int[] Order)> Permutations(Gen<IslandRecipe[]> sets) =>
+        sets.SelectMany(
+            recipes => Gen.Shuffle(Enumerable.Range(0, recipes.Length).ToArray()).Select(order => (recipes, order))
+        );
 
     /// <summary>A sparse set, a resolution and a margin: the case with room left in the atlas.</summary>
     /// <remarks>
@@ -95,13 +107,21 @@ public class UvPackPropertyTests {
     ///         <see cref="UvPackDeterminismTests.TheSameIslandsInADifferentOrderPackIdentically" />
     ///         keeps the per-island claim on a corpus where no two islands are alike.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The super-patch rung draws from a different generator, and until it did this row was
+    ///         not testing the rung it names.</b> Grouping only considers an island whose mask fills its
+    ///         own bounding box, and <see cref="IslandSpace.Recipe" /> is star-heavy by design — so the
+    ///         candidate list came out empty and every case fell through to the irregular path.
+    ///         <see cref="IslandSpace.Patches" /> is doc 41 § D13's actual input, quantized quad patches,
+    ///         which are rectangles.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData(PackQuality.Rectangle)]
     [InlineData(PackQuality.Irregular)]
     [InlineData(PackQuality.SuperPatch)]
     public void A_permutation_of_the_islands_produces_the_same_atlas(PackQuality quality) {
-        Permuted.Sample(
+        (quality == PackQuality.SuperPatch ? PermutedPatches : Permuted).Sample(
             entry => {
                 var (recipes, order) = entry;
                 var islands = IslandSpace.Build(recipes);
@@ -217,6 +237,19 @@ public class UvPackPropertyTests {
     ///         a trilinear tap plus two mip levels" — and asserting a property about it here would be
     ///         asserting that two rasterizers agree, which nobody claimed.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The subject is <see cref="UvUnwrap.Pack" />'s own placements, and saying so is not
+    ///         pedantry — <see cref="UvStacking" /> is this property's exact negation.</b> § D10's
+    ///         symmetric stacking <i>deliberately</i> overlaps two mirrored islands so that both halves
+    ///         share one region of texture: <see cref="UvStacking.Fold" /> drops the partner before the
+    ///         pack and <see cref="UvStacking.Unfold" /> hands it the representative's placement
+    ///         afterwards, so the pair comes out at a gap of zero and every claim below fails by design.
+    ///         It holds here because nothing in this test folds — stacking is opt-in, the caller does it
+    ///         on either side of the pack, and nothing in the library calls it. That was true before this
+    ///         paragraph and it was true by accident; a property whose precondition is unwritten is one
+    ///         the next person deletes by changing a default. <c>UvStackingTests</c> is where the
+    ///         overlapping case is stated as the intended behaviour it is.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void No_island_ever_comes_nearer_than_the_margin_to_another_island_or_to_the_edge() {
@@ -226,6 +259,10 @@ public class UvPackPropertyTests {
             entry => {
                 var (recipes, resolution, margin) = entry;
                 var islands = IslandSpace.Build(recipes);
+
+                // ⚠ Unstacked, and that is a precondition rather than a default. See the remarks:
+                // UvStacking.Fold before this call and Unfold after it would put two islands on one
+                // rectangle on purpose, which is the negation of every claim below.
                 var settings = new PackSettings { Resolution = resolution, Margin = margin, CoreLimit = 64 };
 
                 var what = string.Create(
