@@ -57,6 +57,27 @@ public readonly record struct CornerRadii(
         && TopRight == Vector2.Zero
         && BottomRight == Vector2.Zero
         && BottomLeft == Vector2.Zero;
+
+    /// <summary>Whether all four corners are the same circle, and what its radius is.</summary>
+    /// <param name="radius">The shared radius, or zero when they are not all the same circle.</param>
+    /// <returns>Whether one <c>float</c> describes the whole box.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This is what keeps the cheap path cheap, and it is why it tests circularity and not
+    ///     just equality.</b> <see cref="DrawCommand.Radius" /> is a single <c>float</c>, so a box
+    ///     this returns <see langword="true" /> for needs no entry in the draw list's side buffer at
+    ///     all — which in a real interface is nearly every box. Four equal but <i>elliptical</i>
+    ///     corners are equal to each other and still not expressible in one number, so they have to
+    ///     fail this test; returning true for them would silently draw a pill as a circle-cornered
+    ///     rectangle.
+    /// </remarks>
+    public bool IsUniformCircular(out float radius) {
+        radius = TopLeft.X;
+
+        return TopLeft.X == TopLeft.Y
+            && TopLeft == TopRight
+            && TopLeft == BottomRight
+            && TopLeft == BottomLeft;
+    }
 }
 
 /// <summary>What a box needs beyond a colour and a size.</summary>

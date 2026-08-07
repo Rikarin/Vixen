@@ -358,11 +358,15 @@ public static class EditorTheme {
             padding: 1px;
         }
 
-        /* ⚠ Rounded, where a segmented member's fill would normally be square. The draw path has
-           one radius per element rather than four — `border-top-left-radius` is the corner it
-           reads — so the usual answer, square inner corners and round outer ones, cannot be
-           written. Two pixels is the group's four less the border and the padding above it, which
-           is the radius concentric with the one the group draws. */
+        /* ⚠ Rounded, where a segmented member's fill would normally be square. Two pixels is the
+           group's four less the border and the padding above it, which is the radius concentric
+           with the one the group draws.
+
+           This used to say the usual answer — square inner corners and round outer ones — could not
+           be written, because the draw path read `border-top-left-radius` and applied it to all four
+           corners. It reads all four now, so `rounded-l`/`rounded-r` on the first and last member is
+           available; the concentric radius is kept because it is the look this group wants, not
+           because it is the only one expressible. */
         toolbar-group button, toolbar-group icon-button, toolbar-group toggle-button,
         toolbar-group button.variant-subtle, toolbar-group icon-button.variant-subtle {
             border-width: 0px;

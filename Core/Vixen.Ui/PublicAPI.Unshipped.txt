@@ -59,6 +59,7 @@ Vixen.Ui.CornerRadii.BottomRight.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.CornerRadii.CornerRadii() -> void
 Vixen.Ui.CornerRadii.CornerRadii(Vixen.Core.Mathematics.Vector2 TopLeft, Vixen.Core.Mathematics.Vector2 TopRight, Vixen.Core.Mathematics.Vector2 BottomRight, Vixen.Core.Mathematics.Vector2 BottomLeft) -> void
 Vixen.Ui.CornerRadii.IsSquare.get -> bool
+Vixen.Ui.CornerRadii.IsUniformCircular(out float radius) -> bool
 Vixen.Ui.CornerRadii.TopLeft.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.CornerRadii.TopLeft.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.CornerRadii.TopRight.get -> Vixen.Core.Mathematics.Vector2

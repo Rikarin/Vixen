@@ -67,6 +67,9 @@ public class UtilityFamilySupportTests {
         // a field for it. See `An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group`.
         { "order-2", "order", "2" },
 
+        // ⚠ `order` was in `Inert` — filed under *grid*, which it is not — until `LayoutStyle` grew
+        // a field for it. See `An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group`.
+
         // Spacing, including the logical edges the layout resolves against `direction`.
         { "gap-3", "row-gap", "6px" },
         { "gap-x-2", "column-gap", "4px" },
@@ -108,10 +111,29 @@ public class UtilityFamilySupportTests {
         { "opacity-50", "opacity", "0.5" },
         { "shadow-elevation", "box-shadow", "0px 10px 26px rgba(12, 14, 18, 0.22)" },
 
-        // Borders. ⚠ The widths are read per edge; the colours are not — see `Inert`.
+        // Borders, all four edges and all four corners. ⚠ The colours and the radii were in `Inert`
+        // until the draw list learned the rest of the longhands: it interned `border-top-color` and
+        // `border-top-left-radius` and nothing else, so seven of the eight per-edge colours computed
+        // a value nothing read, and `rounded-tl` was not a family at all.
         { "border-2", "border-top-width", "2px" },
         { "border-b", "border-bottom-width", "1px" },
         { "border-border-active", "border-top-color", "#5f8ddb" },
+        { "border-b-border-active", "border-bottom-color", "#5f8ddb" },
+        { "border-l-accent", "border-left-color", "#2f6ecd" },
+        { "border-x-accent", "border-right-color", "#2f6ecd" },
+        { "border-y-accent", "border-top-color", "#2f6ecd" },
+
+        // ⚠ <b>The arbitrary form, because the editor's tokens define no <c>radius</c> scale at
+        // all</b> — `vixen.ui.yaml` says so in a comment and gives the reason: the three radii live in
+        // `EditorTheme` as `var(--radius-row)` and friends, and `ThemeTokens.Radius` parses numbers,
+        // so a token that held one would be the same number in two files. `rounded-tl-lg` is
+        // therefore not a thing *in this theme* while `rounded-tl-[6px]` is, and the row has to say
+        // which of the two it is testing. The family is what is on trial here, not the scale.
+        { "rounded-[4px]", "border-top-left-radius", "4px 4px" },
+        { "rounded-tl-[6px]", "border-top-left-radius", "6px" },
+        { "rounded-br-[2px]", "border-bottom-right-radius", "2px" },
+        { "rounded-t-[6px]", "border-top-right-radius", "6px" },
+        { "rounded-b-[4px]", "border-bottom-left-radius", "4px" },
 
         // Overflow, all three properties and all four keywords. ⚠ `auto` is here because the layout
         // maps it onto `Overflow.Scroll` — the two differ only by a scrollbar gutter nothing draws.
@@ -119,7 +141,13 @@ public class UtilityFamilySupportTests {
         { "overflow-scroll", "overflow", "scroll" },
         { "overflow-auto", "overflow", "auto" },
         { "overflow-x-scroll", "overflow-x", "scroll" },
+
+        // ⚠ These were in `Inert` until the per-axis clip landed. `auto` maps onto `Scroll` in the
+        // layout's keyword table rather than becoming a fourth member, because CSS gives the two the
+        // same layout and differs only over reserving a scrollbar gutter — which nothing here draws.
+        { "overflow-x-auto", "overflow-x", "auto" },
         { "overflow-y-auto", "overflow-y", "auto" },
+        { "overflow-y-scroll", "overflow-y", "scroll" },
 
         // Interactivity and motion.
         { "cursor-pointer", "cursor", "pointer" },
@@ -133,14 +161,11 @@ public class UtilityFamilySupportTests {
     /// <summary>Utility, property — the families that compute a value nothing in the engine reads.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A bug list with a deadline, which is not the same as no bug list.</b> A rule that
-    ///         resolves to a property no consumer looks at is a utility waiting for an engine feature —
-    ///         and <a href="../../../docs/plan/43-web-styling-parity.md">doc 43</a> is why that is a
-    ///         task rather than a state of affairs: Tailwind's index is the specification, so every row
-    ///         below owes a task number and expires when the property lands. What makes it worth
-    ///         writing down is that nothing anywhere else says so — the class name is spelled
-    ///         correctly, the generator emits it, the cascade computes it, and the picture does not
-    ///         change.
+    ///         ⚠ <b>Not a bug list.</b> The utilities README's phrasing is the right one: a rule that
+    ///         resolves to a property no consumer looks at is a utility waiting for an engine feature.
+    ///         What makes it worth writing down is that nothing anywhere else says so — the class name
+    ///         is spelled correctly, the generator emits it, the cascade computes it, and the picture
+    ///         does not change.
     ///     </para>
     ///     <para>
     ///         <b>History: <c>overflow-x-*</c> and <c>overflow-y-*</c> used to be the dangerous two</b>,
@@ -168,19 +193,15 @@ public class UtilityFamilySupportTests {
     ///         control that owns its bars and offsets its content.
     ///     </para>
     ///     <para>
-    ///         <b>History: <c>order-2</c> used to be in this table, filed under <i>grid</i>.</b> It is
-    ///         a flexbox property and always was — the misfiling is itself the tell, because a family
-    ///         nothing reads gets grouped by whoever last guessed why. <c>LayoutStyle</c> now carries
-    ///         an <c>Order</c>, and it is the one layout property that also moves the draw list, since
-    ///         CSS Flexbox §5.4 makes <c>order</c> modify painting order as well as layout order.
-    ///         <see cref="An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group" /> is the same
-    ///         test this file used to hold inverted, and it checks both halves: an implementation that
-    ///         reordered the boxes and left the painting alone would pass a position-only assertion.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Yoga has no <c>order</c>, so none of the 534 conformance fixtures covers it.</b>
-    ///         That is recorded in <c>Core/Vixen.Ui.Layout/README.md</c> rather than here, because it
-    ///         is a fact about the oracle rather than about the utility surface.
+    ///         ⚠ <b>The per-edge border colours and the per-corner radii are the second family to
+    ///         leave this table, and they were worse than inert.</b> Inert is what
+    ///         <c>border-b-accent</c> looked like — a <c>border-bottom-color</c> the draw list never
+    ///         interned. What it actually did was delete the border: the builder read
+    ///         <c>border-top-color</c> as *the* border colour, so an element given a bottom colour and
+    ///         no top one had no colour at all and drew nothing. The radii were the mirror image —
+    ///         <c>border-top-left-radius</c> rounded all four corners and the other three longhands
+    ///         were ignored. See <see cref="A_per_edge_border_colour_paints_only_the_edge_it_names" />
+    ///         and <see cref="A_per_corner_radius_rounds_only_the_corner_it_names" />.
     ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Inert => new() {
@@ -253,6 +274,12 @@ public class UtilityFamilySupportTests {
     ///     to cut with a rectangle, and it is the whole reason this engine can do what CSS cannot —
     ///     there, a lone <c>overflow-y</c> coerces its partner and clips both.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Counting clips is not enough — the axis has to be checked.</b> A per-axis clip is a
+    ///     rectangle with one pair of edges past the viewport, so an implementation that clipped
+    ///     <i>both</i> axes would push exactly one clip too and pass a count. The unbounded pair is
+    ///     what says which axis was meant.
+    /// </remarks>
     [Fact]
     public void The_per_axis_overflow_utilities_clip_the_axis_they_name_and_no_other() {
         using var ui = Sheet("overflow-hidden", "overflow-y-hidden", "w-8", "h-8");
@@ -275,9 +302,136 @@ public class UtilityFamilySupportTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Support proved rather than asserted, for a family that used to be inert.</b> This
-    ///     test replaces the row <c>order-2</c> occupied in <see cref="Inert" />, and it is
-    ///     deliberately two assertions rather than one.
+    ///     ⚠ <b>Support proved at the draw list, for a family that used to erase what it touched.</b>
+    ///     A count is not enough and neither is a colour: what says the utility worked is <i>where</i>
+    ///     the accent-coloured rectangle is. A bottom colour must produce a band along the bottom edge
+    ///     of the border box, and the three red bands must survive beside it — the old builder's
+    ///     failure was that they did not.
+    /// </summary>
+    [Fact]
+    public void A_per_edge_border_colour_paints_only_the_edge_it_names() {
+        using var ui = Sheet("border-2", "border-b-accent", "w-8", "h-8");
+
+        var element = ui.Create("probe", ui.Document.Root, null, "border-2", "border-b-accent", "w-8", "h-8");
+
+        ui.Frame();
+
+        // ⚠ <b>No uniform `border-border` beside it, and that is the point of the arrangement.</b>
+        // The two utilities have equal specificity, so which one owns `border-bottom-color` is decided
+        // by the order the generator emitted them in — a real question, and somebody else's. With only
+        // the per-edge colour set, three edges have a width and no colour and paint nothing, and the
+        // one band that appears is unambiguously the one `border-b-accent` asked for.
+        var band = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle
+        );
+
+        Assert.Equal(element.AbsoluteTop + element.Height - band.Height, band.Y);
+        Assert.Equal(2f, band.Height);
+        Assert.Equal(element.Width, band.Width);
+
+        // The accent is blue-dominant; the surface and border tokens are not.
+        Assert.True(band.Color.B > band.Color.R, "the band carries the accent colour");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The same, for a corner.</b> <c>rounded-tl-[6px]</c> was not merely unread — it was not a
+    ///     family, so the scanner reported it as an unrecognised class and the generator emitted
+    ///     nothing. The proof is the side buffer: a box whose corners differ cannot be described by
+    ///     <c>DrawCommand.Radius</c>, so an entry in <c>Boxes</c> existing at all is the evidence, and
+    ///     the three square corners are what say the radius went to the corner it named.
+    /// </summary>
+    [Fact]
+    public void A_per_corner_radius_rounds_only_the_corner_it_names() {
+        using var ui = Sheet("rounded-tl-[6px]", "bg-surface", "w-8", "h-8");
+
+        ui.Create("probe", ui.Document.Root, null, "rounded-tl-[6px]", "bg-surface", "w-8", "h-8");
+        ui.Frame();
+
+        var box = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle && command.HasStyle
+        );
+
+        var corners = ui.Document.Drawing.Boxes[box.Offset].Corners;
+
+        Assert.True(corners.TopLeft.X > 0f, "the named corner is rounded");
+        Assert.Equal(0f, corners.TopRight.X);
+        Assert.Equal(0f, corners.BottomRight.X);
+        Assert.Equal(0f, corners.BottomLeft.X);
+
+        // ⚠ And the scalar stays zero rather than carrying the top-left. A consumer that reads only
+        // `Radius` must not round the other three corners by the one that was set — which is exactly
+        // what the old builder did to every box in the editor.
+        Assert.Equal(0f, box.Radius);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The same, for <c>display</c>.</b> <c>block</c> is not in the layout's keyword table,
+    ///     so an element carrying it is still laid out as the flex container everything in this
+    ///     engine is — two children sit side by side rather than stacking. A test that only read the
+    ///     computed <c>display</c> would find <c>block</c> sitting there and conclude the opposite.
+    /// </summary>
+    [Fact]
+    public void Display_block_does_not_stop_an_element_being_a_flex_row() {
+        using var ui = Sheet("block", "w-8", "h-8");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "block");
+        var first = ui.Create("probe", host, null, "w-8", "h-8");
+        var second = ui.Create("probe", host, null, "w-8", "h-8");
+
+        ui.Frame();
+
+        Assert.Equal("block", ui.StyleOf(host, "display"));
+        Assert.Equal(first.AbsoluteTop, second.AbsoluteTop);
+        Assert.True(second.AbsoluteLeft > first.AbsoluteLeft, "a block would have stacked them");
+    }
+
+    /// <summary>The one clip an element's subtree contributes to the frame.</summary>
+    /// <remarks>
+    ///     ⚠ Sized, because <c>DrawListBuilder</c> gives up on a zero-area box before it ever looks at
+    ///     <c>overflow</c> — an unsized probe would emit no clip at all, and <c>Single</c> is what
+    ///     stops that reading as a pass. The probe is removed and the frame run again so the caller
+    ///     can measure a second utility against a list holding only that one's clip.
+    /// </remarks>
+    static DrawCommand Clip(UiTest ui, string utility) {
+        var element = ui.Create("probe", ui.Document.Root, null, utility, "w-8", "h-8");
+
+        ui.Frame();
+
+        var push = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.ClipPush
+        );
+
+        element.Remove();
+        ui.Frame();
+
+        return push;
+    }
+
+    /// <summary>A document with just these utilities in it, generated against the editor's tokens.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>EditorTheme.Install</c>, and deliberately.</b> Only the utilities the editor's
+    ///     markup already uses are in the editor's sheet — that is the whole point of the scanner —
+    ///     so a table exercising the <i>family surface</i> has to generate its own. The tokens are
+    ///     still the editor's, which is what makes <c>bg-surface</c> here the same declaration the
+    ///     hand-written sheet writes.
+    /// </remarks>
+    static ThemeTokens Tokens() =>
+        ThemeTokens.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "__fixtures__", "vixen.ui.yaml")));
+
+    static UiTest Sheet(params string[] utilities) {
+        var ui = UiTest.Create();
+
+        // The token block only, so the `var(--…)` colours resolve without the hand-written rules
+        // being present to win against — those have their own tests in `StylesheetTests`.
+        ui.Document.Load(EditorTheme.Css, StyleOrigin.UserAgent);
+        ui.Document.Load(new UtilityGenerator(Tokens()).Generate(utilities), StyleOrigin.UserAgent);
+
+        return ui;
+    }
+
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>Position alone would not have caught the obvious half-implementation.</b> The layout
@@ -331,140 +485,4 @@ public class UtilityFamilySupportTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The same, for <c>display</c>.</b> <c>block</c> is not in the layout's keyword table,
-    ///     so an element carrying it is still laid out as the flex container everything in this
-    ///     engine is — two children sit side by side rather than stacking. A test that only read the
-    ///     computed <c>display</c> would find <c>block</c> sitting there and conclude the opposite.
-    /// </summary>
-    [Fact]
-    public void Display_block_does_not_stop_an_element_being_a_flex_row() {
-        using var ui = Sheet("block", "w-8", "h-8");
-
-        var host = ui.Create("probe", ui.Document.Root, null, "block");
-        var first = ui.Create("probe", host, null, "w-8", "h-8");
-        var second = ui.Create("probe", host, null, "w-8", "h-8");
-
-        ui.Frame();
-
-        Assert.Equal("block", ui.StyleOf(host, "display"));
-        Assert.Equal(first.AbsoluteTop, second.AbsoluteTop);
-        Assert.True(second.AbsoluteLeft > first.AbsoluteLeft, "a block would have stacked them");
-    }
-
-    /// <summary>
-    ///     ⚠ <b>A per-edge border width is read by the layout and ignored by the draw list, and that
-    ///     is worse than either half being missing.</b> <c>LayoutStyleBuilder</c> interns all seven
-    ///     border-width names and the flexbox honours each edge, so <c>border-l-2</c> really does
-    ///     inset the content box by two pixels. <c>DrawListBuilder</c> then takes <i>one</i> thickness
-    ///     — <c>GetComputedBorder(node, Edge.Top)</c> — so a left border alone paints nothing at all.
-    ///     The geometry moves and the picture does not follow, which is the hardest kind of gap to
-    ///     find: neither table in this file would hold it, because the property is neither unread nor
-    ///     read.
-    /// </summary>
-    [Fact]
-    public void A_left_border_insets_the_layout_and_paints_nothing() {
-        using var ui = Sheet("border-l-2", "border-border", "w-8", "h-8");
-
-        var host = ui.Create("probe", ui.Document.Root, null, "border-l-2", "border-border", "w-8", "h-8");
-        var child = ui.Create("probe", host, null, "w-8", "h-8");
-
-        ui.Frame();
-
-        Assert.Equal("2px", ui.StyleOf(host, "border-left-width"));
-        Assert.Equal(host.AbsoluteLeft + 2f, child.AbsoluteLeft);
-        Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.Border);
-    }
-
-    /// <summary>
-    ///     ⚠ <b>And the other half of the same fact: a top border paints all four sides.</b> The draw
-    ///     list emits one stroke around the whole element box, so the edge the class names decides the
-    ///     thickness of every edge. Asserting the command's rectangle is the element's own box is what
-    ///     distinguishes "strokes the border box" from "strokes the top edge" — a thickness assertion
-    ///     alone would pass either way.
-    /// </summary>
-    [Fact]
-    public void A_top_border_paints_the_whole_box() {
-        using var ui = Sheet("border-t-2", "border-border", "w-8", "h-8");
-
-        var host = ui.Create("probe", ui.Document.Root, null, "border-t-2", "border-border", "w-8", "h-8");
-
-        ui.Frame();
-
-        var stroke = Assert.Single(
-            ui.Document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.Border
-        );
-
-        Assert.Equal(2f, stroke.Thickness);
-        Assert.Equal(host.AbsoluteLeft, stroke.X);
-        Assert.Equal(host.AbsoluteTop, stroke.Y);
-        Assert.Equal(host.Width, stroke.Width);
-        Assert.Equal(host.Height, stroke.Height);
-    }
-
-    /// <summary>
-    ///     ⚠ <b><c>truncate</c> does not truncate.</b> Tailwind's is three declarations —
-    ///     <c>overflow: hidden</c>, <c>text-overflow: ellipsis</c>, <c>white-space: nowrap</c> — and
-    ///     this emits the first. Nothing in <c>Vixen.Ui.Text</c> implements <c>text-overflow</c>, so
-    ///     the name promises an ellipsis the engine cannot draw, and the wrapping the other two would
-    ///     have suppressed still happens. Asserted as the two absences rather than as a picture,
-    ///     because the picture is the thing that does not exist yet.
-    /// </summary>
-    [Fact]
-    public void Truncate_emits_neither_text_overflow_nor_nowrap() {
-        using var ui = Sheet("truncate");
-
-        var element = ui.Create("probe", ui.Document.Root, null, "truncate");
-
-        ui.Frame();
-
-        Assert.Equal("hidden", ui.StyleOf(element, "overflow"));
-        Assert.Null(ui.StyleOf(element, "text-overflow"));
-        Assert.Null(ui.StyleOf(element, "white-space"));
-    }
-
-    /// <summary>The one clip an element's subtree contributes to the frame.</summary>
-    /// <remarks>
-    ///     ⚠ Sized, because <c>DrawListBuilder</c> gives up on a zero-area box before it ever looks at
-    ///     <c>overflow</c> — an unsized probe would emit no clip at all, and <c>Single</c> is what
-    ///     stops that reading as a pass. The probe is removed and the frame run again so the caller
-    ///     can measure a second utility against a list holding only that one's clip.
-    /// </remarks>
-    static DrawCommand Clip(UiTest ui, string utility) {
-        var element = ui.Create("probe", ui.Document.Root, null, utility, "w-8", "h-8");
-
-        ui.Frame();
-
-        var push = Assert.Single(
-            ui.Document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.ClipPush
-        );
-
-        element.Remove();
-        ui.Frame();
-
-        return push;
-    }
-
-    /// <summary>A document with just these utilities in it, generated against the editor's tokens.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Not <c>EditorTheme.Install</c>, and deliberately.</b> Only the utilities the editor's
-    ///     markup already uses are in the editor's sheet — that is the whole point of the scanner —
-    ///     so a table exercising the <i>family surface</i> has to generate its own. The tokens are
-    ///     still the editor's, which is what makes <c>bg-surface</c> here the same declaration the
-    ///     hand-written sheet writes.
-    /// </remarks>
-    static ThemeTokens Tokens() =>
-        ThemeTokens.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "__fixtures__", "vixen.ui.yaml")));
-
-    static UiTest Sheet(params string[] utilities) {
-        var ui = UiTest.Create();
-
-        // The token block only, so the `var(--…)` colours resolve without the hand-written rules
-        // being present to win against — those have their own tests in `StylesheetTests`.
-        ui.Document.Load(EditorTheme.Css, StyleOrigin.UserAgent);
-        ui.Document.Load(new UtilityGenerator(Tokens()).Generate(utilities), StyleOrigin.UserAgent);
-
-        return ui;
-    }
 }
