@@ -85,11 +85,18 @@ public sealed class HotReloadHost {
     ///         the document happens to have.</b> A reload replays every sheet — that is what makes a
     ///         deleted rule stop applying — so the diagnostics afterwards are the whole document's,
     ///         and one unsupported selector anywhere in any sheet would roll back every save of every
-    ///         other sheet for ever. Found in the editor, whose own chrome contains a
-    ///         <c>:empty</c> the selector compiler does not implement: the style channel was wired,
-    ///         the file was saved, the event arrived, and the reload silently undid itself every
-    ///         time. The baseline is what the document was already complaining about, and only what
-    ///         is new to it counts.
+    ///         other sheet for ever. Found in the editor, whose chrome at the time contained a
+    ///         <c>:empty</c> the selector compiler did not yet implement: the style channel was
+    ///         wired, the file was saved, the event arrived, and the reload silently undid itself
+    ///         every time. The baseline is what the document was already complaining about, and only
+    ///         what is new to it counts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That particular selector is supported now, and the rule is not one bit less
+    ///         necessary.</b> The bug was never about <c>:empty</c> — it was about reading the
+    ///         document's diagnostics as though they were this save's, and any selector the compiler
+    ///         does not implement reproduces it exactly. Naming the one that happened to catch us is
+    ///         history, not the reason.
     ///     </para>
     /// </remarks>
     public ReloadReport ReloadStyles(int sheet, string css) {
