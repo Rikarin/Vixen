@@ -83,6 +83,7 @@ const Vixen.Ui.Styling.Utilities.ThemeTokens.DefaultKey = "DEFAULT" -> string
 static Vixen.Ui.Styling.Utilities.CandidateScanner.Scan(string text, System.Collections.Generic.ISet<string> into) -> void
 static Vixen.Ui.Styling.Utilities.ThemeTokens.Parse(string yaml) -> Vixen.Ui.Styling.Utilities.ThemeTokens
 static Vixen.Ui.Styling.Utilities.UtilityFamilies.SplitName(string whole) -> (string Name, string Value)
+static Vixen.Ui.Styling.Utilities.UtilityFamilies.Surface(Vixen.Ui.Styling.Utilities.ThemeTokens tokens) -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Styling.Utilities.UtilityFamilies.TryResolve(Vixen.Ui.Styling.Utilities.UtilityCandidate candidate, Vixen.Ui.Styling.Utilities.ThemeTokens tokens, System.Collections.Generic.List<Vixen.Ui.Styling.Utilities.UtilityDeclaration> declarations) -> bool
 static Vixen.Ui.Styling.Utilities.UtilityGenerator.Escape(string name) -> string
 static Vixen.Ui.Styling.Utilities.UtilityParser.TryParse(string candidate, out Vixen.Ui.Styling.Utilities.UtilityCandidate parsed) -> bool

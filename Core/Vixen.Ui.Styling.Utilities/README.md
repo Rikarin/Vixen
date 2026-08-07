@@ -87,15 +87,22 @@ What the family set *is* chosen against is order of work. The border edges, the 
 sequencing argument — do the families whose properties already land — and it stops being a reason the
 moment the property lands too.
 
-⚠ **Eighteen of the ninety properties these families emit reach no consumer**, and knowing which is
-the point. `opacity`, `cursor`, `text-align`, `tracking`, `leading`, `z`, `font` and the per-axis
-`overflow` were all in this list until the engine learned them; still in it are the transforms
-(`--translate-x`, `--translate-y`, `--scale`, `--rotate`), `--blur`, `ring` (`outline-color`),
-`fill`, `stroke`, `user-select`, `vertical-align`, `order`, `grid-column`, `grid-template-columns`,
-and every per-edge border **colour** except `border-top-color`. A rule that resolves to a property no
-consumer looks at is not a bug in the generator — it is a utility waiting for an engine feature, and
-[doc 43](../../docs/plan/43-web-styling-parity.md) § C5 turns that list into a build gate so a
-waiting utility has to name what it is waiting for.
+⚠ **Some of the properties these families emit reach no consumer, and the list is no longer written
+here, because every hand-written copy of it has gone stale within the month.** It is measured, on every
+test run, by `Core/Vixen.Ui.Styling.Utilities.Tests/UtilityConsumptionGateTests`, and the current list
+with a task number against each line is
+[`InertProperties.txt`](../../Core/Vixen.Ui.Styling.Utilities.Tests/InertProperties.txt) beside it. A
+rule that resolves to a property no consumer looks at is not a bug in the generator — it is a utility
+waiting for an engine feature — and the gate is what makes a waiting utility name what it is waiting
+for, rather than waiting quietly.
+
+⚠ **"Interned" is not the test, and "it resolves" is even less of one.** The gate establishes
+consumption by *changing the property and running frames*: a scene is built twice, once with one extra
+declaration, and the layout, the draw list, the cursor and the hit test are compared either side. A
+property that moves none of them at any value a utility can give it, in any of six arrangements, is not
+read by anything — however many `Intern("…")` calls name it. That distinction is not academic:
+[doc 43](../../docs/plan/43-web-styling-parity.md) measured it at seven properties, and the gate's first
+run found three more that this file and the plan document had both called supported.
 
 ⚠ **One case is worse than inert and is not on that list.** The per-edge border *widths* are read by
 the layout and ignored by the draw list, which takes one thickness from `Edge.Top` and one colour from
