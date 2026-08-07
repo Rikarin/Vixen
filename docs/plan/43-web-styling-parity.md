@@ -660,6 +660,14 @@ piecewise transfer function, whose linear segment handles negatives without prod
 `pow()` approximation there would not, which is how "carry it unclamped" would otherwise turn into a
 black element three layers downstream. `ColorFunctionTests` pins both halves of that.
 
+⚠ **One place already clamps, and whoever does this should know where.** `StyleValue.ToCss` writes a
+colour back as `rgba()` with the channels clamped *and* quantised to eight bits — it is how the
+animator hands an interpolated value back to a cascade that works in interned strings. So a colour
+that is out of gamut survives being parsed, resolved and drawn, and does **not** survive being
+animated: one round trip through the animator flattens it to the sRGB byte grid. That is a
+pre-existing property of the text round trip rather than anything the colour functions introduced,
+and it is the one seam where the gamut work will need more than a mapping pass at the end.
+
 ### D5. What v4 removed, renamed, and added
 
 A parity inventory written from v3 memory would be wrong in both directions, so the table was built
