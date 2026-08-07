@@ -129,11 +129,14 @@ public class UtilityFamilySupportTests {
     /// <summary>Utility, property — the families that compute a value nothing in the engine reads.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not a bug list.</b> The utilities README's phrasing is the right one: a rule that
-    ///         resolves to a property no consumer looks at is a utility waiting for an engine feature.
-    ///         What makes it worth writing down is that nothing anywhere else says so — the class name
-    ///         is spelled correctly, the generator emits it, the cascade computes it, and the picture
-    ///         does not change.
+    ///         ⚠ <b>A bug list with a deadline, which is not the same as no bug list.</b> A rule that
+    ///         resolves to a property no consumer looks at is a utility waiting for an engine feature —
+    ///         and <a href="../../../docs/plan/43-web-styling-parity.md">doc 43</a> is why that is a
+    ///         task rather than a state of affairs: Tailwind's index is the specification, so every row
+    ///         below owes a task number and expires when the property lands. What makes it worth
+    ///         writing down is that nothing anywhere else says so — the class name is spelled
+    ///         correctly, the generator emits it, the cascade computes it, and the picture does not
+    ///         change.
     ///     </para>
     ///     <para>
     ///         <b>History: <c>overflow-x-*</c> and <c>overflow-y-*</c> used to be the dangerous two</b>,
@@ -272,6 +275,78 @@ public class UtilityFamilySupportTests {
         Assert.Equal("block", ui.StyleOf(host, "display"));
         Assert.Equal(first.AbsoluteTop, second.AbsoluteTop);
         Assert.True(second.AbsoluteLeft > first.AbsoluteLeft, "a block would have stacked them");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A per-edge border width is read by the layout and ignored by the draw list, and that
+    ///     is worse than either half being missing.</b> <c>LayoutStyleBuilder</c> interns all seven
+    ///     border-width names and the flexbox honours each edge, so <c>border-l-2</c> really does
+    ///     inset the content box by two pixels. <c>DrawListBuilder</c> then takes <i>one</i> thickness
+    ///     — <c>GetComputedBorder(node, Edge.Top)</c> — so a left border alone paints nothing at all.
+    ///     The geometry moves and the picture does not follow, which is the hardest kind of gap to
+    ///     find: neither table in this file would hold it, because the property is neither unread nor
+    ///     read.
+    /// </summary>
+    [Fact]
+    public void A_left_border_insets_the_layout_and_paints_nothing() {
+        using var ui = Sheet("border-l-2", "border-border", "w-8", "h-8");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "border-l-2", "border-border", "w-8", "h-8");
+        var child = ui.Create("probe", host, null, "w-8", "h-8");
+
+        ui.Frame();
+
+        Assert.Equal("2px", ui.StyleOf(host, "border-left-width"));
+        Assert.Equal(host.AbsoluteLeft + 2f, child.AbsoluteLeft);
+        Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.Border);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the other half of the same fact: a top border paints all four sides.</b> The draw
+    ///     list emits one stroke around the whole element box, so the edge the class names decides the
+    ///     thickness of every edge. Asserting the command's rectangle is the element's own box is what
+    ///     distinguishes "strokes the border box" from "strokes the top edge" — a thickness assertion
+    ///     alone would pass either way.
+    /// </summary>
+    [Fact]
+    public void A_top_border_paints_the_whole_box() {
+        using var ui = Sheet("border-t-2", "border-border", "w-8", "h-8");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "border-t-2", "border-border", "w-8", "h-8");
+
+        ui.Frame();
+
+        var stroke = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Border
+        );
+
+        Assert.Equal(2f, stroke.Thickness);
+        Assert.Equal(host.AbsoluteLeft, stroke.X);
+        Assert.Equal(host.AbsoluteTop, stroke.Y);
+        Assert.Equal(host.Width, stroke.Width);
+        Assert.Equal(host.Height, stroke.Height);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>truncate</c> does not truncate.</b> Tailwind's is three declarations —
+    ///     <c>overflow: hidden</c>, <c>text-overflow: ellipsis</c>, <c>white-space: nowrap</c> — and
+    ///     this emits the first. Nothing in <c>Vixen.Ui.Text</c> implements <c>text-overflow</c>, so
+    ///     the name promises an ellipsis the engine cannot draw, and the wrapping the other two would
+    ///     have suppressed still happens. Asserted as the two absences rather than as a picture,
+    ///     because the picture is the thing that does not exist yet.
+    /// </summary>
+    [Fact]
+    public void Truncate_emits_neither_text_overflow_nor_nowrap() {
+        using var ui = Sheet("truncate");
+
+        var element = ui.Create("probe", ui.Document.Root, null, "truncate");
+
+        ui.Frame();
+
+        Assert.Equal("hidden", ui.StyleOf(element, "overflow"));
+        Assert.Null(ui.StyleOf(element, "text-overflow"));
+        Assert.Null(ui.StyleOf(element, "white-space"));
     }
 
     /// <summary>The one clip an element's subtree contributes to the frame.</summary>

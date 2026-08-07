@@ -144,6 +144,12 @@ var settings = new RemeshSettings {
 };
 ```
 
+⚠ **`KeepGroups` only reads a group boundary somebody assigned.** It is checked against
+`EditMesh.GroupSource`, so a shape out of `MeshShapes`, a boolean of two of them and a mesh whose
+material a reader carried across all keep their crease — and a mesh welded straight out of
+`EditMesh.FromTriangles`, whose groups are the coplanarity guess, does not. On a faceted surface that
+guess is close to one group per triangle, which would make every edge of the mesh a hard feature.
+
 Guides are an asset rather than a paint session, so one authored against an earlier version of a model
 still applies:
 

@@ -442,7 +442,13 @@ sealed class SeamGraph {
         var concavity = Math.Clamp(lean, 0d, 1d);
         var feature = Math.Clamp(angle / featureAngle, 0d, 1d);
         var visibility = 1d - (0.5d * (exposure[left] + exposure[right]));
-        var material = mesh.Faces[left].Group != mesh.Faces[right].Group ? 1d : 0d;
+        // ⚠ § D4's material term reads an assignment and never the coplanarity guess. Where the groups
+        // came from `Regroup` almost every edge scores one, which does not steer the search anywhere —
+        // it just quietly removes a term from a seven-term cost.
+        var material = mesh.GroupSource is MeshGroupSource.Assigned
+            && mesh.Faces[left].Group != mesh.Faces[right].Group
+                ? 1d
+                : 0d;
         var symmetry = OnMirror(mesh, mirrors, bounds, diagonal, ends.A) && OnMirror(mesh, mirrors, bounds, diagonal, ends.B)
             ? 1d
             : 0d;
