@@ -137,12 +137,19 @@ public interface ISwapChain : IDisposable {
 ///     the only one every driver must support.
 /// </param>
 /// <param name="ImageCount">How many images to ask for.</param>
+/// <param name="Gamut">
+///     The display gamut to ask for. A preference like <see cref="Format" />: a backend that cannot
+///     pair the wider space with enough precision to be worth having falls back to
+///     <see cref="ColorGamut.Srgb" />, so read <see cref="ISwapChain.Format" /> and the backend's
+///     reported gamut back rather than assuming the request was met.
+/// </param>
 public readonly record struct SwapChainDescription(
     SurfaceHandle Surface,
     Int2 Size,
     PixelFormat Format = PixelFormat.Bgra8UNormSrgb,
     PresentMode PresentMode = PresentMode.Fifo,
-    int ImageCount = 3
+    int ImageCount = 3,
+    ColorGamut Gamut = ColorGamut.Srgb
 );
 
 /// <summary>A logical device: what creates resources, records work and submits it.</summary>

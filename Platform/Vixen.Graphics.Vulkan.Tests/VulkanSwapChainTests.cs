@@ -57,6 +57,179 @@ public sealed class VulkanSwapChainTests {
         Assert.Equal(ColorSpaceKHR.SpaceSrgbNonlinearKhr, chosen.ColorSpace);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Eight bits across a wider gamut is a worse picture, not a better one.</b> The same
+    ///     256 steps stretched over P3 are coarser per step than over sRGB, so a gradient that was
+    ///     clean bands. A surface that offers a wide space only at eight bits is offering nothing
+    ///     worth taking, and the sRGB path wins.
+    /// </summary>
+    [Fact]
+    public void AWideColorSpaceIsRefusedAtEightBits() {
+        SurfaceFormatKHR[] available = [
+            new() { Format = VkFormat.B8G8R8A8Unorm, ColorSpace = ColorSpaceKHR.SpaceDisplayP3NonlinearExt },
+            new() { Format = VkFormat.B8G8R8A8Srgb, ColorSpace = ColorSpaceKHR.SpaceDisplayP3NonlinearExt },
+            new() { Format = VkFormat.B8G8R8A8Srgb, ColorSpace = ColorSpaceKHR.SpaceSrgbNonlinearKhr }
+        ];
+
+        var chosen = VulkanSwapChain.ChooseFormat(available, PixelFormat.Bgra8UNormSrgb, ColorGamut.DisplayP3);
+
+        Assert.Equal(ColorSpaceKHR.SpaceSrgbNonlinearKhr, chosen.ColorSpace);
+        Assert.Equal(ColorGamut.Srgb, VulkanSwapChain.GamutOf(chosen.ColorSpace));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A linear colour space with a unorm format is worse than banding.</b> Extended sRGB
+    ///     carries the extra gamut as values below zero and above one; a unorm cannot store either,
+    ///     so the pairing would clamp away precisely what it was chosen for. MoltenVK really does
+    ///     offer this combination, so refusing it has to be deliberate.
+    /// </summary>
+    [Fact]
+    public void ExtendedSrgbIsRefusedWithoutFloatStorage() {
+        SurfaceFormatKHR[] available = [
+            new() { Format = VkFormat.B8G8R8A8Unorm, ColorSpace = ColorSpaceKHR.SpaceExtendedSrgbLinearExt },
+            new() {
+                Format = VkFormat.A2B10G10R10UnormPack32, ColorSpace = ColorSpaceKHR.SpaceExtendedSrgbLinearExt
+            },
+            new() { Format = VkFormat.B8G8R8A8Srgb, ColorSpace = ColorSpaceKHR.SpaceSrgbNonlinearKhr }
+        ];
+
+        var chosen = VulkanSwapChain.ChooseFormat(available, PixelFormat.Bgra8UNormSrgb, ColorGamut.DisplayP3);
+
+        Assert.Equal(ColorSpaceKHR.SpaceSrgbNonlinearKhr, chosen.ColorSpace);
+    }
+
+    /// <summary>
+    ///     Extended sRGB in half-float is the pairing that needs no conversion anywhere: the engine's
+    ///     own primaries, its own linear encoding, and room for the out-of-gamut values it already
+    ///     carries unclamped.
+    /// </summary>
+    [Fact]
+    public void ExtendedSrgbInHalfFloatIsPreferredToDisplayP3() {
+        SurfaceFormatKHR[] available = [
+            new() { Format = VkFormat.A2B10G10R10UnormPack32, ColorSpace = ColorSpaceKHR.SpaceDisplayP3NonlinearExt },
+            new() { Format = VkFormat.R16G16B16A16Sfloat, ColorSpace = ColorSpaceKHR.SpaceExtendedSrgbLinearExt },
+            new() { Format = VkFormat.B8G8R8A8Srgb, ColorSpace = ColorSpaceKHR.SpaceSrgbNonlinearKhr }
+        ];
+
+        var chosen = VulkanSwapChain.ChooseFormat(available, PixelFormat.Bgra8UNormSrgb, ColorGamut.DisplayP3);
+
+        Assert.Equal(ColorSpaceKHR.SpaceExtendedSrgbLinearExt, chosen.ColorSpace);
+        Assert.Equal(VkFormat.R16G16B16A16Sfloat, chosen.Format);
+    }
+
+    /// <summary>Ten bits is enough for P3's own primaries, where the encoding is not linear.</summary>
+    [Fact]
+    public void DisplayP3IsTakenAtTenBits() {
+        SurfaceFormatKHR[] available = [
+            new() { Format = VkFormat.B8G8R8A8Unorm, ColorSpace = ColorSpaceKHR.SpaceDisplayP3NonlinearExt },
+            new() { Format = VkFormat.A2B10G10R10UnormPack32, ColorSpace = ColorSpaceKHR.SpaceDisplayP3NonlinearExt },
+            new() { Format = VkFormat.B8G8R8A8Srgb, ColorSpace = ColorSpaceKHR.SpaceSrgbNonlinearKhr }
+        ];
+
+        var chosen = VulkanSwapChain.ChooseFormat(available, PixelFormat.Bgra8UNormSrgb, ColorGamut.DisplayP3);
+
+        Assert.Equal(ColorSpaceKHR.SpaceDisplayP3NonlinearExt, chosen.ColorSpace);
+        Assert.Equal(VkFormat.A2B10G10R10UnormPack32, chosen.Format);
+        Assert.Equal(ColorGamut.DisplayP3, VulkanSwapChain.GamutOf(chosen.ColorSpace));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The case that decides whether this feature is honest.</b> A surface with nothing but
+    ///     sRGB — an older driver, a Linux compositor without the extension, or any instance created
+    ///     without <c>VK_EXT_swapchain_colorspace</c> — must come out exactly where it came out
+    ///     before the wide-gamut path existed, and must say so rather than claim a gamut it did not
+    ///     get.
+    /// </summary>
+    [Fact]
+    public void ASurfaceWithNoWideSpaceFallsBackUnchanged() {
+        SurfaceFormatKHR[] available = [
+            new() { Format = VkFormat.B8G8R8A8Unorm, ColorSpace = ColorSpaceKHR.SpaceSrgbNonlinearKhr },
+            new() { Format = VkFormat.B8G8R8A8Srgb, ColorSpace = ColorSpaceKHR.SpaceSrgbNonlinearKhr }
+        ];
+
+        var wide = VulkanSwapChain.ChooseFormat(available, PixelFormat.Bgra8UNormSrgb, ColorGamut.Rec2020);
+        var plain = VulkanSwapChain.ChooseFormat(available, PixelFormat.Bgra8UNormSrgb);
+
+        Assert.Equal(plain, wide);
+        Assert.Equal(ColorGamut.Srgb, VulkanSwapChain.GamutOf(wide.ColorSpace));
+    }
+
+    /// <summary>A caller that did not ask for a wide gamut does not get one, however much is on offer.</summary>
+    [Fact]
+    public void NotAskingForAWideGamutChangesNothing() {
+        var chosen = VulkanSwapChain.ChooseFormat(MoltenVkFormats(), PixelFormat.Bgra8UNormSrgb, ColorGamut.Srgb);
+
+        Assert.Equal(ColorSpaceKHR.SpaceSrgbNonlinearKhr, chosen.ColorSpace);
+        Assert.Equal(VkFormat.B8G8R8A8Srgb, chosen.Format);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>What this machine actually reports</b>, taken from <c>vulkaninfo</c> on an M1 Max
+    ///     under MoltenVK with <c>VK_EXT_swapchain_colorspace</c> enabled: five formats offered
+    ///     against every one of twelve colour spaces, with no filtering whatsoever — including the
+    ///     eight-bit unorm paired with a linear space that needs to store negatives. The driver's
+    ///     enumeration is not a recommendation, which is the whole reason the pairing rule lives
+    ///     here.
+    /// </summary>
+    static SurfaceFormatKHR[] MoltenVkFormats() {
+        VkFormat[] formats = [
+            VkFormat.B8G8R8A8Unorm,
+            VkFormat.B8G8R8A8Srgb,
+            VkFormat.R16G16B16A16Sfloat,
+            VkFormat.A2B10G10R10UnormPack32,
+            VkFormat.A2R10G10B10UnormPack32
+        ];
+
+        ColorSpaceKHR[] spaces = [
+            ColorSpaceKHR.SpaceSrgbNonlinearKhr,
+            ColorSpaceKHR.SpaceDisplayP3NonlinearExt,
+            ColorSpaceKHR.SpaceDciP3NonlinearExt,
+            ColorSpaceKHR.SpaceBT709NonlinearExt,
+            ColorSpaceKHR.SpaceAdobergbNonlinearExt,
+            ColorSpaceKHR.SpacePassThroughExt,
+            ColorSpaceKHR.SpaceExtendedSrgbLinearExt,
+            ColorSpaceKHR.SpaceExtendedSrgbNonlinearExt,
+            ColorSpaceKHR.SpaceBT2020LinearExt,
+            ColorSpaceKHR.SpaceDisplayP3LinearExt,
+            ColorSpaceKHR.SpaceHdr10ST2084Ext,
+            ColorSpaceKHR.SpaceHdr10HlgExt
+        ];
+
+        return [.. from space in spaces from format in formats select new SurfaceFormatKHR {
+            Format = format, ColorSpace = space
+        }];
+    }
+
+    /// <summary>
+    ///     Against that real enumeration, a P3 request lands on extended sRGB in half-float — the one
+    ///     pairing that carries the engine's linear values through untouched.
+    /// </summary>
+    [Fact]
+    public void AgainstThisMachinesRealEnumerationTheChoiceIsHalfFloatExtendedSrgb() {
+        var chosen = VulkanSwapChain.ChooseFormat(
+            MoltenVkFormats(),
+            PixelFormat.Bgra8UNormSrgb,
+            ColorGamut.DisplayP3
+        );
+
+        Assert.Equal(ColorSpaceKHR.SpaceExtendedSrgbLinearExt, chosen.ColorSpace);
+        Assert.Equal(VkFormat.R16G16B16A16Sfloat, chosen.Format);
+
+        // And the renderer is told it may send anything, because extended sRGB is unbounded.
+        Assert.Equal(ColorGamut.Rec2020, VulkanSwapChain.GamutOf(chosen.ColorSpace));
+    }
+
+    /// <summary>
+    ///     HDR's colour spaces carry a PQ or HLG transfer function rather than a gamut widening, so
+    ///     they are not something a request for a wider gamut may silently be answered with.
+    /// </summary>
+    [Theory]
+    [InlineData(ColorSpaceKHR.SpaceHdr10ST2084Ext)]
+    [InlineData(ColorSpaceKHR.SpaceHdr10HlgExt)]
+    [InlineData(ColorSpaceKHR.SpacePassThroughExt)]
+    public void AnHdrOrPassThroughSpaceIsNotAGamut(ColorSpaceKHR space) =>
+        Assert.Equal(ColorGamut.Srgb, VulkanSwapChain.GamutOf(space));
+
     [Fact]
     public void TheRequestedPresentModeIsChosenWhereItExists() {
         PresentModeKHR[] available = [PresentModeKHR.FifoKhr, PresentModeKHR.MailboxKhr];

@@ -58,6 +58,16 @@ public sealed unsafe class VulkanInstance : IDisposable {
     const string ValidationLayer = "VK_LAYER_KHRONOS_validation";
     const string PortabilityEnumeration = "VK_KHR_portability_enumeration";
 
+    /// <summary>The extension that lets a surface report anything but sRGB.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Without this the wide-gamut question never even gets asked.</b> A surface queried on
+    ///     an instance created without it reports exactly one colour space —
+    ///     <c>SRGB_NONLINEAR</c> — however capable the display is, so the swapchain's careful choice
+    ///     between P3 and extended sRGB would silently have nothing to choose between. It adds no
+    ///     entry points and costs nothing at runtime; all it does is widen an enumeration.
+    /// </remarks>
+    const string SwapchainColorSpace = "VK_EXT_swapchain_colorspace";
+
     /// <summary>
     ///     The validation callback, as an address rather than a delegate.
     /// </summary>
@@ -201,6 +211,14 @@ public sealed unsafe class VulkanInstance : IDisposable {
 
         if (portability) {
             extensions.Add(PortabilityEnumeration);
+        }
+
+        // Enabled wherever it exists rather than on request: it only widens what
+        // `vkGetPhysicalDeviceSurfaceFormatsKHR` reports, and the swapchain still has to choose to
+        // use any of it. Asking for it later is not possible — instance extensions are fixed at
+        // creation, and the surface query is made against this instance.
+        if (available.Contains(SwapchainColorSpace)) {
+            extensions.Add(SwapchainColorSpace);
         }
 
         bool validation = options.EnableValidation
