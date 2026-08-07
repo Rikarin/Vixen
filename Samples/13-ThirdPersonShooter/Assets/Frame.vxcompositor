@@ -1120,7 +1120,7 @@ game: !Sequence
       output: SceneColour
       useVignette: true
       useChromaticAberration: true
-      useGrain: true
+      useGrain: false
       luminanceWeightedGrain: true
       vignetteIntensity: 0.28
       vignetteSmoothness: 0.55
