@@ -316,11 +316,141 @@ static class UtilityConsumptionProbe {
     /// <param name="Emitted">Every property any utility can put on an element.</param>
     /// <param name="Consumers">The ones something acts on, and which observables moved.</param>
     /// <param name="Inert">The ones nothing acts on, and the utilities that emit them.</param>
+    /// <param name="Composed">
+    ///     The <c>--tw-*</c> fragments, and the properties each one is assembled into.
+    ///     <para>
+    ///         ⚠ <b>A third category, because the differential cannot judge a fragment and would be
+    ///         wrong rather than uninformative if it tried.</b> <c>--tw-gradient-from</c> set on an
+    ///         element by itself moves nothing, in every scene, at every value — not because the
+    ///         engine ignores it but because it is not a declaration. It is half of one, and the other
+    ///         half is on a different class. Calling that "inert" and demanding a line in
+    ///         <c>InertProperties.txt</c> would put seven permanent entries in a file whose whole
+    ///         design is that entries expire, and they would never expire: the day <c>#43</c> teaches
+    ///         the draw list to paint a gradient, <c>background-image</c> starts moving <c>paint</c>
+    ///         and the fragments still move nothing on their own.
+    ///     </para>
+    ///     <para>
+    ///         <b>So a fragment's verdict is its assembler's, and the debt is recorded once on the
+    ///         property that is actually owed.</b> <c>background-image</c> is judged the same way
+    ///         everything else is and carries the one allow-list line; the seven fragments are
+    ///         explained by it and carry none. That is strictly stronger than seven lines, because the
+    ///         expiry still works — the run that makes <c>background-image</c> a consumer is the run
+    ///         that fails on its exemption.
+    ///     </para>
+    /// </param>
     public sealed record Ledger(
         IReadOnlySet<string> Emitted,
         IReadOnlyDictionary<string, IReadOnlyList<string>> Consumers,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> Inert
+        IReadOnlyDictionary<string, IReadOnlyList<string>> Inert,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> Composed
     );
+
+    /// <summary>Which properties each fragment is assembled into, following <c>var()</c> through.</summary>
+    /// <returns>Fragment to the non-fragment properties it reaches. Absent means nothing assembles it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one measurement here taken from the registry rather than from a frame, and the
+    ///         only one that could be.</b> Everything else in this file asks what the engine did;
+    ///         this asks what one declaration <i>says</i>, which is a question about text and has no
+    ///         frame-shaped answer. It cannot be taken from <see cref="Emissions" /> either, for a
+    ///         reason worth stating: those values are post-cascade, and the cascade has already
+    ///         substituted every <c>var()</c> away — a probe element carrying only
+    ///         <c>bg-linear-to-r</c> resolves its gradient entirely out of the fallbacks, so the
+    ///         references this needs to see are gone by the time that method can report them.
+    ///     </para>
+    ///     <para>
+    ///         <b>Transitive, because the references really do chain.</b> <c>via-*</c> puts the
+    ///         three-stop list in <c>--tw-gradient-stops</c>, and only that list mentions
+    ///         <c>--tw-gradient-via</c>; it is <c>background-image</c> that mentions the stop list. A
+    ///         one-step reading would leave the two <c>via</c> fragments looking unassembled and
+    ///         demand allow-list lines for them, which is the wrong answer arrived at honestly.
+    ///     </para>
+    ///     <para>
+    ///         This is also the guard against the mechanism being used as a hiding place: a fragment
+    ///         nothing references reaches no property, gets no explanation, and falls through to
+    ///         <c>Inert</c> like anything else. <c>--rotate</c>, <c>--scale</c>, <c>--translate-x</c>,
+    ///         <c>--translate-y</c> and <c>--blur</c> are not registered fragments at all and are
+    ///         judged exactly as they were before — which is why their lines are still in the file.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> Assemblies() {
+        var tokens = ThemeTokens.Parse(ProbeTheme);
+        var declarations = new List<UtilityDeclaration>();
+        var edges = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+
+        foreach (var utility in UtilityFamilies.Surface(tokens)) {
+            if (!UtilityParser.TryParse(utility, out var parsed)
+                || !UtilityFamilies.TryResolve(parsed, tokens, declarations)) {
+                continue;
+            }
+
+            foreach (var declaration in declarations) {
+                foreach (var fragment in UtilityComposition.Fragments) {
+                    if (!declaration.Value.Contains($"var({fragment}", StringComparison.Ordinal)) {
+                        continue;
+                    }
+
+                    if (!edges.TryGetValue(fragment, out var into)) {
+                        edges[fragment] = into = new SortedSet<string>(StringComparer.Ordinal);
+                    }
+
+                    into.Add(declaration.Property);
+                }
+            }
+        }
+
+        // The initial values are references too, and they are the reason `from-accent bg-linear-to-r`
+        // works with no `--tw-gradient-stops` ever emitted. Reading them here keeps the graph honest
+        // about what a fragment reaches when nobody wrote the intermediate class.
+        foreach (var fragment in UtilityComposition.Fragments) {
+            var initial = UtilityComposition.InitialValueOf(fragment);
+
+            foreach (var referenced in UtilityComposition.Fragments) {
+                if (!initial.Contains($"var({referenced}", StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                if (!edges.TryGetValue(referenced, out var into)) {
+                    edges[referenced] = into = new SortedSet<string>(StringComparer.Ordinal);
+                }
+
+                into.Add(fragment);
+            }
+        }
+
+        var assembled = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+
+        foreach (var fragment in UtilityComposition.Fragments) {
+            var reached = new SortedSet<string>(StringComparer.Ordinal);
+            var pending = new Queue<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal) { fragment };
+            pending.Enqueue(fragment);
+
+            while (pending.Count > 0) {
+                if (!edges.TryGetValue(pending.Dequeue(), out var into)) {
+                    continue;
+                }
+
+                foreach (var property in into) {
+                    if (!seen.Add(property)) {
+                        continue;
+                    }
+
+                    if (UtilityComposition.IsFragment(property)) {
+                        pending.Enqueue(property);
+                    } else {
+                        reached.Add(property);
+                    }
+                }
+            }
+
+            if (reached.Count > 0) {
+                assembled[fragment] = [.. reached];
+            }
+        }
+
+        return assembled;
+    }
 
     static Ledger? ledger;
 
@@ -355,8 +485,19 @@ static class UtilityConsumptionProbe {
 
         var consumers = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         var inert = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        var composed = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        var assemblies = Assemblies();
 
         foreach (var (property, values) in byProperty) {
+            // A fragment that something assembles is not judged on its own. It cannot be: it is half
+            // a declaration, and setting half a declaration moves nothing by construction. One that
+            // nothing assembles falls through and is judged like anything else, which is what stops
+            // this from being a way to launder an unread property into silence.
+            if (assemblies.TryGetValue(property, out var into)) {
+                composed[property] = into;
+                continue;
+            }
+
             var channels = new List<string>();
 
             foreach (var value in values) {
@@ -383,7 +524,8 @@ static class UtilityConsumptionProbe {
         var taken = new Ledger(
             byProperty.Keys.ToHashSet(StringComparer.Ordinal),
             consumers,
-            inert
+            inert,
+            composed
         );
 
         lock (Gate) {

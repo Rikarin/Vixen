@@ -18,6 +18,7 @@ every component is in the same repository as every token.
 | `ThemeTokens` | `vixen.ui.yaml` → colours, spacing, radii, font sizes and weights, shadows, breakpoints. |
 | `UtilityParser` | `[-]?[variant:]*utility[-value][/opacity][!]`, bracket-aware throughout. |
 | `UtilityFamilies` | What each family emits. Table-driven. |
+| `UtilityComposition` | The `--tw-*` fragments, and what each is worth unset. `from-*`/`via-*`/`to-*` + `bg-linear-*` is the worked case; the guide is [ui/utility-composition](../../docs/guide/ui/utility-composition.md). |
 | `Variants` | `hover:`, `md:`, `dark:`, `ltr:`/`rtl:`, `group-*`, `peer-*`, `data-*`, `aria-*`, `[&>*]`. |
 | `UtilityGenerator` | The stylesheet, into `@layer utilities`. |
 | `CandidateScanner` | Deliberately over-inclusive extraction from source text. |
@@ -207,6 +208,18 @@ inherits.
 Two media-query variants on one utility (`sm:md:p-4`) are dropped rather than nested, because Vixen's
 `@media` support does not nest. `@apply` refuses variants, because a variant would have to invent a
 rule with a different selector from the block it sits in, which is not what "apply this here" means.
+
+**Composition is faithful, not folded.** A composed utility really does emit a custom property, and
+the cascade resolves the `var()` references at use time — it is not the generator assembling them as
+it writes. That costs a `var()` substitution per element and it is the only design that can be right:
+`from-accent hover:from-accent-hover` is two selectors, and which one supplies the colour is a
+question about where the pointer is. The full argument, and the reason an unset fragment degrades
+instead of erasing the declaration, is on `UtilityComposition`.
+
+⚠ **`bg-linear-<angle>` and the radial and conic forms are not registered.** Only the eight named
+directions are, because the keyword table is what `bg-linear` resolves against and an angle is not a
+keyword — `bg-linear-45` is reported unknown rather than emitted wrong. The fragments are already
+shared, so adding them is a value kind and three keywords.
 
 ⚠ **Arbitrary *values* work and arbitrary *properties* do not.** `w-[37px]` is the escape hatch this
 system is proud of; `[mask-type:luminance]` — Tailwind's other one — parses to an arbitrary value with
