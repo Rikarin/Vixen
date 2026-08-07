@@ -1,0 +1,61 @@
+# The expiring allow-list for UtilityConsumptionGateTests.
+#
+# One line per CSS property that a utility family emits and that nothing in the engine acts on yet:
+#
+#     <css-property>  #<task>  <why, and what closing it looks like>
+#
+# The task number must be one docs/plan/43-web-styling-parity.md names, or the build fails. A line
+# whose property the engine has since learned to read also fails the build — that is the expiry, and
+# it is why this is not docs/DocsExempt.txt. So does a line for a property no family emits any more.
+# See InertAllowList.cs for the rest of the argument.
+#
+# Do not add a line here to make a build pass. Adding one is a statement that the engine owes this
+# property, and the number is where the debt is recorded. Every line below is a class somebody can
+# write today that resolves, computes a value, and changes nothing at all.
+
+# ── Transforms — A7. The four custom properties the transform families park a value in, waiting for
+# a transform stage that decomposes and animates one. Nothing reads a `--`-prefixed name at all.
+--rotate                     #23  translate/scale/rotate need a real `transform`, decomposed
+--scale                      #23  ditto
+--translate-x                #23  ditto
+--translate-y                #23  ditto
+
+# ── Filters — A8. Same shape one family over: `blur-2` writes a number into a name nothing reads.
+--blur                       #28  `filter`/`backdrop-filter` in the UI renderer, blur first
+
+# ── Borders — A1. The physical four are painted now; the two logical edges are not, so `border-s-*`
+# and `border-e-*` still colour nothing. The widths *are* read, which is why only the colours are here
+# and why this is the shape of partial support the gate can express: one longhand of a family passes
+# and its neighbour does not.
+border-inline-end-color      #21  per-edge colours reached the draw list; the logical pair did not
+border-inline-start-color    #21  ditto
+
+# ── Backgrounds — A11. Closed. `background-image` is parsed into `BoxStyle` and painted, so its line
+# is gone and the seven `--tw-gradient-*` fragments are accounted for through it.
+#
+# ⚠ What is *not* closed is `via-*`, stop positions, and `bg-radial`/`bg-conic` — and none of that can
+# be written here, because this file is keyed by property and all of it lives inside `background-image`.
+# A line kept for them would fail the expiry check the moment the property became read, which it now is.
+# Partial support inside one property is the one shape this gate cannot express; the remainder is
+# tracked as A11 in docs/plan/43-web-styling-parity.md and refused loudly at runtime rather than
+# approximated — see `GradientRefusal`.
+
+# ── Paint the renderer has no channel for — A6.
+fill                         #24  `fill`/`stroke` on the OnDraw paths, with `DrawContext`
+stroke                       #24  ditto
+outline-color                #24  `ring-*` is v3's reading; under v4 it should emit a box-shadow (D5)
+user-select                  #24  no selection model reads it, so `select-none` is a promise
+
+# ── Grid — B2. Not broken, absent: there is no grid algorithm, so the two properties the families
+# emit are values in a table nobody opens.
+grid-column                  #27  CSS Grid, a subsystem of its own
+grid-template-columns        #27  ditto
+
+# ── Inline formatting — B3. `vertical-align` needs line boxes to align to.
+vertical-align               #26  inline formatting: line boxes, baselines, atomic inlines
+
+# ── Transitions — A20, and this group is the one the survey got wrong. The Animator is finished and
+# tested and nothing ever constructs one, so a declared transition has never run. See F10.
+transition-duration          #46  nothing builds an Animator; the cascade jumps straight to the value
+transition-property          #46  ditto
+transition-timing-function   #46  ditto

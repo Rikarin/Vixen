@@ -149,6 +149,32 @@ public class TaskCenterTests : IDisposable {
         Assert.True(second.IsCancellationRequested);
     }
 
+    /// <summary>
+    ///     ⚠ <b>And it stops following the manager once its host has left the document.</b> This
+    ///     panel writes its <c>@for</c> at the top level, so its loop was always inside the region
+    ///     the host owns — what was missing is that nothing ended a component built onto a mount at
+    ///     all. Removing the host is now the unmount, so a popover that is thrown away takes its
+    ///     subscriptions with it instead of watching the task manager for the life of the editor.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Asserted on the scheduler: writing the model queues every effect that read it, and
+    ///     assigning to a removed element does not complain, so the elements cannot say.
+    /// </remarks>
+    [Fact]
+    public void A_panel_that_leaves_the_document_stops_following_the_manager() {
+        var task = tasks.Begin("Importing");
+        Flush();
+
+        Assert.NotEmpty(Rows());
+        centre.Root.Remove();
+        Flush();
+
+        task.Report(0.5f);
+        tasks.Begin("Building");
+
+        Assert.Equal(0, document.Effects.PendingCount);
+    }
+
     void Flush() => document.Effects.Flush();
 
     IReadOnlyList<UiElement> Rows() => [.. centre.Root.Children.Where(child => child.Tag == "task-row")];

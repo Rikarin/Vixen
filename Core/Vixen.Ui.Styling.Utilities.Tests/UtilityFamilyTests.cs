@@ -245,7 +245,69 @@ public class UtilityFamilyTests {
 
         Assert.Equal(["width: 50%"], fixture.Emits("w-1/2"));
         Assert.Equal(["width: 66.6667%"], fixture.Emits("w-2/3"));
-        Assert.Equal(["background-color: rgba(79, 124, 255, 0.5)"], fixture.Emits("bg-accent/50"));
+
+        Assert.Equal(
+            ["background-color: color-mix(in oklab, #4f7cff 50%, transparent)"],
+            fixture.Emits("bg-accent/50")
+        );
+    }
+
+    [Fact]
+    public void An_opacity_modifier_survives_a_token_that_is_not_a_hex_triple() {
+        // ⚠ **This is the bug the `color-mix()` rewrite fixes, and it was silent.** The old emission
+        // rewrote the colour as `rgba(r, g, b, a)`, which meant taking it apart — so it worked only
+        // when the token was a literal hex triple, and *dropped the opacity entirely* otherwise. Not
+        // an edge case: the moment a theme token holds a reference or is authored in `oklch()`, as
+        // `docs/plan/43` § D2 and § D4 both call for, every `/opacity` on it silently painted at
+        // full strength. The utility resolved, the CSS was valid, and nothing failed.
+        //
+        // A mix does not take the colour apart, so all three of these keep their modifier.
+        var fixture = new UtilityFixture(
+            """
+            theme:
+              colors:
+                referenced: "var(--brand)"
+                wide:       "oklch(0.623 0.214 259.815)"
+                plain:      "#4f7cff"
+              spacing: { base: 4 }
+            content: []
+            """
+        );
+
+        Assert.Equal(
+            ["background-color: color-mix(in oklab, var(--brand) 40%, transparent)"],
+            fixture.Emits("bg-referenced/40")
+        );
+
+        Assert.Equal(
+            ["color: color-mix(in oklab, oklch(0.623 0.214 259.815) 60%, transparent)"],
+            fixture.Emits("text-wide/60")
+        );
+
+        // And the arbitrary opacity form is a fraction rather than a percentage, so `/[0.35]` is 35%.
+        Assert.Equal(
+            ["background-color: color-mix(in oklab, #4f7cff 35%, transparent)"],
+            fixture.Emits("bg-plain/[0.35]")
+        );
+    }
+
+    [Fact]
+    public void The_mix_an_opacity_modifier_emits_resolves_to_what_the_rgba_rewrite_used_to_give() {
+        // The other half of the claim above: nothing that already worked has moved. For a hex token
+        // the two emissions are the same colour, because mixing against `transparent` with
+        // premultiplied alpha leaves the components alone and scales only the alpha. Asserted on the
+        // *parsed* value rather than on the text, which is the only place the two can be compared.
+        var parser = new StyleValueParser(new NameTable(), new NameTable());
+        var emitted = new UtilityFixture().Emits("bg-accent/50")[0]["background-color: ".Length..];
+
+        var mixed = parser.Parse(emitted);
+        var rewritten = parser.Parse("rgba(79, 124, 255, 0.5)");
+
+        Assert.Equal(StyleValueKind.Color, mixed.Kind);
+        Assert.Equal(rewritten.Color.R, mixed.Color.R, 1e-3f);
+        Assert.Equal(rewritten.Color.G, mixed.Color.G, 1e-3f);
+        Assert.Equal(rewritten.Color.B, mixed.Color.B, 1e-3f);
+        Assert.Equal(0.5f, mixed.Color.A, 1e-3f);
     }
 
     [Fact]

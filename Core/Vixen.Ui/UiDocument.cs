@@ -134,6 +134,22 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     readonly ConditionalWeakTable<UiElement, Composition.Component> components = [];
 
+    /// <summary>What has to run when an element a component drew itself into is removed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because a component is not an element and has no hook of its own in the tree.</b> A
+    ///     markup-authored <see cref="UiElement" /> stops its own composition from <c>OnRemoved</c>;
+    ///     a <see cref="Composition.Component" /> can only be reached through the element it drew
+    ///     itself into, so that is where the answer is kept. Without it, the only thing that ended a
+    ///     component was the region that built it — and a component built onto a mount, which is
+    ///     every markup panel in the editor, has no region above it. An inspector rebuilt on every
+    ///     selection change leaked a panel's worth of effects each time.
+    ///
+    ///     ⚠ Weak on the element, for the reason <see cref="components" /> is: the entry is wanted
+    ///     for exactly as long as the host is, and a strong table would need a removal at every
+    ///     place an element can go.
+    /// </remarks>
+    readonly ConditionalWeakTable<UiElement, IDisposable> teardowns = [];
+
     /// <summary>The component whose host this element is, if it is one.</summary>
     /// <param name="element">The element.</param>
     /// <returns>The component, or null when the element is not a component's host.</returns>
@@ -163,6 +179,19 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     internal void Mounted(UiElement host, Composition.Component component) =>
         components.AddOrUpdate(host, component);
+
+    /// <summary>Records what ends the component whose host this element is.</summary>
+    internal void TearsDownAt(UiElement host, IDisposable teardown) => teardowns.AddOrUpdate(host, teardown);
+
+    /// <summary>Ends the component this element is the host of, if it is one and it has not ended.</summary>
+    void TearDown(UiElement element) {
+        if (!teardowns.TryGetValue(element, out var teardown)) {
+            return;
+        }
+
+        teardowns.Remove(element);
+        teardown.Dispose();
+    }
 
     /// <summary>Where this document's bindings queue, and what a frame drains.</summary>
     /// <remarks>
@@ -570,9 +599,16 @@ public sealed partial class UiDocument : IDisposable {
     ///     The list is snapshotted per level, because a handler may add or remove children of the
     ///     element it is called on — a popover closing removes its own items — and iterating the live
     ///     collection would then skip half of them.
+    ///
+    ///     ⚠ <b>And a component's teardown is announced here too, after the element's own hook.</b>
+    ///     It is the same event — this subtree is going — for the one kind of thing in the tree that
+    ///     cannot be told directly, because a <see cref="Composition.Component" /> is not an element.
+    ///     After, so that a control's <c>OnRemoved</c> still runs against a component that has not
+    ///     yet been stopped. See <see cref="teardowns" />.
     /// </remarks>
-    static void Announce(UiElement element) {
+    void Announce(UiElement element) {
         element.OnRemoved();
+        TearDown(element);
 
         foreach (var child in element.Children.ToArray()) {
             Announce(child);

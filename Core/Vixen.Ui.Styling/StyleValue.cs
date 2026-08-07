@@ -344,6 +344,25 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
                 return Format(Number) + Suffix(Unit);
 
             case StyleValueKind.Color: {
+                // ⚠ **`rgba()` cannot carry a colour this engine can hold.** Its channels are eight
+                // bits of encoded sRGB, so writing one costs a clamp and a round to the byte grid.
+                // For the colours a stylesheet mostly contains that is a round trip nobody can see;
+                // for a colour outside sRGB — which is roughly two of every three in Tailwind v4's
+                // oklch palette, see docs/plan/43-web-styling-parity.md § D4 — the clamp is not a
+                // rounding but a deletion. It survives parse, resolve and draw with its linear
+                // channels intact and then loses them the first time the animator hands it back.
+                // `color(srgb-linear …)` is the same triple written down, so that path is exact.
+                if (Color.R is < 0f or > 1f || Color.G is < 0f or > 1f || Color.B is < 0f or > 1f) {
+                    // Alpha is deliberately not part of that test. A spring overshoots past 1 and
+                    // `rgba()` carries that through where `color()` would clamp it — see
+                    // `StyleValueParser.ParsePredefined` — so an in-gamut colour mid-overshoot
+                    // stays on the branch that keeps its alpha.
+                    return string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"color(srgb-linear {Exact(Color.R)} {Exact(Color.G)} {Exact(Color.B)} / {Exact(Color.A)})"
+                    );
+                }
+
                 var srgb = Color.ToSrgb();
                 return string.Create(
                     CultureInfo.InvariantCulture,
@@ -370,6 +389,12 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
         static string Format(float value) => value.ToString("0.####", CultureInfo.InvariantCulture);
 
         static int Channel(float value) => (int) MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
+
+        // Four decimals is enough for a length in pixels and it is not enough here: the whole reason
+        // this branch exists is that the value came back different from the way it went out. A bare
+        // `ToString` is the shortest text that parses back to the same `float`, so `0.5` still reads
+        // `0.5` and only a channel that genuinely needs the digits spends them.
+        static string Exact(float value) => value.ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>The CSS spelling of a unit.</summary>

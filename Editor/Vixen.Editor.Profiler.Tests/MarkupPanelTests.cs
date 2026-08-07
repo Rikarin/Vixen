@@ -294,6 +294,54 @@ public sealed class MarkupPanelTests : IDisposable {
         Assert.Single(Tagged(statistics.Root, "statistics-body"));
     }
 
+    // ============================================================ Teardown
+
+    /// <summary>
+    ///     ⚠ <b>A panel that has left the document follows nothing.</b> Both of these write their
+    ///     <c>@for</c> inside an element — the statistics body, the memory scroll view — which is
+    ///     where a region hangs off something other than the component's host, and which used to
+    ///     mean that removing the panel left every row's effects subscribed to the model.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted on the scheduler rather than on the elements.</b> Assigning to a removed
+    ///     element does not complain, so a panel that looks right after removal proves nothing. What
+    ///     a live binding does is queue: writing the model schedules every effect that read it, and
+    ///     a panel that is truly gone schedules none.
+    /// </remarks>
+    [Fact]
+    public void A_statistics_panel_that_leaves_the_document_stops_following_its_model() {
+        var view = Build<StatisticsView>();
+
+        using World world = new("Counted");
+        view.Show(SceneStatistics.Collect(world));
+        test.Frames(2);
+
+        Assert.NotEmpty(Rows(view));
+        view.Root.Remove();
+
+        world.Create(new Position());
+        view.Show(SceneStatistics.Collect(world));
+
+        Assert.Equal(0, test.Document.Effects.PendingCount);
+    }
+
+    [Fact]
+    public void A_memory_panel_that_leaves_the_document_stops_following_its_model() {
+        var view = Build<MemoryView>();
+
+        view.Providers.Gpu = () => [new(MemoryArena.Gpu, "Device-local", 512 * 1024 * 1024)];
+        view.Take();
+        test.Frames(2);
+
+        Assert.NotEmpty(Lines(view));
+        view.Root.Remove();
+
+        view.Providers.Gpu = () => [new(MemoryArena.Gpu, "Device-local", 256 * 1024 * 1024)];
+        view.Take();
+
+        Assert.Equal(0, test.Document.Effects.PendingCount);
+    }
+
     // ============================================================ Harness
 
     /// <summary>A three-field component, so a chunk's column has a size worth counting.</summary>

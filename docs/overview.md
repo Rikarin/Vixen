@@ -202,6 +202,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Ui.Styling` — selectors, cascade, `@layer`, `@media`, inheritance, `var()`, sharing | ✅ | Core/Vixen.Ui.Styling | Oracle gates green, verified by sabotage |
 | Style **invalidation** (`StyleUpdater`, `StyleInvalidator`) | ✅ | Core/Vixen.Ui.Styling | Wired into `UiDocument.Update`, which records class and state changes and replays them. One class toggle went from 9.50 ms / 8.87 MB to **0.94 ms / 552 B**, and the allocation no longer depends on the document's size |
 | Transitions, `@keyframes`, `cubic-bezier`/`steps`/`spring()`, Oklab | ✅ | Core/Vixen.Ui.Styling | Springs solved in closed form |
+| Colour syntax — hex, named, `rgb()`, `oklab()`/`oklch()`, `color-mix()` | ✅ | Core/Vixen.Ui.Styling | Doc 43 A9/A10. Four interpolation spaces, premultiplied alpha, CSS Values 5 percentage normalisation. ⚠ Out of gamut is carried **unclamped** on purpose — the repair needs the display's gamut, and two of the three v4 palette colours sampled are outside sRGB |
 | Transform decomposition | ⬜ | — | Waits on a transform property existing |
 | `Vixen.Ui.Styling.Utilities` — tokens, scanner, variants, arbitrary values, `@apply` | ✅ | Core/Vixen.Ui.Styling.Utilities | 78 tests |
 | Text: UAX#29 segmentation / UAX#14 line breaking / UAX#9 bidi | ✅ | Core/Vixen.Ui.Text | **22 048 + 91 707 conformance cases green** |

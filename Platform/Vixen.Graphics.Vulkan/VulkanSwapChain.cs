@@ -42,9 +42,17 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     int acquireCursor;
     bool imageAcquired;
     bool disposed;
+    readonly ColorGamut requestedGamut;
 
     internal VulkanSwapChain(VulkanDevice device, in SwapChainDescription description) {
         this.device = device;
+
+        // ⚠ The *request*, kept for the lifetime of the swapchain rather than derived from what was
+        // chosen. `Resize` rebuilds against a surface that may by then be on a different display —
+        // dragging a window from a P3 laptop panel to an sRGB monitor is the ordinary case — and
+        // re-asking for the gamut that was granted last time would pin the swapchain to whichever
+        // display it happened to be created on.
+        requestedGamut = description.Gamut;
 
         extension = device.Swapchains
             ?? throw new InvalidOperationException(
@@ -100,6 +108,9 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
 
     /// <inheritdoc />
     public PresentMode PresentMode { get; private set; }
+
+    /// <inheritdoc />
+    public ColorGamut Gamut { get; private set; }
 
     /// <inheritdoc />
     public int ImageCount => images.Length;
@@ -283,8 +294,74 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     ///     deliberate: a swapchain in a format the engine cannot describe is one whose contents no
     ///     part of the renderer can reason about.
     /// </remarks>
-    internal static SurfaceFormatKHR ChooseFormat(ReadOnlySpan<SurfaceFormatKHR> available, PixelFormat wanted) {
+    internal static SurfaceFormatKHR ChooseFormat(ReadOnlySpan<SurfaceFormatKHR> available, PixelFormat wanted) =>
+        ChooseFormat(available, wanted, ColorGamut.Srgb);
+
+    /// <summary>Picks a surface format and colour space, for a requested display gamut.</summary>
+    /// <param name="available">What the surface reported.</param>
+    /// <param name="wanted">The preferred pixel format.</param>
+    /// <param name="gamut">The gamut to ask the display for.</param>
+    /// <returns>The chosen pairing, which may be narrower than the one requested.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A wide colour space is only ever accepted together with enough precision to use
+    ///         it, and that pairing is a rule here rather than a coincidence.</b> Eight bits spread
+    ///         across P3 are coarser per step than eight bits across sRGB, so
+    ///         <c>B8G8R8A8_UNORM</c> on a P3 surface bands visibly in gradients that were clean in
+    ///         sRGB — a strictly worse picture in exchange for the wider primaries. MoltenVK offers
+    ///         every format with every colour space, including
+    ///         <c>EXTENDED_SRGB_LINEAR</c> paired with an eight-bit unorm that cannot represent a
+    ///         single one of the out-of-range values that colour space exists to carry, so the
+    ///         filtering cannot be left to the driver's enumeration.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Extended sRGB is preferred over P3 for a reason that is not quality.</b> Its
+    ///         primaries are the engine's own and its encoding is linear, so a wide colour reaches
+    ///         the image as the exact number the parser produced, with no rebasing step anywhere.
+    ///         Display P3 is a different set of primaries: the same numbers sent to a P3 surface are
+    ///         a <i>more saturated picture</i>, not a wider one, until something converts them. That
+    ///         is why the chosen gamut is reported back out rather than assumed.
+    ///     </para>
+    ///     <para>
+    ///         Asking for <see cref="ColorGamut.Srgb" /> — the default — takes exactly the path this
+    ///         function has always taken, so nothing changes for a caller that has not opted in.
+    ///     </para>
+    /// </remarks>
+    internal static SurfaceFormatKHR ChooseFormat(
+        ReadOnlySpan<SurfaceFormatKHR> available,
+        PixelFormat wanted,
+        ColorGamut gamut
+    ) {
         var target = VulkanFormats.ToVulkan(wanted);
+
+        if (gamut != ColorGamut.Srgb) {
+            // Ordered best-first: linear half-float in the engine's own primaries, then the same
+            // primaries at ten bits, then the destination's actual primaries. Each candidate is only
+            // taken if the surface offers it with a format that can hold what it promises.
+            foreach (var space in WideSpaces(gamut)) {
+                var found = new SurfaceFormatKHR();
+                var best = 0;
+
+                foreach (var format in available) {
+                    if (format.ColorSpace != space) {
+                        continue;
+                    }
+
+                    var rank = Precision(format.Format, space);
+
+                    // The requested format wins ties, so a caller who asked for fp16 and a surface
+                    // that offers both fp16 and ten-bit does not silently get the narrower one.
+                    if (rank > best || (rank == best && rank > 0 && format.Format == target)) {
+                        found = format;
+                        best = rank;
+                    }
+                }
+
+                if (best > 0) {
+                    return found;
+                }
+            }
+        }
 
         foreach (var format in available) {
             if (format.Format == target && format.ColorSpace == ColorSpaceKHR.SpaceSrgbNonlinearKhr) {
@@ -301,6 +378,69 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
 
         return available.IsEmpty ? new() { Format = VkFormat.Undefined } : available[0];
     }
+
+    /// <summary>The colour spaces that would satisfy a request for this gamut, best first.</summary>
+    static ColorSpaceKHR[] WideSpaces(ColorGamut gamut) => gamut switch {
+        ColorGamut.DisplayP3 => [
+            ColorSpaceKHR.SpaceExtendedSrgbLinearExt,
+            ColorSpaceKHR.SpaceDisplayP3NonlinearExt
+        ],
+
+        // Nothing narrower than Rec. 2020 can stand in for it, but extended sRGB is unbounded and so
+        // covers it: the primaries are sRGB's, and the values simply run past them.
+        ColorGamut.Rec2020 => [
+            ColorSpaceKHR.SpaceExtendedSrgbLinearExt,
+            ColorSpaceKHR.SpaceBT2020LinearExt
+        ],
+
+        _ => []
+    };
+
+    /// <summary>How well a format serves a colour space, or zero if it must not be paired with it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero is a refusal, not a low score.</b> Eight bits is the banding case for every wide
+    ///     space, and for the linear ones it is worse than banding: a unorm cannot store a negative
+    ///     or above-one value at all, so the entire extra gamut would be silently clamped away by the
+    ///     image the renderer just went to the trouble of filling correctly.
+    /// </remarks>
+    static int Precision(VkFormat format, ColorSpaceKHR space) {
+        var linear = space is ColorSpaceKHR.SpaceExtendedSrgbLinearExt
+            or ColorSpaceKHR.SpaceDisplayP3LinearExt
+            or ColorSpaceKHR.SpaceBT2020LinearExt;
+
+        return format switch {
+            VkFormat.R16G16B16A16Sfloat => 3,
+            VkFormat.A2B10G10R10UnormPack32 or VkFormat.A2R10G10B10UnormPack32 when !linear => 2,
+            _ => 0
+        };
+    }
+
+    /// <summary>What gamut a chosen colour space asks the engine to map to.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Read back rather than assumed, because the request is a preference: a surface that
+    ///         offers no usable wide pairing leaves the swapchain in sRGB, and a caller that carried
+    ///         on mapping colours to P3 anyway would be showing over-saturated ones on an ordinary
+    ///         display.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>For extended sRGB the answer is a deliberate approximation, and worth knowing
+    ///         which way it errs.</b> That space is unbounded — its primaries are sRGB's and values
+    ///         simply run past them — so there is no gamut the <i>swapchain</i> imposes at all, and
+    ///         Rec. 2020 is the engine's way of saying "send it, do not repair it". The physical
+    ///         panel still has a gamut, and what happens to a colour beyond it is then the
+    ///         compositor's decision rather than this engine's: on macOS, <c>CAMetalLayer</c> owns
+    ///         it. That is a reasonable place for it to be decided and it is <em>not</em> CSS
+    ///         Color 4's algorithm, so a caller who needs the specified mapping specifically should
+    ///         ask for <see cref="ColorGamut.DisplayP3" /> storage and map to it itself.
+    ///     </para>
+    /// </remarks>
+    internal static ColorGamut GamutOf(ColorSpaceKHR space) => space switch {
+        ColorSpaceKHR.SpaceExtendedSrgbLinearExt => ColorGamut.Rec2020,
+        ColorSpaceKHR.SpaceDisplayP3NonlinearExt or ColorSpaceKHR.SpaceDisplayP3LinearExt => ColorGamut.DisplayP3,
+        ColorSpaceKHR.SpaceBT2020LinearExt => ColorGamut.Rec2020,
+        _ => ColorGamut.Srgb
+    };
 
     /// <summary>Picks a present mode, falling back to the one every driver must support.</summary>
     internal static PresentModeKHR ChoosePresentMode(
@@ -392,7 +532,7 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
             surfaces.GetPhysicalDeviceSurfacePresentModes(physical, surface, &modeCount, first);
         }
 
-        var chosen = ChooseFormat(formats.AsSpan(0, (int)formatCount), preferredFormat);
+        var chosen = ChooseFormat(formats.AsSpan(0, (int)formatCount), preferredFormat, requestedGamut);
         var mode = ChoosePresentMode(modes.AsSpan(0, (int)modeCount), preferredMode);
         var extent = ChooseExtent(capabilities, size);
         var count = ChooseImageCount(capabilities, preferredCount);
@@ -429,6 +569,7 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         Teardown();
         handle = created;
         Format = VulkanFormats.FromVulkan(chosen.Format);
+        Gamut = GamutOf(chosen.ColorSpace);
         PresentMode = VulkanEnums.FromVulkan(mode);
         Size = new((int)extent.Width, (int)extent.Height);
 

@@ -42,6 +42,13 @@ in this repository was an impression.
 | **What Vixen emits** | `UtilityFamilies.cs`, `Variants.cs`, `UtilityGenerator.cs` | parsed from the registration table, plus the shorthands ExCSS expands while parsing |
 | **What Vixen reads** | every `Properties.Intern` / `PropertyId` call site in `Core/` and `Editor/` | transcribed per consumer: `LayoutStyleBuilder`, `DrawListBuilder`, `UiDocument`, `Cursor`, `Animator`, `InheritedProperties`, `TransitionSpec` |
 
+⚠ **Two of those seven consumers are not consumers, and transcribing call sites is how they got into
+the list.** `Animator` and `TransitionSpec` intern and read exactly what this table says they do — and
+nothing constructs an `Animator`, so no frame has ever asked either of them anything. See **F10**. A
+call site is evidence that a property *would* be read by whoever ran that code; it is not evidence
+that anybody runs it, and that is the second time in this document the same mistake appears in a
+different disguise.
+
 ⚠ **"Interned" is not "read", and that distinction had to be made twice.** `InheritedProperties`
 interns seven names — `font-stretch`, `font-variant`, `text-transform`, `word-break`, `word-spacing`,
 `text-indent`, `tint` — purely so the cascade knows they inherit; no consumer acts on any of them.
@@ -88,6 +95,50 @@ does not change the conclusion; the number does need to be right before it is us
 | **absent** | not emitted at all | **223** |
 | **composed** | in Tailwind it sets a `--tw-*` that another utility assembles; not a property row | **12** |
 
+### The composition mechanism
+
+**Landed.** `Core/Vixen.Ui.Styling.Utilities/UtilityComposition.cs`, with `from-*`, `via-*`, `to-*` and
+`bg-linear-*` as the worked consumer. Three of the twelve `composed` roots are now emitted; the other
+nine — `space-x/y-*`, `divide-*`, `mask-radial-*`, `ring-offset-*` and the static set — are more
+surface on the same mechanism rather than more mechanism. It is written up in
+[the guide](../guide/ui/utility-composition.md).
+
+**Two designs, and the argument that settled it.** (a) the utilities really set custom properties and
+the cascade resolves the `var()` references at use time; (b) the generator folds the fragments into
+one declaration as it emits. (b) is cheaper and it is wrong, **because of variants**:
+`from-accent hover:from-accent-hover` is two rules with two different selectors, and which one
+supplies the colour depends on where the pointer is *now*. The generator resolves one candidate at a
+time and writes one rule per class name, so composing at emit time would have to either drop the
+variant silently — the failure this whole document exists to eliminate — or emit a rule whose selector
+names two classes at once, `.bg-linear-to-r.hover\:from-accent-hover:hover`, a cross-product growing
+as assemblers × fragment-bearing classes × variants and not enumerable until the whole candidate set
+has been seen. `CompositionTests` holds both halves as tests, including the two computed values that
+differ, which is the proof by contradiction that no single emitted declaration could have been both.
+
+⚠ **An unset custom property poisons the whole declaration, and this was the trap.** Per CSS a `var()`
+that resolves to nothing and carries no fallback makes the declaration *invalid at computed-value
+time* — `VarSubstitution` already implements exactly that, by returning null — so the naive
+`linear-gradient(var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to))` makes
+`from-red to-blue` with no `via` paint **no gradient at all**, silently. The answer is the `var()`
+fallback chain, which the engine has had since `VarSubstitution` was written: every fragment is
+declared with an initial value and is only ever mentioned through `UtilityComposition.Reference`, so
+the two-stop list is what `--tw-gradient-stops` is worth when nobody set it. `--tw-gradient-stops`'
+initial value *is* the two-stop list, which is why only `via-*` has to override it.
+
+**`@property` was not needed, and its absence is a known quantity rather than a discovery.** Vixen has
+no registered custom properties. Two things registration would still buy, neither of them blocking:
+`inherits: false`, without which a fragment set on a box is visible to its descendants — correct CSS
+for an unregistered custom property, and a divergence from Tailwind, which registers them precisely to
+stop the leak; and a *type*, which is what would let a gradient be transitioned. Both are refinements
+to a mechanism that works without them, so neither is a prerequisite task.
+
+**What it gates.** v4 uses the identical pattern for transforms (A7 / #23), `box-shadow` and filters
+(A8 / #28). The five `--` placeholders the table counts — `--blur`, `--rotate`, `--scale`,
+`--translate-x`, `--translate-y` — are this shape built without the second half: a fragment nothing
+assembles. They are deliberately *not* registered as fragments, so the parity gate goes on calling
+them inert and `InertProperties.txt` goes on recording the debt. Giving them assemblers is what those
+two tasks now are.
+
 ⚠ **`partial` is a fifth state the brief did not ask for, and collapsing it in either direction would
 be the same mistake this survey exists to catch.** `border-t-2` is the case that forces it: the layout
 reads `border-top-width` and insets the content box, and the draw list paints nothing, because
@@ -95,6 +146,79 @@ reads `border-top-width` and insets the content box, and the draw list paints no
 `border-top-color`. Calling that "works" is the conflation the brief warns about; calling it "inert"
 is false, because the box really does get narrower. There are 29 of these and they are the most
 expensive rows in the table, because each is a utility that *half* does what it says.
+
+### What a third stop costs
+
+`background-image` is no longer inert: a two-stop `linear-gradient()` parses into `BoxStyle` and
+paints. This section is the measurement of what the *rest* of A11 costs, written down because all
+four remaining pieces turn out to be the same piece of work and that is not obvious from the utility
+side, where `via-*` and `bg-radial-*` look like two more table entries.
+
+**They all bottom out in `UiShape`.** The record the box shader reads is five `Vector4`s — half
+extent, thickness and a gradient flag; the four horizontal radii; the four vertical; the axis, a
+shadow's blur and one lane of padding; and the end colour. There is exactly **one** free float in it,
+`Axis.w`. So:
+
+| Owed | What it needs in `UiShape` | Shader |
+|---|---|---|
+| `via-*` — a third stop | a colour (4 floats) | a second `lerp` and a branch |
+| stop positions — `from-10%` | 3 floats, or 2 if the ends are implied | remap `t` before the `lerp` |
+| `bg-radial-*` | a centre (2) and a radius (1) | a `length()` instead of a `dot()` |
+| `bg-conic-*` | a centre (2) and a start angle (1) | an `atan2()` instead of a `dot()` |
+
+Any one of them overflows the single spare lane, so the first of the four to be built pays for
+growing the record from 80 bytes to 112 — and once that is paid, the other three are cheap. **They
+should be done together or not at all**; doing them one at a time pays the layout change and its
+risk up to four times.
+
+⚠ **The layout change is the risky part and the shader maths is not.** `UiShape`'s own remark says
+why: it is copied into a storage buffer with `MemoryMarshal` and read back by a shader whose
+alignment rules are not C#'s, so a field inserted in the wrong place draws every box with another
+box's parameters. Four things have to agree — `UiShape`, `Editor/Vixen.Editor.Host/Shaders/Ui.rvn`,
+`SoftwareUiRasterizer`, and the committed `UiBox.frag.spv` and `UiBox.reflect.json` beside the
+shader source, which are regenerated with the command in that directory's `README.md`. ⚠ **That
+README's command names `Editor/Vixen.Editor.App/Shaders/`, which is not where the shaders are** —
+they are under `Vixen.Editor.Host`. The path is stale and will not run as written.
+
+⚠ **`Gradient.rvn` and `RoundedRect.rvn` are not the shader to edit, and both look like it.**
+`Raven/Library/Ui/Gradient.rvn` already has radial and conic modes and a perceptual interpolation
+option; `RoundedRect.rvn` has a `Gradient` permutation. Neither reads the `UiShape` buffer, so
+neither is on the path a `background-image` takes. `Ui.rvn` is. `RoundedRect.rvn` is also a
+cautionary note rather than a starting point: its gradient is hardcoded to `localPx.y / size.y` and
+ignores the axis entirely, so it draws every gradient vertically whatever it is asked for.
+
+### Gradient text needs an offscreen pass, and should wait for one
+
+Tailwind draws gradient text as `bg-clip-text` plus `text-transparent`: paint the background, clip it
+to the glyph coverage, and make the glyphs themselves invisible. The middle step is the whole problem.
+
+**The engine has no text mask to clip against.** The glyph path takes an MSDF sample, reconstructs
+coverage from the median of three channels, multiplies it by the run's colour and outputs it — the
+coverage exists for the length of one expression inside `Ui.rvn`'s text shader and is never a surface
+anything else can read. `bg-clip-text` needs it as a *mask*: the background has to be sampled where
+the glyphs are, which means the glyph coverage has to outlive the fragment that computed it.
+
+Three ways it could go, in increasing order of honesty:
+
+1. **Per-glyph gradient in the text shader.** Cheapest — pass the gradient down the text path and
+   evaluate it per fragment instead of using the run colour. ⚠ **And wrong in a way that looks
+   right:** CSS clips the background to the *element's* box, so a gradient across a heading is one
+   ramp across the whole heading, not a fresh ramp inside every letter. This would draw the second,
+   which is a well-known wrong answer that is only visible on words long enough to notice.
+2. **Element-space gradient in the text shader.** Same path, but the gradient parameter comes from
+   the element's box rather than the glyph's quad. This is genuinely correct for the common case and
+   costs a per-run rectangle. It stops being correct as soon as `background-clip` has to apply to
+   anything that is not a plain gradient — an image, a `background-position`, a filter under it.
+3. **A real offscreen pass.** Render the text run's coverage to a target, then composite the
+   background through it. This is the general answer, and it is the same machinery `filter: blur()`
+   (A8 / #28) needs: a scratch target, a way to name it, and a composite step in the UI renderer.
+
+**Recommendation: do not build 1. Build 2 only if it can be spelled as a special case that 3 would
+delete, and prefer waiting for #28.** The reason is that gradient text is a small feature and an
+offscreen path is a large one, so gradient text is a bad forcing function for the design — a mask
+mechanism invented to serve it would be shaped by the easiest consumer rather than the hardest.
+#28 has to build the general thing anyway. The precedent is F5: `text-overflow: ellipsis` was left
+undone rather than approximated, and the cost of that decision has been zero.
 
 ### By category
 
@@ -120,6 +244,26 @@ expensive rows in the table, because each is a utility that *half* does what it 
 Spacing and Sizing are the two categories that are genuinely done. Everything else is between a
 quarter and nothing, and three categories — Transforms, Filters, Tables — have **no working root at
 all**.
+
+⚠ **The table above is the hand survey of 2026-08-07 and it is no longer the measurement.** C5 has
+landed as `Core/Vixen.Ui.Styling.Utilities.Tests/UtilityConsumptionGateTests`, which computes the
+inert set on every test run by resolving real elements and watching what the engine does with them —
+so from here on, the numbers to believe are the ones that run. Three things it found on its first
+pass, all of which the table above gets wrong in one direction or the other:
+
+- **Four rows have since moved to `works`** and the survey predates them: `border-bottom-color`,
+  `border-left-color` and `border-right-color` are painted by the draw list now, and `order` is read
+  by both the layout and the paint sequence. The Borders and Flexbox rows are that much better than
+  they read.
+- **Transitions and Animation is `0 works, 0 partial, 3 inert`, not `2 / 1 / 0`** — F10 below. The
+  row was derived from the cascade computing a value, which is the conflation this whole document is
+  about, and it got past the survey.
+- **`font-weight` is read** and the survey's own consumer walk did not say otherwise; it is recorded
+  here because it is the one property the *gate* got wrong first time round, for a reason worth
+  knowing. See F10's second half.
+
+The live count is **17 properties emitted with no consumer**, every one of them on the expiring
+allow-list in `InertProperties.txt` with the task that closes it.
 
 ### The columns
 
@@ -253,6 +397,42 @@ Five of the names in that list have no family: **`space`**, **`divide`**, **`mix
 **`origin`**, **`scroll`**. This is not a Tailwind-parity gap; it is doc 09 disagreeing with the code,
 which is the thing `docs/overview.md` exists to catch and did not.
 
+### F10 · Nothing ever builds an `Animator`, so no CSS transition has ever run ⚠ *correcting this document*
+
+The gate's first pass found it and a NUL-safe search confirms it: **`Animator` is constructed in
+exactly one place in the repository, `Core/Vixen.Ui.Styling.Tests`.** No `UiDocument`, no
+`StyleEngine`, no `StyleUpdater`, no control and no editor host ever makes one, and nothing anywhere
+calls `Animator.Observe` or `Animator.Advance` outside those tests. `TransitionSpec` and
+`TransitionParser` have the same two callers: the animator, and the animator's tests.
+
+So the whole transition and `@keyframes` machinery is a well-tested component with no socket. A
+document that declares `transition: all 200ms` and then changes a class jumps straight to the new
+value — proved by resolving real elements and running frames either side of a class change, and
+finding the frames byte-identical with the declaration and without it.
+
+⚠ **This document said the opposite, and the way it got there is the exact failure it was written to
+name.** Part 0's consumer list names `Animator` as one of the seven readers "transcribed", and the
+category table gives Transitions and Animation two `works` and one `partial`. Both were derived from
+the cascade holding a value for `transition-property` — which it does, correctly — rather than from
+anything happening as a result. `UtilityFamilySupportTests` carried the same three rows in
+`Supported` for the same reason, in the file whose own remark warns against precisely this. They
+have moved to `Inert`.
+
+**Sized as A20 / task #46 below.** It is small — the animator is finished, and what is missing is a
+field on the style engine, a call to `Observe` where a computed style is replaced, a call to
+`Advance` from the frame's tick, and `Apply` on the way to the consumers. What makes it worth its own
+task rather than a line in another is that it is the seam that decides whether `Vixen.Ui`'s frame
+loop has a place for a time-varying style at all.
+
+⚠ **And the second half is about the instrument rather than the engine: `font-weight` read as inert
+and is not.** The weight reaches `FontRegistry.Resolve` and selects a different face; the gate could
+not see it because `DrawList` deliberately does not compare `Fonts` between frames — its argument
+being that a command drawn in a different face refers to it by a different index, which is true of a
+frame using several faces and false of a frame that swapped its only one. The gate's paint signature
+now includes the face names. Worth recording because the same reasoning is in `DrawList.Differs`,
+where the consequence is a version that would not bump; in practice two real faces produce different
+glyph advances and the glyph comparison catches it, so this is a note and not a bug report.
+
 ### Variants and modifiers
 
 | | Tailwind v4 | Vixen | |
@@ -377,6 +557,33 @@ Ottosson's published values** — the maths is there and the CSS surface is not.
 
 Once both land, `ThemeTokens.Colors` holding `var(--accent)` stops being a limitation.
 
+✅ **Both landed** — `ColorFunctions` and `StyleValueParser`, A9 and A10 in Part 6. Four things the
+sizing above did not know, all of them checked rather than reasoned about:
+
+- **The order of operations is already right and needed no change.** `StyleResolver.Substitute`
+  rewrites the value's text and re-interns it during `Build`; `StyleValueParser` only ever runs on
+  what a `ComputedStyle` holds. So `color-mix(in oklab, var(--accent) 50%, transparent)` and the same
+  mix with the hex written in place arrive as *byte-identical* text. The mix needs no notion of
+  `var()`. ⚠ What it does need is the other half of the same fact: ExCSS does not normalise inside a
+  function it does not know, so the endpoints arrive as `#4f7cff` and as `red` rather than as
+  `rgb(…)`. A mix that accepted only `rgb()` endpoints would have passed every literal test and
+  failed on every variable — which is the shape this whole section exists to fix.
+- ⚠ **"Both percentages zero is invalid" is wrong.** An older CSS Color 5 draft said so and the claim
+  is widely repeated; the current CSS Values 5 algorithm produces **transparent black**, and produces
+  it without a special case. The three cases implemented are: one omitted is the other's complement;
+  both given are scaled *to* 100% with any shortfall multiplying the result's alpha (`red 20%,
+  blue 60%` is 25/75 at 80% alpha); both zero is `rgba(0, 0, 0, 0)`.
+- **Premultiplied alpha is the whole mechanism**, CSS Color 4 § 12.3, and without it
+  `color-mix(in oklab, blue 50%, transparent)` gives a *dark* blue rather than a translucent one —
+  invisible against a dark background. ⚠ Which is also why the opacity modifier must say `in oklab`:
+  hue is not premultiplied, `transparent` is black at hue 0°, and `in oklch` therefore rotates every
+  colour towards red on its way to being translucent. Browsers do the same; it is why v4's own
+  emission names the rectangular space.
+- **Changing `TryColor` moved exactly one assertion and zero pixels**, because nothing outside the
+  tests uses `/opacity` today — and nothing does *because* the editor's token file carried a warning
+  saying it did not work. Every colour in `Editor/Vixen.Editor.Ui/Theming/vixen.ui.yaml` is a
+  `var()`, so the whole editor palette was in the silently-dropped class. The warning is gone.
+
 ### D3. Container queries are a feature, not a variant ⚠
 
 v4 builds container queries in: `@container` marks the container, and `@sm:`…`@7xl:`, `@max-*`,
@@ -417,6 +624,80 @@ functionally, but three things follow from adopting the v4 shape:
 3. The gamut question is real and is not the styling layer's: `oklch(0.7 0.2 30)` can be outside
    sRGB, and the UI renderer's swapchain format decides what happens. Clamping in `Color4` is the
    honest default and it is what a browser on an sRGB display does.
+
+⚠ **And the gamut question is not academic for this palette — it is load-bearing for most of it.**
+Three v4 colours, taken from its `theme.css` and run through the parser:
+
+| | as v4 ships it | out of sRGB by |
+|---|---|---|
+| `blue-500` | `oklch(62.3% 0.214 259.815)` | linear blue **+1.053** — past white |
+| `emerald-500` | `oklch(69.6% 0.17 162.48)` | linear red **−0.039** — past black |
+| `red-500` | `oklch(63.7% 0.237 25.331)` | in gamut, and the only one of the three |
+
+Two in three, before anyone writes a vivid colour by hand. So "adopt the v4 palette" and "support
+wide-gamut displays" are not two decisions, they are one: on an sRGB display these are clamped and
+match v4's own generated hex fallbacks, and on a P3 display they are colours that can actually be
+shown and must not be. Which raises the value of doing this properly and lowers the value of any
+placeholder that throws the chroma away early.
+
+⚠ **The interim behaviour, now that the parsing has landed: nothing is clamped, and the out-of-gamut
+linear triple is carried through with its negative channels intact.** Three reasons, and the third is
+the one that matters for whoever picks this up.
+
+*Per-channel clipping is not a smaller version of the right answer, it is a different answer.* Clip
+`oklch(0.7 0.4 30)` channel-wise and the hue moves — a vivid red clips towards orange — whereas the
+specified repair reduces chroma while holding lightness and hue. A parser that clipped would be
+shipping a wrong colour under the name of a placeholder.
+
+*It needs a gamut this assembly does not have.* The repair is against the **display's** gamut, not
+sRGB's: on a P3 panel `oklch(0.7 0.3 30)` is in gamut and must not be touched at all. Wide-gamut
+support is a stated goal, so a parse-time decision would have to be undone.
+
+*And carrying it makes the real fix strictly easier.* An unclamped value still holds the chroma the
+mapper needs; a clamped one has already destroyed it, and no downstream pass can recover a colour
+from its own clipping. Nothing breaks in the meantime: `ColorSpace.LinearToSrgb` is the exact
+piecewise transfer function, whose linear segment handles negatives without producing NaN — a
+`pow()` approximation there would not, which is how "carry it unclamped" would otherwise turn into a
+black element three layers downstream. `ColorFunctionTests` pins both halves of that.
+
+✅ **One place used to clamp, and it no longer does.** `StyleValue.ToCss` wrote every colour back as
+`rgba()` — channels clamped *and* quantised to eight bits — because that is how the animator hands an
+interpolated value back to a cascade that works in interned strings. An out-of-gamut colour therefore
+survived being parsed, resolved and drawn, and did **not** survive being animated: one round trip
+flattened it to the sRGB byte grid, which for two of every three colours in the table above is a
+deletion rather than a rounding. `ToCss` now writes `color(srgb-linear r g b / a)` with unclamped,
+round-trippable channels whenever any linear channel is outside `[0, 1]`, and keeps `rgba()` for
+everything else. `StyleValueTests` pins both branches, the exact round trip on the first and the
+short spelling on the second.
+
+✅ **The mapper, the swapchain rule and the two CSS surfaces have landed.**
+`Vixen.Core.Mathematics.GamutMap` implements CSS Color 4 § 14.2.1's binary search with local MINDE
+against `ColorGamut.Srgb`/`DisplayP3`/`Rec2020`, with the gamut matrices derived from the
+chromaticities in Media Queries 5 § 5.4's table rather than transcribed. Measured on this
+implementation: per-channel clipping moves the hue by up to **42.5°** at `L = 0.65, C = 0.37`, where
+chroma reduction holds it to **5.5°**. `@media (color-gamut: srgb|p3|rec2020)` matches *ascending*,
+and `color(display-p3 …)`, `color(srgb …)` and their `-linear` forms parse into the working space
+unclamped; `a98-rgb`, `prophoto-rgb` and `rec2020` are refused rather than decoded with sRGB's
+transfer curve, which is theirs to have and not sRGB's.
+
+⚠ **Three things a reader should not take on trust from the above.** First, the specification now
+offers **three** gamut mapping algorithms — binary search, EdgeSeeker, ray-trace — and lets an
+implementation choose; the one implemented is the only one whose constants the prose pins down.
+Second, the algorithm *ends in a per-channel clip*: the search reduces chroma until a clip of the
+candidate is within one JND, then returns the clipped colour. "Not clipping" describes the strategy,
+not the last step, and the 5.5° residual is exactly that step. Third, `VK_EXT_swapchain_colorspace`
+is now enabled on the instance, and **without it a surface reports only sRGB however capable the
+display is** — which is why this could have looked implemented and done nothing.
+
+✅ **`StyleValue.ToCss` no longer clamps.** Once `color(srgb-linear …)` parsed, the fix was a spelling
+change rather than a change to the cascade's interchange format, which is why it was cheap enough to
+take here. Two details are load-bearing and neither is obvious. **The branch is on the colour, not on
+alpha:** a spring overshoots past `1` and `rgba()` carries that through, where `ParsePredefined`
+clamps alpha on the way back in — so an in-gamut colour mid-overshoot must stay on the `rgba()` side
+or the fix would introduce the bug it removes. **And it uses `float.ToString()`, not the shared
+`"0.####"`:** four decimals is a grid too, finer than eight bits and still a grid, and "lossless" is
+the entire reason this branch exists. The comparison is `< 0 || > 1`, so a NaN channel — which cannot
+be spelled in CSS at all — stays on the `rgba()` path that already absorbs it.
 
 ### D5. What v4 removed, renamed, and added
 
@@ -780,19 +1061,35 @@ expansion**, and each one is a class somebody can write today that does nothing:
 
 ```
 --blur  --rotate  --scale  --translate-x  --translate-y
-border-bottom-color  border-inline-end-color  border-inline-start-color
-border-left-color  border-right-color
-fill  stroke  grid-column  grid-template-columns  order
+border-inline-end-color  border-inline-start-color
+fill  stroke  grid-column  grid-template-columns
 outline-color  user-select  vertical-align
+transition-property  transition-duration  transition-timing-function
 ```
 
-It was twenty a week ago; `overflow-x` and `overflow-y` came off it when F3 landed, which is what the
-list is for.
+✅ **That list is no longer written down here. It is measured, and the block above is what the
+measurement currently says** — seventeen, printed by
+`Core/Vixen.Ui.Styling.Utilities.Tests/UtilityConsumptionGateTests` on every run and mirrored line for
+line in `InertProperties.txt`, each with the task that closes it. It was twenty when the survey was
+taken: `overflow-x` and `overflow-y` came off when F3 landed, `order` and three of the five per-edge
+border colours when the draw list learned the rest of the longhands, and the three `transition-*`
+names went **on** when F10 found that nothing runs the animator.
 
-That list is the gate task #11 asks for, and it is small enough to be a hard failure rather than a
-warning: **`CheckArchitecture` fails when a family emits a property no consumer interns, unless the
-property is on an allow-list carrying the task number it is waiting for.** The allow-list is the
-honest form of the README's "a utility waiting for an engine feature" — same sentence, but it expires.
+⚠ **The gate is a test and not `CheckArchitecture`, and the reason is the difference between
+"interned" and "acted on".** This document's own § Part 0 measured that gap at seven properties —
+`word-spacing` and `text-indent` have ids in `LayoutStyleBuilder` that nothing reads — so a check that
+looked for an `Intern("…")` call would pass both, and pass every future one. Establishing consumption
+means *running a frame*: building a document, resolving real elements, changing one declaration and
+comparing the layout, the draw list, the cursor and the hit test either side of it. `CheckArchitecture`
+is a walk of `.csproj` XML with no compilation and no runtime, and the static alternative — reading IL
+for a load of the property id — needs Mono.Cecil, which ADR-002 bans by name in that very file. So the
+gate lives where the engine can be run, and `./build.sh Test` is the same gate CI runs.
+
+The allow-list is the honest form of the README's "a utility waiting for an engine feature" — same
+sentence, but **it expires, on its condition rather than on a date**: the run in which a consumer
+starts acting on an allow-listed property is the run that fails on its exemption, and a line must name
+a task number this document contains or the build fails on the line itself. That is the mechanism
+`docs/DocsExempt.txt` never had, which is why its written instruction not to abuse it did not hold.
 
 ---
 
@@ -813,9 +1110,9 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A6 🟢 | `user-select`, `outline`, `fill`/`stroke` on `OnDraw` paths, and `overflow-clip` | `UiDocument`, `DrawContext` | **#24** | 0.25 |
 | A7 🟡 | Transforms: a real `transform` property, decomposed, animatable | layout + draw + `Animator` | **#23** | 0.6 |
 | A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
-| A9 🟢 | `color-mix()` in `StyleValueParser` | `Vixen.Ui.Styling` | **#12** | 0.25 |
-| A10 🟢 | `oklch()`/`oklab()` colour syntax | `Vixen.Ui.Styling` | **#12** | 0.25 |
-| A11 🟡 | Backgrounds: `background-image`, gradients, position, size, repeat | `DrawListBuilder`, `UiShape` | — | 0.75 |
+| A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
+| A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
+| A11 🟢 | Backgrounds. **Two-stop `linear-gradient()` paints**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, and it layers over `background-color` as CSS does. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. **Owed:** `via-*` (a third stop), stop positions, `bg-radial`/`bg-conic`, and `background-position`/`-size`/`-repeat`. All four need `UiShape` to grow past its five `Vector4`s and the box shader to change with it — see [what a third stop costs](#what-a-third-stop-costs) | `DrawListBuilder`, `BackgroundGradient`, `UiShape` | **#43** | 0.35 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
 | A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
@@ -824,7 +1121,8 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
 | A18 🟢 | Scroll properties as `ScrollView` inputs rather than CSS | `Vixen.Ui.Controls` | — | 0.3 |
 | A19 🟢 | `text-decoration`, `text-transform`, `font-variant-numeric`, `font-stretch` | `Vixen.Ui.Text` | — | 0.4 |
-| | | | **A total** | **6.7** |
+| A20 🟢 | **Run the `Animator`** — build one on the style engine, `Observe` a replaced computed style, `Advance` on the tick, `Apply` before the consumers read. The component is finished and has no caller (F10) | `StyleEngine`, `UiDocument` | **#46** | 0.2 |
+| | | | **A total** | **6.9** |
 
 ### Track B — layout modes
 
@@ -854,7 +1152,7 @@ mixed-content paragraph sit behind it.
 | C2 🟢 | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5) | 0.1 |
 | C3 🟢 | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet (D1) | 0.5 |
 | C4 🟢 | Cross-assembly token sharing, shape C (Part 3) | 0.3 |
-| C5 🟢 | The gate: a family emitting an uninterned property fails the build (#11), and `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot | 0.3 |
+| C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |
 | C6 🟢 | Doc 09's five missing families — `space`, `divide`, `mix-blend`, `origin`, `scroll` | 0.25 |
 | C7 🟢 | The ~120 families that are a table line each, once A and B land | 0.75 |
 | C8 🟡 | The families that are their own small feature: `mask-*`, gradients, `animate-*` | 0.75 |
@@ -883,8 +1181,9 @@ is choosing to re-run the experiment that already has an answer.
 ## Part 7 — The sequence
 
 **Wave 0 — the survey's own consequences.** C0 (prefix fallback), C5 (the gate and its expiring
-allow-list) and the README correction — A5 landed while this was written. Nothing depends on these and everything is
-cheaper after them. **0.3 EM.**
+allow-list) and the README correction — A5 landed while this was written, and ✅ C5's gate half has
+landed since, taking F10 with it. What is left of wave 0 is C0 and `Tools/Vixen.TailwindParity`.
+Nothing depends on these and everything is cheaper after them. **0.2 EM.**
 
 **Wave 1 — the token model, before #6 and #7 build the old one.** C3, then C4, then A9 and A10. This
 is the one ordering constraint that is urgent rather than logical: task #6 is queued and would
@@ -954,8 +1253,11 @@ inventory with an unexplained hole in it is how a subset gets rationalised the n
 
 1. **Every one of the 328 roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
-2. **No family emits a property no consumer interns**, except entries on the allow-list, each of which
-   names a task. `CheckArchitecture` fails otherwise. Today: 18 properties, 0 allow-listed.
+2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
+   which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
+   rather than `CheckArchitecture`, for the reason Part 5 gives, and "acts on" rather than "interns"
+   for the reason Part 0 measured at seven properties. Today: **17 properties, 17 allow-listed**, and
+   the allow-list expires on its condition.
 3. **`UtilityFamilySupportTests` has a row per root, resolved against a real element**, and its
    `Inert` table is empty or every entry names its task. It is the only artefact in this survey built
    by resolving elements rather than by reading source, and it is where a finding goes to become a

@@ -16,10 +16,13 @@
 # `text-text-muted` is the muted text colour, and `border-border` is the hairline. Renaming either
 # half to read better is how a second vocabulary starts.
 #
-# ⚠ **An opacity modifier on one of these does nothing.** `UtilityFamilies.TryColor` turns
-# `bg-accent/50` into `rgba(…)` by parsing the colour as a hex triple, and `var(--accent)` is not
-# one — so the opacity is dropped and the colour passes through whole. Write `opacity-50` on the
-# element, or `bg-[rgba(…)]`, when a translucent fill is what is wanted.
+# **An opacity modifier on one of these works, and used not to.** It used to say here that
+# `bg-accent/50` silently dropped its opacity, and it did: `TryColor` produced `rgba(…)` by taking the
+# colour apart as a hex triple, and `var(--accent)` is not one — so every token in this file, all of
+# which are references, was in that class. It now emits
+# `color-mix(in oklab, var(--accent) 50%, transparent)`, which never takes the colour apart, and the
+# variable is resolved before the mix is evaluated. `opacity-50` on the element is still the right
+# answer when the *whole* element should be translucent; the modifier is for when only the fill is.
 #
 # ⚠ **`darkMode` is deliberately absent** — the default is `media`, and neither strategy is what the
 # editor does. The editor's dark theme is `ThemeService` putting a `dark` class on the *root* and the

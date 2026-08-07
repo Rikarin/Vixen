@@ -104,6 +104,11 @@ Vixen.Core.Mathematics.Color4.ToSrgb() -> Vixen.Core.Mathematics.Color4
 Vixen.Core.Mathematics.Color4.ToString(string? format, System.IFormatProvider? formatProvider) -> string
 Vixen.Core.Mathematics.Color4.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
 Vixen.Core.Mathematics.Color4.this[int index].get -> float
+Vixen.Core.Mathematics.ColorGamut -> enum : int
+Vixen.Core.Mathematics.ColorGamut.ColorGamut() -> void
+Vixen.Core.Mathematics.ColorGamut.DisplayP3 = 1 -> Vixen.Core.Mathematics.ColorGamut
+Vixen.Core.Mathematics.ColorGamut.Rec2020 = 2 -> Vixen.Core.Mathematics.ColorGamut
+Vixen.Core.Mathematics.ColorGamut.Srgb = 0 -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Core.Mathematics.ColorSpace -> static class
 Vixen.Core.Mathematics.ContainmentType -> enum : int
 Vixen.Core.Mathematics.ContainmentType.ContainmentType() -> void
@@ -120,6 +125,7 @@ Vixen.Core.Mathematics.DelaunayTetrahedralization.TryFind(Vixen.Core.Mathematics
 Vixen.Core.Mathematics.DelaunayTetrahedralization.TryFind(Vixen.Core.Mathematics.Vector3 position, out int cell, out Vixen.Core.Mathematics.Vector4 weights) -> bool
 Vixen.Core.Mathematics.DelaunayTetrahedralization.Vertices.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
 Vixen.Core.Mathematics.ExactPredicates -> static class
+Vixen.Core.Mathematics.GamutMap -> static class
 Vixen.Core.Mathematics.ISplineSource -> interface
 Vixen.Core.Mathematics.ISplineSource.TryGet(string name, out Vixen.Core.Mathematics.Spline? spline) -> bool
 Vixen.Core.Mathematics.Int2 -> readonly struct
@@ -453,6 +459,8 @@ const Vixen.Core.Mathematics.BoundingFrustum.CornerCount = 8 -> int
 const Vixen.Core.Mathematics.BoundingFrustum.PlaneCount = 6 -> int
 const Vixen.Core.Mathematics.Color3.ComponentCount = 3 -> int
 const Vixen.Core.Mathematics.Color4.ComponentCount = 4 -> int
+const Vixen.Core.Mathematics.GamutMap.JustNoticeableDifference = 0.02 -> float
+const Vixen.Core.Mathematics.GamutMap.SearchEpsilon = 0.0001 -> float
 const Vixen.Core.Mathematics.MathUtil.Pi = 3.1415927 -> float
 const Vixen.Core.Mathematics.MathUtil.PiOverFour = 0.7853982 -> float
 const Vixen.Core.Mathematics.MathUtil.PiOverTwo = 1.5707964 -> float
@@ -679,6 +687,13 @@ static Vixen.Core.Mathematics.ExactPredicates.InSphere(Vixen.Core.Mathematics.Ve
 static Vixen.Core.Mathematics.ExactPredicates.InSphere(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, Vixen.Core.Mathematics.Vector3 d, Vixen.Core.Mathematics.Vector3 e, int indexA, int indexB, int indexC, int indexD, int indexE) -> int
 static Vixen.Core.Mathematics.ExactPredicates.Orient2D(Vixen.Core.Mathematics.Vector2 a, Vixen.Core.Mathematics.Vector2 b, Vixen.Core.Mathematics.Vector2 c) -> int
 static Vixen.Core.Mathematics.ExactPredicates.Orient3D(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, Vixen.Core.Mathematics.Vector3 d) -> int
+static Vixen.Core.Mathematics.GamutMap.Clip(Vixen.Core.Mathematics.Vector3 linear, Vixen.Core.Mathematics.ColorGamut gamut) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.GamutMap.DeltaEOk(Vixen.Core.Mathematics.Oklab left, Vixen.Core.Mathematics.Oklab right) -> float
+static Vixen.Core.Mathematics.GamutMap.FromLinearSrgb(Vixen.Core.Mathematics.Vector3 linear, Vixen.Core.Mathematics.ColorGamut gamut) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.GamutMap.InGamut(Vixen.Core.Mathematics.Vector3 linear, Vixen.Core.Mathematics.ColorGamut gamut) -> bool
+static Vixen.Core.Mathematics.GamutMap.Map(Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.ColorGamut gamut) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.GamutMap.Map(Vixen.Core.Mathematics.Vector3 linear, Vixen.Core.Mathematics.ColorGamut gamut) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.GamutMap.ToLinearSrgb(Vixen.Core.Mathematics.Vector3 linear, Vixen.Core.Mathematics.ColorGamut gamut) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Core.Mathematics.Int2.Clamp(Vixen.Core.Mathematics.Int2 value, Vixen.Core.Mathematics.Int2 min, Vixen.Core.Mathematics.Int2 max) -> Vixen.Core.Mathematics.Int2
 static Vixen.Core.Mathematics.Int2.Max(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2
 static Vixen.Core.Mathematics.Int2.Min(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Core.Mathematics;
 
 namespace Vixen.Ui.Styling;
 
@@ -22,16 +23,30 @@ public enum ColorSchemePreference : byte {
 /// <param name="Height">The surface height in logical pixels.</param>
 /// <param name="Resolution">Device pixels per logical pixel.</param>
 /// <param name="ColorScheme">The palette preference.</param>
+/// <param name="Gamut">
+///     What the surface can actually show, which is the swapchain's granted gamut and not the
+///     monitor's specification sheet.
+/// </param>
 /// <remarks>
-///     A surface rather than a screen. A game's UI can be a full window, a split-screen viewport or a
-///     world-space panel on the side of a crate, and all three want <c>@media (max-width: …)</c> to
-///     mean "this panel", never "the monitor". Nothing here can be asked about the display.
+///     <para>
+///         A surface rather than a screen. A game's UI can be a full window, a split-screen viewport
+///         or a world-space panel on the side of a crate, and all three want
+///         <c>@media (max-width: …)</c> to mean "this panel", never "the monitor".
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Gamut" /> is the one fact here that is about output rather than layout,
+///         and it is still a property of the surface.</b> The honest source for it is
+///         <c>ISwapChain.Gamut</c> — what the swapchain was granted — rather than what the display
+///         claims to be capable of. A panel rendered into an sRGB swapchain on a P3 monitor can show
+///         sRGB, and a stylesheet told otherwise would pick colours that get mapped away again.
+///     </para>
 /// </remarks>
 public readonly record struct MediaContext(
     float Width,
     float Height,
     float Resolution = 1f,
-    ColorSchemePreference ColorScheme = ColorSchemePreference.NoPreference
+    ColorSchemePreference ColorScheme = ColorSchemePreference.NoPreference,
+    ColorGamut Gamut = ColorGamut.Srgb
 );
 
 /// <summary>Evaluates the <c>@media</c> conditions doc 09 lists as supported.</summary>
@@ -139,6 +154,55 @@ public static class MediaQuery {
 
             reason = $"'{value}' is not a colour scheme";
             return false;
+        }
+
+        if (name.Equals("color-gamut", StringComparison.OrdinalIgnoreCase)) {
+            // ⚠ Discrete, so `min-` and `max-` are not spelling variants of it — Media Queries 5
+            // gives the feature no range type, and the prefixes were already stripped above. Rejecting
+            // them keeps `@media (min-color-gamut: p3)` a diagnostic instead of a query that quietly
+            // means something the author did not write.
+            if (comparison != Comparison.Exact) {
+                reason = "'color-gamut' is discrete, so it has no min- or max- form";
+
+                return false;
+            }
+
+            // ⚠ Ascending, not equality. Media Queries 5 § 5.4: "an output device can return true for
+            // multiple values of this media feature ... one gamut is a subset of another supported
+            // gamut", and the note recommends authors set a base at `srgb` then override at `p3`.
+            // Testing for equality instead would make the base rule stop applying on exactly the
+            // displays it was written for.
+            var supported = context.Gamut switch {
+                ColorGamut.Rec2020 => 2,
+                ColorGamut.DisplayP3 => 1,
+                _ => 0
+            };
+
+            var asked = -1;
+
+            if (value.Equals("srgb", StringComparison.OrdinalIgnoreCase)) {
+                asked = 0;
+            } else if (value.Equals("p3", StringComparison.OrdinalIgnoreCase)) {
+                asked = 1;
+            } else if (value.Equals("rec2020", StringComparison.OrdinalIgnoreCase)) {
+                asked = 2;
+            } else if (value.IsEmpty) {
+                // The boolean form. `not (color-gamut)` is how the specification says to test for a
+                // display that cannot manage even sRGB, so the bare feature is true whenever one can.
+                matches = true;
+
+                return true;
+            }
+
+            if (asked < 0) {
+                reason = $"'{value}' is not a colour gamut";
+
+                return false;
+            }
+
+            matches = supported >= asked;
+
+            return true;
         }
 
         var actual = name switch {

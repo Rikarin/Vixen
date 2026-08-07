@@ -257,4 +257,67 @@ public class StyleValueTests {
             Assert.Equal(original, round);
         }
     }
+
+    [Theory]
+    [InlineData("oklch(62.3% 0.214 259.815)")] // Tailwind v4 blue-500: linear blue past 1.
+    [InlineData("oklch(69.6% 0.17 162.48)")] // Tailwind v4 emerald-500: linear red below 0.
+    public void An_out_of_gamut_colour_survives_the_animator_round_trip(string text) {
+        // ⚠ **This is the one place an out-of-gamut colour used to die.** Parse, resolve and draw all
+        // carry the linear channels through untouched; the animator is the only step that writes the
+        // value back out as text, and `rgba()` has eight bits of encoded sRGB to say it in. Two of
+        // every three colours in v4's palette are outside sRGB — see
+        // docs/plan/43-web-styling-parity.md § D4 — so a transition on a Tailwind token was flattening
+        // the token to the byte grid the first frame it ran, and nothing downstream could tell that
+        // from a colour that had always been in gamut.
+        var keywords = new NameTable();
+        var parser = new StyleValueParser(new NameTable(), keywords);
+
+        var original = parser.Parse(text);
+        Assert.Equal(StyleValueKind.Color, original.Kind);
+
+        var outside = original.Color.R is < 0f or > 1f
+            || original.Color.G is < 0f or > 1f
+            || original.Color.B is < 0f or > 1f;
+
+        Assert.True(outside, $"the sample is meant to be outside sRGB: {original.Color}");
+
+        var css = original.ToCss(keywords);
+        Assert.StartsWith("color(srgb-linear ", css, StringComparison.Ordinal);
+
+        var round = parser.Parse(css);
+        Assert.Equal(StyleValueKind.Color, round.Kind);
+
+        // Not "close enough": the point of spelling it `color(srgb-linear …)` rather than widening
+        // `rgba()`'s precision is that the text is the same triple, so the round trip is exact.
+        Assert.Equal(original.Color.R, round.Color.R);
+        Assert.Equal(original.Color.G, round.Color.G);
+        Assert.Equal(original.Color.B, round.Color.B);
+        Assert.Equal(original.Color.A, round.Color.A);
+
+        // And the property that actually matters downstream: it is still outside sRGB afterwards.
+        Assert.True(
+            round.Color.R is < 0f or > 1f || round.Color.G is < 0f or > 1f || round.Color.B is < 0f or > 1f,
+            $"the round trip flattened it into gamut: {css}"
+        );
+    }
+
+    [Fact]
+    public void An_in_gamut_colour_still_goes_back_out_as_rgba() {
+        // The wide-gamut spelling is the exception, not the new default. Every colour a stylesheet
+        // holds passes through `Animator`'s intern table, which compares the text; `rgba(20, 130,
+        // 200, 1)` is a short string drawn from a small set, where the full-precision spelling is
+        // both longer and far more varied. Keeping the common case on the short one is what makes
+        // this change free for the colours that never needed it.
+        var keywords = new NameTable();
+        var parser = new StyleValueParser(new NameTable(), keywords);
+
+        Assert.Equal("rgba(20, 130, 200, 1)", parser.Parse("rgb(20, 130, 200)").ToCss(keywords));
+
+        // A spring overshoots past 1 on the alpha and `rgba()` is the branch that carries that —
+        // `color()` clamps alpha on the way back in, so an in-gamut colour mid-overshoot must not be
+        // routed there.
+        var overshot = StyleValue.Lerp(parser.Parse("rgba(20, 130, 200, 0)"), parser.Parse("rgb(20, 130, 200)"), 1.2f);
+
+        Assert.Equal("rgba(20, 130, 200, 1.2)", overshot.ToCss(keywords));
+    }
 }

@@ -53,6 +53,7 @@ Vixen.Ui.Styling.Utilities.UtilityCandidate.Value.get -> string
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Value.init -> string
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Variants.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Ui.Styling.Utilities.UtilityCandidate.Variants.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Styling.Utilities.UtilityComposition -> static class
 Vixen.Ui.Styling.Utilities.UtilityDeclaration -> readonly struct
 Vixen.Ui.Styling.Utilities.UtilityDeclaration : System.IEquatable<Vixen.Ui.Styling.Utilities.UtilityDeclaration>
 Vixen.Ui.Styling.Utilities.UtilityDeclaration.Property.get -> string
@@ -80,9 +81,23 @@ Vixen.Ui.Styling.Utilities.VariantEffect.VariantEffect() -> void
 Vixen.Ui.Styling.Utilities.VariantEffect.VariantEffect(string SelectorSuffix, string SelectorPrefix, string? AtRule) -> void
 Vixen.Ui.Styling.Utilities.Variants -> static class
 const Vixen.Ui.Styling.Utilities.ThemeTokens.DefaultKey = "DEFAULT" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFrom = "--tw-gradient-from" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientFromPosition = "--tw-gradient-from-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientStops = "--tw-gradient-stops" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientTo = "--tw-gradient-to" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientToPosition = "--tw-gradient-to-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientVia = "--tw-gradient-via" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientViaPosition = "--tw-gradient-via-position" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string
 static Vixen.Ui.Styling.Utilities.CandidateScanner.Scan(string text, System.Collections.Generic.ISet<string> into) -> void
 static Vixen.Ui.Styling.Utilities.ThemeTokens.Parse(string yaml) -> Vixen.Ui.Styling.Utilities.ThemeTokens
+static Vixen.Ui.Styling.Utilities.UtilityComposition.Fragments.get -> System.Collections.Generic.IReadOnlyList<string>
+static Vixen.Ui.Styling.Utilities.UtilityComposition.InitialValueOf(string fragment) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.IsFragment(string property) -> bool
+static Vixen.Ui.Styling.Utilities.UtilityComposition.Reference(string fragment) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.StopList(bool via) -> string
 static Vixen.Ui.Styling.Utilities.UtilityFamilies.SplitName(string whole) -> (string Name, string Value)
+static Vixen.Ui.Styling.Utilities.UtilityFamilies.Surface(Vixen.Ui.Styling.Utilities.ThemeTokens tokens) -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Styling.Utilities.UtilityFamilies.TryResolve(Vixen.Ui.Styling.Utilities.UtilityCandidate candidate, Vixen.Ui.Styling.Utilities.ThemeTokens tokens, System.Collections.Generic.List<Vixen.Ui.Styling.Utilities.UtilityDeclaration> declarations) -> bool
 static Vixen.Ui.Styling.Utilities.UtilityGenerator.Escape(string name) -> string
 static Vixen.Ui.Styling.Utilities.UtilityParser.TryParse(string candidate, out Vixen.Ui.Styling.Utilities.UtilityCandidate parsed) -> bool

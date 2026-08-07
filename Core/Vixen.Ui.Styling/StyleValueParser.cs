@@ -106,6 +106,32 @@ public sealed class StyleValueParser {
     }
 
     StyleValue ParseFunction(ReadOnlySpan<char> name, ReadOnlySpan<char> arguments) {
+        // ⚠ **Everything below reaches this method as the author wrote it, `var()`s already gone.**
+        // ExCSS normalises only the colour syntaxes it knows — `red` becomes `rgb(255, 0, 0)` — and
+        // passes `oklch(…)` and `color-mix(…)` through untouched, including the colours *inside*
+        // them: `color-mix(in srgb, red 50%, blue)` arrives with both endpoints still spelt as
+        // names. Substitution then runs later still, in `StyleResolver.Substitute`, on the text and
+        // before anything is parsed — so `color-mix(in oklab, var(--accent) 50%, transparent)`
+        // arrives here character-for-character identical to the same mix written with the hex code
+        // in place of the variable. Two consequences, and the second is the one that bites: this
+        // method needs no notion of `var()` at all, and a `color-mix()` that only accepted `rgb()`
+        // arguments would silently fail on every real one.
+        if (name.Equals("oklab", StringComparison.OrdinalIgnoreCase)) {
+            return ParseOklab(arguments, polar: false);
+        }
+
+        if (name.Equals("oklch", StringComparison.OrdinalIgnoreCase)) {
+            return ParseOklab(arguments, polar: true);
+        }
+
+        if (name.Equals("color-mix", StringComparison.OrdinalIgnoreCase)) {
+            return ParseColorMix(arguments);
+        }
+
+        if (name.Equals("color", StringComparison.OrdinalIgnoreCase)) {
+            return ParsePredefined(arguments);
+        }
+
         // `rgb()` and `rgba()` are the same function in CSS Color 4, and ExCSS emits the first for
         // an opaque colour and the second when there is alpha.
         var isRgb = name.Equals("rgb", StringComparison.OrdinalIgnoreCase)
@@ -151,6 +177,314 @@ public sealed class StyleValueParser {
                 channels[3]
             )
         );
+    }
+
+    /// <summary>Parses <c>oklab(L a b / α)</c> or <c>oklch(L C H / α)</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The percentage references differ per component and getting one wrong is invisible.</b>
+    ///     CSS Color 4 § 9.3: lightness takes 100% as 1, but the <c>a</c>, <c>b</c> and chroma axes
+    ///     take 100% as <b>0.4</b> — a number chosen because it is about the chroma of the most
+    ///     saturated colours sRGB can show, not because it is a round one. Reading chroma against 1
+    ///     instead makes <c>oklch(0.6 50% 260)</c> two and a half times too vivid, which reads as a
+    ///     palette that is merely bolder than expected rather than as a bug.
+    /// </remarks>
+    static StyleValue ParseOklab(ReadOnlySpan<char> arguments, bool polar) {
+        // Five, so that a five-part argument list overflows into `count == 5` and is refused rather
+        // than being silently read as its first four parts.
+        Span<Range> ranges = stackalloc Range[5];
+        var count = Split(arguments, ranges);
+
+        if (count is < 3 or > 4) {
+            return StyleValue.Unknown;
+        }
+
+        if (!TryComponent(arguments[ranges[0]], 1f, out var lightness)
+            || !TryComponent(arguments[ranges[1]], 0.4f, out var second)) {
+            return StyleValue.Unknown;
+        }
+
+        float third;
+        if (polar) {
+            if (!TryAngle(arguments[ranges[2]], out third)) {
+                return StyleValue.Unknown;
+            }
+        } else if (!TryComponent(arguments[ranges[2]], 0.4f, out third)) {
+            return StyleValue.Unknown;
+        }
+
+        var alpha = 1f;
+        if (count == 4 && !TryComponent(arguments[ranges[3]], 1f, out alpha)) {
+            return StyleValue.Unknown;
+        }
+
+        alpha = Math.Clamp(alpha, 0f, 1f);
+
+        // Lightness and chroma are clamped and the hue is not, because only the first two have a
+        // meaningless side: a negative chroma is refused by CSS Color 4 § 9.3 and folded to zero, a
+        // hue of -30° is 330°. ⚠ Nothing clamps the *result* into the sRGB gamut — see
+        // `ColorFunctions` for why that is deliberate and whose job it is.
+        return StyleValue.FromColor(
+            polar
+                ? ColorFunctions.FromOklch(lightness, MathF.Max(second, 0f), third, alpha)
+                : ColorFunctions.FromOklab(lightness, second, third, alpha)
+        );
+    }
+
+    /// <summary>Parses <c>color(&lt;space&gt; c1 c2 c3 / α)</c> for the predefined RGB spaces.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing is clamped, and for this function that is the entire point.</b> CSS
+    ///         Color 4 § 10 uses <c>color(display-p3 1.0844 0.43 0.1)</c> as its own worked example
+    ///         of a colour outside sRGB but inside P3 — the case that exists to be shown on a wide
+    ///         display, and that a clamp at parse time would destroy before anything could know what
+    ///         display it was going to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the spaces whose transfer function this actually implements are accepted.</b>
+    ///         <c>display-p3</c> shares sRGB's transfer curve — the specification's table says so in
+    ///         as many words — so decoding it needs nothing new. <c>a98-rgb</c>, <c>prophoto-rgb</c>
+    ///         and <c>rec2020</c> each have their own curve, and guessing sRGB's for them would give a
+    ///         colour that is wrong by a few percent in the midtones: plausible, and invisible until
+    ///         someone matches against a browser. They are refused instead.
+    ///     </para>
+    /// </remarks>
+    static StyleValue ParsePredefined(ReadOnlySpan<char> arguments) {
+        Span<Range> ranges = stackalloc Range[6];
+        var count = Split(arguments, ranges);
+
+        if (count is < 4 or > 5) {
+            return StyleValue.Unknown;
+        }
+
+        var space = arguments[ranges[0]];
+        ColorGamut gamut;
+        bool encoded;
+
+        if (space.Equals("srgb", StringComparison.OrdinalIgnoreCase)) {
+            (gamut, encoded) = (ColorGamut.Srgb, true);
+        } else if (space.Equals("srgb-linear", StringComparison.OrdinalIgnoreCase)) {
+            (gamut, encoded) = (ColorGamut.Srgb, false);
+        } else if (space.Equals("display-p3", StringComparison.OrdinalIgnoreCase)) {
+            (gamut, encoded) = (ColorGamut.DisplayP3, true);
+        } else if (space.Equals("display-p3-linear", StringComparison.OrdinalIgnoreCase)) {
+            (gamut, encoded) = (ColorGamut.DisplayP3, false);
+        } else {
+            return StyleValue.Unknown;
+        }
+
+        Span<float> channels = stackalloc float[3];
+
+        for (var index = 0; index < 3; index++) {
+            if (!TryComponent(arguments[ranges[index + 1]], 1f, out channels[index])) {
+                return StyleValue.Unknown;
+            }
+
+            if (encoded) {
+                channels[index] = ColorSpace.SrgbToLinear(channels[index]);
+            }
+        }
+
+        var alpha = 1f;
+
+        if (count == 5 && !TryComponent(arguments[ranges[4]], 1f, out alpha)) {
+            return StyleValue.Unknown;
+        }
+
+        // Into the engine's working space — linear, sRGB primaries, unbounded. A P3 colour that is
+        // outside sRGB arrives here as a linear triple with a channel outside [0, 1], which is
+        // exactly how every other out-of-gamut colour in this parser is already carried.
+        var linear = GamutMap.ToLinearSrgb(new Vector3(channels[0], channels[1], channels[2]), gamut);
+
+        return StyleValue.FromColor(
+            new Color4(linear.X, linear.Y, linear.Z, Math.Clamp(alpha, 0f, 1f))
+        );
+    }
+
+    /// <summary>Parses <c>color-mix(in &lt;space&gt;, &lt;color&gt; &lt;pct&gt;, &lt;color&gt; &lt;pct&gt;)</c>.</summary>
+    /// <remarks>
+    ///     The interpolation method is optional in the current CSS Color 5 grammar and defaults to
+    ///     Oklab, which is also the space every mix Vixen emits names explicitly. An unrecognised one
+    ///     is refused rather than defaulted — see <see cref="ColorFunctions.TrySpace" />.
+    /// </remarks>
+    StyleValue ParseColorMix(ReadOnlySpan<char> arguments) {
+        Span<Range> ranges = stackalloc Range[4];
+        var count = Split(arguments, ranges);
+
+        var space = InterpolationSpace.Oklab;
+        var hue = HueInterpolation.Shorter;
+        var first = 0;
+
+        if (count == 3) {
+            if (!TryInterpolationMethod(arguments[ranges[0]].Trim(), out space, out hue)) {
+                return StyleValue.Unknown;
+            }
+
+            first = 1;
+        } else if (count != 2) {
+            return StyleValue.Unknown;
+        }
+
+        if (!TryMixArgument(arguments[ranges[first]], out var one, out var percent1)
+            || !TryMixArgument(arguments[ranges[first + 1]], out var two, out var percent2)) {
+            return StyleValue.Unknown;
+        }
+
+        Span<float> weights = stackalloc float[2];
+        ColorFunctions.Normalize(percent1, percent2, weights, out var alphaMultiplier);
+
+        return StyleValue.FromColor(ColorFunctions.Mix(one, two, weights, alphaMultiplier, space, hue));
+    }
+
+    /// <summary>Reads <c>in &lt;space&gt;</c>, optionally followed by <c>&lt;method&gt; hue</c>.</summary>
+    static bool TryInterpolationMethod(
+        ReadOnlySpan<char> text,
+        out InterpolationSpace space,
+        out HueInterpolation hue
+    ) {
+        space = InterpolationSpace.Oklab;
+        hue = HueInterpolation.Shorter;
+
+        var parts = SplitTopLevel(text);
+        if (parts.Count is not (2 or 4)) {
+            return false;
+        }
+
+        if (!text[parts[0]].Equals("in", StringComparison.OrdinalIgnoreCase)
+            || !ColorFunctions.TrySpace(text[parts[1]], out space)) {
+            return false;
+        }
+
+        if (parts.Count == 2) {
+            return true;
+        }
+
+        // ⚠ A hue-interpolation method on a rectangular space is a syntax error, not a no-op. Both
+        // `in oklab shorter hue` and `in oklab longer hue` would otherwise parse and mean the same
+        // thing, which would make the second look supported.
+        return space == InterpolationSpace.Oklch
+            && ColorFunctions.TryHue(text[parts[2]], out hue)
+            && text[parts[3]].Equals("hue", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Reads one side of a mix: a colour, and the percentage that may sit either side of it.</summary>
+    /// <remarks>
+    ///     The grammar is <c>&lt;color&gt; &amp;&amp; &lt;percentage&gt;?</c>, and <c>&amp;&amp;</c>
+    ///     is order-free — so <c>50% red</c> is exactly as legal as <c>red 50%</c>. Written as a
+    ///     scan over the parts rather than as two positional cases so that neither order is the one
+    ///     that happens to work.
+    /// </remarks>
+    bool TryMixArgument(ReadOnlySpan<char> text, out Color4 colour, out float? percentage) {
+        colour = default;
+        percentage = null;
+        text = text.Trim();
+
+        var parts = SplitTopLevel(text);
+        if (parts.Count is < 1 or > 2) {
+            return false;
+        }
+
+        var colourPart = new Range(0, 0);
+        var sawColour = false;
+
+        foreach (var part in parts) {
+            var piece = text[part];
+
+            if (percentage is null
+                && piece.EndsWith("%", StringComparison.Ordinal)
+                && float.TryParse(piece[..^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var written)) {
+                // ⚠ Negative is invalid rather than clamped — CSS Color 5 § 3 says so explicitly,
+                // and it has to, because the normalisation below divides by the sum and a negative
+                // one would make a mix that brightens past both its endpoints.
+                if (written < 0f) {
+                    return false;
+                }
+
+                percentage = written;
+                continue;
+            }
+
+            if (sawColour) {
+                return false;
+            }
+
+            colourPart = part;
+            sawColour = true;
+        }
+
+        if (!sawColour) {
+            return false;
+        }
+
+        // Recursive, which is what makes a mix of a mix work and what makes the endpoints accept
+        // every spelling the parser knows — hex, a name, `rgb()`, `oklch()`. See the note on
+        // `ParseFunction` for why the second of those is not hypothetical.
+        var value = ParseOne(text[colourPart]);
+        if (value.Kind != StyleValueKind.Color) {
+            return false;
+        }
+
+        colour = value.Color;
+        return true;
+    }
+
+    /// <summary>Reads one colour component: a number, a percentage against a reference, or <c>none</c>.</summary>
+    static bool TryComponent(ReadOnlySpan<char> text, float reference, out float value) {
+        text = text.Trim();
+        value = 0f;
+
+        // A missing component. Vixen has no missing-component model — the concept only earns its
+        // keep when interpolating two colours that are missing the same one, and carrying it through
+        // every value would cost more than it pays — so `none` takes the value CSS Color 4 § 4.4
+        // says a missing component behaves as everywhere else: zero.
+        if (text.Equals("none", StringComparison.OrdinalIgnoreCase)) {
+            return true;
+        }
+
+        var percent = text.EndsWith("%", StringComparison.Ordinal);
+        if (percent) {
+            text = text[..^1];
+        }
+
+        if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) {
+            return false;
+        }
+
+        value = percent ? number / 100f * reference : number;
+        return true;
+    }
+
+    /// <summary>Reads a hue: a bare number of degrees, or an angle with a unit.</summary>
+    static bool TryAngle(ReadOnlySpan<char> text, out float degrees) {
+        text = text.Trim();
+        degrees = 0f;
+
+        if (text.Equals("none", StringComparison.OrdinalIgnoreCase)) {
+            return true;
+        }
+
+        var end = 0;
+        while (end < text.Length && (char.IsAsciiDigit(text[end]) || text[end] is '.' or '-' or '+')) {
+            end++;
+        }
+
+        if (!float.TryParse(text[..end], NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) {
+            return false;
+        }
+
+        // ⚠ A bare number is degrees. `<hue>` is `<number> | <angle>` — which is why Tailwind's
+        // whole palette, `oklch(62.3% 0.214 259.815)`, carries no unit on the third component and
+        // why a parser that demanded one would reject every colour v4 ships.
+        var suffix = text[end..];
+
+        degrees = suffix switch {
+            _ when suffix.IsEmpty || suffix.Equals("deg", StringComparison.OrdinalIgnoreCase) => number,
+            _ when suffix.Equals("grad", StringComparison.OrdinalIgnoreCase) => number * 0.9f,
+            _ when suffix.Equals("rad", StringComparison.OrdinalIgnoreCase) => number * (180f / MathF.PI),
+            _ when suffix.Equals("turn", StringComparison.OrdinalIgnoreCase) => number * 360f,
+            _ => float.NaN
+        };
+
+        return !float.IsNaN(degrees);
     }
 
     static StyleValue ParseNumeric(ReadOnlySpan<char> text) {

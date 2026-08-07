@@ -196,6 +196,25 @@ public sealed class GraphicsOptions {
     /// </remarks>
     public PresentMode PresentMode { get; set; } = PresentMode.Fifo;
 
+    /// <summary>The display gamut to ask the swapchain for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>sRGB by default, and that default is a statement rather than caution.</b> Asking
+    ///         for a wider gamut only changes what the swapchain is <i>able</i> to show; something
+    ///         still has to map colours against <c>ISwapChain.Gamut</c> at presentation. An
+    ///         application that raises this without doing that gets a picture that is over-saturated
+    ///         on a P3 surface rather than a wider one, because the same numbers against wider
+    ///         primaries are a different colour.
+    ///     </para>
+    ///     <para>
+    ///         The request may not be met. A surface that offers no wide colour space paired with
+    ///         ten-bit or half-float storage stays at <see cref="ColorGamut.Srgb" /> — eight bits
+    ///         across a wider gamut bands where eight bits across sRGB does not — so read
+    ///         <c>ISwapChain.Gamut</c> back rather than assuming this was honoured.
+    ///     </para>
+    /// </remarks>
+    public ColorGamut Gamut { get; set; } = ColorGamut.Srgb;
+
     /// <summary>How many vertices the scene's shared geometry buffer holds.</summary>
     /// <remarks>
     ///     The project's geometry budget, and the caller's for the reason <c>WorldRenderer</c> gives:

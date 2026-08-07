@@ -643,7 +643,9 @@ public sealed class AppGraphics : IDisposable {
         var surface = window?.Surface.Handle ?? Core.SurfaceHandle.None;
         var size = window is null ? options.WindowlessSize : FramebufferOf(window);
 
-        return device.CreateSwapChain(new(surface, size, options.Format, options.PresentMode));
+        return device.CreateSwapChain(
+            new(surface, size, options.Format, options.PresentMode, Gamut: options.Gamut)
+        );
     }
 
     /// <summary>

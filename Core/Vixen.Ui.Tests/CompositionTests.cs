@@ -131,6 +131,38 @@ public class CompositionTests {
         Assert.Equal(runs, component.Runs);
     }
 
+    /// <summary>
+    ///     ⚠ <b>And the effects a branch left one level down, which is where a branch puts them.</b>
+    ///     An <c>@if</c> whose arm is a <c>&lt;div&gt;</c> with a loop inside it opens that loop's
+    ///     region against the div, not against the arm — so the arm's own region never contained it,
+    ///     and clearing the arm removed the div while every row went on reading signals.
+    /// </summary>
+    /// <remarks>
+    ///     No component anywhere in this: the same defect that made a component leak is a property
+    ///     of how a region finds its parent, and it reaches plain control flow first.
+    ///     <c>A_branch_that_leaves_takes_its_effects_with_it</c> missed it by writing its effect at
+    ///     the top of the arm, which is the one place the arm's region does cover.
+    /// </remarks>
+    [Fact]
+    public void A_branch_that_leaves_stops_the_effects_one_level_inside_it() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<DeepBranching>(document, document.Root);
+
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        var runs = component.RowRuns;
+        Assert.True(runs >= 2);
+
+        component.Shown.Value = false;
+        document.Effects.Flush();
+
+        component.Ping.Value++;
+        document.Effects.Flush();
+
+        Assert.Equal(runs, component.RowRuns);
+    }
+
     // ------------------------------------------------------------ For
 
     [Fact]
@@ -179,6 +211,34 @@ public class CompositionTests {
 
         Assert.True(b.IsRemoved);
         Assert.Equal(["head", "item", "item", "tail"], Tags(component.Root));
+    }
+
+    /// <summary>
+    ///     The same one level down inside a row, which is the version that grows without bound: a
+    ///     list that churns builds a region per row per nested element, and a row whose effects are
+    ///     never stopped is one the list can never be rid of.
+    /// </summary>
+    [Fact]
+    public void An_item_that_leaves_stops_the_effects_one_level_inside_it() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<DeepRows>(document, document.Root);
+
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        var runs = component.CellRuns;
+        Assert.True(runs >= 2);
+
+        component.Items.Value = ["a"];
+        document.Effects.Flush();
+
+        var kept = component.CellRuns;
+        component.Ping.Value++;
+        document.Effects.Flush();
+
+        // One row left, so exactly one cell effect may run. Two would mean the dropped row is still
+        // subscribed.
+        Assert.Equal(kept + 1, component.CellRuns);
     }
 
     [Fact]
@@ -443,6 +503,128 @@ public class CompositionTests {
         Assert.Equal(["box"], Guest.SawOnUnmount);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The same claim for a loop the component wrote <i>inside</i> one of its own
+    ///     elements</b>, which is where a real panel writes one — a <c>@for</c> is almost never a
+    ///     component's first statement, it is inside the <c>&lt;div&gt;</c> that is its body.
+    /// </summary>
+    /// <remarks>
+    ///     A region hangs off the element its content has as a parent, so this loop's region is
+    ///     keyed on the <c>&lt;box&gt;</c> and not on the host. Before the fix, clearing the host's
+    ///     region removed the box and left every row's effect subscribed — the loop stopped
+    ///     reconciling and the rows went on assigning to elements that had left the document.
+    ///
+    ///     ⚠ Counted, not inferred from how the tree looks. Assigning to a removed element does not
+    ///     complain, so "the elements are gone" would pass with the teardown deleted. What a leaked
+    ///     effect actually does is <i>run</i>.
+    /// </remarks>
+    [Fact]
+    public void A_component_stops_the_effects_inside_a_loop_written_in_a_nested_element() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<DeepHosting>(document, document.Root);
+
+        document.Effects.Flush();
+        var runs = DeepGuest.RowRuns;
+        Assert.True(runs >= 2);
+
+        component.Shown.Value = false;
+        document.Effects.Flush();
+
+        DeepGuest.Ping.Value++;
+        document.Effects.Flush();
+
+        Assert.Equal(runs, DeepGuest.RowRuns);
+
+        // ⚠ Once. Two things can end a component now — the region that built it and the removal of
+        // its host — and both happen here, in that order. They share one spent-on-first-call
+        // teardown so that `OnUnmounted` is not raised twice.
+        Assert.Equal(1, DeepGuest.Unmounts);
+    }
+
+    /// <summary>
+    ///     And the control that makes the nesting the cause rather than loops in general: the same
+    ///     component with the loop written at its top level opens its region against the host, which
+    ///     the teardown has always reached.
+    /// </summary>
+    [Fact]
+    public void A_loop_at_a_components_top_level_opens_against_the_host_and_was_never_the_gap() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<ShallowHosting>(document, document.Root);
+
+        document.Effects.Flush();
+        var runs = ShallowGuest.RowRuns;
+        Assert.True(runs >= 2);
+
+        component.Shown.Value = false;
+        document.Effects.Flush();
+
+        ShallowGuest.Ping.Value++;
+        document.Effects.Flush();
+
+        Assert.Equal(runs, ShallowGuest.RowRuns);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And removing the host is an unmount, which it was not.</b> A component tracks its
+    ///     teardown against the region that <i>built</i> it, so a root component — one built onto a
+    ///     mount rather than inside a branch — had nothing above it to be cleared and went on
+    ///     running for as long as the document lived. Every markup panel in the editor is mounted
+    ///     that way, which made this the shape the leak actually took in practice rather than the
+    ///     branch case.
+    /// </summary>
+    [Fact]
+    public void Removing_a_root_components_host_stops_what_it_built() {
+        using var document = new UiDocument(200f, 200f);
+        DeepGuest.Reset();
+
+        var component = BuildContext.Build<DeepGuest>(document, document.Root);
+        document.Effects.Flush();
+
+        var runs = DeepGuest.RowRuns;
+        Assert.True(runs >= 2);
+
+        component.Root.Remove();
+
+        DeepGuest.Ping.Value++;
+        document.Effects.Flush();
+
+        Assert.Equal(runs, DeepGuest.RowRuns);
+
+        // And it was told, on the same terms the branch case gets: before anything was detached, so
+        // a panel saving a scroll offset still has its elements to read.
+        Assert.Equal(1, DeepGuest.Unmounts);
+        Assert.Equal(["box"], DeepGuest.SawOnUnmount);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A <see cref="Component" /> inside a composed element, which is the case the
+    ///     element-flavoured teardown was never tested against.</b> <c>Compose</c> used to stop by
+    ///     walking every region in its context; a component's teardown is a subscription in one of
+    ///     them and it took entries <i>out</i> of that table as it ran, so the correctness of the
+    ///     whole thing rested on <c>Dictionary</c> tolerating a removal mid-enumeration. It does,
+    ///     which is why nothing caught fire — but the reach it needed is now a link rather than a
+    ///     walk, and the table is not enumerated at all.
+    /// </summary>
+    [Fact]
+    public void A_composed_element_stops_a_component_it_built_one_level_inside_it() {
+        using var document = new UiDocument(200f, 200f);
+
+        DeepGuest.Reset();
+        var composed = document.Root.Add<Composed>(null, null, default);
+        document.Effects.Flush();
+
+        var runs = DeepGuest.RowRuns;
+        Assert.True(runs >= 2);
+
+        composed.Remove();
+
+        DeepGuest.Ping.Value++;
+        document.Effects.Flush();
+
+        Assert.Equal(runs, DeepGuest.RowRuns);
+        Assert.Equal(1, DeepGuest.Unmounts);
+    }
+
     // ------------------------------------------------------------ Fixtures
 
     static IReadOnlyList<string> Tags(UiElement element) => [.. element.Children.Select(child => child.Tag)];
@@ -557,6 +739,68 @@ public class CompositionTests {
                 () => Items.Value,
                 static item => item,
                 static (inner, parent, item) => inner.Element(parent, "item").Text = item
+            );
+    }
+
+    /// <summary>A branch whose arm is an element with a loop inside it.</summary>
+    sealed class DeepBranching : Component {
+        public Signal<bool> Shown { get; } = new(true);
+        public Signal<string[]> Items { get; } = new([]);
+        public Signal<int> Ping { get; } = new(0);
+        public int RowRuns { get; private set; }
+
+        protected override void Build(BuildContext ctx) =>
+            ctx.Switch(
+                null,
+                () => Shown.Value ? 0 : -1,
+                (inner, parent, _) => {
+                    var box = inner.Element(parent, "box");
+
+                    inner.For(
+                        box,
+                        () => Items.Value,
+                        static item => item,
+                        (deeper, host, item) => {
+                            var row = deeper.Element(host, "row");
+
+                            deeper.Bind(() => {
+                                RowRuns++;
+                                row.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            });
+                        }
+                    );
+                }
+            );
+    }
+
+    /// <summary>A list whose rows each hold an element with a loop of their own inside it.</summary>
+    sealed class DeepRows : Component {
+        public Signal<string[]> Items { get; } = new([]);
+        public Signal<int> Ping { get; } = new(0);
+        public int CellRuns { get; private set; }
+
+        protected override void Build(BuildContext ctx) =>
+            ctx.For(
+                null,
+                () => Items.Value,
+                static item => item,
+                (inner, parent, item) => {
+                    var row = inner.Element(parent, "row");
+
+                    inner.For(
+                        row,
+                        static () => new[] { "one" },
+                        static cell => cell,
+                        (deeper, host, _) => {
+                            var cell = deeper.Element(host, "cell");
+
+                            deeper.Bind(() => {
+                                CellRuns++;
+                                cell.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            });
+                        }
+                    );
+                }
             );
     }
 
@@ -694,6 +938,130 @@ public class CompositionTests {
             Guest.SawOnUnmount = [];
 
             ctx.Switch(null, () => Shown.Value ? 0 : -1, (inner, parent, _) => inner.Child<Guest>(parent));
+        }
+    }
+
+    /// <summary>
+    ///     A component whose loop is written inside one of its own elements, which is where a panel
+    ///     writes one.
+    /// </summary>
+    /// <remarks>
+    ///     Static counters for the same reason <see cref="Guest" />'s are: what is being tested is
+    ///     what happens to an instance nobody holds, and a field on the test would be a reference
+    ///     keeping it alive.
+    /// </remarks>
+    sealed class DeepGuest : Component {
+        public static readonly Signal<int> Ping = new(0);
+        public static readonly Signal<string[]> Items = new([]);
+        public static int RowRuns;
+        public static int Unmounts;
+        public static string[] SawOnUnmount = [];
+
+        protected internal override string TagName => "deep-guest";
+
+        public static void Reset() {
+            RowRuns = 0;
+            Unmounts = 0;
+            SawOnUnmount = [];
+            Ping.Value = 0;
+            Items.Value = ["a", "b"];
+        }
+
+        protected override void OnUnmounted() {
+            Unmounts++;
+            SawOnUnmount = [.. Root.Children.Select(child => child.Tag)];
+        }
+
+        protected override void Build(BuildContext ctx) {
+            var box = ctx.Element(null, "box");
+
+            ctx.For(
+                box,
+                static () => Items.Value,
+                static item => item,
+                static (inner, parent, item) => {
+                    var row = inner.Element(parent, "row");
+
+                    inner.Bind(() => {
+                        // ⚠ Counted before the element is touched: an effect that outlived its
+                        // component throws on the removed element and the scheduler suspends it, so
+                        // counting afterwards would record a leaked effect as a clean one.
+                        RowRuns++;
+                        row.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    });
+                }
+            );
+        }
+    }
+
+    /// <summary>The same, with the loop at the top level — the case that was never the gap.</summary>
+    sealed class ShallowGuest : Component {
+        public static readonly Signal<int> Ping = new(0);
+        public static readonly Signal<string[]> Items = new([]);
+        public static int RowRuns;
+
+        protected internal override string TagName => "shallow-guest";
+
+        public static void Reset() {
+            RowRuns = 0;
+            Ping.Value = 0;
+            Items.Value = ["a", "b"];
+        }
+
+        protected override void Build(BuildContext ctx) =>
+            ctx.For(
+                null,
+                static () => Items.Value,
+                static item => item,
+                static (inner, parent, item) => {
+                    var row = inner.Element(parent, "row");
+
+                    inner.Bind(() => {
+                        RowRuns++;
+                        row.Text = item + Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    });
+                }
+            );
+    }
+
+    /// <summary>
+    ///     What an <c>@inherits</c> class compiles to, by hand: an element that composes its own
+    ///     tree and disposes it from <c>OnRemoved</c>.
+    /// </summary>
+    sealed class Composed : UiElement {
+        IDisposable? composition;
+
+        protected internal override string TagName => "composed";
+
+        protected internal override void OnCreated() =>
+            composition = BuildContext.Compose(
+                this,
+                context => {
+                    // Nested, and a component: the two things the composed teardown has to reach
+                    // that its own slots do not contain.
+                    var box = context.Element(null, "box");
+                    context.Child<DeepGuest>(box);
+                }
+            );
+
+        protected internal override void OnRemoved() => composition?.Dispose();
+    }
+
+    sealed class DeepHosting : Component {
+        public Signal<bool> Shown { get; } = new(true);
+
+        protected override void Build(BuildContext ctx) {
+            DeepGuest.Reset();
+            ctx.Switch(null, () => Shown.Value ? 0 : -1, (inner, parent, _) => inner.Child<DeepGuest>(parent));
+        }
+    }
+
+    sealed class ShallowHosting : Component {
+        public Signal<bool> Shown { get; } = new(true);
+
+        protected override void Build(BuildContext ctx) {
+            ShallowGuest.Reset();
+            ctx.Switch(null, () => Shown.Value ? 0 : -1, (inner, parent, _) => inner.Child<ShallowGuest>(parent));
         }
     }
 

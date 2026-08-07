@@ -22,6 +22,7 @@ before anything was built on it is
 | `StyleInvalidator` | What changing one name on one element can reach, derived from the rule set. |
 | `StyleUpdater` | The restyle pass, cold and incremental. |
 | `StyleValue` | The typed, interpolatable value. Numbers, lengths, colours, keywords, lists. |
+| `ColorFunctions` | The arithmetic behind `oklab()`, `oklch()` and `color-mix()`. `StyleValueParser` owns the grammar. |
 | `TimingFunction` | `cubic-bezier`, `steps`, and the `spring()` Vixen extension. |
 | `Animator` | Transitions and `@keyframes` animations, over the cascade. |
 | `Vixen.Ui.Styling.Utilities` | ⏳ its own project |
@@ -322,6 +323,51 @@ asks what an element *holds* where the key says only what it *is*. Coarser than 
 browser, which decides per element, and deliberately so: the per-element version wants the
 invalidation machinery that is not written yet, and a sharing cache that is subtly wrong is far worse
 than no sharing cache.
+
+## Colours
+
+Five syntaxes, all decoded to **linear** `Color4` on the way in, because everything past the cascade
+works in linear and doing the decode once here is the difference between a correct fade and one that
+darkens: hex, the named-colour table, `rgb()`/`rgba()`, `oklab()`/`oklch()`, and `color-mix()`.
+
+The last two are [doc 43](../../docs/plan/43-web-styling-parity.md) § D2 and § D4. `oklch()` is what
+makes Tailwind v4's default palette expressible at all — every colour it ships is written that way —
+and `color-mix()` is how v4 says "this colour, at half alpha" without rewriting the colour, which is
+what the `/opacity` modifier compiles to.
+
+Three things are worth knowing before touching any of it.
+
+**The mix is evaluated after `var()` substitution, and needs no knowledge of it.**
+`StyleResolver.Substitute` rewrites the value's *text* during `Build` and re-interns the result;
+`StyleValueParser` only ever runs on what a `ComputedStyle` ended up holding. So
+`color-mix(in oklab, var(--accent) 50%, transparent)` reaches the parser character-for-character
+identical to the same mix written with the hex code in place. ⚠ The consequence that bites is the
+other direction: what substitution hands over is `#4f7cff`, not `rgb(79, 124, 255)`, and ExCSS does
+not normalise inside a function it does not know either — so a `color-mix()` that accepted only
+`rgb()` endpoints would work on every literal and fail on every variable.
+
+**The percentages are an algorithm with a name**, CSS Values 5 § "normalize mix percentages" called
+with the force-normalization flag. One omitted is the other's complement; both given and not summing
+to 100 are *scaled to* 100, with any shortfall multiplying the result's alpha, so `red 20%, blue 60%`
+is a 25/75 mix at 80% alpha; and ⚠ both zero is **transparent black**, not invalid — an older draft
+said invalid and the claim is still widely repeated.
+
+⚠ **Nothing is clamped to a gamut, deliberately.** `oklch(0.7 0.4 30)` is outside sRGB and its linear
+triple has a negative channel, which is carried through intact. Clipping per channel would shift the
+hue — a vivid red clips towards orange — and the correct repair is chroma reduction holding lightness
+and hue, against the gamut of the *display*, which this assembly cannot know. Doc 43 § D4 owns it,
+and carrying the value costs nothing to change later; clamping here would already have destroyed what
+the mapper needs. Nothing downstream produces NaN from it, because the sRGB transfer function is the
+exact piecewise one whose linear segment handles negatives.
+
+⚠ **That includes the way back out, and it is the direction that used to fail.** `StyleValue.ToCss`
+is how the animator hands an interpolated value back to a cascade that works in interned strings, and
+`rgba()` cannot spell a colour outside sRGB — it clamps to `[0, 1]` and quantises to eight bits. So a
+colour survived parse, resolve and draw and then lost its gamut the first frame a transition touched
+it. It now writes `color(srgb-linear r g b / a)` with round-trippable channels when any linear
+channel is outside `[0, 1]`, and keeps the short `rgba()` spelling — one small interned string per
+colour — for everything else. The test is on the colour and not on alpha on purpose: a spring
+overshoots alpha past `1`, and `rgba()` carries that where `color()` would clamp it.
 
 ## What the spike did not say
 

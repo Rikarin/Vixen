@@ -49,7 +49,15 @@ enum ValueKind : byte {
     BorderEdge,
 
     /// <summary>A whole <c>box-shadow</c> declaration named by a token: <c>shadow-lg</c>.</summary>
-    Shadow
+    Shadow,
+
+    /// <summary>A gradient stop, which is a colour or a position: <c>from-accent</c>, <c>from-40%</c>.</summary>
+    /// <remarks>
+    ///     ⚠ Composed — it emits a <see cref="UtilityComposition" /> fragment and no declaration of
+    ///     its own. The colour and the position are separate fragments because Tailwind lets them be
+    ///     written separately: <c>from-accent from-40%</c> is two classes setting two things.
+    /// </remarks>
+    GradientStop
 }
 
 /// <summary>The utilities a class name can name, and what each one emits.</summary>
@@ -80,12 +88,30 @@ public static class UtilityFamilies {
     ///     of longhands from where it puts a width — <c>border-t-2</c> is <c>border-top-width</c> and
     ///     <c>border-t-accent</c> is <c>border-top-color</c>. Null on every other kind.
     /// </param>
+    /// <param name="Position">
+    ///     Where a <see cref="ValueKind.GradientStop" /> family puts a percentage, which is a
+    ///     different fragment from where it puts a colour — <c>from-accent</c> is
+    ///     <c>--tw-gradient-from</c> and <c>from-40%</c> is <c>--tw-gradient-from-position</c>. Null
+    ///     on every other kind.
+    /// </param>
+    /// <param name="Alongside">
+    ///     Declarations emitted verbatim whenever the family resolves, whatever its value.
+    ///     <para>
+    ///         ⚠ <b>This is what a <i>composing</i> utility needs and no other kind does.</b>
+    ///         <c>via-accent</c> has to say two things at once: the colour it was given, and — because
+    ///         a middle stop is the one thing a <c>var()</c> fallback cannot conjure — that the stop
+    ///         list is now the three-stop form. The second is a constant, identical for every
+    ///         <c>via-*</c> in the theme, so it belongs to the family rather than to the value.
+    ///     </para>
+    /// </param>
     sealed record Family(
         string Name,
         ValueKind Kind,
         string[] Properties,
         Dictionary<string, string>? Keywords = null,
-        string[]? ColorProperties = null
+        string[]? ColorProperties = null,
+        string? Position = null,
+        UtilityDeclaration[]? Alongside = null
     );
 
     static readonly Dictionary<string, Family> Registry = new(StringComparer.Ordinal);
@@ -246,6 +272,40 @@ public static class UtilityFamilies {
         Color("fill", "fill");
         Color("stroke", "stroke");
 
+        // ── Gradients: the composed families ────────────────────────────────────────────────
+        //
+        // ⚠ <b>None of these three emits `background-image`.</b> They set the fragments in
+        // `UtilityComposition`, and `bg-linear-*` is the only thing here that emits a declaration a
+        // consumer could read. That is the whole shape doc 43 calls `composed`, and the reason it is
+        // done this way rather than folded together when the sheet is generated is written out on
+        // `UtilityComposition` itself: `hover:from-accent-hover` is decided at use time.
+        GradientStop("from", UtilityComposition.GradientFrom, UtilityComposition.GradientFromPosition);
+        GradientStop("to", UtilityComposition.GradientTo, UtilityComposition.GradientToPosition);
+
+        // The one family with an alongside declaration. `from-*` and `to-*` need none, because the
+        // two-stop list is already `--tw-gradient-stops`' initial value.
+        GradientStop(
+            "via",
+            UtilityComposition.GradientVia,
+            UtilityComposition.GradientViaPosition,
+            new UtilityDeclaration(UtilityComposition.GradientStops, UtilityComposition.StopList(via: true))
+        );
+
+        // The assembler. Eight directions, and the direction is written into each one rather than
+        // parked in a fragment of its own — Tailwind keeps a `--tw-gradient-position` so that
+        // `bg-radial` and `bg-conic` can share one stop list, and neither of those has a renderer
+        // here to speak of. Adding them later is a fragment and three keywords, not a rewrite.
+        //
+        // ⚠ `bg-linear` is registered *after* `bg`, and it still wins for `bg-linear-to-r`, because
+        // `SplitName` sorts longest-first at the bottom of this method rather than trusting the order
+        // things appear in here. `bg-accent` is unaffected.
+        Keywords("bg-linear", "background-image", new() {
+            ["to-t"] = Linear("to top"), ["to-tr"] = Linear("to top right"),
+            ["to-r"] = Linear("to right"), ["to-br"] = Linear("to bottom right"),
+            ["to-b"] = Linear("to bottom"), ["to-bl"] = Linear("to bottom left"),
+            ["to-l"] = Linear("to left"), ["to-tl"] = Linear("to top left")
+        });
+
         // ── Borders ─────────────────────────────────────────────────────────────────────────
         // ⚠ `border-2` is two *pixels* where `p-2` is two spacing steps, which is Tailwind's choice
         // and the right one. A border is a hairline or it is not; scaling it with the spacing base
@@ -385,6 +445,172 @@ public static class UtilityFamilies {
         return (whole, string.Empty);
     }
 
+    /// <summary>Every class name that reaches a distinct part of what the families can emit.</summary>
+    /// <param name="tokens">The theme, which decides what a token-valued family can be given.</param>
+    /// <returns>The class names, ordered, each one of which resolves against <paramref name="tokens" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The point of this is that it is <i>computed</i>, and every hand-written inventory of
+    ///         this table has rotted.</b> <c>docs/plan/43</c> § Part 0 is a survey somebody did by hand
+    ///         against 328 Tailwind roots, and its own opening caveat is that the script that produced
+    ///         it is not in the tree. Anything that enumerates the family surface by listing class names
+    ///         is a second copy of the registry that drifts from the first the next time a family is
+    ///         added — which is exactly how "43 registrations" came to be quoted for a table holding 98.
+    ///     </para>
+    ///     <para>
+    ///         <b>A family is covered by more than one class, because a family emits more than one
+    ///         thing.</b> <c>flex</c> alone is <c>display</c>, <c>flex-col</c> is <c>flex-direction</c>,
+    ///         <c>flex-wrap</c> is <c>flex-wrap</c> and <c>flex-1</c> is the <c>flex</c> shorthand — one
+    ///         prefix, four properties, so one example class would measure a quarter of it. Every key of
+    ///         a family's keyword table is emitted, plus a value of the family's own kind, plus a colour
+    ///         for the border families, whose colour longhands are a different set from their widths.
+    ///     </para>
+    ///     <para>
+    ///         Only the names that <see cref="TryResolve" /> actually answers come back, so a theme with
+    ///         no <c>radius</c> scale yields no <c>rounded-*</c> — which is a true statement about that
+    ///         theme rather than a hole in this method.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Surface(ThemeTokens tokens) {
+        ArgumentNullException.ThrowIfNull(tokens);
+
+        var probes = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var declarations = new List<UtilityDeclaration>();
+
+        // Ordered by name rather than by the longest-first order `SplitName` needs, so that a failure
+        // message reads alphabetically and two runs produce the same list.
+        foreach (var name in Names.Order(StringComparer.Ordinal)) {
+            var family = Registry[name];
+
+            // The bare form — `border`, `rounded`, `grow`, and every `Static` family, whose value
+            // lives under the keyword table's empty key.
+            Consider(name);
+
+            if (family.Keywords is not null) {
+                foreach (var key in family.Keywords.Keys.Order(StringComparer.Ordinal)) {
+                    Consider(key.Length == 0 ? name : $"{name}-{key}");
+                }
+            }
+
+            foreach (var value in ValuesFor(family, tokens)) {
+                Consider($"{name}-{value}");
+            }
+        }
+
+        return probes;
+
+        void Consider(string candidate) {
+            if (!seen.Add(candidate)
+                || !UtilityParser.TryParse(candidate, out var parsed)
+                || !TryResolve(parsed, tokens, declarations)) {
+                return;
+            }
+
+            probes.Add(candidate);
+        }
+    }
+
+    /// <summary>The values worth giving a family of each kind, drawn from the theme where there is one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first token of a scale rather than all of them.</b> Two radii emit the same property
+    ///     with different numbers, so the second says nothing new about <i>which</i> properties a family
+    ///     can set — where a second keyword often does, which is why the keyword table is enumerated
+    ///     whole and the token scales are not. <see cref="ValueKind.FontSize" /> and
+    ///     <see cref="ValueKind.BorderEdge" /> take two values apiece because those two kinds genuinely
+    ///     change property depending on how the value reads.
+    /// </remarks>
+    static IEnumerable<string> ValuesFor(Family family, ThemeTokens tokens) {
+        switch (family.Kind) {
+            case ValueKind.Spacing:
+            case ValueKind.Size:
+            case ValueKind.Number:
+                yield return "2";
+                break;
+
+            case ValueKind.Duration:
+                yield return "300";
+                break;
+
+            case ValueKind.Fraction:
+                yield return "50";
+                break;
+
+            case ValueKind.Color:
+                foreach (var colour in First(tokens.Colors.Keys)) {
+                    yield return colour;
+                }
+
+                break;
+
+            case ValueKind.Radius:
+                foreach (var radius in First(tokens.Radius.Keys)) {
+                    yield return radius;
+                }
+
+                break;
+
+            case ValueKind.FontWeight:
+                foreach (var weight in First(tokens.FontWeight.Keys)) {
+                    yield return weight;
+                }
+
+                break;
+
+            case ValueKind.Shadow:
+                foreach (var shadow in First(tokens.Shadow.Keys)) {
+                    yield return shadow;
+                }
+
+                break;
+
+            // Both readings, for the same reason `text-` and `border-` take two: a percentage and a
+            // colour are two different fragments, and probing one would leave the other unmeasured.
+            case ValueKind.GradientStop:
+                yield return "40%";
+
+                foreach (var colour in First(tokens.Colors.Keys)) {
+                    yield return colour;
+                }
+
+                break;
+
+            case ValueKind.FontSize:
+                // Both readings of `text-`, because they are two different properties: a size token
+                // sets `font-size` and `line-height`, and anything else falls through to `color`.
+                foreach (var size in First(tokens.FontSize.Keys)) {
+                    yield return size;
+                }
+
+                foreach (var colour in First(tokens.Colors.Keys)) {
+                    yield return colour;
+                }
+
+                break;
+
+            case ValueKind.BorderEdge:
+                // A width and a colour, which land in two different sets of longhands — the case
+                // `docs/plan/43` F1 is about, where one set was read and the other was not.
+                yield return "2";
+
+                foreach (var colour in First(tokens.Colors.Keys)) {
+                    yield return colour;
+                }
+
+                break;
+
+            case ValueKind.Static:
+            case ValueKind.Keyword:
+            default:
+                break;
+        }
+    }
+
+    static IEnumerable<string> First(IEnumerable<string> keys) {
+        var ordered = keys.Order(StringComparer.Ordinal).FirstOrDefault();
+        return ordered is null ? [] : [ordered];
+    }
+
     /// <summary>Turns a parsed candidate into the declarations it stands for.</summary>
     /// <param name="candidate">The candidate.</param>
     /// <param name="tokens">The theme.</param>
@@ -402,8 +628,21 @@ public static class UtilityFamilies {
 
         // Negation is applied to the result rather than threaded through every branch below, because
         // `-mt-4` sets exactly what `mt-4` sets and the only difference is the sign of the number.
-        return Resolve(family, candidate, tokens, declarations)
-            && (!candidate.Negative || TryNegate(candidate, declarations));
+        if (!Resolve(family, candidate, tokens, declarations)
+            || (candidate.Negative && !TryNegate(candidate, declarations))) {
+            return false;
+        }
+
+        // ⚠ Last, and after negation, and only once the value has resolved. After negation because a
+        // stop list is not a number and flipping its sign is meaningless; only once the value has
+        // resolved because a family that appended its constants first would leave `via-nonsense` —
+        // a typo — emitting a three-stop list for a colour nobody supplied, which is a rule that
+        // exists and silently changes the gradient.
+        if (family.Alongside is not null) {
+            declarations.AddRange(family.Alongside);
+        }
+
+        return true;
     }
 
     static bool Resolve(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
@@ -446,8 +685,29 @@ public static class UtilityFamilies {
             ValueKind.Color => TryColor(candidate, tokens, out var colour) && Emit(family, colour, declarations),
             ValueKind.BorderEdge => TryBorderEdge(family, candidate, tokens, declarations),
             ValueKind.Shadow => TryShadow(family, candidate, tokens, declarations),
+            ValueKind.GradientStop => TryGradientStop(family, candidate, tokens, declarations),
             _ => false
         };
+    }
+
+    /// <summary>A gradient stop: a percentage is where it sits, anything else is what colour it is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Percentage-first, and unlike <c>text-</c> this order shadows nothing.</b> A colour
+    ///     token cannot be named <c>40%</c>, because <c>%</c> is not a character a theme key is
+    ///     written with — so the two readings of <c>from-</c> are separated by the value's shape and
+    ///     no palette can collide with either.
+    /// </remarks>
+    static bool TryGradientStop(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
+        var value = candidate.Arbitrary ?? candidate.Value;
+
+        if (value.EndsWith('%') && float.TryParse(value[..^1], CultureInfo.InvariantCulture, out _)) {
+            declarations.Add(new UtilityDeclaration(family.Position!, value));
+            return true;
+        }
+
+        return candidate.Arbitrary is not null
+            ? EmitInto(family.Properties, candidate.Arbitrary, declarations)
+            : TryColor(candidate, tokens, out var colour) && Emit(family, colour, declarations);
     }
 
     /// <summary>The values that are sizes rather than lengths, and so cannot be negated.</summary>
@@ -579,6 +839,32 @@ public static class UtilityFamilies {
         return true;
     }
 
+    /// <summary>A theme colour, with the <c>/50</c> modifier folded in if there was one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This used to rewrite the colour as <c>rgba()</c>, and could only do so when the
+    ///         token was a hex triple — so every token that was not one had its opacity silently
+    ///         dropped.</b> Which sounds like an edge case and is the ordinary case the moment tokens
+    ///         become references: <c>--accent: var(--blue-500)</c>, or an <c>@theme</c> block written
+    ///         in <c>oklch()</c> as <c>docs/plan/43</c> § D4 calls for, are both "not a hex triple".
+    ///         The utility resolved, emitted valid CSS, and painted at full opacity.
+    ///     </para>
+    ///     <para>
+    ///         <b><c>color-mix()</c> removes the condition rather than widening it.</b> The colour
+    ///         goes in as text and is never taken apart here, so this works for a hex code, an
+    ///         <c>oklch()</c>, a <c>var()</c> — whatever the token holds and whatever it will hold
+    ///         later. It is what Tailwind v4 emits for the same modifier, and for a hex colour it is
+    ///         arithmetically the same answer the <c>rgba()</c> rewrite gave: mixing against
+    ///         <c>transparent</c> with premultiplied alpha leaves the colour where it was and moves
+    ///         only the alpha.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>in oklab</c>, not <c>in oklch</c>.</b> A hue is not premultiplied, and
+    ///         <c>transparent</c> is black at zero alpha whose hue is 0° — so the polar space would
+    ///         drag every colour's hue towards red on its way to being translucent. See
+    ///         <c>Vixen.Ui.Styling.ColorFunctions.Mix</c>, which has the arithmetic.
+    ///     </para>
+    /// </remarks>
     static bool TryColor(UtilityCandidate candidate, ThemeTokens tokens, out string value) {
         value = string.Empty;
 
@@ -595,17 +881,9 @@ public static class UtilityFamilies {
             return true;
         }
 
-        // `#rrggbb` plus an opacity becomes `rgba(...)`, because CSS has no way to say "this colour
-        // but at half alpha" without rewriting it. Anything not a hex triple is passed through with
-        // the opacity dropped rather than mangled — with a note, since it is a real limitation.
-        if (!Vixen.Core.Mathematics.Color.TryParseHex(colour, out var parsed)) {
-            value = colour;
-            return true;
-        }
-
         value = string.Create(
             CultureInfo.InvariantCulture,
-            $"rgba({parsed.R}, {parsed.G}, {parsed.B}, {(opacity * parsed.A / 255f).ToString("0.###", CultureInfo.InvariantCulture)})"
+            $"color-mix(in oklab, {colour} {(opacity * 100f).ToString("0.###", CultureInfo.InvariantCulture)}%, transparent)"
         );
 
         return true;
@@ -790,4 +1068,25 @@ public static class UtilityFamilies {
 
     static void Radius(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Radius, properties));
+
+    /// <summary>Registers a composed family: a colour fragment, a position fragment, and no declaration.</summary>
+    static void GradientStop(string name, string colour, string position, params UtilityDeclaration[] alongside) =>
+        Register(new Family(
+            name,
+            ValueKind.GradientStop,
+            [colour],
+            Position: position,
+            Alongside: alongside.Length == 0 ? null : alongside
+        ));
+
+    /// <summary>One gradient assembler: the direction, and the stop list the fragments compose into.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The stop list is reached through <see cref="UtilityComposition.Reference" />, so the
+    ///     two-stop form is what an absent <c>via-*</c> falls back to</b> rather than something this
+    ///     string has to remember to spell. <c>from-red to-blue</c> with no <c>via</c> is a two-stop
+    ///     gradient; the version of this that wrote <c>var(--tw-gradient-stops)</c> bare would make it
+    ///     no gradient at all.
+    /// </remarks>
+    static string Linear(string direction) =>
+        $"linear-gradient({direction}, {UtilityComposition.Reference(UtilityComposition.GradientStops)})";
 }

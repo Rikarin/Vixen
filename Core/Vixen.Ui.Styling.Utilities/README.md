@@ -18,6 +18,7 @@ every component is in the same repository as every token.
 | `ThemeTokens` | `vixen.ui.yaml` → colours, spacing, radii, font sizes and weights, shadows, breakpoints. |
 | `UtilityParser` | `[-]?[variant:]*utility[-value][/opacity][!]`, bracket-aware throughout. |
 | `UtilityFamilies` | What each family emits. Table-driven. |
+| `UtilityComposition` | The `--tw-*` fragments, and what each is worth unset. `from-*`/`via-*`/`to-*` + `bg-linear-*` is the worked case; the guide is [ui/utility-composition](../../docs/guide/ui/utility-composition.md). |
 | `Variants` | `hover:`, `md:`, `dark:`, `ltr:`/`rtl:`, `group-*`, `peer-*`, `data-*`, `aria-*`, `[&>*]`. |
 | `UtilityGenerator` | The stylesheet, into `@layer utilities`. |
 | `CandidateScanner` | Deliberately over-inclusive extraction from source text. |
@@ -87,15 +88,22 @@ What the family set *is* chosen against is order of work. The border edges, the 
 sequencing argument — do the families whose properties already land — and it stops being a reason the
 moment the property lands too.
 
-⚠ **Eighteen of the ninety properties these families emit reach no consumer**, and knowing which is
-the point. `opacity`, `cursor`, `text-align`, `tracking`, `leading`, `z`, `font` and the per-axis
-`overflow` were all in this list until the engine learned them; still in it are the transforms
-(`--translate-x`, `--translate-y`, `--scale`, `--rotate`), `--blur`, `ring` (`outline-color`),
-`fill`, `stroke`, `user-select`, `vertical-align`, `order`, `grid-column`, `grid-template-columns`,
-and every per-edge border **colour** except `border-top-color`. A rule that resolves to a property no
-consumer looks at is not a bug in the generator — it is a utility waiting for an engine feature, and
-[doc 43](../../docs/plan/43-web-styling-parity.md) § C5 turns that list into a build gate so a
-waiting utility has to name what it is waiting for.
+⚠ **Some of the properties these families emit reach no consumer, and the list is no longer written
+here, because every hand-written copy of it has gone stale within the month.** It is measured, on every
+test run, by `Core/Vixen.Ui.Styling.Utilities.Tests/UtilityConsumptionGateTests`, and the current list
+with a task number against each line is
+[`InertProperties.txt`](../../Core/Vixen.Ui.Styling.Utilities.Tests/InertProperties.txt) beside it. A
+rule that resolves to a property no consumer looks at is not a bug in the generator — it is a utility
+waiting for an engine feature — and the gate is what makes a waiting utility name what it is waiting
+for, rather than waiting quietly.
+
+⚠ **"Interned" is not the test, and "it resolves" is even less of one.** The gate establishes
+consumption by *changing the property and running frames*: a scene is built twice, once with one extra
+declaration, and the layout, the draw list, the cursor and the hit test are compared either side. A
+property that moves none of them at any value a utility can give it, in any of six arrangements, is not
+read by anything — however many `Intern("…")` calls name it. That distinction is not academic:
+[doc 43](../../docs/plan/43-web-styling-parity.md) measured it at seven properties, and the gate's first
+run found three more that this file and the plan document had both called supported.
 
 ⚠ **One case is worse than inert and is not on that list.** The per-edge border *widths* are read by
 the layout and ignored by the draw list, which takes one thickness from `Edge.Top` and one colour from
@@ -200,6 +208,18 @@ inherits.
 Two media-query variants on one utility (`sm:md:p-4`) are dropped rather than nested, because Vixen's
 `@media` support does not nest. `@apply` refuses variants, because a variant would have to invent a
 rule with a different selector from the block it sits in, which is not what "apply this here" means.
+
+**Composition is faithful, not folded.** A composed utility really does emit a custom property, and
+the cascade resolves the `var()` references at use time — it is not the generator assembling them as
+it writes. That costs a `var()` substitution per element and it is the only design that can be right:
+`from-accent hover:from-accent-hover` is two selectors, and which one supplies the colour is a
+question about where the pointer is. The full argument, and the reason an unset fragment degrades
+instead of erasing the declaration, is on `UtilityComposition`.
+
+⚠ **`bg-linear-<angle>` and the radial and conic forms are not registered.** Only the eight named
+directions are, because the keyword table is what `bg-linear` resolves against and an angle is not a
+keyword — `bg-linear-45` is reported unknown rather than emitted wrong. The fragments are already
+shared, so adding them is a value kind and three keywords.
 
 ⚠ **Arbitrary *values* work and arbitrary *properties* do not.** `w-[37px]` is the escape hatch this
 system is proud of; `[mask-type:luminance]` — Tailwind's other one — parses to an arbitrary value with

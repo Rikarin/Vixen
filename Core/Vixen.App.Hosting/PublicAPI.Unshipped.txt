@@ -157,6 +157,8 @@ Vixen.App.GraphicsOptions.Enabled.set -> bool
 Vixen.App.GraphicsOptions.Factories.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.ISceneRendererFactory>
 Vixen.App.GraphicsOptions.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.App.GraphicsOptions.Format.set -> Vixen.Graphics.PixelFormat
+Vixen.App.GraphicsOptions.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
+Vixen.App.GraphicsOptions.Gamut.set -> Vixen.Core.Mathematics.ColorGamut
 Vixen.App.GraphicsOptions.GpuProfiling.get -> bool
 Vixen.App.GraphicsOptions.GpuProfiling.set -> bool
 Vixen.App.GraphicsOptions.GraphicsOptions() -> void
