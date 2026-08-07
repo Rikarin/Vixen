@@ -158,13 +158,13 @@ public class PatchParameterizationTests {
         var grid = Rim(mesh, corner, output, out var samples);
 
         Assert.NotNull(
-            PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, Across, Across)
+            PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, Across, Across, out _)
         );
 
         output.MovePosition(grid[1][0], output.Positions[grid[1][0]] * 1.2f);
 
         Assert.Null(
-            PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, Across, Across)
+            PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, Across, Across, out _)
         );
     }
 
@@ -176,7 +176,7 @@ public class PatchParameterizationTests {
 
         grid = Rim(mesh, corner, output, out var samples);
 
-        var found = PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, Across, Across);
+        var found = PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, Across, Across, out _);
 
         rim = [.. output.Positions];
 

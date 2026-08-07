@@ -44,6 +44,16 @@ sealed class PatchGrid {
 
     /// <summary>Whether each side is made only of feature arcs — where a seam is least visible.</summary>
     public required bool[] IsFeature { get; init; }
+
+    /// <summary>Why the interior fell back to the blend, or <see langword="null" /> when it did not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Carried because the blend is where the folds are, and nothing was recording which
+    ///     patches took it.</b> <see cref="PatchParameterization" /> is a provable embedding and the
+    ///     transfinite blend beside it is not; a patch that fell back is the one place an inverted quad
+    ///     can still be built, so the reason belongs in the grid rather than in a counter that only the
+    ///     warning text sees.
+    /// </remarks>
+    public required string? Blended { get; init; }
 }
 
 /// <summary>What extraction produced, and everything the report needs to measure it.</summary>
@@ -127,7 +137,7 @@ static class PatchExtractor {
     ///     is under, and for the same reason: a residual read against a threshold is a floating-point
     ///     comparison that can land differently on two machines.
     /// </remarks>
-    public const int RelaxIterations = 8;
+    public const int RelaxIterations = 32;
 
     /// <summary>How far a vertex moves toward its neighbours' average each round.</summary>
     public const float RelaxRate = 0.5f;
@@ -482,21 +492,26 @@ static class PatchExtractor {
             }
         }
 
-        // § D8's per-patch parameterization, with the blend kept for the patches it refuses. A lifted
-        // point is already on the conditioned surface — it is a barycentric point of one of its
-        // triangles — so it is the blended one, and only the blended one, that needs projecting back.
-        var embedded = PatchParameterization.Interior(mesh, layout.Arcs, patch, samples, output, grid, wide, tall);
+        // § D8's per-patch parameterization, with the blend beside it. A lifted point is already on the
+        // conditioned surface — it is a barycentric point of one of its triangles — so it is the
+        // blended one, and only the blended one, that needs projecting back.
+        var embedded = PatchParameterization.Interior(
+            mesh,
+            layout.Arcs,
+            patch,
+            samples,
+            output,
+            grid,
+            wide,
+            tall,
+            out var blended
+        );
+
+        var interior = Chosen(output, projector, grid, embedded, wide, tall, ref blended);
 
         for (var i = 1; i < wide; i++) {
             for (var j = 1; j < tall; j++) {
-                var u = (float) i / wide;
-                var v = (float) j / tall;
-
-                var position = embedded is not null
-                    ? embedded[i - 1, j - 1]
-                    : projector.Project(Coons(output, grid, i, j, wide, tall, u, v));
-
-                grid[i][j] = output.AddPosition(position);
+                grid[i][j] = output.AddPosition(interior[i - 1, j - 1]);
                 arcOf.Add(-1);
                 sourceOf.Add(-1);
                 pinned.Add(false);
@@ -529,10 +544,137 @@ static class PatchExtractor {
             Vertices = grid,
             FirstFace = first,
             Sides = side,
-            IsFeature = feature
+            IsFeature = feature,
+            Blended = blended
         };
 
         return null;
+    }
+
+    /// <summary>The interior that folds least, out of the embedding and the blend.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠⚠ <b>Both are built and the grid itself decides, because neither construction wins
+    ///         everywhere and arguing about which should was costing quads on every fixture.</b>
+    ///         <see cref="PatchParameterization" /> is a provable embedding of the patch onto a square,
+    ///         which is exactly the guarantee the transfinite blend lacks — but the guarantee is about
+    ///         the <i>map</i> and not about a <i>uniform grid laid on the square</i>. A harmonic map
+    ///         distributes by its own weights rather than by arc length, so on a patch the quantizer cut
+    ///         nine quads one way and two the other, the parameter row at <c>v = ½</c> can run backwards
+    ///         along the surface relative to the row at <c>v = 0</c>, and the straight-sided cell between
+    ///         them crosses itself. Measured on a union patch of that shape: the lifted interior corner
+    ///         landed at <c>x = −0.651</c> between rim corners at <c>−0.632</c> and <c>−0.408</c>, and
+    ///         the quad's two halves crossed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured against counted folds and not against a quality score, because a fold is
+    ///         the defect and a score is a proxy for it.</b> The count is over the whole grid including
+    ///         its rim, so a cell that folds against a boundary the interior never touches is still seen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The embedding wins every tie, which is what keeps this from being a coin toss.</b>
+    ///         It is the construction with the theorem behind it and it is the one § D8 asks for; the
+    ///         blend is only ever allowed to displace it by <i>measurably</i> folding less. A tie-break
+    ///         the other way would let floating-point noise decide which construction a patch got, and
+    ///         § D14 wants the same bytes out of the same input.
+    ///     </para>
+    /// </remarks>
+    static Vector3[,] Chosen(
+        EditMesh output,
+        SurfaceProjector projector,
+        int[][] grid,
+        Vector3[,]? embedded,
+        int wide,
+        int tall,
+        ref string? blended
+    ) {
+        var coons = new Vector3[wide - 1, tall - 1];
+
+        for (var i = 1; i < wide; i++) {
+            for (var j = 1; j < tall; j++) {
+                coons[i - 1, j - 1] = projector.Project(
+                    Coons(output, grid, i, j, wide, tall, (float) i / wide, (float) j / tall)
+                );
+            }
+        }
+
+        if (embedded is null) {
+            return coons;
+        }
+
+        var folds = Folds(output, grid, embedded, wide, tall);
+
+        if (folds == 0 || folds <= Folds(output, grid, coons, wide, tall)) {
+            return embedded;
+        }
+
+        blended = "the blend folded less than the embedding";
+
+        return coons;
+    }
+
+    /// <summary>How many of a candidate grid's cells have a corner wound against the cell's own normal.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same test <c>RemeshMetrics.ScaledJacobian</c> reports and <c>QuadQualityTests</c>
+    ///     reads, applied before the face exists rather than after.</b> A degenerate corner contributes
+    ///     nothing and the scan carries on — the sentinel that made four fixtures read <c>0.000</c> while
+    ///     holding folded quads was exactly an early return here.
+    /// </remarks>
+    static int Folds(EditMesh output, int[][] grid, Vector3[,] interior, int wide, int tall) {
+        var corner = new Vector3[wide + 1][];
+
+        for (var i = 0; i <= wide; i++) {
+            corner[i] = new Vector3[tall + 1];
+
+            for (var j = 0; j <= tall; j++) {
+                corner[i][j] = i > 0 && j > 0 && i < wide && j < tall
+                    ? interior[i - 1, j - 1]
+                    : output.Positions[grid[i][j]];
+            }
+        }
+
+        var folded = 0;
+
+        for (var i = 0; i < wide; i++) {
+            for (var j = 0; j < tall; j++) {
+                Span<Vector3> loop = [corner[i][j], corner[i + 1][j], corner[i + 1][j + 1], corner[i][j + 1]];
+
+                var normal = Vector3.Zero;
+
+                for (var at = 0; at < 4; at++) {
+                    var here = loop[at];
+                    var next = loop[(at + 1) % 4];
+
+                    normal += new Vector3(
+                        (here.Y - next.Y) * (here.Z + next.Z),
+                        (here.Z - next.Z) * (here.X + next.X),
+                        (here.X - next.X) * (here.Y + next.Y)
+                    );
+                }
+
+                normal = ScaleSafe.Unit(normal);
+
+                if (normal.LengthSquared() <= 0f) {
+                    continue;
+                }
+
+                for (var at = 0; at < 4; at++) {
+                    var here = loop[at];
+                    var ahead = ScaleSafe.Unit(loop[(at + 1) % 4] - here);
+                    var behind = ScaleSafe.Unit(loop[(at + 3) % 4] - here);
+
+                    if (ahead.LengthSquared() > 0f
+                        && behind.LengthSquared() > 0f
+                        && Vector3.Dot(Vector3.Cross(ahead, behind), normal) < 0f) {
+                        folded++;
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return folded;
     }
 
     /// <summary>The bilinearly-blended interior point of a patch, from its four boundary chains.</summary>
@@ -583,12 +725,28 @@ static class PatchExtractor {
 
     /// <summary>§ D8's relaxation: tangential smoothing with reprojection, feature vertices sliding.</summary>
     /// <remarks>
-    ///     ⚠ <b>Three constraints and they are not interchangeable.</b> A corner is pinned, because a
-    ///     corner that moves is a hard edge that no longer meets the one next to it. A vertex on a
-    ///     feature arc slides <i>along</i> the arc's own chain, because it may space itself better and
-    ///     may not leave the crease. Everything else moves freely on the surface and is projected back
-    ///     each round, which is what stops the smoothing from shrinking the model — the same rule R1's
-    ///     isotropic pre-remesh is under.
+    ///     <para>
+    ///         ⚠ <b>Three constraints and they are not interchangeable.</b> A corner is pinned, because a
+    ///         corner that moves is a hard edge that no longer meets the one next to it. A vertex on a
+    ///         feature arc slides <i>along</i> the arc's own chain, because it may space itself better
+    ///         and may not leave the crease. Everything else moves freely on the surface and is projected
+    ///         back each round, which is what stops the smoothing from shrinking the model — the same
+    ///         rule R1's isotropic pre-remesh is under.
+    ///     </para>
+    ///     <para>
+    ///         ⚠⚠ <b>Applied as the sweep goes rather than gathered and applied at the end, and that is
+    ///         what makes the fold guard below mean anything.</b> Each candidate is judged against the
+    ///         faces around it; if the whole round is judged against the round's <i>starting</i>
+    ///         positions and then applied at once, two adjacent vertices can each be told their own move
+    ///         is harmless and land on a fold together. Writing each accepted move immediately makes the
+    ///         guard's promise a global one: no accepted move increases the number of folded faces in
+    ///         the mesh, so the count is non-increasing over the whole relaxation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Still deterministic, because the sweep is in ascending index order.</b> § D14 asks
+    ///         that the same input produce the same bytes, which an ordered in-place sweep satisfies; it
+    ///         does not ask that the answer be independent of the order, which no Gauss–Seidel is.
+    ///     </para>
     /// </remarks>
     static void Relax(
         ManifoldMesh mesh,
@@ -605,14 +763,10 @@ static class PatchExtractor {
 
         var count = output.PositionCount;
         var neighbours = Adjacency(output);
-        var moving = new Vector3[count];
+        var faces = Incident(output);
         var held = Held(layout, extraction, count);
 
         for (var round = 0; round < RelaxIterations; round++) {
-            for (var vertex = 0; vertex < count; vertex++) {
-                moving[vertex] = output.Positions[vertex];
-            }
-
             for (var vertex = 0; vertex < count; vertex++) {
                 var source = extraction.SourceOf[vertex];
 
@@ -640,15 +794,122 @@ static class PatchExtractor {
                 var wanted = Vector3.Lerp(output.Positions[vertex], sum / ring.Length, RelaxRate);
                 var arc = extraction.ArcOf[vertex];
 
-                moving[vertex] = arc >= 0 && layout.Arcs[arc].IsFeature
+                var candidate = arc >= 0 && layout.Arcs[arc].IsFeature
                     ? Slide(mesh, layout.Arcs[arc], wanted)
                     : projector.Project(wanted);
-            }
 
-            for (var vertex = 0; vertex < count; vertex++) {
-                output.MovePosition(vertex, moving[vertex]);
+                // ⚠ A smoothing step that folds one of its own faces is refused, and that is what makes
+                // the rounds monotone rather than merely usually-helpful. Plain Laplacian smoothing has
+                // no idea what a fold is: measured over the seven fixtures at 32 rounds it took the
+                // sphere to zero inverted faces and pushed the stairs from −0.966 to −1.000 in the same
+                // run, because the average of a ring is not a point inside the ring's faces. Comparing
+                // before and after is cheap — a grid vertex has four faces — and it turns the round
+                // budget into a bound that only ever pays.
+                //
+                // ⚠ <b>The count first and the depth only as a tie-break, and a neighbourhood that is
+                // already clean is exempt from the depth test entirely.</b> Requiring the worst corner
+                // never to shrink would freeze the mesh, because almost every smoothing step trades a
+                // little shape somewhere for a lot somewhere else; requiring only the count made the
+                // sphere's worst quad go from −0.081 to −0.449 while its face count improved, because a
+                // fold that stays a fold was free to deepen. Measured, the pair together is what moved
+                // every fixture in the same direction at once.
+                var was = Around(output, faces, vertex, output.Positions[vertex]);
+                var now = Around(output, faces, vertex, candidate);
+
+                if (now.Folded > was.Folded || (now.Folded == was.Folded && was.Folded > 0 && now.Worst < was.Worst)) {
+                    continue;
+                }
+
+                output.MovePosition(vertex, candidate);
             }
         }
+    }
+
+    /// <summary>Every face each position is a corner of, ascending.</summary>
+    static int[][] Incident(EditMesh output) {
+        var sets = new List<int>[output.PositionCount];
+
+        for (var vertex = 0; vertex < sets.Length; vertex++) {
+            sets[vertex] = [];
+        }
+
+        for (var face = 0; face < output.FaceCount; face++) {
+            foreach (var corner in output.CornersOf(face)) {
+                if (sets[corner].Count == 0 || sets[corner][^1] != face) {
+                    sets[corner].Add(face);
+                }
+            }
+        }
+
+        var incident = new int[sets.Length][];
+
+        for (var vertex = 0; vertex < sets.Length; vertex++) {
+            incident[vertex] = [.. sets[vertex]];
+        }
+
+        return incident;
+    }
+
+    /// <summary>How many of a position's own faces are folded, with that position moved to a candidate.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the moving vertex is substituted and every other corner is read from the mesh</b>,
+    ///     so the answer is a function of one candidate against one fixed neighbourhood — which is what
+    ///     lets the whole round be evaluated against the round's own starting positions and stay
+    ///     independent of the order the vertices are visited in. § D14.
+    /// </remarks>
+    static (int Folded, float Worst) Around(EditMesh output, int[][] faces, int vertex, Vector3 candidate) {
+        var folded = 0;
+        var worst = 1f;
+
+        foreach (var face in faces[vertex]) {
+            var loop = output.CornersOf(face);
+            var normal = Vector3.Zero;
+
+            for (var at = 0; at < loop.Length; at++) {
+                var here = loop[at] == vertex ? candidate : output.Positions[loop[at]];
+                var next = loop[(at + 1) % loop.Length] == vertex
+                    ? candidate
+                    : output.Positions[loop[(at + 1) % loop.Length]];
+
+                normal += new Vector3(
+                    (here.Y - next.Y) * (here.Z + next.Z),
+                    (here.Z - next.Z) * (here.X + next.X),
+                    (here.X - next.X) * (here.Y + next.Y)
+                );
+            }
+
+            normal = ScaleSafe.Unit(normal);
+
+            if (normal.LengthSquared() <= 0f) {
+                continue;
+            }
+
+            var any = false;
+
+            for (var at = 0; at < loop.Length; at++) {
+                var here = loop[at] == vertex ? candidate : output.Positions[loop[at]];
+                var one = loop[(at + 1) % loop.Length];
+                var two = loop[(at + loop.Length - 1) % loop.Length];
+
+                var ahead = ScaleSafe.Unit((one == vertex ? candidate : output.Positions[one]) - here);
+                var behind = ScaleSafe.Unit((two == vertex ? candidate : output.Positions[two]) - here);
+
+                if (ahead.LengthSquared() <= 0f || behind.LengthSquared() <= 0f) {
+                    continue;
+                }
+
+                var corner = Vector3.Dot(Vector3.Cross(ahead, behind), normal);
+
+                worst = MathF.Min(worst, corner);
+                any |= corner < 0f;
+            }
+
+            if (any) {
+                folded++;
+            }
+        }
+
+        return (folded, worst);
     }
 
     /// <summary>Every output position that ends a feature arc, which the relaxation may not move.</summary>

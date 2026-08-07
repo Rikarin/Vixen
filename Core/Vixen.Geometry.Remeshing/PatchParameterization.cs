@@ -134,6 +134,7 @@ static class PatchParameterization {
     /// <param name="grid">The patch's grid, with its four sides filled in and its interior not.</param>
     /// <param name="wide">How many quads across, along sides 0 and 2.</param>
     /// <param name="tall">How many quads up, along sides 1 and 3.</param>
+    /// <param name="refused">Why the patch could not be embedded, or <see langword="null" /> when it was.</param>
     /// <returns>
     ///     The interior positions, indexed <c>[i - 1, j - 1]</c> over <c>[1, wide) × [1, tall)</c>, or
     ///     <see langword="null" /> where the patch could not be embedded and the caller should blend.
@@ -146,36 +147,51 @@ static class PatchParameterization {
         EditMesh output,
         int[][] grid,
         int wide,
-        int tall
+        int tall,
+        out string? refused
     ) {
+        refused = null;
+
         if (wide < 2 || tall < 2) {
+            refused = "the patch is one quad wide";
+
             return null;
         }
 
         var local = Localize(mesh, patch, out var triangles, out var positions);
 
         if (local.Count == 0 || triangles.Length == 0) {
+            refused = "the patch has no triangles";
+
             return null;
         }
 
         var pinned = new Vector2[local.Count];
         var isPinned = new bool[local.Count];
 
-        if (!Pin(mesh, arcs, patch, samples, local, wide, tall, pinned, isPinned)) {
+        if (!Pin(mesh, arcs, patch, samples, local, wide, tall, pinned, isPinned, out var rims)) {
+            refused = "the rim could not be pinned to the square";
+
             return null;
         }
 
         if (!IsDisc(triangles, local.Count, isPinned)) {
+            refused = "the patch is not a triangulated disc";
+
             return null;
         }
 
         var uv = Solve(positions, triangles, pinned, isPinned);
 
-        if (!IsEmbedded(triangles, uv, out var sign)) {
+        if (!IsEmbedded(triangles, uv, isPinned, out var sign)) {
+            refused = "the solved map is not an embedding";
+
             return null;
         }
 
-        if (!Agrees(positions, triangles, uv, sign, output, grid, wide, tall)) {
+        if (!Agrees(positions, rims, output, grid, wide, tall)) {
+            refused = "the pinned rim disagrees with the grid's";
+
             return null;
         }
 
@@ -270,8 +286,11 @@ static class PatchParameterization {
         int wide,
         int tall,
         Vector2[] pinned,
-        bool[] isPinned
+        bool[] isPinned,
+        out List<(float T, int Vertex)>[] rims
     ) {
+        rims = [[], [], [], []];
+
         for (var at = 0; at < 4; at++) {
             var quads = at % 2 == 0 ? wide : tall;
             var collapsed = 0;
@@ -331,6 +350,10 @@ static class PatchParameterization {
                     };
 
                     isPinned[index] = true;
+
+                    if (rims[at].Count == 0 || rims[at][^1].Vertex != index) {
+                        rims[at].Add((t, index));
+                    }
                 }
 
                 offset += width;
@@ -490,27 +513,55 @@ static class PatchParameterization {
 
     /// <summary>Whether the solved map is the embedding Tutte promises, measured triangle by triangle.</summary>
     /// <remarks>
-    ///     ⚠ <b>Checked rather than assumed, and the reason is that the guarantee is about the exact
-    ///     solution.</b> <see cref="Sweeps" /> is a fixed count, so a patch whose graph is long and thin
-    ///     may still be short of converged — and an unconverged iterate has no such property. A single
-    ///     triangle that has turned over, or has no area at all, refuses the whole patch, which costs it
-    ///     the blend it would have had anyway.
+    ///     <para>
+    ///         ⚠ <b>Checked rather than assumed, and the reason is that the guarantee is about the exact
+    ///         solution.</b> <see cref="Sweeps" /> is a fixed count, so a patch whose graph is long and
+    ///         thin may still be short of converged — and an unconverged iterate has no such property. A
+    ///         single triangle that has turned over refuses the whole patch, which costs it the blend it
+    ///         would have had anyway.
+    ///     </para>
+    ///     <para>
+    ///         ⚠⚠ <b>A triangle whose three corners are all pinned has <i>exactly</i> zero area and that
+    ///         is the square's fault rather than the map's.</b> Tutte's boundary here is a square, whose
+    ///         four sides are straight: every vertex of side 0 is pinned at <c>y = 0</c> exactly, so an
+    ///         "ear" — a patch triangle whose three corners are three consecutive vertices of one arc —
+    ///         is collinear in the parameter domain by construction, whatever the solve does. It has not
+    ///         folded, nothing overlaps it, and the interior grid never lifts through it because
+    ///         <see cref="Lift" /> takes only strictly positive triangles.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Refusing on it was throwing away patches that were correct, and it was most of the
+    ///         defect.</b> Measured across the seven fixtures before this distinction existed, <i>every
+    ///         single</i> patch this refused had <b>zero</b> flipped triangles and one to four collinear
+    ///         ears — on the cylinder that was 18 patches and 45 inverted quads, on the union 11 patches
+    ///         and 17. Each fell back to the transfinite blend, which is the one construction here that
+    ///         is not injective, and the blend is what folded them. ⚠ <b>The zero is still fatal when an
+    ///         <i>unpinned</i> vertex is in it</b>: that is an interior vertex the solve has left on a
+    ///         line, which is a genuine degeneracy and not a property of the domain.
+    ///     </para>
     /// </remarks>
-    static bool IsEmbedded(int[] triangles, Vector2[] uv, out float sign) {
+    static bool IsEmbedded(int[] triangles, Vector2[] uv, bool[] isPinned, out float sign) {
         sign = 0f;
 
         for (var at = 0; at < triangles.Length; at += 3) {
-            var a = uv[triangles[at + 0]];
-            var b = uv[triangles[at + 1]];
-            var c = uv[triangles[at + 2]];
+            var one = triangles[at + 0];
+            var two = triangles[at + 1];
+            var three = triangles[at + 2];
+            var area = SignedArea(uv[one], uv[two], uv[three]);
 
-            var area = ((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X));
-
-            if (area == 0f || !float.IsFinite(area)) {
+            if (!double.IsFinite(area)) {
                 return false;
             }
 
-            var here = MathF.Sign(area);
+            if (area == 0d) {
+                if (!isPinned[one] || !isPinned[two] || !isPinned[three]) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            var here = Math.Sign(area);
 
             if (sign == 0f) {
                 sign = here;
@@ -522,7 +573,45 @@ static class PatchParameterization {
         return sign != 0f;
     }
 
-    /// <summary>Whether the square's rim lifts back onto the rim the grid actually has.</summary>
+    /// <summary>Twice a parameter-domain triangle's signed area, in double and about its own first corner.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A <see cref="float" /> cross product of unit-square coordinates cancels to
+    ///         <i>exactly</i> zero on a triangle that has a perfectly good area, and that zero was
+    ///         throwing whole patches away.</b> The corners live in <c>[0, 1]²</c>, so the products in
+    ///         <c>(b−a)×(c−a)</c> are around a quarter while the answer for a triangle of a well-solved
+    ///         patch is around <c>1/n</c> — at a hundred triangles the difference of two floats near
+    ///         <c>0.25</c> has an absolute resolution of about <c>3e-8</c>, and a sliver of the interior
+    ///         lands inside it. Measured across the seven fixtures, <i>every</i> patch
+    ///         <see cref="IsEmbedded" /> refused had <b>zero</b> flipped triangles and one to four that
+    ///         had cancelled to zero: the map was a valid embedding every time and the arithmetic said
+    ///         otherwise. On the cylinder that cost 18 patches and 45 inverted quads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Subtracting first and widening to <see cref="double" /> is what makes it exact
+    ///         enough, and both halves are needed.</b> The difference of two <see cref="float" /> values
+    ///         is representable in a <see cref="double" /> exactly, so the two edge vectors are formed
+    ///         with no error at all; the products and their difference then carry 53 bits instead of 24.
+    ///         A zero out of this one is a triangle that is genuinely degenerate.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not a tolerance, which is the trap next door.</b> An epsilon here would be an
+    ///         absolute bound in parameter space and so a statement about how many triangles a patch is
+    ///         allowed to have — the mistake <see cref="ScaleSafe" /> exists for, in a domain where it
+    ///         would be silent. The answer is to compute the quantity accurately, not to widen what
+    ///         counts as zero.
+    ///     </para>
+    /// </remarks>
+    static double SignedArea(Vector2 a, Vector2 b, Vector2 c) {
+        double bx = (double) b.X - a.X;
+        double by = (double) b.Y - a.Y;
+        double cx = (double) c.X - a.X;
+        double cy = (double) c.Y - a.Y;
+
+        return (bx * cy) - (by * cx);
+    }
+
+    /// <summary>Whether the square's rim, resolved through the pinning, is the rim the grid actually has.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The one check that is about the <i>seam</i> rather than about the map, and without
@@ -538,21 +627,92 @@ static class PatchParameterization {
     ///         177° apart.
     ///     </para>
     ///     <para>
-    ///         Only the rim is checked, because the rim is the only place the two constructions are
-    ///         supposed to produce the same answer — the interior has nothing to be compared against,
-    ///         which is why it needed a parameterization in the first place.
+    ///         ⚠⚠ <b>Resolved along the pinned chain and <i>not</i> through <see cref="Lift" />, because
+    ///         the map does not determine a rim point and never did.</b> A square point on side 0 has
+    ///         <c>y = 0</c> exactly, and so does every vertex pinned to that side — so wherever the patch
+    ///         triangle carrying that stretch of rim is an "ear" with all three corners on the side, its
+    ///         image is a <i>segment</i> and a point on it stands for a whole line of the triangle.
+    ///         <see cref="Lift" /> takes only strictly positive triangles, so it answered such a point
+    ///         with the nearest triangle it would accept and returned a point off by the ear's own
+    ///         height. Measured across the seven fixtures, that read as a rim disagreeing by
+    ///         <c>0.02</c> to <c>0.31</c> of the patch diagonal against a tolerance of <c>0.004</c> —
+    ///         5× to 78× over — on patches whose map was perfectly good, and it refused 19 patches of
+    ///         the union and 23 of the cylinder into the blend that then folded them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The pinning is the rim's parameterization and it is exact.</b>
+    ///         <see cref="Pin" /> places chain vertex <i>v</i> at the same fraction of the same chain
+    ///         that <c>PatchExtractor.Sample</c> places output sample <i>k</i> at, so walking the pinned
+    ///         run and interpolating between consecutive vertices reproduces the sample exactly when
+    ///         nothing has moved it — and differs by the whole of the move when something has, which is
+    ///         the defect this exists to catch. No triangle search is involved, so the ear cannot lie.
     ///     </para>
     /// </remarks>
     static bool Agrees(
         Vector3[] positions,
-        int[] triangles,
-        Vector2[] uv,
-        float sign,
+        List<(float T, int Vertex)>[] rims,
         EditMesh output,
         int[][] grid,
         int wide,
         int tall
     ) {
+        var diagonal = Diagonal(positions);
+
+        if (!(diagonal > 0f)) {
+            return false;
+        }
+
+        var allowed = diagonal * RimAgreement;
+
+        for (var at = 0; at < 4; at++) {
+            var quads = at % 2 == 0 ? wide : tall;
+            var run = rims[at];
+
+            if (run.Count < 2) {
+                return false;
+            }
+
+            for (var step = 0; step <= quads; step++) {
+                var t = (float) step / quads;
+                var placed = At(positions, run, t);
+
+                // Side 0 runs C0 → C1 along j = 0, side 1 runs C1 → C2 along i = wide, side 2 runs
+                // C2 → C3 back along j = tall and side 3 runs C3 → C0 back along i = 0 — the same walk
+                // `PatchExtractor.Fill` laid the grid's four edges out with.
+                var vertex = at switch {
+                    0 => grid[step][0],
+                    1 => grid[wide][step],
+                    2 => grid[wide - step][tall],
+                    _ => grid[0][tall - step]
+                };
+
+                if (Vector3.Distance(placed, output.Positions[vertex]) > allowed) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The point at parameter <c>t</c> along one side's pinned run of chain vertices.</summary>
+    static Vector3 At(Vector3[] positions, List<(float T, int Vertex)> run, float t) {
+        for (var at = 1; at < run.Count; at++) {
+            if (t > run[at].T && at != run.Count - 1) {
+                continue;
+            }
+
+            var span = run[at].T - run[at - 1].T;
+            var fraction = span > 0f ? Math.Clamp((t - run[at - 1].T) / span, 0f, 1f) : 0f;
+
+            return Vector3.Lerp(positions[run[at - 1].Vertex], positions[run[at].Vertex], fraction);
+        }
+
+        return positions[run[0].Vertex];
+    }
+
+    /// <summary>The patch's own bounding-box diagonal, which every length here is a fraction of.</summary>
+    static float Diagonal(Vector3[] positions) {
         var minimum = new Vector3(float.PositiveInfinity);
         var maximum = new Vector3(float.NegativeInfinity);
 
@@ -561,29 +721,7 @@ static class PatchParameterization {
             maximum = Vector3.Max(maximum, position);
         }
 
-        var diagonal = (maximum - minimum).Length();
-
-        if (!(diagonal > 0f)) {
-            return false;
-        }
-
-        var allowed = diagonal * RimAgreement;
-
-        for (var i = 0; i <= wide; i++) {
-            for (var j = 0; j <= tall; j++) {
-                if (i != 0 && i != wide && j != 0 && j != tall) {
-                    continue;
-                }
-
-                var lifted = Lift(positions, triangles, uv, sign, new((float) i / wide, (float) j / tall));
-
-                if (Vector3.Distance(lifted, output.Positions[grid[i][j]]) > allowed) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        return (maximum - minimum).Length();
     }
 
     /// <summary>The surface point a square point stands for, through the triangle that contains it.</summary>
@@ -606,14 +744,14 @@ static class PatchParameterization {
             var b = uv[triangles[at + 1]];
             var c = uv[triangles[at + 2]];
 
-            var area = (((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X))) * sign;
+            var area = SignedArea(a, b, c) * sign;
 
-            if (area <= 0f) {
+            if (area <= 0d) {
                 continue;
             }
 
-            var wa = ((((b.X - point.X) * (c.Y - point.Y)) - ((b.Y - point.Y) * (c.X - point.X))) * sign) / area;
-            var wb = ((((c.X - point.X) * (a.Y - point.Y)) - ((c.Y - point.Y) * (a.X - point.X))) * sign) / area;
+            var wa = (float) (SignedArea(point, b, c) * sign / area);
+            var wb = (float) (SignedArea(point, c, a) * sign / area);
             var wc = 1f - wa - wb;
 
             var outside = MathF.Max(MathF.Max(-wa, -wb), -wc);
