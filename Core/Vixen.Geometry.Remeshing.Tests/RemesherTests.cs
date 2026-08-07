@@ -115,6 +115,37 @@ public class RemesherTests {
     ///         enormous quad. <b>Excluding the feature band from the budget solve is the row this
     ///         leaves</b>, and docs/plan/41's second exit criterion records it in the same words.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That row has now been tried, and it buys the creases back by giving the budget
+    ///         away.</b> Dropping <c>featureTerm</c> from <see cref="DensityField.Normalise" />'s sum
+    ///         takes box to <c>7.6e-5</c> and union to <c>1.77e-4</c> — most of the regression undone —
+    ///         and takes box to <b>1,675 quads against a 400 budget</b>, 4.2× and far past
+    ///         <see cref="Remesher.BudgetTolerance" />. It is the naive <c>√(area / quads)</c> again by
+    ///         another name, which is the defect § D9's solve exists to remove. So it is a measurement
+    ///         and not a commit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The not-coarseness claim above is confirmed by the matched-count control, which is
+    ///         the one that makes this worth writing down.</b> The solved base at a 1,200 budget gives
+    ///         box 1,729 quads at <c>7.17e-4</c>; the excluded band at a 400 budget gives 1,675 quads —
+    ///         <i>fewer</i> — at <c>7.6e-5</c>. Nine times better on less. Where the quads sit matters
+    ///         more than how many there are.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the obvious way to keep both was tried and is worse than either.</b> The
+    ///         feedback that inflates <c>base</c> is that <see cref="DensityField.FeatureReach" /> is
+    ///         stated in multiples of <c>base</c>, so a longer one widens the band that lengthened it.
+    ///         Pinning the reach to the seed instead breaks the loop and lands the budget — box 614
+    ///         quads — and wrecks what it was protecting: box <c>1.72e-2</c>, stairs <c>7.6e-3</c>, one
+    ///         to two orders worse, because a narrower band is a coarser crease.
+    ///     </para>
+    ///     <para>
+    ///         <b>What is left is that the term is isotropic.</b> It shrinks the target in a disc of
+    ///         three <c>base</c> round a crease, so it costs quads as the square of the reach while the
+    ///         crease only needs resolution <i>across</i> itself. A budget cannot absorb that at 400
+    ///         quads on a box whose every edge is a feature. The fix is an anisotropic term, and that is
+    ///         a piece of work of its own rather than a tolerance.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("box", 5e-4f)]

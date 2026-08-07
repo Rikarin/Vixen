@@ -262,7 +262,9 @@ Vixen.Geometry.Remeshing.TransferSettings.TransferSettings() -> void
 const Vixen.Geometry.Remeshing.AttributeTransfer.AreaSamples = 4 -> int
 const Vixen.Geometry.Remeshing.AttributeTransfer.CornerInset = 0.25 -> float
 const Vixen.Geometry.Remeshing.RemeshDump.CrossArm = 0.004 -> float
+const Vixen.Geometry.Remeshing.Remesher.BrakeAttempts = 4 -> int
 const Vixen.Geometry.Remeshing.Remesher.BudgetTolerance = 1.35 -> float
+const Vixen.Geometry.Remeshing.Remesher.RunawayMultiple = 64 -> float
 required Vixen.Geometry.Remeshing.BakeSettings.Resolution.get -> int
 required Vixen.Geometry.Remeshing.BakeSettings.Resolution.init -> int
 required Vixen.Geometry.Remeshing.BakedMaps.Coverage.get -> System.Collections.Generic.IReadOnlyList<bool>

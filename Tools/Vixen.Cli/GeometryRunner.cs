@@ -68,7 +68,7 @@ public static class GeometryRunner {
             }
         }
 
-        var written = new List<MeshData>();
+        var written = new List<PolygonMesh>();
         var refused = 0;
 
         foreach (var mesh in read.Meshes) {
@@ -106,7 +106,7 @@ public static class GeometryRunner {
                 progress.WriteLine($"  note    {mesh.Name}: the result is not a closed solid — {defects}.");
             }
 
-            written.Add(ModelGeometry.ToMeshData(quads, mesh.Name));
+            written.Add(new() { Mesh = quads, Name = mesh.Name });
         }
 
         return Finish(written, refused, output, progress, error);
@@ -137,7 +137,7 @@ public static class GeometryRunner {
             return ExitCode.UsageError;
         }
 
-        var written = new List<MeshData>();
+        var written = new List<PolygonMesh>();
         var refused = 0;
 
         foreach (var mesh in read.Meshes) {
@@ -153,7 +153,14 @@ public static class GeometryRunner {
                 var placements = UvUnwrap.Pack(islands, packing, out var report);
 
                 Say(progress, mesh.Name, report);
-                written.Add(ModelGeometry.ToMeshData(kernel, mesh.Name, ModelGeometry.Atlas(kernel, islands, placements)));
+
+                written.Add(
+                    new() {
+                        Mesh = kernel,
+                        Name = mesh.Name,
+                        TexCoords = ModelGeometry.Atlas(kernel, islands, placements)
+                    }
+                );
             } catch (Exception failure) when (failure is InvalidOperationException or ArgumentException) {
                 error.WriteLine($"'{mesh.Name}' could not be unwrapped: {failure.Message}");
                 refused++;
@@ -338,22 +345,56 @@ public static class GeometryRunner {
         string output,
         TextWriter progress,
         TextWriter error
+    ) =>
+        Finish(
+            written.Count,
+            () => ModelWriter.Write(output, written, Path.GetFileNameWithoutExtension(output)),
+            refused,
+            output,
+            progress,
+            error
+        );
+
+    /// <summary>Writes what survived, keeping the faces at the number of sides they have.</summary>
+    static ExitCode Finish(
+        List<PolygonMesh> written,
+        int refused,
+        string output,
+        TextWriter progress,
+        TextWriter error
+    ) =>
+        Finish(
+            written.Count,
+            () => ModelWriter.Write(output, written, Path.GetFileNameWithoutExtension(output), progress),
+            refused,
+            output,
+            progress,
+            error
+        );
+
+    static ExitCode Finish(
+        int count,
+        Action write,
+        int refused,
+        string output,
+        TextWriter progress,
+        TextWriter error
     ) {
-        if (written.Count == 0) {
+        if (count == 0) {
             error.WriteLine("Nothing was produced, so nothing was written.");
 
             return ExitCode.Failed;
         }
 
         try {
-            ModelWriter.Write(output, written, Path.GetFileNameWithoutExtension(output));
+            write();
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or NotSupportedException) {
             error.WriteLine($"'{output}' could not be written: {failure.Message}");
 
             return ExitCode.Failed;
         }
 
-        progress.WriteLine($"  {written.Count} mesh(es) written to {output}");
+        progress.WriteLine($"  {count} mesh(es) written to {output}");
 
         return refused > 0 ? ExitCode.Failed : ExitCode.Success;
     }

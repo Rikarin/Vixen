@@ -866,8 +866,19 @@ rather than the target moved.
    existing structure, which is [§ D7](#d7-layout-and-quantization-as-a-flow-problem-rather-than-an-ilp)'s
    partition finishing its own cuts. A cylinder is the exception: one patch of seventy-seven can be
    neither divided — every arc bounding it is a single mesh edge, so there is nowhere for a fourth
-   corner — nor merged, because the merge is capped and an uncapped one dissolves every cut on a box.
-   It leaves a twelve-edge rim.
+   corner — nor merged. **It leaves a six-edge rim, at a 200 or 400 budget only; at 800 and above the
+   cylinder comes back solid.**
+
+   ⚠️ **The merge cap is *not* what refuses it, and this passage said it was.** The recorded reason
+   was "the merge is capped and an uncapped one dissolves every cut on a box". The cap is
+   `MergeTriangles = 4` and the patch is **one triangle**, so the cap never binds; raising it to
+   sixteen was measured and the rim is the same six edges. Instrumenting the drop site gives the patch
+   as `uses=3, triangles=1, features=3, arcLens=[2,2,2]` — a single source triangle with a crease along
+   all three of its sides. `Merge` picks the longest **non-feature** arc to dissolve and there is not
+   one, so it returns false however small the patch is. That refusal is right on its own terms:
+   dissolving a feature arc is deleting a crease. **What is missing is the third answer — extracting a
+   three-sided patch as three quads round a centre point, which keeps the crease and fills the hole.**
+   The runaway the cap exists to stop is real and unrelated, and the cap should stay.
 
    ⚠️ **The budget overshoot is closed, and the row that was left did belong to
    [§ D9](#d9-adaptivity-is-one-scalar-field-and-everything-writes-into-it)'s field.** Box 5 047 →
@@ -960,6 +971,29 @@ rather than the target moved.
    criteria pull against each other through a single scalar and nothing yet arbitrates them. Both
    numbers are now in `RemesherTests` at the tolerances measured, with this paragraph cited, rather
    than at the tolerances hoped for.
+
+   ⚠️ **The row has now been tried, and it buys the creases back by giving the budget away.** Dropping
+   `featureTerm` from the normalisation's sum takes box to **7.6e-5** and union to **1.77e-4** — most
+   of the regression undone — and takes box to **1 675 quads against a 400 budget**, 4.2× and far past
+   `BudgetTolerance`. That is the naive `√(area / quads)` back under another name, which is exactly the
+   defect the solve exists to remove, so it is a measurement rather than a change.
+
+   ⚠️ **The matched-count control confirms the not-coarseness claim above, and it is the number worth
+   keeping.** The solved `base` at a 1 200 budget gives box **1 729 quads at 7.17e-4**; the excluded
+   band at a 400 budget gives **1 675 quads — fewer — at 7.6e-5**. Nine times better on less. *Where*
+   the quads sit dominates how many there are.
+
+   ⚠️ **And the obvious way to keep both is worse than either.** The feedback that inflates `base` is
+   that `FeatureReach` is stated in multiples of `base`, so a longer one widens the band that
+   lengthened it. Pinning the reach to the seed breaks the loop and lands the budget — box 614 quads —
+   and wrecks what the band was protecting: box **1.72e-2**, stairs **7.6e-3**, one to two orders
+   worse, because a narrower band is a coarser crease.
+
+   **What is actually left is that `featureTerm` is isotropic.** It shrinks the target in a disc of
+   `3 × base` around a crease, so it costs quads as the *square* of the reach while a crease only needs
+   resolution across itself. No budget absorbs that at 400 quads on a box whose every edge is a
+   feature. **The fix is an anisotropic feature term, and it is a piece of work of its own rather than
+   a tolerance.**
 3. **Determinism.** Ten runs × {1, 4, 16} threads × three platforms, byte-identical output.
 4. **Symmetry.** A symmetric input with `Symmetry` on: output vertex *k* and its mirror are exact
    negations, and every vertex on the plane has an exactly zero coordinate.
@@ -982,9 +1016,26 @@ rather than the target moved.
    not have asked for.
 
 8. **Quad quality, which the criteria above do not ask for and should.** ⚠️ `MinScaledJacobian` is
-   **0.000 on box, cylinder, stairs, plate, union and difference, and −0.083 on the sphere** — a zero
-   is a quad with no area and a negative one is a quad folded over itself, so there are degenerate
-   quads in every result and inverted ones in one. The all-quad guarantee is genuinely met and is
+   **−0.874 on box, −0.985 on cylinder, −0.901 on stairs, −0.418 on plate, −0.804 on union, −0.981 on
+   difference and −0.044 on the sphere** — a zero is a quad with no area and a negative one is a quad
+   folded over itself, so there are still **inverted** quads on every fixture. The history below is
+   kept because two of this criterion's three attributions were wrong and each was wrong in a way the
+   next one has to avoid; the figures it opened with were −0.965, −0.997, −0.966, −0.840, −0.991,
+   −1.000 and −0.079.
+
+   ⚠️ **Four of those numbers are a correction, and nothing about the output changed to earn it.**
+   This row read *"0.000 on box, cylinder, stairs, plate, union and difference, and −0.083 on the
+   sphere"*, and concluded from the zeroes that the defect was an absence of area with inversion on
+   one fixture only. It was not: `RemeshMetrics.ScaledJacobian` returned `0f` **from the whole
+   function** on the first face with a collapsed corner, so the field was a sentinel meaning "a
+   degenerate face exists somewhere" and every face behind that one went unmeasured. Box, cylinder,
+   plate and union each carry 2 to 6 such faces early in their output, which is why exactly those four
+   read zero. Measured with the scan repaired to contribute zero for a degenerate corner and carry on:
+   the counts of *inverted* faces are box 24 of 554, cylinder 62 of 687, stairs 47 of 646, plate 11 of
+   513, union 38 of 600, difference 30 of 541, sphere 4 of 372. **The 2–5 % figure below survives; the
+   claim that the zeroes meant flatness does not.**
+
+   The all-quad guarantee is genuinely met and is
    orthogonal to this: **four sides is not four *usable* sides, and `IsAllQuad` cannot tell the
    difference.** Added as a criterion because the field was in
    [Part 4](#part-4--what-the-report-says)'s report from the day the report existed and was read by
@@ -1000,6 +1051,107 @@ rather than the target moved.
    conditioned surface folds where the patch curves, because a bilinear blend of curved boundaries is
    not injective. **The fix is a real per-patch parameterization — harmonic or mean-value — and it is a
    piece of work of its own rather than a tolerance.**
+
+   ⚠️ **The parameterization was built, and it narrows this attribution rather than confirming it.**
+   `PatchParameterization` maps each patch onto the unit square by Tutte's theorem in Floater's form —
+   mean-value weights, rim pinned with the same per-arc parameterization the samples were placed with,
+   the grid laid on the square and lifted back through the source triangles — and every answer is
+   verified before it is used. Three measurements, all parsed from the written `.obj` rather than read
+   off the report:
+
+   - **On the sphere it closes completely.** The patches it fills come back with **0 inverted faces of
+     175**, worst corner `+0.474`; the 4 that remain are all in patches it still refuses. That is the
+     one fixture with no hard edge, and on it the named cause was the whole cause.
+   - **On the six hard-surface fixtures it does not.** The box keeps **11 of 215** and the stairs
+     **11 of 210** *inside patches the parameterization filled*, and those quads are near-**planar**
+     bow-ties — their two halves 176° to 180° apart, edges within a factor of three of each other.
+     A planar bow-tie is not a blend that folded and it is not curvature; the cell is bounded by a map
+     that is provably an embedding, so what is left is the patch region itself doubling back in space.
+     That is a patch spanning a crease, which § D4 says the layout should have cut at — **a layout
+     defect, not an extraction one.**
+   - **3 to 11 faces per fixture are in patches one quad wide**, which have no interior vertex at all.
+     No interior construction of any kind reaches them, so the blend was never their cause either.
+
+   ⚠️ **Confirmed a second time from the output mesh alone, with no reference to which patch anything
+   came from.** Call an output edge a crease when its two quads meet at 40° or more. An inverted quad
+   is then several times more likely to have one: box **9.5% against 0.3%**, a factor of 29; cylinder
+   23.3% against 3.0%; stairs 10.4% against 2.0%; plate 2.9% against 0.4%; union 10.1% against 1.8%;
+   difference 7.1% against 3.3%. **The sphere is the control and it has no creased edge at all** — and
+   it is the fixture the parameterization cleared. § D4's promise is that a feature polyline is a cut
+   by construction and therefore never runs through a patch's interior; a quad folded across a crease
+   is that promise not being kept. `QuadQualityTests.InvertedQuadsClusterOnTheCreases` asserts the
+   ratio rather than a count, so it states the cause and stops holding when the layout is fixed.
+
+   ⚠️ **`stairs` and `difference` are not a separate defect.** They were suspected of having a cause
+   of their own because they alone got worse under the budget fix. They do not: the parameterization
+   does not close them (`stairs` −0.966 → −0.976 over 47 → 42 faces, `difference` −1.000 → −0.990 over
+   30 → 29), and their crease correlation — 5.2× and 2.2× — sits inside the range the other four
+   hard-surface fixtures cover, with `difference` the *weakest* of the six and `box` the strongest.
+   Same root, same fix, one item.
+
+   Whole-fixture worst scaled Jacobian is therefore **unmoved** (box −0.965 → −0.961, cylinder −0.997
+   → −0.997, stairs −0.966 → −0.976, plate −0.840 → −0.838, union −0.991 → −0.991, difference −1.000 →
+   −0.990, sphere −0.079 → −0.081), and over the 16-file real corpus at a 5 000-quad budget the count
+   of inverted faces falls **3 692 → 3 505**, about 5%, with the worst per file unchanged.
+
+   ⚠️⚠️ **"The next piece of work is the layout" was wrong, and it was wrong in the way this document
+   is written to catch: an attribution taken from a correlation rather than from the quantity it
+   claims.** The claim has an exact form that can be counted — for every feature edge of the
+   conditioned mesh, are its two triangles in different patches? — and counted, the number that are
+   **not** is **0 on box, cylinder, stairs, plate, union and difference alike**, before any change was
+   made to anything. **No patch has ever spanned a crease.** § D4's promise is kept, and
+   `CreasesBoundPatchesTests` now asserts it in that form so it cannot be argued about again. The
+   correlation with a 40° output edge is real and its arrow runs the other way: a crease **is** a patch
+   boundary, so every quad in a grid's boundary row has one — and the boundary row is where the folds
+   were, because it is the row built against the rim.
+
+   ⚠️ **What the folds actually were is the transfinite blend, and what sent patches to it was the
+   parameterization's own verification.** Two gates, both arithmetic rather than geometric:
+
+   - `IsEmbedded` refused any triangle whose parameter-domain signed area was zero. Tutte's boundary
+     here is a **square**, whose four sides are straight, so a patch triangle with all three corners on
+     one side is collinear in the domain **by construction** — an ear, not a fold. Measured, *every*
+     patch it refused had **zero** flipped triangles and one to four such ears; on the cylinder that
+     was 18 patches and 45 inverted quads.
+   - `Agrees` then lifted the square's rim back through `Lift`, which takes only strictly positive
+     triangles and so answered a rim point sitting on one of those ears with the nearest triangle it
+     would accept — off by the ear's own height. It read as a rim disagreeing by **0.02 to 0.31** of the
+     patch diagonal against a tolerance of 0.004. The rim is now resolved along the pinned chain, which
+     is the same parameterization the output samples were placed with, so no triangle search can lie
+     about it.
+
+   Beyond the two gates, three further findings. Neither interior construction wins everywhere — a
+   uniform grid on the square is not uniform on the surface, and on a patch quantized nine quads one
+   way and two the other the lifted row can run backwards — so `Fill` builds **both** and keeps
+   whichever folds less, the embedding taking every tie. The **relaxation** is the last thing to touch a
+   position and had no idea what a fold is; it now refuses a move that folds one of its own faces, with
+   the fold's depth as a tie-break, applied as the sweep goes so the promise is global. And a move may
+   not **collapse** a corner either: converging further welds two output positions into one, which an
+   `.obj` reader sees as a single vertex and so as a non-manifold edge.
+
+   **Measured, per fixture, worst scaled Jacobian and inverted faces, before → after:** box −0.961/24 →
+   **−0.874/21**, cylinder −0.997/64 → **−0.985/35**, stairs −0.976/42 → **−0.901/22**, plate −0.838/9
+   → **−0.418/6**, union −0.991/38 → **−0.804/22**, difference −0.990/29 → **−0.981/15**, sphere
+   −0.081/4 → **−0.044/1**. Every fixture improves on both numbers at once; the total falls **210 →
+   122**. Over the 16-file corpus at a 5 000-quad budget, parsed from the written `.obj`: inverted faces
+   **3 505 → 887**, a fall of **75%**, with the worst per file better on **all sixteen** and the corpus
+   worst **−1.000 → −0.943**. Face counts are **identical** file for file, and boundary edges — holes —
+   go **3 548 → 3 544**, so nothing has been traded.
+
+   ⚠️ **Two things are honestly worse and neither is rounded away.** Position-welded non-manifold edges
+   over the corpus go **75 → 87**: letting the guarded relaxation run to convergence took them to 99,
+   the collapse guard recovered 12, and coincident positions are back at baseline (22 → 23) so the
+   remaining 12 have a different cause and are **not** yet attributed. And `FeatureReproductionError`
+   moves within its existing noise (box 2.92e-4 → 2.49e-4, union 3.18e-4 → 3.84e-4, difference 8.26e-4
+   → 8.09e-4) — it is not made materially worse here, and the 3–8× regression from the budget fix
+   remains its own open item.
+
+   ⚠️ **The criterion stays open and its remaining cause is a different one again.** What is left is a
+   fold no **single-vertex** move can improve — the relaxation has stopped moving by its budget, and 32
+   rounds and 96 rounds give byte-identical answers. Closing the rest wants a real **untangler**, which
+   moves several vertices at once. Of the 122 remaining fixture folds, **26** are in patches only one
+   quad wide, which have no interior vertex for any construction to place; that is 5–15% of their faces
+   and no longer disproportionate, so a side of one is not the special case it was thought to be.
 
 ---
 

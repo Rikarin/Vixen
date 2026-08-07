@@ -4,7 +4,7 @@ slug: editor/retopology-and-uv-surfaces
 kind: guide
 area: Editor
 summary: Where a quad remesh and an unwrap are actually invoked from — the model importer, three command-line verbs, and the blockout mode's own verb and UV panel.
-api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Editor.Assets.Models.ModelGeometry, T:Vixen.Editor.Assets.Models.ModelWriter, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView]
+api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Editor.Assets.Models.ModelGeometry, T:Vixen.Editor.Assets.Models.ModelWriter, T:Vixen.Editor.Assets.Models.PolygonMesh, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView]
 tags: [editor, importer, cli, blockout, retopology, uv, atlas]
 since: 0.1
 status: preview
@@ -21,6 +21,19 @@ called from. This is the set of places that call them: `ModelImportSettings` in 
 `ModelRetopology` is the piece all three share — retopologise this mesh, unwrap it, say what happened —
 so the decision of what to do to a mesh is made once. `ModelGeometry` is the copy between the
 renderer's `MeshData` and the kernel's `EditMesh`; `ModelWriter` is `ModelReader`'s other half.
+
+`PolygonMesh` is what a result travels to a file in, and it exists because `MeshData` cannot carry a
+quad. That type is a vertex buffer — one vertex per corner, three corners per triangle — so a
+retopology written through it arrives triangulated *and* exploded, with every quad an island of four
+vertices joined to nothing. Measured on a 5 766-quad result before this existed: 11 532 triangles over
+23 064 positions, and the only edges with two faces were the diagonals inside each split quad.
+
+So `ModelWriter.Write` takes `PolygonMesh` — an `EditMesh` plus a name plus one texture coordinate per
+corner — and OBJ writes `f a b c d` with the positions shared. The coordinates stay per corner, which
+is what keeps a seam a seam: welding them onto positions would close every cut in the atlas.
+
+⚠ **glTF and GLB are triangles-only by specification, so `.glb` genuinely cannot hold a quad.** Both
+write a triangulated copy and say so, naming the format. Write `.obj` to keep the quads.
 
 ## What it is for
 

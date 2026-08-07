@@ -170,12 +170,21 @@ static class SymmetryPass {
 
         var (quads, others) = RemeshMetrics.Faces(built);
 
-        // ⚠ The counts are recomputed rather than doubled. A face whose mirror collapsed onto the
-        // seam is not emitted, so "twice the half's" is wrong by however many of those there were —
-        // and a report that disagrees with the mesh it describes is worse than no report.
+        // ⚠ The half's budget line is dropped and re-decided on the whole mesh, for the same reason
+        // the counts just above are recomputed rather than doubled. The inner remesh is handed the
+        // *full* TargetQuads and produces half the surface, so its budget warning is measured against
+        // a mesh that is not the one shipped and is wrong by a factor of two in the direction that
+        // hides the overshoot — measured, a report saying "169665 against 96" for a mesh carrying
+        // 339330 faces. There is only one budget and it is about what the caller receives.
+        var inherited = report.Warnings
+            .Where(line => !line.StartsWith("The budget was not met:", StringComparison.Ordinal))
+            .ToArray();
+
+        Remesher.Overspent(built.FaceCount, settings, warnings);
+
         report = With(
             Restage(report, settings.TransferAttributes ? built.CornerCount : 0)
-                with { QuadCount = quads, NonQuadCount = others, Mesh = built.Validate() },
+                with { QuadCount = quads, NonQuadCount = others, Mesh = built.Validate(), Warnings = inherited },
             [.. warnings]
         );
 
