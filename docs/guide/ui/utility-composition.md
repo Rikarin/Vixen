@@ -132,6 +132,31 @@ custom property and is visible to descendants — a child carrying `bg-linear-to
 own picks up its parent's. That is correct CSS and a divergence from Tailwind, which registers these
 precisely to stop the leak. Set the fragment on the same element as the assembler and it cannot bite.
 
+## What the renderer paints today
+
+⚠ **Composing a gradient and painting one are two different questions, and this page is about the
+first.** Everything above describes what the cascade computes; `DrawListBuilder` is what turns that
+into pixels, and it understands a subset:
+
+| Composed | Paints |
+|---|---|
+| `bg-linear-*` with `from-*` and `to-*` | ✅ all eight directions, both colour notations |
+| `bg-linear-[<angle>]` in `deg`, `turn`, `rad` or `grad` | ✅ |
+| `via-*` — a middle stop | ❌ refused: `BoxStyle` has a start and one end |
+| `from-10%` / `to-90%` — stop positions | ❌ refused: the shader's parameter has no remap |
+| `bg-radial-*`, `bg-conic-*` | ❌ no such assembler, and no shader mode |
+
+⚠ **Refused means nothing is painted, not that the nearest supported gradient is.** A three-stop
+declaration draws no gradient at all rather than a two-stop approximation of one, because a gradient
+of the right two colours and the wrong shape reads as a rendering bug rather than as a missing
+feature. The `background-color` underneath is unaffected — the image is a second layer over it, as in
+CSS — so a refused gradient leaves a flat element and not an invisible one.
+
+So the `from-10% … to-90%` example above composes exactly as shown and currently paints nothing. See
+`GradientRefusal` for the reasons enumerated, and `docs/plan/43-web-styling-parity.md` § A11 for what
+the remaining four cost — they all need the same growth in `UiShape`, so they will most likely arrive
+together.
+
 ## See also
 
 - [Utility styles](../editor/utility-styles.md) — the build step, the palette, and which families the
