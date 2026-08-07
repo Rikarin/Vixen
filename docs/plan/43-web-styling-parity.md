@@ -51,9 +51,16 @@ useful count is not the interning count.
 
 | | |
 |---|---|
-| CSS properties interned anywhere | **91** |
-| …of which a consumer actually acts on | **84** |
+| CSS properties interned anywhere | **93** |
+| …of which a consumer actually acts on | **86** |
 | …interned only so the cascade knows they inherit | **7** |
+
+⚠ **And a grep that finds no callers is a claim about the tool, not about the code.** A raw NUL byte
+in a `.cs` string literal makes the file *binary* to `grep`, which skips it silently and exits 1 —
+which is how `Vixen.Ui.Styling`'s `ShorthandExpansion` was called dead code in an earlier draft of
+this survey when it is wired into `StyleSheetLoader` and load-bearing for everything in this table
+that depends on `border-radius` or `border-color` reaching a longhand. Every "nothing reads this"
+claim below was re-checked by reading the consumer rather than by the absence of a match.
 
 ### The rendered summary
 
@@ -62,7 +69,7 @@ useful count is not the interning count.
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
 | Utility **roots** (the unit of this table) | **328** | 98 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **90** (5 of them `--` placeholders) |
-| …of which something in the engine acts on | — | **70** |
+| …of which something in the engine acts on | — | **72** |
 | Variant keys | **88** | **25** |
 
 ⚠ **98 families, not 43.** The working figure that has been quoted — 43 registrations, ~239 emitted
@@ -76,8 +83,8 @@ does not change the conclusion; the number does need to be right before it is us
 | State | Meaning | Roots |
 |---|--:|--:|
 | **works** | Vixen emits it, and a consumer acts on every property it sets | **51** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **27** |
-| **inert** | resolves, computes a value, and nothing in the engine looks at it | **15** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **29** |
+| **inert** | resolves, computes a value, and nothing in the engine looks at it | **13** |
 | **absent** | not emitted at all | **223** |
 | **composed** | in Tailwind it sets a `--tw-*` that another utility assembles; not a property row | **12** |
 
@@ -86,14 +93,14 @@ be the same mistake this survey exists to catch.** `border-t-2` is the case that
 reads `border-top-width` and insets the content box, and the draw list paints nothing, because
 `DrawListBuilder` takes its one thickness from `Edge.Top` and its one colour from
 `border-top-color`. Calling that "works" is the conflation the brief warns about; calling it "inert"
-is false, because the box really does get narrower. There are 27 of these and they are the most
+is false, because the box really does get narrower. There are 29 of these and they are the most
 expensive rows in the table, because each is a utility that *half* does what it says.
 
 ### By category
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 9 | 6 | 2 | 20 | 12 |
+| Layout | 49 | 9 | 8 | 0 | 20 | 12 |
 | Interactivity | 39 | 2 | 0 | 1 | 36 | 0 |
 | Flexbox and Grid | 34 | 10 | 3 | 3 | 18 | 0 |
 | Typography | 34 | 4 | 3 | 1 | 26 | 0 |
@@ -108,7 +115,7 @@ expensive rows in the table, because each is a utility that *half* does what it 
 | SVG | 3 | 0 | 0 | 2 | 1 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **328** | **51** | **27** | **15** | **223** | **12** |
+| **Total** | **328** | **51** | **29** | **13** | **223** | **12** |
 
 Spacing and Sizing are the two categories that are genuinely done. Everything else is between a
 quarter and nothing, and three categories — Transforms, Filters, Tables — have **no working root at
@@ -148,6 +155,12 @@ list takes **one** thickness — `Layout.GetComputedBorder(node, Edge.Top)` — 
 - `border-l-2` insets the content box by two pixels on the left and draws no border anywhere.
 - `border-t-2` insets the top by two and draws a two-pixel border on **all four sides**.
 
+Both are now proved by resolving real elements rather than by reading source —
+`A_left_border_insets_the_layout_and_paints_nothing` and `A_top_border_paints_the_whole_box` in
+`UtilityFamilySupportTests`. The first asserts the child's position *and* the absence of any
+`DrawCommandKind.Border`; the second asserts the stroke's rectangle is the element's own box, because
+a thickness assertion alone would pass either way.
+
 The utilities README says per-edge border *colours* are inert. That is true and it is the smaller
 half: the widths are read by one consumer and ignored by the other, which is worse than inert,
 because the geometry moves and the picture does not follow. Nine of the 34 Borders roots are
@@ -161,14 +174,25 @@ because the geometry moves and the picture does not follow. Nine of the 34 Borde
 draw list underneath is not the limitation — `UiShape` already carries eight floats of elliptical
 corner radii; the *property bridge* is.
 
-### F3 · `overflow: auto` is a third case, in neither list ⚠
+### F3 · The per-axis overflow was the same bug twice, and it is fixed ✅
 
-`DrawListBuilder` clips on any computed value that is not `visible`. `LayoutStyleBuilder`'s keyword
-table holds `visible`, `hidden` and `scroll` and **not** `auto`, so an unrecognised keyword leaves the
-property at its initial value and the layout treats the box as visible. `overflow-auto` therefore
-clips the paint and does not change the minimum content size. This is the single most misleading
-value in the set, and a concurrent change is landing `overflow-x`/`overflow-y` and `auto`; when it
-does, three rows move from `inert`/`partial` to `works` and this paragraph should be struck.
+Recorded because it is the worked example of the whole document, and because it closed while this was
+being written. `overflow-x` and `overflow-y` were interned by nobody, so `overflow-y-auto` resolved
+cleanly and did nothing; and `overflow-auto` clipped in the draw list while the layout's keyword
+table — `visible`, `hidden`, `scroll`, no `auto` — went on treating the box as visible. Half a
+property, in four editor panels.
+
+Both are now read. `Vixen.Ui.OverflowReader` is the single place all three names resolve, for the
+clip stack and the hit test alike — two copies of one rule being how a control ends up visibly
+clipped and invisibly clickable — and `LayoutStyleBuilder` maps `auto` onto `Overflow.Scroll`, which
+is the layout CSS gives it, since the only thing `auto` and `scroll` disagree about is a scrollbar
+gutter nothing here draws. Two rows moved from `inert` to `partial`, and the only thing keeping all
+three off `works` is `overflow-clip`, which Vixen does not emit.
+
+⚠ **And the caveat it records is the shape of the next problem: a clip is not a scrollbar.**
+`overflow-y-auto` cuts the content off and nothing offers to scroll it. Scrolling is `ScrollView`, a
+control that owns its bars and offsets its content. That is exactly the argument Part 8 § 3 makes for
+re-homing the 32 scroll-container roots against `ScrollView` rather than emitting them as properties.
 
 ### F4 · `display` is `{ Flex, None }` ⚠
 
@@ -181,15 +205,18 @@ rather than broken — nothing is broken, there is simply no grid.
 ### F5 · `truncate` does not truncate
 
 Tailwind's `truncate` is three declarations: `overflow: hidden`, `text-overflow: ellipsis`,
-`white-space: nowrap`. Vixen's emits the first. Nothing in `Vixen.Ui.Text` implements
-`text-overflow`, so the name promises an ellipsis the engine cannot draw. `line-clamp-*` is absent for
-the same reason one level up.
+`white-space: nowrap`. Vixen's emits the first — `Truncate_emits_neither_text_overflow_nor_nowrap`
+resolves an element and finds both of the other two absent. Nothing in `Vixen.Ui.Text` implements
+`text-overflow`, so the name promises an ellipsis the engine cannot draw, and the wrapping the third
+would have suppressed still happens. `line-clamp-*` is absent for the same reason one level up.
 
 ### F6 · Pseudo-element selectors compile and nothing consumes them ⚠
 
-`SelectorCompiler` parses `::before`/`::after`, interns the name and stores it on `Selector`.
-`grep` for a reader of `Selector.PseudoElement` returns the declaration and nothing else — not
-`SelectorMatcher`, not `StyleRuleSet`, not `StyleResolver`. So a rule written for `p::before` is
+`SelectorCompiler` parses `::before`/`::after`, interns the name and stores it on `Selector`. A
+**NUL-safe** search (`rg --text`, after the `ShorthandExpansion` lesson above) for a reader of
+`Selector.PseudoElement` across `Core/` and `Editor/` returns four hits: the compiler that writes it,
+the record declaration, and two assertions in `SelectorMatchingTests` that it *was* written. Nothing
+in `SelectorMatcher`, `StyleRuleSet` or `StyleResolver` filters on it. So a rule written for `p::before` is
 matched and applied **to the `p`**, and doc 09's supported-selector list, which names `::before` and
 `::after`, is ahead of the code. Seven Tailwind variants (`before`, `after`, `marker`, `placeholder`,
 `selection`, `file`, `backdrop`) depend on this, and it needs a test before anything is built on it.
@@ -462,6 +489,12 @@ What is missing is a way to say *"my tokens are that project's"*.
 tokens are an `@theme` block in a `.vcss`, then "share the tokens" is `@import` — a mechanism the
 style engine already supports — and the MSBuild item is a path to a stylesheet rather than a new
 concept.
+
+⚠ **The guide page master added — [`docs/guide/editor/utility-styles.md`](../guide/editor/utility-styles.md)
+§ Examples — documents the workaround rather than the shape.** *"Turning the step on in another project
+is two lines and a file"*, and the file is a second `vixen.ui.yaml`: a second palette, which is the
+failure the token model exists to prevent. It also still carries *"`overflow-auto` is in neither
+column"*, which F3 has since made untrue. Both should be revised when C4 lands.
 
 **And it wants a diagnostic either way.** A class name that parses as a utility, in a project with no
 token source, should be a build warning naming the project. The generator already writes an
@@ -742,7 +775,7 @@ algorithms over the existing store.
 exists as a family and emits `grid-template-columns` because a family is a line of a table and the
 grid algorithm is a subsystem — so the cheap half was done and the class name has been available, and
 inert, ever since. The same is true of `translate-x-*`, `blur-*`, `fill-*`, `ring-*` and
-`select-none`. **Twenty of the 90 properties the utilities emit reach no consumer after ExCSS
+`select-none`. **Eighteen of the 90 properties the utilities emit reach no consumer after ExCSS
 expansion**, and each one is a class somebody can write today that does nothing:
 
 ```
@@ -750,8 +783,11 @@ expansion**, and each one is a class somebody can write today that does nothing:
 border-bottom-color  border-inline-end-color  border-inline-start-color
 border-left-color  border-right-color
 fill  stroke  grid-column  grid-template-columns  order
-outline-color  overflow-x  overflow-y  user-select  vertical-align
+outline-color  user-select  vertical-align
 ```
+
+It was twenty a week ago; `overflow-x` and `overflow-y` came off it when F3 landed, which is what the
+list is for.
 
 That list is the gate task #11 asks for, and it is small enough to be a hard failure rather than a
 warning: **`CheckArchitecture` fails when a family emits a property no consumer interns, unless the
@@ -773,8 +809,8 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A2 🟢 | Per-corner radii in the draw list (`UiShape` already carries them) | `DrawListBuilder` | **#21** | 0.1 |
 | A3 🟢 | `border-style` — solid, dashed, dotted, double, none | `DrawListBuilder` | — | 0.15 |
 | A4 🟢 | `order` | `LayoutStyleBuilder` + flex line ordering | **#22** | 0.1 |
-| A5 🟢 | `overflow-x`/`overflow-y`, and `auto` in the layout keyword table | both | in flight | — |
-| A6 🟢 | `user-select`, `outline`, `fill`/`stroke` on `OnDraw` paths | `UiDocument`, `DrawContext` | **#24** | 0.25 |
+| A5 ✅ | `overflow-x`/`overflow-y`, and `auto` in the layout keyword table | `OverflowReader`, `LayoutStyleBuilder` | done | — |
+| A6 🟢 | `user-select`, `outline`, `fill`/`stroke` on `OnDraw` paths, and `overflow-clip` | `UiDocument`, `DrawContext` | **#24** | 0.25 |
 | A7 🟡 | Transforms: a real `transform` property, decomposed, animatable | layout + draw + `Animator` | **#23** | 0.6 |
 | A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
 | A9 🟢 | `color-mix()` in `StyleValueParser` | `Vixen.Ui.Styling` | **#12** | 0.25 |
@@ -847,7 +883,7 @@ is choosing to re-run the experiment that already has an answer.
 ## Part 7 — The sequence
 
 **Wave 0 — the survey's own consequences.** C0 (prefix fallback), C5 (the gate and its expiring
-allow-list), A5 (in flight), and the README correction. Nothing depends on these and everything is
+allow-list) and the README correction — A5 landed while this was written. Nothing depends on these and everything is
 cheaper after them. **0.3 EM.**
 
 **Wave 1 — the token model, before #6 and #7 build the old one.** C3, then C4, then A9 and A10. This
@@ -919,9 +955,11 @@ inventory with an unexplained hole in it is how a subset gets rationalised the n
 1. **Every one of the 328 roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
 2. **No family emits a property no consumer interns**, except entries on the allow-list, each of which
-   names a task. `CheckArchitecture` fails otherwise. Today: 20 properties, 0 allow-listed.
+   names a task. `CheckArchitecture` fails otherwise. Today: 18 properties, 0 allow-listed.
 3. **`UtilityFamilySupportTests` has a row per root, resolved against a real element**, and its
-   `Inert` table is empty or every entry names its task.
+   `Inert` table is empty or every entry names its task. It is the only artefact in this survey built
+   by resolving elements rather than by reading source, and it is where a finding goes to become a
+   fact: F1 and F5 were derived from source and are now three `Fact`s in that file.
 4. **The layout conformance suite is green against a second oracle.** Yoga's 534 stay. Taffy's
    translated corpus is added: **868 block, 1 960 grid, 2 268 flex**, every expected number out of
    Chrome, run behind the Ahem measure stub so no text engine is involved. Failures are listed by name
