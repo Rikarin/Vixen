@@ -175,7 +175,7 @@ public static class Remesher {
         // ⑤ Quantize.
         mark = clock.Elapsed;
 
-        var quantization = Budget(layout, settings, warnings);
+        var quantization = Braked(layout, settings, warnings);
 
         stages.Add(new(RemeshStage.Quantize, clock.Elapsed - mark, layout.Arcs.Count));
         warnings.AddRange(quantization.Warnings);
@@ -240,6 +240,7 @@ public static class Remesher {
         var (max, mean) = RemeshMetrics.Deviation(output, projector, diagonal);
         var validated = output.Validate();
 
+        Overspent(quads + others, settings, warnings);
         Attribute(conditioning.Mesh, validated, warnings);
 
         report = new(
@@ -321,8 +322,127 @@ public static class Remesher {
     /// <summary>How far over the budget a result may be before the report says so.</summary>
     public const float BudgetTolerance = 1.35f;
 
-    /// <summary>Quantizes, and says so when the count is not the count that was asked for.</summary>
+    /// <summary>How many times the budget the quantization may plan before the brake engages.</summary>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Far above <see cref="BudgetTolerance" /> on purpose, and the gap between the two is
+    ///         the whole design.</b> <see cref="Overspent" /> records that scaling every target down to
+    ///         <i>hit</i> the count was tried and is worse — it brings a box to 444 quads and takes the
+    ///         feature reproduction error from <c>5.1e-5</c> to <c>5.1e-2</c>, because the arcs paying
+    ///         for the reduction are the ones running along the creases. That argument is about a
+    ///         result 1.4× over. It is not about one 7,256× over, where there is no feature
+    ///         reproduction to protect because the mesh is unusable at any tolerance.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sixty-four is above every measured ordinary overshoot, so the brake cannot fire on
+    ///         the path <see cref="Overspent" /> is written about.</b> At a 400-quad budget the fixtures
+    ///         plan 2,678 on a box and 3,000 on a union — 6.7× and 7.5× — and the 16-file real corpus at
+    ///         5,000 stays under 1.4×. The case it exists for is the property space's: seed
+    ///         <c>9hqwA86TjVk1</c>, a sphere carrying <c>LargeComponent</c>, <c>TinyComponent</c> and
+    ///         <c>ZeroLengthEdge</c>, mirrored, at 96 quads, whose 602 input faces planned 696,592 per
+    ///         half.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It returns, so nothing that was measuring for a hang or for a non-quad could see
+    ///         it.</b> Every face has four sides and the ledger is well formed; what is unbounded is
+    ///         <i>growth</i>, and only the allocation reading catches that. A patch's quad count is a
+    ///         product of two side lengths, so a partition of snaky patches overshoots quadratically —
+    ///         which is why the back-off below is a square root.
+    ///     </para>
+    /// </remarks>
+    public const float RunawayMultiple = 64f;
+
+    /// <summary>How many times the brake may halve its way down before it takes what it has.</summary>
+    /// <remarks>
+    ///     ⚠ A fixed count and not a loop until satisfied — docs/plan/41 § D14. Four attempts cover a
+    ///     factor of <c>2^8</c> in the planned count, because each one scales the targets by the square
+    ///     root of how far over they are; a partition that is still over after that is one no scaling
+    ///     rescues, and the smallest answer seen is better than the first.
+    /// </remarks>
+    public const int BrakeAttempts = 4;
+
+    /// <summary>The quantization, re-solved smaller when it planned orders of magnitude over budget.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off <see cref="Quantizer.QuadCount" /> — the plan — and not off the output, which
+    ///     is the opposite of what <see cref="Overspent" /> does and is right for the opposite
+    ///     reason.</b> The warning is about a mesh that shipped, so it must count the mesh that shipped.
+    ///     This has to act <i>before</i> the extraction allocates the thing, so the only number it can
+    ///     have is the one the quantization intends.
+    /// </remarks>
+    static Quantization Braked(PatchLayout layout, RemeshSettings settings, List<string> warnings) {
+        var solved = Quantizer.Solve(layout);
+
+        // An explicit edge length is the caller stating the density outright, and a brake on it would
+        // silently return something other than what was asked for. Only the budget path is braked.
+        if (settings.TargetQuads <= 0 || settings.TargetEdgeLength > 0f || !solved.IsFeasible) {
+            return solved;
+        }
+
+        var allowed = (long) settings.TargetQuads * (long) RunawayMultiple;
+        var scale = 1f;
+
+        for (var attempt = 0; attempt < BrakeAttempts; attempt++) {
+            var planned = Quantizer.QuadCount(layout, solved.Counts);
+
+            if (planned <= allowed) {
+                if (attempt > 0) {
+                    warnings.Add(
+                        $"The quantization planned more than {RunawayMultiple:0}× the budget, so every arc "
+                        + $"target was scaled by {scale:0.####} and it now plans {planned}."
+                    );
+                }
+
+                return solved;
+            }
+
+            // Quads go as the square of the target density, so the scaling that brings a plan of P down
+            // to an allowance of A is √(A / P). Half again on top of it, because the layout's arcs are
+            // integers and rounding always lands above rather than below.
+            scale *= MathF.Sqrt((float) allowed / planned) * 0.5f;
+
+            var smaller = Quantizer.Solve(layout, QuantizeMode.Exact, scale);
+
+            if (!smaller.IsFeasible) {
+                break;
+            }
+
+            solved = smaller;
+        }
+
+        warnings.Add(
+            $"The quantization planned {Quantizer.QuadCount(layout, solved.Counts)} quads against "
+            + $"{settings.TargetQuads} asked for and would not come down in {BrakeAttempts} attempts. "
+            + "The partition is unusable rather than merely coarse."
+        );
+
+        return solved;
+    }
+
+    /// <summary>Says so when the mesh that came out has more faces than the budget allowed.</summary>
+    /// <param name="faces">How many faces the output actually has, counted off it.</param>
+    /// <param name="settings">The budget.</param>
+    /// <param name="warnings">Where to say so.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Counted off the output, and it used to be predicted off the layout.</b> The warning
+    ///         was decided from <c>Quantizer.QuadCount(layout, counts)</c> — what the quantization
+    ///         intended — while <see cref="RemeshReport.QuadCount" /> is what the extraction produced,
+    ///         and the two diverge by every patch dropped between them. Measured: a result of 138 quads
+    ///         against 96 asked for is 1.44× against a tolerance of 1.35 and carried three warnings,
+    ///         none of which mentioned the budget, because the prediction was under the line and the
+    ///         mesh was not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mirror is the case that makes it unarguable.</b> With
+    ///         <see cref="RemeshSettings.Symmetry" /> on, the prediction is the <i>half</i> mesh's, so
+    ///         the report said "169665 against 96" while the mesh it shipped had 339330 faces — exactly
+    ///         twice, and the number that was wrong was the one in the warning.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Faces rather than quads, so a non-quad still counts against the budget.</b> A budget
+    ///         is about how heavy the result is, and a triangle the extraction emitted is a face
+    ///         somebody pays for whether or not it has four sides.
+    ///     </para>
     ///     <para>
     ///         ⚠ <b>A patch's quad count is a <i>product</i> of two side lengths, so a partition of
     ///         snaky patches overshoots the budget quadratically.</b> A region of area <c>A</c> that is
@@ -340,9 +460,9 @@ public static class Remesher {
     ///         400, before any partition exists: <c>curvatureTerm</c> and <c>featureTerm</c> are both at
     ///         most one, so every target length comes out at or below <c>base</c>, and
     ///         <c>base = √(area / quads)</c> is derived as though they were exactly one. Against what it
-    ///         is actually handed, the layout now lands within about 1.4×. The warning below is still
-    ///         phrased about the partition because that is what a caller can act on, and the row belongs
-    ///         to the field.
+    ///         is actually handed, the layout now lands within about 1.4×. The warning is still phrased
+    ///         about the partition because that is what a caller can act on, and the row belongs to the
+    ///         field.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Scaling every target down to hit the count was tried and is <i>worse</i>, which is
@@ -353,23 +473,17 @@ public static class Remesher {
     ///         phase exists to make achievable, and a quad count is not worth it.
     ///     </para>
     /// </remarks>
-    static Quantization Budget(PatchLayout layout, RemeshSettings settings, List<string> warnings) {
-        var quantization = Quantizer.Solve(layout);
-
+    internal static void Overspent(int faces, RemeshSettings settings, List<string> warnings) {
         if (settings.TargetQuads <= 0 || settings.TargetEdgeLength > 0f) {
-            return quantization;
+            return;
         }
 
-        var quads = Quantizer.QuadCount(layout, quantization.Counts);
-
-        if (quads > settings.TargetQuads * BudgetTolerance) {
+        if (faces > settings.TargetQuads * BudgetTolerance) {
             warnings.Add(
-                $"The budget was not met: {quads} quads against {settings.TargetQuads} asked for, "
+                $"The budget was not met: {faces} quads against {settings.TargetQuads} asked for, "
                 + "because the partition's patches are longer round than they are wide."
             );
         }
-
-        return quantization;
     }
 
     /// <summary>The report a refusal comes back with: no quads, and the reason in the warnings.</summary>

@@ -660,13 +660,15 @@ piecewise transfer function, whose linear segment handles negatives without prod
 `pow()` approximation there would not, which is how "carry it unclamped" would otherwise turn into a
 black element three layers downstream. `ColorFunctionTests` pins both halves of that.
 
-⚠ **One place already clamps, and whoever does this should know where.** `StyleValue.ToCss` writes a
-colour back as `rgba()` with the channels clamped *and* quantised to eight bits — it is how the
-animator hands an interpolated value back to a cascade that works in interned strings. So a colour
-that is out of gamut survives being parsed, resolved and drawn, and does **not** survive being
-animated: one round trip through the animator flattens it to the sRGB byte grid. That is a
-pre-existing property of the text round trip rather than anything the colour functions introduced,
-and it is the one seam where the gamut work will need more than a mapping pass at the end.
+✅ **One place used to clamp, and it no longer does.** `StyleValue.ToCss` wrote every colour back as
+`rgba()` — channels clamped *and* quantised to eight bits — because that is how the animator hands an
+interpolated value back to a cascade that works in interned strings. An out-of-gamut colour therefore
+survived being parsed, resolved and drawn, and did **not** survive being animated: one round trip
+flattened it to the sRGB byte grid, which for two of every three colours in the table above is a
+deletion rather than a rounding. `ToCss` now writes `color(srgb-linear r g b / a)` with unclamped,
+round-trippable channels whenever any linear channel is outside `[0, 1]`, and keeps `rgba()` for
+everything else. `StyleValueTests` pins both branches, the exact round trip on the first and the
+short spelling on the second.
 
 ✅ **The mapper, the swapchain rule and the two CSS surfaces have landed.**
 `Vixen.Core.Mathematics.GamutMap` implements CSS Color 4 § 14.2.1's binary search with local MINDE
@@ -687,10 +689,15 @@ not the last step, and the 5.5° residual is exactly that step. Third, `VK_EXT_s
 is now enabled on the instance, and **without it a surface reports only sRGB however capable the
 display is** — which is why this could have looked implemented and done nothing.
 
-⚠ **`StyleValue.ToCss` still clamps, and was deliberately left alone.** It is a property of the
-animator's text round trip rather than of display gamut, and fixing it means changing the cascade's
-interchange format. It is now much cheaper than it was: `color(srgb-linear …)` parses, so `ToCss`
-has a lossless spelling available where `rgba()` never did.
+✅ **`StyleValue.ToCss` no longer clamps.** Once `color(srgb-linear …)` parsed, the fix was a spelling
+change rather than a change to the cascade's interchange format, which is why it was cheap enough to
+take here. Two details are load-bearing and neither is obvious. **The branch is on the colour, not on
+alpha:** a spring overshoots past `1` and `rgba()` carries that through, where `ParsePredefined`
+clamps alpha on the way back in — so an in-gamut colour mid-overshoot must stay on the `rgba()` side
+or the fix would introduce the bug it removes. **And it uses `float.ToString()`, not the shared
+`"0.####"`:** four decimals is a grid too, finer than eight bits and still a grid, and "lossless" is
+the entire reason this branch exists. The comparison is `< 0 || > 1`, so a NaN channel — which cannot
+be spelled in CSS at all — stays on the `rgba()` path that already absorbs it.
 
 ### D5. What v4 removed, renamed, and added
 

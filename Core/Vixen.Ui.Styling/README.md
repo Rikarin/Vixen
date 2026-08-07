@@ -360,6 +360,15 @@ and carrying the value costs nothing to change later; clamping here would alread
 the mapper needs. Nothing downstream produces NaN from it, because the sRGB transfer function is the
 exact piecewise one whose linear segment handles negatives.
 
+⚠ **That includes the way back out, and it is the direction that used to fail.** `StyleValue.ToCss`
+is how the animator hands an interpolated value back to a cascade that works in interned strings, and
+`rgba()` cannot spell a colour outside sRGB — it clamps to `[0, 1]` and quantises to eight bits. So a
+colour survived parse, resolve and draw and then lost its gamut the first frame a transition touched
+it. It now writes `color(srgb-linear r g b / a)` with round-trippable channels when any linear
+channel is outside `[0, 1]`, and keeps the short `rgba()` spelling — one small interned string per
+colour — for everything else. The test is on the colour and not on alpha on purpose: a spring
+overshoots alpha past `1`, and `rgba()` carries that where `color()` would clamp it.
+
 ## What the spike did not say
 
 **ExCSS normalises what it can see, and it cannot see through a `var()`.** `color: red` reaches Vixen

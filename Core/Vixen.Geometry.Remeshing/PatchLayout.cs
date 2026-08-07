@@ -323,6 +323,18 @@ sealed class PatchLayout {
                     // too small or degenerate merges into a neighbour. Dropping it instead is what
                     // leaves the output full of holes — measured on a box, nineteen arcs with a patch
                     // on only one side of them and seventy boundary edges to show for it.
+                    //
+                    // ⚠ And there is a third outcome that neither repair reaches, which is the
+                    // cylinder's remaining hole. `Merge` will not dissolve a feature arc — rightly,
+                    // since that is a crease — so a patch whose every bounding arc is one has nothing
+                    // it is allowed to dissolve and comes back false however small it is. Measured on
+                    // the cylinder at a 400 budget: one patch, uses=3, triangles=1, features=3, arc
+                    // lengths [2,2,2] — a single source triangle with a crease along all three sides,
+                    // dropped on every one of the six rounds and worth six boundary edges in the
+                    // output. `MergeTriangles` is not the gate there and raising it to sixteen changes
+                    // nothing; the gate is the feature test inside `Merge`. The real answer is to
+                    // extract a three-sided patch as three quads round a centre point rather than to
+                    // dissolve anything, which keeps the crease and fills the hole.
                     if (repairing && Divide(mesh, arcs, uses, forced)) {
                         redo = true;
                     } else if (repairing && triangles.Length <= MergeTriangles && Merge(mesh, features, cut, arcs, uses)) {

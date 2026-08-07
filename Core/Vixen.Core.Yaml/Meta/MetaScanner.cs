@@ -40,6 +40,15 @@ public readonly record struct MetaEnvelope(AssetId Guid, int MetaVersion, string
 ///         one that parses; what this scanner owes in exchange is to keep reading top-down, so that
 ///         "the first" and "the only" are the same answer.
 ///     </para>
+///     <para>
+///         ⚠ <b>The keys are matched case-insensitively, and matching them ordinally was the same
+///         class of disagreement in a different place.</b> <c>YamlSerializer</c> binds members
+///         case-insensitively, so a document saying <c>MetaVersion: 5</c> gave <b>0 from this scanner
+///         and 5 from the parser</b> — the index would file the asset at version zero and the compiler
+///         would build it at five. The fix belongs here rather than at the reader: refusing keys that
+///         differ only in case would false-refuse a legitimate <c>extensions</c> map carrying both
+///         <c>Foo</c> and <c>foo</c>, which is a document nobody wrote by mistake.
+///     </para>
 /// </remarks>
 public static class MetaScanner {
     /// <summary>Reads the envelope out of a document.</summary>
@@ -76,19 +85,19 @@ public static class MetaScanner {
             var key = line[..colon];
             var value = line[(colon + 1)..].Trim();
 
-            if (key.SequenceEqual("guid")) {
+            if (key.Equals("guid", StringComparison.OrdinalIgnoreCase)) {
                 if (!AssetId.TryParse(value, CultureInfo.InvariantCulture, out guid)) {
                     break;
                 }
 
                 found++;
-            } else if (key.SequenceEqual("metaVersion")) {
+            } else if (key.Equals("metaVersion", StringComparison.OrdinalIgnoreCase)) {
                 if (!int.TryParse(value, CultureInfo.InvariantCulture, out version)) {
                     break;
                 }
 
                 found++;
-            } else if (key.SequenceEqual("importer")) {
+            } else if (key.Equals("importer", StringComparison.OrdinalIgnoreCase)) {
                 importer = value.Length > 1 && value[0] == '!' ? value[1..].ToString() : null;
                 found++;
             }

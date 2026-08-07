@@ -284,7 +284,11 @@ public class RemeshPipelinePropertyTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>This property found an allocation runaway on its first run at the build's own
-    ///         counts, and it is left failing rather than tuned around.</b> Seed <c>9hqwA86TjVk1</c>,
+    ///         counts. It is closed, by <see cref="Remesher.RunawayMultiple" />, and
+    ///         <see cref="The_runaway_recipe_stays_within_a_bounded_multiple_of_its_budget" /> holds the
+    ///         line so it cannot come back unnoticed.</b> The numbers below are what it did before that
+    ///         brake existed; the same recipe now plans 1,526 quads per half and ships 3,052, with the
+    ///         extract stage down from 1.3 s to 48 ms. Seed <c>9hqwA86TjVk1</c>,
     ///         and it reproduces from one line:
     ///         <c>new(ShapeKind.Sphere, 4, 4, [MeshDefect.LargeComponent, MeshDefect.TinyComponent,
     ///         MeshDefect.ZeroLengthEdge], 4, 0.12195122f, 1f)</c> about <c>(1, 0, 0)</c> at
@@ -312,6 +316,66 @@ public class RemeshPipelinePropertyTests {
     ///         needs the whole combination, so the one line above is the smallest thing to paste.
     ///     </para>
     /// </remarks>
+    /// <summary>The allocation runaway's own line, held under the brake rather than under a clock.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one recipe out of the property space above, pinned so the fix has something that
+    ///         fails without it.</b> Before <see cref="Remesher.RunawayMultiple" /> existed this planned
+    ///         <b>696,592 quads per half against a budget of 96</b> — 7,256× — and spent 1.3 s and
+    ///         gigabytes inside the extract stage building them. It now plans 1,526 and ships 3,052,
+    ///         and the extract stage takes 48 ms.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The assertion is against the ceiling and not against 3,052.</b> Pinning the count
+    ///         would break on any change that moves a patch boundary, and the property under test is
+    ///         that growth is <i>bounded</i> — not that it lands on a particular number. The brake is
+    ///         allowed to leave the result well over the budget; it is not allowed to leave it
+    ///         unbounded.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves are counted, because the mirror is where the old warning was wrong.</b>
+    ///         <see cref="Remesher.Overspent" />'s remarks record a report saying "169665 against 96"
+    ///         while the mesh it shipped had 339330 faces. The ceiling here is read off the mesh that
+    ///         came back, so the reflection cannot hide inside it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_runaway_recipe_stays_within_a_bounded_multiple_of_its_budget() {
+        var recipe = new MeshRecipe(
+            ShapeKind.Sphere,
+            4,
+            4,
+            [MeshDefect.LargeComponent, MeshDefect.TinyComponent, MeshDefect.ZeroLengthEdge],
+            4,
+            0.12195122f,
+            1f
+        );
+
+        var quads = Remesher.Remesh(
+            BrokenMeshSpace.Build(recipe),
+            new() {
+                TargetQuads = Budget,
+                Symmetry = new Plane(Vector3.UnitX, 0f),
+                Conditioning = new() { PreRemeshIterations = 1 }
+            },
+            out var report
+        );
+
+        Assert.True(report.QuadCount > 0, string.Join(" · ", report.Warnings));
+        Assert.Equal(0, report.NonQuadCount);
+
+        // Twice the multiple, because the mirror ships both halves and the brake reads one.
+        var ceiling = (int) (Budget * Remesher.RunawayMultiple * 2f);
+
+        Assert.True(
+            quads.FaceCount <= ceiling,
+            $"the mirrored result has {quads.FaceCount} faces against a budget of {Budget} — "
+            + $"{(float) quads.FaceCount / Budget:F0}×, over a ceiling of {ceiling}. This recipe is the "
+            + "one that allocated 8.7 GB over 42 s before the quantization was braked, and it returns "
+            + "and comes back all-quad either way, so nothing but the count catches it."
+        );
+    }
+
     [Fact]
     public void Every_broken_mesh_remeshed_about_a_plane_obeys_the_same_criterion() {
         Gen.Select(
