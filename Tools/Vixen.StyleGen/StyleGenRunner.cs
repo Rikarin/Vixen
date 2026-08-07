@@ -31,17 +31,23 @@ internal sealed record StyleGenResult(
 ///         the pattern rather than the placeholder.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Out of process, and the reason is a dependency rather than a preference.</b> The
-///         obvious shape for "read some files at build time and emit code" is an
-///         <c>IIncrementalGenerator</c>, and it cannot be one here: <see cref="ThemeTokens" /> reads
-///         YAML through <c>Vixen.Core.Yaml</c>, which is YamlDotNet, and an analyzer's dependencies
-///         do not travel with it — <c>OutputItemType="Analyzer"</c> contributes one DLL, so every
-///         consuming project would have to put the rest on the analyzer path itself.
+///         ⚠ <b>Out of process, and the reason it had to be has expired.</b> The obvious shape for
+///         "read some files at build time and emit code" is an <c>IIncrementalGenerator</c>, and it
+///         could not be one here: <see cref="ThemeTokens" /> read YAML through
+///         <c>Vixen.Core.Yaml</c>, which is YamlDotNet, and an analyzer's dependencies do not travel
+///         with it — <c>OutputItemType="Analyzer"</c> contributes one DLL, so every consuming project
+///         would have had to put the rest on the analyzer path itself.
 ///         <c>Vixen.Ui.Markup.Generators</c> escapes the same trap by <em>linking</em> its front
 ///         end's source into the analyzer, which works because that front end is Vixen's own code and
-///         does not work here, because YamlDotNet is a package with no source to link. Running the
-///         shipped assembly in a process avoids the question entirely, at the cost of one process
-///         launch per build that changed a scanned file.
+///         could not have worked for a package.
+///     </para>
+///     <para>
+///         Under <c>@theme</c> there is no YamlDotNet: a token is a custom property in a stylesheet
+///         and the reader is a text scan over <c>Vixen.Ui.Styling.Utilities</c>' own code, which has
+///         no package references left at all. So the blocker has lifted and this is still a process,
+///         which is a decision now rather than a constraint. Making it a generator is a real change
+///         and belongs in its own commit; the cost of leaving it is one process launch per build that
+///         changed a scanned file.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It writes a file, and that is worth more than it looks.</b> A generated constant is

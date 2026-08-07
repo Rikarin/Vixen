@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -205,6 +207,58 @@ public class ThemeAndScannerTests {
         Assert.Empty(tokens.Diagnostics);
         Assert.Equal("#123456", tokens.Colors["brand"]);
         Assert.Equal("0 1px 2px rgb(0 0 0 / 0.1), 0 2px 4px rgb(0 0 0 / 0.1)", tokens.Shadow["two"]);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The whole deliverable, end to end and through the real cascade: a class name nobody
+    ///     configured reaches an element as a colour outside sRGB, and the mapper repairs it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Every link is real — the shipped <c>@theme</c>, the generator, the style engine, the
+    ///         parser and <c>GamutMap</c> — because each of them is a place the chroma could quietly
+    ///         be thrown away and none of them would fail if it were.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The out-of-gamut assertion is the load-bearing one, and it is here because a
+    ///         reference that clamps looks exactly like a reference that agrees.</b> doc 43 § D4
+    ///         records that trap costing real time: a test asserting three v4 colours were fine
+    ///         <i>looked</i> verified against an implementation that clamped before printing. Two of
+    ///         these three are outside sRGB — <c>blue-500</c> past white in linear blue,
+    ///         <c>emerald-500</c> past black in linear red — and a palette transcribed to hex would
+    ///         pass "the utility resolves" while having deleted the thing worth shipping.
+    ///     </para>
+    ///     <para>
+    ///         The repair is asserted as a <i>property</i> rather than against numbers: what the
+    ///         specification promises is that the mapped colour is showable and that its hue is held
+    ///         while chroma is reduced. Pinning the mapper's own output here would restate
+    ///         <c>GamutMapTests</c> and would fail for a reason unrelated to the palette.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("blue-500", false)]
+    [InlineData("emerald-500", false)]
+    [InlineData("red-500", true)]
+    public void A_shipped_colour_reaches_an_element_unclamped_and_is_mapped_at_presentation(string token, bool showable) {
+        var fixture = new UtilityFixture(string.Empty);
+        var computed = fixture.Computed([$"bg-{token}"], "background-color");
+
+        Assert.NotNull(computed);
+
+        var colour = new StyleValueParser(new NameTable(), new NameTable()).Parse(computed);
+        var linear = new Vector3(colour.Color.R, colour.Color.G, colour.Color.B);
+
+        Assert.Equal(StyleValueKind.Color, colour.Kind);
+        Assert.Equal(showable, GamutMap.InGamut(linear, ColorGamut.Srgb));
+
+        var mapped = GamutMap.Map(linear, ColorGamut.Srgb);
+
+        Assert.True(GamutMap.InGamut(mapped, ColorGamut.Srgb), "the mapper returned a colour that still cannot be shown");
+
+        // A colour already inside the gamut is returned untouched — the early-out — and one outside
+        // it comes back different, which is the pair that says the mapping happened rather than that
+        // the branch was never taken.
+        Assert.Equal(showable, mapped == linear);
     }
 
     /// <summary>Stripping takes the block and leaves everything around it.</summary>
