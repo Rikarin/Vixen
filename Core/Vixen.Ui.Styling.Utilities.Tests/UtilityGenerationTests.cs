@@ -166,7 +166,7 @@ public class UtilityGenerationTests {
         var media = new UtilityFixture();
         Assert.Contains("prefers-color-scheme: dark", media.Generate("dark:bg-accent"), StringComparison.Ordinal);
 
-        var byClass = new UtilityFixture(UtilityFixture.Theme.Replace("darkMode: media", "darkMode: class", StringComparison.Ordinal));
+        var byClass = new UtilityFixture(UtilityFixture.Theme.Replace("--dark-mode: media", "--dark-mode: class", StringComparison.Ordinal));
         var css = byClass.Generate("dark:bg-accent");
 
         Assert.Contains(".dark ", css, StringComparison.Ordinal);

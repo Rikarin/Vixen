@@ -258,7 +258,7 @@ public partial class StylesheetTests {
     }
 
     /// <summary>The same tokens the build step read, from the copy beside the test assembly.</summary>
-    static ThemeTokens Tokens() => ThemeTokens.Parse(File.ReadAllText(Fixtures("vixen.ui.yaml")));
+    static ThemeTokens Tokens() => ThemeTokens.Parse(File.ReadAllText(Fixtures("vixen.ui.vcss")));
 
     static string Fixtures(string name) => Path.Combine(AppContext.BaseDirectory, "__fixtures__", name);
 

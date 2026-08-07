@@ -219,7 +219,8 @@ obvious in the first screenshot.
 ### Utility classes
 
 `EditorStyles` is the other half of the sheet, and there is no code behind it.
-`Theming/vixen.ui.yaml` is the design tokens; every source file and every `.vxml` in this assembly is
+`Theming/vixen.ui.vcss` is the design tokens — an `@theme` block over the palette the engine ships;
+every source file and every `.vxml` in this assembly is
 scanned for class names at **build time** by `Vixen.Ui.Styling.Utilities.targets`; the sheet — inside
 `@layer utilities`, with only the rules something refers to — is compiled into `obj/` before the
 compiler runs and carried in the binary as a constant. `EditorTheme.Install` loads it immediately
@@ -231,10 +232,24 @@ lines that embed the markup as resources, walk the manifest and run the scanner 
 ever see *markup*. Most of this assembly's chrome is built in C# with `AddClass("…")`, so every
 utility a code-built panel asked for was silently missing. The step scans `@(Compile)` too.
 
-**The yaml declares no colours of its own.** Every one is a `var(--…)` reference to a token
+**The `@theme` block declares no colours of its own.** Every one is a `var(--…)` reference to a token
 `EditorTheme` already puts on the root — so `bg-surface` and `background: var(--surface)` are the
-same declaration, and the light/dark toggle and a user's theme file move both. A yaml full of hex
-would have been a second palette that agreed with the first until the day one of them was edited.
+same declaration, and the light/dark toggle and a user's theme file move both. A token file full of
+hex would have been a second palette that agreed with the first until the day one of them was edited.
+
+⚠ **And it clears the engine's colour and breakpoint namespaces before declaring its own.** Vixen
+ships Tailwind v4's default `@theme` — twenty-six ramps in `oklch()`, a type scale, radii,
+breakpoints — so a *game* writing `bg-blue-500` needs no theme file. The editor wants neither: its
+palette is designed around four surfaces and a hairline darker than the surface it edges, and a tool
+window is sized by the dock that holds it rather than by the display, so `md:` asks the wrong
+question. `--color-*: initial;` and `--breakpoint-*: initial;` are v4's own way of saying so. The
+radius scale is kept, because it collides with nothing and a new panel wanting `rounded-md` should
+have it.
+
+⚠ **`EditorTheme.vcss` is a file now, and it was fourteen hundred lines of CSS in a
+`const string`.** There was no `.vcss` item type in the tree at all until doc 43's `@theme` work; the
+glob in `Vixen.Ui.targets` embeds it and `EditorTheme.Css` reads it back. `ControlTheme` and
+`AdvancedTheme` are still constants.
 
 ⚠ **The utility layer loses every argument it has with the sheet above**, which is what the layer is
 *for* — origin, then layer, then specificity, then order, and an unlayered rule beats a layered one

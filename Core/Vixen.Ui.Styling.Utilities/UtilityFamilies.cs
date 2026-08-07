@@ -953,9 +953,17 @@ public static class UtilityFamilies {
         return TrySpacing(candidate.Value, tokens, out result);
     }
 
+    /// <summary>Resolves a <c>rounded-*</c> against the theme.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Emitted as written, because a radius token is text now.</b> It used to be a
+    ///     <c>float</c> this turned back into a pixel string, which meant the only radius a theme
+    ///     could hold was a number — and the editor, whose three radii are custom properties on the
+    ///     root, could therefore declare none of them. <see cref="ThemeTokens.Radius" /> records what
+    ///     that cost; the change here is the whole of the fix.
+    /// </remarks>
     static bool TryRadius(string value, ThemeTokens tokens, out string result) {
         if (tokens.Radius.TryGetValue(value, out var radius)) {
-            result = Px(radius);
+            result = radius;
             return true;
         }
 

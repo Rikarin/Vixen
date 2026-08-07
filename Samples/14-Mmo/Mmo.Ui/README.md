@@ -11,7 +11,7 @@ the UI framework is for.
 
 | | |
 |---|---|
-| `Theme/vixen.ui.yaml` | The design tokens. One file, and "the accent is teal now" is one line of it. |
+| `Theme/vixen.ui.vcss` | The design tokens, as an `@theme` block layered over the palette the engine ships. One file, and "the accent is teal now" is one line of it. |
 | `Theme/hud.vcss` | The handful of rules a utility class cannot say, and nothing else. |
 | `Theme/MmoStyles.cs` | Tokens + scan + generate, into one sheet. |
 | `HudModel.cs` | What the panels bind to. Signals all the way down. |

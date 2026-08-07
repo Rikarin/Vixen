@@ -64,7 +64,7 @@ public class UtilityFamilySupportTests {
     /// <remarks>
     ///     One row per family the engine reads, against the editor's own tokens — so
     ///     <c>bg-surface</c> here is the same <c>var(--surface)</c> the hand-written sheet uses, and
-    ///     the spacing rows are in steps of two because that is the editor's rhythm.
+    ///     the spacing rows are in steps of four, which is Tailwind's base and now the editor's too.
     /// </remarks>
     public static TheoryData<string, string, string> Supported => new() {
         // Layout. ⚠ Only `flex` and `none` are in LayoutStyleBuilder's `Displays` table; the other
@@ -90,28 +90,33 @@ public class UtilityFamilySupportTests {
         { "order-2", "order", "2" },
 
         // Spacing, including the logical edges the layout resolves against `direction`.
-        { "gap-3", "row-gap", "6px" },
-        { "gap-x-2", "column-gap", "4px" },
-        { "gap-y-2", "row-gap", "4px" },
-        { "p-3", "padding-top", "6px" },
-        { "px-2", "padding-left", "4px" },
-        { "pt-1", "padding-top", "2px" },
-        { "ps-2", "padding-inline-start", "4px" },
-        { "m-2", "margin-top", "4px" },
-        { "me-1", "margin-inline-end", "2px" },
+        // ⚠ **Every number here doubled when the editor's spacing base went from 2 to 4.** The base
+        // of 2 was justified by the chrome being drawn on a two-pixel rhythm — 6px was its commonest
+        // gutter — and the chrome is being redone. What the exception cost is what these rows now
+        // show: `p-4` in the editor meant 8px where `p-4` everywhere else in the Tailwind world means
+        // 16px, so every measurement a designer or a Tailwind author brought with them was half size.
+        { "gap-3", "row-gap", "12px" },
+        { "gap-x-2", "column-gap", "8px" },
+        { "gap-y-2", "row-gap", "8px" },
+        { "p-3", "padding-top", "12px" },
+        { "px-2", "padding-left", "8px" },
+        { "pt-1", "padding-top", "4px" },
+        { "ps-2", "padding-inline-start", "8px" },
+        { "m-2", "margin-top", "8px" },
+        { "me-1", "margin-inline-end", "4px" },
 
         // Sizing.
         { "w-full", "width", "100%" },
-        { "h-4", "height", "8px" },
+        { "h-4", "height", "16px" },
         { "min-w-0", "min-width", "0" },
-        { "max-w-40", "max-width", "80px" },
+        { "max-w-40", "max-width", "160px" },
 
         // Position.
         { "absolute", "position", "absolute" },
         { "relative", "position", "relative" },
         { "top-0", "top", "0" },
-        { "inset-x-1", "left", "2px" },
-        { "start-2", "inset-inline-start", "4px" },
+        { "inset-x-1", "left", "4px" },
+        { "start-2", "inset-inline-start", "8px" },
         { "z-10", "z-index", "10" },
         { "box-border", "box-sizing", "border-box" },
 
@@ -120,7 +125,7 @@ public class UtilityFamilySupportTests {
         { "text-sm", "font-size", "11px" },
         { "text-text-muted", "color", "#5c616b" },
         { "font-semibold", "font-weight", "600" },
-        { "leading-8", "line-height", "16px" },
+        { "leading-8", "line-height", "32px" },
         { "leading-tight", "line-height", "1.25" },
         { "tracking-px", "letter-spacing", "1px" },
         { "whitespace-nowrap", "white-space", "nowrap" },
@@ -142,17 +147,21 @@ public class UtilityFamilySupportTests {
         { "border-x-accent", "border-right-color", "#2f6ecd" },
         { "border-y-accent", "border-top-color", "#2f6ecd" },
 
-        // ⚠ <b>The arbitrary form, because the editor's tokens define no <c>radius</c> scale at
-        // all</b> — `vixen.ui.yaml` says so in a comment and gives the reason: the three radii live in
-        // `EditorTheme` as `var(--radius-row)` and friends, and `ThemeTokens.Radius` parses numbers,
-        // so a token that held one would be the same number in two files. `rounded-tl-lg` is
-        // therefore not a thing *in this theme* while `rounded-tl-[6px]` is, and the row has to say
-        // which of the two it is testing. The family is what is on trial here, not the scale.
+        // ⚠ <b>The arbitrary form was the only form here, and it is not any more.</b> This block used
+        // to carry a note saying the editor's tokens defined no `radius` scale at all: the three
+        // radii lived in `EditorTheme` as `var(--radius-row)` and friends, `ThemeTokens.Radius` was a
+        // dictionary of `float`, and a token holding a reference was rejected with a diagnostic — so
+        // the choice was the same number in two files or no radius tokens. `Radius` holds text now.
+        // Both spellings are kept, and the pair is the point: the arbitrary escape hatch still works,
+        // and the two kinds of token a theme can now hold — a length from the engine's shipped v4
+        // scale, and a reference the editor's own sheet resolves — both reach the same property.
         { "rounded-[4px]", "border-top-left-radius", "4px 4px" },
         { "rounded-tl-[6px]", "border-top-left-radius", "6px" },
         { "rounded-br-[2px]", "border-bottom-right-radius", "2px" },
         { "rounded-t-[6px]", "border-top-right-radius", "6px" },
         { "rounded-b-[4px]", "border-bottom-left-radius", "4px" },
+        { "rounded-lg", "border-top-left-radius", "8px 8px" },
+        { "rounded-tl-row", "border-top-left-radius", "4px" },
 
         // Overflow, all three properties and all four keywords. ⚠ `auto` is here because the layout
         // maps it onto `Overflow.Scroll` — the two differ only by a scrollbar gutter nothing draws.
@@ -449,7 +458,7 @@ public class UtilityFamilySupportTests {
     ///     hand-written sheet writes.
     /// </remarks>
     static ThemeTokens Tokens() =>
-        ThemeTokens.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "__fixtures__", "vixen.ui.yaml")));
+        ThemeTokens.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "__fixtures__", "vixen.ui.vcss")));
 
     static UiTest Sheet(params string[] utilities) {
         var ui = UiTest.Create();

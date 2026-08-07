@@ -1,7 +1,8 @@
 # Vixen.StyleGen
 
-The utility stylesheet's build step. A project with a `vixen.ui.yaml` in it gets its sheet compiled
-at build time, with no code of its own — no scanner call, no manifest walk, no reflection.
+The utility stylesheet's build step. A project gets its sheet compiled at build time, with no code
+of its own — no scanner call, no manifest walk, no reflection — and a `vixen.ui.vcss` carrying an
+`@theme` block is optional, because the engine ships v4's palette and scales as the default.
 
 Nobody runs it by hand. `Core/Vixen.Ui.Styling.Utilities/build/Vixen.Ui.Styling.Utilities.targets`
 does, before `CoreCompile`, and that file is imported automatically by a `PackageReference` to
@@ -83,18 +84,24 @@ needs no quoting.
 
 | | |
 |---|---|
-| `--tokens <vixen.ui.yaml>` | The design tokens. Absent means the built-in defaults. |
+| `--theme <file.vcss>` | A sheet whose `@theme` blocks layer over the shipped default. Repeatable and ordered. Absent means the default alone. |
 | `--scan <file>` | Searched for class names. Repeatable. C# and markup alike. |
 | `--base <file.vcss>` | A hand-written sheet, emitted **before** the utilities, with `@apply` expanded. Repeatable and ordered. |
 | `--safelist <name>` | Emitted whether or not anything was seen to use it. Repeatable. |
 | `--output`, `--accessor`, `--report` | Where the three outputs go. |
 | `--namespace`, `--class`, `--public` | What the accessor is called and whether it is public. |
 
-⚠ **`--base` is why the editor's themes becoming `.vcss` files is an item change and not a redesign.**
-The step already reads hand-written CSS, expands `@apply` in it and emits it unlayered ahead of the
-generated layer — which is the arrangement that makes a component rule beat a utility. Today the
-editor passes none, because `EditorTheme` is still a C# string constant; when it stops being one, the
-project adds `<VixenStyleBase Include="Theming/EditorTheme.vcss" />` and the accessor's `Css` starts
-carrying the whole stack.
+⚠ **`--base` reads `@theme` too, and then takes it out.** A hand-written sheet may carry its tokens
+at the top the way a v4 project does; the block is read into the token set before anything is
+generated and stripped before the text is emitted, because `@theme` is a build-time construct and the
+cascade has never heard of it. What the finished sheet references comes back as a `root` rule at the
+very top, holding the theme variables it actually uses and the ones those use — never all 347, and
+never one whose value names itself, which would shadow the declaration it is an alias for.
+
+⚠ **The editor still passes no `--base`.** `EditorTheme` is a `.vcss` now rather than a C# constant,
+but it is loaded into the document directly by `EditorTheme.Install` rather than folded into the
+generated sheet — the two arrive as separate `Load` calls at the same origin, base first, which is
+what the layering needs. Folding it in would mean `EditorStyles.Css` carrying the whole stack and
+`Install` loading one sheet instead of two; it is a real simplification and it is not done.
 
 Licensed under Apache-2.0.

@@ -59,10 +59,46 @@ internal static class StyleGenRunner {
         ArgumentNullException.ThrowIfNull(request);
 
         var errors = new List<string>();
-        var tokens = ReadTokens(request.Tokens, errors);
 
-        foreach (var diagnostic in tokens.Diagnostics) {
-            errors.Add($"{request.Tokens}: {diagnostic}");
+        // ⚠ **The shipped defaults first, and every project gets them.** v4's model is that `@theme`
+        // *has* defaults and a project layers over them — `--color-*: initial;` is how you say you
+        // want none of it — so a project with no theme file of its own is not a project with no
+        // tokens. It is the whole reason `bg-blue-500` works in a game that wrote nothing.
+        var tokens = ThemeTokens.CreateDefault();
+        var seen = 0;
+
+        // The base sheets are read here rather than where they are emitted, because an `@theme` block
+        // in one of them has to reach the token set *before* anything is generated against it. Read
+        // twice would be the alternative, and the second read is where a file changing under the
+        // build stops being harmless.
+        var sheets = new List<(string Path, string Css)>();
+
+        foreach (var path in request.Themes) {
+            if (!File.Exists(path)) {
+                errors.Add($"{path}: there is no theme file here");
+                continue;
+            }
+
+            sheets.Add((path, File.ReadAllText(path)));
+        }
+
+        var themeCount = sheets.Count;
+
+        foreach (var path in request.Base) {
+            if (!File.Exists(path)) {
+                errors.Add($"{path}: the base stylesheet is not there");
+                continue;
+            }
+
+            sheets.Add((path, File.ReadAllText(path)));
+        }
+
+        foreach (var (path, text) in sheets) {
+            tokens.Apply(text);
+
+            for (; seen < tokens.Diagnostics.Count; seen++) {
+                errors.Add($"{path}: {tokens.Diagnostics[seen]}");
+            }
         }
 
         var candidates = new HashSet<string>(StringComparer.Ordinal);
@@ -92,13 +128,12 @@ internal static class StyleGenRunner {
         var css = new StringBuilder();
         var expander = new ApplyExpander(tokens);
 
-        foreach (var path in request.Base) {
-            if (!File.Exists(path)) {
-                errors.Add($"{path}: the base stylesheet is not there");
-                continue;
-            }
-
-            css.Append(expander.Expand(File.ReadAllText(path))).Append('\n');
+        foreach (var (path, text) in sheets.Skip(themeCount)) {
+            // ⚠ Stripped, because `@theme` is a build-time construct and the cascade has never heard
+            // of it. Its declarations have already been read into `tokens` above and whatever the
+            // sheet references comes back as a `root` rule below, so leaving the block in would be a
+            // second copy of the same values that the loader then drops with a diagnostic.
+            css.Append(expander.Expand(ThemeTokens.Strip(text))).Append('\n');
 
             foreach (var diagnostic in expander.Diagnostics) {
                 errors.Add($"{path}: {diagnostic}");
@@ -107,7 +142,20 @@ internal static class StyleGenRunner {
 
         css.Append(utilities);
 
-        return new StyleGenResult(css.ToString(), utilities, [.. generator.Unrecognised], errors, generator.RuleCount);
+        // ⚠ **The variables last to compute and first to emit.** Which of three hundred and
+        // forty-seven theme declarations a sheet needs is only knowable once the sheet exists, so
+        // the scan runs over the finished text — and the block it produces goes at the *top*, where
+        // a hand-written `root { --accent: … }` further down still wins on source order. A theme
+        // variable that beat the sheet declaring it would make the token model unopinionated in the
+        // one direction it must not be.
+        var root = tokens.RootRuleFor(css.ToString());
+
+        return new StyleGenResult(
+            root.Length > 0 ? root + '\n' + css : css.ToString(),
+            utilities,
+            [.. generator.Unrecognised],
+            errors,
+            generator.RuleCount);
     }
 
     /// <summary>Writes whatever the request asked to be written.</summary>
@@ -215,19 +263,6 @@ internal static class StyleGenRunner {
         }
 
         return escaped.ToString();
-    }
-
-    static ThemeTokens ReadTokens(string? path, List<string> errors) {
-        if (path is null) {
-            return new ThemeTokens();
-        }
-
-        if (!File.Exists(path)) {
-            errors.Add($"{path}: there is no theme file here");
-            return new ThemeTokens();
-        }
-
-        return ThemeTokens.Parse(File.ReadAllText(path));
     }
 
     static void WriteIfDifferent(string path, string content) {

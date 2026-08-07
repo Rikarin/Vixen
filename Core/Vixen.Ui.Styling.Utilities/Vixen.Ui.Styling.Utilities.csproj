@@ -50,9 +50,32 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            ⚠ **The engine's default design tokens, embedded rather than globbed.** Every other
+            project in the tree gets its .vcss files embedded by the glob in
+            `Core/Vixen.Ui/build/Vixen.Ui.targets`, and this one cannot import that file: it sits
+            *below* Vixen.Ui and referencing its build assets would invert the dependency for the
+            sake of one line. Named here instead, with the same logical name the glob would have
+            given it — RootNamespace plus the folder — which is what `ThemeTokens.DefaultSheet`
+            asks for.
+        -->
+        <EmbeddedResource Include="Theme/vixen.default.vcss" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
-        <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
         <ProjectReference Include="..\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
+
+        <!--
+            ⚠ **Vixen.Core.Yaml is gone, and the consequence is bigger than a reference.** It was here
+            for `ThemeTokens.Parse`, which read a `vixen.ui.yaml`; under `@theme` a token is a custom
+            property in a stylesheet and the reader is a text scan over this assembly's own code. The
+            YamlDotNet dependency it dragged in is the *entire* stated reason `Tools/Vixen.StyleGen`
+            is an out-of-process step rather than an `IIncrementalGenerator` — an analyzer's
+            dependencies do not travel with it — so that argument has quietly expired. Turning the
+            step into a generator is a separate change and a real one; this file is the note that it
+            is now possible.
+        -->
     </ItemGroup>
 
     <ItemGroup>

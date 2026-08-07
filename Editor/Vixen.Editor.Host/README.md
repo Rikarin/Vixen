@@ -88,16 +88,39 @@ written there beats the shipped one without having to out-specify it, and saving
 editor without rebuilding a single element: the rule set is replaced and the cascade runs again, so
 every panel keeps its focus, its scroll offset and its animation state.
 
-The gap is the way back. **There is no `.vcss` in the editor at all** — `EditorTheme`,
-`InspectorTheme`, `AssetEditorTheme`, `BrowserTheme` and `WorldTheme` are C# string constants
-compiled into their assemblies — so what this gives you is a place to iterate, and pasting the result
-into the constant is a manual step.
+**There is a `.vcss` in the editor now, and until doc 43's `@theme` work there was not one anywhere
+in the tree.** `Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss` is a real file on disk, embedded by
+the glob in `Core/Vixen.Ui/build/Vixen.Ui.targets`; `EditorTheme.Css` reads it back out of the
+assembly. So this channel finally has something to point at:
 
-⚠ **And the constant is not a way round it.** Editing the CSS inside `const string Sheet = """…"""`
-was measured: `dotnet watch` reports *"Restart is needed to apply the changes"* and kills the
-process. A const's value is baked into metadata and into every use site, and Roslyn will not update
-it in place. Written as a property body — `static string Sheet => """…"""` — the same edit applies in
-165 ms, which is what an extraction to `.vcss` would have to be weighed against.
+```bash
+dotnet watch run --project Editor/Vixen.Editor.Host -- --hot-reload Editor/Vixen.Editor.Ui/Theming
+```
+
+⚠ **What that does and does not give you, stated exactly, because the difference is a cascade
+question rather than a plumbing one.** The watcher loads what it finds at `Author` origin, and the
+copy already inside the assembly is at `UserAgent` — so an edit to `EditorTheme.vcss` *layers over*
+the shipped one rather than replacing it. Every normal declaration in the edited copy wins, which is
+what you want; a declaration you **delete** does not disappear, because the `UserAgent` copy still
+has it. Iterating on values is live and true; iterating on which rules exist is not. Replacing the
+shipped sheet in place needs `UiDocument.Replace` against the index `EditorTheme.Install` returns,
+which nothing calls yet.
+
+⚠ **What is fixed for good is the way back.** It used to be "paste the result into a `const string`",
+and the constant was not a way round the restart either: editing CSS inside `const string Sheet =
+"""…"""` was measured to make `dotnet watch` report *"Restart is needed to apply the changes"* and
+kill the process, because a const's value is baked into metadata and into every use site. The file
+you edit is now the source, so there is nothing to paste.
+
+⚠ **One file in that directory is not for the cascade.** `Theming/vixen.ui.vcss` is the `@theme`
+block the utility generator reads at build time, and the watcher's glob is `*.vcss` recursively — so
+pointing at the folder sweeps it up, `@theme` reaches ExCSS as an at-rule nothing knows, and
+`StyleSheetLoader` drops it with a diagnostic. Harmless and noisy. Point at a copy of
+`EditorTheme.vcss` in a scratch directory to avoid it.
+
+⚠ **`ControlTheme` and `AdvancedTheme` are still `const string`s**, and so are `InspectorTheme`,
+`AssetEditorTheme`, `BrowserTheme` and `WorldTheme`. The mechanism is there; those extractions are
+not done.
 
 ⚠ **The directory is named and has no default.** A watcher over a folder with nothing in it is a
 channel that looks wired and does nothing; a mistyped path says so in the console rather than looking

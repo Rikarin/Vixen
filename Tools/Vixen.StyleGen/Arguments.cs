@@ -54,6 +54,7 @@ internal static class Arguments {
         var scan = new List<string>();
         var bases = new List<string>();
         var safelist = new List<string>();
+        var themes = new List<string>();
 
         for (var index = 0; index < flat.Count; index++) {
             var option = flat[index];
@@ -63,7 +64,11 @@ internal static class Arguments {
                     request = request with { Public = true };
                     continue;
 
-                case "--tokens" or "--scan" or "--base" or "--safelist" or "--output"
+                // ⚠ `--tokens` is gone rather than aliased. It named a `vixen.ui.yaml`, and that file
+                // is deleted rather than ported — so a build still passing it is a build whose
+                // .targets and whose tool are different versions, which is exactly the case the
+                // unknown-option error above exists to make loud.
+                case "--theme" or "--scan" or "--base" or "--safelist" or "--output"
                     or "--accessor" or "--namespace" or "--class" or "--report":
                     break;
 
@@ -80,7 +85,6 @@ internal static class Arguments {
             var value = flat[index];
 
             request = option switch {
-                "--tokens" => request with { Tokens = value },
                 "--output" => request with { Output = value },
                 "--accessor" => request with { Accessor = value },
                 "--namespace" => request with { Namespace = value },
@@ -93,10 +97,11 @@ internal static class Arguments {
                 case "--scan": scan.Add(value); break;
                 case "--base": bases.Add(value); break;
                 case "--safelist": safelist.Add(value); break;
+                case "--theme": themes.Add(value); break;
                 default: break;
             }
         }
 
-        return request with { Scan = scan, Base = bases, Safelist = safelist };
+        return request with { Scan = scan, Base = bases, Safelist = safelist, Themes = themes };
     }
 }

@@ -2,8 +2,19 @@
     SPDX-FileCopyrightText: Copyright (c) Rikarin
     SPDX-License-Identifier: Apache-2.0
 
-    The build step. A project with a `vixen.ui.yaml` in it gets its utility stylesheet compiled at
+    The build step. A project with a `vixen.ui.vcss` in it gets its utility stylesheet compiled at
     build time, with no code of its own — no scanner call, no manifest walk, no reflection.
+
+    ⚠ **It used to be `vixen.ui.yaml`, and that file is deleted rather than renamed.** Under
+    Tailwind v4 a design token *is* a custom property in an `@theme { … }` block, so the token file
+    is a stylesheet like every other one and the YAML in front of it was a second format to learn
+    for no expressive gain. The editor's copy proved the point: it declared no colours of its own,
+    every entry being a reference to a custom property `EditorTheme` already had, so it was `@theme`
+    with a translation step. See docs/plan/43 § D1.
+
+    ⚠ **A project with no theme file still has tokens.** `ThemeTokens.CreateDefault()` is v4's own
+    palette and scales in oklch, so `bg-blue-500` works in a project that wrote nothing, and a
+    project that wants none of it clears the colour namespace in an `@theme` of its own.
 
     Imported automatically by a PackageReference to Vixen.Ui.Styling.Utilities; inside this
     repository a project has to Import it by hand and name Tools/Vixen.StyleGen as a build-order
@@ -44,7 +55,7 @@
             target below refuses rather than picking.
         -->
         <VixenUiTokens Condition="'@(VixenUiTokens)' == ''"
-                       Include="**/vixen.ui.yaml"
+                       Include="**/vixen.ui.vcss"
                        Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 
         <!--
@@ -115,7 +126,7 @@
         </PropertyGroup>
 
         <Error Condition="'@(VixenUiTokens->Count())' &gt; '1'"
-               Text="Vixen: this project has more than one vixen.ui.yaml (@(VixenUiTokens)). One project is one palette." />
+               Text="Vixen: this project has more than one vixen.ui.vcss (@(VixenUiTokens)). One project is one palette." />
 
         <Error Condition="!Exists('$(VixenStyleGenPath)')"
                Text="Vixen: the utility build step is not at $(VixenStyleGenPath). Inside this repository, a project using utilities needs a ProjectReference to Tools/Vixen.StyleGen with ReferenceOutputAssembly=false, which is what builds it first." />
@@ -140,8 +151,7 @@
             <_VixenStyleArgument Include="$(_VixenStyleSheet)" />
             <_VixenStyleArgument Include="--report" />
             <_VixenStyleArgument Include="$(_VixenStyleReport)" />
-            <_VixenStyleArgument Include="--tokens" Condition="'@(VixenUiTokens)' != ''" />
-            <_VixenStyleArgument Include="@(VixenUiTokens->'%(FullPath)')" />
+            <_VixenStyleArgument Include="--theme;%(VixenUiTokens.FullPath)" Condition="'@(VixenUiTokens)' != ''" />
 
             <!-- Ordered, because the base sheets are emitted in the order they are given. -->
             <_VixenStyleArgument Include="--base;%(VixenStyleBase.FullPath)" Condition="'@(VixenStyleBase)' != ''" />

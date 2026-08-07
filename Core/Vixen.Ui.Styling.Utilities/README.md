@@ -15,7 +15,7 @@ every component is in the same repository as every token.
 
 | | |
 |---|---|
-| `ThemeTokens` | `vixen.ui.yaml` → colours, spacing, radii, font sizes and weights, shadows, breakpoints. |
+| `ThemeTokens` | An `@theme { --color-*: … }` block → colours, spacing, radii, type scale, weights, font stacks, shadows, breakpoints. Layered over the shipped default. |
 | `UtilityParser` | `[-]?[variant:]*utility[-value][/opacity][!]`, bracket-aware throughout. |
 | `UtilityFamilies` | What each family emits. Table-driven. |
 | `UtilityComposition` | The `--tw-*` fragments, and what each is worth unset. `from-*`/`via-*`/`to-*` + `bg-linear-*` is the worked case; the guide is [ui/utility-composition](../../docs/guide/ui/utility-composition.md). |
@@ -23,14 +23,14 @@ every component is in the same repository as every token.
 | `UtilityGenerator` | The stylesheet, into `@layer utilities`. |
 | `CandidateScanner` | Deliberately over-inclusive extraction from source text. |
 | `ApplyExpander` | `@apply` inside VCSS. |
-| Build step | `build/Vixen.Ui.Styling.Utilities.targets` + `Tools/Vixen.StyleGen`. A project with a `vixen.ui.yaml` gets its sheet with no code of its own. |
+| Build step | `build/Vixen.Ui.Styling.Utilities.targets` + `Tools/Vixen.StyleGen`. A project gets its sheet with no code of its own; a `vixen.ui.vcss` is optional. |
 | Token hot reload | ⏳ waits on the asset pipeline |
 
 ## The build step
 
 `build/Vixen.Ui.Styling.Utilities.targets` is imported by a `PackageReference` to this assembly, and
 that is the whole of what a project has to do. Before `CoreCompile` it finds the project's
-`vixen.ui.yaml`, scans **every source file and every `.vxml`** for class names, and writes the sheet
+`vixen.ui.vcss`, scans **every source file and every `.vxml`** for class names, and writes the sheet
 into `obj/` twice: as a `const string` added to `@(Compile)`, and as a `.vcss` file for the tools.
 `Tools/Vixen.StyleGen/README.md` is the detail.
 
@@ -39,16 +39,69 @@ built in code with `AddClass("flex")`, and the startup bootstrap this replaces c
 embedded markup — so a utility asked for from C# was silently missing. The scanner does not parse
 anything, which is exactly what lets it be pointed at a `.cs` file.
 
-⚠ **It is a process rather than a source generator, and the reason is a dependency.** `ThemeTokens`
-reads YAML through `Vixen.Core.Yaml`, which is YamlDotNet; a Roslyn analyzer's dependencies do not
-travel with it, because `OutputItemType="Analyzer"` contributes one DLL.
-`Vixen.Ui.Markup.Generators` escapes the same trap by *linking* its front end's source, which works
-because that front end is Vixen's own code and does not work here. See that project file's comment,
-which is the best statement of the problem in the tree.
+⚠ **It is a process rather than a source generator, and the reason it was one has expired.**
+`ThemeTokens` used to read YAML through `Vixen.Core.Yaml`, which is YamlDotNet; a Roslyn analyzer's
+dependencies do not travel with it, because `OutputItemType="Analyzer"` contributes one DLL, and
+`Vixen.Ui.Markup.Generators` escapes the same trap by *linking* its front end's source — which works
+because that front end is Vixen's own code and could not work for a package. Under `@theme` there is
+no YamlDotNet: a token is a custom property and the reader is a text scan over this assembly's own
+code, so the whole dependency argument is gone and this assembly has no package references left.
+Making the step a generator is a separate change and a real one; the blocker is what has lifted.
 
 ⚠ **`Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs` has deliberately not been converted.** It is the
 hundred and thirty lines the step replaces, kept as the reference for what a project used to have to
 write. Converting it is three deletions and two lines of MSBuild, and it belongs in its own change.
+
+## `@theme`, and the palette that ships with it
+
+A design token is a custom property in an `@theme { … }` block, which is Tailwind v4's model rather
+than a resemblance to it. Declaring `--color-mint-500` does two things at once: it makes the variable
+available to hand-written CSS, and it tells the generator that `bg-mint-500`, `text-mint-500` and
+`border-mint-500` exist.
+
+**The engine ships v4.3.3's own `@theme` as the default** — `Theme/vixen.default.vcss`, transcribed
+from `packages/tailwindcss/theme.css` rather than recalled: 26 colour ramps of eleven steps plus
+black and white, `--spacing`, `--breakpoint-*`, `--text-*`, `--font-*`, `--font-weight-*`,
+`--radius-*` and `--shadow-*`. 347 declarations. So `bg-blue-500` works in a project with no theme
+file at all, and a project layers its own over the top:
+
+```css
+@theme {
+    --color-*: initial;              /* none of v4's ramps, thanks */
+    --color-brand: oklch(62% 0.2 165);
+    --spacing: 4px;
+}
+```
+
+`--<namespace>-*: initial;` empties one namespace, `--*: initial;` empties every one, and
+`--color-blue-500: initial;` removes a single token. That is v4's mechanism verbatim, and the two
+worked examples in the tree take opposite sides of it: `Editor/Vixen.Editor.Ui/Theming/vixen.ui.vcss`
+clears the colours and the breakpoints, because the editor's palette is designed and a tool window is
+not a page; `Samples/14-Mmo/Mmo.Ui/Theme/vixen.ui.vcss` keeps the ramps and adds its own names.
+
+⚠ **Everything shipped is `oklch()`, and that is load-bearing rather than fashionable.** Two of every
+three v4 colours are outside sRGB — `blue-500` is linear blue **+1.053**, `emerald-500` is linear red
+**−0.039** — so a hex transcription would throw away the chroma before anything could use it. Carried
+as written, `GamutMap` reduces chroma at presentation against the surface's *granted* gamut, so the
+same token is the showable colour on an sRGB display and the vivid one on P3.
+[doc 43 § D4](../../docs/plan/43-web-styling-parity.md) has the measurements.
+
+⚠ **Three divergences from v4's emission, all of them at the boundary rather than in the model.**
+Lengths are resolved to pixels at build time at 16px to the rem, because there is no root font size
+downstream to resolve them against and a token that stayed relative would be a number nothing could
+turn into one. A line height written as a ratio — v4's `calc(1.25 / 0.875)` — is multiplied out
+against its size for the same reason. And a utility emits the token's *value* rather than
+`var(--color-blue-500)`; the variable is emitted too, but only into a `root` rule holding what a
+sheet actually references, because three hundred custom properties on every document's root to serve
+the handful anyone says `var()` against is a cost with nothing on the other side of it.
+
+⚠ **What is not shipped, and it is a list rather than an oversight.** `--container-*`, `--tracking-*`,
+`--leading-*`, `--inset-shadow-*`, `--drop-shadow-*`, `--text-shadow-*`, `--ease-*`, `--animate-*`,
+`--blur-*`, `--perspective-*` and `--aspect-*` are v4 namespaces no family here reads. Shipping them
+would emit variables that resolve and utilities that do not, which is the failure mode doc 43 spends
+Part 1 measuring. `--font-*` is the one exception: the stacks are carried so a hand-written rule can
+say `var(--font-mono)`, and `font-*` in this engine still resolves a *weight* — wiring the family
+needs a `font-family` that can pick the first name the face registry knows.
 
 ## The ideas
 
@@ -227,10 +280,13 @@ an empty utility name and `UtilityParser.TryParse` rejects it. So does v4's CSS-
 `bg-(--brand)`, because the parser looks for `[` and nothing else.
 
 ⚠ **The build step is per-project, so a utility written in another assembly resolves to nothing.**
-`build/Vixen.Ui.Styling.Utilities.targets` finds `**/vixen.ui.yaml` inside the consuming project and
-scans only that project's own sources; the target does not run at all without a token file. One
-theme spanning several assemblies is not expressible today, and a class in one of the others is
-silently unstyled. [doc 43](../../docs/plan/43-web-styling-parity.md) § Part 3 proposes the shape:
+`build/Vixen.Ui.Styling.Utilities.targets` finds `**/vixen.ui.vcss` inside the consuming project and
+scans only that project's own sources. One theme spanning several assemblies is not expressible
+today, and a class in one of the others is silently unstyled. ⚠ The shipped default makes the second
+half of this *worse* rather than better: a project with no theme file used to generate nothing at
+all, which was at least loud, and now generates v4's palette against its own sources — so an
+assembly that meant to share the editor's tokens and forgot to say so gets Tailwind's instead of
+nothing. [doc 43](../../docs/plan/43-web-styling-parity.md) § Part 3 proposes the shape:
 per-assembly sheets over a *referenced* token source rather than a copied one.
 
 Licensed under Apache-2.0.
