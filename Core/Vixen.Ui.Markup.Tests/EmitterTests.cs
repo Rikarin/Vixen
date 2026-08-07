@@ -365,6 +365,76 @@ public class EmitterTests {
         return ((Component)built, built, document);
     }
 
+    // ================================================================== The @for key rule
+
+    /// <summary>
+    ///     One component, two keys. <c>Stable</c> keys each row on a field that does not change and
+    ///     <c>Whole</c> keys it on the record, which for immutable data is its value.
+    /// </summary>
+    const string Rows = """
+                        @component Greeter
+                        @using Vixen.Ui.Reactive
+
+                        @code {
+                            public record struct Row(string Label, int Count);
+                            public Signal<Row[]> Items { get; } = new([]);
+                        }
+
+                        <stable>
+                            @for (var row in Items.Value) {
+                                <li key="@(row.Label, 0)">@row.Count</li>
+                            }
+                        </stable>
+
+                        <whole>
+                            @for (var row in Items.Value) {
+                                <li key="@row">@row.Count</li>
+                            }
+                        </whole>
+                        """;
+
+    /// <summary>
+    ///     ⚠ <b>The sabotage: a row keyed on a stable field of immutable data shows the first
+    ///     reading for ever.</b> <c>BuildContext.For</c> matches the key, <i>reuses the region and
+    ///     does not re-run the body</i> — so every per-item binding stays closed over the item as it
+    ///     was when that key first appeared. Which is the exact opposite of what <c>VXML2004</c>
+    ///     teaches a reader: it warns against keying on the index, from which the natural conclusion
+    ///     is that any stable field is safe.
+    /// </summary>
+    /// <remarks>
+    ///     The stable key is written as a tuple so that <c>VXML2011</c> does not fire on the half of
+    ///     this test that is deliberately wrong — the warning's job is to stop a reader writing
+    ///     <c>key="@row.Label"</c>, and its job here would be to stop the test being written at all.
+    /// </remarks>
+    [Fact]
+    public void A_row_keyed_on_a_stable_field_of_immutable_data_freezes_at_the_first_reading() {
+        var (component, instance, document) = Run(Rows);
+
+        using var owned = document;
+        var stable = component.Root.Children[0];
+        var whole = component.Root.Children[1];
+        var items = instance.GetType().GetProperty("Items")!;
+        var row = instance.GetType().GetNestedType("Row")!;
+
+        void Show(int count) {
+            var array = Array.CreateInstance(row, 1);
+            array.SetValue(Activator.CreateInstance(row, "cpu", count), 0);
+
+            items.GetValue(instance)!.GetType().GetProperty("Value")!.SetValue(items.GetValue(instance), array);
+            document.Effects.Flush();
+        }
+
+        Show(1);
+        Assert.Equal(["1"], stable.Children.Select(Text));
+        Assert.Equal(["1"], whole.Children.Select(Text));
+
+        Show(2);
+
+        // The key survived, so the region did, so the body never ran again.
+        Assert.Equal(["1"], stable.Children.Select(Text));
+        Assert.Equal(["2"], whole.Children.Select(Text));
+    }
+
     // ================================================================== @inherits
 
     /// <summary>
@@ -647,9 +717,17 @@ public class EmitterTests {
     ///     <c>ReadOnlySpan&lt;string&gt;</c>.
     /// </remarks>
     static object Add(UiDocument document, string source) {
+        // ⚠ The constraint is the assertion, so it is named. `UiElement.Add<T>` is
+        // `where T : UiElement, new()` — exactly what a `Component` cannot satisfy — and this file
+        // compiling is the proof that a generated `@inherits` class does. The three explicit
+        // arguments are the harness's Roslyn (4.11) not reading `params ReadOnlySpan<string>` out of
+        // metadata; a project on the current compiler writes `parent.Add<Gauge>()`.
         const string Caller = """
                               public static class Adds {
-                                  public static object Make(Vixen.Ui.UiElement parent) => parent.Add<Gauge>();
+                                  public static object Make(Vixen.Ui.UiElement parent) => Element<Gauge>(parent);
+
+                                  static T Element<T>(Vixen.Ui.UiElement parent)
+                                      where T : Vixen.Ui.UiElement, new() => parent.Add<T>(null, null, default);
                               }
                               """;
 
