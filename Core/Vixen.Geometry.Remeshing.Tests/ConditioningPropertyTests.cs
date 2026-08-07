@@ -127,9 +127,21 @@ public class ConditioningPropertyTests {
     ///         <b>Four facts exactly and two counts within a tenth, and the split is where the finding
     ///         is.</b> Whether the mesh came out manifold, whether it came out closed, whether the
     ///         orientation flood fill gave up and whether the shrinkwrap fired are statements about
-    ///         topology: <see cref="ScaleInvarianceTests.Compare" /> asserts all four at every strength
-    ///         and they never moved, over two thousand generated recipes at a thousandth and a thousand
-    ///         times. The triangle and vertex counts did move, by up to 3.45 per cent.
+    ///         topology: <see cref="ScaleInvarianceTests.Compare" /> asserts all four at every strength.
+    ///         The triangle and vertex counts do move, by up to 3.45 per cent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Closedness did move once, and it was a real defect in the weld rather than a tie
+    ///         to be tolerated — which is the whole reason these four are asserted exactly.</b>
+    ///         Measured, on seed <c>dUYtdAFHQOs2</c>:
+    ///         <c>new(ShapeKind.Stairs, 7, 5, [SelfIntersection, Slivers, FlippedWinding], 1,
+    ///         0.16551921f, 1f)</c> came out closed at a thousandth scale and open at a thousand
+    ///         times. The cause was <see cref="MeshConditioner.CrossNoise" />'s: the sliver bound was
+    ///         <c>1e-9 × diagonal²</c>, which is two decades <i>below</i> what a single-precision
+    ///         cross product of two diagonal-sized differences can resolve, so an exactly-degenerate
+    ///         face's computed area was rounding residue and which side of the bound it landed on was
+    ///         decided by the bit pattern. A relative bound below the arithmetic's own resolution
+    ///         fails the same way an absolute one does, and this is the property that caught it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Exact agreement is a property of the eighteen named fixtures and not of the space,
@@ -251,8 +263,9 @@ public class ConditioningPropertyTests {
     ///         <see cref="ScaleInvarianceTests.OneRoundOfThePreRemeshGivesTheSameCountsAtBothScales" />
     ///         asserts exact counts — and that difference is a finding rather than a weakening.</b>
     ///         Exact counts hold on its five named fixtures and do not hold over the space: measured
-    ///         over three thousand generated recipes, 41 disagreed at one round, the worst by 11.1 per
-    ///         cent, and the family that does it is the cone. A cone's base ring is a run of edges of
+    ///         over three thousand generated recipes with no floor under them, 41 disagreed at one
+    ///         round, the worst by 11.1 per cent, and the family that does it is the cone. A cone's
+    ///         base ring is a run of edges of
     ///         <i>exactly</i> equal length, so the mean they are compared against is a tie the whole
     ///         ring sits on and one ulp turns all of it at once — which is the same mechanism the
     ///         five-round remarks describe, arriving four rounds early because the tie is a ring rather
@@ -260,19 +273,82 @@ public class ConditioningPropertyTests {
     ///         to a hundred, 22 again at a million, and 20 at exactly a thousand. A constant would not
     ///         care which of the eight it was given.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Floor" /> triangles or the case is skipped, for the same reason
+    ///         <see cref="Five_rounds_of_the_pre_remesh_stay_within_a_rate_of_each_other" /> has one —
+    ///         and it is here because the property failed on a nineteen-triangle cone at nightly
+    ///         budget.</b> Measured over four thousand recipes: 1445 reach the floor and the worst
+    ///         disagreement among them is 3.03 per cent, where below it the worst is 14.3 per cent on
+    ///         a mesh of fourteen triangles. By candidate floor, 16 gives 11.1 per cent, 24 gives
+    ///         8.33, 32 gives 6.25, 48 gives 4.17, 64 gives 3.03, 96 gives 1.96 and 128 gives 1.92.
+    ///         <b>That shape is the tell:</b> every one of those disagreements is the same two
+    ///         triangles, so the rate is two over the count and a floor is choosing a denominator
+    ///         rather than hiding a defect. The skip is counted and the count asserted, so a generator
+    ///         that drifted below the floor could not pass this by testing nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The case that forced it is worth keeping, because it is a tie sitting
+    ///         <i>exactly</i> on a threshold rather than near one — and it is the de-speck's, not the
+    ///         pre-remesh's.</b> Seed <c>2hVxfasvzdi1</c>:
+    ///         <c>new(ShapeKind.Cone, 7, 1, [TJunction, Specks, Unwelded], 1, 0.2811629f, 1f)</c> gave
+    ///         19 triangles against 14 — five apart and not two, because what moved was a whole
+    ///         component. Measured at seven scales from a thousandth to a thousand times, the
+    ///         partition is identical at every one of them, five components of the same face counts,
+    ///         and only the comparison moves. The speck <see cref="MeshDefect.Specks" /> appends is a
+    ///         <c>0.02</c>-unit box whose five surviving faces total <i>exactly</i> a thousandth of the
+    ///         largest component's area — which is exactly
+    ///         <see cref="ConditioningSettings.SpeckArea" />'s default.
+    ///     </para>
+    ///     <para>
+    ///         So which way it falls is decided at the fifth significant digit, in both directions at
+    ///         once. The float nearest <c>1e-3</c> is <c>1.0000000475e-3</c>, so
+    ///         <c>largest × fraction</c> lands a hair <i>above</i> the exact tie and exact arithmetic
+    ///         drops the component — but the speck sits <c>5.55</c> units from the origin and is
+    ///         <c>0.02</c> across, a 278-to-1 ratio that costs <c>b - a</c> two and a half digits, so
+    ///         its computed area carries up to <c>3.3e-5</c> of relative error and lands <i>above</i>
+    ///         the bound at six scales of the seven. At a thousand times the coordinates are exactly
+    ///         representable, the five areas compute as exactly <c>200</c>, and
+    ///         <c>1000 &lt; 1000.00006</c> drops it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So this one is not <see cref="MeshConditioner.CrossNoise" />'s and no bound wants
+    ///         moving.</b> There the comparison sat two decades under what the arithmetic could
+    ///         resolve, which made it unevaluable; here the ratio is resolved to five digits and the
+    ///         threshold is relative and well conditioned — the fixture is simply sitting on it. Every
+    ///         threshold has a boundary and a fixture placed exactly on one will fall either way. What
+    ///         a rate must not do is call that a quarter of the mesh.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void One_round_of_the_pre_remesh_stays_within_a_fifth_at_both_scales() {
+        var measured = 0;
+
         BrokenMeshSpace.Recipe.Sample(
             recipe => {
                 var mesh = RunawayGuard.Run($"building {recipe}", () => BrokenMeshSpace.Build(recipe));
+                var settings = new ConditioningSettings { PreRemeshIterations = 1 };
+
+                var size = RunawayGuard.Run(
+                    $"sizing {recipe}",
+                    () => {
+                        MeshConditioner.Condition(mesh, settings, out var report);
+
+                        return report.Triangles;
+                    }
+                );
+
+                if (size < Floor) {
+                    return;
+                }
+
+                measured++;
 
                 RunawayGuard.Run(
                     $"one pre-remesh round on {recipe} at both scales",
                     () => ScaleInvarianceTests.Compare(
                         recipe.ToString(),
                         mesh,
-                        new() { PreRemeshIterations = 1 },
+                        settings,
                         ScaleInvarianceTests.Agreement.Rate,
                         0.2f
                     )
@@ -281,6 +357,11 @@ public class ConditioningPropertyTests {
             iter: PropertyBudget.Iterations(100),
             threads: 1
         );
+
+        // 36 per cent of the space reaches the floor, so a hundred draws expect 36 with a standard
+        // deviation of about 5. Fifteen is four deviations down: a generator would have to have
+        // shifted, not merely rolled badly, to trip it.
+        Assert.True(measured > 15, $"Only {measured} of the sampled recipes reached {Floor} triangles.");
     }
 
     /// <summary>Five rounds, where exact agreement is not achievable and the reason is not a constant.</summary>

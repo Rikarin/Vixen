@@ -39,6 +39,39 @@ static class MeshConditioner {
     ///     one where two faces of a cut edge are still joined at both ends through other edges.</remarks>
     public const int RepairRounds = 8;
 
+    /// <summary>How large a cross product's own rounding error is, against the two edges it multiplied.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A relative bound is not scale-free if it sits below what the arithmetic can
+    ///         resolve, and that is a different mistake from an absolute one but it fails the same
+    ///         way.</b> <c>b - a</c> is a difference of coordinates of order the diagonal, so it
+    ///         carries an absolute error of order <c>ε × diagonal</c> whatever the edge's own length
+    ///         is — and a cross product of two such differences therefore carries an error of order
+    ///         <c>ε × diagonal × reach</c>, where <c>reach</c> is the longer of them. Single
+    ///         precision's <c>ε</c> is <c>1.19e-7</c>, so a triangle that is <i>exactly</i> degenerate
+    ///         does not compute an area of zero: it computes a power of two somewhere in that band.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured, and the reason the constant is what it is.</b> On a flight of stairs
+    ///         driven through a copy of itself, one exactly-degenerate face computed an area of
+    ///         <c>0</c> at unit scale and at a thousand times, and <c>2^-42</c> at a
+    ///         thousandth — because <c>0.001f</c> is not a binary fraction and perturbs every
+    ///         coordinate by an ulp. Against the old bound of <c>1e-9 × diagonal²</c> that is
+    ///         <i>1.35 times over</i>, so the face was dropped at two scales and kept at the third,
+    ///         and a closed surface came out with a triangular hole in it. The residues seen were
+    ///         <c>0.5ε</c> to <c>1.1ε</c> of <c>diagonal × reach</c>; this is eight times the larger
+    ///         of them.
+    ///     </para>
+    ///     <para>
+    ///         And it cannot reject a triangle anybody wanted: <c>area ≤ diagonal × reach × 1e-6</c>
+    ///         is the same statement as <c>height ≤ 2e-6 × diagonal</c>, which is a fifth of the
+    ///         default <see cref="ConditioningSettings.WeldTolerance" />. A face this step now drops
+    ///         and did not before is thinner than the distance at which the weld above it calls two
+    ///         positions the same place.
+    ///     </para>
+    /// </remarks>
+    public const float CrossNoise = 1e-6f;
+
     /// <summary>Runs the seven steps and builds the view the rest of the pipeline works on.</summary>
     /// <param name="source">The input. Read, never modified.</param>
     /// <param name="settings">What conditioning is allowed to do.</param>
@@ -230,8 +263,11 @@ static class MeshConditioner {
         soup.Groups.Clear();
 
         // The same relative sliver bound `EditMesh.Validate` uses, so that a mesh this step passed
-        // reports no degenerate faces rather than nearly none.
+        // reports no degenerate faces rather than nearly none. It is a floor and not the whole bound
+        // — see `CrossNoise` for the term that dominates it on anything larger than a thousandth of
+        // the diagonal, and for the closed-surface-with-a-hole that term exists to stop.
         var sliver = diagonal * diagonal * 1e-9f;
+        var noise = diagonal * CrossNoise;
         var seen = new HashSet<(int A, int B, int C)>();
 
         for (var triangle = 0; triangle * 3 < triangles.Length; triangle++) {
@@ -243,10 +279,12 @@ static class MeshConditioner {
                 continue;
             }
 
-            var area = Vector3.Cross(soup.Positions[b] - soup.Positions[a], soup.Positions[c] - soup.Positions[a])
-                .Length() * 0.5f;
+            var one = soup.Positions[b] - soup.Positions[a];
+            var two = soup.Positions[c] - soup.Positions[a];
+            var area = Vector3.Cross(one, two).Length() * 0.5f;
+            var reach = MathF.Max(one.Length(), two.Length());
 
-            if (area <= sliver) {
+            if (area <= MathF.Max(sliver, reach * noise)) {
                 continue;
             }
 
