@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Core.Mathematics;
 using System.Text.RegularExpressions;
+using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Geometry.Remeshing.Tests;
