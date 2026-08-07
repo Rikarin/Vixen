@@ -110,7 +110,7 @@ and `on:` do — and because `ref="@this.Rows[0]"` then costs no rule.
 drew.** That is deliberate and it is the asymmetry: what a caller holds a component for is its
 methods, and the element it drew is `BuildContext.Host` away.
 
-Three questions it has to answer, and the answers are in the language rather than in a convention:
+Four questions it has to answer, and the answers are in the language rather than in a convention:
 
 - **When is it assigned?** As soon as the element exists, so a statement later in the body may use
   it — and definitely by `OnComposed`, the partial method both flavours declare and call once the
