@@ -177,10 +177,16 @@ public sealed class HotReloadWatcherTests : IDisposable {
     ///     document, and a rollback that read them as this save's would undo itself for ever.
     /// </summary>
     /// <remarks>
-    ///     Not hypothetical, and not found by reasoning about it: the editor's own chrome contains a
-    ///     <c>:empty</c> the compiler does not implement, and the style channel wired to a real
-    ///     directory did nothing at all until this was understood. The file was saved, the event
-    ///     arrived, the reload ran and put the old text straight back.
+    ///     Not hypothetical, and not found by reasoning about it: the editor's chrome at the time
+    ///     contained a <c>:empty</c> the compiler did not yet implement, and the style channel wired
+    ///     to a real directory did nothing at all until this was understood. The file was saved, the
+    ///     event arrived, the reload ran and put the old text straight back.
+    ///     <para>
+    ///         ⚠ <c>:empty</c> is implemented now, which is exactly why this test uses
+    ///         <c>box:nonsense-pseudo</c> instead. A regression test pinned to whichever selector
+    ///         happened to be missing on the day would quietly stop testing anything the moment that
+    ///         selector landed — and the defect it guards has nothing to do with which selector it is.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_complaint_about_somebody_else_s_sheet_does_not_roll_this_one_back() {

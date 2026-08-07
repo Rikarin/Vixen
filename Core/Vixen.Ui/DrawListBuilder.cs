@@ -37,8 +37,13 @@ public sealed class DrawListBuilder {
     readonly List<PositionedGlyph> placed = [];
     readonly StyleValueParser parser;
     readonly int backgroundColor;
-    readonly int borderColor;
-    readonly int borderRadius;
+
+    /// <summary>The four <c>border-*-color</c> longhands, clockwise from the top.</summary>
+    readonly int[] borderColors;
+
+    /// <summary>The four <c>border-*-radius</c> longhands, clockwise from the top left.</summary>
+    readonly int[] borderRadii;
+
     readonly int textColor;
     readonly OverflowReader overflow;
     readonly int visibility;
@@ -66,12 +71,32 @@ public sealed class DrawListBuilder {
 
         backgroundColor = properties.Intern("background-color");
 
-        // ⚠ The longhands, because ExCSS expands `border-color` and `border-radius` while parsing
-        // and the cascade never sees the shorthand — the same thing the styling-to-layout bridge
-        // found about `margin`. Written against the shorthands, every border and every rounded
-        // corner in the document silently disappears.
-        borderColor = properties.Intern("border-top-color");
-        borderRadius = properties.Intern("border-top-left-radius");
+        // ⚠ The longhands, never the shorthands, and *all* of them. A shorthand is expanded before
+        // it is interned — by ExCSS while parsing when the value is literal, and by
+        // `ShorthandExpansion` at load when it holds a `var()`, which ExCSS is obliged to hand back
+        // whole — so the cascade never carries a `border-color` or a `border-radius` for anything to
+        // read. Written against the shorthands, every border and every rounded corner in the
+        // document silently disappears.
+        //
+        // ⚠ <b>And it used to intern only the first of each set, which is not a smaller version of
+        // the same thing.</b> Reading `border-top-color` alone made `border-b-accent` inert, as
+        // expected — but it also made `border-top-width` paint a ring on all four edges, made the
+        // other three widths paint nothing at all, and made `border-bottom-right-radius` disappear
+        // while `border-top-left-radius` silently rounded the whole box. Twenty-one rules in the
+        // editor's own themes were written against the three that draw nothing.
+        borderColors = [
+            properties.Intern("border-top-color"),
+            properties.Intern("border-right-color"),
+            properties.Intern("border-bottom-color"),
+            properties.Intern("border-left-color")
+        ];
+
+        borderRadii = [
+            properties.Intern("border-top-left-radius"),
+            properties.Intern("border-top-right-radius"),
+            properties.Intern("border-bottom-right-radius"),
+            properties.Intern("border-bottom-left-radius")
+        ];
         textColor = properties.Intern("color");
         overflow = new OverflowReader(properties, values);
 
@@ -161,7 +186,14 @@ public sealed class DrawListBuilder {
 
         var x = element.AbsoluteLeft;
         var y = element.AbsoluteTop;
-        var radius = Length(element, borderRadius);
+
+        var corners = Corners(element);
+
+        // ⚠ The scalar every command still carries, and it is the *uniform* radius or nothing. A box
+        // whose corners differ carries its radii in the side buffer and a zero here — putting the
+        // top-left corner in the scalar instead would leave a consumer that reads only `Radius`
+        // rounding all four corners by one of them, which is precisely the bug this file is fixing.
+        var radius = corners.IsUniformCircular(out var uniform) ? uniform : 0f;
 
         // ⚠ `visibility: hidden` hides the element and *not* its subtree, which is what separates it
         // from `display: none`. It is an inherited property, so a child is hidden by having
@@ -174,20 +206,31 @@ public sealed class DrawListBuilder {
             // Before the background, which is where CSS paints it: a shadow is cast *by* the box and
             // therefore lies under it, and an element with a translucent background shows its own
             // shadow through itself.
-            EmitShadow(document, element, into, x, y, width, height, radius, alpha);
+            EmitShadow(document, element, into, x, y, width, height, corners, radius, alpha);
 
             if (Color(element, backgroundColor) is { } fill) {
-                into.Add(new DrawCommand(DrawCommandKind.Rectangle, x, y, width, height, Fade(fill, alpha), radius, 0f));
+                into.Add(
+                    Styled(
+                        new DrawCommand(
+                            DrawCommandKind.Rectangle,
+                            x,
+                            y,
+                            width,
+                            height,
+                            Fade(fill, alpha),
+                            radius,
+                            0f
+                        ),
+                        into,
+                        corners
+                    )
+                );
             }
 
             // The border is drawn after the background and before the children, which is the order
             // CSS paints them in — a child overlapping the edge covers the border, and a background
             // never covers its own.
-            var thickness = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Top);
-            if (thickness > 0f && Color(element, borderColor) is { } stroke) {
-                into.Add(new DrawCommand(DrawCommandKind.Border, x, y, width, height, Fade(stroke, alpha), radius, thickness));
-            }
-
+            EmitBorder(document, element, into, x, y, width, height, corners, radius, alpha);
         }
 
         var axes = overflow.Of(element.Style);
@@ -242,6 +285,140 @@ public sealed class DrawListBuilder {
         // clipped to it for the rest of the frame.
         if (axes.Any) {
             into.Add(new DrawCommand(DrawCommandKind.ClipPop, x, y, width, height, default, radius, 0f));
+        }
+    }
+
+    /// <summary>Emits an element's border: one ring when it is uniform, one band per edge when not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The uniform case is the one that already worked, and it comes out byte for byte the
+    ///         same.</b> Four equal widths and four equal colours are a single
+    ///         <see cref="DrawCommandKind.Border" /> command — one quad, one distance field, one
+    ///         antialiased outer edge shared by the border and the fill it sits on. Every box in every
+    ///         theme in this repository that draws a border at all takes this path, which is what makes
+    ///         the change safe: the fast path is not a new fast path, it is the old only path.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The non-uniform case is bands, and it is not a ring with extra colours.</b> The box
+    ///         shader resolves a border as the difference of two coverages — the outline and the same
+    ///         outline pushed <c>thickness</c> inwards — so the thickness and the colour are properties
+    ///         of the <i>shape</i>, not of a side of it. There is no per-pixel notion of which edge a
+    ///         fragment belongs to, and adding one means four more colours and four more thicknesses in
+    ///         <see cref="Rendering.UiShape" />: eighty more bytes on a record every box in the frame
+    ///         writes, to describe something almost none of them have. So an element whose edges differ
+    ///         is drawn as up to four plain rectangles instead, which cost nothing anywhere else and
+    ///         batch with the backgrounds around them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The horizontal edges take the corners and the vertical ones are inset between
+    ///         them</b>, which is the join CSS draws only when the two edges meeting at a corner are
+    ///         the same colour — otherwise it mitres them diagonally. A mitre is a triangle and this
+    ///         emits rectangles, so the difference shows exactly when two adjacent edges are both thick
+    ///         <i>and</i> differently coloured; at the one pixel every such rule in this repository
+    ///         actually uses, the mitre is a single pixel and there is nothing to see. Said here rather
+    ///         than fixed because the fix is the eighty bytes above.
+    ///     </para>
+    /// </remarks>
+    void EmitBorder(
+        UiDocument document,
+        UiElement element,
+        DrawList into,
+        float x,
+        float y,
+        float width,
+        float height,
+        CornerRadii corners,
+        float radius,
+        float alpha
+    ) {
+        // Clockwise from the top, which is the order CSS lists the edges in and the order the colour
+        // table above is interned in. The two agreeing is what lets one index mean one edge.
+        var top = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Top);
+        var right = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Right);
+        var bottom = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Bottom);
+        var left = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Left);
+
+        if (top <= 0f && right <= 0f && bottom <= 0f && left <= 0f) {
+            return;
+        }
+
+        var topColor = Color(element, borderColors[0]);
+        var rightColor = Color(element, borderColors[1]);
+        var bottomColor = Color(element, borderColors[2]);
+        var leftColor = Color(element, borderColors[3]);
+
+        var square = top == right && right == bottom && bottom == left;
+        var oneColour = topColor == rightColor && rightColor == bottomColor && bottomColor == leftColor;
+
+        if (square && oneColour) {
+            if (topColor is { } stroke) {
+                into.Add(
+                    Styled(
+                        new DrawCommand(
+                            DrawCommandKind.Border,
+                            x,
+                            y,
+                            width,
+                            height,
+                            Fade(stroke, alpha),
+                            radius,
+                            top
+                        ),
+                        into,
+                        corners
+                    )
+                );
+            }
+
+            return;
+        }
+
+        // ⚠ The vertical bands are inset by the horizontal thicknesses and not the other way round,
+        // so the corner square belongs to the top and bottom edges. Giving it to both would draw it
+        // twice — which is invisible for an opaque colour and a doubled alpha for a translucent one,
+        // and a border at 50% opacity is exactly what a focus ring is made of.
+        var middle = MathF.Max(height - top - bottom, 0f);
+
+        Band(topColor, top, x, y, width, top, corners.TopLeft, corners.TopRight, default, default);
+        Band(bottomColor, bottom, x, y + height - bottom, width, bottom, default, default, corners.BottomRight, corners.BottomLeft);
+        Band(leftColor, left, x, y + top, left, middle, default, default, default, default);
+        Band(rightColor, right, x + width - right, y + top, right, middle, default, default, default, default);
+
+        void Band(
+            Color4? colour,
+            float thickness,
+            float bandX,
+            float bandY,
+            float bandWidth,
+            float bandHeight,
+            Vector2 topLeft,
+            Vector2 topRight,
+            Vector2 bottomRight,
+            Vector2 bottomLeft
+        ) {
+            if (thickness <= 0f || bandWidth <= 0f || bandHeight <= 0f || colour is not { } fill) {
+                return;
+            }
+
+            // ⚠ A band is a *filled* rectangle, not a border one. Its thickness is already its height
+            // or its width, and asking the shader for a ring as well would hollow out a strip one
+            // pixel tall into nothing at all.
+            into.Add(
+                Styled(
+                    new DrawCommand(
+                        DrawCommandKind.Rectangle,
+                        bandX,
+                        bandY,
+                        bandWidth,
+                        bandHeight,
+                        Fade(fill, alpha),
+                        0f,
+                        0f
+                    ),
+                    into,
+                    new CornerRadii(topLeft, topRight, bottomRight, bottomLeft)
+                )
+            );
         }
     }
 
@@ -361,6 +538,7 @@ public sealed class DrawListBuilder {
         float y,
         float width,
         float height,
+        CornerRadii corners,
         float radius,
         float alpha
     ) {
@@ -429,17 +607,44 @@ public sealed class DrawListBuilder {
         }
 
         into.Add(
-            new DrawCommand(
-                DrawCommandKind.Shadow,
-                x + lengths[0] - spread,
-                y + lengths[1] - spread,
-                wide,
-                tall,
-                Fade(colour, alpha),
-                MathF.Max(radius + spread, 0f),
-                falloff
+            Styled(
+                new DrawCommand(
+                    DrawCommandKind.Shadow,
+                    x + lengths[0] - spread,
+                    y + lengths[1] - spread,
+                    wide,
+                    tall,
+                    Fade(colour, alpha),
+                    MathF.Max(radius + spread, 0f),
+                    falloff
+                ),
+                into,
+                Grow(corners, spread)
             )
         );
+    }
+
+    /// <summary>Every corner grown by a shadow's spread, never below square.</summary>
+    /// <remarks>
+    ///     The same argument the uniform path makes about <c>radius + spread</c>, applied per corner:
+    ///     a spread that kept the original radii would give a shadow visibly squarer than the thing
+    ///     casting it. Both axes of each ellipse grow by the same amount, because the spread is a
+    ///     distance outwards rather than a scale.
+    /// </remarks>
+    static CornerRadii Grow(CornerRadii corners, float spread) {
+        if (spread == 0f) {
+            return corners;
+        }
+
+        return new CornerRadii(
+            Grow(corners.TopLeft, spread),
+            Grow(corners.TopRight, spread),
+            Grow(corners.BottomRight, spread),
+            Grow(corners.BottomLeft, spread)
+        );
+
+        static Vector2 Grow(Vector2 corner, float spread) =>
+            new(MathF.Max(corner.X + spread, 0f), MathF.Max(corner.Y + spread, 0f));
     }
 
     /// <summary>How far <c>text-align</c> moves a run along the slack it has.</summary>
@@ -524,35 +729,66 @@ public sealed class DrawListBuilder {
         return value.Kind == StyleValueKind.Color ? value.Color : null;
     }
 
-    /// <summary>Reads a corner radius.</summary>
+    /// <summary>An element's four corner radii, each elliptical.</summary>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ A corner radius arrives as <i>two</i> lengths — <c>8px 8px</c>, the horizontal and
-    ///         vertical radii of an ellipse — even when the stylesheet wrote one. The horizontal one
-    ///         is taken and the vertical one is dropped, which is right for every circular corner and
-    ///         wrong for an elliptical one.
-    ///     </para>
-    ///     <para>
-    ///         Likewise, <see cref="DrawCommand" /> carries a single radius where CSS has four
-    ///         corners, so this reads the top-left and applies it to all of them. Both limits are
-    ///         owed rather than approximated further, because a half-right rounded corner reads as a
-    ///         bug in the renderer rather than a gap in the model.
-    ///     </para>
-    ///     <para>
-    ///         Absolute lengths only. A percentage radius resolves against the box's own size, which
-    ///         is a rule this builder would have to know rather than read.
-    ///     </para>
+    ///     ⚠ <b>A corner arrives as <i>two</i> lengths — <c>8px 8px</c> — even when the stylesheet
+    ///     wrote one</b>, because that is what the shorthand expands to. Both are read now: the pair
+    ///     is the horizontal and vertical radius of an ellipse, which is CSS's
+    ///     <c>border-radius: 40px / 20px</c> and what a pill-shaped button whose height is not its
+    ///     width actually needs. Taking the first and dropping the second drew every such corner as a
+    ///     circle.
     /// </remarks>
-    float Length(UiElement element, int property) {
+    CornerRadii Corners(UiElement element) =>
+        new(
+            Radius(element, borderRadii[0]),
+            Radius(element, borderRadii[1]),
+            Radius(element, borderRadii[2]),
+            Radius(element, borderRadii[3])
+        );
+
+    /// <summary>One corner's horizontal and vertical radius.</summary>
+    /// <remarks>
+    ///     A single length means a circle, which is the one-value form written out. Absolute lengths
+    ///     only: a percentage radius resolves against the box's own size, which is a rule this
+    ///     builder would have to know rather than read.
+    /// </remarks>
+    Vector2 Radius(UiElement element, int property) {
         if (!element.Style.TryGet(property, out var id)) {
-            return 0f;
+            return Vector2.Zero;
         }
 
         var value = parser.Parse(id);
-        if (value.Kind == StyleValueKind.List && value.Items.Length > 0) {
-            value = value.Items[0];
+
+        if (value.Kind != StyleValueKind.List) {
+            var single = Pixels(value);
+            return new Vector2(single, single);
         }
 
-        return value.Kind == StyleValueKind.Length && value.Unit == StyleUnit.Pixels ? value.Number : 0f;
+        if (value.Items.Length == 0) {
+            return Vector2.Zero;
+        }
+
+        var horizontal = Pixels(value.Items[0]);
+        var vertical = value.Items.Length > 1 ? Pixels(value.Items[1]) : horizontal;
+
+        return new Vector2(horizontal, vertical);
+
+        static float Pixels(StyleValue value) =>
+            value.Kind == StyleValueKind.Length && value.Unit == StyleUnit.Pixels ? value.Number : 0f;
     }
+
+    /// <summary>Attaches a box style to a command, unless the cheap uniform path covers it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The whole reason the side buffer is worth having is that this usually returns the
+    ///     command unchanged.</b> <see cref="DrawList.Boxes" /> is compared entry by entry every frame
+    ///     alongside the commands, so an entry written for a box whose four corners are the same
+    ///     circle would be pure cost — the scalar <see cref="DrawCommand.Radius" /> already says
+    ///     everything about it, and <see cref="Rendering.UiGeometryBuilder" /> expands that scalar back
+    ///     into four equal corners on the way to the shader. Only the boxes that are genuinely more
+    ///     than a colour, a size and one radius go in.
+    /// </remarks>
+    static DrawCommand Styled(DrawCommand command, DrawList into, CornerRadii corners) =>
+        corners.IsUniformCircular(out _)
+            ? command
+            : command with { Offset = into.AddBox(BoxStyle.Rounded(corners)), Length = 1 };
 }

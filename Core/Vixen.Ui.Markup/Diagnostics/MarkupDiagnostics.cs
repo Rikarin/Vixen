@@ -168,4 +168,78 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Warning
     );
+
+    /// <summary>A <c>ref</c> was written inside an <c>@for</c> body.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An error rather than a warning, because there is no reading of it that is
+    ///         right.</b> A <c>ref</c> is one assignment to one member; a loop runs the body once per
+    ///         item, so the member would hold whichever row happened to be built last — and after a
+    ///         reconciliation it would hold whichever row happened to be built last <i>the first time
+    ///         the sequence contained it</i>, because <c>BuildContext.For</c> reuses a surviving key's
+    ///         region and does not re-run its body. A list-valued <c>ref</c> would have the same
+    ///         defect and a longer explanation.
+    ///     </para>
+    ///     <para>
+    ///         What the author wants instead is either the loop's own container — put the <c>ref</c>
+    ///         on the element the <c>@for</c> is inside — or a model keyed the way the rows are, which
+    ///         is what they already have.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor RefInLoop = new(
+        "VXML2010",
+        "'ref' inside @for",
+        "'ref' cannot be inside an @for: the body runs once per item and there is one member to "
+        + "assign. Put it on the element the loop is inside.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>An <c>@for</c> key reads a member of the loop variable rather than the variable.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one thing about <c>@for</c> that is not obvious from the syntax, and it is the
+    ///         opposite of what <see cref="MissingKey" /> teaches.</b> A key that survives an update
+    ///         <i>keeps its region</i>: <c>BuildContext.For</c> matches the key, reuses the elements
+    ///         and does not re-run the body, whose per-item bindings closed over the item as it was
+    ///         when that key first appeared. So a row keyed on <c>row.Label</c> is a row whose every
+    ///         value is frozen at the first reading for as long as the label is unchanged.
+    ///     </para>
+    ///     <para>
+    ///         <b>Decidable without a semantic model, and only in this shape.</b> The rule an author
+    ///         needs — key on the value when the item is immutable data, on the object when it holds
+    ///         signals — turns on whether the item's properties are signal-backed, which is type
+    ///         resolution the binder deliberately does not do. What it can see is syntax: a key that
+    ///         is a <i>projection</i> of the loop variable throws away exactly the part of the item's
+    ///         identity that changing it would have shown. Keying on the variable itself is right for
+    ///         both kinds of model, which is why the suggested fix is the same either way.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ProjectedKey = new(
+        "VXML2011",
+        "@for key is a member of the item",
+        "'{0}' keys on part of '{1}' rather than on '{1}' itself. A key that survives keeps its "
+        + "region and its body is not re-run, so every binding in the row would be frozen at the "
+        + "values '{1}' had when '{0}' first appeared. Write key=\"@{1}\".",
+        BindingCategory,
+        DiagnosticSeverity.Warning
+    );
+
+    /// <summary>A named <c>&lt;slot&gt;</c> in a file that declared <c>@inherits</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because a <c>UiElement</c> has one place for content and a <c>Component</c> has as
+    ///     many as it declares.</b> A component's caller writes into a named slot because
+    ///     <c>Inner(Component)</c> reads a dictionary the component filled; an element answers the
+    ///     same question with <c>ContentHost</c>, which is one property and therefore one slot. A
+    ///     second name would be an element nothing can address — a hole in the tree that looks like
+    ///     a feature.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor NamedSlotOnElement = new(
+        "VXML2012",
+        "Named slot in an @inherits component",
+        "'{0}' is a named slot, and an @inherits component has only one: a UiElement projects "
+        + "content through 'ContentHost'. Write '<slot />'.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

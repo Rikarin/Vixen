@@ -419,15 +419,33 @@ something is invalidated too eagerly — which is the failure a cache is suppose
 propagate. `Version` changes when the drawing changes and not when it is merely rebuilt, so a
 renderer compares one integer.
 
-⚠ **ExCSS expands `border-color` and `border-radius` too**, the same way it expands `margin`. Written
-against the shorthands, every border and every rounded corner in the document silently disappears —
-the second time that assumption has cost something in this assembly.
+⚠ **`border-color` and `border-radius` are expanded before they are interned**, the same way `margin`
+is — by ExCSS while parsing when the value is literal, and by `ShorthandExpansion` at load when it
+holds a `var()`, which ExCSS is obliged to hand back whole. Written against the shorthands, every
+border and every rounded corner in the document silently disappears.
 
-⚠ **A corner radius arrives as two lengths** — `8px 8px`, the horizontal and vertical radii of an
-ellipse — even when the stylesheet wrote one. `DrawCommand` carries a single radius where CSS has
-four corners each with two, so the top-left horizontal one is taken and the rest dropped. Right for
-every circular corner, wrong for an elliptical one; owed rather than approximated further, because a
-half-right rounded corner reads as a bug in the renderer rather than a gap in the model.
+⚠ **All eight longhands are read, and reading only the first of each set was worse than a subset.**
+The builder used to intern `border-top-color` and `border-top-left-radius` alone. That made
+`border-b-<colour>` inert, as you would expect — but it also made `border-top-width` paint a ring on
+all four edges, made the other three widths paint nothing at all, and made `border-top-left-radius`
+round the whole box while the other three corners were ignored. Twenty-one rules in the editor's own
+themes were written against the three that drew nothing, including the selected-tab underline.
+
+**A box whose four corners agree stays cheap.** `DrawCommand.Radius` is one `float` and it is still
+what nearly every box uses; only a box whose corners differ, or whose corners are elliptical, gets an
+entry in `DrawList.Boxes`. `CornerRadii.IsUniformCircular` is the test, and it insists on circular
+rather than merely equal because four equal ellipses are still not one number.
+
+**A border whose four edges agree stays one command.** Equal widths and equal colours are a single
+`Border` — one quad, one distance field, one antialiased outer edge shared with the fill beneath it.
+Edges that differ are drawn as up to four `Rectangle` bands instead, because the box shader resolves
+a ring from one thickness and one colour and has no per-pixel notion of which edge a fragment belongs
+to. ⚠ The bands are mitre-less: the horizontal edges take the corner squares and the vertical ones
+are inset between them, which is the join CSS draws whenever the two edges meeting at a corner are
+the same colour. The difference shows only where two adjacent edges are both thick *and* differently
+coloured. Giving the shader a real mitre means four more colours and four more thicknesses in
+`UiShape` — eighty more bytes on a record every box in the frame writes, to describe something almost
+none of them have.
 
 **`opacity` is multiplied down the walk, not read from the cascade.** It does not inherit — it makes
 a group, and every descendant is in it whatever its own value says, so an element's alpha is the

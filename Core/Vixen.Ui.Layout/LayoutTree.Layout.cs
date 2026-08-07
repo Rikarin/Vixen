@@ -38,6 +38,10 @@ public sealed partial class LayoutTree {
     /// </remarks>
     public void CalculateLayout(LayoutNodeId node, float ownerWidth, float ownerHeight, Direction ownerDirection) {
         var index = Validate(node);
+
+        // Before anything takes a child span: sorting can move the arena. See LayoutTree.Order.cs.
+        FlushChildOrder();
+
         generation++;
 
         ref var style = ref styles[index];

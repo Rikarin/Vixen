@@ -94,6 +94,7 @@ Vixen.Ui.Layout.LayoutNodeId.IsValid.get -> bool
 Vixen.Ui.Layout.LayoutNodeId.LayoutNodeId() -> void
 Vixen.Ui.Layout.LayoutNodeId.LayoutNodeId(int Index) -> void
 Vixen.Ui.Layout.LayoutNodeState -> enum : byte
+Vixen.Ui.Layout.LayoutNodeState.ChildOrderStale = 64 -> Vixen.Ui.Layout.LayoutNodeState
 Vixen.Ui.Layout.LayoutNodeState.Dirty = 2 -> Vixen.Ui.Layout.LayoutNodeState
 Vixen.Ui.Layout.LayoutNodeState.HasBaselineFunction = 16 -> Vixen.Ui.Layout.LayoutNodeState
 Vixen.Ui.Layout.LayoutNodeState.HasMeasureFunction = 8 -> Vixen.Ui.Layout.LayoutNodeState
@@ -159,6 +160,7 @@ Vixen.Ui.Layout.LayoutStyle.LayoutStyle() -> void
 Vixen.Ui.Layout.LayoutStyle.Margin -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.MaxDimensions -> Vixen.Ui.Layout.DimensionLengths
 Vixen.Ui.Layout.LayoutStyle.MinDimensions -> Vixen.Ui.Layout.DimensionLengths
+Vixen.Ui.Layout.LayoutStyle.Order -> int
 Vixen.Ui.Layout.LayoutStyle.OverflowX -> Vixen.Ui.Layout.Overflow
 Vixen.Ui.Layout.LayoutStyle.OverflowY -> Vixen.Ui.Layout.Overflow
 Vixen.Ui.Layout.LayoutStyle.Padding -> Vixen.Ui.Layout.EdgeLengths
@@ -222,6 +224,7 @@ Vixen.Ui.Layout.LayoutTree.SetMargin(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui
 Vixen.Ui.Layout.LayoutTree.SetMaxDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
 Vixen.Ui.Layout.LayoutTree.SetMeasureFunction(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.MeasureFunction? measure) -> void
 Vixen.Ui.Layout.LayoutTree.SetMinDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
+Vixen.Ui.Layout.LayoutTree.SetOrder(Vixen.Ui.Layout.LayoutNodeId node, int order) -> void
 Vixen.Ui.Layout.LayoutTree.SetOverflow(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Overflow horizontal, Vixen.Ui.Layout.Overflow vertical) -> void
 Vixen.Ui.Layout.LayoutTree.SetOverflow(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Overflow overflow) -> void
 Vixen.Ui.Layout.LayoutTree.SetPadding(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength padding) -> void

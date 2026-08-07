@@ -30,9 +30,52 @@ static class RuntimeContract {
                                          public string? Caption { get; set; }
                                      }
 
+                                     // What a `Control` is, in the one respect `class` cares about:
+                                     // it names its own classes in `OnCreated`, before any markup
+                                     // attribute is applied. The real one gives itself
+                                     // `variant-default` and `size-md` there. Referencing
+                                     // Vixen.Ui.Controls from here would buy a heavier test project
+                                     // and no more coverage than the two AddClass calls.
+                                     public class Gauge : UiElement {
+                                         protected override string TagName => "gauge";
+
+                                         protected override void OnCreated() {
+                                             base.OnCreated();
+                                             AddClass("variant-default");
+                                             AddClass("size-md");
+                                         }
+                                     }
+
                                      public class Callout : Component {
                                          public string Kind { get; set; } = "";
                                          protected override void Build(BuildContext ctx) => ctx.Element(null, "callout-body");
+                                     }
+
+                                     // What an `@inherits` file names. An ordinary element with the
+                                     // two hooks the generated scaffold overrides, so the test can
+                                     // see that both are chained rather than replaced.
+                                     //
+                                     // ⚠ Not `Gauge` above, which answers a different question. That
+                                     // one exists to be a control that names its own classes, so a
+                                     // `class` attribute has something to clobber; this one exists
+                                     // to be *derived from*, and counts the calls it received. A
+                                     // fixture doing both would fail one of them for the other's
+                                     // reason.
+                                     public class Panel : UiElement {
+                                         protected override string TagName => "panel";
+
+                                         public int Creations { get; private set; }
+                                         public int Removals { get; private set; }
+
+                                         protected override void OnCreated() {
+                                             base.OnCreated();
+                                             Creations++;
+                                         }
+
+                                         protected override void OnRemoved() {
+                                             Removals++;
+                                             base.OnRemoved();
+                                         }
                                      }
 
                                      public class Label : Component {

@@ -84,13 +84,14 @@ cascade computes it, and nothing happens.
 | Read | Inert |
 |---|---|
 | `flex` / `hidden`, `flex-row`/`-col`/`-wrap`/`-1`, `items-`, `self-`, `justify-`, `content-` | `block`, `inline`, `inline-block`, `inline-flex`, `grid` — the layout's table has `flex` and `none` and nothing else |
-| `grow`, `shrink`, `basis-` | `order-`, `grid-cols-`, `col-span-` — the layout is flexbox only |
+| `grow`, `shrink`, `basis-`, `order-` | `grid-cols-`, `col-span-` — the layout is flexbox only |
 | `gap-`, `gap-x-`, `gap-y-`, `p*`, `m*` including the logical `ps`/`pe`/`ms`/`me` | |
 | `w-`, `h-`, `size-`, `min-w-`, `min-h-`, `max-w-`, `max-h-` | |
 | `static`/`relative`/`absolute`, `inset*`, `top`/`right`/`bottom`/`left`, `start`/`end`, `z-`, `box-border`/`box-content` | |
 | `text-<align>`, `text-<size>`, `text-<colour>`, `font-`, `leading-`, `tracking-`, `whitespace-` | `align-` (`vertical-align`) |
-| `bg-`, `opacity-`, `shadow-`, `rounded-` | `ring-`, `fill-`, `stroke-`, `blur-`, `translate-x/y-`, `scale-`, `rotate-` |
-| `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`/`-s`/`-e` **widths** | the per-edge border **colours** — the draw list reads `border-top-color` only, so `border-<colour>` works and `border-b-<colour>` does not |
+| `bg-`, `opacity-`, `shadow-` | `ring-`, `fill-`, `stroke-`, `blur-`, `translate-x/y-`, `scale-`, `rotate-` |
+| `rounded-`, and the per-corner `rounded-t`/`-r`/`-b`/`-l`/`-tl`/`-tr`/`-br`/`-bl` | |
+| `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`/`-s`/`-e`, both **widths** and **colours** | |
 | `overflow-hidden`, `overflow-scroll`, `truncate` | **`overflow-x-*` and `overflow-y-*`** — nothing interns either property |
 | `cursor-`, `pointer-events-`, `transition`, `duration-`, `ease-`, `aspect-` | `select-` (`user-select`) |
 

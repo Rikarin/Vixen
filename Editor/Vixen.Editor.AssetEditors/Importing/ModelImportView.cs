@@ -1,15 +1,26 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
-using Vixen.Ui;
-using Vixen.Ui.Controls;
-using Vixen.Ui.Controls.Advanced;
-
 namespace Vixen.Editor.AssetEditors.Importing;
 
 /// <summary>A model, open for editing: what came out of it, and the settings that decide what will.</summary>
 /// <remarks>
+///     <para>
+///         <b>The panel is <c>ModelImportView.vxml</c>; this file exists only to make it public and
+///         sealed.</b> The markup compiler emits a partial class with no accessibility modifier,
+///         which is <c>internal</c> — deliberately, so that a component is not public API by
+///         accident — and this one is constructed from another assembly.
+///     </para>
+///     <para>
+///         ⚠ <b>It is still a <c>Control</c>, and that is what <c>@inherits</c> bought.</b> Doc 36
+///         § F7 wave 1a could not port this panel: the emitter hardcoded <c>Component</c>, and a
+///         component is not a <see cref="Vixen.Ui.UiElement" /> — so
+///         <c>panel.Add&lt;ModelImportView&gt;()</c>, which is how both of its callers make one,
+///         would have had to become <c>BuildContext.Build&lt;…&gt;(document, panel)</c> and every
+///         test that walks the tree looking for it would have needed a second finder. The header is
+///         one line and none of that happened; the three <c>ref</c>s are what replaced the
+///         <c>Part&lt;T&gt;()</c> assignments.
+///     </para>
 ///     <para>
 ///         <b>The part list is the sidecar's, not an import's.</b> A model is a model and also a
 ///         mesh per material, a skeleton and a clip per animation; the last import wrote all of them
@@ -30,91 +41,4 @@ namespace Vixen.Editor.AssetEditors.Importing;
 ///         way to draw a cut through it rather than anything to draw.
 ///     </para>
 /// </remarks>
-public sealed class ModelImportView : Control {
-    /// <inheritdoc />
-    protected override string TagName => "model-editor";
-
-    /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
-
-    /// <summary>The meshes, the skeleton and the clips, grouped by what they are.</summary>
-    public TreeView Parts { get; private set; } = null!;
-
-    /// <summary>Shown when the asset has never been imported.</summary>
-    public EmptyState Empty { get; private set; } = null!;
-
-    /// <summary>The settings, the overrides and the addressable block.</summary>
-    public ImportSettingsView SettingsView { get; private set; } = null!;
-
-    /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        Parts = Part<TreeView>();
-
-        Empty = Part<EmptyState>();
-        Empty.AddClass("hidden");
-        Empty.Title = "Not imported yet";
-
-        Empty.Description = "Nothing has been produced from this file, so there is nothing to list. "
-            + "Import the project and the meshes, skeleton and clips appear here.";
-
-        SettingsView = Part<ImportSettingsView>();
-    }
-
-    /// <summary>Shows a model.</summary>
-    /// <param name="model">The document.</param>
-    public void Show(ModelImportDocument model) {
-        ArgumentNullException.ThrowIfNull(model);
-
-        SettingsView.Show(model);
-
-        while (Parts.Root.Children.Count > 0) {
-            Parts.Root.Remove(Parts.Root.Children[^1]);
-        }
-
-        if (model.SubAssets.Count == 0) {
-            Empty.RemoveClass("hidden");
-            Parts.SetStyle("display", "none");
-            Parts.Refresh();
-
-            return;
-        }
-
-        Empty.AddClass("hidden");
-        Parts.SetStyle("display", "flex");
-
-        // Grouped by kind and ordered by name inside each, rather than in the order the exporter
-        // happened to list them: a character with forty clips is unreadable in export order and the
-        // sub-asset ids are derived from names anyway, so name order is the stable one.
-        foreach (var kind in model.SubAssets.Select(part => part.Type).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)) {
-            var group = Parts.Root.Add(kind, kind);
-
-            foreach (var part in model.SubAssets.Where(entry => string.Equals(entry.Type, kind, StringComparison.Ordinal))
-                         .OrderBy(entry => entry.Name, StringComparer.Ordinal)) {
-                group.Add(part.Name, part);
-            }
-
-            Parts.Expand(group);
-        }
-
-        Parts.Refresh();
-    }
-
-    /// <summary>How many parts are listed.</summary>
-    public int PartCount {
-        get {
-            var count = 0;
-
-            foreach (var group in Parts.Root.Children) {
-                count += group.Children.Count;
-            }
-
-            return count;
-        }
-    }
-
-    /// <summary>The count, as the heading a caller may want to show.</summary>
-    /// <returns>The text.</returns>
-    public string Summary() => PartCount.ToString(CultureInfo.InvariantCulture) + " parts";
-}
+public sealed partial class ModelImportView;

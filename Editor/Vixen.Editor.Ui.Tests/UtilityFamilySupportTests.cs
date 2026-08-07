@@ -63,6 +63,13 @@ public class UtilityFamilySupportTests {
         { "shrink-0", "flex-shrink", "0" },
         { "basis-0", "flex-basis", "0" },
 
+        // ⚠ `order` was in `Inert` — filed under *grid*, which it is not — until `LayoutStyle` grew
+        // a field for it. See `An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group`.
+        { "order-2", "order", "2" },
+
+        // ⚠ `order` was in `Inert` — filed under *grid*, which it is not — until `LayoutStyle` grew
+        // a field for it. See `An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group`.
+
         // Spacing, including the logical edges the layout resolves against `direction`.
         { "gap-3", "row-gap", "6px" },
         { "gap-x-2", "column-gap", "4px" },
@@ -104,10 +111,29 @@ public class UtilityFamilySupportTests {
         { "opacity-50", "opacity", "0.5" },
         { "shadow-elevation", "box-shadow", "0px 10px 26px rgba(12, 14, 18, 0.22)" },
 
-        // Borders. ⚠ The widths are read per edge; the colours are not — see `Inert`.
+        // Borders, all four edges and all four corners. ⚠ The colours and the radii were in `Inert`
+        // until the draw list learned the rest of the longhands: it interned `border-top-color` and
+        // `border-top-left-radius` and nothing else, so seven of the eight per-edge colours computed
+        // a value nothing read, and `rounded-tl` was not a family at all.
         { "border-2", "border-top-width", "2px" },
         { "border-b", "border-bottom-width", "1px" },
         { "border-border-active", "border-top-color", "#5f8ddb" },
+        { "border-b-border-active", "border-bottom-color", "#5f8ddb" },
+        { "border-l-accent", "border-left-color", "#2f6ecd" },
+        { "border-x-accent", "border-right-color", "#2f6ecd" },
+        { "border-y-accent", "border-top-color", "#2f6ecd" },
+
+        // ⚠ <b>The arbitrary form, because the editor's tokens define no <c>radius</c> scale at
+        // all</b> — `vixen.ui.yaml` says so in a comment and gives the reason: the three radii live in
+        // `EditorTheme` as `var(--radius-row)` and friends, and `ThemeTokens.Radius` parses numbers,
+        // so a token that held one would be the same number in two files. `rounded-tl-lg` is
+        // therefore not a thing *in this theme* while `rounded-tl-[6px]` is, and the row has to say
+        // which of the two it is testing. The family is what is on trial here, not the scale.
+        { "rounded-[4px]", "border-top-left-radius", "4px 4px" },
+        { "rounded-tl-[6px]", "border-top-left-radius", "6px" },
+        { "rounded-br-[2px]", "border-bottom-right-radius", "2px" },
+        { "rounded-t-[6px]", "border-top-right-radius", "6px" },
+        { "rounded-b-[4px]", "border-bottom-left-radius", "4px" },
 
         // Overflow, all three properties and all four keywords. ⚠ `auto` is here because the layout
         // maps it onto `Overflow.Scroll` — the two differ only by a scrollbar gutter nothing draws.
@@ -115,7 +141,13 @@ public class UtilityFamilySupportTests {
         { "overflow-scroll", "overflow", "scroll" },
         { "overflow-auto", "overflow", "auto" },
         { "overflow-x-scroll", "overflow-x", "scroll" },
+
+        // ⚠ These were in `Inert` until the per-axis clip landed. `auto` maps onto `Scroll` in the
+        // layout's keyword table rather than becoming a fourth member, because CSS gives the two the
+        // same layout and differs only over reserving a scrollbar gutter — which nothing here draws.
+        { "overflow-x-auto", "overflow-x", "auto" },
         { "overflow-y-auto", "overflow-y", "auto" },
+        { "overflow-y-scroll", "overflow-y", "scroll" },
 
         // Interactivity and motion.
         { "cursor-pointer", "cursor", "pointer" },
@@ -160,6 +192,17 @@ public class UtilityFamilySupportTests {
     ///         and nothing offers to scroll it; scrolling in this engine is <c>ScrollView</c>, a
     ///         control that owns its bars and offsets its content.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The per-edge border colours and the per-corner radii are the second family to
+    ///         leave this table, and they were worse than inert.</b> Inert is what
+    ///         <c>border-b-accent</c> looked like — a <c>border-bottom-color</c> the draw list never
+    ///         interned. What it actually did was delete the border: the builder read
+    ///         <c>border-top-color</c> as *the* border colour, so an element given a bottom colour and
+    ///         no top one had no colour at all and drew nothing. The radii were the mirror image —
+    ///         <c>border-top-left-radius</c> rounded all four corners and the other three longhands
+    ///         were ignored. See <see cref="A_per_edge_border_colour_paints_only_the_edge_it_names" />
+    ///         and <see cref="A_per_corner_radius_rounds_only_the_corner_it_names" />.
+    ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Inert => new() {
         // Display: LayoutStyleBuilder maps `flex` and `none` and nothing else.
@@ -172,7 +215,6 @@ public class UtilityFamilySupportTests {
         // Grid, which the layout is flexbox-only and has no reading of at all.
         { "grid-cols-3", "grid-template-columns" },
         { "col-span-2", "grid-column" },
-        { "order-2", "order" },
 
         // Paint the renderer has no channel for.
         { "ring-accent", "outline-color" },
@@ -232,6 +274,12 @@ public class UtilityFamilySupportTests {
     ///     to cut with a rectangle, and it is the whole reason this engine can do what CSS cannot —
     ///     there, a lone <c>overflow-y</c> coerces its partner and clips both.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Counting clips is not enough — the axis has to be checked.</b> A per-axis clip is a
+    ///     rectangle with one pair of edges past the viewport, so an implementation that clipped
+    ///     <i>both</i> axes would push exactly one clip too and pass a count. The unbounded pair is
+    ///     what says which axis was meant.
+    /// </remarks>
     [Fact]
     public void The_per_axis_overflow_utilities_clip_the_axis_they_name_and_no_other() {
         using var ui = Sheet("overflow-hidden", "overflow-y-hidden", "w-8", "h-8");
@@ -251,6 +299,71 @@ public class UtilityFamilySupportTests {
             vertical.X + vertical.Width > ui.Document.Viewport.ViewportWidth,
             "and ends right of it"
         );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Support proved at the draw list, for a family that used to erase what it touched.</b>
+    ///     A count is not enough and neither is a colour: what says the utility worked is <i>where</i>
+    ///     the accent-coloured rectangle is. A bottom colour must produce a band along the bottom edge
+    ///     of the border box, and the three red bands must survive beside it — the old builder's
+    ///     failure was that they did not.
+    /// </summary>
+    [Fact]
+    public void A_per_edge_border_colour_paints_only_the_edge_it_names() {
+        using var ui = Sheet("border-2", "border-b-accent", "w-8", "h-8");
+
+        var element = ui.Create("probe", ui.Document.Root, null, "border-2", "border-b-accent", "w-8", "h-8");
+
+        ui.Frame();
+
+        // ⚠ <b>No uniform `border-border` beside it, and that is the point of the arrangement.</b>
+        // The two utilities have equal specificity, so which one owns `border-bottom-color` is decided
+        // by the order the generator emitted them in — a real question, and somebody else's. With only
+        // the per-edge colour set, three edges have a width and no colour and paint nothing, and the
+        // one band that appears is unambiguously the one `border-b-accent` asked for.
+        var band = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle
+        );
+
+        Assert.Equal(element.AbsoluteTop + element.Height - band.Height, band.Y);
+        Assert.Equal(2f, band.Height);
+        Assert.Equal(element.Width, band.Width);
+
+        // The accent is blue-dominant; the surface and border tokens are not.
+        Assert.True(band.Color.B > band.Color.R, "the band carries the accent colour");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The same, for a corner.</b> <c>rounded-tl-[6px]</c> was not merely unread — it was not a
+    ///     family, so the scanner reported it as an unrecognised class and the generator emitted
+    ///     nothing. The proof is the side buffer: a box whose corners differ cannot be described by
+    ///     <c>DrawCommand.Radius</c>, so an entry in <c>Boxes</c> existing at all is the evidence, and
+    ///     the three square corners are what say the radius went to the corner it named.
+    /// </summary>
+    [Fact]
+    public void A_per_corner_radius_rounds_only_the_corner_it_names() {
+        using var ui = Sheet("rounded-tl-[6px]", "bg-surface", "w-8", "h-8");
+
+        ui.Create("probe", ui.Document.Root, null, "rounded-tl-[6px]", "bg-surface", "w-8", "h-8");
+        ui.Frame();
+
+        var box = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle && command.HasStyle
+        );
+
+        var corners = ui.Document.Drawing.Boxes[box.Offset].Corners;
+
+        Assert.True(corners.TopLeft.X > 0f, "the named corner is rounded");
+        Assert.Equal(0f, corners.TopRight.X);
+        Assert.Equal(0f, corners.BottomRight.X);
+        Assert.Equal(0f, corners.BottomLeft.X);
+
+        // ⚠ And the scalar stays zero rather than carrying the top-left. A consumer that reads only
+        // `Radius` must not round the other three corners by the one that was set — which is exactly
+        // what the old builder did to every box in the editor.
+        Assert.Equal(0f, box.Radius);
     }
 
     /// <summary>
@@ -318,4 +431,58 @@ public class UtilityFamilySupportTests {
 
         return ui;
     }
+
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Position alone would not have caught the obvious half-implementation.</b> The layout
+    ///     tree and the draw list keep separate child lists — the flexbox store sorts an arena of
+    ///     ids, and <c>UiElement.PaintOrder</c> sorts elements — so teaching only the first one about
+    ///     <c>order</c> gives boxes that sit in the new positions and paint in the old sequence.
+    ///     That is invisible until two items overlap, which is precisely when somebody reaches for
+    ///     the property. CSS Flexbox §5.4 is explicit that <c>order</c> moves both.
+    ///
+    ///     The paint half is read back by colour because a <c>DrawCommand</c> names no element, and
+    ///     the colours come from <c>ColorOf</c> rather than from hex written here — the tokens are
+    ///     <c>var(--…)</c> references and what they resolve to is <c>EditorTheme</c>'s business.
+    /// </remarks>
+    [Fact]
+    public void An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group() {
+        using var ui = Sheet("order-2", "bg-accent", "bg-surface-sunken", "bg-surface-raised", "w-8", "h-8");
+
+        var host = ui.Create("probe", ui.Document.Root);
+        var moved = ui.Create("probe", host, null, "order-2", "bg-accent", "w-8", "h-8");
+        var middle = ui.Create("probe", host, null, "bg-surface-sunken", "w-8", "h-8");
+        var last = ui.Create("probe", host, null, "bg-surface-raised", "w-8", "h-8");
+
+        ui.Frame();
+
+        Assert.Equal("2", ui.StyleOf(moved, "order"));
+
+        // Laid out last despite being declared first: the two defaulted items close up in front of
+        // it, and they keep their own relative order while doing so.
+        Assert.True(middle.AbsoluteLeft < last.AbsoluteLeft, "the defaulted pair keeps document order");
+        Assert.True(last.AbsoluteLeft < moved.AbsoluteLeft, "order-2 goes behind both of them");
+
+        // And painted last, which is a different list and a different sort.
+        var painted = Painted(ui, [moved, middle, last]);
+
+        Assert.Equal([middle, last, moved], painted);
+    }
+
+    /// <summary>Which of <paramref name="candidates" /> the frame filled, in the order it filled them.</summary>
+    /// <remarks>
+    ///     ⚠ Matched on the fill colour, so every candidate has to carry a distinct one — a shared
+    ///     background would make this report the first match twice and pass a sequence check by
+    ///     accident.
+    /// </remarks>
+    static List<UiElement> Painted(UiTest ui, UiElement[] candidates) {
+        var colors = candidates.ToDictionary(candidate => ui.ColorOf(candidate, "background-color")!.Value);
+
+        return ui.Document.Drawing.Commands
+            .Where(command => command.Kind == DrawCommandKind.Rectangle && colors.ContainsKey(command.Color))
+            .Select(command => colors[command.Color])
+            .ToList();
+    }
+
+    /// <summary>
 }

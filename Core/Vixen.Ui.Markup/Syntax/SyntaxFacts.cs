@@ -15,6 +15,9 @@ public static class SyntaxFacts {
         kind switch {
             SyntaxKind.ComponentKeyword => "@component",
             SyntaxKind.UsingKeyword => "@using",
+            SyntaxKind.NamespaceKeyword => "@namespace",
+            SyntaxKind.TagKeyword => "@tag",
+            SyntaxKind.InheritsKeyword => "@inherits",
             SyntaxKind.CodeKeyword => "@code",
             SyntaxKind.IfKeyword => "@if",
             SyntaxKind.ElseKeyword => "else",

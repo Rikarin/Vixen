@@ -493,6 +493,16 @@ three properties, and worth paying for both `text-lg` and `text-accent` reading 
 variants on one utility (`sm:md:p-4`) are dropped rather than nested, because Vixen's `@media` support
 does not nest.
 
+⚠️ **[Doc 43](43-web-styling-parity.md) reopens the family list above and measures it.** The ✅ on this
+section is true of the *machinery* and not of the *coverage*: five of the families this section names
+for 1.0 — `space`, `divide`, `mix-blend`, `origin`, `scroll` — were never written, and against
+Tailwind v4.3.3's own registry only 51 of 328 utility roots work end to end. Doc 43 also corrects the
+first of the two "limits" above: the `text-` overload is Tailwind's own design and costs there exactly
+what it costs here, while a genuine defect sits next to it — the longest-prefix split has no fallback,
+so `rounded-tl-lg` is swallowed by `rounded` and reported unknown. The scope line in § *Algorithm
+scope* that puts a full inline formatting context out of scope is reopened there too, because
+`truncate`, `line-clamp` and `text-overflow: ellipsis` all sit behind it.
+
 ## Text (`Vixen.Ui.Text`)
 
 Underestimating text is the classic UI-framework mistake.

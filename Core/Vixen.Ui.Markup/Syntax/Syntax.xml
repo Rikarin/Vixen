@@ -152,6 +152,38 @@
         </TypeComment>
     </Node>
 
+    <Node Name="InheritsDirectiveSyntax" Base="DirectiveSyntax">
+        <Kind Name="InheritsDirective"/>
+        <Field Name="InheritsKeyword" Type="SyntaxToken">
+            <Kind Name="InheritsKeyword"/>
+        </Field>
+        <Field Name="Name" Type="SyntaxToken">
+            <Kind Name="NameToken"/>
+            <PropertyComment>
+                <summary>A type name, dotted, carried whole as one token.</summary>
+                <remarks>
+                    ⚠ <b>Nothing here resolves it, and the emitter writes it where a base type goes
+                    under its own <c>#line</c>.</b> So a base that does not exist, one that is sealed
+                    and one that is neither a component nor an element are all reported by Roslyn
+                    against the characters in the <c>.vxml</c> — the same bargain the tag name is
+                    emitted under, and the reason this side needs no semantic model to have gained a
+                    second kind of output.
+                </remarks>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary>
+                <c>@inherits Vixen.Ui.Controls.Control</c> — what the generated class derives from.
+            </summary>
+            <remarks>
+                Absent means <c>Component</c>, which is what a <c>.vxml</c> is for. Present means the
+                file is describing a <c>UiElement</c> instead: a type callers hold, put in a tree
+                with <c>Add&lt;T&gt;</c>, and find with a walk — everything a component is not, and
+                the reason four of the editor's six panels could not be markup.
+            </remarks>
+        </TypeComment>
+    </Node>
+
     <!-- ===================================================== Blocks -->
 
     <Node Name="CodeBlockSyntax" Base="MarkupSyntax">
