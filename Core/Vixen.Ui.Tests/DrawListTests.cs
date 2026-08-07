@@ -93,6 +93,52 @@ public class DrawListTests {
         );
     }
 
+    /// <summary>
+    ///     The same border, written the way every sheet in this repository actually writes it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the end-to-end guard on a fix that lives two projects away.</b> ExCSS cannot
+    ///     expand a shorthand whose value holds a <c>var()</c>, so it hands <c>border-color</c> back
+    ///     whole and nothing downstream reads that name;
+    ///     <c>Vixen.Ui.Styling.StyleSheetLoader</c> takes it apart at load instead. Its own tests
+    ///     check the taking-apart in isolation and the test above uses a literal colour, so without
+    ///     this one the wiring between them could be removed and every suite would still pass —
+    ///     while every border in the framework silently stopped being drawn, which is exactly how
+    ///     the original went unnoticed.
+    /// </remarks>
+    [Fact]
+    public void A_border_colour_behind_a_var_is_drawn_like_one_written_out() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; --border: #0000ff; }
+            .box { width: 50px; height: 50px; background-color: #00ff00; border-width: 3px; border-color: var(--border); }
+            """,
+            document => document.Root.Add("div", classNames: "box")
+        );
+
+        // The longhand by name, because that is the thing the shorthand was not reaching. The
+        // command below would also fail without it, but it would not say which half broke.
+        var box = Assert.Single(document.Root.Children);
+        var property = document.Styles.Properties.Lookup("border-top-color");
+
+        Assert.True(property >= 0 && box.Style.TryGet(property, out _), "border-top-color never arrived");
+        Assert.Empty(document.Styles.Loader.Diagnostics);
+
+        Assert.Collection(
+            document.Drawing.Commands,
+            command => Assert.Equal(DrawCommandKind.Rectangle, command.Kind),
+            command => {
+                Assert.Equal(DrawCommandKind.Border, command.Kind);
+                Assert.Equal(3f, command.Thickness, Tolerance);
+
+                // Substituted as well as expanded: an unresolved `var(--border)` parses to nothing
+                // and would draw the transparent border that looks exactly like no border at all.
+                Assert.True(command.Color.B > 0.99f);
+                Assert.Equal(0f, command.Color.R, Tolerance);
+            }
+        );
+    }
+
     [Fact]
     public void A_corner_radius_reaches_the_command() {
         using var document = Drawn(

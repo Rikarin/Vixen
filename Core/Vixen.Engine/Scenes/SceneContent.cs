@@ -323,7 +323,7 @@ public sealed class SceneContent {
             }
 
             carried.Sort((left, right) => string.CompareOrdinal(left.Name, right.Name));
-            var key = string.Join(' ', carried.Select(binder => binder.Name));
+            var key = string.Join('\0', carried.Select(binder => binder.Name));
 
             if (!blocks.TryGetValue(key, out var entries)) {
                 blocks[key] = entries = [];
