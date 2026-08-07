@@ -866,8 +866,19 @@ rather than the target moved.
    existing structure, which is [§ D7](#d7-layout-and-quantization-as-a-flow-problem-rather-than-an-ilp)'s
    partition finishing its own cuts. A cylinder is the exception: one patch of seventy-seven can be
    neither divided — every arc bounding it is a single mesh edge, so there is nowhere for a fourth
-   corner — nor merged, because the merge is capped and an uncapped one dissolves every cut on a box.
-   It leaves a twelve-edge rim.
+   corner — nor merged. **It leaves a six-edge rim, at a 200 or 400 budget only; at 800 and above the
+   cylinder comes back solid.**
+
+   ⚠️ **The merge cap is *not* what refuses it, and this passage said it was.** The recorded reason
+   was "the merge is capped and an uncapped one dissolves every cut on a box". The cap is
+   `MergeTriangles = 4` and the patch is **one triangle**, so the cap never binds; raising it to
+   sixteen was measured and the rim is the same six edges. Instrumenting the drop site gives the patch
+   as `uses=3, triangles=1, features=3, arcLens=[2,2,2]` — a single source triangle with a crease along
+   all three of its sides. `Merge` picks the longest **non-feature** arc to dissolve and there is not
+   one, so it returns false however small the patch is. That refusal is right on its own terms:
+   dissolving a feature arc is deleting a crease. **What is missing is the third answer — extracting a
+   three-sided patch as three quads round a centre point, which keeps the crease and fills the hole.**
+   The runaway the cap exists to stop is real and unrelated, and the cap should stay.
 
    ⚠️ **The budget overshoot is closed, and the row that was left did belong to
    [§ D9](#d9-adaptivity-is-one-scalar-field-and-everything-writes-into-it)'s field.** Box 5 047 →
