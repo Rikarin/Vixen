@@ -668,6 +668,30 @@ animated: one round trip through the animator flattens it to the sRGB byte grid.
 pre-existing property of the text round trip rather than anything the colour functions introduced,
 and it is the one seam where the gamut work will need more than a mapping pass at the end.
 
+✅ **The mapper, the swapchain rule and the two CSS surfaces have landed.**
+`Vixen.Core.Mathematics.GamutMap` implements CSS Color 4 § 14.2.1's binary search with local MINDE
+against `ColorGamut.Srgb`/`DisplayP3`/`Rec2020`, with the gamut matrices derived from the
+chromaticities in Media Queries 5 § 5.4's table rather than transcribed. Measured on this
+implementation: per-channel clipping moves the hue by up to **42.5°** at `L = 0.65, C = 0.37`, where
+chroma reduction holds it to **5.5°**. `@media (color-gamut: srgb|p3|rec2020)` matches *ascending*,
+and `color(display-p3 …)`, `color(srgb …)` and their `-linear` forms parse into the working space
+unclamped; `a98-rgb`, `prophoto-rgb` and `rec2020` are refused rather than decoded with sRGB's
+transfer curve, which is theirs to have and not sRGB's.
+
+⚠ **Three things a reader should not take on trust from the above.** First, the specification now
+offers **three** gamut mapping algorithms — binary search, EdgeSeeker, ray-trace — and lets an
+implementation choose; the one implemented is the only one whose constants the prose pins down.
+Second, the algorithm *ends in a per-channel clip*: the search reduces chroma until a clip of the
+candidate is within one JND, then returns the clipped colour. "Not clipping" describes the strategy,
+not the last step, and the 5.5° residual is exactly that step. Third, `VK_EXT_swapchain_colorspace`
+is now enabled on the instance, and **without it a surface reports only sRGB however capable the
+display is** — which is why this could have looked implemented and done nothing.
+
+⚠ **`StyleValue.ToCss` still clamps, and was deliberately left alone.** It is a property of the
+animator's text round trip rather than of display gamut, and fixing it means changing the cascade's
+interchange format. It is now much cheaper than it was: `color(srgb-linear …)` parses, so `ToCss`
+has a lossless spelling available where `rgba()` never did.
+
 ### D5. What v4 removed, renamed, and added
 
 A parity inventory written from v3 memory would be wrong in both directions, so the table was built
