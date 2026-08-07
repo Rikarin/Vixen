@@ -122,7 +122,24 @@ public enum Wrap : byte {
     WrapReverse
 }
 
-/// <summary>What happens to content that does not fit.</summary>
+/// <summary>What happens to content that does not fit, on one axis.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>There is no <c>Auto</c>, and that is a decision rather than a gap.</b> CSS's
+///         <c>auto</c> and <c>scroll</c> establish the same scroll container and lay out identically;
+///         the only difference between them is whether the scrollbar gutter is reserved when there is
+///         nothing to scroll. Nothing in this framework draws a scrollbar of its own — <c>ScrollView</c>
+///         is a control that builds its own — so a fourth member would encode a distinction no
+///         consumer could act on while splitting every <c>== Scroll</c> test in the flex algorithm
+///         into <c>is Scroll or Auto</c>. The stylesheet's own keyword survives in the computed style,
+///         so an engine that later grows automatic gutters can still tell the two apart there.
+///     </para>
+///     <para>
+///         Per axis, because <c>overflow-x</c> and <c>overflow-y</c> are separate properties and the
+///         flexbox rules that read this — the §4.5 automatic minimum size, and the fit-content size of
+///         a scroll container — are each about one axis. See <see cref="LayoutStyle.OverflowX" />.
+///     </para>
+/// </remarks>
 public enum Overflow : byte {
     /// <summary>It spills out.</summary>
     Visible,

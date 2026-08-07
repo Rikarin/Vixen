@@ -313,7 +313,14 @@ public sealed partial class LayoutTree {
             }
 
             // The specification says nothing about `overflow` here; every major browser does this.
-            if ((!isMainAxisRow && styles[index].Overflow == Overflow.Scroll) || styles[index].Overflow != Overflow.Scroll) {
+            //
+            // ⚠ The *main* axis's overflow, which is the reading this always had written out: a
+            // column that scrolls still hands its width down, a row that scrolls does not. Reading
+            // `overflow-x` here instead would be more principled and would also change what plain
+            // `overflow: scroll` does to a column — and that answer is Yoga's conformance suite
+            // rather than a judgement this change gets to make.
+            var mainOverflow = OverflowOn(index, FlexAxis.DimensionOf(mainAxis));
+            if (!isMainAxisRow || mainOverflow != Overflow.Scroll) {
                 if (float.IsNaN(childWidth) && !float.IsNaN(width)) {
                     childWidth = width;
                     childWidthSizingMode = SizingMode.FitContent;

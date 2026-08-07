@@ -484,6 +484,38 @@ still be clickable. Returning early on a missed parent makes every dropdown, too
 unhittable, and the bug looks like the click landing on whatever is behind them. The clip is asked
 about on the *parent*, because it is the parent that clips and the child has no idea it is being cut.
 
+⚠ **And it is outside *on a clipped axis*, not outside at all.** `overflow-x` and `overflow-y` are
+real, so an element can cut one pair of edges and not the other — a point beside an `overflow-y:
+hidden` panel is inside the part of the plane that panel draws in and has to stay clickable. Painting
+and hit testing resolve the three properties through one object, `OverflowReader`, for the reason two
+copies of one rule always eventually give: a control that is visibly clipped and invisibly clickable,
+or the reverse. Written on the clip stack, an unclipped axis is a pair of edges at
+`DrawListBuilder.UnboundedClip` — a finite stand-in for infinity, because the stack intersects
+rectangles and `float.MaxValue + float.MaxValue` is an infinity that becomes a NaN and unclips
+everything below it. The stand-in is exact rather than approximate: the stack starts at the viewport
+and only ever narrows, so an edge past the viewport *is* the viewport.
+
+⚠ **Neither axis coerces the other, where CSS's would.** A browser computes a `visible` to `auto`
+when its partner is not visible, because a scrollport is one rectangle and painting outside it on one
+axis alone is undefined there. There is no scrollport here — the clip is a rectangle and one axis
+alone is expressible — so `overflow-x: auto` means what its author wrote instead of also hiding
+everything below the box. The other departure is order: nothing expands `overflow` into its two
+longhands on the way in, so the computed style holds whichever of the three a rule set and no record
+of which came last, and a named axis therefore wins unconditionally.
+
+⚠ **`overflow: auto` is `Overflow.Scroll` to the layout, and it used to be nothing at all.** The draw
+list clips on any value that is not `visible`, so `auto` always clipped; the layout's keyword table
+had `visible`, `hidden` and `scroll` and not `auto`, so flexbox went on treating the box as visible —
+half a property, silently. `auto` and `scroll` are one layout mode in CSS too, differing only in
+whether a scrollbar gutter is reserved, and nothing here draws a scrollbar of its own. What the
+layout does with it is the CSS Flexbox §4.5 opt-out and the fit-content size of a scroll container,
+each on **one axis**: §4.5 is about the main axis, so `overflow-y` on an item in a row says nothing
+about whether it may be squeezed sideways.
+
+⚠ **A clip is still not a scrollbar.** `overflow-y: auto` on a plain element cuts its content off and
+offers nothing to scroll it — `ScrollView` is the control that owns bars and offsets content, and it
+deliberately reads no `overflow` of its own.
+
 ⚠ **`pointer-events: none` is transparent without making its children so.** That asymmetry is what
 makes an overlay usable; treating the subtree as one unit either blocks everything under a
 full-screen layer or lets clicks through a modal.

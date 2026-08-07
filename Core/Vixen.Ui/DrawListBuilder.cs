@@ -24,14 +24,23 @@ namespace Vixen.Ui;
 ///     </para>
 /// </remarks>
 public sealed class DrawListBuilder {
+    /// <summary>How far past a viewport an edge is pushed when its axis is not clipped.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A stand-in for infinity, chosen so that the sums stay exact.</b> A million pixels is
+    ///     more than a hundred times the widest display anyone has, and two million is still well
+    ///     inside the range where a <c>float</c> counts whole numbers one at a time — where
+    ///     <c>float.MaxValue</c> would give a right edge of infinity and an infinite width a right edge
+    ///     of NaN, and a NaN in the clip stack silently unclips everything below it.
+    /// </remarks>
+    internal const float UnboundedClip = 1_000_000f;
+
     readonly List<PositionedGlyph> placed = [];
     readonly StyleValueParser parser;
     readonly int backgroundColor;
     readonly int borderColor;
     readonly int borderRadius;
     readonly int textColor;
-    readonly int overflow;
-    readonly int visible;
+    readonly OverflowReader overflow;
     readonly int visibility;
     readonly int hidden;
     readonly int opacity;
@@ -64,8 +73,7 @@ public sealed class DrawListBuilder {
         borderColor = properties.Intern("border-top-color");
         borderRadius = properties.Intern("border-top-left-radius");
         textColor = properties.Intern("color");
-        overflow = properties.Intern("overflow");
-        this.visible = values.Intern("visible");
+        overflow = new OverflowReader(properties, values);
 
         visibility = properties.Intern("visibility");
         this.hidden = values.Intern("hidden");
@@ -186,9 +194,20 @@ public sealed class DrawListBuilder {
             element.OnDraw(new DrawContext(element, into, alpha));
         }
 
-        var clips = element.Style.TryGet(overflow, out var value) && value != visible;
-        if (clips) {
-            into.Add(new DrawCommand(DrawCommandKind.ClipPush, x, y, width, height, default, radius, 0f));
+        var axes = overflow.Of(element.Style);
+        if (axes.Any) {
+            // ⚠ An unclipped axis is a pair of edges at infinity, and `UnboundedClip` stands in for
+            // infinity because the arithmetic that consumes this cannot hold it: the clip stack
+            // intersects rectangles, and an infinite width gives `X + Width` as a NaN that swallows
+            // every clip below it. A finite stand-in is not an approximation here — the stack starts
+            // from the viewport and only ever narrows, so an edge past the viewport is bounded by the
+            // viewport, which is exactly what "not clipped on this axis" means.
+            var left = axes.Horizontal ? x : -UnboundedClip;
+            var top = axes.Vertical ? y : -UnboundedClip;
+            var across = axes.Horizontal ? width : 2f * UnboundedClip;
+            var down = axes.Vertical ? height : 2f * UnboundedClip;
+
+            into.Add(new DrawCommand(DrawCommandKind.ClipPush, left, top, across, down, default, radius, 0f));
         }
 
         // Paint order rather than document order, which are the same list unless some child carries
@@ -208,7 +227,7 @@ public sealed class DrawListBuilder {
         // the frame. A list whose pushes and pops do not pair is not a drawing with a mistake in it,
         // it is a clip stack that never unwinds — everything after the offending element stays
         // clipped to it for the rest of the frame.
-        if (clips) {
+        if (axes.Any) {
             into.Add(new DrawCommand(DrawCommandKind.ClipPop, x, y, width, height, default, radius, 0f));
         }
     }

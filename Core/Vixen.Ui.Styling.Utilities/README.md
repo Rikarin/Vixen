@@ -53,10 +53,27 @@ reads every longhand they emit, which `UtilityGenerationTests` checks by resolvi
 than by comparing text.
 
 ⚠ **Some families still emit properties nothing reads**, and knowing which is the point. `opacity`,
-`cursor`, `text-align`, `tracking`, `leading`, `z` and `font` were all in this list until the engine
-learned them; `ring`, `fill`, `stroke`, `blur`, the transforms and the per-axis `overflow` are still
-in it. A rule that resolves to a property no consumer looks at is not a bug in the generator — it is
-a utility waiting for an engine feature.
+`cursor`, `text-align`, `tracking`, `leading`, `z`, `font` and the per-axis `overflow` were all in
+this list until the engine learned them; `ring`, `fill`, `stroke`, `blur` and the transforms are
+still in it. A rule that resolves to a property no consumer looks at is not a bug in the generator —
+it is a utility waiting for an engine feature.
+
+**`overflow-x-*` and `overflow-y-*` are read now, and `overflow-*-auto` reaches the layout.** They
+were the most misleading pair in the set: the unprefixed `overflow` was read, the two per-axis names
+were interned by nobody, and `overflow-y-auto` therefore resolved cleanly and did nothing at all.
+`Vixen.Ui.OverflowReader` is the one place all three are resolved, for the clip stack and the hit test
+alike, and `LayoutStyleBuilder` maps `auto` onto the layout's `Overflow.Scroll` — the same layout CSS
+gives it, since the only thing `auto` and `scroll` disagree about is a scrollbar gutter nothing here
+draws. Two things follow that a web author should be told. A named axis beats the shorthand whatever
+order they were written in, because nothing expands `overflow` into longhands on the way in and the
+computed style keeps no source order. And there is **no coercion between the axes**: CSS turns a
+`visible` into an `auto` when its partner is not visible, and this does not, so `overflow-x-auto`
+clips sideways and leaves the top and bottom edges alone — which is what the class name says and what
+a rectangle with one pair of edges past the viewport expresses exactly.
+
+⚠ **A clip is not a scrollbar.** `overflow-y-auto` cuts the content off; nothing offers to scroll it.
+Scrolling is `ScrollView`, a control that owns its bars and offsets its content — so a panel that
+needs to reach what it clipped needs one of those, and the utility alone will hide the rest.
 
 **A shadow token is a whole declaration, not a set of numbers to assemble.** A shadow is a designed
 thing: its offset, blur and alpha are chosen together to read as one height above the surface, and a

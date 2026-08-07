@@ -159,7 +159,8 @@ Vixen.Ui.Layout.LayoutStyle.LayoutStyle() -> void
 Vixen.Ui.Layout.LayoutStyle.Margin -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.MaxDimensions -> Vixen.Ui.Layout.DimensionLengths
 Vixen.Ui.Layout.LayoutStyle.MinDimensions -> Vixen.Ui.Layout.DimensionLengths
-Vixen.Ui.Layout.LayoutStyle.Overflow -> Vixen.Ui.Layout.Overflow
+Vixen.Ui.Layout.LayoutStyle.OverflowX -> Vixen.Ui.Layout.Overflow
+Vixen.Ui.Layout.LayoutStyle.OverflowY -> Vixen.Ui.Layout.Overflow
 Vixen.Ui.Layout.LayoutStyle.Padding -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.Position -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.PositionType -> Vixen.Ui.Layout.PositionType
@@ -221,6 +222,7 @@ Vixen.Ui.Layout.LayoutTree.SetMargin(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui
 Vixen.Ui.Layout.LayoutTree.SetMaxDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
 Vixen.Ui.Layout.LayoutTree.SetMeasureFunction(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.MeasureFunction? measure) -> void
 Vixen.Ui.Layout.LayoutTree.SetMinDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
+Vixen.Ui.Layout.LayoutTree.SetOverflow(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Overflow horizontal, Vixen.Ui.Layout.Overflow vertical) -> void
 Vixen.Ui.Layout.LayoutTree.SetOverflow(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Overflow overflow) -> void
 Vixen.Ui.Layout.LayoutTree.SetPadding(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength padding) -> void
 Vixen.Ui.Layout.LayoutTree.SetPosition(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength position) -> void
