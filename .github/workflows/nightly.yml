@@ -230,10 +230,17 @@ jobs:
             # Conditioning runs the whole seven-stage pipeline per case and the field solve is the
             # slow half, so this one buys fewer cases per minute than the unwrapper does.
             #
-            # ⚠ RemeshPipelinePropertyTests calls Remesher.Remesh rather than one stage of it, and it
-            # is the most expensive thing in this leg by an order of magnitude: 11 s for its 14 cases
-            # at the build's counts, 2m10s at fifteen times them. Its build counts are single digits
-            # for exactly that reason, and the multiplier still fits — see the timeout note below.
+            # ⚠ RemeshPipelinePropertyTests calls Remesher.Remesh rather than one stage of it, and a
+            # single case is a whole seven-stage remesh: 18 s for its 14 cases at the build's counts
+            # and 57 s at fifteen times them. Its build counts are single digits for exactly that
+            # reason, and the multiplier still fits — see the timeout note below.
+            #
+            # ⚠ This leg is expected to FAIL until two defects that property found are fixed, and
+            # that is not a reason to lower the multiplier. An allocation runaway through the mirror
+            # (602 faces to 3,999,656 quads, 8.7 GB) and a budget warning decided from the
+            # quantization's prediction rather than from the mesh. Both are recorded in that file's
+            # remarks with one-line reproducers. Measured at the build's own counts, one run in ten
+            # already fails on one of the two, so the gate sees them too.
             iterations: 15
           - name: uv
             project: Core/Vixen.Geometry.Uv.Tests
@@ -247,19 +254,32 @@ jobs:
     # raise them to a number nobody has timed.
     #
     # ⚠ Both multipliers were re-measured when the two pipeline-level properties landed, and both
-    # still fit. Remeshing: RemeshPipelinePropertyTests is 11 s at the build's counts and 2m10s at
-    # 15x, which is the whole of what it adds to a leg that was already the slow one. Uv:
-    # UvUnwrapPipelinePropertyTests is 1 s at the build's counts, because a 128-face primitive
-    # unwraps in milliseconds where a 400-quad remesh takes seconds. ⚠ The headroom is not
-    # symmetric — a *single* remesh case has been measured at 93 s, on an input whose quad budget is
-    # overshot 584-fold, so the remeshing multiplier is the one that would break first and it is the
-    # one to leave alone.
+    # still fit with room to spare. The measurement is now taken over the property classes as a
+    # whole, because that is what these multipliers scale:
+    #
+    #   remeshing  1m14s at the build's counts  ->  ~18 min at 15x
+    #   uv           50s at the build's counts  ->  ~17 min at 20x
+    #
+    # Against ninety minutes, on a laptop; a hosted runner is slower, which is what the rest of the
+    # budget is for. What the two new properties add is small — 18 s of the remeshing figure and 1 s
+    # of the uv one, the latter because a 128-face primitive unwraps in milliseconds where a remesh
+    # takes seconds. Checked directly rather than extrapolated: UvUnwrapPipelinePropertyTests is 15 s
+    # at 20x and 1m51s at 150x, so the arithmetic really is linear.
+    #
+    # ⚠ The remeshing figure went up by more than the new class costs, and the difference is
+    # deliberate. Its three RunawayGuard classes now share a non-parallel collection, so they no
+    # longer overlap: a whole-pipeline remesh takes every core it is given, and the guard's clock is
+    # wall clock, so a case that was merely descheduled read as a case that was still running. See
+    # TimedCases in RemeshPipelinePropertyTests for the measurement that forced it. The leg pays a
+    # few minutes at 15x for a guard that means what it says.
     #
     # ⚠ Not a budget — RunawayGuard bounds a single case on wall clock *and on allocation*, which is
-    # the backstop that matters here: the measured runaway in this code is a pre-remesh that
-    # quadruples its triangle count every round and allocates 763 MB on the tenth, and no timeout
-    # catches that before the runner dies. This is the third backstop, for the process that stops
-    # making progress in a way neither of those can see.
+    # the backstop that matters here. Two measured runaways in this code, and neither is a hang: a
+    # pre-remesh handed a target edge length below the mesh's own mean quadruples its triangle count
+    # every round and allocates 763 MB on the tenth, and a mirrored remesh asked for 96 quads turns
+    # 602 faces into 3,999,656, allocating 8.7 GB in 42 s. Both return; no timeout catches either
+    # before the runner dies. This is the third backstop, for the process that stops making progress
+    # in a way neither of those can see.
     timeout-minutes: 90
 
     steps:
