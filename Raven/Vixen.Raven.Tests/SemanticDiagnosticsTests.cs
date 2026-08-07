@@ -395,6 +395,109 @@ public class SemanticDiagnosticsTests {
               """
         );
 
+    // --- Recursion ---------------------------------------------------------
+
+    /// <summary>
+    ///     A body that reaches itself is refused, and the message names the route — <c>RVN2139</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing reported this before, in any phase.</b> Both signatures are complete
+    ///         before either body is bound, so <c>RVN2005</c> — which is about resolution that does
+    ///         not terminate — never fires; lowering terminates because every pass behind the binder
+    ///         carries a visited set with a comment saying the language has no recursion; and the
+    ///         emitter happily writes the cycle out. What refused it was <c>spirv-val</c>, with
+    ///         <c>[VUID-StandaloneSpirv-None-04634]</c>, on a machine that happened to have one
+    ///         installed.
+    ///     </para>
+    ///     <para>
+    ///         Found by <c>Vixen.Fuzz</c>'s <c>raven</c> target — the first row is the reduction of
+    ///         <c>Corpus/raven/b3f413d871e6a766.bin</c>, a one-token mutation of the shipped compute
+    ///         example that turned <c>float(id.x)</c> into <c>Weight(id)</c>.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    // Direct: the shape the fuzzer found, on an expression body.
+    [InlineData("    func F(x: float): float => F(x) * 2f\n", "S.F → S.F")]
+    // Through a second function, which is the route nobody sees by reading.
+    [InlineData("    func F(x: float): float => G(x)\n    func G(x: float): float => F(x)\n", "S.F → S.G → S.F")]
+    // Through a property's getter, which is a function the backend emits like any other.
+    [InlineData(
+        "    var P: float {\n        get => F(1f)\n    }\n\n    func F(x: float): float => P\n",
+        "S.P.get → S.F → S.P.get"
+    )]
+    public void A_call_graph_with_a_cycle_is_refused(string members, string route) {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(
+                $$"""
+                  package A
+
+                  shader S {
+                  {{members}}
+                      [ComputeShader(1, 1, 1)]
+                      func Main() {
+                      }
+                  }
+
+                  """,
+                "RVN2139"
+            )
+        );
+
+        Assert.Contains(route, diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+    }
+
+    /// <summary>
+    ///     Reading a property whose <em>setter</em> closes the ring is not a cycle, and a check that
+    ///     added an edge to both accessors would say it was.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The one over-approximation this check had to avoid. An edge per accessor is cheaper and
+    ///     turns a legal shader into a hard error, which is a worse failure than the one being fixed:
+    ///     an author cannot suppress it and cannot see why it is wrong.
+    /// </remarks>
+    [Fact]
+    public void A_reference_is_an_edge_to_the_accessor_it_runs() =>
+        AssertNoDiagnostics(
+            """
+            package A
+
+            struct S {
+                var backing: float
+
+                var P: float {
+                    get => backing
+                    set => backing = F(value)
+                }
+
+                func F(x: float): float => P * x
+            }
+
+            """
+        );
+
+    /// <summary>Two functions calling one shared helper is a diamond and not a cycle.</summary>
+    [Fact]
+    public void A_call_graph_that_merely_reconverges_is_not_a_cycle() =>
+        AssertNoDiagnostics(
+            """
+            package A
+
+            shader S {
+                func Shared(x: float): float => x * 2f
+                func Left(x: float): float => Shared(x)
+                func Right(x: float): float => Shared(x) + Left(x)
+
+                [ComputeShader(1, 1, 1)]
+                func Main() {
+                    var total = Right(1f)
+                }
+            }
+
+            """
+        );
+
     // --- Attributes --------------------------------------------------------
 
     /// <summary>
@@ -829,6 +932,61 @@ public class SemanticDiagnosticsTests {
 
             """
         );
+    }
+
+    /// <summary>
+    ///     A member taken of a method group is reported rather than swallowed — <c>RVN2011</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A method group is the one receiver typed as an error without an error having
+    ///         been reported</b>, so the guard that suppresses a cascade from an already-reported
+    ///         receiver used to swallow it — the same shape as <c>RVN2030</c> and a namespace, and
+    ///         found the same way. <c>min.y</c> is one token away from <c>scale.y</c>, and it
+    ///         compiled with nothing reported at all: the <c>val</c> took a void type, the multiply
+    ///         around it took a void result, and the SPIR-V emitter wrote <c>OpFMul %void</c>.
+    ///     </para>
+    ///     <para>
+    ///         <c>Corpus/raven/431a0d0b2f2420d6.bin</c>, <c>dc5d446954c9cf71.bin</c> and
+    ///         <c>f6f5082753f2dd15.bin</c> are the three nightly findings this one line closes, and
+    ///         the first two are the pair that named the fault: <c>OpFMul</c> with a non-float
+    ///         result and <c>OpIMul</c> with a non-int one, from the same expression, which is what
+    ///         says the opcode came from the operands and the result type from nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_member_of_a_method_group_is_reported() {
+        var diagnostic = Assert.Single(AssertDiagnostics(InMethod("        var x = min.y"), "RVN2011"));
+
+        Assert.Contains("min", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("'y'", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>An empty collection literal has no element type to infer — <c>RVN2140</c>.</summary>
+    /// <remarks>
+    ///     ⚠ Every position that asks what <c>[]</c> is already rejected it, which is why this took
+    ///     a fuzzer to find: the survivor was <c>[]</c> as an expression statement, where nothing
+    ///     asks. It bound to <c>?[0]</c>, and the emitter wrote <c>OpCompositeConstruct %void</c> —
+    ///     <c>Corpus/raven/9352e56acef97227.bin</c>.
+    /// </remarks>
+    [Fact]
+    public void An_empty_collection_literal_is_reported() {
+        var diagnostic = Assert.Single(AssertDiagnostics(InMethod("        []"), "RVN2140"));
+
+        Assert.Contains("[]", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A range whose ends share no type is reported rather than defaulted to <c>int</c>.
+    /// </summary>
+    /// <remarks>
+    ///     The companion to <c>SpirvValidationTests</c>'s converted-endpoints row: where a common
+    ///     type exists both ends are converted to it, and where none does the range is not quietly
+    ///     given an element type neither end could produce.
+    /// </remarks>
+    [Fact]
+    public void A_range_whose_ends_have_no_common_type_is_reported() {
+        Assert.Single(AssertDiagnostics(InMethod("        for (i in true .. 4) {\n        }"), "RVN2020"));
     }
 
     /// <summary>Wraps a method body in a shader so error cases stay readable.</summary>

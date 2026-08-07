@@ -186,6 +186,18 @@ public sealed partial class ScrollBar : Control {
 ///         the draw list's clip stack that does it — the same mechanism any other clipped element
 ///         uses.
 ///     </para>
+///     <para>
+///         ⚠ <b>It reads no <c>overflow</c> of its own, including the per-axis pair, and that is a
+///         decision.</b> In CSS <c>overflow</c> on a box is what conjures the scrollbars; here the
+///         bars are children this control creates and drives, and the property only says where the
+///         clip rectangle's edges are. Wiring the two together would mean this reading its own
+///         user-agent rule — <c>scroll-view { overflow: hidden }</c>, the one that makes it clip at
+///         all — as an instruction to hide both of its bars. Which bars a view offers is therefore a
+///         property of the control, and <c>overflow-x</c> on some other element is a clip and nothing
+///         more. The consequence is worth stating plainly: <c>overflow-y: auto</c> on a plain
+///         <c>div</c> cuts its content off and offers no way to reach it. Put a <see cref="ScrollView" />
+///         there instead.
+///     </para>
 /// </remarks>
 public sealed partial class ScrollView : Control {
     /// <inheritdoc />

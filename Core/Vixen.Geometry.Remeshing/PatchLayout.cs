@@ -106,6 +106,35 @@ sealed class PatchLayout {
     /// </remarks>
     public const float CornerAngle = 45f;
 
+    /// <summary>How many times the layout will try to walk a dangling cut out to existing structure.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Each round extends at least one loose end or stops, so the bound is a guard rather than
+    ///     a tuning number</b> — but a walk that stalls leaves a <i>new</i> loose end behind it, so the
+    ///     rounds are not trivially monotone and docs/plan/41's robustness criterion says never a hang.
+    /// </remarks>
+    public const int ExtendRounds = 4;
+
+    /// <summary>How much longer round than wide a patch may be before the layout cuts it in two.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A ratio of two lengths and never a length, which is the failure this repository
+    ///         found five instances of in one day.</b> The measure is a patch's own perimeter against
+    ///         its own area — <c>P² / 16A</c>, which is one for a square and grows without bound as a
+    ///         region gets snaky — so a model in millimetres and the same model in kilometres cut in
+    ///         exactly the same places. <see cref="ScaleSafe" /> is the established fix for the same
+    ///         mistake in the maths; this is its layout form.
+    ///     </para>
+    ///     <para>
+    ///         <b>Four, because three is a legitimate shape and five is not.</b> A patch twice as long
+    ///         as it is wide scores one; the strip <see cref="Sides" /> is written to protect — 100 × 1,
+    ///         whose sides are correctly matched at 100, 1, 100, 1 — scores about 25 and is genuinely
+    ///         what the geometry wants. What the bound is aimed at is the patch that scores high because
+    ///         its boundary <i>doubles back</i>, and measured on these fixtures those score from 9
+    ///         upwards while every compact patch scores under 3.
+    ///     </para>
+    /// </remarks>
+    public const float AspectBound = 4f;
+
     PatchLayout(
         LayoutArc[] arcs,
         LayoutPatch[] patches,
@@ -188,6 +217,12 @@ sealed class PatchLayout {
         var forced = new HashSet<int>();
 
         for (var round = 0; round <= RepairRounds; round++) {
+            // ⚠ Every round and not once before the loop, because the repairs make their own loose
+            // ends: `Merge` dissolves a patch's longest arc and whatever met that arc at its far end
+            // is left dangling. Measured on a box, extending only up front left two behind — and two
+            // slits are two patches the extractor refuses, which is two holes.
+            Extend(mesh, field, features, cut);
+
             var split = Splits(mesh, features, cut, forced);
             var (arcs, arcOfHalf, forwardOfHalf) = BuildArcs(mesh, features, density, cut, split);
 
@@ -204,6 +239,16 @@ sealed class PatchLayout {
             var built = new List<LayoutPatch>(patches.Count);
             var redo = false;
             var degenerate = 0;
+            var slit = 0;
+            var snaky = 0;
+
+            // ⚠ Cutting stops half way through the budget, and that is what makes the loop settle
+            // rather than a hope that it will. A cut makes patches, `Merge` dissolves the small ones,
+            // and the two undo each other for ever given the chance — measured, a cylinder that cut on
+            // every round exhausted all six repairs and the whole layout was refused, which is a
+            // fixture that used to come back with 2,958 quads. The rounds after this one only run the
+            // repairs that were already convergent, so the last one always produces a layout.
+            var cutting = round < RepairRounds / 2;
 
             foreach (var triangles in patches) {
                 var loops = Loops(mesh, cut, triangles);
@@ -229,6 +274,22 @@ sealed class PatchLayout {
 
                 var uses = Walk(loops[0], arcOfHalf, forwardOfHalf);
 
+                // ⚠ Caught here rather than left to the extractor, which is the whole difference
+                // between a hole and a mesh. A boundary that walks the same arc twice puts one run of
+                // output vertices into a grid row twice; `PatchExtractor` sees that as "a side walked
+                // the same vertex twice" and skips the patch, and a skipped patch is a hole in the
+                // result with no attribution back to the stage that caused it. `Extend` above is the
+                // repair; this is what happens when the repair could not land.
+                if (Revisits(uses)) {
+                    if (cutting && Compact(mesh, field, features, cut, arcs, uses, triangles)) {
+                        redo = true;
+                    } else {
+                        slit++;
+                    }
+
+                    continue;
+                }
+
                 if (uses.Count < 4) {
                     // ⚠ Divide first and merge only when dividing is impossible. A patch bounded by
                     // three arcs usually wants a fourth corner; one bounded by three arcs that are
@@ -246,12 +307,41 @@ sealed class PatchLayout {
                     continue;
                 }
 
+                // ⚠ Compaction is attempted on a patch that is *already* usable, which is why it sits
+                // after every other test rather than before them. A patch far longer round than it is
+                // wide quantizes to a product of two side lengths that its area never asked for, and
+                // cutting it across the long axis is what § D7's "patches that are too small or
+                // degenerate are merged" looks like from the other end.
+                if (Roundness(mesh, arcs, uses, triangles) > AspectBound) {
+                    if (cutting && Compact(mesh, field, features, cut, arcs, uses, triangles)) {
+                        redo = true;
+
+                        continue;
+                    }
+
+                    snaky++;
+                }
+
                 built.Add(new() { Triangles = triangles, Sides = Sides(mesh, arcs, uses) });
             }
 
             if (!redo) {
                 if (degenerate > 0) {
                     warnings.Add($"{degenerate} patches could be neither divided nor merged and were dropped.");
+                }
+
+                if (slit > 0) {
+                    warnings.Add($"{slit} patches were bounded by a slit that could not be cut through.");
+                }
+
+                if (snaky > 0) {
+                    warnings.Add($"{snaky} patches are longer round than they are wide and could not be cut in two.");
+                }
+
+                var dangling = Loose(mesh, cut).Count;
+
+                if (dangling > 0) {
+                    warnings.Add($"{dangling} cuts still dead-end, so their patches are bounded by a slit.");
                 }
 
                 return new([.. arcs], [.. built], cut, split, [.. warnings], exhausted, built.Count > 0);
@@ -412,6 +502,90 @@ sealed class PatchLayout {
                 break;
             }
         }
+    }
+
+    /// <summary>Walks every dangling cut on out to existing structure, along the field.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the one defect, and the four the report lists are its faces.</b> A cut with a
+    ///         loose end is a slit: the flood crosses round it, the same patch is on both sides, and the
+    ///         boundary walk traverses that arc once in each direction. <see cref="Prune" /> removes the
+    ///         slits it is allowed to and <b>a feature polyline's loose end is not one of them</b> — § D4
+    ///         makes a crease a layout boundary whether or not it divides anything, so a crease that runs
+    ///         off into a flat region legitimately dead-ends and legitimately cannot be pruned. Measured
+    ///         on these fixtures, every duplicated arc in every patch was an opposed pair and almost all
+    ///         of them lay on a feature: box 7 loose ends, union 25, and a sphere — the one fixture that
+    ///         comes back <see cref="MeshReport.IsSolid" /> — <b>0</b>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the answer is to finish the cut rather than to remove it.</b> A separatrix walked
+    ///         out of the loose end along the field, stopping on whatever it meets, turns the slit into a
+    ///         partition edge with a patch on each side. Four defects fall out together: the perimeter
+    ///         stops being counted twice, so the budget stops overshooting; the boundary stops revisiting
+    ///         a vertex, so <see cref="PatchExtractor" /> stops skipping the patch and leaving a hole; the
+    ///         grid stops folding on itself, so the scaled Jacobian comes off zero; and the consistency
+    ///         system stops being over-constrained, so the quantizer stops having to let a feature arc
+    ///         collapse.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Pruned again after each round, because a walk that stalls leaves a new loose end.</b>
+    ///         <see cref="SeparatrixTracer.Trace" /> marks any curve that moved at all, including one that
+    ///         ran into a fold and stopped — and half an extension is the same slit one edge further
+    ///         along. Pruning removes exactly those and keeps the ones that landed, so the round either
+    ///         makes progress or is undone.
+    ///     </para>
+    /// </remarks>
+    static void Extend(ManifoldMesh mesh, CrossField field, FeatureGraph features, bool[] cut) {
+        var before = Loose(mesh, cut);
+
+        if (before.Count == 0) {
+            return;
+        }
+
+        for (var round = 0; round < ExtendRounds; round++) {
+            // Ascending, which is what SeparatrixTracer's own contract asks for and is § D14's rule:
+            // a motorcycle graph is order-dependent by construction, so the seed order has to be a
+            // function of the mesh rather than of whichever walk happened to be enumerated first.
+            SeparatrixTracer.Trace(mesh, field, features, before, cut, out _);
+            Prune(mesh, features, cut);
+
+            var after = Loose(mesh, cut);
+
+            if (after.Count == 0) {
+                return;
+            }
+
+            if (after.Count >= before.Count) {
+                return;
+            }
+
+            before = after;
+        }
+    }
+
+    /// <summary>Every vertex where exactly one partition edge ends, ascending.</summary>
+    static List<int> Loose(ManifoldMesh mesh, bool[] cut) {
+        var loose = new List<int>();
+
+        for (var vertex = 0; vertex < mesh.VertexCount; vertex++) {
+            var degree = 0;
+
+            foreach (var neighbour in mesh.Ring(vertex)) {
+                if (IsCut(mesh, cut, vertex, neighbour)) {
+                    degree++;
+
+                    if (degree > 1) {
+                        break;
+                    }
+                }
+            }
+
+            if (degree == 1) {
+                loose.Add(vertex);
+            }
+        }
+
+        return loose;
     }
 
     /// <summary>Drops every traced curve that separates nothing.</summary>
@@ -1049,6 +1223,130 @@ sealed class PatchLayout {
         }
 
         return added;
+    }
+
+    /// <summary>Whether a boundary walk uses any arc more than once.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The arc and not the vertex, and the arc is the stronger test.</b> Two uses of one arc
+    ///     are two traversals of the same run of output positions, so every vertex along it is revisited
+    ///     rather than only the ends — and an arc used twice is precisely what a slit produces. Measured
+    ///     across the fixtures before <see cref="Extend" /> existed, <i>every</i> duplicated use was an
+    ///     opposed pair, which is a slit walked up one side and back down the other and is never anything
+    ///     else.
+    /// </remarks>
+    static bool Revisits(List<ArcUse> uses) {
+        var seen = new HashSet<int>(uses.Count);
+
+        foreach (var use in uses) {
+            if (!seen.Add(use.Arc)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>How much longer round a patch is than a compact one of the same area would be.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>P² / 16A</c>, which is one for a square and has no units at all.</b> That is the point:
+    ///     a bound on a <i>length</i> is a claim about how big the model is, and this repository found
+    ///     five of those in one day. A patch measured in millimetres and the same patch in kilometres
+    ///     score identically, so <see cref="AspectBound" /> cuts in the same places at either size.
+    /// </remarks>
+    static float Roundness(ManifoldMesh mesh, List<LayoutArc> arcs, List<ArcUse> uses, int[] triangles) {
+        var perimeter = 0f;
+
+        foreach (var use in uses) {
+            perimeter += arcs[use.Arc].Length;
+        }
+
+        var area = 0f;
+
+        foreach (var triangle in triangles) {
+            var corners = mesh.Corners(triangle);
+            var one = mesh.Positions[corners[1]] - mesh.Positions[corners[0]];
+            var two = mesh.Positions[corners[2]] - mesh.Positions[corners[0]];
+
+            area += Vector3.Cross(one, two).Length() * 0.5f;
+        }
+
+        return area > 0f ? perimeter * perimeter / (16f * area) : 0f;
+    }
+
+    /// <summary>Cuts a patch across its long axis, along the field, landing on existing structure.</summary>
+    /// <returns>Whether a cut was added, so the caller knows to rebuild.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The cut is a traced separatrix and not a shortest path, which is what keeps the two
+    ///         halves griddable.</b> A patch is cut so that a regular grid fits inside it, and a grid's
+    ///         rows follow the cross field — so a cut taken across the field leaves two patches whose
+    ///         sides no longer line up with anything. <see cref="SeparatrixTracer" /> is the same walk
+    ///         the partition was built out of, so the new boundary is made of the same kind of chain as
+    ///         every other one and lands on whatever it meets.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The seed is the arc end half a perimeter round from the lowest-index one</b>, which
+    ///         is a function of the mesh and so is the same on every machine — § D14. Reading the
+    ///         boundary walk's own first entry instead would seed from wherever the flood happened to
+    ///         start, and a re-exported file would be cut somewhere else.
+    ///     </para>
+    /// </remarks>
+    static bool Compact(
+        ManifoldMesh mesh,
+        CrossField field,
+        FeatureGraph features,
+        bool[] cut,
+        List<LayoutArc> arcs,
+        List<ArcUse> uses,
+        int[] triangles
+    ) {
+        if (uses.Count == 0) {
+            return false;
+        }
+
+        var start = 0;
+
+        for (var at = 1; at < uses.Count; at++) {
+            if (Ends(arcs, uses[at]).From < Ends(arcs, uses[start]).From) {
+                start = at;
+            }
+        }
+
+        var perimeter = 0f;
+
+        foreach (var use in uses) {
+            perimeter += arcs[use.Arc].Length;
+        }
+
+        var walked = 0f;
+        var seed = -1;
+
+        for (var step = 0; step < uses.Count; step++) {
+            var use = uses[(start + step) % uses.Count];
+
+            walked += arcs[use.Arc].Length;
+
+            if (walked * 2f >= perimeter) {
+                seed = Ends(arcs, use).To;
+
+                break;
+            }
+        }
+
+        if (seed < 0 || (uint) seed >= (uint) mesh.VertexCount) {
+            return false;
+        }
+
+        var before = Flood(mesh, cut).Count;
+
+        SeparatrixTracer.Trace(mesh, field, features, [seed], cut, out _);
+        Prune(mesh, features, cut);
+
+        // ⚠ Only a cut that actually divided something counts as progress. A walk that ran straight
+        // back into the boundary it started from has added an edge and no patch, and reporting that as
+        // progress is how a repair loop spends its whole budget achieving nothing — which is the
+        // split-then-merge oscillation docs/plan/41's robustness criterion is written against.
+        return Flood(mesh, cut).Count > before;
     }
 
     /// <summary>Adds splits so a patch bounded by fewer than four arcs gets four.</summary>

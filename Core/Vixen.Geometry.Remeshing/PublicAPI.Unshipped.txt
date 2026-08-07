@@ -227,6 +227,8 @@ Vixen.Geometry.Remeshing.SkinInfluence.Weight.get -> float
 Vixen.Geometry.Remeshing.SkinInfluence.Weight.init -> float
 Vixen.Geometry.Remeshing.SourceAttributes -> sealed record
 Vixen.Geometry.Remeshing.SourceAttributes : System.IEquatable<Vixen.Geometry.Remeshing.SourceAttributes>
+Vixen.Geometry.Remeshing.SourceAttributes.BoneMirror.get -> System.Collections.Generic.IReadOnlyList<int>?
+Vixen.Geometry.Remeshing.SourceAttributes.BoneMirror.init -> System.Collections.Generic.IReadOnlyList<int>?
 Vixen.Geometry.Remeshing.SourceAttributes.Colors.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector4>
 Vixen.Geometry.Remeshing.SourceAttributes.Colors.init -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector4>
 Vixen.Geometry.Remeshing.SourceAttributes.SourceAttributes() -> void

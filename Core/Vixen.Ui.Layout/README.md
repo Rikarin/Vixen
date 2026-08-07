@@ -35,6 +35,22 @@ implementing a specification section had no test over it at all. `AutomaticMinim
 hand-written to close that: four cases, two of which fail without the floor. An external oracle is
 worth what doc 14 says it is worth, and it is still worth knowing where it stops.
 
+The same file now also covers the §4.5 escape hatch being **per axis**. Yoga carries one `overflow`
+per node; `LayoutStyle` carries `OverflowX` and `OverflowY`, because CSS has two properties and each
+rule that reads them is about one axis — §4.5's opt-out is the *main* axis's overflow, and a scroll
+container's fit-content size is clamped only along the axis that scrolls. Every fixture in the ported
+suite sets both to the same value, so it cannot tell a correct per-axis reading from a collapsed one;
+`The_opt_out_is_the_main_axis_s_own_overflow` is what does. Where the two agree, the arithmetic is
+byte-for-byte Yoga's — including the width-propagation rule in step 2, which stays keyed on the main
+axis rather than on `overflow-x` precisely so that plain `overflow: scroll` on a column keeps
+answering what the fixtures expect.
+
+There is no `Overflow.Auto`. CSS's `auto` and `scroll` establish the same scroll container and differ
+only in whether a scrollbar gutter is reserved, and nothing above this draws a scrollbar of its own —
+so `LayoutStyleBuilder` maps `auto` onto `Scroll` rather than splitting every `== Scroll` here in two.
+The keyword itself survives in the computed style if an engine with gutters ever needs to tell them
+apart.
+
 ### What is not implemented, and why
 
 - `display: contents` — outside the algorithm scope doc 09 states. The nine fixtures using it are

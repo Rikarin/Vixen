@@ -219,6 +219,43 @@ public class SpirvValidationTests {
                 return sampled
         """
     )]
+
+    // Splats whose component type changes on the way. Each is a scalar of one component type
+    // reaching a vector of another — a conversion the IR spells once and SPIR-V has to spell twice,
+    // see `SpirvEmitter.EmitConvert`. Six of the nightly's thirteen `raven` findings were these
+    // three shapes, arrived at by six unrelated one-token edits: a local that lost its `f`, a
+    // literal that replaced a swizzle, a field whose type became `int`, a parameter whose type
+    // became `int`. All three fail without the fix.
+    [InlineData(
+        "an integer broadcast into a float vector",
+        """
+                val lit = 0
+                return float4(colour * lit, 1)
+        """
+    )]
+    [InlineData(
+        "an integer where an intrinsic takes a float vector",
+        "        return float4(dot(0, colour), 0, 0, 1)"
+    )]
+    [InlineData(
+        "an integer argument to a float vector parameter",
+        "        return albedo.Sample(linear, count)"
+    )]
+
+    // A range whose ends are not the same type. The loop variable takes the ends' common type, so
+    // the ends have to be converted to it — leaving the limit as it was stored an `i32` through an
+    // `f32` pointer, which is `Corpus/raven/244478dae1621493.bin`.
+    [InlineData(
+        "a loop over a range whose ends differ in type",
+        """
+                var total = 0f
+                for (i in 3f .. 4) {
+                    total += i
+                }
+
+                return float4(total, 0, 0, 1)
+        """
+    )]
     public void The_module_is_valid(string what, string body) {
         var unit = One(
             $$"""
@@ -252,6 +289,46 @@ public class SpirvValidationTests {
         // The name is there so a failure says which shape broke.
         Assert.False(string.IsNullOrEmpty(what));
         Assert.NotEmpty(unit.Code);
+    }
+
+    /// <summary>A signed literal broadcast into an unsigned vector converts on the way.</summary>
+    /// <remarks>
+    ///     ⚠ Its own test rather than another row above, because it is the splat whose component
+    ///     conversion is <em>two</em> instructions and not one: signedness alone is an
+    ///     <c>OpBitcast</c>, and it is the path <c>EmitIntegerConvert</c> would have taken the
+    ///     result type from had the splat not been made to hand it the component. The nightly
+    ///     reached it as <c>max(knee, Epsilon)</c> → <c>Weight(1)</c>, a call whose parameter is a
+    ///     <c>uint3</c> — <c>Corpus/raven/a86b9e11c8a1034e.bin</c>, which emitted
+    ///     <c>OpCompositeConstruct %v3uint %int_1 %int_1 %int_1</c>.
+    /// </remarks>
+    [Fact]
+    public void A_signed_literal_broadcast_into_an_unsigned_vector_is_valid() {
+        var listing = Fragment(
+            "        return float4(Weigh(1), 0, 0, 1)",
+            "    func Weigh(id: uint3): float => float(id.x)\n"
+        );
+
+        Assert.Contains("OpBitcast", listing, StringComparison.Ordinal);
+    }
+
+    /// <summary>An integer parameter of a fragment stage is <c>Flat</c>, like an integer stream.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The decoration was applied where the varyings are declared and nowhere else</b>, so
+    ///     a <c>stream var</c> of integer type got it and an entry point's own parameter did not —
+    ///     and <c>spirv-val</c> refuses the second module for
+    ///     <c>VUID-StandaloneSpirv-Flat-04744</c>. There is no interpolation an integer could take,
+    ///     which is why the rule is not a preference. Found underneath
+    ///     <c>Corpus/raven/5cc192ddcce49da6.bin</c>: its splat was the first error, and this one
+    ///     only became visible once that was emitted correctly.
+    /// </remarks>
+    [Fact]
+    public void An_integer_fragment_parameter_is_flat() {
+        var listing = Fragment(
+            "        return float4(float(tile), 0, 0, 1)",
+            signature: "func Fragment(tile: int): float4"
+        );
+
+        Assert.Contains($"OpDecorate {IdNamed(listing, "in_tile")} Flat", listing, StringComparison.Ordinal);
     }
 
     [Fact]

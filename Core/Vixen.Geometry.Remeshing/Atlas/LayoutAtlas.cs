@@ -309,6 +309,33 @@ static class LayoutAtlas {
     ///         largest" describes.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>"A union reachable only by joining two seeds is not reachable" is true of greedy
+    ///         growth in general and has <i>no instances here</i>, which was measured rather than
+    ///         argued.</b> Chart-into-chart merging was implemented — compose the gluing with the
+    ///         inverse of the mover's own placement, carry every one of its patches across, test the
+    ///         lot against the anchor's occupancy — and it changed nothing at all: box 14, sphere 16,
+    ///         cylinder 39, stairs 25 and plate 12 charts at a budget of zero, before and after, and
+    ///         the same five counts again at the default budget. It was not kept.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The reason is the shape of the seam graph, and it is worth knowing before anybody
+    ///         tries this again.</b> Instrumented at a budget of zero, the number of seams whose two
+    ///         patches ended in <i>different</i> charts is zero on every fixture — so growth had
+    ///         already reached the connected components of the graph <see cref="Seams" /> builds, and
+    ///         there was no pair left to join. A seed absorbs through <i>any</i> of its members, so
+    ///         "two seeds" never traps a component in half. What limits the chart count is that
+    ///         <see cref="Matches" /> pairs two patches only when a whole side equals a whole side:
+    ///         patches meeting along a <i>partial</i> side never become a seam and so are never
+    ///         adjacent to merge across. Joining charts is the wrong lever; admitting partial sides is
+    ///         the right one, and it is a change to the gluing rather than to the merge order.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>At any non-zero budget the question does not even arise.</b> Growth stops the
+    ///         instant <see cref="Ratio" /> is under the budget, so a second pass has nothing owed to
+    ///         it by construction — it would run only in the configuration where it was measured to
+    ///         gain nothing.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>The candidate order is where "seams prefer feature lines" actually lives.</b>
     ///         Merging across a <i>non</i>-feature side first is what leaves the feature sides
     ///         standing when the budget is met — the preference is expressed by which seams are spent

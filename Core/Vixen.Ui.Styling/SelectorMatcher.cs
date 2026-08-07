@@ -155,6 +155,15 @@ public sealed class SelectorMatcher(SelectorTable table) {
             case SimpleSelectorKind.Position:
                 return MatchesPosition(tree, element, simple);
 
+            // ⚠ Text counts, and getting this wrong inverts the selector. CSS asks for no child
+            // *nodes*, and in the DOM a run of text is one — Vixen hangs text off the element
+            // instead, so a test of the child count alone would call every label in the document
+            // empty. Both rules in the tree that wanted `:empty` are on leaves whose content is
+            // `UiElement.Text` and nothing else, so counting children alone would have hidden them
+            // always rather than never: a dead rule replaced by a wrong one.
+            case SimpleSelectorKind.Empty:
+                return tree.ChildCountOf(element) == 0 && !tree.HasTextAt(element);
+
             case SimpleSelectorKind.Not: {
                 for (var i = 0; i < simple.NestedCount; i++) {
                     if (MatchFrom(tree, element, table.Nested(simple.NestedStart + i), table.Nested(simple.NestedStart + i).Count - 1, useBloom)) {

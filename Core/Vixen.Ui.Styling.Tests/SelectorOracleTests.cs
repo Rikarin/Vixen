@@ -156,6 +156,14 @@ public class SelectorOracleTests {
                     fixture.Tree.SetAttribute(element, "data-kind", $"k{random.Next(3)}");
                 }
 
+                // So that `:empty` varies on both of the things it reads. Depth alone would vary the
+                // child count and leave every leaf textless, and a rule ending in `:empty` would
+                // then be a rule ending in "is a leaf" — which the index and the bloom happen to
+                // treat identically, so the oracle would agree for the wrong reason.
+                if (random.Next(3) == 0) {
+                    fixture.Tree.SetHasText(element, true);
+                }
+
                 elements.Add(element);
                 Build(element, level + 1);
             }
@@ -170,7 +178,7 @@ public class SelectorOracleTests {
             "#id0", "#id1", "#id2",
             "[data-kind]", "[data-kind=k1]", "[data-kind^=k]",
             ":hover", ":focus", ":disabled", ":first-child", ":last-child", ":nth-child(2n+1)",
-            ":not(.selected)", ":is(.row, .cell)"
+            ":empty", ":not(.selected)", ":is(.row, .cell)"
         };
 
         var combinators = new[] { " ", " > ", " + ", " ~ " };

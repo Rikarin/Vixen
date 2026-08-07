@@ -234,6 +234,38 @@ public sealed class YamlDialectTests {
     }
 
     /// <summary>
+    ///     A key stated twice is refused rather than resolved, because the format had never said which
+    ///     one wins and the two readers had picked opposite ends. <c>YamlReader</c> reached
+    ///     <c>YamlMapping.Set</c>, whose replace-in-place made it last-wins; <c>MetaScanner</c> reads
+    ///     top-down and stops at the first match, so it is first-wins. On
+    ///     <c>Corpus/meta/4934f8ea81bae860.bin</c> — a merge artefact with two <c>metaVersion</c>
+    ///     lines — one said 11 and the other said 1, which is two different compilations of one asset
+    ///     depending on which code path looked at it.
+    ///     <para>Found by <c>Vixen.Fuzz</c>'s <c>meta</c> target, which runs both readers and compares.</para>
+    /// </summary>
+    [Theory]
+    [InlineData("guid: a\nmetaVersion: 11\nmetaVersion: 1\n")]
+    [InlineData("importer: !T\n  version: 1\n  version: 2\n")]
+    [InlineData("{ a: 1, a: 2 }\n")]
+    public void AKeyStatedTwiceIsRefusedRatherThanResolved(string text) {
+        var failure = Assert.Throws<YamlParseException>(() => YamlReader.Read(text));
+
+        Assert.Contains("more than once", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And the comparison is the document's own text: two keys that differ in case are two keys
+    ///     here, because this refusal is about a mapping stating something twice and not about which
+    ///     member the binder would match them to.
+    /// </summary>
+    [Fact]
+    public void KeysDifferingInCaseAreNotDuplicates() {
+        var mapping = Assert.IsType<YamlMapping>(YamlReader.Read("value: 1\nValue: 2\n"));
+
+        Assert.Equal(2, mapping.Count);
+    }
+
+    /// <summary>
     ///     YamlDotNet does not always keep to its own exception type, so the boundary in
     ///     <c>YamlReader</c> cannot only catch <c>YamlException</c>. A comment ending in an invalid
     ///     byte comes back an <c>EndOfStreamException</c> and an unterminated plain scalar comes back

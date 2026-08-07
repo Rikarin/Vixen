@@ -561,25 +561,32 @@ sealed partial class SpirvEmitter {
             SpirvOperand.Literal((uint)StreamPlan.LocationOf(shader, stream))
         );
 
-        // An integer has no interpolation to take — the rasteriser weights by barycentric
-        // coordinates and that produces a fraction — so SPIR-V requires this on a fragment input of
-        // integer type and a module without it is invalid. Only the input: the decoration says how a
-        // value is *received*, and the vertex stage that wrote it has no interpolation to describe.
-        if (entryPoint.Stage == ShaderStage.Fragment
-            && storage == SpirvStorageClass.Input
-            && StageInterface.MustBeFlat(stream.Type)) {
-            module.Decorate(variable, SpirvDecoration.Flat);
-        }
-
         return variable;
     }
 
+    /// <param name="io">What the variable carries.</param>
+    /// <param name="storage">Which side of the stage boundary it is on.</param>
+    /// <param name="name">What to call it in the module's debug names.</param>
     /// <param name="located">
     ///     Whether this variable takes a <c>Location</c>. False for one that takes a
     ///     <c>BuiltIn</c> instead, which is what exempts it from the check below — see
     ///     <see cref="StageInterface" />. The GLSL backend skips the same check for the same
     ///     variables, by declaring nothing for them at all.
     /// </param>
+    /// <returns>The variable's id.</returns>
+    /// <remarks>
+    ///     ⚠ <b><c>Flat</c> is decided here rather than at each caller, and it was not.</b> An
+    ///     integer has no interpolation to take — the rasteriser weights by barycentric coordinates
+    ///     and that produces a fraction — so SPIR-V requires the decoration on a located fragment
+    ///     input of integer type, and <c>spirv-val</c> refuses a module without it
+    ///     (<c>VUID-StandaloneSpirv-Flat-04744</c>). It used to be applied in
+    ///     <see cref="DeclareStream" /> alone, which covers a <c>stream var</c> and not an entry
+    ///     point's own parameter, so <c>func PSMain(uv: int)</c> emitted an undecorated
+    ///     <c>Input %int</c>. That was invisible until <c>EmitConvert</c>'s splat stopped masking it
+    ///     with an earlier error, and it is <c>Corpus/raven/5cc192ddcce49da6.bin</c> now. Only an input,
+    ///     and only a located one: the decoration says how a value is <i>received</i>, and a
+    ///     built-in is not received through the rasteriser.
+    /// </remarks>
     uint DeclareStageVariable(IrStageIo io, SpirvStorageClass storage, string name, bool located) {
         // Vulkan has no boolean interface type, and an aggregate would need a location for every
         // leaf. Both are rejected rather than mis-emitted — through the shared predicate, so the
@@ -599,6 +606,14 @@ sealed partial class SpirvEmitter {
 
         module.AddName(variable, name);
         interfaceIds.Add(variable);
+
+        if (located
+            && storage == SpirvStorageClass.Input
+            && entryPoint.Stage == ShaderStage.Fragment
+            && StageInterface.MustBeFlat(io.Type)) {
+            module.Decorate(variable, SpirvDecoration.Flat);
+        }
+
         return variable;
     }
 

@@ -236,6 +236,12 @@ public class IncrementalRestyleOracleTests {
             );
 
             to.Tree.SetState(created, from.Tree.GetState(element));
+
+            // ⚠ Everything a selector can read has to come across, and this one is the newest and
+            // the easiest to forget: leave it out and the oracle's tree is textless, so every
+            // `:empty` rule matches more elements there than in the live tree and the property fails
+            // on a difference between the two *trees* rather than between the two passes.
+            to.Tree.SetHasText(created, from.Tree.HasText(element));
         }
     }
 
@@ -285,6 +291,14 @@ public class IncrementalRestyleOracleTests {
                     fixture.Tree.SetState(element, (ElementState) (1u << random.Next(6)));
                 }
 
+                // Nothing in this test ever changes it — a text change is a cold pass, so there is
+                // no incremental path for it to be wrong about. What it does is make the `:empty`
+                // rules in the generated sheet match a mixture rather than every leaf, so an
+                // incremental pass that mishandled one has somewhere to disagree.
+                if (random.Next(3) == 0) {
+                    fixture.Tree.SetHasText(element, true);
+                }
+
                 Build(element, level + 1);
             }
         }
@@ -308,7 +322,7 @@ public class IncrementalRestyleOracleTests {
                 "div", "span", "li", "Button", "*",
                 ".row", ".cell", ".selected", ".dark", ".sidebar", ".label",
                 "#id0", "#id1",
-                ":hover", ":focus", ":disabled", ":first-child", ":nth-child(2n)",
+                ":hover", ":focus", ":disabled", ":first-child", ":nth-child(2n)", ":empty",
                 ":not(.selected)", ":is(.row, .cell)"
             };
 

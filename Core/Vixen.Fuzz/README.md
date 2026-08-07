@@ -302,6 +302,59 @@ one type with no null value however that request is reached.
 The two inputs are committed under `Corpus/raven` and replay on every build. There is no switch to
 turn the oracle on: an oracle with an off position is an oracle somebody turns off.
 
+**And a third from the nightly, which is the clearest statement of what this oracle is for: a rule the
+whole compiler was written against and nothing enforced.** One token of `Example2.rvn` —
+`func Weight(id: uint3): float => float(id.x) * scale.x` becoming `=> Weight(id) * scale.x` — compiled
+with no diagnostic at all and emitted a module `spirv-val` refuses with
+`[VUID-StandaloneSpirv-None-04634] Entry points may not have a call graph with cycles`. **Raven has
+never had recursion and had never said so.** Four places behind the binder carry a visited set with a
+comment explaining that the language has none — `CallGraph.InCallOrder`, `Lowerer.CollectStreamUses`,
+`LibraryBuilder`'s propagation loop — so every one of them terminated and none of them reported
+anything. ⚠ **It is not `RVN2005` and no existing guard could have caught it**: both signatures are
+complete before either body is bound, so nothing is ever re-entered and resolution has no opinion.
+Fixed in the binder (`RVN2139`), naming the route rather than the function, over the same
+`(member, body kind)` nodes the lowerer keys its function table on — so a cycle through a property
+accessor or a constructor is the same defect and not a second one. `raven/b3f413d871e6a766.bin`.
+#### Then a full nightly, and eleven more that were four defects and a fifth underneath
+
+Runs `31049261231` and `31075211542` produced identical hashes over ~91 M cases, so these were stable
+rather than flakes. `spirv-val` sorted them into four complaints, which looked like one fault stated
+four ways and was not. **Three of the four were the front end and one was the backend**, and the way
+to tell them apart was to ask a question the validator's message does not answer: *did anything
+before `spirv-val` know?*
+
+- **`OpCompositeConstruct` whose constituents are the wrong component type** — seven findings, and
+  the only class where nothing upstream knew. `EmitConvert` sent a `Splat` conversion straight to the
+  broadcast, so an `int` widened to a `float3` became
+  `OpCompositeConstruct %v3float %int_0 %int_0 %int_0`. The IR is not at fault and the binder is not:
+  `float3 * 0` and an `int` argument to a `float2` parameter are ordinary implicit conversions, and
+  `GlslEmitter` writes both halves in one token — `float3(i)` converts *and* widens. SPIR-V has to
+  spell it twice and spelled it once. Six of the seven are this; the seventh was a `void` from the
+  bullet below.
+- **`OpFMul %void` and `OpIMul %void`** — two findings, and the pair that named the fault. Opposite
+  errors from the same expression means the opcode was read off the operands and the result type off
+  something that disagreed, and what disagreed was `min.y`: a member taken of a *method group*, which
+  is the one receiver typed as an error without an error having been reported. Same shape as the
+  namespace above, one guard along. `RVN2011` now.
+- **`OpStore` of an `i32` through an `f32` pointer** — one finding. `for (i in 3f .. 4)`. `BindRange`
+  found the ends' common type and then converted neither of them, so the loop variable was `float`
+  and the limit it was compared against stayed `int`. `BindConditional`, ten lines above it, had done
+  this correctly all along.
+- **`OpCompositeConstruct %void`** — one finding. `[]` in expression-statement position. Every
+  position that asks what an empty collection literal *is* already rejected it; the survivor was the
+  one that does not ask. `RVN2140` now.
+
+⚠ **A fix can uncover the next one, and one did.** With the splat emitted correctly,
+`5cc192ddcce49da6` stopped failing on its constituents and started failing on
+`VUID-StandaloneSpirv-Flat-04744`: `func PSMain(uv: int)` declared an undecorated integer fragment
+input, because `Flat` was applied where the `stream var`s are declared and not where an entry point's
+own parameters are. The GLSL backend had the identical hole and no oracle watching for it. Both are
+fixed at the one place every stage variable passes through.
+
+All eleven inputs are in `Corpus/raven`. The two the same runs found that are **not** in this list —
+a parse-level input and an entry point whose call graph has a cycle — are somebody else's, and are
+deliberately not committed: promotion follows the fix.
+
 ### And guidance, which such a target should turn off
 
 `IFuzzTarget.NoveltyGuides` is true for a decoder and false for a compiler, and the difference is the
@@ -551,6 +604,21 @@ long after the 60 k the gate runs.
   `meta/5b8b48c830e9132e.bin`, which is the 64-byte prefix the finding printed; the 228-byte input it
   came from is not recoverable from a truncated hex line, and the prefix reproduces it exactly.
 
+And a fifth from the same target, which is the one thing only a *differential* oracle sees: the two
+readers answered a question the format had never decided.
+
+- **A sidecar with two `metaVersion:` lines was read as 11 by one reader and 1 by the other.**
+  `MetaScanner` scans top-down and stops at the first match, so it is first-wins; `YamlReader` reached
+  `YamlMapping.Set`, whose replace-in-place made it last-wins. **Neither was wrong, because nothing
+  said which one should be** — the dialect refuses anchors and complex keys and had never mentioned a
+  repeated one. So the fix is the definition rather than either reader: a key stated twice in one
+  mapping is a `YamlParseException`, alongside the empty key and the complex key, compared as written.
+  These files are merged and hand-edited by people, so a repeated key is what a bad conflict
+  resolution looks like, and picking one silently is two different compilations of one asset depending
+  on which code path looked. ⚠ `Set`'s replace stays, and that is the distinction: it is a *caller's*
+  affordance for a migration overwriting a value it computed, and a document is not a caller.
+  `meta/4934f8ea81bae860.bin`, 142 bytes; pinned in `Vixen.Core.Yaml.Tests`.
+
 Then one from `vxml`, which is the first finding here that byte havoc could not have reached and the
 first that needed more than "nothing threw".
 
@@ -586,13 +654,26 @@ shader it edits parses cleanly and zero equals zero. Both are now pinned there b
 from a broken file — and two of the three rows were confirmed to fail with the fix reverted, which is
 the only thing that makes a regression test one.
 
-**A third in the same family is open, past the gate's budget.** At forty thousand cases — the gate runs
-fifteen hundred — three inputs make the incremental reparse build a *structurally different tree*,
-which is a worse failure than losing a diagnostic. The printed text still agrees, so the round-trip
-oracle sees nothing; only the shape comparison catches it. The smallest is forty bytes:
+**And a third, from the nightly, which is the second defect surviving its own fix in the one shape it
+did not cover.** The gate that decides whether a member may be reused walks forward past its node to
+reach the terminator diagnostic reported at the next real token — and it walked `char.IsWhiteSpace`,
+stopping at the first character that was not one. A **comment** between the member and that token ends
+the window early, so the member looks clean and its diagnostic disappears again. Thirty-eight against
+a full parse's thirty-nine, on `var threshold: float/* ck */tp`: the block comment is the next token's
+leading trivia and the window stopped eight characters short. It walks the lexer's own trivia now,
+which is where the answer already was — `LexedToken` says which tokens the parser navigates over, and
+a second opinion about what counts as trivia is what produced this. Two rows in
+`IncrementalParseTests`, both confirmed to fail with the fix reverted; `raven/1ceee2894c870b9f.bin`.
+
+**And a fourth, which was the worse failure of the two shapes and is closed.** At forty thousand cases
+— the gate runs fifteen hundred — three inputs made the incremental reparse build a *structurally
+different tree*, which is worse than losing a diagnostic. The printed text still agreed, so the
+round-trip oracle saw nothing; only the shape comparison caught it. The smallest is forty bytes:
 `return 1\nenum E {\n    Off,\n    On = 5\n}\n`, with the enum's name replaced by the keyword
-`shader`. Filed rather than fixed, and deliberately *not* promoted to the corpus — a committed input
-for an unfixed defect is a red gate, and the rule here is that promotion follows the fix.
+`shader`, which leaves the enum's members lexing identically at what is now a member boundary. The fix
+is `ReuseCandidate.Context` — a candidate carries the parse loop that produced it and a reuse site
+names the one it is standing in — and both inputs are in the corpus with rows in
+`IncrementalParseTests`.
 
 And then the one the fifth oracle was written for, which no other oracle here could have reported.
 

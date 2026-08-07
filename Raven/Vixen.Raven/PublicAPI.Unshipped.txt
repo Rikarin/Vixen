@@ -3413,6 +3413,7 @@ static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ConditionMustBeBool 
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.CyclicBaseType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.DuplicateDeclaration -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.DuplicateEntryPoint -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.EmptyCollectionHasNoElementType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.EntryPointCannotBeGeneric -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.EnumMemberValueNotConstant -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.FormatOnNonImage -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
@@ -3449,6 +3450,7 @@ static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.PermutationTypeNotSu
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.PermutationValueTypeMismatch -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.PushConstantHasNoSet -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.PushConstantMustBeAValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.RecursiveCall -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.RecursiveStructLayout -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ResourceMustBeShaderField -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ResourceSetConflict -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

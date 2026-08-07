@@ -1263,4 +1263,78 @@ public static class SemanticDiagnostics {
         Declaration,
         DiagnosticSeverity.Warning
     );
+
+    // --- Calls -------------------------------------------------------------
+
+    /// <summary>
+    ///     A call graph that comes back to where it started — <c>RVN2139</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Neither <see cref="CircularDefinition" /> nor
+    ///         <see cref="RecursiveStructLayout" />, and the three together are the same distinction
+    ///         drawn twice. <c>RVN2005</c> is resolution that does not terminate — a signature reaching
+    ///         its own type — and it fires while a symbol is being built. <c>RVN2008</c> is a type with
+    ///         no finite size, checked at layout because it resolves in one step. This is a
+    ///         <em>body</em> that reaches itself: both signatures are complete before either body is
+    ///         bound, so nothing is re-entered, nothing recurses, and every guard the compiler already
+    ///         had says the declaration is fine. It is only when somebody asks for a program that the
+    ///         answer stops existing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An error rather than a warning, and reported here rather than left to the
+    ///         backend.</b> SPIR-V has no call stack in its execution model and forbids recursion
+    ///         outright, so a cycle is not something that lowers badly — there is no program to emit.
+    ///         Left alone, a recursive shader compiled with nothing to say and produced a module
+    ///         <c>spirv-val</c> refuses with
+    ///         <c>[VUID-StandaloneSpirv-None-04634]</c>, which is a driver-level message about a file
+    ///         nobody wrote, and only on a machine that happens to have a validator on it. Found by
+    ///         <c>Vixen.Fuzz</c>'s <c>raven</c> target, whose validity oracle is that validator; see
+    ///         <c>RecursionCheck</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The route, not the function</b> — the <c>RVN2008</c> rule. <c>A</c> calling
+    ///         <c>B</c> calling <c>A</c> is what nobody sees by reading, and a message naming only
+    ///         <c>A</c> sends the author to the half of it that is not the problem.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor RecursiveCall = new(
+        "RVN2139",
+        "Recursive call",
+        "'{0}' is reached from its own body — {1} — and Raven has no recursion: a shader has no call "
+        + "stack, and SPIR-V requires an entry point's call graph to have no cycles",
+        Binding,
+        DiagnosticSeverity.Error
+    );
+
+    // --- Collection literals -----------------------------------------------
+
+    /// <summary>A <c>[]</c> with nothing in it to take an element type from — <c>RVN2140</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A collection literal in Raven is inferred from its contents and never from the place
+    ///         it is going — there is no target-typed <c>[]</c>, and
+    ///         docs/plan/07-raven-shader-pipeline.md § B describes the literal entirely in terms of
+    ///         what its elements contribute, a spread included. So an empty one has no element type
+    ///         there is any way to learn. It also has no length worth having: an array is sized, and
+    ///         zero is not a size (<c>RVN2116</c>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The type it used to get instead was <c>?[0]</c>, and every position that could
+    ///         reject it did — except the one that does not look.</b> Assigning it reported
+    ///         <c>RVN2020</c> and declaring it reported <c>RVN2116</c>, so the only survivor was
+    ///         <c>[]</c> as an expression statement, where nothing asks what it is: the binder said
+    ///         nothing, the lowerer said <c>RVN3001</c>, and the SPIR-V backend — which the fuzz
+    ///         harness runs whatever the lowerer thought — emitted
+    ///         <c>OpCompositeConstruct %void</c>. It is <c>Corpus/raven/9352e56acef97227.bin</c>.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor EmptyCollectionHasNoElementType = new(
+        "RVN2140",
+        "Empty collection literal",
+        "'[]' has no elements to take an element type from, and Raven does not infer one from "
+        + "context; write the elements, or an array declaration with a size",
+        Binding,
+        DiagnosticSeverity.Error
+    );
 }

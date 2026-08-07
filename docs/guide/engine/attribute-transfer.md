@@ -3,9 +3,9 @@ title: Attribute transfer
 slug: engine/attribute-transfer
 kind: guide
 area: Engine
-summary: Carrying a source mesh's normals, coordinates, colours, materials and skinning weights onto the quads a remesh produced.
+summary: Carrying a source mesh's normals, coordinates, colours, materials and skinning weights onto the quads a remesh produced — and mirroring them when the remesh was symmetric.
 api: [T:Vixen.Geometry.Remeshing.AttributeTransfer, T:Vixen.Geometry.Remeshing.SourceAttributes, T:Vixen.Geometry.Remeshing.TransferSettings, T:Vixen.Geometry.Remeshing.TransferResult, T:Vixen.Geometry.Remeshing.SkinInfluence, T:Vixen.Geometry.Remeshing.SkinBinding]
-tags: [geometry, retopology, remesh, skinning, materials, normals]
+tags: [geometry, retopology, remesh, skinning, materials, normals, symmetry, mirroring]
 since: 0.1
 status: preview
 related: [engine/retopology, engine/map-baking, engine/edit-meshes, core/triangle-tree]
@@ -106,6 +106,91 @@ survivor a function of the input.
 normalising its zeros would divide by zero or, worse, attach the prop to bone zero — which on a
 humanoid is the pelvis. `TransferResult.UnboundVertices` counts them, and a whole mesh of them means
 the source binding was indexed wrongly.
+
+### Symmetry mirrors the attributes, and skin weights need a bone map
+
+[`RemeshSettings.Symmetry`](engine/retopology) solves one half of the mesh and reflects it, so the
+attributes are reflected with it rather than transferred twice. Normals reflect through the plane;
+colours, coordinates and face groups copy unchanged. **Skinning weights do not**, because a mirrored
+vertex's weights belong to the *mirrored bone* — and `SkinInfluence` is `(int Bone, float Weight)`, an
+index with no name, so nothing in this library can work out which bone that is.
+
+`SourceAttributes.BoneMirror` says. Entry *i* is the index of bone *i*'s mirror, and a centre bone maps
+to itself:
+
+```csharp compile
+using System;
+using System.Collections.Generic;
+using Vixen.Core.Mathematics;
+using Vixen.Geometry;
+using Vixen.Geometry.Remeshing;
+
+public static class MirroringARig {
+    // The convention lives with whoever has the skeleton. This one is the engine's own, the same
+    // suffix list ProxyShapeDocument.Sided uses for blockout shapes.
+    static readonly (string Left, string Right)[] Sides = [("_l", "_r"), ("left", "right"), ("_L", "_R")];
+
+    public static int[] Map(IReadOnlyList<string> bones) {
+        var index = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        for (var bone = 0; bone < bones.Count; bone++) {
+            index[bones[bone]] = bone;
+        }
+
+        var mirror = new int[bones.Count];
+
+        for (var bone = 0; bone < bones.Count; bone++) {
+            // A bone with no side, and a bone whose partner is not in the skeleton, are both their
+            // own mirror. Leaving either out would make the map short, and a short map is refused.
+            mirror[bone] = Sided(bones[bone]) is { } other && index.TryGetValue(other, out var found)
+                ? found
+                : bone;
+        }
+
+        return mirror;
+    }
+
+    public static EditMesh Character(EditMesh scan, SkinBinding weights, IReadOnlyList<string> bones) =>
+        Remesher.Remesh(
+            scan,
+            new SourceAttributes { Weights = weights, BoneMirror = Map(bones) },
+            new RemeshSettings { TargetQuads = 6000, Symmetry = new Plane(Vector3.UnitX, 0f) },
+            out _,
+            out _
+        );
+
+    static string? Sided(string name) {
+        foreach (var (left, right) in Sides) {
+            if (name.EndsWith(left, StringComparison.Ordinal)) {
+                return name[..^left.Length] + right;
+            }
+
+            if (name.EndsWith(right, StringComparison.Ordinal)) {
+                return name[..^right.Length] + left;
+            }
+        }
+
+        return null;
+    }
+}
+```
+
+⚠ **Symmetry with weights and no map refuses rather than guessing.** The `TransferResult` comes back
+empty and the report carries a warning naming `BoneMirror`. The alternative is mirroring a weight onto
+the bone it already named, which produces a character whose left arm drives their right leg — found by
+an animator three weeks later and never by a test. A map that names a bone outside itself, one that is
+not its own inverse, or one shorter than the bones the binding uses is refused the same way and the
+warning says which bone.
+
+⚠ **A vertex on the plane is symmetrised, not left alone.** It is one vertex standing in both halves,
+so its weights are averaged with their own mirror. This is the one place an influence count can *grow*
+— two four-bone sets average to as many as eight — so the seam is the only part of the mesh where
+`MaxInfluences` drops anything, and the survivors are rescaled rather than truncated.
+
+⚠ **Asymmetric detail in the source's attributes is discarded, and that is what symmetry asks for.**
+Only the kept half is ever read, so a scar painted on one cheek comes back on both cheeks or neither.
+Everywhere else the mirror is exact: a mirrored vertex's weights are the kept half's weights relabelled,
+which are the *same floats* rather than nearby ones.
 
 ## Examples
 

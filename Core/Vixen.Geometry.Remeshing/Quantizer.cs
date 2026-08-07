@@ -124,7 +124,13 @@ static class Quantizer {
         // matter. Imposing it protects docs/plan/41's second exit criterion; it also makes the system
         // strictly harder, and a partition where it cannot be met has to produce a mesh rather than a
         // refusal. Measured: a box quantizes with the floor on some partitions and not on others, and
-        // the fallback is the difference between 5,047 quads and nothing at all.
+        // the fallback is the difference between a result and nothing at all.
+        //
+        // ⚠ It fires far less than it did, and the reason is the layout rather than this solver. A
+        // partition with slits in it puts one arc into three or four constraints instead of two, which
+        // is what made the floor unsatisfiable; once PatchLayout walks its loose ends out, a union and
+        // a difference both quantize with the floor on where neither used to. A box is the one fixture
+        // still falling back.
         return solved.IsFeasible ? solved : Attempt(layout, mode, scale, false);
     }
 
@@ -137,6 +143,23 @@ static class Quantizer {
 
         if (!holdFeatures) {
             warnings.Add("A feature arc had to be allowed to collapse for the layout to quantize.");
+        }
+
+        // ⚠ An arc is not a feature arc and still may not collapse, when both of its ends are ends of
+        // ones. Collapsing it merges its two ends into a single output vertex — § D7's permitted zero —
+        // and where both ends carry a crease that single vertex has to stand for two distinct points of
+        // the feature graph, so one of the two creases starts somewhere its own chain never went.
+        // Measured on a union: the worst feature arc was a single straight edge with a chord sagitta of
+        // exactly zero, reporting 1.66e-2 of the diagonal because a plain neighbour had collapsed across
+        // it. § D4 makes a hard edge a chain of output edges by construction, and that is a claim about
+        // where the chain *starts* as much as about what runs along it.
+        var creased = new HashSet<int>();
+
+        for (var arc = 0; arc < arcs; arc++) {
+            if (layout.Arcs[arc].IsFeature) {
+                creased.Add(layout.Arcs[arc].Vertices[0]);
+                creased.Add(layout.Arcs[arc].Vertices[^1]);
+            }
         }
 
         for (var arc = 0; arc < arcs; arc++) {
@@ -154,7 +177,12 @@ static class Quantizer {
             // feature reproduction error went from 5.1e-5 to 5.1e-2 the moment the budget scaling
             // pushed a feature arc to nothing. § D4 makes a hard edge a chain of output edges by
             // construction, and a chain of no edges is not one.
-            lower[arc] = holdFeatures && layout.Arcs[arc].IsFeature ? 1 : 0;
+            lower[arc] = holdFeatures
+                && (layout.Arcs[arc].IsFeature
+                    || (creased.Contains(layout.Arcs[arc].Vertices[0])
+                        && creased.Contains(layout.Arcs[arc].Vertices[^1])))
+                ? 1
+                : 0;
         }
 
         var graph = Graph.Build(layout, arcs);
