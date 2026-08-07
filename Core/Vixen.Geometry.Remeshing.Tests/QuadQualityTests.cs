@@ -54,6 +54,19 @@ public class QuadQualityTests {
     ///         measurement: a Coons blend of four curved boundary chains is not injective, so the patch
     ///         interior folds, and the fix is a real per-patch parameterization.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That parameterization now exists — <see cref="PatchParameterization" /> — and these
+    ///         bounds did not move, which is the finding rather than a disappointment.</b> Measured off
+    ///         the written <c>.obj</c>: box −0.961 over 24 faces, cylinder −0.997 over 64, stairs −0.976
+    ///         over 42, plate −0.838 over 9, union −0.991 over 38, difference −0.990 over 29, sphere
+    ///         −0.081 over 4. On the sphere the patches it fills are clean — 0 of 175, worst
+    ///         <c>+0.474</c> — so on the one fixture with no hard edge the blend was the whole cause.
+    ///         On the other six the quads it leaves inverted are near-<i>planar</i> bow-ties inside
+    ///         patches it filled, which a provable embedding cannot produce from a region that does not
+    ///         double back — so what is left is a patch spanning a crease, and that is the layout's
+    ///         defect rather than the extraction's. ⚠ <b>Tightening these bounds is now § D7's work and
+    ///         not § D8's.</b>
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("box", -0.97f)]

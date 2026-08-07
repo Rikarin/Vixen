@@ -1050,6 +1050,33 @@ rather than the target moved.
    not injective. **The fix is a real per-patch parameterization — harmonic or mean-value — and it is a
    piece of work of its own rather than a tolerance.**
 
+   ⚠️ **The parameterization was built, and it narrows this attribution rather than confirming it.**
+   `PatchParameterization` maps each patch onto the unit square by Tutte's theorem in Floater's form —
+   mean-value weights, rim pinned with the same per-arc parameterization the samples were placed with,
+   the grid laid on the square and lifted back through the source triangles — and every answer is
+   verified before it is used. Three measurements, all parsed from the written `.obj` rather than read
+   off the report:
+
+   - **On the sphere it closes completely.** The patches it fills come back with **0 inverted faces of
+     175**, worst corner `+0.474`; the 4 that remain are all in patches it still refuses. That is the
+     one fixture with no hard edge, and on it the named cause was the whole cause.
+   - **On the six hard-surface fixtures it does not.** The box keeps **11 of 215** and the stairs
+     **11 of 210** *inside patches the parameterization filled*, and those quads are near-**planar**
+     bow-ties — their two halves 176° to 180° apart, edges within a factor of three of each other.
+     A planar bow-tie is not a blend that folded and it is not curvature; the cell is bounded by a map
+     that is provably an embedding, so what is left is the patch region itself doubling back in space.
+     That is a patch spanning a crease, which § D4 says the layout should have cut at — **a layout
+     defect, not an extraction one.**
+   - **3 to 11 faces per fixture are in patches one quad wide**, which have no interior vertex at all.
+     No interior construction of any kind reaches them, so the blend was never their cause either.
+
+   Whole-fixture worst scaled Jacobian is therefore **unmoved** (box −0.965 → −0.961, cylinder −0.997
+   → −0.997, stairs −0.966 → −0.976, plate −0.840 → −0.838, union −0.991 → −0.991, difference −1.000 →
+   −0.990, sphere −0.079 → −0.081), and over the 16-file real corpus at a 5 000-quad budget the count
+   of inverted faces falls **3 692 → 3 505**, about 5%, with the worst per file unchanged. ⚠️ **The
+   next piece of work is the layout, not the interior**: the criterion stays open and its remaining
+   cause is now named.
+
 ---
 
 ## What this does not become

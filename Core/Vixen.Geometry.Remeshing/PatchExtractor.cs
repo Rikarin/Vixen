@@ -107,9 +107,17 @@ sealed class Extraction {
 ///     <para>
 ///         <b>The grid comes out of the quantization by construction.</b> A patch whose two opposite
 ///         side groups agree on <i>m</i> and <i>n</i> holds an <c>m × n</c> grid and nothing else has to
-///         be decided; the interior is a Coons interpolation of the four boundary chains, projected onto
-///         the conditioned surface. There is no marching, no snapping and no clean-up pass, which is
-///         what makes the T-junction-free claim an argument rather than a hope.
+///         be decided; the interior comes from <see cref="PatchParameterization" />, which maps the
+///         patch's own triangles onto the unit square and lifts the grid back through them. There is no
+///         marching, no snapping and no clean-up pass, which is what makes the T-junction-free claim an
+///         argument rather than a hope.
+///     </para>
+///     <para>
+///         ⚠ <b>The Coons blend is still here and it is the fallback, not the plan.</b> A patch the
+///         parameterization refuses — one whose triangles are not a disc, or whose rim the map does not
+///         reproduce — keeps the transfinite interior it always had, projected back onto the surface.
+///         Dropping the patch instead would turn an inverted quad into a hole, and a hole is the half of
+///         an unusable output that nothing downstream can repair.
 ///     </para>
 /// </remarks>
 static class PatchExtractor {
@@ -474,14 +482,21 @@ static class PatchExtractor {
             }
         }
 
+        // § D8's per-patch parameterization, with the blend kept for the patches it refuses. A lifted
+        // point is already on the conditioned surface — it is a barycentric point of one of its
+        // triangles — so it is the blended one, and only the blended one, that needs projecting back.
+        var embedded = PatchParameterization.Interior(mesh, layout.Arcs, patch, samples, output, grid, wide, tall);
+
         for (var i = 1; i < wide; i++) {
             for (var j = 1; j < tall; j++) {
                 var u = (float) i / wide;
                 var v = (float) j / tall;
 
-                var position = Coons(output, grid, i, j, wide, tall, u, v);
+                var position = embedded is not null
+                    ? embedded[i - 1, j - 1]
+                    : projector.Project(Coons(output, grid, i, j, wide, tall, u, v));
 
-                grid[i][j] = output.AddPosition(projector.Project(position));
+                grid[i][j] = output.AddPosition(position);
                 arcOf.Add(-1);
                 sourceOf.Add(-1);
                 pinned.Add(false);
