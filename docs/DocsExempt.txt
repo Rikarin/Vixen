@@ -3548,7 +3548,6 @@ T:Vixen.Ui.Rendering.PathTessellator sweep-pending
 T:Vixen.Ui.Rendering.PathVertex sweep-pending
 T:Vixen.Ui.Rendering.UiDraw sweep-pending
 T:Vixen.Ui.Rendering.UiGeometry sweep-pending
-T:Vixen.Ui.Rendering.UiGeometryBuilder sweep-pending
 T:Vixen.Ui.Rendering.UiShape sweep-pending
 T:Vixen.Ui.Rendering.UiVertex sweep-pending
 T:Vixen.Ui.RoutingPhase sweep-pending
