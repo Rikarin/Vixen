@@ -295,6 +295,16 @@ public sealed class LayoutStyleBuilder {
             result.FlexShrink = shrink;
         }
 
+        // ⚠ <b>A fractional value is dropped rather than rounded, and that is the specification
+        // rather than fastidiousness.</b> `order` takes `<integer>`, so `order: 1.5` is an invalid
+        // declaration and an invalid declaration leaves the initial value — the same rule `Set`
+        // applies to lengths, and the reason it matters is that rounding would put the item in
+        // ordinal group 2 where every browser puts it in group 0. The cascade has no integer kind
+        // (`order: 2` arrives as the float 2), so integrality is checked here or nowhere.
+        if (TryNumber(style, names.Order, out var order) && float.IsInteger(order)) {
+            result.Order = (int) order;
+        }
+
         if (TryNumber(style, names.AspectRatio, out var bare)) {
             result.AspectRatio = bare;
         } else if (TryRatio(style, names.AspectRatio, out var ratio)) {
@@ -547,6 +557,7 @@ public sealed class LayoutStyleBuilder {
             FlexShrink = table.Intern("flex-shrink");
             FlexBasis = table.Intern("flex-basis");
             AspectRatio = table.Intern("aspect-ratio");
+            Order = table.Intern("order");
 
             Width = table.Intern("width");
             Height = table.Intern("height");
@@ -590,6 +601,7 @@ public sealed class LayoutStyleBuilder {
         public int FlexShrink { get; }
         public int FlexBasis { get; }
         public int AspectRatio { get; }
+        public int Order { get; }
         public int Width { get; }
         public int Height { get; }
         public int MinWidth { get; }

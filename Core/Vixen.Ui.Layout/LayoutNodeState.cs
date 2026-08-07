@@ -27,7 +27,18 @@ public enum LayoutNodeState : byte {
     HasBaselineFunction = 16,
 
     /// <summary>The node is a reference for absolute children even though it is in flow.</summary>
-    IsReferenceBaseline = 32
+    IsReferenceBaseline = 32,
+
+    /// <summary>This node's order-modified child list no longer matches its children.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Rebuilt between passes rather than on demand, because the arena moves.</b>
+    ///     <c>ChildArena.Slice</c> hands out a span into one array that <c>Array.Resize</c>
+    ///     relocates, and the algorithm holds a child span across the recursive call that lays each
+    ///     child out. Sorting lazily inside <c>ChildIds</c> could therefore allocate a block, grow
+    ///     the arena, and leave an ancestor's loop walking freed memory. So a mutation only sets
+    ///     this flag, and <c>CalculateLayout</c> drains the queue before it descends.
+    /// </remarks>
+    ChildOrderStale = 64
 }
 
 /// <summary>Where a node sits in the tree.</summary>

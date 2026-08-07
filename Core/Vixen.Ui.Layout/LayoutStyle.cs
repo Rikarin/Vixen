@@ -91,6 +91,21 @@ public struct LayoutStyle {
     /// <summary>What the dimensions measure.</summary>
     public BoxSizing BoxSizing;
 
+    /// <summary>Which ordinal group this item is laid out and painted in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not in Yoga, so not in a single one of the 534 ported fixtures.</b> CSS Flexbox §5.4
+    ///     lays items out in <i>order-modified document order</i> — sorted by this integer, ties
+    ///     broken by document position — and paints them in that same order. It changes neither
+    ///     selector matching nor sequential focus navigation, both of which stay on document order;
+    ///     those are the three places this reaches and the two it must not.
+    ///
+    ///     An <see cref="int" /> rather than a byte because CSS allows negatives, and
+    ///     <c>order: -1</c> in front of a row of defaulted items is the idiom the property exists
+    ///     for. Zero is the initial value, which is also <c>default</c> — the one field here where
+    ///     the all-zeroes struct is already right.
+    /// </remarks>
+    public int Order;
+
     /// <summary>The <c>flex</c> shorthand, if it was the thing that was set.</summary>
     public float Flex;
 
