@@ -14,6 +14,7 @@ using Vixen.Engine.Transforms;
 using Vixen.Graphics;
 using Vixen.Net.Transport.Local;
 using Vixen.Ui;
+using Vixen.Ui.Composition;
 using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.Diagnostics;
@@ -222,13 +223,23 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
                 Contextual(panel);
 
-                var memory = panel.Add<MemoryView>();
+                // ⚠ Built rather than added, because doc 36 § F7 made this panel a `.vxml` and a
+                // markup component is a `Component` — it *builds* elements and is not one. The host
+                // element it creates carries the same `memory-view` tag the control did, so every
+                // rule in `ProfilerTheme` still lands.
+                var memory = BuildContext.Build<MemoryView>(panel.Document, panel);
 
                 // ⚠ The asset provider is the editor's and the GPU one is not wired. A device reports
                 // its heaps through `VK_EXT_memory_budget`, which the Vulkan backend does not query —
                 // so the arena is absent rather than shown as zero, which is the difference between
                 // "not measured" and "nothing allocated".
                 memory.Providers.Assets = AssetResidency;
+
+                // ⚠ And this is now the *only* reading taken rather than the second. The control
+                // called `Take` from `OnCreated` as well, before the provider above existed, so the
+                // panel measured the process twice on open and discarded the poorer answer. A
+                // component has no build-time hook, which turned that into a thing the host says
+                // once.
                 memory.Take();
             }
         );
@@ -239,7 +250,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             panel => {
                 Contextual(panel);
 
-                var statistics = panel.Add<StatisticsView>();
+                var statistics = BuildContext.Build<StatisticsView>(panel.Document, panel);
 
                 // Whichever scene the editor is showing, so opening a prefab and pressing Refresh
                 // counts the prefab rather than the level behind it.
