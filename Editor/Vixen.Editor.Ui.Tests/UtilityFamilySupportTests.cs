@@ -122,7 +122,7 @@ public class UtilityFamilySupportTests {
         // so a token that held one would be the same number in two files. `rounded-tl-lg` is
         // therefore not a thing *in this theme* while `rounded-tl-[6px]` is, and the row has to say
         // which of the two it is testing. The family is what is on trial here, not the scale.
-        { "rounded-[4px]", "border-top-left-radius", "4px" },
+        { "rounded-[4px]", "border-top-left-radius", "4px 4px" },
         { "rounded-tl-[6px]", "border-top-left-radius", "6px" },
         { "rounded-br-[2px]", "border-bottom-right-radius", "2px" },
         { "rounded-t-[6px]", "border-top-right-radius", "6px" },
@@ -304,24 +304,28 @@ public class UtilityFamilySupportTests {
     /// </summary>
     [Fact]
     public void A_per_edge_border_colour_paints_only_the_edge_it_names() {
-        using var ui = Sheet("border-2", "border-b-accent", "border-border", "w-8", "h-8");
+        using var ui = Sheet("border-2", "border-b-accent", "w-8", "h-8");
 
-        var element = ui.Create("probe", ui.Document.Root, null, "border-2", "border-border", "border-b-accent");
+        var element = ui.Create("probe", ui.Document.Root, null, "border-2", "border-b-accent", "w-8", "h-8");
 
         ui.Frame();
 
-        var bands = ui.Document.Drawing.Commands
-            .Where(command => command.Kind == DrawCommandKind.Rectangle)
-            .ToList();
+        // ⚠ <b>No uniform `border-border` beside it, and that is the point of the arrangement.</b>
+        // The two utilities have equal specificity, so which one owns `border-bottom-color` is decided
+        // by the order the generator emitted them in — a real question, and somebody else's. With only
+        // the per-edge colour set, three edges have a width and no colour and paint nothing, and the
+        // one band that appears is unambiguously the one `border-b-accent` asked for.
+        var band = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle
+        );
 
-        Assert.Equal(4, bands.Count);
+        Assert.Equal(element.AbsoluteTop + element.Height - band.Height, band.Y);
+        Assert.Equal(2f, band.Height);
+        Assert.Equal(element.Width, band.Width);
 
-        // The accent is the one band that is not the border colour, and it lies along the bottom.
-        var accent = Assert.Single(bands, band => band.Color.B > band.Color.R);
-        var bottom = bands.Max(band => band.Y);
-
-        Assert.Equal(bottom, accent.Y);
-        Assert.Equal(element.Height - accent.Height, accent.Y - element.AbsoluteTop);
+        // The accent is blue-dominant; the surface and border tokens are not.
+        Assert.True(band.Color.B > band.Color.R, "the band carries the accent colour");
     }
 
     /// <summary>

@@ -149,4 +149,74 @@ public class BorderLonghandTests {
         Assert.True(rectangle.HasStyle);
         Assert.Equal(6f, document.Drawing.Boxes[rectangle.Offset].Corners.BottomRight.X);
     }
+
+    /// <summary>Sabotage: a uniform radius must <i>not</i> pay for the side buffer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The claim the whole design rests on, and the one an implementation drifts away
+    ///     from.</b> The side buffer is compared entry by entry every frame beside the commands, so a
+    ///     builder that wrote an entry for every rounded box would put every panel in the editor
+    ///     through a second comparison to say what the scalar already said. Asserting the count is
+    ///     zero is the only way that stays true.
+    /// </remarks>
+    [Fact]
+    public void A_uniform_radius_writes_nothing_to_the_side_buffer() {
+        using var document = Drawn(".probe { border-radius: 6px; background-color: #0000ff; }");
+
+        var rectangle = Assert.Single(
+            document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle
+        );
+
+        Assert.False(rectangle.HasStyle);
+        Assert.Equal(6f, rectangle.Radius);
+        Assert.Empty(document.Drawing.Boxes);
+    }
+
+    /// <summary>Sabotage: four equal <i>ellipses</i> are equal and still not one number.</summary>
+    [Fact]
+    public void An_elliptical_radius_survives_both_axes() {
+        using var document = Drawn(".probe { border-radius: 8px / 4px; background-color: #0000ff; }");
+
+        var rectangle = Assert.Single(
+            document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle
+        );
+
+        Assert.True(rectangle.HasStyle, "equal ellipses still need the side buffer");
+
+        var corners = document.Drawing.Boxes[rectangle.Offset].Corners;
+
+        Assert.Equal(8f, corners.TopLeft.X);
+        Assert.Equal(4f, corners.TopLeft.Y);
+        Assert.Equal(8f, corners.BottomRight.X);
+        Assert.Equal(4f, corners.BottomRight.Y);
+    }
+
+    /// <summary>Sabotage: an edge with a colour and no width paints nothing.</summary>
+    /// <remarks>
+    ///     A colour is not a border. CSS draws an edge only where <c>border-width</c> is non-zero, and
+    ///     a builder that emitted a band per coloured edge would put a hairline round every element
+    ///     the theme gave a <c>border-color</c> to and no width — which is most of them, because the
+    ///     colour is usually set on a base rule and the width on the variant.
+    /// </remarks>
+    [Fact]
+    public void A_colour_without_a_width_draws_nothing() {
+        using var document = Drawn(".probe { border-bottom-color: #00ff00; }");
+
+        Assert.Empty(document.Drawing.Commands);
+    }
+
+    /// <summary>Sabotage: the uniform ring is still one command when a radius is involved.</summary>
+    [Fact]
+    public void A_uniform_border_on_a_rounded_box_is_still_one_command() {
+        using var document = Drawn(
+            ".probe { border-width: 2px; border-color: #ff0000; border-radius: 4px; }"
+        );
+
+        var border = Assert.Single(Borders(document));
+
+        Assert.Equal(4f, border.Radius);
+        Assert.False(border.HasStyle);
+        Assert.Empty(Bands(document));
+    }
 }
