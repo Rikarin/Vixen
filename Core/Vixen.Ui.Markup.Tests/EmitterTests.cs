@@ -325,6 +325,63 @@ public class EmitterTests {
         Assert.Equal(["b", "a"], root.Children.Where(child => child.Tag == "li").Select(Text));
     }
 
+    /// <summary>
+    ///     ⚠ <b><c>class</c> is a set, and it is not the element's whole set.</b> A control gives
+    ///     itself <c>variant-default</c> and <c>size-md</c> in <c>OnCreated</c>, before any markup
+    ///     attribute is applied, and a <c>class</c> that replaced everything it found deleted both
+    ///     — so <c>&lt;Button class="history-entry" Variant="Subtle" /&gt;</c> got its variant back
+    ///     from the assignment that followed and silently lost its size. The scope class of a
+    ///     <c>&lt;style scoped&gt;</c> went the same way.
+    /// </summary>
+    [Fact]
+    public void A_class_on_a_control_tag_leaves_the_classes_the_control_gave_itself() {
+        const string Source = """
+                              @component Greeter
+                              <Gauge class="history-entry" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var gauge = component.Root.Children.Single();
+
+        Assert.True(gauge.HasClass("history-entry"));
+        Assert.True(gauge.HasClass("size-md"));
+        Assert.True(gauge.HasClass("variant-default"));
+    }
+
+    /// <summary>
+    ///     And it still replaces what it wrote, which is the reason it does not simply append:
+    ///     <c>class="tile @Kind"</c> whose expression changes must not leave the old value behind.
+    /// </summary>
+    [Fact]
+    public void A_class_that_changes_takes_back_only_what_it_wrote() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code { public Signal<string> Kind { get; } = new("warm"); }
+
+                              <Gauge class="tile @Kind.Value" />
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var gauge = component.Root.Children.Single();
+
+        document.Effects.Flush();
+        Assert.True(gauge.HasClass("warm"));
+
+        ((Signal<string>)Property(instance, "Kind")).Value = "cold";
+        document.Effects.Flush();
+
+        Assert.False(gauge.HasClass("warm"));
+        Assert.True(gauge.HasClass("cold"));
+        Assert.True(gauge.HasClass("tile"));
+        Assert.True(gauge.HasClass("size-md"));
+    }
+
     static string Text(UiElement element) => element.Children.Single().Text ?? string.Empty;
 
     static Signal<int> Count(object instance) => (Signal<int>)Property(instance, "Count");

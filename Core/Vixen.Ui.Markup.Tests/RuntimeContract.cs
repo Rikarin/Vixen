@@ -30,6 +30,22 @@ static class RuntimeContract {
                                          public string? Caption { get; set; }
                                      }
 
+                                     // What a `Control` is, in the one respect `class` cares about:
+                                     // it names its own classes in `OnCreated`, before any markup
+                                     // attribute is applied. The real one gives itself
+                                     // `variant-default` and `size-md` there. Referencing
+                                     // Vixen.Ui.Controls from here would buy a heavier test project
+                                     // and no more coverage than the two AddClass calls.
+                                     public class Gauge : UiElement {
+                                         protected override string TagName => "gauge";
+
+                                         protected override void OnCreated() {
+                                             base.OnCreated();
+                                             AddClass("variant-default");
+                                             AddClass("size-md");
+                                         }
+                                     }
+
                                      public class Callout : Component {
                                          public string Kind { get; set; } = "";
                                          protected override void Build(BuildContext ctx) => ctx.Element(null, "callout-body");

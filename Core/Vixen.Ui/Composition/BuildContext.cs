@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Vixen.Ui.Reactive;
 
 namespace Vixen.Ui.Composition;
@@ -84,6 +85,15 @@ public sealed class BuildContext {
 
     /// <summary>The region currently being built into, per parent element.</summary>
     readonly Dictionary<UiElement, Region> regions = [];
+
+    /// <summary>What a <c>class</c> attribute last wrote to an element, so it can take it back.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Weak, unlike <see cref="regions" />, because nothing ever takes an entry out.</b> A
+    ///     region is removed when its host unmounts; a <c>class</c> binding has no such moment, and
+    ///     a <c>@for</c> over a list that churns would otherwise hold every row it ever built for as
+    ///     long as the document lives.
+    /// </remarks>
+    readonly ConditionalWeakTable<UiElement, string[]> classes = new();
 
     /// <summary>Where subscriptions go, so that clearing a branch stops everything inside it.</summary>
     Region building;
@@ -482,9 +492,22 @@ public sealed class BuildContext {
     /// <param name="name">The attribute name.</param>
     /// <param name="value">Its value.</param>
     /// <remarks>
-    ///     <c>class</c> is the one name handled specially, because it is a set rather than a value:
-    ///     writing it replaces the classes rather than appending to them, which is what makes
-    ///     <c>class="btn @variant"</c> behave when <c>variant</c> changes.
+    ///     <para>
+    ///         <c>class</c> is the one name handled specially, because it is a set rather than a
+    ///         value: writing it replaces what the <i>last write</i> put there rather than appending
+    ///         to it, which is what makes <c>class="btn @variant"</c> behave when <c>variant</c>
+    ///         changes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The last write, not every class the element carries.</b> An element is given
+    ///         classes by things that are not this attribute — a scoped stylesheet's scope class in
+    ///         <see cref="Element" />, and a <c>Control</c>'s own <c>variant-default</c> and
+    ///         <c>size-md</c>, both applied before any markup attribute is. Treating <c>class</c> as
+    ///         the complete set deleted them: <c>&lt;Button class="row" Variant="Subtle" /&gt;</c>
+    ///         got its variant back from the assignment that followed and lost its size outright.
+    ///         A panel that wanted a class on a control tag had to call <c>AddClass</c> from
+    ///         <c>OnComposed</c> instead, which is no longer true and no longer worth doing.
+    ///     </para>
     /// </remarks>
     public void Attribute(UiElement target, string name, string value) {
         ArgumentNullException.ThrowIfNull(target);
@@ -845,15 +868,22 @@ public sealed class BuildContext {
     void SetClasses(UiElement target, string value) {
         var wanted = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        foreach (var existing in Document.Styles.Tree.GetClassNames(target.StyleNode)) {
-            if (!wanted.Contains(existing, StringComparer.Ordinal)) {
-                target.RemoveClass(existing);
+        // Only what this attribute put there last time comes off. Anything else on the element was
+        // put there by somebody else — the scope class, or the control itself — and is not this
+        // binding's to remove. See `Attribute`.
+        if (classes.TryGetValue(target, out var previous)) {
+            foreach (var stale in previous) {
+                if (!wanted.Contains(stale, StringComparer.Ordinal)) {
+                    target.RemoveClass(stale);
+                }
             }
         }
 
         foreach (var className in wanted) {
             target.AddClass(className);
         }
+
+        classes.AddOrUpdate(target, wanted);
     }
 
     static string Format(object? value) =>
