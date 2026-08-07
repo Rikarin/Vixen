@@ -161,6 +161,70 @@ public class SelectorMatchingTests {
     }
 
     [Fact]
+    public void Empty_means_no_children_and_no_text() {
+        var fixture = new StyleFixture();
+
+        var bare = fixture.Tree.CreateElement("span");
+        var labelled = fixture.Tree.CreateElement("span");
+        var parent = fixture.Tree.CreateElement("div");
+        fixture.Tree.CreateElement("span", parent);
+
+        fixture.Tree.SetHasText(labelled, true);
+
+        Assert.True(fixture.Matches(":empty", bare));
+        Assert.False(fixture.Matches(":empty", parent));
+
+        // ⚠ The half that is not the child count, and the half the two rules in the tree that wanted
+        // `:empty` are entirely about. Both are on leaves — a search row's port and a vector lane's
+        // letter — whose content is `UiElement.Text` and never a child, so a `:empty` that counted
+        // children alone would match them whatever they said and hide the ones with something to
+        // say. Text is a node in the DOM and a property here, and this is where that difference is
+        // paid back.
+        Assert.False(fixture.Matches(":empty", labelled));
+
+        fixture.Tree.SetHasText(labelled, false);
+        Assert.True(fixture.Matches(":empty", labelled));
+    }
+
+    [Fact]
+    public void Empty_composes_with_everything_else_a_compound_can_hold() {
+        var fixture = new StyleFixture();
+
+        var lane = fixture.Tree.CreateElement("node-port-lane", classNames: ["muted"]);
+        var named = fixture.Tree.CreateElement("node-port-lane", classNames: ["muted"]);
+        fixture.Tree.SetHasText(named, true);
+
+        Assert.True(fixture.Matches("node-port-lane:empty", lane));
+        Assert.False(fixture.Matches("node-port-lane:empty", named));
+
+        Assert.False(fixture.Matches(".muted:not(:empty)", lane));
+        Assert.True(fixture.Matches(".muted:not(:empty)", named));
+
+        Assert.True(fixture.Matches(":is(:empty, .selected)", lane));
+        Assert.False(fixture.Matches(":is(:empty, .selected)", named));
+
+        // A pseudo-class, so it counts in the middle column exactly as `:hover` does.
+        Assert.Equal(new Specificity(0, 1, 1), fixture.Compile("node-port-lane:empty").Specificity);
+    }
+
+    [Fact]
+    public void A_rule_that_asks_what_an_element_holds_turns_style_sharing_off() {
+        // The sharing key carries what an element *is* — parent, tag, id, classes, state, inline
+        // block — and `:empty` asks what it *holds*. Two lanes of one vector field are the same tag
+        // and the same classes under the same parent, and only one of them was given a letter; a
+        // cache that shared between them would hand the named one the hidden one's style. This is
+        // the same hole `:nth-child` and `[attr]` are already kept out of.
+        var fixture = new StyleFixture();
+        var rules = new StyleRuleSet(fixture.Table, fixture.Names, new NameTable(), new NameTable());
+
+        rules.Add(fixture.Compile("node-port-lane"), [], StyleOrigin.Author, CascadeLayers.Unlayered);
+        Assert.True(rules.SharingIsSound);
+
+        rules.Add(fixture.Compile("node-port-lane:empty"), [], StyleOrigin.Author, CascadeLayers.Unlayered);
+        Assert.False(rules.SharingIsSound);
+    }
+
+    [Fact]
     public void Not_and_is_take_whole_selector_lists() {
         var fixture = new StyleFixture();
         var plain = fixture.Tree.CreateElement("div", classNames: ["row"]);

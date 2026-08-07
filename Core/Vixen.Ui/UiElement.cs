@@ -696,6 +696,12 @@ public partial class UiElement : Composition.IComposable {
             Document.Layout.MarkDirty(LayoutNode);
         }
 
+        // The cascade's half of the same fact, and what makes `:empty` mean what CSS means by it —
+        // an element with words in it is not empty, however few children it has. `Invalidate` below
+        // is what restyles on the back of it: a text change is a cold pass, so nothing narrower is
+        // owed here, and `:empty` needs no entry in the invalidation map.
+        Document.Styles.Tree.SetHasText(StyleNode, !string.IsNullOrEmpty(current));
+
         Document.Invalidate();
     }
 

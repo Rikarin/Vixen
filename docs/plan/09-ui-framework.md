@@ -329,7 +329,7 @@ accept both**. Cheap to know before the property system is written; expensive to
 
 Supported: type/class/id/universal selectors, descendant/child/sibling combinators, attribute
 selectors, `:hover`/`:active`/`:focus`/`:focus-visible`/`:disabled`/`:checked`/`:first-child`/
-`:last-child`/`:nth-child()`/`:not()`/`:is()`/`:where()`, pseudo-elements `::before`/`::after`,
+`:last-child`/`:nth-child()`/`:empty`/`:not()`/`:is()`/`:where()`, pseudo-elements `::before`/`::after`,
 custom properties (`--x`) with `var()` and fallbacks, `@media` (width/height/orientation/
 prefers-color-scheme/dpi), `@supports`, `@keyframes`, `@font-face`, `@import`, `@layer` (cascade
 layers — worth having, it is how the utility system and component styles coexist cleanly).
@@ -361,7 +361,15 @@ The performance-critical part. Naive selector matching is O(elements × rules).
   have literally the same ancestor chain. Gecko does this, for this reason.
 
   Sharing is additionally refused whenever any rule matches on something the key cannot carry — a
-  position pseudo-class, a sibling combinator, or an attribute selector.
+  position pseudo-class, a sibling combinator, an attribute selector, or `:empty`.
+
+  ⚠ **`:empty` is about contents, and Vixen's contents are not the DOM's.** CSS means "no child
+  *nodes*", and a run of text is a node — so a paragraph with words in it is not empty. Text here is
+  a property of the element rather than a node of its own (the departure recorded under *Text*
+  below), so a `:empty` that counted children would call every label in the document empty. The
+  style tree carries a has-text bit alongside the child count, `Vixen.Ui` sets it from
+  `UiElement.Text`, and `:empty` reads both. No invalidation entry is owed: a text change is already
+  a cold pass.
 
   **What this does not cost.** Two mechanisms were conflated under one heading and they separate
   cleanly. *Interning* is what gives every identical cell the same `ComputedStyle` reference, and it
