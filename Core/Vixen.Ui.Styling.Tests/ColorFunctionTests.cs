@@ -95,6 +95,56 @@ public class ColorFunctionTests {
         AssertLinear(Color(text), radians.R, radians.G, radians.B, 1f);
     }
 
+    /// <summary>A colour encoded to sRGB and rounded to bytes, clamped the way a display would.</summary>
+    static string Clamped(string text) {
+        var srgb = Color(text).ToSrgb();
+
+        static int Byte(float value) => (int) MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
+
+        return $"#{Byte(srgb.R):x2}{Byte(srgb.G):x2}{Byte(srgb.B):x2}";
+    }
+
+    [Fact]
+    public void The_palette_this_exists_for_parses_and_two_thirds_of_it_is_outside_sRGB() {
+        // ⚠ **`blue-500`, `red-500` and `emerald-500`, copied out of Tailwind v4's own `theme.css`
+        // rather than recalled.** The third oracle, and the only one made of shipped data. It is what
+        // doc 43 § D4's claim amounts to: no hex anywhere, a lightness as a percentage, a chroma as a
+        // bare number against 0.4, a hue as a bare number of degrees — four places this parser could
+        // have been wrong and still produced a colour.
+        //
+        // ⚠ **And the first version of this test asserted all three were inside sRGB, which is
+        // false.** They are not, and the reason the mistake survived being "checked" is worth having
+        // written down: the reference implementation it was checked against clamped its own output
+        // before printing it, so the two agreed on exactly the numbers the clamp had already
+        // decided. Two of the three overflow —
+        //
+        //   blue-500     linear blue  +1.0527, which encodes to 1.023 — past white
+        //   emerald-500  linear red   -0.0385, which encodes to -0.498 — past black
+        //   red-500      in gamut, and the only one of the three that is
+        //
+        // — so **the gamut question is not academic for the palette this engine is adopting**: it is
+        // load-bearing for two colours in three, before anyone writes a vivid one by hand. That is an
+        // argument for doing § D4 properly against the display's gamut, and an argument against
+        // clamping here, where the information it needs would already be gone.
+        var blue = Color("oklch(62.3% 0.214 259.815)").ToSrgb();
+        var red = Color("oklch(63.7% 0.237 25.331)").ToSrgb();
+        var emerald = Color("oklch(69.6% 0.17 162.48)").ToSrgb();
+
+        Assert.True(blue.B > 1f, $"blue-500 is outside sRGB, got {blue.B}");
+        Assert.True(emerald.R < 0f, $"emerald-500 is outside sRGB, got {emerald.R}");
+
+        Assert.InRange(red.R, 0f, 1f);
+        Assert.InRange(red.G, 0f, 1f);
+        Assert.InRange(red.B, 0f, 1f);
+
+        // Clamped — which is what a display does and what v4's own generated sRGB fallbacks are —
+        // all three land on the bytes an independent transcription of Ottosson's inverse matrices
+        // gives. So the overflow is in the colours and not in this code.
+        Assert.Equal("#2b7fff", Clamped("oklch(62.3% 0.214 259.815)"));
+        Assert.Equal("#fb2c36", Clamped("oklch(63.7% 0.237 25.331)"));
+        Assert.Equal("#00bc7d", Clamped("oklch(69.6% 0.17 162.48)"));
+    }
+
     [Fact]
     public void Alpha_is_read_off_the_slash_in_either_notation() {
         AssertLinear(Color("oklch(0.5 0 0 / 0.4)"), 0.125f, 0.125f, 0.125f, 0.4f);

@@ -625,6 +625,21 @@ functionally, but three things follow from adopting the v4 shape:
    sRGB, and the UI renderer's swapchain format decides what happens. Clamping in `Color4` is the
    honest default and it is what a browser on an sRGB display does.
 
+⚠ **And the gamut question is not academic for this palette — it is load-bearing for most of it.**
+Three v4 colours, taken from its `theme.css` and run through the parser:
+
+| | as v4 ships it | out of sRGB by |
+|---|---|---|
+| `blue-500` | `oklch(62.3% 0.214 259.815)` | linear blue **+1.053** — past white |
+| `emerald-500` | `oklch(69.6% 0.17 162.48)` | linear red **−0.039** — past black |
+| `red-500` | `oklch(63.7% 0.237 25.331)` | in gamut, and the only one of the three |
+
+Two in three, before anyone writes a vivid colour by hand. So "adopt the v4 palette" and "support
+wide-gamut displays" are not two decisions, they are one: on an sRGB display these are clamped and
+match v4's own generated hex fallbacks, and on a P3 display they are colours that can actually be
+shown and must not be. Which raises the value of doing this properly and lowers the value of any
+placeholder that throws the chroma away early.
+
 ⚠ **The interim behaviour, now that the parsing has landed: nothing is clamped, and the out-of-gamut
 linear triple is carried through with its negative channels intact.** Three reasons, and the third is
 the one that matters for whoever picks this up.
