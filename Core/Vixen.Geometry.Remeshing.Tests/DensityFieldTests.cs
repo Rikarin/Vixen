@@ -108,28 +108,63 @@ public class DensityFieldTests {
         Assert.True(onFeature > 0, "There were no feature vertices, so nothing was tested.");
     }
 
-    /// <summary>A density mask divides the target, and one that does not fit the mesh is ignored.</summary>
+    /// <summary>A density mask redistributes the budget, and one that does not fit the mesh is ignored.</summary>
     /// <remarks>
-    ///     ⚠ <b>A mask of the wrong length is not truncated, and the difference matters.</b>
-    ///     <see cref="RemeshSettings.DensityMask" /> is indexed by the <i>source</i> mesh's positions
-    ///     and stage one welds, cuts, de-specks and re-meshes those — so applying the first <i>n</i>
-    ///     entries of somebody else's vertex order paints density in the wrong places and looks like a
-    ///     working feature. <see cref="DensityField.Resample" /> is the way across.
+    ///     <para>
+    ///         ⚠ <b>A mask of the wrong length is not truncated, and the difference matters.</b>
+    ///         <see cref="RemeshSettings.DensityMask" /> is indexed by the <i>source</i> mesh's
+    ///         positions and stage one welds, cuts, de-specks and re-meshes those — so applying the
+    ///         first <i>n</i> entries of somebody else's vertex order paints density in the wrong places
+    ///         and looks like a working feature. <see cref="DensityField.Resample" /> is the way across.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This asserted that a uniform mask of two halves every target, and that stopped
+    ///         being true when <c>base</c> started being solved from the budget rather than assumed from
+    ///         the area.</b> The mask is one of the three terms § D9 multiplies together and
+    ///         <see cref="DensityField.Normalise" /> divides all three back out, so <b>a uniform mask is
+    ///         now exactly a no-op</b> — the budget is the budget, and a mask that says "twice as dense
+    ///         everywhere" says nothing. It is <i>where</i> the mask varies that moves quads, and a
+    ///         painted region is paid for by the unpainted ones. That is the behaviour asserted here,
+    ///         and it is a change in what the setting means rather than a tolerance being loosened.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_mask_divides_the_target_and_a_mismatched_one_is_ignored() {
+    public void The_mask_redistributes_the_budget_and_a_mismatched_one_is_ignored() {
         var mesh = FeatureDetectionTests.Fixture("sphere");
         var settings = new RemeshSettings { Adaptivity = 0f, FeatureAngle = 180f };
         var features = FeatureDetector.Detect(mesh, settings);
         var curvature = CurvatureField.Build(mesh);
 
         var plain = DensityField.Build(mesh, settings, features, curvature);
-        var painted = DensityField.Build(mesh, settings, features, curvature, [.. Enumerable.Repeat(2f, mesh.VertexCount)]);
+        var flat = DensityField.Build(mesh, settings, features, curvature, [.. Enumerable.Repeat(2f, mesh.VertexCount)]);
         var wrong = DensityField.Build(mesh, settings, features, curvature, [1f, 1f, 1f]);
 
         for (var vertex = 0; vertex < mesh.VertexCount; vertex++) {
-            Assert.Equal(plain.Base * 0.5f, painted.Target(vertex), 5);
+            Assert.Equal(plain.Target(vertex), flat.Target(vertex), 5);
             Assert.Equal(plain.Target(vertex), wrong.Target(vertex));
+        }
+
+        // Painted on one hemisphere, so the two halves are each other's control.
+        var mask = new float[mesh.VertexCount];
+
+        for (var vertex = 0; vertex < mask.Length; vertex++) {
+            mask[vertex] = mesh.Positions[vertex].X > 0f ? 2f : 1f;
+        }
+
+        var painted = DensityField.Build(mesh, settings, features, curvature, mask);
+
+        for (var vertex = 0; vertex < mask.Length; vertex++) {
+            if (mask[vertex] > 1f) {
+                Assert.True(
+                    painted.Target(vertex) < plain.Target(vertex),
+                    $"Vertex {vertex} is painted dense and wants {painted.Target(vertex):F5} against {plain.Target(vertex):F5}."
+                );
+            } else {
+                Assert.True(
+                    painted.Target(vertex) > plain.Target(vertex),
+                    $"Vertex {vertex} is unpainted and wants {painted.Target(vertex):F5} against {plain.Target(vertex):F5}."
+                );
+            }
         }
     }
 

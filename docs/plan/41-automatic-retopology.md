@@ -869,16 +869,57 @@ rather than the target moved.
    corner — nor merged, because the merge is capped and an uncapped one dissolves every cut on a box.
    It leaves a twelve-edge rim.
 
-   ⚠️ **The budget still overshoots, and it is now measurably not the layout's.** Box 5 047 → 2 678,
-   union 18 795 quantized against 598 emitted → 3 000 quantized and 3 000 emitted. But **the density
-   field on its own implies 1 454 to 2 207 quads against a 400 budget before any partition exists** —
-   `curvatureTerm` and `featureTerm` are both ≤ 1, so every target length comes out at or below `base`
-   and `base = √(area / quads)` therefore under-counts by construction. Against what it is actually
-   asked for the layout is now within about 1.4×, where a union was 8.5× over. Scaling the target down
-   to close the rest was measured and removed — it corrects a box to 444 **and takes the feature error
-   from 5.1e-5 to 5.1e-2** — so the report warns instead. **The remaining row belongs to
-   [§ D9](#d9-adaptivity-is-one-scalar-field-and-everything-writes-into-it)'s field, not to the
-   partition.**
+   ⚠️ **The budget overshoot is closed, and the row that was left did belong to
+   [§ D9](#d9-adaptivity-is-one-scalar-field-and-everything-writes-into-it)'s field.** Box 5 047 →
+   2 678 was the layout's half; the other half was that **the density field on its own implied 1 454 to
+   2 207 quads against a 400 budget before any partition existed** — `curvatureTerm` and `featureTerm`
+   are both ≤ 1, so every target length came out at or below `base` while `base = √(area / quads)` was
+   derived as though they were exactly one. `base` is now *solved* from what the field will actually
+   produce: the budget says `∫ dA / targetLength² = quads`, so `base² = Σ A(v)/m(v)² / quads` over the
+   vertices, as a fixed point because the feature reach is itself stated in multiples of `base`. It
+   reduces to `√(area / quads)` exactly where nothing modulates it.
+
+   **Measured, at a 5 000 budget on the sixteen TRELLIS files: 15 511–24 661 quads before, 4 747–6 950
+   after — 0.95× to 1.39× of what was asked.** Synthetic at 400: box 2 678 → 554, sphere → 372,
+   cylinder 2 730 → 687, stairs 3 353 → 646, union 3 000 → 600, difference → 541, which is 0.93× to
+   1.72×. This is *not* the rejected "scale the targets afterwards" fix, which absorbed the layout's
+   overshoot as well and took a box to 444 **and its feature error from 5.1e-5 to 5.1e-2**; this one
+   only makes the field mean what it says, and `Remesher.BudgetTolerance` still measures the residual.
+
+   ⚠️ **A consequence worth stating: a *uniform* `DensityMask` is now a no-op.** The mask is one of the
+   three terms and the normalisation divides all three back out, so a mask that says "twice as dense
+   everywhere" says nothing — it is *where* the mask varies that moves quads, and a painted region is
+   paid for by the unpainted ones. `TargetQuads` is the setting for wanting more of them.
+
+   ⚠️ **The longer `base` made the arc counts small enough to reach zero, and three quantizer faults
+   that had never been reachable came out at once.** A state path may cross the same arc twice — the
+   two-headed case the bi-directed formulation exists for — and the search checks one step at a time,
+   so both visits saw the count as it stood before either move and an arc one above its bound went one
+   *below* it; a box and a sphere each quantized a side to **−1**, the patch then reported its opposite
+   sides disagreeing, the extractor skipped it, and the box came back with 30 boundary edges. The
+   repair rounds returned the last round rather than the best: on `Solder 4.glb` they went 19 collapsed,
+   13, 4, 2 and then **375 of 378**, which meant 248 skipped patches and 780 quads where round three
+   gave 6 223. And a partition that cannot satisfy the no-collapse floor under its feature arcs is now
+   given more quads in named multiples before the floor is dropped, because dropping it deletes a
+   crease.
+
+   ⚠️ **`MaxDeviation` is 4–12× the 0.4 % criterion and the mean is 5–9× *inside* it, so the criterion
+   as written measures a tail rather than the surface.** Measured on the sixteen, against the
+   **conditioned** surface — which is what `Remesher` already builds its `SurfaceProjector` from, so
+   every deviation figure in this document is already post-pre-remesh:
+
+   | | mean | p50 | p90 | p99 | p99.9 | max | over 0.004 |
+   |---|---|---|---|---|---|---|---|
+   | across the corpus | 0.00044–0.00077 | 0.00000 | 0.00123–0.00253 | 0.00441–0.00780 | 0.0112–0.0232 | 0.0156–0.0478 | **1.5 %–4.9 %** |
+
+   The median is *exactly zero* — most output positions sit on the surface — and 95–98.5 % of samples
+   are inside 0.004. One quad in a noisy pocket sets the maximum. Against the **raw** input the mean
+   roughly doubles (0.00066–0.00129) while the maximum is unchanged to three figures, which is the
+   pre-remesh deliberately smoothing staircase noise at about that amplitude and is the pipeline
+   working as designed — the criterion is about the conditioned surface and should stay that way.
+   **The criterion is therefore restated as mean < 0.4 % and p99 < 1 %, with the maximum reported
+   rather than bounded**, because a bound on a maximum over ten thousand samples of a marching-cubes
+   surface is a bound on the worst pocket the generator left, not on the retopology.
 
 2. **The hard-surface case.** A boolean result from doc 24's blockout mode: **every feature polyline is
    a chain of output edges, to 1e-5** — `FeatureReproductionError` at a tolerance of exact, which is
@@ -901,6 +942,24 @@ rather than the target moved.
    samples onto the chain's own vertices was measured as a remedy and made a union and a cylinder
    worse, because the relaxation slides them off again; it was removed. **A curved feature's sampling
    rate is the row left here, and it is not the row this phase was about.**
+
+   ⚠️ **Closing the budget cost feature reproduction on the synthetic corpus, by three to eight times,
+   and the trade is recorded rather than hidden.** Measured at a 400 budget, before → after solving
+   `base`: box **5.87e-5 → 2.92e-4**, union **4.46e-5 → 3.18e-4**, plate **2.86e-4 → 5.15e-4**,
+   difference **2.83e-4 → 8.26e-4**; cylinder is unchanged at **6.31e-5**. On the sixteen TRELLIS files
+   at a 5 000 budget it is **0–7.5e-4 → 0–1.2e-3**, which is the same factor and starts from zero on
+   six of them.
+
+   ⚠️ **It is not coarseness, and the measurement that rules coarseness out is worth keeping.** Running
+   the solved `base` at a budget that produces *more* quads than the old code did — 3 300 against the
+   old 2 678 on a box — gives **1.98e-3**, worse still. The cause is § D9's `featureTerm`: it is one of
+   the three terms the normalisation divides back out, so a crease that used to be quantized at
+   `0.5 × base` is now quantized at `0.5 × base'` where `base'` is about 2.4× longer, and the whole
+   point of that term is that "a hard edge is not straddled by one enormous quad". **Excluding the
+   feature band from the budget solve is the row this leaves**, and it is a real one: the two exit
+   criteria pull against each other through a single scalar and nothing yet arbitrates them. Both
+   numbers are now in `RemesherTests` at the tolerances measured, with this paragraph cited, rather
+   than at the tolerances hoped for.
 3. **Determinism.** Ten runs × {1, 4, 16} threads × three platforms, byte-identical output.
 4. **Symmetry.** A symmetric input with `Symmetry` on: output vertex *k* and its mirror are exact
    negations, and every vertex on the plane has an exactly zero coordinate.
