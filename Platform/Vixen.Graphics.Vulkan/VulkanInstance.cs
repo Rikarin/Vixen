@@ -68,6 +68,9 @@ public sealed unsafe class VulkanInstance : IDisposable {
     /// </remarks>
     const string SwapchainColorSpace = "VK_EXT_swapchain_colorspace";
 
+    /// <summary>What <see cref="SwapchainColorSpace" /> depends on, and a headless instance has not got.</summary>
+    const string Surface = "VK_KHR_surface";
+
     /// <summary>
     ///     The validation callback, as an address rather than a delegate.
     /// </summary>
@@ -217,7 +220,12 @@ public sealed unsafe class VulkanInstance : IDisposable {
         // `vkGetPhysicalDeviceSurfaceFormatsKHR` reports, and the swapchain still has to choose to
         // use any of it. Asking for it later is not possible — instance extensions are fixed at
         // creation, and the surface query is made against this instance.
-        if (available.Contains(SwapchainColorSpace)) {
+        //
+        // ⚠ **Only alongside `VK_KHR_surface`, which it depends on.** A headless instance enables no
+        // surface extension at all, and Vulkan requires every dependency of an enabled extension to
+        // be in the same list — so adding this unconditionally is a spec violation on exactly the
+        // configuration that could never use it. `ValidationCleanTests` is what said so.
+        if (available.Contains(SwapchainColorSpace) && extensions.Contains(Surface)) {
             extensions.Add(SwapchainColorSpace);
         }
 
