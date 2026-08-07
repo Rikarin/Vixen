@@ -175,7 +175,7 @@ public static class Remesher {
         // ⑤ Quantize.
         mark = clock.Elapsed;
 
-        var quantization = Budget(layout, settings, warnings);
+        var quantization = Quantizer.Solve(layout);
 
         stages.Add(new(RemeshStage.Quantize, clock.Elapsed - mark, layout.Arcs.Count));
         warnings.AddRange(quantization.Warnings);
@@ -240,6 +240,7 @@ public static class Remesher {
         var (max, mean) = RemeshMetrics.Deviation(output, projector, diagonal);
         var validated = output.Validate();
 
+        Overspent(quads + others, settings, warnings);
         Attribute(conditioning.Mesh, validated, warnings);
 
         report = new(
@@ -321,8 +322,31 @@ public static class Remesher {
     /// <summary>How far over the budget a result may be before the report says so.</summary>
     public const float BudgetTolerance = 1.35f;
 
-    /// <summary>Quantizes, and says so when the count is not the count that was asked for.</summary>
+    /// <summary>Says so when the mesh that came out has more faces than the budget allowed.</summary>
+    /// <param name="faces">How many faces the output actually has, counted off it.</param>
+    /// <param name="settings">The budget.</param>
+    /// <param name="warnings">Where to say so.</param>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Counted off the output, and it used to be predicted off the layout.</b> The warning
+    ///         was decided from <c>Quantizer.QuadCount(layout, counts)</c> — what the quantization
+    ///         intended — while <see cref="RemeshReport.QuadCount" /> is what the extraction produced,
+    ///         and the two diverge by every patch dropped between them. Measured: a result of 138 quads
+    ///         against 96 asked for is 1.44× against a tolerance of 1.35 and carried three warnings,
+    ///         none of which mentioned the budget, because the prediction was under the line and the
+    ///         mesh was not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mirror is the case that makes it unarguable.</b> With
+    ///         <see cref="RemeshSettings.Symmetry" /> on, the prediction is the <i>half</i> mesh's, so
+    ///         the report said "169665 against 96" while the mesh it shipped had 339330 faces — exactly
+    ///         twice, and the number that was wrong was the one in the warning.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Faces rather than quads, so a non-quad still counts against the budget.</b> A budget
+    ///         is about how heavy the result is, and a triangle the extraction emitted is a face
+    ///         somebody pays for whether or not it has four sides.
+    ///     </para>
     ///     <para>
     ///         ⚠ <b>A patch's quad count is a <i>product</i> of two side lengths, so a partition of
     ///         snaky patches overshoots the budget quadratically.</b> A region of area <c>A</c> that is
@@ -340,9 +364,9 @@ public static class Remesher {
     ///         400, before any partition exists: <c>curvatureTerm</c> and <c>featureTerm</c> are both at
     ///         most one, so every target length comes out at or below <c>base</c>, and
     ///         <c>base = √(area / quads)</c> is derived as though they were exactly one. Against what it
-    ///         is actually handed, the layout now lands within about 1.4×. The warning below is still
-    ///         phrased about the partition because that is what a caller can act on, and the row belongs
-    ///         to the field.
+    ///         is actually handed, the layout now lands within about 1.4×. The warning is still phrased
+    ///         about the partition because that is what a caller can act on, and the row belongs to the
+    ///         field.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Scaling every target down to hit the count was tried and is <i>worse</i>, which is
@@ -353,23 +377,17 @@ public static class Remesher {
     ///         phase exists to make achievable, and a quad count is not worth it.
     ///     </para>
     /// </remarks>
-    static Quantization Budget(PatchLayout layout, RemeshSettings settings, List<string> warnings) {
-        var quantization = Quantizer.Solve(layout);
-
+    internal static void Overspent(int faces, RemeshSettings settings, List<string> warnings) {
         if (settings.TargetQuads <= 0 || settings.TargetEdgeLength > 0f) {
-            return quantization;
+            return;
         }
 
-        var quads = Quantizer.QuadCount(layout, quantization.Counts);
-
-        if (quads > settings.TargetQuads * BudgetTolerance) {
+        if (faces > settings.TargetQuads * BudgetTolerance) {
             warnings.Add(
-                $"The budget was not met: {quads} quads against {settings.TargetQuads} asked for, "
+                $"The budget was not met: {faces} quads against {settings.TargetQuads} asked for, "
                 + "because the partition's patches are longer round than they are wide."
             );
         }
-
-        return quantization;
     }
 
     /// <summary>The report a refusal comes back with: no quads, and the reason in the warnings.</summary>
