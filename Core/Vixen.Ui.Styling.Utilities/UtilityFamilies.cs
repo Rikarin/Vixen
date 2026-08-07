@@ -260,7 +260,29 @@ public static class UtilityFamilies {
         BorderEdge("border-s", ["border-inline-start-width"], ["border-inline-start-color"]);
         BorderEdge("border-e", ["border-inline-end-width"], ["border-inline-end-color"]);
 
-        Register(new Family("rounded", ValueKind.Radius, ["border-radius"]));
+        // ⚠ <b>Four of these names are prefixes of others — <c>rounded</c> of <c>rounded-t</c>, and
+        // <c>rounded-t</c> of <c>rounded-tl</c> — and it is `SplitName`'s longest-first sort that
+        // settles them, not the order they appear in here.</b> Worth saying because the sort happens
+        // once at the bottom of this method and is easy to read as a tidiness pass: without it
+        // `rounded-tl-lg` would split as the family `rounded` with the value `tl-lg`, which is not a
+        // radius token, and the class would be reported as an unrecognised typo rather than as a
+        // table that needed sorting.
+        //
+        // ⚠ <b>A side is two corners and not an edge.</b> `rounded-t` writes the two *top* corner
+        // radii, which is why its property list names `border-top-left-radius` and
+        // `border-top-right-radius` rather than anything called "top". CSS has no per-side radius,
+        // because a radius belongs to a corner and every corner is shared by two sides.
+        Radius("rounded-tl", "border-top-left-radius");
+        Radius("rounded-tr", "border-top-right-radius");
+        Radius("rounded-br", "border-bottom-right-radius");
+        Radius("rounded-bl", "border-bottom-left-radius");
+
+        Radius("rounded-t", "border-top-left-radius", "border-top-right-radius");
+        Radius("rounded-r", "border-top-right-radius", "border-bottom-right-radius");
+        Radius("rounded-b", "border-bottom-right-radius", "border-bottom-left-radius");
+        Radius("rounded-l", "border-top-left-radius", "border-bottom-left-radius");
+
+        Radius("rounded", "border-radius");
 
         // ── Effects ─────────────────────────────────────────────────────────────────────────
         // `opacity-50` is half, not fifty. CSS's `opacity` runs 0 to 1 and the utility scale runs
@@ -765,4 +787,7 @@ public static class UtilityFamilies {
 
     static void BorderEdge(string name, string[] widths, string[] colours) =>
         Register(new Family(name, ValueKind.BorderEdge, widths, ColorProperties: colours));
+
+    static void Radius(string name, params string[] properties) =>
+        Register(new Family(name, ValueKind.Radius, properties));
 }

@@ -104,10 +104,29 @@ public class UtilityFamilySupportTests {
         { "opacity-50", "opacity", "0.5" },
         { "shadow-elevation", "box-shadow", "0px 10px 26px rgba(12, 14, 18, 0.22)" },
 
-        // Borders. ⚠ The widths are read per edge; the colours are not — see `Inert`.
+        // Borders, all four edges and all four corners. ⚠ The colours and the radii were in `Inert`
+        // until the draw list learned the rest of the longhands: it interned `border-top-color` and
+        // `border-top-left-radius` and nothing else, so seven of the eight per-edge colours computed
+        // a value nothing read, and `rounded-tl` was not a family at all.
         { "border-2", "border-top-width", "2px" },
         { "border-b", "border-bottom-width", "1px" },
         { "border-border-active", "border-top-color", "#5f8ddb" },
+        { "border-b-border-active", "border-bottom-color", "#5f8ddb" },
+        { "border-l-accent", "border-left-color", "#2f6ecd" },
+        { "border-x-accent", "border-right-color", "#2f6ecd" },
+        { "border-y-accent", "border-top-color", "#2f6ecd" },
+
+        // ⚠ <b>The arbitrary form, because the editor's tokens define no <c>radius</c> scale at
+        // all</b> — `vixen.ui.yaml` says so in a comment and gives the reason: the three radii live in
+        // `EditorTheme` as `var(--radius-row)` and friends, and `ThemeTokens.Radius` parses numbers,
+        // so a token that held one would be the same number in two files. `rounded-tl-lg` is
+        // therefore not a thing *in this theme* while `rounded-tl-[6px]` is, and the row has to say
+        // which of the two it is testing. The family is what is on trial here, not the scale.
+        { "rounded-[4px]", "border-top-left-radius", "4px" },
+        { "rounded-tl-[6px]", "border-top-left-radius", "6px" },
+        { "rounded-br-[2px]", "border-bottom-right-radius", "2px" },
+        { "rounded-t-[6px]", "border-top-right-radius", "6px" },
+        { "rounded-b-[4px]", "border-bottom-left-radius", "4px" },
 
         // Overflow, all three properties and all four keywords. ⚠ `auto` is here because the layout
         // maps it onto `Overflow.Scroll` — the two differ only by a scrollbar gutter nothing draws.
@@ -165,6 +184,17 @@ public class UtilityFamilySupportTests {
     ///         ⚠ <b>A clip is still not a scrollbar.</b> <c>overflow-y-auto</c> cuts the content off
     ///         and nothing offers to scroll it; scrolling in this engine is <c>ScrollView</c>, a
     ///         control that owns its bars and offsets its content.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The per-edge border colours and the per-corner radii are the second family to
+    ///         leave this table, and they were worse than inert.</b> Inert is what
+    ///         <c>border-b-accent</c> looked like — a <c>border-bottom-color</c> the draw list never
+    ///         interned. What it actually did was delete the border: the builder read
+    ///         <c>border-top-color</c> as *the* border colour, so an element given a bottom colour and
+    ///         no top one had no colour at all and drew nothing. The radii were the mirror image —
+    ///         <c>border-top-left-radius</c> rounded all four corners and the other three longhands
+    ///         were ignored. See <see cref="A_per_edge_border_colour_paints_only_the_edge_it_names" />
+    ///         and <see cref="A_per_corner_radius_rounds_only_the_corner_it_names" />.
     ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Inert => new() {
@@ -263,6 +293,67 @@ public class UtilityFamilySupportTests {
             vertical.X + vertical.Width > ui.Document.Viewport.ViewportWidth,
             "and ends right of it"
         );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Support proved at the draw list, for a family that used to erase what it touched.</b>
+    ///     A count is not enough and neither is a colour: what says the utility worked is <i>where</i>
+    ///     the accent-coloured rectangle is. A bottom colour must produce a band along the bottom edge
+    ///     of the border box, and the three red bands must survive beside it — the old builder's
+    ///     failure was that they did not.
+    /// </summary>
+    [Fact]
+    public void A_per_edge_border_colour_paints_only_the_edge_it_names() {
+        using var ui = Sheet("border-2", "border-b-accent", "border-border", "w-8", "h-8");
+
+        var element = ui.Create("probe", ui.Document.Root, null, "border-2", "border-border", "border-b-accent");
+
+        ui.Frame();
+
+        var bands = ui.Document.Drawing.Commands
+            .Where(command => command.Kind == DrawCommandKind.Rectangle)
+            .ToList();
+
+        Assert.Equal(4, bands.Count);
+
+        // The accent is the one band that is not the border colour, and it lies along the bottom.
+        var accent = Assert.Single(bands, band => band.Color.B > band.Color.R);
+        var bottom = bands.Max(band => band.Y);
+
+        Assert.Equal(bottom, accent.Y);
+        Assert.Equal(element.Height - accent.Height, accent.Y - element.AbsoluteTop);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The same, for a corner.</b> <c>rounded-tl-[6px]</c> was not merely unread — it was not a
+    ///     family, so the scanner reported it as an unrecognised class and the generator emitted
+    ///     nothing. The proof is the side buffer: a box whose corners differ cannot be described by
+    ///     <c>DrawCommand.Radius</c>, so an entry in <c>Boxes</c> existing at all is the evidence, and
+    ///     the three square corners are what say the radius went to the corner it named.
+    /// </summary>
+    [Fact]
+    public void A_per_corner_radius_rounds_only_the_corner_it_names() {
+        using var ui = Sheet("rounded-tl-[6px]", "bg-surface", "w-8", "h-8");
+
+        ui.Create("probe", ui.Document.Root, null, "rounded-tl-[6px]", "bg-surface", "w-8", "h-8");
+        ui.Frame();
+
+        var box = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle && command.HasStyle
+        );
+
+        var corners = ui.Document.Drawing.Boxes[box.Offset].Corners;
+
+        Assert.True(corners.TopLeft.X > 0f, "the named corner is rounded");
+        Assert.Equal(0f, corners.TopRight.X);
+        Assert.Equal(0f, corners.BottomRight.X);
+        Assert.Equal(0f, corners.BottomLeft.X);
+
+        // ⚠ And the scalar stays zero rather than carrying the top-left. A consumer that reads only
+        // `Radius` must not round the other three corners by the one that was set — which is exactly
+        // what the old builder did to every box in the editor.
+        Assert.Equal(0f, box.Radius);
     }
 
     /// <summary>
