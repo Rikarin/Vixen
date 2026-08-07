@@ -696,6 +696,12 @@ stops are showable, every pixel between them is. The per-pixel version would dif
 chroma is *distributed* along a ramp whose stops were both outside, and would cost a twelve-iteration
 search with a cube root per iteration on every fragment of a full-screen surface.
 
+**Measured, Release, per colour:** the `InGamut` early-out costs **6–11 ns**; `Oklab.FromLinear`,
+which the specification's ordering paid *before* asking, costs **12 ns**; a full search on a colour
+that really is out of gamut costs **≈ 1 060 ns**. So the reorder roughly halves the common path, and
+a search costs about a hundred times the question — which is the entire case for caching repeats and
+for not caching anything else.
+
 ⚠ **`GamutMap.Map` now asks `InGamut` before it converts to Oklab**, reversing the specification's
 order. That is the difference between this being affordable per colour per frame and not: a showable
 colour used to pay three cube roots to discover it needed nothing, where the test that says so is six
