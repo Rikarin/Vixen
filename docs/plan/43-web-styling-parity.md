@@ -345,7 +345,7 @@ anything happening as a result. `UtilityFamilySupportTests` carried the same thr
 `Supported` for the same reason, in the file whose own remark warns against precisely this. They
 have moved to `Inert`.
 
-**Sized as A20 / task #29 below.** It is small — the animator is finished, and what is missing is a
+**Sized as A20 / task #46 below.** It is small — the animator is finished, and what is missing is a
 field on the style engine, a call to `Observe` where a computed style is replaced, a call to
 `Advance` from the frame's tick, and `Apply` on the way to the consumers. What makes it worth its own
 task rather than a line in another is that it is the seam that decides whether `Vixen.Ui`'s frame
@@ -938,7 +938,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
 | A9 🟢 | `color-mix()` in `StyleValueParser` | `Vixen.Ui.Styling` | **#12** | 0.25 |
 | A10 🟢 | `oklch()`/`oklab()` colour syntax | `Vixen.Ui.Styling` | **#12** | 0.25 |
-| A11 🟡 | Backgrounds: `background-image`, gradients, position, size, repeat. The utility half is done — see [the composition mechanism](#the-composition-mechanism) — so what is left is the consumer | `DrawListBuilder`, `UiShape` | **#30** | 0.6 |
+| A11 🟡 | Backgrounds: `background-image`, gradients, position, size, repeat. The utility half is done — see [the composition mechanism](#the-composition-mechanism) — so what is left is the consumer | `DrawListBuilder`, `UiShape` | **#43** | 0.6 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
 | A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
@@ -947,7 +947,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
 | A18 🟢 | Scroll properties as `ScrollView` inputs rather than CSS | `Vixen.Ui.Controls` | — | 0.3 |
 | A19 🟢 | `text-decoration`, `text-transform`, `font-variant-numeric`, `font-stretch` | `Vixen.Ui.Text` | — | 0.4 |
-| A20 🟢 | **Run the `Animator`** — build one on the style engine, `Observe` a replaced computed style, `Advance` on the tick, `Apply` before the consumers read. The component is finished and has no caller (F10) | `StyleEngine`, `UiDocument` | **#29** | 0.2 |
+| A20 🟢 | **Run the `Animator`** — build one on the style engine, `Observe` a replaced computed style, `Advance` on the tick, `Apply` before the consumers read. The component is finished and has no caller (F10) | `StyleEngine`, `UiDocument` | **#46** | 0.2 |
 | | | | **A total** | **6.9** |
 
 ### Track B — layout modes
