@@ -971,6 +971,29 @@ rather than the target moved.
    criteria pull against each other through a single scalar and nothing yet arbitrates them. Both
    numbers are now in `RemesherTests` at the tolerances measured, with this paragraph cited, rather
    than at the tolerances hoped for.
+
+   ⚠️ **The row has now been tried, and it buys the creases back by giving the budget away.** Dropping
+   `featureTerm` from the normalisation's sum takes box to **7.6e-5** and union to **1.77e-4** — most
+   of the regression undone — and takes box to **1 675 quads against a 400 budget**, 4.2× and far past
+   `BudgetTolerance`. That is the naive `√(area / quads)` back under another name, which is exactly the
+   defect the solve exists to remove, so it is a measurement rather than a change.
+
+   ⚠️ **The matched-count control confirms the not-coarseness claim above, and it is the number worth
+   keeping.** The solved `base` at a 1 200 budget gives box **1 729 quads at 7.17e-4**; the excluded
+   band at a 400 budget gives **1 675 quads — fewer — at 7.6e-5**. Nine times better on less. *Where*
+   the quads sit dominates how many there are.
+
+   ⚠️ **And the obvious way to keep both is worse than either.** The feedback that inflates `base` is
+   that `FeatureReach` is stated in multiples of `base`, so a longer one widens the band that
+   lengthened it. Pinning the reach to the seed breaks the loop and lands the budget — box 614 quads —
+   and wrecks what the band was protecting: box **1.72e-2**, stairs **7.6e-3**, one to two orders
+   worse, because a narrower band is a coarser crease.
+
+   **What is actually left is that `featureTerm` is isotropic.** It shrinks the target in a disc of
+   `3 × base` around a crease, so it costs quads as the *square* of the reach while a crease only needs
+   resolution across itself. No budget absorbs that at 400 quads on a box whose every edge is a
+   feature. **The fix is an anisotropic feature term, and it is a piece of work of its own rather than
+   a tolerance.**
 3. **Determinism.** Ten runs × {1, 4, 16} threads × three platforms, byte-identical output.
 4. **Symmetry.** A symmetric input with `Symmetry` on: output vertex *k* and its mirror are exact
    negations, and every vertex on the plane has an exactly zero coordinate.
