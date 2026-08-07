@@ -4,7 +4,7 @@ slug: core/gamut-mapping
 kind: guide
 area: Core
 summary: Bringing a colour into what a display can actually show, by reducing chroma at constant lightness and hue rather than clipping channels.
-api: [T:Vixen.Core.Mathematics.GamutMap, T:Vixen.Core.Mathematics.ColorGamut]
+api: [T:Vixen.Core.Mathematics.GamutMap, T:Vixen.Core.Mathematics.ColorGamut, T:Vixen.Ui.Rendering.UiGeometryBuilder]
 tags: [colour, oklab, oklch, css, wide-gamut, display-p3]
 since: 0.1
 status: preview
@@ -68,6 +68,20 @@ The swapchain reports what it actually got. Ask for a gamut through `SwapChainDe
 read the backend's gamut back — a surface that offered no wide colour space with enough precision
 behind it stays in sRGB, and mapping to P3 regardless would over-saturate an ordinary display.
 
+### In the interface, this is already wired
+
+`UiGeometryBuilder.Gamut` is where the repair happens for everything the UI draws. Set it from the
+swapchain once, and every colour the builder emits is mapped on its way into a vertex:
+
+```csharp no-compile="a fragment; the pane's swapchain and builder come from the host"
+pane.Geometry.Gamut = pane.SwapChain.Gamut;         // what the surface actually granted
+```
+
+⚠ **The default is `Srgb`, and that is not "off".** An out-of-gamut colour used to reach a `UNORM`
+colour attachment and be clipped per channel by fixed function — which moves the hue. It is now
+repaired first. So this changes what **ordinary hardware** draws, not only wide displays, and it
+changes it only for colours that were already being damaged.
+
 ## Examples
 
 **Choosing what to map against.** The gamut comes from the swapchain, never from a constant:
@@ -76,6 +90,32 @@ behind it stays in sRGB, and mapping to P3 regardless would over-saturate an ord
 var target = swapChain.Gamut;                       // what the surface actually granted
 var shown = GamutMap.Map(colour, target);
 ```
+
+**Per colour on the CPU, not per pixel in a shader — and the two are not equivalent in general.**
+A gradient interpolates *between* stops, so mapping the stops and interpolating afterwards is a
+different operation from interpolating and mapping each pixel. Mapping the stops is nevertheless
+enough to guarantee that no pixel is ever out of gamut, and the reason is convexity: the UI shader's
+only colour combinations are the gradient's `lerp`, premultiplication by coverage and the
+destination blend — all convex combinations in the working space — and each of the three gamuts is a
+linear image of the unit cube, hence convex. A convex combination of points inside a convex set is
+inside it.
+
+What the per-pixel version would buy is *chroma distribution* along a ramp whose stops were both
+outside: it could keep more chroma in the middle, where the interpolated colour may be showable even
+though neither endpoint was. What it would cost is a twelve-iteration binary search with a cube root
+in every iteration, on every fragment of a surface the interface covers entirely — and the early-out
+cannot recover that, because a wavefront takes its longest lane.
+
+**The early-out is the common path and it is ahead of everything.** `Map` asks `InGamut` before it
+converts to Oklab, which on an sRGB surface is six comparisons and no matrix; `UiGeometryBuilder`
+asks the same question before it so much as hashes a cache key. `MappedColours` and `ColourSearches`
+report what a frame actually spent — an interface with a hex palette should show zero for both.
+
+**What is cached, and on what.** The builder keeps a small fixed-size direct-mapped table of repairs.
+The key is the colour's three channel *bit patterns*; alpha is not part of it, because alpha is not
+part of the answer — so one entry serves a token used at every opacity a `/50` modifier can ask for.
+The gamut is not part of the key either: it is a property of the surface, so a change to it makes the
+whole table stale at once and clears it.
 
 **Why the algorithm ends in a clip.** The search reduces chroma until the colour is within one JND of
 the gamut boundary, then returns the *clipped* version rather than the reduced one. That is the

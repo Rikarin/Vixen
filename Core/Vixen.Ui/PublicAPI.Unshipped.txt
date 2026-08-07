@@ -518,11 +518,15 @@ Vixen.Ui.Rendering.UiGeometryBuilder.Build(Vixen.Ui.DrawList list, Vixen.Ui.Text
 Vixen.Ui.Rendering.UiGeometryBuilder.CacheCapacity.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.CacheCapacity.set -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.CachedPaths.get -> int
+Vixen.Ui.Rendering.UiGeometryBuilder.ColourSearches.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.DroppedGlyphs.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.FieldPaths.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.Fringe.get -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.Fringe.set -> float
+Vixen.Ui.Rendering.UiGeometryBuilder.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
+Vixen.Ui.Rendering.UiGeometryBuilder.Gamut.set -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.Rendering.UiGeometryBuilder.Icons.get -> Vixen.Ui.Rendering.IconAtlas?
+Vixen.Ui.Rendering.UiGeometryBuilder.MappedColours.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.RefusedFields.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.TessellatedPaths.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.get -> float

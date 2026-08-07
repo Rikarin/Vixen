@@ -114,7 +114,8 @@ public class UiGamutTests {
     /// </summary>
     [Fact]
     public void The_same_colour_at_ten_opacities_is_still_one_search() {
-        var builder = Paint(ColorGamut.Srgb, list => {
+        var builder = new UiGeometryBuilder { Gamut = ColorGamut.Srgb };
+        var geometry = Build(builder, list => {
             for (var i = 1; i <= 10; i++) {
                 list.Add(Rect(i, 0, 10, 10, new Color4(Blue500.R, Blue500.G, Blue500.B, i / 10f)));
             }
@@ -123,10 +124,12 @@ public class UiGamutTests {
         Assert.Equal(10, builder.MappedColours);
         Assert.Equal(1, builder.ColourSearches);
 
-        // And the coverage it was asked for is still the coverage it has.
-        Assert.Equal(0.1f, geometryAlpha(builder), 4);
-
-        static float geometryAlpha(UiGeometryBuilder _) => 0.1f;
+        // ⚠ And each one still has the coverage it asked for. Sharing an entry across opacities is
+        // only sound if alpha comes back off the *colour* and not off the entry, and a cache that
+        // returned its stored alpha would pass every count above while painting ten identical boxes.
+        for (var i = 1; i <= 10; i++) {
+            Assert.Equal(i / 10f, geometry.Vertices[(i - 1) * 4].Color.A, 4);
+        }
     }
 
     /// <summary>
@@ -278,49 +281,110 @@ public class UiGamutTests {
     }
 
     /// <summary>
-    ///     Why any of this rather than letting the attachment clip: clipping moves the hue and
-    ///     mapping does not. Stated as a comparison, not as a constant — the numbers in the plan
-    ///     document are 42.5° against 5.5°, and what must hold is the ordering between them.
+    ///     Why any of this rather than letting the attachment clip, asked of the vertices that
+    ///     actually come out rather than of the mapper: what the surface used to do to an
+    ///     out-of-gamut colour was a per-channel clip, and a per-channel clip moves the hue.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Swept over hues, because the worst case is not at a hue anyone would pick.</b> A red
+    ///     that is out of gamut along the red axis clips almost straight back down it and barely
+    ///     moves — 0.6° at hue 0 — so a single sample can make clipping look harmless. The damage is
+    ///     in the hues that run out of one channel well before the others.
+    ///     <c>GamutMapTests.Chroma_reduction_holds_hue_where_clipping_does_not</c> makes the same
+    ///     measurement on the mapper directly; what is new here is that it survives the seam.
+    /// </remarks>
     [Fact]
-    public void Mapping_holds_a_hue_that_clipping_would_move() {
-        var vivid = Linear(0.65f, 0.37f, 0f);
-        var geometry = Build(
-            new UiGeometryBuilder { Gamut = ColorGamut.Srgb },
-            list => list.Add(Rect(0, 0, 10, 10, vivid))
-        );
+    public void The_vertices_that_come_out_hold_a_hue_that_clipping_would_move() {
+        var worstDrawn = 0f;
+        var worstClipped = 0f;
 
-        var source = Rgb(vivid);
-        var drawn = Rgb(geometry.Vertices[0].Color);
-        var clipped = GamutMap.Clip(source, ColorGamut.Srgb);
+        for (var hue = 0f; hue < 360f; hue += 5f) {
+            var vivid = Linear(0.65f, 0.37f, hue);
+            var source = Rgb(vivid);
 
-        var mappedShift = HueDifference(source, drawn);
-        var clippedShift = HueDifference(source, clipped);
+            if (GamutMap.InGamut(source, ColorGamut.Srgb)) {
+                continue;
+            }
 
-        Assert.True(clippedShift > 20f, $"clipping should move this hue a long way, moved {clippedShift:0.0}°");
-        Assert.True(mappedShift < 10f, $"mapping should hold the hue, moved {mappedShift:0.0}°");
-        Assert.True(mappedShift < clippedShift, "mapping should hold the hue better than clipping");
+            var geometry = Build(
+                new UiGeometryBuilder { Gamut = ColorGamut.Srgb },
+                list => list.Add(Rect(0, 0, 10, 10, vivid))
+            );
+
+            worstDrawn = MathF.Max(worstDrawn, HueDifference(source, Rgb(geometry.Vertices[0].Color)));
+            worstClipped = MathF.Max(worstClipped, HueDifference(source, GamutMap.Clip(source, ColorGamut.Srgb)));
+        }
+
+        Assert.True(worstClipped > 20f, $"clipping should shift hue badly, worst was {worstClipped:0.0}°");
+        Assert.True(worstDrawn < 10f, $"the drawn vertex should hold hue, worst was {worstDrawn:0.0}°");
+        Assert.True(worstDrawn < worstClipped / 4f, $"drawn {worstDrawn:0.0}°, clipped {worstClipped:0.0}°");
+    }
+
+    /// <summary>
+    ///     Every colour gets its own answer, including when there are far more of them than the
+    ///     table has slots and they are landing on top of each other.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The test that says the cache compares its key, and it has to force collisions to do
+    ///     it.</b> A fixed-size direct-mapped table only ever returns the wrong colour when two
+    ///     colours share a slot, so a handful of test colours will sit in distinct slots and a cache
+    ///     that skipped the key comparison entirely would pass every other test in this file — it
+    ///     did, when that sabotage was tried. A thousand colours over 256 slots makes collisions a
+    ///     certainty rather than a hope, and each one is then checked against what the mapper says
+    ///     about <em>its own</em> source rather than merely being showable.
+    /// </remarks>
+    [Fact]
+    public void Every_colour_gets_its_own_answer_when_the_table_overflows() {
+        var wanted = new List<Color4>();
+
+        for (var lightness = 0.3f; lightness < 0.9f; lightness += 0.05f) {
+            for (var hue = 0f; hue < 360f; hue += 4f) {
+                var colour = Linear(lightness, 0.35f, hue);
+
+                if (!GamutMap.InGamut(Rgb(colour), ColorGamut.Srgb)) {
+                    wanted.Add(colour);
+                }
+            }
+        }
+
+        Assert.True(wanted.Count > 1000, $"needs to overflow 256 slots several times over, had {wanted.Count}");
+
+        var builder = new UiGeometryBuilder { Gamut = ColorGamut.Srgb };
+        var geometry = Build(builder, list => {
+            for (var i = 0; i < wanted.Count; i++) {
+                list.Add(Rect(i % 700, i / 700f, 1, 1, wanted[i]));
+            }
+        });
+
+        Assert.Equal(wanted.Count, builder.MappedColours);
+
+        for (var i = 0; i < wanted.Count; i++) {
+            var expected = GamutMap.Map(Rgb(wanted[i]), ColorGamut.Srgb);
+            var drawn = Rgb(geometry.Vertices[i * 4].Color);
+
+            Assert.Equal(expected.X, drawn.X, 5);
+            Assert.Equal(expected.Y, drawn.Y, 5);
+            Assert.Equal(expected.Z, drawn.Z, 5);
+        }
     }
 
     /// <summary>Text and paths go through the same seam as boxes; nothing gets to skip it.</summary>
     [Fact]
     public void A_path_is_mapped_like_everything_else() {
         var builder = new UiGeometryBuilder { Fringe = 0f };
-        var geometry = Build(builder, list => {
-            var offset = list.AddSegments([
-                new PathSegment(PathSegmentKind.Move, new Vector2(10, 10)),
-                new PathSegment(PathSegmentKind.Line, new Vector2(90, 10)),
-                new PathSegment(PathSegmentKind.Line, new Vector2(50, 80)),
-                new PathSegment(PathSegmentKind.Close, default)
-            ]);
+        var path = new PathBuilder()
+            .MoveTo(new Vector2(10, 10))
+            .LineTo(new Vector2(90, 10))
+            .LineTo(new Vector2(50, 80))
+            .Close();
 
-            list.Add(
-                new DrawCommand(DrawCommandKind.Path, 0, 0, 0, 0, Blue500, 0, 0) {
-                    Offset = offset,
-                    Length = 4
-                }
-            );
-        });
+        var geometry = Build(builder, list => list.Add(
+            new DrawCommand(DrawCommandKind.Path, 0, 0, 0, 0, Blue500, 0, 0) {
+                Offset = list.AddPath(path),
+                Length = path.Count,
+                FillRule = PathFillRule.NonZero
+            }
+        ));
 
         Assert.NotEmpty(geometry.Vertices);
         Assert.Equal(1, builder.MappedColours);
