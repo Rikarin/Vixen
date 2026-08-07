@@ -18,6 +18,37 @@ public class DrawListTests {
         return document;
     }
 
+    /// <summary>The same, with a face registered, for the tests that are about text.</summary>
+    /// <remarks>
+    ///     ⚠ Separate rather than folded into <see cref="Drawn" />: an element with no font emits no
+    ///     <c>Text</c> command at all, so registering one everywhere would add a command to the
+    ///     expected sequence of every test above that happens to put a string somewhere.
+    /// </remarks>
+    static UiDocument DrawnWithText(string css, Action<UiDocument> build) {
+        var document = new UiDocument(400f, 300f);
+        document.Fonts.Register("Test", Face);
+
+        document.Load(css);
+        build(document);
+        document.Update();
+        document.Draw();
+
+        return document;
+    }
+
+    static readonly Text.FontFace Face = LoadFace();
+
+    static Text.FontFace LoadFace() {
+        using var stream = System.Reflection.Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
+            ?? throw new InvalidOperationException("the test font is not embedded");
+
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+
+        return Text.FontFace.Load(memory.ToArray(), name: "TestShapeLana");
+    }
+
     [Fact]
     public void A_background_becomes_a_rectangle_where_layout_put_it() {
         using var document = Drawn(
@@ -89,6 +120,52 @@ public class DrawListTests {
             command => {
                 Assert.Equal(DrawCommandKind.Border, command.Kind);
                 Assert.Equal(3f, command.Thickness, Tolerance);
+            }
+        );
+    }
+
+    /// <summary>
+    ///     The same border, written the way every sheet in this repository actually writes it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the end-to-end guard on a fix that lives two projects away.</b> ExCSS cannot
+    ///     expand a shorthand whose value holds a <c>var()</c>, so it hands <c>border-color</c> back
+    ///     whole and nothing downstream reads that name;
+    ///     <c>Vixen.Ui.Styling.StyleSheetLoader</c> takes it apart at load instead. Its own tests
+    ///     check the taking-apart in isolation and the test above uses a literal colour, so without
+    ///     this one the wiring between them could be removed and every suite would still pass —
+    ///     while every border in the framework silently stopped being drawn, which is exactly how
+    ///     the original went unnoticed.
+    /// </remarks>
+    [Fact]
+    public void A_border_colour_behind_a_var_is_drawn_like_one_written_out() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; --border: #0000ff; }
+            .box { width: 50px; height: 50px; background-color: #00ff00; border-width: 3px; border-color: var(--border); }
+            """,
+            document => document.Root.Add("div", classNames: "box")
+        );
+
+        // The longhand by name, because that is the thing the shorthand was not reaching. The
+        // command below would also fail without it, but it would not say which half broke.
+        var box = Assert.Single(document.Root.Children);
+        var property = document.Styles.Properties.Lookup("border-top-color");
+
+        Assert.True(property >= 0 && box.Style.TryGet(property, out _), "border-top-color never arrived");
+        Assert.Empty(document.Styles.Loader.Diagnostics);
+
+        Assert.Collection(
+            document.Drawing.Commands,
+            command => Assert.Equal(DrawCommandKind.Rectangle, command.Kind),
+            command => {
+                Assert.Equal(DrawCommandKind.Border, command.Kind);
+                Assert.Equal(3f, command.Thickness, Tolerance);
+
+                // Substituted as well as expanded: an unresolved `var(--border)` parses to nothing
+                // and would draw the transparent border that looks exactly like no border at all.
+                Assert.True(command.Color.B > 0.99f);
+                Assert.Equal(0f, command.Color.R, Tolerance);
             }
         );
     }
@@ -191,6 +268,81 @@ public class DrawListTests {
         }
 
         Assert.Equal(0, depth);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An element's own text is inside its own clip, and for a long time it was not.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>overflow</c> clips an element's <i>content</i>; the background and the border are
+    ///         the two things it does not clip, which is why the push sits between them and the text.
+    ///         Emitting the text first meant <c>overflow: hidden</c> clipped an element's children
+    ///         and never its own string — so a label too long for a fixed-width column drew straight
+    ///         across whatever was beside it, and five places in the editor had written
+    ///         <c>overflow: hidden</c> on a text-bearing element believing otherwise.
+    ///     </para>
+    ///     <para>
+    ///         It survived every kind of test the framework had because <b>a clip is invisible to
+    ///         the element tree</b>: the box was the right size, the text was the right text, and the
+    ///         glyphs went somewhere nothing was looking. It took a picture of a key/value row to
+    ///         find, and this is the assertion that would have found it — the *order* of the
+    ///         commands, which is the whole of what a clip is.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_elements_own_text_is_clipped_by_its_own_overflow() {
+        using var document = DrawnWithText(
+            """
+            root { width: 400px; height: 300px; }
+            .box {
+                width: 40px;
+                height: 20px;
+                overflow: hidden;
+                background-color: #111111;
+                border-width: 1px;
+                border-color: #222222;
+                white-space: nowrap;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "box").Text = "far too long for forty pixels"
+        );
+
+        var kinds = document.Drawing.Commands.Select(command => command.Kind).ToList();
+
+        // The background and the border are outside the clip; the text is inside it. Asserted as a
+        // sequence rather than as "a Text exists between two clip markers", because the position of
+        // the push relative to the *background* is the other half of the rule and a containment
+        // check would pass with the push moved above it.
+        Assert.Equal(
+            [
+                DrawCommandKind.Rectangle,
+                DrawCommandKind.Border,
+                DrawCommandKind.ClipPush,
+                DrawCommandKind.Text,
+                DrawCommandKind.ClipPop
+            ],
+            kinds
+        );
+    }
+
+    /// <summary>And an element that does not ask to clip still draws its text.</summary>
+    /// <remarks>
+    ///     The other half of the pair, and not a formality: the fix moved the emission inside an
+    ///     <c>if</c> that had not been there, so the case with no clip at all is the one a careless
+    ///     version drops entirely.
+    /// </remarks>
+    [Fact]
+    public void An_element_that_does_not_clip_still_draws_its_text() {
+        using var document = DrawnWithText(
+            """
+            root { width: 400px; height: 300px; }
+            .box { width: 200px; height: 20px; }
+            """,
+            document => document.Root.Add("div", classNames: "box").Text = "visible"
+        );
+
+        Assert.Equal([DrawCommandKind.Text], document.Drawing.Commands.Select(command => command.Kind));
     }
 
     [Fact]

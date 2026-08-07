@@ -769,6 +769,10 @@ public sealed class AnimationClipEditorFactory : IAssetEditorFactory {
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
 
+        // A `Timeline` and a `CurveEditor`, both of which scroll and pan themselves — see
+        // `SequenceView.CreateView`.
+        DockPanel.Fills(panel);
+
         var view = panel.Add<AnimationClipView>();
         view.Show((AnimationClipDocument) document);
 

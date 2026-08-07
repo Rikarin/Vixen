@@ -49,6 +49,22 @@
             element tree can say where it went.
         -->
         <ProjectReference Include="..\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
+
+        <!--
+            ⚠ The markup compiler, so that at least one test in this assembly is a real `.vxml`
+            rather than the `BuildContext` calls one compiles to. `MarkupTests` writes those calls by
+            hand and says so, which checks what the control library contributes to the language and
+            not that the language reaches the control library — and the two came apart once already:
+            a control is only usable from markup if `ctx.Child<T>` binds to it and `Inner(T)` finds
+            its content host, neither of which a hand-written `Build` body exercises. Analyzers do
+            not travel through a ProjectReference, hence the OutputItemType.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
+
+    <!-- The **/*.vxml glob and the two properties the generator asks MSBuild for. -->
+    <Import Project="..\Vixen.Ui\build\Vixen.Ui.targets" />
 
 </Project>

@@ -164,7 +164,18 @@ sealed partial class EditorApplication {
                 HistoryPanel,
                 EditorStrings.PanelHistory,
                 panel => {
-                    historyView = BuildContext.Build<UndoHistory>(Shell.Document, panel);
+                    // The history's markup already puts its toolbar outside a `<ScrollView>`; a panel
+                    // that scrolled too would nest one in the other.
+                    panel.Scrolls = false;
+
+                    // ⚠ Mounted through the reload host rather than built directly, which is the
+                    // difference between "this panel is written in markup" and "this panel is
+                    // developed in markup". `HotReloadHost` is what the runtime's metadata-update
+                    // handler rebuilds when `dotnet watch` has recompiled `UndoHistory.vxml`; a
+                    // panel built past it keeps whatever `Build` body it was constructed with until
+                    // the editor is restarted. The host prunes it when the panel is closed and its
+                    // elements leave the document, so there is nothing to unregister here.
+                    historyView = hotReload.Mount<UndoHistory>(panel);
 
                     // ⚠ Asked every refresh rather than handed a stack. The inspector arbitrates
                     // between several selections and so must this: a history pointed at the editor's

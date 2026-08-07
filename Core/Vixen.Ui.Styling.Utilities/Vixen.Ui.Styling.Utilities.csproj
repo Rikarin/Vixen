@@ -14,6 +14,39 @@
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+
+        <!--
+            The build step's MSBuild half, which is what makes a PackageReference to this assembly
+            enough on its own: no scanner call, no manifest walk, no bootstrap of any kind in the
+            consuming project. `build/<PackageId>.targets` is the name NuGet imports automatically.
+        -->
+        <None Include="build/Vixen.Ui.Styling.Utilities.targets" Pack="true" PackagePath="build/" />
+
+        <!--
+            ⚠ **The tool is packed by path rather than by ProjectReference, and it has to be.**
+            `Tools/Vixen.StyleGen` is where the step lives, and doc 00's layer rules forbid a Core
+            assembly from referencing anything in Tools — a rule `CheckArchitecture` enforces by
+            reading this file. Referencing it for packing alone would be a layer violation for a
+            dependency that does not exist at run time or at compile time, so the file is named
+            instead and the condition keeps a pack that happens before the tool was built from
+            failing rather than from shipping something wrong.
+
+            ⚠ The consequence, stated plainly because it is a real gap: `dotnet pack` on this project
+            alone produces a package whose `tools/` is empty and whose `.targets` then falls through
+            to its third answer and finds nothing. Packing has to follow a solution build. That is
+            the same bargain `Vixen.Sdk` makes with the CLI it ships.
+        -->
+        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.dll"
+              Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.dll')"
+              Pack="true"
+              PackagePath="tools/"
+              Visible="false" />
+
+        <None Include="$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.runtimeconfig.json"
+              Condition="Exists('$(MSBuildThisFileDirectory)../../Tools/Vixen.StyleGen/bin/$(Configuration)/net10.0/Vixen.StyleGen.runtimeconfig.json')"
+              Pack="true"
+              PackagePath="tools/"
+              Visible="false" />
     </ItemGroup>
 
     <ItemGroup>

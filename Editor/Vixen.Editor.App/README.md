@@ -14,6 +14,13 @@ the ordinary way to start one.
 presents and stops without a validation error or a hang — the flag `Samples/01` introduced and for
 the same reason. With no `--frames` it runs until the window closes.
 
+**Editing a panel without restarting the editor** is
+[`Editor/Vixen.Editor.Host/README.md`](../Vixen.Editor.Host/README.md): the exact `dotnet watch`
+command, which of the three hot-reload channels work today, and — the part worth reading before
+reaching for it — *which* `.vxml` panels are rebuilt and which are not. A panel is reloadable if it
+was mounted through `HotReloadHost.Mount` and not otherwise, which is a one-line difference at the
+call site.
+
 ## The files, and what each is for
 
 | | |

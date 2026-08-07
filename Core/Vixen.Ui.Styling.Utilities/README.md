@@ -22,7 +22,32 @@ every component is in the same repository as every token.
 | `UtilityGenerator` | The stylesheet, into `@layer utilities`. |
 | `CandidateScanner` | Deliberately over-inclusive extraction from source text. |
 | `ApplyExpander` | `@apply` inside VCSS. |
-| Build-step integration, token hot reload | ⏳ waits on the asset pipeline |
+| Build step | `build/Vixen.Ui.Styling.Utilities.targets` + `Tools/Vixen.StyleGen`. A project with a `vixen.ui.yaml` gets its sheet with no code of its own. |
+| Token hot reload | ⏳ waits on the asset pipeline |
+
+## The build step
+
+`build/Vixen.Ui.Styling.Utilities.targets` is imported by a `PackageReference` to this assembly, and
+that is the whole of what a project has to do. Before `CoreCompile` it finds the project's
+`vixen.ui.yaml`, scans **every source file and every `.vxml`** for class names, and writes the sheet
+into `obj/` twice: as a `const string` added to `@(Compile)`, and as a `.vcss` file for the tools.
+`Tools/Vixen.StyleGen/README.md` is the detail.
+
+**Scanning the C# is not a bonus, it is the case that was broken.** Most of the editor's chrome is
+built in code with `AddClass("flex")`, and the startup bootstrap this replaces could only ever see
+embedded markup — so a utility asked for from C# was silently missing. The scanner does not parse
+anything, which is exactly what lets it be pointed at a `.cs` file.
+
+⚠ **It is a process rather than a source generator, and the reason is a dependency.** `ThemeTokens`
+reads YAML through `Vixen.Core.Yaml`, which is YamlDotNet; a Roslyn analyzer's dependencies do not
+travel with it, because `OutputItemType="Analyzer"` contributes one DLL.
+`Vixen.Ui.Markup.Generators` escapes the same trap by *linking* its front end's source, which works
+because that front end is Vixen's own code and does not work here. See that project file's comment,
+which is the best statement of the problem in the tree.
+
+⚠ **`Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs` has deliberately not been converted.** It is the
+hundred and thirty lines the step replaces, kept as the reference for what a project used to have to
+write. Converting it is three deletions and two lines of MSBuild, and it belongs in its own change.
 
 ## The ideas
 
@@ -62,19 +87,38 @@ What the family set *is* chosen against is order of work. The border edges, the 
 sequencing argument — do the families whose properties already land — and it stops being a reason the
 moment the property lands too.
 
-⚠ **Twenty of the ninety properties these families emit reach no consumer**, and knowing which is the
-point. `opacity`, `cursor`, `text-align`, `tracking`, `leading`, `z` and `font` were all in this list
-until the engine learned them; still in it are the transforms (`--translate-x`, `--translate-y`,
-`--scale`, `--rotate`), `--blur`, `ring` (`outline-color`), `fill`, `stroke`, `user-select`,
-`vertical-align`, `order`, `grid-column`, `grid-template-columns`, the per-axis `overflow`, and every
-per-edge border **colour** except `border-top-color`.
+⚠ **Eighteen of the ninety properties these families emit reach no consumer**, and knowing which is
+the point. `opacity`, `cursor`, `text-align`, `tracking`, `leading`, `z`, `font` and the per-axis
+`overflow` were all in this list until the engine learned them; still in it are the transforms
+(`--translate-x`, `--translate-y`, `--scale`, `--rotate`), `--blur`, `ring` (`outline-color`),
+`fill`, `stroke`, `user-select`, `vertical-align`, `order`, `grid-column`, `grid-template-columns`,
+and every per-edge border **colour** except `border-top-color`. A rule that resolves to a property no
+consumer looks at is not a bug in the generator — it is a utility waiting for an engine feature, and
+[doc 43](../../docs/plan/43-web-styling-parity.md) § C5 turns that list into a build gate so a
+waiting utility has to name what it is waiting for.
 
-⚠ **Two of them are worse than inert and are not on that list.** The per-edge border *widths* are read
-by the layout and ignored by the draw list, which takes one thickness from `Edge.Top`: so `border-l-2`
-insets the content box and paints nothing, and `border-t-2` paints all four sides. And `overflow-auto`
-clips in the draw list while the layout — whose keyword table has `visible`, `hidden` and `scroll` and
-not `auto` — goes on treating the box as visible. A property that is half read is harder to find than
-one that is not read at all.
+⚠ **One case is worse than inert and is not on that list.** The per-edge border *widths* are read by
+the layout and ignored by the draw list, which takes one thickness from `Edge.Top` and one colour from
+`border-top-color`: so `border-l-2` insets the content box and paints nothing, and `border-t-2` paints
+all four sides. A property that is *half* read is harder to find than one that is not read at all —
+the geometry moves and the picture does not follow.
+
+**`overflow-x-*` and `overflow-y-*` are read now, and `overflow-*-auto` reaches the layout.** They
+were the most misleading pair in the set: the unprefixed `overflow` was read, the two per-axis names
+were interned by nobody, and `overflow-y-auto` therefore resolved cleanly and did nothing at all.
+`Vixen.Ui.OverflowReader` is the one place all three are resolved, for the clip stack and the hit test
+alike, and `LayoutStyleBuilder` maps `auto` onto the layout's `Overflow.Scroll` — the same layout CSS
+gives it, since the only thing `auto` and `scroll` disagree about is a scrollbar gutter nothing here
+draws. Two things follow that a web author should be told. A named axis beats the shorthand whatever
+order they were written in, because nothing expands `overflow` into longhands on the way in and the
+computed style keeps no source order. And there is **no coercion between the axes**: CSS turns a
+`visible` into an `auto` when its partner is not visible, and this does not, so `overflow-x-auto`
+clips sideways and leaves the top and bottom edges alone — which is what the class name says and what
+a rectangle with one pair of edges past the viewport expresses exactly.
+
+⚠ **A clip is not a scrollbar.** `overflow-y-auto` cuts the content off; nothing offers to scroll it.
+Scrolling is `ScrollView`, a control that owns its bars and offsets its content — so a panel that
+needs to reach what it clipped needs one of those, and the utility alone will hide the rest.
 
 **A shadow token is a whole declaration, not a set of numbers to assemble.** A shadow is a designed
 thing: its offset, blur and alpha are chosen together to read as one height above the surface, and a

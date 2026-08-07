@@ -338,6 +338,12 @@ public sealed class ShaderGraphEditorFactory : IAssetEditorFactory {
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
 
+        // ⚠ A node canvas pans and zooms in a space of its own and converts a pointer with
+        // `Surface.AbsoluteLeft`, so a panel that also scrolled would be a second, invisible transform
+        // between the cursor and the graph. The generated-source pane beside it is a `CodeEditor`,
+        // which virtualises its own scrolling from its own viewport height.
+        DockPanel.Fills(panel);
+
         var view = panel.Add<ShaderGraphView>();
         view.Show((ShaderGraphDocument) document);
 

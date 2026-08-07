@@ -255,6 +255,31 @@ Vixen.Ui.Controls.Image.SourceRectangle.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Image.SourceRectangle.set -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Image.Texture.get -> ulong
 Vixen.Ui.Controls.Image.Texture.set -> ulong
+Vixen.Ui.Controls.KeyValueList -> sealed class
+Vixen.Ui.Controls.KeyValueList : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.KeyValueList.AddRow(string? key = null, string? value = null) -> Vixen.Ui.Controls.KeyValueRow
+Vixen.Ui.Controls.KeyValueList.Clear() -> void
+Vixen.Ui.Controls.KeyValueList.Count.get -> int
+Vixen.Ui.Controls.KeyValueList.KeyValueList() -> void
+Vixen.Ui.Controls.KeyValueList.Row(int index) -> Vixen.Ui.Controls.KeyValueRow
+Vixen.Ui.Controls.KeyValueList.Rows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.KeyValueRow>
+Vixen.Ui.Controls.KeyValueList.Trim(int count) -> void
+Vixen.Ui.Controls.KeyValueRow -> sealed class
+Vixen.Ui.Controls.KeyValueRow : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.KeyValueRow.ClearIsHeading() -> void
+Vixen.Ui.Controls.KeyValueRow.ClearKey() -> void
+Vixen.Ui.Controls.KeyValueRow.ClearValue() -> void
+Vixen.Ui.Controls.KeyValueRow.Content<T>() -> T
+Vixen.Ui.Controls.KeyValueRow.IsHeading.get -> bool
+Vixen.Ui.Controls.KeyValueRow.IsHeading.set -> bool
+Vixen.Ui.Controls.KeyValueRow.Key.get -> string?
+Vixen.Ui.Controls.KeyValueRow.Key.set -> string?
+Vixen.Ui.Controls.KeyValueRow.KeyPart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.KeyValueRow.KeyValueRow() -> void
+Vixen.Ui.Controls.KeyValueRow.Reset() -> void
+Vixen.Ui.Controls.KeyValueRow.Value.get -> string?
+Vixen.Ui.Controls.KeyValueRow.Value.set -> string?
+Vixen.Ui.Controls.KeyValueRow.ValuePart.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.KeyboardShortcut -> sealed class
 Vixen.Ui.Controls.KeyboardShortcut : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.KeyboardShortcut.ClearKey() -> void
@@ -776,6 +801,12 @@ override Vixen.Ui.Controls.IconButton.TagName.get -> string
 override Vixen.Ui.Controls.Image.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Image.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Image.TagName.get -> string
+override Vixen.Ui.Controls.KeyValueList.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.KeyValueList.TagName.get -> string
+override Vixen.Ui.Controls.KeyValueRow.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.KeyValueRow.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.KeyValueRow.OnCreated() -> void
+override Vixen.Ui.Controls.KeyValueRow.TagName.get -> string
 override Vixen.Ui.Controls.KeyboardShortcut.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.KeyboardShortcut.TagName.get -> string
 override Vixen.Ui.Controls.Link.TagName.get -> string
@@ -932,6 +963,9 @@ static readonly Vixen.Ui.Controls.Icon.GeometryProperty -> Vixen.Ui.UiPropertyKe
 static readonly Vixen.Ui.Controls.Icon.ViewBoxProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Image.DescriptionProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Image.SourceProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.KeyValueRow.IsHeadingProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.KeyValueRow.KeyProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.KeyValueRow.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.KeyboardShortcut.KeyProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.KeyboardShortcut.ModifiersProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Link.HrefProperty -> Vixen.Ui.UiPropertyKey

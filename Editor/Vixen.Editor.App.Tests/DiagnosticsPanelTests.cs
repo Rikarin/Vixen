@@ -6,6 +6,7 @@ using Vixen.Editor.Debugger;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.Testing;
 using Vixen.Ui;
+using Vixen.Ui.Composition;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -172,7 +173,7 @@ public class DiagnosticsPanelTests {
     public void The_statistics_panel_counts_the_scene_it_is_pointed_at() {
         using var session = EditorSession.Start();
 
-        var view = Find<StatisticsView>(session, "statistics");
+        var view = Built<StatisticsView>(session, "statistics");
 
         Assert.NotNull(view.Statistics);
 
@@ -184,7 +185,7 @@ public class DiagnosticsPanelTests {
     public void The_memory_panel_has_a_reading_as_soon_as_it_opens() {
         using var session = EditorSession.Start();
 
-        var view = Find<MemoryView>(session, "memory");
+        var view = Built<MemoryView>(session, "memory");
 
         Assert.NotNull(view.Snapshot);
         Assert.True(view.Snapshot.BytesOf(MemoryArena.Managed) > 0);
@@ -208,6 +209,25 @@ public class DiagnosticsPanelTests {
         session.Frames(2);
 
         return Descendants(session.Document.Root).OfType<T>().Single();
+    }
+
+    /// <summary>The same, for a panel written in <c>.vxml</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second finder rather than a wider one, because a component is not in the element
+    ///     tree at all.</b> Doc 36 § F7's first wave made the memory and statistics panels markup, and
+    ///     the markup compiler's base type is <c>Component</c> — it builds elements and is not one, so
+    ///     <c>Descendants(…).OfType&lt;T&gt;()</c> cannot see it however the constraint is relaxed.
+    ///     What links the two is <see cref="UiDocument.ComponentAt" />: every component registers
+    ///     itself against the host element it drew into, which is the element the walk *does* find.
+    /// </remarks>
+    static T Built<T>(EditorSession session, string panel) where T : Component {
+        session.Open(panel);
+        session.Frames(2);
+
+        return Descendants(session.Document.Root)
+            .Select(session.Document.ComponentAt)
+            .OfType<T>()
+            .Single();
     }
 
     static IEnumerable<UiElement> Descendants(UiElement element) {

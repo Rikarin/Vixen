@@ -52,7 +52,13 @@ public static class DebuggerTheme {
             min-width: 0px;
         }
 
-        debugger-state, remote-counters {
+        /* ⚠ A class rather than a tag, because the state pane is a `KeyValueList` now and its tag is
+           the control's. What is left here is the pane's place in the debugger's layout — how wide
+           it is and which edge it is against — and the six rules that used to draw a row are gone:
+           two columns, a heading class and a pooling loop were the control's job and never this
+           file's. Its own `min-width: 180px` is what keeps the halves readable in a narrow dock;
+           below that the key column clips, which is the control's answer and not a new one. */
+        .debugger-state, remote-counters {
             width: 44%;
             min-width: 180px;
             flex-shrink: 0;
@@ -62,27 +68,9 @@ public static class DebuggerTheme {
             border-color: var(--border);
         }
 
-        state-line {
-            flex-direction: row;
-            align-items: center;
-            gap: 8px;
-            padding: 2px 8px;
-            min-height: 20px;
-        }
-
-        state-line.state-heading {
-            margin-top: 6px;
-            color: var(--text);
-            border-bottom-width: 1px;
-            border-color: var(--border);
-        }
-
-        state-line.state-row { color: var(--text-muted); }
-        state-label { width: 45%; min-width: 90px; flex-shrink: 0; overflow: hidden; }
-
-        /* Monospaced would be better and there is no such token; what is here is the
-           next best thing — a fixed column, so two handles line up digit for digit. */
-        state-value { flex-grow: 1; color: var(--text); overflow: hidden; }
+        /* The one thing the shared row does not say: a group heading in a capture has air above it,
+           because the groups are what somebody scans the pane for. */
+        .debugger-state key-value-row.heading { margin-top: 6px; }
 
         /* ── The remote inspector ───────────────────────────────────────────── */
         remote-counter {

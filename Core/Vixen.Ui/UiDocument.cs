@@ -48,7 +48,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int bold;
     readonly int italic;
     readonly int oblique;
-    readonly int overflow;
+    readonly OverflowReader overflow;
     /// <summary>How many tombstoned slots it takes before compacting is worth the walk.</summary>
     /// <remarks>
     ///     A floor rather than a pure ratio, because the ratio alone would compact a four-element
@@ -58,7 +58,6 @@ public sealed partial class UiDocument : IDisposable {
     const int CompactionFloor = 64;
 
     readonly int none;
-    readonly int visible;
 
     /// <summary>The subtrees a <c>Remove</c> is part-way through announcing.</summary>
     /// <remarks>
@@ -106,9 +105,8 @@ public sealed partial class UiDocument : IDisposable {
         bold = Styles.Values.Intern("bold");
         italic = Styles.Values.Intern("italic");
         oblique = Styles.Values.Intern("oblique");
-        overflow = Styles.Properties.Intern("overflow");
+        overflow = new OverflowReader(Styles.Properties, Styles.Values);
         none = Styles.Values.Intern("none");
-        visible = Styles.Values.Intern("visible");
         InternCursors();
 
         Root = Create("root", null, null, []);
@@ -1318,7 +1316,17 @@ public sealed partial class UiDocument : IDisposable {
         // drawn — so it must still be clickable. Returning early on `!inside` would make every
         // overflowing element, every dropdown and every tooltip unhittable, and the bug would look
         // like the click landing on whatever is behind them.
-        if (!inside && Clips(element)) {
+        //
+        // ⚠ And it is outside *on a clipped axis* rather than outside at all, which are different
+        // questions the moment one axis clips and the other does not. A point beside an
+        // `overflow-y: hidden` panel is drawn — the clip rectangle's left and right edges are past
+        // any viewport — so it has to be clickable too, or the panel is a control you can see and
+        // cannot press. The same reading the draw list uses, out of the same object.
+        //
+        // The `!inside` stays in front of it as the fast path it always was: a point within the box
+        // is within it on both axes, so no clip of any shape can cut it, and a pointer move that asks
+        // this of every element in the tree should not read three properties to be told so.
+        if (!inside && Cut(element, x, y)) {
             return null;
         }
 
@@ -1342,13 +1350,25 @@ public sealed partial class UiDocument : IDisposable {
         return inside && element.IsHitTestVisible ? element : null;
     }
 
-    /// <summary>Whether an element cuts off what hangs outside it.</summary>
+    /// <summary>Whether an element's clip cuts a point away from its subtree.</summary>
     /// <remarks>
     ///     The clip is asked about on the <i>parent</i>, because it is the parent that clips and the
-    ///     child has no idea it is being cut.
+    ///     child has no idea it is being cut. Per axis, so a point beside a vertically clipped panel is
+    ///     still inside the part of the plane that panel draws in.
     /// </remarks>
-    bool Clips(UiElement element) =>
-        element.Style.TryGet(overflow, out var value) && value != visible;
+    bool Cut(UiElement element, float x, float y) {
+        var axes = overflow.Of(element.Style);
+
+        if (!axes.Any) {
+            return false;
+        }
+
+        if (axes.Horizontal && (x < element.AbsoluteLeft || x >= element.AbsoluteLeft + element.Width)) {
+            return true;
+        }
+
+        return axes.Vertical && (y < element.AbsoluteTop || y >= element.AbsoluteTop + element.Height);
+    }
 
     static bool Contains(UiElement element, float x, float y) =>
         x >= element.AbsoluteLeft

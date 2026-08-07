@@ -36,6 +36,16 @@ sealed class TriangleSoup {
     /// </remarks>
     public List<int> Groups { get; init; } = [];
 
+    /// <summary>Where <see cref="Groups" /> came from, carried so § D4 can tell a boundary from a guess.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Carried rather than recomputed, and losing it costs a feature source in one direction
+    ///     and invents 25 000 of them in the other.</b> Conditioning rewrites the triangulation
+    ///     completely — a weld, a de-speck, a cut and an isotropic round — but it never changes what the
+    ///     group ids <i>mean</i>, so the answer is the source mesh's and the only correct thing to do
+    ///     with it is pass it along.
+    /// </remarks>
+    public MeshGroupSource GroupSource { get; set; }
+
     /// <summary>How many triangles there are.</summary>
     public int TriangleCount => Triangles.Count / 3;
 
@@ -80,7 +90,7 @@ sealed class TriangleSoup {
     public static TriangleSoup From(EditMesh source) {
         ArgumentNullException.ThrowIfNull(source);
 
-        var soup = new TriangleSoup();
+        var soup = new TriangleSoup { GroupSource = source.GroupSource };
 
         soup.Positions.AddRange(source.Positions);
 

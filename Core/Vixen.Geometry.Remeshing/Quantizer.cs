@@ -187,13 +187,30 @@ static class Quantizer {
 
         var graph = Graph.Build(layout, arcs);
 
+        // ⚠ <b>The best answer seen so far, kept because a repair round can make the system
+        // unsolvable and used to take the whole result down with it.</b> Forcing a collapsed patch
+        // open raises a lower bound, and a lower bound that the consistency constraints cannot absorb
+        // turns a routing that <i>was</i> feasible into one that is not — measured on two of sixteen
+        // image-to-3D meshes, where round zero solved cleanly with eight collapsed patches out of 312
+        // and round one came back "could not be satisfied" and refused all 312.
+        int[]? best = null;
+        var collapsed = 0;
+
         for (var round = 0; round <= RepairRounds; round++) {
             var counts = Route(graph, targets, lower, mode, out var feasible);
 
             if (!feasible) {
-                warnings.Add("The consistency system could not be satisfied, so the layout was refused.");
+                if (best is null) {
+                    warnings.Add("The consistency system could not be satisfied, so the layout was refused.");
 
-                return new(counts, Energy(counts, targets), false, [.. warnings]);
+                    return new(counts, Energy(counts, targets), false, [.. warnings]);
+                }
+
+                warnings.Add(
+                    $"Forcing the collapsed patches open made the system unsolvable, so {collapsed} were left out."
+                );
+
+                return new(best, Energy(best, targets), true, [.. warnings]);
             }
 
             var forced = Collapsed(layout, counts, lower);
@@ -202,10 +219,22 @@ static class Quantizer {
                 return new(counts, Energy(counts, targets), true, [.. warnings]);
             }
 
-            if (round == RepairRounds) {
-                warnings.Add($"{forced} patches collapsed to nothing and could not be forced open.");
+            best = counts;
+            collapsed = forced;
 
-                return new(counts, Energy(counts, targets), false, [.. warnings]);
+            // ⚠ <b>A patch that will not open is a hole and not a refusal, and reading it as one cost
+            // every generated mesh in the corpus its remesh.</b> The counts here satisfy every
+            // consistency constraint — `Route` said so — so the arcs the rest of the partition shares
+            // with this patch are sound and its neighbours extract exactly as they would have.
+            // `PatchExtractor.Fill` already skips a patch whose side came out at zero and counts it in
+            // `patches were skipped`, which is the same answer `PatchLayout` gives a patch it can
+            // neither divide nor merge. Refusing the whole model over four patches out of 398 is the
+            // one thing docs/plan/41's robustness criterion is written against: "one such component
+            // must not cost the rest of the model its remesh".
+            if (round == RepairRounds) {
+                warnings.Add($"{forced} patches collapsed to nothing, could not be forced open and were left out.");
+
+                return new(counts, Energy(counts, targets), true, [.. warnings]);
             }
 
             warnings.Add($"{forced} patches quantized to zero in one direction and were forced open.");

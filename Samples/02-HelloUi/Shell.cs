@@ -253,6 +253,10 @@ public sealed class Shell : IDisposable {
     void BuildControls(out ProgressBar bar, out Spinner wheel) {
         var panel = docking.AddPanel("controls", "Controls");
 
+        // The gallery brings its own scroller, and a panel scrolls by default — so this says which of
+        // the two does it, rather than shipping a sample with one inside the other.
+        panel.Scrolls = false;
+
         var scroller = panel.Add<ScrollView>();
         scroller.AddClass("gallery");
 

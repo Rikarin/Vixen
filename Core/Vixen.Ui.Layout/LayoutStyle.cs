@@ -69,8 +69,21 @@ public struct LayoutStyle {
     /// <summary>Whether the line wraps.</summary>
     public Wrap FlexWrap;
 
-    /// <summary>What happens to content that does not fit.</summary>
-    public Overflow Overflow;
+    /// <summary>What happens to content that does not fit across the node.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two fields rather than one, because the two flexbox rules that read them are each
+    ///     about a single axis.</b> The §4.5 automatic minimum size applies to the <i>main</i> axis and
+    ///     an item opts out of it by not being <c>visible</c> <i>there</i>; a scroll container takes
+    ///     the space it was offered rather than the space its content wants on the axis it scrolls.
+    ///     Collapsing the pair — reading "either axis clips" — makes a column with
+    ///     <c>overflow-x: auto</c> clamp its own <i>height</i> to whatever it was offered, which is the
+    ///     opposite of what a sideways-scrolling panel asked for.
+    /// </remarks>
+    public Overflow OverflowX;
+
+    /// <summary>What happens to content that does not fit down the node.</summary>
+    /// <remarks>See <see cref="OverflowX" /> for why the axes are separate.</remarks>
+    public Overflow OverflowY;
 
     /// <summary>Whether the node is laid out at all.</summary>
     public Display Display;
@@ -127,7 +140,8 @@ public struct LayoutStyle {
         style.AlignSelf = Align.Auto;
         style.PositionType = PositionType.Relative;
         style.FlexWrap = Wrap.NoWrap;
-        style.Overflow = Overflow.Visible;
+        style.OverflowX = Overflow.Visible;
+        style.OverflowY = Overflow.Visible;
         style.Display = Display.Flex;
         style.BoxSizing = BoxSizing.BorderBox;
         style.Flex = float.NaN;

@@ -213,7 +213,7 @@ static class SymmetryPass {
         float diagonal,
         out MirrorCorrespondence correspondence
     ) {
-        var built = new EditMesh();
+        var built = new EditMesh { GroupSource = half.GroupSource };
         var tolerance = diagonal * SeamTolerance;
         var count = half.PositionCount;
 

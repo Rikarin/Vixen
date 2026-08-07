@@ -47,7 +47,11 @@ the corner layer, and a vertex split in anything else.
 recursion is four steps:
 
 1. **Decompose** the mesh into candidate regions. Material and face-group boundaries partition first
-   and unconditionally — see `KeepGroups`.
+   and unconditionally — see `KeepGroups`. ⚠ A *face group* here means one somebody assigned:
+   `KeepGroups` is read together with `EditMesh.GroupSource`, because a mesh built by
+   `EditMesh.FromTriangles` carries a coplanarity guess instead, and on a faceted surface that is close
+   to one group per triangle. Measured on a 25 439-triangle image-to-3D mesh, honouring the guess gave
+   24 197 charts.
 2. **Flatten** each region and measure what it cost.
 3. **Accept or recurse.** Under `DistortionThreshold`, keep it. Over, split it and try again, bounded
    by `MaxDepth`.
