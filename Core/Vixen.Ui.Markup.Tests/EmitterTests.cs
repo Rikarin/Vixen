@@ -575,6 +575,63 @@ public class EmitterTests {
         Assert.Equal(10, span.StartLinePosition.Character);
     }
 
+    /// <summary>
+    ///     The two things a <c>UiElement</c> answers differently from a <c>Component</c>, and both
+    ///     have to keep working rather than merely compile.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><c>&lt;slot /&gt;</c> becomes <c>ContentHost</c>.</b> A component is handed its
+    ///     content by a dictionary <c>Component.Declare</c> fills; an element has one place for it
+    ///     and a virtual property that names it — which is what <c>BuildContext.Inner(UiElement)</c>
+    ///     already reads for every control in the library.
+    ///
+    ///     ⚠ And <c>&lt;style scoped&gt;</c> loads from the generated <c>OnCreated</c>, because a
+    ///     <c>UiElement</c> has no <c>Style</c> property for <c>Component.Mount</c> to read. The
+    ///     scope class has to reach the elements the body made, not just the host: a sheet welded to
+    ///     a class nothing carries is a sheet that matches nothing.
+    /// </remarks>
+    [Fact]
+    public void An_inherits_component_projects_content_through_ContentHost_and_scopes_its_styles() {
+        const string Source = """
+                              @component Gauge
+                              @inherits Panel
+                              <gauge-body>
+                                  <slot />
+                              </gauge-body>
+                              <style scoped>.row { display: flex; }</style>
+                              """;
+
+        using var document = new UiDocument(400f, 400f);
+        var gauge = (UiElement)Add(document, Source);
+        var body = gauge.Children.Single();
+
+        Assert.Equal("slot", BuildContext.Inner(gauge).Tag);
+        Assert.Same(body.Children.Single(), BuildContext.Inner(gauge));
+
+        var scope = ScopedStyles.ScopeOf(gauge.GetType());
+        Assert.True(gauge.HasClass(scope));
+        Assert.True(body.HasClass(scope));
+    }
+
+    /// <summary>
+    ///     A named slot needs a component. An element has one place for content because
+    ///     <c>ContentHost</c> is one property, and a second name would be an element nothing can
+    ///     address — a hole in the tree that looks like a feature.
+    /// </summary>
+    [Fact]
+    public void A_named_slot_in_an_inherits_component_is_refused() {
+        var component = Markup.Binding.Binder.Bind(
+            Markup.Syntax.SyntaxTree.ParseText(
+                "@component Gauge\n@inherits Panel\n<slot name=\"footer\" />",
+                Path
+            ),
+            out var diagnostics
+        );
+
+        Assert.NotNull(component);
+        Assert.Contains("VXML2012", diagnostics.Select(d => d.Descriptor.Id));
+    }
+
     // ================================================================== ref
 
     /// <summary>
