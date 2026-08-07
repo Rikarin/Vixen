@@ -295,12 +295,14 @@ public sealed class LayoutStyleBuilder {
             result.FlexShrink = shrink;
         }
 
-        // ⚠ Rounded rather than truncated, and read as a number rather than an integer, because the
-        // cascade has no integer kind — `order: 2` arrives as the float 2. A fractional value is
-        // invalid CSS and the declaration should have been dropped long before here; rounding is
-        // what keeps a `2.0` that survived some `calc()` from becoming a 1.
-        if (TryNumber(style, names.Order, out var order)) {
-            result.Order = (int) MathF.Round(order);
+        // ⚠ <b>A fractional value is dropped rather than rounded, and that is the specification
+        // rather than fastidiousness.</b> `order` takes `<integer>`, so `order: 1.5` is an invalid
+        // declaration and an invalid declaration leaves the initial value — the same rule `Set`
+        // applies to lengths, and the reason it matters is that rounding would put the item in
+        // ordinal group 2 where every browser puts it in group 0. The cascade has no integer kind
+        // (`order: 2` arrives as the float 2), so integrality is checked here or nowhere.
+        if (TryNumber(style, names.Order, out var order) && float.IsInteger(order)) {
+            result.Order = (int) order;
         }
 
         if (TryNumber(style, names.AspectRatio, out var bare)) {

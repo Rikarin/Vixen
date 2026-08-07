@@ -63,6 +63,10 @@ public class UtilityFamilySupportTests {
         { "shrink-0", "flex-shrink", "0" },
         { "basis-0", "flex-basis", "0" },
 
+        // ⚠ `order` was in `Inert` — filed under *grid*, which it is not — until `LayoutStyle` grew
+        // a field for it. See `An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group`.
+        { "order-2", "order", "2" },
+
         // Spacing, including the logical edges the layout resolves against `direction`.
         { "gap-3", "row-gap", "6px" },
         { "gap-x-2", "column-gap", "4px" },
@@ -160,6 +164,21 @@ public class UtilityFamilySupportTests {
     ///         and nothing offers to scroll it; scrolling in this engine is <c>ScrollView</c>, a
     ///         control that owns its bars and offsets its content.
     ///     </para>
+    ///     <para>
+    ///         <b>History: <c>order-2</c> used to be in this table, filed under <i>grid</i>.</b> It is
+    ///         a flexbox property and always was — the misfiling is itself the tell, because a family
+    ///         nothing reads gets grouped by whoever last guessed why. <c>LayoutStyle</c> now carries
+    ///         an <c>Order</c>, and it is the one layout property that also moves the draw list, since
+    ///         CSS Flexbox §5.4 makes <c>order</c> modify painting order as well as layout order.
+    ///         <see cref="An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group" /> is the same
+    ///         test this file used to hold inverted, and it checks both halves: an implementation that
+    ///         reordered the boxes and left the painting alone would pass a position-only assertion.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Yoga has no <c>order</c>, so none of the 534 conformance fixtures covers it.</b>
+    ///         That is recorded in <c>Core/Vixen.Ui.Layout/README.md</c> rather than here, because it
+    ///         is a fact about the oracle rather than about the utility surface.
+    ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Inert => new() {
         // Display: LayoutStyleBuilder maps `flex` and `none` and nothing else.
@@ -172,7 +191,6 @@ public class UtilityFamilySupportTests {
         // Grid, which the layout is flexbox-only and has no reading of at all.
         { "grid-cols-3", "grid-template-columns" },
         { "col-span-2", "grid-column" },
-        { "order-2", "order" },
 
         // Paint the renderer has no channel for.
         { "ring-accent", "outline-color" },
@@ -251,6 +269,62 @@ public class UtilityFamilySupportTests {
             vertical.X + vertical.Width > ui.Document.Viewport.ViewportWidth,
             "and ends right of it"
         );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Support proved rather than asserted, for a family that used to be inert.</b> This
+    ///     test replaces the row <c>order-2</c> occupied in <see cref="Inert" />, and it is
+    ///     deliberately two assertions rather than one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Position alone would not have caught the obvious half-implementation.</b> The layout
+    ///     tree and the draw list keep separate child lists — the flexbox store sorts an arena of
+    ///     ids, and <c>UiElement.PaintOrder</c> sorts elements — so teaching only the first one about
+    ///     <c>order</c> gives boxes that sit in the new positions and paint in the old sequence.
+    ///     That is invisible until two items overlap, which is precisely when somebody reaches for
+    ///     the property. CSS Flexbox §5.4 is explicit that <c>order</c> moves both.
+    ///
+    ///     The paint half is read back by colour because a <c>DrawCommand</c> names no element, and
+    ///     the colours come from <c>ColorOf</c> rather than from hex written here — the tokens are
+    ///     <c>var(--…)</c> references and what they resolve to is <c>EditorTheme</c>'s business.
+    /// </remarks>
+    [Fact]
+    public void An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group() {
+        using var ui = Sheet("order-2", "bg-accent", "bg-surface-sunken", "bg-surface-raised", "w-8", "h-8");
+
+        var host = ui.Create("probe", ui.Document.Root);
+        var moved = ui.Create("probe", host, null, "order-2", "bg-accent", "w-8", "h-8");
+        var middle = ui.Create("probe", host, null, "bg-surface-sunken", "w-8", "h-8");
+        var last = ui.Create("probe", host, null, "bg-surface-raised", "w-8", "h-8");
+
+        ui.Frame();
+
+        Assert.Equal("2", ui.StyleOf(moved, "order"));
+
+        // Laid out last despite being declared first: the two defaulted items close up in front of
+        // it, and they keep their own relative order while doing so.
+        Assert.True(middle.AbsoluteLeft < last.AbsoluteLeft, "the defaulted pair keeps document order");
+        Assert.True(last.AbsoluteLeft < moved.AbsoluteLeft, "order-2 goes behind both of them");
+
+        // And painted last, which is a different list and a different sort.
+        var painted = Painted(ui, [moved, middle, last]);
+
+        Assert.Equal([middle, last, moved], painted);
+    }
+
+    /// <summary>Which of <paramref name="candidates" /> the frame filled, in the order it filled them.</summary>
+    /// <remarks>
+    ///     ⚠ Matched on the fill colour, so every candidate has to carry a distinct one — a shared
+    ///     background would make this report the first match twice and pass a sequence check by
+    ///     accident.
+    /// </remarks>
+    static List<UiElement> Painted(UiTest ui, UiElement[] candidates) {
+        var colors = candidates.ToDictionary(candidate => ui.ColorOf(candidate, "background-color")!.Value);
+
+        return ui.Document.Drawing.Commands
+            .Where(command => command.Kind == DrawCommandKind.Rectangle && colors.ContainsKey(command.Color))
+            .Select(command => colors[command.Color])
+            .ToList();
     }
 
     /// <summary>

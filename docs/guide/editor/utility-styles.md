@@ -84,7 +84,7 @@ cascade computes it, and nothing happens.
 | Read | Inert |
 |---|---|
 | `flex` / `hidden`, `flex-row`/`-col`/`-wrap`/`-1`, `items-`, `self-`, `justify-`, `content-` | `block`, `inline`, `inline-block`, `inline-flex`, `grid` — the layout's table has `flex` and `none` and nothing else |
-| `grow`, `shrink`, `basis-` | `order-`, `grid-cols-`, `col-span-` — the layout is flexbox only |
+| `grow`, `shrink`, `basis-`, `order-` | `grid-cols-`, `col-span-` — the layout is flexbox only |
 | `gap-`, `gap-x-`, `gap-y-`, `p*`, `m*` including the logical `ps`/`pe`/`ms`/`me` | |
 | `w-`, `h-`, `size-`, `min-w-`, `min-h-`, `max-w-`, `max-h-` | |
 | `static`/`relative`/`absolute`, `inset*`, `top`/`right`/`bottom`/`left`, `start`/`end`, `z-`, `box-border`/`box-content` | |

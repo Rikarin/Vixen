@@ -62,6 +62,48 @@ public class KeyValueListTests {
         );
     }
 
+    /// <summary>
+    ///     ⚠ <b>And <c>order</c> does not touch it, which is the one mutation that changes where a
+    ///     row <i>is</i> without changing which child it is.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         CSS Flexbox §5.4 changes layout and paint order and explicitly leaves selector
+    ///         matching alone, so a striped list whose rows have been reordered still alternates by
+    ///         <i>document</i> position — the shading travels with the row rather than staying with
+    ///         the slot. Every other test in this file mutates the child list, where the stripe
+    ///         moving is the correct answer; this is the case where it must not move, and the two
+    ///         are indistinguishable until something can reorder without reparenting.
+    ///     </para>
+    ///     <para>
+    ///         The reordering is asserted as well as applied. A stylesheet that failed to reach the
+    ///         rows at all would leave the stripe exactly as expected and pass this test for the
+    ///         wrong reason, which is the same trap the utility inventory exists for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Reordering_the_rows_does_not_move_the_stripe() {
+        using var harness = new Harness();
+        var list = harness.List(4);
+
+        // The last row is pulled to the front of the line. `key-value-row` is the row's own tag, so
+        // this reaches exactly the elements the stripe selector counts.
+        harness.Document.Load("key-value-row:last-child { order: -1; }");
+        harness.Update();
+
+        var rows = list.Rows.Take(4).ToList();
+
+        // It really did move: laid out first, above every sibling.
+        Assert.True(
+            rows[3].AbsoluteTop < rows[0].AbsoluteTop,
+            "the ordered row is laid out in front of the others"
+        );
+
+        // And the stripe still alternates by document position, so the fourth row — an even child —
+        // keeps its shading at the top of the list rather than picking up the first slot's.
+        Assert.Equal([false, true, false, true], rows.Select(harness.IsShaded));
+    }
+
     /// <summary>And when one is put back into the middle.</summary>
     [Fact]
     public void Inserting_a_row_into_the_middle_re_resolves_the_stripe() {

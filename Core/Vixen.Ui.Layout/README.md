@@ -18,6 +18,7 @@ algorithm is the valuable part.
 | `LayoutStyle`, `StyleLength` | Every length as a `(value, unit)` pair, all nine CSS edges kept apart. |
 | `StyleResolution`, `FlexAxis` | Edge precedence, percentages, box sizing; flow-relative to physical. |
 | `LayoutTree.CalculateLayout` | The algorithm: flex basis, line breaking, the two-pass free-space distribution, justification, cross-axis alignment, multi-line alignment, absolute positioning, pixel-grid rounding. |
+| `LayoutTree.Order` | §5.4 `order`, the one part that is not Yoga's. One redirection: the algorithm reaches children only through `ChildIds`, so sorting what that returns is the whole property. |
 | `Generated/` | 534 conformance fixtures, translated from Yoga by `Tools/Vixen.YogaTestGen`. |
 
 Every expected number in those fixtures came out of a real browser laying out a real HTML fixture.
@@ -44,6 +45,36 @@ suite sets both to the same value, so it cannot tell a correct per-axis reading 
 byte-for-byte Yoga's — including the width-propagation rule in step 2, which stays keyed on the main
 axis rather than on `overflow-x` precisely so that plain `overflow: scroll` on a column keeps
 answering what the fixtures expect.
+
+**`order` is not in Yoga at all**, which is a harder version of the same problem. §4.5 was a rule the
+fixtures merely failed to exercise; here the oracle does not implement the property and never could
+have — Yoga's style surface goes from `flexWrap` to `overflow` with nothing between, so
+`Vixen.YogaTestGen` emits no fixture that sets one and all 534 stay green against a tree that ignores
+the field entirely. Deleting the sort leaves the whole ported suite passing.
+
+So the oracle for `order` is **[`web-platform-tests`](https://github.com/web-platform-tests/wpt),
+`css/css-flexbox/`** — a browser conformance suite rather than one engine's regression suite — and
+`OrderTests` names the file each case comes from. They are re-expressed rather than translated: WPT's
+`order` tests are mostly reftests and `offsetLeft` comparisons over auto-sized text, and this store
+has neither a renderer nor a default font, so what carries across is the relation each test asserts
+with the geometry restated in fixed sizes. It earned that immediately — `flexbox_order-noninteger-invalid`
+says `order: 1.5` is an *invalid declaration* and computes to `0`, where this bridge had been written
+to round it to `2`.
+
+Two things that suite does not reach, and one it cannot. It has no case for **sort stability**,
+because a browser's sort is stable and the property is specified as a sequence rather than as a sort —
+that is an implementation hazard, and `Items_in_the_same_ordinal_group_keep_document_order` is
+hand-written for it. ⚠ It needs **thirty-four items**: written with eight it passed against a
+deliberately unstable sort, because .NET's introsort delegates any span of sixteen or fewer to an
+insertion sort, which *is* stable. A small stability test certifies stability the implementation does
+not have. And **paint order** is not testable here at all — `order` changes painting as well as
+layout, but this store draws nothing; `Vixen.Ui.Tests.OrderTests` and the utilities inventory hold
+that half.
+
+The two places `order` must *not* reach are guarded rather than fixed: `:nth-child` matches over
+`StyleTree`'s own `IndexInParent` and focus traversal walks `UiElement.Children`, so neither reads
+this store and neither could have started following visual order. The tests exist so that a future
+change wiring one of them to the layout tree has to argue with a red test.
 
 There is no `Overflow.Auto`. CSS's `auto` and `scroll` establish the same scroll container and differ
 only in whether a scrollbar gutter is reserved, and nothing above this draws a scrollbar of its own —
