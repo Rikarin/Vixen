@@ -38,6 +38,16 @@ public sealed partial class LayoutTree : IDisposable {
     BaselineFunction?[]? baselineFunctions;
     object?[]? contexts;
 
+    // ⚠ The same bargain for `order`, which is rarer than text. A node that has a child with a
+    // non-zero `order` gets a second arena block holding its children in order-modified document
+    // order; every other node in the tree keeps `null` here and pays one null check per child-list
+    // read. `ChildIds` is the single seam the whole algorithm addresses children through, so
+    // redirecting it is what makes the property reach line breaking, distribution, justification,
+    // cross-axis alignment and the baseline pick without touching any of them.
+    OrderedChildren[]? orderedChildren;
+    List<int>? reorderQueue;
+    long[] orderKeys = [];
+
     ChildArena children = new();
     int capacity;
     int nodeCount;
@@ -87,6 +97,12 @@ public sealed partial class LayoutTree : IDisposable {
         links[index] = new LayoutLinks { Parent = -1, ChildOffset = -1 };
         flags[index] = LayoutNodeState.Live | LayoutNodeState.Dirty | LayoutNodeState.HasNewLayout;
 
+        // A reused slot must not inherit the previous occupant's sorted block, and clearing the
+        // stale flag here is what lets `FlushChildOrder` skip a queue entry whose node is gone.
+        if (orderedChildren is not null) {
+            orderedChildren[index] = new OrderedChildren { Offset = -1 };
+        }
+
         if (measureFunctions is not null) {
             measureFunctions[index] = null;
         }
@@ -113,6 +129,7 @@ public sealed partial class LayoutTree : IDisposable {
 
         Detach(index);
         children.Free(links[index].ChildOffset, links[index].ChildCapacity);
+        ReleaseOrderedBlock(index);
         links[index] = new LayoutLinks { Parent = -1, ChildOffset = -1 };
         flags[index] = LayoutNodeState.None;
 
@@ -170,6 +187,8 @@ public sealed partial class LayoutTree : IDisposable {
         parentLinks.ChildCount++;
         links[childIndex].Parent = parentIndex;
 
+        // The sorted block is a copy of a child list that just changed, and it is one entry short.
+        InvalidateChildOrder(parentIndex, styles[childIndex].Order);
         MarkDirtyAndPropagate(parentIndex);
     }
 
@@ -201,6 +220,10 @@ public sealed partial class LayoutTree : IDisposable {
 
         parentLinks.ChildCount--;
         links[childIndex].Parent = -1;
+
+        // Unconditional in effect: a parent with no sorted block has nothing to invalidate, and one
+        // that has a block has it whatever the departing child's own `order` was.
+        InvalidateChildOrder(parentIndex, styles[childIndex].Order);
         MarkDirtyAndPropagate(parentIndex);
         return true;
     }
@@ -344,6 +367,9 @@ public sealed partial class LayoutTree : IDisposable {
         measureFunctions = null;
         baselineFunctions = null;
         contexts = null;
+        orderedChildren = null;
+        reorderQueue = null;
+        orderKeys = [];
         children = new ChildArena();
         capacity = 0;
         nodeCount = 0;
@@ -357,7 +383,34 @@ public sealed partial class LayoutTree : IDisposable {
         return node.Index;
     }
 
-    internal Span<int> ChildIds(int index) => children.Slice(links[index].ChildOffset, links[index].ChildCount);
+    /// <summary>A node's children in order-modified document order — what the algorithm walks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Sorted, unlike <see cref="DocumentChildIds" />.</b> With no <c>order</c> anywhere in
+    ///     the tree the two are the same span and this costs one null check. See
+    ///     <c>LayoutTree.Order.cs</c> for why the sorted block is built between passes rather than
+    ///     here.
+    /// </remarks>
+    internal Span<int> ChildIds(int index) {
+        if (orderedChildren is not null) {
+            var offset = orderedChildren[index].Offset;
+            if (offset >= 0) {
+                return children.Slice(offset, links[index].ChildCount);
+            }
+        }
+
+        return children.Slice(links[index].ChildOffset, links[index].ChildCount);
+    }
+
+    /// <summary>A node's children as the document declares them, whatever their <c>order</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What anything running outside a layout pass has to use.</b> The order-modified block
+    ///     is only guaranteed to agree with the child list after <c>FlushChildOrder</c>, so a
+    ///     traversal reachable from a public mutator — <see cref="Invalidate" />,
+    ///     <see cref="DestroyRecursive" /> — could otherwise walk a stale copy naming a node that
+    ///     has since been removed.
+    /// </remarks>
+    internal Span<int> DocumentChildIds(int index) =>
+        children.Slice(links[index].ChildOffset, links[index].ChildCount);
 
     internal MeasureFunction? MeasureFunctionOf(int index) => measureFunctions?[index];
 
@@ -371,7 +424,9 @@ public sealed partial class LayoutTree : IDisposable {
         results[index].MinContentSizes[0] = float.NaN;
         results[index].MinContentSizes[1] = float.NaN;
 
-        foreach (var child in ChildIds(index)) {
+        // Document order: this is reachable from `Invalidate`, which a caller may run before the
+        // next pass has rebuilt the sorted blocks.
+        foreach (var child in DocumentChildIds(index)) {
             MarkSubtreeDirty(child);
         }
     }
@@ -412,6 +467,12 @@ public sealed partial class LayoutTree : IDisposable {
 
         if (contexts is not null) {
             Array.Resize(ref contexts, next);
+        }
+
+        if (orderedChildren is not null) {
+            var previous = orderedChildren.Length;
+            Array.Resize(ref orderedChildren, next);
+            ClearOrderedRange(orderedChildren, previous);
         }
 
         capacity = next;

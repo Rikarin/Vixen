@@ -295,6 +295,14 @@ public sealed class LayoutStyleBuilder {
             result.FlexShrink = shrink;
         }
 
+        // ⚠ Rounded rather than truncated, and read as a number rather than an integer, because the
+        // cascade has no integer kind — `order: 2` arrives as the float 2. A fractional value is
+        // invalid CSS and the declaration should have been dropped long before here; rounding is
+        // what keeps a `2.0` that survived some `calc()` from becoming a 1.
+        if (TryNumber(style, names.Order, out var order)) {
+            result.Order = (int) MathF.Round(order);
+        }
+
         if (TryNumber(style, names.AspectRatio, out var bare)) {
             result.AspectRatio = bare;
         } else if (TryRatio(style, names.AspectRatio, out var ratio)) {
@@ -547,6 +555,7 @@ public sealed class LayoutStyleBuilder {
             FlexShrink = table.Intern("flex-shrink");
             FlexBasis = table.Intern("flex-basis");
             AspectRatio = table.Intern("aspect-ratio");
+            Order = table.Intern("order");
 
             Width = table.Intern("width");
             Height = table.Intern("height");
@@ -590,6 +599,7 @@ public sealed class LayoutStyleBuilder {
         public int FlexShrink { get; }
         public int FlexBasis { get; }
         public int AspectRatio { get; }
+        public int Order { get; }
         public int Width { get; }
         public int Height { get; }
         public int MinWidth { get; }

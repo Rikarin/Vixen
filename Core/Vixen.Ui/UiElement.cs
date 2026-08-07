@@ -30,6 +30,7 @@ public partial class UiElement : Composition.IComposable {
     List<UiElement>? ordered;
     bool orderDirty = true;
     int zIndex;
+    int flexOrder;
     int paintKey;
     List<HandlerRegistration>? handlers;
     UiDocument? document;
@@ -193,6 +194,27 @@ public partial class UiElement : Composition.IComposable {
         }
     }
 
+    /// <summary>The <c>order</c> the layout is using for this item, mirrored for paint order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept here rather than read back out of the layout tree on each sort.</b> The two
+    ///     stores are deliberately unaware of each other — <c>LayoutStyleBuilder</c> is the only
+    ///     wire — and the draw walk asking the layout arena for a style per child per frame would
+    ///     put that dependency in the hottest loop there is. <c>UiDocument</c> writes it from the
+    ///     same built <see cref="LayoutStyle" /> it hands to <c>SetStyle</c>, so they cannot drift.
+    /// </remarks>
+    internal int FlexOrder {
+        get => flexOrder;
+
+        set {
+            if (flexOrder == value) {
+                return;
+            }
+
+            flexOrder = value;
+            Parent?.InvalidateOrder();
+        }
+    }
+
     /// <summary>Its children in the order they are painted, back to front.</summary>
     /// <remarks>
     ///     <para>
@@ -225,7 +247,7 @@ public partial class UiElement : Composition.IComposable {
 
             orderDirty = false;
 
-            if (!AnyChildIsLifted()) {
+            if (!AnyChildIsReordered()) {
                 ordered = null;
                 return children;
             }
@@ -241,20 +263,33 @@ public partial class UiElement : Composition.IComposable {
                 children[i].paintKey = i;
             }
 
-            // Stable by construction: equal indices keep document order, which is what makes
-            // `z-10` on one child leave every other child exactly where it was.
+            // Stable by construction: equal keys keep document order, which is what makes `z-10` on
+            // one child leave every other child exactly where it was.
+            //
+            // ⚠ <b>`order` sits between the two, because CSS Flexbox §5.4 makes it modify document
+            // order rather than override the stacking one.</b> A flex container paints its items in
+            // *order-modified document order*, and `z-index` then reorders that — so `order` is the
+            // tie-break among children sharing an index, and never the other way round. Getting the
+            // two the wrong way round would let `order-1` hoist a child above a `z-10` sibling,
+            // which no browser does.
             ordered.Sort(static (left, right) =>
-                left.zIndex != right.zIndex
-                    ? left.zIndex.CompareTo(right.zIndex)
-                    : left.paintKey.CompareTo(right.paintKey));
+                left.zIndex != right.zIndex ? left.zIndex.CompareTo(right.zIndex)
+                : left.flexOrder != right.flexOrder ? left.flexOrder.CompareTo(right.flexOrder)
+                : left.paintKey.CompareTo(right.paintKey));
 
             return ordered;
         }
     }
 
-    bool AnyChildIsLifted() {
+    /// <summary>Whether anything among the children moves it off the plain document list.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>order</c> counts as well as <c>z-index</c>.</b> Checking only the latter is what
+    ///     would make the property lay out correctly and paint in the old positions — the exact
+    ///     half-implemented shape the utilities inventory exists to catch.
+    /// </remarks>
+    bool AnyChildIsReordered() {
         foreach (var child in children) {
-            if (child.zIndex != 0) {
+            if (child.zIndex != 0 || child.flexOrder != 0) {
                 return true;
             }
         }

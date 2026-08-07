@@ -982,7 +982,15 @@ public sealed partial class UiDocument : IDisposable {
             element.AppliedFontSize = element.FontSize;
             StylesApplied++;
 
-            Layout.SetStyle(element.LayoutNode, Builder.Build(style, metrics.WithFontSize(element.FontSize)));
+            var layoutStyle = Builder.Build(style, metrics.WithFontSize(element.FontSize));
+
+            Layout.SetStyle(element.LayoutNode, layoutStyle);
+
+            // ⚠ `order` is the one layout property the draw list also has to know, because CSS
+            // Flexbox §5.4 makes it modify *painting* order as well as layout order. Taken from the
+            // style that was just handed to the layout tree rather than resolved a second time, so
+            // the two can never disagree about which frame's value they are using.
+            element.FlexOrder = layoutStyle.Order;
         }
 
         // ⚠ Separately, because these change what the element *measures* rather than what its box is

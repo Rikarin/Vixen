@@ -36,7 +36,21 @@ public sealed partial class LayoutTree {
             return;
         }
 
+        // ⚠ Read before the store, because this is the whole-style path the styling layer actually
+        // uses — `SetOrder` is for a caller driving the tree by hand. An `order` that changed here
+        // and was not noticed would leave the parent's sorted block describing the previous frame,
+        // which is worse than not implementing the property: it would be right until something
+        // else happened to invalidate the block.
+        var reordered = styles[index].Order != style.Order;
+
         styles[index] = style;
+
+        if (reordered) {
+            // The new value is the one that decides. Going *back* to zero still rebuilds, because
+            // the early-out inside only skips a parent that has no sorted block to be wrong.
+            InvalidateChildOrder(links[index].Parent, style.Order);
+        }
+
         MarkDirtyAndPropagate(index);
     }
 
