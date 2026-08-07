@@ -576,6 +576,46 @@ public class EmitterTests {
     }
 
     /// <summary>
+    ///     The other half of the claim, and the reason <c>@inherits</c> exists: without it the same
+    ///     call site does not compile, and a walk of the tree does not reach the object.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted rather than assumed, because it is the whole argument.</b> The rejected
+    ///     alternative to this header was widening <c>Add&lt;T&gt;</c> and <c>Descendants</c> to see
+    ///     components — and the first half of that cannot be written at all: <c>Add&lt;T&gt;</c> is
+    ///     <c>where T : UiElement, new()</c>, and a second overload differing only in its constraint
+    ///     is CS0695. What the tree does hold is the component's <i>host</i>, which is why
+    ///     <c>UiDocument.ComponentAt</c> is the join every consumer of a ported panel had to learn.
+    /// </remarks>
+    [Fact]
+    public void A_component_cannot_be_added_as_an_element_and_is_only_reachable_through_its_host() {
+        const string Caller = """
+                              public static class Adds {
+                                  public static object Make(Vixen.Ui.UiElement parent) => Element<Callout>(parent);
+
+                                  static T Element<T>(Vixen.Ui.UiElement parent)
+                                      where T : Vixen.Ui.UiElement, new() => parent.Add<T>(null, null, default);
+                              }
+                              """;
+
+        // `Callout` is a `Component` in the fixture, so it fails the constraint — at the type
+        // argument, which is exactly where a ported panel's callers failed.
+        var errors = Errors(Compile(Emit("@component Greeter\n<div />"), Caller));
+        Assert.Contains(errors, error => error.Id is "CS0311" or "CS0315" or "CS0453");
+
+        // And the walk: the host element is in the tree under the component's tag, the component is
+        // not in the tree at all, and `ComponentAt` is the only way across.
+        var (component, _, document) = Run("@component Greeter\n<div />");
+
+        using var owned = document;
+        var host = Descendants(document.Root).Single(child => child.Tag == "greeter");
+
+        Assert.Same(component.Root, host);
+        Assert.Same(component, document.ComponentAt(host));
+        Assert.DoesNotContain(Descendants(document.Root), child => ReferenceEquals(child, component));
+    }
+
+    /// <summary>
     ///     The two things a <c>UiElement</c> answers differently from a <c>Component</c>, and both
     ///     have to keep working rather than merely compile.
     /// </summary>
