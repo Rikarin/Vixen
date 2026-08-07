@@ -45,8 +45,22 @@ public sealed class CompositorView : Control {
     /// <summary>The column beside it.</summary>
     public UiElement Side { get; private set; } = null!;
 
-    /// <summary>The selected node's settings.</summary>
+    /// <summary>The selected node's settings, and the sentence shown when there are none.</summary>
     public UiElement Settings { get; private set; } = null!;
+
+    /// <summary>One row per field of the selected node.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A list of its own inside <see cref="Settings" /> rather than <see cref="Settings" />
+    ///     being the list.</b> The panel also shows a node's type and, when nothing usable is
+    ///     selected, a sentence saying so — and a <see cref="KeyValueList" /> stripes its children by
+    ///     <c>:nth-child</c>, so a bare <c>text</c> element parented among the rows would take a
+    ///     position in the alternation and shift every row after it. Two elements is the price of the
+    ///     rule, and the rule is what makes the stripe survive a mutation.
+    /// </remarks>
+    public KeyValueList Fields { get; private set; } = null!;
+
+    /// <summary>The line above the rows.</summary>
+    public UiElement Caption { get; private set; } = null!;
 
     /// <summary>The button that compiles the graph.</summary>
     public Button Build { get; private set; } = null!;
@@ -66,6 +80,8 @@ public sealed class CompositorView : Control {
         Build.Label = "Compile frame";
 
         Settings = Side.Add("material-parameters");
+        Caption = Settings.Add("text");
+        Fields = Settings.Add<KeyValueList>();
         Diagnostics = Side.Add("analysis-list");
 
         AddHandler<ClickEvent>(static (element, args) => ((CompositorView) element).Chosen(args));
@@ -124,16 +140,17 @@ public sealed class CompositorView : Control {
 
     /// <summary>Rebuilds the settings panel for whatever is selected.</summary>
     public void Restate() {
-        while (Settings.Children.Count > 0) {
-            Settings.Children[^1].Remove();
-        }
-
+        // ⚠ `Clear` and not `Trim`. A pool is right for a panel refreshed with the same shape of
+        // data; this one is rebuilt because a *different node type* was selected, and a reused row
+        // would still be holding the previous type's editor and the handler that writes to the
+        // previous node's port.
+        Fields.Clear();
         editors.Clear();
 
         if (document is not { } compositor || GraphView.Selection.Count != 1) {
             // One at a time. Two nodes of different types have no set of rows that fits both, which
             // is the same answer the inspector gives a mixed selection.
-            Settings.Add("text").Text = GraphView.Selection.Count > 1
+            Message = GraphView.Selection.Count > 1
                 ? "Several nodes selected."
                 : "Select a node to edit its settings.";
 
@@ -145,10 +162,11 @@ public sealed class CompositorView : Control {
         if (!compositor.Graph.TryGet(id, out var node)
             || !compositor.Registry.TryGet(node.Type, out var definition)
             || definition.Create() is not CompositorNode instance) {
+            Message = null;
             return;
         }
 
-        Settings.Add("text").Text = node.Type;
+        Message = node.Type;
 
         foreach (var field in instance.Fields) {
             Row(compositor, node, field);
@@ -158,15 +176,24 @@ public sealed class CompositorView : Control {
     /// <summary>How many settings rows are showing.</summary>
     public int RowCount => editors.Count;
 
-    void Row(CompositorDocument compositor, GraphNode node, CompositorField field) {
-        var row = Settings.Add("fact-row");
-        row.Add("fact-name").Text = field.Label;
+    /// <summary>The line above the rows: the node's type, or why there are no rows.</summary>
+    /// <remarks>
+    ///     One element that changes its text rather than one that comes and goes. An element with no
+    ///     text measures nothing, so the empty state costs a zero-height box — and keeping it means
+    ///     <see cref="Fields" /> never moves, which matters because moving a list restyles every row
+    ///     in it.
+    /// </remarks>
+    string? Message {
+        get => Caption.Text;
+        set => Caption.Text = value;
+    }
 
-        var slot = row.Add("fact-value");
+    void Row(CompositorDocument compositor, GraphNode node, CompositorField field) {
+        var row = Fields.AddRow(field.Label);
 
         switch (field.Kind) {
             case CompositorFieldKind.Toggle: {
-                var toggle = slot.Add<CheckBox>();
+                var toggle = row.Content<CheckBox>();
                 toggle.IsChecked = Lanes(node, field) != 0f;
 
                 toggle.CheckedChanged += (_, value) => Write(compositor, node, field, value ? 1f : 0f);
@@ -176,7 +203,7 @@ public sealed class CompositorView : Control {
             }
 
             case CompositorFieldKind.Number: {
-                var number = slot.Add<NumericInput>();
+                var number = row.Content<NumericInput>();
                 number.Number = Lanes(node, field);
 
                 number.ValueChanged += (_, _) => Write(compositor, node, field, (float) number.Number);
@@ -186,7 +213,7 @@ public sealed class CompositorView : Control {
             }
 
             case CompositorFieldKind.Choice: {
-                var select = slot.Add<Select>();
+                var select = row.Content<Select>();
 
                 foreach (var option in field.Options ?? []) {
                     select.AddOption(option);
@@ -205,7 +232,7 @@ public sealed class CompositorView : Control {
             }
 
             default: {
-                var text = slot.Add<TextBox>();
+                var text = row.Content<TextBox>();
                 text.Value = node.TextOf(field.Key);
 
                 text.Placeholder = field.Kind == CompositorFieldKind.Names ? "name, name" : null;
@@ -218,10 +245,13 @@ public sealed class CompositorView : Control {
 
         if (field.Help.Length > 0) {
             // On the label rather than on the editor, so hovering the thing being edited does not
-            // cover it with a description of itself — the inspector's rule, restated.
+            // cover it with a description of itself — the inspector's rule, restated. ⚠ Attached to
+            // `KeyPart` by name rather than to `row.Children[0]`: the row's parts are the control's
+            // business now, and an index into them is a guess that stops being right the moment the
+            // control grows one.
             var tooltip = row.Add<Tooltip>();
             tooltip.Label = field.Help;
-            tooltip.Attach(row.Children[0]);
+            tooltip.Attach(row.KeyPart);
         }
     }
 

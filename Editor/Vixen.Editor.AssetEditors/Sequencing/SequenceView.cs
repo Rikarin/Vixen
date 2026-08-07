@@ -510,6 +510,12 @@ public sealed class SequenceEditorFactory : IAssetEditorFactory {
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
 
+        // ⚠ A `Timeline` already scrolls its lanes vertically, and it does so by hand: it keeps its own
+        // `ScrollTop`, virtualises the rows against it, counter-offsets the headers, and turns a
+        // pointer into a track with `(y - Lanes.AbsoluteTop + ScrollTop) / height`. A panel offset on
+        // top of that is a second scroll the arithmetic does not include.
+        DockPanel.Fills(panel);
+
         var view = panel.Add<SequenceView>();
         view.Show((SequenceDocument) document);
 

@@ -1,0 +1,199 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7, wave 1a. Doc 13's four arenas, each with its rows.
+
+    ⚠ **The three columns question, answered the same way `StatisticsView` answers four.** A memory
+    line is a label, a right-aligned number and a detail, and `KeyValueList` is two halves on purpose
+    — its remarks argue that every hand-rolled third column in the editor is a different thing and a
+    generic third slot is one with no meaning. Three options were open: grow the list a variant, use
+    it for two of the three and put the detail beside, or keep the rows bespoke.
+
+    **Bespoke, and the reason is that the port removes the duplication the control was extracted to
+    remove.** `KeyValueList` exists because five panels had each written the same pooling loop — the
+    `while (pool.Count <= slot)`, the parked tail, the class swap. `@for` deletes all of that here
+    without a control being involved, and what is left that this panel shares with a key/value list is
+    three column widths in `ProfilerTheme`. A variant carrying a third slot would put a slot on
+    `KeyValueRow` that the frame debugger, the build analysis and the compositor each leave empty, to
+    save this file six lines of CSS it already has. The list keeps its two halves; the frame debugger,
+    whose rows genuinely are two halves, keeps using it.
+
+    ⚠ **A heading is a `memory-line` with a class and not a different tag**, which the port had to
+    preserve deliberately: `ProfilerTheme` writes `memory-line.memory-heading`, compound, so both
+    names have to land on the same element. `@for` gives each line its class from `Kind`.
+-->
+@component MemoryView
+@namespace Vixen.Editor.Profiler
+@tag memory-view
+@using System.Globalization
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<memory-toolbar>
+    <Button Size="Small" Label="Refresh" on:click="@Take" />
+    <memory-status>@Status</memory-status>
+</memory-toolbar>
+
+<!--
+    ⚠ A direct child of the root, because `ProfilerTheme` says `memory-view > scroll-view`. The panel
+    keeps a scroller of its own rather than leaning on `DockPanel.Scrolls`, so that the refresh button
+    and the "taken at" line stay put while the arenas move under them — the same split
+    `ImportSettingsView` makes for its banner.
+-->
+<ScrollView>
+    <!--
+        ⚠ **Keyed on the whole line, not on its `Key` field.** A key that survives an update keeps
+        its region and `BuildContext.For` does not re-run the body — so the effects inside it go on
+        showing the line as it was when that key first appeared. Keying on the identity alone would
+        mean every heap figure on screen was the one from the first reading, which is precisely the
+        bug a memory panel exists to not have. `Line` is a record, so its value is its identity: the
+        number moved, so it is a different key, so the row is rebuilt.
+
+        The `Key` field earns its place anyway — it carries the arena, so two arenas holding a row of
+        the same name and the same size are still two lines.
+    -->
+    @for (var line in Lines) {
+        <memory-line key="@line" class="@line.Kind">
+            <memory-label>@line.Label</memory-label>
+            <memory-value>@line.Value</memory-value>
+            <memory-detail>@line.Detail</memory-detail>
+        </memory-line>
+    }
+</ScrollView>
+
+@code {
+    /// <summary>The reading on screen.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One signal holding the whole snapshot.</b> A <see cref="MemorySnapshot" /> is
+    ///     immutable and taking a new reading replaces it, so this is a value change and not the
+    ///     revision bump a mutable model would have needed. Nothing here subscribes to anything, so
+    ///     nothing here has to unsubscribe.
+    /// </remarks>
+    readonly Signal<MemorySnapshot?> snapshot = new(null);
+
+    /// <summary>Where the arenas this assembly cannot see into come from.</summary>
+    /// <remarks>
+    ///     Not signal-backed, and it does not need to be: a host assigns it once, before the first
+    ///     <see cref="Take" />, which is the assignment that reads it.
+    /// </remarks>
+    public MemoryProviders Providers { get; } = new();
+
+    /// <summary>The reading on screen, or <see langword="null" /> before one has been taken.</summary>
+    public MemorySnapshot? Snapshot => snapshot.Value;
+
+    /// <summary>Takes a fresh reading and shows it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Called by the host rather than from a lifecycle hook, because a component has none
+    ///     that runs at build.</b> <c>Control.OnCreated</c> used to call this and
+    ///     <c>DiagnosticsModule</c> called it again after assigning <see cref="Providers" /> — so the
+    ///     panel took two readings and threw the first away. The host's call is the one that had the
+    ///     providers in it, and it is now the only one.
+    /// </remarks>
+    public void Take() => Show(MemorySnapshot.Take(Providers));
+
+    /// <summary>Shows a reading somebody else took.</summary>
+    /// <param name="reading">The reading.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="reading" /> is null.</exception>
+    public void Show(MemorySnapshot reading) {
+        ArgumentNullException.ThrowIfNull(reading);
+        snapshot.Value = reading;
+    }
+
+    /// <summary>Formats a byte count the way a person reads one.</summary>
+    /// <param name="bytes">How many.</param>
+    /// <returns>The text.</returns>
+    /// <remarks>
+    ///     Binary units, because every allocator underneath reports in them and a panel that rounded
+    ///     1 048 576 to "1.05 MB" would disagree with the number in every other tool the reader has
+    ///     open.
+    ///     <para>
+    ///         ⚠ Still <c>public static</c> on this type after the port, because
+    ///         <c>StatisticsView</c> and <c>EditorDiagnostics</c> both call it and a suite pins its
+    ///         five cases. A formatter is not a view, and one day it should not live on one; moving
+    ///         it is a separate change with three call sites in it.
+    ///     </para>
+    /// </remarks>
+    public static string Bytes(long bytes) {
+        string[] units = ["B", "KiB", "MiB", "GiB", "TiB"];
+
+        double value = Math.Abs(bytes);
+        var unit = 0;
+
+        while (value >= 1024d && unit < units.Length - 1) {
+            value /= 1024d;
+            unit++;
+        }
+
+        var sign = bytes < 0 ? "-" : string.Empty;
+
+        return sign + value.ToString(unit == 0 ? "0" : "0.##", CultureInfo.InvariantCulture) + " " + units[unit];
+    }
+
+    /// <summary>When the reading on screen was taken, or an invitation to take one.</summary>
+    string Status =>
+        snapshot.Value is { } reading
+            ? string.Create(CultureInfo.InvariantCulture, $"Taken at {reading.Taken.ToLocalTime():HH\\:mm\\:ss}")
+            : "Press Refresh.";
+
+    /// <summary>One row of the panel: a heading naming an arena, or a measurement inside one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A record so that <c>@for</c> has something with an identity to key on, and the key is
+    ///     the arena and the label together.</b> Two arenas can hold a row of the same name — "Heap"
+    ///     is a plausible label under more than one — and a key that collided would make the
+    ///     reconciler treat two lines as one that had moved.
+    /// </remarks>
+    sealed record Line(string Key, string Kind, string Label, string Value, string? Detail);
+
+    /// <summary>
+    ///     The arenas that have anything in them, each headed by its total, flattened into the one
+    ///     sequence the markup walks.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>One list rather than a loop over arenas containing a loop over rows, because the
+    ///     headings and the rows are siblings.</b> Nesting the two loops would put each arena's rows
+    ///     inside a wrapper element, and <c>memory-line</c>'s rules are written against the scroller's
+    ///     own children.
+    /// </remarks>
+    IEnumerable<Line> Lines {
+        get {
+            if (snapshot.Value is not { } reading) {
+                yield break;
+            }
+
+            foreach (var arena in Enum.GetValues<MemoryArena>()) {
+                var rows = reading.Of(arena).ToArray();
+
+                if (rows.Length == 0) {
+                    continue;
+                }
+
+                yield return new(
+                    $"{arena}/",
+                    "memory-heading",
+                    Title(arena),
+                    Bytes(reading.BytesOf(arena)),
+                    null
+                );
+
+                foreach (var row in rows) {
+                    yield return new(
+                        $"{arena}/{row.Label}",
+                        "memory-row",
+                        row.Label,
+                        row.IsCount ? row.Bytes.ToString("N0", CultureInfo.InvariantCulture) : Bytes(row.Bytes),
+                        row.Detail
+                    );
+                }
+            }
+        }
+    }
+
+    static string Title(MemoryArena arena) =>
+        arena switch {
+            MemoryArena.Managed => "Managed heap",
+            MemoryArena.Native => "Native allocations",
+            MemoryArena.Gpu => "GPU memory",
+            _ => "Asset residency"
+        };
+}

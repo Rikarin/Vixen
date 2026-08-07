@@ -254,8 +254,23 @@ public sealed class LayoutStyleBuilder {
             result.FlexWrap = wrap;
         }
 
+        // ⚠ <b>The shorthand first and each longhand over it, rather than in source order.</b> Nothing
+        // expands `overflow` into its two longhands on the way in — ExCSS treats all three as plain
+        // properties and `ShorthandExpansion` is not wired to the cascade — so by the time a computed
+        // style is built, "which was written last" is a question that no longer has an answer. The
+        // rule here is the one every stylesheet in this repository is already written against, and the
+        // one CSS agrees with whenever the longhand really did come last: a named axis wins.
         if (TryKeyword(style, names.Overflow, keywords.Overflows, out Overflow overflow)) {
-            result.Overflow = overflow;
+            result.OverflowX = overflow;
+            result.OverflowY = overflow;
+        }
+
+        if (TryKeyword(style, names.OverflowX, keywords.Overflows, out Overflow overflowX)) {
+            result.OverflowX = overflowX;
+        }
+
+        if (TryKeyword(style, names.OverflowY, keywords.Overflows, out Overflow overflowY)) {
+            result.OverflowY = overflowY;
         }
 
         if (TryKeyword(style, names.Display, keywords.Displays, out Display display)) {
@@ -522,6 +537,8 @@ public sealed class LayoutStyleBuilder {
             Position = table.Intern("position");
             FlexWrap = table.Intern("flex-wrap");
             Overflow = table.Intern("overflow");
+            OverflowX = table.Intern("overflow-x");
+            OverflowY = table.Intern("overflow-y");
             Display = table.Intern("display");
             BoxSizing = table.Intern("box-sizing");
 
@@ -564,6 +581,8 @@ public sealed class LayoutStyleBuilder {
         public int Position { get; }
         public int FlexWrap { get; }
         public int Overflow { get; }
+        public int OverflowX { get; }
+        public int OverflowY { get; }
         public int Display { get; }
         public int BoxSizing { get; }
         public int Flex { get; }
@@ -652,10 +671,18 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("wrap-reverse")] = Wrap.WrapReverse
             };
 
+            // ⚠ `auto` maps onto `Scroll` rather than adding a fourth mode. The two are the same
+            // layout in CSS — both establish a scroll container — and differ only in whether the
+            // scrollbar gutter is always reserved, which nothing here draws. Its absence was not
+            // neutral: `overflow: auto` fell out of this table entirely, so a box that declared it
+            // clipped in the draw list, which tests anything that is not `visible`, and stayed
+            // `Visible` to flexbox, which reads this — half a property, in four editor panels and
+            // however many stylesheets follow. See `Overflow`.
             Overflows = new Dictionary<int, Overflow> {
                 [table.Intern("visible")] = Overflow.Visible,
                 [table.Intern("hidden")] = Overflow.Hidden,
-                [table.Intern("scroll")] = Overflow.Scroll
+                [table.Intern("scroll")] = Overflow.Scroll,
+                [Auto] = Overflow.Scroll
             };
 
             Displays = new Dictionary<int, Display> {
