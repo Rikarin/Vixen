@@ -95,9 +95,16 @@ public static class GeometryRunner {
 
             progress.WriteLine(
                 $"  {mesh.Name}: {report.QuadCount} quads, "
-                + $"max deviation {report.MaxDeviation:0.#####} of the diagonal, "
-                + $"feature error {report.FeatureReproductionError:0.#####}."
+                + $"deviation {report.MaxDeviation:0.#####} worst and {report.MeanDeviation:0.#####} mean "
+                + $"of the diagonal, feature error {report.FeatureReproductionError:0.#####}."
             );
+
+            // ⚠ Printed here rather than left in the report, because docs/plan/41 § Part 4's whole claim
+            // is that a remesh that went wrong says so. A result that comes back not watertight with no
+            // line naming a defect is indistinguishable from one that is fine.
+            if (report.Mesh.Describe() is { } defects) {
+                progress.WriteLine($"  note    {mesh.Name}: the result is not a closed solid — {defects}.");
+            }
 
             written.Add(ModelGeometry.ToMeshData(quads, mesh.Name));
         }
