@@ -454,12 +454,18 @@ public class EmitterTests {
                              public Signal<string[]> Items { get; } = new([]);
                              public Vixen.Ui.UiElement Body = null!;
                              public int Composed;
+                             public int Runs;
+
+                             // Counted rather than inferred: an effect that outlives its element is
+                             // only visible as an effect that *ran*, and the element it would have
+                             // written to may not complain.
+                             public int Read() { Runs++; return Count.Value; }
 
                              partial void OnComposed() => Composed++;
                          }
 
                          <gauge-body ref="@Body">
-                             <span>Count: @Count.Value</span>
+                             <span>Count: @Read()</span>
 
                              @if (Count.Value > 0) {
                                  <em>positive</em>
@@ -530,18 +536,28 @@ public class EmitterTests {
         var gauge = Add(document, Gauge);
         var body = (UiElement)Member(gauge, "Body")!;
 
+        // A write the effect does see, so that the count below is a difference rather than a zero.
+        ((Signal<int>)Property(gauge, "Count")).Value = 1;
         document.Effects.Flush();
+
+        var ran = (int)Member(gauge, "Runs")!;
+        Assert.True(ran > 0);
+
         ((UiElement)gauge).Remove();
 
         // The base's own hook still ran, so the generated override chained rather than replaced it.
         Assert.Equal(1, (int)Member(gauge, "Removals")!);
+        Assert.True(body.IsRemoved);
 
-        // And the effect is gone: writing the signal it read reaches nothing, where a live effect
-        // would assign to a removed element and throw.
+        // ⚠ Counted, not inferred from an exception. The first version of this test wrote the signal
+        // and asserted that flushing did not throw — which passed with the disposal deleted, because
+        // assigning `Text` to a removed element happens not to complain. What an undisposed effect
+        // actually does is *run*, holding its elements alive through its closure, so that is what is
+        // measured.
         ((Signal<int>)Property(gauge, "Count")).Value = 9;
         document.Effects.Flush();
 
-        Assert.True(body.IsRemoved);
+        Assert.Equal(ran, (int)Member(gauge, "Runs")!);
     }
 
     [Fact]
