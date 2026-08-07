@@ -309,6 +309,12 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             return true;
         }
 
+        if (name == "empty") {
+            specificity = specificity with { Classes = specificity.Classes + 1 };
+            compiled = new SimpleSelector(SimpleSelectorKind.Empty);
+            return true;
+        }
+
         if (name == "enabled") {
             // The absence of a state rather than a state of its own, which is what CSS means by it.
             specificity = specificity with { Classes = specificity.Classes + 1 };

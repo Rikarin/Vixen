@@ -85,8 +85,8 @@ public sealed class StyleRuleSet {
     /// <remarks>
     ///     <para>
     ///         A <see cref="StyleSharingKey" /> says what an element <i>is</i>: its parent, tag, id,
-    ///         classes, state and inline style. Two things a rule can match on are not in there, and
-    ///         either one makes sharing wrong rather than merely coarse.
+    ///         classes, state and inline style. Three things a rule can match on are not in there, and
+    ///         any one of them makes sharing wrong rather than merely coarse.
     ///     </para>
     ///     <para>
     ///         <b>Position among siblings.</b> <c>li:nth-child(2n)</c> and <c>.selected + .row</c>
@@ -98,6 +98,12 @@ public sealed class StyleRuleSet {
     ///         the key, unlike position, and are not — an element may carry any number of arbitrary
     ///         ones, and hashing them all on every element to serve the rare stylesheet that selects
     ///         on one is the wrong trade.
+    ///     </para>
+    ///     <para>
+    ///         <b>Contents.</b> <c>:empty</c> asks what an element holds, and the key describes only
+    ///         what it is. Two lanes of a vector field are the same tag with the same classes under
+    ///         the same parent, and the one that was given a name is not empty — which is the whole
+    ///         reason a theme writes the rule.
     ///     </para>
     ///     <para>
     ///         Browsers decide this per element, refusing to share only the ones such rules could
@@ -168,7 +174,9 @@ public sealed class StyleRuleSet {
             for (var s = 0; s < compound.Count; s++) {
                 var simple = table.Simple(compound.Start + s);
 
-                if (simple.Kind is SimpleSelectorKind.Position or SimpleSelectorKind.Attribute) {
+                if (simple.Kind is SimpleSelectorKind.Position
+                    or SimpleSelectorKind.Attribute
+                    or SimpleSelectorKind.Empty) {
                     return true;
                 }
 

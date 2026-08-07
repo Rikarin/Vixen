@@ -50,7 +50,10 @@ public enum SimpleSelectorKind : byte {
     Not,
 
     /// <summary><c>:is()</c> or <c>:where()</c> — one of the nested selectors must match.</summary>
-    Is
+    Is,
+
+    /// <summary><c>:empty</c> — the element has neither children nor text.</summary>
+    Empty
 }
 
 /// <summary>How an attribute selector compares.</summary>

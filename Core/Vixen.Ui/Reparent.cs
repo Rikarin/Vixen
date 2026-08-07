@@ -21,11 +21,11 @@ public sealed partial class UiDocument {
     ///     <para>
     ///         ⚠ <b>So the slots are rebuilt rather than moved.</b> The subtree gets fresh style
     ///         nodes under the new parent, in pre-order, carrying its tags, ids, classes, states,
-    ///         attributes and inline blocks; the old slots are tombstoned and reclaimed by the next
-    ///         compaction. The <i>elements</i> are untouched — same instances, same handlers, same
-    ///         layout nodes, same children, same focus — which is the entire point: a docked panel
-    ///         that was rebuilt instead of moved would lose its scroll position, its selection and
-    ///         whatever the user had typed into it.
+    ///         attributes, inline blocks and whether it holds text; the old slots are tombstoned and
+    ///         reclaimed by the next compaction. The <i>elements</i> are untouched — same instances,
+    ///         same handlers, same layout nodes, same children, same focus — which is the entire
+    ///         point: a docked panel that was rebuilt instead of moved would lose its scroll
+    ///         position, its selection and whatever the user had typed into it.
     ///     </para>
     ///     <para>
     ///         The cost is O(subtree) slot creations per move plus the same number of tombstones.
@@ -109,6 +109,7 @@ public sealed partial class UiDocument {
 
         tree.SetState(created, tree.GetState(source));
         tree.SetInlineStyle(created, tree.GetInlineStyle(source));
+        tree.SetHasText(created, tree.HasText(source));
 
         foreach (var (name, value) in tree.GetAttributes(source)) {
             tree.SetAttribute(created, name, value);
