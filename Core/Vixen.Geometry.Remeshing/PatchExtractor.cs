@@ -144,7 +144,9 @@ static class PatchExtractor {
         ArgumentNullException.ThrowIfNull(quantization);
         ArgumentNullException.ThrowIfNull(projector);
 
-        var output = new EditMesh();
+        // The quads inherit their patch's group, so they inherit what the group ids meant as well —
+        // otherwise a remeshed mesh unwraps as though its material boundaries had never existed.
+        var output = new EditMesh { GroupSource = mesh.GroupSource };
         var warnings = new List<string>();
         var arcOf = new List<int>();
         var sourceOf = new List<int>();

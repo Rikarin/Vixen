@@ -149,7 +149,7 @@ public static class MeshBoolean {
                 break;
         }
 
-        return Assemble(one.All());
+        return Assemble(one.All(), Wider(left, right));
     }
 
     /// <summary>Cuts a solid with a plane and keeps one side of it, or both.</summary>
@@ -236,7 +236,7 @@ public static class MeshBoolean {
             Cap(planes, keepFront ? planes.Opposite(cutter) : cutter, rim, kept);
         }
 
-        return Assemble(kept);
+        return Assemble(kept, mesh.GroupSource);
     }
 
     /// <summary>Cuts a solid by another one's surface and keeps the part outside it.</summary>
@@ -276,7 +276,7 @@ public static class MeshBoolean {
 
         var faces = kept.All();
 
-        return faces.Count == 0 ? null : Assemble(faces);
+        return faces.Count == 0 ? null : Assemble(faces, mesh.GroupSource);
     }
 
     /// <summary>How far a second operand's face groups are moved so they cannot collide with the first's.</summary>
@@ -298,6 +298,10 @@ public static class MeshBoolean {
         for (var face = 0; face < made.FaceCount; face++) {
             made.SetGroup(face, made.Faces[face].Group + shift);
         }
+
+        // ⚠ Restored after the shift, because `SetGroup` reads as an assignment and a renumber is not
+        // one. Shifting a coplanarity guess out of the way of another mesh's ids leaves it a guess.
+        made.GroupSource = mesh.GroupSource;
 
         return made;
     }
@@ -574,9 +578,19 @@ public static class MeshBoolean {
     ///     cut.</remarks>
     public const int CapGroup = 1000;
 
+    /// <summary>The reading of the two operands' groups that survives a boolean.</summary>
+    /// <remarks>
+    ///     An assignment wins, because a result whose faces came from a mesh with real materials on it
+    ///     has real materials on it — and the coplanarity guess is only ever the absence of one.
+    /// </remarks>
+    static MeshGroupSource Wider(EditMesh left, EditMesh right) =>
+        left.GroupSource is MeshGroupSource.Assigned || right.GroupSource is MeshGroupSource.Assigned
+            ? MeshGroupSource.Assigned
+            : MeshGroupSource.Coplanarity;
+
     /// <summary>Turns the surviving faces back into a mesh, welded and cleaned.</summary>
-    static EditMesh? Assemble(List<BooleanFace> faces) {
-        var mesh = new EditMesh();
+    static EditMesh? Assemble(List<BooleanFace> faces, MeshGroupSource source) {
+        var mesh = new EditMesh { GroupSource = source };
 
         if (faces.Count == 0) {
             return null;

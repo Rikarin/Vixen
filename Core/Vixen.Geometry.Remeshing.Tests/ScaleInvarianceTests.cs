@@ -25,6 +25,15 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         of them.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And a relative tolerance below the arithmetic's own resolution fails the same way an
+///         absolute one does.</b> <see cref="MeshConditioner.CrossNoise" /> records the third time:
+///         the weld's sliver bound was a fraction of the diagonal squared, which is the right shape,
+///         but the fraction was <c>1e-9</c> — two decades under what a single-precision cross product
+///         of two diagonal-sized differences can resolve, so an exactly-degenerate face's area was
+///         rounding residue and the comparison was a coin flip. It cost a closed surface a triangular
+///         hole at one scale and not the other, which is what this file exists to catch.
+///     </para>
+///     <para>
 ///         The two factors are a thousandth and a thousand, so the same fixture is run six orders of
 ///         magnitude apart. Neither is an exact binary fraction, which is deliberate: a test that
 ///         scaled by powers of two would pass on a build where every threshold comparison sat exactly
