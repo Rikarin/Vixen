@@ -93,6 +93,15 @@ public class TimedCases {
 ///         <see cref="Every_broken_mesh_remeshes_to_all_quads_or_to_a_report_naming_the_stage_that_refused" />
 ///         asserts that a result over <see cref="Remesher.BudgetTolerance" /> says so in the report.
 ///     </para>
+///     <para>
+///         ⚠ <b>That assertion currently fails at the nightly's counts, and it is left failing on
+///         purpose.</b> The report's budget warning is decided from the quantization's <i>prediction</i>
+///         and its <see cref="RemeshReport.QuadCount" /> is counted off the mesh, so a run that drops
+///         patches between the two can come out over the tolerance saying nothing —
+///         <see cref="Divergence" /> has the one-line reproducer, the counts and the mechanism. A
+///         property loosened on its first run is a finding rather than a test, so nothing here is
+///         scoped around it and the nightly is where it shows.
+///     </para>
 /// </remarks>
 [Collection(TimedCases.Name)]
 public class RemeshPipelinePropertyTests {
@@ -232,11 +241,11 @@ public class RemeshPipelinePropertyTests {
                 // quadratically. What is asserted is not a ceiling on the overshoot, which would be a
                 // number nobody has: it is that a result over BudgetTolerance says so, because an
                 // unattended content build has nothing else to read. See Cap's remarks for the 3,534×
-                // this property measured.
+                // this property measured, and Divergence for the case where it does not say so.
                 if (outcome.report.QuadCount > Budget * Remesher.BudgetTolerance) {
-                    Assert.Contains(
-                        outcome.report.Warnings,
-                        warning => warning.Contains("budget", StringComparison.Ordinal)
+                    Assert.True(
+                        outcome.report.Warnings.Any(warning => warning.Contains("budget", StringComparison.Ordinal)),
+                        Divergence(recipe, transfer, uvs, rounds, outcome.report)
                     );
                 }
             },
@@ -272,6 +281,35 @@ public class RemeshPipelinePropertyTests {
     ///         § D11's fourth exit criterion holds bit-for-bit; anything else is a rounded reflection,
     ///         which the pass warns about and which is the branch where a mirrored vertex can land off
     ///         the seam.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This property found an allocation runaway on its first run at the build's own
+    ///         counts, and it is left failing rather than tuned around.</b> Seed <c>9hqwA86TjVk1</c>,
+    ///         and it reproduces from one line:
+    ///         <c>new(ShapeKind.Sphere, 4, 4, [MeshDefect.LargeComponent, MeshDefect.TinyComponent,
+    ///         MeshDefect.ZeroLengthEdge], 4, 0.12195122f, 1f)</c> about <c>(1, 0, 0)</c> at
+    ///         <see cref="Budget" /> quads. <b>602 faces in; 3,999,656 quads out — 41,663× the budget,
+    ///         6,644× the input — allocating 8.7 GB on the calling thread over 42 s.</b>
+    ///         <see cref="RunawayGuard" /> stops it at 1.40 GB <i>retained</i>, sixteen samples in a
+    ///         row, eight seconds in.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is neither a hang nor an all-quad failure, which is exactly why nothing caught it
+    ///         before.</b> The call returns, every face has four sides and the ledger is well formed —
+    ///         the criterion's stated half is satisfied. What is unbounded is <i>growth</i>, and the
+    ///         allocation ceiling is the only reading that sees it. ⚠ <b>It is also a different runaway
+    ///         from the one <see cref="RunawayGuard.RetentionCeiling" /> was measured against</b>: that
+    ///         one is an isotropic pre-remesh handed a <see cref="RemeshSettings.TargetEdgeLength" />
+    ///         far below the mesh's mean, and nothing here passes that setting at all. This one comes
+    ///         off <see cref="RemeshSettings.TargetQuads" />, which is the path the class remarks call
+    ///         "what keeps the ordinary path safe".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The three defects in the recipe are not separable and the shrinker is right not to
+    ///         drop them.</b> Measured on the same plane and budget: the full recipe gives 3,999,656
+    ///         quads, but <c>[LargeComponent]</c> alone at the same multiplicity and degeneracy gives
+    ///         706, at multiplicity 1 gives 1,680, and the bare sphere gives 1,680. The amplification
+    ///         needs the whole combination, so the one line above is the smallest thing to paste.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -408,6 +446,55 @@ public class RemeshPipelinePropertyTests {
 
         return null;
     }
+
+    /// <summary>The message for a result over the tolerance whose report does not say so.</summary>
+    /// <param name="recipe">The mesh. ⚠ Printed as a constructor call, so the finding is one paste.</param>
+    /// <param name="transfer">Whether attributes were transferred.</param>
+    /// <param name="uvs">Whether an atlas was generated.</param>
+    /// <param name="rounds">How many pre-remesh rounds ran.</param>
+    /// <param name="report">What the pipeline said.</param>
+    /// <returns>The finding, with the reproducer and the mechanism.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is a measured defect in <see cref="Remesher" /> and it is deliberately not
+    ///         worked around, so this property fails at the nightly's counts until it is fixed.</b>
+    ///         Found by this property at fifteen times its build count, seed <c>8dLG7n4AvGV1</c>, and
+    ///         it reproduces from one line:
+    ///         <c>new(ShapeKind.Sphere, 3, 5, [MeshDefect.SelfIntersection, MeshDefect.LargeComponent],
+    ///         1, 0f, 0.01f)</c> at <see cref="Budget" /> quads with both halves of stage seven on and
+    ///         one pre-remesh round. 96 faces in; <b>138 quads out against 96 asked for — 1.44×,
+    ///         over <see cref="Remesher.BudgetTolerance" />'s 1.35 — and not one of the three warnings
+    ///         mentions the budget.</b>
+    ///     </para>
+    ///     <para>
+    ///         <b>The mechanism is that the two numbers are counted in different places and one of them
+    ///         is a prediction.</b> <c>Remesher.Budget</c> decides whether to warn from
+    ///         <c>Quantizer.QuadCount(layout, quantization.Counts)</c> — what the quantization implies,
+    ///         computed before anything is extracted — while <see cref="RemeshReport.QuadCount" /> is
+    ///         counted off the mesh that came out. They agree until a patch is dropped between them,
+    ///         and this case drops twenty-two: "22 patches quantized to zero in one direction and were
+    ///         forced open", "forcing the collapsed patches open made the system unsolvable, so 22 were
+    ///         left out", "22 patches were skipped: a side quantized away entirely". The prediction
+    ///         landed under the line and the mesh came out over it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same divergence is visible on the symmetry path at a size nobody could miss,
+    ///         which is what says it is one defect rather than a rounding argument.</b>
+    ///         <see cref="Cap" />'s 339,330-quad case reports "the budget was not met: 169665 quads
+    ///         against 96 asked for" — exactly half, because the prediction is the half-mesh's and
+    ///         <see cref="SymmetryPass" /> recounts after reflecting. A caller reading the sentence
+    ///         gets a number that is not the number of quads it was handed.
+    ///     </para>
+    /// </remarks>
+    static string Divergence(MeshRecipe recipe, bool transfer, bool uvs, int rounds, RemeshReport report) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"{Describe(recipe, transfer, uvs, rounds)}: {report.QuadCount} quads came out against {Budget} asked "
+            + $"for — {report.QuadCount / (float)Budget:N2}×, over BudgetTolerance's {Remesher.BudgetTolerance:N2} "
+            + $"— and no warning mentions the budget: [{string.Join(" · ", report.Warnings)}]. Paste "
+            + $"{recipe} into RemesherTests with TargetQuads = {Budget}, TransferAttributes = {transfer}, "
+            + $"GenerateUvs = {uvs}, PreRemeshIterations = {rounds}."
+        );
 
     static string Describe(MeshRecipe recipe, bool transfer, bool uvs, int rounds) =>
         string.Create(
