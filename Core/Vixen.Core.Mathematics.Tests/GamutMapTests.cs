@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using CsCheck;
 using Vixen.Core.Mathematics;
 using Xunit;
 
@@ -286,5 +287,52 @@ public sealed class GamutMapTests {
                 Assert.True(GamutMap.InGamut(colour, ColorGamut.Rec2020), $"P3 but not Rec2020 at {hue}");
             }
         }
+    }
+
+    /// <summary>
+    ///     CSS Color 4 writes the lightness branches before the in-gamut test; <see cref="GamutMap.Map" />
+    ///     asks the in-gamut question first so that a showable colour never pays for
+    ///     <see cref="Oklab.FromLinear" />'s three cube roots. This pins that the swap is free.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The oracle is the specification's ordering written out here, not a golden number.</b>
+    ///     The reordering is only sound because no colour inside any of these three gamuts has a
+    ///     lightness outside <c>(0, 1)</c> — they share D65 and normalise white to <c>L = 1</c> — so
+    ///     the two orders can disagree only about colours that are white to within float noise. The
+    ///     generator is deliberately allowed well outside <c>[0, 1]</c> per channel, because
+    ///     out-of-gamut input is the entire population this function exists for.
+    /// </remarks>
+    [Fact]
+    public void Map_agrees_with_the_specification_ordering() {
+        var channel = Gen.Float[-0.5f, 1.5f];
+
+        Gen.Select(channel, channel, channel, Gen.Int[0, 2])
+            .Sample(sample => {
+                var (r, g, b, which) = sample;
+                var colour = new Vector3(r, g, b);
+                var gamut = (ColorGamut) which;
+
+                var actual = GamutMap.Map(colour, gamut);
+                var expected = SpecificationOrder(colour, gamut);
+
+                Assert.Equal(expected.X, actual.X, 4);
+                Assert.Equal(expected.Y, actual.Y, 4);
+                Assert.Equal(expected.Z, actual.Z, 4);
+            });
+    }
+
+    /// <summary>The lightness branches ahead of the in-gamut test, as CSS Color 4 § 14.2 writes them.</summary>
+    static Vector3 SpecificationOrder(Vector3 linear, ColorGamut gamut) {
+        var origin = Oklab.FromLinear(linear);
+
+        if (origin.L >= 1f) {
+            return new Vector3(1f, 1f, 1f);
+        }
+
+        if (origin.L <= 0f) {
+            return default;
+        }
+
+        return GamutMap.Map(linear, gamut);
     }
 }

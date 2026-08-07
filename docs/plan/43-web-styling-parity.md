@@ -680,6 +680,43 @@ and `color(display-p3 …)`, `color(srgb …)` and their `-linear` forms parse i
 unclamped; `a98-rgb`, `prophoto-rgb` and `rec2020` are refused rather than decoded with sRGB's
 transfer curve, which is theirs to have and not sRGB's.
 
+✅ **And the mapper is now called at presentation, which is what made the switch shippable.**
+`UiGeometryBuilder.Gamut` carries the swapchain's *granted* gamut, and every colour the builder emits
+— a quad's, a path's, a gradient's far stop — goes through `GamutMap.Map` on its way into a vertex.
+`EditorPane` sets it from `ISwapChain.Gamut` on create and on recreate, so a window dragged onto a
+wide display picks the wider gamut up with the surface.
+
+**CPU per colour, not per pixel in the shader, and the argument is convexity rather than cost alone.**
+Mapping the stops and interpolating afterwards is *not* the same operation as interpolating and
+mapping each pixel — but it is sufficient for the property that matters. The UI shader's only colour
+combinations are the gradient's `lerp`, premultiplication by coverage and the destination blend, all
+convex combinations in the working space; each of the three gamuts is a linear image of the unit cube
+and therefore convex; a convex combination of points inside a convex set is inside it. So once the
+stops are showable, every pixel between them is. The per-pixel version would differ only in how
+chroma is *distributed* along a ramp whose stops were both outside, and would cost a twelve-iteration
+search with a cube root per iteration on every fragment of a full-screen surface.
+
+**Measured, Release, per colour:** the `InGamut` early-out costs **6–11 ns**; `Oklab.FromLinear`,
+which the specification's ordering paid *before* asking, costs **12 ns**; a full search on a colour
+that really is out of gamut costs **≈ 1 060 ns**. So the reorder roughly halves the common path, and
+a search costs about a hundred times the question — which is the entire case for caching repeats and
+for not caching anything else.
+
+⚠ **`GamutMap.Map` now asks `InGamut` before it converts to Oklab**, reversing the specification's
+order. That is the difference between this being affordable per colour per frame and not: a showable
+colour used to pay three cube roots to discover it needed nothing, where the test that says so is six
+comparisons. It is sound only because no colour inside any of these three gamuts has a lightness
+outside `(0, 1)` — they share D65 and normalise white to `L = 1` — so the branches being hopped over
+are unreachable for in-gamut input. `Map_agrees_with_the_specification_ordering` pins it against the
+original order over generated colours rather than leaving it as an argument.
+
+⚠ **This changes rendering on ordinary sRGB hardware, and no screenshot baseline moved — for a
+reason that expires.** An sRGB surface now *maps* where it used to let the `UNORM` attachment clip.
+All 43 committed baselines are byte-identical, because no stylesheet in the tree authors `oklch()`
+yet: every theme colour is a hex token, in gamut by construction, and the early-out returns it
+untouched. **The baselines will move when this palette lands**, and that movement is the fix
+arriving, not a regression — the pixels that change are the ones that were being clipped.
+
 ⚠ **Three things a reader should not take on trust from the above.** First, the specification now
 offers **three** gamut mapping algorithms — binary search, EdgeSeeker, ray-trace — and lets an
 implementation choose; the one implemented is the only one whose constants the prose pins down.

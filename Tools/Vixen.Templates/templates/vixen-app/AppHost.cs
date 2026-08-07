@@ -294,6 +294,12 @@ sealed class AppHost : IDisposable {
         built = new Int2(window.FramebufferSize.X, window.FramebufferSize.Y);
         swapChain = device.CreateSwapChain(new(window.Surface.Handle, built, PixelFormat.Bgra8UNormSrgb));
 
+        // ⚠ Read back, not assumed. Every colour the builder emits is brought into this gamut — see
+        // `UiGeometryBuilder.Gamut` — and the swapchain reports what the surface *granted*, which is
+        // not always what it was asked for. Ask for Display P3 through `GraphicsOptions.Gamut` and a
+        // surface that could not offer it stays sRGB; mapping to P3 anyway over-saturates it.
+        geometry.Gamut = swapChain.Gamut;
+
         renderer = new UiRenderer(
             device,
             new UiShaders(

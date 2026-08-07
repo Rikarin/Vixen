@@ -160,10 +160,36 @@ public static class GamutMap {
     /// <param name="gamut">The destination gamut.</param>
     /// <returns>A colour inside the gamut, still in linear sRGB primaries.</returns>
     /// <remarks>
-    ///     A colour already inside the gamut is returned untouched — the algorithm implements a
-    ///     relative colorimetric intent, so mapping is only ever a repair.
+    ///     <para>
+    ///         A colour already inside the gamut is returned untouched — the algorithm implements a
+    ///         relative colorimetric intent, so mapping is only ever a repair.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The in-gamut test comes first, ahead of the lightness branches the specification
+    ///         writes first, and that reordering is the difference between this being callable per
+    ///         colour per frame and not.</b> <see cref="Oklab.FromLinear" /> costs three cube roots
+    ///         and two 3×3 products; <see cref="InGamut" /> on <see cref="ColorGamut.Srgb" /> costs
+    ///         six comparisons and no matrix at all. Written in the specification's order, every
+    ///         colour in a frame pays the conversion in order to discover it did not need it — and
+    ///         the overwhelming majority do not need it, which is exactly the case the ordering
+    ///         should be tuned for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is a reordering and not a behaviour change, for a reason specific to these
+    ///         three gamuts.</b> The branches being hopped over answer <c>L ≥ 1</c> and <c>L ≤ 0</c>,
+    ///         and no colour inside any of sRGB, Display P3 or Rec. 2020 has a lightness outside
+    ///         <c>(0, 1)</c>: all three share D65 and normalise white to <c>L = 1</c>, so their
+    ///         cubes are bounded by black and white on the lightness axis. A colour that satisfies
+    ///         both <c>InGamut</c> and <c>L ≥ 1</c> is therefore white to within float noise, where
+    ///         the two answers agree. <c>Map_agrees_with_the_specification_ordering</c> pins that
+    ///         against the original order over random colours rather than leaving it as an argument.
+    ///     </para>
     /// </remarks>
     public static Vector3 Map(Vector3 linear, ColorGamut gamut) {
+        if (InGamut(linear, gamut)) {
+            return linear;
+        }
+
         var origin = Oklab.FromLinear(linear);
 
         // Out of range on the lightness axis: there is no chroma reduction that helps, because the
@@ -174,10 +200,6 @@ public static class GamutMap {
 
         if (origin.L <= 0f) {
             return default;
-        }
-
-        if (InGamut(linear, gamut)) {
-            return linear;
         }
 
         var hue = MathF.Atan2(origin.B, origin.A);
