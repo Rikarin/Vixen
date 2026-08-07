@@ -118,6 +118,13 @@ sealed class EditorPane : IDisposable {
 
         Renderer = new UiRenderer(device, shaders, new Rendering.RenderOutput([SwapChain.Format]));
 
+        // ⚠ Read back, not passed forward. The swapchain reports the gamut it *granted*, which is
+        // not always the one it was asked for — a surface offering no wide colour space with enough
+        // precision behind it stays in sRGB — and telling the builder to map to P3 for a surface
+        // that stayed sRGB over-saturates every colour on an ordinary display. Per pane, because two
+        // windows of one editor can be on two monitors and only one of them wide.
+        Geometry.Gamut = SwapChain.Gamut;
+
         return true;
     }
 
@@ -140,6 +147,11 @@ sealed class EditorPane : IDisposable {
 
         device.WaitIdle();
         SwapChain.Resize(target);
+
+        // A resize renegotiates the surface format, so the granted gamut can move — dragging a
+        // window onto a wide display is exactly a resize-and-recreate — and a builder still holding
+        // the old one would map to a gamut the surface no longer has.
+        Geometry.Gamut = SwapChain.Gamut;
 
         built = target;
     }

@@ -29,8 +29,22 @@ namespace Vixen.Ui.Rendering;
 ///         never holds a stack, and cannot be caught out by a batch it skipped having left one
 ///         behind.
 ///     </para>
+///     <para>
+///         ⚠ <b>This is also where a colour is brought into what the surface can show</b> — see
+///         <see cref="Gamut" />. It is the last stage that is still the interface's own and the
+///         first that knows which surface the picture is for, which makes it the only place the
+///         repair can sit: above it the draw list is deliberately device-independent, and below it
+///         the colour is already inside a <c>UNORM</c> attachment that has truncated it.
+///     </para>
 /// </remarks>
 public sealed class UiGeometryBuilder {
+    // ⚠ Direct-mapped and fixed-size on purpose. The failure mode of a collision here is that a
+    // colour is searched for again — a slower frame, never a different picture — and that is the
+    // property that lets the cache have no eviction policy, no allocation and no growth. A
+    // dictionary would be exact and would put a hash and a probe on the path of *every* colour,
+    // including the in-gamut ones that must not pay for this at all; those never reach the cache
+    // because `Show` answers them with comparisons before it gets here.
+    readonly ShownColour[] shown = new ShownColour[256];
     readonly List<UiVertex> vertices = [];
     readonly List<uint> indices = [];
     readonly List<UiDraw> draws = [];
@@ -145,6 +159,73 @@ public sealed class UiGeometryBuilder {
     /// </remarks>
     public float Fringe { get; set; } = 0.5f;
 
+    /// <summary>What the surface these vertices are for can show.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Every colour emitted is brought into this gamut by <see cref="GamutMap" /> — chroma
+    ///         reduced at constant lightness and hue — instead of being left to whatever truncates it
+    ///         first. Read it from the swapchain, which reports what the surface actually granted:
+    ///         <c>builder.Gamut = swapChain.Gamut</c>. Never from a constant, and never from what was
+    ///         *asked* for, because a surface that offered no wide colour space with enough precision
+    ///         behind it stays in sRGB and mapping to P3 regardless over-saturates it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The default is sRGB and that is not "off".</b> On an ordinary display an
+    ///         out-of-gamut colour used to reach a <c>UNORM</c> attachment and be clipped per channel
+    ///         by fixed function, which moves the hue — measured at <c>L = 0.65, C = 0.37</c>, by up
+    ///         to 42.5°. It is now repaired first, and 5.5° is what survives. So this changes what
+    ///         ordinary hardware draws, and it only changes it for colours that were already being
+    ///         damaged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Mapping the endpoints is enough; there is no per-pixel pass and none is owed.</b>
+    ///         Every way the shader combines colours — the gradient's <c>lerp</c>, premultiplying by
+    ///         coverage, and the destination blend — is a convex combination in the working space,
+    ///         and each of the three gamuts is a linear image of the unit cube and therefore convex.
+    ///         A convex combination of points inside a convex set is inside it, so once the stops are
+    ///         in gamut every pixel between them is too. Mapping per pixel would differ only in how
+    ///         chroma is *distributed* along a ramp whose stops were both outside, never in whether a
+    ///         pixel is representable — and it would cost a twelve-iteration search with a cube root
+    ///         in each iteration, on every fragment of a surface the interface covers entirely.
+    ///     </para>
+    /// </remarks>
+    public ColorGamut Gamut {
+        get;
+        set {
+            if (field == value) {
+                return;
+            }
+
+            field = value;
+
+            // ⚠ The cache holds answers to "where does this colour land on *that* surface", so the
+            // gamut is not part of the key — it is what makes the whole table stale at once. Keeping
+            // it in the key instead would leave the old gamut's answers resident and let a
+            // pane moved between two displays keep drawing with the previous one's repair.
+            Array.Clear(shown);
+        }
+    } = ColorGamut.Srgb;
+
+    /// <summary>How many of the last frame's colours were outside <see cref="Gamut" /> and repaired.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The number that says the early-out is working.</b> An interface whose palette is in
+    ///     gamut — every hex token is — should report zero, and a zero here means no colour paid for
+    ///     more than the six comparisons <see cref="GamutMap.InGamut" /> costs on an sRGB surface.
+    ///     A figure that climbs on a wide surface is the wrong way round and means the gamut was
+    ///     never handed over.
+    /// </remarks>
+    public int MappedColours { get; private set; }
+
+    /// <summary>How many of those repairs had to run the binary search rather than be remembered.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The number to watch when a frame full of vivid colour costs anything.</b> A palette
+    ///     is a few dozen values drawn thousands of times, so this should settle to roughly the count
+    ///     of *distinct* out-of-gamut colours and stay there while
+    ///     <see cref="MappedColours" /> stays high. The two moving together means the cache is
+    ///     missing every time — either the colours genuinely all differ, which an animated gradient
+    ///     does, or something is perturbing them frame to frame.
+    /// </remarks>
+    public int ColourSearches { get; private set; }
 
     /// <summary>Builds the geometry for a frame.</summary>
     /// <param name="list">The frame's draw list, already batched.</param>
@@ -165,6 +246,8 @@ public sealed class UiGeometryBuilder {
         TessellatedPaths = 0;
         RefusedFields = 0;
         FieldPaths = 0;
+        MappedColours = 0;
+        ColourSearches = 0;
         frame++;
 
         // ⚠ Rebuilt when the fringe moves as well as when the atlas does. The dilation that keeps a
@@ -419,7 +502,7 @@ public sealed class UiGeometryBuilder {
             : BoxStyle.Rounded(CornerRadii.Uniform(command.Radius));
 
         shapes.Add(
-            new UiShape(half, command.Thickness, style.Corners, style.GradientEnd, style.GradientAxis)
+            new UiShape(half, command.Thickness, style.Corners, End(style), style.GradientAxis)
         );
 
         // The texture coordinate is the offset from the centre, which is what a signed distance to a
@@ -466,7 +549,7 @@ public sealed class UiGeometryBuilder {
             : BoxStyle.Rounded(CornerRadii.Uniform(command.Radius));
 
         // Thickness zero: a shadow is a fill, and a border's band would hollow it out.
-        shapes.Add(new UiShape(half, 0f, style.Corners, style.GradientEnd, style.GradientAxis, blur));
+        shapes.Add(new UiShape(half, 0f, style.Corners, End(style), style.GradientAxis, blur));
 
         Quad(
             command.X - margin,
@@ -774,6 +857,10 @@ public sealed class UiGeometryBuilder {
     ///     same shape drawn in two places. <c>Icon</c> takes it; nothing else has to.
     /// </remarks>
     void Emit(ReadOnlySpan<PathVertex> triangles, Color4 color, Vector2 origin) {
+        // Once per path, not once per triangle — an icon is a couple of hundred of them in one
+        // colour, and this is the difference between one early-out test and two hundred.
+        color = Show(color);
+
         for (var i = 0; i + 2 < triangles.Length; i += 3) {
             var start = (uint)vertices.Count;
 
@@ -869,6 +956,81 @@ public sealed class UiGeometryBuilder {
         }
     }
 
+    /// <summary>Brings one colour into what the surface can show, remembering the answer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The in-gamut test is ahead of the cache, not behind it, and that ordering is the
+    ///         point.</b> Almost every colour a frame draws is showable — an interface's palette is
+    ///         in gamut by construction, and on a wide surface even a vivid one usually is — so the
+    ///         common path must be the cheapest thing available, and on an sRGB surface that is six
+    ///         comparisons against <c>[0, 1]</c> with no matrix, no hash and no memory traffic. Put
+    ///         a cache probe in front of it and every showable colour in the frame pays a hash to be
+    ///         told what a comparison already knew.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Alpha is not part of the key, because it is not part of the answer.</b> Coverage
+    ///         has no gamut to be outside of and the mapper carries it through untouched, so one
+    ///         entry serves a token drawn at every opacity a <c>/50</c> modifier can ask for —
+    ///         which, for a palette used through opacity modifiers, is most of what would otherwise
+    ///         be distinct keys.
+    ///     </para>
+    /// </remarks>
+    Color4 Show(Color4 colour) {
+        var linear = new Vector3(colour.R, colour.G, colour.B);
+
+        if (GamutMap.InGamut(linear, Gamut)) {
+            return colour;
+        }
+
+        MappedColours++;
+
+        // Hash the three channels' bit patterns rather than their values: two colours that differ
+        // below what a float can express are the same entry, and that is exactly what should happen.
+        var bits = HashCode.Combine(
+            BitConverter.SingleToUInt32Bits(colour.R),
+            BitConverter.SingleToUInt32Bits(colour.G),
+            BitConverter.SingleToUInt32Bits(colour.B)
+        );
+
+        ref var slot = ref shown[(uint) bits % (uint) shown.Length];
+
+        if (slot.Occupied && slot.Source == linear) {
+            return new Color4(slot.Shown.X, slot.Shown.Y, slot.Shown.Z, colour.A);
+        }
+
+        ColourSearches++;
+        var mapped = GamutMap.Map(linear, Gamut);
+        slot = new ShownColour { Source = linear, Shown = mapped, Occupied = true };
+
+        return new Color4(mapped.X, mapped.Y, mapped.Z, colour.A);
+    }
+
+    /// <summary>A gradient's far colour, brought into the surface's gamut — if there is a gradient.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Guarded on the axis, because <see cref="UiShape" /> carries an end colour whether or
+    ///     not one is used and the shader reads it only when the axis is non-zero.</b> Mapping a
+    ///     field nothing samples would be work spent on nothing, and worse, it would let a colour
+    ///     that never reaches a pixel show up in <see cref="MappedColours" /> — a diagnostic that
+    ///     counts invisible repairs is one nobody can act on.
+    /// </remarks>
+    Color4 End(BoxStyle style) =>
+        style.GradientAxis == Vector2.Zero ? style.GradientEnd : Show(style.GradientEnd);
+
+    /// <summary>One remembered repair: where a colour was, and where it lands on this surface.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Occupied</c> rather than a sentinel key.</b> A cleared table is all zeroes, and
+    ///     zero is opaque black — which is in gamut, so it can never be asked for here and a
+    ///     zero-key collision could not actually occur. The flag is kept anyway because that
+    ///     argument depends on a property of another type, and a table that is correct only while
+    ///     <c>GamutMap.InGamut(default)</c> keeps saying true is the kind of coupling that breaks
+    ///     silently and one comparison the wrong colour.
+    /// </remarks>
+    struct ShownColour {
+        public Vector3 Source;
+        public Vector3 Shown;
+        public bool Occupied;
+    }
+
     /// <summary>Four vertices and six indices, wound the same way every time.</summary>
     void Quad(
         float left,
@@ -881,6 +1043,10 @@ public sealed class UiGeometryBuilder {
         Vector4 shape
     ) {
         var start = (uint)vertices.Count;
+
+        // Once per quad rather than once per vertex: the four corners share a colour, and asking
+        // four times would be four early-out tests to reach one answer.
+        color = Show(color);
 
         vertices.Add(new UiVertex(new Vector2(left, top), textureMin, color, shape));
         vertices.Add(new UiVertex(new Vector2(right, top), new Vector2(textureMax.X, textureMin.Y), color, shape));
