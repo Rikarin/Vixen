@@ -1,0 +1,162 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7, wave 1a. What was a hundred and eighty lines of C# is this: the panel is a count
+    and the count is rows, and `@for` is what a pooling loop was standing in for.
+
+    ⚠ **The four columns question, answered here rather than in `KeyValueList`.** A row is a label, a
+    number against its budget, a bar and a sentence — four things, where `KeyValueList` is
+    deliberately two, and its remarks argue that a generic third slot is a slot with no meaning. That
+    argument is right and it is also no longer the whole picture: `KeyValueList` was extracted because
+    five panels had each hand-written *the same pooling loop*, and `@for` deletes that loop without a
+    control being involved at all. What is left to share is six declarations of column width, which is
+    six lines of `ProfilerTheme` that this panel already had. So the rows stay bespoke, the list does
+    not grow a variant, and the thing that was actually duplicated is gone either way.
+
+    ⚠ **The bar is a `ProgressBar` and no longer a hand-rolled track with a fill inside it**, because
+    markup cannot write an inline `width` — `class` and `binding-path` are the only universal
+    attributes, and a `style="…"` lands in the selector engine's attribute arena rather than in the
+    cascade. That constraint pushed the panel onto the control that was always the right answer: a
+    `statistic-track` holding a `statistic-fill` whose width is a percentage *is* a progress bar, and
+    the control library has had one all along. The colours survive verbatim because `RangeBase` reads
+    `--fill-color` off the cascade, so the near/over rules move from the fill element to the bar.
+-->
+@component StatisticsView
+@namespace Vixen.Editor.Profiler
+@tag statistics-view
+@using System.Globalization
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<statistics-toolbar>
+    <Button Size="Small" Label="Refresh" on:click="@Take" />
+</statistics-toolbar>
+
+<!--
+    ⚠ Absent rather than hidden. The C# kept the block in the tree and toggled `display: none` on it,
+    because a pooled element is cheaper to hide than to rebuild; a branch under `@if` leaves the tree
+    and takes its effects with it, which is the same economy without the class.
+-->
+@if (Warnings.Count > 0) {
+    <statistics-warnings>
+        @for (var warning in Warnings) {
+            <statistic-warning key="@warning">@warning</statistic-warning>
+        }
+    </statistics-warnings>
+}
+
+<statistics-body>
+    <!--
+        ⚠ **Keyed on the whole row and deliberately not on its label**, which is the trap this port
+        fell into and the one thing about `@for` that is not obvious from the syntax. A key that
+        survives an update *keeps its region* — `BuildContext.For` matches the key, reuses the
+        elements and does **not** re-run the body — and the body's effects closed over the item as it
+        was when that key first appeared. So a row keyed on `row.Label` is a row whose number, whose
+        bar and whose over-budget class are frozen at the first count for as long as the label is
+        unchanged, which for a statistics panel is forever.
+
+        A `StatisticRow` is a `readonly record struct`, so its *value* is its identity: change the
+        count and it is a different key, the old region goes and a new one is built with the new
+        number in it. That is the right answer whenever the model is an immutable snapshot — there is
+        no per-row state here to preserve, which is the only thing a stable key would have bought.
+    -->
+    @for (var row in Rows) {
+        <statistic-row key="@row" class="@Severity(row)">
+            <statistic-label>@row.Label</statistic-label>
+            <statistic-value>@Value(row)</statistic-value>
+
+            <!--
+                A bar with no budget behind it is not an empty bar, it is no bar: both a full one and
+                an empty one read as a measurement somebody took.
+            -->
+            @if (row.Budget is > 0) {
+                <ProgressBar Value="@row.Fill" />
+            }
+
+            <statistic-detail>@row.Detail</statistic-detail>
+        </statistic-row>
+    }
+</statistics-body>
+
+@code {
+    /// <summary>The count on screen.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One signal holding the whole snapshot, and it is a value change rather than a bump.</b>
+    ///     A <see cref="SceneStatistics" /> is immutable and <see cref="Show" /> replaces it, so the
+    ///     rows below follow the model for the same reason <c>TaskCenter</c>'s do — there is nothing
+    ///     here that mutates in place and therefore nothing a revision counter would be standing in
+    ///     for. Assigning a plain field instead would render the first count and never a second, which
+    ///     is what <c>StatisticsViewTests.Sabotage…</c> pins.
+    /// </remarks>
+    readonly Signal<SceneStatistics?> statistics = new(null);
+
+    /// <summary>What produces a fresh count, or <see langword="null" /> when nothing can.</summary>
+    /// <remarks>
+    ///     A delegate rather than a world, because which world is the editor's arbitration — the
+    ///     scene being edited, a prefab open in isolation, or a running game's — and a panel holding
+    ///     one would be showing whichever was assigned last.
+    /// </remarks>
+    public Func<SceneStatistics>? Source { get; set; }
+
+    /// <summary>The count on screen, or <see langword="null" /> before one has been taken.</summary>
+    public SceneStatistics? Statistics => statistics.Value;
+
+    /// <summary>Takes a fresh count, if there is anything to count.</summary>
+    public void Take() {
+        if (Source?.Invoke() is { } counted) {
+            Show(counted);
+        }
+    }
+
+    /// <summary>Shows a count somebody else took.</summary>
+    /// <param name="counted">The count.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="counted" /> is null.</exception>
+    public void Show(SceneStatistics counted) {
+        ArgumentNullException.ThrowIfNull(counted);
+        statistics.Value = counted;
+    }
+
+    /// <summary>What the loop walks. Empty before the first count, which draws no rows.</summary>
+    IReadOnlyList<StatisticRow> Rows => statistics.Value?.Rows ?? [];
+
+    /// <summary>The complaints, listed rather than only coloured.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Listed, because a row tinted amber is invisible to anyone not looking at that row</b>,
+    ///     and the whole value of a statistics panel is that it is noticed by somebody who opened it
+    ///     for another reason.
+    /// </remarks>
+    IReadOnlyList<string> Warnings => statistics.Value?.Warnings ?? [];
+
+    /// <summary>The class that colours a row, or nothing when the row is inside its budget.</summary>
+    static string Severity(StatisticRow row) =>
+        row.State switch {
+            BudgetState.Over => "over",
+            BudgetState.Near => "near",
+            _ => string.Empty
+        };
+
+    /// <summary>
+    ///     A count against its budget, or the count alone — and a byte-shaped row in binary units.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Byte rows are told apart by their label rather than by a flag on the row.</b> That is
+    ///     a smaller lie than the alternative: a <c>StatisticRow</c> with a unit field would mean
+    ///     every caller choosing one, for a model where exactly one row in six is bytes.
+    /// </remarks>
+    static string Value(StatisticRow row) {
+        var value = row.Label.Contains("memory", StringComparison.OrdinalIgnoreCase)
+            ? MemoryView.Bytes(row.Value)
+            : row.Value.ToString("N0", CultureInfo.InvariantCulture);
+
+        if (row.Budget is not { } ceiling || ceiling <= 0) {
+            return value;
+        }
+
+        var limit = row.Label.Contains("memory", StringComparison.OrdinalIgnoreCase)
+            ? MemoryView.Bytes(ceiling)
+            : ceiling.ToString("N0", CultureInfo.InvariantCulture);
+
+        return value + " / " + limit;
+    }
+}
