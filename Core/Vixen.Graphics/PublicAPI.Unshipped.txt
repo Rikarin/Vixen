@@ -676,6 +676,7 @@ Vixen.Graphics.ISwapChain : System.IDisposable
 Vixen.Graphics.ISwapChain.AcquireNextImage(out Vixen.Graphics.TextureViewHandle view) -> Vixen.Graphics.SwapChainStatus
 Vixen.Graphics.ISwapChain.CurrentTexture.get -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.ISwapChain.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.ISwapChain.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Graphics.ISwapChain.ImageCount.get -> int
 Vixen.Graphics.ISwapChain.Present() -> Vixen.Graphics.SwapChainStatus
 Vixen.Graphics.ISwapChain.PresentMode.get -> Vixen.Graphics.PresentMode
