@@ -238,6 +238,9 @@ public static class Remesher {
         var (found, onFeatures) = RemeshMetrics.Singularities(output, extraction, layout, features);
         var diagonal = mesh.Diagonal;
         var (max, mean) = RemeshMetrics.Deviation(output, projector, diagonal);
+        var validated = output.Validate();
+
+        Attribute(conditioning.Mesh, validated, warnings);
 
         report = new(
             quads,
@@ -249,12 +252,70 @@ public static class Remesher {
             RemeshMetrics.ScaledJacobian(output),
             RemeshMetrics.FeatureError(mesh, output, layout, extraction, diagonal),
             conditioning,
-            output.Validate(),
+            validated,
             stages,
             warnings
         );
 
         return output;
+    }
+
+    /// <summary>Says whether the result's defects were inherited from the input or made here.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A silent hole is the failure class the whole report exists to prevent, and the
+    ///         report had every fact and drew no conclusion.</b> docs/plan/41 § Part 4: "a remesher that
+    ///         cannot tell you it went wrong will be trusted until it embarrasses somebody." Every stage
+    ///         counted what <i>it</i> dropped, so a result whose rim came in with the input came back not
+    ///         watertight with no line naming a reason — indistinguishable, to a build script, from one
+    ///         that lost a patch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured on <c>Data 8.glb</c>, which is the mesh that made this necessary.</b> It is
+    ///         the one of sixteen that reports no dropped patch at all and is still not solid: its
+    ///         <i>input</i> arrives with 70 boundary edges, <see cref="ConditioningSettings.FillHoles" />
+    ///         is off by default so conditioning leaves them — <see cref="ConditioningReport.Filled" />
+    ///         is zero and says nothing — and the output's 56 boundary edges are that same rim,
+    ///         remeshed. What the pipeline <i>did</i> make there is one non-manifold edge, which nothing
+    ///         counted either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two warnings and not one, because "inherited" and "made here" are different facts
+    ///         and only the second is a bug.</b> An open input is a legitimate subject — a rim is what a
+    ///         block-out or a scanned surface has — and § D3 is explicit that conditioning reports rather
+    ///         than insists. What is never legitimate is the pipeline adding a defect class the surface
+    ///         it was handed did not have.
+    ///     </para>
+    /// </remarks>
+    static void Attribute(MeshReport conditioned, MeshReport output, List<string> warnings) {
+        if (!conditioned.IsSolid) {
+            warnings.Add(
+                $"The conditioned surface was not a closed solid to begin with — {conditioned.Describe()} — so "
+                + "the result inherits that much. Set ConditioningSettings.FillHoles to close a rim."
+            );
+        }
+
+        List<string> made = [];
+
+        Made(made, "non-manifold edge", conditioned.NonManifold.Count, output.NonManifold.Count);
+        Made(made, "boundary edge", conditioned.Boundary.Count, output.Boundary.Count);
+        Made(made, "inconsistently wound edge", conditioned.Reversed.Count, output.Reversed.Count);
+        Made(made, "face with no area", conditioned.Degenerate.Count, output.Degenerate.Count);
+        Made(made, "orphaned position", conditioned.Orphans, output.Orphans);
+
+        if (made.Count > 0) {
+            warnings.Add(
+                $"The result has {string.Join(", ", made)} that the conditioned surface did not, so this much "
+                + "of it was lost here rather than arriving that way."
+            );
+        }
+    }
+
+    /// <summary>Records a defect class the output has more of than the surface it was handed.</summary>
+    static void Made(List<string> into, string what, int conditioned, int output) {
+        if (output > conditioned) {
+            into.Add($"{output - conditioned} more {what}(s)");
+        }
     }
 
     /// <summary>How far over the budget a result may be before the report says so.</summary>
