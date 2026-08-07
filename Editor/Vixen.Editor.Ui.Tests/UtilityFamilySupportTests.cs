@@ -89,9 +89,6 @@ public class UtilityFamilySupportTests {
         // a field for it. See `An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group`.
         { "order-2", "order", "2" },
 
-        // ⚠ `order` was in `Inert` — filed under *grid*, which it is not — until `LayoutStyle` grew
-        // a field for it. See `An_ordered_item_is_laid_out_and_painted_in_its_ordinal_group`.
-
         // Spacing, including the logical edges the layout resolves against `direction`.
         { "gap-3", "row-gap", "6px" },
         { "gap-x-2", "column-gap", "4px" },
