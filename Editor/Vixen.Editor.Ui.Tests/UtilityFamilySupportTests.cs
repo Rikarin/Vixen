@@ -111,6 +111,15 @@ public class UtilityFamilySupportTests {
         { "truncate", "overflow", "hidden" },
         { "overflow-scroll", "overflow", "scroll" },
 
+        // ⚠ These four were in `Inert` until the per-axis clip landed. `auto` maps onto `Scroll` in
+        // the layout's keyword table rather than becoming a fourth member, because CSS gives the two
+        // the same layout and differs only over reserving a scrollbar gutter — which nothing here
+        // draws.
+        { "overflow-auto", "overflow", "auto" },
+        { "overflow-x-auto", "overflow-x", "auto" },
+        { "overflow-y-auto", "overflow-y", "auto" },
+        { "overflow-y-scroll", "overflow-y", "scroll" },
+
         // Interactivity and motion.
         { "cursor-pointer", "cursor", "pointer" },
         { "pointer-events-none", "pointer-events", "none" },
@@ -137,11 +146,15 @@ public class UtilityFamilySupportTests {
     ///         <see cref="The_per_axis_overflow_utilities_do_not_clip" /> is the proof.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>overflow-auto</c> is a third case and is in neither table.</b> The draw list
-    ///         clips on any value that is not <c>visible</c>, so it clips; the layout's keyword table
-    ///         has <c>visible</c>, <c>hidden</c> and <c>scroll</c> and not <c>auto</c>, so the layout
-    ///         goes on treating the box as visible. Write <c>overflow-scroll</c> when the layout is
-    ///         meant to hear about it.
+    ///         ⚠ <b>The per-axis pair and <c>overflow-auto</c> used to be here and are not any
+    ///         more.</b> Both were real: neither <c>overflow-x</c> nor <c>overflow-y</c> was interned
+    ///         by anything, and <c>auto</c> was a third case in neither table — the draw list clipped
+    ///         on any value that was not <c>visible</c> while the layout's keyword table knew only
+    ///         <c>visible</c>, <c>hidden</c> and <c>scroll</c>, so the box clipped in the picture and
+    ///         stayed visible to flexbox. Both are implemented now and have moved to
+    ///         <see cref="Supported" />; <see cref="A_per_axis_overflow_clips_one_axis_only" /> is the
+    ///         proof, and it is the *same* test inverted rather than a new one, so the file records
+    ///         that the gap closed rather than quietly forgetting it existed.
     ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Inert => new() {
@@ -156,11 +169,6 @@ public class UtilityFamilySupportTests {
         { "grid-cols-3", "grid-template-columns" },
         { "col-span-2", "grid-column" },
         { "order-2", "order" },
-
-        // The per-axis overflow. The single most misleading pair in the set.
-        { "overflow-x-auto", "overflow-x" },
-        { "overflow-y-auto", "overflow-y" },
-        { "overflow-y-scroll", "overflow-y" },
 
         // Paint the renderer has no channel for.
         { "ring-accent", "outline-color" },
@@ -211,18 +219,31 @@ public class UtilityFamilySupportTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Inertness proved rather than asserted, for the pair somebody is most likely to
-    ///     reach for.</b> <c>overflow-hidden</c> makes the draw list push a clip around the element's
-    ///     children; <c>overflow-y-hidden</c> computes <c>hidden</c> on a property no builder interns
-    ///     and the list comes out identical to the unstyled one. Two elements, one difference, and
-    ///     the picture is the witness.
+    ///     ⚠ <b>Support proved rather than asserted, for the pair somebody is most likely to reach
+    ///     for.</b> This test used to assert the opposite and was the proof of the gap: a
+    ///     <c>overflow-y-hidden</c> computed <c>hidden</c> on a property no builder interned, and the
+    ///     draw list came out identical to the unstyled one. It is inverted rather than replaced,
+    ///     because the interesting fact about this pair is that it was inert and now is not.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Counting clips is not enough — the axis has to be checked.</b> A per-axis clip is a
+    ///     rectangle with one pair of edges past the viewport, so an implementation that clipped
+    ///     <i>both</i> axes would push exactly one clip too and pass a count. The unbounded pair is
+    ///     what says which axis was meant.
+    /// </remarks>
     [Fact]
-    public void The_per_axis_overflow_utilities_do_not_clip() {
+    public void A_per_axis_overflow_clips_one_axis_only() {
         using var ui = Sheet("overflow-hidden", "overflow-y-hidden", "w-8", "h-8");
 
         Assert.Equal(1, Clips(ui, "overflow-hidden"));
-        Assert.Equal(0, Clips(ui, "overflow-y-hidden"));
+        Assert.Equal(1, Clips(ui, "overflow-y-hidden"));
+
+        var vertical = ClipRect(ui, "overflow-y-hidden");
+        var both = ClipRect(ui, "overflow-hidden");
+
+        // The vertical clip leaves the horizontal edges alone, and the unprefixed one does not.
+        Assert.True(vertical.Width > both.Width, "overflow-y must not constrain the horizontal axis");
+        Assert.Equal(both.Height, vertical.Height);
     }
 
     /// <summary>
@@ -263,6 +284,27 @@ public class UtilityFamilySupportTests {
         ui.Frame();
 
         return pushes;
+    }
+
+    /// <summary>The rectangle one element's clip was pushed with.</summary>
+    /// <remarks>
+    ///     ⚠ Its unclipped axis is not infinite but <c>DrawListBuilder.UnboundedClip</c>, a large
+    ///     finite number — <c>float.MaxValue</c> would make <c>-∞ + ∞</c> a NaN right edge, and a NaN
+    ///     in the clip stack unclips everything below it. So this compares widths rather than testing
+    ///     for a sentinel: what the test cares about is which axis was left alone, not what number
+    ///     stood in for "all of it".
+    /// </remarks>
+    static (float Width, float Height) ClipRect(UiTest ui, string utility) {
+        var element = ui.Create("probe", ui.Document.Root, null, utility, "w-8", "h-8");
+
+        ui.Frame();
+
+        var clip = ui.Document.Drawing.Commands.First(command => command.Kind == DrawCommandKind.ClipPush);
+
+        element.Remove();
+        ui.Frame();
+
+        return (clip.Width, clip.Height);
     }
 
     /// <summary>A document with just these utilities in it, generated against the editor's tokens.</summary>
