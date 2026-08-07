@@ -147,6 +147,79 @@ reads `border-top-width` and insets the content box, and the draw list paints no
 is false, because the box really does get narrower. There are 29 of these and they are the most
 expensive rows in the table, because each is a utility that *half* does what it says.
 
+### What a third stop costs
+
+`background-image` is no longer inert: a two-stop `linear-gradient()` parses into `BoxStyle` and
+paints. This section is the measurement of what the *rest* of A11 costs, written down because all
+four remaining pieces turn out to be the same piece of work and that is not obvious from the utility
+side, where `via-*` and `bg-radial-*` look like two more table entries.
+
+**They all bottom out in `UiShape`.** The record the box shader reads is five `Vector4`s — half
+extent, thickness and a gradient flag; the four horizontal radii; the four vertical; the axis, a
+shadow's blur and one lane of padding; and the end colour. There is exactly **one** free float in it,
+`Axis.w`. So:
+
+| Owed | What it needs in `UiShape` | Shader |
+|---|---|---|
+| `via-*` — a third stop | a colour (4 floats) | a second `lerp` and a branch |
+| stop positions — `from-10%` | 3 floats, or 2 if the ends are implied | remap `t` before the `lerp` |
+| `bg-radial-*` | a centre (2) and a radius (1) | a `length()` instead of a `dot()` |
+| `bg-conic-*` | a centre (2) and a start angle (1) | an `atan2()` instead of a `dot()` |
+
+Any one of them overflows the single spare lane, so the first of the four to be built pays for
+growing the record from 80 bytes to 112 — and once that is paid, the other three are cheap. **They
+should be done together or not at all**; doing them one at a time pays the layout change and its
+risk up to four times.
+
+⚠ **The layout change is the risky part and the shader maths is not.** `UiShape`'s own remark says
+why: it is copied into a storage buffer with `MemoryMarshal` and read back by a shader whose
+alignment rules are not C#'s, so a field inserted in the wrong place draws every box with another
+box's parameters. Four things have to agree — `UiShape`, `Editor/Vixen.Editor.Host/Shaders/Ui.rvn`,
+`SoftwareUiRasterizer`, and the committed `UiBox.frag.spv` and `UiBox.reflect.json` beside the
+shader source, which are regenerated with the command in that directory's `README.md`. ⚠ **That
+README's command names `Editor/Vixen.Editor.App/Shaders/`, which is not where the shaders are** —
+they are under `Vixen.Editor.Host`. The path is stale and will not run as written.
+
+⚠ **`Gradient.rvn` and `RoundedRect.rvn` are not the shader to edit, and both look like it.**
+`Raven/Library/Ui/Gradient.rvn` already has radial and conic modes and a perceptual interpolation
+option; `RoundedRect.rvn` has a `Gradient` permutation. Neither reads the `UiShape` buffer, so
+neither is on the path a `background-image` takes. `Ui.rvn` is. `RoundedRect.rvn` is also a
+cautionary note rather than a starting point: its gradient is hardcoded to `localPx.y / size.y` and
+ignores the axis entirely, so it draws every gradient vertically whatever it is asked for.
+
+### Gradient text needs an offscreen pass, and should wait for one
+
+Tailwind draws gradient text as `bg-clip-text` plus `text-transparent`: paint the background, clip it
+to the glyph coverage, and make the glyphs themselves invisible. The middle step is the whole problem.
+
+**The engine has no text mask to clip against.** The glyph path takes an MSDF sample, reconstructs
+coverage from the median of three channels, multiplies it by the run's colour and outputs it — the
+coverage exists for the length of one expression inside `Ui.rvn`'s text shader and is never a surface
+anything else can read. `bg-clip-text` needs it as a *mask*: the background has to be sampled where
+the glyphs are, which means the glyph coverage has to outlive the fragment that computed it.
+
+Three ways it could go, in increasing order of honesty:
+
+1. **Per-glyph gradient in the text shader.** Cheapest — pass the gradient down the text path and
+   evaluate it per fragment instead of using the run colour. ⚠ **And wrong in a way that looks
+   right:** CSS clips the background to the *element's* box, so a gradient across a heading is one
+   ramp across the whole heading, not a fresh ramp inside every letter. This would draw the second,
+   which is a well-known wrong answer that is only visible on words long enough to notice.
+2. **Element-space gradient in the text shader.** Same path, but the gradient parameter comes from
+   the element's box rather than the glyph's quad. This is genuinely correct for the common case and
+   costs a per-run rectangle. It stops being correct as soon as `background-clip` has to apply to
+   anything that is not a plain gradient — an image, a `background-position`, a filter under it.
+3. **A real offscreen pass.** Render the text run's coverage to a target, then composite the
+   background through it. This is the general answer, and it is the same machinery `filter: blur()`
+   (A8 / #28) needs: a scratch target, a way to name it, and a composite step in the UI renderer.
+
+**Recommendation: do not build 1. Build 2 only if it can be spelled as a special case that 3 would
+delete, and prefer waiting for #28.** The reason is that gradient text is a small feature and an
+offscreen path is a large one, so gradient text is a bad forcing function for the design — a mask
+mechanism invented to serve it would be shaped by the easiest consumer rather than the hardest.
+#28 has to build the general thing anyway. The precedent is F5: `text-overflow: ellipsis` was left
+undone rather than approximated, and the cost of that decision has been zero.
+
 ### By category
 
 | Category | roots | works | partial | inert | absent | composed |
@@ -938,7 +1011,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
 | A9 🟢 | `color-mix()` in `StyleValueParser` | `Vixen.Ui.Styling` | **#12** | 0.25 |
 | A10 🟢 | `oklch()`/`oklab()` colour syntax | `Vixen.Ui.Styling` | **#12** | 0.25 |
-| A11 🟡 | Backgrounds: `background-image`, gradients, position, size, repeat. The utility half is done — see [the composition mechanism](#the-composition-mechanism) — so what is left is the consumer | `DrawListBuilder`, `UiShape` | **#43** | 0.6 |
+| A11 🟢 | Backgrounds. **Two-stop `linear-gradient()` paints**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, and it layers over `background-color` as CSS does. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. **Owed:** `via-*` (a third stop), stop positions, `bg-radial`/`bg-conic`, and `background-position`/`-size`/`-repeat`. All four need `UiShape` to grow past its five `Vector4`s and the box shader to change with it — see [what a third stop costs](#what-a-third-stop-costs) | `DrawListBuilder`, `BackgroundGradient`, `UiShape` | **#43** | 0.35 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
 | A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
