@@ -101,6 +101,31 @@ static class Quantizer {
     /// <summary>How many augmentations may fail to improve before a component is collapsed.</summary>
     public const int StallLimit = 16;
 
+    /// <summary>The multipliers on every target that are tried, in order, before a feature arc is let go.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A crease is worth more than a quad count, and docs/plan/41 says which of the two exit
+    ///         criteria this phase exists to make achievable.</b> The no-collapse floor under the feature
+    ///         arcs is a lower bound the router cannot move <i>down</i>, so on a partition whose targets
+    ///         are all about one there is often no feasible routing at all — and the answer used to be to
+    ///         drop the floor, which deletes a crease and takes a box from <c>5.9e-5</c> to
+    ///         <c>5.0e-2</c>. Giving the whole system more quads keeps the relative densities § D9 asked
+    ///         for and buys the slack the floor needs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is the <i>whole</i> system that is scaled and not the feature arcs alone.</b>
+    ///         Raising only the creases' targets changes what the router wants without changing what it
+    ///         is allowed to do — the floor binds because the arcs around it have nowhere to go, and
+    ///         those are the ordinary ones.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reaching past the first entry costs budget and says so</b>, because a result that is
+    ///         three times over its count for a reason a caller cannot see is the failure
+    ///         <see cref="RemeshReport.Warnings" /> exists to prevent.
+    ///     </para>
+    /// </remarks>
+    public static ReadOnlySpan<float> FeatureRelief => [1f, 1.5f, 2f, 3f];
+
     /// <summary>Solves § D7's system over a layout.</summary>
     /// <param name="layout">The partition.</param>
     /// <param name="mode">Which solver.</param>
@@ -118,9 +143,7 @@ static class Quantizer {
     ) {
         ArgumentNullException.ThrowIfNull(layout);
 
-        var solved = Attempt(layout, mode, scale, true);
-
-        // ⚠ The feature floor is tried and then given up on rather than imposed, and both halves
+        // ⚠ The feature floor is tried, then paid for, and only then given up on, and all three halves
         // matter. Imposing it protects docs/plan/41's second exit criterion; it also makes the system
         // strictly harder, and a partition where it cannot be met has to produce a mesh rather than a
         // refusal. Measured: a box quantizes with the floor on some partitions and not on others, and
@@ -129,9 +152,30 @@ static class Quantizer {
         // ⚠ It fires far less than it did, and the reason is the layout rather than this solver. A
         // partition with slits in it puts one arc into three or four constraints instead of two, which
         // is what made the floor unsatisfiable; once PatchLayout walks its loose ends out, a union and
-        // a difference both quantize with the floor on where neither used to. A box is the one fixture
-        // still falling back.
-        return solved.IsFeasible ? solved : Attempt(layout, mode, scale, false);
+        // a difference both quantize with the floor on where neither used to.
+        foreach (var relief in FeatureRelief) {
+            var solved = Attempt(layout, mode, scale * relief, true);
+
+            if (!solved.IsFeasible) {
+                continue;
+            }
+
+            if (relief > 1f) {
+                return new(
+                    [.. solved.Counts],
+                    solved.Deviation,
+                    true,
+                    [
+                        .. solved.Warnings,
+                        $"The budget was multiplied by {relief:0.#} so that no feature arc had to collapse."
+                    ]
+                );
+            }
+
+            return solved;
+        }
+
+        return Attempt(layout, mode, scale, false);
     }
 
     /// <summary>One solve, with or without the no-collapse floor under the feature arcs.</summary>
@@ -193,8 +237,18 @@ static class Quantizer {
         // turns a routing that <i>was</i> feasible into one that is not — measured on two of sixteen
         // image-to-3D meshes, where round zero solved cleanly with eight collapsed patches out of 312
         // and round one came back "could not be satisfied" and refused all 312.
+        //
+        // ⚠ <b>And the <i>fewest</i> collapsed patches seen, which is not the same thing and is not the
+        // last round either.</b> Each repair raises a floor, and a raised floor can push the routing
+        // somewhere far worse rather than nearer — measured on `Solder 4.glb`, where the rounds went 19
+        // collapsed, then 13, then 4, then 2, and then <b>375</b> of 378, and returning the last one
+        // meant 248 skipped patches and 780 quads against a 5,000 budget where round three would have
+        // given 6,197. The repair is a heuristic and a heuristic that is allowed to make things worse
+        // has to be allowed to be overruled.
         int[]? best = null;
         var collapsed = 0;
+        int[]? fewest = null;
+        var fewestCollapsed = int.MaxValue;
 
         for (var round = 0; round <= RepairRounds; round++) {
             var counts = Route(graph, targets, lower, mode, out var feasible);
@@ -222,6 +276,11 @@ static class Quantizer {
             best = counts;
             collapsed = forced;
 
+            if (forced < fewestCollapsed) {
+                fewestCollapsed = forced;
+                fewest = counts;
+            }
+
             // ⚠ <b>A patch that will not open is a hole and not a refusal, and reading it as one cost
             // every generated mesh in the corpus its remesh.</b> The counts here satisfy every
             // consistency constraint — `Route` said so — so the arcs the rest of the partition shares
@@ -232,9 +291,13 @@ static class Quantizer {
             // one thing docs/plan/41's robustness criterion is written against: "one such component
             // must not cost the rest of the model its remesh".
             if (round == RepairRounds) {
-                warnings.Add($"{forced} patches collapsed to nothing, could not be forced open and were left out.");
+                var kept = fewest ?? counts;
 
-                return new(counts, Energy(counts, targets), true, [.. warnings]);
+                warnings.Add(
+                    $"{fewestCollapsed} patches collapsed to nothing, could not be forced open and were left out."
+                );
+
+                return new(kept, Energy(kept, targets), true, [.. warnings]);
             }
 
             warnings.Add($"{forced} patches quantized to zero in one direction and were forced open.");
@@ -370,7 +433,7 @@ static class Quantizer {
                 : Shortest(graph, counts, lower, residual, source);
 
             if (reached.Sink >= 0) {
-                Apply(graph, counts, reached, source);
+                Apply(graph, counts, lower, reached, source);
             } else {
                 Collapse(graph, counts, lower, source / 2);
             }
@@ -631,8 +694,28 @@ static class Quantizer {
         return node != source / 2 || Math.Abs(residual[node]) >= 2;
     }
 
-    /// <summary>Walks the path back and applies every step of it.</summary>
-    static void Apply(Graph graph, int[] counts, Reached reached, int source) {
+    /// <summary>Walks the path back and applies every step of it, or none of them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A path may cross the same arc twice, and the search checks one step at a time — so
+    ///         the lower bound has to be re-checked <i>after</i> the whole path is laid down.</b> The
+    ///         states are <c>(node, sign)</c> pairs and the search tree is over states, so no state
+    ///         repeats on a path; an <i>arc</i> repeats whenever the path leaves a node in one state and
+    ///         comes back to it in the other, which is exactly the two-headed case the bi-directed
+    ///         formulation exists for. Each of the two visits sees the count as it was before either
+    ///         move, both pass, and an arc sitting one above its bound goes one below it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured on § D9's solved base, where it is reachable and on the naive one it was
+    ///         not.</b> A box and a sphere both quantized a side to <c>−1</c>; that side's patch then
+    ///         reported its two opposite sides disagreeing, <see cref="PatchExtractor" /> skipped it, and
+    ///         the box came back with 30 boundary edges and a feature reproduction error of
+    ///         <c>2.8e-2</c> — three orders past docs/plan/41's second exit criterion, from one integer.
+    ///         The longer base is what made the counts small enough to reach zero; the fault is this,
+    ///         and it was always here.
+    ///     </para>
+    /// </remarks>
+    static void Apply(Graph graph, int[] counts, int[] lower, Reached reached, int source) {
         for (var state = reached.Sink; state != source && state >= 0; state = reached.FromState[state]) {
             var arc = reached.FromArc[state];
             var previous = reached.FromState[state];
@@ -644,7 +727,14 @@ static class Quantizer {
             var node = previous / 2;
             var sign = previous % 2 == 0 ? 1 : -1;
 
-            counts[arc] += -sign * graph.Incidence(arc, node);
+            // ⚠ Clamped step by step rather than the path abandoned whole, and the difference is three
+            // orders of magnitude. The search already proved every *single* step legal against the
+            // counts as they stood, so this is a no-op on every path that crosses each arc once — which
+            // is nearly all of them, and the router's behaviour is unchanged there. Refusing the whole
+            // path instead was measured and is a catastrophe: the router stalls, `Collapse` takes whole
+            // components down to their lower bounds, and the real corpus came back with 5 quads on one
+            // mesh and 68 on another against a budget of 5,000.
+            counts[arc] = Math.Max(lower[arc], counts[arc] + (-sign * graph.Incidence(arc, node)));
         }
     }
 
