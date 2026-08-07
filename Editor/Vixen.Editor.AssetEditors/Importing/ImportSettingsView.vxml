@@ -1,0 +1,139 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7, wave 1b. Three sections in a scroll region, which is a shape rather than a program
+    — and was thirteen lines of `OnCreated` plus a `Section` helper whose whole job was to say
+    "an expander, expanded, and give me the inside of it".
+
+    ⚠ **`@inherits`, because a caller holds this as its own type.** `ModelImportView` writes
+    `<ImportSettingsView ref="@SettingsView" />` and `TextureImportView` writes
+    `texture.Add<ImportSettingsView>()`; both need a `UiElement`, and the second is a hand-written
+    control this wave is not porting. A `Component` here would have rewritten that file and every
+    caller of `Edited`, for no gain.
+
+    ⚠ **The nesting is what `ContentHost` is for, and it is why this reads as HTML.** A child
+    written inside a capitalised tag hangs from `BuildContext.Inner`, which for a control is its
+    `ContentHost` — the viewport for a `ScrollView`, the collapsible part for an `Expander`. So
+    `<Expander><InspectorView /></Expander>` puts the inspector *inside* the thing that collapses,
+    which is what `Section(…).Add<InspectorView>()` was spelling out by hand. Hung off the controls
+    themselves the rows would have sat beside the scrollbars and beside the disclosure, laid out by
+    neither.
+-->
+@component ImportSettingsView
+@namespace Vixen.Editor.AssetEditors.Importing
+@inherits Vixen.Ui.Controls.Control
+@tag import-settings
+@using Vixen.Editor.Inspector
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+
+<!--
+    ⚠ The banner stays outside the scroll region. "This sidecar has settings this editor does not
+    know" is about the file rather than about any one section, and a warning that scrolls away is a
+    warning nobody sees twice.
+-->
+<Alert ref="@Unknown" Title="This sidecar has settings this editor does not know" />
+
+<!--
+    ⚠ Three sections are taller than any panel, and without this they were squeezed into one. The
+    shared rule in `AssetEditorTheme` gives this control `flex-grow: 1; overflow: hidden`, so what
+    did not fit was not scrolled to, it was clipped — every setting below the fold unreachable,
+    which for a `.glb` is most of them.
+-->
+<ScrollView ref="@Scroll">
+    <Expander Label="Import Settings" IsExpanded="true">
+        <InspectorView ref="@Settings" />
+    </Expander>
+
+    <Expander Label="Platform Overrides" IsExpanded="true">
+        <TargetOverrideMatrix ref="@Overrides" />
+    </Expander>
+
+    <Expander Label="Addressable" IsExpanded="true">
+        <InspectorView ref="@Addressable" />
+    </Expander>
+</ScrollView>
+
+@code {
+    ImportSettingsDocument? document;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The editors for the base settings.</summary>
+    public InspectorView Settings { get; private set; } = null!;
+
+    /// <summary>The address, group and labels.</summary>
+    public InspectorView Addressable { get; private set; } = null!;
+
+    /// <summary>The per-target grid.</summary>
+    public TargetOverrideMatrix Overrides { get; private set; } = null!;
+
+    /// <summary>Shown when the sidecar holds keys this build does not understand.</summary>
+    public Alert Unknown { get; private set; } = null!;
+
+    /// <summary>The scroll region the three sections are in.</summary>
+    public ScrollView Scroll { get; private set; } = null!;
+
+    /// <summary>The state the markup could not declare, applied once the tree exists.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two of these three are markup's fault and the third is not.</b> The <c>hidden</c>
+    ///     class cannot be written as <c>class="hidden"</c> because
+    ///     <c>BuildContext.Attribute</c> treats <c>class</c> as the complete set and a
+    ///     <c>Control</c> has already given itself <c>variant-default</c> and <c>size-md</c> — a
+    ///     runtime bug, not this file's. The two <c>display: none</c>s are an inline style, which
+    ///     markup deliberately has no way to write: an inspector inside a foldout that is already
+    ///     labelled does not need its own search box, and hiding a part of a control is the sort of
+    ///     thing a caller says rather than a stylesheet.
+    /// </remarks>
+    partial void OnComposed() {
+        Unknown.AddClass("hidden");
+        Settings.Search.SetStyle("display", "none");
+        Addressable.Search.SetStyle("display", "none");
+    }
+
+    /// <summary>Shows a document's settings.</summary>
+    /// <param name="settings">The document.</param>
+    public void Show(ImportSettingsDocument settings) {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        document = settings;
+
+        Settings.EditedDocument = settings;
+        Settings.Inspect(settings.Settings);
+
+        Addressable.EditedDocument = settings;
+        Addressable.Inspect(settings.Addressable);
+
+        Overrides.Show(settings);
+
+        if (settings.UnknownKeys.Count == 0) {
+            Unknown.AddClass("hidden");
+            return;
+        }
+
+        Unknown.RemoveClass("hidden");
+
+        // ⚠ Named, and kept. The keys survive a save because the document edits the node tree rather
+        // than a bound object; saying so is what stops somebody "cleaning up" the file by hand and
+        // deleting a setting a newer editor put there on purpose.
+        Unknown.Message = "They are left exactly as they are on save: "
+            + string.Join(", ", settings.UnknownKeys);
+    }
+
+    /// <summary>Reads every editor back from the document, without rebuilding anything.</summary>
+    public void Reload() {
+        Settings.Reload();
+        Addressable.Reload();
+        Overrides.Reload();
+    }
+
+    /// <summary>The document being shown, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     Not called <c>Document</c>: a <see cref="UiElement" /> already has one of those and it is
+    ///     the interface tree this control lives in — the same collision <c>InspectorView</c>
+    ///     resolves by calling its own <c>EditedDocument</c>.
+    /// </remarks>
+    public ImportSettingsDocument? Edited => document;
+}

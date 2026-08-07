@@ -1,0 +1,128 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7, wave 1b — and the panel this wave's two features were measured against.
+
+    ⚠ **`@inherits`, so the class is still a `Control`.** Its three consumers hold it as its own
+    type: `ImportEditorFactories` writes `panel.Add<ModelImportView>()` and `ViewTests` writes
+    `harness.Ui.Document.Root.Add<ModelImportView>()`, both of which need `T : UiElement, new()`. A
+    `Component` cannot satisfy that constraint however the affordance is spelled, because a
+    component is not in the element tree at all — so the alternative to this header was rewriting
+    every one of those call sites, which is the ripple wave 1a paid on the two panels that had no
+    header to write.
+
+    ⚠ **And `ref`, for the three parts a caller reads.** `Parts` is populated imperatively below
+    because a `TreeView` is a model rather than markup; `Empty` is shown and hidden by a class; and
+    `SettingsView` is what `Show` forwards to. All three were `Part<T>()` assignments and are now
+    the elements the markup already declares, handed back — which is the whole of what a `ref` is
+    for. Nothing here checks the members: `Parts = n0` is written under the `.vxml`'s own `#line`,
+    so a wrong type is Roslyn's error on the name between the quotes.
+
+    ⚠ **The `hidden` class is set in `OnComposed` and not written as `class="hidden"`**, which is
+    the one thing this port could not say in markup. `BuildContext.Attribute` treats `class` as the
+    complete set and removes what is not in it — and a `Control` gives itself `variant-default` and
+    `size-md` in `OnCreated`, before any attribute is applied. So `class` on a control tag silently
+    deletes the control's own classes, which is a bug in the runtime rather than in this file, and
+    is not this wave's to fix.
+-->
+@component ModelImportView
+@namespace Vixen.Editor.AssetEditors.Importing
+@inherits Vixen.Ui.Controls.Control
+@tag model-editor
+@using System.Globalization
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+
+<TreeView ref="@Parts" />
+
+<!--
+    ⚠ Present and hidden rather than absent under an `@if`. A caller asks it what it is showing —
+    `Assert.False(view.Empty.HasClass("hidden"))` is the test for a model with nothing in it — and a
+    `ref` into a dead `@if` arm is null, which is the honest behaviour and the wrong one here.
+-->
+<EmptyState ref="@Empty"
+            Title="Not imported yet"
+            Description="Nothing has been produced from this file, so there is nothing to list. Import the project and the meshes, skeleton and clips appear here." />
+
+<ImportSettingsView ref="@SettingsView" />
+
+@code {
+    /// <summary>The meshes, the skeleton and the clips, grouped by what they are.</summary>
+    public TreeView Parts { get; private set; } = null!;
+
+    /// <summary>Shown when the asset has never been imported.</summary>
+    public EmptyState Empty { get; private set; } = null!;
+
+    /// <summary>The settings, the overrides and the addressable block.</summary>
+    public ImportSettingsView SettingsView { get; private set; } = null!;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>Hides the empty state until something asks for it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The hook exists precisely so that this runs with every <c>ref</c> assigned.</b> A
+    ///     control's <c>OnCreated</c> would have been too early — the markup has not built yet — and
+    ///     the first <c>Show</c> too late, because a model editor is opened and looked at before
+    ///     anybody presses anything.
+    /// </remarks>
+    partial void OnComposed() => Empty.AddClass("hidden");
+
+    /// <summary>Shows a model.</summary>
+    /// <param name="model">The document.</param>
+    public void Show(ModelImportDocument model) {
+        ArgumentNullException.ThrowIfNull(model);
+
+        SettingsView.Show(model);
+
+        while (Parts.Root.Children.Count > 0) {
+            Parts.Root.Remove(Parts.Root.Children[^1]);
+        }
+
+        if (model.SubAssets.Count == 0) {
+            Empty.RemoveClass("hidden");
+            Parts.SetStyle("display", "none");
+            Parts.Refresh();
+
+            return;
+        }
+
+        Empty.AddClass("hidden");
+        Parts.SetStyle("display", "flex");
+
+        // Grouped by kind and ordered by name inside each, rather than in the order the exporter
+        // happened to list them: a character with forty clips is unreadable in export order and the
+        // sub-asset ids are derived from names anyway, so name order is the stable one.
+        foreach (var kind in model.SubAssets.Select(part => part.Type).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)) {
+            var group = Parts.Root.Add(kind, kind);
+
+            foreach (var part in model.SubAssets.Where(entry => string.Equals(entry.Type, kind, StringComparison.Ordinal))
+                         .OrderBy(entry => entry.Name, StringComparer.Ordinal)) {
+                group.Add(part.Name, part);
+            }
+
+            Parts.Expand(group);
+        }
+
+        Parts.Refresh();
+    }
+
+    /// <summary>How many parts are listed.</summary>
+    public int PartCount {
+        get {
+            var count = 0;
+
+            foreach (var group in Parts.Root.Children) {
+                count += group.Children.Count;
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>The count, as the heading a caller may want to show.</summary>
+    /// <returns>The text.</returns>
+    public string Summary() => PartCount.ToString(CultureInfo.InvariantCulture) + " parts";
+}
