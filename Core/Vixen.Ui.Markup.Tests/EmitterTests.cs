@@ -658,16 +658,22 @@ public class EmitterTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And the <c>Component</c> flavour has the gap the one above closes.</b> Pinned rather
-    ///     than fixed: <c>BuildContext.Unmount</c> clears the host's region, and a component shares
-    ///     the document's context with every other component in it — so it cannot stop "every region
-    ///     I made", because it did not make them alone. The composed element can, and does.
-    ///
-    ///     This is here so the difference is a recorded fact with a failing assertion waiting for
-    ///     whoever narrows it, rather than something rediscovered by a panel that stops updating.
+    ///     ⚠ <b>And the <c>Component</c> flavour, which used to be the gap and is not.</b> Two
+    ///     things were wrong and this one test needed both fixed. A region hangs off the element its
+    ///     content has as a parent, so the loop's region is keyed on the <c>&lt;body&gt;</c> and
+    ///     nothing above pointed at it; and a component built onto a mount has no region above it at
+    ///     all, so removing its host ended nothing. <c>BuildContext.RegionOf</c> links what it opens
+    ///     into the region being built, and <c>UiDocument</c> announces a host's removal to whatever
+    ///     mounted there.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Written against <c>Root.Remove</c> deliberately, because that is how a panel
+    ///     actually goes.</b> <c>InspectorView.Rebuild</c> removes the body's children on every
+    ///     selection change; nothing clears a region, and before the fix the assertion below was
+    ///     <c>NotEqual</c>.
+    /// </remarks>
     [Fact]
-    public void A_component_leaves_the_effects_inside_a_nested_loop_running_when_it_unmounts() {
+    public void A_component_stops_the_effects_inside_a_nested_loop_when_its_host_is_removed() {
         const string Source = """
                               @component Greeter
                               @using Vixen.Ui.Reactive
@@ -700,8 +706,7 @@ public class EmitterTests {
         ((Signal<int>)Property(instance, "Count")).Value = 9;
         document.Effects.Flush();
 
-        // Still running. Change this to `Equal` when the component path grows the same reach.
-        Assert.NotEqual(ran, (int)Member(instance, "RowRuns")!);
+        Assert.Equal(ran, (int)Member(instance, "RowRuns")!);
     }
 
     [Fact]

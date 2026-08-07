@@ -84,14 +84,25 @@ public sealed class BuildContext {
         };
 
     /// <summary>The region currently being built into, per parent element.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Strong, unlike <see cref="classes" />, because a region owns subscriptions and an
+    ///     entry that is collected ends nothing.</b> An effect is held by every signal it read, so
+    ///     dropping the only reference to the region that tracked it does not stop it running — it
+    ///     stops anything being <i>able</i> to. The entries are taken out instead, by
+    ///     <c>Region.Clear</c> and <c>Region.Stop</c>, which is what the region's <c>forget</c> is
+    ///     for.
+    /// </remarks>
     readonly Dictionary<UiElement, Region> regions = [];
 
     /// <summary>What a <c>class</c> attribute last wrote to an element, so it can take it back.</summary>
     /// <remarks>
-    ///     ⚠ <b>Weak, unlike <see cref="regions" />, because nothing ever takes an entry out.</b> A
-    ///     region is removed when its host unmounts; a <c>class</c> binding has no such moment, and
-    ///     a <c>@for</c> over a list that churns would otherwise hold every row it ever built for as
-    ///     long as the document lives.
+    ///     ⚠ <b>Weak, unlike <see cref="regions" />, because nothing ever takes an entry out and
+    ///     nothing needs to.</b> A region is taken out when it ends, and it has to be: it owns
+    ///     subscriptions, and an effect nobody disposed goes on running whether or not the table
+    ///     that found it was collected. What is here is a memory of the last string written, which
+    ///     ends when its element does and can be dropped without telling anyone — so the key is
+    ///     weak, and a <c>@for</c> over a list that churns does not hold every row it ever built for
+    ///     as long as the document lives.
     /// </remarks>
     readonly ConditionalWeakTable<UiElement, string[]> classes = new();
 
@@ -116,7 +127,10 @@ public sealed class BuildContext {
         Document = document;
         Mount = mount;
         Anchor = mount;
-        building = RegionOf(mount);
+
+        // ⚠ `Rooted` rather than `RegionOf`, which links what it creates into the region being
+        // built — and there is not one yet. See both.
+        building = Rooted(mount);
     }
 
     /// <summary>The document being built into.</summary>
@@ -224,32 +238,28 @@ public sealed class BuildContext {
 
     /// <summary>Stops every subscription this context made, wherever it hung it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every region and not the host's, because a region hangs off the element its content
-    ///     has as a <i>parent</i>.</b> An <c>@for</c> written inside a nested <c>&lt;div&gt;</c> opens
-    ///     its region against that div — see <see cref="Open" /> — so the host's region tree does not
-    ///     contain it, and walking only that stopped the loop from reconciling while leaving every
-    ///     row's own bindings running against removed elements. Caught by
-    ///     <c>An_inherits_component_stops_the_effects_inside_its_loops_too</c>, which was written
-    ///     because "the host's region covers it" was an assumption rather than a fact.
-    ///
-    ///     ⚠ <b>Sound here only because a composed element owns its whole context.</b>
-    ///     <see cref="Compose" /> makes one per element, so every region in this dictionary belongs
-    ///     to that element. A <see cref="Component" /> shares the document's context with its
-    ///     siblings and cannot do this — which is why <see cref="Unmount" /> takes the host's region
-    ///     and lives with the same gap.
+    ///     ⚠ <b>The host's region, which reaches the rest because every region is linked into the
+    ///     one that built its element.</b> An <c>@for</c> written inside a nested <c>&lt;div&gt;</c>
+    ///     opens its region against that div — see <see cref="Open" /> and <see cref="RegionOf" /> —
+    ///     so the host's <i>slots</i> never contained it. This walked the whole table instead, which
+    ///     was right for a composed element and could not be copied to a <see cref="Component" />,
+    ///     because a component shares the document's context with every other component in it and
+    ///     "every region in the table" is not "every region I made". Linking answers the question
+    ///     for both, so the special case is gone and so is the gap it could not close.
     /// </remarks>
-    void StopEverything() {
-        foreach (var region in regions.Values) {
-            region.Stop();
-        }
-    }
+    void StopEverything() => Rooted(Mount).Stop();
 
     void Adopt(Component component, UiElement parent) {
         var host = Element(parent, component.TagName);
 
+        // Registered with the document and not tracked anywhere here, because nothing above a
+        // component mounted this way ever clears: `BuildInto` is what a reload host and a panel use,
+        // and removing the host is the only end either of them has.
+        Teardown(host);
+
         owner = component;
         Anchor = host;
-        building = RegionOf(host);
+        building = Rooted(host);
 
         component.Mount(this, host);
     }
@@ -274,8 +284,12 @@ public sealed class BuildContext {
         ArgumentNullException.ThrowIfNull(component);
 
         var root = component.Root;
-        RegionOf(root).Clear();
-        regions.Remove(root);
+
+        // Cleared rather than stopped, which is the one place the two differ for a component: the
+        // host stays and everything under it has to go, because a second `Build` is about to fill
+        // it again. `Region.Clear` takes the entry out of `regions`, so the fetch below opens a new
+        // one — which is also why `Ended` looks its region up rather than holding it.
+        Rooted(root).Clear();
 
         var previousOwner = owner;
         var previousAnchor = Anchor;
@@ -283,7 +297,7 @@ public sealed class BuildContext {
 
         owner = component;
         Anchor = root;
-        building = RegionOf(root);
+        building = Rooted(root);
 
         try {
             component.Mount(this, root);
@@ -387,7 +401,7 @@ public sealed class BuildContext {
                 // indices within *one* parent element, and this region's parent is the host.
                 // `Region.Clear` disposes subscriptions before it removes elements, so a
                 // component's effects stop before anything it built goes.
-                building.Track(new Unsubscribe(() => Unmount(host)));
+                building.Track(Teardown(host));
 
                 var previousOwner = owner;
                 var previousAnchor = Anchor;
@@ -395,7 +409,7 @@ public sealed class BuildContext {
 
                 owner = component;
                 Anchor = host;
-                building = RegionOf(host);
+                building = Rooted(host);
 
                 try {
                     component.Mount(this, host);
@@ -827,7 +841,7 @@ public sealed class BuildContext {
 
     // ================================================================== Regions
 
-    /// <summary>Takes a component's own build back out, and tells it so.</summary>
+    /// <summary>Stops a component's own build, and tells it so.</summary>
     /// <param name="host">The element it drew itself into.</param>
     /// <remarks>
     ///     ⚠ <b>The hook runs first, while the component's elements are still there.</b> That is
@@ -836,23 +850,87 @@ public sealed class BuildContext {
     ///     immediately afterwards, so an <c>OnUnmounted</c> that writes a signal cannot leave
     ///     anything running.
     ///
+    ///     ⚠ <b>It stops rather than clears, because a component's elements are all under its host
+    ///     and the host is somebody else's to remove.</b> Whichever of the two things that can end a
+    ///     component got here — the enclosing region clearing, or the document removing the host —
+    ///     is already taking the host out, and removing the subtree a second time from underneath
+    ///     would be one nested <c>Document.Remove</c> per element inside the walk that is removing
+    ///     them. Same bargain <c>Compose</c> makes; see <c>Region.Stop</c>.
+    ///
     ///     ⚠ And the region is fetched rather than captured: <see cref="Rebuild" /> replaces a
-    ///     component's region with a new one, so a closure holding the old object would clear
+    ///     component's region with a new one, so a closure holding the old object would stop
     ///     something nothing is in.
     /// </remarks>
-    void Unmount(UiElement host) {
+    void Ended(UiElement host) {
         Document.ComponentAt(host)?.Unmount();
-
-        RegionOf(host).Clear();
-        regions.Remove(host);
+        Rooted(host).Stop();
     }
 
+    /// <summary>What ends a component, whichever of the two ways it ends reaches it first.</summary>
+    /// <param name="host">The element it drew itself into.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two, because a component can leave the tree without any region hearing about
+    ///         it.</b> A component built inside a branch is ended by the region that built it, which
+    ///         is what puts its effects away before the branch's elements go. A component built onto
+    ///         a mount — which is every markup panel in the editor, and everything
+    ///         <see cref="BuildInto" /> makes — has no such region above it, and used to go on
+    ///         running for the life of the document after its host was removed. An inspector rebuilt
+    ///         on every selection change leaked a panel's worth of effects each time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One object registered twice rather than two teardowns, because
+    ///         <see cref="Unsubscribe" /> is spent by its first call.</b> The orders differ — the
+    ///         region disposes it before it removes the host, the document while announcing the
+    ///         removal — and both are correct; what must not happen is <c>OnUnmounted</c> twice.
+    ///     </para>
+    /// </remarks>
+    Unsubscribe Teardown(UiElement host) {
+        var teardown = new Unsubscribe(() => Ended(host));
+        Document.TearsDownAt(host, teardown);
+        return teardown;
+    }
+
+    /// <summary>The region a parent's content goes into, opening one the first time it is asked.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A region made here is linked into the region being built, and that is what makes a
+    ///     teardown reach it.</b> A region hangs off the element its content has as a <i>parent</i>,
+    ///     so an <c>@for</c> written inside a nested <c>&lt;div&gt;</c> opens against that div —
+    ///     which is a different key in this table from the one the enclosing branch or component
+    ///     builds into. Nothing above it pointed at it, so clearing the enclosing branch removed the
+    ///     div and left every row's effects running: reading signals, assigning to elements that had
+    ///     left the document, and holding them alive through their closures.
+    ///
+    ///     ⚠ <b><see cref="building" /> is the right owner because the element was created into it
+    ///     or into something outliving it.</b> Markup nests, so the innermost control flow live when
+    ///     a parent is first built into is the one whose end is also that content's end. Hand-written
+    ///     C# can break that — build into an element from inside a branch that the element outlives —
+    ///     and gets a subtree cleared with the branch, which is the reading of the code as written.
+    /// </remarks>
     Region RegionOf(UiElement parent) {
-        if (!regions.TryGetValue(parent, out var region)) {
-            region = new Region(parent, null);
-            regions[parent] = region;
+        if (regions.TryGetValue(parent, out var existing)) {
+            return existing;
         }
 
+        var region = Rooted(parent);
+        building.Link(region);
+        return region;
+    }
+
+    /// <summary>The same, for a parent whose region something other than a region ends.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A component's host, and the mount.</b> Both are ended by a
+    ///     <see cref="Unsubscribe" /> held elsewhere — see <see cref="Child{T}" /> — so linking them
+    ///     into whatever happened to be building would give them a second owner and, across a
+    ///     <see cref="Rebuild" />, a new link on the enclosing region for every reload.
+    /// </remarks>
+    Region Rooted(UiElement parent) {
+        if (regions.TryGetValue(parent, out var existing)) {
+            return existing;
+        }
+
+        var region = new Region(parent, null, forget: () => regions.Remove(parent));
+        regions[parent] = region;
         return region;
     }
 

@@ -378,14 +378,25 @@ of a string.
   part of a control is still a `SetStyle` call from `OnComposed`.
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.
-- **A `Component` unmounting does not stop the effects inside a nested `@for`.** A region hangs off
-  the element its content has as a *parent*, so a loop written inside a `<div>` opens its region
-  against that div and `BuildContext.Unmount` — which clears the host's — never reaches it. The loop
-  stops reconciling and every row's own bindings go on running against removed elements. An
-  `@inherits` element does not have this, because `Compose` gives it a context of its own and can
-  stop every region in it; a component shares the document's and cannot. Pinned by
-  `A_component_leaves_the_effects_inside_a_nested_loop_running_when_it_unmounts`, whose assertion is
-  written the wrong way round on purpose and is waiting to be inverted.
+
+⚠ **A `Component` used to leak every region it opened against a nested element, and the note that
+said so named one cause where there were two.** A region hangs off the element its content has as a
+*parent*, so a loop written inside a `<div>` opens against that div — nothing above it pointed at
+it, and clearing the enclosing branch removed the div while every row went on reading signals. That
+is now fixed by `BuildContext.RegionOf` linking what it opens into the region being built, which
+also fixes plain `@if` and `@for`: the defect was never a property of components, it reached any
+control flow written one level in, and `A_branch_that_leaves_takes_its_effects_with_it` missed it
+only by putting its effect at the top of the arm.
+
+The second cause is the one the panels actually hit. Nothing ended a component whose host was
+*removed* — a component tracks its teardown against the region that built it, and one built onto a
+mount has no region above it, so `InspectorView.Rebuild` removing the body's children left a whole
+form subscribed on every selection change. `UiDocument` now announces a host's removal to whatever
+mounted there, which is the `Component` counterpart of the `OnRemoved` an `@inherits` element gets.
+Of the seven shipped panels, `UndoHistory`, `TaskCenter`, `StatisticsView` and `MemoryView` were
+leaking; `TerrainBrushInspector`, `StandardFrameInspector` and `LookInspector` were not, and the
+reason is worth keeping — they contain no dynamic expression at all, so they build no effects and
+had nothing to leave running. Adding one `@` to any of them would have made them leak.
 
 ⚠ **Two bugs in this project were found by compiling it into a source generator rather than by any
 test here.** `VXML1002` and `VXML1003` read their span off a node still under construction — a node
