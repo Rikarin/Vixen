@@ -9,6 +9,45 @@ using Xunit;
 
 namespace Vixen.Geometry.Remeshing.Tests;
 
+/// <summary>The classes that time a case, which therefore may not run while another one is timing.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b><see cref="RunawayGuard" />'s clock is wall clock, and wall clock is not a property of
+///         the case.</b> Its allocation half already carries a defence against this — sixteen
+///         consecutive samples, "because <c>GC.GetTotalMemory</c> is process-wide … one sample over
+///         the line could be another class allocating and being charged to whichever case happened to
+///         be in flight". The clock has no equivalent, and it is exposed to the same interference for
+///         the same reason: a case that is merely descheduled reads as a case that is still running.
+///     </para>
+///     <para>
+///         <b>Measured, and it is what forced this.</b> Adding
+///         <see cref="RemeshPipelinePropertyTests" /> to this assembly failed
+///         <see cref="ConditioningPropertyTests" /> on the first full run — seed
+///         <c>3cgNRbukkll2</c>, <c>new(ShapeKind.Sphere, 6, 5, [], 4, 0.27586207f, 0.01f)</c>, "still
+///         running after 60.2 s, against a cap of 60.0 s". Re-run with that same seed and that class
+///         alone, all six of its tests finish in 1 m 36 s and nothing comes near the cap. The case was
+///         never slow; ten cores were.
+///     </para>
+///     <para>
+///         ⚠ <b>Serialising the timers rather than raising the cap, and the difference is the whole
+///         point.</b> A larger cap is a weaker guard on every case forever, bought to pay for an
+///         artefact of how the suite happens to be scheduled. These three classes are the only ones in
+///         the assembly that call <see cref="RunawayGuard" />, and a whole-pipeline remesh saturates
+///         every core it is given — so what is removed here is the interference, not the claim.
+///     </para>
+///     <para>
+///         ⚠ <b>It is the <i>uv</i> assembly's turn next if anything expensive lands there.</b>
+///         <c>UvUnwrapPipelinePropertyTests</c> is a second of wall clock against
+///         <c>UvPackPropertyTests</c>' fifty, so nothing there is close enough to sixty seconds for
+///         scheduling to decide it, and that assembly is deliberately left parallel.
+///     </para>
+/// </remarks>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public class TimedCases {
+    /// <summary>What the collection is called.</summary>
+    public const string Name = "timed-cases";
+}
+
 /// <summary>docs/plan/41's robustness criterion over the <i>pipeline</i>, which is what it is a sentence about.</summary>
 /// <remarks>
 ///     <para>
@@ -50,11 +89,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         than a mis-estimate.</b> A patch's quad count is a <i>product</i> of two side lengths, so
 ///         the overshoot § D9 already records is quadratic in how snaky the partition is and is not
 ///         reduced by asking for less: measured, a 648-face capsule asked for 96 quads produced
-///         <b>339,330</b> of them. <see cref="Cap" /> has the case and the timing, and
+///         <b>339,330</b> of them. <see cref="Cap" /> has the case and the measurement, and
 ///         <see cref="Every_broken_mesh_remeshes_to_all_quads_or_to_a_report_naming_the_stage_that_refused" />
 ///         asserts that a result over <see cref="Remesher.BudgetTolerance" /> says so in the report.
 ///     </para>
 /// </remarks>
+[Collection(TimedCases.Name)]
 public class RemeshPipelinePropertyTests {
     /// <summary>How many quads a case asks for. Small, for the reason in the class remarks.</summary>
     const int Budget = 96;
@@ -69,27 +109,39 @@ public class RemeshPipelinePropertyTests {
     ///         case here runs all seven stages, and the extraction alone is where the time goes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The number is four minutes because of a measured case that is a defect and not a
-    ///         hang, and the defect is recorded rather than tuned around.</b> Found by this property at
-    ///         sixty times its build count:
+    ///         ⚠ <b>The cap is four minutes because of a measured case that is a defect and not a hang,
+    ///         and the defect is recorded rather than tuned around.</b> Found by this property, and
+    ///         re-measured against the current base:
     ///         <c>new(ShapeKind.Capsule, 9, 3, [MeshDefect.TinyComponent], 5, 0.1f, 1f)</c>, mirrored
-    ///         about <c>(0, 1, 0)</c>, 648 faces in, asked for 96 quads and produced <b>339,330</b> in
-    ///         <b>93 seconds</b> — 48.7 of them in the extract stage. It terminates, every face is a
-    ///         quad, and the report says so in as many words: "the budget was not met: 169665 quads
-    ///         against 96 asked for, because the partition's patches are longer round than they are
-    ///         wide". So it is not a hang and it is not an all-quad failure; it is
-    ///         <see cref="Remesher.BudgetTolerance" /> being 1.35 against a measured 3,534×.
+    ///         about <c>(0, 1, 0)</c>, 648 faces in, asked for 96 quads and produced <b>339,330</b> of
+    ///         them. It terminates, every face is a quad, and the report says so in as many words: "the
+    ///         budget was not met: 169665 quads against 96 asked for, because the partition's patches
+    ///         are longer round than they are wide". So it is not a hang and it is not an all-quad
+    ///         failure; it is <see cref="Remesher.BudgetTolerance" /> being 1.35 against a measured
+    ///         <b>3,534×</b>.
     ///         <see cref="Every_broken_mesh_remeshes_to_all_quads_or_to_a_report_naming_the_stage_that_refused" />
     ///         asserts that such a result warns, so the overshoot is visible in CI rather than only on a
     ///         stopwatch.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The overshoot is a <i>ratio</i> and not a floor, which means no budget is a safe
-    ///         one.</b> The same mesh without the mirror, at three budgets: 96 asked for gives 57,100
-    ///         quads in 18.5 s, 400 gives 233,490 in 102.6 s, and 2,000 gives <b>1,166,707 in 624.8
-    ///         s</b> — 595×, 584× and 583×. Asking for fewer quads buys a proportionally cheaper case
-    ///         and does not bring the factor down at all, which is what makes 96 the right number here
-    ///         and what makes the factor a defect rather than a small-budget artefact.
+    ///         one.</b> The same mesh without the mirror, at two budgets: 96 asked for gives 57,100
+    ///         quads and 400 gives 233,490 — <b>595×</b> and <b>584×</b>, against the mirror's 3,534×.
+    ///         Asking for fewer quads buys a proportionally cheaper case and does not bring the factor
+    ///         down at all, which is what makes 96 the right number here and what makes the factor a
+    ///         defect rather than a small-budget artefact. Turning both of stage seven's halves on
+    ///         changes neither the counts nor, measurably, the time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The counts above are the finding; the seconds are not, and the two must not be
+    ///         quoted with the same confidence.</b> Every quad count here reproduces exactly — the same
+    ///         integers to the digit on a different machine and several commits later — because they
+    ///         are what the algorithm computes. The wall clock is not: the worst of those four cases
+    ///         runs in <b>11 s</b> on the machine this paragraph was written on and was recorded at 93 s
+    ///         when the case was first found, and a whole-pipeline remesh takes every core it is given,
+    ///         so what a case costs depends on what else the suite is running. Four minutes is
+    ///         therefore headroom against a slower runner and against a nightly that will draw worse
+    ///         inputs than these fourteen, and it is not a prediction that any case approaches it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The allocation ceiling is untouched and it is the one that matters.</b> The clock is

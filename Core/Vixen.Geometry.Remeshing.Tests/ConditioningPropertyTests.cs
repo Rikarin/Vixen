@@ -40,6 +40,7 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         is a few per cent.
 ///     </para>
 /// </remarks>
+[Collection(TimedCases.Name)]
 public class ConditioningPropertyTests {
     /// <summary>How many triangles a mesh needs before a rate is a measurement about it.</summary>
     const int Floor = 64;

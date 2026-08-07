@@ -52,6 +52,7 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         <see cref="SingularityTests" /> and not here.
 ///     </para>
 /// </remarks>
+[Collection(TimedCases.Name)]
 public class FieldPropertyTests {
     /// <summary>A closed surface: which family, and how finely it is divided.</summary>
     /// <param name="Kind">Sphere and capsule are <c>χ = 2</c>; a torus is <c>χ = 0</c>.</param>
