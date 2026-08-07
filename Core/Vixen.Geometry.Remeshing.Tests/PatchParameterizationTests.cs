@@ -183,6 +183,138 @@ public class PatchParameterizationTests {
         return found;
     }
 
+    /// <summary>A patch triangle sitting entirely on one side is filled rather than refused.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The fixture is the whole point: its bottom side is three vertices and the triangle
+    ///         over all three of them is a face of the patch.</b> Tutte's boundary here is a square, so
+    ///         every vertex of side 0 is pinned at <c>y = 0</c> <i>exactly</i> — that triangle is
+    ///         therefore collinear in the parameter domain by construction, with a signed area of
+    ///         exactly zero, however well the map is solved. It has not folded and nothing overlaps it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The old <c>IsEmbedded</c> returned false on any zero and this returned
+    ///         <see langword="null" />, so a patch like this took the transfinite blend — which is the
+    ///         one construction here with no injectivity guarantee and the one the folds came from.</b>
+    ///         Measured across the seven fixtures, every patch refused this way had <i>zero</i> flipped
+    ///         triangles and one to four of these ears; on the cylinder that was 18 patches and 45
+    ///         inverted quads. A zero is still fatal when an unpinned vertex is in it, which is a real
+    ///         degeneracy of the solve rather than a property of the square.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The ear points <i>outwards</i>, so the region stays convex there and nothing but the
+    ///         pinning makes the triangle degenerate — which is what keeps this a test about the square
+    ///         rather than about a notched patch.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ABoundaryEarIsNotAFold() {
+        var mesh = Eared(out var arcs, out var patch);
+        var output = new EditMesh();
+        var grid = new int[3][];
+        var placed = new Dictionary<int, int>();
+
+        int Place(int vertex) {
+            if (!placed.TryGetValue(vertex, out var index)) {
+                index = output.AddPosition(mesh.Positions[vertex]);
+                placed[vertex] = index;
+            }
+
+            return index;
+        }
+
+        for (var i = 0; i < 3; i++) {
+            grid[i] = new int[3];
+        }
+
+        // Side 0 runs C0 → C1 along j = 0, side 1 up i = 2, side 2 back along j = 2, side 3 down i = 0.
+        for (var step = 0; step < 3; step++) {
+            grid[step][0] = Place(arcs[0].Vertices[step]);
+            grid[2][step] = Place(arcs[1].Vertices[step]);
+            grid[step][2] = Place(arcs[2].Vertices[step]);
+            grid[0][step] = Place(arcs[3].Vertices[step]);
+        }
+
+        int[][] samples = [
+            [grid[0][0], grid[1][0], grid[2][0]],
+            [grid[2][0], grid[2][1], grid[2][2]],
+            [grid[0][2], grid[1][2], grid[2][2]],
+            [grid[0][0], grid[0][1], grid[0][2]]
+        ];
+
+        var interior = PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, 2, 2, out var refused);
+
+        Assert.True(
+            interior is not null,
+            $"A patch whose bottom side carries an ear was refused with \"{refused}\". The triangle over "
+            + "three consecutive vertices of one side is collinear in the unit square because the "
+            + "square's sides are straight, not because the map folded — refusing it sends the patch to "
+            + "the blend, which is where the inverted quads come from."
+        );
+
+        // The one interior point is a barycentric point of the patch's own triangles, so it is on the
+        // surface — here, inside the patch's own bounding box rather than out at a blend's overshoot.
+        Assert.InRange(interior![0, 0].X, 0f, 2f);
+        Assert.InRange(interior[0, 0].Y, 0f, 2f);
+    }
+
+    /// <summary>A two-by-two patch whose bottom side carries a triangle over all three of its vertices.</summary>
+    static ManifoldMesh Eared(out LayoutArc[] arcs, out LayoutPatch patch) {
+        // b1 sits below the b0–b2 line, so the ear points out of the patch and the region stays convex.
+        Vector3[] positions = [
+            new(0f, 0f, 0f),
+            new(1f, -0.3f, 0f),
+            new(2f, 0f, 0f),
+            new(0f, 1f, 0f),
+            new(1f, 1f, 0.4f),
+            new(2f, 1f, 0f),
+            new(0f, 2f, 0f),
+            new(1f, 2f, 0f),
+            new(2f, 2f, 0f)
+        ];
+
+        const int B0 = 0;
+        const int B1 = 1;
+        const int B2 = 2;
+        const int M0 = 3;
+        const int M1 = 4;
+        const int M2 = 5;
+        const int T0 = 6;
+        const int T1 = 7;
+        const int T2 = 8;
+
+        // The ear, then a fan round the one interior vertex. Every triangle is wound the same way.
+        int[] triangles = [
+            B0, B1, B2,
+            B0, B2, M1,
+            B2, M2, M1,
+            M2, T2, M1,
+            T2, T1, M1,
+            T1, T0, M1,
+            T0, M0, M1,
+            M0, B0, M1
+        ];
+
+        arcs = [
+            Arc([B0, B1, B2]),
+            Arc([B2, M2, T2]),
+            Arc([T0, T1, T2]),
+            Arc([B0, M0, T0])
+        ];
+
+        patch = new() {
+            Triangles = [.. Enumerable.Range(0, 8)],
+            Sides = [
+                [new(0, false)],
+                [new(1, false)],
+                [new(2, true)],
+                [new(3, true)]
+            ]
+        };
+
+        return ManifoldMesh.Build(positions, triangles, []);
+    }
+
     /// <summary>A spherical rectangle, triangulated, with a lookup from its <c>(i, j)</c> corner.</summary>
     static ManifoldMesh Dome(out int[][] corner) {
         var positions = new List<Vector3>();

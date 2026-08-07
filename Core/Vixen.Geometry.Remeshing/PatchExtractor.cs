@@ -133,9 +133,19 @@ sealed class Extraction {
 static class PatchExtractor {
     /// <summary>How many rounds of tangential smoothing the result gets.</summary>
     /// <remarks>
-    ///     ⚠ A fixed count rather than a convergence tolerance — § D14, the same rule the field solver
-    ///     is under, and for the same reason: a residual read against a threshold is a floating-point
-    ///     comparison that can land differently on two machines.
+    ///     <para>
+    ///         ⚠ A fixed count rather than a convergence tolerance — § D14, the same rule the field
+    ///         solver is under, and for the same reason: a residual read against a threshold is a
+    ///         floating-point comparison that can land differently on two machines.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Thirty-two because the guarded sweep has stopped moving by then, measured rather
+    ///         than chosen.</b> Eight was too few once <see cref="Relax" /> began refusing a move that
+    ///         folds — the fixtures came back at 122 inverted faces at 32 rounds and at exactly 122
+    ///         again at 96, with every worst corner identical to three decimals, so the extra rounds buy
+    ///         nothing. What is left at that point is a fold no single-vertex move can improve, which is
+    ///         an untangler's job and not a smoother's.
+    ///     </para>
     /// </remarks>
     public const int RelaxIterations = 32;
 
@@ -880,7 +890,11 @@ static class PatchExtractor {
 
             normal = ScaleSafe.Unit(normal);
 
+            // A face with no normal at all has already collapsed; it is counted so that a move cannot
+            // reach one, and there is nothing further to measure on it.
             if (normal.LengthSquared() <= 0f) {
+                folded++;
+
                 continue;
             }
 
@@ -894,7 +908,18 @@ static class PatchExtractor {
                 var ahead = ScaleSafe.Unit((one == vertex ? candidate : output.Positions[one]) - here);
                 var behind = ScaleSafe.Unit((two == vertex ? candidate : output.Positions[two]) - here);
 
+                // ⚠ <b>A corner whose two edges do not both have a direction is counted as bad rather
+                // than skipped, and that is what stops the smoothing welding the mesh shut.</b> Two
+                // output positions that land on exactly the same point are one point to anything that
+                // writes the mesh out — an <c>.obj</c> shares a position between faces — so a quad
+                // whose corner has collapsed turns an edge into one with three faces on it. Measured
+                // over the 16-file corpus, letting the sweep run to convergence with this corner
+                // skipped took position-welded non-manifold edges from 75 to 99; counting it holds
+                // them, because the move that would collapse the corner now scores worse than the
+                // move that would not.
                 if (ahead.LengthSquared() <= 0f || behind.LengthSquared() <= 0f) {
+                    any = true;
+
                     continue;
                 }
 

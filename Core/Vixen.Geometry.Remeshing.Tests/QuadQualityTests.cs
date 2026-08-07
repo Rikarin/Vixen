@@ -56,27 +56,35 @@ public class QuadQualityTests {
     ///         interior folds, and the fix is a real per-patch parameterization.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That parameterization now exists — <see cref="PatchParameterization" /> — and these
-    ///         bounds did not move, which is the finding rather than a disappointment.</b> Measured off
-    ///         the written <c>.obj</c>: box −0.961 over 24 faces, cylinder −0.997 over 64, stairs −0.976
-    ///         over 42, plate −0.838 over 9, union −0.991 over 38, difference −0.990 over 29, sphere
-    ///         −0.081 over 4. On the sphere the patches it fills are clean — 0 of 175, worst
-    ///         <c>+0.474</c> — so on the one fixture with no hard edge the blend was the whole cause.
-    ///         On the other six the quads it leaves inverted are near-<i>planar</i> bow-ties inside
-    ///         patches it filled, which a provable embedding cannot produce from a region that does not
-    ///         double back — so what is left is a patch spanning a crease, and that is the layout's
-    ///         defect rather than the extraction's. ⚠ <b>Tightening these bounds is now § D7's work and
-    ///         not § D8's.</b>
+    ///         ⚠ <b>The crease attribution was wrong and it was measured to be wrong, so these bounds are
+    ///         § D8's work after all.</b> Counted over the conditioned mesh, the number of feature edges
+    ///         whose two triangles land in the same patch is <b>0</b> on every one of the seven
+    ///         fixtures: no patch spans a crease and § D4's promise is kept. What the folds were is the
+    ///         transfinite blend, and what sent patches to it was
+    ///         <see cref="PatchParameterization" />'s own verification — a triangle with all three
+    ///         corners on one straight side of the unit square is collinear <i>by construction</i>, and
+    ///         both the embedding test and the rim test read that as a failure. The correlation with a
+    ///         40° output edge is real and runs the other way: patch boundaries lie on creases, so a
+    ///         quad in a grid's boundary row touches one.
+    ///     </para>
+    ///     <para>
+    ///         <b>Where they are now, all seven improved on both numbers at once</b> — box −0.874 over
+    ///         21 faces, cylinder −0.985 over 35, stairs −0.901 over 22, plate −0.418 over 6, union
+    ///         −0.804 over 22, difference −0.981 over 15, sphere −0.044 over 1; 210 inverted faces in
+    ///         total down to 122. ⚠ <b>They are still a defect and not a target.</b> What is left is a
+    ///         fold no single-vertex smoothing step can improve — <c>PatchExtractor.Relax</c> refuses
+    ///         any move that folds and has stopped moving by its budget — so closing the rest is an
+    ///         untangler's job.
     ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("box", -0.97f)]
-    [InlineData("cylinder", -1f)]
-    [InlineData("stairs", -1f)]
-    [InlineData("plate", -0.85f)]
-    [InlineData("union", -1f)]
-    [InlineData("difference", -1f)]
-    [InlineData("sphere", -0.5f)]
+    [InlineData("box", -0.89f)]
+    [InlineData("cylinder", -0.99f)]
+    [InlineData("stairs", -0.92f)]
+    [InlineData("plate", -0.45f)]
+    [InlineData("union", -0.82f)]
+    [InlineData("difference", -0.99f)]
+    [InlineData("sphere", -0.06f)]
     public void TheWorstQuadIsRecordedEvenWhereItIsDegenerate(string name, float bound) {
         Remesher.Remesh(RemesherTests.Fixture(name), new() { TargetQuads = 400 }, out var report);
 
@@ -158,18 +166,26 @@ public class QuadQualityTests {
     ///         against 3.3%.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The sphere is the control and it is the one that makes this an argument.</b> It has
-    ///         <i>no</i> creased edge at all, so it has no on-crease bucket to be worse in — and it is
-    ///         the fixture the parameterization cleared. docs/plan/41 § D4 says a feature polyline is a
-    ///         cut by construction and therefore never runs through a patch's interior; a quad folded
-    ///         across a crease is that promise not being kept, which makes the rest of this file's
-    ///         defect § D7's layout rather than § D8's extraction.
+    ///         ⚠⚠ <b>This correlation is real and the cause it was first read as is not, which is worth
+    ///         keeping written down because the reading was the obvious one.</b> It was taken as
+    ///         evidence that a patch's interior crosses a feature polyline — docs/plan/41 § D4's
+    ///         promise not being kept, and so § D7's layout at fault. <b>Measured directly, that is
+    ///         false</b>: counted over the conditioned mesh, the number of feature edges whose two
+    ///         triangles land in the same patch is <b>0</b> on all seven fixtures. Every crease is a
+    ///         partition boundary.
+    ///     </para>
+    ///     <para>
+    ///         <b>The arrow runs the other way.</b> A crease <i>is</i> a patch boundary, so a quad in a
+    ///         grid's boundary row has a creased edge — and the boundary row is where the folds are,
+    ///         because it is the row built against the rim. The sphere is still the control and still
+    ///         makes the point, but the point it makes is that a fixture with no crease has no
+    ///         boundary-row bucket to be worse in, not that a crease causes a fold.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The bound is a ratio and not a count, on purpose.</b> Asserting a number of inverted
-    ///         faces pins today's output and breaks on any change that moves a patch boundary; asserting
-    ///         that the inversions are still concentrated on creases states the <i>cause</i>, and it is
-    ///         what stops being true when the layout is fixed.
+    ///         faces pins today's output and breaks on any change that moves a patch boundary. What it
+    ///         states now is that the inversions are still concentrated on the boundary row — which is
+    ///         true, is measured, and stops being true when the grids stop folding against their rims.
     ///     </para>
     /// </remarks>
     [Theory]
@@ -229,9 +245,10 @@ public class QuadQualityTests {
         Assert.True(
             onCrease > away * 2f,
             $"{name}: {onCrease:P2} of the quads on a crease are inverted against {away:P2} of the ones "
-            + "away from any. The inversions are no longer concentrated on the creases, so the cause "
-            + "docs/plan/41's criterion 8 now names — a patch the layout let span a feature — has "
-            + "changed. Re-attribute it before loosening this."
+            + "away from any. The inversions are no longer concentrated on the boundary row a crease "
+            + "marks out, so what docs/plan/41's criterion 8 is left holding has changed. Re-attribute "
+            + "it before loosening this — and note that the crease is the boundary rather than the "
+            + "cause: no patch has ever been measured to span one."
         );
     }
 
