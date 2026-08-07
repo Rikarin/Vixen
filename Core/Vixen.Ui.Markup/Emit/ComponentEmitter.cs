@@ -43,6 +43,14 @@ public sealed class ComponentEmitter {
     /// </remarks>
     public const string RuntimeNamespace = "global::Vixen.Ui.Composition";
 
+    /// <summary>The name a <c>&lt;slot&gt;</c> with none takes, mirroring <c>BuildContext.DefaultSlot</c>.</summary>
+    /// <remarks>
+    ///     A copy of the constant rather than a reference to it, for the same reason
+    ///     <see cref="RuntimeNamespace" /> is a string: a markup compiler runs inside the C# compiler
+    ///     and cannot reference the framework it compiles for.
+    /// </remarks>
+    const string BuildContextDefaultSlot = "default";
+
     readonly StringBuilder builder = new();
     readonly BoundComponent component;
     readonly string filePath;
@@ -50,6 +58,9 @@ public sealed class ComponentEmitter {
 
     int depth;
     int names;
+
+    /// <summary>Whether an element-flavoured class wrote a default <c>&lt;slot&gt;</c>.</summary>
+    bool hasDefaultSlot;
 
     ComponentEmitter(BoundComponent component, string filePath, string? @namespace) {
         this.component = component;
@@ -101,12 +112,26 @@ public sealed class ComponentEmitter {
             Line();
         }
 
-        Line($"partial class {component.Name} : {RuntimeNamespace}.Component {{");
+        if (component.Inherits is { } based) {
+            // The base is a type name, so it is emitted as one under its own span — an unknown base,
+            // a sealed one, or one that is neither a component nor an element is then Roslyn's error
+            // on the characters after `@inherits`, with nothing here having resolved a type.
+            Mapped(based, $"partial class {component.Name} : ", " {");
+        } else {
+            Line($"partial class {component.Name} : {RuntimeNamespace}.Component {{");
+        }
+
         depth++;
 
-        EmitBuild();
+        if (component.Inherits is null) {
+            EmitBuild();
+        } else {
+            EmitCompose();
+        }
+
         EmitTag();
         EmitStyle();
+        EmitHooks();
         EmitCode();
 
         depth--;
@@ -119,8 +144,133 @@ public sealed class ComponentEmitter {
 
         EmitNodes(component.Content, "ctx", "null");
 
+        // ⚠ Inside `Build` rather than beside the call to it, so that the hook runs after a hot
+        // reload as well: `BuildContext.Rebuild` re-enters this method and nothing else.
+        Line("OnComposed();");
+
         depth--;
         Line("}");
+    }
+
+    /// <summary>
+    ///     The element flavour's scaffold: build in <c>OnCreated</c>, stop in <c>OnRemoved</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>OnCreated</c> is the element-side of <c>Component.Mount</c> and the timing is
+    ///         the same.</b> <c>UiDocument.Adopt</c> binds the element, attaches it, and only then
+    ///         calls the hook — so by here the element has a document, a parent and a layout node,
+    ///         which is exactly what the markup's first <c>ctx.Element</c> needs. A constructor could
+    ///         not have any of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the pair of overrides is why <c>@code</c> may not write either of them.</b>
+    ///         What an author wants those hooks for is <see cref="EmitHooks">
+    ///         <c>OnComposed</c> and <c>OnUnmounted</c></see>, which run in the same places and are
+    ///         partial methods rather than overrides — so the generated half cannot be forgotten and
+    ///         a missing <c>base.OnCreated()</c> cannot silently unstyle a control.
+    ///     </para>
+    /// </remarks>
+    void EmitCompose() {
+        Line("protected override void OnCreated() {");
+        depth++;
+        Line("base.OnCreated();");
+
+        var scope = component.CssIsScoped
+            ? $"{RuntimeNamespace}.ScopedStyles.ScopeOf(typeof({component.Name}))"
+            : "null";
+
+        Line($"__composition = {RuntimeNamespace}.BuildContext.Compose(this, ctx => {{");
+        depth++;
+        EmitNodes(component.Content, "ctx", "null");
+        depth--;
+        Line($"}}, {scope});");
+
+        EmitStyleLoad();
+        Line("OnComposed();");
+
+        depth--;
+        Line("}");
+        Line();
+
+        Line("protected override void OnRemoved() {");
+        depth++;
+        Line("OnUnmounted();");
+
+        // The effects first, then the base — the order `Component`'s unmount takes, and for the same
+        // reason: a hook that writes a signal must not be able to leave anything running.
+        Line("__composition?.Dispose();");
+        Line("__composition = null;");
+        Line("base.OnRemoved();");
+        depth--;
+        Line("}");
+        Line();
+
+        Line("global::System.IDisposable? __composition;");
+
+        if (!hasDefaultSlot) {
+            return;
+        }
+
+        Line();
+        Line("global::Vixen.Ui.UiElement? __content;");
+        Line();
+
+        // ⚠ Null until the build has run, and the build runs from `OnCreated` — so a caller that
+        // adds a child during construction, which is the order `Add<T>()` cannot produce, would get
+        // the element itself. That is also what the base class answers, so the fallback is not a
+        // guess about where content belongs; it is the same answer as before the slot existed.
+        Line("protected override global::Vixen.Ui.UiElement ContentHost => __content ?? this;");
+    }
+
+    /// <summary>Loads the file's <c>&lt;style&gt;</c> block for an element-flavoured class.</summary>
+    /// <remarks>
+    ///     What <c>Component.Mount</c> does for the other flavour, written out because a
+    ///     <c>UiElement</c> has no <c>Style</c> property for it to read. Once per type, not once per
+    ///     instance: <c>LoadOnce</c> is keyed on the type, so a list of two hundred rows loads one
+    ///     stylesheet.
+    /// </remarks>
+    void EmitStyleLoad() {
+        if (component.Css is not { } css) {
+            return;
+        }
+
+        var literal = Quote(css);
+
+        Line(
+            component.CssIsScoped
+                ? $"Document.LoadOnce(typeof({component.Name}), {RuntimeNamespace}.ScopedStyles.Scope({literal}, "
+                  + $"{RuntimeNamespace}.ScopedStyles.ScopeOf(typeof({component.Name}))));"
+                : $"Document.LoadOnce(typeof({component.Name}), {literal});"
+        );
+    }
+
+    /// <summary>The two hooks an author may implement in <c>@code</c>, declared so they need not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Partial methods, which is what makes them free when nobody wants them.</b> An
+    ///         unimplemented one is erased along with its call, so a component that has no wiring to
+    ///         do costs nothing — where a virtual would have cost a slot, and an event a delegate
+    ///         field, on every generated class in the project.
+    ///     </para>
+    ///     <para>
+    ///         <c>OnComposed</c> is the answer to "when is my <c>ref</c> assigned": after the whole
+    ///         body has run, so every <c>ref</c> in the file is set and every one under a live
+    ///         <c>@if</c> arm with it. It runs again after a hot reload, on the new elements.
+    ///     </para>
+    /// </remarks>
+    void EmitHooks() {
+        Line();
+        Line("/// <summary>Runs after the markup has been built, with every 'ref' assigned.</summary>");
+        Line("partial void OnComposed();");
+
+        if (component.Inherits is null) {
+            return;
+        }
+
+        Line();
+        Line("/// <summary>Runs when the element leaves the tree, before its effects are disposed.</summary>");
+        Line("partial void OnUnmounted();");
     }
 
     /// <summary>The <c>@tag</c> header, as the override of the property that answers it.</summary>
@@ -133,8 +283,13 @@ public sealed class ComponentEmitter {
         Line($"protected override string TagName => {Quote(tag)};");
     }
 
+    /// <summary>The <c>&lt;style&gt;</c> block, as the two properties <c>Component.Mount</c> reads.</summary>
+    /// <remarks>
+    ///     Component flavour only. A <c>UiElement</c> has no such properties, so the element flavour
+    ///     loads the sheet itself — see <see cref="EmitStyleLoad" />.
+    /// </remarks>
     void EmitStyle() {
-        if (component.Css is not { } css) {
+        if (component.Inherits is not null || component.Css is not { } css) {
             return;
         }
 
@@ -179,7 +334,18 @@ public sealed class ComponentEmitter {
                 break;
 
             case BoundSlot slot:
-                Line($"{context}.Slot({parent}, {Quote(slot.Name)});");
+                // ⚠ The element flavour takes the slot back and answers with it, because a
+                // `UiElement` has no `Slots` dictionary for `BuildContext.Slot` to declare into. The
+                // question both are answering is the same one — where does a caller's content go —
+                // and `ContentHost` is the control library's existing name for the answer, which is
+                // what `BuildContext.Inner(UiElement)` already reads.
+                Line(
+                    component.Inherits is not null && slot.Name == BuildContextDefaultSlot
+                        ? $"__content = {context}.Slot({parent}, {Quote(slot.Name)});"
+                        : $"{context}.Slot({parent}, {Quote(slot.Name)});"
+                );
+
+                hasDefaultSlot |= component.Inherits is not null && slot.Name == BuildContextDefaultSlot;
                 break;
 
             case BoundElement element:
@@ -265,6 +431,22 @@ public sealed class ComponentEmitter {
         switch (attribute.Kind) {
             case BoundAttributeKind.Key:
                 // Consumed by the enclosing loop, which needs it before the element exists.
+                break;
+
+            case BoundAttributeKind.Ref when attribute.Expression is { } member:
+                // ⚠ The whole element and not `Target(element, name)`. A `ref` hands back the thing
+                // the tag named — a `<Callout ref="@callout" />` gives the component, whose methods
+                // are the point of holding it — where `class` and `on:` want the element it drew.
+                // Which of the two `n1` is has already been settled by C#, at the `Child<T>` above.
+                //
+                // ⚠ Two directives for one assignment, the same shape as `EmitParameter` and for the
+                // same reason. A member that does not exist is an error on the left of the `=`; a
+                // member of the wrong type is one on the right, because that is where Roslyn puts a
+                // failed conversion. One directive maps its own fragment and extrapolates the rest of
+                // the line, which put the second error several characters past the end of what the
+                // author wrote. Both spans are the member's, so both squiggles land in the quotes.
+                Mapped(member, string.Empty, " =");
+                Indented(() => MappedText(member.Position, string.Empty, name, ";"));
                 break;
 
             case BoundAttributeKind.Event when attribute.Expression is { } handler: {
@@ -459,10 +641,23 @@ public sealed class ComponentEmitter {
     ///     starts, which is what makes the mapping land on the fragment rather than on the start of
     ///     the line — the whole reason for the span form.
     /// </remarks>
-    void Mapped(BoundExpression expression, string prefix, string suffix) {
+    void Mapped(BoundExpression expression, string prefix, string suffix) =>
+        MappedText(expression.Position, prefix, expression.Text, suffix);
+
+    /// <summary>
+    ///     The same, for generated text that is <i>about</i> a fragment of the <c>.vxml</c> without
+    ///     being it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>One caller, and it is the right-hand side of a <c>ref</c>.</b> A failed conversion is
+    ///     reported by Roslyn at the value rather than at the target, so a <c>ref</c> whose member is
+    ///     of the wrong type would squiggle <c>n3</c> — a name the author has never seen. Mapping that
+    ///     name to the member's own span puts the error where the mistake is.
+    /// </remarks>
+    void MappedText(LinePositionSpan position, string prefix, string text, string suffix) {
         var indent = new string(' ', depth * 4);
-        Directive(expression.Position, indent.Length + prefix.Length);
-        builder.Append(indent).Append(prefix).Append(expression.Text).Append(suffix).Append('\n');
+        Directive(position, indent.Length + prefix.Length);
+        builder.Append(indent).Append(prefix).Append(text).Append(suffix).Append('\n');
         Line("#line default");
     }
 

@@ -35,6 +35,26 @@ static class RuntimeContract {
                                          protected override void Build(BuildContext ctx) => ctx.Element(null, "callout-body");
                                      }
 
+                                     // What an `@inherits` file names. An ordinary element with the
+                                     // two hooks the generated scaffold overrides, so the test can
+                                     // see that both are chained rather than replaced.
+                                     public class Panel : UiElement {
+                                         protected override string TagName => "panel";
+
+                                         public int Creations { get; private set; }
+                                         public int Removals { get; private set; }
+
+                                         protected override void OnCreated() {
+                                             base.OnCreated();
+                                             Creations++;
+                                         }
+
+                                         protected override void OnRemoved() {
+                                             Removals++;
+                                             base.OnRemoved();
+                                         }
+                                     }
+
                                      public class Label : Component {
                                          public string Title { get; set; } = "";
                                          public int Step { get; set; }

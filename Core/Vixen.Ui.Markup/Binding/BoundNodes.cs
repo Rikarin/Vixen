@@ -31,7 +31,17 @@ public enum BoundAttributeKind {
     Bind,
 
     /// <summary>The reconciler's identity for this element, from <c>key</c>.</summary>
-    Key
+    Key,
+
+    /// <summary>A member of the generated class to assign this element to, from <c>ref</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A kind of its own rather than a universal, though it means the same on both sorts of
+    ///     tag.</b> <c>class</c> and <c>binding-path</c> are universal <i>and</i> land as style-tree
+    ///     attributes; this one lands nowhere in the document at all — it is an assignment in the
+    ///     <c>Build</c> body and nothing else — so it needs its own arm in the emitter rather than a
+    ///     name on a list.
+    /// </remarks>
+    Ref
 }
 
 /// <summary>One piece of an attribute's value.</summary>
@@ -165,6 +175,9 @@ public sealed record BoundSwitch(BoundExpression Subject, ImmutableArray<BoundCa
 ///     The element name the component's host answers to, or null to take the type's name in lower
 ///     case.
 /// </param>
+/// <param name="Inherits">
+///     What the generated class derives from, or null for <c>Component</c>.
+/// </param>
 /// <param name="Usings">Namespaces to import, in source order.</param>
 /// <param name="Code">Every <c>@code</c> body, in source order. Multiple blocks concatenate.</param>
 /// <param name="Content">The markup.</param>
@@ -174,6 +187,7 @@ public sealed record BoundComponent(
     string Name,
     string? Namespace,
     string? Tag,
+    BoundExpression? Inherits,
     ImmutableArray<string> Usings,
     ImmutableArray<BoundExpression> Code,
     ImmutableArray<BoundNode> Content,

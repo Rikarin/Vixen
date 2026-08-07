@@ -4,7 +4,7 @@
 namespace Vixen.Ui.Markup.Syntax;
 
 /// <summary>
-///     The four questions everything asks a document's headers, answered over the one list they are
+///     The five questions everything asks a document's headers, answered over the one list they are
 ///     actually stored in.
 /// </summary>
 /// <remarks>
@@ -35,6 +35,14 @@ public sealed partial class DocumentSyntax {
     ///     Absent means the component's host element takes the type's name in lower case.
     /// </remarks>
     public TagDirectiveSyntax? Tag => First<TagDirectiveSyntax>();
+
+    /// <summary>The <c>@inherits</c> header, if the file names a base.</summary>
+    /// <remarks>
+    ///     Absent means <c>Component</c>. Present means the generated class is a
+    ///     <c>UiElement</c> instead, and the emitter writes an element-flavoured scaffold — see
+    ///     <see cref="Emit.ComponentEmitter" />.
+    /// </remarks>
+    public InheritsDirectiveSyntax? Inherits => First<InheritsDirectiveSyntax>();
 
     /// <summary>The <c>@using</c> headers, in source order.</summary>
     /// <remarks>
