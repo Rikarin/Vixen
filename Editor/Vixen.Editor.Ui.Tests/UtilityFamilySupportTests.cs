@@ -36,6 +36,28 @@ namespace Vixen.Editor.Ui.Tests;
 ///         One of them still proves inertness and the other now proves the opposite. They are the
 ///         shape the rest of this table would take if every property had as cheap an observable.
 ///     </para>
+///     <para>
+///         ⚠ <b>The division of labour with
+///         <c>Core/Vixen.Ui.Styling.Utilities.Tests/UtilityConsumptionGateTests</c>, because the two
+///         look alike and neither can do the other's job.</b> That one is a <i>gate</i>: it enumerates
+///         the family registry, measures what every family emits after ExCSS expansion, and fails the
+///         build if any property moves nothing in the engine — so nothing escapes classification and
+///         no new family can be added inert without a task number. It is coarse on purpose, and its
+///         verdict is "something acted on this". This file is the other half: it names the utility a
+///         person actually writes, against the editor's own tokens, and asserts <i>what</i> happened —
+///         a bottom border paints a band along the bottom, a per-corner radius leaves the other three
+///         square, a per-axis clip is unbounded on the axis it did not name. The gate would pass every
+///         one of those with the wrong edge painted. Neither subsumes the other, and the
+///         <see cref="Supported" /> and <see cref="Inert" /> tables are hand-maintained precisely so
+///         that a person has to look at them.
+///     </para>
+///     <para>
+///         ⚠ <b>Three rows moved from <see cref="Supported" /> to <see cref="Inert" /> when the gate
+///         first ran, and that is the argument for the gate in one sentence.</b> The
+///         <c>transition-*</c> trio had been sitting in the supported table because the cascade
+///         computed a value for each — the exact reading this file's own first paragraph says is not
+///         enough.
+///     </para>
 /// </remarks>
 public class UtilityFamilySupportTests {
     /// <summary>Utility, property, and the value the cascade must compute for it.</summary>
@@ -149,12 +171,11 @@ public class UtilityFamilySupportTests {
         { "overflow-y-auto", "overflow-y", "auto" },
         { "overflow-y-scroll", "overflow-y", "scroll" },
 
-        // Interactivity and motion.
+        // Interactivity and motion. ⚠ The three `transition-*` rows are not here any more — see the
+        // note on `Inert`. They resolved, which is all a row in this table ever checked, and nothing
+        // ran.
         { "cursor-pointer", "cursor", "pointer" },
         { "pointer-events-none", "pointer-events", "none" },
-        { "transition", "transition-property", "all" },
-        { "duration-150", "transition-duration", "150ms" },
-        { "ease-out", "transition-timing-function", "ease-out" },
         { "aspect-video", "aspect-ratio", "16/9" }
     };
 
@@ -230,7 +251,19 @@ public class UtilityFamilySupportTests {
 
         // Text and interaction properties with no consumer.
         { "align-middle", "vertical-align" },
-        { "select-none", "user-select" }
+        { "select-none", "user-select" },
+
+        // ⚠ <b>Motion, and these three came *down* from `Supported` — the only rows that ever have.</b>
+        // `Vixen.Ui.Styling.Animator` is finished, is covered by three test files of its own, and is
+        // constructed nowhere outside them: no `UiDocument`, no `StyleEngine`, nothing. So a declared
+        // transition has never run, and `duration-150` is a duration for something that does not
+        // happen. They sat in `Supported` because the cascade computes a value for them, which is the
+        // conflation the remarks at the top of this file warn about, in this file. See
+        // `docs/plan/43` F10 and task #29 — and see `UtilityConsumptionGateTests`, which is what found
+        // it and what stops the next one lasting as long.
+        { "transition", "transition-property" },
+        { "duration-150", "transition-duration" },
+        { "ease-out", "transition-timing-function" }
     };
 
     /// <summary>Each supported family computes what the engine's own consumers go looking for.</summary>
@@ -432,6 +465,10 @@ public class UtilityFamilySupportTests {
         return ui;
     }
 
+    /// <summary>
+    ///     ⚠ <b>Support proved in two lists at once, for a property that lives in both.</b>
+    ///     <c>order-2</c> has to move the box <i>and</i> move the box's turn to be painted, and the
+    ///     two are different arrays sorted by different code.
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>Position alone would not have caught the obvious half-implementation.</b> The layout
@@ -483,6 +520,4 @@ public class UtilityFamilySupportTests {
             .Select(command => colors[command.Color])
             .ToList();
     }
-
-    /// <summary>
 }

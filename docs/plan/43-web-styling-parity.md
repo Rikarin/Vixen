@@ -42,6 +42,13 @@ in this repository was an impression.
 | **What Vixen emits** | `UtilityFamilies.cs`, `Variants.cs`, `UtilityGenerator.cs` | parsed from the registration table, plus the shorthands ExCSS expands while parsing |
 | **What Vixen reads** | every `Properties.Intern` / `PropertyId` call site in `Core/` and `Editor/` | transcribed per consumer: `LayoutStyleBuilder`, `DrawListBuilder`, `UiDocument`, `Cursor`, `Animator`, `InheritedProperties`, `TransitionSpec` |
 
+⚠ **Two of those seven consumers are not consumers, and transcribing call sites is how they got into
+the list.** `Animator` and `TransitionSpec` intern and read exactly what this table says they do — and
+nothing constructs an `Animator`, so no frame has ever asked either of them anything. See **F10**. A
+call site is evidence that a property *would* be read by whoever ran that code; it is not evidence
+that anybody runs it, and that is the second time in this document the same mistake appears in a
+different disguise.
+
 ⚠ **"Interned" is not "read", and that distinction had to be made twice.** `InheritedProperties`
 interns seven names — `font-stretch`, `font-variant`, `text-transform`, `word-break`, `word-spacing`,
 `text-indent`, `tint` — purely so the cascade knows they inherit; no consumer acts on any of them.
@@ -120,6 +127,26 @@ expensive rows in the table, because each is a utility that *half* does what it 
 Spacing and Sizing are the two categories that are genuinely done. Everything else is between a
 quarter and nothing, and three categories — Transforms, Filters, Tables — have **no working root at
 all**.
+
+⚠ **The table above is the hand survey of 2026-08-07 and it is no longer the measurement.** C5 has
+landed as `Core/Vixen.Ui.Styling.Utilities.Tests/UtilityConsumptionGateTests`, which computes the
+inert set on every test run by resolving real elements and watching what the engine does with them —
+so from here on, the numbers to believe are the ones that run. Three things it found on its first
+pass, all of which the table above gets wrong in one direction or the other:
+
+- **Four rows have since moved to `works`** and the survey predates them: `border-bottom-color`,
+  `border-left-color` and `border-right-color` are painted by the draw list now, and `order` is read
+  by both the layout and the paint sequence. The Borders and Flexbox rows are that much better than
+  they read.
+- **Transitions and Animation is `0 works, 0 partial, 3 inert`, not `2 / 1 / 0`** — F10 below. The
+  row was derived from the cascade computing a value, which is the conflation this whole document is
+  about, and it got past the survey.
+- **`font-weight` is read** and the survey's own consumer walk did not say otherwise; it is recorded
+  here because it is the one property the *gate* got wrong first time round, for a reason worth
+  knowing. See F10's second half.
+
+The live count is **17 properties emitted with no consumer**, every one of them on the expiring
+allow-list in `InertProperties.txt` with the task that closes it.
 
 ### The columns
 
@@ -252,6 +279,42 @@ Doc 09 § *The utility preprocessor* names the families for 1.0 and the document
 Five of the names in that list have no family: **`space`**, **`divide`**, **`mix-blend`**,
 **`origin`**, **`scroll`**. This is not a Tailwind-parity gap; it is doc 09 disagreeing with the code,
 which is the thing `docs/overview.md` exists to catch and did not.
+
+### F10 · Nothing ever builds an `Animator`, so no CSS transition has ever run ⚠ *correcting this document*
+
+The gate's first pass found it and a NUL-safe search confirms it: **`Animator` is constructed in
+exactly one place in the repository, `Core/Vixen.Ui.Styling.Tests`.** No `UiDocument`, no
+`StyleEngine`, no `StyleUpdater`, no control and no editor host ever makes one, and nothing anywhere
+calls `Animator.Observe` or `Animator.Advance` outside those tests. `TransitionSpec` and
+`TransitionParser` have the same two callers: the animator, and the animator's tests.
+
+So the whole transition and `@keyframes` machinery is a well-tested component with no socket. A
+document that declares `transition: all 200ms` and then changes a class jumps straight to the new
+value — proved by resolving real elements and running frames either side of a class change, and
+finding the frames byte-identical with the declaration and without it.
+
+⚠ **This document said the opposite, and the way it got there is the exact failure it was written to
+name.** Part 0's consumer list names `Animator` as one of the seven readers "transcribed", and the
+category table gives Transitions and Animation two `works` and one `partial`. Both were derived from
+the cascade holding a value for `transition-property` — which it does, correctly — rather than from
+anything happening as a result. `UtilityFamilySupportTests` carried the same three rows in
+`Supported` for the same reason, in the file whose own remark warns against precisely this. They
+have moved to `Inert`.
+
+**Sized as A20 / task #29 below.** It is small — the animator is finished, and what is missing is a
+field on the style engine, a call to `Observe` where a computed style is replaced, a call to
+`Advance` from the frame's tick, and `Apply` on the way to the consumers. What makes it worth its own
+task rather than a line in another is that it is the seam that decides whether `Vixen.Ui`'s frame
+loop has a place for a time-varying style at all.
+
+⚠ **And the second half is about the instrument rather than the engine: `font-weight` read as inert
+and is not.** The weight reaches `FontRegistry.Resolve` and selects a different face; the gate could
+not see it because `DrawList` deliberately does not compare `Fonts` between frames — its argument
+being that a command drawn in a different face refers to it by a different index, which is true of a
+frame using several faces and false of a frame that swapped its only one. The gate's paint signature
+now includes the face names. Worth recording because the same reasoning is in `DrawList.Differs`,
+where the consequence is a version that would not bump; in practice two real faces produce different
+glyph advances and the glyph comparison catches it, so this is a note and not a bug report.
 
 ### Variants and modifiers
 
@@ -780,19 +843,35 @@ expansion**, and each one is a class somebody can write today that does nothing:
 
 ```
 --blur  --rotate  --scale  --translate-x  --translate-y
-border-bottom-color  border-inline-end-color  border-inline-start-color
-border-left-color  border-right-color
-fill  stroke  grid-column  grid-template-columns  order
+border-inline-end-color  border-inline-start-color
+fill  stroke  grid-column  grid-template-columns
 outline-color  user-select  vertical-align
+transition-property  transition-duration  transition-timing-function
 ```
 
-It was twenty a week ago; `overflow-x` and `overflow-y` came off it when F3 landed, which is what the
-list is for.
+✅ **That list is no longer written down here. It is measured, and the block above is what the
+measurement currently says** — seventeen, printed by
+`Core/Vixen.Ui.Styling.Utilities.Tests/UtilityConsumptionGateTests` on every run and mirrored line for
+line in `InertProperties.txt`, each with the task that closes it. It was twenty when the survey was
+taken: `overflow-x` and `overflow-y` came off when F3 landed, `order` and three of the five per-edge
+border colours when the draw list learned the rest of the longhands, and the three `transition-*`
+names went **on** when F10 found that nothing runs the animator.
 
-That list is the gate task #11 asks for, and it is small enough to be a hard failure rather than a
-warning: **`CheckArchitecture` fails when a family emits a property no consumer interns, unless the
-property is on an allow-list carrying the task number it is waiting for.** The allow-list is the
-honest form of the README's "a utility waiting for an engine feature" — same sentence, but it expires.
+⚠ **The gate is a test and not `CheckArchitecture`, and the reason is the difference between
+"interned" and "acted on".** This document's own § Part 0 measured that gap at seven properties —
+`word-spacing` and `text-indent` have ids in `LayoutStyleBuilder` that nothing reads — so a check that
+looked for an `Intern("…")` call would pass both, and pass every future one. Establishing consumption
+means *running a frame*: building a document, resolving real elements, changing one declaration and
+comparing the layout, the draw list, the cursor and the hit test either side of it. `CheckArchitecture`
+is a walk of `.csproj` XML with no compilation and no runtime, and the static alternative — reading IL
+for a load of the property id — needs Mono.Cecil, which ADR-002 bans by name in that very file. So the
+gate lives where the engine can be run, and `./build.sh Test` is the same gate CI runs.
+
+The allow-list is the honest form of the README's "a utility waiting for an engine feature" — same
+sentence, but **it expires, on its condition rather than on a date**: the run in which a consumer
+starts acting on an allow-listed property is the run that fails on its exemption, and a line must name
+a task number this document contains or the build fails on the line itself. That is the mechanism
+`docs/DocsExempt.txt` never had, which is why its written instruction not to abuse it did not hold.
 
 ---
 
@@ -824,7 +903,8 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
 | A18 🟢 | Scroll properties as `ScrollView` inputs rather than CSS | `Vixen.Ui.Controls` | — | 0.3 |
 | A19 🟢 | `text-decoration`, `text-transform`, `font-variant-numeric`, `font-stretch` | `Vixen.Ui.Text` | — | 0.4 |
-| | | | **A total** | **6.7** |
+| A20 🟢 | **Run the `Animator`** — build one on the style engine, `Observe` a replaced computed style, `Advance` on the tick, `Apply` before the consumers read. The component is finished and has no caller (F10) | `StyleEngine`, `UiDocument` | **#29** | 0.2 |
+| | | | **A total** | **6.9** |
 
 ### Track B — layout modes
 
@@ -854,7 +934,7 @@ mixed-content paragraph sit behind it.
 | C2 🟢 | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5) | 0.1 |
 | C3 🟢 | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet (D1) | 0.5 |
 | C4 🟢 | Cross-assembly token sharing, shape C (Part 3) | 0.3 |
-| C5 🟢 | The gate: a family emitting an uninterned property fails the build (#11), and `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot | 0.3 |
+| C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |
 | C6 🟢 | Doc 09's five missing families — `space`, `divide`, `mix-blend`, `origin`, `scroll` | 0.25 |
 | C7 🟢 | The ~120 families that are a table line each, once A and B land | 0.75 |
 | C8 🟡 | The families that are their own small feature: `mask-*`, gradients, `animate-*` | 0.75 |
@@ -883,8 +963,9 @@ is choosing to re-run the experiment that already has an answer.
 ## Part 7 — The sequence
 
 **Wave 0 — the survey's own consequences.** C0 (prefix fallback), C5 (the gate and its expiring
-allow-list) and the README correction — A5 landed while this was written. Nothing depends on these and everything is
-cheaper after them. **0.3 EM.**
+allow-list) and the README correction — A5 landed while this was written, and ✅ C5's gate half has
+landed since, taking F10 with it. What is left of wave 0 is C0 and `Tools/Vixen.TailwindParity`.
+Nothing depends on these and everything is cheaper after them. **0.2 EM.**
 
 **Wave 1 — the token model, before #6 and #7 build the old one.** C3, then C4, then A9 and A10. This
 is the one ordering constraint that is urgent rather than logical: task #6 is queued and would
@@ -954,8 +1035,11 @@ inventory with an unexplained hole in it is how a subset gets rationalised the n
 
 1. **Every one of the 328 roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
-2. **No family emits a property no consumer interns**, except entries on the allow-list, each of which
-   names a task. `CheckArchitecture` fails otherwise. Today: 18 properties, 0 allow-listed.
+2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
+   which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
+   rather than `CheckArchitecture`, for the reason Part 5 gives, and "acts on" rather than "interns"
+   for the reason Part 0 measured at seven properties. Today: **17 properties, 17 allow-listed**, and
+   the allow-list expires on its condition.
 3. **`UtilityFamilySupportTests` has a row per root, resolved against a real element**, and its
    `Inert` table is empty or every entry names its task. It is the only artefact in this survey built
    by resolving elements rather than by reading source, and it is where a finding goes to become a

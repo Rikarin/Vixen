@@ -385,6 +385,161 @@ public static class UtilityFamilies {
         return (whole, string.Empty);
     }
 
+    /// <summary>Every class name that reaches a distinct part of what the families can emit.</summary>
+    /// <param name="tokens">The theme, which decides what a token-valued family can be given.</param>
+    /// <returns>The class names, ordered, each one of which resolves against <paramref name="tokens" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The point of this is that it is <i>computed</i>, and every hand-written inventory of
+    ///         this table has rotted.</b> <c>docs/plan/43</c> § Part 0 is a survey somebody did by hand
+    ///         against 328 Tailwind roots, and its own opening caveat is that the script that produced
+    ///         it is not in the tree. Anything that enumerates the family surface by listing class names
+    ///         is a second copy of the registry that drifts from the first the next time a family is
+    ///         added — which is exactly how "43 registrations" came to be quoted for a table holding 98.
+    ///     </para>
+    ///     <para>
+    ///         <b>A family is covered by more than one class, because a family emits more than one
+    ///         thing.</b> <c>flex</c> alone is <c>display</c>, <c>flex-col</c> is <c>flex-direction</c>,
+    ///         <c>flex-wrap</c> is <c>flex-wrap</c> and <c>flex-1</c> is the <c>flex</c> shorthand — one
+    ///         prefix, four properties, so one example class would measure a quarter of it. Every key of
+    ///         a family's keyword table is emitted, plus a value of the family's own kind, plus a colour
+    ///         for the border families, whose colour longhands are a different set from their widths.
+    ///     </para>
+    ///     <para>
+    ///         Only the names that <see cref="TryResolve" /> actually answers come back, so a theme with
+    ///         no <c>radius</c> scale yields no <c>rounded-*</c> — which is a true statement about that
+    ///         theme rather than a hole in this method.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Surface(ThemeTokens tokens) {
+        ArgumentNullException.ThrowIfNull(tokens);
+
+        var probes = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var declarations = new List<UtilityDeclaration>();
+
+        // Ordered by name rather than by the longest-first order `SplitName` needs, so that a failure
+        // message reads alphabetically and two runs produce the same list.
+        foreach (var name in Names.Order(StringComparer.Ordinal)) {
+            var family = Registry[name];
+
+            // The bare form — `border`, `rounded`, `grow`, and every `Static` family, whose value
+            // lives under the keyword table's empty key.
+            Consider(name);
+
+            if (family.Keywords is not null) {
+                foreach (var key in family.Keywords.Keys.Order(StringComparer.Ordinal)) {
+                    Consider(key.Length == 0 ? name : $"{name}-{key}");
+                }
+            }
+
+            foreach (var value in ValuesFor(family, tokens)) {
+                Consider($"{name}-{value}");
+            }
+        }
+
+        return probes;
+
+        void Consider(string candidate) {
+            if (!seen.Add(candidate)
+                || !UtilityParser.TryParse(candidate, out var parsed)
+                || !TryResolve(parsed, tokens, declarations)) {
+                return;
+            }
+
+            probes.Add(candidate);
+        }
+    }
+
+    /// <summary>The values worth giving a family of each kind, drawn from the theme where there is one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first token of a scale rather than all of them.</b> Two radii emit the same property
+    ///     with different numbers, so the second says nothing new about <i>which</i> properties a family
+    ///     can set — where a second keyword often does, which is why the keyword table is enumerated
+    ///     whole and the token scales are not. <see cref="ValueKind.FontSize" /> and
+    ///     <see cref="ValueKind.BorderEdge" /> take two values apiece because those two kinds genuinely
+    ///     change property depending on how the value reads.
+    /// </remarks>
+    static IEnumerable<string> ValuesFor(Family family, ThemeTokens tokens) {
+        switch (family.Kind) {
+            case ValueKind.Spacing:
+            case ValueKind.Size:
+            case ValueKind.Number:
+                yield return "2";
+                break;
+
+            case ValueKind.Duration:
+                yield return "300";
+                break;
+
+            case ValueKind.Fraction:
+                yield return "50";
+                break;
+
+            case ValueKind.Color:
+                foreach (var colour in First(tokens.Colors.Keys)) {
+                    yield return colour;
+                }
+
+                break;
+
+            case ValueKind.Radius:
+                foreach (var radius in First(tokens.Radius.Keys)) {
+                    yield return radius;
+                }
+
+                break;
+
+            case ValueKind.FontWeight:
+                foreach (var weight in First(tokens.FontWeight.Keys)) {
+                    yield return weight;
+                }
+
+                break;
+
+            case ValueKind.Shadow:
+                foreach (var shadow in First(tokens.Shadow.Keys)) {
+                    yield return shadow;
+                }
+
+                break;
+
+            case ValueKind.FontSize:
+                // Both readings of `text-`, because they are two different properties: a size token
+                // sets `font-size` and `line-height`, and anything else falls through to `color`.
+                foreach (var size in First(tokens.FontSize.Keys)) {
+                    yield return size;
+                }
+
+                foreach (var colour in First(tokens.Colors.Keys)) {
+                    yield return colour;
+                }
+
+                break;
+
+            case ValueKind.BorderEdge:
+                // A width and a colour, which land in two different sets of longhands — the case
+                // `docs/plan/43` F1 is about, where one set was read and the other was not.
+                yield return "2";
+
+                foreach (var colour in First(tokens.Colors.Keys)) {
+                    yield return colour;
+                }
+
+                break;
+
+            case ValueKind.Static:
+            case ValueKind.Keyword:
+            default:
+                break;
+        }
+    }
+
+    static IEnumerable<string> First(IEnumerable<string> keys) {
+        var ordered = keys.Order(StringComparer.Ordinal).FirstOrDefault();
+        return ordered is null ? [] : [ordered];
+    }
+
     /// <summary>Turns a parsed candidate into the declarations it stands for.</summary>
     /// <param name="candidate">The candidate.</param>
     /// <param name="tokens">The theme.</param>

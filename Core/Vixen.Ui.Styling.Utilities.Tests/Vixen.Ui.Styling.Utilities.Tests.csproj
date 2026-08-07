@@ -21,5 +21,40 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Ui.Styling.Utilities\Vixen.Ui.Styling.Utilities.csproj" />
+
+        <!--
+            ⚠ The consumption gate is why this test assembly sees Vixen.Ui at all, and the reference is
+            the whole argument of docs/plan/43: a utility family is judged against the engine that has
+            to read what it emits, not against the stylesheet it produces. Nothing else here needs a
+            document, a layout or a draw list — UtilityConsumptionGateTests needs all three, because
+            "something acts on this property" is a question only a frame can answer.
+        -->
+        <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ A real font, because without one the gate is blind to half the typography properties and
+            says so by failing them. A document with nothing registered draws no glyphs at all, so
+            `font-size`, `line-height`, `letter-spacing`, `text-align` and `white-space` each move
+            nothing and read as inert — a false gap, and the expensive kind, because the honest response
+            to a false gap is to go and implement something that is already there. Two faces under one
+            family so that `font-weight` has a second face to select; the same file linked twice, which
+            is enough because what is being measured is whether the weight reaches the registry at all.
+            Linked rather than copied, as Vixen.Ui.Tests links it: Fonts/README.md over there says whose
+            it is.
+        -->
+        <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
+                          LogicalName="Vixen.Ui.Styling.Utilities.Tests.Fonts.TestShapeLana.ttf" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The expiring allow-list, and the plan document its task numbers have to appear in. Both are
+            read at run time rather than compiled in, so that adding a line is a diff a reviewer sees in
+            a file whose whole purpose is to be looked at.
+        -->
+        <Content Include="InertProperties.txt" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="..\..\docs\plan\43-web-styling-parity.md" Link="43-web-styling-parity.md" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 </Project>
