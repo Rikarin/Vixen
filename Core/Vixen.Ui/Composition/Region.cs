@@ -56,10 +56,39 @@ sealed class Region {
     /// <summary>What was subscribed inside it: effects, and the handlers a two-way binding added.</summary>
     readonly List<IDisposable> subscriptions = [];
 
-    internal Region(UiElement parent, object? after, Region? host = null) {
+    /// <summary>The regions of the elements this one built, which it also ends.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="slots" /> rather than in it, because these belong to a different
+    ///     parent element.</b> A slot is a run of <i>this</i> parent's children and is what
+    ///     <see cref="Start" />, <see cref="End" /> and <see cref="Reposition" /> compute indices
+    ///     from; a region hanging off a <c>&lt;div&gt;</c> this region created has nothing to say
+    ///     about where this region's own content sits, and counting it would move elements into
+    ///     each other's runs.
+    ///
+    ///     ⚠ <b>What it is for is reach.</b> A region hangs off the element its content has as a
+    ///     parent, so an <c>@for</c> written inside a nested <c>&lt;div&gt;</c> opens against that
+    ///     div — and before this list, nothing above it pointed at it. Clearing the branch that
+    ///     built the div removed the div and left every row's effects subscribed, reading signals
+    ///     and assigning to elements that had left the document.
+    /// </remarks>
+    readonly List<Region> linked = [];
+
+    /// <summary>Takes this region out of the table it is keyed in, when it has ended.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The table is strong and has to be, so something has to empty it.</b>
+    ///     <c>BuildContext.regions</c> holds a region per parent element, and a region owns
+    ///     <see cref="IDisposable" />s — so a weak table would not end anything: an effect is held by
+    ///     every signal it read, and collecting the region that tracked it turns a leak that can be
+    ///     found into one that cannot. What it costs instead is this: an entry that is never removed
+    ///     pins its element, and a <c>@for</c> over a churning list makes one per row.
+    /// </remarks>
+    readonly Action? forget;
+
+    internal Region(UiElement parent, object? after, Region? host = null, Action? forget = null) {
         this.parent = parent;
         this.after = after;
         this.host = host;
+        this.forget = forget;
     }
 
     /// <summary>The element this region's contents start at.</summary>
@@ -89,6 +118,9 @@ sealed class Region {
 
     internal void Track(IDisposable subscription) => subscriptions.Add(subscription);
 
+    /// <summary>Makes this region responsible for one opened against an element it built.</summary>
+    internal void Link(Region region) => linked.Add(region);
+
     /// <summary>Points this region at a new predecessor after a reorder.</summary>
     internal void Rebind(object? predecessor) => after = predecessor;
 
@@ -103,6 +135,10 @@ sealed class Region {
     ///     ⚠ <b>Subscriptions first, elements second.</b> An effect disposed after its element is
     ///     removed may already have run against a detached element; disposing it first means the
     ///     only thing that could still write to these elements has stopped before they go.
+    ///
+    ///     ⚠ And <see cref="linked" /> before either, for the same reason one step further down: a
+    ///     region opened against an element this one built holds effects that write to elements
+    ///     inside it, and those elements go when this region's slots do.
     /// </remarks>
     internal void Clear() {
         foreach (var subscription in subscriptions) {
@@ -110,6 +146,13 @@ sealed class Region {
         }
 
         subscriptions.Clear();
+
+        foreach (var region in linked) {
+            region.Clear();
+        }
+
+        linked.Clear();
+        forget?.Invoke();
 
         foreach (var slot in slots) {
             switch (slot) {
@@ -129,13 +172,18 @@ sealed class Region {
 
     /// <summary>Stops everything this region subscribed, and leaves its elements alone.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="Clear" /> without the removal, for the one caller whose elements are
-    ///     already going.</b> A markup-authored <see cref="UiElement" /> disposes its composition from
+    ///     ⚠ <b><see cref="Clear" /> without the removal, for the callers whose elements are already
+    ///     going.</b> A markup-authored <see cref="UiElement" /> disposes its composition from
     ///     <c>OnRemoved</c>, which the document raises <i>while</i> it is taking the subtree out — so
     ///     the elements below it need no removing, and removing them anyway would mean a nested
     ///     <c>Document.Remove</c> per element inside the walk that is already removing them. What does
     ///     have to stop is the effects: an effect outliving its element keeps assigning to it and
     ///     keeps it alive through its closure, which is the whole reason regions track subscriptions.
+    ///
+    ///     ⚠ <b>And a <see cref="Component" />'s teardown, on the same terms.</b> Everything a
+    ///     component built is under its host, and whatever ended the component — the enclosing region
+    ///     clearing, or the document removing the host — is already taking that host out. See
+    ///     <c>BuildContext.Ended</c>.
     /// </remarks>
     internal void Stop() {
         foreach (var subscription in subscriptions) {
@@ -143,6 +191,13 @@ sealed class Region {
         }
 
         subscriptions.Clear();
+
+        foreach (var region in linked) {
+            region.Stop();
+        }
+
+        linked.Clear();
+        forget?.Invoke();
 
         foreach (var slot in slots) {
             if (slot is Region region) {

@@ -304,6 +304,40 @@ public class MilestoneE3Tests {
         Assert.Equal(2, view.Count);
     }
 
+    /// <summary>
+    ///     ⚠ <b>And the panel stops following it the moment it leaves the document.</b>
+    ///     <c>UndoHistory</c> writes its <c>@for</c> inside the <c>&lt;ScrollView&gt;</c>, so the
+    ///     loop's region hangs off the scroll view rather than off the component's host — which used
+    ///     to mean that closing the panel left a row per edit still subscribed to the command stack,
+    ///     assigning to elements that had left the tree.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted on the scheduler, because assigning to a removed element does not
+    ///     complain.</b> A panel that looks right after it has been closed proves nothing; what a
+    ///     live binding does is queue.
+    ///
+    ///     ⚠ <b>And the edit is made against the stack rather than through <c>Run</c>, because
+    ///     <c>Run</c> settles.</b> The first version of this test ran a command and asserted an
+    ///     empty queue, which passes with the whole fix deleted: settling flushes, and a queue that
+    ///     has been drained says nothing about what was in it.
+    /// </remarks>
+    [Fact]
+    public void Closing_the_undo_history_stops_it_following_the_stack() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Run("scene.create-entity");
+        fixture.Run("edit.undo-history");
+
+        var view = fixture.Component<UndoHistory>("history");
+        Assert.Equal(2, view.Count);
+
+        view.Root.Remove();
+        fixture.Document.Effects.Flush();
+
+        Assert.True(fixture.Scene.Stack.Undo());
+        Assert.Equal(0, fixture.Document.Effects.PendingCount);
+    }
+
     /// <summary>Part C's <b>Undo History⋯</b>, and the one operation an undo stack actually supports.</summary>
     /// <remarks>
     ///     ⚠ <b>Clicking an entry undoes back to it rather than undoing that one.</b> Removing the
