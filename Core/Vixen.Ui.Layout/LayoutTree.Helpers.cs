@@ -137,6 +137,17 @@ public sealed partial class LayoutTree {
         }
     }
 
+    /// <summary>A node's <c>overflow</c> along one axis.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every rule in the algorithm that reads <c>overflow</c> is about one axis</b>, and each
+    ///     of them used to read a single field that meant both. That was invisible while the two could
+    ///     not differ; the moment <c>overflow-x</c> became real it would have been a column that
+    ///     scrolls sideways clamping its own height. Going through here rather than at the field makes
+    ///     each caller name the axis it means.
+    /// </remarks>
+    Overflow OverflowOn(int index, Dimension dimension) =>
+        dimension == Dimension.Width ? styles[index].OverflowX : styles[index].OverflowY;
+
     /// <summary>
     ///     The automatic minimum main size from CSS Flexbox §4.5, or NaN when none applies.
     /// </summary>
@@ -164,7 +175,10 @@ public sealed partial class LayoutTree {
             return float.NaN;
         }
 
-        if (styles[index].Overflow != Overflow.Visible) {
+        // ⚠ The *main* axis's overflow, which is what CSS Flexbox §4.5 says: an item opts out of the
+        // automatic minimum by not being visible along the axis the minimum is about. A row of text
+        // in a box that only clips vertically still refuses to shrink below its longest word.
+        if (OverflowOn(index, mainDimension) != Overflow.Visible) {
             return 0f;
         }
 

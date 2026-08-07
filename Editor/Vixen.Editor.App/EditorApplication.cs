@@ -311,6 +311,26 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly HotReloadHost hotReload;
 
+    /// <summary>The dev-mode stylesheet watcher, or <see langword="null" /> outside it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Null unless <c>--hot-reload</c> named a directory, which is the whole of its
+    ///         opt-in.</b> A <c>FileSystemWatcher</c> the editor opened by itself would be a handle
+    ///         and a pool callback in every CI run of <c>--frames N</c>, for a channel that run
+    ///         cannot use.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not the editor's own chrome, and that is worth being blunt about.</b>
+    ///         <c>EditorTheme</c> and its four neighbours are C# string constants compiled into the
+    ///         assembly — there is no <c>.vcss</c> on disk for a watcher to watch, and there would
+    ///         still be none in a published editor if there were one in the source tree. What this
+    ///         watches is a directory of the developer's own sheets, loaded at <c>Author</c> origin
+    ///         after all five so they win the cascade: iterate there, then paste the result back into
+    ///         the constant. See <c>Editor/Vixen.Editor.Host/README.md</c>.
+    ///     </para>
+    /// </remarks>
+    HotReloadWatcher? styleWatcher;
+
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
     ContextMenu? assetMenu;
@@ -908,6 +928,13 @@ sealed partial class EditorApplication : IDisposable {
         // that from a `FileSystemWatcher` callback would race every panel reading it.
         FollowDisk();
 
+        // ⚠ And the dev-mode stylesheets, on the frame thread and for exactly the same reason. A
+        // reload replaces the rule set and re-runs the cascade over every element in the document;
+        // a `FileSystemWatcher` callback doing that from the pool would be rewriting the tree
+        // underneath the layout pass, which has no lock and does not expect one. `Poll` is where the
+        // coalesced changes are applied and this is the only place it is called.
+        styleWatcher?.Poll();
+
         if (viewports is not { } layout) {
             return;
         }
@@ -1133,6 +1160,11 @@ sealed partial class EditorApplication : IDisposable {
         // platform handle and keeps recording changes into a coalescer nobody will drain again.
         watcher?.Dispose();
 
+        // And the dev-mode one, on the same terms — plus one of its own: it is the reason
+        // `--hot-reload` cannot make the process outlive its window, since a live
+        // `FileSystemWatcher` is a handle the runtime will not shut down over.
+        styleWatcher?.Dispose();
+
         viewports?.Dispose();
 
 
@@ -1282,6 +1314,79 @@ sealed partial class EditorApplication : IDisposable {
 
             return null;
         }
+    }
+
+    /// <summary>Loads every <c>.vcss</c> under a directory and reloads them as they are saved.</summary>
+    /// <param name="directory">Where the developer's sheets are.</param>
+    /// <returns>How many sheets were found, which is zero for a directory with nothing in it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The style channel, and it is the one that is genuinely free</b> — the rule set is
+    ///         replaced and the cascade runs again, so every element keeps its identity and therefore
+    ///         its focus, its scroll offset and its animation state. Nothing is rebuilt.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Last, and at <c>Author</c> origin.</b> The five sheets the editor ships are
+    ///         <c>UserAgent</c>, which loses to <c>Author</c> for every normal declaration — so a
+    ///         rule written here beats the shipped one without having to out-specify it, which is
+    ///         what makes the directory usable for iterating on the editor's own chrome.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero is reported rather than swallowed.</b> A watcher over a directory with no
+    ///         stylesheets in it is a channel that looks wired and does nothing, and the developer
+    ///         who pointed it at the wrong folder has no other way to find out.
+    ///     </para>
+    /// </remarks>
+    internal int WatchStyles(string directory) {
+        ArgumentNullException.ThrowIfNull(directory);
+
+        if (!Directory.Exists(directory)) {
+            log.Write(LogLevel.Warning, $"There is no directory '{directory}' to reload stylesheets from.");
+            return 0;
+        }
+
+        try {
+            styleWatcher = new HotReloadWatcher(hotReload, directory);
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            log.Write(LogLevel.Warning, $"Could not watch '{directory}' for stylesheets. {exception.Message}");
+            return 0;
+        }
+
+        var found = 0;
+
+        // ⚠ Ordered, because two sheets that declare the same rule are decided by which was loaded
+        // second — and a load order that came from the filesystem's enumeration would put the
+        // editor's look at the mercy of the order a directory happens to hand its entries back in.
+        foreach (var file in Directory.EnumerateFiles(directory, "*.vcss", SearchOption.AllDirectories)
+                     .Order(StringComparer.Ordinal)) {
+            try {
+                styleWatcher.Load(file);
+                found++;
+            } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+                log.Write(LogLevel.Warning, $"Could not read '{file}'. {exception.Message}");
+            }
+        }
+
+        // ⚠ The reports go to the console rather than nowhere. A sheet that fails to load puts the
+        // previous one back — see `HotReloadHost.ReloadStyles` — so without this the visible effect
+        // of a typo is that saving stopped changing anything, with no way to tell that from a
+        // watcher that had quietly died.
+        styleWatcher.Reloaded += report => {
+            if (report.Succeeded) {
+                return;
+            }
+
+            log.Write(LogLevel.Warning, $"Stylesheet not reloaded: {string.Join("; ", report.Errors)}");
+        };
+
+        log.Write(
+            LogLevel.Information,
+            found == 0
+                ? $"Watching '{directory}' for stylesheets, and there are none in it yet."
+                : $"Watching '{directory}': {found} stylesheet(s) reload on save."
+        );
+
+        return found;
     }
 
     /// <summary>Rescans when something outside the editor has changed the assets.</summary>
@@ -1699,6 +1804,14 @@ sealed partial class EditorApplication : IDisposable {
                 "scene",
                 new StringId("editor.panel.scene", "Scene"),
                 panel => {
+                    // ⚠ The panel must not scroll, and this is the case that would be a bug rather
+                    // than an annoyance. A viewport sizes its render target from its own laid-out box
+                    // and turns a pointer into a pick with `(x - AbsoluteLeft) * RenderScale` — so an
+                    // offset the panel applied and the viewport knew nothing about would move every
+                    // click a scroll's worth away from what the user aimed at, on a panel that never
+                    // needed to scroll because the viewport fills it by construction.
+                    panel.Scrolls = false;
+
                     ContextualViewport(panel);
 
                     // ⚠ A layout rather than a control, and every pane in it is a whole
@@ -1741,6 +1854,13 @@ sealed partial class EditorApplication : IDisposable {
                 "inspector",
                 new StringId("editor.panel.inspector", "Inspector"),
                 panel => {
+                    // ⚠ `InspectorView` owns a scroll region of its own and keeps its header out of
+                    // it on purpose, so that the search box and the lock cannot scroll away from
+                    // somebody who is using them to find the row they scrolled past. A panel that
+                    // scrolled the whole view would put the header back inside a scroller and give
+                    // the wheel two bars to choose between.
+                    panel.Scrolls = false;
+
                     inspector = panel.Add<InspectorView>();
                     inspector.EditedDocument = scene;
 

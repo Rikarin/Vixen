@@ -24,14 +24,23 @@ namespace Vixen.Ui;
 ///     </para>
 /// </remarks>
 public sealed class DrawListBuilder {
+    /// <summary>How far past a viewport an edge is pushed when its axis is not clipped.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A stand-in for infinity, chosen so that the sums stay exact.</b> A million pixels is
+    ///     more than a hundred times the widest display anyone has, and two million is still well
+    ///     inside the range where a <c>float</c> counts whole numbers one at a time — where
+    ///     <c>float.MaxValue</c> would give a right edge of infinity and an infinite width a right edge
+    ///     of NaN, and a NaN in the clip stack silently unclips everything below it.
+    /// </remarks>
+    internal const float UnboundedClip = 1_000_000f;
+
     readonly List<PositionedGlyph> placed = [];
     readonly StyleValueParser parser;
     readonly int backgroundColor;
     readonly int borderColor;
     readonly int borderRadius;
     readonly int textColor;
-    readonly int overflow;
-    readonly int visible;
+    readonly OverflowReader overflow;
     readonly int visibility;
     readonly int hidden;
     readonly int opacity;
@@ -64,8 +73,7 @@ public sealed class DrawListBuilder {
         borderColor = properties.Intern("border-top-color");
         borderRadius = properties.Intern("border-top-left-radius");
         textColor = properties.Intern("color");
-        overflow = properties.Intern("overflow");
-        this.visible = values.Intern("visible");
+        overflow = new OverflowReader(properties, values);
 
         visibility = properties.Intern("visibility");
         this.hidden = values.Intern("hidden");
@@ -180,15 +188,39 @@ public sealed class DrawListBuilder {
                 into.Add(new DrawCommand(DrawCommandKind.Border, x, y, width, height, Fade(stroke, alpha), radius, thickness));
             }
 
-            // Between the border and the children, which is where CSS puts an element's own content:
-            // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
-            EmitText(document, element, into, alpha);
-            element.OnDraw(new DrawContext(element, into, alpha));
         }
 
-        var clips = element.Style.TryGet(overflow, out var value) && value != visible;
-        if (clips) {
-            into.Add(new DrawCommand(DrawCommandKind.ClipPush, x, y, width, height, default, radius, 0f));
+        var axes = overflow.Of(element.Style);
+        if (axes.Any) {
+            // ⚠ An unclipped axis is a pair of edges at infinity, and `UnboundedClip` stands in for
+            // infinity because the arithmetic that consumes this cannot hold it: the clip stack
+            // intersects rectangles, and an infinite width gives `X + Width` as a NaN that swallows
+            // every clip below it. A finite stand-in is not an approximation here — the stack starts
+            // from the viewport and only ever narrows, so an edge past the viewport is bounded by the
+            // viewport, which is exactly what "not clipped on this axis" means.
+            var left = axes.Horizontal ? x : -UnboundedClip;
+            var top = axes.Vertical ? y : -UnboundedClip;
+            var across = axes.Horizontal ? width : 2f * UnboundedClip;
+            var down = axes.Vertical ? height : 2f * UnboundedClip;
+
+            into.Add(new DrawCommand(DrawCommandKind.ClipPush, left, top, across, down, default, radius, 0f));
+        }
+
+        if (shown) {
+            // Between the border and the children, which is where CSS puts an element's own content:
+            // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
+            //
+            // ⚠ <b>Inside the clip, and it used to be outside it.</b> `overflow` clips an element's
+            // *content*, and an element's own text is content — the background and the border are
+            // the two things it does not clip, which is why the push is below them and not above.
+            // Emitting the text first meant `overflow: hidden` clipped an element's children and
+            // never its own string, so a label too long for a fixed column drew straight across
+            // whatever was beside it. Five places in the editor had written `overflow: hidden` on a
+            // text-bearing element believing otherwise, and every one of them was a column that
+            // silently overdrew its neighbour. It survived because a clip is invisible to the
+            // element tree: every rectangle was the right size and the glyphs went somewhere else.
+            EmitText(document, element, into, alpha);
+            element.OnDraw(new DrawContext(element, into, alpha));
         }
 
         // Paint order rather than document order, which are the same list unless some child carries
@@ -208,7 +240,7 @@ public sealed class DrawListBuilder {
         // the frame. A list whose pushes and pops do not pair is not a drawing with a mistake in it,
         // it is a clip stack that never unwinds — everything after the offending element stays
         // clipped to it for the rest of the frame.
-        if (clips) {
+        if (axes.Any) {
             into.Add(new DrawCommand(DrawCommandKind.ClipPop, x, y, width, height, default, radius, 0f));
         }
     }

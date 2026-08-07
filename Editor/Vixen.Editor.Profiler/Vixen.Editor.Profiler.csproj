@@ -63,10 +63,34 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            The VXML compiler, by the same route and for the same reason: a PackageReference to
+            Vixen.Ui would bring it and a ProjectReference does not. Doc 36 § F7 wave 1a moved the
+            memory and statistics panels into markup, which is what needs it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Editor.Profiler.Tests" />
+
+        <!--
+            ⚠ And the head's suite, because `DiagnosticsPanelTests` reaches the two markup panels
+            through `UiDocument.ComponentAt` and reads what they are showing. A component is not a
+            `UiElement`, so a test can no longer find one with `Descendants(...).OfType<T>()` — see
+            the helper in that file.
+        -->
+        <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
     </ItemGroup>
+
+    <!--
+        What a PackageReference to Vixen.Ui would have imported: the **/*.vxml glob and the two
+        properties the generator asks MSBuild for. At the bottom of the file, because the glob has to
+        run after DefaultItemExcludes is final.
+    -->
+    <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 
 </Project>

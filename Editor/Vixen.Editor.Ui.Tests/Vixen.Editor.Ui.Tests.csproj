@@ -20,6 +20,24 @@
 
     <ItemGroup>
         <None Include="__screenshots__\**" CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
+            ⚠ **Fixtures for the tests, and deliberately not resources of the product.** The editor
+            used to embed its tokens and its markup so that a startup bootstrap could scan them; the
+            build step does that at build time now and the assembly ships neither. What the tests
+            still need is the *inputs*, so they can ask the narrower question the generated sheet
+            cannot answer on its own — is every class name somebody wrote in a `class` attribute a
+            utility, or is one of them a typo that silently does nothing?
+
+            Copied rather than embedded, because a fixture that has to be fetched through a manifest
+            is the shape this change was getting rid of.
+        -->
+        <None Include="..\Vixen.Editor.Ui\Theming\vixen.ui.yaml"
+              Link="__fixtures__\vixen.ui.yaml"
+              CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\Vixen.Editor.Ui\**\*.vxml"
+              LinkBase="__fixtures__\markup"
+              CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>

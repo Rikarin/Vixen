@@ -92,6 +92,11 @@ public class UtilityFamilyTests {
     [InlineData("text-end", "text-align: end")]
     [InlineData("select-none", "user-select: none")]
     [InlineData("overflow-hidden", "overflow: hidden")]
+    // ⚠ The per-axis pair, which the engine reads as of the clip stack learning two axes. It emitted
+    // exactly this before and nothing interned either name, so the class resolved and the picture did
+    // not change — the worst shape a utility can have. See `Vixen.Ui.OverflowReader`.
+    [InlineData("overflow-y-auto", "overflow-y: auto")]
+    [InlineData("overflow-x-scroll", "overflow-x: scroll")]
     [InlineData("pointer-events-none", "pointer-events: none")]
     // Aspect.
     [InlineData("aspect-1.5", "aspect-ratio: 1.5")]

@@ -216,6 +216,56 @@ The tests beside it ask which panel is open and which command ran, which stays t
 palette at all — the inspector bugs that started this work were invisible to every one of them and
 obvious in the first screenshot.
 
+### Utility classes
+
+`EditorStyles` is the other half of the sheet, and there is no code behind it.
+`Theming/vixen.ui.yaml` is the design tokens; every source file and every `.vxml` in this assembly is
+scanned for class names at **build time** by `Vixen.Ui.Styling.Utilities.targets`; the sheet — inside
+`@layer utilities`, with only the rules something refers to — is compiled into `obj/` before the
+compiler runs and carried in the binary as a constant. `EditorTheme.Install` loads it immediately
+after the hand-written sheet, so one call still installs everything.
+
+That is a build step and not a startup scan, and the difference is not only start-up time.
+`Samples/14-Mmo/Mmo.Ui/Theme/MmoStyles.cs` is what this looked like before it — a hundred and thirty
+lines that embed the markup as resources, walk the manifest and run the scanner — and it could only
+ever see *markup*. Most of this assembly's chrome is built in C# with `AddClass("…")`, so every
+utility a code-built panel asked for was silently missing. The step scans `@(Compile)` too.
+
+**The yaml declares no colours of its own.** Every one is a `var(--…)` reference to a token
+`EditorTheme` already puts on the root — so `bg-surface` and `background: var(--surface)` are the
+same declaration, and the light/dark toggle and a user's theme file move both. A yaml full of hex
+would have been a second palette that agreed with the first until the day one of them was edited.
+
+⚠ **The utility layer loses every argument it has with the sheet above**, which is what the layer is
+*for* — origin, then layer, then specificity, then order, and an unlayered rule beats a layered one
+whatever the last two say. So `task-row { padding: 6px }` beats `p-3` with neither saying
+`!important`, and a utility only takes effect on a property no hand-written rule sets for that
+element. New panels get the whole vocabulary; retro-fitting one onto styled chrome means deleting the
+hand-written rule first.
+
+⚠ **The generated sheet has to load at the same origin as this one.** A layer is the cascade's
+*second* question; the origin is its first. Loaded as `Author` the utilities would beat every rule in
+`EditorTheme` outright and the layer would settle nothing — `StylesheetTests` keeps that arrangement
+in the suite as a measured fact rather than a claim in a comment, alongside the same test with the
+`@layer` wrapper replaced by `@media all`, which is how the utilities README's layer test was found
+to have been asserting document order all along.
+
+⚠ **Not every family the generator emits is one the engine reads.** `overflow-x-*` and `overflow-y-*`
+are the pair to know about: the unprefixed `overflow` is read and the per-axis forms are interned by
+nothing, so they compute cleanly and do nothing. `UtilityFamilySupportTests` is the list, resolved
+against real elements, and [the guide page](../../docs/guide/editor/utility-styles.md) has it as a
+table.
+
+⚠ **A class name assembled at run time is still invisible to the scan**, because it is never written
+down whole. There are four such sites here — `ThemeService`'s `dark`, `ConsoleView`'s and
+`MessageLogView`'s `level-*`, and whatever a plugin puts in `EditorCommand.ClassName` — and none of
+them names a utility, so `@(VixenStyleSafelist)` is empty. A future one that does has to go in it.
+
+⚠ **The three theme sheets are still C# string constants**, so the step is given no `--base` files
+and `EditorStyles.Utilities` is the whole of what it produces. When they become `.vcss` the project
+adds `<VixenStyleBase Include="…" />` and the same step emits them ahead of the layer, `@apply`
+expanded — an item change rather than a redesign.
+
 ## The console
 
 A virtualised list over `Vixen.Core.Diagnostics`' `RingBufferSink`, which is the log the crash

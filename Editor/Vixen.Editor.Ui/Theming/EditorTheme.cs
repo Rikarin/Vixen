@@ -44,12 +44,38 @@ namespace Vixen.Editor.Ui;
 ///     </para>
 /// </remarks>
 public static class EditorTheme {
-    /// <summary>Loads the sheet into a document.</summary>
+    /// <summary>Loads the sheet, and the utilities the editor's markup uses, into a document.</summary>
     /// <param name="document">The document, which should already have the other two sheets in it.</param>
-    /// <returns>The sheet's index, for a hot reload.</returns>
+    /// <returns>This sheet's index, for a hot reload. The utility sheet's is not a thing to reload.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two sheets, in this order, at this origin — and every part of that sentence is
+    ///         load-bearing.</b> <see cref="EditorStyles.Utilities" /> is entirely inside
+    ///         <c>@layer utilities</c>, and a layer is the cascade's <i>second</i> question: origin
+    ///         comes first. So the utility sheet has to share this one's origin or the layer decides
+    ///         nothing. Loaded as <c>Author</c> it would beat every rule below on origin alone —
+    ///         <c>p-3</c> would silently win against <c>task-row { padding: 6px }</c>, which is the
+    ///         opposite of what a utility layer is for.
+    ///     </para>
+    ///     <para>
+    ///         And the base sheet is loaded <em>first</em>, where the layer is the only thing that can
+    ///         make it win. Loading it second would make it win on source order as well, and a
+    ///         layering regression would then pass every test in the suite — the mistake
+    ///         <c>Vixen.Ui.Styling.Utilities</c>' README records having made once already.
+    ///     </para>
+    ///     <para>
+    ///         A panel's own scoped <c>&lt;style&gt;</c> in a <c>.vxml</c> loads as <c>Author</c>
+    ///         through <c>Component</c>, so it beats both of these on origin and needs no
+    ///         <c>!important</c> to do it.
+    ///     </para>
+    /// </remarks>
     public static int Install(UiDocument document) {
         ArgumentNullException.ThrowIfNull(document);
-        return document.Load(Css, StyleOrigin.UserAgent);
+
+        var sheet = document.Load(Css, StyleOrigin.UserAgent);
+        document.Load(EditorStyles.Utilities, StyleOrigin.UserAgent);
+
+        return sheet;
     }
 
     /// <summary>The sheet's text, for a caller that wants to read or amend it.</summary>

@@ -36,6 +36,16 @@ compiler reports separately; reading only the loader's misses exactly the mistak
 while typing a selector, which is most of them. Found by a test that expected a rollback and did not
 get one.
 
+⚠ **And what rolls a sheet back is a diagnostic the save *introduced*, not one the document
+happens to have.** A reload replays every sheet — that is what makes a deleted rule stop applying —
+so the diagnostics afterwards belong to the whole document, and one unsupported selector anywhere in
+any sheet rolls back every save of every other sheet, for ever. This is not hypothetical and it is
+not subtle to hit: wiring the channel to the editor found it immediately, because the editor's own
+chrome contains a `node-search-port:empty` that the compiler does not implement. The file was saved,
+the event arrived, the reload ran, and it silently put the old text straight back — a channel that
+was wired, correct at every step, and did nothing. The fix is a multiset difference against the
+diagnostics that were already there.
+
 ### Markup
 
 `Build` runs again on the same component objects. Their fields survive because the objects do — and
@@ -81,10 +91,27 @@ coalesced by path and applied on `Poll()`, which the frame loop calls; that also
 the caller's thread, which matters because the element tree has no lock and a `FileSystemWatcher`
 callback is on a pool thread.
 
+⚠ **The coalescing is tested through a seam and not through the filesystem.** `Notify` is internal
+and the tests drive it directly, because what the operating system chooses to deliver is not this
+class's contract: a machine that coalesced three writes at the kernel would pass a filesystem-driven
+version of the test however broken the set was. One test does go through `FileSystemWatcher`, for
+the wiring — the filter, the notify flags, the three events subscribed to — which is exactly the part
+that is wrong when a save does nothing at all.
+
+## Who uses it
+
+`Editor/Vixen.Editor.Host`, behind `--hot-reload DIR`, which is the only caller. See
+[its README](../../Editor/Vixen.Editor.Host/README.md) for what each channel delivers in a real
+application — including the measurement that says a `.vxml` edit reaches a running process in tens
+of milliseconds and that a stylesheet held in a C# `const` cannot reach one at all.
+
 ## Owed
 
 Scroll offsets and selection in the preserved set (neither exists yet to preserve). And a reload of
 a *subtree* rather than a whole component, for when a large screen is being edited a control at a
 time.
+
+And `Replace` has no caller: the component channel is tested and nothing in the editor reaches it,
+so a rude edit is a `dotnet watch` restart in practice.
 
 Licensed under Apache-2.0.
