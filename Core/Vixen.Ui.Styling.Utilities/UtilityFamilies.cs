@@ -308,9 +308,27 @@ public static class UtilityFamilies {
 
         // ── Colours ─────────────────────────────────────────────────────────────────────────
         Color("bg", "background-color");
-        Color("ring", "outline-color");
         Color("fill", "fill");
         Color("stroke", "stroke");
+
+        // ⚠ <b>A ring is a <c>box-shadow</c> with a width, and this family used to emit
+        // <c>outline-color</c> — which no version of Tailwind has ever emitted for it.</b> Not v4's
+        // reading and not v3's either: v3 is where the ring was *introduced* as a box-shadow, and its
+        // colour utility set `--tw-ring-color`. So the debt filed under `outline-color` could never
+        // have come due, exactly like `grid-cols-3`'s `grid-template-columns: 3` and the transform
+        // families' `--scale` — an emission no engine could consume, under a line that truthfully
+        // said nothing read it. See `UtilityComposition.Ring`.
+        //
+        // <c>BorderEdge</c> because the ambiguity is precisely `border`'s: `ring-2` is a width and
+        // `ring-accent` is a colour, one prefix, told apart by the value's shape. The bare `ring` is
+        // one pixel, which is v4 — v3's three-pixel `ring` became `ring-3` (§ D5).
+        Register(new Family(
+            "ring",
+            ValueKind.BorderEdge,
+            [UtilityComposition.RingWidth],
+            ColorProperties: [UtilityComposition.RingColor],
+            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Ring())]
+        ));
 
         // ── Gradients: the composed families ────────────────────────────────────────────────
         //

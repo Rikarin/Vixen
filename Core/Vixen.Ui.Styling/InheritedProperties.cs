@@ -82,6 +82,16 @@ public sealed class InheritedProperties {
         "visibility",
         "cursor",
 
+        // ⚠ <b>SVG's two, and they inherit for the reason <c>color</c> does — but the case that makes
+        // it load-bearing is narrower than it looks.</b> SVG 2 § 13.2 has both inherit, and an icon is
+        // almost never the element anyone writes the class on: `fill-accent` goes on the button, and
+        // the <c>&lt;icon&gt;</c> is a child of it. Without these two lines that class would resolve,
+        // compute, and stop one element short of the only thing that reads it — a family that works
+        // when written directly on an icon and silently does nothing everywhere it is actually
+        // written, which is worse than inert because it looks intermittent.
+        "fill",
+        "stroke",
+
         // Vixen's own, and inherited for the same reason `color` is: a panel that dims its contents
         // should not have to name every one of them.
         "tint",

@@ -30,6 +30,16 @@
             "something acts on this property" is a question only a frame can answer.
         -->
         <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
+
+        <!--
+            ⚠ And Vixen.Ui.Controls, for exactly the same argument one level further out: `fill` and
+            `stroke` are read by `Icon`, which lives here rather than in Vixen.Ui, so a gate that
+            could not build an icon measured both properties inert whatever the engine did about
+            them. That is the `grid-cols-3` blind spot again — "no scene contained a grid" — and the
+            fix is the same one: give the probe the thing the property is about. One `Icon` in the
+            shared tree is enough, because the verdict is a union over the scenes.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
     </ItemGroup>
 
     <ItemGroup>

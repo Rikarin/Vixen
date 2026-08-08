@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using Vixen.Core.Mathematics;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -109,6 +111,12 @@ static class UtilityConsumptionProbe {
         #label { width: 42px; background-color: #a04040; }
         #short { width: 90px; }
         #probe.moved { background-color: #ff8000; margin-left: 9px; }
+
+        /* ⚠ Sized, or there is no icon. `Icon.OnDraw` gives up on a zero-area box before it looks at
+           any paint at all, so an unsized icon would sit in the tree contributing nothing and `fill`
+           and `stroke` would go on measuring inert with the reader present — the false gap that costs
+           the most, because the honest response to it is to implement something already there. */
+        icon { width: 14px; height: 14px; }
         """;
 
     static readonly ProbeScene[] Scenes = [
@@ -728,6 +736,27 @@ static class UtilityConsumptionProbe {
 
         var short_ = document.Create("span", probe, "short");
         short_.Text = "Ag";
+
+        // ⚠ <b>An icon, because `fill` and `stroke` have no other observable and a scene without one
+        // measures them inert however well the engine reads them.</b> A child of the probe rather
+        // than the probe itself, deliberately: both properties inherit, and an injected declaration
+        // lands on `#probe`, so this also measures the half of the feature that is the inheritance —
+        // `fill-accent` is written on a button and read on the icon inside it, essentially always.
+        //
+        // Both paints are `Foreground`, which is SVG's `currentColor` marker and the only kind CSS
+        // overrides: a `Literal` would be an icon the properties are supposed to leave alone, and a
+        // `None` stroke would leave `stroke` with nothing to move. One path carrying both slots is
+        // enough, and cheaper than two.
+        var art = probe.Add<Icon>();
+
+        art.Art = new IconArt(
+            new IconPath(
+                new PathBuilder().AddRectangle(new Rectangle(4f, 4f, 16f, 16f)),
+                IconPaint.Foreground,
+                IconPaint.Foreground,
+                2f
+            )
+        );
 
         document.Create("div", host, "after");
 
