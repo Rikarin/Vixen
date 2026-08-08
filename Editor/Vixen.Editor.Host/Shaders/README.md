@@ -65,20 +65,36 @@ about two pixels is what a mip chain does for a texture — four instructions, a
 
 ## Regenerating
 
-From the repository root, one command per source:
+The gate does it: `./build.sh CheckShaders --update-shaders` recompiles all four sources here — plus
+the library modules the editor loads — and rewrites what differs. Read the diff.
+
+To do one by hand, from the repository root:
 
 ```bash
-dotnet run --project Raven/Vixen.Raven.Cli -- compile --target spirv Editor/Vixen.Editor.App/Shaders/Ui.rvn Editor/Vixen.Editor.App/Shaders/ --emit-reflection
+dotnet run --project Raven/Vixen.Raven.Cli -- compile --target spirv Editor/Vixen.Editor.Host/Shaders/Ui.rvn Editor/Vixen.Editor.Host/Shaders/ --emit-reflection
 ```
 
 …and the same for `Line.rvn`, `Mesh.rvn` and `MeshInstanced.rvn`. The `.spv` and the `.reflect.json`
 beside each source are committed, for the reason `Samples/01` and `Samples/02` give: `UiRenderer`'s
 modules are *supplied* rather than compiled, so a caller hands over what it has.
 
+⚠ **The path above used to say `Vixen.Editor.App`, which has not been where these live since doc 36
+§ P3 split the executable out.** It was a command that could not run as written, in the one file
+somebody reaches for when they need to run it.
+
 ⚠ **`--emit-reflection` is not optional.** The `.reflect.json` is what `Vixen.Shaders.Generators`
 reads, and what it tells `EditorHost` is where each vertex attribute lives. Regenerating a module
 without it leaves the host binding against the previous source's numbering — which is not a
 validation error but a stage reading whatever the driver left in an attribute nothing was bound to.
+It is also what `UiShapeLayoutTests` compares `Vixen.Ui.Rendering.UiShape` against field by field, so
+a `UiBox.reflect.json` left behind by a regeneration is a host being told the wrong struct offsets by
+the only artefact that knows them.
+
+⚠ **These four were committed and unchecked until `UiShape` grew.** `CheckShaders` covered the
+library modules and described itself as covering these; it did not, so a `.rvn` edited without
+recompiling and a stale `.spv` could sit in one commit. `Build.Shaders.cs`'s `EditorSources` is that
+half now, and unlike the library entries it compares *every* module a source emits — so a shader
+added to one of these files and never committed fails too.
 
 `spirv-val --target-env vulkan1.2` over the eleven `.spv` is worth running after: Raven's SPIR-V is
 checked against the validator in its own tests, but these are the modules the editor actually loads.

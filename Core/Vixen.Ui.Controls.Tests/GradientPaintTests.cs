@@ -105,7 +105,7 @@ public class GradientPaintTests {
     public void A_refused_gradient_shows_the_background_colour_underneath() {
         using var ui = Painted(
             ".probe { background-color: #00ff00;"
-            + " background-image: linear-gradient(to bottom, #ff0000 0%, #ffffff 50%, #0000ff 100%); }"
+            + " background-image: repeating-linear-gradient(to bottom, #ff0000, #0000ff); }"
         );
 
         var bitmap = ui.Capture();
@@ -117,6 +117,157 @@ public class GradientPaintTests {
             Assert.True(bitmap.Pixels[offset] < 60, $"y={y} has red in it");
             Assert.True(bitmap.Pixels[offset + 2] < 60, $"y={y} has blue in it");
         }
+    }
+
+    /// <summary>A middle stop is painted in the middle, and is not either end.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Green is chosen because neither end can produce it.</b> A two-stop red-to-blue ramp is
+    ///     magenta-ish in the middle and never green, so a shader that quietly dropped the middle stop
+    ///     — the approximation this whole feature replaced a refusal with — cannot pass this by
+    ///     interpolating harder.
+    /// </remarks>
+    [Fact]
+    public void A_middle_stop_is_painted_in_the_middle() {
+        using var ui = Painted(
+            ".probe { background-image: linear-gradient(to bottom, #ff0000, #00ff00, #0000ff); }"
+        );
+
+        var bitmap = ui.Capture();
+        var middle = bitmap.Offset(20, 20);
+
+        Assert.True(bitmap.Pixels[middle + 1] > 200, "the middle is not green");
+        Assert.True(bitmap.Pixels[middle] < 60, "the middle has red in it");
+        Assert.True(bitmap.Pixels[middle + 2] < 60, "the middle has blue in it");
+
+        // ⚠ And the ends are still the ends, at a looser threshold than the two-stop tests use, for a
+        // reason that is a property of the shader rather than of this gradient: `t` is
+        // `dot / reach * 0.5 + 0.5`, so at the *centre of the outermost pixel* it is 0.0125 and not 0.
+        // A middle stop halves each span, which doubles how far that lands from the end colour — so
+        // the top is a strong red rather than a pure one, and demanding purity here would be
+        // demanding a pixel the geometry does not contain.
+        Assert.True(bitmap.Pixels[bitmap.Offset(20, 2)] > 150, "the top is not red");
+        Assert.True(bitmap.Pixels[bitmap.Offset(20, 2) + 1] < 110, "the top is already green");
+        Assert.True(bitmap.Pixels[bitmap.Offset(20, 37) + 2] > 150, "the bottom is not blue");
+    }
+
+    /// <summary>Stop positions move the ramp, and everything outside them is flat.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The flat regions are the assertion, not the transition.</b> A ramp compressed into the
+    ///     middle fifth and a full-width ramp both start red and end blue; what tells them apart is
+    ///     that a third of the way down is <i>still exactly red</i>, which a full-width ramp never is.
+    /// </remarks>
+    [Fact]
+    public void Stop_positions_flatten_the_ends_and_compress_the_ramp() {
+        using var ui = Painted(
+            ".probe { background-image: linear-gradient(to bottom, #ff0000 40%, #0000ff 60%); }"
+        );
+
+        var bitmap = ui.Capture();
+
+        foreach (var y in (int[]) [4, 14]) {
+            Assert.Equal(255, bitmap.Pixels[bitmap.Offset(20, y)]);
+            Assert.Equal(0, bitmap.Pixels[bitmap.Offset(20, y) + 2]);
+        }
+
+        foreach (var y in (int[]) [26, 36]) {
+            Assert.Equal(0, bitmap.Pixels[bitmap.Offset(20, y)]);
+            Assert.Equal(255, bitmap.Pixels[bitmap.Offset(20, y) + 2]);
+        }
+    }
+
+    /// <summary>A radial gradient runs out from the centre, and reaches its end at the corner.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The corner-versus-side comparison is the whole test.</b> Red in the middle and blue at
+    ///     the edge is true of <c>farthest-side</c>, <c>farthest-corner</c> and a plain circle alike.
+    ///     CSS's default is <c>farthest-corner</c>, which means the ramp is still going at the edge
+    ///     midpoint and finished at the corner — so the corner has to be <i>bluer than the side</i>,
+    ///     and a shader that forgot the root-two scale draws a picture that looks completely right
+    ///     until this is asked.
+    /// </remarks>
+    [Fact]
+    public void A_radial_gradient_ends_at_the_corner_and_not_at_the_edge() {
+        using var ui = Painted(".probe { background-image: radial-gradient(#ff0000, #0000ff); }");
+
+        var bitmap = ui.Capture();
+
+        var centre = bitmap.Offset(20, 20);
+        var side = bitmap.Offset(38, 20);
+        var corner = bitmap.Offset(38, 38);
+
+        Assert.True(bitmap.Pixels[centre] > 200, "the centre is not red");
+        Assert.True(bitmap.Pixels[centre + 2] < 60, "the centre has blue in it");
+        Assert.True(bitmap.Pixels[corner + 2] > bitmap.Pixels[side + 2], "the corner is not past the side");
+
+        // Round, not square: two points the same distance out are the same colour, whichever way
+        // they lie. A shader that used a `dot` would fail this while passing everything above.
+        Assert.Equal(bitmap.Pixels[bitmap.Offset(20, 4) + 2], bitmap.Pixels[bitmap.Offset(4, 20) + 2]);
+    }
+
+    /// <summary>A conic gradient sweeps clockwise from twelve o'clock, which is CSS's convention.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Four points around the box, because every wrong convention passes fewer than four.</b>
+    ///     Starting at three o'clock rotates the picture a quarter turn; sweeping anticlockwise mirrors
+    ///     it; and screen space being y-down means the naive <c>atan2(y, x)</c> does both at once. All
+    ///     three still draw something that is unmistakably a conic gradient.
+    /// </remarks>
+    [Fact]
+    public void A_conic_gradient_sweeps_clockwise_from_the_top() {
+        using var ui = Painted(".probe { background-image: conic-gradient(#ff0000, #0000ff); }");
+
+        var bitmap = ui.Capture();
+
+        int Blue(int x, int y) => bitmap.Pixels[bitmap.Offset(x, y) + 2];
+
+        var top = Blue(20, 4);
+        var right = Blue(36, 20);
+        var bottom = Blue(20, 36);
+        var left = Blue(4, 20);
+
+        Assert.True(top < right, $"the sweep does not start at the top: {top} then {right}");
+        Assert.True(right < bottom, $"the sweep is not clockwise: {right} then {bottom}");
+        Assert.True(bottom < left, $"the sweep does not continue past the bottom: {bottom} then {left}");
+    }
+
+    /// <summary>What the interpolation space actually changes, measured at the one pixel it shows.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Black to white, because it turns the choice into one number.</b> The midpoint of a
+    ///         white ramp is the definition of the space: in linear RGB it is 0.5, in sRGB it is the
+    ///         encoded half that decodes to 0.214, and in Oklab it is the lightness half that decodes
+    ///         to 0.125. The capture stores linear bytes with no encode — see
+    ///         <c>SoftwareUiRasterizer</c>'s own remark about that — so the three land at roughly 128,
+    ///         55 and 32, which no tolerance can confuse.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The default is sRGB and that is CSS's answer, not the engine's.</b> Vixen paints in
+    ///         linear RGB and the shader lerped there before there was a choice; a hand-written
+    ///         <c>.vcss</c> rule with no hint should match a browser, and <c>in srgb-linear</c> is how
+    ///         you ask for what the engine used to do unconditionally.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    // No hint at all is sRGB, which is CSS's rule and *not* what this engine painted before.
+    [InlineData("to bottom", 45, 70)]
+    [InlineData("to bottom in srgb", 45, 70)]
+    // `srgb-linear` is CSS's name for the componentwise linear lerp the shader used to do always.
+    [InlineData("to bottom in srgb-linear", 110, 145)]
+    [InlineData("to bottom in oklab", 22, 45)]
+    public void The_interpolation_space_moves_the_midpoint(string prelude, int least, int most) {
+        using var ui = Painted(
+            $".probe {{ background-image: linear-gradient({prelude}, #000000, #ffffff); }}"
+        );
+
+        var bitmap = ui.Capture();
+        int middle = bitmap.Pixels[bitmap.Offset(20, 20)];
+
+        Assert.InRange(middle, least, most);
+
+        // The ends do not move whatever the space is, which is what makes the midpoint the whole
+        // measurement rather than one sample of a shifted ramp. Loose at the white end because `t` at
+        // the outermost pixel's centre is 0.9875 and not 1, and the three curves separate fastest
+        // exactly where they are steepest.
+        Assert.True(bitmap.Pixels[bitmap.Offset(20, 2)] < 30, "the top is not black");
+        Assert.True(bitmap.Pixels[bitmap.Offset(20, 37)] > 200, "the bottom is not white");
     }
 
     /// <summary>Two elements with different gradients get their own, not each other's.</summary>

@@ -23,7 +23,17 @@ Vixen.Ui.BoxStyle.GradientAxis.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.BoxStyle.GradientAxis.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.BoxStyle.GradientEnd.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.BoxStyle.GradientEnd.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.BoxStyle.GradientVia.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.BoxStyle.GradientVia.init -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.BoxStyle.HasGradient.get -> bool
+Vixen.Ui.BoxStyle.HasVia.get -> bool
+Vixen.Ui.BoxStyle.HasVia.init -> bool
+Vixen.Ui.BoxStyle.Shape.get -> Vixen.Ui.GradientShape
+Vixen.Ui.BoxStyle.Shape.init -> Vixen.Ui.GradientShape
+Vixen.Ui.BoxStyle.Space.get -> Vixen.Ui.GradientSpace
+Vixen.Ui.BoxStyle.Space.init -> Vixen.Ui.GradientSpace
+Vixen.Ui.BoxStyle.Stops.get -> Vixen.Ui.GradientStops
+Vixen.Ui.BoxStyle.Stops.init -> Vixen.Ui.GradientStops
 Vixen.Ui.Composition.BuildContext -> sealed class
 Vixen.Ui.Composition.BuildContext.Anchor.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.Attribute(Vixen.Ui.UiElement target, string name, string value) -> void
@@ -274,6 +284,28 @@ Vixen.Ui.GestureSettings.RotationSlop.get -> float
 Vixen.Ui.GestureSettings.RotationSlop.init -> float
 Vixen.Ui.GestureSettings.TouchSlop.get -> float
 Vixen.Ui.GestureSettings.TouchSlop.init -> float
+Vixen.Ui.GradientShape -> enum : byte
+Vixen.Ui.GradientShape.Conic = 3 -> Vixen.Ui.GradientShape
+Vixen.Ui.GradientShape.GradientShape() -> void
+Vixen.Ui.GradientShape.Linear = 1 -> Vixen.Ui.GradientShape
+Vixen.Ui.GradientShape.None = 0 -> Vixen.Ui.GradientShape
+Vixen.Ui.GradientShape.Radial = 2 -> Vixen.Ui.GradientShape
+Vixen.Ui.GradientSpace -> enum : byte
+Vixen.Ui.GradientSpace.GradientSpace() -> void
+Vixen.Ui.GradientSpace.Linear = 0 -> Vixen.Ui.GradientSpace
+Vixen.Ui.GradientSpace.Oklab = 2 -> Vixen.Ui.GradientSpace
+Vixen.Ui.GradientSpace.Srgb = 1 -> Vixen.Ui.GradientSpace
+Vixen.Ui.GradientStops -> readonly struct
+Vixen.Ui.GradientStops : System.IEquatable<Vixen.Ui.GradientStops>
+Vixen.Ui.GradientStops.From.get -> float
+Vixen.Ui.GradientStops.From.init -> float
+Vixen.Ui.GradientStops.GradientStops() -> void
+Vixen.Ui.GradientStops.GradientStops(float From, float Via, float To) -> void
+Vixen.Ui.GradientStops.OrNatural() -> Vixen.Ui.GradientStops
+Vixen.Ui.GradientStops.To.get -> float
+Vixen.Ui.GradientStops.To.init -> float
+Vixen.Ui.GradientStops.Via.get -> float
+Vixen.Ui.GradientStops.Via.init -> float
 Vixen.Ui.IUiWindow -> interface
 Vixen.Ui.IUiWindow : System.IDisposable
 Vixen.Ui.IUiWindow.Bounds.get -> (float X, float Y, float Width, float Height)
@@ -536,11 +568,14 @@ Vixen.Ui.Rendering.UiShape -> readonly struct
 Vixen.Ui.Rendering.UiShape : System.IEquatable<Vixen.Ui.Rendering.UiShape>
 Vixen.Ui.Rendering.UiShape.Axis.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.End.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiShape.Mid.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.RadiiX.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.RadiiY.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.Size.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiShape.Stops.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiShape.UiShape() -> void
 Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Vector2 gradientAxis, float blur = 0) -> void
+Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Ui.GradientShape shape, Vixen.Ui.GradientSpace space, Vixen.Core.Mathematics.Vector2 gradientAxis, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Color4 gradientVia, bool hasVia, Vixen.Ui.GradientStops stops, float blur = 0) -> void
 Vixen.Ui.Rendering.UiVertex -> readonly struct
 Vixen.Ui.Rendering.UiVertex : System.IEquatable<Vixen.Ui.Rendering.UiVertex>
 Vixen.Ui.Rendering.UiVertex.Color.get -> Vixen.Core.Mathematics.Color4
@@ -942,6 +977,7 @@ static Vixen.Ui.EventRouter.Direct<T>(Vixen.Ui.UiElement target, T args) -> void
 static Vixen.Ui.EventRouter.Raise<T>(Vixen.Ui.UiElement target, T args) -> void
 static Vixen.Ui.FontRegistry.Cover(string text, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.FontFace> chain, System.Collections.Generic.List<Vixen.Ui.FontSpan> into) -> void
 static Vixen.Ui.GestureSettings.Default.get -> Vixen.Ui.GestureSettings
+static Vixen.Ui.GradientStops.Default.get -> Vixen.Ui.GradientStops
 static Vixen.Ui.LengthContext.ForViewport(float width, float height, float rootFontSize = 16) -> Vixen.Ui.LengthContext
 static Vixen.Ui.Rendering.PathFlattener.Flatten(System.Collections.Generic.IReadOnlyList<Vixen.Ui.PathSegment> segments, int offset, int length, float tolerance, System.Collections.Generic.List<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.List<Vixen.Ui.Rendering.Contour> contours) -> void
 static Vixen.Ui.Rendering.PathTessellator.Fill(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void

@@ -21,11 +21,21 @@ package Vixen.Editor.Shaders
 
 /// The per-box record the rounded-rectangle shader reads, matching the host's `UiShape`.
 ///
-/// ⚠ One record per box rather than fourteen more floats on every vertex. Four elliptical corners and
-/// a gradient would take the vertex from forty-eight bytes to a hundred and four, and every glyph in
-/// the frame would carry fields no shader reads on them.
+/// ⚠ One record per box rather than twenty-odd more floats on every vertex. Four elliptical corners
+/// and a three-stop gradient would take the vertex from forty-eight bytes to well past a hundred, and
+/// every glyph in the frame would carry fields no shader reads on them.
+///
+/// ⚠ **The last two lanes are appended and the two repurposed ones were both zero, which makes drift
+/// here silent.** `size.w` was a zero-or-one gradient flag and is now the shape, whose 1 is `Linear`;
+/// `axis.w` was declared padding and is now the interpolation space, whose 0 is the linear-RGB lerp
+/// this shader used to do unconditionally. So a *stale* module reading a current record still draws
+/// two-stop linear gradients perfectly and quietly ignores everything from offset eighty on — it does
+/// not produce garbage anyone would notice. `UiShapeLayoutTests` on the host reads the committed
+/// `UiBox.reflect.json` and compares it field by field with `Vixen.Ui.Rendering.UiShape`, which is the
+/// only thing standing between a layout change and a picture that merely looks plausible.
 struct UiShape {
-    /// Half width, half height, border thickness, whether there is a gradient.
+    /// Half width, half height, border thickness, and the gradient shape: 0 none, 1 linear,
+    /// 2 radial, 3 conic.
     var size: float4
 
     /// Corner radii clockwise from the top left.
@@ -33,10 +43,18 @@ struct UiShape {
 
     var radiiY: float4
 
-    /// Which way the gradient runs in the box's own space, then a shadow's blur radius.
+    /// The gradient's direction in the box's own space, a shadow's blur radius, then the
+    /// interpolation space: 0 linear RGB, 1 sRGB, 2 Oklab.
     var axis: float4
 
+    /// The colour at the last stop.
     var endColour: float4
+
+    /// The colour at the middle stop, read only when `stops.w` is set.
+    var midColour: float4
+
+    /// Where the three stops sit, then whether the middle one exists.
+    var stops: float4
 }
 
 /// What the four fragment stages share.
@@ -137,18 +155,177 @@ shader UiBox {
         var fill = colour
 
         if (box.size.w > 0f) {
-            // ⚠ The gradient runs across the box's own extent along the axis, so the same axis means
-            // the same picture whatever the box's size — which is what lets one style be shared by a
-            // column of buttons of different heights. Normalised by the projection of the half size
-            // onto the axis, because that is how far the axis reaches before it leaves the box.
-            val axis = normalize(box.axis.xy)
-            val reach = abs(axis.x * halfSize.x) + abs(axis.y * halfSize.y)
-            val t = saturate(dot(uv, axis) / max(reach, 0.0001f) * 0.5f + 0.5f)
-
-            fill = lerp(colour, box.endColour, t)
+            fill = GradientColour(box, colour, Parameter(box, uv, halfSize))
         }
 
         return Ui.Premultiply(float4(fill.rgb, fill.a * coverage))
+    }
+
+    /// Where this pixel sits along the gradient's ramp, before the stop positions are applied.
+    ///
+    /// ⚠ **All three shapes take the same `uv` — the offset from the box's centre in pixels — and none
+    /// of them needs a centre or a radius in the record.** That is what made the whole of A11 fit in
+    /// two more `float4`s: CSS's defaults for `radial-gradient()` and `conic-gradient()` are both
+    /// *at center*, and both of their extents are functions of the box the shader already has. A
+    /// stored centre would have been three more lanes and a third `float4`.
+    func Parameter(box: UiShape, point: float2, halfSize: float2): float {
+        val kind = int(box.size.w + 0.5f)
+
+        if (kind == 2) {
+            // Radial. CSS's default is `ellipse farthest-corner at center`: an ellipse with the
+            // *box's* aspect, scaled to pass through the corner rather than the edge. Dividing by the
+            // half size gives the farthest-side ellipse, on which the corner sits at root two — so
+            // the reciprocal of root two is the whole of `farthest-corner`. Getting that scale wrong
+            // is not obvious: the picture stays round and the ramp simply finishes in the wrong place.
+            val normalised = point / max(halfSize, float2(0.0001f, 0.0001f))
+            return length(normalised) * 0.7071067811865476f
+        }
+
+        if (kind == 3) {
+            // Conic. CSS starts at twelve o'clock and sweeps *clockwise*, and screen space is y-down,
+            // so up is -y and `atan2(x, -y)` is already CSS's angle.
+            //
+            // ⚠ The usual `atan2(y, x)` is wrong here in a way that is easy to over- and then
+            // under-estimate. It does sweep clockwise — y-down flips the sense, so the instinct that
+            // it runs backwards is itself wrong — but its zero sits at three o'clock rather than
+            // twelve. So it is a quarter turn out and nothing else, which is exactly the size of
+            // error that survives review: the picture is unmistakably a conic gradient, just rotated.
+            // `Raven/Library/Ui/Gradient.rvn` has that version, biased by a further half turn.
+            //
+            // Subtracting the axis's own angle is `from <angle>`: the host writes the axis as
+            // (sin θ, -cos θ), whose angle in this same convention is exactly θ.
+            val angle = atan2(point.x, -point.y) - atan2(box.axis.x, -box.axis.y)
+
+            // The difference of two `atan2` lies in (-2π, 2π), so one turn of bias is what makes the
+            // wrap land in [0, 1) rather than leaving half the disc negative and clamped to the first
+            // stop — which would paint one whole side of the box flat.
+            return frac(angle * 0.15915494309189535f + 1f)
+        }
+
+        // ⚠ The gradient runs across the box's own extent along the axis, so the same axis means the
+        // same picture whatever the box's size — which is what lets one style be shared by a column
+        // of buttons of different heights. Normalised by the projection of the half size onto the
+        // axis, because that is how far the axis reaches before it leaves the box.
+        val axis = normalize(box.axis.xy)
+        val reach = abs(axis.x * halfSize.x) + abs(axis.y * halfSize.y)
+
+        return dot(point, axis) / max(reach, 0.0001f) * 0.5f + 0.5f
+    }
+
+    /// The colour at `t`, through the stop positions and in the interpolation space that was asked for.
+    func GradientColour(box: UiShape, near: float4, t: float): float4 {
+        if (box.stops.w > 0f) {
+            // ⚠ Which side of the middle stop, not which side of one half. With `via-40%` the two
+            // halves of the ramp are different lengths, and splitting at 0.5 would draw the middle
+            // colour in the right place with the wrong slope either side of it.
+            if (t < box.stops.y) {
+                return MixStops(box, near, box.midColour, Span(t, box.stops.x, box.stops.y))
+            }
+
+            return MixStops(box, box.midColour, box.endColour, Span(t, box.stops.y, box.stops.z))
+        }
+
+        return MixStops(box, near, box.endColour, Span(t, box.stops.x, box.stops.z))
+    }
+
+    /// Where `t` sits between two stops, flat outside them.
+    ///
+    /// ⚠ A zero-width span is a hard edge rather than a division by zero. `from-50% to-50%` is a legal
+    /// declaration and what it means is a step, so the degenerate case has an answer and does not need
+    /// guarding away with an epsilon that would turn the step into a one-pixel ramp.
+    func Span(t: float, from: float, to: float): float {
+        val width = to - from
+        return width > 0.0001f ? saturate((t - from) / width) : (t < from ? 0f : 1f)
+    }
+
+    /// Mixes two stops in whichever space the record names.
+    func MixStops(box: UiShape, a: float4, b: float4, u: float): float4 {
+        val space = int(box.axis.w + 0.5f)
+
+        if (space == 2) {
+            return float4(OklabMix(a.rgb, b.rgb, u), lerp(a.a, b.a, u))
+        }
+
+        if (space == 1) {
+            // sRGB — CSS's default when a gradient carries no `in <space>` hint, and a *different
+            // picture* from the linear mix below rather than a rounding of it. The midpoint of
+            // black→white lands at 0.5 encoded, which is 0.21 linear: visibly darker than the 0.5
+            // linear a componentwise lerp gives, and it is what a browser draws.
+            return float4(SrgbToLinear(lerp(LinearToSrgb(a.rgb), LinearToSrgb(b.rgb), u)), lerp(a.a, b.a, u))
+        }
+
+        return lerp(a, b, u)
+    }
+
+    /// Interpolates perceptually, which is what `in oklab` and every Tailwind v4 gradient ask for.
+    func OklabMix(a: float3, b: float3, t: float): float3 {
+        return OklabToLinear(lerp(LinearToOklab(a), LinearToOklab(b), t))
+    }
+
+    /// Björn Ottosson's forward transform, matching the host's `Vixen.Core.Mathematics.Oklab`.
+    func LinearToOklab(c: float3): float3 {
+        val l = 0.4122214708f * c.r + 0.5363325363f * c.g + 0.0514459929f * c.b
+        val m = 0.2119034982f * c.r + 0.6806995451f * c.g + 0.1073969566f * c.b
+        val s = 0.0883024619f * c.r + 0.2817188376f * c.g + 0.6299787005f * c.b
+
+        val lc = Cbrt(l)
+        val mc = Cbrt(m)
+        val sc = Cbrt(s)
+
+        return float3(
+            0.2104542553f * lc + 0.7936177850f * mc - 0.0040720468f * sc,
+            1.9779984951f * lc - 2.4285922050f * mc + 0.4505937099f * sc,
+            0.0259040371f * lc + 0.7827717662f * mc - 0.8086757660f * sc
+        )
+    }
+
+    /// And back.
+    func OklabToLinear(c: float3): float3 {
+        val lc = c.x + 0.3963377774f * c.y + 0.2158037573f * c.z
+        val mc = c.x - 0.1055613458f * c.y - 0.0638541728f * c.z
+        val sc = c.x - 0.0894841775f * c.y - 1.2914855480f * c.z
+
+        val l = lc * lc * lc
+        val m = mc * mc * mc
+        val s = sc * sc * sc
+
+        return float3(
+            4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s,
+            -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s,
+            -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s
+        )
+    }
+
+    /// A **signed** cube root.
+    ///
+    /// ⚠ `pow` is NaN for a negative base, and a linear component here genuinely can be negative: the
+    /// palette ships in `oklch` and a swatch outside the sRGB gamut reaches the draw list with a
+    /// component below zero — which is the whole point of carrying colour in linear rather than
+    /// clamping at parse time. Without the sign the midpoint of such a gradient is a NaN pixel, and a
+    /// NaN blended into the target is a hole that reads as a compositing bug. `MathF.Cbrt` on the host
+    /// does the same thing, which is why `Oklab.FromLinear` says so too.
+    func Cbrt(x: float): float => sign(x) * pow(abs(x), 0.3333333333333333f)
+
+    /// The sRGB transfer function, matching the host's `ColorSpace.LinearToSrgb`.
+    func LinearToSrgb(c: float3): float3 => float3(
+        LinearToSrgb1(c.r),
+        LinearToSrgb1(c.g),
+        LinearToSrgb1(c.b)
+    )
+
+    func LinearToSrgb1(value: float): float {
+        return value <= 0.0031308f ? value * 12.92f : 1.055f * pow(max(value, 0f), 1f / 2.4f) - 0.055f
+    }
+
+    /// And back, matching `ColorSpace.SrgbToLinear`.
+    func SrgbToLinear(c: float3): float3 => float3(
+        SrgbToLinear1(c.r),
+        SrgbToLinear1(c.g),
+        SrgbToLinear1(c.b)
+    )
+
+    func SrgbToLinear1(value: float): float {
+        return value <= 0.04045f ? value / 12.92f : pow(max(value + 0.055f, 0f) / 1.055f, 2.4f)
     }
 
     /// A shadow's coverage: the same distance, faded over the blur radius instead of over a pixel.

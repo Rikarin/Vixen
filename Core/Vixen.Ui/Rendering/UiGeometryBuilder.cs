@@ -501,9 +501,7 @@ public sealed class UiGeometryBuilder {
             ? list.Boxes[command.Offset]
             : BoxStyle.Rounded(CornerRadii.Uniform(command.Radius));
 
-        shapes.Add(
-            new UiShape(half, command.Thickness, style.Corners, End(style), style.GradientAxis)
-        );
+        shapes.Add(Shape(half, command.Thickness, style));
 
         // The texture coordinate is the offset from the centre, which is what a signed distance to a
         // rounded box is written in terms of — so the shader needs no uniform per box.
@@ -549,7 +547,7 @@ public sealed class UiGeometryBuilder {
             : BoxStyle.Rounded(CornerRadii.Uniform(command.Radius));
 
         // Thickness zero: a shadow is a fill, and a border's band would hollow it out.
-        shapes.Add(new UiShape(half, 0f, style.Corners, End(style), style.GradientAxis, blur));
+        shapes.Add(Shape(half, 0f, style, blur));
 
         Quad(
             command.X - margin,
@@ -1005,16 +1003,51 @@ public sealed class UiGeometryBuilder {
         return new Color4(mapped.X, mapped.Y, mapped.Z, colour.A);
     }
 
+    /// <summary>One box's record, with every colour the shader will read brought into gamut.</summary>
+    /// <param name="half">Half the box's extent.</param>
+    /// <param name="thickness">A border's width, or zero.</param>
+    /// <param name="style">Its side-buffer entry.</param>
+    /// <param name="blur">A shadow's spread, or zero.</param>
+    /// <returns>The record.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One place rather than two call sites spelling the same eleven arguments</b>, and that
+    ///     is not tidiness: a box and a shadow that disagreed about which lane the interpolation space
+    ///     went in would draw a shadow with a different ramp from the box it belongs to, which reads
+    ///     as a compositing bug rather than as a typo.
+    /// </remarks>
+    UiShape Shape(Vector2 half, float thickness, BoxStyle style, float blur = 0f) =>
+        new(
+            half,
+            thickness,
+            style.Corners,
+            style.Shape,
+            style.Space,
+            style.GradientAxis,
+            End(style),
+            Via(style),
+            style.HasVia,
+            style.Stops,
+            blur
+        );
+
     /// <summary>A gradient's far colour, brought into the surface's gamut — if there is a gradient.</summary>
     /// <remarks>
-    ///     ⚠ <b>Guarded on the axis, because <see cref="UiShape" /> carries an end colour whether or
-    ///     not one is used and the shader reads it only when the axis is non-zero.</b> Mapping a
+    ///     ⚠ <b>Guarded on the shape, because <see cref="UiShape" /> carries an end colour whether or
+    ///     not one is used and the shader reads it only when there is a gradient.</b> Mapping a
     ///     field nothing samples would be work spent on nothing, and worse, it would let a colour
     ///     that never reaches a pixel show up in <see cref="MappedColours" /> — a diagnostic that
     ///     counts invisible repairs is one nobody can act on.
     /// </remarks>
-    Color4 End(BoxStyle style) =>
-        style.GradientAxis == Vector2.Zero ? style.GradientEnd : Show(style.GradientEnd);
+    Color4 End(BoxStyle style) => style.HasGradient ? Show(style.GradientEnd) : style.GradientEnd;
+
+    /// <summary>And the middle stop's, on the same terms — read only when there is one.</summary>
+    /// <remarks>
+    ///     ⚠ Guarded on <see cref="BoxStyle.HasVia" /> and not just on the gradient. The middle colour
+    ///     of a two-stop gradient is a lane the shader never samples, so mapping it would inflate
+    ///     <see cref="MappedColours" /> on every ordinary <c>bg-linear-*</c> in the interface.
+    /// </remarks>
+    Color4 Via(BoxStyle style) =>
+        style.HasGradient && style.HasVia ? Show(style.GradientVia) : style.GradientVia;
 
     /// <summary>One remembered repair: where a colour was, and where it lands on this surface.</summary>
     /// <remarks>

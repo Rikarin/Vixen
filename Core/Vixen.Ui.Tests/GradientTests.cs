@@ -290,6 +290,227 @@ public class GradientTests {
         Assert.Equal(new Vector2(16f, 16f), style.Corners.BottomLeft);
     }
 
+    // ── The third stop ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>`via-*`, as the composed form actually computes it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>All three positions stated, because that is what <c>--tw-gradient-*-position</c>'s
+    ///     initial values put there.</b> A reader that only handled omitted positions would pass every
+    ///     hand-written test and fail on the first real utility class — which is the same trap the
+    ///     hex-versus-<c>rgb()</c> notation set, one level down.
+    /// </remarks>
+    [Fact]
+    public void A_middle_stop_reaches_the_side_buffer_as_its_own_colour() {
+        using var document = Drawn(
+            ".probe { background-image: linear-gradient(to right, "
+            + "#ff0000 0%, #00ff00 50%, #0000ff 100%); }"
+        );
+
+        var style = Assert.Single(Gradients(document));
+
+        Assert.True(style.HasVia);
+        Assert.Equal(Hex("#00ff00"), style.GradientVia);
+        Assert.Equal(Hex("#0000ff"), style.GradientEnd);
+        Assert.Equal(Hex("#ff0000"), GradientCommand(document).Color);
+        Assert.Equal(new GradientStops(0f, 0.5f, 1f), style.Stops);
+    }
+
+    /// <summary>Two stops leave the middle lane unread rather than inventing a colour for it.</summary>
+    [Fact]
+    public void Two_stops_say_so_rather_than_synthesising_a_middle() {
+        using var document = Drawn(
+            ".probe { background-image: linear-gradient(to right, #ff0000, #0000ff); }"
+        );
+
+        Assert.False(Assert.Single(Gradients(document)).HasVia);
+    }
+
+    /// <summary>An unstated middle sits halfway between its neighbours, which is not always 50%.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The case that separates CSS's rule from the constant it looks like.</b> With the ends
+    ///     at 20% and 100% the middle lands at 60%, and a reader that wrote 0.5 there would agree with
+    ///     CSS on every gradient whose ends are the ends — which is nearly all of them, and never the
+    ///     one somebody debugs.
+    /// </remarks>
+    [Fact]
+    public void An_unstated_middle_lands_between_its_neighbours_and_not_at_half() {
+        using var document = Drawn(
+            ".probe { background-image: linear-gradient(to right, #ff0000 20%, #00ff00, #0000ff); }"
+        );
+
+        var stops = Assert.Single(Gradients(document)).Stops;
+
+        Assert.Equal(0.2f, stops.From, 4);
+        Assert.Equal(0.6f, stops.Via, 4);
+        Assert.Equal(1f, stops.To, 4);
+    }
+
+    // ── Stop positions ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>`from-10% to-40%` remaps the ramp instead of moving a colour.</summary>
+    [Fact]
+    public void Stop_positions_reach_the_side_buffer() {
+        using var document = Drawn(
+            ".probe { background-image: linear-gradient(to right, #ff0000 10%, #0000ff 40%); }"
+        );
+
+        var stops = Assert.Single(Gradients(document)).Stops;
+
+        Assert.Equal(0.1f, stops.From, 4);
+        Assert.Equal(0.4f, stops.To, 4);
+    }
+
+    /// <summary>A stop earlier than its predecessor is clamped up to it, which is a hard edge.</summary>
+    /// <remarks>
+    ///     ⚠ CSS's rule, and without it the shader's span goes negative and lands on its zero-width
+    ///     branch — drawing the right picture by accident, which stops being true the moment either
+    ///     side is touched.
+    /// </remarks>
+    [Fact]
+    public void A_backwards_stop_list_becomes_a_hard_edge() {
+        using var document = Drawn(
+            ".probe { background-image: linear-gradient(to right, #ff0000 60%, #0000ff 20%); }"
+        );
+
+        var stops = Assert.Single(Gradients(document)).Stops;
+
+        Assert.Equal(0.6f, stops.From, 4);
+        Assert.Equal(0.6f, stops.To, 4);
+    }
+
+    /// <summary>A stop outside the box is kept outside it rather than clamped onto the edge.</summary>
+    /// <remarks>
+    ///     ⚠ <c>red -20%, blue 120%</c> is a ramp whose ends are off both edges, so what shows is its
+    ///     middle. Clamping to <c>[0, 1]</c> here would flatten it to a full-width ramp — brighter at
+    ///     both edges than the author asked for, and a picture rather than an error.
+    /// </remarks>
+    [Fact]
+    public void A_stop_outside_the_box_stays_outside_it() {
+        using var document = Drawn(
+            ".probe { background-image: linear-gradient(to right, #ff0000 -20%, #0000ff 120%); }"
+        );
+
+        var stops = Assert.Single(Gradients(document)).Stops;
+
+        Assert.Equal(-0.2f, stops.From, 4);
+        Assert.Equal(1.2f, stops.To, 4);
+    }
+
+    // ── The two round shapes ────────────────────────────────────────────────────────────────
+
+    /// <summary>`bg-radial` reaches the side buffer as a radial and carries no axis.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The zero axis is the whole reason <see cref="BoxStyle.Shape" /> exists.</b> The
+    ///     two-stop implementation used a zero axis as its "no gradient" sentinel, and a radial
+    ///     gradient genuinely has no direction — so under the old rule this record would have been
+    ///     erased on its way to the shader.
+    /// </remarks>
+    [Fact]
+    public void A_radial_gradient_is_a_radial_with_no_direction() {
+        using var document = Drawn(
+            ".probe { background-image: radial-gradient(#ff0000, #0000ff); }"
+        );
+
+        var style = Assert.Single(Gradients(document));
+
+        Assert.Equal(GradientShape.Radial, style.Shape);
+        Assert.Equal(Vector2.Zero, style.GradientAxis);
+        Assert.Equal(Hex("#0000ff"), style.GradientEnd);
+    }
+
+    /// <summary>And the default geometry spelled out is the same gradient.</summary>
+    [Fact]
+    public void Spelling_out_the_radial_default_changes_nothing() {
+        using var document = Drawn(
+            ".probe { background-image: radial-gradient(ellipse farthest-corner, #ff0000, #0000ff); }"
+        );
+
+        Assert.Equal(GradientShape.Radial, Assert.Single(Gradients(document)).Shape);
+    }
+
+    /// <summary>A conic gradient's `from` angle rides the axis lane, in CSS's own convention.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero is <i>up</i>, not right.</b> The shader recovers the angle with
+    ///     <c>atan2(x, -y)</c>, which inverts the same <c>(sin θ, -cos θ)</c> the linear path writes —
+    ///     so a conic gradient needs no lane of its own, and getting the convention wrong rotates
+    ///     every one of them a quarter turn while still looking like a conic gradient.
+    /// </remarks>
+    [Theory]
+    [InlineData("conic-gradient(#ff0000, #0000ff)", 0f, -1f)]
+    [InlineData("conic-gradient(from 90deg, #ff0000, #0000ff)", 1f, 0f)]
+    [InlineData("conic-gradient(from 0.5turn, #ff0000, #0000ff)", 0f, 1f)]
+    public void A_conic_gradients_start_angle_rides_the_axis(string image, float x, float y) {
+        using var document = Drawn($".probe {{ background-image: {image}; }}");
+
+        var style = Assert.Single(Gradients(document));
+
+        Assert.Equal(GradientShape.Conic, style.Shape);
+        AssertClose(new Vector2(x, y), Direction(style.GradientAxis));
+    }
+
+    /// <summary>A round gradient on a zero-sized box is still not emitted.</summary>
+    /// <remarks>
+    ///     ⚠ Guarded by the layout, not by the axis: a radial gradient's axis is legitimately zero, so
+    ///     the degenerate-box test had to stop being the same test as the no-gradient test.
+    /// </remarks>
+    [Fact]
+    public void A_radial_on_a_zero_sized_box_is_still_a_box_with_no_area() {
+        using var document = Drawn(
+            ".probe { background-image: radial-gradient(#ff0000, #0000ff); }",
+            ".probe { width: 0px; height: 0px; }"
+        );
+
+        Assert.DoesNotContain(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Rectangle);
+    }
+
+    // ── The interpolation space ─────────────────────────────────────────────────────────────
+
+    /// <summary>Which space a gradient interpolates in, and what an unhinted one means.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The default is sRGB, which is neither of the two answers that were already in the
+    ///         tree.</b> The engine paints in linear RGB and the shader lerped there; CSS says an
+    ///         unhinted gradient is sRGB. A hand-written <c>.vcss</c> rule should match a browser, so
+    ///         CSS wins on the CSS path — and <see cref="GradientSpace.Linear" /> stays reachable for
+    ///         <see cref="BoxStyle.Vertical" />, which has no CSS text and therefore no hint to honour.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>srgb-linear</c> is CSS's name for what this engine calls
+    ///         <see cref="GradientSpace.Linear" />, and mapping it anywhere else would make the one
+    ///         spelling that asks for the engine's own behaviour the one it cannot express.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("linear-gradient(to right, #ff0000, #0000ff)", GradientSpace.Srgb)]
+    [InlineData("linear-gradient(in oklab, #ff0000, #0000ff)", GradientSpace.Oklab)]
+    [InlineData("linear-gradient(to right in oklab, #ff0000, #0000ff)", GradientSpace.Oklab)]
+    [InlineData("linear-gradient(in srgb, #ff0000, #0000ff)", GradientSpace.Srgb)]
+    [InlineData("linear-gradient(in srgb-linear, #ff0000, #0000ff)", GradientSpace.Linear)]
+    [InlineData("radial-gradient(in oklab, #ff0000, #0000ff)", GradientSpace.Oklab)]
+    [InlineData("conic-gradient(from 45deg in oklab, #ff0000, #0000ff)", GradientSpace.Oklab)]
+    public void The_interpolation_hint_is_honoured_rather_than_refused(string image, GradientSpace space) {
+        using var document = Drawn($".probe {{ background-image: {image}; }}");
+
+        Assert.Equal(space, Assert.Single(Gradients(document)).Space);
+    }
+
+    /// <summary>The geometry and the hint may arrive in either order, because CSS's grammar is a `||`.</summary>
+    /// <remarks>
+    ///     ⚠ Tailwind emits the first order every time, which is precisely why the second would have
+    ///     gone unnoticed by a reader that took a prefix and then the rest.
+    /// </remarks>
+    [Fact]
+    public void The_hint_may_come_before_the_direction() {
+        using var document = Drawn(
+            ".probe { background-image: linear-gradient(in oklab to right, #ff0000, #0000ff); }"
+        );
+
+        var style = Assert.Single(Gradients(document));
+
+        Assert.Equal(GradientSpace.Oklab, style.Space);
+        AssertClose(new Vector2(1f, 0f), Direction(style.GradientAxis));
+    }
+
     // ── The refusals ────────────────────────────────────────────────────────────────────────
 
     /// <summary>Everything this engine cannot draw draws nothing, and never something else.</summary>
@@ -301,18 +522,34 @@ public class GradientTests {
     ///     exists to remove, so the refusals are asserted rather than assumed.
     /// </remarks>
     [Theory]
-    // A middle stop. `via-*` composes a real one and there is no third colour in `BoxStyle`.
-    [InlineData("linear-gradient(to right, #ff0000 0%, #00ff00 50%, #0000ff 100%)")]
-    // A stop that is not at its end. The shader's parameter has no scale or bias to remap with.
-    [InlineData("linear-gradient(to right, #ff0000 10%, #0000ff 100%)")]
-    [InlineData("linear-gradient(to right, #ff0000 0%, #0000ff 90%)")]
-    // The two shapes `GradientAxis` cannot express: it is a direction, so it is linear by construction.
-    [InlineData("radial-gradient(#ff0000, #0000ff)")]
-    [InlineData("conic-gradient(#ff0000, #0000ff)")]
+    // A fourth stop. Three is a start, a middle and an end, and a fourth cannot be resampled into
+    // them without being right at both ends and wrong in the interior.
+    [InlineData("linear-gradient(to right, #ff0000, #00ff00, #0000ff, #ffffff)")]
+    // The ramp runs once and is clamped at both ends, so repeating is a different shader.
     [InlineData("repeating-linear-gradient(to right, #ff0000, #0000ff)")]
-    // An interpolation hint changes the picture, which is the entire reason the syntax exists.
-    [InlineData("linear-gradient(in oklab, #ff0000, #0000ff)")]
-    [InlineData("linear-gradient(to right in oklab, #ff0000, #0000ff)")]
+    [InlineData("repeating-conic-gradient(#ff0000, #0000ff)")]
+    // A polar interpolation space travels along a hue arc, which is not a lerp in any three lanes.
+    [InlineData("linear-gradient(in oklch, #ff0000, #0000ff)")]
+    [InlineData("linear-gradient(in hsl longer hue, #ff0000, #0000ff)")]
+    [InlineData("linear-gradient(to right in lab, #ff0000, #0000ff)")]
+    // An explicit centre or extent on a round gradient. The record has no lanes for either, which is
+    // the trade that let all four of A11's owed pieces fit inside two more `Vector4`s.
+    [InlineData("radial-gradient(at 20% 80%, #ff0000, #0000ff)")]
+    [InlineData("radial-gradient(circle, #ff0000, #0000ff)")]
+    [InlineData("radial-gradient(closest-side, #ff0000, #0000ff)")]
+    [InlineData("radial-gradient(80px, #ff0000, #0000ff)")]
+    [InlineData("radial-gradient(50% 30%, #ff0000, #0000ff)")]
+    [InlineData("conic-gradient(from 45deg at top left, #ff0000, #0000ff)")]
+    // A conic's angle has to be spelled `from <angle>`; a bare one is not CSS.
+    [InlineData("conic-gradient(45deg, #ff0000, #0000ff)")]
+    // A position this file cannot resolve. A length needs the gradient line, which is a function of
+    // the box and is not known here.
+    [InlineData("linear-gradient(to right, #ff0000 10px, #0000ff)")]
+    [InlineData("linear-gradient(to right, #ff0000 calc(10% + 2px), #0000ff)")]
+    // Two positions on one stop is CSS's shorthand for the same colour twice — a four-stop ramp.
+    [InlineData("linear-gradient(to right, #ff0000 0% 40%, #0000ff)")]
+    // A bare position between two stops is an interpolation *hint*, a different feature.
+    [InlineData("linear-gradient(to right, #ff0000, 30%, #0000ff)")]
     // Not a gradient at all.
     [InlineData("url(paper.png)")]
     [InlineData("none")]
@@ -320,6 +557,9 @@ public class GradientTests {
     [InlineData("linear-gradient(to sideways, #ff0000, #0000ff)")]
     [InlineData("linear-gradient(to right, #ff0000)")]
     [InlineData("linear-gradient(to right, notacolour, #0000ff)")]
+    // `to` is a linear gradient's word and `from` is a conic's; each on the other is meaningless.
+    [InlineData("radial-gradient(to right, #ff0000, #0000ff)")]
+    [InlineData("linear-gradient(from 45deg, #ff0000, #0000ff)")]
     public void A_gradient_this_engine_cannot_draw_paints_nothing(string image) {
         using var document = Drawn($".probe {{ background-image: {image}; }}");
 
@@ -336,7 +576,7 @@ public class GradientTests {
     public void A_refused_image_leaves_the_background_colour_alone() {
         using var document = Drawn(
             ".probe { background-color: #00ff00;"
-            + " background-image: radial-gradient(#ff0000, #0000ff); }"
+            + " background-image: repeating-linear-gradient(to right, #ff0000, #0000ff); }"
         );
 
         var rectangle = Assert.Single(

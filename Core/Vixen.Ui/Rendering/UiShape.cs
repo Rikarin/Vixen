@@ -10,24 +10,41 @@ namespace Vixen.Ui.Rendering;
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>Per box, not per vertex, and that is the whole reason this type exists.</b> Four
-///         corners with an elliptical radius each is eight floats, a gradient is another six, and a
-///         box is four vertices — so carrying them on the vertex would take it from forty-eight bytes
-///         to a hundred and four, and every glyph and every path triangle in the frame would pay for
-///         fields no shader reads on them. One record per box costs eighty bytes against the
-///         sixty-four the four vertices already spend on <c>Shape</c>, and the vertex layout does not
-///         move at all: a box's <c>Shape.X</c> becomes the index of its record.
+///         corners with an elliptical radius each is eight floats, a three-stop gradient is another
+///         fifteen, and a box is four vertices — so carrying them on the vertex would take it from
+///         forty-eight bytes to well past a hundred, and every glyph and every path triangle in the
+///         frame would pay for fields no shader reads on them. One record per box costs a hundred and
+///         twelve bytes against the sixty-four the four vertices already spend on <c>Shape</c>, and
+///         the vertex layout does not move at all: a box's <c>Shape.X</c> becomes the index of its
+///         record.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Five <c>Vector4</c>s, written out rather than left to a struct layout to work out.</b>
+///         ⚠ <b>Seven <c>Vector4</c>s, written out rather than left to a struct layout to work out.</b>
 ///         This is copied into a storage buffer with <c>MemoryMarshal</c> and read back by a shader
 ///         whose own alignment rules are not C#'s — a <c>float</c> beside a <c>Vector2</c> lays out
 ///         differently under std430 than under sequential, and the failure is a box drawn with
-///         another box's radii, which looks like a bug in the geometry.
+///         another box's radii, which looks like a bug in the geometry. Four files have to agree about
+///         this layout: this type, <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c>,
+///         <c>SoftwareUiRasterizer</c>, and the committed <c>UiBox.frag.spv</c> and
+///         <c>UiBox.reflect.json</c> beside the shader. <c>UiShapeLayoutTests</c> is what makes a
+///         disagreement a red test instead of a plausible-looking picture.
+///     </para>
+///     <para>
+///         ⚠ <b>The two new lanes are <i>appended</i>, and the two repurposed ones were both zero.</b>
+///         Growing from eighty bytes to a hundred and twelve left every existing offset exactly where
+///         the shader already read it: <c>Axis.w</c> was declared padding and is now the interpolation
+///         space, whose zero is <see cref="GradientSpace.Linear" /> — which is what the shader did
+///         before there was a choice — and <c>Size.w</c> was a zero-or-one gradient flag and is now
+///         the shape, whose one is <see cref="GradientShape.Linear" />, which is what a flag set to
+///         one meant. That is not a coincidence to admire; it is a hazard to name. A stale shader
+///         reading this record still draws two-stop linear gradients correctly and silently ignores
+///         everything below offset eighty, so drift here does <i>not</i> announce itself as garbage on
+///         screen. The test is the only thing that finds it.
 ///     </para>
 /// </remarks>
 [StructLayout(LayoutKind.Sequential)]
 public readonly record struct UiShape {
-    /// <summary>Creates a shape record.</summary>
+    /// <summary>Creates a shape record for a flat fill or a plain two-stop linear gradient.</summary>
     /// <param name="half">Half the box's width and height.</param>
     /// <param name="thickness">A border's width, or zero for a fill.</param>
     /// <param name="corners">The four corners' radii.</param>
@@ -43,22 +60,71 @@ public readonly record struct UiShape {
         Color4 gradientEnd,
         Vector2 gradientAxis,
         float blur = 0f
+    ) : this(
+        half,
+        thickness,
+        corners,
+        gradientAxis == Vector2.Zero ? GradientShape.None : GradientShape.Linear,
+        GradientSpace.Linear,
+        gradientAxis,
+        gradientEnd,
+        default,
+        hasVia: false,
+        GradientStops.Default,
+        blur
+    ) { }
+
+    /// <summary>Creates a shape record for any gradient this shader draws.</summary>
+    /// <param name="half">Half the box's width and height.</param>
+    /// <param name="thickness">A border's width, or zero for a fill.</param>
+    /// <param name="corners">The four corners' radii.</param>
+    /// <param name="shape">Which family of gradient, or <see cref="GradientShape.None" />.</param>
+    /// <param name="space">Which space the stops are interpolated in.</param>
+    /// <param name="gradientAxis">
+    ///     Which way the gradient runs, in the box's own space. Linear reads it as the axis, conic as
+    ///     the direction its zero angle points, and radial does not read it at all.
+    /// </param>
+    /// <param name="gradientEnd">The colour at the last stop.</param>
+    /// <param name="gradientVia">The colour at the middle stop, when there is one.</param>
+    /// <param name="hasVia">Whether the middle stop exists.</param>
+    /// <param name="stops">Where the three stops sit along the ramp.</param>
+    /// <param name="blur">A shadow's spread in pixels, or zero.</param>
+    public UiShape(
+        Vector2 half,
+        float thickness,
+        CornerRadii corners,
+        GradientShape shape,
+        GradientSpace space,
+        Vector2 gradientAxis,
+        Color4 gradientEnd,
+        Color4 gradientVia,
+        bool hasVia,
+        GradientStops stops,
+        float blur = 0f
     ) {
-        Size = new Vector4(half.X, half.Y, thickness, gradientAxis == Vector2.Zero ? 0f : 1f);
+        // ⚠ The shape goes in the lane that was a zero-or-one gradient flag, and `Linear` is one, so
+        // the sentinel the shader already tests — `size.w > 0` — keeps meaning exactly what it meant.
+        Size = new Vector4(half.X, half.Y, thickness, (float) shape);
 
         RadiiX = new Vector4(corners.TopLeft.X, corners.TopRight.X, corners.BottomRight.X, corners.BottomLeft.X);
         RadiiY = new Vector4(corners.TopLeft.Y, corners.TopRight.Y, corners.BottomRight.Y, corners.BottomLeft.Y);
 
-        // ⚠ The blur goes in a lane that was padding, which is the reason it can be added at all
-        // without moving anything: the record's size and every existing offset stay exactly where
-        // the shader already reads them. Putting it in `Size` would have been tidier to read and
-        // would have shifted the gradient flag, which is a change the compiled shader has to agree
-        // with on pain of every box drawing with another box's parameters.
-        Axis = new Vector4(gradientAxis.X, gradientAxis.Y, blur, 0f);
+        // ⚠ The blur goes in a lane that was padding, which is the reason it could be added at all
+        // without moving anything: the record's existing offsets stay exactly where the shader
+        // already reads them. The interpolation space is the second half of that same trick — it
+        // takes the last declared-padding lane, and its zero is the linear-RGB lerp the shader did
+        // when there was nothing to choose.
+        Axis = new Vector4(gradientAxis.X, gradientAxis.Y, blur, (float) space);
         End = new Vector4(gradientEnd.R, gradientEnd.G, gradientEnd.B, gradientEnd.A);
+        Mid = new Vector4(gradientVia.R, gradientVia.G, gradientVia.B, gradientVia.A);
+
+        // ⚠ `hasVia` is a lane of its own rather than a negative middle position, because a middle
+        // stop genuinely may sit at zero — `via-red via-0%` is a hard edge at the start, which CSS
+        // draws and a sentinel would erase.
+        Stops = new Vector4(stops.From, stops.Via, stops.To, hasVia ? 1f : 0f);
     }
 
-    /// <summary>Half width, half height, border thickness, and whether there is a gradient.</summary>
+    /// <summary>Half width, half height, border thickness, and which family of gradient.</summary>
     public Vector4 Size { get; }
 
     /// <summary>The four horizontal radii, clockwise from the top left.</summary>
@@ -67,9 +133,15 @@ public readonly record struct UiShape {
     /// <summary>The four vertical radii, in the same order.</summary>
     public Vector4 RadiiY { get; }
 
-    /// <summary>Which way the gradient runs, then a shadow's blur radius, then padding.</summary>
+    /// <summary>The gradient's direction, then a shadow's blur radius, then the interpolation space.</summary>
     public Vector4 Axis { get; }
 
-    /// <summary>The colour at the far end of the gradient.</summary>
+    /// <summary>The colour at the last stop.</summary>
     public Vector4 End { get; }
+
+    /// <summary>The colour at the middle stop, read only when <see cref="Stops" />'s last lane is set.</summary>
+    public Vector4 Mid { get; }
+
+    /// <summary>Where the three stops sit, then whether the middle one exists.</summary>
+    public Vector4 Stops { get; }
 }
