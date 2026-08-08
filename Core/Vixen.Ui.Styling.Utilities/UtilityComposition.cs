@@ -130,12 +130,17 @@ public static class UtilityComposition {
         [GradientViaPosition] = "50%",
         [GradientToPosition] = "100%",
 
-        // ⚠ <b><c>0px</c> and not <c>0</c>, and the unit is doing work.</b> The assembled value is
-        // parsed as a two-part list, and `LengthContext.ToLength` accepts a bare zero as a length —
-        // but `StyleValue.CanInterpolate` compares *units*, so a `translate` that read `0 0` at rest
-        // and `8px 0px` in a hover state would be two lists the animator declines to interpolate.
-        // Writing the unit makes the two endpoints the same shape, which is what lets a translation
-        // transition rather than jump.
+        // ⚠ <b><c>0px</c> rather than <c>0</c>, and the unit is <i>not</i> doing the work it looks
+        // like it is doing — measured, because the plausible reason is wrong.</b> The obvious story is
+        // that <see cref="Vixen.Ui.Styling.StyleValue.CanInterpolate" /> compares units, so a
+        // translation that read `0 0` at rest and `8px 0px` under the pointer would be two lists the
+        // animator declines and every composed translation in the engine would jump. It does compare
+        // units, and it declines nothing here: that method opens with an explicit "zero belongs to
+        // every unit" rule, because `from { width: 0 } to { width: 100px }` is the commonest animation
+        // there is. Both spellings interpolate, identically, and it was checked rather than reasoned
+        // about. So the unit is only legibility — a generated sheet that reads `translate: 8px 0px`
+        // says what it is; `8px 0` reads like a mistake — and the next person to wonder whether it is
+        // load-bearing has the answer here instead of the argument.
         [TranslateX] = "0px",
         [TranslateY] = "0px"
     };

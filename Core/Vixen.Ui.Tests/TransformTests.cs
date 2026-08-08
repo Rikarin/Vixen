@@ -267,4 +267,65 @@ public class TransformTests {
         Assert.Equal(17f, both.AbsoluteLeft, Tolerance);
         Assert.Equal(8f, both.AbsoluteTop, Tolerance);
     }
+
+    /// <summary>
+    ///     ⚠ <b>A translation transitions rather than jumps, and it cost nothing to get — which is
+    ///     the half of doc 43 § A7 that asked for "animatable".</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Animator</c> keeps no allow-list of animatable properties; it interpolates whatever
+    ///         <c>StyleValue.CanInterpolate</c> accepts, and that has understood a list since it was
+    ///         written. So a two-component <c>translate</c> was interpolable the moment something read
+    ///         it. Asserted rather than assumed, because "it should just work" is the claim this whole
+    ///         programme exists to stop believing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mid-flight value is the assertion and the endpoints are worthless</b>, for the
+    ///         reason <c>TransitionTests</c> exists to record: a jump and a transition agree about
+    ///         where a value starts and finishes and disagree only in between. A declined
+    ///         interpolation reads 100 here, not 0 — the animator applies the target and stops — so
+    ///         asserting the destination passes against no animation at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_translation_interpolates_across_ticks_rather_than_jumping() {
+        using var document = new UiDocument(400f, 300f);
+
+        document.Load(
+            """
+            root { width: 400px; height: 300px; }
+            #slide { width: 20px; height: 20px; translate: 0px 0px;
+                     transition-property: translate; transition-duration: 200ms;
+                     transition-timing-function: linear; }
+            #slide.out { translate: 100px 0px; }
+            """
+        );
+
+        var slide = document.Create("div", document.Root, "slide");
+
+        document.Tick(TimeSpan.Zero);
+        document.Update();
+
+        Assert.Equal(0f, slide.AbsoluteLeft, Tolerance);
+
+        // The pass that sees the class change is what starts the transition, so it is still at the
+        // old value; the clock only begins to matter from the frame after.
+        slide.AddClass("out");
+        document.Tick(TimeSpan.Zero);
+        document.Update();
+
+        document.Tick(TimeSpan.FromMilliseconds(100));
+        document.Update();
+
+        // Half way through a linear 200 ms run from nought to a hundred. The bounds are loose — the
+        // curve itself is pinned in `Vixen.Ui.Styling.Tests` — and they exclude both endpoints, which
+        // is the entire assertion: a jump reads 100 here, and a declined interpolation reads 0.
+        Assert.InRange(slide.AbsoluteLeft, 20f, 80f);
+
+        document.Tick(TimeSpan.FromMilliseconds(400));
+        document.Update();
+
+        Assert.Equal(100f, slide.AbsoluteLeft, Tolerance);
+    }
 }
