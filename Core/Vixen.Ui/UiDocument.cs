@@ -762,7 +762,7 @@ public sealed partial class UiDocument : IDisposable {
 
         // ⚠ Before the restyle, because the restyle is what starts transitions: the updater stamps
         // each one with this and a stamp from the previous frame is a fade that begins in the past.
-        Restyler.Now = Seconds;
+        Restyler.Now = seconds;
 
         StylesResolved = Restyle();
         Arrange();
@@ -955,7 +955,7 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     public void Tick(TimeSpan now) {
         Now = now;
-        Seconds = (float) now.TotalSeconds;
+        seconds = (float) now.TotalSeconds;
         Gestures.Tick(now);
 
         // ⚠ Asked *before* the advance, because the advance is what makes the last frame of a fade
@@ -963,7 +963,7 @@ public sealed partial class UiDocument : IDisposable {
         // transition permanently one frame short of where it was going — the interruption logic hides
         // it for anything that moves again and nothing hides it for anything that does not.
         if (!Styles.Animations.IsIdle) {
-            Styles.Animations.Advance(Seconds);
+            Styles.Animations.Advance(seconds);
 
             // ⚠ `InvalidatePositions` and not `Invalidate`, and the difference is a cold cascade per
             // frame for as long as anything is fading. Nothing an element *declared* has changed —
@@ -995,7 +995,7 @@ public sealed partial class UiDocument : IDisposable {
     ///         where it is used.
     ///     </para>
     /// </remarks>
-    float Seconds;
+    float seconds;
 
     /// <summary>Raised on every <see cref="Tick" />.</summary>
     /// <remarks>
@@ -1057,7 +1057,7 @@ public sealed partial class UiDocument : IDisposable {
         //
         // Free when nothing is running — `Animator.Apply` returns the same instance — which is what
         // lets it sit in the hot walk of every element of every frame.
-        var style = Styles.Animations.Apply(element.StyleNode, Restyler.StyleOf(element.StyleNode), Seconds);
+        var style = Styles.Animations.Apply(element.StyleNode, Restyler.StyleOf(element.StyleNode), seconds);
 
         element.Style = style;
         element.FontSize = Builder.ResolveFontSize(style, parentFontSize, metrics);
