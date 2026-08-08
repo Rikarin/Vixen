@@ -67,10 +67,12 @@ public class UtilityFamilySupportTests {
     ///     the spacing rows are in steps of four, which is Tailwind's base and now the editor's too.
     /// </remarks>
     public static TheoryData<string, string, string> Supported => new() {
-        // Layout. ⚠ Only `flex` and `none` are in LayoutStyleBuilder's `Displays` table; the other
-        // five display utilities are in `Inert` below.
+        // Layout. ⚠ `block` moved up from `Inert` when doc 43 § B1 landed and it is the first row in
+        // this file to change tables because an *algorithm* arrived rather than because a property
+        // found a reader. The other four display utilities are still in `Inert` below.
         { "flex", "display", "flex" },
         { "hidden", "display", "none" },
+        { "block", "display", "block" },
         { "flex-col", "flex-direction", "column" },
         { "flex-wrap", "flex-wrap", "wrap" },
         { "items-center", "align-items", "center" },
@@ -232,8 +234,11 @@ public class UtilityFamilySupportTests {
     ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Inert => new() {
-        // Display: LayoutStyleBuilder maps `flex` and `none` and nothing else.
-        { "block", "display" },
+        // Display: LayoutStyleBuilder maps `flex`, `none` and — since doc 43 § B1 — `block`.
+        // ⚠ `inline-block` and `inline-flex` are inert *deliberately* rather than for want of a
+        // table entry: they differ from their block-level twins only inside an inline formatting
+        // context, and mapping them onto `Block` and `Flex` would give `inline-block` the whole
+        // line, which is the one behaviour an author writes it to avoid. Doc 43 § B3.
         { "inline", "display" },
         { "inline-block", "display" },
         { "inline-flex", "display" },
@@ -406,24 +411,45 @@ public class UtilityFamilySupportTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The same, for <c>display</c>.</b> <c>block</c> is not in the layout's keyword table,
-    ///     so an element carrying it is still laid out as the flex container everything in this
-    ///     engine is — two children sit side by side rather than stacking. A test that only read the
-    ///     computed <c>display</c> would find <c>block</c> sitting there and conclude the opposite.
+    ///     ⚠ <b>The same, for <c>display</c> — and this one has now inverted.</b>
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This test used to assert the opposite, and the assertion it used to make is worth
+    ///         keeping in view: <c>block</c> was not in <c>LayoutStyleBuilder</c>'s keyword table, so
+    ///         an element carrying it was laid out as the flex container everything in this engine
+    ///         was, and its two children sat <i>side by side</i>. A test that only read the computed
+    ///         <c>display</c> would have found <c>block</c> sitting there and concluded the opposite —
+    ///         which is the whole reason this file resolves real elements and measures them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Inverted rather than deleted, on purpose.</b> That a family was inert and now is
+    ///         not is precisely what this file exists to record, and a deleted test records nothing.
+    ///         Doc 43 § B1 is what changed: <see cref="Display" /> grew a <c>Block</c> member and
+    ///         <c>LayoutTree.Block</c> grew the algorithm behind it. The children stack now, and the
+    ///         second assertion below is the one no computed-value check could ever have made —
+    ///         their <i>margins collapse</i>, which is the difference between block layout and a flex
+    ///         column and the reason this could not have been shipped as a flag on the old one.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void Display_block_does_not_stop_an_element_being_a_flex_row() {
-        using var ui = Sheet("block", "w-8", "h-8");
+    public void Display_block_stacks_its_children_and_collapses_their_margins() {
+        using var ui = Sheet("block", "w-8", "h-8", "mb-2", "mt-2");
 
         var host = ui.Create("probe", ui.Document.Root, null, "block");
-        var first = ui.Create("probe", host, null, "w-8", "h-8");
-        var second = ui.Create("probe", host, null, "w-8", "h-8");
+        var first = ui.Create("probe", host, null, "w-8", "h-8", "mb-2");
+        var second = ui.Create("probe", host, null, "w-8", "h-8", "mt-2");
 
         ui.Frame();
 
         Assert.Equal("block", ui.StyleOf(host, "display"));
-        Assert.Equal(first.AbsoluteTop, second.AbsoluteTop);
-        Assert.True(second.AbsoluteLeft > first.AbsoluteLeft, "a block would have stacked them");
+        Assert.Equal(first.AbsoluteLeft, second.AbsoluteLeft);
+        Assert.True(second.AbsoluteTop > first.AbsoluteTop, "a flex row would have put them side by side");
+
+        // `h-8` is 32 points and `mb-2`/`mt-2` are 8 each. Collapsed, the gap is 8 and the second
+        // box starts at 40; unmerged it would be 16 and 48. Nothing about the computed style
+        // distinguishes those two answers.
+        Assert.Equal(first.AbsoluteTop + 40f, second.AbsoluteTop);
     }
 
     /// <summary>The one clip an element's subtree contributes to the frame.</summary>

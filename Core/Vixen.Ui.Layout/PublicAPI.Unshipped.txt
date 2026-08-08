@@ -40,6 +40,7 @@ Vixen.Ui.Layout.Direction.Inherit = 0 -> Vixen.Ui.Layout.Direction
 Vixen.Ui.Layout.Direction.Ltr = 1 -> Vixen.Ui.Layout.Direction
 Vixen.Ui.Layout.Direction.Rtl = 2 -> Vixen.Ui.Layout.Direction
 Vixen.Ui.Layout.Display -> enum : byte
+Vixen.Ui.Layout.Display.Block = 2 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.Display() -> void
 Vixen.Ui.Layout.Display.Flex = 0 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.None = 1 -> Vixen.Ui.Layout.Display

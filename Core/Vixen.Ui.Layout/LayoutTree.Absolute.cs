@@ -54,8 +54,13 @@ public sealed partial class LayoutTree {
 
                 hasNewLayout = hasNewLayout || (flags[child] & LayoutNodeState.HasNewLayout) != 0;
 
-                var parentMainAxis = FlexAxis.Resolve(styles[currentNode].FlexDirection, currentNodeDirection);
-                var parentCrossAxis = FlexAxis.ResolveCross(parentMainAxis, currentNodeDirection);
+                var isBlockParent = styles[currentNode].Display == Display.Block;
+                var parentMainAxis = isBlockParent
+                    ? FlexDirection.Row
+                    : FlexAxis.Resolve(styles[currentNode].FlexDirection, currentNodeDirection);
+                var parentCrossAxis = isBlockParent
+                    ? FlexDirection.Column
+                    : FlexAxis.ResolveCross(parentMainAxis, currentNodeDirection);
 
                 if (NeedsTrailingPosition(parentMainAxis)) {
                     var insetsDefined = FlexAxis.IsRow(parentMainAxis)
@@ -126,8 +131,13 @@ public sealed partial class LayoutTree {
         Direction direction,
         int currentDepth
     ) {
-        var mainAxis = FlexAxis.Resolve(styles[node].FlexDirection, direction);
-        var crossAxis = FlexAxis.ResolveCross(mainAxis, direction);
+        // ⚠ A block container's `flex-direction` is meaningless and must not be consulted — it is
+        // whatever the stylesheet happened to leave there, and the corpus leaves `row`, which under
+        // RTL resolves to `row-reverse` and would send every un-inset absolute child to the wrong
+        // physical edge. Block boxes are physical: inline is the row, block is the column.
+        var isBlockParent = styles[node].Display == Display.Block;
+        var mainAxis = isBlockParent ? FlexDirection.Row : FlexAxis.Resolve(styles[node].FlexDirection, direction);
+        var crossAxis = isBlockParent ? FlexDirection.Column : FlexAxis.ResolveCross(mainAxis, direction);
         var isMainAxisRow = FlexAxis.IsRow(mainAxis);
 
         var childWidth = float.NaN;
@@ -264,6 +274,32 @@ public sealed partial class LayoutTree {
             results[child].Position[flexStart] = FlexAxis.InlineStartEdge(axis, direction) != FlexAxis.FlexStartEdge(axis)
                 ? PositionOfOppositeEdge(relativeToInlineStart, axis, containingNode, child)
                 : relativeToInlineStart;
+            return;
+        }
+
+        // ⚠ A block container has no alignment to fall back on, so it falls back on flow order.
+        // CSS 2.1 §10.6.4: the static position of an out-of-flow box is where its hypothetical box
+        // would have been — after every in-flow sibling before it. `WalkBlockChildren` records that
+        // as it goes, because by the time this pass runs the walk is over and the cursor is gone.
+        if (styles[parent].Display == Display.Block) {
+            var isRow = FlexAxis.IsRow(axis);
+            var staticEdge = isRow ? Edge.Left : Edge.Top;
+            var staticValue = isRow ? results[child].BlockStaticLeft : results[child].BlockStaticTop;
+
+            // ⚠ The margin is the inline-*start* one in both directions, and the RTL case is the one
+            // that looks wrong: the box is placed in from the container's right edge, so what
+            // separates it from that edge is its `margin-right` — which is what `InlineStartMargin`
+            // returns under RTL. Reading the end margin instead swaps `block_absolute_child_with_margin_x`'s
+            // first two children, each landing where the other belongs.
+            var margin = StyleResolution.InlineStartMargin(in styles[child], axis, direction, containingBlockWidth);
+
+            if (isRow && direction == Direction.Rtl) {
+                staticValue -= results[child].MeasuredDimensions[(int) Dimension.Width] + margin;
+            } else {
+                staticValue += margin;
+            }
+
+            results[child].Position[(int) staticEdge] = staticValue;
             return;
         }
 

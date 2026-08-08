@@ -1,6 +1,6 @@
 # Vixen.Ui.Layout
 
-CSS flexbox over a struct-of-arrays node store. Per
+CSS flexbox **and block layout** over a struct-of-arrays node store. Per
 [ADR-006](../../docs/plan/01-technology-decisions.md#adr-006--flexbox-port-the-yoga-algorithm-not-the-flexbox-library)
 this is Yoga's *algorithm* re-implemented against Vixen's own data model, judged by Yoga's own
 conformance suite — not a port of the `ru-ace/Flexbox` library, whose `class Node` with
@@ -10,10 +10,16 @@ algorithm is the valuable part.
 
 ## State
 
-**Flexbox is complete and the conformance suite is green: 2 994 tests, of which 534 are Yoga's and
-2 408 are Taffy's.** Yoga's are all green. Of Taffy's, 2 074 pass, 176 ask for a property this store
-has no field for, and 158 are known gaps listed with a diagnosis each — see
-[the corpus README](../Vixen.Ui.Layout.Tests/Taffy/README.md).
+**Flexbox is complete and the conformance suite is green: 534 of Yoga's fixtures, all passing, and
+3 320 of Taffy's judged per fixture across three categories.** Of Taffy's flex and leaf, 2 082 pass,
+168 ask for a property this store has no field for, and 158 are known gaps listed with a diagnosis
+each — see [the corpus README](../Vixen.Ui.Layout.Tests/Taffy/README.md).
+
+**Block layout landed with doc 43 § B1 and is the store's second algorithm.** 746 of the 912
+`block` and `blockflex` fixtures pass, 124 are refused for a property this store has no field for,
+and 42 fail — every one of them in the *absolute* path, in two buckets that predate block layout and
+that a flex parent hits identically. See [the block section](#block-layout-and-what-a-second-algorithm-cost)
+below and `Taffy/BlockKnownGaps.txt`.
 
 | | |
 |---|---|
@@ -21,6 +27,7 @@ has no field for, and 158 are known gaps listed with a diagnosis each — see
 | `LayoutStyle`, `StyleLength` | Every length as a `(value, unit)` pair, all nine CSS edges kept apart. |
 | `StyleResolution`, `FlexAxis` | Edge precedence, percentages, box sizing; flow-relative to physical. |
 | `LayoutTree.CalculateLayout` | The algorithm: flex basis, line breaking, the two-pass free-space distribution, justification, cross-axis alignment, multi-line alignment, absolute positioning, pixel-grid rounding. |
+| `LayoutTree.Block`, `CollapsibleMargin` | The second algorithm: block stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing, auto margins, the intrinsic-width probe. |
 | `LayoutTree.Order` | §5.4 `order`, the one part that is not Yoga's. One redirection: the algorithm reaches children only through `ChildIds`, so sorting what that returns is the whole property. |
 | `Generated/` | 534 conformance fixtures, translated from Yoga by `Tools/Vixen.YogaTestGen`. |
 | `Taffy/` | 5 524 more, from Taffy, vetted by `Tools/Vixen.TaffyTestGen`. A second browser-derived opinion on flexbox, and the oracle block and grid will be judged by. |
@@ -153,6 +160,63 @@ apart.
 - The separate min-content measure callback. Its fallback — asking the ordinary measure function
   under `AtMost 0` — is what a text measurer answers with its longest word anyway.
 
+## Block layout, and what a second algorithm cost
+
+Doc 43 § B1 put block before grid deliberately: it is the smaller of the two, it makes `display` a
+real enum, and it answers the question grid actually needs answered — **whether this store can carry
+a second algorithm at all.** It can, and the price is small enough to write down in full.
+
+**Three fields on `LayoutResult`, three matching ones on `CachedMeasurement`, and one dispatch.** The
+flex algorithm needs nothing out of a child's layout but its size: ask how big, place it, done. Block
+layout cannot work that way, because a child's top margin may not belong to the child — with no
+border and no padding between them it belongs to the parent, and to the grandparent after that. So a
+layout now returns a `CollapsibleMargin` at each end and a "can be collapsed through" flag beside its
+size, and **every other algorithm has to answer for them too**: a flex container, a text leaf and an
+empty box are all barriers, so their honest answer is "my own margin, and no". The cache entries
+carry the same three, because a cached answer that replays only the size hands back whichever margin
+set the last full run happened to leave on the node.
+
+Nothing else moved. The child arena, the dirty propagation, the measure cache's shape, the rounding
+pass and the absolute walk are all untouched, and the *input* side needed no new parameter at all —
+whether a node's margins may collapse with its parent's is a function of the two styles, so it is
+derived from the tree rather than threaded through `CalculateLayoutInternal` and made part of the
+cache key. That is the sentence grid inherits.
+
+**It implements margin collapsing rather than approximating it**, which is the whole reason it is
+allowed to be called `block`. A stretch flex column gets stacking and filling right and margin
+collapsing wrong, and the difference is not subtle: two cards with 8 points of margin between them
+are 8 apart in a browser and 16 apart in the approximation. Sibling collapse, parent/first-child,
+parent/last-child, collapse-*through* an empty box, all twelve things that block a collapse, and the
+sign rule where a positive and a negative margin **add** rather than maximise — 216 of the corpus's
+264 `margin_y_*` fixtures assert them and none fails. (`CollapsibleMargin` keeps two numbers for the
+sign rule; collapsing implemented as a running `MathF.Max` is right for every all-positive case,
+which is most of them.)
+
+**Floats are not implemented and are not foreclosed.** They would attach at exactly two points — the
+intrinsic-width probe would route a floated child into a left/right accumulator instead of the
+running maximum, and the in-flow walk would ask a float context for a content slot instead of taking
+the whole inner width — and nothing in the walk caches an assumption a float could not later narrow.
+The 84 `float` fixtures stay refused at the style map, and they were never waiting on `display`:
+`TaffyStyleMap` refuses them on the `float` attribute, so unlike block and grid they did not arrive
+with the keyword.
+
+### The 884 could not see three of the rules, and one of the three is Chrome's own fixture
+
+The §4.5 story in the section above, repeated exactly, with the sabotage done rather than assumed:
+
+| Rule | Sabotage result | Held by |
+|---|---|---|
+| `overflow` other than `visible` blocks a collapse | all 3 571 corpus tests green | `MarginCollapsingTests` |
+| A flex container is a barrier to collapsing | all 3 571 corpus tests green | `MarginCollapsingTests` |
+| A positive and a negative margin add | the corpus catches it | both |
+
+The first is the sharpest one yet, and it is a new *shape* of blind spot. Chrome's fixtures for it
+exist — 48 of them, the `block_margin_y_*_blocked_by_overflow_{x,y}_{hidden,scroll}` families, with
+the right answers in them — and every single one also sets `scrollbar-width`, which this store has no
+field for, so the harness refuses them. **The corpus contains the test, states the answer, and cannot
+run it.** A gap in an oracle need not be a gap in its coverage; it can be a gap in the *bridge*, and
+that one is invisible from either end.
+
 ## Rounding reads the raw layout and writes somewhere else
 
 The reference implementation rounds positions and sizes in place. That means the next pass reads
@@ -224,8 +288,21 @@ It reports every fixture it could not translate and why. Nine are skipped today,
 **CSS Grid**, which doc 09 schedules as a separate algorithm over this same store. It is a harder
 specification than flexbox and it does not share the flex line machinery, so it lands as its own
 piece rather than as a variation on this one. **Its oracle is here already**: 2 040 Taffy fixtures,
-every one of them refused today at the single point of the `display` keyword. `display: block` is the
-same story with 884 more, plus 84 for `float`.
+every one of them refused today at the single point of the `display` keyword — and that prediction
+has now been paid out once, because `display: block` was the same sentence about 884 more and they
+went from 0 passing to 722 in the commit that added the keyword.
+
+**Inline formatting**, and with it `inline-block`, `inline-flex`, `text-align` and `vertical-align`.
+Doc 43 § B3. It is why those two `display` keywords are refused rather than aliased onto their
+block-level twins: `inline-block` mapped onto `Block` would take the whole line, which is the one
+thing an author writes it to prevent.
+
+**Floats.** See the block section above for where they attach; 84 fixtures wait on them.
+
+**Auto margins on an absolutely positioned box** (CSS 2.1 §10.3.7) and **`aspect-ratio` re-applied
+after an absolute box's size is clamped** — the two buckets that make up all 42 block failures and
+part of the 158 flex ones. Both live in `LayoutTree.Absolute.cs`, which is shared with Yoga's 534, so
+they want a change of their own rather than a block-shaped patch.
 
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
 of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to

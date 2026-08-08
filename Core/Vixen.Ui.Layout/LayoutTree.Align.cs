@@ -363,6 +363,16 @@ public sealed partial class LayoutTree {
             return baseline;
         }
 
+        // ⚠ A block container's baseline is its own bottom margin edge, not its first child's.
+        // CSS 2.1 §10.8.1 puts a block-level box's baseline on the baseline of its last *line box*,
+        // and a block container with no inline content has none — so CSS Align §9.3's synthesis rule
+        // applies and the box's own bottom edge is used. The flex rule one line down, "borrow the
+        // first child's", is a flex-item rule; applying it to a block box puts a 20-point card with
+        // a 10-point child ten points too low, which is `block_align_baseline_child` exactly.
+        if (styles[index].Display == Display.Block) {
+            return results[index].MeasuredDimensions[(int) Dimension.Height];
+        }
+
         var baselineChild = -1;
         foreach (var child in ChildIds(index)) {
             if (results[child].LineIndex > 0) {

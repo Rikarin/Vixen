@@ -191,6 +191,12 @@ public sealed partial class LayoutTree {
             ref var entry = ref cachedIsLayout ? ref layout.CachedLayout : ref layout.CachedMeasurements[cached];
             layout.MeasuredDimensions[(int) Dimension.Width] = entry.ComputedWidth;
             layout.MeasuredDimensions[(int) Dimension.Height] = entry.ComputedHeight;
+
+            // A layout has more outputs than a size once block containers exist. See the remarks on
+            // CachedMeasurement.TopCollapsibleMargin for why replaying them is not optional.
+            layout.TopCollapsibleMargin = entry.TopCollapsibleMargin;
+            layout.BottomCollapsibleMargin = entry.BottomCollapsibleMargin;
+            layout.MarginsCollapseThrough = entry.MarginsCollapseThrough;
         } else {
             CalculateLayoutImpl(
                 index,
@@ -220,7 +226,10 @@ public sealed partial class LayoutTree {
                     HeightMeasureMode = MeasureModeOf(heightSizingMode),
                     ComputedWidth = layout.MeasuredDimensions[(int) Dimension.Width],
                     ComputedHeight = layout.MeasuredDimensions[(int) Dimension.Height],
-                    IsPopulated = true
+                    IsPopulated = true,
+                    TopCollapsibleMargin = layout.TopCollapsibleMargin,
+                    BottomCollapsibleMargin = layout.BottomCollapsibleMargin,
+                    MarginsCollapseThrough = layout.MarginsCollapseThrough
                 };
 
                 if (performLayout) {
@@ -288,6 +297,16 @@ public sealed partial class LayoutTree {
         results[index].Padding[(int) Edge.Top] = StyleResolution.InlineStartPadding(in styles[index], flexColumn, direction, ownerWidth);
         results[index].Padding[(int) Edge.Bottom] = StyleResolution.InlineEndPadding(in styles[index], flexColumn, direction, ownerWidth);
 
+        // ⚠ Every algorithm has to answer block layout's three extra questions, including the ones
+        // that have never heard of it. A flex container, a text leaf and an empty box are all
+        // *barriers* to margin collapsing — CSS 2.1 §8.3.1 collapses margins only through boxes in
+        // the same block formatting context — so the honest default is "my own margin, and no".
+        // Leaving these stale from a previous pass is what makes a margin appear to leak out of a
+        // flex container, so they are written before anything can return.
+        results[index].TopCollapsibleMargin = CollapsibleMargin.From(marginColumnLeading);
+        results[index].BottomCollapsibleMargin = CollapsibleMargin.From(marginColumnTrailing);
+        results[index].MarginsCollapseThrough = false;
+
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             MeasureNodeWithMeasureFunction(
                 index,
@@ -303,7 +322,30 @@ public sealed partial class LayoutTree {
             return;
         }
 
+        // ⚠ Block layout is entered before the childless shortcut, and that is deliberate. An empty
+        // `display: block` box with no border, padding or height is exactly §8.3.1's collapse-through
+        // case — the margins above and below it meet *through* it — and the shortcut below would
+        // return a size without ever reporting that. Twenty fixtures in the block corpus turn on it.
         var childCount = links[index].ChildCount;
+        if (styles[index].Display == Display.Block) {
+            CalculateBlockLayoutImpl(
+                index,
+                availableWidth,
+                availableHeight,
+                direction,
+                widthSizingMode,
+                heightSizingMode,
+                ownerWidth,
+                ownerHeight,
+                performLayout,
+                currentDepth,
+                marginAxisRow,
+                marginAxisColumn
+            );
+
+            return;
+        }
+
         if (childCount == 0) {
             MeasureNodeWithoutChildren(
                 index,

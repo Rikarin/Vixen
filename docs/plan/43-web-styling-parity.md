@@ -431,13 +431,23 @@ three off `works` is `overflow-clip`, which Vixen does not emit.
 control that owns its bars and offsets its content. That is exactly the argument Part 8 § 3 makes for
 re-homing the 32 scroll-container roots against `ScrollView` rather than emitting them as properties.
 
-### F4 · `display` is `{ Flex, None }` ⚠
+### F4 · `display` was `{ Flex, None }` ✅ partly closed by B1
 
-`LayoutEnums.cs` — the enum has two members. Seven of Tailwind's 21 display keywords are emitted
-(`block`, `inline`, `inline-block`, `flex`, `inline-flex`, `grid`, `hidden`) and **two** are read. The
-resolved-element suite proves it the only way that is honest: two children of an element carrying
-`block` still sit side by side. This is the root of Track B and the reason `grid-cols-3` is inert
+`LayoutEnums.cs` had two members. Seven of Tailwind's 21 display keywords are emitted (`block`,
+`inline`, `inline-block`, `flex`, `inline-flex`, `grid`, `hidden`) and **two** were read. The
+resolved-element suite proved it the only way that is honest: two children of an element carrying
+`block` still sat side by side. This is the root of Track B and the reason `grid-cols-3` is inert
 rather than broken — nothing is broken, there is simply no grid.
+
+✅ **`block` is the third member and it is a real one.** B1 landed the algorithm behind it, not an
+alias, so a `block` element stacks its children, fills the line across them and **collapses their
+vertical margins** — and `UtilityFamilySupportTests.Display_block_does_not_stop_an_element_being_a_flex_row`
+has been *inverted* rather than deleted, because a family moving from `Inert` to `Supported` is what
+that file exists to record. Four keywords remain unread: `grid` waits on B2, and `inline`,
+`inline-block` and `inline-flex` wait on B3. ⚠ The last two are unmapped **deliberately**: they
+differ from their block-level twins only inside an inline formatting context, and mapping them onto
+`Block` and `Flex` would give `inline-block` the whole line, which is precisely what an author writes
+it to avoid. An alias would look like support and behave like a bug.
 
 ### F5 · `truncate` does not truncate
 
@@ -1311,7 +1321,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | # | Item | Task | EM |
 |---|---|---|--:|
 | B0 ✅ | **`Tools/Vixen.TaffyTestGen`** — XML vetter and consolidator, the attribute map, and the Ahem measure. **Landed with 5 524 fixtures, not 5 272**: 884 block, 2 040 grid, 2 352 flex, 84 float, 56 leaf and 108 across three hybrid categories the estimate missed. Flex result: **2 002 of 2 208 runnable pass** | — | done |
-| B1 🟡 | `display: block` and `inline-block` — block formatting over the existing store, judged by B0's **884**, plus 84 `float` and 28 `blockflex` | **#25** | 1.0 |
+| B1 🟢 | **`display: block` — landed.** Block formatting over the existing store: stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing in full, auto margins, the intrinsic-width probe, RTL, relative insets, `align-content` over the stack. **746 of the 912 `block`+`blockflex` fixtures pass**; 124 are refused for `scrollbar-width`/`text-align`/`flow-root`/`float`, and all 42 failures are in the shared *absolute* path (auto margins on abspos, and `aspect-ratio` re-applied after clamping) rather than in block formatting. ⚠ **Still owed under B1**: `inline-block` — deliberately unmapped, because without an inline formatting context it would take the whole line (B3); the 84 `float` fixtures, which were never gated on `display`; and `sticky`. | **#25** | 0.35 |
 | B2 🔴 | **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's **2 040** plus WPT's 510 `check-layout` grid tests. ⚠ B0's corpus does **not** cover `grid-template-areas`: Taffy's own XML harness leaves it `Default::default()` and no fixture sets it, so named areas need their own oracle | **#27** | 3.5 |
 | B3 🔴 | **Inline formatting** — line boxes, inline-block, vertical alignment, `text-overflow: ellipsis`, `line-clamp`. ⚠ The one with no ready oracle: WPT is reftest-only here, and Parley has no ellipsis | **#26** | 3.0 |
 | B3a 🟡 | The inline oracle: ICU4X's CSS line-break tailorings, Parley's 2 048 Chrome break cases, and Gecko's 68 `text-overflow` reftests transcribed | — | 0.5 |
@@ -1386,11 +1396,19 @@ independent items, no shared file except `DrawListBuilder` between A1–A3. **1.
 
 **Wave 4 — the oracle, then block, then grid.** ✅ B0 first and alone, and it is done: 0.4 EM bought
 **3 116** Chrome-derived fixtures for the two modes that had none — 884 block, 84 float, 28
-blockflex, 2 040 grid, 24 gridflex and 56 blockgrid — and it worked. Then B1 — the smaller of the two
-algorithms, it makes `display` a real enum, and it
-proves the store can carry a second algorithm at all. Then B2. B3 and B3a in parallel with B2 if there
+blockflex, 2 040 grid, 24 gridflex and 56 blockgrid — and it worked.
+
+✅ **B1 is done too, and it answered the question it was sequenced to answer.** The store carries a
+second algorithm for **three fields on `LayoutResult`, three on `CachedMeasurement`, and one
+dispatch** — margin collapsing is the only thing block layout needs out of a child that flexbox does
+not, and it needs it as an *output* beside the size. The arena, the dirty flags, the measure cache's
+shape, the rounding pass and the absolute walk were untouched, and the collapsibility *input* needed
+no plumbing at all because it is derivable from the two styles. That is the number grid should budget
+against. 746 of 912 fixtures, and every failure in the shared absolute path rather than in block.
+
+Then B2. B3 and B3a in parallel with B2 if there
 is a second pair of hands: they share nothing but the store, and B3 is the one whose *first* task is
-building its own oracle. **8.4 EM.**
+building its own oracle. **8.0 EM.**
 
 **Wave 5 — the rest.** A7, A8, A11, B4, C7, C8. **3.1 EM.**
 

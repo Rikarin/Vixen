@@ -31,6 +31,7 @@
     <ItemGroup>
         <Content Include="Taffy\Corpus\*.xml" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy\Corpus" />
         <Content Include="Taffy\KnownGaps.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy" />
+        <Content Include="Taffy\BlockKnownGaps.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy" />
     </ItemGroup>
 
     <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->

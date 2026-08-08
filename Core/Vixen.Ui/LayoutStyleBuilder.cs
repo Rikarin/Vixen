@@ -52,8 +52,11 @@ public sealed class LayoutStyleBuilder {
     ///     </para>
     ///     <para>
     ///         Two deliberate departures from CSS remain. <c>display</c> starts at <c>flex</c>
-    ///         because this engine has only flex and none, and an element with no <c>display</c>
-    ///         should be laid out rather than skipped. And <c>box-sizing: border-box</c>, which most
+    ///         rather than at CSS's <c>inline</c> — an element with no <c>display</c> should be laid
+    ///         out rather than skipped, and this engine has no inline formatting to start it in.
+    ///         ⚠ It is now a real three-way choice: <c>block</c> arrived with doc 43 § B1 and lays
+    ///         out by a different algorithm, so a stylesheet that says <c>display: block</c> gets
+    ///         stacking and margin collapsing rather than a flex row. And <c>box-sizing: border-box</c>, which most
     ///         UI work wants, belongs in a user-agent stylesheet where an author can see and
     ///         override it — not baked in here where they cannot.
     ///     </para>
@@ -697,9 +700,16 @@ public sealed class LayoutStyleBuilder {
                 [Auto] = Overflow.Scroll
             };
 
+            // ⚠ <b>`inline-block` and `inline-flex` are deliberately absent, not forgotten.</b> Both
+            // differ from their block-level twin only in how the box sits in an *inline* formatting
+            // context, and there is no inline formatting here — doc 43 § B3 owns it. Mapping them
+            // onto `Block` and `Flex` would make `inline-block` silently take the whole line, which
+            // is the one thing an author writes it to prevent, so they stay unmapped and the
+            // declaration is dropped. The utilities inventory records them as inert for that reason.
             Displays = new Dictionary<int, Display> {
                 [table.Intern("flex")] = Display.Flex,
-                [table.Intern("none")] = Display.None
+                [table.Intern("none")] = Display.None,
+                [table.Intern("block")] = Display.Block
             };
 
             BoxSizings = new Dictionary<int, BoxSizing> {

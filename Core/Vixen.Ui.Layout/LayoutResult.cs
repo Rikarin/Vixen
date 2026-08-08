@@ -129,6 +129,39 @@ public struct LayoutResult {
 
     /// <summary>The owner height <see cref="MinContentSizes" /> was computed against.</summary>
     public float MinContentOwnerHeight;
+
+    /// <summary>
+    ///     The vertical margins that escaped past this node's top edge, per CSS 2.1 §8.3.1.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This, its sibling below and <see cref="MarginsCollapseThrough" /> are the entire cost
+    ///     of the store carrying a second layout algorithm</b>, and they are worth naming as such
+    ///     because grid will want to know. Flexbox needs nothing out of a child's layout but its size:
+    ///     the parent asks "how big", places it, and is done. Block layout cannot work that way,
+    ///     because a child's top margin may not belong to the child at all — with no border and no
+    ///     padding between them it belongs to the child's parent, and to its grandparent after that.
+    ///     So a block layout returns three things beside a size, and a node that was laid out by any
+    ///     other algorithm still has to answer for them: its own margin, and "no".
+    /// </remarks>
+    internal CollapsibleMargin TopCollapsibleMargin;
+
+    /// <summary>The vertical margins still hanging off this node's bottom edge.</summary>
+    internal CollapsibleMargin BottomCollapsibleMargin;
+
+    /// <summary>Whether this node is transparent to margin collapsing — §8.3.1's "collapse through".</summary>
+    internal bool MarginsCollapseThrough;
+
+    /// <summary>Where an out-of-flow child of a block container would have sat in flow.</summary>
+    /// <remarks>
+    ///     CSS 2.1 §10.6.4's static position. The flex path derives an absolute child's fallback
+    ///     placement from <c>justify-content</c> and <c>align-items</c>, which a block container does
+    ///     not have; its answer is "after everything before it", and that is only knowable during the
+    ///     in-flow walk, which has finished by the time the absolute pass runs.
+    /// </remarks>
+    internal float BlockStaticLeft;
+
+    /// <inheritdoc cref="BlockStaticLeft" />
+    internal float BlockStaticTop;
 }
 
 /// <summary>One remembered answer to "how big are you, given this much room".</summary>
@@ -154,6 +187,23 @@ public struct CachedMeasurement {
 
     /// <summary>Whether this entry holds anything.</summary>
     public bool IsPopulated;
+
+    /// <summary>The margin set that came back with this answer. See <see cref="LayoutResult.TopCollapsibleMargin" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A cached answer has to replay every output, not just the two sizes.</b> Block layout's
+    ///     margin outputs live on the node, so an entry served from this ring would otherwise hand
+    ///     back whichever set the *last* full run happened to leave there — a different question's
+    ///     answer, silently, and only when the ring has more than one live entry for the node. That
+    ///     is a bug that would surface as a layout that is right cold and wrong incrementally, which
+    ///     is the exact failure the rounding pass was already restructured to avoid.
+    /// </remarks>
+    internal CollapsibleMargin TopCollapsibleMargin;
+
+    /// <inheritdoc cref="TopCollapsibleMargin" />
+    internal CollapsibleMargin BottomCollapsibleMargin;
+
+    /// <inheritdoc cref="TopCollapsibleMargin" />
+    internal bool MarginsCollapseThrough;
 }
 
 /// <summary>The per-node measurement cache.</summary>
