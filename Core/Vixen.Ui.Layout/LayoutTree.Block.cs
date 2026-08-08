@@ -39,9 +39,13 @@ namespace Vixen.Ui.Layout;
 ///         style map.
 ///     </para>
 ///     <para>
-///         Inline formatting is likewise absent, so a block container's children are all treated as
-///         block-level boxes. Doc 43 § B3 owns line boxes, and until it lands a text leaf inside a
-///         block container is one block-level box the height of its measured text.
+///         ⚠ <b>Inline formatting arrived with doc 43 § B3, and this file is now reached only when a
+///         container's children are <i>not</i> all inline-level.</b> The dispatch asks
+///         <c>EstablishesInlineFormattingContext</c> first: a block container whose every in-flow
+///         child is inline-level flows them onto line boxes in <c>LayoutTree.Inline</c> instead.
+///         Everything else stacks here — including <b>mixed</b> content, which CSS 2.1 §9.2.1.1 would
+///         wrap in anonymous block boxes this store has nowhere to put. A text leaf inside a block
+///         container is still one block-level box the height of its measured text.
 ///     </para>
 /// </remarks>
 public sealed partial class LayoutTree {
