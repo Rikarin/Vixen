@@ -58,6 +58,14 @@
 # shrink, so neither pass touches it and it stays 50 where Chrome says 100 — even though
 # ComputeAutoMinMainSize now returns exactly 100 for it. The fix belongs with the §9.7 work below,
 # because moving the floor up to the hypothetical size also changes what line breaking consumes.
+#
+# ⚠ That last sentence was MEASURED, not assumed, and the measurement is worth keeping. Applying the
+# floor at the obvious narrow place — the non-flexing path of DistributeFreeSpaceSecondPass, one
+# line — closes four of the eight above and takes the corpus to 154. It also breaks two families
+# that currently pass, percentage_moderate_complexity and
+# percentage_multiple_nested_with_padding_margin_and_percentage_values, the second of which is a
+# YOGA fixture as well. A floor applied after line breaking disagrees with the size line breaking
+# already consumed, so the two have to move together. Do not re-try the one-liner.
 flex_basis_smaller_than_content_column
 flex_basis_smaller_than_content_row
 flex_basis_smaller_then_content_with_flex_grow_large_size
