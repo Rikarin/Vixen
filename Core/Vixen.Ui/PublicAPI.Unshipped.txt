@@ -214,6 +214,8 @@ Vixen.Ui.DrawList.Version.get -> int
 Vixen.Ui.DrawListBuilder -> sealed class
 Vixen.Ui.DrawListBuilder.Build(Vixen.Ui.UiDocument document, Vixen.Ui.DrawList into) -> bool
 Vixen.Ui.DrawListBuilder.Build(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement root, Vixen.Ui.DrawList into) -> bool
+Vixen.Ui.DrawListBuilder.Compositing.get -> bool
+Vixen.Ui.DrawListBuilder.Compositing.set -> bool
 Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
 Vixen.Ui.EventRouter -> static class
 Vixen.Ui.FocusDirection -> enum : byte
@@ -753,6 +755,8 @@ Vixen.Ui.UiDocument.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.CompactStyles() -> bool
 Vixen.Ui.UiDocument.ComponentAt(Vixen.Ui.UiElement element) -> Vixen.Ui.Composition.Component?
+Vixen.Ui.UiDocument.Compositing.get -> bool
+Vixen.Ui.UiDocument.Compositing.set -> bool
 Vixen.Ui.UiDocument.Create(string tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.Create<T>(string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
 Vixen.Ui.UiDocument.CreateSurface(float width, float height, float dpiScale = 1, Vixen.Ui.UiElement? owner = null) -> Vixen.Ui.UiSurface
