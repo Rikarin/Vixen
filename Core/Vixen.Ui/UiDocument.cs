@@ -1534,7 +1534,7 @@ public sealed partial class UiDocument : IDisposable {
         // their content with, and survives a restyle; a translation is declarative and is whatever the
         // cascade last computed. Folding the second into the first would make a stylesheet silently
         // erase a scroll position, which reads as the panel jumping home on an unrelated theme change.
-        translation.Of(element.Style, element.Width, element.Height, metrics, out var dx, out var dy);
+        translation.Of(element, metrics, out var dx, out var dy);
 
         element.AbsoluteLeft = x + element.Left + element.OffsetX + dx;
         element.AbsoluteTop = y + element.Top + element.OffsetY + dy;

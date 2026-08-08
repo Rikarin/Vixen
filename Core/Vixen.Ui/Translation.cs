@@ -53,10 +53,8 @@ sealed class TranslationReader {
         parser = new StyleValueParser(values, keywords);
     }
 
-    /// <summary>How far a style moves a box, in points.</summary>
-    /// <param name="style">The element's computed style.</param>
-    /// <param name="width">The element's border-box width, which an x percentage is of.</param>
-    /// <param name="height">Its height, which a y percentage is of.</param>
+    /// <summary>How far an element's style moves it, in points.</summary>
+    /// <param name="element">The element, which a percentage is resolved against.</param>
     /// <param name="metrics">The lengths <c>em</c>, <c>rem</c> and the viewport units resolve against.</param>
     /// <param name="x">Receives the horizontal movement, zero when there is none.</param>
     /// <param name="y">Receives the vertical movement.</param>
@@ -81,36 +79,39 @@ sealed class TranslationReader {
     ///         elements — every element in the editor — do not carry the property at all, so the
     ///         <see cref="ComputedStyle.TryGet" /> that fails is the whole cost for them.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The element rather than its width and height, so that the two layout-tree reads
+    ///         happen after that miss and not before it.</b> Passing them as arguments is the tidier
+    ///         signature and evaluates both on every element in the document whether or not anything
+    ///         is going to look at them — the accumulation pass is not a place to spend a lookup per
+    ///         element on a property almost nothing sets.
+    ///     </para>
     /// </remarks>
-    public void Of(
-        ComputedStyle style,
-        float width,
-        float height,
-        LengthContext metrics,
-        out float x,
-        out float y
-    ) {
+    public void Of(UiElement element, LengthContext metrics, out float x, out float y) {
+        ArgumentNullException.ThrowIfNull(element);
+
         x = 0f;
         y = 0f;
 
-        if (!style.TryGet(property, out var id) || id == none) {
+        if (!element.Style.TryGet(property, out var id) || id == none) {
             return;
         }
 
         var value = parser.Parse(id);
 
-        if (value.Kind == StyleValueKind.List) {
-            var parts = value.Items;
+        if (value.Kind != StyleValueKind.List) {
+            x = Resolve(value, element.Width, metrics);
+            return;
+        }
 
-            if (parts.Length > 0) {
-                x = Resolve(parts[0], width, metrics);
-            }
+        var parts = value.Items;
 
-            if (parts.Length > 1) {
-                y = Resolve(parts[1], height, metrics);
-            }
-        } else {
-            x = Resolve(value, width, metrics);
+        if (parts.Length > 0) {
+            x = Resolve(parts[0], element.Width, metrics);
+        }
+
+        if (parts.Length > 1) {
+            y = Resolve(parts[1], element.Height, metrics);
         }
     }
 
