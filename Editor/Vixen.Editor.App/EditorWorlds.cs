@@ -1120,25 +1120,35 @@ sealed partial class EditorApplication {
         }
 
         /// <summary>The stylesheet's text.</summary>
-        public static string Css => Sheet;
+        /// <remarks>
+        ///     ⚠ <b>Read out of the assembly rather than held in a <c>const string</c>.</b> Sixteen
+        ///     lines rather than the hundreds its siblings carry, but it moved for the same reasons
+        ///     and one of its own: a stylesheet buried in the middle of a thousand-line
+        ///     <c>.cs</c> is the one nobody finds. It is <c>WorldTheme.vcss</c> at the project root
+        ///     now, embedded by the glob in <c>Core/Vixen.Ui/build/Vixen.Ui.targets</c>, which this
+        ///     project already imported.
+        ///     <para>
+        ///         Cached for the same reason the others are: the resource is immutable, so the
+        ///         cache cannot go stale — a hot reload replaces the sheet through
+        ///         <c>UiDocument</c>, not through here.
+        ///     </para>
+        /// </remarks>
+        public static string Css => sheet ??= Read("Vixen.Editor.App.WorldTheme.vcss");
 
-        const string Sheet = """
-            world-title { font-weight: 600; margin-top: 6px; }
-            world-facts { flex-direction: column; gap: 2px; }
+        static string? sheet;
 
-            scene-list { flex-direction: column; gap: 2px; }
+        static string Read(string name) {
+            var assembly = typeof(WorldTheme).Assembly;
 
-            scene-row {
-                flex-direction: row;
-                align-items: center;
-                gap: 6px;
-                min-height: 24px;
-                padding: 0px 4px;
-                border-radius: var(--radius-row, 6px);
-            }
+            using var stream = assembly.GetManifestResourceStream(name)
+                ?? throw new InvalidOperationException(
+                    $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is "
+                    + "added by the .vcss glob in Vixen.Ui.targets, which this project imports at "
+                    + "the bottom of its .csproj.");
 
-            scene-row.selected { background-color: var(--accent-deep, var(--accent)); color: #ffffff; }
-            scene-name { flex-grow: 1; min-width: 0; }
-            """;
+            using var reader = new StreamReader(stream);
+
+            return reader.ReadToEnd();
+        }
     }
 }

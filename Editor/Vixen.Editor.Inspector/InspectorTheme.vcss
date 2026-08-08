@@ -1,0 +1,213 @@
+/* SPDX-FileCopyrightText: Copyright (c) Rikarin
+   SPDX-License-Identifier: Apache-2.0
+
+   The property inspector's rows, fields, headers and drawers, as a stylesheet on disk.
+
+   ⚠ **One of two sheets declared in `InspectorTheme.cs`** — `BrowserTheme.vcss` beside it is the
+   other, and the two are separate files because they are separate sheets with separate `Install`
+   methods, loaded by different panels. A single file holding both would make either one
+   unloadable on its own.
+
+   Written entirely against `ControlTheme`'s and `EditorTheme`'s tokens, so it has no palette of
+   its own and recolouring the root recolours it. */
+
+/* ── The view ───────────────────────────────────────────────────────── */
+inspector { flex-direction: column; flex-grow: 1; gap: 6px; padding: 2px; overflow: hidden; }
+
+/* The strip keeps its height while the rows below it come and go — a search field that
+   shrank when the selection emptied would move under the pointer mid-type. */
+inspector-header { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
+inspector-header > search-box { flex-grow: 1; min-width: 0; }
+/* ⚠ The label is set and not drawn, which is what `IconButton` does for its own: it is what
+   a screen reader reads and what a tooltip would show, and a control whose only affordance
+   is a picture is the one that most needs to say what it is. Hidden here rather than by
+   leaving the label empty, because an empty label is a control with nothing to announce. */
+inspector-header > .inspector-lock { flex-shrink: 0; padding: 3px; }
+.inspector-lock label { display: none; }
+.inspector-lock icon { width: 15px; height: 15px; }
+
+/* ⚠ Grey open, red closed, and the glyph changes too — see `ControlIcons.Unlock`. A locked
+   inspector is the answer to "why is this panel ignoring what I select", so the state has to
+   read from across the window rather than being a slightly different grey. */
+.inspector-lock icon { color: var(--text-muted); }
+.inspector-lock:checked { background-color: transparent; }
+.inspector-lock:checked icon { color: var(--danger, #c8352f); }
+.inspector-lock:checked:hover:not(:disabled) icon { color: var(--danger, #c8352f); }
+
+/* ⚠ `min-height: 0` is what makes it scroll rather than grow. A flex item's automatic
+   minimum is its content, so a scroll view full of rows refuses to be shorter than all of
+   them and pushes the panel's own bottom off screen — the bar never appears and the last
+   component is unreachable. The same rule `inspector-editor` follows for width. */
+inspector > scroll-view { flex-grow: 1; min-height: 0; }
+
+/* The rows are the content and the content does not shrink: a body that shrank to fit the
+   viewport is a body with no overflow, which is a scroll view with nothing to scroll. */
+inspector-body { flex-direction: column; flex-shrink: 0; }
+
+/* ── A row ──────────────────────────────────────────────────────────────
+   Label, editor, reset — and a minimum height, so a row holding a check box
+   is as tall as the one holding a text field and the labels down the left
+   are evenly spaced rather than following whatever their editor came to. */
+inspector-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 6px;
+    min-height: 26px;
+    border-radius: 6px;
+}
+
+inspector-row.filtered { display: none; }
+inspector-row:hover { background-color: var(--surface-hover, var(--surface-sunken)); }
+
+/* A share of the width rather than a fixed one, so a narrow panel gives the editor room
+   instead of clipping it, with a floor a two-word name still fits inside. */
+inspector-label {
+    width: 34%;
+    min-width: 72px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+/* An override is the one thing a row says about itself, and it says it by not being muted —
+   a mark that survives every palette, which a chosen colour would not. */
+inspector-row.overridden inspector-label { color: var(--text); }
+
+/* ⚠ `min-width: 0` is load-bearing. A flex item's automatic minimum is its content, and a
+   number box's text is deliberately unshrinkable (`field-text` sets `flex-shrink: 0`), so
+   without this the three boxes of a vector refuse to narrow and the row overflows the
+   panel instead of the boxes clipping their own text. */
+inspector-editor {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+}
+
+inspector-editor textbox, inspector-editor textarea, inspector-editor numeric-input,
+inspector-editor select, inspector-editor multi-select, inspector-editor slider,
+inspector-editor combo-box, inspector-editor color-picker, inspector-editor curve-editor,
+inspector-editor asset-field {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+/* The name grows and the two buttons do not, so a long asset name is what gets clipped
+   rather than the picker being pushed out of the panel. */
+asset-field { flex-direction: row; align-items: center; gap: 4px; }
+.asset-name { flex-grow: 1; min-width: 0; }
+asset-field > icon-button { flex-shrink: 0; }
+
+/* ⚠ A border rather than a background, and inset rather than outset: the row is two pixels
+   of padding away from its neighbours, so a halo drawn outside it lands on the row above and
+   makes the wrong field look like the target. The pointer is somewhere over the field and
+   the answer has to be unambiguous — this is a gesture people aim. */
+asset-field.drop-target {
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--accent, #2f6ecd);
+    background-color: var(--accent-soft, #c6d8f5);
+    border-radius: 3px;
+}
+
+/* Refusal is shown while the pointer is still down, because a drag that lights up like every
+   other and then silently does nothing is one people repeat before concluding the editor is
+   broken. */
+asset-field.drop-rejected {
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--danger, #c8352f);
+    border-radius: 3px;
+}
+
+/* Right of the editor and out of the tab order — it appears and disappears as the value
+   moves off and onto the type's default, and a row whose width jumped when it did would
+   make every neighbouring editor twitch. */
+inspector-row > icon-button { flex-shrink: 0; }
+
+/* ── Fields ─────────────────────────────────────────────────────────────
+   Sunken, denser than the control set's default, and the placeholder's offset follows the
+   padding — it is positioned absolutely and would otherwise sit two pixels off the text it
+   stands in for. */
+inspector textbox, inspector textarea, inspector numeric-input, inspector search-box,
+inspector select, inspector multi-select, inspector combo-box {
+    padding: 3px 8px;
+    border-radius: 6px;
+    background-color: var(--surface-sunken);
+}
+
+/* ⚠ A placeholder is positioned absolutely, so its offset is a number rather than a
+   consequence of the padding — narrowing a field without moving it leaves the grey text two
+   pixels right of where the real text starts. The search box needs its own, because the
+   magnifier is laid out before the text and an offset that ignores it draws "Search"
+   through the icon. */
+inspector field-placeholder { left: 8px; }
+inspector search-box field-placeholder { left: 28px; }
+
+/* ── Sections ───────────────────────────────────────────────────────────
+   ⚠ The indent goes. `expander-content` is indented by twenty pixels for prose, and a
+   [Header] does not start a nested thing — it names a group of members that are siblings of
+   the ungrouped ones above it. Left as it comes, "Name" and "Position" are labels in two
+   different columns of the same panel. */
+inspector expander { border-width: 0px 0px 1px 0px; border-color: var(--border); }
+inspector expander-header { padding: 7px 6px; }
+inspector expander-content { flex-direction: column; padding: 0px 0px 8px 0px; }
+
+/* ── Vectors ────────────────────────────────────────────────────────────
+   ⚠ `flex-basis: 0px` on every component, not just a grow. A flex item's base size is its
+   content, so three boxes showing "0", "1.5" and "-12.25" would be three different widths —
+   and X would move as the number in it changed. Zero basis makes the row a set of equal
+   columns whatever is in them. */
+vector-editor { flex-direction: row; flex-grow: 1; gap: 4px; min-width: 0; }
+
+vector-component {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    flex-basis: 0px;
+    min-width: 0;
+    gap: 4px;
+}
+
+vector-component > text { flex-shrink: 0; color: var(--text-muted); font-size: 0.85em; }
+vector-component numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
+
+/* The axis colours every 3D application uses, and they are worth having: the boxes are
+   otherwise three identical fields and the letter beside them is one glyph wide. Literals
+   rather than tokens — an axis is red, green and blue in a dark theme and in a light one,
+   because it is naming X, Y and Z rather than following a palette. */
+vector-component.axis-x > text { color: #f2696e; }
+vector-component.axis-y > text { color: #7ece6b; }
+vector-component.axis-z > text { color: #58a6ff; }
+vector-component.axis-w > text { color: var(--text-muted); }
+
+/* ── Nested objects and lists ───────────────────────────────────────────
+   ⚠ The row's own label goes and the row stacks. A nested object is a block of rows rather
+   than a value, so it cannot sit in the editor column beside a name — the foldout carries
+   the name instead, and a row that kept both would say it twice with the second copy
+   squeezed into a third of the panel. */
+inspector-row.nested { flex-direction: column; align-items: stretch; padding: 0px; }
+inspector-row.nested > inspector-label { display: none; }
+inspector-row.nested > inspector-editor { width: 100%; }
+inspector-row.nested:hover { background-color: transparent; }
+
+composite-editor { flex-direction: column; flex-grow: 1; min-width: 0; }
+
+/* Indented after all, unlike a [Header]'s group — these members *are* a nested thing, and the
+   step is what says the four rows under "Bounds" belong to it rather than to the type. */
+composite-editor expander-content { padding: 0px 0px 4px 10px; }
+composite-editor expander { border-width: 0px; }
+
+/* The element's own buttons, right of its editor and out of the tab order. Muted until the
+   row is hovered, because three buttons per element at full contrast is a wall of chrome
+   down the side of a list nobody is editing. */
+.list-up, .list-down, .list-remove { flex-shrink: 0; opacity: 0.35; }
+inspector-row:hover .list-up, inspector-row:hover .list-down, inspector-row:hover .list-remove {
+    opacity: 1;
+}
+
+.list-add { align-self: flex-start; margin: 4px 0px 0px 0px; }
+
+/* The count, and whatever the last resort drew. Muted and small: it is a statement about the
+   value rather than a way of changing it. */
+.property-readonly { color: var(--text-muted); font-size: 0.9em; }

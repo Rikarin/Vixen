@@ -98,9 +98,9 @@ cascade has never heard of it. What the finished sheet references comes back as 
 very top, holding the theme variables it actually uses and the ones those use — never all 347, and
 never one whose value names itself, which would shadow the declaration it is an alias for.
 
-⚠ **The editor still passes no `--base`.** `EditorTheme` is a `.vcss` now rather than a C# constant,
-but it is loaded into the document directly by `EditorTheme.Install` rather than folded into the
-generated sheet — the two arrive as separate `Load` calls at the same origin, base first, which is
+⚠ **The editor still passes no `--base`.** Every hand-authored sheet in the tree is a `.vcss` now
+rather than a C# constant — ten of them — so `--base` has plenty it *could* be given; each is still
+loaded into the document directly by its own `Install` rather than folded into the generated sheet — the two arrive as separate `Load` calls at the same origin, base first, which is
 what the layering needs. Folding it in would mean `EditorStyles.Css` carrying the whole stack and
 `Install` loading one sheet instead of two; it is a real simplification and it is not done.
 

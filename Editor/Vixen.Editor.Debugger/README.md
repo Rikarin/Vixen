@@ -106,4 +106,16 @@ say them. Discovery answers "is it there"; whether a build is on its way to it i
 the editor is doing. Without it the two would be enum members no code could ever produce, and a row
 would read Available while a publish was running.
 
+## The theme
+
+**The sheet is `DebuggerTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob in
+`Vixen.Ui.targets` and read back by `DebuggerTheme.Css`. At 70 lines it is the smallest in the
+editor — most of what it used to say became a control's job when the state pane became a
+`KeyValueList`. It was a `const string` until it was moved out byte for byte, and
+`DebuggerTheme.Utilities` stays a constant because a build step generates it.
+
+⚠ **This project imports two different `.targets` for two different sheets.**
+`Vixen.Editor.Ui.Styling.targets` brings the *generated* utility sheet; `Vixen.Ui.targets` brings the
+`**/*.vcss` glob that embeds the *hand-authored* one. Dropping either leaves a build that compiles.
+
 Licensed under Apache-2.0.

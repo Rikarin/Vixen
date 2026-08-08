@@ -280,6 +280,11 @@ refuses every wire.
 
 ## The stylesheet is not optional
 
+**The sheet is `AssetEditorTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob
+in `Vixen.Ui.targets` and read back by `AssetEditorTheme.Css`. It was 794 lines of CSS in a
+`const string` until it was moved out byte for byte. `AssetEditorTheme.Utilities` is a different
+thing and stays a constant: a build step generates it, so there is no file to edit.
+
 `AssetEditorTheme` is a fifth user-agent sheet, after `ControlTheme`, `AdvancedTheme`, `EditorTheme`
 and `InspectorTheme`, and a host has to load it — for `InspectorTheme`'s reason, which is worth
 restating because it is the one that catches people: CSS's initial `flex-direction` is `row`, so an

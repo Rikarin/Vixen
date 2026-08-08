@@ -129,6 +129,13 @@ to be shorter than all of them, the bar never appears and the panel grows instea
 
 ## The sheet is not optional
 
+**This project declares two sheets and both are files**: `InspectorTheme.vcss` (200 lines) and
+`BrowserTheme.vcss` (212 lines), beside the single `InspectorTheme.cs` that declares both classes.
+They are embedded by the `**/*.vcss` glob in `Vixen.Ui.targets` and read back by their own `Css`
+accessors; each was a `const string` until it was moved out byte for byte. Two files rather than one
+because they are two sheets with two `Install` methods, loaded by different panels — a single file
+would make either one unloadable on its own.
+
 `InspectorTheme` is a fourth user-agent stylesheet after `ControlTheme`, `AdvancedTheme` and
 `EditorTheme`, and a host has to load it:
 

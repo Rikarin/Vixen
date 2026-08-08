@@ -60,6 +60,10 @@ them:
 
 ## The theme
 
+**The sheet is `ControlTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob in
+`Vixen.Ui.targets` and read back by `ControlTheme.Css`. It was 873 lines of CSS in a `const string`
+until it was moved out byte for byte; `ControlTheme.cs` is now the loader and nothing else.
+
 `ControlTheme.Install(document)` loads it as **`StyleOrigin.UserAgent`**, which is the point: a
 game's own `button { … }` beats it at equal specificity, so restyling is one rule rather than a fork.
 Colours go through custom properties — `--surface`, `--accent`, `--text`, and the rest — so a palette

@@ -96,4 +96,14 @@ engine's life would be a guess presented as a measurement.
 chunks a query walks, and a scene that grew from forty archetypes to four hundred is one where
 somebody added a tag component per entity — free to store, and it fragments every query in the game.
 
+## The theme
+
+**The sheet is `ProfilerTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob in
+`Vixen.Ui.targets` and read back by `ProfilerTheme.Css`. It was 172 lines of CSS in a `const string`
+until it was moved out byte for byte. `ProfilerTheme.Utilities` is a different thing and stays a
+constant: a build step generates it, so there is no file to edit.
+
+⚠ **Colour here carries data rather than decoration.** The track and category colours are read as a
+scale by somebody comparing two captures, so changing one changes what a capture means.
+
 Licensed under Apache-2.0.

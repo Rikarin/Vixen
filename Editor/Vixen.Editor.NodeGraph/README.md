@@ -40,7 +40,7 @@ graph.Connect(new(uv.Id, "UV"), new(sample.Id, "UV"));
 | `NodeGraphLayout`, `NodeLayoutOptions` | Laying a graph out left to right, in columns. |
 | `NodeGraphClipboard` | Copy and paste, as a fragment that is itself a graph. |
 | `AddNodeCommand`, `RemoveNodesCommand`, … | Every edit, reversibly. See below. |
-| `NodeGraphTheme` | The stylesheet the four elements this assembly adds come with. |
+| `NodeGraphTheme` | The stylesheet the four elements this assembly adds come with. The CSS is `NodeGraphTheme.vcss` beside it — a file, not a `const string` — embedded by the `**/*.vcss` glob in `Vixen.Ui.targets`. |
 
 ## A node is a class, and the generator reads it once
 

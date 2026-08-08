@@ -28,15 +28,22 @@
         `ControlTheme`, `AdvancedTheme` and `EditorTheme` came to be 3 260 lines of CSS edited
         through a raw string literal.
 
+        ⚠ **Every hand-authored sheet in the tree now arrives through this glob** — ten of them,
+        across nine projects, which is why five projects that had no .vxml at all gained an Import of
+        this file. A project reaching a stylesheet by GetManifestResourceStream and *not* importing
+        this .targets compiles perfectly and throws on first use, so each of those loaders names this
+        import in its exception message.
+
         An EmbeddedResource and not an AdditionalFiles, because a stylesheet is *content* rather than
         compiler input: nothing generates code from it, the assembly carries it so a shipped game has
         no build artefact to deploy, and the logical name is the default — RootNamespace plus the
         folder path — which is what lets a caller name it without MSBuild knowing anything.
 
         ⚠ And it is what finally gives the `hot-reload DIR` switch something to watch. That has always
-        globbed `*.vcss` and there has never been one in a source tree for it to find, so the style
-        half of hot reload has been reachable and untested since it was written. See
-        `Editor/Vixen.Editor.Host/README.md`.
+        globbed `*.vcss` and for most of its life there was not one in a source tree for it to find,
+        so the style half of hot reload was reachable and untested. There are ten now — but the
+        origin mismatch it has always had is untouched by that, and is still what stops a *deleted*
+        rule disappearing. See `Editor/Vixen.Editor.Host/README.md`.
     -->
     <ItemGroup Condition="'$(EnableVixenStyleSheets)' != 'false'">
         <EmbeddedResource Include="**/*.vcss" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />

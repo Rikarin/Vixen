@@ -1,0 +1,31 @@
+/* SPDX-FileCopyrightText: Copyright (c) Rikarin
+   SPDX-License-Identifier: Apache-2.0
+
+   The world and scene panels' own elements, as a stylesheet on disk.
+
+   ⚠ **A sixth user-agent sheet, after the five `EditorApplication` already loads**, and written
+   against the tokens they declare — the same arrangement `BrowserTheme` has, and for the same
+   reason: these elements are this assembly's panels and nobody else's business.
+
+   ⚠ **The one extracted sheet whose class is `internal` and nested**, inside `EditorApplication`
+   in `EditorWorlds.cs`. That changes nothing about the file: the logical name is the root namespace
+   plus this file's name, so it is `Vixen.Editor.App.WorldTheme.vcss` however deeply the class that
+   reads it is nested. It is also why this sheet is not in doc 61's layering scope by accident — an
+   internal sheet is still a user-agent sheet and still beats every utility. */
+
+world-title { font-weight: 600; margin-top: 6px; }
+world-facts { flex-direction: column; gap: 2px; }
+
+scene-list { flex-direction: column; gap: 2px; }
+
+scene-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+    padding: 0px 4px;
+    border-radius: var(--radius-row, 6px);
+}
+
+scene-row.selected { background-color: var(--accent-deep, var(--accent)); color: #ffffff; }
+scene-name { flex-grow: 1; min-width: 0; }

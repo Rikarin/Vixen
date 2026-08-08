@@ -32,69 +32,35 @@ public static class NodeGraphTheme {
     }
 
     /// <summary>The stylesheet's text, for a caller that wants to read or amend it.</summary>
-    public static string Css => Sheet;
+    /// <remarks>
+    ///     ⚠ <b>Read out of the assembly rather than held in a <c>const string</c>, and the change
+    ///     is bigger than where the bytes live.</b> This sheet was 61 lines of CSS edited inside a
+    ///     raw string literal, which is what a tree with no <c>.vcss</c> item type forced — no syntax
+    ///     highlighting, no formatter, no way for a hot-reload watcher to see an edit, and a rebuild
+    ///     of the whole assembly for a colour. It is a real file now, embedded by the glob in
+    ///     <c>Core/Vixen.Ui/build/Vixen.Ui.targets</c>.
+    ///     <para>
+    ///         Cached, because the string is handed to <c>Load</c> once per document and re-decoding
+    ///         the UTF-8 for every caller is a cost with nothing on the other side of it. The
+    ///         resource is immutable, so the cache cannot go stale — a hot reload replaces the sheet
+    ///         through <c>UiDocument</c>, not through here.
+    ///     </para>
+    /// </remarks>
+    public static string Css => sheet ??= Read("Vixen.Editor.NodeGraph.NodeGraphTheme.vcss");
 
-    const string Sheet = """
-        /* ── The view ───────────────────────────────────────────────────────── */
-        node-graph { flex-direction: column; flex-grow: 1; overflow: hidden; position: relative; }
-        node-graph > node-canvas { flex-grow: 1; }
+    static string? sheet;
 
-        /* The preview layer covers the canvas and takes no clicks: it is a picture of what the
-           nodes under it are worth, and a full-canvas element that swallowed presses would make
-           every node unreachable. Same bargain as node-wires. */
-        node-previews {
-            position: absolute;
-            left: 0; top: 0; right: 0; bottom: 0;
-            pointer-events: none;
-        }
+    static string Read(string name) {
+        var assembly = typeof(NodeGraphTheme).Assembly;
 
-        /* ── Sticky notes ───────────────────────────────────────────────────── */
-        graph-note {
-            position: absolute;
-            background-color: var(--surface-raised);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 0.5em;
-            overflow: hidden;
-        }
+        using var stream = assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException(
+                $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is added "
+                + "by the .vcss glob in Vixen.Ui.targets, which this project imports at the bottom "
+                + "of its .csproj.");
 
-        graph-note.parked { display: none; }
-        graph-note-body { color: var(--foreground-muted); white-space: pre-wrap; }
+        using var reader = new StreamReader(stream);
 
-        /* ── Search to create ───────────────────────────────────────────────── */
-        node-search {
-            flex-direction: column;
-            width: 320px;
-            max-height: 380px;
-            background-color: var(--surface-overlay);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 6px;
-            gap: 4px;
-        }
-
-        node-search-list { flex-direction: column; overflow: hidden; }
-        node-search-empty { padding: 8px; color: var(--foreground-muted); }
-        node-search-empty.hidden { display: none; }
-
-        node-search-row {
-            flex-direction: row;
-            align-items: center;
-            gap: 8px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            background-color: transparent;
-        }
-
-        node-search-row.hidden { display: none; }
-        node-search-row:hover { background-color: var(--surface-hover); }
-
-        /* Checked is the highlight the popup owns, not a focus ring: the field keeps the focus so
-           that the next letter typed goes into it. See NodeSearchPopup. */
-        node-search-row:checked { background-color: var(--accent); color: var(--accent-foreground); }
-
-        node-search-category { flex-grow: 1; text-align: right; color: var(--foreground-muted); }
-        node-search-port { color: var(--accent); }
-        node-search-port:empty { display: none; }
-        """;
+        return reader.ReadToEnd();
+    }
 }

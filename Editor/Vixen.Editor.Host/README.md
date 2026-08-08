@@ -118,9 +118,13 @@ pointing at the folder sweeps it up, `@theme` reaches ExCSS as an at-rule nothin
 `StyleSheetLoader` drops it with a diagnostic. Harmless and noisy. Point at a copy of
 `EditorTheme.vcss` in a scratch directory to avoid it.
 
-⚠ **`ControlTheme` and `AdvancedTheme` are still `const string`s**, and so are `InspectorTheme`,
-`AssetEditorTheme`, `BrowserTheme` and `WorldTheme`. The mechanism is there; those extractions are
-not done.
+⚠ **There is now more than one file to point at, which there was not when this was written.**
+`ControlTheme`, `AdvancedTheme`, `AssetEditorTheme`, `InspectorTheme`, `BrowserTheme`,
+`ProfilerTheme`, `DebuggerTheme`, `NodeGraphTheme` and `WorldTheme` are all `.vcss` files beside
+their loaders now, so the watcher's `*.vcss` glob finds ten sheets across nine projects rather than
+the one it used to. **The `Author`/`UserAgent` mismatch above applies to every one of them
+identically** — extraction gave the watcher more to see and changed nothing about what it does with
+what it sees.
 
 ⚠ **The directory is named and has no default.** A watcher over a folder with nothing in it is a
 channel that looks wired and does nothing; a mistyped path says so in the console rather than looking
@@ -154,9 +158,11 @@ the kernel would pass a filesystem-driven version of that test however broken th
 - **`TaskCenter` is not reloadable**, because `EditorShell` builds it and the shell is constructed
   before `EditorApplication` makes the host. Closing it means the shell taking a host, or the
   application re-mounting the popover's contents after construction.
-- **The editor's own sheets are constants.** The measurement above says what an extraction buys and
-  what it costs; nothing here decides it, and a published editor has no source tree to watch either
-  way, so the reload would have to be pointed at one.
+- **Replacing rather than layering.** The sheets are all files now, so the remaining gap is entirely
+  the origin mismatch: the watcher loads at `Author`, the shipped copy sits at `UserAgent`, and a
+  deleted rule therefore does not disappear. Closing it means `UiDocument.Replace` against the index
+  each `Install` returns, which nothing calls yet. A published editor still has no source tree to
+  watch either way, so the reload has to be pointed at one.
 - **`node-search-port:empty` in `NodeGraphTheme` is a rule that never matches** — the selector
   compiler does not implement `:empty`, and says so. Harmless in itself and it is why the style
   channel silently did nothing until `HotReloadHost.ReloadStyles` learned to compare against the

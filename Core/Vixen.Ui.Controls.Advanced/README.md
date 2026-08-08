@@ -399,4 +399,17 @@ Said out loud rather than left to be discovered:
 - **`Canvas2D` is not here.** It is doc 09's P2 with no editor consumer; see
   `Samples/06-CanvasStress`.
 
+## The theme
+
+**The sheet is `AdvancedTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob in
+`Vixen.Ui.targets` and read back by `AdvancedTheme.Css`. It was 969 lines of CSS in a `const string`
+until it was moved out byte for byte; `AdvancedTheme.cs` is now the loader and nothing else.
+
+`AdvancedTheme.Install` loads this sheet and **not** the base theme. Every colour in it is a
+`var(--…)` against a token `ControlTheme` declares, so an application needs both, in that order.
+
+⚠ **`.hidden { display: none }` is declared here and is reached from other assemblies** — the
+editor's import views use it by class name. `SharedThemeTests` records that as the price of an
+assembly boundary in a token system, so renaming it is not a local change.
+
 Licensed under Apache-2.0.

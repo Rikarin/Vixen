@@ -67,4 +67,16 @@
     -->
     <Import Project="..\Vixen.Editor.Ui\build\Vixen.Editor.Ui.Styling.targets" />
 
+    <!--
+        ⚠ **A different .targets and a different job: this one is the `**/*.vcss` glob, which is what
+        makes `DebuggerTheme.vcss` an EmbeddedResource.** The import above brings the *generated*
+        utility sheet; this one brings the *hand-authored* one. `DebuggerTheme.Css` reads its file
+        back by logical name, so without this line it throws at the first `Install` rather than
+        failing to compile — the error message names this import for that reason.
+
+        At the bottom of the file, because the glob has to run after DefaultItemExcludes is final.
+        There is no `.vxml` in this project, so the other half of the .targets is inert here.
+    -->
+    <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
+
 </Project>
