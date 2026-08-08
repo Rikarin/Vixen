@@ -91,12 +91,27 @@ static class TaffyFixtureRunner {
             ? items
             : null;
 
+        // ⚠ The same is true of a grid's `justify-items`, and for a stronger reason: on the inline
+        // axis `self-start` and `start` disagree whenever the child's `direction` differs from its
+        // container's, which is a thing four fixtures do on purpose —
+        // `grid_justify_items_self_end_child_rtl` gives one container an rtl child and an ltr child
+        // and expects them at opposite edges of their areas.
+        var selfRelativeJustify = input.Attributes.GetValueOrDefault("justify-items") is { } inline
+            && TaffyStyleMap.IsSelfRelative(inline)
+                ? inline
+                : null;
+
         for (var index = 0; index < input.Children.Count; index++) {
             var childInput = input.Children[index];
             var child = Build(tree, childInput, self, isRoot: false);
+            var childBox = TaffyBox.From(childInput.Attributes);
 
             if (selfRelativeItems is not null && !childInput.Attributes.ContainsKey("align-self")) {
-                tree.SetAlignSelf(child, TaffyStyleMap.AlignItemsForChild(selfRelativeItems, self, TaffyBox.From(childInput.Attributes)));
+                tree.SetAlignSelf(child, TaffyStyleMap.AlignItemsForChild(selfRelativeItems, self, childBox));
+            }
+
+            if (selfRelativeJustify is not null && !childInput.Attributes.ContainsKey("justify-self")) {
+                tree.SetJustifySelf(child, TaffyStyleMap.JustifyItemsForChild(selfRelativeJustify, self, childBox));
             }
 
             tree.InsertChild(node, child, index);

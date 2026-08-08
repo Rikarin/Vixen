@@ -24,21 +24,25 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         test goes red, and the new number gets committed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That prediction has now been paid out once, which is the strongest thing this file
-///         can report.</b> It used to say that every block, float and grid fixture was refused at
-///         exactly one point — the <c>display</c> keyword — and that B1 would be the day
-///         <see cref="Display" /> grew a <c>Block</c> member. It was: 884 block and 28 blockflex
-///         fixtures went from 0 passing to 746 in the commit that added the keyword and the
-///         algorithm behind it, and they moved to <c>TaffyBlockConformanceTests</c> where each one is
-///         judged individually. Nothing about the harness changed. B2 is the same bet on
-///         <c>Grid</c>, and the 2 112 fixtures still listed below are what will settle it.
+///         ⚠ <b>That prediction has now been paid out twice, and this file is what is left of it.</b>
+///         It used to say that every block, float and grid fixture was refused at exactly one point —
+///         the <c>display</c> keyword — and that B1 and B2 would be the days <see cref="Display" />
+///         grew a <c>Block</c> and then a <c>Grid</c> member. Both were. 884 block and 28 blockflex
+///         fixtures went from 0 passing to 746 in the commit that added the first keyword and the
+///         algorithm behind it; 2 040 grid, 56 blockgrid and 24 gridflex followed the second. Each
+///         corpus moved to a conformance suite of its own — <c>TaffyBlockConformanceTests</c> and
+///         <c>TaffyGridConformanceTests</c> — where every fixture is judged individually against
+///         Chrome instead of being counted. Nothing about the harness changed either time, which was
+///         the entire claim.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>float</c>'s 84 did <i>not</i> come along, and the reason is worth stating.</b>
-///         Floats are refused by <c>TaffyStyleMap</c> on the <c>float</c> attribute rather than on
-///         <c>display</c>, so they were never waiting on this keyword — every one of them names a
-///         block container that this algorithm now lays out correctly right up to the point where a
-///         float would narrow a line box. See the remarks on <c>LayoutTree.Block</c>.
+///         ⚠ <b><c>float</c>'s 84 did <i>not</i> come along either time, and the reason is worth
+///         stating.</b> Floats are refused by <c>TaffyStyleMap</c> on the <c>float</c> attribute
+///         rather than on <c>display</c>, so they were never waiting on a keyword — every one of them
+///         names a block container that this store now lays out correctly right up to the point where
+///         a float would narrow a line box. Which is also why one corpus is still here rather than
+///         this file being deleted: the shape it defends is a mode whose fixtures nothing has
+///         accepted yet, and there is exactly one left.
 ///     </para>
 /// </remarks>
 public class TaffyPendingCorporaTests {
@@ -46,18 +50,16 @@ public class TaffyPendingCorporaTests {
     ///     Each pending corpus and the tally it stands at.
     /// </summary>
     /// <remarks>
-    ///     The eight passing grid fixtures are not grid working. They are fixtures whose root happens
-    ///     to be a default flex container with grid only further down, laid out to the same numbers
-    ///     by luck of the geometry. They are counted honestly rather than excluded, because the point
-    ///     of a baseline is that it moves for a reason.
+    ///     ⚠ Grid used to sit here at 8 passing, and those eight were never grid working — they were
+    ///     fixtures whose root happened to be a default flex container with grid only further down,
+    ///     laid out to the same numbers by luck of the geometry. They were counted honestly rather
+    ///     than excluded, because the point of a baseline is that it moves for a reason, and when the
+    ///     algorithm landed the number it moved from was a real one.
     /// </remarks>
     public static TheoryData<string, int, int, int> Corpora =>
         new() {
             // category      passed failed unsupported
-            { "blockgrid", 0, 0, 56 },
-            { "float", 0, 0, 84 },
-            { "grid", 8, 0, 2032 },
-            { "gridflex", 0, 0, 24 }
+            { "float", 0, 0, 84 }
         };
 
     [Theory]

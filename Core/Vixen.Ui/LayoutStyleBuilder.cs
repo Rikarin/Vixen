@@ -54,9 +54,10 @@ public sealed class LayoutStyleBuilder {
     ///         Two deliberate departures from CSS remain. <c>display</c> starts at <c>flex</c>
     ///         rather than at CSS's <c>inline</c> — an element with no <c>display</c> should be laid
     ///         out rather than skipped, and this engine has no inline formatting to start it in.
-    ///         ⚠ It is now a real three-way choice: <c>block</c> arrived with doc 43 § B1 and lays
-    ///         out by a different algorithm, so a stylesheet that says <c>display: block</c> gets
-    ///         stacking and margin collapsing rather than a flex row. And <c>box-sizing: border-box</c>, which most
+    ///         ⚠ It is now a real four-way choice: <c>block</c> arrived with doc 43 § B1 and
+    ///         <c>grid</c> with § B2, and each lays out by a different algorithm — so a stylesheet
+    ///         that says <c>display: block</c> gets stacking and margin collapsing rather than a flex
+    ///         row, and one that says <c>display: grid</c> gets track sizing. And <c>box-sizing: border-box</c>, which most
     ///         UI work wants, belongs in a user-agent stylesheet where an author can see and
     ///         override it — not baked in here where they cannot.
     ///     </para>
@@ -706,10 +707,20 @@ public sealed class LayoutStyleBuilder {
             // onto `Block` and `Flex` would make `inline-block` silently take the whole line, which
             // is the one thing an author writes it to prevent, so they stay unmapped and the
             // declaration is dropped. The utilities inventory records them as inert for that reason.
+            //
+            // ⚠ <b><c>grid</c> arrived with doc 43 § B2 and maps to a real algorithm, but a grid with
+            // no template is a single <c>auto</c> column.</b> The keyword is all that crosses this
+            // bridge today: <c>grid-template-columns</c> and the placement longhands are track
+            // <i>lists</i>, which a <see cref="LayoutStyle" /> cannot carry — they live in the tree's
+            // <c>TrackArena</c> and are set through <c>SetGridTemplateColumns</c> against a node id,
+            // which <c>Build</c> does not have. So <c>display: grid</c> lays out by §12 while
+            // <c>grid-cols-3</c> still computes a value nothing reads, and the utilities inventory
+            // records exactly that split rather than claiming the family whole.
             Displays = new Dictionary<int, Display> {
                 [table.Intern("flex")] = Display.Flex,
                 [table.Intern("none")] = Display.None,
-                [table.Intern("block")] = Display.Block
+                [table.Intern("block")] = Display.Block,
+                [table.Intern("grid")] = Display.Grid
             };
 
             BoxSizings = new Dictionary<int, BoxSizing> {

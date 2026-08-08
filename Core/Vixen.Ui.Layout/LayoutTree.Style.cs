@@ -43,7 +43,23 @@ public sealed partial class LayoutTree {
         // else happened to invalidate the block.
         var reordered = styles[index].Order != style.Order;
 
+        // ⚠ The four grid track lists are handles into this tree's arena and are owned by the node,
+        // not by the value being assigned. A caller who read a style off one node and wrote it to
+        // another would otherwise leave two nodes naming one block, and the second
+        // `DestroyRecursive` would free it twice. So they survive a whole-style write and are
+        // changed only through `SetGridTemplateColumns` and its siblings — which is what the
+        // `internal` on those fields is there to make the only possibility.
+        var columns = styles[index].GridTemplateColumns;
+        var rows = styles[index].GridTemplateRows;
+        var autoColumns = styles[index].GridAutoColumns;
+        var autoRows = styles[index].GridAutoRows;
+
         styles[index] = style;
+
+        styles[index].GridTemplateColumns = columns;
+        styles[index].GridTemplateRows = rows;
+        styles[index].GridAutoColumns = autoColumns;
+        styles[index].GridAutoRows = autoRows;
 
         if (reordered) {
             // The new value is the one that decides. Going *back* to zero still rebuilds, because

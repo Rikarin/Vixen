@@ -49,6 +49,12 @@ public sealed partial class LayoutTree : IDisposable {
     long[] orderKeys = [];
 
     ChildArena children = new();
+
+    // ⚠ The second arena, and the only thing grid asked of the store that block did not. A track
+    // list is variable-length and `LayoutStyle` is a fixed-size unmanaged struct, so the four grid
+    // template properties are handles into here. A tree with no grid in it never touches it.
+    readonly TrackArena tracks = new();
+
     int capacity;
     int nodeCount;
     int[] freeSlots = [];
@@ -129,6 +135,7 @@ public sealed partial class LayoutTree : IDisposable {
 
         Detach(index);
         children.Free(links[index].ChildOffset, links[index].ChildCapacity);
+        ReleaseGridTemplates(index);
         ReleaseOrderedBlock(index);
         links[index] = new LayoutLinks { Parent = -1, ChildOffset = -1 };
         flags[index] = LayoutNodeState.None;

@@ -145,6 +145,59 @@ public struct LayoutStyle {
     /// <summary>The ceiling.</summary>
     public DimensionLengths MaxDimensions;
 
+    /// <summary>Which axis grid auto-placement fills, and whether it backfills holes.</summary>
+    public GridAutoFlow GridAutoFlow;
+
+    /// <summary>The inline-axis placement of every child of a grid container.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Grid reuses <see cref="Align" /> for the inline axis, and the member names lie
+    ///     slightly.</b> <c>justify-items</c> is CSS Box Alignment's inline-axis property and its
+    ///     keywords are <c>start</c>/<c>end</c>, not <c>flex-start</c>/<c>flex-end</c>; the two
+    ///     differ only under <c>flex-wrap: wrap-reverse</c>, which a grid container does not have. So
+    ///     <see cref="Align.FlexStart" /> read here means the inline start and nothing about flex.
+    ///     A second enum whose members were the same five values would be worse.
+    /// </remarks>
+    public Align JustifyItems;
+
+    /// <summary>This item's own inline-axis placement, overriding its container's.</summary>
+    public Align JustifySelf;
+
+    /// <summary>Which row this item starts in.</summary>
+    public GridPlacement GridRowStart;
+
+    /// <summary>Which row this item ends before.</summary>
+    public GridPlacement GridRowEnd;
+
+    /// <summary>Which column this item starts in.</summary>
+    public GridPlacement GridColumnStart;
+
+    /// <summary>Which column this item ends before.</summary>
+    public GridPlacement GridColumnEnd;
+
+    /// <summary>
+    ///     <c>grid-template-columns</c>, as a handle into the tree's <see cref="TrackArena" />.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and owned by the node rather than by the value.</b> These four are the only
+    ///     fields in this struct that are not self-contained — they name a block in an arena that
+    ///     belongs to one <see cref="LayoutTree" /> — so copying a style between trees, or between
+    ///     nodes, would alias a block that one of them will later free. <see cref="LayoutTree.SetStyle" />
+    ///     therefore carries the destination node's own handles across a whole-style write, and the
+    ///     track lists are set only through
+    ///     <see cref="LayoutTree.SetGridTemplateColumns(LayoutNodeId,ReadOnlySpan{GridTrackSize})" />
+    ///     and its three siblings.
+    /// </remarks>
+    internal GridTemplate GridTemplateColumns;
+
+    /// <inheritdoc cref="GridTemplateColumns" />
+    internal GridTemplate GridTemplateRows;
+
+    /// <inheritdoc cref="GridTemplateColumns" />
+    internal GridTemplate GridAutoColumns;
+
+    /// <inheritdoc cref="GridTemplateColumns" />
+    internal GridTemplate GridAutoRows;
+
     static LayoutStyle CreateDefault() {
         var style = default(LayoutStyle);
         style.Direction = Direction.Inherit;
@@ -164,6 +217,19 @@ public struct LayoutStyle {
         style.FlexShrink = float.NaN;
         style.FlexBasis = StyleLength.Auto;
         style.AspectRatio = float.NaN;
+        style.GridAutoFlow = GridAutoFlow.Row;
+
+        // ⚠ `normal` behaves as `stretch` for a grid item, per CSS Box Alignment §6.2 — a grid area
+        // is a definite rectangle and an item with no size of its own fills it. Yoga's `AlignItems`
+        // default is already Stretch for the same reason; these two follow it so that the inline and
+        // block axes of a grid agree, which is the whole content of `place-items: normal`.
+        style.JustifyItems = Align.Stretch;
+        style.JustifySelf = Align.Auto;
+
+        style.GridTemplateColumns = GridTemplate.Empty;
+        style.GridTemplateRows = GridTemplate.Empty;
+        style.GridAutoColumns = GridTemplate.Empty;
+        style.GridAutoRows = GridTemplate.Empty;
 
         for (var i = 0; i < 2; i++) {
             style.Dimensions[i] = StyleLength.Auto;

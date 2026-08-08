@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace Vixen.Ui.Layout.Tests.Taffy;
 
@@ -87,6 +88,11 @@ static class TaffyStyleMap {
                         "flex" => Display.Flex,
                         "none" => Display.None,
                         "block" => Display.Block,
+                        "grid" => Display.Grid,
+
+                        // `inline-grid`, `inline-flex` and `flow-root` still land here: this store
+                        // has no inline formatting, so an inline-level container is not a spelling
+                        // of the block-level one.
                         _ => throw new TaffyUnsupportedException($"display: {value}")
                     }
                 );
@@ -178,6 +184,17 @@ static class TaffyStyleMap {
             case "align-content": tree.SetAlignContent(node, CrossAlign(name, value, self, self)); break;
             case "justify-content": tree.SetJustifyContent(node, Justification(value, self)); break;
 
+            // The inline-axis pair. ⚠ `justify-items: self-*` is pushed down onto the children by
+            // TaffyFixtureRunner.Build, exactly as `align-items: self-*` is, so it is not applied here.
+            case "justify-items":
+                if (!IsSelfRelative(value)) {
+                    tree.SetJustifyItems(node, GridAlign(name, value, self, self));
+                }
+
+                break;
+
+            case "justify-self": tree.SetJustifySelf(node, GridAlign(name, value, parent, self)); break;
+
             // ── Flex ────────────────────────────────────────────────────────────────────────────
             case "flex-direction":
                 tree.SetFlexDirection(node, value switch {
@@ -204,26 +221,77 @@ static class TaffyStyleMap {
             case "flex-shrink": tree.SetFlexShrink(node, Number(value)); break;
             case "flex-basis": tree.SetFlexBasis(node, Length(value)); break;
 
+            // ── Grid ────────────────────────────────────────────────────────────────────────────
+            case "grid-template-columns":
+            case "grid-template-rows": {
+                var (list, repeat, index, count) = TaffyTrackListParser.Parse(name, value);
+                var parsed = CollectionsMarshal.AsSpan(list);
+                var rows = name == "grid-template-rows";
+
+                if (repeat == GridAutoRepeat.None) {
+                    if (rows) {
+                        tree.SetGridTemplateRows(node, parsed);
+                    } else {
+                        tree.SetGridTemplateColumns(node, parsed);
+                    }
+                } else if (rows) {
+                    tree.SetGridTemplateRows(node, parsed, repeat, index, count);
+                } else {
+                    tree.SetGridTemplateColumns(node, parsed, repeat, index, count);
+                }
+
+                break;
+            }
+
+            case "grid-auto-columns":
+            case "grid-auto-rows": {
+                var (list, repeat, _, _) = TaffyTrackListParser.Parse(name, value);
+
+                // ⚠ An implicit track list is a *cycle*, not a template — §7.5 walks it modulo its
+                // length as implicit tracks are created — so `auto-fill` has nothing to fill against
+                // and no position to be stored at. CSS's grammar does not admit one; a corpus that
+                // grows one is refused rather than silently flattened into a fixed list.
+                if (repeat != GridAutoRepeat.None) {
+                    throw new TaffyUnsupportedException($"{name}: {value}");
+                }
+
+                var parsed = CollectionsMarshal.AsSpan(list);
+
+                if (name == "grid-auto-rows") {
+                    tree.SetGridAutoRows(node, parsed);
+                } else {
+                    tree.SetGridAutoColumns(node, parsed);
+                }
+
+                break;
+            }
+
+            case "grid-auto-flow": tree.SetGridAutoFlow(node, AutoFlow(value)); break;
+
+            // ⚠ Edge.Top/Bottom is the ROW pair and Edge.Left/Right the COLUMN pair — see the
+            // remarks on SetGridPlacement. Reading `grid-row-start` as a left edge because "row" and
+            // "left" both feel horizontal transposes the whole grid and is the mistake this comment
+            // exists to stop.
+            case "grid-row-start": tree.SetGridPlacement(node, Edge.Top, Placement(name, value)); break;
+            case "grid-row-end": tree.SetGridPlacement(node, Edge.Bottom, Placement(name, value)); break;
+            case "grid-column-start": tree.SetGridPlacement(node, Edge.Left, Placement(name, value)); break;
+            case "grid-column-end": tree.SetGridPlacement(node, Edge.Right, Placement(name, value)); break;
+
             // ── Everything Vixen has no field for ───────────────────────────────────────────────
             // Refused by name so that a failure report says which property is missing rather than
-            // which number is wrong. B1 and B2 delete these lines as they land.
+            // which number is wrong. B1 and B2 deleted most of these lines as they landed.
             case "float":
             case "clear":
             case "text-align":
             case "scrollbar-width":
             case "writing-mode":
-            case "justify-items":
-            case "justify-self":
-            case "grid-auto-flow":
-            case "grid-template-rows":
-            case "grid-template-columns":
+
+            // ⚠ Named areas are not a track list and are deliberately still refused even though B2
+            // landed. `grid-template-areas` declares named *lines* that `grid-row-start: header`
+            // then points at, and neither GridPlacement nor the track arena carries a name — so the
+            // only faithful answer is a refusal. No fixture in the corpus writes one today; the arm
+            // is kept so that a refreshed corpus that does is skipped rather than mis-parsed.
             case "grid-template-areas":
-            case "grid-auto-rows":
-            case "grid-auto-columns":
-            case "grid-row-start":
-            case "grid-row-end":
-            case "grid-column-start":
-            case "grid-column-end":
                 throw new TaffyUnsupportedException(name);
 
             default:
@@ -274,6 +342,19 @@ static class TaffyStyleMap {
     ///         is mapped. <c>safe X</c> falls back to start alignment when the item overflows, which
     ///         has no expression here, so it is refused rather than approximated.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <i>grid</i> container's <c>align-*</c> comes through here too, and the answer
+    ///         is right for a stated reason rather than by luck.</b> On a grid, <c>align-items</c>
+    ///         and friends name the BLOCK axis, where <c>start</c> is unambiguous in every writing
+    ///         mode this store supports. This method would nonetheless flip it on
+    ///         <see cref="TaffyBox.WrapReverse" /> and flip <c>self-start</c> on
+    ///         <see cref="TaffyBox.IsColumn" /> — both of which are false for a grid container,
+    ///         because <see cref="TaffyBox.From" /> reads <c>flex-direction</c> and <c>flex-wrap</c>
+    ///         and no <c>display: grid</c> element in the corpus sets either to a reversing value.
+    ///         So the flex resolution degenerates to the identity, which is exactly the block-axis
+    ///         answer. The <i>inline</i> axis is a different matter and gets
+    ///         <see cref="GridAlign" />; see its remarks for why the two cannot share a method.
+    ///     </para>
     /// </remarks>
     /// <param name="property">The attribute name, for the refusal message.</param>
     /// <param name="value">Its value.</param>
@@ -312,6 +393,138 @@ static class TaffyStyleMap {
 
         return resolved;
     }
+
+    // ── Grid ────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     The same keywords on a <i>grid</i> container's inline axis, which is not a flex axis.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This exists rather than reusing <see cref="CrossAlign" /> because every fact
+    ///         <see cref="CrossAlign" /> resolves against is a flex fact.</b> It flips <c>start</c>
+    ///         on <see cref="TaffyBox.WrapReverse" /> and <c>self-start</c> additionally on
+    ///         <see cref="TaffyBox.IsColumn" />, and a grid container has neither a wrap nor a main
+    ///         axis. Feeding a grid through it works today only because both fields are false for
+    ///         every grid container in the corpus — verified: no <c>display: grid</c> element in the
+    ///         2 120 fixtures carries a <c>flex-direction</c>, and the four that carry
+    ///         <c>flex-wrap: wrap</c> are not <c>wrap-reverse</c>. Depending on that would be
+    ///         depending on an accident, and the next corpus refresh gets to break it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>start</c> is <i>not</i> flipped for RTL here, and that is the deliberate
+    ///         answer to the writing-mode question, not an oversight.</b> This store's
+    ///         <see cref="Align" /> and <see cref="Justify" /> are inline-relative on a row axis, not
+    ///         physical: <c>FlexAxis.Resolve(FlexDirection.Row, Direction.Rtl)</c> returns
+    ///         <c>RowReverse</c> and <c>FlexAxis.FlexStartEdge(RowReverse)</c> returns
+    ///         <see cref="Edge.Right" />, so <see cref="Align.FlexStart" /> on an inline axis already
+    ///         <i>means</i> the right-hand edge under <c>direction: rtl</c> — the flex path resolves
+    ///         it that way for every plain <c>flex-direction: row</c> container in the flex corpus.
+    ///         <see cref="LayoutTree.SetJustifyItems" /> documents the same contract in as many
+    ///         words. Resolving RTL a second time here would apply the flip twice and put every
+    ///         <c>justify-self: start</c> item in an RTL grid against the wrong edge, which reads as
+    ///         a placement bug rather than as a translation one. <c>justify-content</c> goes through
+    ///         <see cref="Justification" /> for exactly the same reason and needs no grid twin: its
+    ///         only flip is on <c>*-reverse</c>, which a grid never has.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>self-start</c> is the one keyword that <i>does</i> need work</b>, because it
+    ///         resolves against the <i>item's</i> direction while the algorithm will resolve
+    ///         <see cref="Align.FlexStart" /> against the <i>container's</i>. When the two disagree
+    ///         the answer inverts, and ten nodes in the corpus disagree —
+    ///         <c>grid_justify_items_self_end_child_rtl</c> is the clean case: an <c>rtl</c> child and
+    ///         an <c>ltr</c> child of the same container land on opposite edges of their areas from
+    ///         one declaration.
+    ///     </para>
+    ///     <para>
+    ///         <c>safe X</c> stays refused, as it is for flex: falling back to start alignment on
+    ///         overflow has no expression in this store's <see cref="Align" />. <c>unsafe X</c> is
+    ///         stripped, because unsafe is what every other keyword already means.
+    ///     </para>
+    /// </remarks>
+    /// <param name="property">The attribute name, for the refusal message.</param>
+    /// <param name="value">Its value.</param>
+    /// <param name="container">The grid whose inline axis this aligns against.</param>
+    /// <param name="item">The box being aligned — the same one for <c>justify-items</c>.</param>
+    static Align GridAlign(string property, string value, TaffyBox container, TaffyBox item) {
+        value = Unsafe(property, value);
+
+        var flip = value is "self-start" or "self-end" && container.Rtl != item.Rtl;
+
+        return value switch {
+            "flex-start" or "start" => Align.FlexStart,
+            "flex-end" or "end" => Align.FlexEnd,
+            "self-start" => flip ? Align.FlexEnd : Align.FlexStart,
+            "self-end" => flip ? Align.FlexStart : Align.FlexEnd,
+            "center" => Align.Center,
+
+            // CSS Box Alignment §6.2: `normal` behaves as `stretch` for a grid item.
+            "stretch" or "normal" => Align.Stretch,
+            "baseline" => Align.Baseline,
+            "space-between" => Align.SpaceBetween,
+            "space-around" => Align.SpaceAround,
+            "space-evenly" => Align.SpaceEvenly,
+            "auto" => Align.Auto,
+            _ => throw new TaffyUnsupportedException($"{property}: {value}")
+        };
+    }
+
+    /// <summary>Resolves a grid container's self-relative <c>justify-items</c> for one child.</summary>
+    public static Align JustifyItemsForChild(string value, TaffyBox container, TaffyBox item) =>
+        GridAlign("justify-items", value, container, item);
+
+    /// <summary><c>grid-auto-flow</c>, whose two words may be written in either order.</summary>
+    /// <remarks>
+    ///     The corpus writes only <c>column</c>, <c>row dense</c> and <c>column dense</c> — the
+    ///     initial <c>row</c> is never spelled out and <c>dense</c> never comes first. §8.5's grammar
+    ///     is <c>[ row | column ] || dense</c>, so both orderings and both bare words are legal and
+    ///     all four are accepted here rather than left as a trap for a refreshed corpus.
+    /// </remarks>
+    static GridAutoFlow AutoFlow(string value) {
+        var column = false;
+        var dense = false;
+
+        foreach (var word in value.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
+            switch (word) {
+                case "row": break;
+                case "column": column = true; break;
+                case "dense": dense = true; break;
+                default: throw new TaffyUnsupportedException($"grid-auto-flow: {value}");
+            }
+        }
+
+        return column
+            ? dense ? GridAutoFlow.ColumnDense : GridAutoFlow.Column
+            : dense ? GridAutoFlow.RowDense : GridAutoFlow.Row;
+    }
+
+    /// <summary>One of the four <c>grid-{row,column}-{start,end}</c> values.</summary>
+    /// <remarks>
+    ///     ⚠ The whole grammar the corpus uses is <c>-?&lt;integer&gt;</c> or
+    ///     <c>span &lt;integer&gt;</c> — all 6 636 occurrences, with no <c>auto</c>, no bare
+    ///     <c>span</c> and no named line among them. <c>auto</c> is accepted anyway because it is
+    ///     the initial value and costs one arm; a name is refused, because
+    ///     <see cref="GridPlacement" /> has nowhere to put one.
+    /// </remarks>
+    /// <param name="property">The attribute name, for the refusal message.</param>
+    /// <param name="value">Its value.</param>
+    /// <returns>The placement.</returns>
+    static GridPlacement Placement(string property, string value) {
+        if (value == "auto") {
+            return GridPlacement.Auto;
+        }
+
+        if (value.StartsWith("span ", StringComparison.Ordinal)) {
+            return GridPlacement.Span(Integer(property, value["span ".Length..]));
+        }
+
+        return GridPlacement.Line(Integer(property, value));
+    }
+
+    static int Integer(string property, string value) =>
+        int.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var number)
+            ? number
+            : throw new TaffyUnsupportedException($"{property}: {value}");
 
     /// <summary>The same resolution on the main axis, where <c>*-reverse</c> plays wrap-reverse's part.</summary>
     static Justify Justification(string value, TaffyBox container) {

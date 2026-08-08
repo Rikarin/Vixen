@@ -99,6 +99,18 @@ this as its own case rather than as a stricter kind of reading.
     a Taffy file and no Taffy code is copied, so the corpus entry above is
     unchanged and nothing needs a §4b modification notice.
 
+    CSS Grid (Core/Vixen.Ui.Layout/LayoutTree.Grid*.cs) narrowed that again:
+    src/compute/grid/ was NOT read. The algorithm is written against the CSS Grid
+    Level 1 specification — §7.2 track sizing functions, §8.3 and §8.5 placement,
+    §12.4 to §12.8 track sizing, and §6.6's automatic minimum — and where the
+    specification is ambiguous the behaviour was settled from the corpus's own
+    recorded Chrome output rather than from another implementation's reading of
+    it. Two rules were derived that way and are documented as such in
+    LayoutTree.GridTracks.cs: §12.5 step 4 distributes in proportion to flex
+    factors and falls back to an equal split at a zero sum, and it intersects each
+    round's affected-track filter with "is flexible". So grid is covered by the
+    corpus entry above and adds nothing to the reference-material one.
+
   Unicode Character Database — UAX #9, #14, #29 conformance data
     Unicode-3.0 — https://www.unicode.org/Public/UCD/latest/
 

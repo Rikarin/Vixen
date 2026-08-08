@@ -233,4 +233,16 @@ public static class LayoutLimits {
     ///     layout gives no clue where, and this turns it into a message that names the node.
     /// </remarks>
     public const int MaximumLayoutDepth = 60;
+
+    /// <summary>How many tracks one axis of one grid may have.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A clamp rather than a limit, and CSS says so.</b> CSS Grid §7.2.3 lets an
+    ///     implementation cap the number of tracks a <c>repeat()</c> generates, and Chrome's cap is
+    ///     what the corpus recorded: <c>repeat(10000, 0px)</c>, <c>repeat(32768, …)</c> and
+    ///     <c>repeat(40000, 10px 10px)</c> are all in there specifically to pin the clamped answer,
+    ///     alongside line numbers as large as ±32 768. An implementation with no cap does not fail
+    ///     those fixtures, it allocates until it dies — which is the actual reason the spec permits
+    ///     one.
+    /// </remarks>
+    public const int MaximumGridTracks = 10_000;
 }

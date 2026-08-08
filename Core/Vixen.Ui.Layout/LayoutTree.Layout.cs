@@ -327,6 +327,30 @@ public sealed partial class LayoutTree {
         // case — the margins above and below it meet *through* it — and the shortcut below would
         // return a size without ever reporting that. Twenty fixtures in the block corpus turn on it.
         var childCount = links[index].ChildCount;
+
+        // ⚠ Grid joins block ahead of the childless shortcut, and for a different reason. An empty
+        // grid container is not a plain box: `grid-template-rows: 40px 40px` with no items in it is
+        // 80 points tall, because §12 sizes the tracks the template declared whether or not anything
+        // landed in them. The shortcut below would report the height of its own padding.
+        if (styles[index].Display == Display.Grid) {
+            CalculateGridLayoutImpl(
+                index,
+                availableWidth,
+                availableHeight,
+                direction,
+                widthSizingMode,
+                heightSizingMode,
+                ownerWidth,
+                ownerHeight,
+                performLayout,
+                currentDepth,
+                marginAxisRow,
+                marginAxisColumn
+            );
+
+            return;
+        }
+
         if (styles[index].Display == Display.Block) {
             CalculateBlockLayoutImpl(
                 index,

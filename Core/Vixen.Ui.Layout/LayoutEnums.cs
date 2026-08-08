@@ -172,7 +172,21 @@ public enum Display : byte {
     ///     A block container: children stack down the block axis and fill the inline axis, and
     ///     adjoining vertical margins collapse.
     /// </summary>
-    Block
+    Block,
+
+    /// <summary>
+    ///     A grid container: children are placed into a two-dimensional set of tracks, sized by CSS
+    ///     Grid §12 and aligned within their areas by CSS Box Alignment.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The third algorithm, and the one that is not a variation on either of the others.</b>
+    ///     A flex container's children are a sequence it breaks into lines; a block container's are a
+    ///     stack. A grid's are placed into a rectangle of tracks that are themselves sized <i>by</i>
+    ///     the items in them, which is why §12 runs its intrinsic pass over items grouped by how many
+    ///     tracks they span rather than over the children in order. Nothing in the flex line machinery
+    ///     applies.
+    /// </remarks>
+    Grid
 }
 
 /// <summary>Which way the inline axis runs.</summary>

@@ -69,10 +69,13 @@ public class UtilityFamilySupportTests {
     public static TheoryData<string, string, string> Supported => new() {
         // Layout. ⚠ `block` moved up from `Inert` when doc 43 § B1 landed and it is the first row in
         // this file to change tables because an *algorithm* arrived rather than because a property
-        // found a reader. The other four display utilities are still in `Inert` below.
+        // found a reader. ⚠ `grid` is the second, with § B2 — and it is the first row that moved
+        // while its own family did NOT: `grid-cols-*` and `col-span-*` are still inert below, and
+        // the reason is written there. The three `inline*` utilities remain in `Inert` too.
         { "flex", "display", "flex" },
         { "hidden", "display", "none" },
         { "block", "display", "block" },
+        { "grid", "display", "grid" },
         { "flex-col", "flex-direction", "column" },
         { "flex-wrap", "flex-wrap", "wrap" },
         { "items-center", "align-items", "center" },
@@ -234,7 +237,7 @@ public class UtilityFamilySupportTests {
     ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Inert => new() {
-        // Display: LayoutStyleBuilder maps `flex`, `none` and — since doc 43 § B1 — `block`.
+        // Display: LayoutStyleBuilder maps `flex`, `none`, `block` (doc 43 § B1) and `grid` (§ B2).
         // ⚠ `inline-block` and `inline-flex` are inert *deliberately* rather than for want of a
         // table entry: they differ from their block-level twins only inside an inline formatting
         // context, and mapping them onto `Block` and `Flex` would give `inline-block` the whole
@@ -242,9 +245,22 @@ public class UtilityFamilySupportTests {
         { "inline", "display" },
         { "inline-block", "display" },
         { "inline-flex", "display" },
-        { "grid", "display" },
 
-        // Grid, which the layout is flexbox-only and has no reading of at all.
+        // ⚠ <b>Grid: the algorithm exists and these two still do not reach it, which is a different
+        // reason from the one this block used to give.</b> It used to say "the layout is flexbox-only
+        // and has no reading of at all" — that is no longer true. `LayoutTree` implements CSS Grid
+        // §8 and §12, `display: grid` is mapped, and a grid container lays its children out. What
+        // these two are missing is the *bridge*, and the obstacle is structural rather than a
+        // forgotten table entry: `grid-template-columns` is a track list of arbitrary length, a
+        // `LayoutStyle` is a fixed-size unmanaged struct, and the tracks therefore live in the
+        // tree's `TrackArena` behind `SetGridTemplateColumns(node, …)`. `LayoutStyleBuilder.Build`
+        // returns a `LayoutStyle` and never sees a node id, so there is nowhere in it for a track
+        // list to go — closing this means a production track-list parser and a second call at the
+        // `UiDocument` seam where the node *is* in hand, not a line in a dictionary.
+        //
+        // ⚠ So a `grid` element today is a one-column grid, and `grid-cols-3` on it does nothing.
+        // That is a worse failure than the ordinary inert row, because the sibling utility moved to
+        // `Supported` in the same commit and the family now looks half-live. Doc 43 § B2 owes it.
         { "grid-cols-3", "grid-template-columns" },
         { "col-span-2", "grid-column" },
 
