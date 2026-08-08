@@ -219,8 +219,13 @@ public static class DistanceField {
 
         // ⚠ Larger is worse, so <c>MaxValue</c> is "nothing has answered yet" for this as well —
         // and a first edge that is exactly alongside its point still beats it.
-        var bestAlignment = float.MaxValue;
+        var bestAlongside = float.MaxValue;
         var signed = 0f;
+
+        // The tie's two bounds, kept rather than recomputed: they change only when the best does, and
+        // the comparison against them is the hottest line in the encoder.
+        var further = float.MaxValue;
+        var nearer = float.MaxValue;
 
         foreach (var edge in edges) {
             // ⚠ <b>An exact rejection, not an approximate one.</b> Nothing on a segment can be nearer
@@ -241,39 +246,44 @@ public static class DistanceField {
 
             var t = Math.Clamp(Vector2.Dot(point - edge.From, edge.Direction) * edge.InverseLengthSquared, 0f, 1f);
 
-            // ⚠ The endpoints are the stored ones rather than <c>From + Direction</c>, so that two
-            // edges clamping to one shared vertex clamp to the <i>same</i> vertex. Reconstructing the
-            // far end by addition loses the last bit, which is enough to turn an exact tie into a
-            // near one — and the whole of the rule below is about what happens at that tie.
-            var closest = t <= 0f ? edge.From : t >= 1f ? edge.To : edge.From + (t * edge.Direction);
+            // ⚠ The far endpoint is the stored one rather than <c>From + Direction</c>, so that two
+            // edges clamping to one shared vertex clamp to the <i>same</i> vertex. Reconstructing it
+            // by addition loses the last bit, which is enough to turn an exact tie into a near one —
+            // and the whole of the rule below is about what happens at that tie. The near end needs
+            // no such care: <c>t</c> is nought there and the addition is exact.
+            var closest = t >= 1f ? edge.To : edge.From + (t * edge.Direction);
             var offset = point - closest;
             var distanceSquared = offset.LengthSquared();
 
-            // Clearly further than the best so far, which is the ordinary case and settles it without
-            // the square root below.
-            if (distanceSquared > bestSquared * (1f + Tie)) {
+            // Clearly further than the best so far, which is the ordinary case and settles it before
+            // anything else is worked out.
+            if (distanceSquared > further) {
                 continue;
             }
 
-            var unit = edge.Direction * edge.InverseLength;
-            var distance = MathF.Sqrt(distanceSquared);
-
-            // How nearly the point lies <i>along</i> this edge rather than off the side of it: nought
-            // is square on, one is straight off the end. Nought for anything the segment itself is
-            // nearest to, which is what keeps a real edge ahead of a corner's extension.
-            var alignment = (t > 0f && t < 1f) || distance <= 0f
+            // How far the point lies <i>along</i> this edge past the nearest point on it: nought
+            // whenever the segment itself is what is nearest, and growing as the point goes round the
+            // corner. Kept un-normalised — the only moment it is compared is a tie, where the two
+            // distances are equal by definition and dividing both by the same number decides nothing.
+            // ⚠ Worth a sentence, because normalising it took a square root and a divide onto a path
+            // that runs a few million times and cost 28% of the encode where the whole rule costs 11.
+            // Reconstructing the far endpoint arithmetically to lose the branch above was measured
+            // too, and is 6% <i>slower</i> than the load it replaces — the branch predicts.
+            var alongside = t > 0f && t < 1f
                 ? 0f
-                : MathF.Abs(Vector2.Dot(unit, offset / distance));
+                : MathF.Abs(Vector2.Dot(edge.Direction, offset)) * edge.InverseLength;
 
             // Tied on distance, so the corner rule decides.
-            if (distanceSquared >= bestSquared * (1f - Tie) && alignment >= bestAlignment) {
+            if (distanceSquared >= nearer && alongside >= bestAlongside) {
                 continue;
             }
 
             bestSquared = distanceSquared;
-            best = distance;
-            bestAlignment = alignment;
-            signed = winding * Cross(unit, point - edge.From);
+            best = MathF.Sqrt(distanceSquared);
+            bestAlongside = alongside;
+            further = distanceSquared * (1f + Tie);
+            nearer = distanceSquared * (1f - Tie);
+            signed = winding * Cross(edge.Direction * edge.InverseLength, point - edge.From);
         }
 
         return best == float.MaxValue ? 0f : signed;
