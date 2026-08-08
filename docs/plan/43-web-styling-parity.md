@@ -135,12 +135,25 @@ for an unregistered custom property, and a divergence from Tailwind, which regis
 stop the leak; and a *type*, which is what would let a gradient be transitioned. Both are refinements
 to a mechanism that works without them, so neither is a prerequisite task.
 
-**What it gates.** v4 uses the identical pattern for transforms (A7 / #23), `box-shadow` and filters
-(A8 / #28). The five `--` placeholders the table counts — `--blur`, `--rotate`, `--scale`,
-`--translate-x`, `--translate-y` — are this shape built without the second half: a fragment nothing
-assembles. They are deliberately *not* registered as fragments, so the parity gate goes on calling
-them inert and `InertProperties.txt` goes on recording the debt. Giving them assemblers is what those
-two tasks now are.
+**What it gates, and the first thing it gated.** v4 uses the identical pattern for transforms (A7 /
+#23), `box-shadow` and filters (A8 / #28). The five `--` placeholders the table counted — `--blur`,
+`--rotate`, `--scale`, `--translate-x`, `--translate-y` — were this shape built without the second
+half: a fragment nothing assembles.
+
+**Two of the five are gone.** `translate-x-*` and `translate-y-*` are composed now — a
+`--tw-translate-x`/`--tw-translate-y` fragment each, assembled into one `translate` — and the engine
+reads the assembly. ⚠ Their shape differs from the gradient's in a way worth carrying forward: **both
+axes are assemblers**, each emitting the `translate` declaration beside its own fragment, so
+`translate-x-2` alone works. v3 required a separate `transform` class the gradient way and v4 dropped
+it, because a forgotten assembler is indistinguishable from a broken utility.
+
+⚠ **And the placeholders were worse than unassembled — they were unspellable.** `--scale` is not a CSS
+property. No engine anywhere would ever have read it, so unlike `background-image` the debt could not
+have been closed by a reader arriving: the emission was wrong as well, and the gate could not say so,
+because a property nothing emits and a property nothing reads look identical from inside it. That is
+`grid-cols-3`'s failure a second time. `scale-*` and `rotate-*` emit `scale` and `rotate` now, at
+Tailwind's own values, and `InertProperties.txt` records the debt under those names — where the expiry
+check can reach it.
 
 ⚠ **`partial` is a fifth state the brief did not ask for, and collapsing it in either direction would
 be the same mistake this survey exists to catch.** `border-t-2` is the case that forces it: the layout
@@ -1404,7 +1417,7 @@ algorithms over the existing store.
 ⚠ **C depends on A and B, and inverting that is how the present state came about.** `grid-cols-3`
 exists as a family and emits `grid-template-columns` because a family is a line of a table and the
 grid algorithm is a subsystem — so the cheap half was done and the class name has been available, and
-inert, ever since. The same is true of `translate-x-*`, `blur-*`, `fill-*`, `ring-*` and
+inert, ever since. The same is true of `blur-*`, `fill-*`, `ring-*` and
 `select-none`. **Eighteen of the 90 properties the utilities emit reach no consumer after ExCSS
 expansion**, and each one is a class somebody can write today that does nothing:
 
@@ -1415,6 +1428,12 @@ fill  stroke  grid-column  grid-template-columns
 outline-color  user-select  vertical-align
 transition-property  transition-duration  transition-timing-function
 ```
+
+⚠ **That list is the survey's, kept as written.** Eight of the eighteen have since been retired —
+`grid-column`, `grid-template-columns`, `vertical-align`, the three `transition-*` and the two
+translations — and two more changed their names rather than their state, because `--scale` and
+`--rotate` were never properties any engine would read. `InertProperties.txt` is the live version; this
+is what the survey found.
 
 ✅ **That list is no longer written down here. It is measured, and the block above is what the
 measurement currently says** — eleven, printed by
@@ -1459,7 +1478,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A4 🟢 | `order` | `LayoutStyleBuilder` + flex line ordering | **#22** | 0.1 |
 | A5 ✅ | `overflow-x`/`overflow-y`, and `auto` in the layout keyword table | `OverflowReader`, `LayoutStyleBuilder` | done | — |
 | A6 🟢 | `user-select`, `outline`, `fill`/`stroke` on `OnDraw` paths, and `overflow-clip` | `UiDocument`, `DrawContext` | **#24** | 0.25 |
-| A7 🟡 | Transforms: a real `transform` property, decomposed, animatable | layout + draw + `Animator` | **#23** | 0.6 |
+| A7 🟢 | **Transforms — the translation is done and the other two are refused, on purpose.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **Owed: `scale` and `rotate`, and neither is waiting for a reader.** A `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box — and a rotated clip — cannot be represented at all, and a bounding-box approximation would draw a 45-point square where a 32-point one was asked for. Scale can scale the box and not the picture: glyph advances are shaped at `run.Size` during *layout*, so a scaled subtree needs re-shaping, which is the one thing §3 forbids. Both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes | `TranslationReader`, `UiDocument` | **#23** | 0.35 |
 | A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
 | A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |

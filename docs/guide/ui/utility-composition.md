@@ -37,13 +37,25 @@ the last class written would overwrite the others.
 
 Twelve of the 328 Tailwind roots in `docs/plan/43-web-styling-parity.md` are this shape, and
 the pattern is also how v4 does transforms, `box-shadow` and filters — so the mechanism matters well
-beyond the family that proves it.
+beyond the family that proves it. The translations below are the first of those to arrive.
 
-⚠ **`--blur`, `--rotate`, `--scale` and `--translate-x`/`-y` are this shape built with the second half
-missing.** They are custom properties nothing assembles, so `rotate-2` resolves, computes a value and
-turns nothing. They are deliberately *not* registered as fragments, which is why the parity gate goes
-on calling them inert and `InertProperties.txt` goes on recording what is owed. Giving them an
-assembler is what those tasks are.
+**The translation is the second family to use this, and the first whose two halves assemble into one
+property.** `translate-x-2 translate-y-4` is two classes and one `translate: 8px 16px`, built out of
+`--tw-translate-x` and `--tw-translate-y`. It differs from the gradient in one way worth copying:
+**both classes are assemblers**, so each emits the `translate` declaration beside its own fragment and
+`translate-x-2` on its own works. Tailwind v3 required a separate `transform` class the gradient way
+and dropped it in v4, because a forgotten assembler is indistinguishable from a broken utility.
+
+⚠ **`--blur`, `--rotate` and `--scale` are this shape built with the second half missing.** They are
+custom properties nothing assembles, so `blur-2` resolves, computes a value and turns nothing. They
+are deliberately *not* registered as fragments, which is why the parity gate goes on calling them
+inert and `InertProperties.txt` goes on recording what is owed.
+
+⚠ **And two of those five were worse than unassembled: they were unspellable.** `--scale` and
+`--rotate` are not CSS properties, so no engine anywhere — this one or a browser — would ever have
+read them, and a reader arriving could not have closed the debt because there was nothing to read.
+`scale-*` and `rotate-*` emit `scale` and `rotate` now, at Tailwind's own values (`scale-150` is
+`scale: 150%`, a ratio), and remain inert for a reason that is not a missing reader: see below.
 
 ## Using it
 
@@ -147,6 +159,32 @@ into pixels, and it understands a subset:
 | `bg-radial`, `bg-conic` | ✅ at CSS's default geometry, which is what those two classes mean |
 | `bg-radial-[at_…]`, `bg-conic-<angle>` | ❌ an explicit centre needs a `Vector4` no record has |
 | `background-position`, `-size`, `-repeat` | ❌ still inert |
+| `translate-x-*`, `translate-y-*` — one or both axes, in lengths or percentages | ✅ drawn, clipped and hit-tested in the new place |
+| `scale-*`, `rotate-*` | ❌ refused — see below |
+
+⚠ **A translation is the one transform an axis-aligned draw list can have, and that is why it is the
+only one.** It is resolved in `UiDocument`'s accumulation pass, into the same sum that already carried
+`UiElement.OffsetX` — so it lands in `AbsoluteLeft`/`AbsoluteTop`, and the draw list, the hit test and
+arrow navigation all read the result rather than the property. A translated element therefore *cannot*
+draw in the new place and be clickable in the old one, which is the classic way this feature goes
+wrong; there is no second copy of the arithmetic to get out of step. The clip a translated element
+pushes moves with it and is still a rectangle.
+
+⚠ **It is not layout.** Per CSS Transforms 1 §3 a transform is applied after layout: a translated
+element keeps the space flexbox gave it, its siblings do not move, and it may overflow anything. A
+percentage is of the element's **own** border box, not its container — the opposite of every other
+percentage in the box model, and what makes `-translate-x-full` the idiom for sliding a drawer exactly
+its own width off the edge.
+
+⚠ **`rotate` and `scale` are refused, and neither is waiting for a reader.** A `DrawCommand` is an
+axis-aligned rectangle and the clip stack intersects rectangles. A rotated box is not a rectangle and
+a rotated *clip* is not one either — the per-axis `overflow` trick of pushing one pair of edges past
+the viewport works precisely because what comes out is still axis-aligned — so approximating a
+rotation by its bounding box would draw a 45-point square where a 32-point one was asked for. Scale
+can scale the box in four multiplications and cannot scale the picture: glyph advances are shaped at
+the run's size during layout, so a scaled subtree needs re-shaping, which would make a transform
+affect layout. Both need the renderer to composite a transformed subtree into an offscreen target —
+the same compositor `DrawListBuilder`'s opacity remark already says is owed.
 
 ⚠ **Every assembler emits `in oklab`, which is Tailwind v4's behaviour and not CSS's default.** An
 unhinted gradient is sRGB in CSS, and a `.vcss` rule that writes one gets sRGB; the composed classes

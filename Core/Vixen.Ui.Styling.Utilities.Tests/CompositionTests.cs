@@ -217,13 +217,60 @@ public class CompositionTests {
             Assert.Equal($"var({fragment}, {UtilityComposition.InitialValueOf(fragment)})", UtilityComposition.Reference(fragment));
         }
 
-        // The `--` placeholders that are *not* fragments, and must not be mistaken for them: nothing
-        // assembles them, so they are inert and InertProperties.txt records the debt. #23 and #28 are
-        // where they get assemblers, and this mechanism is the shape those tasks now have to fill.
-        Assert.False(UtilityComposition.IsFragment("--rotate"));
+        // ⚠ <b>The unprefixed `--` placeholders, which are *not* fragments and must not be mistaken
+        // for them.</b> This list used to name `--rotate` and `--translate-x` in the same breath, and
+        // the two have parted company: `--translate-x` was a placeholder and is a fragment now, under
+        // the prefix, assembled into `translate`. `--blur` is the shape all five used to have — a
+        // value parked in a name no engine anywhere reads, which is strictly worse than an unread CSS
+        // property because no reader could ever have closed it. #28 is where it gets an assembler.
+        Assert.False(UtilityComposition.IsFragment("--translate-x"));
         Assert.False(UtilityComposition.IsFragment("--blur"));
         Assert.False(UtilityComposition.IsFragment("--tw-not-registered"));
         Assert.Throws<ArgumentException>(() => UtilityComposition.InitialValueOf("--tw-not-registered"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The translation is composed out of two fragments into <i>one</i> property, which the
+    ///     gradient stops are not, and both families are assemblers.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>from-*</c> sets a fragment and emits no declaration; something else — <c>bg-linear-*</c>
+    ///         — has to be on the element for anything to happen. That is right for a gradient, where
+    ///         the assembler is the thing you are turning on, and wrong for a translation: Tailwind v3
+    ///         needed a separate <c>transform</c> class exactly this way, and dropped it in v4 because
+    ///         it was forgotten constantly and its absence was indistinguishable from the utility being
+    ///         broken. So both axes emit the same assembly beside their own fragment, and
+    ///         <c>translate-x-2</c> alone works.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The initial values are what make one axis alone legal.</b> A bare
+    ///         <c>translate: var(--tw-translate-x) var(--tw-translate-y)</c> on an element carrying only
+    ///         <c>translate-x-2</c> is invalid at computed-value time and the whole declaration is
+    ///         dropped — the element would not move at all, in the case that is by far the commonest.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_two_translate_axes_assemble_into_one_property() {
+        var fixture = new UtilityFixture();
+        var assembly = $"translate: {UtilityComposition.Translation()}";
+
+        Assert.True(UtilityComposition.IsFragment(UtilityComposition.TranslateX));
+        Assert.True(UtilityComposition.IsFragment(UtilityComposition.TranslateY));
+
+        // Each axis sets its own fragment and emits the same assembly beside it.
+        Assert.Equal(["--tw-translate-x: 8px", assembly], fixture.Emits("translate-x-2"));
+        Assert.Equal(["--tw-translate-y: 8px", assembly], fixture.Emits("translate-y-2"));
+
+        // ⚠ The negation reaches the fragment and leaves the assembly alone, which is only true
+        // because `TryResolve` appends `Alongside` *after* negating. Appended first, `TryNegate`
+        // would meet a value beginning with `v`, refuse the whole utility, and `-translate-x-2` would
+        // be reported as an unrecognised class rather than as minus eight pixels.
+        Assert.Equal(["--tw-translate-x: -8px", assembly], fixture.Emits("-translate-x-2"));
+
+        // A percentage, which is the form that needs the element's own box — `-translate-x-full` is
+        // the drawer idiom, and `Size` rather than `Spacing` is what admits it.
+        Assert.Equal(["--tw-translate-x: 100%", assembly], fixture.Emits("translate-x-full"));
     }
 
     /// <summary>Composed families still behave like utilities everywhere else.</summary>
