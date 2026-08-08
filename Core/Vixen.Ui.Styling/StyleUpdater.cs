@@ -23,7 +23,11 @@ namespace Vixen.Ui.Styling;
 /// </remarks>
 public sealed class StyleUpdater {
     readonly StyleEngine engine;
-    readonly StyleInvalidator invalidator;
+    StyleInvalidator invalidator;
+
+    /// <summary>Which selector table <see cref="invalidator" /> was built over.</summary>
+    SelectorTable invalidatorTable;
+
     readonly List<StyleNodeId> roots = [];
     readonly HashSet<int> queued = [];
 
@@ -39,7 +43,41 @@ public sealed class StyleUpdater {
     public StyleUpdater(StyleEngine engine) {
         ArgumentNullException.ThrowIfNull(engine);
         this.engine = engine;
-        invalidator = new StyleInvalidator(engine.Selectors);
+        invalidatorTable = engine.Selectors;
+        invalidator = new StyleInvalidator(invalidatorTable);
+    }
+
+    /// <summary>Rebuilds the invalidator if the engine has replaced the tables it reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A latent crash that predates this method and was reachable through
+    ///         <c>StyleEngine.Replace</c>.</b> The invalidator is built over
+    ///         <see cref="StyleEngine.Selectors" /> and keeps a cursor into
+    ///         <see cref="StyleEngine.Rules" />, and <c>StyleEngine.Reload</c> replaces both — so an
+    ///         updater that held on to one was reading new rules' selector indices against the
+    ///         previous stylesheet's table. A reload that produced <i>fewer</i> selectors read
+    ///         somebody else's compound and quietly invalidated the wrong subtree; one that produced
+    ///         more read off the end and threw.
+    ///     </para>
+    ///     <para>
+    ///         It stayed invisible because the only reload in the engine was a hot edit of a sheet
+    ///         that already existed, whose rule count barely moves. What made it reachable was
+    ///         <c>@media</c> re-evaluation: a window crossing a breakpoint turns a block that was
+    ///         dropped at load into rules, which is a reload that adds selectors by construction.
+    ///     </para>
+    ///     <para>
+    ///         Compared by reference rather than tracked by a revision counter, because the tables
+    ///         being new objects <i>is</i> the event — <c>StyleEngine.Build</c> replaces them together
+    ///         and there is nothing else to observe.
+    ///     </para>
+    /// </remarks>
+    void Refresh() {
+        if (ReferenceEquals(invalidatorTable, engine.Selectors)) {
+            return;
+        }
+
+        invalidatorTable = engine.Selectors;
+        invalidator = new StyleInvalidator(invalidatorTable);
     }
 
     /// <summary>How many elements were cascaded by the last pass.</summary>
@@ -51,6 +89,29 @@ public sealed class StyleUpdater {
 
     /// <summary>How many elements the last pass visited without needing to descend past them.</summary>
     public int LastPassStopped { get; private set; }
+
+    /// <summary>The time in seconds a started transition is stamped with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A property rather than an argument on every entry point, because the clock is a
+    ///         property of the <i>frame</i> and a pass is not the only thing in one.</b>
+    ///         <see cref="ClassChanged" />, <see cref="StateChanged" /> and <see cref="ResolveAll" />
+    ///         all replace styles and all happen inside one tick, so threading the same number through
+    ///         three signatures would be three chances for two of them to disagree about when "now"
+    ///         is — and a transition stamped with the wrong start time is a fade that begins in the
+    ///         past and is half over on its first frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Left at zero is a working state and not a broken one, and that is the case worth
+    ///         stating.</b> A host that never advances it resolves every style at <c>t = 0</c>, so
+    ///         every transition it starts has zero elapsed time for ever and every animated property
+    ///         sticks at the value it was leaving — an interface frozen at the previous frame's
+    ///         appearance rather than one that jumps. <c>UiDocument</c> writes it from
+    ///         <c>UiDocument.Tick</c>, which a host must call every frame regardless; see the remarks
+    ///         there.
+    ///     </para>
+    /// </remarks>
+    public float Now { get; set; }
 
     /// <summary>An element's current computed style.</summary>
     /// <param name="element">The element.</param>
@@ -71,6 +132,7 @@ public sealed class StyleUpdater {
     ///     </para>
     /// </remarks>
     public void ResolveAll() {
+        Refresh();
         invalidator.Read(engine.Rules);
         Grow();
 
@@ -82,9 +144,35 @@ public sealed class StyleUpdater {
             // A removed slot resolves to nothing rather than to a style. Left in, it would be
             // cascaded every pass, counted in the work the incremental story is measured by, and
             // put in the sharing cache under a key describing a tree it is no longer part of.
+            var before = styles[i];
             styles[i] = engine.Tree.IsAliveAt(i) ? Resolve(i) : null;
+
+            if (styles[i] is { } after) {
+                Announce(i, before, after);
+            }
         }
     }
+
+    /// <summary>Shows the animator what a resolve replaced, so it can start what the change owes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Here rather than in the caller, because this is the only place both halves
+    ///         exist.</b> A transition is started by a comparison — CSS has no event for "a class was
+    ///         added" and does not need one — and the previous computed style is overwritten by the
+    ///         line above. Anything downstream sees only the result and could not tell a fade from an
+    ///         instant change if it wanted to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both passes, and the cold one is not the redundant case.</b> A cold pass is what
+    ///         <c>UiDocument.Invalidate</c> costs, which is what a new element, a removal, an inline
+    ///         style and a reparent all cost — so a transition that only the incremental path started
+    ///         would be one that stopped working the moment anything else on the frame added an
+    ///         element. The first cold pass of a document passes <c>null</c> and starts nothing, which
+    ///         is CSS's rule: appear as specified, transition only on change.
+    ///     </para>
+    /// </remarks>
+    void Announce(int index, ComputedStyle? before, ComputedStyle after) =>
+        engine.Animations.Observe(new StyleNodeId(index), before, after, Now);
 
     /// <summary>Restyles what a change to an element's classes could have reached.</summary>
     /// <param name="element">The element that changed.</param>
@@ -105,6 +193,7 @@ public sealed class StyleUpdater {
     public int StateChanged(StyleNodeId element) => Update(element, [], stateChanged: true);
 
     int Update(StyleNodeId element, ReadOnlySpan<int> changed, bool stateChanged) {
+        Refresh();
         invalidator.Read(engine.Rules);
         Grow();
 
@@ -135,6 +224,7 @@ public sealed class StyleUpdater {
 
             styles[index] = after;
             LastPassResolved++;
+            Announce(index, before, after);
 
             // Not "did anything change" but "did anything a child would have inherited change".
             // The coarser test is what made selecting one row of a grid restyle its hundred cells:

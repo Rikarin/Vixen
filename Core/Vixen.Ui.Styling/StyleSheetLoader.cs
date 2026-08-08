@@ -59,6 +59,22 @@ public sealed class StyleSheetLoader {
     /// <remarks>The selector compiler's own diagnostics are separate and equally worth reading.</remarks>
     public IReadOnlyList<SelectorDiagnostic> Diagnostics => diagnostics;
 
+    /// <summary>Every distinct <c>@media</c> condition this loader has been asked to evaluate.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes "the surface changed, does anything care" answerable without reloading to
+    ///     find out.</b> Conditions are decided at load and then thrown away, so an engine handed a new
+    ///     <see cref="MediaContext" /> had no way to tell a resize that flips a breakpoint from one
+    ///     that moves a window by a pixel — and the cheap answer, reload always, is a full ExCSS parse
+    ///     of every sheet on every frame of a window drag. See <see cref="StyleEngine.SetMedia" />.
+    ///
+    ///     A set rather than a list: one generated utility sheet repeats <c>(min-width: 768px)</c>
+    ///     once per <c>md:</c> class in the project, and replaying a hundred copies of one question is
+    ///     a hundred times the work for the same answer.
+    /// </remarks>
+    public IReadOnlyCollection<string> MediaConditions => conditions;
+
+    readonly HashSet<string> conditions = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Loads a stylesheet.</summary>
     /// <param name="css">Its text.</param>
     /// <param name="origin">Who it came from.</param>
@@ -119,6 +135,12 @@ public sealed class StyleSheetLoader {
     }
 
     void LoadMedia(IMediaRule query, StyleOrigin origin, MediaContext media, int layer) {
+        // ⚠ Recorded before the verdict and whether or not the condition could be read, because what
+        // needs it is `StyleEngine.SetMedia` deciding whether a resize could have changed any answer
+        // — and a block that is currently dropped is exactly a block a wider window might keep.
+        // Recording only the ones that matched would make growing a window work and shrinking it not.
+        conditions.Add(query.ConditionText ?? string.Empty);
+
         if (!MediaQuery.TryEvaluate(query.ConditionText, media, out var applies, out var reason)) {
             diagnostics.Add(new SelectorDiagnostic($"@media {query.ConditionText}", reason!));
             return;

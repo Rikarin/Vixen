@@ -42,12 +42,15 @@ in this repository was an impression.
 | **What Vixen emits** | `UtilityFamilies.cs`, `Variants.cs`, `UtilityGenerator.cs` | parsed from the registration table, plus the shorthands ExCSS expands while parsing |
 | **What Vixen reads** | every `Properties.Intern` / `PropertyId` call site in `Core/` and `Editor/` | transcribed per consumer: `LayoutStyleBuilder`, `DrawListBuilder`, `UiDocument`, `Cursor`, `Animator`, `InheritedProperties`, `TransitionSpec` |
 
-⚠ **Two of those seven consumers are not consumers, and transcribing call sites is how they got into
+⚠ **Two of those seven consumers were not consumers, and transcribing call sites is how they got into
 the list.** `Animator` and `TransitionSpec` intern and read exactly what this table says they do — and
-nothing constructs an `Animator`, so no frame has ever asked either of them anything. See **F10**. A
-call site is evidence that a property *would* be read by whoever ran that code; it is not evidence
-that anybody runs it, and that is the second time in this document the same mistake appears in a
-different disguise.
+nothing constructed an `Animator`, so no frame had ever asked either of them anything. See **F10**,
+closed by A20. A call site is evidence that a property *would* be read by whoever ran that code; it is
+not evidence that anybody runs it, and that is the second time in this document the same mistake
+appears in a different disguise. It appears a third time in **F11**: `StyleEngine.Load` takes a
+`MediaContext`, every caller in the survey passed one, and the only caller that mattered —
+`UiDocument` — was not in the survey at all, because a *missing* call site leaves no text to
+transcribe.
 
 ⚠ **"Interned" is not "read", and that distinction had to be made twice.** `InheritedProperties`
 interns seven names — `font-stretch`, `font-variant`, `text-transform`, `word-break`, `word-spacing`,
@@ -348,14 +351,15 @@ pass, all of which the table above gets wrong in one direction or the other:
   `border-left-color` and `border-right-color` are painted by the draw list now, and `order` is read
   by both the layout and the paint sequence. The Borders and Flexbox rows are that much better than
   they read.
-- **Transitions and Animation is `0 works, 0 partial, 3 inert`, not `2 / 1 / 0`** — F10 below. The
+- **Transitions and Animation was `0 works, 0 partial, 3 inert`, not `2 / 1 / 0`** — F10 below. The
   row was derived from the cascade computing a value, which is the conflation this whole document is
-  about, and it got past the survey.
+  about, and it got past the survey. ✅ It is `3 works` now that A20 has landed, arrived at from the
+  other direction: a fade measured mid-flight rather than a value found in a table.
 - **`font-weight` is read** and the survey's own consumer walk did not say otherwise; it is recorded
   here because it is the one property the *gate* got wrong first time round, for a reason worth
   knowing. See F10's second half.
 
-The live count is **17 properties emitted with no consumer**, every one of them on the expiring
+The live count is **11 properties emitted with no consumer**, every one of them on the expiring
 allow-list in `InertProperties.txt` with the task that closes it.
 
 ### The columns
@@ -507,7 +511,7 @@ Five of the names in that list have no family: **`space`**, **`divide`**, **`mix
 **`origin`**, **`scroll`**. This is not a Tailwind-parity gap; it is doc 09 disagreeing with the code,
 which is the thing `docs/overview.md` exists to catch and did not.
 
-### F10 · Nothing ever builds an `Animator`, so no CSS transition has ever run ⚠ *correcting this document*
+### F10 · Nothing ever builds an `Animator`, so no CSS transition has ever run ✅ *closed by A20*
 
 The gate's first pass found it and a NUL-safe search confirms it: **`Animator` is constructed in
 exactly one place in the repository, `Core/Vixen.Ui.Styling.Tests`.** No `UiDocument`, no
@@ -533,6 +537,91 @@ field on the style engine, a call to `Observe` where a computed style is replace
 `Advance` from the frame's tick, and `Apply` on the way to the consumers. What makes it worth its own
 task rather than a line in another is that it is the seam that decides whether `Vixen.Ui`'s frame
 loop has a place for a time-varying style at all.
+
+✅ **Landed, and the estimate was right: four wires, exactly where this said.** `StyleEngine.Animations`
+is built with the rest of the derived state so a reload forgets what was in flight; `StyleUpdater`
+announces every replaced style to it, from the cold pass as well as the incremental one, stamped with
+a `Now` the document writes; `UiDocument.Tick` advances it and marks the document dirty through
+`InvalidatePositions` rather than `Invalidate`, because a fade changes nothing the cascade decided;
+and `UiDocument.Apply` overlays it before anything reads a style, which puts the transition tier above
+`!important` where CSS Cascading 5 § 6.2 wants it. `UiDocument.CompactStyles` remaps it, which is the
+one of the five that is load-bearing rather than insurance — a running transition is the only
+per-element state a cold pass does not rewrite.
+
+⚠ **The proof is a value read *between* the endpoints, and nothing weaker would have done.**
+`Vixen.Ui.Tests.TransitionTests` asserts a width that is neither ten nor a hundred and ten and a
+colour that is neither of the two the stylesheet names. Each of the four wires was removed in turn and
+the suite went red for each; a fifth sabotage — pinning `StyleUpdater.Now` to zero — passed the first
+draft, because every test in it started its fade at `t = 0`, which is also where a clock that is never
+advanced is. `A_transition_started_late_in_the_session_still_takes_its_full_duration` is what that
+sabotage bought, and the bug it guards is real: every transition in a process that had been running
+for a while would otherwise begin already finished.
+
+⚠ **The gate needed a tenth scene before it could see the third property, which is the third time.**
+Wiring the animator made `transition-duration` and `transition-timing-function` consumers
+immediately and left `transition-property` measuring inert — not because it is unread but because
+`transition-duration` defaults to `0s`, so the property alone moves nothing in a plain scene, and the
+`animated` scene already declared the family's only emitted value (`all`). The comment on that scene
+asserted the opposite and was wrong. The `primed` scene — a duration and a timing function aimed at a
+property the mutation does not touch — is where injecting `all` finally changes a frame. Same lesson
+as `gridded` and `inlined`: a green gate is a claim about the scenes as much as about the engine.
+
+⚠ **Two limitations found while proving it, both real and neither fixed here.**
+
+- **A transition only runs where the previous computed style *also held the property*.** `Observe`
+  reads the displayed value out of `before`, and a cascade with no computed-value stage has nothing
+  to offer for a property the element did not previously declare — so fading `margin-left` from an
+  implicit `0` does not happen, while fading it from a declared `0px` does. That is why the three
+  rows come back as `paint` consumers and not `layout` ones: the probe's mutation adds a `margin-left`
+  that was not there before, and only its `background-color` change had both ends.
+- **The `transition` utility still does nothing on its own.** Vixen's family emits
+  `transition-property` and stops; Tailwind's also emits a 150 ms duration and a timing function. The
+  property is read, so the row belongs in `Supported`; the class needs a `duration-*` beside it. A
+  family gap rather than a property gap, recorded on the `Supported` table.
+
+### F11 · The whole of `@media` was evaluated against a surface that does not exist ⚠ *found while closing F10*
+
+`StyleEngine.Load` has taken a `MediaContext` since the cascade was written. **`UiDocument.Load`
+passed nothing**, and nothing else in `Core/` or `Editor/` constructed one — the only callers outside
+`Vixen.Ui.Styling.Tests` were tests. So every stylesheet in every real document was evaluated against
+`default(MediaContext)`: a surface nought pixels wide, nought high, at 1×, with no colour-scheme
+preference and an sRGB gamut.
+
+**That is the same shape as F10 and it is bigger.** The scope, in descending order of how much it
+matters:
+
+- **Every responsive variant was dead.** `md:p-4` compiles to `@media (min-width: 768px)`, and
+  `0 ≥ 768` is false at every window size, so the block was dropped at load and the class matched
+  nothing. `sm:`, `md:`, `lg:`, `xl:`, `2xl:` and any breakpoint a theme names, all of them, always.
+  Nothing in the repository writes one — which is why it had never been noticed, and is also why
+  fixing it moved no screenshot baseline.
+- **`dark:` under the `media` strategy was dead**, for the same reason. The `class` strategy compiles
+  to a `.dark` ancestor and was unaffected, and the editor uses the `class` strategy.
+- **`@media (color-gamut: p3)` could never match**, which was the entry point: the swapchain reports
+  the gamut it was *granted*, `UiGeometryBuilder` is already told and maps every colour it emits
+  against it, and the same fact never reached the cascade.
+
+⚠ **`@media` is decided at load and not at match**, which `StyleSheetLoader` says and gives the reason
+for — so re-asking the question on a resize is somebody's job, and it was nobody's. It is
+`StyleEngine.SetMedia` now, guarded on the *verdicts* rather than on the context: the conditions the
+loader saw are replayed against the old context and the new one, and the sheets are reloaded only
+where one of them disagrees. Without that guard a window drag would be a full ExCSS re-parse of every
+sheet sixty times a second, and would restart every fade in the window each time.
+
+⚠ **And it uncovered a latent crash that predates all of this.** `StyleUpdater` builds a
+`StyleInvalidator` over `StyleEngine.Selectors` in its constructor and keeps a cursor into
+`StyleEngine.Rules`; `StyleEngine.Reload` replaces both. A reload that produced fewer selectors read
+somebody else's compound and invalidated the wrong subtree, and one that produced more read off the
+end and threw — reachable through `UiDocument.ReloadStyles` and therefore through every hot edit of a
+stylesheet, and invisible only because a hot edit rarely changes the rule count much. A breakpoint
+being crossed turns a dropped block into rules, which adds selectors by construction, so the first
+`@media` re-evaluation found it immediately.
+
+**Sized at 0.3 EM and landed with A20**, because it is the same shape of bug and the same seam. What
+is still owed is **per-surface media**: `@media` produces rules, rules are shared by every surface of
+one document — that is what keeps one theme across a torn-off window — so `max-width` cannot yet
+answer differently in two windows, and the context is read off the primary surface. `EditorPane`
+publishes the gamut from the main window's swapchain only, for the same reason.
 
 ⚠ **And the second half is about the instrument rather than the engine: `font-weight` read as inert
 and is not.** The weight reaches `FontRegistry.Resolve` and selects a different face; the gate could
@@ -1267,12 +1356,14 @@ transition-property  transition-duration  transition-timing-function
 ```
 
 ✅ **That list is no longer written down here. It is measured, and the block above is what the
-measurement currently says** — seventeen, printed by
+measurement currently says** — eleven, printed by
 `Core/Vixen.Ui.Styling.Utilities.Tests/UtilityConsumptionGateTests` on every run and mirrored line for
 line in `InertProperties.txt`, each with the task that closes it. It was twenty when the survey was
 taken: `overflow-x` and `overflow-y` came off when F3 landed, `order` and three of the five per-edge
-border colours when the draw list learned the rest of the longhands, and the three `transition-*`
-names went **on** when F10 found that nothing runs the animator.
+border colours when the draw list learned the rest of the longhands, the grid pair and
+`vertical-align` came off with B2 and B3, and the three `transition-*` names went **on** when F10
+found that nothing runs the animator — and **off again** when A20 made one run, which makes them the
+only names to have been in the file twice.
 
 ⚠ **The gate is a test and not `CheckArchitecture`, and the reason is the difference between
 "interned" and "acted on".** This document's own § Part 0 measured that gap at seven properties —
@@ -1320,7 +1411,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
 | A18 🟢 | Scroll properties as `ScrollView` inputs rather than CSS | `Vixen.Ui.Controls` | — | 0.3 |
 | A19 🟢 | `text-decoration`, `text-transform`, `font-variant-numeric`, `font-stretch` | `Vixen.Ui.Text` | — | 0.4 |
-| A20 🟢 | **Run the `Animator`** — build one on the style engine, `Observe` a replaced computed style, `Advance` on the tick, `Apply` before the consumers read. The component is finished and has no caller (F10) | `StyleEngine`, `UiDocument` | **#46** | 0.2 |
+| A20 ✅ | **Run the `Animator`** — built on the style engine, `Observe` from the updater, `Advance` on the tick, `Apply` before the consumers read (F10). **Landed with F11**, which the same seam turned up: `UiDocument` never handed the cascade a `MediaContext` either, so every breakpoint, every `dark:` under the media strategy and every `color-gamut` query was dead | `StyleEngine`, `UiDocument` | **#46** | done |
 | | | | **A total** | **6.9** |
 
 ### Track B — layout modes
@@ -1471,7 +1562,7 @@ inventory with an unexplained hole in it is how a subset gets rationalised the n
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
    rather than `CheckArchitecture`, for the reason Part 5 gives, and "acts on" rather than "interns"
-   for the reason Part 0 measured at seven properties. Today: **17 properties, 17 allow-listed**, and
+   for the reason Part 0 measured at seven properties. Today: **11 properties, 11 allow-listed**, and
    the allow-list expires on its condition.
 3. **`UtilityFamilySupportTests` has a row per root, resolved against a real element**, and its
    `Inert` table is empty or every entry names its task. It is the only artefact in this survey built

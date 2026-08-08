@@ -144,6 +144,15 @@ public sealed partial class UiDocument {
             Layout.Invalidate(surface.Root.LayoutNode);
         }
 
+        // ⚠ <b>A resize is the one thing that can change what `@media` answers, and for two phases it
+        // did not.</b> Conditions are decided at load rather than at match — `StyleSheetLoader` says
+        // so and gives the reason — which makes re-asking them somebody's job, and nobody's. Only the
+        // primary surface, because the rule set is shared by every surface of one document; see the
+        // limitation recorded on `Media`.
+        if (surface.IsPrimary) {
+            Remedia();
+        }
+
         Forget();
     }
 

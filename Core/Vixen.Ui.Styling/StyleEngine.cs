@@ -22,7 +22,19 @@ namespace Vixen.Ui.Styling;
 /// </remarks>
 public sealed class StyleEngine {
     /// <summary>A sheet as it was handed in, kept so the rule set can be rebuilt without it.</summary>
-    readonly record struct Sheet(string Css, StyleOrigin Origin, MediaContext Media);
+    /// <param name="Css">Its text.</param>
+    /// <param name="Origin">Who it came from.</param>
+    /// <param name="Media">
+    ///     The context it named, or <c>null</c> to follow <see cref="StyleEngine.Media" />.
+    ///     <para>
+    ///         ⚠ <b>Nullable, so that "this sheet is about a 320-pixel surface" and "this sheet is
+    ///         about whatever surface the document is on" are different states.</b> They were the same
+    ///         state before, and the one that lost was the second: <c>default(MediaContext)</c> is a
+    ///         surface nought pixels wide, so every <c>@media (min-width: …)</c> in the engine was
+    ///         evaluated against a window that does not exist and every one of them was false.
+    ///     </para>
+    /// </param>
+    readonly record struct Sheet(string Css, StyleOrigin Origin, MediaContext? Media);
 
     readonly List<Sheet> sheets = [];
 
@@ -78,16 +90,107 @@ public sealed class StyleEngine {
     /// <summary>The element store.</summary>
     public StyleTree Tree { get; }
 
+    /// <summary>Runs the transitions and the <c>@keyframes</c> animations.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Rebuilt with the rest of the derived state, which is what makes a reload forget
+    ///         what was in flight.</b> It holds the <see cref="Keyframes" /> table, and
+    ///         <see cref="Build" /> replaces that — an animator kept across a reload would go on
+    ///         interpolating against a <c>@keyframes</c> set the stylesheet no longer has.
+    ///     </para>
+    ///     <para>
+    ///         It is here rather than on the document because it is the cascade's last tier: CSS
+    ///         Cascading 5 § 6.2 puts a transitioning value above <c>!important</c>, and the thing
+    ///         that owns the other tiers is the thing that should own this one. What the document adds
+    ///         is a clock.
+    ///     </para>
+    /// </remarks>
+    public Animator Animations { get; private set; }
+
+    /// <summary>What <c>@media</c> is evaluated against for sheets that did not name a context.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The default is a nought-by-nought surface, and it is a deliberate non-answer rather
+    ///     than a sensible starting point.</b> An engine nobody has told about a window cannot know
+    ///     how wide one is, and inventing a plausible width would make <c>@media (min-width: 768px)</c>
+    ///     silently mean something. A host sets this through <c>UiDocument</c>, which reads it off the
+    ///     surface it is already holding.
+    /// </remarks>
+    public MediaContext Media { get; private set; }
+
+    /// <summary>Re-evaluates every <c>@media</c> block against a new surface.</summary>
+    /// <param name="media">What the surface is now.</param>
+    /// <returns>Whether any block changed its mind, and the sheets were therefore reloaded.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>@media</c> is evaluated at load and not at match</b> — see
+    ///         <see cref="StyleSheetLoader" /> — which is the trade that makes matching cheap and makes
+    ///         this method necessary. A surface that changed size has to re-ask the questions, and the
+    ///         only way to re-ask them is to load the sheets again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Guarded on the verdicts rather than on the context, and the difference is a window
+    ///         drag.</b> A resize changes <see cref="MediaContext.Width" /> on every frame of it; a
+    ///         reload re-parses every stylesheet with ExCSS, which for a generated utility sheet is
+    ///         not a per-frame cost. So the conditions the loader actually saw are replayed against
+    ///         the old context and the new one, and the reload happens only where one of them
+    ///         disagrees. A document with no <c>@media</c> in it — which is every stylesheet this
+    ///         repository ships — replays nothing and reloads never.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Anything in flight is forgotten when it does reload, <see cref="Animations" />
+    ///         included, because everything derived from the rules is rebuilt. That is the same rule
+    ///         <see cref="Replace" /> follows and it is why the guard above is worth having twice
+    ///         over: without it, resizing a window would restart every fade in it.
+    ///     </para>
+    /// </remarks>
+    public bool SetMedia(MediaContext media) {
+        var previous = Media;
+
+        if (previous == media) {
+            return false;
+        }
+
+        Media = media;
+
+        if (!VerdictsDiffer(previous, media)) {
+            return false;
+        }
+
+        Reload();
+        return true;
+    }
+
+    /// <summary>Whether any condition the loader evaluated would answer differently.</summary>
+    /// <remarks>
+    ///     A condition it could not evaluate at all is counted as false for both contexts, so an
+    ///     unsupported feature is a block that stays dropped rather than a reload on every resize.
+    /// </remarks>
+    bool VerdictsDiffer(MediaContext before, MediaContext after) {
+        foreach (var condition in Loader.MediaConditions) {
+            if (Holds(condition, before) != Holds(condition, after)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static bool Holds(string condition, MediaContext context) =>
+        MediaQuery.TryEvaluate(condition, context, out var matches, out _) && matches;
+
     /// <summary>Loads a stylesheet.</summary>
     /// <param name="css">Its text.</param>
     /// <param name="origin">Who it came from.</param>
-    /// <param name="media">What to evaluate <c>@media</c> against.</param>
+    /// <param name="media">
+    ///     What to evaluate <c>@media</c> against, or <c>null</c> to follow <see cref="Media" /> — and
+    ///     to keep following it, so that <see cref="SetMedia" /> reaches this sheet too.
+    /// </param>
     /// <returns>The sheet's index, for <see cref="Replace" />.</returns>
-    public int Load(string css, StyleOrigin origin = StyleOrigin.Author, MediaContext media = default) {
+    public int Load(string css, StyleOrigin origin = StyleOrigin.Author, MediaContext? media = null) {
         ArgumentNullException.ThrowIfNull(css);
 
         sheets.Add(new(css, origin, media));
-        Loader.Load(css, origin, media);
+        Loader.Load(css, origin, media ?? Media);
         return sheets.Count - 1;
     }
 
@@ -138,7 +241,7 @@ public sealed class StyleEngine {
         Build();
 
         foreach (var sheet in sheets) {
-            Loader.Load(sheet.Css, sheet.Origin, sheet.Media);
+            Loader.Load(sheet.Css, sheet.Origin, sheet.Media ?? Media);
         }
     }
 
@@ -158,7 +261,8 @@ public sealed class StyleEngine {
         nameof(Interning),
         nameof(Keyframes),
         nameof(Loader),
-        nameof(Resolver)
+        nameof(Resolver),
+        nameof(Animations)
     )]
     void Build() {
         Selectors = new SelectorTable();
@@ -169,6 +273,11 @@ public sealed class StyleEngine {
         Keyframes = new KeyframesTable();
         Loader = new StyleSheetLoader(Rules, Keyframes, Compiler);
         Resolver = new StyleResolver(Rules, InlineStyles, Matcher, Interning);
+
+        // After `Keyframes`, which it holds — see the remarks on `Animations` for why it is rebuilt
+        // here rather than kept. `Names` is the keyword table `StyleValueParser` interns identifiers
+        // in, which is the same one `UiDocument` hands its own reader.
+        Animations = new Animator(Properties, Values, Names, Keyframes);
     }
 
     /// <summary>Records declarations written on an element itself.</summary>

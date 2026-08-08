@@ -333,6 +333,41 @@ public class UtilityConsumptionGateTests {
     public void A_property_the_engine_acts_on_moves_the_channel_it_should(string property, string value, string channel) =>
         Assert.Contains(channel, UtilityConsumptionProbe.Channels(property, value), StringComparer.Ordinal);
 
+    /// <summary>The two transition scenes can still see a running animation.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A control over the <i>scenes</i>, not over the engine, and the file needs one
+    ///         because the scenes have been the blind spot three times.</b> <c>grid-template-columns</c>
+    ///         measured inert because no scene had a grid container, <c>vertical-align</c> because none
+    ///         had a line box, and <c>transition-property</c> because the one scene with transitions
+    ///         switched on already declared the family's only emitted value. Each time the gate was
+    ///         green while the property it was reporting on had a reader.
+    ///     </para>
+    ///     <para>
+    ///         The rows above will keep this honest for as long as those three properties stay on the
+    ///         family surface — but the surface is not fixed, and a family removed or renamed would
+    ///         take the gate's only exposure to the <c>animated</c> and <c>primed</c> scenes with it,
+    ///         leaving two arrangements nothing ever exercises. This asks them directly, with values
+    ///         chosen to differ from what each scene declares: <c>700ms</c> against the scene's
+    ///         <c>200ms</c>, <c>ease-in-out</c> against its <c>linear</c>, and <c>all</c> against
+    ///         <c>primed</c>'s <c>color</c>.
+    ///     </para>
+    ///     <para>
+    ///         <c>paint</c> rather than <c>layout</c>, and that is a real property of the animator
+    ///         rather than a weak assertion: a transition needs the value it is coming *from*, which
+    ///         it reads out of the previous computed style — and a cascade with no computed-value stage
+    ///         has nothing to offer for a property the element did not previously declare. The probe's
+    ///         mutation adds a <c>margin-left</c> that was not there before, so only its
+    ///         <c>background-color</c> change has both ends and only the paint channel moves.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("transition-property", "all")]
+    [InlineData("transition-duration", "700ms")]
+    [InlineData("transition-timing-function", "ease-in-out")]
+    public void The_transition_scenes_can_observe_a_running_animation(string property, string value) =>
+        Assert.Contains("paint", UtilityConsumptionProbe.Channels(property, value), StringComparer.Ordinal);
+
     /// <summary>What the run measured, printed whether it passed or not.</summary>
     /// <remarks>
     ///     ⚠ <b>The allow-list is only a deterrent if somebody sees it.</b> A silent pass is how a list

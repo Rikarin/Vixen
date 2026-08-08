@@ -729,6 +729,8 @@ Vixen.Ui.UiDocument.CanOpenWindows.get -> bool
 Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.UiDocument.Captured.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.ColorOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> Vixen.Core.Mathematics.Color4?
+Vixen.Ui.UiDocument.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
+Vixen.Ui.UiDocument.ColorScheme.set -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.UiDocument.CompactStyles() -> bool
 Vixen.Ui.UiDocument.ComponentAt(Vixen.Ui.UiElement element) -> Vixen.Ui.Composition.Component?
 Vixen.Ui.UiDocument.Create(string tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
@@ -752,6 +754,8 @@ Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element) -> bool
 Vixen.Ui.UiDocument.Focused.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Fonts.get -> Vixen.Ui.FontRegistry
 Vixen.Ui.UiDocument.ForegroundOf(Vixen.Ui.UiElement element) -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.UiDocument.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
+Vixen.Ui.UiDocument.Gamut.set -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.UiDocument.Gestures.get -> Vixen.Ui.GestureRecognizer
 Vixen.Ui.UiDocument.HitTest(Vixen.Ui.UiSurface surface, float x, float y) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.HitTest(float x, float y) -> Vixen.Ui.UiElement?
@@ -765,6 +769,7 @@ Vixen.Ui.UiDocument.LayoutFinished -> System.Action<Vixen.Ui.UiDocument>?
 Vixen.Ui.UiDocument.LengthOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> float?
 Vixen.Ui.UiDocument.Load(string css, Vixen.Ui.Styling.StyleOrigin origin = Vixen.Ui.Styling.StyleOrigin.Author) -> int
 Vixen.Ui.UiDocument.LoadOnce(object key, string css, Vixen.Ui.Styling.StyleOrigin origin = Vixen.Ui.Styling.StyleOrigin.Author) -> bool
+Vixen.Ui.UiDocument.Media.get -> Vixen.Ui.Styling.MediaContext
 Vixen.Ui.UiDocument.Move(Vixen.Ui.UiElement element, int index) -> void
 Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.FocusDirection direction) -> bool
 Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.NavigationDirection direction) -> bool

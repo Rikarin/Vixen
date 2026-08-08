@@ -205,9 +205,29 @@ public class UtilityFamilySupportTests {
         { "overflow-y-auto", "overflow-y", "auto" },
         { "overflow-y-scroll", "overflow-y", "scroll" },
 
-        // Interactivity and motion. ⚠ The three `transition-*` rows are not here any more — see the
-        // note on `Inert`. They resolved, which is all a row in this table ever checked, and nothing
-        // ran.
+        // Interactivity and motion.
+        //
+        // ⚠ <b>The three `transition-*` rows left this table and have come back, which no other row
+        // has done.</b> They were here originally because the cascade computed a value for each — the
+        // reading this file's own first paragraph says is not enough — and the parity gate's first run
+        // moved them to `Inert` on finding that nothing in the repository ever built an `Animator`.
+        // Doc 43 A20 built one, on the style engine, and the frame loop now `Observe`s a replaced
+        // style, `Advance`s on the tick and `Apply`s before any consumer reads. What holds them here
+        // is `Vixen.Ui.Tests.TransitionTests`, which reads a width and a colour *between* the two
+        // endpoints — the only measurement that can tell a fade from a jump, and therefore the only
+        // one that could have failed for the original reason.
+        //
+        // ⚠ <b>And a row that is honest about only being a row about the property: `transition` on
+        // its own still does nothing.</b> Vixen's family emits `transition-property` and stops, where
+        // Tailwind's `transition` also emits a 150 ms duration and a timing function — and a
+        // transition whose duration is the initial `0s` is declined by the animator, correctly. So the
+        // class needs a `duration-*` beside it to do anything at all. That is a gap in what the family
+        // *emits*, not in what the engine reads, which is why it is recorded here rather than left as
+        // an `Inert` row: the property below is genuinely read, and `transition-none` would be
+        // refused by the same animator that honours `transition-property: all`.
+        { "transition", "transition-property", "all" },
+        { "duration-150", "transition-duration", "150ms" },
+        { "ease-out", "transition-timing-function", "ease-out" },
         { "cursor-pointer", "cursor", "pointer" },
         { "pointer-events-none", "pointer-events", "none" },
         { "aspect-video", "aspect-ratio", "16/9" }
@@ -305,17 +325,13 @@ public class UtilityFamilySupportTests {
         // Text and interaction properties with no consumer.
         { "select-none", "user-select" },
 
-        // ⚠ <b>Motion, and these three came *down* from `Supported` — the only rows that ever have.</b>
-        // `Vixen.Ui.Styling.Animator` is finished, is covered by three test files of its own, and is
-        // constructed nowhere outside them: no `UiDocument`, no `StyleEngine`, nothing. So a declared
-        // transition has never run, and `duration-150` is a duration for something that does not
-        // happen. They sat in `Supported` because the cascade computes a value for them, which is the
-        // conflation the remarks at the top of this file warn about, in this file. See
-        // `docs/plan/43` F10 and task #29 — and see `UtilityConsumptionGateTests`, which is what found
-        // it and what stops the next one lasting as long.
-        { "transition", "transition-property" },
-        { "duration-150", "transition-duration" },
-        { "ease-out", "transition-timing-function" }
+        // ⚠ <b>The three `transition-*` rows were here and are now back in `Supported`.</b> They are
+        // the only rows in this file to have made the trip in both directions, and the round trip is
+        // worth more than either leg: they sat in `Supported` on the strength of the cascade computing
+        // a value, the gate's first run moved them here, and A20 wiring the animator to the frame loop
+        // moved them back — this time with a mid-flight width and a mid-flight colour behind them
+        // rather than a computed value. See `Vixen.Ui.Tests.TransitionTests`, and the closed block in
+        // `InertProperties.txt` for what the gate needed before it could see the third one.
     };
 
     /// <summary>Each supported family computes what the engine's own consumers go looking for.</summary>
