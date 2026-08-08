@@ -369,7 +369,17 @@ public sealed partial class LayoutTree {
         // applies and the box's own bottom edge is used. The flex rule one line down, "borrow the
         // first child's", is a flex-item rule; applying it to a block box puts a 20-point card with
         // a 10-point child ten points too low, which is `block_align_baseline_child` exactly.
-        if (styles[index].Display == Display.Block) {
+        // ⚠ A box that laid its own children out on line boxes answers with the last one's baseline,
+        // and it is the only box here that can: §10.8.1 puts a flow container's baseline on its last
+        // line box, and a line box is not a node, so there is nothing for the walk below to descend
+        // into. `LayoutTree.Inline` records it during the walk for exactly this call.
+        if (!float.IsNaN(results[index].InlineBaseline)
+            && styles[index].OverflowX == Overflow.Visible
+            && styles[index].OverflowY == Overflow.Visible) {
+            return results[index].InlineBaseline;
+        }
+
+        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline) {
             return results[index].MeasuredDimensions[(int) Dimension.Height];
         }
 

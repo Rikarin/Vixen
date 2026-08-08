@@ -62,8 +62,23 @@ user-select                  #24  no selection model reads it, so `select-none` 
 # `col-end-*`, `row-start-*`, `row-end-*`, `auto-cols-*`, `auto-rows-*`, `grid-flow-*`. The bridge
 # reads every one of those properties; the families are simply not registered yet.
 
-# ── Inline formatting — B3. `vertical-align` needs line boxes to align to.
-vertical-align               #26  inline formatting: line boxes, baselines, atomic inlines
+# ── Inline formatting — B3. CLOSED for `vertical-align`, and the closing is worth reading.
+#
+# The line above said "`vertical-align` needs line boxes to align to", which was true and was not
+# the whole story — the same shape of half-truth the grid block below records. It named the missing
+# algorithm correctly and could not have told anybody when the algorithm arrived, because no scene
+# in `UtilityConsumptionProbe` contained a line box: every one of the nine made `#probe` a flex,
+# block or grid container, and CSS applies `vertical-align` to none of those. So the property would
+# have gone on measuring inert after B3 landed, and this file would have gone on claiming a gap that
+# had closed. The `inlined` scene is what gives the gate eyes for it, and it was added in the same
+# commit as the algorithm rather than after it.
+#
+# ⚠ Three of the eight values are implemented and five are not, and the five are NOT a gap in this
+# file's sense: `middle`, `text-top`, `text-bottom`, `sub` and `super` are defined against the
+# parent's font strut, `Vixen.Ui.Layout` has no font, and `LayoutStyleBuilder` therefore drops them
+# rather than mapping them. The property is read; those values are refused at the bridge. The
+# utilities that emit them stay inert in `UtilityFamilySupportTests`, which is where a *family*
+# rather than a property is recorded. See `InlineKnownGaps.txt`.
 
 # ── Transitions — A20, and this group is the one the survey got wrong. The Animator is finished and
 # tested and nothing ever constructs one, so a declared transition has never run. See F10.

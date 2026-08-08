@@ -39,9 +39,13 @@ namespace Vixen.Ui.Layout;
 ///         style map.
 ///     </para>
 ///     <para>
-///         Inline formatting is likewise absent, so a block container's children are all treated as
-///         block-level boxes. Doc 43 § B3 owns line boxes, and until it lands a text leaf inside a
-///         block container is one block-level box the height of its measured text.
+///         ⚠ <b>Inline formatting arrived with doc 43 § B3, and this file is now reached only when a
+///         container's children are <i>not</i> all inline-level.</b> The dispatch asks
+///         <c>EstablishesInlineFormattingContext</c> first: a block container whose every in-flow
+///         child is inline-level flows them onto line boxes in <c>LayoutTree.Inline</c> instead.
+///         Everything else stacks here — including <b>mixed</b> content, which CSS 2.1 §9.2.1.1 would
+///         wrap in anonymous block boxes this store has nowhere to put. A text leaf inside a block
+///         container is still one block-level box the height of its measured text.
 ///     </para>
 /// </remarks>
 public sealed partial class LayoutTree {
@@ -56,9 +60,20 @@ public sealed partial class LayoutTree {
     ///     (<c>margin_y_*_collapse_blocked_by_overflow_{x,y}_{hidden,scroll}</c>), and reading only
     ///     <see cref="Overflow.Scroll" /> here — which is what the §4.5 opt-out one file over reads —
     ///     fails every one of them.
+    ///
+    ///     ⚠ <b>An inline-level box is one too, and that clause arrived with B3.</b> CSS Display §2.1
+    ///     makes <c>inline-block</c> and <c>inline-flex</c> <i>flow-root</i> boxes: they establish a
+    ///     formatting context of their own, so nothing inside them collapses a margin out through
+    ///     their edges. Without this an <c>inline-block</c> would still be barred from collapsing by
+    ///     <see cref="BlockMarginsCollapsibleWithParent" />'s <c>Display.Block</c> test, but its own
+    ///     <i>collapse-through</i> answer would be computed as though it were transparent — so an
+    ///     empty one between two margins would let them meet through it, which is the one thing a
+    ///     formatting context root exists to stop.
     /// </remarks>
     bool EstablishesBlockFormattingContext(int index) =>
-        styles[index].OverflowX != Overflow.Visible || styles[index].OverflowY != Overflow.Visible;
+        styles[index].OverflowX != Overflow.Visible
+        || styles[index].OverflowY != Overflow.Visible
+        || IsInlineLevel(styles[index].Display);
 
     /// <summary>
     ///     Whether this node's vertical margins are allowed to collapse with its parent's.

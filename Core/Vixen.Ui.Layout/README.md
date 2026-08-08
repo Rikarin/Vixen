@@ -1,6 +1,6 @@
 # Vixen.Ui.Layout
 
-CSS flexbox, **block layout and grid** over a struct-of-arrays node store. Per
+CSS flexbox, **block layout, grid and inline formatting** over a struct-of-arrays node store. Per
 [ADR-006](../../docs/plan/01-technology-decisions.md#adr-006--flexbox-port-the-yoga-algorithm-not-the-flexbox-library)
 this is Yoga's *algorithm* re-implemented against Vixen's own data model, judged by Yoga's own
 conformance suite — not a port of the `ru-ace/Flexbox` library, whose `class Node` with
@@ -27,6 +27,15 @@ names one at a time. It is **partial and says which part**: placement (§8) and 
 sizing (§12) are done, baseline alignment and CSS Grid §9's containing block are not, and
 `grid-template-areas` is **not implemented at all** — see [the grid section](#grid-and-the-part-with-no-oracle).
 
+**Inline formatting landed with doc 43 § B3 and is the fourth**, and it is the first mode to arrive
+with **no corpus at all**: not one of the 6 058 fixtures sets `display: inline*` or `vertical-align`,
+verified by enumeration. Its oracle had to be fetched from `web-platform-tests`, and most of WPT's
+inline suite could not cross either — a line box's metrics depend on a font, and this store has none.
+It is **partial and says which part**: atomic inlines are done, and a non-atomic `inline` box does
+not fragment, because a `LayoutResult` holds exactly one rectangle. See
+[the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down) and
+`InlineKnownGaps.txt`.
+
 | | |
 |---|---|
 | `LayoutTree` | The store: styles, results, links and node state as parallel `NativeArray`s, plus the tree operations and the whole style surface. |
@@ -35,6 +44,7 @@ sizing (§12) are done, baseline alignment and CSS Grid §9's containing block a
 | `LayoutTree.CalculateLayout` | The algorithm: flex basis, line breaking, the two-pass free-space distribution, justification, cross-axis alignment, multi-line alignment, absolute positioning, pixel-grid rounding. |
 | `LayoutTree.Block`, `CollapsibleMargin` | The second algorithm: block stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing, auto margins, the intrinsic-width probe. |
 | `LayoutTree.Grid*`, `GridTrackSize`, `TrackArena` | The third: CSS Grid §8 placement, §12 track sizing, `fr`/`minmax`/`fit-content`/`repeat`, and the variable-length track lists that made a second arena necessary. |
+| `LayoutTree.Inline`, `VerticalAlign` | The fourth: CSS 2.1 §9.4.2 line boxes, §10.3.9 shrink-to-fit, §10.8.1 baselines and vertical alignment. Atomic inlines only — see below for the invariant that decides where it stops. |
 | `LayoutTree.Order` | §5.4 `order`, the one part that is not Yoga's. One redirection: the algorithm reaches children only through `ChildIds`, so sorting what that returns is the whole property. |
 | `Generated/` | 534 conformance fixtures, translated from Yoga by `Tools/Vixen.YogaTestGen`. |
 | `Taffy/` | 5 524 more, from Taffy, vetted by `Tools/Vixen.TaffyTestGen`. A second browser-derived opinion on flexbox, and the oracle block and grid **were** judged by — every category but `float` now runs per fixture. |
@@ -317,6 +327,113 @@ grid branch, so a grid asked for its min-content size sums its children along `F
 though every container were a flex one. Exactly one fixture (`grid_min_content_flex_column`) reaches
 it, because the corpus's grids are almost always the root.
 
+## Inline formatting, and the invariant nobody had written down
+
+Doc 43 § B3, the last of the three big layout modes and the fourth algorithm. **What it landed is
+atomic inlines: `inline`, `inline-block` and `inline-flex` are real keywords, a container whose
+in-flow children are all inline-level lays them onto line boxes, and `vertical-align` has three of
+its eight values.** What it did not land is one fact rather than a list, and that fact is the
+interesting part.
+
+### What a *fourth* algorithm cost, and what it asked for and could not have
+
+Block cost three **outputs**. Grid cost variable-length **input** and a second arena. Inline cost
+**one output and no arena** — and then hit a wall.
+
+The output is `LayoutResult.InlineBaseline`, and it is an output for a different reason than block's
+margins were. A collapsible margin is an output because it belongs to somebody else; this is an
+output because it is **not recomputable**. CSS 2.1 §10.8.1 puts an `inline-block`'s baseline on its
+*last* line box, and `CalculateBaseline` reconstructs a flex container's baseline by descending into
+a child — which works because a flex container's baseline *is* a child's. **A line box is not a
+node**: no id, no style, no entry in the child arena. There is nothing to descend into, so the walk
+records it or nobody can ask. It is replayed by the measure cache for exactly the reason block's
+three are, and the failure mode is quieter: a cache hit restoring the sizes and not this aligns a
+nested `inline-block` against whichever baseline the node's last *full* layout left behind — right
+cold, wrong incrementally.
+
+**The arena grid needed is not needed here, and the reason is worth stating because it looked like it
+would be.** A line box holds an arbitrary number of items, which is the shape that forced
+`TrackArena`. But a line is a *contiguous range of the existing child span* — exactly as a flex line
+is — and every item's size is already sitting in `results[child].MeasuredDimensions` from the sizing
+pass. So the two passes each line needs (one to find the baseline, one to place against it) are two
+loops over an index range, and the whole algorithm allocates nothing. Variable-length **output** was
+the thing grid did not have and inline does not either; what grid needed was variable-length *input*,
+and a line box has none.
+
+⚠ **The wall is an invariant that three algorithms preserved without ever having to say so: one node
+produces one box.** A `LayoutResult` holds one `Position` and one `Dimensions`; `GetLeft`, the
+rounding pass, the absolute walk and hit testing all rest on it, and it is what makes a hundred
+thousand nodes four allocations. CSS Display §2.2's non-replaced `inline` box breaks it — a `span`
+crossing a line break is **fragmented** into one box per line, each with its own rectangle, with the
+horizontal border and padding drawn at the two real ends and not at the breaks. There is nowhere to
+put the second fragment.
+
+So the boundary is: **atomic inlines are implemented, non-atomic ones are not**, and that is one
+concept rather than a list of missing features. `Display.Inline` here does not split — which for the
+case that dominates a user interface, a span holding text and no box children, is identical to CSS,
+because there is nothing to split.
+
+⚠ **`inline-block` genuinely does not take the whole line, and the mechanism was already in the
+store.** §10.3.9's shrink-to-fit is `SizingMode.FitContent`, which the block path has branched on
+since B1 and the flex path since Yoga's 534. What was missing for two plan items was not the
+arithmetic — it was a *caller* that asked for it. Doc 43 § F4 read the absence of the keyword as the
+absence of the sizing; only the first half was true.
+
+### There is no second text wrapper, and that was the sharpest design constraint
+
+`Vixen.Ui`'s `TextLayout` already breaks a string into lines across a font-fallback chain — in
+pixels, across faces, which is why it lives there and not in `Vixen.Ui.Text`'s single-font
+`LineWrapper`. It reaches this store the way every leaf does: as a measure function. The inline walk
+treats such a leaf as **one atomic item** and asks it exactly the question the measure cache is keyed
+on. A second wrapper breaking text inside the line box would disagree with the first about kerning,
+fallback and UAX #14 the moment either changed.
+
+The cost is stated rather than hidden: **a text leaf's first line is not shortened to the space left
+on the line it lands on.** Shortening it is fragmentation again, from the other end.
+
+### The oracle had to be fetched, and most of it could not cross
+
+⚠ **Neither corpus has anything to say here, and this was verified by enumeration rather than
+assumed.** Taffy's `display` attribute takes exactly five values across all eight files — `block`
+2 276, `flex` 764, `flow-root` 12, `grid` 2 496, `none` 68 — and not one is inline. Every occurrence
+of the string `inline` in the corpus is a *test name* about a grid's inline axis; every occurrence of
+`vertical` is a test name too. Yoga's 534 are the same. Taffy does not do inline layout at all — it
+delegates measurement — so it is not even a code reference. **This is the first mode to arrive with
+zero fixtures**, where block and grid each went from single digits to four figures the day their
+keyword was mapped.
+
+The oracle is **`web-platform-tests`, BSD-3-Clause**, re-expressed rather than translated exactly as
+`OrderTests` re-expresses WPT's `order` tests. What crossed is
+`css/css-flexbox/inline-flex.html`: three 50×50 boxes — `inline-block`, `inline-flex`,
+`inline-block` — with `data-offset-x` of 0, 50 and 100, `data-offset-y` of 0 throughout, and two
+`flex: 1` children at `data-expected-width` 25. **Every box carries an explicit size, so not one
+number depends on a font**, and that is precisely why it crossed when the rest did not.
+
+⚠ **What stopped the rest is structural rather than licensing.** A line box's height and baseline
+depend on the *strut* — the container's own font ascent and descent — so almost every inline test in
+WPT is implicitly a font test, and this store has no font. `css/css-inline/` is 24 files of reftests
+and crashtests plus one useful subdirectory whose fixtures size their boxes in `em`. Doc 43 counted
+14 `check-layout` tests under `css-inline` against 510 under `css-grid`; the ratio is the finding.
+
+One reachable oracle is named and **not** taken: `css/css-sizing/keyword-sizes-on-inline-block.html`
+is written in Ahem, whose glyphs are 1em × 1em by specification and which this repo already models in
+`Taffy/TaffyAhemMeasure.cs` — so it is reproducible despite being a text test. Its blocker is
+`min-content`/`max-content`/`fit-content` as *keyword sizes*, which `StyleLength` does not carry.
+
+`InlineKnownGaps.txt` is shaped differently from its three siblings for the same reason: with no
+corpus there are no fixture names to list, so it lists **rules**, each marked as implemented,
+deliberately absent, or absent for want of an oracle.
+
+### And the gate could not see it, for the third time
+
+⚠ `vertical-align` sat in `InertProperties.txt` with a task number, and the entry would have gone on
+being green after this landed: every one of the nine scenes in `UtilityConsumptionProbe` made the
+probe a flex, block or grid container, and CSS applies `vertical-align` to none of those. A tenth
+scene — `inlined`, the only one with a line box in it — is what closes that, and it was added in the
+same commit as the algorithm. This is the same failure the `gridded` scene records and the same one
+flex-shrink hit; three instances now, and the pattern is that **a property needs a scene that puts it
+in the situation it is defined for**, which is not the situation the other scenes happen to provide.
+
 ## Rounding reads the raw layout and writes somewhere else
 
 The reference implementation rounds positions and sizes in place. That means the next pass reads
@@ -392,10 +509,9 @@ own devising was the wrong trade.
 **Grid's baseline alignment and §9 containing block**, both listed per fixture in
 `Taffy/GridKnownGaps.txt`.
 
-**Inline formatting**, and with it `inline-block`, `inline-flex`, `text-align` and `vertical-align`.
-Doc 43 § B3. It is why those two `display` keywords are refused rather than aliased onto their
-block-level twins: `inline-block` mapped onto `Block` would take the whole line, which is the one
-thing an author writes it to prevent.
+**Non-atomic inline fragmentation, anonymous block boxes, the strut, and `text-align`** — the parts
+of inline formatting that survived § B3. See [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down)
+and `Taffy/../InlineKnownGaps.txt`.
 
 **Floats.** See the block section above for where they attach; 84 fixtures wait on them.
 

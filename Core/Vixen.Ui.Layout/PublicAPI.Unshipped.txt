@@ -44,6 +44,9 @@ Vixen.Ui.Layout.Display.Block = 2 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.Display() -> void
 Vixen.Ui.Layout.Display.Flex = 0 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.Grid = 3 -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.Display.Inline = 4 -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.Display.InlineBlock = 5 -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.Display.InlineFlex = 6 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.None = 1 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Edge -> enum : byte
 Vixen.Ui.Layout.Edge.All = 8 -> Vixen.Ui.Layout.Edge
@@ -242,6 +245,7 @@ Vixen.Ui.Layout.LayoutStyle.OverflowY -> Vixen.Ui.Layout.Overflow
 Vixen.Ui.Layout.LayoutStyle.Padding -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.Position -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.PositionType -> Vixen.Ui.Layout.PositionType
+Vixen.Ui.Layout.LayoutStyle.VerticalAlign -> Vixen.Ui.Layout.VerticalAlign
 Vixen.Ui.Layout.LayoutTree -> sealed class
 Vixen.Ui.Layout.LayoutTree : System.IDisposable
 Vixen.Ui.Layout.LayoutTree.AddChild(Vixen.Ui.Layout.LayoutNodeId parent, Vixen.Ui.Layout.LayoutNodeId child) -> void
@@ -321,6 +325,7 @@ Vixen.Ui.Layout.LayoutTree.SetPadding(Vixen.Ui.Layout.LayoutNodeId node, Vixen.U
 Vixen.Ui.Layout.LayoutTree.SetPosition(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength position) -> void
 Vixen.Ui.Layout.LayoutTree.SetPositionType(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.PositionType positionType) -> void
 Vixen.Ui.Layout.LayoutTree.SetStyle(Vixen.Ui.Layout.LayoutNodeId node, in Vixen.Ui.Layout.LayoutStyle style) -> void
+Vixen.Ui.Layout.LayoutTree.SetVerticalAlign(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.VerticalAlign verticalAlign) -> void
 Vixen.Ui.Layout.LayoutUnit -> enum : byte
 Vixen.Ui.Layout.LayoutUnit.Auto = 3 -> Vixen.Ui.Layout.LayoutUnit
 Vixen.Ui.Layout.LayoutUnit.FitContent = 5 -> Vixen.Ui.Layout.LayoutUnit
@@ -372,6 +377,16 @@ Vixen.Ui.Layout.StyleLength.IsResolvable.get -> bool
 Vixen.Ui.Layout.StyleLength.Resolve(float referenceLength) -> float
 Vixen.Ui.Layout.StyleLength.StyleLength() -> void
 Vixen.Ui.Layout.StyleLength.StyleLength(float value, Vixen.Ui.Layout.LayoutUnit unit) -> void
+Vixen.Ui.Layout.VerticalAlign -> enum : byte
+Vixen.Ui.Layout.VerticalAlign.Baseline = 0 -> Vixen.Ui.Layout.VerticalAlign
+Vixen.Ui.Layout.VerticalAlign.Bottom = 2 -> Vixen.Ui.Layout.VerticalAlign
+Vixen.Ui.Layout.VerticalAlign.Middle = 3 -> Vixen.Ui.Layout.VerticalAlign
+Vixen.Ui.Layout.VerticalAlign.Sub = 6 -> Vixen.Ui.Layout.VerticalAlign
+Vixen.Ui.Layout.VerticalAlign.Super = 7 -> Vixen.Ui.Layout.VerticalAlign
+Vixen.Ui.Layout.VerticalAlign.TextBottom = 5 -> Vixen.Ui.Layout.VerticalAlign
+Vixen.Ui.Layout.VerticalAlign.TextTop = 4 -> Vixen.Ui.Layout.VerticalAlign
+Vixen.Ui.Layout.VerticalAlign.Top = 1 -> Vixen.Ui.Layout.VerticalAlign
+Vixen.Ui.Layout.VerticalAlign.VerticalAlign() -> void
 Vixen.Ui.Layout.Wrap -> enum : byte
 Vixen.Ui.Layout.Wrap.NoWrap = 0 -> Vixen.Ui.Layout.Wrap
 Vixen.Ui.Layout.Wrap.Wrap = 1 -> Vixen.Ui.Layout.Wrap

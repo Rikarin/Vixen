@@ -1,0 +1,173 @@
+# Inline formatting — what doc 43 § B3 landed, and what it did not.
+#
+# ⚠ THIS FILE IS NOT SHAPED LIKE ITS THREE SIBLINGS, AND THE REASON IS THE WHOLE STORY.
+#
+# `KnownGaps.txt`, `BlockKnownGaps.txt` and `GridKnownGaps.txt` are lists of FIXTURE NAMES: a corpus
+# of browser-recorded answers exists, most of them pass, and each line names one that does not. That
+# file shape is only possible because somebody else already wrote down the right answers.
+#
+# There is no inline corpus. Not a thin one — none. Verified by enumeration across all eight of
+# Taffy's XML files rather than assumed:
+#
+#   · The `display` attribute takes exactly five values in the whole corpus:
+#       block 2 276 · flex 764 · flow-root 12 · grid 2 496 · none 68
+#     Not one `inline`, `inline-block`, `inline-flex` or `inline-grid`.
+#   · The string "inline" occurs 12 times and every occurrence is a TEST NAME about a grid's inline
+#     axis (`grid_overflow_inline_axis_{hidden,scroll,visible}__*`).
+#   · The string "vertical" occurs 8 times outside `vertical-lr`, and every occurrence is a test
+#     name too (`rounding_inner_node_controversy_vertical`, `grid_relayout_vertical_text`).
+#   · Yoga's 534 are the same: its style surface has no inline keyword and no `vertical-align`.
+#
+# So this file lists RULES rather than fixtures, and every entry says which of three things it is:
+# implemented and tested, deliberately absent with a reason, or absent for want of an oracle.
+#
+# The oracle that does exist is web-platform-tests (BSD-3-Clause), re-expressed rather than
+# translated in `InlineFormattingTests`, exactly the way `OrderTests` re-expresses WPT's `order`
+# tests. See the last section for why most of WPT's inline suite still cannot cross.
+
+
+# ══ IMPLEMENTED ═════════════════════════════════════════════════════════════════════════════════
+#
+# Every line here is covered by a test in `Core/Vixen.Ui.Layout.Tests/InlineFormattingTests.cs`.
+
+atomic inline boxes on a line     `inline-block`, `inline-flex` and `inline` share a line box
+shrink-to-fit (§10.3.9)           `width: auto` on an inline-level box is its contents, not its line
+line breaking (§9.4.2)            an item that does not fit starts a new line; an over-wide one
+                                  overflows the line rather than producing an empty one
+baseline alignment (§10.8.1)      boxes of unequal height hang from a common baseline
+vertical-align: baseline          the initial value
+vertical-align: top / bottom      measured from the line box's own edges, and they grow the line
+                                  without moving the baseline
+inline-block baseline             the LAST line box's baseline, not the first
+  · the overflow clause           a box that clips synthesises at its bottom margin edge instead
+formatting-context barrier        an inline-level box is a flow root: nothing collapses through it
+right-to-left lines               the first item on a line is the rightmost one
+inner display is independent      `inline-flex` runs the flex algorithm; `inline-block` runs block
+
+
+# ══ DELIBERATELY ABSENT — the store cannot represent it ══════════════════════════════════════════
+
+# ⚠ FRAGMENTATION. This is the boundary, and everything under it is one consequence of one fact.
+#
+# Every algorithm in this store preserves an invariant it never had to state: ONE NODE PRODUCES ONE
+# BOX. A `LayoutResult` holds one `Position` and one `Dimensions`; `GetLeft` and `GetWidth` return
+# from them; the rounding pass, the absolute walk and hit testing all assume it. That invariant is
+# what makes the store five parallel arrays and a hundred thousand nodes four allocations.
+#
+# CSS Display §2.2's non-replaced `inline` box breaks it. A `span` crossing a line break is
+# fragmented into one box per line, each with its own rectangle, with the horizontal border and
+# padding drawn at the two real ends and not at the breaks. There is nowhere to put the second
+# fragment and nothing to return it from.
+#
+# This is NOT the same kind of gap as block's or grid's. Block cost three outputs and grid cost an
+# arena — both were additions. This one is a change to what a layout result IS, and it would touch
+# the rounding pass, the absolute walk, hit testing and every consumer of `GetLeft`. It is written
+# down here rather than attempted.
+
+non-atomic inline fragmentation   a `display: inline` box with box children does not split across
+                                  lines; it is laid out as one atomic box. ⚠ For the case that
+                                  dominates a UI — a span holding text and no box children — atomic
+                                  and non-atomic agree exactly, because there is nothing to split.
+horizontal border/padding at
+  a fragment's inner ends         same fact, one level down
+
+# ⚠ ANONYMOUS BOXES. §9.2.1.1 says a block container holding both block-level and inline-level
+# children wraps each run of the inline ones in an anonymous block box. An anonymous box has no
+# node — no id, no style, no entry in the child arena — so inventing one means either allocating
+# nodes during layout or teaching the walk to address something that is not a node. Mixed content
+# therefore stacks, which is what the engine did before B3: wrong in the same direction as before
+# rather than in a new one. Pinned by `Mixed_content_stacks_because_there_are_no_anonymous_boxes`,
+# which should FAIL and be inverted if anonymous boxes ever land.
+
+anonymous block boxes             mixed block-level and inline-level children stack
+
+# ⚠ THE STRUT. §10.8 begins every line box with an imaginary zero-width inline box carrying the
+# block container's own font and line height. It is why an empty line is still a line tall, why a
+# short image never makes a line shorter than its text would be, and why `line-height` on a
+# container does anything at all. A strut is font metrics; `Vixen.Ui.Layout` has no font and no font
+# size — it is geometry, and `FontRegistry` lives a layer out in `Vixen.Ui`. A line here is exactly
+# as tall as the boxes on it.
+#
+# ⚠ This is also why the five font-relative `vertical-align` values are refused rather than
+# approximated. Each is defined against the parent's strut, and rounding them to `baseline` looks
+# almost right and reads as a rendering quirk. `LayoutStyleBuilder` drops the keywords; the layout
+# store falls them back; `A_font_relative_vertical_align_falls_back_to_the_baseline` pins it.
+
+the strut                         no font metrics below `Vixen.Ui`
+vertical-align: middle            parent's baseline + half its x-height
+vertical-align: text-top          top of the parent's strut
+vertical-align: text-bottom       bottom of the parent's strut
+vertical-align: sub / super       the parent's subscript / superscript offsets
+vertical-align: <length> / <%>    not in the enum at all; needs `line-height` to be a percentage base
+
+
+# ══ ABSENT, AND THE HONEST REASON IS "NOT YET" ══════════════════════════════════════════════════
+
+text-align                        the inline-axis distribution of a line's items. Not a fragmentation
+                                  problem and not a font problem — genuinely just unwritten. It is
+                                  the cheapest remaining item here: one offset per line, computed
+                                  from the line's slack, applied in `PlaceLine`.
+                                  ⚠ 124 of the block corpus's refusals cite `text-align`, so this is
+                                  the one entry in this file with browser-recorded answers waiting.
+line-height on the container      needs the strut
+white-space / nowrap              the container-level suppression of line breaking
+text-overflow: ellipsis           ⚠ Parley was proposed for this and REFUTED — the word "ellipsis"
+                                  appears nowhere in that repository. The reference implementation is
+                                  Chromium's `layout/inline/line_truncator.cc` (BSD-3-Clause) and the
+                                  oracle is Gecko's 68 `text-overflow` reftests. ⚠ Gecko's licensing
+                                  is mixed public-domain / MPL-2.0 PER FILE, so a fixture translated
+                                  from an MPL file is itself MPL and needs checking before it is
+                                  transcribed. ⚠ The licence trap on the Chromium side is one
+                                  directory up: `layout/layout_text.cc` and its siblings are LGPL.
+line-clamp                        the same, one level up
+bidirectional reordering          `Vixen.Ui.Text` has `BidiAlgorithm` and this walk does not call it
+float interaction with lines      floats are unimplemented; see the block section of the README
+`inline-grid`                     would be an alias today, which is what B3 exists to avoid
+`ComputeMinContentSizeUncached`   ⚠ has no inline branch, exactly as it has no grid branch — a
+                                  container asked for its min-content size sums its children along
+                                  `FlexDirection` as though every container were a flex one. Shared
+                                  helper; same fix as grid's, and it should be one change not two.
+
+
+# ══ WHAT NO ORACLE COVERS, AND WHY ══════════════════════════════════════════════════════════════
+#
+# ⚠ MOST OF WPT'S INLINE SUITE CANNOT CROSS, AND THE REASON IS STRUCTURAL RATHER THAN LICENSING.
+#
+# A line box's height and baseline depend on the strut, so almost every inline test in WPT is
+# implicitly a font test. `css/css-inline/` is 24 files, and it is reftests and crashtests plus one
+# genuinely useful subdirectory (`baseline-source/`) whose fixtures set `font-size: 20px` and size
+# their boxes in `em`. This store has no renderer and no default font, so neither half crosses.
+#
+# What DID cross, and it is the most valuable file found anywhere for this plan item:
+#
+#   wpt/css/css-flexbox/inline-flex.html    three 50×50 boxes — inline-block, inline-flex,
+#                                           inline-block — with data-offset-x 0/50/100 and
+#                                           data-offset-y 0 throughout, and two `flex: 1` children
+#                                           at data-expected-width 25. Every box carries an explicit
+#                                           size, so not one number depends on a font. This is
+#                                           `Three_inline_level_boxes_share_one_line_...`.
+#
+# One more is reachable and is NOT yet taken:
+#
+#   wpt/css/css-sizing/keyword-sizes-on-inline-block.html
+#                                           shrink-to-fit and the intrinsic keywords on inline-block,
+#                                           in Ahem at `font: 20px/1`. ⚠ Worth knowing that this one
+#                                           IS reproducible here despite being a text test: Ahem's
+#                                           glyphs are 1em × 1em by specification, and this repo
+#                                           already models exactly that in
+#                                           `Taffy/TaffyAhemMeasure.cs`. It needs `min-content`,
+#                                           `max-content` and `fit-content` as keyword sizes, which
+#                                           `StyleLength` does not carry — that is the blocker, not
+#                                           the font.
+#
+# And two sources named in doc 43 that were NOT consulted, so that nobody assumes they were:
+#
+#   ICU4X `components/segmenter/tests/css_line_break.rs` (72 assertions) and `css_word_break.rs`
+#   (31) — the only plain-data oracle anywhere for the CSS TAILORING of line breaking
+#   (`line-break: loose/normal/strict/anywhere`, `word-break: keep-all/break-all`). Unicode-3.0,
+#   permissive, small enough to transcribe by hand. ⚠ Vixen's `LineBreakConformanceTests` is green
+#   against UAX #14 AS WRITTEN, and browsers do not implement it as written — Parley's
+#   `parley_engine/src/break_overrides.rs` documents the deltas with line-level citations into
+#   Chromium, including a test named `chromium_ignores_uax_14_lb13`. Neither is relevant to THIS
+#   change, because this walk breaks between atomic items and never inside text; both become
+#   relevant the moment text breaking moves into the line box, which is the fragmentation work.
