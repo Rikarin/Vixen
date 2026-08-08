@@ -341,7 +341,10 @@ Vixen.Ui.KeyEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
 Vixen.Ui.KeyEvent.Timestamp.get -> System.TimeSpan
 Vixen.Ui.KeyEvent.Timestamp.init -> System.TimeSpan
 Vixen.Ui.LayoutStyleBuilder -> sealed class
+Vixen.Ui.LayoutStyleBuilder.ApplyVariableLength(Vixen.Ui.Styling.ComputedStyle style, Vixen.Ui.Layout.LayoutTree tree, Vixen.Ui.Layout.LayoutNodeId node) -> void
 Vixen.Ui.LayoutStyleBuilder.Build(Vixen.Ui.Styling.ComputedStyle style, in Vixen.Ui.LengthContext context) -> Vixen.Ui.Layout.LayoutStyle
+Vixen.Ui.LayoutStyleBuilder.ClearDiagnostics() -> void
+Vixen.Ui.LayoutStyleBuilder.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.LayoutStyleBuilder.LayoutStyleBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywordNames) -> void
 Vixen.Ui.LayoutStyleBuilder.LetterSpacingId.get -> int
 Vixen.Ui.LayoutStyleBuilder.ResolveFontSize(Vixen.Ui.Styling.ComputedStyle style, float parentFontSize, in Vixen.Ui.LengthContext context) -> float

@@ -4,7 +4,7 @@ slug: ui/grid-layout
 kind: guide
 area: Core
 summary: CSS Grid over Vixen's layout store — track sizing functions, minmax and fr, automatic repetitions, item placement and spans, and the one thing grid needed from the store that flexbox and block did not.
-api: [T:Vixen.Ui.Layout.GridTrackSize, T:Vixen.Ui.Layout.GridSizingFunction, T:Vixen.Ui.Layout.GridSizingKind, T:Vixen.Ui.Layout.GridPlacement, T:Vixen.Ui.Layout.GridPlacementKind, T:Vixen.Ui.Layout.GridAutoFlow, T:Vixen.Ui.Layout.GridAutoRepeat]
+api: [T:Vixen.Ui.Layout.GridTrackSize, T:Vixen.Ui.Layout.GridSizingFunction, T:Vixen.Ui.Layout.GridSizingKind, T:Vixen.Ui.Layout.GridPlacement, T:Vixen.Ui.Layout.GridPlacementKind, T:Vixen.Ui.Layout.GridAutoFlow, T:Vixen.Ui.Layout.GridAutoRepeat, T:Vixen.Ui.Layout.GridTrackList, T:Vixen.Ui.Layout.GridAutoRepeatSpan]
 tags: [ui, layout, grid, css, tracks, placement]
 since: 0.2
 status: preview
@@ -133,8 +133,8 @@ cursor from the first line for every item, which fills holes a wide item left be
 ## See also
 
 - [Composed utilities](utility-composition.md) — how a stylesheet reaches the layout store.
-  ⚠ `display: grid` crosses that bridge today; `grid-template-columns` does **not**, because a track
-  list is variable-length and a `LayoutStyle` is a fixed-size struct. See the note below.
+  `display: grid`, the four track lists, the placement longhands and `grid-auto-flow` all cross that
+  bridge; `grid-template-areas` and named lines do not. See the note below.
 - `Core/Vixen.Ui.Layout/README.md` — the store, the conformance corpora, and `GridKnownGaps.txt`,
   which is the honest list of what grid does not yet get right.
 - `docs/plan/43-web-styling-parity.md` § B2 — the plan this landed against, and the sizing it was
@@ -153,6 +153,43 @@ and `LayoutStyle` is an unmanaged struct in a `NativeArray`, so the four track-l
 in a second arena (`TrackArena`) and the style carries a handle into it, exactly as children live in
 `ChildArena`.
 
-That is also why the styling bridge is unfinished: `LayoutStyleBuilder.Build` returns a
-`LayoutStyle` and never sees a node id, so there is nowhere in it for a track list to go. Closing
-that means a production track-list parser and a second call where the node is in hand.
+That is what made the styling bridge hard, and it is closed now. `LayoutStyleBuilder.Build` still
+returns a `LayoutStyle` and still never sees a node id — a value that carried an arena handle would
+be a lease on another node's memory, which is exactly why `LayoutTree.SetStyle` *preserves* the four
+handles it finds rather than overwriting them. So the variable-length half is a second call,
+`LayoutStyleBuilder.ApplyVariableLength(style, tree, node)`, made straight after `SetStyle` at the
+one seam where the node is in hand.
+
+It is a registry rather than four special cases, because this is the shape of every variable-length
+property and `grid-template-areas` is next. A property is a class with a grammar and a store call;
+the driver knows only present, absent and refused. **Absent is the interesting one:** a track list is
+written only by its own setter, so an element whose `grid-template-columns` disappears from the
+cascade would keep its old tracks for the rest of its life unless absence is itself a write.
+
+### Reading a track list
+
+`GridTrackList.TryParse` is the `<track-list>` grammar, and it lives in the layout assembly rather
+than in the bridge because it is the inverse of `GridTrackSize.ToString` — and because the layout
+conformance corpus has to be able to call it.
+
+That last part is the point rather than a convenience. All 1 526 passing grid fixtures reach the
+store through `TaffyStyleMap` and never touch CSS, so a second grammar written for stylesheets would
+have had no adversarial coverage at all — no `repeat(40000, 10px 10px)`, no 84 KB attribute of
+longhand tracks. Both callers now parse with the same lines, so a track list that would break a
+stylesheet breaks the corpus first.
+
+**It refuses rather than skips.** Named lines, `subgrid`, `masonry`, `calc()`, `none` and a
+malformed function all come back as a refusal carrying the token that stopped it. `TryParse` returns
+`false` and the bridge records the refusal on `LayoutStyleBuilder.Diagnostics`, naming the property
+and the value a human wrote; the declaration is then dropped **whole**, per CSS's rule for an invalid
+value.
+
+Reported rather than thrown, because this runs inside a frame and a typo must not take the surface
+down. Reported rather than ignored, because a half-parsed track list is a one-column grid — which
+reads as a layout bug in a panel rather than as a stylesheet the engine refused, and nothing anywhere
+would say which.
+
+⚠ A unitless `0` is a length, per CSS Values §5. Taffy's generator only ever emits `0px`, so all
+1 526 fixtures passed with that arm missing while `minmax(0, 1fr)` — the most common track in a real
+stylesheet, and what `grid-cols-*` expands to — was refused. It is the one gap the corpus could not
+have found, and a CSS-level test found it on the first run.

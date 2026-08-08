@@ -101,8 +101,8 @@ one yet.
 
 | Read | Inert |
 |---|---|
-| `flex` / `hidden` / **`block`**, `flex-row`/`-col`/`-wrap`/`-1`, `items-`, `self-`, `justify-`, `content-` | `inline`, `inline-block`, `inline-flex`, `grid` |
-| `grow`, `shrink`, `basis-`, `order-` | `grid-cols-`, `col-span-` — there is no grid algorithm |
+| `flex` / `hidden` / **`block`** / **`grid`**, `flex-row`/`-col`/`-wrap`/`-1`, `items-`, `self-`, `justify-`, `content-` | `inline`, `inline-block`, `inline-flex` |
+| `grow`, `shrink`, `basis-`, `order-`, **`grid-cols-`**, **`col-span-`** | `grid-rows-`, `row-span-`, `col-start-`/`-end-`, `row-start-`/`-end-`, `auto-cols-`, `auto-rows-`, `grid-flow-` — the engine reads all of these properties; the families are not registered |
 | `gap-`, `gap-x-`, `gap-y-`, `p*`, `m*` including the logical `ps`/`pe`/`ms`/`me` | |
 | `w-`, `h-`, `size-`, `min-w-`, `min-h-`, `max-w-`, `max-h-` | |
 | `static`/`relative`/`absolute`, `inset*`, `top`/`right`/`bottom`/`left`, `start`/`end`, `z-`, `box-border`/`box-content` | |
