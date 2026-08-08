@@ -38,8 +38,8 @@ public class TaffyFlexConformanceTests {
 
     // ⚠ Committed counts, not lower bounds. A gap that gets fixed has to be taken off the list in
     // the same commit, and a fixture that starts failing cannot hide inside a listed family.
-    const int ExpectedPassing = 2026;
-    const int ExpectedFailing = 206;
+    const int ExpectedPassing = 2074;
+    const int ExpectedFailing = 158;
     const int ExpectedUnsupported = 176;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();

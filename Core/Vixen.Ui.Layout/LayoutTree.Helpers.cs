@@ -75,17 +75,26 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>Clamps a value to a node's own min and max on an axis.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The maximum is applied first and the minimum second, so that a minimum larger than
+    ///     the maximum wins.</b> CSS Sizing §5.1 is explicit: "if the max size is less than the min
+    ///     size, the min size wins", which the specification expresses as clamping to the max and
+    ///     then to the min rather than as a special case. This used to <c>return max</c> the moment
+    ///     the value exceeded it, so the minimum was never consulted and
+    ///     <c>min-width: 50px; max-width: 40px</c> answered 40. Taffy's
+    ///     <c>absolute_minmax_bottom_right_min_max</c> is the fixture; Chrome answers 50.
+    /// </remarks>
     float BoundAxisWithinMinAndMax(int index, Direction direction, FlexDirection axis, float value, float axisSize, float widthSize) {
         var dimension = FlexAxis.DimensionOf(axis);
         var min = StyleResolution.ResolvedMinDimension(in styles[index], dimension, axisSize, widthSize, direction);
         var max = StyleResolution.ResolvedMaxDimension(in styles[index], dimension, axisSize, widthSize, direction);
 
         if (!float.IsNaN(max) && max >= 0f && value > max) {
-            return max;
+            value = max;
         }
 
         if (!float.IsNaN(min) && min >= 0f && value < min) {
-            return min;
+            value = min;
         }
 
         return value;
@@ -217,12 +226,66 @@ public sealed partial class LayoutTree {
         return float.IsNaN(floor) || floor < 0f ? 0f : floor;
     }
 
+    /// <summary>What a child <i>adds</i> to its parent's min-content size.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A box's min-content <i>size</i> and its min-content <i>contribution</i> are two
+    ///         different numbers, and conflating them is what left the largest hole the Taffy corpus
+    ///         found.</b> CSS Sizing §5.2.2 defines the contribution as the box's <i>preferred</i>
+    ///         size when that is definite, clamped by its own min and max — the contents are not
+    ///         consulted at all. Only when the preferred size is <c>auto</c> does the intrinsic
+    ///         min-content size answer.
+    ///     </para>
+    ///     <para>
+    ///         Without the distinction an empty <c>width: 50px</c> box reported <b>zero</b>, because
+    ///         <see cref="ComputeMinContentSizeUncached" /> takes the childless branch and a box with
+    ///         no contents needs no room for them. Every §4.5 floor computed from such a descendant
+    ///         was therefore missing. <c>align_baseline_child_padding</c> is the demonstration: a
+    ///         50px item wrapping a 50px child in 5px of padding must not shrink below 60, and Chrome
+    ///         gives the whole 10px of overflow to its sibling instead. Vixen used to split it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The node's own §4.5 floor deliberately does not go through here</b>, and the same
+    ///         fixture is why. Its first item is an empty <c>width: 50px</c> box that Chrome shrinks
+    ///         to 40, so §4.5's <i>content size suggestion</i> for that item is 0 — the intrinsic
+    ///         size, not the contribution. §4.5 already reads the preferred size separately as the
+    ///         <i>specified size suggestion</i> and takes the smaller of the two; routing the content
+    ///         suggestion through the contribution as well would make both terms the same number and
+    ///         freeze every definitely-sized item at its own width.
+    ///     </para>
+    /// </remarks>
+    float MinContentContribution(int index, FlexDirection axis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
+        var dimension = FlexAxis.DimensionOf(axis);
+        var reference = FlexAxis.IsRow(axis) ? ownerWidth : ownerHeight;
+        var direction = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
+
+        // ⚠ A *percentage* preferred size is not a definite one here, and reading it as one is
+        // wrong in both corpora at once — Yoga's Percent_within_flex_grow and Taffy's
+        // percent_within_flex_grow are the same case. CSS Sizing §5.2.1: while calculating
+        // intrinsic contributions, a percentage against a containing block whose size is not yet
+        // known behaves as `auto`. That is exactly the situation this probe is in — it is being
+        // asked how small the parent may be, so the parent's size does not exist to be a fraction
+        // of, and the `ownerWidth` threaded through here belongs to an ancestor further out.
+        // `width: 100%` therefore falls through to the contents, which is what Chrome answers.
+        var preferred = StyleResolution.ProcessedDimension(in styles[index], dimension).Unit == LayoutUnit.Point
+            ? ResolvedDimension(index, dimension, reference, ownerWidth, direction)
+            : float.NaN;
+
+        var contribution = float.IsNaN(preferred)
+            ? ComputeMinContentSize(index, axis, ownerDirection, ownerWidth, ownerHeight)
+            : preferred;
+
+        contribution = BoundAxisWithinMinAndMax(index, direction, axis, contribution, reference, ownerWidth);
+        return float.IsNaN(contribution) || contribution < 0f ? 0f : contribution;
+    }
+
     /// <summary>The smallest a node can be on an axis without its content overflowing.</summary>
     /// <remarks>
     ///     A leaf answers by being measured with nothing to spare on the axis in question, which is
     ///     what makes a text measurer report its longest word. A container answers by summing its
-    ///     children along its own main axis and taking the largest across its cross axis. No layout
-    ///     is written along the way — only the leaf measure callbacks see anything happen.
+    ///     children's <see cref="MinContentContribution" /> along its own main axis and taking the
+    ///     largest across its cross axis. No layout is written along the way — only the leaf measure
+    ///     callbacks see anything happen.
     /// </remarks>
     float ComputeMinContentSize(int index, FlexDirection requestedAxis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
@@ -255,6 +318,23 @@ public sealed partial class LayoutTree {
     float ComputeMinContentSizeUncached(int index, FlexDirection requestedAxis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
 
+        // ⚠ A box that clips or scrolls an axis contributes nothing along it but its own edges. Its
+        // contents are *scrollable overflow*, which CSS Sizing §5.2.2 excludes from an intrinsic
+        // size: being allowed to be smaller than what is inside it is the whole meaning of a scroll
+        // container. §4.5 already says this one level out — ComputeAutoMinMainSize returns 0 for any
+        // overflow other than visible — and this is that same sentence where the recursion reads it.
+        //
+        // ⚠ Nothing in either corpus asks for this, and the editor is what found it. Every box in
+        // the docking chain declares `overflow: hidden`, so once descendants began contributing
+        // their real sizes the hierarchy tree's rows propagated all the way to the shell and the
+        // window came out 2 385 points wide inside a 1 100-point root, with the inspector pushed off
+        // the side. That is not a control compensating for a bug — it is this rule being missing.
+        if (OverflowOn(index, FlexAxis.DimensionOf(requestedAxis)) != Overflow.Visible) {
+            var clipDirection = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
+            return StyleResolution.FlexStartPaddingAndBorder(in styles[index], requestedAxis, clipDirection, ownerWidth)
+                + StyleResolution.FlexEndPaddingAndBorder(in styles[index], requestedAxis, clipDirection, ownerWidth);
+        }
+
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             var size = Measure(
                 index,
@@ -280,6 +360,15 @@ public sealed partial class LayoutTree {
         var nodeMainAxis = FlexAxis.Resolve(styles[index].FlexDirection, direction);
         var nodeCrossAxis = FlexAxis.ResolveCross(nodeMainAxis, direction);
 
+        // ⚠ A wrapping container's min-content main size is the largest item, not the sum.
+        // CSS Flexbox §9.9.1: the min-content main size of a *single-line* flex container is the sum
+        // of its items' contributions, but a multi-line one may break between any two of them, so
+        // the smallest it can be is the widest single item. This was unreachable while every
+        // childless item contributed zero — the sum and the maximum were both zero — and it is the
+        // one thing MinContentContribution broke in Yoga's corpus and not in Taffy's:
+        // Align_content_flex_start_stretch_doesnt_influence_line_box_dim wraps five 30px items and
+        // must report 50, not 250.
+        var wraps = styles[index].FlexWrap != Wrap.NoWrap;
         var mainTotal = 0f;
         var crossMax = 0f;
 
@@ -288,12 +377,12 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            var childMain = ComputeMinContentSize(child, nodeMainAxis, direction, ownerWidth, ownerHeight)
+            var childMain = MinContentContribution(child, nodeMainAxis, direction, ownerWidth, ownerHeight)
                 + StyleResolution.MarginForAxis(in styles[child], nodeMainAxis, ownerWidth);
-            var childCross = ComputeMinContentSize(child, nodeCrossAxis, direction, ownerWidth, ownerHeight)
+            var childCross = MinContentContribution(child, nodeCrossAxis, direction, ownerWidth, ownerHeight)
                 + StyleResolution.MarginForAxis(in styles[child], nodeCrossAxis, ownerWidth);
 
-            mainTotal += childMain;
+            mainTotal = wraps ? MathF.Max(mainTotal, childMain) : mainTotal + childMain;
             crossMax = MathF.Max(crossMax, childCross);
         }
 
