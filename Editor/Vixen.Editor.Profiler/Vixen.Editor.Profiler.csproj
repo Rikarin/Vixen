@@ -93,4 +93,12 @@
     -->
     <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 
+    <!--
+        ⚠ **The editor's tokens, not a copy of them.** This assembly's panels are the editor's
+        chrome, so they are styled by the editor's design; before this line the utility half of that
+        design stopped at `Vixen.Editor.Ui`'s assembly boundary and the two `.vxml` panels here had
+        to say in tag rules what a class name says everywhere else. See docs/plan/43 Part 3.
+    -->
+    <Import Project="..\Vixen.Editor.Ui\build\Vixen.Editor.Ui.Styling.targets" />
+
 </Project>

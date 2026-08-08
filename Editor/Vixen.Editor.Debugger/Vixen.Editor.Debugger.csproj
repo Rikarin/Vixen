@@ -58,4 +58,13 @@
         <InternalsVisibleTo Include="Vixen.Editor.Debugger.Tests" />
     </ItemGroup>
 
+    <!--
+        ⚠ **The editor's tokens, not a copy of them.** This assembly's panels are the editor's chrome
+        and are styled by the editor's design; before this line the utility half of that design
+        stopped at `Vixen.Editor.Ui`'s assembly boundary. Doc 43 Part 3 names this project as one of
+        the three the per-project scan cut off. It has no `.vxml` yet, which is the reason it never
+        noticed — and the reason to wire it now rather than the next time somebody writes one.
+    -->
+    <Import Project="..\Vixen.Editor.Ui\build\Vixen.Editor.Ui.Styling.targets" />
+
 </Project>

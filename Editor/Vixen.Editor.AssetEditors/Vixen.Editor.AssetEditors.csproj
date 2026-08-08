@@ -175,4 +175,14 @@
     -->
     <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 
+    <!--
+        ⚠ **The editor's tokens, not a copy of them.** Four `.vxml` inspectors here and the views
+        behind them are the editor's chrome and are styled by the editor's design; before this line
+        the utility half of it stopped at `Vixen.Editor.Ui`'s assembly boundary. The evidence is
+        still in `AssetEditorTheme`'s own remark about `.hidden` belonging to `AdvancedTheme` — a
+        utility class name that had to be hand-written into a component sheet because the utility
+        system could not reach this assembly. See docs/plan/43 Part 3.
+    -->
+    <Import Project="..\Vixen.Editor.Ui\build\Vixen.Editor.Ui.Styling.targets" />
+
 </Project>

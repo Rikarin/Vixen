@@ -1,0 +1,95 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The editor's design, made available to the editor's other assemblies. One `Import` of this file
+    is the whole of what an editor assembly does to write `class="flex gap-2 bg-surface"` in a
+    `.vxml` and have it mean something.
+
+    ⚠ **This exists because "one project is one palette" was the right invariant with the wrong
+    unit.** `Vixen.Ui.Styling.Utilities.targets` globs `**/vixen.ui.vcss` *within the consuming
+    project*, so the only way an assembly could have tokens was to own a copy of them — and a second
+    copy of the editor's palette is the precise failure the token model exists to prevent. The unit
+    is the theme, and the editor is one theme across a dozen assemblies. See docs/plan/43 Part 3,
+    shape C.
+
+    ⚠ **What it was costing, measured rather than assumed.** Before this file, no assembly outside
+    `Vixen.Editor.Ui` ran the step at all — the generation target is conditioned on there being a
+    token source, so a project without one produced no sheet rather than a wrong one. Panels ported
+    to VXML in `Vixen.Editor.Profiler` and `Vixen.Editor.AssetEditors` therefore fell back to
+    tag-based rules, and the one utility class they do use — `hidden` — renders today only because
+    `AdvancedTheme` hand-writes `.hidden { display: none; }` in `Vixen.Ui.Controls.Advanced`. The
+    harm was never a wrong palette; it was a vocabulary that stopped at an assembly boundary and got
+    paid for in hand-written duplicates.
+
+    ⚠ **The sheets stay per-assembly, and that is the point of shape C rather than a compromise
+    with it.** Each project scans only its own sources and emits only its own rules, so incremental
+    build and project independence both survive; every sheet lands in `@layer utilities`, where
+    document order does not decide anything, so the union of a dozen of them behaves at runtime as
+    one sheet. What is shared is the token source, not the scan and not the output.
+
+    A consuming project still has to load its own generated sheet into the document. The convention
+    is that the assembly's existing `…Theme.Install(UiDocument)` does it, next to the hand-written
+    sheet it already loads — see `AssetEditorTheme.Install`.
+-->
+<Project>
+
+    <ItemGroup>
+        <!--
+            ⚠ **A path and not a `ProjectReference` to read one out of, and the difference is
+            evaluation order.** MSBuild cannot ask another project for a property during its own
+            evaluation without building it, and the token source has to be an item before the
+            generation target's `Inputs` are computed. So the editor's theme is named by location,
+            and the `Error` in `Vixen.Ui.Styling.Utilities.targets` is what stops that location from
+            rotting quietly: a path that no longer resolves fails the build rather than reverting the
+            assembly to the silence this file was written to end.
+        -->
+        <VixenStyleTokens Include="$(MSBuildThisFileDirectory)../Theming/vixen.ui.vcss" />
+
+        <!--
+            ⚠ **Two canaries, and between them they say which palette this assembly is compiled
+            against — which is the question that had no answer before.** A build step that silently
+            does nothing is the failure this whole arrangement exists to remove, and "the sheet is
+            not empty" is too weak a check to catch it: most of what the scanner finds are bare
+            English words out of prose, so an assembly wired to the wrong tokens still emits `.flex`
+            and `.hidden` and looks fine.
+
+            `bg-surface` resolves only if the editor's `@theme` was read: the `color-surface` token
+            is declared there and nowhere else. `bg-blue-500` resolves only if it was *not* — the
+            editor's theme opens by setting the whole colour namespace to `initial`, emptying
+            Tailwind's shipped palette, so a `.bg-blue-500` in one of these sheets means the project
+            fell back to `ThemeTokens.CreateDefault()`. One must be present and the other absent, and
+            `SharedThemeTests` in `Vixen.Editor.App.Tests` asserts both for every participant — that
+            suite is also where the sabotage procedure for this file is written down.
+
+            Safelisted rather than left to whatever the sources happen to say, because a canary that
+            depends on a panel continuing to use a particular class is a canary that dies of a
+            refactor. `bg-blue-500` costs nothing: under the editor's tokens it emits no rule at all,
+            which is the assertion.
+        -->
+        <VixenStyleSafelist Include="bg-surface" />
+        <VixenStyleSafelist Include="bg-blue-500" />
+
+        <!--
+            ⚠ This file declares arguments rather than reading files, so it has to be one of the
+            timestamps the generation target watches or an edit here leaves every consumer's sheet
+            stale and apparently up to date. That is not hypothetical: the two canaries above did
+            exactly that on the build they were added.
+        -->
+        <VixenStyleBuildLogic Include="$(MSBuildThisFileFullPath)" />
+
+        <!--
+            ⚠ Named here rather than left to each consumer, because it is the same reason
+            `Vixen.Editor.Ui` names it: MSBuild assets and build steps do not travel through a
+            `ProjectReference`, so the tool that the imported `.targets` invokes has to be built
+            first and only a `ProjectReference` says so. `ReferenceOutputAssembly="false"` keeps the
+            tool out of every consumer's output.
+        -->
+        <ProjectReference Include="$(MSBuildThisFileDirectory)../../../Tools/Vixen.StyleGen/Vixen.StyleGen.csproj"
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all" />
+    </ItemGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)../../../Core/Vixen.Ui.Styling.Utilities/build/Vixen.Ui.Styling.Utilities.targets" />
+
+</Project>

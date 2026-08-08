@@ -21,11 +21,33 @@ public static class DebuggerTheme {
     public static int Install(UiDocument document) {
         ArgumentNullException.ThrowIfNull(document);
 
-        return document.Load(Css, StyleOrigin.UserAgent);
+        var sheet = document.Load(Css, StyleOrigin.UserAgent);
+
+        document.Load(Utilities, StyleOrigin.UserAgent);
+
+        return sheet;
     }
 
     /// <summary>The stylesheet's text, for a caller that wants to read or amend it.</summary>
     public static string Css => Sheet;
+
+    /// <summary>This assembly's utility rules, in <c>@layer utilities</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A sheet of its own over the editor's tokens.</b> What
+    ///         <c>Vixen.Editor.Ui/build/Vixen.Editor.Ui.Styling.targets</c> shares is the tokens; the
+    ///         scan and the output stay this project's, so incremental build and project
+    ///         independence both survive and every sheet still lands in <c>@layer utilities</c>,
+    ///         where document order decides nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Loaded at the same origin as the sheet above.</b> Origin is the cascade's first
+    ///         question and the layer only its second, so a utility sheet loaded as <c>Author</c>
+    ///         would beat every hand-written rule in <c>Sheet</c> on origin alone — the inversion
+    ///         <c>EditorTheme.Install</c> spells out at length.
+    ///     </para>
+    /// </remarks>
+    public static string Utilities => VixenUtilityStyles.Utilities;
 
     const string Sheet = """
         debugger-status, remote-status {
