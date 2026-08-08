@@ -151,6 +151,27 @@ public struct LayoutResult {
     /// <summary>Whether this node is transparent to margin collapsing — §8.3.1's "collapse through".</summary>
     internal bool MarginsCollapseThrough;
 
+    /// <summary>
+    ///     Where the last line box of an inline formatting context put its baseline, or NaN when this
+    ///     node did not establish one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The third algorithm cost the input side and the fourth costs the output side again —
+    ///     but for a reason block's margins were not.</b> A collapsible margin is an output because it
+    ///     belongs to somebody else. This is an output because it is <i>not recomputable</i>: CSS 2.1
+    ///     §10.8.1 puts an <c>inline-block</c>'s baseline on its <b>last</b> line box, and which line
+    ///     is last, and where its baseline fell, is known only inside the line-breaking walk. The
+    ///     existing <c>CalculateBaseline</c> reconstructs a flex container's baseline by descending
+    ///     into the first child, which works because a flex container's baseline <i>is</i> a child's.
+    ///     A line box is not a node — it has no id, no style and no entry in the child arena — so
+    ///     there is nothing to descend into and no way to ask the question after the fact.
+    ///     <para>
+    ///         NaN rather than zero for "no inline formatting context here", because zero is a
+    ///         perfectly ordinary baseline — an empty first line has one.
+    ///     </para>
+    /// </remarks>
+    internal float InlineBaseline;
+
     /// <summary>Where an out-of-flow child of a block container would have sat in flow.</summary>
     /// <remarks>
     ///     CSS 2.1 §10.6.4's static position. The flex path derives an absolute child's fallback
@@ -204,6 +225,16 @@ public struct CachedMeasurement {
 
     /// <inheritdoc cref="TopCollapsibleMargin" />
     internal bool MarginsCollapseThrough;
+
+    /// <summary>The inline baseline that came back with this answer.</summary>
+    /// <remarks>
+    ///     ⚠ Replayed for exactly the reason the three above are, and the failure mode is worse
+    ///     because it is quieter: a cache hit that restored the two sizes and not this would align a
+    ///     nested <c>inline-block</c> against whichever baseline the node's <i>last full</i> layout
+    ///     left behind. Its own box would be the right size and its neighbours on the line would sit
+    ///     a few points off, incrementally only. See <see cref="LayoutResult.InlineBaseline" />.
+    /// </remarks>
+    internal float InlineBaseline;
 }
 
 /// <summary>The per-node measurement cache.</summary>

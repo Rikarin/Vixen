@@ -91,6 +91,17 @@ public struct LayoutStyle {
     /// <summary>What the dimensions measure.</summary>
     public BoxSizing BoxSizing;
 
+    /// <summary>How this box sits against the line box it is on, if it is on one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read only by an inline formatting context, and inert everywhere else — which is CSS's
+    ///     own rule and not a limitation.</b> §10.8.1 applies <c>vertical-align</c> to inline-level and
+    ///     table-cell boxes; on a flex item, a grid item or a block-level box in normal flow it
+    ///     computes to a value nothing consults. That is why the property sat in the editor's inert
+    ///     inventory with a task number against it rather than a bug: there was no line box in the
+    ///     engine for it to align to.
+    /// </remarks>
+    public VerticalAlign VerticalAlign;
+
     /// <summary>Which ordinal group this item is laid out and painted in.</summary>
     /// <remarks>
     ///     ⚠ <b>Not in Yoga, so not in a single one of the 534 ported fixtures.</b> CSS Flexbox §5.4

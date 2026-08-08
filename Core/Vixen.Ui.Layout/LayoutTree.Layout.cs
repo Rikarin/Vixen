@@ -197,6 +197,7 @@ public sealed partial class LayoutTree {
             layout.TopCollapsibleMargin = entry.TopCollapsibleMargin;
             layout.BottomCollapsibleMargin = entry.BottomCollapsibleMargin;
             layout.MarginsCollapseThrough = entry.MarginsCollapseThrough;
+            layout.InlineBaseline = entry.InlineBaseline;
         } else {
             CalculateLayoutImpl(
                 index,
@@ -229,7 +230,8 @@ public sealed partial class LayoutTree {
                     IsPopulated = true,
                     TopCollapsibleMargin = layout.TopCollapsibleMargin,
                     BottomCollapsibleMargin = layout.BottomCollapsibleMargin,
-                    MarginsCollapseThrough = layout.MarginsCollapseThrough
+                    MarginsCollapseThrough = layout.MarginsCollapseThrough,
+                    InlineBaseline = layout.InlineBaseline
                 };
 
                 if (performLayout) {
@@ -307,6 +309,12 @@ public sealed partial class LayoutTree {
         results[index].BottomCollapsibleMargin = CollapsibleMargin.From(marginColumnTrailing);
         results[index].MarginsCollapseThrough = false;
 
+        // ⚠ And the fourth algorithm's one extra question, cleared for the same reason. "I have no
+        // line boxes" is the honest answer from everything that is not an inline formatting context,
+        // and it is what sends `CalculateBaseline` to CSS Align §9.3's synthesis rule instead of to a
+        // baseline some earlier pass left on this node.
+        results[index].InlineBaseline = float.NaN;
+
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             MeasureNodeWithMeasureFunction(
                 index,
@@ -351,7 +359,35 @@ public sealed partial class LayoutTree {
             return;
         }
 
-        if (styles[index].Display == Display.Block) {
+        // ⚠ The inner display type decides the algorithm and the outer one decides nothing here.
+        // CSS Display §2.1 makes `inline-block` a box whose *outside* is inline and whose *inside* is
+        // flow — so it runs block layout, exactly as `block` does, and the only difference is who
+        // asks and with which sizing mode. That difference is entirely in the caller: an inline
+        // formatting context asks with `FitContent`, and §10.3.9's shrink-to-fit is what the block
+        // path already does when it is not asked with `StretchFit`. Nothing about *being* inline-level
+        // is visible from in here, which is why this is one condition and not two algorithms.
+        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline) {
+            // An inline formatting context is not a variant of block layout, it is what a block
+            // container does instead when everything in it is inline-level. See LayoutTree.Inline.cs.
+            if (EstablishesInlineFormattingContext(index)) {
+                CalculateInlineLayoutImpl(
+                    index,
+                    availableWidth,
+                    availableHeight,
+                    direction,
+                    widthSizingMode,
+                    heightSizingMode,
+                    ownerWidth,
+                    ownerHeight,
+                    performLayout,
+                    currentDepth,
+                    marginAxisRow,
+                    marginAxisColumn
+                );
+
+                return;
+            }
+
             CalculateBlockLayoutImpl(
                 index,
                 availableWidth,

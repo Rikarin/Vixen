@@ -90,9 +90,21 @@ static class TaffyStyleMap {
                         "block" => Display.Block,
                         "grid" => Display.Grid,
 
-                        // `inline-grid`, `inline-flex` and `flow-root` still land here: this store
-                        // has no inline formatting, so an inline-level container is not a spelling
-                        // of the block-level one.
+                        // ⚠ <b>Mapped since doc 43 § B3, and not one fixture reaches them.</b> The
+                        // corpus's `display` attribute takes exactly five values across all eight
+                        // files — `block` (2 276), `flex` (764), `flow-root` (12), `grid` (2 496) and
+                        // `none` (68) — verified by enumeration rather than assumed. So unlike block
+                        // and grid, whose keywords unlocked two thousand right answers apiece the day
+                        // they were added, these three unlock nothing: inline formatting is the one
+                        // layout mode Taffy's corpus has no opinion about, because Taffy delegates
+                        // text and inline layout to its caller and never generates a fixture for it.
+                        // They are mapped anyway so this bridge keeps telling the truth about what
+                        // the store supports; the oracle for them is WPT, in InlineFormattingTests.
+                        "inline" => Display.Inline,
+                        "inline-block" => Display.InlineBlock,
+                        "inline-flex" => Display.InlineFlex,
+
+                        // `inline-grid` and `flow-root` still land here.
                         _ => throw new TaffyUnsupportedException($"display: {value}")
                     }
                 );

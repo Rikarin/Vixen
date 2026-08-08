@@ -56,9 +56,20 @@ public sealed partial class LayoutTree {
     ///     (<c>margin_y_*_collapse_blocked_by_overflow_{x,y}_{hidden,scroll}</c>), and reading only
     ///     <see cref="Overflow.Scroll" /> here — which is what the §4.5 opt-out one file over reads —
     ///     fails every one of them.
+    ///
+    ///     ⚠ <b>An inline-level box is one too, and that clause arrived with B3.</b> CSS Display §2.1
+    ///     makes <c>inline-block</c> and <c>inline-flex</c> <i>flow-root</i> boxes: they establish a
+    ///     formatting context of their own, so nothing inside them collapses a margin out through
+    ///     their edges. Without this an <c>inline-block</c> would still be barred from collapsing by
+    ///     <see cref="BlockMarginsCollapsibleWithParent" />'s <c>Display.Block</c> test, but its own
+    ///     <i>collapse-through</i> answer would be computed as though it were transparent — so an
+    ///     empty one between two margins would let them meet through it, which is the one thing a
+    ///     formatting context root exists to stop.
     /// </remarks>
     bool EstablishesBlockFormattingContext(int index) =>
-        styles[index].OverflowX != Overflow.Visible || styles[index].OverflowY != Overflow.Visible;
+        styles[index].OverflowX != Overflow.Visible
+        || styles[index].OverflowY != Overflow.Visible
+        || IsInlineLevel(styles[index].Display);
 
     /// <summary>
     ///     Whether this node's vertical margins are allowed to collapse with its parent's.

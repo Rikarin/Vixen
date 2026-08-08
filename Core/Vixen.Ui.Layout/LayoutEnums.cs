@@ -186,7 +186,101 @@ public enum Display : byte {
     ///     tracks they span rather than over the children in order. Nothing in the flex line machinery
     ///     applies.
     /// </remarks>
-    Grid
+    Grid,
+
+    /// <summary>
+    ///     An inline-level box with flow content: it sits on a line beside its siblings rather than
+    ///     taking one of its own.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This store treats an <c>inline</c> box as <i>atomic</i>, and that is the one place the
+    ///     keyword is not the CSS one.</b> CSS Display §2.2 makes a non-replaced <c>inline</c> box
+    ///     non-atomic: when it does not fit, it <i>fragments</i> — one box becomes several, one per
+    ///     line it crosses, each with its own rectangle and with the horizontal border and padding
+    ///     drawn only at the two real ends. A <see cref="LayoutResult" /> holds exactly one rectangle
+    ///     per node, so a fragmented box has nowhere to put its second half. See
+    ///     <c>LayoutTree.Inline.cs</c> for why that is the whole boundary of B3 and not an oversight,
+    ///     and <c>InlineKnownGaps.txt</c> for what it costs in practice.
+    ///     <para>
+    ///         For the case that dominates a user interface — a <c>span</c> holding text and no
+    ///         box children — atomic and non-atomic agree exactly, because there is nothing to split.
+    ///     </para>
+    /// </remarks>
+    Inline,
+
+    /// <summary>
+    ///     An inline-level box whose inside is a block container: it sits on a line, and its children
+    ///     stack.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The difference from <see cref="Block" /> is entirely on the outside, and it is the
+    ///     reason this keyword was left unmapped until there was an inline formatting context to map
+    ///     it into.</b> A <see cref="Block" /> box in normal flow takes the whole line — CSS 2.1
+    ///     §10.3.3 solves <c>width: auto</c> to the containing block's width. An <c>inline-block</c>
+    ///     resolves the same <c>width: auto</c> by §10.3.9's <i>shrink-to-fit</i>, and shares its line
+    ///     with whatever comes before and after. Aliasing this onto <see cref="Block" /> would have
+    ///     given it the whole line, which is the single behaviour an author writes it to prevent.
+    /// </remarks>
+    InlineBlock,
+
+    /// <summary>
+    ///     An inline-level box whose inside is a flex container.
+    /// </summary>
+    /// <remarks>
+    ///     Outer display inline, inner display flex, per CSS Display §2.1. Everything inside is
+    ///     <see cref="Flex" />'s algorithm unchanged; only the outside — line participation and
+    ///     shrink-to-fit — differs.
+    /// </remarks>
+    InlineFlex
+}
+
+/// <summary>
+///     How an inline-level box sits against the line box it is on, per CSS 2.1 §10.8.1.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Three of these eight are implemented and five are refused, and the split is not
+///         arbitrary — it is exactly the line between the values defined against the <i>line box</i>
+///         and the values defined against a <i>font</i>.</b> <see cref="Baseline" />,
+///         <see cref="Top" /> and <see cref="Bottom" /> are geometry this store already has: a
+///         baseline it computes, and the two edges of a box it just laid out.
+///         <see cref="Middle" />, <see cref="TextTop" />, <see cref="TextBottom" />,
+///         <see cref="Sub" /> and <see cref="Super" /> are each defined against the parent's
+///         <i>strut</i> — its font's ascent, descent or x-height — and
+///         <c>Vixen.Ui.Layout</c> has no font, no font size and no way to ask for one. It is a
+///         geometry store; the fonts live one layer out in <c>Vixen.Ui</c>.
+///     </para>
+///     <para>
+///         So the five are carried as computed values and refused by the algorithm rather than
+///         silently rounded to <see cref="Baseline" />. A silent fallback would put
+///         <c>vertical-align: middle</c> a half-x-height out and look like a rounding error;
+///         <c>InlineKnownGaps.txt</c> names them and says what each would need.
+///     </para>
+/// </remarks>
+public enum VerticalAlign : byte {
+    /// <summary>The box's baseline sits on the line's. The initial value.</summary>
+    Baseline,
+
+    /// <summary>The box's top edge sits against the top of the line box.</summary>
+    Top,
+
+    /// <summary>The box's bottom edge sits against the bottom of the line box.</summary>
+    Bottom,
+
+    /// <summary>Centred on the parent's baseline plus half its x-height. ⚠ Needs font metrics.</summary>
+    Middle,
+
+    /// <summary>Aligned with the top of the parent's strut. ⚠ Needs font metrics.</summary>
+    TextTop,
+
+    /// <summary>Aligned with the bottom of the parent's strut. ⚠ Needs font metrics.</summary>
+    TextBottom,
+
+    /// <summary>Lowered to the parent's subscript position. ⚠ Needs font metrics.</summary>
+    Sub,
+
+    /// <summary>Raised to the parent's superscript position. ⚠ Needs font metrics.</summary>
+    Super
 }
 
 /// <summary>Which way the inline axis runs.</summary>

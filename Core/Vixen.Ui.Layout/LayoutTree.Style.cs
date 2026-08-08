@@ -215,6 +215,25 @@ public sealed partial class LayoutTree {
         MarkDirtyAndPropagate(index);
     }
 
+    /// <summary>Sets how this box sits against the line box it is on.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="verticalAlign">The alignment.</param>
+    /// <remarks>
+    ///     ⚠ Read only where the node is an inline-level box in an inline formatting context, which
+    ///     is CSS 2.1 §10.8.1's own scope rather than a limitation — the property means nothing on a
+    ///     flex item or a block-level box in normal flow. Three of the eight values are honoured; see
+    ///     <see cref="VerticalAlign" /> for which five are not and exactly why.
+    /// </remarks>
+    public void SetVerticalAlign(LayoutNodeId node, VerticalAlign verticalAlign) {
+        var index = Validate(node);
+        if (styles[index].VerticalAlign == verticalAlign) {
+            return;
+        }
+
+        styles[index].VerticalAlign = verticalAlign;
+        MarkDirtyAndPropagate(index);
+    }
+
     /// <summary>Sets what the dimensions measure.</summary>
     /// <param name="node">The node.</param>
     /// <param name="boxSizing">The box model.</param>
