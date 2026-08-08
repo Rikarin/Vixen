@@ -77,6 +77,16 @@ Vixen.Ui.Layout.GridAutoRepeat.AutoFill = 1 -> Vixen.Ui.Layout.GridAutoRepeat
 Vixen.Ui.Layout.GridAutoRepeat.AutoFit = 2 -> Vixen.Ui.Layout.GridAutoRepeat
 Vixen.Ui.Layout.GridAutoRepeat.GridAutoRepeat() -> void
 Vixen.Ui.Layout.GridAutoRepeat.None = 0 -> Vixen.Ui.Layout.GridAutoRepeat
+Vixen.Ui.Layout.GridAutoRepeatSpan -> readonly struct
+Vixen.Ui.Layout.GridAutoRepeatSpan : System.IEquatable<Vixen.Ui.Layout.GridAutoRepeatSpan>
+Vixen.Ui.Layout.GridAutoRepeatSpan.Count.get -> int
+Vixen.Ui.Layout.GridAutoRepeatSpan.Count.init -> int
+Vixen.Ui.Layout.GridAutoRepeatSpan.GridAutoRepeatSpan() -> void
+Vixen.Ui.Layout.GridAutoRepeatSpan.GridAutoRepeatSpan(Vixen.Ui.Layout.GridAutoRepeat Kind, int Index, int Count) -> void
+Vixen.Ui.Layout.GridAutoRepeatSpan.Index.get -> int
+Vixen.Ui.Layout.GridAutoRepeatSpan.Index.init -> int
+Vixen.Ui.Layout.GridAutoRepeatSpan.Kind.get -> Vixen.Ui.Layout.GridAutoRepeat
+Vixen.Ui.Layout.GridAutoRepeatSpan.Kind.init -> Vixen.Ui.Layout.GridAutoRepeat
 Vixen.Ui.Layout.GridPlacement -> readonly struct
 Vixen.Ui.Layout.GridPlacement : System.IEquatable<Vixen.Ui.Layout.GridPlacement>
 Vixen.Ui.Layout.GridPlacement.GridPlacement() -> void
@@ -113,6 +123,7 @@ Vixen.Ui.Layout.GridSizingKind.MaxContent = 2 -> Vixen.Ui.Layout.GridSizingKind
 Vixen.Ui.Layout.GridSizingKind.MinContent = 1 -> Vixen.Ui.Layout.GridSizingKind
 Vixen.Ui.Layout.GridSizingKind.Percent = 4 -> Vixen.Ui.Layout.GridSizingKind
 Vixen.Ui.Layout.GridSizingKind.Points = 3 -> Vixen.Ui.Layout.GridSizingKind
+Vixen.Ui.Layout.GridTrackList -> static class
 Vixen.Ui.Layout.GridTrackSize -> readonly struct
 Vixen.Ui.Layout.GridTrackSize : System.IEquatable<Vixen.Ui.Layout.GridTrackSize>
 Vixen.Ui.Layout.GridTrackSize.GridTrackSize() -> void
@@ -378,11 +389,15 @@ override Vixen.Ui.Layout.StyleLength.GetHashCode() -> int
 override Vixen.Ui.Layout.StyleLength.ToString() -> string
 readonly Vixen.Ui.Layout.StyleLength.Unit -> Vixen.Ui.Layout.LayoutUnit
 readonly Vixen.Ui.Layout.StyleLength.Value -> float
+static Vixen.Ui.Layout.GridAutoRepeatSpan.None.get -> Vixen.Ui.Layout.GridAutoRepeatSpan
 static Vixen.Ui.Layout.GridPlacement.Line(int line) -> Vixen.Ui.Layout.GridPlacement
 static Vixen.Ui.Layout.GridPlacement.Span(int tracks) -> Vixen.Ui.Layout.GridPlacement
+static Vixen.Ui.Layout.GridPlacement.TryParse(System.ReadOnlySpan<char> value, out Vixen.Ui.Layout.GridPlacement placement) -> bool
+static Vixen.Ui.Layout.GridPlacement.TryParseShorthand(System.ReadOnlySpan<char> value, out Vixen.Ui.Layout.GridPlacement start, out Vixen.Ui.Layout.GridPlacement end) -> bool
 static Vixen.Ui.Layout.GridSizingFunction.Flex(float fraction) -> Vixen.Ui.Layout.GridSizingFunction
 static Vixen.Ui.Layout.GridSizingFunction.Percent(float percent) -> Vixen.Ui.Layout.GridSizingFunction
 static Vixen.Ui.Layout.GridSizingFunction.Points(float points) -> Vixen.Ui.Layout.GridSizingFunction
+static Vixen.Ui.Layout.GridTrackList.TryParse(string value, System.Collections.Generic.List<Vixen.Ui.Layout.GridTrackSize> tracks, out Vixen.Ui.Layout.GridAutoRepeatSpan repeat, out string? refusal) -> bool
 static Vixen.Ui.Layout.GridTrackSize.FitContent(float limit, bool isPercent) -> Vixen.Ui.Layout.GridTrackSize
 static Vixen.Ui.Layout.GridTrackSize.MinMax(Vixen.Ui.Layout.GridSizingFunction minimum, Vixen.Ui.Layout.GridSizingFunction maximum) -> Vixen.Ui.Layout.GridTrackSize
 static Vixen.Ui.Layout.GridTrackSize.Single(Vixen.Ui.Layout.GridSizingFunction single) -> Vixen.Ui.Layout.GridTrackSize

@@ -249,6 +249,14 @@ It has to hold rather more than a stylesheet suggests: `repeat(40000, 10px 10px)
 declaration and the corpus contains it, so fixed repetitions are expanded once on write and
 `LayoutLimits.MaximumGridTracks` is what stops a list being unbounded.
 
+⚠ **`GridTrackList` is the `<track-list>` grammar, and it is in this project deliberately** — the
+only text parsing here, and the exception is argued rather than accidental. It is the inverse of
+`GridTrackSize.ToString`, which already emits `minmax(0,1fr)`; and it is what lets the conformance
+corpus and the CSS bridge read a track list with the same lines. That matters more than the layering
+does: every one of the 1 526 passing grid fixtures arrives through `TaffyStyleMap` and never touches
+CSS, so a grammar written only for stylesheets would have had no adversarial coverage at all.
+`TaffyTrackListParser` is now an adapter between its returned refusal and the corpus's thrown one.
+
 ⚠ **Two consequences worth knowing.** A whole-style write has to carry the destination node's own
 handles across, because a `LayoutStyle` copied between nodes would alias a block one of them will
 later free — which is why those four fields are `internal` and set only through

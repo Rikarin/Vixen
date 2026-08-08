@@ -13,7 +13,7 @@ Layout	left-*	functional	left-0	left	left	left	left		works				left-auto left-ful
 Layout	z-*	functional	z-0	z-index	z	z-index	z-index		works				
 Flexbox and Grid	order-*	functional	order-1	order	order	order			inert				order-none
 Flexbox and Grid	col-*	functional	col-end-1	grid-column					absent				
-Flexbox and Grid	col-span-*	functional	col-span-1	grid-column	col-span	grid-column			inert				
+Flexbox and Grid	col-span-*	functional	col-span-1	grid-column	col-span	grid-column	grid-column		works			the family emitted the bare count until B2's bridge landed; `grid-column: 2` is a line number, not Tailwind's span	
 Flexbox and Grid	col-start-*	functional	col-start-1	grid-column-start					absent				
 Flexbox and Grid	col-end-*	functional	col-end-1	grid-column-end					absent				
 Flexbox and Grid	row-*	functional	row-end-1	grid-row					absent				
@@ -101,7 +101,7 @@ Typography	list-image-*	functional	list-image-none	list-style-image					absent
 Layout	columns-*	functional	columns-1	columns					absent				
 Flexbox and Grid	auto-cols-*	functional	auto-cols-auto	grid-auto-columns					absent				
 Flexbox and Grid	auto-rows-*	functional	auto-rows-auto	grid-auto-rows					absent				
-Flexbox and Grid	grid-cols-*	functional	grid-cols-1	grid-template-columns	grid-cols	grid-template-columns			inert				
+Flexbox and Grid	grid-cols-*	functional	grid-cols-1	grid-template-columns	grid-cols	grid-template-columns	grid-template-columns		works			the family emitted `grid-template-columns: 3`, which is not a track list, until B2's bridge landed	
 Flexbox and Grid	grid-rows-*	functional	grid-rows-1	grid-template-rows					absent	grid		swallowed by the family `grid`; the value does not resolve, so nothing is emitted	
 Flexbox and Grid	gap-*	functional	gap-0	gap	gap	gap	gap		works				gap-px
 Flexbox and Grid	gap-x-*	functional	gap-x-0	column-gap	gap-x	column-gap	column-gap		works				gap-x-px
@@ -253,7 +253,7 @@ Layout	isolation	static	isolate	isolation					absent				isolate isolation-auto
 Layout	float	static	float-start	float					absent				float-start float-end float-right float-left float-none
 Layout	clear	static	clear-start	clear					absent				clear-start clear-end clear-right clear-left clear-both clear-none
 Layout	box-sizing	static	box-border	box-sizing	box-border	box-sizing	box-sizing		works	box-border			box-border box-content
-Layout	display	static	block	display	block	display	display		partial	block	LayoutEnums.Display is {Flex, None}: block, inline, inline-block, inline-flex and grid compute and change nothing	7 of 21 keywords: missing table inline-table table-caption table-cell table-column table-column-group	block inline-block inline hidden inline-flex table inline-table table-caption
+Layout	display	static	block	display	block	display	display		partial	block	LayoutEnums.Display is {Flex, None, Block, Grid}: block (B1) and grid (B2) lay out; inline, inline-block and inline-flex compute and change nothing (B3)	7 of 21 keywords: missing table inline-table table-caption table-cell table-column table-column-group	block inline-block inline hidden inline-flex table inline-table table-caption
 Interactivity	field-sizing	static	field-sizing-content	field-sizing					absent				field-sizing-content field-sizing-fixed
 Sizing	container (max-w+w)	static	container	max-width,width					absent				container
 Tables	table-layout	static	table-auto	table-layout					absent				table-auto table-fixed

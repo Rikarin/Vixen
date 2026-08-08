@@ -219,6 +219,32 @@ static class UtilityConsumptionProbe {
                      transition-timing-function: linear; }
             #after { width: 96px; height: 20px; background-color: #a0a040; }
             """
+        ),
+
+        // ⚠ <b>Gridded, and it is the only scene in which a grid property can move anything at all.</b>
+        // Every scene above makes `#probe` a flex container inside a flex host, and on a flex box a
+        // track list is not wrong — it is simply not read, by CSS as much as by this engine. So
+        // `grid-template-columns` measured as inert for as long as this file had no grid in it, and
+        // it went on measuring inert after the bridge landed: the gate would have stayed green while
+        // `InertProperties.txt` said grid was unreachable and it no longer was. That is the failure
+        // this gate exists to prevent, pointed at itself.
+        //
+        // ⚠ The probe is a grid container *and* a grid item, which no other scene needs to arrange
+        // deliberately. `grid-template-columns` is read on the container and `grid-column` on the
+        // item, and with `#host` flex — as it is everywhere else — a placement longhand on `#probe`
+        // has no grid to be placed in and stays invisible. Both halves have to be a grid at once.
+        //
+        // Three columns and three rows against four children, so an item that moves by one track
+        // moves visibly and the implicit-track properties have a row to create.
+        new(
+            "gridded",
+            """
+            #host  { display: grid; grid-template-columns: 60px 60px; width: 120px; height: 90px; }
+            #probe { display: grid; grid-template-columns: 20px 20px 20px; grid-auto-rows: 14px;
+                     width: 60px; height: 46px;
+                     background-color: #204080; color: #e0e0e0; }
+            #after { width: 96px; height: 20px; background-color: #a0a040; }
+            """
         )
     ];
 
