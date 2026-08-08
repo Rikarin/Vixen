@@ -578,6 +578,12 @@ as `gridded` and `inlined`: a green gate is a claim about the scenes as much as 
   `transition-property` and stops; Tailwind's also emits a 150 ms duration and a timing function. The
   property is read, so the row belongs in `Supported`; the class needs a `duration-*` beside it. A
   family gap rather than a property gap, recorded on the `Supported` table.
+- **A fading inherited value does not reach the children.** The animator is a tier over the finished
+  cascade, so `StyleUpdater` inherits from the parent's *cascaded* style and the overlay is applied
+  per element afterwards — a panel fading its `color` hands its descendants the destination on the
+  first frame while the panel itself travels, and a descendant cannot start its own transition
+  because `transition-*` do not inherit. Fixing it means the overlay participating in inheritance,
+  which is a change to the order of the pass rather than to the animator, and is not A20's.
 
 ### F11 · The whole of `@media` was evaluated against a surface that does not exist ⚠ *found while closing F10*
 

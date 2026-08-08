@@ -255,6 +255,72 @@ public class TransitionTests {
         Assert.NotEqual(light, midway);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A fading inherited value does not reach the children, and this pins the gap rather
+    ///     than hiding it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The animator is a tier laid over the <i>finished</i> cascade: <c>StyleUpdater</c>
+    ///         inherits from the parent's cascaded style, and <c>UiDocument.Apply</c> overlays the
+    ///         in-flight values afterwards, per element. So a panel fading its <c>color</c> travels
+    ///         while its descendants are handed the destination on the first frame — and a descendant
+    ///         cannot start a fade of its own, because <c>transition-*</c> are not inherited
+    ///         properties and it has no spec.
+    ///     </para>
+    ///     <para>
+    ///         Measured, not argued: halfway through a black-to-white fade the panel reads
+    ///         <c>rgba(99, 99, 99, 1)</c> — Oklab's midpoint — and the child reads
+    ///         <c>rgb(255, 255, 255)</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A guard, so read the failure the right way round.</b> If this test goes red, the
+    ///         likely cause is that somebody made the overlay participate in inheritance, which is the
+    ///         fix — and the right response is to rewrite this test, not the code. It is here because
+    ///         a limitation nothing asserts is a limitation that gets rediscovered as a bug, and
+    ///         because fixing it means changing the order of the pass rather than the animator, which
+    ///         deserves to argue with something.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_inherited_value_reaches_the_children_at_its_destination_rather_than_mid_fade() {
+        using var document = new UiDocument(400f, 200f);
+
+        document.Load(
+            """
+            root   { width: 400px; height: 200px; }
+            #panel { color: #000000; transition-property: color; transition-duration: 200ms;
+                     transition-timing-function: linear; }
+            #panel.lit { color: #ffffff; }
+            #kid   { width: 10px; height: 10px; }
+            """
+        );
+
+        var panel = document.Create("div", document.Root, "panel");
+        var kid = document.Create("div", panel, "kid");
+
+        document.Tick(TimeSpan.Zero);
+        document.Update();
+
+        panel.AddClass("lit");
+        Frame(document, 0.0);
+        Frame(document, 0.10);
+
+        var colour = document.Styles.Properties.Lookup("color");
+
+        Assert.True(panel.Style.TryGet(colour, out var travelling));
+        Assert.True(kid.Style.TryGet(colour, out var arrived));
+
+        // The panel is somewhere in between…
+        Assert.NotEqual(
+            document.Styles.Values.NameOf(arrived),
+            document.Styles.Values.NameOf(travelling)
+        );
+
+        // …and the child is already at the end, which is the gap.
+        Assert.Equal("rgb(255, 255, 255)", document.Styles.Values.NameOf(arrived));
+    }
+
     /// <summary>The <c>background-color</c> the element is currently showing, as the cascade holds it.</summary>
     static string Painted(UiDocument document, UiElement element) {
         var background = document.Styles.Properties.Lookup("background-color");
