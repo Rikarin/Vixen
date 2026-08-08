@@ -69,7 +69,7 @@ time:
 `UiTest.Geometry` reports what actually happened, which a screenshot cannot: a group composited when
 it did not need to be draws an identical picture and costs a pass.
 
-```csharp
+```csharp no-compile="a fragment; `ui` is a `UiTest` the caller built and framed"
 Assert.Empty(ui.Geometry.Layers);   // the fade was folded into the one command
 ```
 

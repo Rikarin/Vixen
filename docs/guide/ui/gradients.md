@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.GradientShape, T:Vixen.Ui.GradientSpace, T:Vixen.Ui.GradientSto
 tags: [ui, styling, gradients, colour, oklab, vcss, tailwind]
 since: 0.2
 status: preview
-related: [ui/utility-composition, core/gamut-mapping]
+related: [ui/utility-composition, ui/compositing, core/gamut-mapping]
 ---
 
 ## What it is
