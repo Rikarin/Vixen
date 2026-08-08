@@ -325,11 +325,24 @@ public class UtilityConsumptionGateTests {
     ///     fail the build for the whole family table, so the four observables each need a case that
     ///     moves them and nothing else.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>The three <c>translate</c> rows are a second case on channels that already have one,
+    ///     and they are here because this gate's verdict is a <i>union</i>.</b> A property counts as
+    ///     read if any one observable moves, which is the right rule for "is this a promise or a
+    ///     feature" and is blind to the failure a transform actually has: painted in the new place and
+    ///     clickable in the old one moves <c>paint</c>, passes, and is a broken interface. Naming the
+    ///     channels a translation must move pins all three here, so a regression that quietly drops
+    ///     the hit test fails the gate rather than only the two files that assert it directly —
+    ///     <c>Vixen.Ui.Tests.TransformTests</c> and the editor's family table.
+    /// </remarks>
     [Theory]
     [InlineData("width", "9px", "layout")]
     [InlineData("background-color", "#123456", "paint")]
     [InlineData("cursor", "pointer", "cursor")]
     [InlineData("pointer-events", "none", "hit")]
+    [InlineData("translate", "9px 0px", "hit")]
+    [InlineData("translate", "9px 0px", "paint")]
+    [InlineData("translate", "9px 0px", "layout")]
     public void A_property_the_engine_acts_on_moves_the_channel_it_should(string property, string value, string channel) =>
         Assert.Contains(channel, UtilityConsumptionProbe.Channels(property, value), StringComparer.Ordinal);
 
