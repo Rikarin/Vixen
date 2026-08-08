@@ -116,6 +116,11 @@ public sealed partial class UiDocument : IDisposable {
         // cannot be removed, which is what makes every single-window caller — every test, every
         // sample, the whole of `Vixen.Ui.Testing` — carry on meaning what it meant.
         Adopt(new UiSurface(this, 0, Root, width, height, 1f, Drawing), width, height, 1f);
+
+        // ⚠ After the surface exists, because the context is read off it — and before any caller can
+        // reach `Load`, because a sheet loaded against the wrong surface has already had its `@media`
+        // blocks decided. Nothing is loaded yet, so this only records the context; see `Media.cs`.
+        Remedia();
     }
 
     /// <summary>What <c>rem</c> measures against, kept because a new surface needs it too.</summary>
@@ -670,7 +675,16 @@ public sealed partial class UiDocument : IDisposable {
         // and finding that out by way of a wrong interface would be finding it out the hard way.
         Restyler.Compact(remap);
 
-        // ⚠ This one is not insurance. A recorded change names a slot, compaction moves every slot,
+        // ⚠ Nor is this one insurance, and no amount of coldness saves it. A running transition is
+        // keyed by slot and lives *across* passes by design — that is what makes it a transition, and
+        // it is the one piece of per-element state a cold pass does not rewrite — so a compaction it
+        // was not told about leaves every fade in the document playing on whatever element has since
+        // landed on its index. `Animator.Compact` remaps rather than clearing, for the reason written
+        // on it: clearing would jolt every fade on the frame a list happened to shrink, which is a
+        // worse bug than the leak and a rarer one.
+        Styles.Animations.Compact(remap);
+
+        // ⚠ This one is not insurance either. A recorded change names a slot, compaction moves every slot,
         // and a change replayed afterwards would restyle whatever has since landed on that index.
         ForgetChanges();
         StyleCompactions++;
@@ -745,6 +759,10 @@ public sealed partial class UiDocument : IDisposable {
         if (Styles.Tree.DeadCount >= CompactionFloor && Styles.Tree.DeadCount > Styles.Tree.LiveCount) {
             CompactStyles();
         }
+
+        // ⚠ Before the restyle, because the restyle is what starts transitions: the updater stamps
+        // each one with this and a stamp from the previous frame is a fade that begins in the past.
+        Restyler.Now = Seconds;
 
         StylesResolved = Restyle();
         Arrange();
@@ -925,14 +943,59 @@ public sealed partial class UiDocument : IDisposable {
     ///     when <i>no</i> input arrives, and nothing in an input stream can report the absence of
     ///     input. This is the one call a host must make every frame whether anything happened or not.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>And it is what drives every CSS transition and <c>@keyframes</c> animation in the
+    ///     document, which is the second thing that makes it not optional.</b> A host that skips it
+    ///     does not get instant changes — it gets <i>stuck</i> ones: a transition started at
+    ///     <c>t = 0</c> against a clock that never leaves zero has made no progress on any frame, so
+    ///     the property holds the value it was leaving for the life of the process. That is a worse
+    ///     failure than no transitions at all and it looks like a different bug entirely, which is why
+    ///     it is written down here rather than guarded against — the guard would be a clock read, and
+    ///     the whole reason time arrives from outside is that this framework does not read clocks.
+    /// </remarks>
     public void Tick(TimeSpan now) {
         Now = now;
+        Seconds = (float) now.TotalSeconds;
         Gestures.Tick(now);
+
+        // ⚠ Asked *before* the advance, because the advance is what makes the last frame of a fade
+        // idle. Reading it after would skip the pass that writes the arrival value, leaving every
+        // transition permanently one frame short of where it was going — the interruption logic hides
+        // it for anything that moves again and nothing hides it for anything that does not.
+        if (!Styles.Animations.IsIdle) {
+            Styles.Animations.Advance(Seconds);
+
+            // ⚠ `InvalidatePositions` and not `Invalidate`, and the difference is a cold cascade per
+            // frame for as long as anything is fading. Nothing an element *declared* has changed —
+            // the animator is a tier laid over the finished cascade, not a participant in it — so
+            // there is exactly nothing for the resolver to redo and a great deal for `Apply` to.
+            InvalidatePositions();
+        }
+
         Ticked?.Invoke(this, now);
     }
 
     /// <summary>The last time <see cref="Tick" /> was given.</summary>
     public TimeSpan Now { get; private set; }
+
+    /// <summary>The same instant as <see cref="Now" />, in the seconds the animator counts in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A field written by <see cref="Tick" /> rather than a property over
+    ///         <see cref="Now" />, because <c>Apply</c> reads it once per element and <c>TotalSeconds</c>
+    ///         is a division. Small either way; the reason to write it down is that the two forms look
+    ///         identical at the call site and only one of them is once per frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>float</c>, which is the animator's own currency and loses resolution at large
+    ///         values — about a millisecond after three hours of uptime, and about a hundredth of a
+    ///         second after a fortnight. Transitions are measured in hundreds of milliseconds, so the
+    ///         first is invisible and the second is a stutter nobody will run long enough to see.
+    ///         Recorded because "it is a float" is the whole of the reason and is not visible from
+    ///         where it is used.
+    ///     </para>
+    /// </remarks>
+    float Seconds;
 
     /// <summary>Raised on every <see cref="Tick" />.</summary>
     /// <remarks>
@@ -985,7 +1048,16 @@ public sealed partial class UiDocument : IDisposable {
             metrics = own.Metrics;
         }
 
-        var style = Restyler.StyleOf(element.StyleNode);
+        // ⚠ <b>The transition tier, laid over the finished cascade and read by everything below.</b>
+        // CSS Cascading 5 § 6.2 puts a transitioning value above every origin and above
+        // `!important`, which is not a subtlety here but the only arrangement that works: a fade that
+        // could be outvoted would stutter whenever anything else on the element changed. So it is
+        // applied once, here, and the layout style, the draw list, the cursor and the hit test all
+        // read the overlaid style without any of them knowing time is passing.
+        //
+        // Free when nothing is running — `Animator.Apply` returns the same instance — which is what
+        // lets it sit in the hot walk of every element of every frame.
+        var style = Styles.Animations.Apply(element.StyleNode, Restyler.StyleOf(element.StyleNode), Seconds);
 
         element.Style = style;
         element.FontSize = Builder.ResolveFontSize(style, parentFontSize, metrics);

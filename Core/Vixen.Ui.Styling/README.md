@@ -15,7 +15,7 @@ before anything was built on it is
 | `SelectorCompiler` | ExCSS's selector tree → the flat form the matcher runs. A visitor, not a parser. |
 | `SelectorMatcher` | Right-to-left matching with backtracking, and the bloom in front of every descendant combinator. |
 | `RuleIndex` | Bucketing by the rightmost compound's most selective part. |
-| `StyleSheetLoader` | Rules, `@layer` (Vixen's own — ExCSS does not parse it), `@media` evaluated at load. |
+| `StyleSheetLoader` | Rules, `@layer` (Vixen's own — ExCSS does not parse it), `@media` evaluated at load, and the conditions it saw kept so a resize can re-ask them. |
 | `CascadePrecedence` | Origin, importance, layer, specificity, source order — as one comparable key. |
 | `ComputedStyle` | Immutable, interned, reference-compared. |
 | `StyleResolver` | The cascade, inheritance, `var()`, and the style-sharing cache. |
@@ -24,7 +24,7 @@ before anything was built on it is
 | `StyleValue` | The typed, interpolatable value. Numbers, lengths, colours, keywords, lists. |
 | `ColorFunctions` | The arithmetic behind `oklab()`, `oklch()` and `color-mix()`. `StyleValueParser` owns the grammar. |
 | `TimingFunction` | `cubic-bezier`, `steps`, and the `spring()` Vixen extension. |
-| `Animator` | Transitions and `@keyframes` animations, over the cascade. |
+| `Animator` | Transitions and `@keyframes` animations, over the cascade. Lives on `StyleEngine.Animations`; the document supplies the clock. |
 | `Vixen.Ui.Styling.Utilities` | ⏳ its own project |
 
 ⚠ **`StyleUpdater` is what the frame pass runs, and for two phases it was not.** `UiDocument.Update`
@@ -33,6 +33,18 @@ restyling was green against an object nothing in the running framework called. I
 the gate that says so lives in `Vixen.Ui.Tests` rather than here, because a test that reaches for the
 updater directly passes with the wiring deleted. `StyleEngine.ResolveAll` survives as the plain
 whole-tree cascade the sharing and cascade oracles are written against.
+
+⚠ **The same thing was true of `Animator`, and of `MediaContext`, and both are fixed — but the pattern
+is now three for three and is the thing to read this table with.** Every object in it is finished,
+tested and correct; being *called* is a separate fact, held somewhere else, and this project's own
+tests cannot see it. `Animator` was constructed nowhere outside `Vixen.Ui.Styling.Tests`, so no
+declared transition had ever run. `StyleEngine.Load` has always taken a `MediaContext` and
+`UiDocument` passed none, so every `@media` block in every real document was judged against a surface
+nought pixels wide — which killed every responsive variant, `dark:` under the media strategy, and
+`@media (color-gamut: p3)` outright. Both were found by *measuring a frame* rather than by reading
+this project, and both proofs deliberately live in `Vixen.Ui.Tests`
+(`TransitionTests`, `MediaContextTests`) for the reason the paragraph above gives: a test that reaches
+for the component directly passes with the wiring deleted. See doc 43 F10 and F11.
 
 ## The three ideas
 

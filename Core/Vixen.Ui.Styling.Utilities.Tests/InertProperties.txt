@@ -80,8 +80,27 @@ user-select                  #24  no selection model reads it, so `select-none` 
 # utilities that emit them stay inert in `UtilityFamilySupportTests`, which is where a *family*
 # rather than a property is recorded. See `InlineKnownGaps.txt`.
 
-# ── Transitions — A20, and this group is the one the survey got wrong. The Animator is finished and
-# tested and nothing ever constructs one, so a declared transition has never run. See F10.
-transition-duration          #46  nothing builds an Animator; the cascade jumps straight to the value
-transition-property          #46  ditto
-transition-timing-function   #46  ditto
+# ── Transitions — CLOSED by A20 / task #46. All three lines are gone, and the group is worth keeping
+# a note for because of how it got here and how it left.
+#
+# It arrived as the survey's clearest mistake: doc 43 listed two of these as working on the strength
+# of the cascade computing a value for them, and `UtilityFamilySupportTests` carried all three in
+# `Supported` for the same reason — in the file whose own opening paragraph warns against exactly
+# that reading. `Animator` was finished, had three test files of its own, and was constructed nowhere
+# but in them, so a document that declared `transition: all 200ms` and then changed a class jumped.
+# The gate's first run moved the three rows down here.
+#
+# ⚠ Closing it took a scene as well as an engine, and that is the third time. A20 wired the animator
+# to the style engine and the frame loop, and two of these three properties immediately measured as
+# consumers — `transition-property` did not, and would have gone on not doing so for a reason nothing
+# in this file could have told you: `transition-duration` defaults to zero, so the property alone
+# moves nothing in a plain scene, and the `animated` scene already declared the family's only emitted
+# value. The `primed` scene is what gives the gate somewhere to see it. Same lesson as `gridded` and
+# `inlined`, arriving for the third time in this file: a green gate is a claim about the scenes as
+# much as about the engine.
+#
+# ⚠ What is *not* closed, and is a family gap rather than a property gap, so it is recorded in
+# `UtilityFamilySupportTests` and not here: the `transition` utility emits `transition-property` and
+# nothing else, where Tailwind's emits a 150 ms duration and a timing function alongside it. So
+# `class="transition"` on its own still does nothing at all and needs a `duration-*` beside it. The
+# property is read; the class is half of one.

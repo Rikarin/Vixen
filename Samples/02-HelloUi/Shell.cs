@@ -96,7 +96,13 @@ public sealed class Shell : IDisposable {
         spinner.Phase = phase % 1f;
         progress.Value = ((MathF.Sin(phase) * 0.5f) + 0.5f) * progress.Maximum;
 
-        Document.Gestures.Tick(now);
+        // ⚠ The document's tick, not the recogniser's — the same correction `EditorShell.Tick`
+        // needed and for the same reasons. It raises `UiDocument.Ticked`, which is what an `Overlay`
+        // and a `Toasts` expire on, and it advances the animator, without which a declared CSS
+        // transition sticks at the value it was leaving rather than jumping to the new one. A
+        // template's frame loop is copied, so the sample getting it wrong is every game getting it
+        // wrong.
+        Document.Tick(now);
         toasts.Tick(now);
     }
 

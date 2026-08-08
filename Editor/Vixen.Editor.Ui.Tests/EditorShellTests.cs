@@ -178,21 +178,57 @@ public class EditorShellTests {
         Assert.DoesNotContain("(", Label(shell), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ <b>This was called <c>…that_does_not_expire</c> and asserted a toast still on screen
+    ///     fifty-nine seconds after a twelve-second one was shown.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>NotificationCenter</c>'s own remarks say the opposite in as many words — "an error
+    ///         stays longer and <i>still goes away</i>", with the history as the place somebody goes
+    ///         back to it, and a paragraph about the corner of red rectangles that
+    ///         <c>TimeSpan.MaxValue</c> produced. So the old assertion contradicted the design it was
+    ///         written beside, and it passed anyway.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Because <c>EditorShell.Tick</c> called <c>Document.Gestures.Tick</c> rather than
+    ///         <c>Document.Tick</c>, so <c>UiDocument.Now</c> was zero for the life of the
+    ///         editor.</b> <c>ToastHost.Show</c> stamps a toast with that clock, and
+    ///         <c>ToastHost.Tick</c> treats a zero stamp as "never stamped" and re-stamps it with the
+    ///         current time — a sentinel that is exactly right for a document whose clock has not
+    ///         started and exactly wrong for one whose clock never will. Every toast in the editor
+    ///         was therefore given a fresh lease on the first frame after it appeared, and this test
+    ///         had no frame after its last one. It was measuring a frozen clock.
+    ///     </para>
+    ///     <para>
+    ///         What it checks now is what the design says: an error outlasts an ordinary message and
+    ///         then goes, and the history keeps it either way. Both halves are needed — the first
+    ///         alone passes for a toast that never expires, the second alone for one that expires
+    ///         immediately.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void A_failed_task_becomes_a_notification_that_does_not_expire() {
+    public void A_failed_task_becomes_a_notification_that_outlasts_an_ordinary_one_and_then_goes() {
         using var shell = Built();
 
         var task = shell.Tasks.Begin("Building content");
         shell.Tasks.Fail(task, new InvalidOperationException("no compiler"));
 
         shell.Tick(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(16));
-        shell.Tick(TimeSpan.FromSeconds(60), TimeSpan.FromMilliseconds(16));
 
         var notice = Assert.Single(shell.Notifications.History);
 
         Assert.Equal(NotificationSeverity.Error, notice.Severity);
         Assert.Equal("no compiler", notice.Detail);
+
+        // Past `Duration`, which is four seconds, and well short of `ErrorDuration`, which is twelve.
+        shell.Tick(TimeSpan.FromSeconds(7), TimeSpan.FromMilliseconds(16));
         Assert.Single(shell.Toasts.Live);
+
+        // Past `ErrorDuration`. The toast goes; the history entry does not.
+        shell.Tick(TimeSpan.FromSeconds(20), TimeSpan.FromMilliseconds(16));
+        Assert.Empty(shell.Toasts.Live);
+        Assert.Single(shell.Notifications.History);
     }
 
     [Fact]

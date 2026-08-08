@@ -124,6 +124,7 @@ sealed class EditorPane : IDisposable {
         // that stayed sRGB over-saturates every colour on an ordinary display. Per pane, because two
         // windows of one editor can be on two monitors and only one of them wide.
         Geometry.Gamut = SwapChain.Gamut;
+        Publish();
 
         return true;
     }
@@ -152,8 +153,34 @@ sealed class EditorPane : IDisposable {
         // window onto a wide display is exactly a resize-and-recreate — and a builder still holding
         // the old one would map to a gamut the surface no longer has.
         Geometry.Gamut = SwapChain.Gamut;
+        Publish();
 
         built = target;
+    }
+
+    /// <summary>Tells the cascade what this surface was granted, so <c>@media</c> can ask.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same fact the line above hands the geometry builder, and until now only the
+    ///         geometry builder got it.</b> <c>@media (color-gamut: p3)</c> was evaluated against
+    ///         <c>MediaContext</c>'s default and could not match on any hardware — a stylesheet could
+    ///         not opt into a wider palette on the one surface able to show it, while every colour it
+    ///         did emit was already being mapped against this value on the way to a vertex.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the main window, because a document has one cascade.</b> Rules are shared by
+    ///         every surface — that is what keeps one theme across a torn-off panel — so there is no
+    ///         way for a query to answer differently in two windows today, and answering it from
+    ///         whichever pane last recreated its swapchain would be worse than answering it from the
+    ///         primary one: the main window is where the interface is, and a docked palette dragged
+    ///         onto a second display would otherwise redecide the whole editor's palette. Per-surface
+    ///         media is recorded as owed on <c>UiDocument.Media</c>.
+    ///     </para>
+    /// </remarks>
+    void Publish() {
+        if (IsPrimary && SwapChain is { } chain) {
+            Surface.Document.Gamut = chain.Gamut;
+        }
     }
 
     /// <inheritdoc />

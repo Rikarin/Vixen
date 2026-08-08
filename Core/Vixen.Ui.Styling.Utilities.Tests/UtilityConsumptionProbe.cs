@@ -206,8 +206,7 @@ static class UtilityConsumptionProbe {
         ),
 
         // The tight scene with transitions already switched on, so that a duration or a timing
-        // function has something to be the duration *of*. The scene where they are switched off is
-        // the one in which `transition-property` itself is visible; neither can be both.
+        // function has something to be the duration *of*. See `primed` for the other half.
         new(
             "animated",
             """
@@ -216,6 +215,38 @@ static class UtilityConsumptionProbe {
                      position: relative; border-width: 2px; border-color: #c02020;
                      background-color: #204080; color: #e0e0e0;
                      transition-property: all; transition-duration: 200ms;
+                     transition-timing-function: linear; }
+            #after { width: 96px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
+        // ⚠ <b>Primed: a duration and a timing function, aimed at a property the mutation does not
+        // touch.</b> This is the only arrangement in which `transition-property` itself is visible,
+        // and the file was wrong about that for as long as the property was inert for another reason.
+        //
+        // The comment on `animated` used to say the scenes with transitions *switched off* were where
+        // `transition-property` would show. They are not, and cannot be: `transition-duration`
+        // defaults to zero, so `transition-property: all` in a scene that declares nothing else is a
+        // transition of length nought — the animator declines it explicitly — and the frames are
+        // byte-identical to having written nothing. Meanwhile the family's only emitted value *is*
+        // `all`, which is already what `animated` declares, so injecting it there changes nothing
+        // either. Between the two the property had nowhere to be observed, and it measured inert on
+        // the run that made every other part of the machinery real. That is the third time a gate
+        // scene has been the thing missing rather than the engine.
+        //
+        // `color` is named because `#probe.moved` changes `background-color` and `margin-left` and
+        // leaves `color` alone: the baseline therefore transitions nothing, and an injected
+        // `transition-property: all` starts fading both. A property named `none` would do as well;
+        // this way the scene also proves the animator honours the *list* rather than treating any
+        // `transition-property` at all as "everything".
+        new(
+            "primed",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
+                     position: relative; border-width: 2px; border-color: #c02020;
+                     background-color: #204080; color: #e0e0e0;
+                     transition-property: color; transition-duration: 200ms;
                      transition-timing-function: linear; }
             #after { width: 96px; height: 20px; background-color: #a0a040; }
             """

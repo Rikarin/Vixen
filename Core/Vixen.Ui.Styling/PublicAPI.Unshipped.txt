@@ -303,13 +303,15 @@ Vixen.Ui.Styling.StepPosition.Start = 0 -> Vixen.Ui.Styling.StepPosition
 Vixen.Ui.Styling.StepPosition.StepPosition() -> void
 Vixen.Ui.Styling.StyleEngine -> sealed class
 Vixen.Ui.Styling.StyleEngine.AddInlineStyle(System.ReadOnlySpan<Vixen.Ui.Styling.Declaration> declarations) -> Vixen.Ui.Styling.InlineStyleId
+Vixen.Ui.Styling.StyleEngine.Animations.get -> Vixen.Ui.Styling.Animator
 Vixen.Ui.Styling.StyleEngine.Compiler.get -> Vixen.Ui.Styling.SelectorCompiler
 Vixen.Ui.Styling.StyleEngine.InlineStyles.get -> Vixen.Ui.Styling.InlineStyleStore
 Vixen.Ui.Styling.StyleEngine.Interning.get -> Vixen.Ui.Styling.ComputedStyleCache
 Vixen.Ui.Styling.StyleEngine.Keyframes.get -> Vixen.Ui.Styling.KeyframesTable
-Vixen.Ui.Styling.StyleEngine.Load(string css, Vixen.Ui.Styling.StyleOrigin origin = Vixen.Ui.Styling.StyleOrigin.Author, Vixen.Ui.Styling.MediaContext media = default(Vixen.Ui.Styling.MediaContext)) -> int
+Vixen.Ui.Styling.StyleEngine.Load(string css, Vixen.Ui.Styling.StyleOrigin origin = Vixen.Ui.Styling.StyleOrigin.Author, Vixen.Ui.Styling.MediaContext? media = null) -> int
 Vixen.Ui.Styling.StyleEngine.Loader.get -> Vixen.Ui.Styling.StyleSheetLoader
 Vixen.Ui.Styling.StyleEngine.Matcher.get -> Vixen.Ui.Styling.SelectorMatcher
+Vixen.Ui.Styling.StyleEngine.Media.get -> Vixen.Ui.Styling.MediaContext
 Vixen.Ui.Styling.StyleEngine.Names.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleEngine.Properties.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleEngine.Reload() -> void
@@ -318,6 +320,7 @@ Vixen.Ui.Styling.StyleEngine.ResolveAll() -> Vixen.Ui.Styling.ComputedStyle[]
 Vixen.Ui.Styling.StyleEngine.Resolver.get -> Vixen.Ui.Styling.StyleResolver
 Vixen.Ui.Styling.StyleEngine.Rules.get -> Vixen.Ui.Styling.StyleRuleSet
 Vixen.Ui.Styling.StyleEngine.Selectors.get -> Vixen.Ui.Styling.SelectorTable
+Vixen.Ui.Styling.StyleEngine.SetMedia(Vixen.Ui.Styling.MediaContext media) -> bool
 Vixen.Ui.Styling.StyleEngine.SheetCount.get -> int
 Vixen.Ui.Styling.StyleEngine.SheetText(int sheet) -> string
 Vixen.Ui.Styling.StyleEngine.StyleEngine() -> void
@@ -399,6 +402,7 @@ Vixen.Ui.Styling.StyleSharingKey.Tag.init -> int
 Vixen.Ui.Styling.StyleSheetLoader -> sealed class
 Vixen.Ui.Styling.StyleSheetLoader.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.Styling.StyleSheetLoader.Load(string css, Vixen.Ui.Styling.StyleOrigin origin, Vixen.Ui.Styling.MediaContext media) -> void
+Vixen.Ui.Styling.StyleSheetLoader.MediaConditions.get -> System.Collections.Generic.IReadOnlyCollection<string>
 Vixen.Ui.Styling.StyleSheetLoader.StyleSheetLoader(Vixen.Ui.Styling.StyleRuleSet rules, Vixen.Ui.Styling.KeyframesTable keyframes, Vixen.Ui.Styling.SelectorCompiler compiler) -> void
 Vixen.Ui.Styling.StyleTree -> sealed class
 Vixen.Ui.Styling.StyleTree.AddClass(Vixen.Ui.Styling.StyleNodeId element, string className) -> bool
@@ -449,6 +453,8 @@ Vixen.Ui.Styling.StyleUpdater.ClassChanged(Vixen.Ui.Styling.StyleNodeId element,
 Vixen.Ui.Styling.StyleUpdater.Compact(System.ReadOnlySpan<int> remap) -> void
 Vixen.Ui.Styling.StyleUpdater.LastPassResolved.get -> int
 Vixen.Ui.Styling.StyleUpdater.LastPassStopped.get -> int
+Vixen.Ui.Styling.StyleUpdater.Now.get -> float
+Vixen.Ui.Styling.StyleUpdater.Now.set -> float
 Vixen.Ui.Styling.StyleUpdater.ResolveAll() -> void
 Vixen.Ui.Styling.StyleUpdater.StateChanged(Vixen.Ui.Styling.StyleNodeId element) -> int
 Vixen.Ui.Styling.StyleUpdater.StyleOf(Vixen.Ui.Styling.StyleNodeId element) -> Vixen.Ui.Styling.ComputedStyle
