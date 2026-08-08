@@ -69,13 +69,22 @@ public class UtilityFamilySupportTests {
     public static TheoryData<string, string, string> Supported => new() {
         // Layout. ⚠ `block` moved up from `Inert` when doc 43 § B1 landed and it is the first row in
         // this file to change tables because an *algorithm* arrived rather than because a property
-        // found a reader. ⚠ `grid` is the second, with § B2 — and it is the first row that moved
-        // while its own family did NOT: `grid-cols-*` and `col-span-*` are still inert below, and
-        // the reason is written there. The three `inline*` utilities remain in `Inert` too.
+        // found a reader. ⚠ `grid` is the second, with § B2 — and it moved while its own family did
+        // not, which is the state this file recorded for exactly as long as that was true.
+        // `grid-cols-*` and `col-span-*` have now followed it; the three `inline*` utilities remain
+        // in `Inert`.
+        //
+        // ⚠ These two are the first rows here whose *emitted value* changed as they moved rather
+        // than only their reader. `grid-cols-3` used to compute `grid-template-columns: 3` and the
+        // old expectation would have been that string — a table row asserting the family produced
+        // something no engine could ever read. That is why the expectations below are the CSS
+        // Tailwind writes, and why the two facts further down measure a box instead.
         { "flex", "display", "flex" },
         { "hidden", "display", "none" },
         { "block", "display", "block" },
         { "grid", "display", "grid" },
+        { "grid-cols-3", "grid-template-columns", "repeat(3, minmax(0, 1fr))" },
+        { "col-span-2", "grid-column", "span 2/span 2" },
         { "flex-col", "flex-direction", "column" },
         { "flex-wrap", "flex-wrap", "wrap" },
         { "items-center", "align-items", "center" },
@@ -246,23 +255,15 @@ public class UtilityFamilySupportTests {
         { "inline-block", "display" },
         { "inline-flex", "display" },
 
-        // ⚠ <b>Grid: the algorithm exists and these two still do not reach it, which is a different
-        // reason from the one this block used to give.</b> It used to say "the layout is flexbox-only
-        // and has no reading of at all" — that is no longer true. `LayoutTree` implements CSS Grid
-        // §8 and §12, `display: grid` is mapped, and a grid container lays its children out. What
-        // these two are missing is the *bridge*, and the obstacle is structural rather than a
-        // forgotten table entry: `grid-template-columns` is a track list of arbitrary length, a
-        // `LayoutStyle` is a fixed-size unmanaged struct, and the tracks therefore live in the
-        // tree's `TrackArena` behind `SetGridTemplateColumns(node, …)`. `LayoutStyleBuilder.Build`
-        // returns a `LayoutStyle` and never sees a node id, so there is nowhere in it for a track
-        // list to go — closing this means a production track-list parser and a second call at the
-        // `UiDocument` seam where the node *is* in hand, not a line in a dictionary.
-        //
-        // ⚠ So a `grid` element today is a one-column grid, and `grid-cols-3` on it does nothing.
-        // That is a worse failure than the ordinary inert row, because the sibling utility moved to
-        // `Supported` in the same commit and the family now looks half-live. Doc 43 § B2 owes it.
-        { "grid-cols-3", "grid-template-columns" },
-        { "col-span-2", "grid-column" },
+        // ⚠ <b>`grid-cols-*` and `col-span-*` were here and are now in `Supported`.</b> What this row
+        // used to say was accurate and was still not the whole story. It named the bridge — a track
+        // list is arbitrary-length, a `LayoutStyle` is a fixed-size unmanaged struct, the tracks
+        // live in the tree's `TrackArena` behind a node id `Build` never sees — and that was one of
+        // *three* things wrong. The second: `grid-cols-3` emitted `grid-template-columns: 3`, which
+        // is not a track list in any engine, so the family would have gone on doing nothing even
+        // once a reader existed. The third: no scene in `UtilityConsumptionProbe` contained a grid,
+        // so the parity gate measured both properties inert either way and could not have reported
+        // the first two. See the closed block in `InertProperties.txt`.
 
         // Paint the renderer has no channel for.
         { "ring-accent", "outline-color" },
@@ -466,6 +467,66 @@ public class UtilityFamilySupportTests {
         // box starts at 40; unmerged it would be 16 and 48. Nothing about the computed style
         // distinguishes those two answers.
         Assert.Equal(first.AbsoluteTop + 40f, second.AbsoluteTop);
+    }
+
+    /// <summary><c>grid-cols-3</c> divides the container into three tracks.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Inverted rather than deleted, like <c>block</c> above, and it took more than the
+    ///         reader the old <c>Inert</c> row asked for.</b> That row named the bridge and was right
+    ///         about it — but the family also emitted <c>grid-template-columns: 3</c>, which is not a
+    ///         track list, so a reader alone would have changed nothing and the row would have stayed
+    ///         accurate for a second reason nobody had written down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three equal columns is the assertion a computed-value check cannot make and the
+    ///         one that would have caught the old emission.</b> `grid-template-columns: 3` resolves,
+    ///         cascades and reads back perfectly — the inert proof below asserted exactly that and
+    ///         passed throughout — while laying out as a single automatic column. The three left
+    ///         edges are what tell the two apart.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Grid_cols_divides_the_container_into_equal_tracks() {
+        using var ui = Sheet("grid", "grid-cols-3", "w-48", "h-8");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "grid", "grid-cols-3", "w-48");
+        var first = ui.Create("probe", host, null, "h-8");
+        var second = ui.Create("probe", host, null, "h-8");
+        var third = ui.Create("probe", host, null, "h-8");
+
+        ui.Frame();
+
+        Assert.Equal("repeat(3, minmax(0, 1fr))", ui.StyleOf(host, "grid-template-columns"));
+
+        // `w-48` is 192 points, so three even tracks are 64 apiece. A one-column grid — which is
+        // what an unread or unparsed template gives — would stack all three at the same left edge.
+        Assert.Equal(first.AbsoluteLeft + 64f, second.AbsoluteLeft);
+        Assert.Equal(first.AbsoluteLeft + 128f, third.AbsoluteLeft);
+        Assert.Equal(first.AbsoluteTop, third.AbsoluteTop);
+    }
+
+    /// <summary><c>col-span-2</c> makes an item cover two of those tracks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The width is the assertion, and the sibling's position is what makes it mean
+    ///     something.</b> An item that spans two 64-point tracks is 128 wide and the next item starts
+    ///     at 128 — whereas the old emission, <c>grid-column: 2</c>, is a perfectly valid line number
+    ///     that would have placed it in the second track at 64 wide. Both are grids, both lay out,
+    ///     and only the measurement distinguishes them.
+    /// </remarks>
+    [Fact]
+    public void Col_span_covers_the_tracks_it_names() {
+        using var ui = Sheet("grid", "grid-cols-3", "col-span-2", "w-48", "h-8");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "grid", "grid-cols-3", "w-48");
+        var wide = ui.Create("probe", host, null, "col-span-2", "h-8");
+        var next = ui.Create("probe", host, null, "h-8");
+
+        ui.Frame();
+
+        Assert.Equal("span 2/span 2", ui.StyleOf(wide, "grid-column"));
+        Assert.Equal(128f, wide.Width);
+        Assert.Equal(wide.AbsoluteLeft + 128f, next.AbsoluteLeft);
     }
 
     /// <summary>The one clip an element's subtree contributes to the frame.</summary>
