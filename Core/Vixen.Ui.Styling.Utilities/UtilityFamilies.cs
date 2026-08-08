@@ -24,6 +24,17 @@ enum ValueKind : byte {
     /// <summary>A bare number: <c>grow-0</c>, <c>z-10</c>.</summary>
     Number,
 
+    /// <summary>A whole count substituted into a template: <c>grid-cols-3</c>, <c>col-span-2</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own kind because the emitted value is not the value that was written, and every
+    ///     other numeric family's is.</b> <c>grid-cols-3</c> does not mean
+    ///     <c>grid-template-columns: 3</c> — that is not a track list and no engine has ever read it
+    ///     — it means <c>repeat(3, minmax(0, 1fr))</c>. Emitting the bare number was a family that
+    ///     resolved, cascaded, and could never do anything, which is exactly the shape of failure the
+    ///     parity gate exists to find and could not see while nothing read the property at all.
+    /// </remarks>
+    CountTemplate,
+
     /// <summary>One of a fixed set of keywords: <c>items-center</c>.</summary>
     Keyword,
 
@@ -104,6 +115,10 @@ public static class UtilityFamilies {
     ///         <c>via-*</c> in the theme, so it belongs to the family rather than to the value.
     ///     </para>
     /// </param>
+    /// <param name="Template">
+    ///     The value a <see cref="ValueKind.CountTemplate" /> family emits, with <c>{0}</c> where the
+    ///     count goes. Null on every other kind.
+    /// </param>
     sealed record Family(
         string Name,
         ValueKind Kind,
@@ -111,7 +126,8 @@ public static class UtilityFamilies {
         Dictionary<string, string>? Keywords = null,
         string[]? ColorProperties = null,
         string? Position = null,
-        UtilityDeclaration[]? Alongside = null
+        UtilityDeclaration[]? Alongside = null,
+        string? Template = null
     );
 
     static readonly Dictionary<string, Family> Registry = new(StringComparer.Ordinal);
@@ -173,8 +189,32 @@ public static class UtilityFamilies {
         Number("shrink", "flex-shrink");
         Number("order", "order");
         Size("basis", "flex-basis");
-        Number("grid-cols", "grid-template-columns");
-        Number("col-span", "grid-column");
+        // ⚠ <b>Both of these used to emit the bare count, and both were wrong rather than merely
+        // unread.</b> `grid-template-columns: 3` is not a track list in any engine, so the family
+        // could never have worked even once the bridge existed — it was inert twice over, and only
+        // the second reason was written down. Tailwind's own expansions are what they emit now.
+        //
+        // ⚠ `minmax(0, 1fr)` rather than `1fr`, and the difference is load-bearing: §7.2.3 makes a
+        // bare `1fr` mean `minmax(auto, 1fr)`, whose automatic floor is the track's min-content
+        // size — so a `grid-cols-3` holding one wide child would refuse to divide evenly. The
+        // explicit zero floor is why Tailwind writes it that way and why a grammar that reads
+        // `minmax()` by discarding its arguments passes every test until something overflows.
+        CountTemplate("grid-cols", "repeat({0}, minmax(0, 1fr))", "grid-template-columns");
+
+        // ⚠ `span N / span N` is Tailwind's literal output and is what §8.3 calls over-constrained:
+        // two span edges name no line between them, so the end edge is dropped and the item spans N
+        // from wherever auto-placement puts it. Emitting exactly what Tailwind does keeps a
+        // stylesheet copied from its documentation working, and the store resolves it identically.
+        CountTemplate("col-span", "span {0} / span {0}", "grid-column");
+
+        // ⚠ <b>`grid-rows-*`, `row-span-*` and the four `col-`/`row-start`/`-end` families are still
+        // absent, and the bridge is no longer the reason.</b> `LayoutStyleBuilder` reads all six
+        // properties now — registering the families is one line each. What stops it is
+        // `UtilityConsumptionProbe`: every one of its seven scenes makes `#probe` a *flex* container
+        // whose parent is also flex, so a row template or a placement longhand injected onto it
+        // moves nothing, and the gate would classify six live properties as inert. The gate's own
+        // rule for that is explicit — the fix is a scene that observes them, not an allow-list line
+        // — and a grid scene is a bigger change than the families are. Doc 43 § B2 owes it.
 
         // ── Gap and spacing ─────────────────────────────────────────────────────────────────
         Spacing("gap", "gap");
@@ -535,6 +575,7 @@ public static class UtilityFamilies {
             case ValueKind.Spacing:
             case ValueKind.Size:
             case ValueKind.Number:
+            case ValueKind.CountTemplate:
                 yield return "2";
                 break;
 
@@ -687,6 +728,8 @@ public static class UtilityFamilies {
             ValueKind.Spacing => TrySpacing(candidate.Value, tokens, out var spacing) && Emit(family, spacing, declarations),
             ValueKind.Size => TrySize(candidate, tokens, out var size) && Emit(family, size, declarations),
             ValueKind.Number => TryNumber(candidate.Value, out var number) && Emit(family, number, declarations),
+            ValueKind.CountTemplate => TryCount(candidate.Value, out var count)
+                && Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, count), declarations),
             ValueKind.Duration => TryNumber(candidate.Value, out var ms) && Emit(family, ms + "ms", declarations),
             ValueKind.Fraction => TryFraction(candidate.Value, out var fraction) && Emit(family, fraction, declarations),
             ValueKind.Radius => TryRadius(candidate.Value, tokens, out var radius) && Emit(family, radius, declarations),
@@ -1011,6 +1054,16 @@ public static class UtilityFamilies {
         return false;
     }
 
+    /// <summary>Parses the whole, positive count a track template can be repeated.</summary>
+    /// <remarks>
+    ///     ⚠ Stricter than <see cref="TryNumber" /> on purpose. <c>repeat(2.5, …)</c> and
+    ///     <c>repeat(0, …)</c> are not track lists, and a family that emitted either would push the
+    ///     failure out of the utility compiler — where it is a name nobody registered — and into the
+    ///     stylesheet, where it becomes a refused declaration on every element that used the class.
+    /// </remarks>
+    static bool TryCount(string value, out int count) =>
+        int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out count) && count > 0;
+
     static bool Emit(Family family, string value, List<UtilityDeclaration> declarations) =>
         EmitInto(family.Properties, value, declarations);
 
@@ -1077,6 +1130,13 @@ public static class UtilityFamilies {
 
     static void Number(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Number, properties));
+
+    /// <summary>Registers a family whose count is substituted into a CSS template.</summary>
+    /// <param name="name">The utility prefix.</param>
+    /// <param name="template">The value, with <c>{0}</c> where the count goes.</param>
+    /// <param name="properties">The properties it sets.</param>
+    static void CountTemplate(string name, string template, params string[] properties) =>
+        Register(new Family(name, ValueKind.CountTemplate, properties, Template: template));
 
     static void Color(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Color, properties));

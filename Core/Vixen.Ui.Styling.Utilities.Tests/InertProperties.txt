@@ -51,10 +51,16 @@ stroke                       #24  ditto
 outline-color                #24  `ring-*` is v3's reading; under v4 it should emit a box-shadow (D5)
 user-select                  #24  no selection model reads it, so `select-none` is a promise
 
-# ── Grid — B2. Not broken, absent: there is no grid algorithm, so the two properties the families
-# emit are values in a table nobody opens.
-grid-column                  #27  CSS Grid, a subsystem of its own
-grid-template-columns        #27  ditto
+# ── Grid — B2. CLOSED. `grid-column` and `grid-template-columns` were here until the bridge landed;
+# both are read now, and the `gridded` scene in UtilityConsumptionProbe is what observes them. Note
+# what it took to retire these two honestly: the emissions were also wrong — `grid-cols-3` used to
+# emit `grid-template-columns: 3`, which is not a track list — so the family would have gone on
+# doing nothing even with a reader, and the gate could not have told anyone, because with no grid in
+# any scene it measured inert either way. Two of the three failures were invisible to it.
+#
+# Still absent, and no longer for want of a reader: `grid-rows-*`, `row-span-*`, `col-start-*`,
+# `col-end-*`, `row-start-*`, `row-end-*`, `auto-cols-*`, `auto-rows-*`, `grid-flow-*`. The bridge
+# reads every one of those properties; the families are simply not registered yet.
 
 # ── Inline formatting — B3. `vertical-align` needs line boxes to align to.
 vertical-align               #26  inline formatting: line boxes, baselines, atomic inlines
