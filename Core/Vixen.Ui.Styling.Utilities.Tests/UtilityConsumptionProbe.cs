@@ -245,6 +245,36 @@ static class UtilityConsumptionProbe {
                      background-color: #204080; color: #e0e0e0; }
             #after { width: 96px; height: 20px; background-color: #a0a040; }
             """
+        ),
+
+        // ⚠ <b>Inlined, and it is the only scene in which a line box exists at all.</b> The same
+        // lesson the `gridded` scene records, arriving for the third time and by now predictable:
+        // `vertical-align` sat in `InertProperties.txt` with a task number against it, and the day
+        // an inline formatting context landed it would have gone on measuring inert — every other
+        // scene here makes `#probe` a flex, block or grid container, and CSS applies
+        // `vertical-align` to none of those. The gate would have stayed green while the file said
+        // the property was unreachable and it no longer was.
+        //
+        // ⚠ The probe is an inline-level box *and* the container of a line, which is the same
+        // both-halves-at-once arrangement `gridded` needs and for the same reason: `vertical-align`
+        // is read on the item and `display: inline-block` shows its effect on the container. With
+        // `#host` flex — as it is everywhere else — an item's `vertical-align` has no line to sit on.
+        //
+        // The three children are deliberately unequal in height, because every value of
+        // `vertical-align` this engine implements is a *relation between* boxes on one line: three
+        // boxes of the same height are aligned identically by `baseline`, `top` and `bottom`, and a
+        // scene made of those would measure the property inert while implementing it correctly.
+        new(
+            "inlined",
+            """
+            #host  { display: block; width: 200px; height: 120px; }
+            #probe { display: inline-block; background-color: #204080; color: #e0e0e0; }
+            .kid   { display: inline-block; width: 24px; height: 14px; }
+            #wide  { display: inline-block; width: 40px; height: 22px; }
+            #label { display: inline-block; width: 42px; height: 8px; }
+            #short { display: inline-block; width: 30px; height: 18px; }
+            #after { display: inline-block; width: 30px; height: 20px; background-color: #a0a040; }
+            """
         )
     ];
 

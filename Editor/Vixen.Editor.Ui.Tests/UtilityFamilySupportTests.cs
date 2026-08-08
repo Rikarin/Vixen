@@ -71,8 +71,16 @@ public class UtilityFamilySupportTests {
         // this file to change tables because an *algorithm* arrived rather than because a property
         // found a reader. ⚠ `grid` is the second, with § B2 — and it moved while its own family did
         // not, which is the state this file recorded for exactly as long as that was true.
-        // `grid-cols-*` and `col-span-*` have now followed it; the three `inline*` utilities remain
-        // in `Inert`.
+        // `grid-cols-*` and `col-span-*` have now followed it, and with doc 43 § B3 so have the three
+        // `inline*` utilities this comment used to say were staying behind.
+        //
+        // ⚠ <b>`align-top` moves and `align-middle` does not, and they are the same family.</b> That
+        // is the sharpest row-level distinction in this file. `vertical-align` is read now — there
+        // are line boxes to align to — but only three of its eight values are, and the five that are
+        // not are refused at the bridge rather than approximated: `middle`, `text-top`,
+        // `text-bottom`, `sub` and `super` are each defined against the parent's font strut, and
+        // `Vixen.Ui.Layout` has no font. A family is not a property, and half a family being real is
+        // a state this file has to be able to express.
         //
         // ⚠ These two are the first rows here whose *emitted value* changed as they moved rather
         // than only their reader. `grid-cols-3` used to compute `grid-template-columns: 3` and the
@@ -83,6 +91,12 @@ public class UtilityFamilySupportTests {
         { "hidden", "display", "none" },
         { "block", "display", "block" },
         { "grid", "display", "grid" },
+        { "inline", "display", "inline" },
+        { "inline-block", "display", "inline-block" },
+        { "inline-flex", "display", "inline-flex" },
+        { "align-top", "vertical-align", "top" },
+        { "align-bottom", "vertical-align", "bottom" },
+        { "align-baseline", "vertical-align", "baseline" },
         { "grid-cols-3", "grid-template-columns", "repeat(3, minmax(0, 1fr))" },
         { "col-span-2", "grid-column", "span 2/span 2" },
         { "flex-col", "flex-direction", "column" },
@@ -246,14 +260,14 @@ public class UtilityFamilySupportTests {
     ///     </para>
     /// </remarks>
     public static TheoryData<string, string> Inert => new() {
-        // Display: LayoutStyleBuilder maps `flex`, `none`, `block` (doc 43 § B1) and `grid` (§ B2).
-        // ⚠ `inline-block` and `inline-flex` are inert *deliberately* rather than for want of a
-        // table entry: they differ from their block-level twins only inside an inline formatting
-        // context, and mapping them onto `Block` and `Flex` would give `inline-block` the whole
-        // line, which is the one behaviour an author writes it to avoid. Doc 43 § B3.
-        { "inline", "display" },
-        { "inline-block", "display" },
-        { "inline-flex", "display" },
+        // ⚠ <b>The three `inline*` rows were here and are now in `Supported`.</b> What they used to
+        // say was true and was a *prediction* as much as a record: they were inert deliberately,
+        // because mapping them onto `Block` and `Flex` would have given `inline-block` the whole
+        // line. Doc 43 § B3 built the inline formatting context instead of the alias, and the
+        // proof that the distinction is real is
+        // `An_inline_block_shares_its_line_instead_of_taking_it` — which measures two boxes on one
+        // line, an assertion no computed-value check could make and the exact assertion that would
+        // have failed against the alias.
 
         // ⚠ <b>`grid-cols-*` and `col-span-*` were here and are now in `Supported`.</b> What this row
         // used to say was accurate and was still not the whole story. It named the bridge — a track
@@ -277,8 +291,18 @@ public class UtilityFamilySupportTests {
         { "scale-2", "--scale" },
         { "rotate-45", "--rotate" },
 
-        // Text and interaction properties with no consumer.
+        // ⚠ <b>`align-middle` stays, and its three siblings left.</b> `vertical-align` is read now,
+        // so this row is no longer "a property with no consumer" — it is a *value* the consumer
+        // refuses. §10.8.1 defines `middle` as the parent's baseline plus half its x-height, and an
+        // x-height is a font metric; `Vixen.Ui.Layout` is geometry and has no font, so
+        // `LayoutStyleBuilder` drops the keyword rather than approximating it. Approximating it is
+        // the tempting mistake: rounding `middle` to `baseline` looks almost right and reads as a
+        // rendering quirk. Task #26, and `InlineKnownGaps.txt` says what it would take —
+        // `align-text-top`, `align-text-bottom`, `align-sub` and `align-super` are the same story if
+        // the families are ever registered.
         { "align-middle", "vertical-align" },
+
+        // Text and interaction properties with no consumer.
         { "select-none", "user-select" },
 
         // ⚠ <b>Motion, and these three came *down* from `Supported` — the only rows that ever have.</b>
@@ -467,6 +491,55 @@ public class UtilityFamilySupportTests {
         // box starts at 40; unmerged it would be 16 and 48. Nothing about the computed style
         // distinguishes those two answers.
         Assert.Equal(first.AbsoluteTop + 40f, second.AbsoluteTop);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>inline-block</c> shares its line, which is the one thing the alias could not have
+    ///     done.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The third row in this file to move from <see cref="Inert" /> to <see cref="Supported" />
+    ///         because an algorithm arrived, after <c>block</c> and <c>grid</c> — and the one whose
+    ///         old row was a <i>prediction</i> rather than only a record. It said the two keywords
+    ///         were unmapped deliberately, because mapping them onto <c>Block</c> and <c>Flex</c>
+    ///         would give <c>inline-block</c> the whole line. This is that sentence turned into an
+    ///         assertion: the two boxes are on <b>one line</b>, at the same top and at different
+    ///         lefts, and against the alias they would have been at the same left and different tops.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The width is the second half and the more easily lost one.</b> Neither box states
+    ///         a width, so CSS 2.1 §10.3.9's shrink-to-fit is what decides it — an inline-block is as
+    ///         wide as its contents. A block-level box with <c>width: auto</c> takes the containing
+    ///         block's whole width under §10.3.3, so an implementation that got the line right and
+    ///         the sizing wrong would put two 200-point boxes side by side and overflow. Asserting
+    ///         only the tops would pass that.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_inline_block_shares_its_line_instead_of_taking_it() {
+        using var ui = Sheet("block", "inline-block", "w-8", "h-8", "w-48");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "block", "w-48");
+        var first = ui.Create("probe", host, null, "inline-block");
+        var second = ui.Create("probe", host, null, "inline-block");
+
+        var inFirst = ui.Create("probe", first, null, "block", "w-8", "h-8");
+        ui.Create("probe", second, null, "block", "w-8", "h-8");
+
+        ui.Frame();
+
+        Assert.Equal("inline-block", ui.StyleOf(first, "display"));
+
+        // One line: same top, different lefts. The alias gives the opposite of both.
+        Assert.Equal(first.AbsoluteTop, second.AbsoluteTop);
+        Assert.True(second.AbsoluteLeft > first.AbsoluteLeft, "a block-level box would have taken the whole line");
+
+        // §10.3.9 rather than §10.3.3: `w-8` is 32 points, so each box is 32 wide inside a
+        // 192-point container rather than 192 wide. That is what puts the second one at 32.
+        Assert.Equal(32f, first.Width);
+        Assert.Equal(first.AbsoluteLeft + 32f, second.AbsoluteLeft);
+        Assert.Equal(inFirst.AbsoluteTop, first.AbsoluteTop);
     }
 
     /// <summary><c>grid-cols-3</c> divides the container into three tracks.</summary>

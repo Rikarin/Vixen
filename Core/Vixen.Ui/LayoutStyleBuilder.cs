@@ -54,12 +54,18 @@ public sealed class LayoutStyleBuilder {
     ///     </para>
     ///     <para>
     ///         Two deliberate departures from CSS remain. <c>display</c> starts at <c>flex</c>
-    ///         rather than at CSS's <c>inline</c> — an element with no <c>display</c> should be laid
-    ///         out rather than skipped, and this engine has no inline formatting to start it in.
-    ///         ⚠ It is now a real four-way choice: <c>block</c> arrived with doc 43 § B1 and
-    ///         <c>grid</c> with § B2, and each lays out by a different algorithm — so a stylesheet
-    ///         that says <c>display: block</c> gets stacking and margin collapsing rather than a flex
-    ///         row, and one that says <c>display: grid</c> gets track sizing. And <c>box-sizing: border-box</c>, which most
+    ///         rather than at CSS's <c>inline</c>, and ⚠ <b>that is now a choice rather than a
+    ///         limitation</b>: doc 43 § B3 gave the engine an inline formatting context, so
+    ///         <c>inline</c> is a member it could start at. It does not, because an element with no
+    ///         <c>display</c> at all is far more often a container somebody forgot to declare than a
+    ///         run of text, and defaulting to <c>inline</c> would shrink-to-fit every undeclared box
+    ///         in a document written against this engine's own conventions.
+    ///         ⚠ It is now a real seven-way choice: <c>block</c> arrived with § B1, <c>grid</c> with
+    ///         § B2, and <c>inline</c>, <c>inline-block</c> and <c>inline-flex</c> with § B3 — so a
+    ///         stylesheet that says <c>display: block</c> gets stacking and margin collapsing rather
+    ///         than a flex row, one that says <c>display: grid</c> gets track sizing, and one that
+    ///         says <c>display: inline-block</c> gets a box that shares its line instead of taking
+    ///         it. And <c>box-sizing: border-box</c>, which most
     ///         UI work wants, belongs in a user-agent stylesheet where an author can see and
     ///         override it — not baked in here where they cannot.
     ///     </para>
@@ -398,6 +404,10 @@ public sealed class LayoutStyleBuilder {
 
         if (TryKeyword(style, names.Display, keywords.Displays, out Display display)) {
             result.Display = display;
+        }
+
+        if (TryKeyword(style, names.VerticalAlign, keywords.VerticalAligns, out VerticalAlign verticalAlign)) {
+            result.VerticalAlign = verticalAlign;
         }
 
         if (TryKeyword(style, names.BoxSizing, keywords.BoxSizings, out BoxSizing boxSizing)) {
@@ -873,6 +883,7 @@ public sealed class LayoutStyleBuilder {
             OverflowX = table.Intern("overflow-x");
             OverflowY = table.Intern("overflow-y");
             Display = table.Intern("display");
+            VerticalAlign = table.Intern("vertical-align");
             BoxSizing = table.Intern("box-sizing");
 
             Flex = table.Intern("flex");
@@ -939,6 +950,7 @@ public sealed class LayoutStyleBuilder {
         public int OverflowX { get; }
         public int OverflowY { get; }
         public int Display { get; }
+        public int VerticalAlign { get; }
         public int BoxSizing { get; }
         public int Flex { get; }
         public int FlexGrow { get; }
@@ -1054,12 +1066,17 @@ public sealed class LayoutStyleBuilder {
                 [Auto] = Overflow.Scroll
             };
 
-            // ⚠ <b>`inline-block` and `inline-flex` are deliberately absent, not forgotten.</b> Both
-            // differ from their block-level twin only in how the box sits in an *inline* formatting
-            // context, and there is no inline formatting here — doc 43 § B3 owns it. Mapping them
-            // onto `Block` and `Flex` would make `inline-block` silently take the whole line, which
-            // is the one thing an author writes it to prevent, so they stay unmapped and the
-            // declaration is dropped. The utilities inventory records them as inert for that reason.
+            // ⚠ <b>`inline`, `inline-block` and `inline-flex` arrived with doc 43 § B3, and they are
+            // the three keywords this comment used to explain the absence of.</b> They were unmapped
+            // rather than aliased because mapping them onto `Block` and `Flex` would have made
+            // `inline-block` take the whole line, which is the one thing an author writes it to
+            // prevent. There is now an inline formatting context behind them — line boxes, atomic
+            // inlines and §10.3.9 shrink-to-fit — so the alias is no longer the only option and the
+            // keywords cross for real. ⚠ `inline` is *atomic* here: a `span` with text in it behaves
+            // exactly as CSS says, and one with box children in it does not fragment. See
+            // `LayoutTree.Inline.cs` and `InlineKnownGaps.txt`.
+            //
+            // `inline-grid` is still absent, and for the original reason: it would be an alias.
             //
             // ⚠ <b><c>grid</c> arrived with doc 43 § B2 and maps to a real algorithm.</b> The
             // keyword used to be all that crossed this bridge, because a track list is not a fixed
@@ -1072,7 +1089,24 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("flex")] = Display.Flex,
                 [table.Intern("none")] = Display.None,
                 [table.Intern("block")] = Display.Block,
-                [table.Intern("grid")] = Display.Grid
+                [table.Intern("grid")] = Display.Grid,
+                [table.Intern("inline")] = Display.Inline,
+                [table.Intern("inline-block")] = Display.InlineBlock,
+                [table.Intern("inline-flex")] = Display.InlineFlex
+            };
+
+            // ⚠ <b>Three of the eight, and the five that are missing are missing on purpose.</b>
+            // `middle`, `text-top`, `text-bottom`, `sub` and `super` are each defined against the
+            // parent's strut — its font's x-height, ascent or descent — and `Vixen.Ui.Layout` has no
+            // font: it is geometry, and `FontRegistry` is on this side of the boundary rather than
+            // that one. The layout store falls them back to `baseline`, which is what an engine must
+            // do with a value it cannot honour; what it must not do is let this bridge report them as
+            // supported, so they are dropped here and the utilities that emit them stay in the
+            // editor's inert inventory with a task number. See `VerticalAlign`.
+            VerticalAligns = new Dictionary<int, VerticalAlign> {
+                [table.Intern("baseline")] = VerticalAlign.Baseline,
+                [table.Intern("top")] = VerticalAlign.Top,
+                [table.Intern("bottom")] = VerticalAlign.Bottom
             };
 
             BoxSizings = new Dictionary<int, BoxSizing> {
@@ -1097,6 +1131,7 @@ public sealed class LayoutStyleBuilder {
         }
 
         public int Auto { get; }
+        public Dictionary<int, VerticalAlign> VerticalAligns { get; }
         public Dictionary<int, Direction> Directions { get; }
         public Dictionary<int, FlexDirection> FlexDirections { get; }
         public Dictionary<int, Justify> Justifications { get; }

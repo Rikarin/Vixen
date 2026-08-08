@@ -431,13 +431,20 @@ three off `works` is `overflow-clip`, which Vixen does not emit.
 control that owns its bars and offsets its content. That is exactly the argument Part 8 § 3 makes for
 re-homing the 32 scroll-container roots against `ScrollView` rather than emitting them as properties.
 
-### F4 · `display` was `{ Flex, None }` ✅ partly closed by B1
+### F4 · `display` was `{ Flex, None }` ✅ closed by B1, B2 and B3
 
 `LayoutEnums.cs` had two members. Seven of Tailwind's 21 display keywords are emitted (`block`,
 `inline`, `inline-block`, `flex`, `inline-flex`, `grid`, `hidden`) and **two** were read. The
 resolved-element suite proved it the only way that is honest: two children of an element carrying
 `block` still sat side by side. This is the root of Track B and the reason `grid-cols-3` is inert
 rather than broken — nothing is broken, there is simply no grid.
+
+✅ **All seven emitted keywords are now read.** `block` arrived with B1, `grid` with B2, and
+`inline`, `inline-block` and `inline-flex` with B3 — the last three behind an actual inline
+formatting context rather than the alias this section warned against. ⚠ The warning was right and is
+worth keeping: `inline-block` mapped onto `Block` would have taken the whole line, and
+`An_inline_block_shares_its_line_instead_of_taking_it` is that sentence turned into a measurement.
+⚠ `inline` is **atomic** here — see B3's row for the invariant that decides it.
 
 ✅ **`block` is the third member and it is a real one.** B1 landed the algorithm behind it, not an
 alias, so a `block` element stacks its children, fills the line across them and **collapses their
@@ -1323,7 +1330,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | B0 ✅ | **`Tools/Vixen.TaffyTestGen`** — XML vetter and consolidator, the attribute map, and the Ahem measure. **Landed with 5 524 fixtures, not 5 272**: 884 block, 2 040 grid, 2 352 flex, 84 float, 56 leaf and 108 across three hybrid categories the estimate missed. Flex result: **2 002 of 2 208 runnable pass** | — | done |
 | B1 🟢 | **`display: block` — landed.** Block formatting over the existing store: stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing in full, auto margins, the intrinsic-width probe, RTL, relative insets, `align-content` over the stack. **746 of the 912 `block`+`blockflex` fixtures pass**; 124 are refused for `scrollbar-width`/`text-align`/`flow-root`/`float`, and all 42 failures are in the shared *absolute* path (auto margins on abspos, and `aspect-ratio` re-applied after clamping) rather than in block formatting. ⚠ **Still owed under B1**: `inline-block` — deliberately unmapped, because without an inline formatting context it would take the whole line (B3); the 84 `float` fixtures, which were never gated on `display`; and `sticky`. | **#25** | 0.35 |
 | B2 🔴 | **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's **2 040** plus WPT's 510 `check-layout` grid tests. ⚠ B0's corpus does **not** cover `grid-template-areas`: Taffy's own XML harness leaves it `Default::default()` and no fixture sets it, so named areas need their own oracle | **#27** | 3.5 |
-| B3 🔴 | **Inline formatting** — line boxes, inline-block, vertical alignment, `text-overflow: ellipsis`, `line-clamp`. ⚠ The one with no ready oracle: WPT is reftest-only here, and Parley has no ellipsis | **#26** | 3.0 |
+| B3 🟡 | **Inline formatting — partially landed.** Line boxes over the existing store: atomic inlines (`inline`, `inline-block`, `inline-flex`), §10.3.9 shrink-to-fit, §9.4.2 line breaking, §10.8.1 baselines including the last-line-box and `overflow` clauses, and three of `vertical-align`'s eight values. ⚠ **The boundary is one invariant, not a feature list**: every algorithm in the store preserved *one node produces one box*, and a non-replaced `inline` box crossing a line break is **fragmented** into several — a `LayoutResult` holds one rectangle. So atomic inlines are done and non-atomic ones are not. ⚠ **Still owed under B3**: fragmentation, anonymous block boxes (so mixed content stacks), the strut and therefore the five font-relative `vertical-align` values, `text-align`, `white-space`, `text-overflow: ellipsis`, `line-clamp`. ⚠ **Zero fixtures**, confirmed by enumeration — Taffy's `display` attribute takes five values across all eight files and none is inline. Oracle fetched from WPT (`css-flexbox/inline-flex.html`); see `InlineKnownGaps.txt`. | **#26** | 1.9 of 3.0 |
 | B3a 🟡 | The inline oracle: ICU4X's CSS line-break tailorings, Parley's 2 048 Chrome break cases, and Gecko's 68 `text-overflow` reftests transcribed | — | 0.5 |
 | B4 🟡 | `display: table` and the four table utilities | — | 1.0 |
 | | | **B total** | **9.4** |
