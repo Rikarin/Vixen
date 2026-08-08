@@ -551,12 +551,30 @@ public class TextFieldTests {
         field.Value = "abc";
         fixture.Update();
 
-        var before = fixture.Document.Drawing.Commands.Count;
+        var before = Painted(fixture);
 
         fixture.Document.Focus(field);
         field.Disabled = true;
         fixture.Update();
 
-        Assert.Equal(before, fixture.Document.Drawing.Commands.Count);
+        Assert.Equal(before, Painted(fixture));
     }
+
+    /// <summary>How many commands actually paint something, ignoring the brackets.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The total will not do, because disabling a control now opens a group.</b>
+    ///     <c>:disabled</c> is <c>opacity: 0.55</c> and an element below one opacity is composited
+    ///     rather than faded in place, so the act of disabling adds a
+    ///     <see cref="DrawCommandKind.LayerPush" /> and its pop — two commands that draw nothing. The
+    ///     claim here is about a caret, so what it has to count is <i>paint</i>; counting the raw list
+    ///     would make this test fail for the one reason it is not about.
+    /// </remarks>
+    static int Painted(ControlFixture fixture) =>
+        fixture.Document.Drawing.Commands.Count(
+            command => command.Kind
+                is not (DrawCommandKind.LayerPush
+                or DrawCommandKind.LayerPop
+                or DrawCommandKind.ClipPush
+                or DrawCommandKind.ClipPop)
+        );
 }

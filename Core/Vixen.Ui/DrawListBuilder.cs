@@ -130,6 +130,33 @@ public sealed class DrawListBuilder {
         this.rtl = values.Intern("rtl");
     }
 
+    /// <summary>Whether a translucent subtree is isolated into a group, or faded element by element.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off by default, and the default is about the <i>consumer</i> rather than about which
+    ///         answer is right.</b> Isolating is what CSS Compositing 1 § 3 specifies and
+    ///         <see cref="DrawCommandKind.LayerPush" /> is how this asks for it; fading each element is
+    ///         the approximation this file carried for years. But a group only becomes a picture if
+    ///         whoever executes the draw list can render an offscreen surface — and a consumer that
+    ///         ignores <c>UiGeometry.Layers</c> does something worse than approximate: it draws the
+    ///         group's contents inline at <i>full</i> strength and skips the composite, so a faded panel
+    ///         comes out opaque.
+    ///     </para>
+    ///     <para>
+    ///         <c>SoftwareUiRasterizer</c> composites and <c>Vixen.Ui.Renderer</c> does not yet, so this
+    ///         stays off until the second one lands and then becomes the default. It is a switch rather
+    ///         than a capability the renderer reports because the decision has to be made while the
+    ///         <i>draw list</i> is built, which is upstream of anything that knows what a texture is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two settings must not be mixed within one application.</b> The whole hazard the
+    ///         compositing work was written against is a picture that differs between the renderer that
+    ///         ships and the one the baselines are recorded with; a host that left this off while its
+    ///         test suite turned it on would have built that hazard deliberately.
+    ///     </para>
+    /// </remarks>
+    public bool Compositing { get; set; }
+
     /// <summary>Walks a document and fills a draw list.</summary>
     /// <param name="document">The document, already updated.</param>
     /// <param name="into">The list to fill.</param>
@@ -168,15 +195,39 @@ public sealed class DrawListBuilder {
     ///     The <c>opacity</c> of everything above this element, multiplied together.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>Opacity is carried down as a multiplier rather than composited as a group, and the
-    ///     difference is visible.</b> CSS renders a translucent element's subtree into its own
-    ///     surface and then blends that surface once, so two overlapping children of a half-opaque
-    ///     panel do <i>not</i> show through each other. Multiplying each element's alpha instead
-    ///     makes them show through, and the two answers agree exactly whenever the subtree does not
-    ///     overlap itself — which is most interfaces, and all of the ones a fade-in is applied to.
-    ///     The correct version needs an offscreen target per translucent subtree, which is a
-    ///     compositor decision rather than a draw list's, so it is <b>owed</b>. Said here because a
-    ///     half-right opacity reads as a bug in the renderer rather than a gap in the model.
+    ///     <para>
+    ///         ⚠ <b>Opacity <s>is carried down as a multiplier rather than composited as a group</s> is
+    ///         a group, and the difference was visible.</b> CSS Compositing 1 § 3 renders a translucent
+    ///         element's subtree into its own surface and blends that surface once, so two overlapping
+    ///         children of a half-opaque panel do <i>not</i> show through each other. Multiplying each
+    ///         element's alpha instead made them show through. That was owed here for as long as this
+    ///         file has existed; <see cref="DrawCommandKind.LayerPush" /> is the answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The multiplier has not gone away, and it is not a leftover.</b> A group whose
+    ///         contents come to a <i>single</i> command is exactly equal to fading that command — see
+    ///         <see cref="DrawList.Collapse" /> for the arithmetic — and a group is only ever needed
+    ///         when two fragments might overlap. So the layer is opened optimistically and taken back
+    ///         when the subtree turns out to be one thing, which is what almost every
+    ///         <c>opacity-*</c> in this repository is written on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><paramref name="inherited" /> is the fade still waiting to be applied by
+    ///         multiplication, which is not the same as the accumulated opacity once groups exist.</b>
+    ///         With <see cref="Compositing" /> off it <i>is</i> the accumulated opacity and this file
+    ///         behaves exactly as it always did. With it on, a group resets it to one — the group's
+    ///         surface carries the fade instead — so it is one everywhere, and what composes two nested
+    ///         opacities is the collapse rather than this parameter: an inner group that came to one
+    ///         command fades that command, and the outer group then fades the same command again, which
+    ///         is the product.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A group that survives always contributes at least three commands, which is what
+    ///         makes the collapse safe to nest.</b> A push, its contents and a pop cannot be mistaken
+    ///         by an enclosing element for the single command it is allowed to fade in place — so a
+    ///         parent can never collapse <i>across</i> a child's surviving surface and quietly fade its
+    ///         contents twice.
+    ///     </para>
     /// </remarks>
     void Emit(UiDocument document, UiElement element, DrawList into, float inherited) {
         var width = element.Width;
@@ -189,16 +240,86 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        var alpha = inherited * Opacity(element);
+        var own = Opacity(element);
 
         // ⚠ Fully transparent is skipped outright rather than emitted with a zero alpha, and the
         // subtree with it — `opacity: 0` is not inherited, but it multiplies, so nothing below can
         // bring it back. A frame full of invisible commands costs a batch and a draw each and is
         // indistinguishable in the picture from having emitted nothing.
-        if (alpha <= 0f) {
+        if (inherited * own <= 0f) {
             return;
         }
 
+        // ⚠ <b>A group is opened for the element's <i>own</i> opacity only.</b> What it inherited is
+        // already being carried by a surface further up, or by the multiplier — either way it is not
+        // this element's to isolate a second time. CSS agrees: each translucent element forms one
+        // stacking context, and nesting two of them composites twice, which is what the product of
+        // the two alphas means.
+        var group = Compositing && own < 1f ? into.Count : -1;
+
+        if (group >= 0) {
+            into.Add(
+                new DrawCommand(
+                    DrawCommandKind.LayerPush,
+                    element.AbsoluteLeft,
+                    element.AbsoluteTop,
+                    width,
+                    height,
+                    new Color4(0f, 0f, 0f, own),
+                    0f,
+                    0f
+                )
+            );
+        }
+
+        // Inside the group the element paints at full strength and the surface carries the fade;
+        // outside it the multiplier does, which is both the collapsed case and the whole of the
+        // behaviour when <see cref="Compositing" /> is off.
+        var alpha = group >= 0 ? 1f : inherited * own;
+
+        EmitBody(document, element, into, alpha, width, height);
+
+        if (group < 0) {
+            return;
+        }
+
+        // ⚠ <b>Nothing, one thing, or a group — decided after the fact because it cannot be known
+        // before.</b> An element's own commands are countable from its style, but `OnDraw` lets a
+        // control emit anything it likes, so a predicate written up here would be a guess that is
+        // wrong for exactly the controls that draw the most.
+        var drawn = into.Count - group - 1;
+
+        if (drawn == 0) {
+            into.Discard(group);
+            return;
+        }
+
+        if (drawn == 1 && DrawList.Fadeable(into.Commands[group + 1])) {
+            into.Collapse(group, inherited * own);
+            return;
+        }
+
+        into.Add(
+            new DrawCommand(
+                DrawCommandKind.LayerPop,
+                element.AbsoluteLeft,
+                element.AbsoluteTop,
+                width,
+                height,
+                new Color4(0f, 0f, 0f, own),
+                0f,
+                0f
+            )
+        );
+    }
+
+    /// <summary>Everything an element paints, once the question of a group has been settled.</summary>
+    /// <remarks>
+    ///     Split out of <see cref="Emit" /> so that the group brackets it without the body having to
+    ///     know: every early return in here would otherwise have to remember to close a layer, which
+    ///     is precisely the pairing failure the clip stack's own remark warns about.
+    /// </remarks>
+    void EmitBody(UiDocument document, UiElement element, DrawList into, float alpha, float width, float height) {
         var x = element.AbsoluteLeft;
         var y = element.AbsoluteTop;
 

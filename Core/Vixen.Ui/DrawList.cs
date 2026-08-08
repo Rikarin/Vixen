@@ -67,7 +67,30 @@ public enum DrawCommandKind : byte {
     ClipPush,
 
     /// <summary>Ends the clip the last push started.</summary>
-    ClipPop
+    ClipPop,
+
+    /// <summary>Everything after this is drawn into a surface of its own, until the matching pop.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A group, which is a different thing from a clip even though it brackets the same
+    ///         way.</b> CSS Compositing 1 § 3 renders a subtree that needs one into an isolated
+    ///         surface and composites the result <i>once</i>; a clip only narrows the scissor. The
+    ///         difference is visible the moment the subtree overlaps itself — two overlapping children
+    ///         of a half-opaque panel do not show through each other, where fading each of them
+    ///         separately makes them do exactly that.
+    ///     </para>
+    ///     <para>
+    ///         The command's rectangle is the element's border box and its <c>Color</c>'s alpha is the
+    ///         group's opacity. The rectangle is <i>informational</i>: what a layer actually needs is
+    ///         the bounds of everything drawn inside it, which is not known until the geometry is
+    ///         emitted, so <see cref="Rendering.UiGeometryBuilder" /> computes it there. Carried anyway
+    ///         because a filter — see the guide — needs the box rather than the ink.
+    ///     </para>
+    /// </remarks>
+    LayerPush,
+
+    /// <summary>Ends the layer the last push started, and composites it.</summary>
+    LayerPop
 }
 
 /// <summary>One thing to draw, in document space.</summary>
@@ -338,9 +361,57 @@ public sealed class DrawList {
         fonts.Clear();
     }
 
+    /// <summary>How many commands the frame has so far.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Live rather than final</b> — it is the count <i>during</i> a build, which is what makes
+    ///     it useful: <see cref="DrawListBuilder" /> marks the position before a subtree and reads this
+    ///     after it to find out how much the subtree drew. <see cref="Commands" /> answers the same
+    ///     question afterwards; this one exists so that asking it mid-frame does not read as reaching
+    ///     into the finished list.
+    /// </remarks>
+    public int Count => commands.Count;
+
     /// <summary>Adds a command.</summary>
     /// <param name="command">The command.</param>
     public void Add(DrawCommand command) => commands.Add(command);
+
+    /// <summary>Undoes a group that turned out not to need one, fading its one command instead.</summary>
+    /// <param name="push">Where the <see cref="DrawCommandKind.LayerPush" /> was added.</param>
+    /// <param name="alpha">The group's opacity.</param>
+    /// <remarks>
+    ///     ⚠ <b>The peephole that keeps the common case free, and it is an identity rather than an
+    ///     approximation.</b> Compositing a single premultiplied fragment <c>F</c> through a surface and
+    ///     then blending that surface at <c>a</c> gives <c>a·F</c>; multiplying the one command's alpha
+    ///     by <c>a</c> before it is premultiplied gives <c>(rgb·A·a·cov, A·a·cov)</c>, which is the same
+    ///     <c>a·F</c>. So the two paths cannot disagree here — the group is only ever needed when there
+    ///     are <i>two</i> fragments that might overlap.
+    ///     <para>
+    ///         It matters rather than being a nicety: <c>EditorTheme.vcss</c> puts <c>opacity: 0.18</c>
+    ///         on every hidden-and-locked toggle in the outliner, and a tree of a hundred rows would
+    ///         otherwise ask for two hundred offscreen surfaces and two hundred render passes a frame to
+    ///         fade two hundred single icons.
+    ///     </para>
+    /// </remarks>
+    internal void Collapse(int push, float alpha) {
+        var only = commands[push + 1];
+        commands[push + 1] = only with { Color = DrawListBuilder.Fade(only.Color, alpha) };
+        commands.RemoveAt(push);
+    }
+
+    /// <summary>Drops a group that drew nothing at all.</summary>
+    internal void Discard(int push) => commands.RemoveAt(push);
+
+    /// <summary>Whether the one command a group produced can carry the fade on its own colour.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The side buffer is what decides it, and only for the box kinds.</b> A box with a
+    ///     <see cref="BoxStyle" /> behind it holds two more colours there — a gradient's far and middle
+    ///     stops — so fading its <c>Color</c> alone would fade one end of a ramp and leave the other at
+    ///     full strength. A glyph run's <c>Length</c> counts glyphs and a path's counts segments;
+    ///     neither is a colour, so those fade on the command like everything else.
+    /// </remarks>
+    internal static bool Fadeable(in DrawCommand command) =>
+        command.Kind is not (DrawCommandKind.Rectangle or DrawCommandKind.Border or DrawCommandKind.Shadow)
+        || !command.HasStyle;
 
     /// <summary>Puts a run of glyphs in the side buffer.</summary>
     /// <param name="run">The glyphs.</param>

@@ -431,10 +431,63 @@ public class DrawListTests {
     }
 
     [Fact]
-    public void Opacity_multiplies_down_the_tree_because_it_does_not_inherit() {
-        // `opacity` makes a group rather than being inherited, so a child is faded by its ancestors
-        // whatever its own value is — and a child that sets its own is faded by both. Reading it
-        // from the cascade instead would give the child 0.5 rather than 0.25.
+    public void Opacity_brackets_a_group_rather_than_multiplying_down_the_tree() {
+        // ⚠ `opacity` makes a group — CSS Compositing 1 § 3 — so a subtree that draws more than one
+        // thing is rendered into a surface of its own and blended once, and its contents are *not*
+        // faded individually on the way down. This test used to assert the multiplier and is kept
+        // pointing at the same tree, because the tree is the one that tells them apart: the outer box
+        // draws a background *and* contains a child, so the two models differ wherever they overlap.
+        var document = new UiDocument(400f, 300f);
+
+        // ⚠ Opted in, because compositing is off until `Vixen.Ui.Renderer` can execute a group — see
+        // `DrawListBuilder.Compositing`. The multiplier is still the default and still has its own
+        // test below; this one is about the model that replaces it.
+        document.Compositing = true;
+
+        document.Load(
+            """
+            root { width: 400px; height: 300px; }
+            .outer { width: 100px; height: 100px; background-color: #ff0000; opacity: 0.5; }
+            .inner { width: 50px; height: 50px; background-color: #00ff00; opacity: 0.5; }
+            """
+        );
+
+        document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner");
+        document.Update();
+        document.Draw();
+
+        using var owned = document;
+        var commands = document.Drawing.Commands;
+
+        Assert.Equal(4, commands.Count);
+
+        Assert.Equal(DrawCommandKind.LayerPush, commands[0].Kind);
+        Assert.Equal(0.5f, commands[0].Color.A, Tolerance);
+
+        // Inside the group, at full strength: the surface carries the fade, and fading here as well
+        // is precisely the double-fade the group exists to stop.
+        Assert.Equal(1f, commands[1].Color.A, Tolerance);
+
+        // ⚠ The inner element's own group collapsed to a fade, because its subtree came to one
+        // command — see `DrawList.Collapse`, where the two are shown to be the same arithmetic. So it
+        // is 0.5 here and 0.25 on screen, which is the same number the multiplier used to produce and
+        // is why the collapse is safe.
+        Assert.Equal(0.5f, commands[2].Color.A, Tolerance);
+
+        Assert.Equal(DrawCommandKind.LayerPop, commands[3].Kind);
+    }
+
+    /// <summary>With compositing off, opacity is still a multiplier all the way down.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The default, and it is a default about the renderer rather than about the model.</b>
+    ///     A group is only a picture if whoever consumes the draw list can render an offscreen surface,
+    ///     and <c>Vixen.Ui.Renderer</c> cannot yet — so this is what an application draws today, and it
+    ///     has to keep working exactly as it did. `opacity` still does not inherit, so the child is
+    ///     faded by its ancestor and by itself: reading it from the cascade would give 0.5 rather
+    ///     than 0.25.
+    /// </remarks>
+    [Fact]
+    public void Opacity_still_multiplies_down_the_tree_when_nothing_can_composite() {
         using var document = Drawn(
             """
             root { width: 400px; height: 300px; }

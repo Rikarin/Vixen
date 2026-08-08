@@ -459,6 +459,24 @@ public sealed class UiTest : IDisposable {
         return SoftwareUiRasterizer.Render(frame, glyphs.Atlas, width, height, Options.Background);
     }
 
+    /// <summary>The geometry the interface as it stands would be drawn from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a picture cannot answer.</b> <see cref="Capture" /> says what the frame looks like;
+    ///     this says what it asked for — which composited groups it opened, how big their surfaces are,
+    ///     and how the draws were batched. Those are claims a bitmap is silent about in exactly the
+    ///     cases that matter: a group that is composited when it did not need to be draws the identical
+    ///     picture and costs a render pass, and a surface a pixel too small shows only where something
+    ///     overflowed.
+    /// </remarks>
+    public UiGeometry Geometry {
+        get {
+            var width = (int)MathF.Round(Document.Viewport.ViewportWidth);
+            var height = (int)MathF.Round(Document.Viewport.ViewportHeight);
+
+            return geometry.Build(Document.Drawing, glyphs, new Rectangle(0, 0, width, height));
+        }
+    }
+
     /// <summary>Checks the interface against a committed picture, or records it as the new one.</summary>
     /// <param name="name">What the picture is called, which is also its file's name.</param>
     /// <param name="tolerance">How far it may drift. <see cref="UiTestOptions.Tolerance" /> otherwise.</param>
