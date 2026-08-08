@@ -1217,9 +1217,9 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 
 | # | Item | Task | EM |
 |---|---|---|--:|
-| B0 🟢 | **`Tools/Vixen.TaffyTestGen`** — XML reader, style-attribute map, emitter, plus the 40-line Ahem measure stub. Yields 868 block, 1 960 grid and 2 268 flex fixtures, all Chrome-derived | — | 0.4 |
-| B1 🟡 | `display: block` and `inline-block` — block formatting over the existing store, judged by B0's 868 | **#25** | 1.0 |
-| B2 🔴 | **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's 1 960 plus WPT's 510 `check-layout` grid tests | **#27** | 3.5 |
+| B0 ✅ | **`Tools/Vixen.TaffyTestGen`** — XML vetter and consolidator, the attribute map, and the Ahem measure. **Landed with 5 524 fixtures, not 5 272**: 884 block, 2 040 grid, 2 352 flex, 84 float, 56 leaf and 108 across three hybrid categories the estimate missed. Flex result: **2 002 of 2 208 runnable pass** | — | done |
+| B1 🟡 | `display: block` and `inline-block` — block formatting over the existing store, judged by B0's **884**, plus 84 `float` and 28 `blockflex` | **#25** | 1.0 |
+| B2 🔴 | **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's **2 040** plus WPT's 510 `check-layout` grid tests. ⚠ B0's corpus does **not** cover `grid-template-areas`: Taffy's own XML harness leaves it `Default::default()` and no fixture sets it, so named areas need their own oracle | **#27** | 3.5 |
 | B3 🔴 | **Inline formatting** — line boxes, inline-block, vertical alignment, `text-overflow: ellipsis`, `line-clamp`. ⚠ The one with no ready oracle: WPT is reftest-only here, and Parley has no ellipsis | **#26** | 3.0 |
 | B3a 🟡 | The inline oracle: ICU4X's CSS line-break tailorings, Parley's 2 048 Chrome break cases, and Gecko's 68 `text-overflow` reftests transcribed | — | 0.5 |
 | B4 🟡 | `display: table` and the four table utilities | — | 1.0 |
@@ -1259,11 +1259,18 @@ mixed-content paragraph sit behind it.
 ⚠ **Two thirds of that is B2 and B3.** Everything else together is about six engineer-months, and it
 is the two thirds that decides whether this is a year or a quarter.
 
-⚠ **B0 is the highest-leverage 0.4 EM in the document and it should be built before B1.** It is the
-same bet ADR-006 made and won: 530 of Yoga's 534 passed on the first run, and of the four that did
-not, one was a real specification rule the port had missed. Taffy's corpus is ten times the size, is
-XML rather than C++, and covers the two modes Vixen has no tests for at all. Building grid without it
-is choosing to re-run the experiment that already has an answer.
+⚠ **B0 was the highest-leverage 0.4 EM in the document and it has landed.** It was the same bet
+ADR-006 made and won, and it paid the same way. 2 002 of the 2 208 runnable flex fixtures passed
+against a store built entirely on Yoga's corpus, which is what makes the harness trustworthy enough
+to judge grid; thirteen fixtures' worth of *harness* bugs surfaced where they could still be told
+apart from algorithm bugs, which was the whole reason for running flex first; and the 206 remaining
+failures are a real catalogue, led by CSS Flexbox §4.5's automatic minimum size not being applied to
+flex items that are themselves containers — a gap `Generated/` structurally could not see.
+
+⚠ **And the new corpus turned out to have a blind spot of its own.** It sets `direction` on all
+22 776 of its nodes, so `Direction.Inherit` is never exercised: breaking direction inheritance leaves
+every Taffy test green and fails 374 of Yoga's 534. Ten times the size is not a superset. Both suites
+stay.
 
 ---
 
@@ -1284,9 +1291,10 @@ independent items, no shared file except `DrawListBuilder` between A1–A3. **1.
 **Wave 3 — the two cascade features.** A15 then A16 (`@container`), A17 (`has-*`), A12
 (pseudo-elements). Sequential within the cascade; parallel with wave 4. **2.15 EM.**
 
-**Wave 4 — the oracle, then block, then grid.** B0 first and alone: 0.4 EM buys 3 096 Chrome-derived
-fixtures for the two modes that have none, and it is cheap enough that finding out it does not work
-costs a week. Then B1 — the smaller of the two algorithms, it makes `display` a real enum, and it
+**Wave 4 — the oracle, then block, then grid.** ✅ B0 first and alone, and it is done: 0.4 EM bought
+**3 116** Chrome-derived fixtures for the two modes that had none — 884 block, 84 float, 28
+blockflex, 2 040 grid, 24 gridflex and 56 blockgrid — and it worked. Then B1 — the smaller of the two
+algorithms, it makes `display` a real enum, and it
 proves the store can carry a second algorithm at all. Then B2. B3 and B3a in parallel with B2 if there
 is a second pair of hands: they share nothing but the store, and B3 is the one whose *first* task is
 building its own oracle. **8.4 EM.**

@@ -470,11 +470,31 @@ time; all compatible with shipping an Apache-2.0 engine):
 | Assimp | BSD-3-Clause | ✓ editor-only |
 | Recast/Detour | zlib | ✓ *reference material only — `Vixen.Navigation` re-derives the algorithms and links nothing* |
 | **SixLabors.ImageSharp 4.0.0** | **Six Labors Split License 1.0 — *not* Apache-2.0** | ⚠ see below |
-| *Reference material:* Yoga | MIT | algorithm + conformance suite (ADR-006) |
+| *Reference material:* Yoga | MIT | the algorithm (ADR-006). Its **fixtures** are a separate case — see below |
 | *Reference material:* `ru-ace/Flexbox` | BSD (legacy Yoga text) | ✓ retain notice if any code is derived |
 | *Reference material:* SignalsDotnet | MIT | ✓ |
 | *Reference material:* Arch | Apache-2.0 | ✓ same licence as Vixen |
 | *Reference material:* Stride | MIT | read-only; no code copied (ADR: [00](00-vision-and-principles.md)) |
+| **Corpus:** Yoga fixtures | MIT | 534, committed to `Core/Vixen.Ui.Layout.Tests/Generated/` |
+| **Corpus:** Taffy fixtures | **MIT only — no patent grant** | 5 524, committed to `Core/Vixen.Ui.Layout.Tests/Taffy/Corpus/` |
+| **Corpus:** Unicode UCD conformance data | Unicode-3.0 | UAX #9, #14, #29 |
+| **Corpus:** `text-rendering-tests` | Apache-2.0 (+ OFL-1.1 fonts) | the one case where fonts ship too |
+
+**⚠ A committed conformance corpus is a third case, and the first two rows of this audit did not
+have a column for it.** The table above distinguishes what Vixen *depends on* from what it *reads*.
+A third-party test suite that is translated, or transcribed, and then **checked in** is neither: no
+implementation code crosses over, so it is not a dependency, but the expected numbers are copied
+verbatim and committed, so "read, not incorporated" is simply untrue of it. The 534 Yoga fixtures in
+`Generated/` have been that since ADR-006 and were mis-filed as reference material until B0 went
+looking. They are redistributed under Yoga's MIT licence, which permits it on the condition the
+notice travels — hence the dedicated `NOTICE` section rather than a line in the reference list.
+
+**⚠ Taffy is MIT only.** Most of the Rust ecosystem is dual MIT/Apache-2.0, and assuming that here
+would be wrong: `taffy/LICENSE` is a single MIT text and `Cargo.toml` says `license = "MIT"` with no
+`OR`. So there is **no express patent grant** from Taffy, and the whole compatibility argument rests
+on MIT's permission to redistribute with the notice attached. That is sufficient for a corpus of test
+data — and it is a reason not to port Taffy's *algorithms*, where ADR-015's preference for a patent
+grant would actually bite. B1 and B2 are specified against CSS, judged by Taffy's numbers.
 
 **⚠ ImageSharp needs a deliberate decision.** ImageSharp 4.0.0 is **not** plain Apache-2.0. Its
 `LICENSE` is the *Six Labors Split License 1.0*: Apache-2.0 applies only if you are (a) using it in

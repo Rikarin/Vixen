@@ -23,6 +23,16 @@
         <ProjectReference Include="..\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
     </ItemGroup>
 
+    <!--
+        Taffy's conformance corpus, committed rather than translated into C#. It is data the tests
+        read at runtime, so it has to reach the output directory; see Taffy/README.md for why it is
+        XML and not 375 000 lines of generated C#.
+    -->
+    <ItemGroup>
+        <Content Include="Taffy\Corpus\*.xml" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy\Corpus" />
+        <Content Include="Taffy\KnownGaps.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Taffy" />
+    </ItemGroup>
+
     <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
     <Import Project="..\..\Testing\Vixen.Testing.props" />
 
