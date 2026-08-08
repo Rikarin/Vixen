@@ -126,6 +126,27 @@ static class UtilityConsumptionProbe {
             """
         ),
 
+        // ⚠ Squeezed, and the only scene where anything can actually shrink. `tight` overflows, but
+        // overflowing is not the same as shrinking: CSS Flexbox §4.5 floors every item at its
+        // automatic minimum, and CSS Sizing §5.2.2 makes a definitely-sized box contribute its own
+        // width — so two items with a `width` cannot go below it however little room there is, and
+        // `flex-shrink` moves nothing at all. `min-width: 0` is the opt-out CSS provides and the same
+        // idiom a two-column control needs; without it this scene would overflow exactly like
+        // `tight` and say just as little.
+        //
+        // The engine learned §5.2.2 late, which is why this scene is younger than the rest: before
+        // that, an empty sized box contributed zero, `tight` did observe shrinking, and the gate was
+        // green for a reason that had stopped being true.
+        new(
+            "squeezed",
+            """
+            #host  { display: flex; flex-direction: row; width: 100px; height: 40px; align-items: stretch; }
+            #probe { display: flex; flex-direction: row; width: 80px; min-width: 0;
+                     background-color: #204080; color: #e0e0e0; }
+            #after { width: 80px; min-width: 0; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         // Roomy, and the probe is not sized. Growing, intrinsic sizing, `aspect-ratio` and the
         // min/max clamps only say anything where the box is free to be a different size.
         new(
