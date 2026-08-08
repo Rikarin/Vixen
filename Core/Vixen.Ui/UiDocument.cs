@@ -1022,6 +1022,15 @@ public sealed partial class UiDocument : IDisposable {
 
             Layout.SetStyle(element.LayoutNode, layoutStyle);
 
+            // ⚠ The variable-length half of the same style, and it has to be a second call: a track
+            // list lives in the tree's `TrackArena` behind a handle owned by the node, so `Build`
+            // — which returns a value and never sees a node — has nowhere to put one. After
+            // `SetStyle` rather than before, because `SetStyle` compares the whole struct to decide
+            // whether the node changed and deliberately carries the four arena handles across that
+            // write; going first would hand it a style that already had what it was about to
+            // preserve. See `LayoutStyleBuilder.ApplyVariableLength`.
+            Builder.ApplyVariableLength(style, Layout, element.LayoutNode);
+
             // ⚠ `order` is the one layout property the draw list also has to know, because CSS
             // Flexbox §5.4 makes it modify *painting* order as well as layout order. Taken from the
             // style that was just handed to the layout tree rather than resolved a second time, so

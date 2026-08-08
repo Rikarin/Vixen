@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Runtime.InteropServices;
 
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
@@ -68,6 +70,11 @@ public sealed class LayoutStyleBuilder {
     readonly NameTable values;
     readonly Properties names;
     readonly Keywords keywords;
+    readonly VariableLengthProperty[] variableLength;
+    readonly List<SelectorDiagnostic> diagnostics = [];
+
+    /// <summary>The property table, kept so that a refusal can name the property a human wrote.</summary>
+    readonly NameTable propertyNames;
 
     /// <summary>Creates a builder over a style engine's name tables.</summary>
     /// <param name="properties">The table property names are interned in.</param>
@@ -85,8 +92,60 @@ public sealed class LayoutStyleBuilder {
 
         parser = new StyleValueParser(values, keywordNames);
         this.values = values;
+        propertyNames = properties;
         names = new Properties(properties);
         keywords = new Keywords(keywordNames);
+
+        variableLength = [
+            new TrackListProperty(names.GridTemplateColumns, GridTrackSlot.Columns),
+            new TrackListProperty(names.GridTemplateRows, GridTrackSlot.Rows),
+            new TrackListProperty(names.GridAutoColumns, GridTrackSlot.AutoColumns),
+            new TrackListProperty(names.GridAutoRows, GridTrackSlot.AutoRows)
+        ];
+    }
+
+    /// <summary>What this bridge could not read, and why.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same shape as <c>StyleSheetLoader.Diagnostics</c>, and deliberately so — but
+    ///         it answers a question that list cannot.</b> The loader reports what it could not
+    ///         <i>parse</i>; this reports what parsed as CSS and then meant nothing here. Those are
+    ///         different failures: <c>grid-template-columns: 4furlongs</c> is a perfectly well-formed
+    ///         declaration that ExCSS hands through untouched, because ExCSS 4.3.2 has never heard of
+    ///         the property and so validates nothing about its value.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reported rather than thrown, because this runs inside a frame.</b> An exception
+    ///         out of the style pass takes down the surface over a typo in a stylesheet, and the
+    ///         cascade's whole premise is that a declaration it cannot use is survivable. Reported
+    ///         rather than ignored, because the alternative is what this list exists to end: a track
+    ///         list that half-parses is a one-column grid, which reads as a layout bug in a panel
+    ///         rather than as a stylesheet the engine refused.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<SelectorDiagnostic> Diagnostics => diagnostics;
+
+    /// <summary>Forgets every refusal recorded so far.</summary>
+    /// <remarks>
+    ///     ⚠ The list is per-builder and a builder outlives a frame, so a caller that watches it has
+    ///     to be able to say "from here". Without this a hot reload could only ever see the union of
+    ///     every refusal since the document was created and could never tell a new one from an old.
+    /// </remarks>
+    public void ClearDiagnostics() => diagnostics.Clear();
+
+    void Refuse(int property, string value, string reason) {
+        var text = $"{propertyNames.NameOf(property)}: {value}";
+
+        // ⚠ Deduplicated, because this is reached from the per-element style pass. One bad
+        // declaration in a user-agent stylesheet applies to every element that matches it, and a
+        // list that grew a line per element per restyle would be a leak rather than a diagnostic.
+        foreach (var existing in diagnostics) {
+            if (existing.Text == text) {
+                return;
+            }
+        }
+
+        diagnostics.Add(new SelectorDiagnostic(text, reason));
     }
 
     /// <summary>Resolves an element's font size, which everything else is measured against.</summary>
@@ -210,8 +269,68 @@ public sealed class LayoutStyleBuilder {
         ApplyDimensions(style, in context, ref result);
         ApplyEdges(style, in context, ref result);
         ApplyGaps(style, in context, ref result);
+        ApplyPlacements(style, ref result);
 
         return result;
+    }
+
+    /// <summary>Applies the style properties whose values are lists rather than fixed-size fields.</summary>
+    /// <param name="style">The element's computed style.</param>
+    /// <param name="tree">The tree the node belongs to.</param>
+    /// <param name="node">The node, which is what these properties need and <see cref="Build" /> lacks.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is a second call rather than a wider <see cref="Build" />, and the reason is
+    ///         ownership rather than convenience.</b> A track list is stored in the tree's
+    ///         <c>TrackArena</c> behind an <c>(offset, count)</c> handle that belongs to the
+    ///         <i>node</i>, not to the value — which is exactly why
+    ///         <see cref="LayoutTree.SetStyle" /> deliberately carries those four handles across a
+    ///         whole-style write instead of overwriting them. A <see cref="Build" /> that returned
+    ///         them would be returning a lease on another object's memory, and two elements that
+    ///         happened to resolve alike would name one block and free it twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Call it after <see cref="LayoutTree.SetStyle" />, not before.</b> `SetStyle`
+    ///         preserves the handles it finds, so applying tracks first works — but it also compares
+    ///         the whole struct to decide whether anything changed, and a node whose only change was
+    ///         its template would be compared against a style that already had it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An absent declaration resets rather than being skipped.</b> This is the half that
+    ///         is easy to leave out and impossible to see: an element that had
+    ///         <c>grid-template-columns</c> and no longer does keeps its old tracks forever, because
+    ///         nothing else in the store will ever clear them. The cascade says absent means initial,
+    ///         so absent has to mean a write.
+    ///     </para>
+    ///     <para>
+    ///         The mechanism generalises to any property whose value is a list: a new one is a class
+    ///         with a grammar and a store call, and the driver below neither knows nor asks what it
+    ///         parses. <c>grid-template-areas</c> and named grid lines are the two this was shaped
+    ///         for, and both are out of scope here.
+    ///     </para>
+    /// </remarks>
+    public void ApplyVariableLength(ComputedStyle style, LayoutTree tree, LayoutNodeId node) {
+        ArgumentNullException.ThrowIfNull(style);
+        ArgumentNullException.ThrowIfNull(tree);
+
+        foreach (var property in variableLength) {
+            if (!style.TryGet(property.Property, out var id)) {
+                property.Reset(tree, node);
+                continue;
+            }
+
+            var text = values.NameOf(id);
+
+            if (property.TryApply(text, tree, node, out var refusal)) {
+                continue;
+            }
+
+            Refuse(property.Property, text, refusal);
+
+            // CSS drops an invalid declaration whole rather than keeping the part that parsed, and
+            // the node has to end up where it would have been had the line never been written.
+            property.Reset(tree, node);
+        }
     }
 
     static LayoutStyle CreateCssInitial() {
@@ -284,6 +403,101 @@ public sealed class LayoutStyleBuilder {
         if (TryKeyword(style, names.BoxSizing, keywords.BoxSizings, out BoxSizing boxSizing)) {
             result.BoxSizing = boxSizing;
         }
+
+        if (TryKeyword(style, names.GridAutoFlow, keywords.GridAutoFlows, out GridAutoFlow autoFlow)) {
+            result.GridAutoFlow = autoFlow;
+        }
+
+        // ⚠ <b>Grid's inline-axis alignment reuses the flexbox <see cref="Align" /> table, and the
+        // member names lie about the axis rather than about the value.</b> `Align.FlexStart` is the
+        // inline start here, which is what `LayoutStyle.JustifyItems` documents; sharing the table is
+        // what makes `justify-items: center` and `align-items: center` mean the same word.
+        if (TryKeyword(style, names.JustifyItems, keywords.Alignments, out Align justifyItems)) {
+            result.JustifyItems = justifyItems;
+        }
+
+        if (TryKeyword(style, names.JustifySelf, keywords.Alignments, out Align justifySelf)) {
+            result.JustifySelf = justifySelf;
+        }
+    }
+
+    /// <summary>Applies the six placement properties, shorthands before longhands.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Ordered like <c>overflow</c> above and for the same reason.</b> Nothing expands
+    ///         <c>grid-column</c> into its two longhands on the way in — ExCSS has never heard of the
+    ///         property and hands it through verbatim — so by the time a computed style exists,
+    ///         "which was written last" has no answer. The shorthand goes first and a named edge wins,
+    ///         which is what CSS agrees with whenever the longhand really did come last.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A refused placement is reported and then left at <c>auto</c>.</b> Leaving it
+    ///         silently is the failure this bridge exists to stop being possible: an item whose
+    ///         <c>grid-column</c> did not parse is auto-placed into a real cell, so the grid looks
+    ///         built rather than broken and nothing anywhere names the declaration that was dropped.
+    ///     </para>
+    /// </remarks>
+    void ApplyPlacements(ComputedStyle style, ref LayoutStyle result) {
+        if (TryPlacementShorthand(style, names.GridColumn, out var columnStart, out var columnEnd)) {
+            result.GridColumnStart = columnStart;
+            result.GridColumnEnd = columnEnd;
+        }
+
+        if (TryPlacementShorthand(style, names.GridRow, out var rowStart, out var rowEnd)) {
+            result.GridRowStart = rowStart;
+            result.GridRowEnd = rowEnd;
+        }
+
+        if (TryPlacement(style, names.GridColumnStart, out var placement)) {
+            result.GridColumnStart = placement;
+        }
+
+        if (TryPlacement(style, names.GridColumnEnd, out placement)) {
+            result.GridColumnEnd = placement;
+        }
+
+        if (TryPlacement(style, names.GridRowStart, out placement)) {
+            result.GridRowStart = placement;
+        }
+
+        if (TryPlacement(style, names.GridRowEnd, out placement)) {
+            result.GridRowEnd = placement;
+        }
+    }
+
+    bool TryPlacement(ComputedStyle style, int property, out GridPlacement placement) {
+        placement = GridPlacement.Auto;
+
+        if (!style.TryGet(property, out var id)) {
+            return false;
+        }
+
+        var text = values.NameOf(id);
+
+        if (GridPlacement.TryParse(text, out placement)) {
+            return true;
+        }
+
+        Refuse(property, text, "not a line, a span or auto");
+        return false;
+    }
+
+    bool TryPlacementShorthand(ComputedStyle style, int property, out GridPlacement start, out GridPlacement end) {
+        start = GridPlacement.Auto;
+        end = GridPlacement.Auto;
+
+        if (!style.TryGet(property, out var id)) {
+            return false;
+        }
+
+        var text = values.NameOf(id);
+
+        if (GridPlacement.TryParseShorthand(text, out start, out end)) {
+            return true;
+        }
+
+        Refuse(property, text, "not a `<start> / <end>` placement");
+        return false;
     }
 
     void ApplyNumbers(ComputedStyle style, ref LayoutStyle result) {
@@ -540,6 +754,111 @@ public sealed class LayoutStyleBuilder {
             );
     }
 
+    /// <summary>Which of the four track lists a <see cref="TrackListProperty" /> writes.</summary>
+    enum GridTrackSlot { Columns, Rows, AutoColumns, AutoRows }
+
+    /// <summary>A style property whose value is a list, and so cannot live in a fixed-size struct.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The driver knows only "present, absent, refused" — everything about the grammar and
+    ///     about where the value is stored belongs to the subclass.</b> That is the whole of what
+    ///     makes this a mechanism rather than four special cases: adding
+    ///     <c>grid-template-areas</c> is a new subclass and one line in the array, and it brings its
+    ///     own scratch buffer with it rather than widening a signature everything else has to carry.
+    /// </remarks>
+    /// <param name="property">The interned property name.</param>
+    abstract class VariableLengthProperty(int property) {
+        /// <summary>The interned property name this reads.</summary>
+        public int Property { get; } = property;
+
+        /// <summary>Reads a value and writes it to the node.</summary>
+        /// <param name="value">The declaration's value, verbatim.</param>
+        /// <param name="tree">The tree.</param>
+        /// <param name="node">The node.</param>
+        /// <param name="refusal">Why it could not be read, when this returns false.</param>
+        /// <returns>Whether the value was understood and written.</returns>
+        public abstract bool TryApply(
+            string value,
+            LayoutTree tree,
+            LayoutNodeId node,
+            [NotNullWhen(false)] out string? refusal
+        );
+
+        /// <summary>Puts the node back to the property's initial value.</summary>
+        public abstract void Reset(LayoutTree tree, LayoutNodeId node);
+    }
+
+    /// <summary>One of the four <c>&lt;track-list&gt;</c> properties.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One scratch list per property per builder, reused for the life of the document.</b>
+    ///     The bridge parses once per restyled element, and a grid-heavy panel restyles a great many
+    ///     of them at once; allocating a list per parse would put the whole track list of every grid
+    ///     in the document through gen 0 on every theme change. The list is never handed out — the
+    ///     store copies into its arena before this returns.
+    /// </remarks>
+    sealed class TrackListProperty(int property, GridTrackSlot slot) : VariableLengthProperty(property) {
+        readonly List<GridTrackSize> scratch = [];
+
+        public override bool TryApply(
+            string value,
+            LayoutTree tree,
+            LayoutNodeId node,
+            [NotNullWhen(false)] out string? refusal
+        ) {
+            if (!GridTrackList.TryParse(value, scratch, out var repeat, out refusal)) {
+                return false;
+            }
+
+            // ⚠ Empty is a refusal here and not in the grammar, because the two callers disagree
+            // about what it means. `grid-auto-columns:` with nothing after it is a typo in a
+            // stylesheet; the layout corpus feeds whitespace through expecting the documented
+            // "empty means auto". The grammar stays neutral and each caller decides.
+            if (scratch.Count == 0) {
+                refusal = "no tracks";
+                return false;
+            }
+
+            switch (slot) {
+                case GridTrackSlot.Columns:
+                    tree.SetGridTemplateColumns(node, CollectionsMarshal.AsSpan(scratch), repeat.Kind, repeat.Index, repeat.Count);
+                    break;
+
+                case GridTrackSlot.Rows:
+                    tree.SetGridTemplateRows(node, CollectionsMarshal.AsSpan(scratch), repeat.Kind, repeat.Index, repeat.Count);
+                    break;
+
+                default:
+                    // ⚠ §7.2.3.2 admits `repeat()` in a `<track-list>` only. `grid-auto-rows` is an
+                    // `<auto-track-list>`, whose tracks cycle rather than being laid out once, so an
+                    // automatic repetition there has nothing to count against and is refused rather
+                    // than dropped to a fixed list — which would silently change how many sizes the
+                    // cycle has.
+                    if (repeat.Kind != GridAutoRepeat.None) {
+                        refusal = "an automatic repeat() is not allowed in an implicit track list";
+                        return false;
+                    }
+
+                    if (slot == GridTrackSlot.AutoColumns) {
+                        tree.SetGridAutoColumns(node, CollectionsMarshal.AsSpan(scratch));
+                    } else {
+                        tree.SetGridAutoRows(node, CollectionsMarshal.AsSpan(scratch));
+                    }
+
+                    break;
+            }
+
+            return true;
+        }
+
+        public override void Reset(LayoutTree tree, LayoutNodeId node) {
+            switch (slot) {
+                case GridTrackSlot.Columns: tree.SetGridTemplateColumns(node, default); break;
+                case GridTrackSlot.Rows: tree.SetGridTemplateRows(node, default); break;
+                case GridTrackSlot.AutoColumns: tree.SetGridAutoColumns(node, default); break;
+                default: tree.SetGridAutoRows(node, default); break;
+            }
+        }
+    }
+
     sealed class Properties {
         public Properties(NameTable table) {
             Direction = table.Intern("direction");
@@ -581,6 +900,27 @@ public sealed class LayoutStyleBuilder {
             RowGap = table.Intern("row-gap");
             ColumnGap = table.Intern("column-gap");
 
+            // ── Grid ────────────────────────────────────────────────────────────────────────────
+            //
+            // ⚠ The four templates are interned here but are NOT read by `Build`. They are the
+            // variable-length half of the surface and are applied against a node id by
+            // `ApplyVariableLength`; see the remarks on `GridTemplates`.
+            GridTemplateColumns = table.Intern("grid-template-columns");
+            GridTemplateRows = table.Intern("grid-template-rows");
+            GridAutoColumns = table.Intern("grid-auto-columns");
+            GridAutoRows = table.Intern("grid-auto-rows");
+
+            GridAutoFlow = table.Intern("grid-auto-flow");
+            JustifyItems = table.Intern("justify-items");
+            JustifySelf = table.Intern("justify-self");
+
+            GridColumn = table.Intern("grid-column");
+            GridRow = table.Intern("grid-row");
+            GridColumnStart = table.Intern("grid-column-start");
+            GridColumnEnd = table.Intern("grid-column-end");
+            GridRowStart = table.Intern("grid-row-start");
+            GridRowEnd = table.Intern("grid-row-end");
+
             Margin = EdgeNames.For(table, "margin", "margin");
             Padding = EdgeNames.For(table, "padding", "padding");
             Border = EdgeNames.For(table, "border-width", "border", "-width");
@@ -620,6 +960,19 @@ public sealed class LayoutStyleBuilder {
         public int Gap { get; }
         public int RowGap { get; }
         public int ColumnGap { get; }
+        public int GridTemplateColumns { get; }
+        public int GridTemplateRows { get; }
+        public int GridAutoColumns { get; }
+        public int GridAutoRows { get; }
+        public int GridAutoFlow { get; }
+        public int JustifyItems { get; }
+        public int JustifySelf { get; }
+        public int GridColumn { get; }
+        public int GridRow { get; }
+        public int GridColumnStart { get; }
+        public int GridColumnEnd { get; }
+        public int GridRowStart { get; }
+        public int GridRowEnd { get; }
         public EdgeNames Margin { get; }
         public EdgeNames Padding { get; }
         public EdgeNames Border { get; }
@@ -708,14 +1061,13 @@ public sealed class LayoutStyleBuilder {
             // is the one thing an author writes it to prevent, so they stay unmapped and the
             // declaration is dropped. The utilities inventory records them as inert for that reason.
             //
-            // ⚠ <b><c>grid</c> arrived with doc 43 § B2 and maps to a real algorithm, but a grid with
-            // no template is a single <c>auto</c> column.</b> The keyword is all that crosses this
-            // bridge today: <c>grid-template-columns</c> and the placement longhands are track
-            // <i>lists</i>, which a <see cref="LayoutStyle" /> cannot carry — they live in the tree's
-            // <c>TrackArena</c> and are set through <c>SetGridTemplateColumns</c> against a node id,
-            // which <c>Build</c> does not have. So <c>display: grid</c> lays out by §12 while
-            // <c>grid-cols-3</c> still computes a value nothing reads, and the utilities inventory
-            // records exactly that split rather than claiming the family whole.
+            // ⚠ <b><c>grid</c> arrived with doc 43 § B2 and maps to a real algorithm.</b> The
+            // keyword used to be all that crossed this bridge, because a track list is not a fixed
+            // number of bytes and a <see cref="LayoutStyle" /> is — the tracks live in the tree's
+            // <c>TrackArena</c> behind a node id that <c>Build</c> does not have. That is now solved
+            // rather than worked around: the placement longhands are ordinary fixed-size fields and
+            // cross here, and the four track lists cross through <c>ApplyVariableLength</c>, which
+            // does take a node. <c>grid-cols-3</c> reaches §12.
             Displays = new Dictionary<int, Display> {
                 [table.Intern("flex")] = Display.Flex,
                 [table.Intern("none")] = Display.None,
@@ -726,6 +1078,21 @@ public sealed class LayoutStyleBuilder {
             BoxSizings = new Dictionary<int, BoxSizing> {
                 [table.Intern("border-box")] = BoxSizing.BorderBox,
                 [table.Intern("content-box")] = BoxSizing.ContentBox
+            };
+
+            // ⚠ <b>All four written-out spellings, because `dense` is a second word rather than a
+            // second declaration.</b> CSS Grid §8.5's grammar is `[ row | column ] || dense`, so
+            // `row dense` and `dense row` are the same value and both occur; the cascade hands this
+            // bridge one interned string, not a token list, so the pairs are enumerated rather than
+            // parsed. `dense` alone means `row dense`, per the grammar's omitted-first-term rule.
+            GridAutoFlows = new Dictionary<int, GridAutoFlow> {
+                [table.Intern("row")] = GridAutoFlow.Row,
+                [table.Intern("column")] = GridAutoFlow.Column,
+                [table.Intern("dense")] = GridAutoFlow.RowDense,
+                [table.Intern("row dense")] = GridAutoFlow.RowDense,
+                [table.Intern("dense row")] = GridAutoFlow.RowDense,
+                [table.Intern("column dense")] = GridAutoFlow.ColumnDense,
+                [table.Intern("dense column")] = GridAutoFlow.ColumnDense
             };
         }
 
@@ -739,5 +1106,6 @@ public sealed class LayoutStyleBuilder {
         public Dictionary<int, Overflow> Overflows { get; }
         public Dictionary<int, Display> Displays { get; }
         public Dictionary<int, BoxSizing> BoxSizings { get; }
+        public Dictionary<int, GridAutoFlow> GridAutoFlows { get; }
     }
 }

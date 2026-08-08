@@ -70,6 +70,96 @@ public readonly record struct GridPlacement(GridPlacementKind Kind, int Value) {
         GridPlacementKind.Span => "span " + Value.ToString(CultureInfo.InvariantCulture),
         _ => "auto"
     };
+
+    /// <summary>Reads one <c>grid-{row,column}-{start,end}</c> value.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A named line is refused rather than taken as <c>auto</c>.</b> There is nowhere in
+    ///     this struct to put a name, and <c>grid-column-start: sidebar</c> silently becoming
+    ///     auto-placement is precisely the failure this whole grammar is written to avoid — the item
+    ///     lands somewhere plausible and nothing says the line it named was never found. Named lines
+    ///     arrive with <c>grid-template-areas</c> or not at all.
+    /// </remarks>
+    /// <param name="value">The value, verbatim.</param>
+    /// <param name="placement">Receives the placement.</param>
+    /// <returns>Whether it was understood.</returns>
+    public static bool TryParse(ReadOnlySpan<char> value, out GridPlacement placement) {
+        value = value.Trim();
+        placement = Auto;
+
+        if (value.IsEmpty) {
+            return false;
+        }
+
+        if (value.Equals("auto", StringComparison.Ordinal)) {
+            return true;
+        }
+
+        // §8.3's `span` may be written with the count either side of the keyword in the grammar's
+        // full form, but the only shape that occurs anywhere — corpus, Tailwind, hand-written CSS —
+        // is a leading keyword, and a bare `span` means one track.
+        if (value.StartsWith("span", StringComparison.Ordinal)) {
+            var rest = value["span".Length..].Trim();
+
+            if (rest.IsEmpty) {
+                placement = Span(1);
+                return true;
+            }
+
+            if (rest.Length == value.Length - "span".Length) {
+                // No separator between `span` and what follows: this is an identifier such as
+                // `spanish`, not a span of anything.
+                return false;
+            }
+
+            if (!int.TryParse(rest, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var tracks)) {
+                return false;
+            }
+
+            placement = Span(tracks);
+            return true;
+        }
+
+        if (!int.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var line)) {
+            return false;
+        }
+
+        placement = Line(line);
+        return true;
+    }
+
+    /// <summary>Reads a <c>grid-column</c> or <c>grid-row</c> shorthand.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An omitted second value is <c>auto</c>, and that is not the same as repeating the
+    ///     first.</b> CSS Grid §8.4: when the slash is absent the end edge is <c>auto</c> unless the
+    ///     start was a <c>&lt;custom-ident&gt;</c>, which this grammar has no reading of anyway. So
+    ///     <c>grid-column: span 2</c> spans two tracks from wherever auto-placement puts it, while
+    ///     <c>grid-column: span 2 / span 2</c> is over-constrained and §8.3 drops the end edge —
+    ///     the two are written down as different declarations and are stored as different ones.
+    /// </remarks>
+    /// <param name="value">The shorthand's value, verbatim.</param>
+    /// <param name="start">Receives the start edge.</param>
+    /// <param name="end">Receives the end edge.</param>
+    /// <returns>Whether the whole shorthand was understood.</returns>
+    public static bool TryParseShorthand(ReadOnlySpan<char> value, out GridPlacement start, out GridPlacement end) {
+        start = Auto;
+        end = Auto;
+
+        var slash = value.IndexOf('/');
+
+        if (slash < 0) {
+            return TryParse(value, out start);
+        }
+
+        // ⚠ A second slash is `grid-area`, which names four edges and is a different property. It is
+        // refused rather than read as the first two, because taking the first half of a four-edge
+        // placement puts the item in a real but wrong cell.
+        var tail = value[(slash + 1)..];
+        if (tail.Contains('/')) {
+            return false;
+        }
+
+        return TryParse(value[..slash], out start) && TryParse(tail, out end);
+    }
 }
 
 /// <summary>Which axis auto-placement fills, and how hard it tries, per CSS Grid §8.5.</summary>
