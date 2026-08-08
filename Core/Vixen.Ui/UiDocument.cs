@@ -259,6 +259,19 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>The commands the last <see cref="Draw()" /> produced.</summary>
     public DrawList Drawing { get; } = new();
 
+    /// <summary>Whether a translucent subtree is composited as a group rather than faded in place.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Set it to match the renderer that will draw this document, and never to match a
+    ///     preference.</b> See <see cref="DrawListBuilder.Compositing" />: a group is only a picture if
+    ///     whoever consumes the draw list renders <c>UiGeometry.Layers</c> into offscreen surfaces, and
+    ///     a consumer that ignores them draws a faded panel at full strength rather than approximating
+    ///     it. Off by default because <c>Vixen.Ui.Renderer</c> does not composite yet.
+    /// </remarks>
+    public bool Compositing {
+        get => drawings.Compositing;
+        set => drawings.Compositing = value;
+    }
+
     /// <summary>The primary surface's size and root font size.</summary>
     /// <remarks>
     ///     The <i>primary</i> one, now that there can be more than one — see <see cref="Surfaces" />.

@@ -385,11 +385,15 @@ public sealed class UiGeometryBuilder {
     ///         each side and cannot lose ink.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Narrowed by the clip in force at the <i>push</i>, not at the pop.</b> Those differ
-    ///         whenever the group's own element also clips: its contents were already scissored on the
-    ///         way in, so intersecting again with the inner clip would be harmless, while intersecting
-    ///         with a clip that has since been popped would let the composite paint outside the panel
-    ///         that contains it.
+    ///         ⚠ <b>Narrowed by the clip in force where the group opened — and that clip is
+    ///         <i>equal</i> to the one in force where it closes, which is worth saying because it looks
+    ///         like it should not be.</b> A group's element pushes and pops its own <c>overflow</c> clip
+    ///         entirely inside the bracket, so the stack is back where it started by the time the pop
+    ///         arrives. <s>Those differ whenever the group's own element also clips.</s> They do not,
+    ///         and a sabotage that read the pop-time clip instead changed no picture and failed no test.
+    ///         The entry clip is still what is stored, because storing it does not <i>depend</i> on that
+    ///         balance: an unbalanced push somewhere inside the group would otherwise composite the
+    ///         whole group against a scissor belonging to something within it.
     ///     </para>
     /// </remarks>
     void Layer(in DrawCommand command, Rectangle clip, Rectangle viewport) {

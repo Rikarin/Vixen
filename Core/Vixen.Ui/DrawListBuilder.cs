@@ -130,6 +130,33 @@ public sealed class DrawListBuilder {
         this.rtl = values.Intern("rtl");
     }
 
+    /// <summary>Whether a translucent subtree is isolated into a group, or faded element by element.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off by default, and the default is about the <i>consumer</i> rather than about which
+    ///         answer is right.</b> Isolating is what CSS Compositing 1 § 3 specifies and
+    ///         <see cref="DrawCommandKind.LayerPush" /> is how this asks for it; fading each element is
+    ///         the approximation this file carried for years. But a group only becomes a picture if
+    ///         whoever executes the draw list can render an offscreen surface — and a consumer that
+    ///         ignores <c>UiGeometry.Layers</c> does something worse than approximate: it draws the
+    ///         group's contents inline at <i>full</i> strength and skips the composite, so a faded panel
+    ///         comes out opaque.
+    ///     </para>
+    ///     <para>
+    ///         <c>SoftwareUiRasterizer</c> composites and <c>Vixen.Ui.Renderer</c> does not yet, so this
+    ///         stays off until the second one lands and then becomes the default. It is a switch rather
+    ///         than a capability the renderer reports because the decision has to be made while the
+    ///         <i>draw list</i> is built, which is upstream of anything that knows what a texture is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two settings must not be mixed within one application.</b> The whole hazard the
+    ///         compositing work was written against is a picture that differs between the renderer that
+    ///         ships and the one the baselines are recorded with; a host that left this off while its
+    ///         test suite turned it on would have built that hazard deliberately.
+    ///     </para>
+    /// </remarks>
+    public bool Compositing { get; set; }
+
     /// <summary>Walks a document and fills a draw list.</summary>
     /// <param name="document">The document, already updated.</param>
     /// <param name="into">The list to fill.</param>
@@ -185,16 +212,14 @@ public sealed class DrawListBuilder {
     ///         <c>opacity-*</c> in this repository is written on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="inherited" /> is therefore <i>not</i> the accumulated opacity any
-    ///         more, and today it is one on every path.</b> It is the fade still waiting to be applied
-    ///         by multiplication; a group resets it to one because the group's surface will carry it
-    ///         instead, and every element whose opacity is below one opens a group. What composes two
-    ///         nested opacities is not this parameter but the collapse: an inner group that came to one
+    ///         ⚠ <b><paramref name="inherited" /> is the fade still waiting to be applied by
+    ///         multiplication, which is not the same as the accumulated opacity once groups exist.</b>
+    ///         With <see cref="Compositing" /> off it <i>is</i> the accumulated opacity and this file
+    ///         behaves exactly as it always did. With it on, a group resets it to one — the group's
+    ///         surface carries the fade instead — so it is one everywhere, and what composes two nested
+    ///         opacities is the collapse rather than this parameter: an inner group that came to one
     ///         command fades that command, and the outer group then fades the same command again, which
-    ///         is the product. Kept as a parameter rather than deleted because
-    ///         <see cref="DrawContext" /> hands the same number to a control's own
-    ///         <see cref="UiElement.OnDraw" />, and that is a public contract about what a custom draw
-    ///         is being asked to paint at.
+    ///         is the product.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A group that survives always contributes at least three commands, which is what
@@ -230,7 +255,7 @@ public sealed class DrawListBuilder {
         // this element's to isolate a second time. CSS agrees: each translucent element forms one
         // stacking context, and nesting two of them composites twice, which is what the product of
         // the two alphas means.
-        var group = own < 1f ? into.Count : -1;
+        var group = Compositing && own < 1f ? into.Count : -1;
 
         if (group >= 0) {
             into.Add(
@@ -248,8 +273,9 @@ public sealed class DrawListBuilder {
         }
 
         // Inside the group the element paints at full strength and the surface carries the fade;
-        // outside it the multiplier still does, which is the case a collapsed group falls back to.
-        var alpha = group >= 0 ? 1f : inherited;
+        // outside it the multiplier does, which is both the collapsed case and the whole of the
+        // behaviour when <see cref="Compositing" /> is off.
+        var alpha = group >= 0 ? 1f : inherited * own;
 
         EmitBody(document, element, into, alpha, width, height);
 

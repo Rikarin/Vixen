@@ -24,13 +24,29 @@ namespace Vixen.Ui.Controls.Tests;
 ///     </para>
 /// </remarks>
 public class GroupOpacityTests {
+    /// <summary>A harness whose documents composite, which is not yet the default.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Opted into per test rather than switched on globally, because the renderer that ships
+    ///     cannot composite yet.</b> See <see cref="DrawListBuilder.Compositing" />: turning it on for
+    ///     everything would put the visual baselines — which render on the CPU, where compositing
+    ///     works — ahead of <c>Vixen.Ui.Renderer</c>, and the committed screenshots would then be
+    ///     pictures of something the editor does not draw. That is precisely the divergence this whole
+    ///     design is built to avoid, so it is not worth introducing to save a line per test.
+    /// </remarks>
+    static UiTest Compositing(float width, float height) {
+        var ui = UiTest.Create(width, height);
+        ui.Document.Compositing = true;
+
+        return ui;
+    }
+
     /// <summary>Two opaque children, the second covering the first, inside a translucent parent.</summary>
     /// <remarks>
     ///     The parent paints nothing of its own, so what reaches the surface is the second child alone
     ///     wherever they overlap — and the first child alone where it does not.
     /// </remarks>
     static UiTest Stacked(string parentStyle, float alpha = 0.5f) {
-        var ui = UiTest.Create(40f, 40f);
+        var ui = Compositing(40f, 40f);
 
         ui.Load(
             $$"""
@@ -99,7 +115,7 @@ public class GroupOpacityTests {
     /// </remarks>
     [Fact]
     public void Nested_groups_multiply_rather_than_fading_twice() {
-        var ui = UiTest.Create(40f, 40f);
+        var ui = Compositing(40f, 40f);
 
         ui.Load(
             """
@@ -135,7 +151,7 @@ public class GroupOpacityTests {
     /// </remarks>
     [Fact]
     public void A_single_command_group_is_collapsed_rather_than_composited() {
-        var ui = UiTest.Create(40f, 40f);
+        var ui = Compositing(40f, 40f);
 
         ui.Load(
             """
@@ -167,7 +183,7 @@ public class GroupOpacityTests {
     /// </remarks>
     [Fact]
     public void A_group_is_sized_to_what_it_drew_rather_than_to_its_element() {
-        var ui = UiTest.Create(60f, 60f);
+        var ui = Compositing(60f, 60f);
 
         ui.Load(
             """
@@ -209,7 +225,7 @@ public class GroupOpacityTests {
     /// </remarks>
     [Fact]
     public void The_layer_list_is_in_pre_order_and_its_ranges_nest() {
-        var ui = UiTest.Create(60f, 60f);
+        var ui = Compositing(60f, 60f);
 
         ui.Load(
             """
@@ -241,6 +257,93 @@ public class GroupOpacityTests {
 
             // And no two groups share a surface number.
             Assert.NotEqual(layers[0].Image, layers[1].Image);
+        }
+    }
+
+    /// <summary>A click lands on the element it looks like it landed on, inside a group.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The invariant a compositing pass is most likely to break, and the one nothing else
+    ///     would notice.</b> <c>UiDocument.Accumulate</c> is where the draw list, hit testing and arrow
+    ///     navigation agree about where an element is; a group that moved its contents — into a surface
+    ///     with its own origin, say — would draw them in one place and let them be clicked in another.
+    ///     This passes because a group's surface is the size of the whole viewport and its contents keep
+    ///     their document coordinates, so there is no translation for the two to disagree about. Pinned
+    ///     rather than argued, because the argument stops being true the moment somebody sizes a surface
+    ///     to its group to save memory.
+    /// </remarks>
+    [Fact]
+    public void A_composited_subtree_is_still_clicked_where_it_is_drawn() {
+        var ui = Compositing(60f, 60f);
+
+        ui.Load(
+            """
+            root { width: 60px; height: 60px; }
+            .group { position: absolute; left: 10px; top: 10px; width: 40px; height: 40px; opacity: 0.5;
+                     background-color: #202020; }
+            .hit { position: absolute; left: 5px; top: 5px; width: 20px; height: 20px;
+                   background-color: #ff0000; }
+            """
+        );
+
+        var group = ui.Create("div", null, "group", "group");
+        var hit = ui.Create("div", group, "hit", "hit");
+        ui.Frame();
+
+        using (ui) {
+            // The group is composited, so this is not the collapsed path.
+            Assert.Single(ui.Geometry.Layers);
+
+            // The child sits at (15, 15) through (35, 35) in document space.
+            Assert.Same(hit, ui.MovePointer(20f, 20f));
+            Assert.Same(group, ui.MovePointer(45f, 45f));
+
+            // And its own painted pixel is where the hit test says it is.
+            var bitmap = ui.Capture();
+            Assert.True(bitmap.Pixels[bitmap.Offset(20, 20)] > 100, "the child is not drawn where it is hit");
+        }
+    }
+
+    /// <summary>A clip outside a group still clips the composite.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The composite is a draw like any other and has to carry the scissor that was in force
+    ///     where the group <i>opened</i>.</b> A group inside <c>overflow: hidden</c> that composited
+    ///     unclipped would paint the whole subtree over its container's neighbours — and it would do it
+    ///     only for translucent subtrees, which is a bug that looks like a z-order fault. The clip is
+    ///     taken at the push rather than at the pop because the two differ whenever the group's own
+    ///     element also clips.
+    /// </remarks>
+    [Fact]
+    public void A_group_inside_a_clip_is_composited_inside_it_too() {
+        var ui = Compositing(60f, 60f);
+
+        ui.Load(
+            """
+            root { width: 60px; height: 60px; background-color: #000000; }
+            .window { position: absolute; left: 0; top: 0; width: 20px; height: 60px; overflow: hidden; }
+            .group { position: absolute; left: 0; top: 0; width: 60px; height: 60px; opacity: 0.5; }
+            .a { position: absolute; left: 0; top: 0; width: 60px; height: 30px; background-color: #ff0000; }
+            .b { position: absolute; left: 0; top: 0; width: 60px; height: 15px; background-color: #00ff00; }
+            """
+        );
+
+        var window = ui.Create("div", null, "window", "window");
+        var group = ui.Create("div", window, "group", "group");
+        ui.Create("div", group, "a", "a");
+        ui.Create("div", group, "b", "b");
+        ui.Frame();
+
+        using (ui) {
+            var layer = Assert.Single(ui.Geometry.Layers);
+
+            // The ink is 60 wide, but the clip only lets 20 through.
+            Assert.Equal(20f, layer.Bounds.Width);
+
+            var bitmap = ui.Capture();
+
+            // Inside the window the group paints; outside it, nothing does.
+            Assert.InRange(bitmap.Pixels[bitmap.Offset(10, 5) + 1], 120, 136);
+            Assert.True(bitmap.Pixels[bitmap.Offset(40, 5) + 1] <= 2, "the composite escaped its clip");
+            Assert.True(bitmap.Pixels[bitmap.Offset(40, 20)] <= 2, "the composite escaped its clip");
         }
     }
 

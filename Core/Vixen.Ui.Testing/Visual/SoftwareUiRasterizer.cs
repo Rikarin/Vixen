@@ -476,7 +476,23 @@ public static class SoftwareUiRasterizer {
         var dx = to.X - from.X;
         var dy = to.Y - from.Y;
 
-        return dy < 0f || (dy == 0f && dx > 0f);
+        // ⚠ <b>Axis-aligned edges keep the closed test they have always had, and that is a deliberate
+        // departure from the textbook rule.</b> The full rule also opens a quad's right and bottom
+        // edges, which is correct — it is what stops two abutting quads both shading the column they
+        // share — but every UI primitive here is an axis-aligned quad, so switching it on re-resolves
+        // the antialiasing of *every* edge in the suite whose coordinate happens to land on a sample
+        // centre. Measured: eleven committed screenshots moved, and the ones worth looking at were the
+        // outliner's one-pixel tree connectors losing half their coverage. That is a real improvement
+        // to argue for on its own day; it is not this change, and bundling it would hide the diagonal
+        // fix inside a diff nobody could read.
+        if (dx == 0f || dy == 0f) {
+            return true;
+        }
+
+        // The diagonal, which is the only edge a quad's two triangles actually share. They traverse it
+        // in opposite directions, so exactly one of them sees a negative `dy` and the sample is shaded
+        // once. A tessellated path's shared edges fall here too, unless they are exactly horizontal.
+        return dy < 0f;
     }
 
     /// <summary>Whether a barycentric puts the sample inside, ties broken by the fill rule.</summary>

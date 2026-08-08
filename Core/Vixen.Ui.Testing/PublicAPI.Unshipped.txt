@@ -75,6 +75,7 @@ Vixen.Ui.Testing.UiTest.Drag(float fromX, float fromY, float toX, float toY, int
 Vixen.Ui.Testing.UiTest.Frame() -> void
 Vixen.Ui.Testing.UiTest.FrameCount.get -> int
 Vixen.Ui.Testing.UiTest.Frames(int count) -> void
+Vixen.Ui.Testing.UiTest.Geometry.get -> Vixen.Ui.Rendering.UiGeometry
 Vixen.Ui.Testing.UiTest.Get(string selector) -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiTest.Hold(Vixen.Ui.ModifierKeys modifiers) -> Vixen.Ui.Testing.UiTest
 Vixen.Ui.Testing.UiTest.KeyDown(Vixen.Input.InputKey key, bool isRepeat = false) -> Vixen.Ui.UiElement?

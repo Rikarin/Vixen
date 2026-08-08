@@ -10,6 +10,7 @@ Vixen.Ui.BatchKind.BatchKind() -> void
 Vixen.Ui.BatchKind.Clip = 5 -> Vixen.Ui.BatchKind
 Vixen.Ui.BatchKind.Geometry = 0 -> Vixen.Ui.BatchKind
 Vixen.Ui.BatchKind.Image = 2 -> Vixen.Ui.BatchKind
+Vixen.Ui.BatchKind.Layer = 6 -> Vixen.Ui.BatchKind
 Vixen.Ui.BatchKind.PathFill = 3 -> Vixen.Ui.BatchKind
 Vixen.Ui.BatchKind.PathStroke = 4 -> Vixen.Ui.BatchKind
 Vixen.Ui.BatchKind.Text = 1 -> Vixen.Ui.BatchKind
@@ -170,6 +171,8 @@ Vixen.Ui.DrawCommandKind.ClipPush = 8 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommandKind.DrawCommandKind() -> void
 Vixen.Ui.DrawCommandKind.Field = 7 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommandKind.Image = 4 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.LayerPop = 11 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.LayerPush = 10 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommandKind.Path = 5 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommandKind.PathStroke = 6 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommandKind.Rectangle = 0 -> Vixen.Ui.DrawCommandKind
@@ -201,6 +204,7 @@ Vixen.Ui.DrawList.BeginFrame() -> void
 Vixen.Ui.DrawList.Boxes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.BoxStyle>
 Vixen.Ui.DrawList.ChangedLastFrame.get -> bool
 Vixen.Ui.DrawList.Commands.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawCommand>
+Vixen.Ui.DrawList.Count.get -> int
 Vixen.Ui.DrawList.DrawList() -> void
 Vixen.Ui.DrawList.EndFrame() -> bool
 Vixen.Ui.DrawList.Fonts.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.FontFace>
@@ -541,6 +545,8 @@ Vixen.Ui.Rendering.UiGeometry.Draws.get -> System.Collections.Generic.IReadOnlyL
 Vixen.Ui.Rendering.UiGeometry.Draws.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
 Vixen.Ui.Rendering.UiGeometry.Indices.get -> System.Collections.Generic.IReadOnlyList<uint>
 Vixen.Ui.Rendering.UiGeometry.Indices.init -> System.Collections.Generic.IReadOnlyList<uint>
+Vixen.Ui.Rendering.UiGeometry.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiLayer>
+Vixen.Ui.Rendering.UiGeometry.Layers.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiLayer>
 Vixen.Ui.Rendering.UiGeometry.Shapes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape>
 Vixen.Ui.Rendering.UiGeometry.Shapes.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape>
 Vixen.Ui.Rendering.UiGeometry.UiGeometry() -> void
@@ -567,6 +573,20 @@ Vixen.Ui.Rendering.UiGeometryBuilder.TessellatedPaths.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.get -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.set -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.UiGeometryBuilder() -> void
+Vixen.Ui.Rendering.UiLayer -> readonly struct
+Vixen.Ui.Rendering.UiLayer : System.IEquatable<Vixen.Ui.Rendering.UiLayer>
+Vixen.Ui.Rendering.UiLayer.Alpha.get -> float
+Vixen.Ui.Rendering.UiLayer.Alpha.init -> float
+Vixen.Ui.Rendering.UiLayer.Bounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiLayer.Bounds.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiLayer.Count.get -> int
+Vixen.Ui.Rendering.UiLayer.Count.init -> int
+Vixen.Ui.Rendering.UiLayer.First.get -> int
+Vixen.Ui.Rendering.UiLayer.First.init -> int
+Vixen.Ui.Rendering.UiLayer.Image.get -> ulong
+Vixen.Ui.Rendering.UiLayer.Image.init -> ulong
+Vixen.Ui.Rendering.UiLayer.UiLayer() -> void
+Vixen.Ui.Rendering.UiLayer.UiLayer(int First, int Count, Vixen.Core.Mathematics.Rectangle Bounds, float Alpha) -> void
 Vixen.Ui.Rendering.UiShape -> readonly struct
 Vixen.Ui.Rendering.UiShape : System.IEquatable<Vixen.Ui.Rendering.UiShape>
 Vixen.Ui.Rendering.UiShape.Axis.get -> Vixen.Core.Mathematics.Vector4
@@ -991,6 +1011,7 @@ static Vixen.Ui.Rendering.PathFlattener.Flatten(System.Collections.Generic.IRead
 static Vixen.Ui.Rendering.PathTessellator.Fill(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.FillFringe(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, float width, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.Stroke(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, float width, Vixen.Ui.LineJoin join, Vixen.Ui.LineCap cap, float tolerance, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles, float miterLimit = 4, float fringe = 0) -> void
+static Vixen.Ui.Rendering.UiGeometryBuilder.LayerImage(int index) -> ulong
 static Vixen.Ui.SvgPath.Parse(string data) -> Vixen.Ui.PathBuilder
 static Vixen.Ui.SvgPath.TryParse(string? data) -> Vixen.Ui.PathBuilder?
 static Vixen.Ui.TextLayout.Measure(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize
