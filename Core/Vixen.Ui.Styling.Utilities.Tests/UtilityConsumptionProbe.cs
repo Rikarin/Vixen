@@ -35,6 +35,39 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///     arrangement can be both halves of any of those pairs, so the verdict is the union over all of
 ///     them — a property is acted on if <i>any</i> scene notices it.
 /// </remarks>
+/// <remarks>
+///     <para>
+///         ⚠ <b>This list is the gate's standing weakness, and it has been wrong six times where the
+///         gate's logic has been wrong none.</b> A family measures inert when no scene puts it in the
+///         situation it needs — which is indistinguishable, from inside the probe, from a family the
+///         engine genuinely does not read. <b>So a green ledger is a claim about these arrangements,
+///         not about the engine.</b> Every one of the six was found by somebody implementing the
+///         property and being surprised, never by the gate:
+///     </para>
+///     <list type="bullet">
+///         <item><c>flex-shrink</c> — <c>tight</c> overflowed but nothing could shrink, because CSS
+///         Sizing §5.2.2 floors a definitely-sized box at its own width. Needed <c>squeezed</c>.</item>
+///         <item><c>grid-template-columns</c> — every scene made the probe a flex container inside a
+///         flex host, so grid measured inert before <i>and</i> after its bridge landed. Needed
+///         <c>gridded</c>.</item>
+///         <item><c>vertical-align</c> — no scene had a line box. Needed <c>inlined</c>.</item>
+///         <item><c>transition-property</c> — <c>animated</c> already declared the family's only
+///         emitted value, so the injected declaration changed nothing. Needed <c>primed</c>.</item>
+///         <item><c>fill</c>/<c>stroke</c> — no scene had an <c>Icon</c>, because this project did not
+///         reference <c>Vixen.Ui.Controls</c>. Needed the reference and a child icon.</item>
+///         <item><c>overflow-x</c>/<c>overflow-y</c> — inert for real, but the scene that would have
+///         noticed them becoming real did not exist until the clip landed.</item>
+///     </list>
+///     <para>
+///         ⚠ <b>The shape to watch for: a new engine feature usually needs a new scene, and the person
+///         who will notice is the one implementing the feature — not the next reader of the ledger.</b>
+///         When a family you have just made real still measures inert, suspect this list before
+///         suspecting your reader. And <b>the converse is not covered at all</b>: the verdict is a
+///         union across four channels, so a family that moves one channel and should have moved two
+///         passes. That distinction lives in <c>Vixen.Editor.Ui.Tests.UtilityFamilySupportTests</c>,
+///         which asserts <i>what</i> happened rather than <i>that</i> something did.
+///     </para>
+/// </remarks>
 sealed record ProbeScene(string Name, string Css);
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
