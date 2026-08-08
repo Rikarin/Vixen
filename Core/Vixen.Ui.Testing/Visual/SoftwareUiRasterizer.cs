@@ -73,34 +73,8 @@ public static class SoftwareUiRasterizer {
             target[(i * 4) + 3] = background.A;
         }
 
-        foreach (var draw in geometry.Draws) {
-            // A clip is a state change the builder has already resolved onto every draw, so there is
-            // nothing to execute for one. Skipped rather than assumed absent: the batch list
-            // partitions the commands by design, so a Clip batch reaching a consumer is normal.
-            if (draw.Kind == BatchKind.Clip || draw.Count == 0) {
-                continue;
-            }
-
-            var clip = Intersect(draw.Clip, width, height);
-
-            if (clip.Width <= 0 || clip.Height <= 0) {
-                continue;
-            }
-
-            for (var i = draw.First; i + 2 < draw.First + draw.Count; i += 3) {
-                Triangle(
-                    target,
-                    width,
-                    geometry.Vertices[(int)geometry.Indices[i]],
-                    geometry.Vertices[(int)geometry.Indices[i + 1]],
-                    geometry.Vertices[(int)geometry.Indices[i + 2]],
-                    draw.Kind,
-                    geometry.Shapes,
-                    atlas,
-                    clip
-                );
-            }
-        }
+        var frame = new Frame(geometry, atlas, width, height);
+        frame.Run(target, 0, geometry.Draws.Count);
 
         var pixels = new byte[width * height * 4];
 
@@ -162,19 +136,42 @@ public static class SoftwareUiRasterizer {
     static void Triangle(
         float[] target,
         int width,
+        int height,
         UiVertex a,
         UiVertex b,
         UiVertex c,
         BatchKind kind,
         IReadOnlyList<UiShape> shapes,
         GlyphAtlas atlas,
-        Bounds clip
+        Bounds clip,
+        float[]? surface
     ) {
         var area = Edge(a.Position, b.Position, c.Position);
 
         if (MathF.Abs(area) < 1e-9f) {
             return;
         }
+
+        // ⚠ <b>Wound consistently before the fill rule is applied, because the pipeline is
+        // <c>RasterizerState.TwoSided</c> and the tessellator emits both.</b> The rule below is stated
+        // in terms of which side of an edge the interior is on, which is only meaningful once every
+        // triangle agrees about that. Swapping two vertices flips the sign of the area and of all three
+        // edge functions at once, so the barycentrics stay attached to the vertices they came from.
+        if (area < 0f) {
+            (b, c) = (c, b);
+            area = -area;
+        }
+
+        // ⚠ <b>Half-open along the edges the interior is <i>not</i> on, which is what stops a shared
+        // edge being shaded twice.</b> A quad is two triangles that share its diagonal, and a sample
+        // landing exactly on that diagonal used to satisfy `w >= 0` in both of them — so the pixel was
+        // blended twice. For an opaque fill that is invisible, because blending a colour over itself
+        // returns it; for anything translucent it is not, and a composited group is translucent by
+        // construction. A 40×40 box at half opacity drew a 0.75 pixel down its diagonal where 0.5 was
+        // wanted, which is how this was found.
+        var inclusive0 = TopLeft(b.Position, c.Position);
+        var inclusive1 = TopLeft(c.Position, a.Position);
+        var inclusive2 = TopLeft(a.Position, b.Position);
 
         var minX = Math.Max(clip.MinX, (int)MathF.Floor(Min3(a.Position.X, b.Position.X, c.Position.X)));
         var maxX = Math.Min(clip.MaxX, (int)MathF.Ceiling(Max3(a.Position.X, b.Position.X, c.Position.X)));
@@ -193,8 +190,10 @@ public static class SoftwareUiRasterizer {
 
                 // ⚠ Both windings accepted, because the pipeline is RasterizerState.TwoSided. A
                 // one-sided test here would drop whichever of the tessellator's triangles came out
-                // the other way round and leave holes nobody could explain from the draw list.
-                if (w0 < 0f || w1 < 0f || w2 < 0f) {
+                // the other way round and leave holes nobody could explain from the draw list. The
+                // winding was normalised above rather than tested for here, so that the fill rule has
+                // one case instead of two mirrored ones.
+                if (!Covers(w0, inclusive0) || !Covers(w1, inclusive1) || !Covers(w2, inclusive2)) {
                     continue;
                 }
 
@@ -215,6 +214,14 @@ public static class SoftwareUiRasterizer {
                 var fragment = kind switch {
                     BatchKind.Geometry => Box(texture, colour, shapes, (int)(shape + 0.5f)),
                     BatchKind.Text => Text(texture, colour, shape, atlas),
+
+                    // ⚠ Only an image whose texture is a composited group, which is the one image this
+                    // renderer has the pixels for. Every other image number names a texture a host
+                    // owns and this has never seen, so it keeps falling through to `Solid` — which
+                    // draws nothing, because an image quad's `shape.x` is zero. That is the behaviour
+                    // this renderer has always had for images and it is not being changed here.
+                    BatchKind.Image when surface is not null =>
+                        Composite(surface, width, height, texture, colour),
                     _ => Solid(colour, shape)
                 };
 
@@ -456,6 +463,25 @@ public static class SoftwareUiRasterizer {
         target[offset + 3] = source.A + (target[offset + 3] * inverse);
     }
 
+    /// <summary>Whether a sample exactly on an edge belongs to this triangle.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Strictly inside always counts; the rule only decides the ties.</b> Two triangles sharing
+    ///     an edge traverse it in opposite directions, so exactly one of them sees a downward <c>dy</c>
+    ///     and the pixel is shaded once. The wording is the usual top-left rule stated for this file's
+    ///     edge function — <see cref="Edge" /> is positive on the interior once the winding is
+    ///     normalised, which makes a horizontal edge the <i>top</i> one when it runs left to right, and
+    ///     any edge running upwards a <i>left</i> one.
+    /// </remarks>
+    static bool TopLeft(Vector2 from, Vector2 to) {
+        var dx = to.X - from.X;
+        var dy = to.Y - from.Y;
+
+        return dy < 0f || (dy == 0f && dx > 0f);
+    }
+
+    /// <summary>Whether a barycentric puts the sample inside, ties broken by the fill rule.</summary>
+    static bool Covers(float weight, bool inclusive) => weight > 0f || (weight == 0f && inclusive);
+
     static float Edge(Vector2 a, Vector2 b, Vector2 point) =>
         ((b.X - a.X) * (point.Y - a.Y)) - ((b.Y - a.Y) * (point.X - a.X));
 
@@ -477,6 +503,159 @@ public static class SoftwareUiRasterizer {
             Math.Min(width - 1, (int)MathF.Ceiling(clip.Right) - 1),
             Math.Min(height - 1, (int)MathF.Ceiling(clip.Bottom) - 1)
         );
+
+    /// <summary>A composited group's surface, as <c>UiImage.Fragment</c> evaluates it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The sample is <i>already</i> premultiplied and is not multiplied again, which is the
+    ///     whole difference between this and an ordinary image.</b> Every UI pipeline writes
+    ///     premultiplied colour because that is what the blend state consumes, so a group's surface
+    ///     holds premultiplied colour too — where a texture a host uploaded holds straight alpha and has
+    ///     to be premultiplied on the way out. Doing it twice darkens every partly covered pixel, which
+    ///     shows as a dark fringe around everything inside the group and is the classic symptom.
+    ///     <para>
+    ///         The shader is told which it has been handed by <c>shape.x</c>; here the two cases are
+    ///         different call sites, so the flag is not read. That is a deliberate asymmetry and the one
+    ///         place this file departs from transcribing the shader — see the class remarks on why the
+    ///         transcription is otherwise literal.
+    ///     </para>
+    /// </remarks>
+    static Color4 Composite(float[] surface, int width, int height, Vector2 uv, Color4 tint) {
+        var sampled = SampleSurface(surface, width, height, uv);
+
+        return new Color4(
+            sampled.X * tint.A,
+            sampled.Y * tint.A,
+            sampled.Z * tint.A,
+            sampled.W * tint.A
+        );
+    }
+
+    /// <summary>Bilinear over a group's surface, which is what the shared sampler is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Bilinear, and it resolves to a single texel every time.</b> A composite quad covers the
+    ///     group's bounds, which <see cref="UiGeometryBuilder" /> has already rounded out to whole
+    ///     pixels, over a surface that is the size of the viewport — so the mapping is one to one and a
+    ///     pixel centre lands exactly on a texel centre, where both weights are zero. Written as a
+    ///     filter anyway rather than as a texel fetch, because the GPU's sampler <i>is</i> a filter: if
+    ///     the two ever stopped being aligned, a fetch here would quietly disagree with the device
+    ///     instead of blurring the same way it does.
+    /// </remarks>
+    static Vector4 SampleSurface(float[] surface, int width, int height, Vector2 uv) {
+        var x = (uv.X * width) - 0.5f;
+        var y = (uv.Y * height) - 0.5f;
+
+        var x0 = (int)MathF.Floor(x);
+        var y0 = (int)MathF.Floor(y);
+        var fx = x - x0;
+        var fy = y - y0;
+
+        var c00 = Pixel(surface, width, height, x0, y0);
+        var c10 = Pixel(surface, width, height, x0 + 1, y0);
+        var c01 = Pixel(surface, width, height, x0, y0 + 1);
+        var c11 = Pixel(surface, width, height, x0 + 1, y0 + 1);
+
+        return new(
+            Lerp(Lerp(c00.X, c10.X, fx), Lerp(c01.X, c11.X, fx), fy),
+            Lerp(Lerp(c00.Y, c10.Y, fx), Lerp(c01.Y, c11.Y, fx), fy),
+            Lerp(Lerp(c00.Z, c10.Z, fx), Lerp(c01.Z, c11.Z, fx), fy),
+            Lerp(Lerp(c00.W, c10.W, fx), Lerp(c01.W, c11.W, fx), fy)
+        );
+    }
+
+    static Vector4 Pixel(float[] surface, int width, int height, int x, int y) {
+        x = Math.Clamp(x, 0, width - 1);
+        y = Math.Clamp(y, 0, height - 1);
+
+        var offset = ((y * width) + x) * 4;
+        return new(surface[offset], surface[offset + 1], surface[offset + 2], surface[offset + 3]);
+    }
+
+    /// <summary>One frame's walk, with a surface of its own for each composited group.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same execution the GPU renderer performs, in the same order, and that is the
+    ///         point of it being written this way.</b> A group is rendered into a surface first and the
+    ///         result is drawn back as an ordinary image afterwards, on both paths — rather than this
+    ///         one taking the shortcut it could easily take of blending a subtree's fragments with the
+    ///         alpha folded in. A shortcut would agree with the device on the cases anybody thought to
+    ///         test and diverge on the ones nobody did, and the only thing that would notice is a
+    ///         committed screenshot.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every surface is the size of the whole viewport.</b> See <see cref="UiLayer" />:
+    ///         it means neither path has an origin to subtract, so neither can subtract it differently.
+    ///     </para>
+    /// </remarks>
+    sealed class Frame(UiGeometry geometry, GlyphAtlas atlas, int width, int height) {
+        readonly Dictionary<ulong, float[]> surfaces = [];
+        int next;
+
+        /// <summary>Executes a range of draws into one surface.</summary>
+        internal void Run(float[] target, int from, int to) {
+            var draw = from;
+
+            while (draw < to) {
+                // ⚠ Matched on the draw index rather than searched for, which is what
+                // `UiGeometry.Layers` being in pre-order buys. Two groups can legitimately open at the
+                // same index — a translucent element that paints nothing of its own, wrapping a
+                // translucent child — and the outer one has to be entered first; pre-order is exactly
+                // the statement that it comes first in the list.
+                if (next < geometry.Layers.Count && geometry.Layers[next].First == draw) {
+                    var layer = geometry.Layers[next++];
+
+                    // Transparent black, not the background: a group composites *over* what is already
+                    // there, so starting it from the destination would blend the destination in twice.
+                    var surface = new float[width * height * 4];
+
+                    Run(surface, layer.First, layer.First + layer.Count);
+                    surfaces[layer.Image] = surface;
+
+                    // The composite draw sits immediately after the group's own draws and is an
+                    // ordinary image naming this surface, so the loop picks it up on the next turn.
+                    draw = layer.First + layer.Count;
+                    continue;
+                }
+
+                Execute(target, geometry.Draws[draw]);
+                draw++;
+            }
+        }
+
+        void Execute(float[] target, UiDraw draw) {
+            // A clip is a state change the builder has already resolved onto every draw, so there is
+            // nothing to execute for one. Skipped rather than assumed absent: the batch list
+            // partitions the commands by design, so a Clip batch reaching a consumer is normal.
+            if (draw.Kind == BatchKind.Clip || draw.Count == 0) {
+                return;
+            }
+
+            var clip = Intersect(draw.Clip, width, height);
+
+            if (clip.Width <= 0 || clip.Height <= 0) {
+                return;
+            }
+
+            var surface = draw.Kind == BatchKind.Image && surfaces.TryGetValue(draw.Image, out var found)
+                ? found
+                : null;
+
+            for (var i = draw.First; i + 2 < draw.First + draw.Count; i += 3) {
+                Triangle(
+                    target,
+                    width,
+                    height,
+                    geometry.Vertices[(int)geometry.Indices[i]],
+                    geometry.Vertices[(int)geometry.Indices[i + 1]],
+                    geometry.Vertices[(int)geometry.Indices[i + 2]],
+                    draw.Kind,
+                    geometry.Shapes,
+                    atlas,
+                    clip,
+                    surface
+                );
+            }
+        }
+    }
 
     readonly record struct Bounds(int MinX, int MinY, int MaxX, int MaxY) {
         public int Width => MaxX - MinX + 1;

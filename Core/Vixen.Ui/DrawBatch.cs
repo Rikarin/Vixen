@@ -51,7 +51,17 @@ public enum BatchKind : byte {
     ///     still cover every command. A consumer then walks one list rather than two, and cannot
     ///     forget to interleave them.
     /// </remarks>
-    Clip
+    Clip,
+
+    /// <summary>A composited group opened or closed. Always exactly one command.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A boundary rather than a state change, which is why it is not folded into
+    ///     <see cref="Clip" /> even though both are "not a draw".</b> A clip narrows the scissor of the
+    ///     draws around it and they still land in the same picture; a layer says the draws after it go
+    ///     into a <i>different</i> picture. A consumer that treated the two alike would carry on
+    ///     drawing a group's contents into the surface above it.
+    /// </remarks>
+    Layer
 }
 
 /// <summary>A run of commands a renderer can submit together.</summary>
@@ -154,7 +164,12 @@ public static class DrawBatcher {
             // ⚠ A clip never joins anything, not even another clip. Two pushes in a row would merge
             // into a batch of two under the general rule, and a batch is a thing to draw — a state
             // change that arrives as part of a draw is a state change somebody will apply once.
-            if (kind != BatchKind.Clip && into.Count > 0 && Extends(into[^1], kind, font, rule, image)) {
+            // ⚠ A layer boundary is excluded for the same reason a clip is, and the consequence is
+            // worse than a clip's: two adjacent pushes merged into one batch of two would leave a
+            // consumer opening one surface for a pair of groups that nest.
+            if (kind is not (BatchKind.Clip or BatchKind.Layer)
+                && into.Count > 0
+                && Extends(into[^1], kind, font, rule, image)) {
                 into[^1] = into[^1] with { Count = into[^1].Count + 1 };
                 continue;
             }
@@ -213,6 +228,12 @@ public static class DrawBatcher {
             DrawCommandKind.Image => (BatchKind.Image, 0, default),
             DrawCommandKind.Path => (BatchKind.PathFill, 0, command.FillRule),
             DrawCommandKind.PathStroke => (BatchKind.PathStroke, 0, default),
+
+            // ⚠ Named rather than left to the catch-all, which used to swallow every kind that was
+            // not a draw. The default below reads as "a clip", and a layer arriving there would be
+            // handed to a consumer as a scissor change — the group would never open and its contents
+            // would draw straight into the surface above it, at full opacity.
+            DrawCommandKind.LayerPush or DrawCommandKind.LayerPop => (BatchKind.Layer, 0, default),
             _ => (BatchKind.Clip, 0, default)
         };
 }

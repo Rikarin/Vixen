@@ -50,11 +50,14 @@ public sealed class UiGeometryBuilder {
     readonly List<UiDraw> draws = [];
     readonly List<UiShape> shapes = [];
     readonly List<Rectangle> clips = [];
+    readonly List<UiLayer> layers = [];
+    readonly List<Opening> opening = [];
     readonly List<Vector2> points = [];
     readonly List<Contour> contours = [];
     readonly List<PathVertex> triangles = [];
     readonly Dictionary<ulong, Tessellation> tessellations = [];
     int frame;
+    int layerNumber;
 
     /// <summary>The icon cache, made over whichever atlas the frame's glyphs are in.</summary>
     /// <remarks>
@@ -241,6 +244,14 @@ public sealed class UiGeometryBuilder {
         draws.Clear();
         shapes.Clear();
         clips.Clear();
+        layers.Clear();
+        opening.Clear();
+
+        // ⚠ Restarted every frame rather than left to run, so that a frame's geometry is a pure
+        // function of its draw list. A counter that carried across frames would give the same picture
+        // different layer numbers on the second frame, and the geometry would compare unequal to
+        // itself — which is exactly the claim the frame diff upstream is built on.
+        layerNumber = 0;
         DroppedGlyphs = 0;
         AtlasChanged = false;
         TessellatedPaths = 0;
@@ -277,6 +288,11 @@ public sealed class UiGeometryBuilder {
         foreach (var batch in list.Batches) {
             if (batch.Kind == BatchKind.Clip) {
                 clip = Clip(list.Commands[batch.First], clip, viewport);
+                continue;
+            }
+
+            if (batch.Kind == BatchKind.Layer) {
+                Layer(list.Commands[batch.First], clip, viewport);
                 continue;
             }
 
@@ -342,9 +358,167 @@ public sealed class UiGeometryBuilder {
         // slot. Nothing here can repair that; the quads are written. What it must not be is quiet.
         AtlasChanged = glyphs.Atlas.Revision != settled;
 
+        // ⚠ An unclosed group is dropped rather than closed here. A push with no pop means the draw
+        // list is malformed, and inventing a composite for it would put the rest of the frame — every
+        // draw after the push — inside a surface nobody asked for, which is a blank window rather than
+        // a visible mistake. The clip stack takes the same view of an unbalanced push.
+        opening.Clear();
+
         Trim();
-        return new UiGeometry(vertices, indices, draws, shapes);
+        return new UiGeometry(vertices, indices, draws, shapes) { Layers = layers };
     }
+
+    /// <summary>Opens or closes a composited group, and emits the quad that composites it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The bounds are the ink, and they are read from the vertices rather than from the
+    ///         command.</b> See <see cref="UiLayer" />: opacity isolates a subtree without bounding it,
+    ///         so a child that overflows its translucent parent is still part of the group. The vertices
+    ///         emitted between the push and the pop are the only complete account of what the group
+    ///         drew, and they are already here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rounded out to whole pixels, never in.</b> A group's edge is antialiased, so its
+    ///         outermost pixel is partly covered; a bound rounded to the nearest pixel would cut that
+    ///         pixel off on whichever side the fraction fell the wrong way, and the group would composite
+    ///         with a hairline missing along one edge. Rounding out costs at most a pixel of surface on
+    ///         each side and cannot lose ink.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Narrowed by the clip in force at the <i>push</i>, not at the pop.</b> Those differ
+    ///         whenever the group's own element also clips: its contents were already scissored on the
+    ///         way in, so intersecting again with the inner clip would be harmless, while intersecting
+    ///         with a clip that has since been popped would let the composite paint outside the panel
+    ///         that contains it.
+    ///     </para>
+    /// </remarks>
+    void Layer(in DrawCommand command, Rectangle clip, Rectangle viewport) {
+        if (command.Kind == DrawCommandKind.LayerPush) {
+            opening.Add(new Opening(draws.Count, vertices.Count, command.Color.A, clip));
+            return;
+        }
+
+        if (opening.Count == 0) {
+            // A pop with no push. Dropped for the same reason the clip stack drops one: there is no
+            // surface to composite, and inventing one would composite the whole frame so far.
+            return;
+        }
+
+        var open = opening[^1];
+        opening.RemoveAt(opening.Count - 1);
+
+        var bounds = Intersect(Ink(open.Vertex), Intersect(open.Clip, viewport));
+
+        if (bounds.Width <= 0f || bounds.Height <= 0f) {
+            // The group inked nothing the clip lets through. There is no surface worth allocating and
+            // nothing to composite — and emitting a zero-sized layer would ask a renderer for a
+            // zero-sized texture, which is a validation error rather than an empty picture.
+            return;
+        }
+
+        var layer = new UiLayer(open.Draw, draws.Count - open.Draw, bounds, open.Alpha) {
+            Image = LayerImage(layerNumber++)
+        };
+
+        // ⚠ <b>Inserted in pre-order rather than appended, and the number is a counter rather than the
+        // position.</b> Groups close innermost first, so appending would give post-order — and a
+        // consumer walking the draws with a stack needs to meet the outer group before the inner one it
+        // contains. The two cannot be told apart by <see cref="UiLayer.First" /> alone either: a
+        // translucent element that paints nothing of its own before a translucent child opens both
+        // groups at the same draw index, and only the wider <c>Count</c> says which is outside. The
+        // number stays a counter because a dropped group leaves no gap that way.
+        var at = layers.Count;
+
+        while (at > 0 && (layers[at - 1].First > layer.First
+            || (layers[at - 1].First == layer.First && layers[at - 1].Count < layer.Count))) {
+            at--;
+        }
+
+        layers.Insert(at, layer);
+
+        // ⚠ <b>The composite is an ordinary image draw, and its <c>Shape.X</c> is one.</b> The layer's
+        // surface holds *premultiplied* colour, because that is what every UI pipeline writes and what
+        // the blend state consumes — where an ordinary image is straight-alpha content the shader has
+        // to premultiply on the way out. Sampling one as the other doubles the multiply and shows as a
+        // dark fringe around everything in the group, so the shader is told which it is being handed.
+        // Zero is the straight-alpha case, which is what every image quad already carries.
+        var first = indices.Count;
+
+        Quad(
+            bounds.X,
+            bounds.Y,
+            bounds.X + bounds.Width,
+            bounds.Y + bounds.Height,
+            // ⚠ Relative to the viewport's own origin, which is not always zero. The surface covers the
+            // viewport, so a UV is where a document coordinate sits *within* it — dividing the raw
+            // coordinate would be right only for a surface whose top left is the document's.
+            new Vector2((bounds.X - viewport.X) / viewport.Width, (bounds.Y - viewport.Y) / viewport.Height),
+            new Vector2(
+                (bounds.X + bounds.Width - viewport.X) / viewport.Width,
+                (bounds.Y + bounds.Height - viewport.Y) / viewport.Height
+            ),
+            new Color4(1f, 1f, 1f, open.Alpha),
+            new Vector4(1f, 0f, 0f, 0f)
+        );
+
+        draws.Add(
+            new UiDraw(BatchKind.Image, first, indices.Count - first, 0, Intersect(open.Clip, viewport)) {
+                Image = layer.Image
+            }
+        );
+    }
+
+    /// <summary>The bounding box of every vertex emitted since a group opened.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Positions only, and that is exact rather than approximate.</b> Every UI primitive is
+    ///     already expanded to the quad that contains its ink before it reaches the vertex list — a
+    ///     shadow's quad is grown by its blur, a path's by its fringe, a glyph's by its field padding —
+    ///     because each of those shaders resolves coverage <i>inside</i> the geometry it is given. So no
+    ///     fragment can land outside the hull of the positions, and there is no per-kind margin to add
+    ///     here that would not be added twice.
+    /// </remarks>
+    Rectangle Ink(int from) {
+        if (from >= vertices.Count) {
+            return default;
+        }
+
+        var left = float.MaxValue;
+        var top = float.MaxValue;
+        var right = float.MinValue;
+        var bottom = float.MinValue;
+
+        for (var i = from; i < vertices.Count; i++) {
+            var position = vertices[i].Position;
+            left = MathF.Min(left, position.X);
+            top = MathF.Min(top, position.Y);
+            right = MathF.Max(right, position.X);
+            bottom = MathF.Max(bottom, position.Y);
+        }
+
+        left = MathF.Floor(left);
+        top = MathF.Floor(top);
+
+        return new Rectangle(left, top, MathF.Ceiling(right) - left, MathF.Ceiling(bottom) - top);
+    }
+
+    /// <summary>The number a composited group's surface is named by.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A reserved range at the top of the space, so that it cannot collide with a texture a
+    ///     host registered.</b> <see cref="DrawCommand.Image" /> is whatever number a renderer handed
+    ///     out for a texture it owns — <c>ThumbnailCache</c> and <c>Viewport</c> both count up from one
+    ///     — and a group's surface has to be named without asking anybody, because it is discovered
+    ///     while the geometry is being built. Counting <i>down</i> from the top means the two
+    ///     allocators would have to issue about nine quintillion numbers each before they met.
+    ///     <para>
+    ///         Public because the agreement is across assemblies: <c>Vixen.Ui.Renderer</c> registers a
+    ///         texture under this number and <c>SoftwareUiRasterizer</c> looks a surface up by it, and
+    ///         neither can be allowed to have its own copy of the rule.
+    ///     </para>
+    /// </remarks>
+    public static ulong LayerImage(int index) => ulong.MaxValue - (ulong) index;
+
+    /// <summary>A group that has been pushed and not yet popped.</summary>
+    readonly record struct Opening(int Draw, int Vertex, float Alpha, Rectangle Clip);
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>
     /// <remarks>
