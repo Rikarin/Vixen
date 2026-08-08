@@ -65,11 +65,21 @@ sealed class AppShell : IDisposable {
     ///     Nothing in <c>Vixen.Ui</c> knows what time it is except through an input event, so a
     ///     spinner that spins and a toast that expires both need telling. It is what keeps a golden
     ///     image of a control from depending on what time it was taken.
+    ///
+    ///     ⚠ <b><c>Document.Tick</c>, and not <c>Document.Gestures.Tick</c>.</b> This line said the
+    ///     second for a long time — as did <c>EditorShell</c> and <c>Samples/02</c>, which is how a
+    ///     copied frame loop goes wrong three times — and the recogniser is only one of the four
+    ///     things that needs the clock. The others are <c>UiDocument.Ticked</c>, which is what an
+    ///     <c>Overlay</c>'s delay and a <c>Toasts</c> dismissal hang on; <c>UiDocument.Now</c>, which
+    ///     is what a toast is stamped with; and the CSS animator. That last one fails in the
+    ///     direction nobody expects: a transition stamped against a clock that never leaves zero
+    ///     makes no progress on any frame, so a declared <c>transition</c> holds the property at the
+    ///     value it was leaving rather than jumping to the new one.
     /// </remarks>
     public void Tick(TimeSpan now, TimeSpan delta) {
         _ = delta;
 
-        Document.Gestures.Tick(now);
+        Document.Tick(now);
     }
 
     /// <summary>Changes the surface's size.</summary>
