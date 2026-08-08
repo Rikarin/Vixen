@@ -955,6 +955,7 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     public void Tick(TimeSpan now) {
         Now = now;
+        Seconds = (float) now.TotalSeconds;
         Gestures.Tick(now);
 
         // ⚠ Asked *before* the advance, because the advance is what makes the last frame of a fade
@@ -962,7 +963,7 @@ public sealed partial class UiDocument : IDisposable {
         // transition permanently one frame short of where it was going — the interruption logic hides
         // it for anything that moves again and nothing hides it for anything that does not.
         if (!Styles.Animations.IsIdle) {
-            Styles.Animations.Advance((float) now.TotalSeconds);
+            Styles.Animations.Advance(Seconds);
 
             // ⚠ `InvalidatePositions` and not `Invalidate`, and the difference is a cold cascade per
             // frame for as long as anything is fading. Nothing an element *declared* has changed —
@@ -979,14 +980,22 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>The same instant as <see cref="Now" />, in the seconds the animator counts in.</summary>
     /// <remarks>
-    ///     ⚠ Converted once per pass rather than per element. It is also <c>float</c>, which is the
-    ///     animator's own currency and costs resolution at large values — about a millisecond after
-    ///     three hours of uptime, and about a hundredth of a second after a fortnight. Transitions are
-    ///     measured in hundreds of milliseconds, so the first is invisible and the second is a
-    ///     stutter nobody will run long enough to see; recorded because "it is a float" is the whole
-    ///     of the reason and it is not obvious from the call site.
+    ///     <para>
+    ///         A field written by <see cref="Tick" /> rather than a property over
+    ///         <see cref="Now" />, because <c>Apply</c> reads it once per element and <c>TotalSeconds</c>
+    ///         is a division. Small either way; the reason to write it down is that the two forms look
+    ///         identical at the call site and only one of them is once per frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>float</c>, which is the animator's own currency and loses resolution at large
+    ///         values — about a millisecond after three hours of uptime, and about a hundredth of a
+    ///         second after a fortnight. Transitions are measured in hundreds of milliseconds, so the
+    ///         first is invisible and the second is a stutter nobody will run long enough to see.
+    ///         Recorded because "it is a float" is the whole of the reason and is not visible from
+    ///         where it is used.
+    ///     </para>
     /// </remarks>
-    float Seconds => (float) Now.TotalSeconds;
+    float Seconds;
 
     /// <summary>Raised on every <see cref="Tick" />.</summary>
     /// <remarks>
