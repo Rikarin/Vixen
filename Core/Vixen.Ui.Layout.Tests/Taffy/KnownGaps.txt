@@ -14,30 +14,62 @@
 # TaffyFlexConformanceTests asserts both that every failure is listed here AND that the totals are
 # exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
 # any one of these turns the suite red until the count and the line are both updated.
+#
+# 206 at the corpus's first run; 158 now. Two rules closed the 48: CSS Sizing §5.2.2's distinction
+# between a min-content size and a min-content contribution, and §5.1's min-over-max precedence.
+# A closed bucket keeps its heading with the diagnosis that closed it, because the next person to
+# read this file is more likely to be looking for how one of these was found than for a to-do list.
 
 # ── CSS Flexbox §4.5, the automatic minimum size, when the content size comes from a DESCENDANT ──
 #
-# ⚠ This is the single biggest thing the corpus found, and the layout README predicted it almost
-# exactly: it says Yoga's generator "emits no fixture that shrinks a measured leaf past its own
-# content", and AutomaticMinimumSizeTests was hand-written to cover that. But it covers the *leaf*
-# case — a node with a measure function. A flex item that is itself a container has a min-content
-# size too, computed from what is inside it, and that floor is not applied. align_baseline_child_padding
-# is the clearest: two 50px-wide siblings in a 90px content box, and Chrome shrinks one to 40 and
-# the other not at all, because the second is floored at min(specified 50, content 60) = 50.
-# Vixen shrinks both to 45.
-align_baseline_child_margin
-align_baseline_child_margin_percent
-align_baseline_child_padding
-align_items_center_child_with_margin_bigger_than_parent
-align_items_center_child_without_margin_bigger_than_parent
-align_items_flex_end_child_with_margin_bigger_than_parent
-align_items_flex_end_child_without_margin_bigger_than_parent
+# ⚠ MOSTLY CLOSED. This was the biggest bucket — seventeen families — and nine of them are gone,
+# along with absolute_minmax_*, bevy_issue_10343_flex, and the two below that were only ever the
+# same bug seen from a different side. 206 → 158.
+#
+# The rule was there; what was missing was the distinction CSS Sizing §5.2.2 draws between a box's
+# min-content *size* and its min-content *contribution*. The contribution of a box whose preferred
+# size is definite is that size — the contents are not consulted. Vixen asked every descendant for
+# its min-content size, and an empty `width: 50px` box answered ZERO, because a box with no
+# contents needs no room for them. So every floor computed from such a descendant was missing.
+# See LayoutTree.MinContentContribution, and AutomaticMinimumSizeTests for the four hand-written
+# cases — the corpus is not allowed to be the only witness to a rule this load-bearing.
+#
+# ⚠ Two things learned closing it, both of which broke fixtures before they were understood:
+#   · A PERCENTAGE preferred size is not definite here. CSS Sizing §5.2.1 — a percentage against a
+#     containing block whose size is not yet known behaves as `auto`, which is exactly this probe's
+#     situation. Reading `width: 100%` as definite fails Yoga's Percent_within_flex_grow and
+#     Taffy's percent_within_flex_grow, the same case in both corpora.
+#   · A WRAPPING container's min-content main size is its widest item, not the sum (§9.9.1). This
+#     was caught by YOGA alone — three AlignContent fixtures — and by nothing in Taffy's 2 208.
+#     Both corpora earned their keep on this change.
+#   · A box that CLIPS an axis contributes nothing along it but its own padding and border, because
+#     its contents are scrollable overflow (§5.2.2) — the same sentence §4.5 already applies one
+#     level out. Neither corpus moved by a single fixture with this rule present or absent. The
+#     EDITOR SCREENSHOTS caught it: every box in the docking chain declares `overflow: hidden`, and
+#     without the rule the shell laid out 2 385 points wide inside a 1 100-point window with the
+#     inspector off the side. Three oracles, three different findings, no overlap.
+#
+# ⚠ What is left in this bucket is a DIFFERENT bug that was hiding behind the first one, and it is
+# worth stating precisely because the floor is now right and these still fail. §9.2 step 9 says the
+# HYPOTHETICAL main size is the flex base size clamped by the used min and max — and §4.5's
+# automatic minimum *is* the used min. Vixen only ever consults it inside the two distribution
+# passes, so an item that does not flex never sees its own floor. flex_basis_smaller_than_content_row
+# is the clean case: `flex-basis: 50px` on a column wrapping a 100px box, no grow and nothing to
+# shrink, so neither pass touches it and it stays 50 where Chrome says 100 — even though
+# ComputeAutoMinMainSize now returns exactly 100 for it. The fix belongs with the §9.7 work below,
+# because moving the floor up to the hypothetical size also changes what line breaking consumes.
+#
+# ⚠ That last sentence was MEASURED, not assumed, and the measurement is worth keeping. Applying the
+# floor at the obvious narrow place — the non-flexing path of DistributeFreeSpaceSecondPass, one
+# line — closes four of the eight above and takes the corpus to 154. It also breaks two families
+# that currently pass, percentage_moderate_complexity and
+# percentage_multiple_nested_with_padding_margin_and_percentage_values, the second of which is a
+# YOGA fixture as well. A floor applied after line breaking disagrees with the size line breaking
+# already consumed, so the two have to move together. Do not re-try the one-liner.
 flex_basis_smaller_than_content_column
 flex_basis_smaller_than_content_row
 flex_basis_smaller_then_content_with_flex_grow_large_size
-flex_basis_smaller_then_content_with_flex_grow_small_size
 flex_basis_unconstraint_column
-nested_overflowing_child
 padding_border_overrides_size_flex_basis_0_growable
 percentage_flex_basis_cross_min_height
 measure_child_with_min_size_greater_than_available_space
@@ -84,11 +116,11 @@ align_baseline_multiline_column2
 align_baseline_wrap_reverse
 absolute_layout_align_self_baseline_wrap_reverse
 
-# ── CSS Sizing §5: when the min is larger than the max, the MIN wins ──
+# ── CSS Sizing §5: when the min is larger than the max, the MIN wins ── CLOSED ──
 #
-# min-width:50 max-width:40 is 50, not 40. Vixen applies max last and unconditionally.
-absolute_minmax_bottom_right_min_max
-absolute_minmax_bottom_right_min_max_preferred
+# min-width:50 max-width:40 is 50, not 40. BoundAxisWithinMinAndMax returned the moment the value
+# exceeded the max, so the minimum below it was never read; §5.1 expresses the rule as two clamps
+# in order, max then min, and it now does the same. Eight fixtures, two lines of change.
 
 # ── A percentage gap on an auto-sized container, which is cyclic ──
 #
@@ -110,8 +142,10 @@ display_none_only_node
 #
 # Listed separately and honestly: these were not investigated individually, only observed to fail.
 # They are the ones most likely to collapse into the buckets above once one of those is fixed.
+#
+# ⚠ And one did, exactly as predicted: bevy_issue_10343_flex was the §4.5 descendant bug and went
+# green with it, with nothing written for it specifically. The four below did not.
 bevy_issue_7976_3_level
 bevy_issue_7976_4_level
 bevy_issue_8082
 bevy_issue_9530
-bevy_issue_10343_flex

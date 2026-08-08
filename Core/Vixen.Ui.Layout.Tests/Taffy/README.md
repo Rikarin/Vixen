@@ -33,9 +33,9 @@ are about 1 381 distinct cases run four ways.
 
 ## The result that justified building this first
 
-**2 002 of the 2 208 runnable flex fixtures pass**, on a store built entirely against a *different*
-browser-derived corpus. 176 more are refused for a property this store has no field for, and 206
-disagree.
+**2 002 of the 2 208 runnable flex fixtures passed on the first run**, on a store built entirely
+against a *different* browser-derived corpus. 176 more are refused for a property this store has no
+field for, and 206 disagreed. **48 of those are now closed and 2 074 pass.**
 
 That number was the point. Flexbox already had an oracle — Yoga's 534, green — so the flex corpus is
 a **known-good target**: if the harness were wrong, it would be visibly wrong here, where the answer
@@ -63,23 +63,35 @@ fixed** rather than written down:
 node. Getting this wrong does not cost a few fixtures, it costs thousands, and every one would read
 as a flexbox bug.
 
-## What the 206 are
+## What the 206 were, and what the 158 are
 
 Real, and grouped with evidence in `KnownGaps.txt`. The largest bucket is worth naming here because
-the layout README predicted it:
+the layout README predicted it, and because **closing it is what the corpus was built for**:
 
 **CSS Flexbox §4.5, the automatic minimum size, when the content size comes from a descendant.** The
 README says Yoga's generator "emits no fixture that shrinks a measured leaf past its own content",
-and `AutomaticMinimumSizeTests` was hand-written to close that. It closes the *leaf* case — a node
+and `AutomaticMinimumSizeTests` was hand-written to close that. It closed the *leaf* case — a node
 with a measure function. A flex item that is itself a container has a min-content size too, and that
-floor is not applied. `align_baseline_child_padding` is the clean demonstration: two 50px siblings in
-a 90px content box, and Chrome shrinks one to 40 and the other not at all, because the second is
-floored at min(specified 50, content 60) = 50. Vixen shrinks both to 45.
+floor was not applied. `align_baseline_child_padding` is the clean demonstration: two 50px siblings
+in a 90px content box, and Chrome shrinks one to 40 and the other not at all, because the second is
+floored at min(specified 50, content 60) = 50. Vixen shrank both to 45.
 
-The others: §9.7's min/max violation loop (`min_width` — Chrome freezes the violating item and gives
+**Closed**, together with min-larger-than-max precedence: 206 → 158. The cause was one distinction
+CSS Sizing §5.2.2 draws that this store did not — a box's min-content *size* against its min-content
+*contribution* — and an empty `width: 50px` box was contributing zero.
+
+⚠ **The corpus was not sufficient to close its own biggest finding, and that is the most useful
+thing this page can report.** Three further rules were needed, and the three oracles split them
+cleanly between them: the percentage rule failed in both corpora, the wrapping rule failed in
+**Yoga's alone** while all 2 208 flex fixtures here stayed green, and the clipping rule was invisible
+to both and caught only by four committed editor screenshots — where the shell came out 2 385 points
+wide inside a 1 100-point window. Ten times the size is not a superset, and neither corpus is a
+substitute for looking at the thing.
+
+The rest: §9.7's min/max violation loop (`min_width` — Chrome freezes the violating item and gives
 the remainder to its sibling; Vixen raises the basis and splits evenly), `aspect-ratio` not
-re-applied after the cross size is clamped, baseline alignment past the simple case, min-larger-than-max
-precedence, cyclic percentage gaps, and `display: none` on the root.
+re-applied after the cross size is clamped, baseline alignment past the simple case, cyclic
+percentage gaps, and `display: none` on the root.
 
 ## What the corpus does **not** cover
 

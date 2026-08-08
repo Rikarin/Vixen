@@ -10,9 +10,9 @@ algorithm is the valuable part.
 
 ## State
 
-**Flexbox is complete and the conformance suite is green: 2 990 tests, of which 534 are Yoga's and
-2 408 are Taffy's.** Yoga's are all green. Of Taffy's, 2 026 pass, 176 ask for a property this store
-has no field for, and 206 are known gaps listed with a diagnosis each — see
+**Flexbox is complete and the conformance suite is green: 2 994 tests, of which 534 are Yoga's and
+2 408 are Taffy's.** Yoga's are all green. Of Taffy's, 2 074 pass, 176 ask for a property this store
+has no field for, and 158 are known gaps listed with a diagnosis each — see
 [the corpus README](../Vixen.Ui.Layout.Tests/Taffy/README.md).
 
 | | |
@@ -40,6 +40,11 @@ implementing a specification section had no test over it at all. `AutomaticMinim
 hand-written to close that: four cases, two of which fail without the floor. An external oracle is
 worth what doc 14 says it is worth, and it is still worth knowing where it stops.
 
+⚠ It now carries five more, all from closing the corpus's largest bucket, and **two of the five are
+tests no corpus could have written** — see the table below. The pattern is worth naming: a rule
+about *intrinsic sizing* is invisible to a fixture whose every box has a definite size, and both
+corpora are largely made of those.
+
 The same file now also covers the §4.5 escape hatch being **per axis**. Yoga carries one `overflow`
 per node; `LayoutStyle` carries `OverflowX` and `OverflowY`, because CSS has two properties and each
 rule that reads them is about one axis — §4.5's opt-out is the *main* axis's overflow, and a scroll
@@ -58,17 +63,45 @@ Chrome-for-Testing — and they exist here for block and grid, which have no ora
 them first on purpose: it is the one mode where the answer is already known, so a wrong harness would
 be visibly wrong there rather than invisibly wrong inside grid later.
 
-**2 002 of the 2 208 runnable flex fixtures pass.** Thirteen of the original failures were the
-bridge and were fixed — `start` is not a spelling of `flex-start`, and `self-start` resolves against
-the item's own direction — and the 206 that remain are Vixen's, catalogued in `Taffy/KnownGaps.txt`.
+**2 074 of the 2 208 runnable flex fixtures pass**, up from 2 002 at the corpus's first run.
+Thirteen of the original failures were the bridge and were fixed — `start` is not a spelling of
+`flex-start`, and `self-start` resolves against the item's own direction. Of the 206 that were
+Vixen's, **48 are closed** and 158 remain, catalogued in `Taffy/KnownGaps.txt`.
 
-The largest bucket is **the paragraph above, one level further out.** §4.5's floor is applied to a
-measured leaf and not to a flex item that is itself a container, whose min-content size comes from
-its descendants. `align_baseline_child_padding`: two 50px siblings in a 90px content box, Chrome
-shrinks one to 40 and floors the other at 50, Vixen shrinks both to 45. `AutomaticMinimumSizeTests`
-could not see it because it was written around the case Yoga's fixtures also miss. After that come
-§9.7's min/max violation loop, `aspect-ratio` against a clamped cross size, and min-larger-than-max
-precedence.
+The largest bucket was **the paragraph above, one level further out**, and it turned on a
+distinction CSS Sizing §5.2.2 draws and this store did not: a box's min-content **size** and its
+min-content **contribution** are different numbers. The contribution of a box whose preferred size
+is definite *is* that size — its contents are never consulted. Vixen asked every descendant for its
+min-content size, so an empty `width: 50px` box answered **zero**, and every §4.5 floor computed
+from such a descendant was missing. `align_baseline_child_padding`: two 50px siblings in a 90px
+content box, Chrome shrinks one to 40 and floors the other at 50, Vixen shrank both to 45.
+
+Three further rules had to come with it, and **each was found by a different one of the three
+oracles** — which is the strongest argument in this README for keeping all three:
+
+| Rule | Spec | Found by |
+|---|---|---|
+| A percentage preferred size is not definite while sizing intrinsically | Sizing §5.2.1 | both corpora, same fixture |
+| A wrapping container's min-content main size is its widest item, not the sum | Flexbox §9.9.1 | **Yoga alone** — three fixtures; Taffy's 2 208 stayed green |
+| A box that clips an axis contributes nothing along it but its own edges | Sizing §5.2.2 | **the committed screenshots alone** — both corpora stayed green |
+
+That last one is the sharpest. Every box in the docking chain declares `overflow: hidden`, so the
+moment descendants began contributing real sizes the hierarchy tree's rows propagated all the way
+out and the editor shell came out **2 385 points wide inside a 1 100-point window**, with the
+inspector pushed off the side — while 2 742 browser-derived fixtures reported no change at all. The
+five hand-written cases in `AutomaticMinimumSizeTests` exist so that none of the four is ever again
+resting on an oracle that cannot see it.
+
+After that come §9.7's min/max violation loop, `aspect-ratio` against a clamped cross size, and
+baseline alignment past the simple case. Min-larger-than-max precedence is also closed: CSS Sizing
+§5.1 makes it the *order* of two clamps rather than a special case, and `BoundAxisWithinMinAndMax`
+was returning the moment the maximum bit, so the minimum below it was never read.
+
+⚠ **One thing the §4.5 work exposed and did not fix**, because the fix belongs with §9.7: §9.2 step
+9 says the *hypothetical* main size is the flex base size clamped by the used min — and §4.5's
+automatic minimum is the used min. Vixen consults it only inside the two distribution passes, so an
+item that neither grows nor shrinks never sees its own floor even when that floor is now computed
+correctly. `flex_basis_smaller_than_content_row` is the clean case.
 
 ⚠ **And the new corpus has its own blind spot, which the old one covers.** Taffy's fixtures set
 `direction` on every one of their 22 776 nodes, so `Direction.Inherit` is never stored: breaking
