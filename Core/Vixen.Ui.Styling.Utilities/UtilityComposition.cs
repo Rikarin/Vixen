@@ -122,6 +122,45 @@ public static class UtilityComposition {
     /// <summary>How far along y.</summary>
     public const string TranslateY = Prefix + "translate-y";
 
+    // ── The ring ────────────────────────────────────────────────────────────────────────────
+    //
+    // ⚠ <b>A ring is a <c>box-shadow</c>, not an outline, and Vixen emitted <c>outline-color</c> for
+    // it — a property <i>no</i> version of Tailwind has ever emitted for this family.</b> Worth being
+    // exact about, because `docs/plan/43-web-styling-parity.md` § D5 records it as "v3's reading" and
+    // that is not right either: v3's `ring-blue-500` set `--tw-ring-color` and v3's ring was already a
+    // box-shadow — the shadow is what v3 *introduced* the family for. `outline-color` was this
+    // engine's own invention, so `ring-*` was the same failure as `grid-cols-3` and `--scale`: an
+    // emission no engine anywhere could consume, sitting under an `InertProperties.txt` line that
+    // correctly said "nothing reads this" and was therefore never going to be the thing that told
+    // anybody. A reader for `outline-color` would have closed the debt and changed nothing.
+    //
+    // Two fragments and one property, exactly like the translation above and for the same reason:
+    // v4 writes the width and the colour as separate classes — `ring-2 ring-accent` — and one
+    // declaration per class would let whichever rule the cascade picked last zero the other half.
+
+    /// <summary>How thick a ring is, as a length.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The ring's width is a <i>spread</i>, which is why it costs the layout nothing.</b>
+    ///     `DrawListBuilder.EmitShadow` folds a spread into the command's rectangle and its radius, so
+    ///     `0 0 0 2px` is a rounded box two points larger than the border box in every direction,
+    ///     painted behind it. That is precisely what an outline is — outside the box, and invisible to
+    ///     layout — which is why this family needed no new draw path and no fourth border edge.
+    /// </remarks>
+    public const string RingWidth = Prefix + "ring-width";
+
+    /// <summary>What colour it is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The initial is <c>currentcolor</c>, which is v4's, and it is the one part of this
+    ///     family that needed something from the engine.</b> A ring with a width and no colour is the
+    ///     commonest way the class is written — `ring-2` on a focused control — and any concrete
+    ///     initial would have been a colour nobody chose. `transparent` would have been worse than
+    ///     wrong: `ring-2` would resolve, cascade, and paint nothing, which is the "looks like it
+    ///     worked" failure this whole table exists to avoid. So <c>EmitShadow</c> learned the keyword
+    ///     instead, resolving it against <c>UiDocument.ForegroundOf</c> — the same answer CSS Color 4
+    ///     § 6.2 gives it, and the same one an icon's <c>IconPaintKind.Foreground</c> already got.
+    /// </remarks>
+    public const string RingColor = Prefix + "ring-color";
+
     static readonly Dictionary<string, string> Initials = new(StringComparer.Ordinal) {
         [GradientFrom] = "transparent",
         [GradientVia] = "transparent",
@@ -142,7 +181,16 @@ public static class UtilityComposition {
         // says what it is; `8px 0` reads like a mistake — and the next person to wonder whether it is
         // load-bearing has the answer here instead of the argument.
         [TranslateX] = "0px",
-        [TranslateY] = "0px"
+        [TranslateY] = "0px",
+
+        // ⚠ <b>Zero, so that a colour on its own paints nothing — which is what v4 does too.</b>
+        // `ring-accent` with no width emits only `--tw-ring-color` in Tailwind and therefore no
+        // shadow at all; here it emits the assembly with a zero spread, and `EmitShadow` produces a
+        // shadow the exact size of the border box that the background then covers. Same outcome,
+        // reached differently, and the alternative — a non-zero default width — would make a bare
+        // `ring-accent` draw a ring nobody asked for.
+        [RingWidth] = "0px",
+        [RingColor] = "currentcolor"
     };
 
     static readonly List<string> Names;
@@ -230,4 +278,33 @@ public static class UtilityComposition {
     ///     only in which fragment they set beside it.
     /// </remarks>
     public static string Translation() => $"{Reference(TranslateX)} {Reference(TranslateY)}";
+
+    /// <summary>The <c>box-shadow</c> a ring is.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>No offset and no blur — a ring is a spread and nothing else.</b>
+    ///         <c>0 0 0 &lt;width&gt; &lt;colour&gt;</c> is v4's own shape for it, and it is what makes
+    ///         the family free: <c>DrawListBuilder.EmitShadow</c> already folds a spread into the
+    ///         rectangle and grows every corner radius by it, so the result is a rounded box sitting
+    ///         outside the border box, painted before the background. An outline, without an
+    ///         <c>outline</c> property and without a fourth border edge.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both <c>ring-&lt;width&gt;</c> and <c>ring-&lt;colour&gt;</c> emit this, so both
+    ///         are assemblers</b> — the same arrangement as the two translations, and for the same
+    ///         reason: v4 dropped v3's separate <c>transform</c>-style enabling class because its
+    ///         absence looked exactly like the utility being broken.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A ring and a <c>shadow-*</c> on one element is the known limit, and it is the draw
+    ///         list's rather than this mechanism's.</b> CSS layers them by comma and
+    ///         <c>EmitShadow</c> refuses a list outright — deliberately, because drawing the first of
+    ///         several and dropping the rest looks like it worked. Here the two families write the
+    ///         same property, so the cascade picks one and the other is simply not applied. Composing
+    ///         them needs the multi-shadow draw path that refusal is holding open, not another
+    ///         fragment.
+    ///     </para>
+    /// </remarks>
+    public static string Ring() => $"0 0 0 {Reference(RingWidth)} {Reference(RingColor)}";
 }

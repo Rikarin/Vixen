@@ -77,11 +77,45 @@ border-inline-start-color    #21  ditto
 # docs/plan/43-web-styling-parity.md and refused loudly at runtime rather than approximated — see
 # `GradientRefusal`.
 
-# ── Paint the renderer has no channel for — A6.
-fill                         #24  `fill`/`stroke` on the OnDraw paths, with `DrawContext`
-stroke                       #24  ditto
-outline-color                #24  `ring-*` is v3's reading; under v4 it should emit a box-shadow (D5)
-user-select                  #24  no selection model reads it, so `select-none` is a promise
+# ── Paint the renderer has no channel for — A6. MOSTLY CLOSED, and the three that closed did so in
+# three different ways — which is the argument for reading these lines rather than counting them.
+#
+# `fill` and `stroke` were the straightforward pair: the emission was already right — v4 emits
+# `fill: <color>` and `stroke: <color>` and so did this — and the renderer turned out to have had the
+# channel all along. `IconPath` carries a fill paint and a stroke paint, `DrawContext` has
+# `FillField` and `Stroke`, and `IconPaintKind.Foreground` is already SVG's `currentColor` marker. So
+# closing it was one property read per slot in `Icon.Resolve`, plus the two names in
+# `InheritedProperties` without which the class only works when written on the icon itself. Note what
+# is *not* closed and is not a missing reader either: `IconPaintKind.Literal` is left alone on
+# purpose, because `StandardIcons`' file-type glyphs are brand-coloured deliberately; and there is no
+# `stroke-width` family, so CSS cannot summon a stroke onto art that declared none.
+#
+# `outline-color` is gone entirely, and it is the fourth instance of the failure this file keeps
+# finding — after `grid-template-columns: 3`, `--scale`/`--rotate`, and `grid-column: 2`. `ring-*`
+# emitted `outline-color`, and **no version of Tailwind has ever emitted that property for this
+# family**. The plan's § D5 calls it "v3's reading", which is wrong too: v3 is where the ring was
+# introduced *as a box-shadow*, and v3's `ring-<color>` set `--tw-ring-color`. So this was a debt
+# recorded against a property nothing anywhere would ever have read — a reader for `outline-color`
+# would have closed the line and changed nothing a person could see. The family emits v4's shape now,
+# `box-shadow: 0 0 0 <width> <color>`, which `DrawListBuilder.EmitShadow` has painted since it
+# learned about spread: a spread grows the rectangle and every corner radius, so a ring is a rounded
+# box outside the border box, painted behind it, invisible to layout. No `outline` property, no
+# fourth border edge, and no new draw path. What it did need was `currentcolor`, so that a bare
+# `ring-2` is the text colour instead of some default nobody chose — see `UtilityComposition.Ring`.
+#
+# ⚠ The remaining line is the one that is *not* waiting for a reader, and the reason it stays is
+# worth more than the line. A selection model does exist — `TextField` has `CaretIndex`,
+# `SelectionAnchor`, `SelectWord`, drag-to-select and a highlight it draws in its own `OnDraw`, and
+# `CodeEditor` has its own — so the old wording here, "no selection model", was disprovable in five
+# minutes and invited exactly the cheap close it was meant to prevent. What is absent is the
+# *document-wide* selection CSS is talking about. Both models are per-control: each captures the
+# pointer for the duration of its own drag, gates its highlight on focus, and hit-tests only its own
+# `TextLayout`. Nothing can drag a selection across a `TextBlock`, a label or two sibling elements,
+# and `select-none` on a button — the overwhelmingly commonest way the class is written, to stop a
+# double-click selecting the caption — has nothing to suppress because nothing would have selected.
+# Teaching `TextField.Pointed` to refuse a drag under `user-select: none` would make this line expire
+# while leaving that promise unkept, which is why it was not done.
+user-select                  #24  selection is per-control; the document-wide model `user-select` governs does not exist
 
 # ── Grid — B2. CLOSED. `grid-column` and `grid-template-columns` were here until the bridge landed;
 # both are read now, and the `gridded` scene in UtilityConsumptionProbe is what observes them. Note

@@ -54,6 +54,7 @@ public sealed class DrawListBuilder {
     readonly int textAlign;
     readonly int direction;
     readonly int boxShadow;
+    readonly int currentColor;
     readonly int alignedCenter;
     readonly int alignedLeft;
     readonly int alignedRight;
@@ -116,6 +117,11 @@ public sealed class DrawListBuilder {
         textAlign = properties.Intern("text-align");
         direction = properties.Intern("direction");
         boxShadow = properties.Intern("box-shadow");
+        // ⚠ The <i>keywords</i> table, not <c>values</c>. `StyleValueParser` interns an identifier it
+        // does not recognise as a colour into the one it was handed for keywords, and the two tables
+        // are separate — interning here from the wrong one gives an id that can never compare equal
+        // and a `currentcolor` that silently refuses the declaration instead of resolving it.
+        currentColor = keywords.Intern("currentcolor");
 
         alignedCenter = values.Intern("center");
         alignedLeft = values.Intern("left");
@@ -576,9 +582,22 @@ public sealed class DrawListBuilder {
                     shade = item.Color;
                     continue;
 
-                // ⚠ `inset` lands here, and refusing the whole declaration is the point: an inset
-                // shadow drawn as an outer one is not a near miss, it is a shadow on the wrong side
-                // of the box.
+                // ⚠ <b><c>currentcolor</c> is the one keyword that is a colour</b>, and it is here
+                // because a ring needs it. CSS Color 4 § 6.2 defines it as the computed <c>color</c>,
+                // which is exactly what `ForegroundOf` answers — the same resolution an icon's
+                // `IconPaintKind.Foreground` already gets. It matters rather than being a nicety:
+                // `UtilityComposition.RingColor`'s initial value is `currentcolor`, so `ring-2`
+                // written on its own — much the commonest way the class appears, on a focused control
+                // — resolves through this branch. Without it the fallback would have had to be some
+                // concrete colour nobody chose, or `transparent`, which would make `ring-2` cascade
+                // perfectly and paint nothing.
+                case StyleValueKind.Keyword when item.Keyword == currentColor:
+                    shade = document.ForegroundOf(element);
+                    continue;
+
+                // ⚠ Every other keyword refuses the whole declaration, and `inset` is the one that
+                // matters: an inset shadow drawn as an outer one is not a near miss, it is a shadow
+                // on the wrong side of the box.
                 case StyleValueKind.Keyword:
                     return;
 

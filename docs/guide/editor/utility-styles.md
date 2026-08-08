@@ -107,12 +107,33 @@ one yet.
 | `w-`, `h-`, `size-`, `min-w-`, `min-h-`, `max-w-`, `max-h-` | |
 | `static`/`relative`/`absolute`, `inset*`, `top`/`right`/`bottom`/`left`, `start`/`end`, `z-`, `box-border`/`box-content` | |
 | `text-<align>`, `text-<size>`, `text-<colour>`, `font-`, `leading-`, `tracking-`, `whitespace-` | `align-` (`vertical-align`) |
-| `bg-`, `opacity-`, `shadow-` | `ring-`, `fill-`, `stroke-`, `blur-`, `translate-x/y-`, `scale-`, `rotate-` |
+| `bg-`, `opacity-`, `shadow-`, **`ring-`**, **`fill-`**, **`stroke-`** | `blur-`, `translate-x/y-`, `scale-`, `rotate-` |
 | `rounded-`, and the per-corner `rounded-t`/`-r`/`-b`/`-l`/`-tl`/`-tr`/`-br`/`-bl` | |
 | `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`/`-s`/`-e`, both **widths** and **colours** | |
 | `overflow-hidden`, `overflow-scroll`, `truncate` | **`overflow-x-*` and `overflow-y-*`** — nothing interns either property |
 | `cursor-`, `pointer-events-`, `transition`, `duration-`, `ease-`, `aspect-` | `select-` (`user-select`) |
 | | `bg-linear-*` with `from-`/`via-`/`to-` — the gradient assembles correctly and the draw list has no `background-image` channel to paint it |
+
+⚠ **`ring-*` is a `box-shadow`, not an outline, and it used to emit `outline-color` — a property no
+version of Tailwind has ever emitted for it.** `ring-2` is `box-shadow: 0 0 0 2px currentcolor`: a
+spread with no offset and no blur, which the draw list paints as a rounded box just outside the
+border box. It costs the layout nothing, per CSS UI 4 § 2.1. The width and the colour are separate
+classes that compose — `ring-2 ring-accent` — and a bare `ring` is one pixel, which is v4's meaning
+(v3's three-pixel `ring` is `ring-3`). ⚠ One limit: a `ring-*` and a `shadow-*` on the same element
+write the same property, so the cascade picks one. CSS layers them by comma and the draw list refuses
+a comma list outright rather than painting the first and dropping the rest.
+
+⚠ **`fill-*` and `stroke-*` reach `Icon`, and they inherit** — which is what makes them useful, since
+the class goes on the button and the `<icon>` is a child. They override the paints an icon declared
+as *foreground* (SVG's `currentColor`) and deliberately leave a literal colour alone, so the
+brand-coloured file-type glyphs stay themselves. There is no `stroke-width` family, so CSS cannot add
+a stroke to art that declared none.
+
+⚠ **`select-*` is inert, and not for want of a reader.** There *is* a text selection model —
+`TextField` and `CodeEditor` each have one — but both are per-control: each captures the pointer for
+its own drag and hit-tests only its own text. The document-wide selection `user-select` governs, the
+one that would let a drag cross a label or two sibling elements, does not exist. So `select-none` on
+a button has nothing to suppress, because nothing there would have been selectable.
 
 ⚠ **`overflow-auto` is in neither column.** The draw list clips on any value that is not `visible`, so
 it clips; the layout's keyword table has `visible`, `hidden` and `scroll` and not `auto`, so the

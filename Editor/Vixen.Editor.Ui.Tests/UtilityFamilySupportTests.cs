@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Styling.Utilities;
 using Vixen.Ui.Testing;
@@ -163,6 +165,22 @@ public class UtilityFamilySupportTests {
         { "opacity-50", "opacity", "0.5" },
         { "shadow-elevation", "box-shadow", "0px 10px 26px rgba(12, 14, 18, 0.22)" },
 
+        // ⚠ <b>`fill-*` and `stroke-*` are the first rows here to move because a <i>consumer</i> was
+        // found rather than written.</b> Everything the pair needed already existed: `IconPath`
+        // carries a fill paint and a stroke paint, `DrawContext` has `FillField` and `Stroke`, and
+        // `IconPaintKind.Foreground` is SVG's `currentColor` marker by another name. What was missing
+        // was two `Document.ColorOf` calls in `Icon.Resolve` — and the two names in
+        // `InheritedProperties`, without which the family works only when the class is written on the
+        // icon itself and silently does nothing where anyone actually writes it. See
+        // <see cref="The_fill_and_stroke_families_paint_an_icon_and_reach_it_by_inheritance" />.
+        //
+        // ⚠ These two rows are also the reason the parity gate's own project grew a reference: `Icon`
+        // is in `Vixen.Ui.Controls`, so until `UtilityConsumptionProbe` could build one, the gate
+        // measured both properties inert with the reader in place — `grid-cols-3`'s missing grid,
+        // exactly.
+        { "fill-accent", "fill", "#2f6ecd" },
+        { "stroke-accent", "stroke", "#2f6ecd" },
+
         // Borders, all four edges and all four corners. ⚠ The colours and the radii were in `Inert`
         // until the draw list learned the rest of the longhands: it interned `border-top-color` and
         // `border-top-left-radius` and nothing else, so seven of the eight per-edge colours computed
@@ -247,7 +265,35 @@ public class UtilityFamilySupportTests {
         // refused, and all three emitting valid CSS. See the `Inert` rows for why neither is a
         // missing reader.
         { "translate-x-2", "translate", "8px 0px" },
-        { "translate-y-2", "translate", "0px 8px" }
+        { "translate-y-2", "translate", "0px 8px" },
+
+        // ⚠ <b>`ring-*` moved without anything in the engine learning a thing, which no other row in
+        // this file has done.</b> Every previous move was a reader arriving or an algorithm landing.
+        // This one was an <i>emission</i> that was simply wrong: the family emitted `outline-color`,
+        // and no version of Tailwind has ever emitted that property for `ring-*`. The plan's § D5
+        // calls it "v3's reading" and that is wrong too — v3 is where the ring was introduced *as a
+        // box-shadow*, and v3's `ring-<color>` set `--tw-ring-color`. So `outline-color` was this
+        // engine's own invention, and the `InertProperties.txt` line under it could never have come
+        // due: a reader for it would have closed the debt and changed nothing anybody could see.
+        // Fourth instance of that failure after `grid-template-columns: 3`, `grid-column: 2` and
+        // `--scale`/`--rotate`.
+        //
+        // ⚠ <b>And the framing this task arrived with — that an outline is not a border, is drawn
+        // outside the box, and therefore needs its own draw path — was right about the geometry and
+        // wrong about the conclusion.</b> A ring *is* drawn outside the box and *is* invisible to
+        // layout, and `DrawListBuilder` has expressed exactly that since it learned about spread:
+        // `box-shadow: 0 0 0 2px` folds the spread into the command's rectangle and grows every
+        // corner radius by it, giving a rounded box two points larger in every direction, painted
+        // behind the background. No new draw path, no `outline` property, no fourth edge.
+        //
+        // Two rows because the family is composed the way the translations are — a width fragment, a
+        // colour fragment, both classes assemblers. `ring-2` alone resolves its colour out of
+        // `--tw-ring-color`'s initial, which is `currentcolor`, the one keyword `EmitShadow` learned.
+        // `ring-accent` alone resolves a zero width and paints a shadow exactly the size of the box,
+        // which the background then covers — the same nothing v4 gives it. See
+        // <see cref="A_ring_paints_outside_the_box_and_costs_the_layout_nothing" />.
+        { "ring-2", "box-shadow", "0 0 0 2px currentcolor" },
+        { "ring-accent", "box-shadow", "0 0 0 0px #2f6ecd" }
     };
 
     /// <summary>Utility, property — the families that compute a value nothing in the engine reads.</summary>
@@ -316,10 +362,18 @@ public class UtilityFamilySupportTests {
         // so the parity gate measured both properties inert either way and could not have reported
         // the first two. See the closed block in `InertProperties.txt`.
 
+        // ⚠ <b>The three `A6` paint rows were here and are now in `Supported`, and the three left for
+        // three different reasons — which is why this block is a paragraph and not a deletion.</b>
+        // `fill-*` and `stroke-*` were honestly inert: the emission was already v4's, and the
+        // renderer turned out to have had the channel all along in `IconPath`'s two paints, so the
+        // fix was two property reads. `ring-*` was not inert at all in the sense this table means —
+        // it emitted `outline-color`, a property no Tailwind has ever emitted for it, so the row was
+        // accurate about the symptom and wrong about the disease. A reader would not have fixed it.
+        //
+        // What is left of A6 is `user-select`, below, and it is the one that is not waiting for a
+        // reader either.
+
         // Paint the renderer has no channel for.
-        { "ring-accent", "outline-color" },
-        { "fill-accent", "fill" },
-        { "stroke-accent", "stroke" },
         { "blur-2", "--blur" },
 
         // ⚠ <b>Transforms, and this group moved in two directions at once.</b> Four rows were here,
@@ -364,7 +418,27 @@ public class UtilityFamilySupportTests {
         // the families are ever registered.
         { "align-middle", "vertical-align" },
 
-        // Text and interaction properties with no consumer.
+        // ⚠ <b>`select-none` stays, and the reason it used to give was disprovable in five
+        // minutes.</b> Both this table and `InertProperties.txt` said "no selection model reads it",
+        // and there is a selection model: `TextField` has `CaretIndex`, `SelectionAnchor`,
+        // `SelectWord`, drag-to-select and a highlight it paints in its own `OnDraw`, and
+        // `CodeEditor` has a second one. Anybody checking that sentence would have found them and
+        // concluded the row was stale — which is the same trap `align-middle` sat in, a row that
+        // names a missing consumer when what is actually missing is something else.
+        //
+        // What does not exist is the *document-wide* selection CSS is talking about. Both models are
+        // per-control and cannot be otherwise: each captures the pointer for the length of its own
+        // drag, gates its highlight on being focused, and hit-tests only its own `TextLayout`.
+        // Nothing can drag a selection across a `TextBlock`, across a label, or across two sibling
+        // elements — `TextBlock` has no pointer handler at all. So `select-none` on a button, which
+        // is overwhelmingly how the class is written and what it is *for* — stopping a double-click
+        // from selecting the caption — has nothing to suppress, because nothing would have selected.
+        //
+        // ⚠ <b>And the cheap close was available and is refused.</b> Teaching `TextField.Pointed` to
+        // decline a drag under `user-select: none` would be a real reader, would expire the
+        // `InertProperties.txt` line, and would leave the promise above exactly as unkept — a family
+        // reported as supported that does nothing in every place a person writes it. Task #24 is the
+        // document-wide model, not the reader.
         { "select-none", "user-select" },
 
         // ⚠ <b>The three `transition-*` rows were here and are now back in `Supported`.</b> They are
@@ -720,6 +794,149 @@ public class UtilityFamilySupportTests {
         // Three: the sibling did not budge. `w-8` is 32 points, and the row is a flex row, so an
         // implementation that translated in the layout would have put it at 48.
         Assert.Equal(32f, beside.AbsoluteLeft);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A ring paints outside the border box and does not move anything, and the second half
+    ///     is the assertion the parity gate structurally cannot make.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The gate's verdict is a union over four channels — layout, paint, cursor, hit test — so
+    ///         "something acted on <c>box-shadow</c>" is all it can report. A ring that painted
+    ///         correctly <i>and</i> was wrongly folded into the layout would move two channels instead
+    ///         of one and pass it just as cleanly. That is the whole reason this file exists beside it,
+    ///         and it is the specific failure a ring invites: an outline looks like a border, and a
+    ///         border has a width the layout must account for. CSS UI 4 § 2.1 is explicit that an
+    ///         outline does not affect layout and may overlap other content.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rectangle is the first half and it has to be measured, not counted.</b> An
+    ///         implementation that emitted the shadow at the border box — spread ignored — would still
+    ///         produce exactly one <c>Shadow</c> command in the right colour, so a count and a colour
+    ///         both pass it. Four points larger on each axis and two points up and to the left is what
+    ///         says the spread was applied, and that is the difference between a ring and a rectangle
+    ///         hidden entirely behind the element that cast it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_ring_paints_outside_the_box_and_costs_the_layout_nothing() {
+        using var ui = Sheet("ring-2", "ring-accent", "w-8", "h-8");
+
+        var ringed = ui.Create("probe", ui.Document.Root, null, "ring-2", "ring-accent", "w-8", "h-8");
+        var beside = ui.Create("probe", ui.Document.Root, null, "w-8", "h-8");
+
+        ui.Frame();
+
+        // Both classes wrote the same declaration and neither zeroed the other, which is the whole
+        // point of making both of them assemblers.
+        Assert.Equal("0 0 0 2px #2f6ecd", ui.StyleOf(ringed, "box-shadow"));
+
+        var ring = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Shadow
+        );
+
+        // Outside the box on all four sides: the spread grows the rectangle rather than insetting it.
+        Assert.Equal(ringed.AbsoluteLeft - 2f, ring.X);
+        Assert.Equal(ringed.AbsoluteTop - 2f, ring.Y);
+        Assert.Equal(ringed.Width + 4f, ring.Width);
+        Assert.Equal(ringed.Height + 4f, ring.Height);
+
+        // And it is a ring rather than a shadow: no blur, so the edge is hard. `Thickness` is where
+        // `EmitShadow` puts the falloff.
+        Assert.Equal(0f, ring.Thickness);
+
+        // ⚠ Not layout. `w-8` is 32 points in a flex row, so a ring accounted for as a border would
+        // have put the sibling at 36 — and every other assertion here would still have passed.
+        Assert.Equal(32f, beside.AbsoluteLeft);
+        Assert.Equal(32f, ringed.Width);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A bare <c>ring-2</c> takes the text colour, which is the case the family is actually
+    ///     written in and the one that had no way to work.</b>
+    /// </summary>
+    /// <remarks>
+    ///     v4's <c>--tw-ring-color</c> defaults to <c>currentcolor</c>, and Vixen's colour parser had
+    ///     no such keyword — <c>NamedColors</c> is the basic sixteen plus <c>transparent</c>, and
+    ///     <c>currentcolor</c> is not a name but a reference to the computed <c>color</c>. Every
+    ///     concrete initial available instead was wrong: <c>transparent</c> would make <c>ring-2</c>
+    ///     resolve, cascade and paint nothing — inert wearing a supported family's name — and any
+    ///     literal would be a colour nobody chose. So <c>EmitShadow</c> learned the keyword, resolving
+    ///     it through <c>UiDocument.ForegroundOf</c> exactly as CSS Color 4 § 6.2 says. Asserting the
+    ///     colour against <c>ColorOf</c> rather than a hex literal is what makes this a test of the
+    ///     resolution rather than of the editor's palette.
+    /// </remarks>
+    [Fact]
+    public void A_ring_with_no_colour_of_its_own_is_the_current_colour() {
+        using var ui = Sheet("ring-2", "text-accent", "w-8", "h-8");
+
+        var ringed = ui.Create("probe", ui.Document.Root, null, "ring-2", "text-accent", "w-8", "h-8");
+
+        ui.Frame();
+
+        var ring = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Shadow
+        );
+
+        Assert.Equal(ui.ColorOf(ringed, "color"), ring.Color);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>fill-*</c> repaints an icon, and it is written on the ancestor — which is the half
+    ///     a computed-value check would have missed and the half that is nearly always the real
+    ///     case.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Nobody writes <c>fill-accent</c> on an <c>&lt;icon&gt;</c>. It goes on the button, the
+    ///         toolbar or the row, and the icon is a child — so the property has to inherit to be worth
+    ///         anything, and SVG 2 § 13.2 says it does. Reading it on the icon and forgetting the two
+    ///         lines in <c>InheritedProperties</c> gives a family that works in a test written the
+    ///         obvious way and does nothing in the editor, which is the worst of the available
+    ///         outcomes because it looks intermittent rather than absent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured as a colour in the draw list, because the computed value proves nothing
+    ///         here.</b> <c>fill</c> resolved on the icon is exactly what the inert row asserted for as
+    ///         long as it stood, and it passed throughout. What the fill is actually painted in is a
+    ///         <c>Field</c> command's colour, and it must be the accent rather than the inherited
+    ///         <c>color</c> — so the host sets a <c>color</c> too, and the two are different, or an
+    ///         implementation that ignored <c>fill</c> entirely and fell through to the foreground
+    ///         would pass.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_fill_and_stroke_families_paint_an_icon_and_reach_it_by_inheritance() {
+        using var ui = Sheet("fill-accent", "text-text-muted", "w-8", "h-8", "w-4", "h-4");
+
+        var host = ui.Create("probe", ui.Document.Root, null, "fill-accent", "text-text-muted", "w-8", "h-8");
+
+        // ⚠ Sized, because `Icon.OnDraw` gives up on a zero-area box before it looks at any paint —
+        // an unsized icon emits nothing and `Single` would read that as the family failing.
+        var icon = host.Add<Icon>(null, null, "w-4", "h-4");
+
+        icon.Art = new IconArt(
+            new IconPath(new PathBuilder().AddRectangle(new Rectangle(4f, 4f, 16f, 16f)), IconPaint.Foreground)
+        );
+
+        ui.Frame();
+
+        var accent = ui.ColorOf(host, "fill");
+        var inherited = ui.ColorOf(host, "color");
+
+        Assert.NotEqual(accent, inherited);
+
+        var painted = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Field
+        );
+
+        // The accent, and specifically *not* the foreground the icon would have used before.
+        Assert.Equal(accent, painted.Color);
+        Assert.NotEqual(inherited, painted.Color);
     }
 
     /// <summary>The one clip an element's subtree contributes to the frame.</summary>

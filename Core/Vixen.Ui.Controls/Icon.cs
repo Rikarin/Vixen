@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Controls;
 
@@ -45,6 +46,19 @@ public sealed partial class Icon : Control {
     ///     documents, so this cannot outlive the table it indexes.
     /// </remarks>
     Dictionary<string, int>? tokens;
+
+    /// <summary>The <c>fill</c> and <c>stroke</c> property identifiers, interned on first draw.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two ids and not a <see cref="tokens" /> entry each, because these two are not the
+    ///     art's names — they are CSS's.</b> An <see cref="IconPaint" /> of kind
+    ///     <see cref="IconPaintKind.Token" /> names a custom property the art chose; <c>fill</c> and
+    ///     <c>stroke</c> are asked for on every path that did not choose one, so they are looked up
+    ///     once per element rather than once per distinct token.
+    /// </remarks>
+    int fillProperty = NameTable.None;
+
+    /// <inheritdoc cref="fillProperty" />
+    int strokeProperty = NameTable.None;
 
     /// <inheritdoc />
     protected override string TagName => "icon";
@@ -108,6 +122,11 @@ public sealed partial class Icon : Control {
             return;
         }
 
+        if (fillProperty == NameTable.None) {
+            fillProperty = Document.PropertyId("fill");
+            strokeProperty = Document.PropertyId("stroke");
+        }
+
         if (Art is { Paths.Count: > 0 } art) {
             Paint(context, art, bounds);
             return;
@@ -117,8 +136,17 @@ public sealed partial class Icon : Control {
             return;
         }
 
+        // ⚠ The single-path property takes `fill` too, and it has to: `Geometry` is the whole of the
+        // editor's chrome, so a `fill-*` that worked on `Art` and not on this one would look like the
+        // family working on some icons and not others rather than like two code paths.
         Fit(geometry, ViewBox, bounds, out _);
-        context.FillField(scaled, new Vector2(bounds.X, bounds.Y), context.Foreground, FillRule);
+
+        context.FillField(
+            scaled,
+            new Vector2(bounds.X, bounds.Y),
+            Document.ColorOf(Style, fillProperty) ?? context.Foreground,
+            FillRule
+        );
     }
 
     /// <summary>Draws each path of a piece of art in the paint it declared.</summary>
@@ -149,30 +177,58 @@ public sealed partial class Icon : Control {
 
             Fit(geometry, art.ViewBox, bounds, out var scale);
 
-            if (Resolve(context, path.Fill) is { } fill) {
+            if (Resolve(context, path.Fill, fillProperty) is { } fill) {
                 context.FillField(scaled, origin, fill, path.FillRule);
             }
 
             // ⚠ The width is scaled with the geometry, so the same art reads the same weight at
             // sixteen pixels and at thirty-two. See `IconPath.Width`.
-            if (Resolve(context, path.Stroke) is { } stroke) {
+            if (Resolve(context, path.Stroke, strokeProperty) is { } stroke) {
                 context.Stroke(scaled, stroke, path.Width * scale, LineJoin.Round, LineCap.Round, 0f, origin);
             }
         }
     }
 
     /// <summary>What a paint actually draws in, here and now.</summary>
+    /// <param name="context">The draw being built.</param>
+    /// <param name="paint">What the art asked for.</param>
+    /// <param name="slot">
+    ///     The CSS property that overrides this slot — <see cref="fillProperty" /> for a fill and
+    ///     <see cref="strokeProperty" /> for a stroke.
+    /// </param>
     /// <returns>The colour, or <see langword="null" /> if this paint draws nothing.</returns>
     /// <remarks>
-    ///     ⚠ <b>A token nothing in the cascade answers falls back to the inherited colour rather than
-    ///     disappearing.</b> An icon whose stylesheet has not been loaded — a plugin's, before its
-    ///     theme is — must be a visible glyph in the wrong colour and never an invisible one, which is
-    ///     the same rule <see cref="UiDocument.ForegroundOf" /> follows for <c>color</c> itself.
+    ///     <para>
+    ///         ⚠ <b>A token nothing in the cascade answers falls back to the inherited colour rather
+    ///         than disappearing.</b> An icon whose stylesheet has not been loaded — a plugin's,
+    ///         before its theme is — must be a visible glyph in the wrong colour and never an
+    ///         invisible one, which is the same rule <see cref="UiDocument.ForegroundOf" /> follows
+    ///         for <c>color</c> itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>CSS <c>fill</c> and <c>stroke</c> override
+    ///         <see cref="IconPaintKind.Foreground" /> and nothing else, which is SVG's own rule
+    ///         rather than a shortcut.</b> SVG 2 § 13.2 has <c>fill</c> paint the geometry and
+    ///         <c>currentColor</c> be the marker that says "whatever the text colour is";
+    ///         <see cref="IconPaintKind.Foreground" /> <i>is</i> that marker, so honouring the
+    ///         property exactly there is the faithful reading.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two kinds it deliberately leaves alone are the interesting half.</b>
+    ///         <see cref="IconPaintKind.Literal" /> is a colour the art chose — the file-type glyphs
+    ///         in <c>StandardIcons</c> are brand-coloured on purpose and say so — and a theme-wide
+    ///         <c>fill-accent</c> repainting all of them would be a regression wearing a feature's
+    ///         name. <see cref="IconPaintKind.None" /> is the default for a stroke, and turning one
+    ///         <i>on</i> from CSS would draw an outline at <c>IconPath.Width</c>, a number chosen by
+    ///         art that never intended to be stroked. Neither is a missing reader: there is no
+    ///         <c>stroke-width</c> family, so a CSS-summoned stroke would have no width of its own to
+    ///         use.
+    ///     </para>
     /// </remarks>
-    Color4? Resolve(DrawContext context, in IconPaint paint) {
+    Color4? Resolve(DrawContext context, in IconPaint paint, int slot) {
         switch (paint.Kind) {
             case IconPaintKind.Foreground:
-                return context.Foreground;
+                return Document.ColorOf(Style, slot) ?? context.Foreground;
 
             case IconPaintKind.Literal:
                 return paint.Color;

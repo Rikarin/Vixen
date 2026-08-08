@@ -93,6 +93,8 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientToPosition = "--tw-g
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientVia = "--tw-gradient-via" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.GradientViaPosition = "--tw-gradient-via-position" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Prefix = "--tw-" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.RingColor = "--tw-ring-color" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.RingWidth = "--tw-ring-width" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateX = "--tw-translate-x" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateY = "--tw-translate-y" -> string
 static Vixen.Ui.Styling.Utilities.CandidateScanner.Scan(string text, System.Collections.Generic.ISet<string> into) -> void
@@ -103,6 +105,7 @@ static Vixen.Ui.Styling.Utilities.UtilityComposition.Fragments.get -> System.Col
 static Vixen.Ui.Styling.Utilities.UtilityComposition.InitialValueOf(string fragment) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.IsFragment(string property) -> bool
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Reference(string fragment) -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.Ring() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.StopList(bool via) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Translation() -> string
 static Vixen.Ui.Styling.Utilities.UtilityFamilies.SplitName(string whole) -> (string Name, string Value)

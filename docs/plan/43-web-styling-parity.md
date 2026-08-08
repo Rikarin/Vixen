@@ -1078,10 +1078,26 @@ v3 `shadow-sm` is v4 `shadow-xs`, v3 `shadow` is v4 `shadow-sm`, and the same fo
 **Vixen's `rounded` token scale and the editor's `--radius-*` names must be re-pegged to v4's**, or
 every `rounded-sm` in the tree means something one step off what a Tailwind user expects.
 
-⚠ **`ring-*` is not a rename but a change of meaning, and Vixen implements the old one.** v3's
-`ring-<color>` set a ring colour; v4's `ring-*` is a **box-shadow** with a width. Vixen's `ring`
-family emits `outline-color`, which is v3's reading and also inert. Under v4, `ring-2` should emit a
-`box-shadow` — which the draw list already paints.
+⚠ **`ring-*` is not a rename but a change of meaning — and the correction below is a correction to
+this document.** ✅ **Closed by A6.** What this paragraph used to say was that Vixen emitted
+`outline-color`, "which is v3's reading". That was wrong, and wrong in the direction that mattered:
+**no version of Tailwind has ever emitted `outline-color` for `ring-*`.** v3 is where the ring was
+introduced *as a box-shadow*, and v3's `ring-<color>` set `--tw-ring-color`. So `outline-color` was
+this engine's own invention, and the `InertProperties.txt` line filed under it could never have come
+due — a reader for it would have closed the debt and changed nothing anybody could see. That is the
+same failure as `grid-cols-3`'s `grid-template-columns: 3` and the transform families' `--scale`, and
+it is the fourth instance: **a property nothing emits and a property nothing reads look identical
+from inside the gate.** Recording the debt against a *plausible-sounding* property is what hides it.
+
+`ring-*` emits v4's shape now — `box-shadow: 0 0 0 <width> <color>`, a width fragment and a colour
+fragment with both classes assembling, the same arrangement as the two translations. **It needed no
+new draw path**, which is the other thing worth writing down: an outline is drawn outside the box and
+is invisible to layout, and `DrawListBuilder.EmitShadow` has done exactly that since it learned about
+spread — the spread grows the command's rectangle and every corner radius, so a ring is a rounded box
+painted behind the background. What it *did* need was `currentcolor`, which `NamedColors` did not
+have and which is not a name but a reference to the computed `color`; `EmitShadow` resolves it
+through `ForegroundOf` per CSS Color 4 § 6.2. Without it the fragment's initial would have had to be
+`transparent` — making a bare `ring-2` resolve, cascade and paint nothing.
 
 **Added since v4.0, and easy to miss**: 3D transforms (`rotate-x/y/z-*`, `translate-z-*`, `scale-z-*`,
 `perspective-*`, `transform-3d`, `backface-*`), container queries, `inset-shadow-*`, `inset-ring-*`,
@@ -1477,7 +1493,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A3 🟢 | `border-style` — solid, dashed, dotted, double, none | `DrawListBuilder` | — | 0.15 |
 | A4 🟢 | `order` | `LayoutStyleBuilder` + flex line ordering | **#22** | 0.1 |
 | A5 ✅ | `overflow-x`/`overflow-y`, and `auto` in the layout keyword table | `OverflowReader`, `LayoutStyleBuilder` | done | — |
-| A6 🟢 | `user-select`, `outline`, `fill`/`stroke` on `OnDraw` paths, and `overflow-clip` | `UiDocument`, `DrawContext` | **#24** | 0.25 |
+| A6 🟡 | **Three of the four landed, in three different ways, and the fourth is refused.** `fill`/`stroke` were the honest case: the emission was already v4's and the renderer had had the channel all along — `IconPath` carries a fill paint and a stroke paint and `IconPaintKind.Foreground` is SVG's `currentColor` marker — so it was two `ColorOf` reads in `Icon.Resolve`, plus the two names in `InheritedProperties` without which the class only works written on the icon itself. `outline` is **gone rather than done**: `ring-*` emitted `outline-color`, a property no Tailwind has ever emitted for it (see § D5, corrected), and under v4's box-shadow shape the existing spread path paints it with no new rendering. That needed `currentcolor` in `EmitShadow`. ⚠ **`user-select` stays inert and is not waiting for a reader.** A selection model exists — `TextField` has `CaretIndex`/`SelectionAnchor`/`SelectWord` and drag-to-select, `CodeEditor` has its own — but both are per-control: each captures the pointer for its own drag and hit-tests only its own `TextLayout`. The *document-wide* selection `user-select` governs does not exist, so `select-none` on a button, which is what the class is for, has nothing to suppress. Teaching `TextField` to honour it would expire the allow-list line and leave that promise unkept. ⚠ Also owed: `overflow-clip`. ⚠ And the parity gate could not see `fill`/`stroke` until `UtilityConsumptionProbe` could build an `Icon` — `grid-cols-3`'s missing grid again | `Icon`, `DrawListBuilder`, `InheritedProperties` | **#24** | 0.05 of 0.25 |
 | A7 🟢 | **Transforms — the translation is done and the other two are refused, on purpose.** `translate-x-*` and `translate-y-*` are composed (a `--tw-*` fragment per axis, one `translate` between them, both classes assemblers) and read by `TranslationReader` in `UiDocument.Accumulate` — the same sum that already carried `OffsetX`, so the draw list, the hit test and arrow navigation all read one translated position and *cannot* disagree. Lengths and percentages, percentages against the element's own border box per Transforms 1 §8; not layout, so siblings do not move; the subtree comes along; a translated clip moves with the box and is still a rectangle. Interpolatable for free, because `StyleValue` already lerps a two-part list. ⚠ **Owed: `scale` and `rotate`, and neither is waiting for a reader.** A `DrawCommand` is an axis-aligned rectangle and the clip stack intersects rectangles, so a rotated box — and a rotated clip — cannot be represented at all, and a bounding-box approximation would draw a 45-point square where a 32-point one was asked for. Scale can scale the box and not the picture: glyph advances are shaped at `run.Size` during *layout*, so a scaled subtree needs re-shaping, which is the one thing §3 forbids. Both need the offscreen compositor `DrawListBuilder`'s opacity remark already owes | `TranslationReader`, `UiDocument` | **#23** | 0.35 |
 | A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
 | A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
