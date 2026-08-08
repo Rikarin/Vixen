@@ -59,10 +59,15 @@ public static class UtilityComposition {
     ///     Tailwind's, kept rather than renamed. The names are an implementation detail of the utility
     ///     layer and never appear in markup, so the only thing distinguishing them buys is that
     ///     somebody reading a generated sheet against Tailwind's documentation sees the same words.
-    ///     ⚠ It also keeps them clear of <c>--blur</c>, <c>--rotate</c>, <c>--scale</c> and
-    ///     <c>--translate-x</c>/<c>-y</c>, which are <i>not</i> fragments: nothing assembles them, so
-    ///     they are placeholders parked in a name, and <c>InertProperties.txt</c> records them against
-    ///     task #23 and #28. Giving them assemblers is what those tasks are.
+    ///     ⚠ It also keeps them clear of <c>--blur</c>, <c>--rotate</c> and <c>--scale</c>, which are
+    ///     <i>not</i> fragments: nothing assembles them, so they are placeholders parked in a name, and
+    ///     <c>InertProperties.txt</c> records them against tasks #23 and #28. Giving them assemblers is
+    ///     what those tasks are.
+    ///     ⚠ <b><c>--translate-x</c>/<c>-y</c> used to be in that list and are not any more.</b> They
+    ///     are <see cref="TranslateX" /> and <see cref="TranslateY" /> now — real fragments, under the
+    ///     prefix, assembled into <c>translate</c> — which is the distinction this paragraph exists to
+    ///     draw: an unprefixed <c>--name</c> is a value parked where no engine will ever look for it,
+    ///     and a prefixed one is half of a declaration something reads.
     /// </remarks>
     public const string Prefix = "--tw-";
 
@@ -102,13 +107,42 @@ public static class UtilityComposition {
     /// </remarks>
     public const string GradientStops = Prefix + "gradient-stops";
 
+    // ── The translation ─────────────────────────────────────────────────────────────────────
+    //
+    // ⚠ Two fragments and *one* property, which is the difference between this pair and the gradient
+    // stops above. `translate` takes both axes in one declaration, so `translate-x-2 translate-y-4`
+    // is two classes that must end up as `translate: 8px 16px` — and a utility system emitting one
+    // declaration per class cannot express that at all: whichever rule the cascade picked last would
+    // win outright and the other axis would silently be zero. That is the case the mechanism exists
+    // for, stated in `docs/plan/43-web-styling-parity.md` § A7 and in Tailwind v4's own output.
+
+    /// <summary>How far along x a transform moves the box.</summary>
+    public const string TranslateX = Prefix + "translate-x";
+
+    /// <summary>How far along y.</summary>
+    public const string TranslateY = Prefix + "translate-y";
+
     static readonly Dictionary<string, string> Initials = new(StringComparer.Ordinal) {
         [GradientFrom] = "transparent",
         [GradientVia] = "transparent",
         [GradientTo] = "transparent",
         [GradientFromPosition] = "0%",
         [GradientViaPosition] = "50%",
-        [GradientToPosition] = "100%"
+        [GradientToPosition] = "100%",
+
+        // ⚠ <b><c>0px</c> rather than <c>0</c>, and the unit is <i>not</i> doing the work it looks
+        // like it is doing — measured, because the plausible reason is wrong.</b> The obvious story is
+        // that <see cref="Vixen.Ui.Styling.StyleValue.CanInterpolate" /> compares units, so a
+        // translation that read `0 0` at rest and `8px 0px` under the pointer would be two lists the
+        // animator declines and every composed translation in the engine would jump. It does compare
+        // units, and it declines nothing here: that method opens with an explicit "zero belongs to
+        // every unit" rule, because `from { width: 0 } to { width: 100px }` is the commonest animation
+        // there is. Both spellings interpolate, identically, and it was checked rather than reasoned
+        // about. So the unit is only legibility — a generated sheet that reads `translate: 8px 0px`
+        // says what it is; `8px 0` reads like a mistake — and the next person to wonder whether it is
+        // load-bearing has the answer here instead of the argument.
+        [TranslateX] = "0px",
+        [TranslateY] = "0px"
     };
 
     static readonly List<string> Names;
@@ -182,4 +216,18 @@ public static class UtilityComposition {
         stops.Add($"{Reference(GradientTo)} {Reference(GradientToPosition)}");
         return string.Join(", ", stops);
     }
+
+    /// <summary>The two-axis value a <c>translate</c> declaration takes.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Both <c>translate-x</c> and <c>translate-y</c> emit this same constant, so both are
+    ///     assemblers as well as contributors — which the gradient families are not.</b> The
+    ///     alternative is Tailwind v3's shape, a separate <c>transform</c> class that has to be
+    ///     present for either axis to do anything; v4 dropped it because the class was forgotten
+    ///     constantly and its absence looked exactly like the utility being broken. Emitting the
+    ///     assembly from both means <c>translate-x-2</c> alone works, and <c>translate-x-2
+    ///     translate-y-4</c> composes, because the two rules write the same declaration and differ
+    ///     only in which fragment they set beside it.
+    /// </remarks>
+    public static string Translation() => $"{Reference(TranslateX)} {Reference(TranslateY)}";
 }

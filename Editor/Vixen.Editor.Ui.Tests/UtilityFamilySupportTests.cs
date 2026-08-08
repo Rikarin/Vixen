@@ -230,7 +230,24 @@ public class UtilityFamilySupportTests {
         { "ease-out", "transition-timing-function", "ease-out" },
         { "cursor-pointer", "cursor", "pointer" },
         { "pointer-events-none", "pointer-events", "none" },
-        { "aspect-video", "aspect-ratio", "16/9" }
+        { "aspect-video", "aspect-ratio", "16/9" },
+
+        // Transforms. ⚠ <b>The two translations are the first rows in this file to arrive by way of
+        // the <i>composition</i> mechanism, and the property they name is not the one their family
+        // sets.</b> `translate-x-2` sets `--tw-translate-x` and emits a `translate` assembled out of
+        // both axes' fragments; what the cascade ends up holding — and what the engine reads — is the
+        // assembly, which is why the row names `translate`. Written out, the expectation is also the
+        // proof that the fallback chain works: `translate-x-2` alone resolves the y half out of
+        // `--tw-translate-y`'s initial value rather than dropping the whole declaration, which is
+        // what a bare `var()` with no fallback would have done. See
+        // <see cref="The_two_translate_families_compose_and_move_the_box_and_its_hit_test" />.
+        //
+        // ⚠ <b>`scale-*` and `rotate-*` are the same family group and stay in `Inert`</b>, which is
+        // the sharpest three-way split this file has recorded: one third of a group real, two thirds
+        // refused, and all three emitting valid CSS. See the `Inert` rows for why neither is a
+        // missing reader.
+        { "translate-x-2", "translate", "8px 0px" },
+        { "translate-y-2", "translate", "0px 8px" }
     };
 
     /// <summary>Utility, property — the families that compute a value nothing in the engine reads.</summary>
@@ -305,11 +322,36 @@ public class UtilityFamilySupportTests {
         { "stroke-accent", "stroke" },
         { "blur-2", "--blur" },
 
-        // Transforms: custom properties waiting for a transform stage.
-        { "translate-x-2", "--translate-x" },
-        { "translate-y-2", "--translate-y" },
-        { "scale-2", "--scale" },
-        { "rotate-45", "--rotate" },
+        // ⚠ <b>Transforms, and this group moved in two directions at once.</b> Four rows were here,
+        // all four naming a `--`-prefixed property of the family's own invention. Every one of those
+        // names was wrong twice over: `--scale` is not a CSS property, so no engine anywhere — this
+        // one or a browser — would ever have read it, and it was not a composition fragment either,
+        // because nothing assembled it. The debt was filed against a name that could not come due.
+        // That is `grid-cols-3`'s failure exactly: an emission no engine could consume, sitting under
+        // a row that correctly said "nothing reads this" and was therefore never going to be the
+        // thing that told anybody.
+        //
+        // The two translations are in `Supported` now. These two are not, and the reason is not a
+        // missing reader — it is that a `DrawCommand` is an axis-aligned rectangle:
+        //
+        //   `rotate` cannot be drawn or clipped. A rotated box is not a rectangle, and the clip stack
+        //   intersects rectangles; the per-axis `overflow` trick of pushing one pair of edges past
+        //   the viewport works *because* what comes out is still axis-aligned. Approximating with the
+        //   bounding box would make `rotate-45` draw a 45-point square where a 32-point one was
+        //   asked for — a rendering bug wearing a feature's name, which is what `GradientRefusal`
+        //   exists not to do.
+        //
+        //   `scale` can scale the box and not the picture. Glyph advances are shaped at `run.Size`
+        //   during layout, so a scaled subtree needs re-shaping — which would make a transform affect
+        //   layout, the one thing CSS Transforms 1 §3 says it must never do. Border widths, radii and
+        //   shadow offsets are the same story a field at a time. The half that is cheap is the half
+        //   nobody would notice; the half that is visible is a compositor.
+        //
+        // What they emit is now the CSS those two things are actually called, at Tailwind's own
+        // values — `scale-150` is `scale: 150%`, a ratio, not a hundred and fifty times — so the day
+        // a compositor lands, the gate's expiry check on `InertProperties.txt` is what says so.
+        { "scale-2", "scale" },
+        { "rotate-45", "rotate" },
 
         // ⚠ <b>`align-middle` stays, and its three siblings left.</b> `vertical-align` is read now,
         // so this row is no longer "a property with no consumer" — it is a *value* the consumer
@@ -616,6 +658,68 @@ public class UtilityFamilySupportTests {
         Assert.Equal("span 2/span 2", ui.StyleOf(wide, "grid-column"));
         Assert.Equal(128f, wide.Width);
         Assert.Equal(wide.AbsoluteLeft + 128f, next.AbsoluteLeft);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Support proved in the two lists that have to agree, for the first composed family
+    ///     whose halves are on different classes.</b> Three separate things have to be true at once,
+    ///     and each of them has its own way of being quietly false.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One: the two classes compose.</b> CSS has one <c>translate</c> and Tailwind gives you
+    ///         a class per axis, so <c>translate-x-4 translate-y-2</c> is two rules writing one
+    ///         property. A utility system that emitted a declaration per class would let the later rule
+    ///         win outright and silently zero the other axis — and the box would still move, just not
+    ///         diagonally, which is the failure that looks like a design decision. Both offsets being
+    ///         non-zero is what says the fragments were assembled rather than overwritten.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two: the draw list and the hit test agree.</b> This is the assertion the family
+    ///         exists to earn. A transform is the classic place for a renderer and a pointer to drift
+    ///         apart — the element is painted somewhere new and remains clickable where it used to be —
+    ///         and the two are different code reading different arrays. Asserting the rectangle alone
+    ///         passes that bug completely. The <i>vacated</i> corner is the load-bearing half: a point
+    ///         inside the new box also sits inside the old one whenever the translation is smaller than
+    ///         the element, which is every real case, so "the new place is clickable" is true of an
+    ///         implementation that moved nothing at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>Three: it is not layout.</b> The sibling keeps the position flexbox gave it. CSS
+    ///         Transforms 1 §3 applies a transform after layout, so a nudged element must not push its
+    ///         neighbour along — and putting the resolution in <c>LayoutStyleBuilder</c>, which is the
+    ///         obvious place for it because that is where <c>left</c> lives, would pass every other
+    ///         assertion here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_two_translate_families_compose_and_move_the_box_and_its_hit_test() {
+        using var ui = Sheet("translate-x-4", "translate-y-2", "w-8", "h-8", "bg-accent");
+
+        var moved = ui.Create("probe", ui.Document.Root, null, "translate-x-4", "translate-y-2", "w-8", "h-8", "bg-accent");
+        var beside = ui.Create("probe", ui.Document.Root, null, "w-8", "h-8");
+
+        ui.Frame();
+
+        // One: both axes survived, which neither class could have managed alone.
+        Assert.Equal("16px 8px", ui.StyleOf(moved, "translate"));
+        Assert.Equal(16f, moved.AbsoluteLeft);
+        Assert.Equal(8f, moved.AbsoluteTop);
+
+        // Two: painted there, and clicked there — and *not* clicked where it used to be.
+        var box = Assert.Single(
+            ui.Document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Rectangle
+        );
+
+        Assert.Equal(moved.AbsoluteLeft, box.X);
+        Assert.Equal(moved.AbsoluteTop, box.Y);
+        Assert.Same(moved, ui.Document.HitTest(box.X + 2f, box.Y + 2f));
+        Assert.NotSame(moved, ui.Document.HitTest(2f, 2f));
+
+        // Three: the sibling did not budge. `w-8` is 32 points, and the row is a flex row, so an
+        // implementation that translated in the layout would have put it at 48.
+        Assert.Equal(32f, beside.AbsoluteLeft);
     }
 
     /// <summary>The one clip an element's subtree contributes to the frame.</summary>

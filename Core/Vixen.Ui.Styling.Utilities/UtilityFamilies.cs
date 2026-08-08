@@ -409,10 +409,31 @@ public static class UtilityFamilies {
         }));
 
         // ── Transforms ──────────────────────────────────────────────────────────────────────
-        Size("translate-x", "--translate-x");
-        Size("translate-y", "--translate-y");
-        Number("scale", "--scale");
-        Number("rotate", "--rotate");
+        //
+        // ⚠ <b>All four of these emitted a <c>--</c> name of their own invention, and only two of
+        // them have stopped.</b> `--translate-x`, `--scale` and `--rotate` are not CSS properties;
+        // they are not fragments either, because nothing assembled them. They were values parked in a
+        // spelling no engine anywhere — this one, or a browser — will ever look at, which is the same
+        // failure `grid-cols-3` had when it emitted `grid-template-columns: 3`: a family that would
+        // have gone on doing nothing even once a reader existed, and a debt recorded against the
+        // wrong name. See the closed block in `InertProperties.txt`.
+        //
+        // The two translations are composed now — a fragment each, and one `translate` between them
+        // — and the engine reads `translate` in `UiDocument.Accumulate`. `scale` and `rotate` emit
+        // the properties CSS actually has, and nothing reads either yet; their debt is recorded
+        // against those names, so the day a reader arrives the gate's expiry check is what says so.
+        Translate("translate-x", UtilityComposition.TranslateX);
+        Translate("translate-y", UtilityComposition.TranslateY);
+
+        // ⚠ <b>A percentage, because Tailwind's scale runs in hundredths.</b> `scale-150` is one and
+        // a half, not a hundred and fifty — v4 emits `scale: 150%` and CSS reads a percentage on this
+        // property as a ratio. Emitting the bare count, which is what `Number` did into `--scale`,
+        // would make `scale-150` mean a hundred and fifty times the size the day something read it.
+        CountTemplate("scale", "{0}%", "scale");
+
+        // ⚠ And an angle, for the same class of reason: `rotate: 45` is not a value CSS has. The unit
+        // is the whole difference between a declaration a browser honours and one it drops.
+        CountTemplate("rotate", "{0}deg", "rotate");
 
         // ── Transitions ─────────────────────────────────────────────────────────────────────
         Register(new Family("transition", ValueKind.Static, ["transition-property"], new Dictionary<string, string>(StringComparer.Ordinal) {
@@ -1127,6 +1148,31 @@ public static class UtilityFamilies {
 
     static void Size(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Size, properties));
+
+    /// <summary>Registers one axis of the composed translation: a fragment, and the assembly.</summary>
+    /// <param name="name">The utility prefix.</param>
+    /// <param name="fragment">The fragment this axis sets.</param>
+    /// <remarks>
+    ///     ⚠ <b><see cref="ValueKind.Size" /> rather than <c>Spacing</c>, so that <c>translate-x-full</c>
+    ///     is a hundred per cent.</b> CSS resolves a percentage translation against the element's own
+    ///     border box, which is what makes <c>-translate-x-full</c> the idiom for sliding a panel
+    ///     exactly its own width off the edge — a spacing-only family could not express it, and the
+    ///     number it would need depends on a width nobody knows when the class is written.
+    ///     <para>
+    ///         The assembly rides in <c>Alongside</c>, which <see cref="TryResolve" /> appends
+    ///         <i>after</i> negation — load-bearing here. <see cref="TryNegate" /> refuses a
+    ///         declaration whose value does not begin with a digit, so an assembly appended first
+    ///         would make <c>-translate-x-2</c> resolve to nothing at all rather than to minus eight
+    ///         pixels, and the class would be reported as an unrecognised typo.
+    ///     </para>
+    /// </remarks>
+    static void Translate(string name, string fragment) =>
+        Register(new Family(
+            name,
+            ValueKind.Size,
+            [fragment],
+            Alongside: [new UtilityDeclaration("translate", UtilityComposition.Translation())]
+        ));
 
     static void Number(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Number, properties));

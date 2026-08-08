@@ -49,6 +49,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int italic;
     readonly int oblique;
     readonly OverflowReader overflow;
+    readonly TranslationReader translation;
     /// <summary>How many tombstoned slots it takes before compacting is worth the walk.</summary>
     /// <remarks>
     ///     A floor rather than a pure ratio, because the ratio alone would compact a four-element
@@ -106,6 +107,7 @@ public sealed partial class UiDocument : IDisposable {
         italic = Styles.Values.Intern("italic");
         oblique = Styles.Values.Intern("oblique");
         overflow = new OverflowReader(Styles.Properties, Styles.Values);
+        translation = new TranslationReader(Styles.Properties, Styles.Values, Styles.Names);
         none = Styles.Values.Intern("none");
         InternCursors();
 
@@ -927,7 +929,11 @@ public sealed partial class UiDocument : IDisposable {
             Layout.PointScaleFactor = surface.DpiScale;
 
             Layout.CalculateLayout(surface.Root.LayoutNode, surface.Width, surface.Height, Direction.Ltr);
-            Accumulate(surface.Root, 0f, 0f);
+
+            // ⚠ The surface's own metrics and not the primary's, for the same reason the grid factor
+            // above is written per surface: `translate: 50vw` in a torn-off window is half of *that*
+            // window.
+            Accumulate(surface.Root, 0f, 0f, surface.Metrics);
         }
     }
 
@@ -1507,14 +1513,36 @@ public sealed partial class UiDocument : IDisposable {
     ///     bounds several times per pointer move, and the draw list will ask for every element's
     ///     every frame; a walk to the root per read is the same arithmetic done depth times over.
     /// </remarks>
-    static void Accumulate(UiElement element, float x, float y) {
+    void Accumulate(UiElement element, float x, float y, LengthContext metrics) {
         // ⚠ The offset lands here and nowhere else, which is what makes it free. Every consumer of a
         // position — hit testing, the draw list, arrow navigation — reads the accumulated value, so
         // a shifted element is drawn, clicked and navigated to in its shifted place without any of
         // them being told that shifting is a thing that can happen.
-        element.AbsoluteLeft = x + element.Left + element.OffsetX;
-        element.AbsoluteTop = y + element.Top + element.OffsetY;
+        //
+        // ⚠ <b>And `translate` lands in the same sum, which is the whole of doc 43 § A7's first
+        // third.</b> It is the answer to "where does a transform live": not in `UiShape`, not in a
+        // matrix threaded through the draw list, but in the one place a position is already assembled
+        // from more than one contribution. Both consumers of a position read the *result*, so a
+        // translated element cannot draw in the new place and be clickable in the old one — the
+        // classic failure of a transform bolted onto a renderer, and the shape of the bug the
+        // per-axis clip work had to fix. It is not prevented here so much as unstateable: there is no
+        // second copy of the arithmetic to get wrong. `TransformTests` sabotages exactly this, and the
+        // sabotage has to reach into the hit test on purpose to make the two disagree.
+        //
+        // ⚠ <b>Beside `OffsetX` rather than into it.</b> The two mean different things and have
+        // different owners: `OffsetX` is imperative, is what `ScrollView` and `DockingHost` slide
+        // their content with, and survives a restyle; a translation is declarative and is whatever the
+        // cascade last computed. Folding the second into the first would make a stylesheet silently
+        // erase a scroll position, which reads as the panel jumping home on an unrelated theme change.
+        translation.Of(element, metrics, out var dx, out var dy);
 
+        element.AbsoluteLeft = x + element.Left + element.OffsetX + dx;
+        element.AbsoluteTop = y + element.Top + element.OffsetY + dy;
+
+        // ⚠ The children accumulate from the translated parent, so a transform moves the subtree —
+        // CSS Transforms 1 §3, and the reason a translated panel takes its contents with it rather
+        // than sliding out from under them. Nothing extra is needed for it: the recursion below
+        // already passes the parent's accumulated position, and the translation is now part of that.
         foreach (var child in element.ChildList) {
             // ⚠ Another surface's coordinates are its own window's, starting at its top-left, and
             // walking into one from here would offset a torn-off window by wherever its root
@@ -1523,7 +1551,7 @@ public sealed partial class UiDocument : IDisposable {
                 continue;
             }
 
-            Accumulate(child, element.AbsoluteLeft, element.AbsoluteTop);
+            Accumulate(child, element.AbsoluteLeft, element.AbsoluteTop, metrics);
         }
     }
 

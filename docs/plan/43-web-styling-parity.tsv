@@ -57,14 +57,14 @@ Transforms	origin-*	functional	origin-bottom	transform-origin					absent
 Transforms	perspective-origin-*	functional	perspective-origin-bottom	perspective-origin					absent				
 Transforms	perspective-*	functional	perspective-distant	perspective					absent				
 Transforms	translate-*	functional	translate-0	translate					absent				translate-none translate-full translate-px translate-x-full translate-x-px translate-y-full translate-y-px translate-z-px
-Transforms	translate-x-*	functional	translate-x-0	translate	translate-x	--translate-x			inert			emits a placeholder custom property nothing consumes	
-Transforms	translate-y-*	functional	translate-y-0	translate	translate-y	--translate-y			inert			emits a placeholder custom property nothing consumes	
+Transforms	translate-x-*	functional	translate-x-0	translate	translate-x	--tw-translate-x;translate	translate		works			composed: a --tw-* fragment per axis assembled into one `translate`, read in UiDocument.Accumulate	
+Transforms	translate-y-*	functional	translate-y-0	translate	translate-y	--tw-translate-y;translate	translate		works			composed: a --tw-* fragment per axis assembled into one `translate`, read in UiDocument.Accumulate	
 Transforms	translate-z-*	functional	translate-z-0	translate					absent				
-Transforms	scale-*	functional	scale-0	scale	scale	--scale			inert			emits a placeholder custom property nothing consumes	scale-none scale-3d
+Transforms	scale-*	functional	scale-0	scale	scale	scale			inert			emits real CSS now; refused because a DrawCommand is an axis-aligned rectangle (A7)	scale-none scale-3d
 Transforms	scale-x-*	functional	scale-x-0	scale					absent	scale		swallowed by the family `scale`; the value does not resolve, so nothing is emitted	
 Transforms	scale-y-*	functional	scale-y-0	scale					absent	scale		swallowed by the family `scale`; the value does not resolve, so nothing is emitted	
 Transforms	scale-z-*	functional	scale-z-0	scale					absent	scale		swallowed by the family `scale`; the value does not resolve, so nothing is emitted	
-Transforms	rotate-*	functional	rotate-0	rotate	rotate	--rotate			inert			emits a placeholder custom property nothing consumes	rotate-none
+Transforms	rotate-*	functional	rotate-0	rotate	rotate	rotate			inert			emits real CSS now; refused because a DrawCommand is an axis-aligned rectangle (A7)	rotate-none
 Transforms	rotate-x-*	functional	rotate-x-0	transform					absent	rotate		swallowed by the family `rotate`; the value does not resolve, so nothing is emitted	
 Transforms	rotate-y-*	functional	rotate-y-0	transform					absent	rotate		swallowed by the family `rotate`; the value does not resolve, so nothing is emitted	
 Transforms	rotate-z-*	functional	rotate-z-0	transform					absent	rotate		swallowed by the family `rotate`; the value does not resolve, so nothing is emitted	

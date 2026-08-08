@@ -306,6 +306,36 @@ static class UtilityConsumptionProbe {
             #short { display: inline-block; width: 30px; height: 18px; }
             #after { display: inline-block; width: 30px; height: 20px; background-color: #a0a040; }
             """
+        ),
+
+        // ⚠ <b>Translated, and it is the only scene in which the probe is transformed at all.</b> The
+        // lesson `gridded`, `inlined` and `primed` each record, added this time *before* it costs a
+        // run rather than after. `translate` itself is observable everywhere — moving a box moves its
+        // rectangle, its draw commands and the hit grid in every arrangement above — so this scene is
+        // not what gives the gate eyes for the family that just landed. It is what gives it eyes for
+        // the next one.
+        //
+        // A `transform-origin`, a `transform-box`, or `scale` and `rotate` when the compositor they
+        // need arrives, are all properties that modify *an existing transform* and say nothing at all
+        // where there is none — exactly the shape of `transition-duration`, which needed `animated`,
+        // and `transition-property`, which needed `primed` and measured inert for a whole release
+        // because neither existed. Every other scene here leaves `#probe` untransformed, so each of
+        // those would have measured inert on the day it became real.
+        //
+        // ⚠ The host clips and the probe is pushed partly out of it, which is the second thing no
+        // other scene arranges: a transform and a clip interacting. That is where an implementation
+        // that moved the box and not the rectangle it is cut by would show, and it is the interaction
+        // the per-axis overflow work had to get right for the untransformed case.
+        new(
+            "translated",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; overflow: hidden; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
+                     translate: 12px 6px;
+                     border-width: 2px; border-color: #c02020;
+                     background-color: #204080; color: #e0e0e0; }
+            #after { width: 96px; height: 20px; background-color: #a0a040; }
+            """
         )
     ];
 
