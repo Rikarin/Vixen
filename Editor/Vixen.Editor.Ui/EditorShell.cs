@@ -572,7 +572,21 @@ public sealed class EditorShell : IDisposable {
     public void Tick(TimeSpan now, TimeSpan delta) {
         phase = (phase + (float) delta.TotalSeconds) % 1f;
 
-        Document.Gestures.Tick(now);
+        // ⚠ <b>The document's tick, not the recogniser's, and the difference is four features
+        // wide.</b> This read `Document.Gestures.Tick(now)` — the one thing the shell happened to
+        // need on the day it was written — so `UiDocument.Now` stayed at zero for the life of the
+        // editor and `UiDocument.Ticked` was never raised at all. `Overlay` and `Toasts` both hang
+        // their expiry on that event, so a tooltip's delay and a toast's dismissal were driven by
+        // nothing here; the editor's own `Notifications` has a separate clock, which is why the
+        // second of those was invisible.
+        //
+        // ⚠ And it is what makes a CSS transition run. `UiDocument.Tick` advances the animator and
+        // marks the document dirty while anything is in flight — a host that skips it does not get
+        // instant changes, it gets *stuck* ones, because a fade stamped at zero against a clock that
+        // never leaves zero has made no progress on any frame. That failure mode is worth more alarm
+        // than the missing tooltips: it holds a property at the value it was leaving, for ever, and
+        // reads as a rendering bug rather than a timing one.
+        Document.Tick(now);
         Notifications.Tick(now);
 
         Tasks.Pump();
