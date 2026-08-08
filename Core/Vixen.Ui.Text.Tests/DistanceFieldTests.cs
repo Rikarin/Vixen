@@ -214,6 +214,63 @@ public class DistanceFieldTests {
         Assert.Equal(6f, tip, 0);
     }
 
+    /// <summary>
+    ///     ⚠ <b>An edge must stop being the answer once the point is past its corner, and for a year
+    ///     it did not.</b> Every point in the exterior wedge of a convex corner is <i>exactly</i>
+    ///     equidistant from both edges meeting there, because both of them clamp to the shared vertex
+    ///     — so ordinary distance cannot separate them and whichever was listed first supplied the
+    ///     pseudo-distance for the whole wedge. Above a square's top-left corner that is the top edge,
+    ///     whose line runs away to the left forever, and the field then reads "half a texel outside"
+    ///     however far left the point actually is. Uniformly: the row half a texel above the square
+    ///     came out at a constant 0.375 across the entire cell.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The magnitude, not the sign, which is why the reconstruction test above sailed past
+    ///     it.</b> 0.375 is on the correct side of the threshold, so a comparison against the
+    ///     rasteriser's fill agrees everywhere; it is only wrong about <i>how far</i> outside the
+    ///     point is. Anything that then shifts the field — <c>IconAtlas</c> dilates by half a texel to
+    ///     match the tessellator's fringe — turns the row into a phantom bar right across the glyph.
+    /// </remarks>
+    [Fact]
+    public void An_edge_stops_at_its_corner_instead_of_running_across_the_cell() {
+        const int Stored = 16;
+        const float Range = 4f;
+
+        var square = Path(
+            new OutlineSegment(OutlineVerb.Move, 4, 4),
+            new OutlineSegment(OutlineVerb.Line, 12, 4),
+            new OutlineSegment(OutlineVerb.Line, 12, 12),
+            new OutlineSegment(OutlineVerb.Line, 4, 12),
+            new OutlineSegment(OutlineVerb.Close, 0, 0)
+        );
+
+        var field = DistanceField.Generate(square, Stored, Stored, 1f, Vector2.Zero, Range);
+
+        // The row whose centres sit half a texel above the top edge, in the field's own y-down order.
+        var row = Stored - 1 - 12;
+
+        // Above the edge itself the answer is what it always was: half a texel out of four.
+        Assert.Equal(0.375f, field.Median(8, row), 2);
+
+        // ⚠ Two and a half texels clear of the corner the true distance is 2.55, and the median may
+        // legitimately understate it — a corner's exterior is where two half planes meet and the
+        // nearer one is what the median reports, which at worst is the distance over root two. What it
+        // may not do is report the half texel it would if the top edge's line still applied.
+        for (var x = 0; x <= 1; x++) {
+            Assert.True(
+                field.Median(x, row) < 0.2f,
+                $"texel {x} of the row above the square reads {field.Median(x, row):F3}, and at "
+                + $"{4f - x - 0.5f:F1} texels clear of the corner it should have bottomed out"
+            );
+        }
+
+        // And the same on the other three sides, because the colouring gives one corner of a
+        // rectangle both its edges in the same channels and a fix that only reached three would pass.
+        Assert.True(field.Median(Stored - 1, row) < 0.2f, "past the top-right corner");
+        Assert.True(field.Median(0, Stored - 1 - 3) < 0.2f, "past the bottom-left corner");
+        Assert.True(field.Median(Stored - 1, Stored - 1 - 3) < 0.2f, "past the bottom-right corner");
+    }
+
     /// <summary>Signed distance to the 4..12 square, positive inside. A closed form.</summary>
     static float RectangleDistance(Vector2 point) {
         var dx = Math.Min(point.X - 4f, 12f - point.X);

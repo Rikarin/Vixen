@@ -276,6 +276,164 @@ public class IconAtlasTests {
         Assert.InRange(bottom, side - texel, side + texel);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The transport's pause glyph, which is the shape every other test here cannot see.</b>
+    ///     Two disjoint bars with a gap between them, at the size the editor's toolbar actually draws
+    ///     them — and for a year the field bridged the gap at both ends and drew an I-beam. What put
+    ///     it there is <c>DistanceField</c>'s corner rule; what made it visible rather than merely
+    ///     wrong is <see cref="IconAtlas.Feather" />, which shifts the whole field half a texel to
+    ///     match the tessellator's fringe and so pushes a value of exactly 0.5 over the threshold.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Every other test in this file is blind to it, which is worth saying rather than
+    ///     leaving to be rediscovered.</b> <c>The_reconstructed_edge_lands_where_the_shape_edge_is</c>
+    ///     is the only one that reads a texel at all, and it walks the middle row and middle column of
+    ///     a <i>square</i> — two lines that never leave the shape's own silhouette, which is exactly
+    ///     where the phantom band coincides with the real edge. The rest count vertices, entries and
+    ///     refusals. A square is also the one transport glyph the defect left alone in the picture, so
+    ///     the shape the tests used and the shape that looked fine were the same shape.
+    /// </remarks>
+    [Fact]
+    public void The_gap_between_two_bars_is_a_gap_for_its_whole_length() {
+        var atlas = new IconAtlas(new GlyphAtlas(512, 512));
+        var list = Listed(Pause(18f));
+        var command = list.Commands[0];
+
+        Assert.True(atlas.TryGet(list.Segments, command.Offset, command.Length, PathFillRule.NonZero, out var field));
+
+        var scale = 18f / 24f;
+        var worst = 0f;
+        var worstAt = (X: 0, Y: 0);
+
+        for (var y = 0; y < field.Region.Height; y++) {
+            for (var x = 0; x < field.Region.Width; x++) {
+                var at = Point(field, x, y);
+
+                // The gap, taken a quarter of a pixel in from each bar so that the edge's own ramp is
+                // not what is being measured — and over the full height of the cell, because the
+                // whole point is that the two ends behaved differently from the middle.
+                if (at.X < (10.6f * scale) + 0.25f || at.X > (13.4f * scale) - 0.25f) {
+                    continue;
+                }
+
+                var median = Median(atlas, field, x, y);
+                if (median > worst) {
+                    (worst, worstAt) = (median, (x, y));
+                }
+            }
+        }
+
+        Assert.True(
+            worst < 0.5f,
+            $"the gap reads {worst:F3} at texel {worstAt}, which the shader draws as "
+            + $"{Math.Clamp(((worst - 0.5f) * field.ScreenPixelRange) + 0.5f, 0f, 1f):F2} of the icon's colour"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The general form: the field's silhouette is the shape's silhouette, dilated by the
+    ///     fringe and by nothing else.</b> Stated over the whole cell rather than along a line,
+    ///     because the defect this replaces was a band two texels clear of the artwork that no line
+    ///     through the artwork could cross. The shapes are rectangles so that the distance is a closed
+    ///     form owing nothing to the code under test.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The tolerance is a texel and a half, and the corner is why.</b> Outside a convex
+    ///     corner the median reports the nearer of the two half planes rather than the distance to the
+    ///     vertex — which is what keeps the corner sharp — so it understates by up to the distance
+    ///     over root two, and at a range of four texels that is a little over one. A tolerance tight
+    ///     enough to catch that would be a test of the corner rule and not of the silhouette. The
+    ///     defect it exists for was a whole row at 0.5 across a cell twenty-three texels wide.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Silhouettes))]
+    public void Nothing_reads_as_covered_that_is_not_within_the_fringe(string name, Rectangle[] parts) {
+        var atlas = new IconAtlas(new GlyphAtlas(512, 512));
+        var path = new PathBuilder();
+
+        foreach (var part in parts) {
+            path.AddRectangle(part);
+        }
+
+        var list = Listed(path);
+        var command = list.Commands[0];
+
+        Assert.True(atlas.TryGet(list.Segments, command.Offset, command.Length, PathFillRule.NonZero, out var field));
+
+        var texel = field.Quad.Width / field.Region.Width;
+        var slack = (atlas.Feather * 0.5f) + (1.5f * texel);
+        var failures = new List<string>();
+
+        for (var y = 0; y < field.Region.Height; y++) {
+            for (var x = 0; x < field.Region.Width; x++) {
+                var at = Point(field, x, y);
+                var distance = Distance(parts, at);
+
+                if (MathF.Abs(distance) <= slack) {
+                    continue;
+                }
+
+                var covered = Median(atlas, field, x, y) >= 0.5f;
+                if (covered != distance > 0f) {
+                    failures.Add(
+                        $"texel ({x},{y}) at ({at.X:F2},{at.Y:F2}) is {distance:F2}px "
+                        + $"{(distance > 0 ? "inside" : "outside")} and reads "
+                        + $"{Median(atlas, field, x, y):F3}"
+                    );
+                }
+            }
+        }
+
+        Assert.True(failures.Count == 0, $"{name}: {failures.Count} texels\n{string.Join('\n', failures.Take(12))}");
+    }
+
+    public static TheoryData<string, Rectangle[]> Silhouettes() =>
+        new() {
+            { "stop", [Fit(new Rectangle(6f, 6f, 12f, 12f))] },
+            { "pause", [Fit(new Rectangle(7f, 4f, 3.6f, 16f)), Fit(new Rectangle(13.4f, 4f, 3.6f, 16f))] },
+            { "a hairline and a block", [Fit(new Rectangle(4f, 4f, 1f, 16f)), Fit(new Rectangle(9f, 8f, 11f, 8f))] }
+        };
+
+    /// <summary>A view-box rectangle at the size a toolbar draws an icon.</summary>
+    static Rectangle Fit(Rectangle box) {
+        const float Scale = 18f / 24f;
+        return new Rectangle(box.X * Scale, box.Y * Scale, box.Width * Scale, box.Height * Scale);
+    }
+
+    /// <summary>The transport's pause glyph, fitted the way <c>Icon</c> fits one.</summary>
+    static PathBuilder Pause(float size) {
+        var scale = size / 24f;
+
+        return new PathBuilder()
+            .AddRectangle(new Rectangle(7f * scale, 4f * scale, 3.6f * scale, 16f * scale))
+            .AddRectangle(new Rectangle(13.4f * scale, 4f * scale, 3.6f * scale, 16f * scale));
+    }
+
+    /// <summary>Signed distance to a union of disjoint rectangles, positive inside. A closed form.</summary>
+    static float Distance(Rectangle[] parts, Vector2 point) {
+        var best = float.MinValue;
+
+        foreach (var part in parts) {
+            var dx = MathF.Min(point.X - part.X, part.X + part.Width - point.X);
+            var dy = MathF.Min(point.Y - part.Y, part.Y + part.Height - point.Y);
+
+            var distance = dx >= 0f && dy >= 0f
+                ? MathF.Min(dx, dy)
+                : -MathF.Sqrt((MathF.Max(-dx, 0f) * MathF.Max(-dx, 0f)) + (MathF.Max(-dy, 0f) * MathF.Max(-dy, 0f)));
+
+            best = MathF.Max(best, distance);
+        }
+
+        return best;
+    }
+
+    /// <summary>A texel's centre, in the path's own coordinates.</summary>
+    static Vector2 Point(IconField field, int x, int y) =>
+        new(
+            field.Quad.X + ((x + 0.5f) / field.Region.Width * field.Quad.Width),
+            field.Quad.Y + ((y + 0.5f) / field.Region.Height * field.Quad.Height)
+        );
+
     /// <summary>Where the median crosses a half along one line of the cell, in the path's own units.</summary>
     static float Crossing(IconAtlas icons, IconField field, int line, bool horizontal, bool rising) {
         var count = horizontal ? field.Region.Width : field.Region.Height;
