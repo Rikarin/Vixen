@@ -145,6 +145,15 @@ public class UtilityGenerationTests {
         Assert.Equal(@"hover\:w-1\/2", UtilityGenerator.Escape("hover:w-1/2"));
         Assert.Equal(@"w-\[37px\]", UtilityGenerator.Escape("w-[37px]"));
         Assert.Equal("p-4", UtilityGenerator.Escape("p-4"));
+
+        // ⚠ A leading digit is a code-point escape and not a backslash, because `\2` *begins* a hex
+        // escape — `.2xl\:p-4` is not a selector and `.\2xl\:p-4` is a selector for something else.
+        // The trailing space terminates the escape; it is syntax, not formatting. CSS Syntax 3 § 4.3.8.
+        Assert.Equal(@"\32 xl\:p-4", UtilityGenerator.Escape("2xl:p-4"));
+        Assert.Equal(@"-\32 xl\:p-4", UtilityGenerator.Escape("-2xl:p-4"));
+
+        // And a digit anywhere else is left alone, or every `p-4` in the engine would grow one.
+        Assert.Equal(@"md\:p-4", UtilityGenerator.Escape("md:p-4"));
     }
 
     [Fact]
@@ -217,6 +226,72 @@ public class UtilityGenerationTests {
         var css = fixture.Generate("md:p-4", "md:m-2", "md:w-full");
 
         Assert.Equal(1, Occurrences(css, "@media (min-width: 768px)"));
+    }
+
+    [Fact]
+    public void Two_conditional_variants_on_one_utility_nest() {
+        // ⚠ They used to be *dropped*, and the reason recorded in doc 43 § D3 — "Vixen's `@media`
+        // does not nest" — was not true of the cascade. `StyleSheetLoader.LoadMedia` recurses into
+        // the rule it matched, so a nested group has always loaded; what could not nest was this
+        // generator, which carried one `string?` for the whole variant stack and gave up on the
+        // second one.
+        var fixture = new UtilityFixture();
+        var css = fixture.Generate("sm:md:p-4");
+
+        Assert.Contains("@media (min-width: 640px)", css, StringComparison.Ordinal);
+        Assert.Contains("@media (min-width: 768px)", css, StringComparison.Ordinal);
+        Assert.Empty(fixture.Generator.Unrecognised);
+
+        // And the conditions conjoin: 700px satisfies the outer one only, which is the width that
+        // tells a nested stack from a flattened one.
+        Assert.Equal("16px", fixture.Computed(["sm:md:p-4"], "padding-left", media: new MediaContext(1000, 800)));
+        Assert.Null(fixture.Computed(["sm:md:p-4"], "padding-left", media: new MediaContext(700, 800)));
+        Assert.Null(fixture.Computed(["sm:md:p-4"], "padding-left", media: new MediaContext(300, 800)));
+    }
+
+    [Fact]
+    public void A_breakpoint_and_a_dark_variant_nest_rather_than_cancelling() {
+        // The other pair that used to be dropped, and the one that matters for a themed panel: two
+        // *different kinds* of condition, which no `and`-joined single query could express once
+        // `@container` joins them.
+        var fixture = new UtilityFixture();
+
+        fixture.Generate("dark:md:p-4");
+        Assert.Empty(fixture.Generator.Unrecognised);
+
+        var dark = new MediaContext(1024, 768, ColorScheme: ColorSchemePreference.Dark);
+        var light = new MediaContext(1024, 768, ColorScheme: ColorSchemePreference.Light);
+        var narrowDark = new MediaContext(320, 640, ColorScheme: ColorSchemePreference.Dark);
+
+        Assert.Equal("16px", fixture.Computed(["dark:md:p-4"], "padding-left", media: dark));
+        Assert.Null(fixture.Computed(["dark:md:p-4"], "padding-left", media: light));
+        Assert.Null(fixture.Computed(["dark:md:p-4"], "padding-left", media: narrowDark));
+
+        // Order is free — conditional group rules conjoin — so the reverse spelling selects the same
+        // elements even though it emits a different nesting.
+        Assert.Equal("16px", fixture.Computed(["md:dark:p-4"], "padding-left", media: dark));
+        Assert.Null(fixture.Computed(["md:dark:p-4"], "padding-left", media: narrowDark));
+    }
+
+    [Fact]
+    public void A_nested_stack_shares_its_outer_wrapper_with_the_shallower_utilities() {
+        // The grouping claim, and the reason the emitter is a trie rather than a dictionary keyed by
+        // the joined chain: `sm:m-2` and `sm:md:p-4` open one `@media (min-width: 640px)`, not two.
+        var fixture = new UtilityFixture();
+        var css = fixture.Generate("sm:m-2", "sm:md:p-4", "sm:w-full");
+
+        Assert.Equal(1, Occurrences(css, "@media (min-width: 640px)"));
+        Assert.Equal(1, Occurrences(css, "@media (min-width: 768px)"));
+    }
+
+    [Fact]
+    public void The_same_conditional_variant_twice_opens_one_wrapper() {
+        // `md:md:p-4` is what a hand-edited class list produces, and two identical nested wrappers
+        // would be valid CSS that reads as a mistake in a generated file.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(1, Occurrences(fixture.Generate("md:md:p-4"), "@media (min-width: 768px)"));
+        Assert.Equal("16px", fixture.Computed(["md:md:p-4"], "padding-left", media: new MediaContext(1024, 768)));
     }
 
     [Fact]

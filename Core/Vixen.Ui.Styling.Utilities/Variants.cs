@@ -49,6 +49,18 @@ public static class Variants {
         ["even"] = ":nth-child(2n)"
     };
 
+    /// <summary>The variants that are a pseudo-class on the element itself.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Exposed so that a test can fail on a variant nobody tested, which is the shape of
+    ///     failure this table has actually had.</b> Every entry below <c>hover</c> and <c>focus</c>
+    ///     went untested end to end, and a whole variant family being inert while the suite stayed
+    ///     green is not hypothetical here — every breakpoint was dead until the document started
+    ///     handing the cascade a <see cref="MediaContext" />. A list the coverage test can enumerate
+    ///     turns "someone remembered" into "the build checks", and it is also what
+    ///     <c>group-*</c> and <c>peer-*</c> compose over, so one table drives all three.
+    /// </remarks>
+    public static IReadOnlyCollection<string> StateVariants => States.Keys;
+
     /// <summary>Works out what a variant does.</summary>
     /// <param name="variant">The variant, without its colon.</param>
     /// <param name="tokens">The theme, for breakpoints and the dark-mode strategy.</param>

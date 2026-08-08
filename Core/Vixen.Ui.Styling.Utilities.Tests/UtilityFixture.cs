@@ -5,6 +5,24 @@ using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
 
+/// <summary>An element in a probe document other than the one being measured.</summary>
+/// <param name="Classes">Its classes.</param>
+/// <param name="State">Its pseudo state.</param>
+/// <param name="Attributes">Its attributes.</param>
+/// <remarks>
+///     ⚠ <b>What half the variant table needs and <see cref="UtilityFixture.Computed" /> could not
+///     express.</b> <c>group-*</c> wants an ancestor in a state, <c>peer-*</c> a preceding sibling in
+///     one, <c>ltr:</c>/<c>rtl:</c> an ancestor carrying <c>dir</c>, <c>dark:</c> under the class
+///     strategy an ancestor carrying <c>.dark</c>, and the structural variants a place among
+///     siblings. A fixture whose only knobs were <c>ElementState</c> and <c>MediaContext</c> could
+///     reach none of them, which is the mechanical reason none of them had an end-to-end test.
+/// </remarks>
+sealed record Probe(
+    string[] Classes,
+    ElementState State = ElementState.None,
+    (string Name, string Value)[]? Attributes = null
+);
+
 /// <summary>A theme, a generator, and a style engine to load the result into.</summary>
 sealed class UtilityFixture {
     /// <summary>The theme doc 09 gives as the worked example, so tests read against the plan.</summary>
@@ -112,7 +130,11 @@ sealed class UtilityFixture {
         string property,
         string extraCss = "",
         ElementState state = ElementState.None,
-        MediaContext media = default
+        MediaContext media = default,
+        (string Name, string Value)[]? attributes = null,
+        Probe? ancestor = null,
+        Probe[]? before = null,
+        Probe[]? after = null
     ) {
         var engine = new StyleEngine();
         engine.Load(Generator.Generate(classNames), StyleOrigin.Author, media);
@@ -121,12 +143,45 @@ sealed class UtilityFixture {
             engine.Load(extraCss, StyleOrigin.Author, media);
         }
 
-        var element = engine.Tree.CreateElement("div", classNames: classNames);
-        engine.Tree.SetState(element, state);
+        // A parent only when something asks for one. A wrapper nobody wanted would change what
+        // `:first-child` and `:only-child` answer for every existing caller.
+        StyleNodeId? parent = null;
 
-        var style = engine.Resolver.Resolve(engine.Tree, element);
+        if (ancestor is not null || before is { Length: > 0 } || after is { Length: > 0 }) {
+            parent = Add(engine, ancestor ?? new Probe([]), null);
+        }
+
+        foreach (var sibling in before ?? []) {
+            Add(engine, sibling, parent);
+        }
+
+        var element = Add(engine, new Probe(classNames, state, attributes), parent);
+
+        foreach (var sibling in after ?? []) {
+            Add(engine, sibling, parent);
+        }
+
+        // ⚠ `ResolveAll` rather than resolving the one element, and it is not tidiness: a descendant
+        // rule such as `.group:hover .x` is matched against the *tree*, but the inherited half of the
+        // cascade reads the parent's already-resolved table — which only exists if the parent was
+        // resolved first. Resolving the element alone hands it a null parent, so anything inherited
+        // silently reads as unset.
+        var styles = engine.ResolveAll();
         var id = engine.Properties.Lookup(property);
 
-        return id != NameTable.None && style.TryGet(id, out var value) ? engine.Values.NameOf(value) : null;
+        return id != NameTable.None && styles[element.Index].TryGet(id, out var value)
+            ? engine.Values.NameOf(value)
+            : null;
+    }
+
+    static StyleNodeId Add(StyleEngine engine, Probe probe, StyleNodeId? parent) {
+        var element = engine.Tree.CreateElement("div", parent, classNames: probe.Classes);
+        engine.Tree.SetState(element, probe.State);
+
+        foreach (var (name, value) in probe.Attributes ?? []) {
+            engine.Tree.SetAttribute(element, name, value);
+        }
+
+        return element;
     }
 }

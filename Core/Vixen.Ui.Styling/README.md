@@ -46,6 +46,24 @@ this project, and both proofs deliberately live in `Vixen.Ui.Tests`
 (`TransitionTests`, `MediaContextTests`) for the reason the paragraph above gives: a test that reaches
 for the component directly passes with the wiring deleted. See doc 43 F10 and F11.
 
+⚠ **Conditional group rules nest, and this project has always let them.** `LoadMedia` recurses into
+the rule it has just matched, so `@media A { @media B { … } }` loads and the two conditions conjoin —
+CSS Conditional 5 § 3 — and the same is true through `@layer` in either order. That is worth stating
+because doc 43 § D3 recorded the opposite and sized a cascade change against the belief; the thing that
+could not nest was `UtilityGenerator`, one layer up, which is why `sm:md:p-4` was dropped. **Nesting
+cost the rule representation nothing**: a `StyleRule` still carries no condition, because `@media` is
+still evaluated at load and never at match.
+
+⚠ **What nesting does touch is `SetMedia`'s guard, and it stays correct for a reason worth writing
+down.** `StyleSheetLoader.MediaConditions` records each condition *individually* rather than recording
+the conjunction, and only records the ones the loader actually reached. Both halves matter. Individual
+recording means a drag that flips only an inner condition still reloads — the outer one holds at both
+ends and would report no change. Recording only what was reached means a condition sealed behind a
+false outer one costs nothing, because the block could not have applied either way. The pair is
+asserted in `Vixen.Ui.Tests.MediaContextTests`, one test each; the second is the one that fails if the
+guard is replaced by "reload on every resize", which the pre-existing no-`@media` test structurally
+cannot catch.
+
 ## The three ideas
 
 **Right to left.** `.sidebar .row .cell` read left to right means finding every `.sidebar`, then every
