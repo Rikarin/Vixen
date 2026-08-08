@@ -291,20 +291,30 @@ public static class UtilityFamilies {
             new UtilityDeclaration(UtilityComposition.GradientStops, UtilityComposition.StopList(via: true))
         );
 
-        // The assembler. Eight directions, and the direction is written into each one rather than
+        // The assemblers. Eight directions, and the direction is written into each one rather than
         // parked in a fragment of its own — Tailwind keeps a `--tw-gradient-position` so that
-        // `bg-radial` and `bg-conic` can share one stop list, and neither of those has a renderer
-        // here to speak of. Adding them later is a fragment and three keywords, not a rewrite.
+        // `bg-radial` and `bg-conic` can share one stop list, which buys nothing while the position
+        // is a compile-time constant in all ten of these.
         //
         // ⚠ `bg-linear` is registered *after* `bg`, and it still wins for `bg-linear-to-r`, because
         // `SplitName` sorts longest-first at the bottom of this method rather than trusting the order
-        // things appear in here. `bg-accent` is unaffected.
+        // things appear in here. `bg-accent` is unaffected, and so are `bg-radial` and `bg-conic`.
         Keywords("bg-linear", "background-image", new() {
-            ["to-t"] = Linear("to top"), ["to-tr"] = Linear("to top right"),
-            ["to-r"] = Linear("to right"), ["to-br"] = Linear("to bottom right"),
-            ["to-b"] = Linear("to bottom"), ["to-bl"] = Linear("to bottom left"),
-            ["to-l"] = Linear("to left"), ["to-tl"] = Linear("to top left")
+            ["to-t"] = Gradient("linear", "to top"), ["to-tr"] = Gradient("linear", "to top right"),
+            ["to-r"] = Gradient("linear", "to right"), ["to-br"] = Gradient("linear", "to bottom right"),
+            ["to-b"] = Gradient("linear", "to bottom"), ["to-bl"] = Gradient("linear", "to bottom left"),
+            ["to-l"] = Gradient("linear", "to left"), ["to-tl"] = Gradient("linear", "to top left")
         });
+
+        // ⚠ <b>The two round shapes take no geometry at all, and that is Tailwind's own default
+        // rather than a simplification.</b> `bg-radial` is `radial-gradient(in oklab, …)` — no
+        // `at`, no ending shape — because CSS's defaults are a centred farthest-corner ellipse, and
+        // `bg-conic` is the same story with a sweep from twelve o'clock. Tailwind reaches the
+        // positioned forms only through its arbitrary-value syntax, and those are what
+        // `GradientRefusal.Extent` refuses: they need a centre in `UiShape`, which is a whole further
+        // `Vector4` for a form no theme in this repository writes.
+        Static("bg-radial", "background-image", Gradient("radial", string.Empty));
+        Static("bg-conic", "background-image", Gradient("conic", string.Empty));
 
         // ── Borders ─────────────────────────────────────────────────────────────────────────
         // ⚠ `border-2` is two *pixels* where `p-2` is two spacing steps, which is Tailwind's choice
@@ -1087,14 +1097,43 @@ public static class UtilityFamilies {
             Alongside: alongside.Length == 0 ? null : alongside
         ));
 
-    /// <summary>One gradient assembler: the direction, and the stop list the fragments compose into.</summary>
+    /// <summary>One gradient assembler: the shape, the geometry, and the stop list.</summary>
+    /// <param name="shape">
+    ///     <c>linear</c>, <c>radial</c> or <c>conic</c> — the CSS function, without its suffix.
+    /// </param>
+    /// <param name="geometry">
+    ///     What goes before the interpolation hint: a <c>to …</c> for a linear gradient, and nothing
+    ///     for the two round ones, whose CSS defaults are what Tailwind means by them.
+    /// </param>
+    /// <returns>The <c>background-image</c> value.</returns>
     /// <remarks>
-    ///     ⚠ <b>The stop list is reached through <see cref="UtilityComposition.Reference" />, so the
-    ///     two-stop form is what an absent <c>via-*</c> falls back to</b> rather than something this
-    ///     string has to remember to spell. <c>from-red to-blue</c> with no <c>via</c> is a two-stop
-    ///     gradient; the version of this that wrote <c>var(--tw-gradient-stops)</c> bare would make it
-    ///     no gradient at all.
+    ///     <para>
+    ///         ⚠ <b>The stop list is reached through <see cref="UtilityComposition.Reference" />, so
+    ///         the two-stop form is what an absent <c>via-*</c> falls back to</b> rather than something
+    ///         this string has to remember to spell. <c>from-red to-blue</c> with no <c>via</c> is a
+    ///         two-stop gradient; the version of this that wrote <c>var(--tw-gradient-stops)</c> bare
+    ///         would make it no gradient at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>in oklab</c> on every one of them, because that is what Tailwind v4 emits and
+    ///         the difference is not subtle.</b> CSS's default for an unhinted gradient is sRGB, and
+    ///         the engine's palette now ships as v4.3.3's — quoted in <c>oklch</c>, chosen so that
+    ///         equal steps look equal. Interpolating two of those swatches anywhere but a perceptual
+    ///         space throws that away at the midpoint, which is the one pixel the choice is visible
+    ///         at: between complements it is the difference between a colour and a grey dead zone.
+    ///         Leaving the hint off would have been a gradient that is right at both ends and wrong in
+    ///         the middle on every element in the editor.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written into the value rather than left to the renderer's default</b>, and that is
+    ///         the same argument the fragments make about <c>hover:from-*</c>: a hint in the text is
+    ///         one a person reading a generated sheet against Tailwind's documentation sees, and one
+    ///         <c>GradientReader</c> honours through the same code path it honours a hand-written
+    ///         <c>in srgb</c> with. A renderer-side default would be a second place the answer lives.
+    ///     </para>
     /// </remarks>
-    static string Linear(string direction) =>
-        $"linear-gradient({direction}, {UtilityComposition.Reference(UtilityComposition.GradientStops)})";
+    static string Gradient(string shape, string geometry) {
+        var prelude = geometry.Length == 0 ? "in oklab" : $"{geometry} in oklab";
+        return $"{shape}-gradient({prelude}, {UtilityComposition.Reference(UtilityComposition.GradientStops)})";
+    }
 }

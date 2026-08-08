@@ -257,25 +257,108 @@ public static class SoftwareUiRasterizer {
         var fill = colour;
 
         if (shape.Size.W > 0f) {
-            var axis = Normalize(new Vector2(shape.Axis.X, shape.Axis.Y));
-            var reach = MathF.Abs(axis.X * half.X) + MathF.Abs(axis.Y * half.Y);
-
-            var t = Math.Clamp(
-                ((((texture.X * axis.X) + (texture.Y * axis.Y)) / MathF.Max(reach, 1e-4f)) * 0.5f) + 0.5f,
-                0f,
-                1f
-            );
-
-            fill = new(
-                Lerp(colour.R, shape.End.X, t),
-                Lerp(colour.G, shape.End.Y, t),
-                Lerp(colour.B, shape.End.Z, t),
-                Lerp(colour.A, shape.End.W, t)
-            );
+            fill = GradientColour(shape, colour, Parameter(shape, texture, half));
         }
 
         var alpha = fill.A * coverage;
         return new(fill.R * alpha, fill.G * alpha, fill.B * alpha, alpha);
+    }
+
+    /// <summary>Where this pixel sits along the ramp, as <c>UiBox.Parameter</c> evaluates it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>No centre and no radius are read, because the record carries neither.</b> CSS's
+    ///     defaults for both round shapes are <i>at center</i> with an extent that is a function of the
+    ///     box, so the half size is all either of them needs — which is what let all four of A11's
+    ///     owed pieces fit inside two more <c>Vector4</c>s.
+    /// </remarks>
+    static float Parameter(UiShape shape, Vector2 point, Vector2 half) {
+        var kind = (int) (shape.Size.W + 0.5f);
+
+        if (kind == (int) GradientShape.Radial) {
+            // `ellipse farthest-corner at center`: the farthest-*side* ellipse is the point divided
+            // by the half size, on which the corner sits at root two — so the reciprocal of root two
+            // is the whole of `farthest-corner`.
+            var normalised = new Vector2(
+                point.X / MathF.Max(half.X, 1e-4f),
+                point.Y / MathF.Max(half.Y, 1e-4f)
+            );
+
+            return MathF.Sqrt((normalised.X * normalised.X) + (normalised.Y * normalised.Y)) * 0.70710678f;
+        }
+
+        if (kind == (int) GradientShape.Conic) {
+            // CSS starts at twelve o'clock and sweeps clockwise; screen space is y-down, so up is -y
+            // and `Atan2(x, -y)` is already CSS's angle. The axis's own angle is the `from <angle>`.
+            var angle = MathF.Atan2(point.X, -point.Y) - MathF.Atan2(shape.Axis.X, -shape.Axis.Y);
+            var turns = (angle / MathF.Tau) + 1f;
+
+            return turns - MathF.Floor(turns);
+        }
+
+        var axis = Normalize(new Vector2(shape.Axis.X, shape.Axis.Y));
+        var reach = MathF.Abs(axis.X * half.X) + MathF.Abs(axis.Y * half.Y);
+
+        return ((((point.X * axis.X) + (point.Y * axis.Y)) / MathF.Max(reach, 1e-4f)) * 0.5f) + 0.5f;
+    }
+
+    /// <summary>The colour at <c>t</c>, as <c>UiBox.GradientColour</c> evaluates it.</summary>
+    static Color4 GradientColour(UiShape shape, Color4 near, float t) {
+        var end = new Color4(shape.End.X, shape.End.Y, shape.End.Z, shape.End.W);
+
+        if (shape.Stops.W > 0f) {
+            var mid = new Color4(shape.Mid.X, shape.Mid.Y, shape.Mid.Z, shape.Mid.W);
+
+            // Which side of the *middle stop*, not of one half: with `via-40%` the two halves are
+            // different lengths, and splitting at 0.5 draws the right colour with the wrong slope.
+            return t < shape.Stops.Y
+                ? MixStops(shape, near, mid, Span(t, shape.Stops.X, shape.Stops.Y))
+                : MixStops(shape, mid, end, Span(t, shape.Stops.Y, shape.Stops.Z));
+        }
+
+        return MixStops(shape, near, end, Span(t, shape.Stops.X, shape.Stops.Z));
+    }
+
+    /// <summary>Where <c>t</c> sits between two stops, flat outside them.</summary>
+    /// <remarks>
+    ///     A zero-width span is a hard edge rather than a division by zero — <c>from-50% to-50%</c> is
+    ///     a legal declaration and a step is what it means.
+    /// </remarks>
+    static float Span(float t, float from, float to) {
+        var width = to - from;
+
+        return width > 1e-4f
+            ? Math.Clamp((t - from) / width, 0f, 1f)
+            : t < from ? 0f : 1f;
+    }
+
+    /// <summary>Mixes two stops in whichever space the record names.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Oklab goes through <see cref="Oklab.Lerp(Color4, Color4, float)" /> rather than being
+    ///     transcribed the way the rest of this file transcribes the shader</b>, and that is the one
+    ///     deliberate departure from "port the shader as written". The shader cannot call the host's
+    ///     implementation and spells the same matrices out; keeping <i>one</i> of the two authoritative
+    ///     means a mistake in the transcription shows up as a diff here instead of agreeing with
+    ///     itself. What that costs is the last bit or two: the shader's signed cube root is
+    ///     <c>sign(x)·pow(|x|, ⅓)</c> where <c>MathF.Cbrt</c> is correctly rounded, so the two are not
+    ///     bit-identical — which is a real limit on how tightly a device golden could ever pin this.
+    /// </remarks>
+    static Color4 MixStops(UiShape shape, Color4 a, Color4 b, float u) {
+        var space = (GradientSpace) (int) (shape.Axis.W + 0.5f);
+
+        if (space == GradientSpace.Oklab) {
+            return Oklab.Lerp(a, b, u);
+        }
+
+        if (space == GradientSpace.Srgb) {
+            return new Color4(
+                ColorSpace.SrgbToLinear(Lerp(ColorSpace.LinearToSrgb(a.R), ColorSpace.LinearToSrgb(b.R), u)),
+                ColorSpace.SrgbToLinear(Lerp(ColorSpace.LinearToSrgb(a.G), ColorSpace.LinearToSrgb(b.G), u)),
+                ColorSpace.SrgbToLinear(Lerp(ColorSpace.LinearToSrgb(a.B), ColorSpace.LinearToSrgb(b.B), u)),
+                Lerp(a.A, b.A, u)
+            );
+        }
+
+        return new Color4(Lerp(a.R, b.R, u), Lerp(a.G, b.G, u), Lerp(a.B, b.B, u), Lerp(a.A, b.A, u));
     }
 
     /// <summary>A glyph, as <c>ui-text.frag</c> evaluates it.</summary>

@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Styling.Utilities.UtilityComposition]
 tags: [ui, styling, utilities, tailwind, vcss, gradients, custom-properties]
 since: 0.2
 status: preview
-related: [editor/utility-styles, ui/markup-panels, core/gamut-mapping]
+related: [editor/utility-styles, ui/markup-panels, core/gamut-mapping, ui/gradients]
 ---
 
 ## What it is
@@ -142,20 +142,24 @@ into pixels, and it understands a subset:
 |---|---|
 | `bg-linear-*` with `from-*` and `to-*` | ✅ all eight directions, both colour notations |
 | `bg-linear-[<angle>]` in `deg`, `turn`, `rad` or `grad` | ✅ |
-| `via-*` — a middle stop | ❌ refused: `BoxStyle` has a start and one end |
-| `from-10%` / `to-90%` — stop positions | ❌ refused: the shader's parameter has no remap |
-| `bg-radial-*`, `bg-conic-*` | ❌ no such assembler, and no shader mode |
+| `via-*` — a middle stop | ✅ |
+| `from-10%` / `to-90%` — stop positions | ✅ including positions outside the box |
+| `bg-radial`, `bg-conic` | ✅ at CSS's default geometry, which is what those two classes mean |
+| `bg-radial-[at_…]`, `bg-conic-<angle>` | ❌ an explicit centre needs a `Vector4` no record has |
+| `background-position`, `-size`, `-repeat` | ❌ still inert |
 
-⚠ **Refused means nothing is painted, not that the nearest supported gradient is.** A three-stop
-declaration draws no gradient at all rather than a two-stop approximation of one, because a gradient
-of the right two colours and the wrong shape reads as a rendering bug rather than as a missing
-feature. The `background-color` underneath is unaffected — the image is a second layer over it, as in
-CSS — so a refused gradient leaves a flat element and not an invisible one.
+⚠ **Every assembler emits `in oklab`, which is Tailwind v4's behaviour and not CSS's default.** An
+unhinted gradient is sRGB in CSS, and a `.vcss` rule that writes one gets sRGB; the composed classes
+ask for a perceptual space explicitly, because the palette ships as v4.3.3's `oklch` values and
+interpolating two of them anywhere else throws the uniformity away at the midpoint. See
+[gradients](gradients.md).
 
-So the `from-10% … to-90%` example above composes exactly as shown and currently paints nothing. See
-`GradientRefusal` for the reasons enumerated, and `docs/plan/43-web-styling-parity.md` § A11 for what
-the remaining four cost — they all need the same growth in `UiShape`, so they will most likely arrive
-together.
+⚠ **Refused still means nothing is painted, not that the nearest supported gradient is.** A
+declaration with an explicit radial centre draws no gradient at all rather than a centred
+approximation of one, because a gradient of the right colours in the wrong place reads as a rendering
+bug rather than as a missing feature. The `background-color` underneath is unaffected — the image is a
+second layer over it, as in CSS — so a refused gradient leaves a flat element and not an invisible
+one. See `GradientRefusal` for the reasons enumerated.
 
 ## See also
 

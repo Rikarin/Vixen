@@ -842,17 +842,26 @@ public sealed class DrawListBuilder {
 
         var axis = gradient.Axis(width, height);
 
-        // A zero axis is the side buffer's sentinel for "no gradient", so a degenerate box would
-        // write a record that says *flat* and then paint the near stop over the whole element. There
-        // is nothing to see either way at this size; not emitting says so honestly.
-        if (axis == Vector2.Zero) {
+        // ⚠ A degenerate box has no direction to run a linear ramp along, and there is nothing to see
+        // at this size either way; not emitting says so honestly. Tested on the *shape* rather than on
+        // the axis, because a radial gradient's axis is legitimately zero — it has no direction at all
+        // — and the old sentinel would have erased every one of them.
+        if (gradient.Shape == GradientShape.Linear && axis == Vector2.Zero) {
             return;
         }
 
         // ⚠ Unconditionally into the side buffer, unlike `Styled`. The cheap path exists because a
         // uniformly rounded box needs nothing but its scalar radius — and a gradient is precisely a
         // box that needs more than that, so the test that skips the record has to be skipped here.
-        var offset = into.AddBox(new BoxStyle(corners, Fade(gradient.End, alpha), axis));
+        var offset = into.AddBox(
+            new BoxStyle(corners, Fade(gradient.End, alpha), axis) {
+                Shape = gradient.Shape,
+                Space = gradient.Space,
+                GradientVia = Fade(gradient.Via, alpha),
+                HasVia = gradient.HasVia,
+                Stops = gradient.Stops
+            }
+        );
 
         into.Add(
             new DrawCommand(

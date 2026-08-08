@@ -89,6 +89,28 @@ public sealed class UiRenderer : IDisposable {
     BufferHandle indices;
     BufferHandle boxes;
 
+    /// <summary>How many bytes one <see cref="UiShape" /> is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Taken from the type rather than written down, and it was written down in three
+    ///         places until the record grew.</b> <c>UiShape</c> went from eighty bytes to a hundred and
+    ///         twelve when gradients gained a middle stop and two round shapes, and the literal
+    ///         <c>80</c> here sized the storage buffer, strided the upload and bounded the descriptor
+    ///         range. What that produced was not a validation error: the buffer was allocated at
+    ///         seven-tenths of the size the writes needed, so boxes past the first few read whatever
+    ///         was next in memory — which is a frame of plausible rounded rectangles with the wrong
+    ///         radii, exactly the failure <c>UiShape</c>'s own remark warns about.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the <i>fifth</i> file that has to agree about the layout</b>, and
+    ///         <c>docs/plan/43</c> § A11 listed four. The other four all describe the record's shape;
+    ///         this one only needs its size, which is why it was easy to miss and why deriving it means
+    ///         it can never be missed again. <c>UiShapeLayoutTests</c> covers the shape; the size is
+    ///         covered by not having a second opinion about it.
+    ///     </para>
+    /// </remarks>
+    static readonly int ShapeBytes = Marshal.SizeOf<UiShape>();
+
     /// <summary>How many bytes one frame's region of each buffer is.</summary>
     /// <remarks>Per region, not per buffer: each buffer is this many bytes times <see cref="slots" />.</remarks>
     int vertexCapacity;
@@ -452,7 +474,7 @@ public sealed class UiRenderer : IDisposable {
             // One shape's worth, because the size is what a storage binding needs and nothing reads
             // past it. See the field for why it is not the box buffer.
             imageBoxes = device.CreateBuffer(
-                new(80, BufferUsage.Storage, MemoryAccess.HostUpload, "ui image boxes")
+                new(ShapeBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "ui image boxes")
             );
         }
 
@@ -519,7 +541,7 @@ public sealed class UiRenderer : IDisposable {
             [
                 DescriptorWrite.Texture(0, view),
                 DescriptorWrite.SamplerAt(1, sampler),
-                DescriptorWrite.Storage(2, imageBoxes, 0, 80)
+                DescriptorWrite.Storage(2, imageBoxes, 0, ShapeBytes)
             ]
         );
 
@@ -638,7 +660,7 @@ public sealed class UiRenderer : IDisposable {
         // allocation behind it is a descriptor pointing at nothing, and a frame of pure text would
         // bind it and never read it — which is undefined rather than harmless, and would be
         // undefined only on the frames where nothing looked wrong.
-        var boxBytes = Math.Max(geometry.Shapes.Count, 1) * 80;
+        var boxBytes = Math.Max(geometry.Shapes.Count, 1) * ShapeBytes;
 
         if (Grow(ref boxes, ref boxCapacity, boxBytes, BufferUsage.Storage, "ui boxes")) {
             // ⚠ Growing the buffer replaced it, so every frame's descriptor set points at a buffer

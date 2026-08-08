@@ -17,11 +17,18 @@ namespace Vixen.Ui;
 ///         the failure is a gradient that is visibly *absent* rather than one that is quietly wrong.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The reasons are separate on purpose.</b> <see cref="Stops" /> and
-///         <see cref="Position" /> are both "the stop list is not two plain ends", and telling them
-///         apart is what says whether the answer is <c>via-*</c> support or stop positions — which are
-///         different pieces of work against different parts of the shader. Collapsing them into one
-///         "unsupported" would throw away the only measurement of which is owed.
+///         ⚠ <b>The reasons are separate on purpose, and that separation has now paid once.</b>
+///         <see cref="Stops" /> and <see cref="Position" /> used to mean "a middle stop" and "a stop
+///         that is not at its end" — two of the four pieces doc 43 § A11 owed — and keeping them apart
+///         is what measured which was which. Both are painted now, and both names survive with
+///         narrower meanings: a <i>fourth</i> stop, and a position that cannot be resolved to a
+///         fraction. A single "unsupported" would have thrown that measurement away and would be
+///         throwing away the next one.
+///     </para>
+///     <para>
+///         ⚠ <b>What is left is not a to-do list.</b> <see cref="Repeating" /> and
+///         <see cref="Interpolation" /> are different shaders rather than missing lanes, and
+///         <see cref="Extent" /> is a deliberate trade written down on its own member.
 ///     </para>
 /// </remarks>
 enum GradientRefusal : byte {
@@ -31,26 +38,46 @@ enum GradientRefusal : byte {
     /// <summary>There is no <c>background-image</c>, or it is <c>none</c>. Not a failure.</summary>
     Absent,
 
-    /// <summary>A <c>radial-gradient()</c>. <see cref="BoxStyle.GradientAxis" /> is linear by construction.</summary>
-    Radial,
-
-    /// <summary>A <c>conic-gradient()</c>. Ditto.</summary>
-    Conic,
+    /// <summary>A <c>repeating-*-gradient()</c>. The ramp runs once and the record cannot say twice.</summary>
+    Repeating,
 
     /// <summary>A <c>url()</c>, an <c>image-set()</c>, or anything else that is not a gradient.</summary>
     NotAGradient,
 
-    /// <summary>An interpolation hint — <c>in oklab</c>, <c>in hsl longer hue</c>.</summary>
+    /// <summary>An interpolation hint naming a space this engine does not mix in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Narrower than it was, and the difference is the point.</b> This used to mean any
+    ///     <c>in …</c> at all; <c>in srgb</c>, <c>in srgb-linear</c> and <c>in oklab</c> are now
+    ///     honoured, so what is left is the polar spaces — <c>in hsl</c>, <c>in oklch</c>,
+    ///     <c>longer hue</c> — where the interpolation path curves through hue and is a genuinely
+    ///     different picture rather than a different lerp.
+    /// </remarks>
     Interpolation,
 
-    /// <summary>More than two stops. A middle stop is <c>via-*</c>, and there is no third colour.</summary>
+    /// <summary>More than three stops. Three is a start, a middle and an end, which is Tailwind's shape.</summary>
     Stops,
 
-    /// <summary>A stop is somewhere other than the two ends.</summary>
+    /// <summary>A stop position this engine cannot resolve — a length, a <c>calc()</c>, a hint.</summary>
+    /// <remarks>
+    ///     ⚠ A <c>&lt;length&gt;</c> position such as <c>10px</c> is refused rather than converted,
+    ///     because converting it needs the gradient line's length and that is a function of the box —
+    ///     which is not known here. See <see cref="BackgroundGradient.Axis" /> for the same argument
+    ///     about corners, which is resolved later precisely because it can be.
+    /// </remarks>
     Position,
 
     /// <summary>A direction this engine cannot resolve to an axis.</summary>
     Direction,
+
+    /// <summary>An explicit <c>at &lt;position&gt;</c>, ending shape or size on a round gradient.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The record has no centre and no radius, and that is what made all of A11 fit.</b> CSS's
+    ///     defaults — <c>ellipse farthest-corner at center</c>, and <c>at center</c> for a conic — are
+    ///     functions of the box the shader already has, so the common case costs no lanes at all. An
+    ///     <i>explicit</i> centre or extent would cost three, which is a whole further <c>Vector4</c>
+    ///     for a form Tailwind only reaches through its arbitrary-value syntax.
+    /// </remarks>
+    Extent,
 
     /// <summary>A stop whose colour did not parse.</summary>
     Colour,
@@ -85,18 +112,30 @@ enum GradientCorner : byte {
     BottomLeft
 }
 
-/// <summary>A two-stop linear gradient, as much of one as this engine paints.</summary>
-/// <param name="Start">The colour at the near end. Becomes the draw command's own colour.</param>
-/// <param name="End">The colour at the far end. Becomes <see cref="BoxStyle.GradientEnd" />.</param>
+/// <summary>A gradient, as much of one as this engine paints.</summary>
+/// <param name="Start">The colour at the first stop. Becomes the draw command's own colour.</param>
+/// <param name="Via">The colour at the middle stop, when <paramref name="HasVia" />.</param>
+/// <param name="End">The colour at the last stop. Becomes <see cref="BoxStyle.GradientEnd" />.</param>
+/// <param name="HasVia">Whether there is a middle stop.</param>
+/// <param name="Stops">Where the three stops sit, already sorted and defaulted.</param>
+/// <param name="Shape">Linear, radial or conic.</param>
+/// <param name="Space">Which space the stops interpolate in.</param>
 /// <param name="Angle">
 ///     Where the far end is, in radians, CSS's convention: zero is <c>to top</c> and it increases
 ///     clockwise. Ignored when <paramref name="Corner" /> is not <see cref="GradientCorner.None" />.
+///     A conic gradient's <c>from</c> angle is carried here too, for the reason
+///     <see cref="Axis" /> gives.
 /// </param>
 /// <param name="Corner">The corner the far end sits on, or <see cref="GradientCorner.None" />.</param>
 /// <param name="Refusal">Why this is not paintable, or <see cref="GradientRefusal.None" />.</param>
 readonly record struct BackgroundGradient(
     Color4 Start,
+    Color4 Via,
     Color4 End,
+    bool HasVia,
+    GradientStops Stops,
+    GradientShape Shape,
+    GradientSpace Space,
     float Angle,
     GradientCorner Corner,
     GradientRefusal Refusal
@@ -107,8 +146,18 @@ readonly record struct BackgroundGradient(
     /// <summary>A refusal, with no colours.</summary>
     /// <param name="reason">Why.</param>
     /// <returns>The refusal.</returns>
-    public static BackgroundGradient Refused(GradientRefusal reason) =>
-        new(default, default, 0f, GradientCorner.None, reason);
+    public static BackgroundGradient Refused(GradientRefusal reason) => new(
+        default,
+        default,
+        default,
+        false,
+        GradientStops.Default,
+        GradientShape.None,
+        GradientSpace.Srgb,
+        0f,
+        GradientCorner.None,
+        reason
+    );
 
     /// <summary>Which way the gradient runs across a box of this size, in the box's own space.</summary>
     /// <param name="width">The box's width in pixels.</param>
@@ -136,11 +185,18 @@ readonly record struct BackgroundGradient(
     ///     </para>
     /// </remarks>
     public Vector2 Axis(float width, float height) {
-        if (!IsPaintable) {
+        if (!IsPaintable || Shape == GradientShape.Radial) {
+            // ⚠ A radial gradient has no direction, and this returning zero is *not* the sentinel it
+            // used to be. `BoxStyle.Shape` is what says whether there is a gradient now, precisely
+            // because a round one could not be told from a flat fill by an axis that has no meaning.
             return Vector2.Zero;
         }
 
         if (Corner == GradientCorner.None) {
+            // ⚠ A conic gradient's axis is not an axis; it is the direction its zero angle points,
+            // and the same formula produces it. That is deliberate rather than reuse for its own
+            // sake: the shader recovers the angle with `atan2(x, -y)`, which inverts exactly this,
+            // so `from 45deg` survives the round trip through a lane that already existed.
             return new Vector2(MathF.Sin(Angle), -MathF.Cos(Angle));
         }
 
@@ -166,7 +222,7 @@ readonly record struct BackgroundGradient(
     }
 }
 
-/// <summary>Reads a computed <c>background-image</c> into the two-stop gradient the shader draws.</summary>
+/// <summary>Reads a computed <c>background-image</c> into the gradient the shader draws.</summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>Cached by interned value id, and that is not an optimisation detail.</b> This runs
@@ -188,10 +244,28 @@ readonly record struct BackgroundGradient(
 ///         to <see cref="StyleValueParser" /> is what makes that a non-question rather than a bug
 ///         waiting for the first hand-written rule.
 ///     </para>
+///     <para>
+///         ⚠ <b>And the same is true of the <i>positions</i>, which is the trap that catches the
+///         second person here.</b> Nothing normalises them either, so <c>from-10%</c> composes into a
+///         stop reading <c>10%</c> while a value that went through ExCSS may have been rewritten —
+///         and a <c>--tw-gradient-from-position</c> that nobody set arrives as the fragment's own
+///         initial text. Every position is therefore read from text with the same code path whatever
+///         wrote it, and a position this file cannot resolve is <see cref="GradientRefusal.Position" />
+///         rather than a silent zero.
+///     </para>
 /// </remarks>
 sealed class GradientReader {
-    /// <summary>How many stops a paintable gradient has. Two: a start and an end.</summary>
-    const int PaintableStops = 2;
+    /// <summary>The fewest stops a gradient can have, and the most this record carries.</summary>
+    const int LeastStops = 2;
+
+    /// <summary>Three: a start, a middle and an end, which is exactly Tailwind's shape.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A fourth is refused rather than resampled.</b> The record has one middle colour and a
+    ///     shader with one branch; approximating four stops with three draws a gradient that is right
+    ///     at both ends and wrong in the interior, which is <see cref="GradientRefusal" />'s whole
+    ///     argument. A stop list long enough to need more is a 1D ramp texture, not this.
+    /// </remarks>
+    const int MostStops = 3;
 
     readonly Dictionary<int, BackgroundGradient> cache = [];
     readonly NameTable values;
@@ -242,18 +316,20 @@ sealed class GradientReader {
 
         // ⚠ Named one at a time rather than by a "contains gradient" test, so that a
         // `repeating-linear-gradient` is refused as what it is instead of being mistaken for the
-        // plain one and drawn with its repeats silently dropped.
-        if (name.Equals("radial-gradient", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("repeating-radial-gradient", StringComparison.OrdinalIgnoreCase)) {
-            return BackgroundGradient.Refused(GradientRefusal.Radial);
+        // plain one and drawn with its repeats silently dropped. The record's parameter is clamped
+        // at both ends, so repeating is not a lane away — it is a different shader.
+        if (name.StartsWith("repeating-", StringComparison.OrdinalIgnoreCase)) {
+            return BackgroundGradient.Refused(GradientRefusal.Repeating);
         }
 
-        if (name.Equals("conic-gradient", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("repeating-conic-gradient", StringComparison.OrdinalIgnoreCase)) {
-            return BackgroundGradient.Refused(GradientRefusal.Conic);
-        }
+        var shape = name switch {
+            _ when name.Equals("linear-gradient", StringComparison.OrdinalIgnoreCase) => GradientShape.Linear,
+            _ when name.Equals("radial-gradient", StringComparison.OrdinalIgnoreCase) => GradientShape.Radial,
+            _ when name.Equals("conic-gradient", StringComparison.OrdinalIgnoreCase) => GradientShape.Conic,
+            _ => GradientShape.None
+        };
 
-        if (!name.Equals("linear-gradient", StringComparison.OrdinalIgnoreCase)) {
+        if (shape == GradientShape.None) {
             return BackgroundGradient.Refused(GradientRefusal.NotAGradient);
         }
 
@@ -264,75 +340,340 @@ sealed class GradientReader {
             return BackgroundGradient.Refused(GradientRefusal.Syntax);
         }
 
-        // CSS's default direction is `to bottom`, which is 180° and not zero — a gradient with no
-        // direction at all runs down the box, and defaulting to zero would run every one of them up.
-        var angle = MathF.PI;
+        // CSS's default direction for a linear gradient is `to bottom`, which is 180° and not zero —
+        // one with no direction at all runs down the box, and defaulting to zero would run every one
+        // of them up. A conic gradient's default `from` is 0deg, which in the same convention is up,
+        // so the two defaults are genuinely different numbers rather than one shared constant.
+        var angle = shape == GradientShape.Linear ? MathF.PI : 0f;
         var corner = GradientCorner.None;
+
+        // ⚠ <b>sRGB, because that is what CSS says an unhinted gradient means</b> — not linear RGB,
+        // which is what this engine paints in and what the shader lerped in before there was a
+        // choice. The two disagree most exactly at the midpoint. Tailwind writes `in oklab` on every
+        // gradient it generates, so the composed path never reaches this default; a hand-written
+        // `.vcss` rule does, and it should match a browser.
+        var space = GradientSpace.Srgb;
+
         var first = arguments[parts[0]].Trim();
         var stopsFrom = 0;
 
         if (!LooksLikeStop(first)) {
             stopsFrom = 1;
 
-            var direction = ReadDirection(first, ref angle, ref corner);
-            if (direction != GradientRefusal.None) {
-                return BackgroundGradient.Refused(direction);
+            var prelude = ReadPrelude(first, shape, ref angle, ref corner, ref space);
+            if (prelude != GradientRefusal.None) {
+                return BackgroundGradient.Refused(prelude);
             }
         }
 
         var stops = count - stopsFrom;
 
-        if (stops < PaintableStops) {
+        if (stops < LeastStops) {
             return BackgroundGradient.Refused(GradientRefusal.Syntax);
         }
 
-        // ⚠ <b>Refused rather than approximated by its two ends.</b> `via-*` composes a real middle
-        // stop, and dropping it draws a gradient that is the right two colours and the wrong shape
-        // everywhere between them — which reads as a rendering bug in the theme rather than as a
-        // missing feature. See docs/plan/43 § A11 for what a third stop costs.
-        if (stops > PaintableStops) {
+        if (stops > MostStops) {
             return BackgroundGradient.Refused(GradientRefusal.Stops);
         }
 
-        if (!ReadStop(arguments[parts[stopsFrom]], 0f, out var start, out var startRefusal)) {
-            return BackgroundGradient.Refused(startRefusal);
+        Span<Color4> colours = stackalloc Color4[MostStops];
+        Span<float> positions = stackalloc float[MostStops];
+        Span<bool> stated = stackalloc bool[MostStops];
+
+        for (var i = 0; i < stops; i++) {
+            if (!ReadStop(arguments[parts[stopsFrom + i]], out colours[i], out positions[i], out stated[i], out var why)) {
+                return BackgroundGradient.Refused(why);
+            }
         }
 
-        if (!ReadStop(arguments[parts[stopsFrom + 1]], 1f, out var end, out var endRefusal)) {
-            return BackgroundGradient.Refused(endRefusal);
-        }
+        Resolve(positions[..stops], stated[..stops]);
 
-        return new BackgroundGradient(start, end, angle, corner, GradientRefusal.None);
+        var hasVia = stops == MostStops;
+
+        return new BackgroundGradient(
+            colours[0],
+            hasVia ? colours[1] : default,
+            colours[stops - 1],
+            hasVia,
+            new GradientStops(positions[0], hasVia ? positions[1] : 0.5f, positions[stops - 1]),
+            shape,
+            space,
+            angle,
+            corner,
+            GradientRefusal.None
+        );
     }
 
-    /// <summary>Whether an argument is a colour stop rather than a direction.</summary>
+    /// <summary>Fills in the positions nobody stated, then makes the list non-decreasing.</summary>
+    /// <param name="positions">The positions, stated or not, rewritten in place.</param>
+    /// <param name="stated">Which of them the author actually wrote.</param>
     /// <remarks>
-    ///     A direction is <c>to …</c> or an angle, and everything else in the first slot is a colour.
-    ///     Tested by what it starts with rather than by trying to parse it both ways, because
-    ///     <c>to</c> is not a colour and a colour never begins with a digit followed by an angle unit
-    ///     — and because a failed colour parse has to stay distinguishable from a direction, so that
-    ///     a typo in the first stop is reported as <see cref="GradientRefusal.Colour" />.
+    ///     <para>
+    ///         CSS's rule, in the two cases three stops can produce. An unstated first stop is at
+    ///         zero and an unstated last is at one; an unstated middle is halfway between its
+    ///         neighbours, which for three stops is the average of the ends and is <i>not</i>
+    ///         necessarily 50% — <c>from-20% to-100%</c> with a bare <c>via-red</c> puts the middle
+    ///         at 60%.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The non-decreasing pass is last and is not tidying.</b> CSS says a stop earlier
+    ///         in the list than its predecessor is clamped up to it, which turns <c>from-60% to-20%</c>
+    ///         into a hard edge at 60% rather than into a backwards ramp. Without it the shader's
+    ///         <c>Span</c> sees a negative width, takes its zero-width branch, and draws the step in
+    ///         the right place by accident — which is the kind of agreement that stops holding the
+    ///         moment either side is touched.
+    ///     </para>
     /// </remarks>
-    static bool LooksLikeStop(ReadOnlySpan<char> text) =>
-        !text.StartsWith("to ", StringComparison.OrdinalIgnoreCase)
-        && !text.StartsWith("in ", StringComparison.OrdinalIgnoreCase)
-        && !(text.Length > 0 && (char.IsAsciiDigit(text[0]) || text[0] is '-' or '+' or '.'));
-
-    /// <summary>Reads the first argument as a direction.</summary>
-    static GradientRefusal ReadDirection(ReadOnlySpan<char> text, ref float angle, ref GradientCorner corner) {
-        // ⚠ An interpolation hint is refused and never ignored. `linear-gradient(in oklab, …)` and
-        // the same gradient without the hint are *different pictures* — that is the entire reason
-        // CSS Color 4 added the syntax — so honouring the stops and dropping the space would draw
-        // the one thing the author explicitly asked not to have.
-        if (text.StartsWith("in ", StringComparison.OrdinalIgnoreCase) || ContainsWord(text, "in")) {
-            return GradientRefusal.Interpolation;
+    static void Resolve(Span<float> positions, ReadOnlySpan<bool> stated) {
+        if (!stated[0]) {
+            positions[0] = 0f;
         }
 
-        if (text.StartsWith("to ", StringComparison.OrdinalIgnoreCase)) {
-            return ReadSide(text[3..].Trim(), ref angle, ref corner);
+        var last = positions.Length - 1;
+
+        if (!stated[last]) {
+            positions[last] = 1f;
         }
 
-        return ReadAngle(text, ref angle);
+        for (var i = 1; i < last; i++) {
+            if (!stated[i]) {
+                positions[i] = (positions[i - 1] + positions[last]) / 2f;
+            }
+        }
+
+        for (var i = 1; i < positions.Length; i++) {
+            positions[i] = MathF.Max(positions[i], positions[i - 1]);
+        }
+    }
+
+    /// <summary>Whether an argument is a colour stop rather than a prelude.</summary>
+    /// <remarks>
+    ///     A prelude opens with one of CSS's own keywords or with an angle, and everything else in the
+    ///     first slot is a colour. Tested by what it starts with rather than by trying to parse it
+    ///     both ways, because none of these words is a colour and a colour never begins with a digit —
+    ///     and because a failed colour parse has to stay distinguishable from a direction, so that a
+    ///     typo in the first stop is reported as <see cref="GradientRefusal.Colour" />.
+    /// </remarks>
+    static bool LooksLikeStop(ReadOnlySpan<char> text) {
+        if (text.Length > 0 && (char.IsAsciiDigit(text[0]) || text[0] is '-' or '+' or '.')) {
+            return false;
+        }
+
+        foreach (var keyword in (ReadOnlySpan<string>) [
+            "to ", "in ", "from ", "at ", "circle", "ellipse", "closest-", "farthest-"
+        ]) {
+            if (text.StartsWith(keyword, StringComparison.OrdinalIgnoreCase)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Reads the first argument: a direction, a round gradient's geometry, and a space.</summary>
+    /// <param name="text">The argument.</param>
+    /// <param name="shape">Which gradient function this is.</param>
+    /// <param name="angle">The direction, or a conic's <c>from</c>.</param>
+    /// <param name="corner">The corner a <c>to bottom right</c> names.</param>
+    /// <param name="space">Which space to interpolate in.</param>
+    /// <returns>Why it was refused, or <see cref="GradientRefusal.None" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One scanner over three grammars, because CSS's own grammar is a <c>||</c>.</b> The
+    ///         geometry and the interpolation method may appear in either order in the same
+    ///         comma-separated argument — <c>to right in oklab</c> and <c>in oklab to right</c> are the
+    ///         same declaration — so reading a prefix and then the rest cannot be right. Tailwind
+    ///         happens to emit the first order every time, which is exactly why the second one would
+    ///         have gone unnoticed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unknown word is a refusal and never a skip.</b> The words this does not
+    ///         understand are the ones that change the picture — <c>at 20% 80%</c>, <c>circle</c>,
+    ///         <c>longer hue</c> — so quietly ignoring one draws a centred farthest-corner ellipse for
+    ///         a declaration that asked for something else and looks like a gradient that is merely
+    ///         positioned oddly.
+    ///     </para>
+    /// </remarks>
+    static GradientRefusal ReadPrelude(
+        ReadOnlySpan<char> text,
+        GradientShape shape,
+        ref float angle,
+        ref GradientCorner corner,
+        ref GradientSpace space
+    ) {
+        Span<Range> words = stackalloc Range[12];
+        var count = SplitWords(text, words);
+
+        if (count == 0) {
+            return GradientRefusal.Direction;
+        }
+
+        for (var i = 0; i < count; i++) {
+            var word = text[words[i]];
+
+            if (word.Equals("in", StringComparison.OrdinalIgnoreCase)) {
+                if (++i >= count) {
+                    return GradientRefusal.Interpolation;
+                }
+
+                if (!ReadSpace(text[words[i]], ref space)) {
+                    return GradientRefusal.Interpolation;
+                }
+
+                // A hue method — `shorter hue`, `longer hue` — is two more words and a different
+                // interpolation path entirely, so its presence is a refusal even after the space
+                // itself was understood.
+                if (i + 1 < count && text[words[i + 1]].Equals("hue", StringComparison.OrdinalIgnoreCase)) {
+                    return GradientRefusal.Interpolation;
+                }
+
+                continue;
+            }
+
+            if (word.Equals("to", StringComparison.OrdinalIgnoreCase)) {
+                if (shape != GradientShape.Linear) {
+                    return GradientRefusal.Direction;
+                }
+
+                var from = i + 1;
+
+                while (i + 1 < count && IsSide(text[words[i + 1]])) {
+                    i++;
+                }
+
+                if (i < from) {
+                    return GradientRefusal.Direction;
+                }
+
+                var side = text[words[from].Start..words[i].End];
+
+                var refusal = ReadSide(side, ref angle, ref corner);
+                if (refusal != GradientRefusal.None) {
+                    return refusal;
+                }
+
+                continue;
+            }
+
+            if (word.Equals("from", StringComparison.OrdinalIgnoreCase)) {
+                if (shape != GradientShape.Conic || ++i >= count) {
+                    return GradientRefusal.Direction;
+                }
+
+                var refusal = ReadAngle(text[words[i]], ref angle);
+                if (refusal != GradientRefusal.None) {
+                    return refusal;
+                }
+
+                continue;
+            }
+
+            // ⚠ `ellipse farthest-corner at center` is CSS's default and is accepted for saying so;
+            // everything else about a round gradient's geometry is a centre or an extent the record
+            // has no lanes for. See `GradientRefusal.Extent`.
+            if (shape != GradientShape.Linear
+                && (word.Equals("ellipse", StringComparison.OrdinalIgnoreCase)
+                    || word.Equals("farthest-corner", StringComparison.OrdinalIgnoreCase))) {
+                continue;
+            }
+
+            if (word.Equals("at", StringComparison.OrdinalIgnoreCase)
+                || word.Equals("circle", StringComparison.OrdinalIgnoreCase)
+                || word.StartsWith("closest-", StringComparison.OrdinalIgnoreCase)
+                || word.StartsWith("farthest-", StringComparison.OrdinalIgnoreCase)) {
+                return GradientRefusal.Extent;
+            }
+
+            if (shape == GradientShape.Radial) {
+                // ⚠ <c>Extent</c> and not <c>Direction</c>. A bare length or percentage in a radial
+                // prelude is its *size* — <c>radial-gradient(80px, …)</c> — and reporting it as an
+                // unreadable direction would send the next reader to the angle parser, which is the
+                // one part of this file that has nothing to do with it. The refusal reason is the
+                // measurement, which is the whole argument this enum is built on.
+                return GradientRefusal.Extent;
+            }
+
+            if (shape == GradientShape.Conic) {
+                // A conic's angle has to be spelled `from <angle>`; a bare one is not CSS.
+                return GradientRefusal.Direction;
+            }
+
+            var read = ReadAngle(word, ref angle);
+            if (read != GradientRefusal.None) {
+                return read;
+            }
+        }
+
+        return GradientRefusal.None;
+    }
+
+    /// <summary>Maps a CSS colour space name onto one this shader mixes in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the rectangular spaces, and the omissions are deliberate rather than pending.</b>
+    ///     <c>hsl</c>, <c>hwb</c>, <c>lch</c> and <c>oklch</c> interpolate along a hue *arc*, which is
+    ///     not a lerp in any three lanes — two colours plus a direction round the wheel is a different
+    ///     shader, not a different constant. <c>lab</c> and <c>display-p3</c> are rectangular and could
+    ///     be added as two more transfer functions; they are refused because nothing asks for them and
+    ///     an untested space is worse than an honest gap.
+    /// </remarks>
+    static bool ReadSpace(ReadOnlySpan<char> text, ref GradientSpace space) {
+        if (text.Equals("srgb", StringComparison.OrdinalIgnoreCase)) {
+            space = GradientSpace.Srgb;
+            return true;
+        }
+
+        if (text.Equals("srgb-linear", StringComparison.OrdinalIgnoreCase)) {
+            space = GradientSpace.Linear;
+            return true;
+        }
+
+        if (text.Equals("oklab", StringComparison.OrdinalIgnoreCase)) {
+            space = GradientSpace.Oklab;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether a word is one of the four sides a <c>to …</c> can name.</summary>
+    static bool IsSide(ReadOnlySpan<char> word) =>
+        word.Equals("top", StringComparison.OrdinalIgnoreCase)
+        || word.Equals("bottom", StringComparison.OrdinalIgnoreCase)
+        || word.Equals("left", StringComparison.OrdinalIgnoreCase)
+        || word.Equals("right", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Splits on runs of whitespace that are not inside a function.</summary>
+    static int SplitWords(ReadOnlySpan<char> text, Span<Range> ranges) {
+        var count = 0;
+        var depth = 0;
+        var start = -1;
+
+        for (var i = 0; i <= text.Length && count < ranges.Length; i++) {
+            var boundary = i == text.Length || (depth == 0 && char.IsWhiteSpace(text[i]));
+
+            if (i < text.Length) {
+                switch (text[i]) {
+                    case '(':
+                        depth++;
+                        break;
+
+                    case ')':
+                        depth--;
+                        break;
+                }
+            }
+
+            if (boundary) {
+                if (start >= 0) {
+                    ranges[count++] = new Range(start, i);
+                    start = -1;
+                }
+            } else if (start < 0) {
+                start = i;
+            }
+        }
+
+        return count;
     }
 
     /// <summary>Reads <c>right</c>, <c>bottom left</c> and the rest of the eight.</summary>
@@ -431,37 +772,73 @@ sealed class GradientReader {
 
     /// <summary>Reads one <c>&lt;colour&gt; [&lt;position&gt;]</c> stop.</summary>
     /// <param name="text">The stop.</param>
-    /// <param name="expected">Where it has to be — zero for the start, one for the end.</param>
     /// <param name="colour">Its colour.</param>
+    /// <param name="position">Where it sits, when it said.</param>
+    /// <param name="stated">Whether it said.</param>
     /// <param name="refusal">Why it was refused, when it was.</param>
     /// <returns>Whether it is a stop this engine can paint.</returns>
     /// <remarks>
-    ///     ⚠ <b>A position that is not the end it belongs to is a refusal and not a rounding.</b> The
-    ///     shader's parameter runs zero to one across the box with no scale and no bias to spare, so
-    ///     <c>from-10%</c> cannot be honoured by moving a colour — it needs the ramp remapped, which
-    ///     is a field in <c>UiShape</c> and a line in the shader. Painting it at 0% instead puts the
-    ///     transition in the wrong place over the whole box, which is precisely the silent wrongness
-    ///     this type exists to refuse. The composed utilities always write <c>0%</c> and <c>100%</c>,
-    ///     so the common path states its positions rather than omitting them, and both spellings have
-    ///     to be accepted.
+    ///     <para>
+    ///         ⚠ <b>Whether a position was stated is carried out separately from what it is, because
+    ///         the two mean different things and zero is a legal answer to both.</b> An omitted first
+    ///         position and <c>from-0%</c> agree here and stop agreeing the moment a middle stop
+    ///         exists: an unstated middle sits halfway between its neighbours, and a stated
+    ///         <c>via-0%</c> is a hard edge at the start. Folding them together loses the only thing
+    ///         <see cref="Resolve" /> needs to know.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A trailing token that looks numeric and does not parse is a refusal, not part of
+    ///         the colour.</b> <c>#fff 10px</c> and <c>#fff calc(10%)</c> are positions this file
+    ///         cannot resolve; folding them back into the colour makes the whole stop fail as
+    ///         <see cref="GradientRefusal.Colour" />, which sends the next reader looking at the
+    ///         palette. Anything not starting with a digit really is part of a multi-word colour.
+    ///     </para>
     /// </remarks>
-    bool ReadStop(ReadOnlySpan<char> text, float expected, out Color4 colour, out GradientRefusal refusal) {
+    bool ReadStop(
+        ReadOnlySpan<char> text,
+        out Color4 colour,
+        out float position,
+        out bool stated,
+        out GradientRefusal refusal
+    ) {
         colour = default;
+        position = 0f;
+        stated = false;
         text = text.Trim();
 
-        var split = LastSpace(text);
-        var position = split < 0 ? ReadOnlySpan<char>.Empty : text[(split + 1)..];
-        var body = split < 0 ? text : text[..split].Trim();
+        var body = text;
+        var split = LastSpace(body);
 
-        if (!position.IsEmpty) {
-            if (!ReadPosition(position, out var where)) {
-                // Not a position after all — a multi-word colour like `rgb(1 2 3)` already came back
-                // as one token, so anything left here that is not a number is part of the colour.
-                body = text;
-            } else if (MathF.Abs(where - expected) > 1e-4f) {
-                refusal = GradientRefusal.Position;
-                return false;
+        if (split >= 0) {
+            var trailing = body[(split + 1)..];
+
+            if (IsNumeric(trailing)) {
+                if (!ReadPosition(trailing, out position)) {
+                    refusal = GradientRefusal.Position;
+                    return false;
+                }
+
+                stated = true;
+                body = body[..split].Trim();
+
+                // ⚠ CSS lets one stop carry *two* positions — `red 0% 40%` is shorthand for the same
+                // colour twice — and the record has one lane per stop. Caught by looking again rather
+                // than by trusting the count, because the second one is what turns a three-stop
+                // declaration into a four-stop ramp.
+                var again = LastSpace(body);
+
+                if (again >= 0 && IsNumeric(body[(again + 1)..])) {
+                    refusal = GradientRefusal.Position;
+                    return false;
+                }
             }
+        }
+
+        if (body.IsEmpty) {
+            // A bare position with no colour is CSS's interpolation *hint*, which moves the midpoint
+            // of a ramp rather than adding a stop to it. A different feature wearing the same syntax.
+            refusal = GradientRefusal.Position;
+            return false;
         }
 
         var value = parser.Parse(body);
@@ -477,7 +854,18 @@ sealed class GradientReader {
         return true;
     }
 
+    /// <summary>Whether a token is meant to be a number, whatever it turns out to be.</summary>
+    static bool IsNumeric(ReadOnlySpan<char> text) =>
+        text.Length > 0 && (char.IsAsciiDigit(text[0]) || text[0] is '-' or '+' or '.');
+
     /// <summary>Reads a stop position as a fraction, from a percentage or a bare zero.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not clamped to <c>[0, 1]</c>.</b> CSS lets a stop sit outside the box —
+    ///     <c>red -20%, blue 120%</c> is a ramp whose ends are off either edge, so what shows is its
+    ///     middle — and the shader's <c>Span</c> divides by the stated width, which reproduces that
+    ///     exactly. Clamping here would flatten it into a full-width ramp, brighter at both edges than
+    ///     the author asked for.
+    /// </remarks>
     static bool ReadPosition(ReadOnlySpan<char> text, out float position) {
         position = 0f;
 

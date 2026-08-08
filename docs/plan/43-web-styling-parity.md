@@ -147,38 +147,82 @@ reads `border-top-width` and insets the content box, and the draw list paints no
 is false, because the box really does get narrower. There are 29 of these and they are the most
 expensive rows in the table, because each is a utility that *half* does what it says.
 
-### What a third stop costs
+### What a third stop cost
 
-`background-image` is no longer inert: a two-stop `linear-gradient()` parses into `BoxStyle` and
-paints. This section is the measurement of what the *rest* of A11 costs, written down because all
-four remaining pieces turn out to be the same piece of work and that is not obvious from the utility
-side, where `via-*` and `bg-radial-*` look like two more table entries.
+**Built.** `via-*`, stop positions, `bg-radial`, `bg-conic` and the interpolation space all landed in
+one change, for the reason this section predicted: they were one piece of work. The prediction below
+is kept as written, with what actually happened beside it, because the estimate was close enough to be
+worth calibrating against and wrong in two places that are worth naming.
 
-**They all bottom out in `UiShape`.** The record the box shader reads is five `Vector4`s — half
+**They all bottom out in `UiShape`.** The record the box shader read was five `Vector4`s — half
 extent, thickness and a gradient flag; the four horizontal radii; the four vertical; the axis, a
-shadow's blur and one lane of padding; and the end colour. There is exactly **one** free float in it,
+shadow's blur and one lane of padding; and the end colour. There was exactly **one** free float in it,
 `Axis.w`. So:
 
-| Owed | What it needs in `UiShape` | Shader |
+| Owed | Predicted cost in `UiShape` | What it actually took |
 |---|---|---|
-| `via-*` — a third stop | a colour (4 floats) | a second `lerp` and a branch |
-| stop positions — `from-10%` | 3 floats, or 2 if the ends are implied | remap `t` before the `lerp` |
-| `bg-radial-*` | a centre (2) and a radius (1) | a `length()` instead of a `dot()` |
-| `bg-conic-*` | a centre (2) and a start angle (1) | an `atan2()` instead of a `dot()` |
+| `via-*` — a third stop | a colour (4 floats) | 4, as predicted — one `Vector4` |
+| stop positions — `from-10%` | 3 floats, or 2 if the ends are implied | 3, plus 1 for "is there a middle" |
+| `bg-radial-*` | a centre (2) and a radius (1) | **0** |
+| `bg-conic-*` | a centre (2) and a start angle (1) | **0** |
+| the interpolation space | not counted | 1, in `Axis.w` |
 
-Any one of them overflows the single spare lane, so the first of the four to be built pays for
-growing the record from 80 bytes to 112 — and once that is paid, the other three are cheap. **They
-should be done together or not at all**; doing them one at a time pays the layout change and its
-risk up to four times.
+**80 bytes to 112, exactly as predicted**, and the two zeroes are why it fit. CSS's defaults for both
+round shapes are *at center* with an extent that is a function of the box — `farthest-corner` for a
+radial is the box's own aspect scaled by root two, and a conic's sweep starts at twelve o'clock — so
+neither needs a centre or a radius stored at all. A conic's `from <angle>` rides the *existing* axis
+lane, because the host already writes an angle there as `(sin θ, -cos θ)` and the shader recovers it
+with `atan2(x, -y)`. What that buys is refusing an explicit `at <position>`, `circle` or
+`closest-side`, which is `GradientRefusal.Extent`, and which no theme in this repository writes.
 
-⚠ **The layout change is the risky part and the shader maths is not.** `UiShape`'s own remark says
-why: it is copied into a storage buffer with `MemoryMarshal` and read back by a shader whose
-alignment rules are not C#'s, so a field inserted in the wrong place draws every box with another
-box's parameters. Four things have to agree — `UiShape`, `Editor/Vixen.Editor.Host/Shaders/Ui.rvn`,
-`SoftwareUiRasterizer`, and the committed `UiBox.frag.spv` and `UiBox.reflect.json` beside the
-shader source, which are regenerated with the command in that directory's `README.md`. ⚠ **That
-README's command names `Editor/Vixen.Editor.App/Shaders/`, which is not where the shaders are** —
-they are under `Vixen.Editor.Host`. The path is stale and will not run as written.
+⚠ **The layout change is the risky part and the shader maths is not** — and the specific danger turned
+out to be sharper than "a field in the wrong place". Both new lanes were **appended**, and both
+repurposed lanes were previously **zero**: `Size.w`'s gradient flag became the shape, whose `1` is
+`Linear`, and `Axis.w`'s declared padding became the space, whose `0` is the linear-RGB lerp the
+shader already did. Every existing offset therefore stayed put — which is exactly why drift here is
+*silent*. A stale module reads a current record and still draws two-stop linear gradients perfectly,
+ignoring everything past offset eighty. There is no garbage frame to notice.
+
+So the mitigation is two tests rather than care:
+
+- **`UiShapeLayoutTests`** (`Core/Vixen.Ui.Tests`) reads the committed `UiBox.reflect.json` and
+  compares it with `Vixen.Ui.Rendering.UiShape` field by field — size, per-lane offset, lane count,
+  and the actual bytes `MemoryMarshal` produces. Swapping two same-sized lanes, which passes an
+  offsets-only check and paints a plausible picture, fails two of its assertions.
+- **`CheckShaders`** now compiles the editor's own four `.rvn` and compares every module they emit.
+  It previously covered only the library shaders the editor loads while describing itself as covering
+  these, so a `.rvn` edited and never recompiled could sit in a commit unremarked.
+
+⚠ **This section said four files have to agree. It is eight, and the four it did not name are the
+ones no grep for `UiShape` will find.** Written down because the estimate's one real miss was not the
+maths and not the layout — it was the *census*:
+
+| # | File | What it knows | Caught by |
+|---|---|---|---|
+| 1 | `Vixen.Ui.Rendering.UiShape` | the whole layout | — |
+| 2 | `Editor/Vixen.Editor.Host/Shaders/Ui.rvn` | the whole layout | `UiShapeLayoutTests`, `CheckShaders` |
+| 3 | `UiBox.frag.spv` / `UiBox.reflect.json` | the whole layout | `UiShapeLayoutTests`, `CheckShaders` |
+| 4 | `SoftwareUiRasterizer` | the whole layout | the UI suite's own pixel tests |
+| 5 | **`UiRenderer`** | only the **size**, spelled `80` three times | `Vixen.Graphics.Golden.Tests` |
+| 6 | **`Platform/Vixen.Graphics.Golden.Tests/Shaders/ui-box.frag`** | the whole layout, in GLSL | itself |
+| 7 | **`Samples/02-HelloUi/Shaders/ui-box.frag`** | ditto | nothing |
+| 8 | **`Tools/Vixen.Templates/.../Shaders/ui-box.frag`** | ditto | nothing |
+
+Five, six, seven and eight are invisible to a search for the type: number five spells the literal
+`80` and mentions no type at all, and the three GLSL copies call the struct `Shape`. The host wrote
+112-byte records into a buffer sized for 80-byte ones, and each shader indexed at the old stride, so
+every box after the first read the previous record's tail — a frame of plausible rounded rectangles
+with the wrong radii, which is the failure `UiShape`'s remark predicts almost word for word.
+
+⚠ **What actually caught it was `Vixen.Graphics.Golden.Tests` on a real device, not either new test.**
+`UiShapeLayoutTests` pins the record's *shape* against the shader's reflection and has nothing to say
+about how a host sizes a buffer around it; `CheckShaders` compiles Raven and the GLSL copies are not
+Raven. Nothing compiles those three `.frag` files, and nothing should be made to — `TestShaders.cs`
+records the decision not to require `glslc` on every CI leg. `UiRenderer` now derives its stride from
+`Marshal.SizeOf<UiShape>()`, which removes number five from the list permanently; six, seven and eight
+remain, and the honest answer to them is
+[`Core/Vixen.Ui.Renderer/README.md`](../../Core/Vixen.Ui.Renderer/README.md)'s standing point that
+three hand-maintained copies of one shader is not a design anybody chose.
 
 ⚠ **`Gradient.rvn` and `RoundedRect.rvn` are not the shader to edit, and both look like it.**
 `Raven/Library/Ui/Gradient.rvn` already has radial and conic modes and a perceptual interpolation
@@ -186,6 +230,55 @@ option; `RoundedRect.rvn` has a `Gradient` permutation. Neither reads the `UiSha
 neither is on the path a `background-image` takes. `Ui.rvn` is. `RoundedRect.rvn` is also a
 cautionary note rather than a starting point: its gradient is hardcoded to `localPx.y / size.y` and
 ignores the axis entirely, so it draws every gradient vertically whatever it is asked for.
+
+⚠ **`Gradient.rvn`'s maths: partly liftable, and the honest breakdown matters more than the verdict**,
+because two of the three look further from correct than they are and the third looks closer.
+
+- **Radial — the same family, different inputs.** `length(local - axis) / radius` over a 0..1 UV is a
+  circle in *normalised box space*, which is an ellipse with the box's own aspect — exactly what
+  `Ui.rvn` now does with `length(point / halfSize)`. What is not liftable is the two `var`s: a stored
+  centre and a stored radius are the lanes this design deliberately does not carry, and the `radius`
+  default of `0.5` is `farthest-side` where CSS's default is `farthest-corner`, a factor of root two.
+- **Conic — right direction, wrong origin.** `atan2(d.y, d.x) / 2π + 0.5` does sweep *clockwise* on
+  screen, because y-down flips the usual sense; the easy assumption that it runs backwards is wrong.
+  Its zero sits at nine o'clock, though, where CSS's is at twelve — so it is a quarter turn out, not a
+  mirror. `atan2(x, -y)` is the same expression written in CSS's convention.
+- **`Perceptual` — not Oklab, and not close.** It is a per-channel cube root with no LMS matrix and no
+  Oklab basis anywhere: a plausible-looking lightness curve, and not the space `in oklab` names. This
+  one genuinely had to be replaced, with Ottosson's two matrices written out to match the host's
+  `Vixen.Core.Mathematics.Oklab`.
+
+So the shapes were a rewrite of two short expressions rather than a lift, and the interpolation was a
+real reimplementation. Nothing was lost by not lifting; what would have been lost is the hour spent
+believing a working implementation was already there.
+
+### Which space a gradient interpolates in
+
+Three answers coexisted and each was right on its own terms: the engine paints in linear RGB and the
+shader lerped there; CSS's default for an unhinted gradient is sRGB; Tailwind v4 emits `in oklab` on
+everything it generates. **All three are kept, and which one applies is decided by who wrote the
+gradient** — `GradientSpace` travels in the record.
+
+| Source | Space | Why |
+|---|---|---|
+| A `.vcss` rule with no hint | `Srgb` | CSS's rule. A hand-written gradient should match a browser. |
+| Anything the utility generator emits | `Oklab` | v4 parity, and the palette ships as v4.3.3's `oklch`. |
+| `BoxStyle.Vertical` and the rest of the C# API | `Linear` | No CSS text, so no hint — and it is what the shader already did. |
+
+⚠ **`Linear` being the enum's zero is what let 43 committed screenshots stay put.** Making sRGB the
+universal default would have been the tidier-sounding decision and would have moved every
+programmatic gradient in the tree for no reason anybody asked for. `in srgb-linear` is CSS's own
+spelling for it, so a stylesheet can still ask.
+
+The three separate visibly only at the midpoint, which is the only place it matters. A black-to-white
+ramp is 0.5 linear under `Linear`, 0.214 under `Srgb` and 0.125 under `Oklab` — and between two
+complements the difference is a colour against a grey dead zone.
+
+⚠ **Refused rather than approximated: the polar spaces.** `in oklch`, `in hsl`, `longer hue` and the
+rest interpolate along a hue *arc*, which is not a lerp in any three lanes — two colours plus a
+direction round the wheel is a different shader. `lab` and `display-p3` are rectangular and could be
+two more transfer functions; they are refused because nothing asks and an untested space is worse than
+an honest gap.
 
 ### Gradient text needs an offscreen pass, and should wait for one
 
@@ -1201,7 +1294,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A8 🟡 | `filter` and `backdrop-filter`, blur first | UI renderer | **#28** | 0.75 |
 | A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
-| A11 🟢 | Backgrounds. **Two-stop `linear-gradient()` paints**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, and it layers over `background-color` as CSS does. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. **Owed:** `via-*` (a third stop), stop positions, `bg-radial`/`bg-conic`, and `background-position`/`-size`/`-repeat`. All four need `UiShape` to grow past its five `Vector4`s and the box shader to change with it — see [what a third stop costs](#what-a-third-stop-costs) | `DrawListBuilder`, `BackgroundGradient`, `UiShape` | **#43** | 0.35 |
+| A11 🟢 | Backgrounds. **`linear-gradient()`, `radial-gradient()` and `conic-gradient()` all paint**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, two or three stops, arbitrary stop positions inside or outside the box, `in srgb` / `in srgb-linear` / `in oklab`, and it layers over `background-color` as CSS does. `bg-radial` and `bg-conic` are assemblers now, and every assembler emits `in oklab` for v4 parity. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. `UiShape` grew 80 → 112 bytes; `UiShapeLayoutTests` and `CheckShaders` are what keep its four files in step. **Owed:** an explicit radial/conic centre, `bg-conic-<angle>` (the parser and shader do `from <angle>`; the *utility* needs a numeric family), `background-position`/`-size`/`-repeat`, and gradient text — see [what a third stop cost](#what-a-third-stop-cost) | `DrawListBuilder`, `BackgroundGradient`, `UiShape`, `Ui.rvn` | **#43** | 0.15 |
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
 | A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |

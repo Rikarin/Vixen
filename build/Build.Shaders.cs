@@ -75,6 +75,35 @@ partial class Build {
         ("Terrain", "GrassScatter", ["Arguments=true"], "GrassScatterArguments")
     ];
 
+    /// <summary>
+    ///     The editor's own <c>.rvn</c> sources, whose modules were committed and never checked.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The gap this closes: nothing recompiled these, so a source edit and a stale binary
+    ///         could sit in one commit.</b> The list above is the shaders the editor loads out of
+    ///         <c>Raven/Library</c>; these four are written beside the editor and are what the check
+    ///         half of this target was always described as covering. <c>Ui.rvn</c> is the one that
+    ///         made it matter: <c>UiShape</c> grew to a hundred and twelve bytes, and a source that
+    ///         said so beside a module that did not would have been read by the host as the new layout
+    ///         and by the GPU as the old one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Standalone, which is why they can be one file each.</b> None of the four
+    ///         <c>import</c>s anything — <c>Shaders/README.md</c> spells out why the block-out BRDF is
+    ///         written by hand rather than taken from the library — so they need no
+    ///         <see cref="SourcesFor" /> closure, and passing one would parse the same declarations
+    ///         twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every module a source emits, not a named one.</b> <c>Ui.rvn</c> declares five
+    ///         shaders and produces five modules with five names of its own, so unlike the entries
+    ///         above there is no output to rename and no <c>--shader</c> to pass. That also means this
+    ///         half catches a shader *added* to one of these files and never committed.
+    ///     </para>
+    /// </remarks>
+    static readonly string[] EditorSources = ["Ui", "Line", "Mesh", "MeshInstanced"];
+
     /// <summary>Where the editor's modules live.</summary>
     AbsolutePath EditorShaderDirectory => RootDirectory / "Editor" / "Vixen.Editor.Host" / "Shaders";
 
@@ -232,6 +261,39 @@ partial class Build {
                         // The backend names a unit `<shader>.<stage>`; the committed file swaps the
                         // shader for the entry's output name and keeps the stage.
                         produced.Add((file, output + file.Name[shader.Length..]));
+                    }
+                }
+
+                // ⚠ The editor's own sources, compiled whole. `--emit-reflection` because the
+                // committed `.reflect.json` beside each module is what the host reads its bindings
+                // and its struct offsets out of — a module regenerated without it leaves the
+                // reflection saying the old layout, which is the exact failure `UiShapeLayoutTests`
+                // is on the other side of.
+                for (var index = 0; index < EditorSources.Length; index++) {
+                    var source = EditorSources[index];
+                    var into = staging / $"src-{index:00}-{source}";
+
+                    into.CreateOrCleanDirectory();
+
+                    DotNetRun(settings => settings
+                        .SetProjectFile(compiler)
+                        .SetConfiguration(Configuration.Release)
+                        .EnableNoRestore()
+                        .EnableNoBuild()
+                        .SetApplicationArguments(
+                            "compile",
+                            (EditorShaderDirectory / $"{source}.rvn").ToString(),
+                            into.ToString(),
+                            "--target",
+                            "spirv",
+                            "--emit-reflection",
+                            "--no-color"
+                        )
+                    );
+
+                    foreach (var file in into.GlobFiles("*.spv", "*.reflect.json")
+                                 .OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
+                        produced.Add((file, file.Name));
                     }
                 }
 

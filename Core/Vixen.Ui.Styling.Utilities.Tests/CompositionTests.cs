@@ -44,7 +44,7 @@ public class CompositionTests {
 
         // The assembler is the only one of the four that emits a property a consumer could read.
         Assert.Single(fixture.Emits("bg-linear-to-r"));
-        Assert.StartsWith("background-image: linear-gradient(to right, ", fixture.Emits("bg-linear-to-r")[0], StringComparison.Ordinal);
+        Assert.StartsWith("background-image: linear-gradient(to right in oklab, ", fixture.Emits("bg-linear-to-r")[0], StringComparison.Ordinal);
 
         // And put together, through the real cascade, they are one gradient.
         //
@@ -56,7 +56,7 @@ public class CompositionTests {
         // is a standing fact about the mechanism rather than a quirk of gradients, and it is a note
         // for whoever writes the renderer half in #43.
         Assert.Equal(
-            "linear-gradient(to right, #4f7cff 0%, #8a8a99 50%, #1f1f26 100%)",
+            "linear-gradient(to right in oklab, #4f7cff 0%, #8a8a99 50%, #1f1f26 100%)",
             fixture.Computed(["from-accent", "via-muted", "to-surface-3", "bg-linear-to-r"], "background-image")
         );
     }
@@ -85,8 +85,8 @@ public class CompositionTests {
         var rest = fixture.Computed(classes, "background-image");
         var hover = fixture.Computed(classes, "background-image", state: ElementState.Hover);
 
-        Assert.Equal("linear-gradient(to right, #4f7cff 0%, #1f1f26 100%)", rest);
-        Assert.Equal("linear-gradient(to right, #6a91ff 0%, #1f1f26 100%)", hover);
+        Assert.Equal("linear-gradient(to right in oklab, #4f7cff 0%, #1f1f26 100%)", rest);
+        Assert.Equal("linear-gradient(to right in oklab, #6a91ff 0%, #1f1f26 100%)", hover);
 
         // The proof by contradiction, stated as an assertion rather than left in a comment: the two
         // are different, so no single emitted declaration could have been both.
@@ -148,21 +148,21 @@ public class CompositionTests {
     [Theory]
     // No `via` at all — the case that would have vanished.
     [InlineData(new[] { "from-accent", "to-surface-3", "bg-linear-to-r" },
-        "linear-gradient(to right, #4f7cff 0%, #1f1f26 100%)")]
+        "linear-gradient(to right in oklab, #4f7cff 0%, #1f1f26 100%)")]
     // No `to` either. Still a gradient, and the missing end is the initial value rather than a hole.
     [InlineData(new[] { "from-accent", "bg-linear-to-r" },
-        "linear-gradient(to right, #4f7cff 0%, transparent 100%)")]
+        "linear-gradient(to right in oklab, #4f7cff 0%, transparent 100%)")]
     // The assembler entirely alone. A two-stop transparent gradient is a no-op that draws nothing,
     // which is the right answer; a dropped declaration would have been indistinguishable from a typo.
     [InlineData(new[] { "bg-linear-to-r" },
-        "linear-gradient(to right, transparent 0%, transparent 100%)")]
+        "linear-gradient(to right in oklab, transparent 0%, transparent 100%)")]
     // A position with no colour, which is the other half of the same family missing.
     [InlineData(new[] { "from-40%", "to-surface-3", "bg-linear-to-r" },
-        "linear-gradient(to right, transparent 40%, #1f1f26 100%)")]
+        "linear-gradient(to right in oklab, transparent 40%, #1f1f26 100%)")]
     // Every fragment written out, so that the defaults above are visibly defaults and not the only
     // thing the assembler can produce.
     [InlineData(new[] { "from-accent", "from-10%", "via-muted", "via-60%", "to-surface-3", "to-90%", "bg-linear-to-r" },
-        "linear-gradient(to right, #4f7cff 10%, #8a8a99 60%, #1f1f26 90%)")]
+        "linear-gradient(to right in oklab, #4f7cff 10%, #8a8a99 60%, #1f1f26 90%)")]
     public void An_unset_fragment_falls_back_instead_of_dropping_the_declaration(string[] classes, string expected) {
         Assert.Equal(expected, new UtilityFixture().Computed(classes, "background-image"));
     }
@@ -253,8 +253,55 @@ public class CompositionTests {
                      ("to-l", "to left"), ("to-tl", "to top left")
                  }) {
             Assert.StartsWith(
-                $"linear-gradient({expected}, ",
+                $"linear-gradient({expected} in oklab, ",
                 fixture.Computed([$"bg-linear-{direction}"], "background-image"),
+                StringComparison.Ordinal
+            );
+        }
+
+        // ⚠ <b>And the two round assemblers, which take no geometry at all.</b> That is Tailwind's
+        // own shape rather than a simplification: `bg-radial` is `radial-gradient(in oklab, …)`,
+        // because CSS's defaults are a centred farthest-corner ellipse and a sweep from twelve
+        // o'clock, and both are functions of the box the shader already has.
+        foreach (var (name, function) in new[] { ("bg-radial", "radial"), ("bg-conic", "conic") }) {
+            Assert.StartsWith(
+                $"{function}-gradient(in oklab, ",
+                fixture.Computed([name], "background-image"),
+                StringComparison.Ordinal
+            );
+        }
+    }
+
+    /// <summary>Every gradient this generator emits names its interpolation space.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Tailwind v4's own behaviour, and the difference is not subtle.</b> CSS's default
+    ///         for an unhinted gradient is sRGB; the engine's palette now ships as v4.3.3's, quoted in
+    ///         <c>oklch</c> and chosen so that equal numeric steps look like equal perceptual steps.
+    ///         Interpolating two of those swatches anywhere but a perceptual space throws that away at
+    ///         the midpoint — which between complements is the difference between a colour and a grey
+    ///         dead zone, and is the only pixel where the choice is visible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Asserted across every assembler rather than on one, because the hint lives in a
+    ///         format string per family and an eleventh added without it would be the one gradient in
+    ///         the interface that fades differently — which reads as a palette problem.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_assembler_asks_for_oklab() {
+        var fixture = new UtilityFixture();
+
+        string[] assemblers = [
+            "bg-linear-to-t", "bg-linear-to-tr", "bg-linear-to-r", "bg-linear-to-br",
+            "bg-linear-to-b", "bg-linear-to-bl", "bg-linear-to-l", "bg-linear-to-tl",
+            "bg-radial", "bg-conic"
+        ];
+
+        foreach (var assembler in assemblers) {
+            Assert.Contains(
+                "in oklab,",
+                fixture.Computed([assembler], "background-image"),
                 StringComparison.Ordinal
             );
         }
@@ -273,12 +320,12 @@ public class CompositionTests {
         string[] classes = ["from-accent", "md:from-muted", "bg-linear-to-r"];
 
         Assert.Equal(
-            "linear-gradient(to right, #4f7cff 0%, transparent 100%)",
+            "linear-gradient(to right in oklab, #4f7cff 0%, transparent 100%)",
             fixture.Computed(classes, "background-image", media: new MediaContext(320, 640))
         );
 
         Assert.Equal(
-            "linear-gradient(to right, #8a8a99 0%, transparent 100%)",
+            "linear-gradient(to right in oklab, #8a8a99 0%, transparent 100%)",
             fixture.Computed(classes, "background-image", media: new MediaContext(1024, 768))
         );
     }

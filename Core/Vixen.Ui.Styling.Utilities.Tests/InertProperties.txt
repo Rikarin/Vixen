@@ -33,12 +33,17 @@ border-inline-start-color    #21  ditto
 # ── Backgrounds — A11. Closed. `background-image` is parsed into `BoxStyle` and painted, so its line
 # is gone and the seven `--tw-gradient-*` fragments are accounted for through it.
 #
-# ⚠ What is *not* closed is `via-*`, stop positions, and `bg-radial`/`bg-conic` — and none of that can
-# be written here, because this file is keyed by property and all of it lives inside `background-image`.
-# A line kept for them would fail the expiry check the moment the property became read, which it now is.
-# Partial support inside one property is the one shape this gate cannot express; the remainder is
-# tracked as A11 in docs/plan/43-web-styling-parity.md and refused loudly at runtime rather than
-# approximated — see `GradientRefusal`.
+# `via-*`, stop positions, `bg-radial` and `bg-conic` are painted too now, and the two round assemblers
+# emit `background-image` like the eight linear ones — so they add no property here and needed no
+# weakening of the gate to land.
+#
+# ⚠ What remains owed inside A11 still cannot be written here, for the reason it never could: this file
+# is keyed by property, and an explicit radial centre or a `background-repeat` that is read for some
+# values and not others lives *inside* `background-image`. A line kept for it would fail the expiry
+# check the moment the property became read, which it already is. Partial support inside one property
+# is the one shape this gate cannot express; the remainder is tracked as A11 in
+# docs/plan/43-web-styling-parity.md and refused loudly at runtime rather than approximated — see
+# `GradientRefusal`.
 
 # ── Paint the renderer has no channel for — A6.
 fill                         #24  `fill`/`stroke` on the OnDraw paths, with `DrawContext`
