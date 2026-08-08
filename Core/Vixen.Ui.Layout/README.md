@@ -1,6 +1,6 @@
 # Vixen.Ui.Layout
 
-CSS flexbox **and block layout** over a struct-of-arrays node store. Per
+CSS flexbox, **block layout and grid** over a struct-of-arrays node store. Per
 [ADR-006](../../docs/plan/01-technology-decisions.md#adr-006--flexbox-port-the-yoga-algorithm-not-the-flexbox-library)
 this is Yoga's *algorithm* re-implemented against Vixen's own data model, judged by Yoga's own
 conformance suite — not a port of the `ru-ace/Flexbox` library, whose `class Node` with
@@ -21,6 +21,12 @@ and 42 fail — every one of them in the *absolute* path, in two buckets that pr
 that a flex parent hits identically. See [the block section](#block-layout-and-what-a-second-algorithm-cost)
 below and `Taffy/BlockKnownGaps.txt`.
 
+**Grid landed with doc 43 § B2 and is the third.** 1 526 of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, 132 are refused, and 462 fail in the buckets `Taffy/GridKnownGaps.txt`
+names one at a time. It is **partial and says which part**: placement (§8) and the bulk of track
+sizing (§12) are done, baseline alignment and CSS Grid §9's containing block are not, and
+`grid-template-areas` is **not implemented at all** — see [the grid section](#grid-and-the-part-with-no-oracle).
+
 | | |
 |---|---|
 | `LayoutTree` | The store: styles, results, links and node state as parallel `NativeArray`s, plus the tree operations and the whole style surface. |
@@ -28,9 +34,10 @@ below and `Taffy/BlockKnownGaps.txt`.
 | `StyleResolution`, `FlexAxis` | Edge precedence, percentages, box sizing; flow-relative to physical. |
 | `LayoutTree.CalculateLayout` | The algorithm: flex basis, line breaking, the two-pass free-space distribution, justification, cross-axis alignment, multi-line alignment, absolute positioning, pixel-grid rounding. |
 | `LayoutTree.Block`, `CollapsibleMargin` | The second algorithm: block stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing, auto margins, the intrinsic-width probe. |
+| `LayoutTree.Grid*`, `GridTrackSize`, `TrackArena` | The third: CSS Grid §8 placement, §12 track sizing, `fr`/`minmax`/`fit-content`/`repeat`, and the variable-length track lists that made a second arena necessary. |
 | `LayoutTree.Order` | §5.4 `order`, the one part that is not Yoga's. One redirection: the algorithm reaches children only through `ChildIds`, so sorting what that returns is the whole property. |
 | `Generated/` | 534 conformance fixtures, translated from Yoga by `Tools/Vixen.YogaTestGen`. |
-| `Taffy/` | 5 524 more, from Taffy, vetted by `Tools/Vixen.TaffyTestGen`. A second browser-derived opinion on flexbox, and the oracle block and grid will be judged by. |
+| `Taffy/` | 5 524 more, from Taffy, vetted by `Tools/Vixen.TaffyTestGen`. A second browser-derived opinion on flexbox, and the oracle block and grid **were** judged by — every category but `float` now runs per fixture. |
 
 Every expected number in those fixtures came out of a real browser laying out a real HTML fixture.
 That is what makes this a *conformance* suite rather than a regression suite, and it is the specific
@@ -217,6 +224,91 @@ field for, so the harness refuses them. **The corpus contains the test, states t
 run it.** A gap in an oracle need not be a gap in its coverage; it can be a gap in the *bridge*, and
 that one is invisible from either end.
 
+## Grid, and the part with no oracle
+
+Doc 43 § B2, and the largest single item in that plan at 3.5 EM of about 19. **The corpus was
+already here**: 2 040 `grid` fixtures plus 56 `blockgrid` and 24 `gridflex`, every one refused at
+exactly one point — the `display` keyword — since B0 committed them. The prediction paid out for the
+second time: they went from 8 passing to 1 526 in the commit that added the keyword and the
+algorithm behind it, and nothing about the harness changed.
+
+### What a *third* algorithm cost, and it was not what block cost
+
+Block's whole price was three **outputs**: a `CollapsibleMargin` at each end and a collapse-through
+flag, because a child's top margin may belong to its parent. Grid needed none of them — it is a
+barrier to margin collapsing exactly as a flex container is, so its honest answer to all three is
+"my own margin, and no", which `CalculateLayoutImpl` already writes before dispatching.
+
+**What grid needed is on the input side, and it is a second arena.** `grid-template-columns` is an
+arbitrary-length list of sizing functions; `LayoutStyle` is a fixed-size unmanaged struct in a
+`NativeArray`, which is the whole reason a hundred thousand nodes are four allocations. So the four
+track-list properties live in `TrackArena` and the style carries a `(offset, count)` handle into it —
+the same shape, and for the same reason, as `ChildArena`. A node that sets no template pays one `-1`.
+
+It has to hold rather more than a stylesheet suggests: `repeat(40000, 10px 10px)` is a legal
+declaration and the corpus contains it, so fixed repetitions are expanded once on write and
+`LayoutLimits.MaximumGridTracks` is what stops a list being unbounded.
+
+⚠ **Two consequences worth knowing.** A whole-style write has to carry the destination node's own
+handles across, because a `LayoutStyle` copied between nodes would alias a block one of them will
+later free — which is why those four fields are `internal` and set only through
+`SetGridTemplateColumns` and its siblings. And the per-pass working storage is a **bump allocator
+with a watermark** (`GridScratch`), because a grid can contain a grid: track sizing measures its
+items, and measuring an item may run the whole algorithm on another grid container whose scratch
+must not overwrite the outer one's.
+
+### `grid-template-areas` has zero fixtures, and it is not implemented
+
+⚠ **This is the one part of grid with no oracle at all.** Taffy's own XML harness leaves
+`grid-template-areas` at `Default::default()`, so not one of the 5 524 fixtures sets it — verified
+across all eight corpus files, not assumed. Named lines are the same story: no track list in the
+corpus contains a `[name]`, and all 6 636 placement values match `-?<int>` or `span <int>` exactly.
+
+So named areas would have been code whose expectations were written by the same person who wrote the
+code, sitting behind a suite that is green either way. **It is left out and recorded as left out**,
+here and in `LayoutTree.Grid.cs` and in the guide page. Implementing it later means writing the
+oracle first — WPT's `css-grid/grid-definition/` reftests, re-expressed the way `OrderTests` was.
+
+### What is done, per feature, and what is not
+
+| Feature | State |
+|---|---|
+| Placement (§8): lines, negatives, spans, auto-placement, sparse and dense, both flows | **done** — every `grid_placement_*`, `grid_auto_flow_*` and non-indefinite `grid_span_*` family is green |
+| Track sizing (§12): base sizes, growth limits, the five §12.5.1 rounds, maximise, `fr`, stretch | **mostly** — 472 of the 548 `grid_flex_track_*` fixtures, which is the family that exercises it hardest |
+| `minmax()`, including a maximum below its minimum | **done** for the unspanned case; a *spanned* clamped pair is a listed gap |
+| `repeat()`, `auto-fill`, `auto-fit` including collapsing | **done** |
+| `fit-content()` | **done** against a definite container; a percentage argument against an indefinite one is listed |
+| Gaps, including percentage gaps | **done** |
+| `justify-*`/`align-*` items, self and content | **done** except the overflow fallback (§4.4) and `safe`, which is refused |
+| Baseline alignment (§11.8) | **not implemented** — the largest named gap, 64 of the corpus's 80 `align-items` values |
+| An out-of-flow child's grid area as its containing block (§9) | **not implemented** — see below |
+| `grid-template-areas`, named lines, `subgrid`, `masonry` | **not implemented**, no oracle |
+
+⚠ **One of those is a measurement rather than a judgement.** The static-position half of §9 — record
+each abspos child's grid-area corner, reuse block's `BlockStaticLeft`/`BlockStaticTop` pair, let the
+absolute walk read it for a grid parent too — was written, measured, and **taken back out**: it fixed
+six fixtures and broke eight, for a net loss of two. The half that pays is resolving an *inset*
+against the area, and that needs a per-child containing block inside `LayoutTree.Absolute`, a file
+shared with Yoga's 534. Doing the cheap half alone is worse than doing neither.
+
+### What the corpus cannot see, again
+
+The README's standing warning, now with a third instance. Two rules in grid are invisible to all
+2 120 fixtures:
+
+- **Line 0 does not exist.** §8.3 numbers lines from 1 and from −1 with nothing between, so a
+  declared `grid-column-start: 0` is invalid and computes to `auto`. No fixture writes one — the
+  corpus's 6 636 placement values contain no zero — so `GridPlacement.Line(0)` returning `Auto` is
+  a rule with no fixture over it.
+- **`grid-auto-rows` is a cycling list.** Two fixtures use the three-value form and both happen to
+  have three implicit tracks, so reading only the *first* entry passes them; it takes a fourth
+  implicit track to tell a cycling list from a repeated first element.
+
+And one gap is in a **shared** helper rather than in grid: `ComputeMinContentSizeUncached` has no
+grid branch, so a grid asked for its min-content size sums its children along `FlexDirection` as
+though every container were a flex one. Exactly one fixture (`grid_min_content_flex_column`) reaches
+it, because the corpus's grids are almost always the root.
+
 ## Rounding reads the raw layout and writes somewhere else
 
 The reference implementation rounds positions and sizes in place. That means the next pass reads
@@ -285,12 +377,12 @@ It reports every fixture it could not translate and why. Nine are skipped today,
 
 ## Deliberately not here
 
-**CSS Grid**, which doc 09 schedules as a separate algorithm over this same store. It is a harder
-specification than flexbox and it does not share the flex line machinery, so it lands as its own
-piece rather than as a variation on this one. **Its oracle is here already**: 2 040 Taffy fixtures,
-every one of them refused today at the single point of the `display` keyword — and that prediction
-has now been paid out once, because `display: block` was the same sentence about 884 more and they
-went from 0 passing to 722 in the commit that added the keyword.
+**`grid-template-areas`, named grid lines, `subgrid` and `masonry`** — the parts of grid with no
+oracle in either corpus. See the grid section above for why writing them against expectations of our
+own devising was the wrong trade.
+
+**Grid's baseline alignment and §9 containing block**, both listed per fixture in
+`Taffy/GridKnownGaps.txt`.
 
 **Inline formatting**, and with it `inline-block`, `inline-flex`, `text-align` and `vertical-align`.
 Doc 43 § B3. It is why those two `display` keywords are refused rather than aliased onto their

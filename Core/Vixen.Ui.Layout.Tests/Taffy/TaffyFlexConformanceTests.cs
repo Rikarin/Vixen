@@ -42,9 +42,20 @@ public class TaffyFlexConformanceTests {
     // nothing moved into or out of "failing". Those eight are flex fixtures with a *block* box
     // somewhere in the tree — the corpus was refusing whole trees for one descendant's keyword — so
     // the flex algorithm is unchanged and eight more of its fixtures now judge it. 2 074 → 2 082.
-    const int ExpectedPassing = 2082;
+    //
+    // ⚠ Sixteen more moved the same way when `display: grid` landed, for the same reason and with
+    // the same non-effect on "failing": 2 082 → 2 098, unsupported 168 → 152. They are the four
+    // `aspect_ratio_flex_{row,column}_fill_width_flex`, `bevy_issue_10343_grid` and
+    // `bevy_issue_21240` families, each of which is a flex tree with one grid box in it.
+    //
+    // ⚠ THE CONSEQUENCE IS THAT THIS NUMBER IS NO LONGER PURELY FLEX'S, and it is the reason to
+    // re-run this census alongside the grid one rather than only when flex changes. Those sixteen
+    // trees now execute LayoutTree.Grid, so a grid regression can turn this suite red — which is
+    // correct, because a fixture that stops agreeing with Chrome should be loud wherever it lives,
+    // but it will read as a flex failure to anyone who does not look at the names.
+    const int ExpectedPassing = 2098;
     const int ExpectedFailing = 158;
-    const int ExpectedUnsupported = 168;
+    const int ExpectedUnsupported = 152;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 
