@@ -38,9 +38,13 @@ public class TaffyFlexConformanceTests {
 
     // ⚠ Committed counts, not lower bounds. A gap that gets fixed has to be taken off the list in
     // the same commit, and a fixture that starts failing cannot hide inside a listed family.
-    const int ExpectedPassing = 2074;
+    // ⚠ Eight of these moved from "unsupported" to "passing" when `display: block` landed, and
+    // nothing moved into or out of "failing". Those eight are flex fixtures with a *block* box
+    // somewhere in the tree — the corpus was refusing whole trees for one descendant's keyword — so
+    // the flex algorithm is unchanged and eight more of its fixtures now judge it. 2 074 → 2 082.
+    const int ExpectedPassing = 2082;
     const int ExpectedFailing = 158;
-    const int ExpectedUnsupported = 176;
+    const int ExpectedUnsupported = 168;
 
     static readonly FrozenSet<string> KnownGaps = LoadKnownGaps();
 

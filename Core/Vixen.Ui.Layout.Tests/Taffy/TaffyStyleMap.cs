@@ -86,6 +86,7 @@ static class TaffyStyleMap {
                     value switch {
                         "flex" => Display.Flex,
                         "none" => Display.None,
+                        "block" => Display.Block,
                         _ => throw new TaffyUnsupportedException($"display: {value}")
                     }
                 );

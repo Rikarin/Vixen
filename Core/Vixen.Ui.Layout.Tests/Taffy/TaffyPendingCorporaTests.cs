@@ -24,11 +24,21 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         test goes red, and the new number gets committed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What the tallies say right now is worth reading as a result in itself: every single
-///         block, float and grid fixture is refused at exactly one point</b> — the <c>display</c>
-///         keyword. Not one of them is failing on arithmetic, because not one of them reaches any.
-///         B1 is, from this suite's point of view, the day <see cref="Display" /> grows a
-///         <c>Block</c> member, and B2 the day it grows <c>Grid</c>.
+///         ⚠ <b>That prediction has now been paid out once, which is the strongest thing this file
+///         can report.</b> It used to say that every block, float and grid fixture was refused at
+///         exactly one point — the <c>display</c> keyword — and that B1 would be the day
+///         <see cref="Display" /> grew a <c>Block</c> member. It was: 884 block and 28 blockflex
+///         fixtures went from 0 passing to 746 in the commit that added the keyword and the
+///         algorithm behind it, and they moved to <c>TaffyBlockConformanceTests</c> where each one is
+///         judged individually. Nothing about the harness changed. B2 is the same bet on
+///         <c>Grid</c>, and the 2 112 fixtures still listed below are what will settle it.
+///     </para>
+///     <para>
+///         ⚠ <b><c>float</c>'s 84 did <i>not</i> come along, and the reason is worth stating.</b>
+///         Floats are refused by <c>TaffyStyleMap</c> on the <c>float</c> attribute rather than on
+///         <c>display</c>, so they were never waiting on this keyword — every one of them names a
+///         block container that this algorithm now lays out correctly right up to the point where a
+///         float would narrow a line box. See the remarks on <c>LayoutTree.Block</c>.
 ///     </para>
 /// </remarks>
 public class TaffyPendingCorporaTests {
@@ -44,8 +54,6 @@ public class TaffyPendingCorporaTests {
     public static TheoryData<string, int, int, int> Corpora =>
         new() {
             // category      passed failed unsupported
-            { "block", 0, 0, 884 },
-            { "blockflex", 0, 0, 28 },
             { "blockgrid", 0, 0, 56 },
             { "float", 0, 0, 84 },
             { "grid", 8, 0, 2032 },

@@ -91,10 +91,18 @@ resolved against real elements by `UtilityFamilySupportTests`; anything in the s
 property no consumer in the engine looks at, so the class name is correct, the rule is generated, the
 cascade computes it, and nothing happens.
 
+⚠ **`block` moved columns**, and it is the first family here to do so because an *algorithm* arrived
+rather than because a property found a reader. It really is block layout — children stack down the
+page, fill the line across it, and their vertical margins **collapse** into each other per CSS 2.1
+§8.3.1, which is the one thing a flex column will never do for you. Two cards with `mb-4` and `mt-4`
+between them are 16 points apart, not 32. `inline-block` and `inline-flex` stay inert on purpose:
+they differ from their block-level twins only inside an inline formatting context, and there is not
+one yet.
+
 | Read | Inert |
 |---|---|
-| `flex` / `hidden`, `flex-row`/`-col`/`-wrap`/`-1`, `items-`, `self-`, `justify-`, `content-` | `block`, `inline`, `inline-block`, `inline-flex`, `grid` — the layout's table has `flex` and `none` and nothing else |
-| `grow`, `shrink`, `basis-`, `order-` | `grid-cols-`, `col-span-` — the layout is flexbox only |
+| `flex` / `hidden` / **`block`**, `flex-row`/`-col`/`-wrap`/`-1`, `items-`, `self-`, `justify-`, `content-` | `inline`, `inline-block`, `inline-flex`, `grid` |
+| `grow`, `shrink`, `basis-`, `order-` | `grid-cols-`, `col-span-` — there is no grid algorithm |
 | `gap-`, `gap-x-`, `gap-y-`, `p*`, `m*` including the logical `ps`/`pe`/`ms`/`me` | |
 | `w-`, `h-`, `size-`, `min-w-`, `min-h-`, `max-w-`, `max-h-` | |
 | `static`/`relative`/`absolute`, `inset*`, `top`/`right`/`bottom`/`left`, `start`/`end`, `z-`, `box-border`/`box-content` | |

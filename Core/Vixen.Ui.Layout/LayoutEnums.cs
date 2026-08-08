@@ -151,13 +151,28 @@ public enum Overflow : byte {
     Scroll
 }
 
-/// <summary>Whether a node participates in layout at all.</summary>
+/// <summary>Which formatting context a node establishes for its children.</summary>
+/// <remarks>
+///     ⚠ <b>This was <c>{ Flex, None }</c>, and the one keyword added here is a whole second
+///     algorithm.</b> Doc 43 § B1. A <see cref="Block" /> container is not a flex column with
+///     <c>align-items: stretch</c>: its children's vertical margins <i>collapse</i> into each other
+///     and into the container's own, per CSS 2.1 §8.3.1, and CSS Flexbox §9.5 says in as many words
+///     that flex item margins do not. Anything that reads this enum and treats an unrecognised member
+///     as flex is therefore wrong in a way that only shows on a stacked layout with margins, which is
+///     most of them.
+/// </remarks>
 public enum Display : byte {
     /// <summary>A flex container.</summary>
     Flex,
 
     /// <summary>Not laid out, and neither are its children.</summary>
-    None
+    None,
+
+    /// <summary>
+    ///     A block container: children stack down the block axis and fill the inline axis, and
+    ///     adjoining vertical margins collapse.
+    /// </summary>
+    Block
 }
 
 /// <summary>Which way the inline axis runs.</summary>

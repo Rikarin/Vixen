@@ -111,6 +111,7 @@ public class LayoutStyleBridgeTests {
     [InlineData("overflow-x: scroll", "OverflowX", "Scroll")]
     [InlineData("overflow-y: auto", "OverflowY", "Scroll")]
     [InlineData("display: none", "Display", "None")]
+    [InlineData("display: block", "Display", "Block")]
     [InlineData("box-sizing: border-box", "BoxSizing", "BorderBox")]
     [InlineData("direction: rtl", "Direction", "Rtl")]
     public void A_keyword_becomes_its_enum(string css, string field, string expected) {

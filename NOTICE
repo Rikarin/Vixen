@@ -84,8 +84,20 @@ this as its own case rather than as a stricter kind of reading.
     Tools/Vixen.TaffyTestGen into Core/Vixen.Ui.Layout.Tests/Taffy/Corpus/. Taffy
     is MIT only — unlike most of the Rust ecosystem it is NOT dual MIT/Apache-2.0,
     so it carries no express patent grant and the compatibility argument rests on
-    MIT alone. No Taffy source is read, ported or linked; only the fixtures, which
-    Taffy generates from HTML laid out by Chrome-for-Testing.
+    MIT alone. The fixtures are what is incorporated, and Taffy generates them from
+    HTML laid out by Chrome-for-Testing.
+
+    This entry used to end "no Taffy source is read, ported or linked". The middle
+    two still hold and the first no longer does: src/compute/block.rs was READ
+    while writing Core/Vixen.Ui.Layout/LayoutTree.Block.cs, which is why Taffy now
+    also appears under reference material below. That is ADR-006's posture for
+    Yoga applied a second time — the algorithm is re-derived against CSS 2.1 §8.3.1
+    and §10.3.3 and expressed over this store's arrays, with different plumbing
+    (the collapsibility input is derived from the tree rather than threaded as a
+    layout parameter, there is no BlockContext, and the sizing goes through Yoga's
+    SizingMode rather than Taffy's LayoutInput). No file here is a translation of
+    a Taffy file and no Taffy code is copied, so the corpus entry above is
+    unchanged and nothing needs a §4b modification notice.
 
   Unicode Character Database — UAX #9, #14, #29 conformance data
     Unicode-3.0 — https://www.unicode.org/Public/UCD/latest/
@@ -107,6 +119,7 @@ upstream licence is recorded here.
   Stride                MIT           https://github.com/stride3d/stride
   Arch                  Apache-2.0    https://github.com/genaray/Arch
   Yoga                  MIT           https://github.com/facebook/yoga
+  Taffy                 MIT           https://github.com/DioxusLabs/taffy
   Flexbox (ru-ace)      BSD           https://github.com/ru-ace/Flexbox
   SignalsDotnet         MIT           https://github.com/fedeAlterio/SignalsDotnet
   PurrNet               MIT           https://github.com/PurrNet/PurrNet

@@ -16,17 +16,18 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 | `TaffyAhemMeasure` | The measure function the `<text>` fixtures were generated against. |
 | `TaffyFixtureRunner` | Builds a `LayoutTree`, lays it out, compares to a tenth of a pixel. |
 | `KnownGaps.txt` | The flex fixtures Vixen gets wrong, with a diagnosis each. |
+| `BlockKnownGaps.txt` | The same for block, and the shape of that file is itself the result. |
 
 | Category | Fixtures | Status |
 |---|--:|---|
-| `flex` | 2 352 | judged per fixture |
-| `leaf` | 56 | judged per fixture |
-| `block` | 884 | pending B1 |
-| `float` | 84 | pending B1 |
-| `blockflex` | 28 | pending B1 |
+| `flex` | 2 352 | judged per fixture — 2 058 pass |
+| `leaf` | 56 | judged per fixture — 24 pass, 32 refused |
+| `block` | 884 | judged per fixture — **722 pass**, 120 refused, 42 known gaps |
+| `blockflex` | 28 | judged per fixture — 24 pass, 4 refused |
+| `float` | 84 | pending: floats, and they were never waiting on `display` |
 | `grid` | 2 040 | pending B2 |
 | `gridflex` | 24 | pending B2 |
-| `blockgrid` | 56 | pending B1 + B2 |
+| `blockgrid` | 56 | pending B2 |
 
 Each fixture name ends in one of four suffixes — `__{border,content}_box_{ltr,rtl}` — so the 5 524
 are about 1 381 distinct cases run four ways.
@@ -158,10 +159,29 @@ Instead each pending corpus gets **one** test that runs every fixture in it and 
 fixtures really execute, so a crash or a hang in an unimplemented path shows up today; the number
 cannot move by accident; and when B1 and B2 land these become the progress meter.
 
-⚠ What the tallies say now is itself a result: **every block, float and grid fixture is refused at
-exactly one point — the `display` keyword.** Not one is failing on arithmetic, because not one
-reaches any. From this suite's point of view B1 is the day `Display` grows a `Block` member and B2
+⚠ What the tallies said before B1 was itself a result: **every block and grid fixture was refused at
+exactly one point — the `display` keyword.** Not one was failing on arithmetic, because not one
+reached any. From this suite's point of view B1 was the day `Display` grew a `Block` member and B2 is
 the day it grows `Grid`.
+
+⚠ **That bet has now been settled once, and it paid.** The day the keyword landed, 884 block and 28
+blockflex fixtures went from zero passing to 746 with **no change to this harness at all** — one
+line in `TaffyStyleMap` mapping the keyword, and a new conformance file that is a copy of the flex
+one pointed at two more categories. Eight *flex* fixtures came with them, which nobody predicted:
+they were whole trees being refused for one descendant's `display: block`. The remaining pending
+tallies are grid's 2 112, and they are the same bet.
+
+⚠ **`float`'s 84 did not move, and that is a correction to the sentence above.** They are refused on
+the `float` attribute, not on `display`, so unlike block and grid they were never one keyword away.
+Every one of them names a block container this store now lays out correctly right up to the point a
+float would narrow a line.
+
+⚠ **And the corpus turned out to have a blind spot of a kind the last audit did not have a name
+for.** 48 of the block fixtures test that `overflow` blocks a margin collapse — Chrome's answers are
+in the file — and every one of them also sets `scrollbar-width`, which this store has no field for,
+so all 48 are refused. The corpus *contains* the test and cannot run it. That is not a hole in the
+oracle's coverage; it is a hole in the bridge, and it is invisible from either side. The rule is held
+by `MarginCollapsingTests` instead, and deleting it leaves all 3 571 corpus tests green.
 
 ## The Ahem measure function
 
