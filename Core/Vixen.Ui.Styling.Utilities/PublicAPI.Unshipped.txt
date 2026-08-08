@@ -108,4 +108,5 @@ static Vixen.Ui.Styling.Utilities.UtilityFamilies.TryResolve(Vixen.Ui.Styling.Ut
 static Vixen.Ui.Styling.Utilities.UtilityGenerator.Escape(string name) -> string
 static Vixen.Ui.Styling.Utilities.UtilityParser.TryParse(string candidate, out Vixen.Ui.Styling.Utilities.UtilityCandidate parsed) -> bool
 static Vixen.Ui.Styling.Utilities.Variants.IsArbitrary(Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool
+static Vixen.Ui.Styling.Utilities.Variants.StateVariants.get -> System.Collections.Generic.IReadOnlyCollection<string>
 static Vixen.Ui.Styling.Utilities.Variants.TryResolve(string variant, Vixen.Ui.Styling.Utilities.ThemeTokens tokens, out Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool

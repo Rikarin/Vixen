@@ -24,6 +24,7 @@ public sealed class UtilityGenerator {
     readonly ThemeTokens tokens;
     readonly List<UtilityDeclaration> declarations = [];
     readonly List<string> unknown = [];
+    readonly List<string> atRuleScratch = [];
 
     /// <summary>Creates a generator.</summary>
     /// <param name="tokens">The theme.</param>
@@ -61,10 +62,9 @@ public sealed class UtilityGenerator {
             seen.Add(candidate);
         }
 
-        // Grouped by at-rule, so that twenty `md:` utilities share one media query rather than
-        // opening twenty.
-        var plain = new StringBuilder();
-        var wrapped = new SortedDictionary<string, StringBuilder>(StringComparer.Ordinal);
+        // Grouped by at-rule *chain*, so that twenty `md:` utilities share one media query rather
+        // than opening twenty — and so that `sm:md:p-4` and `sm:m-2` share the outer one.
+        var root = new AtRuleGroup();
 
         foreach (var candidate in seen) {
             if (!UtilityParser.TryParse(candidate, out var parsed)
@@ -73,29 +73,70 @@ public sealed class UtilityGenerator {
                 continue;
             }
 
-            var (selector, atRule) = BuildSelector(parsed);
+            atRuleScratch.Clear();
+            var selector = BuildSelector(parsed, atRuleScratch);
+
             if (selector is null) {
                 unknown.Add(candidate);
                 continue;
             }
 
-            var into = atRule is null ? plain : Bucket(wrapped, atRule);
-            Write(into, selector, parsed.Important, atRule is null ? 2 : 4);
+            var group = root;
+            foreach (var atRule in atRuleScratch) {
+                group = group.Enter(atRule);
+            }
+
+            Write(group.Body, selector, parsed.Important, 2 + (2 * atRuleScratch.Count));
             RuleCount++;
         }
 
         var css = new StringBuilder();
         css.Append("@layer utilities {\n");
-        css.Append(plain);
-
-        foreach (var (atRule, body) in wrapped) {
-            css.Append("  ").Append(atRule).Append(" {\n");
-            css.Append(body);
-            css.Append("  }\n");
-        }
-
+        Emit(root, css, 2);
         css.Append("}\n");
+
         return css.ToString();
+    }
+
+    /// <summary>One level of at-rule nesting: the rules directly inside it, and the levels below.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A trie over the at-rule chain rather than a dictionary keyed by the joined chain,
+    ///     because the point is to share prefixes.</b> <c>sm:p-4</c> and <c>sm:md:m-2</c> both open
+    ///     <c>@media (min-width: 640px)</c>, and a flat key would emit it twice; CSS Conditional 5
+    ///     § 3 lets a conditional group rule contain another, so one wrapper holding both a rule and a
+    ///     nested wrapper is what the specification already describes.
+    /// </remarks>
+    sealed class AtRuleGroup {
+        /// <summary>The rules written directly at this level.</summary>
+        public StringBuilder Body { get; } = new();
+
+        /// <summary>The groups nested inside this one, ordered so the file is byte-stable.</summary>
+        public SortedDictionary<string, AtRuleGroup> Nested { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>The group for an at-rule inside this one, created if it is the first to ask.</summary>
+        /// <param name="atRule">The at-rule.</param>
+        /// <returns>Its group.</returns>
+        public AtRuleGroup Enter(string atRule) {
+            if (Nested.TryGetValue(atRule, out var group)) {
+                return group;
+            }
+
+            group = new AtRuleGroup();
+            Nested[atRule] = group;
+
+            return group;
+        }
+    }
+
+    static void Emit(AtRuleGroup group, StringBuilder css, int indent) {
+        css.Append(group.Body);
+        var pad = new string(' ', indent);
+
+        foreach (var (atRule, nested) in group.Nested) {
+            css.Append(pad).Append(atRule).Append(" {\n");
+            Emit(nested, css, indent + 2);
+            css.Append(pad).Append("}\n");
+        }
     }
 
     void Write(StringBuilder into, string selector, bool important, int indent) {
@@ -115,14 +156,34 @@ public sealed class UtilityGenerator {
         into.Append(" }\n");
     }
 
-    (string? Selector, string? AtRule) BuildSelector(UtilityCandidate candidate) {
+    /// <summary>Works out a candidate's selector and the at-rules it has to sit inside.</summary>
+    /// <param name="candidate">The parsed class name.</param>
+    /// <param name="atRules">Receives the at-rules, outermost first.</param>
+    /// <returns>The selector, or <c>null</c> if a variant is not one this system knows.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A stack of conditions rather than one, which is what <c>sm:md:p-4</c> needs and
+    ///         what <c>@container</c> will need.</b> Two media variants on one utility used to be
+    ///         dropped here, on the belief that Vixen's <c>@media</c> could not nest. It can — CSS
+    ///         Conditional 5 § 3 nesting is what <c>StyleSheetLoader.LoadMedia</c> has always done by
+    ///         recursing into the rule it just matched — so the limitation was this method carrying one
+    ///         <c>string?</c> and not the cascade underneath it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Source order, deduplicated.</b> Conditional group rules conjoin, so
+    ///         <c>@media A { @media B { … } }</c> and the reverse select the same elements and the
+    ///         order is free; keeping what the author wrote is the one choice that never surprises,
+    ///         and it is what v4 emits. Deduplication is what keeps <c>md:md:p-4</c> — which a
+    ///         hand-written class list does produce — one wrapper rather than two identical ones.
+    ///     </para>
+    /// </remarks>
+    string? BuildSelector(UtilityCandidate candidate, List<string> atRules) {
         var selector = "." + Escape(candidate.Original);
         var prefix = string.Empty;
-        string? atRule = null;
 
         foreach (var variant in candidate.Variants) {
             if (!Variants.TryResolve(variant, tokens, out var effect)) {
-                return (null, null);
+                return null;
             }
 
             if (Variants.IsArbitrary(effect)) {
@@ -133,37 +194,50 @@ public sealed class UtilityGenerator {
 
             prefix = effect.SelectorPrefix + prefix;
 
-            if (effect.AtRule is null) {
-                continue;
+            if (effect.AtRule is not null && !atRules.Contains(effect.AtRule, StringComparer.Ordinal)) {
+                atRules.Add(effect.AtRule);
             }
-
-            if (atRule is not null && atRule != effect.AtRule) {
-                // Two media queries on one utility would have to nest, and Vixen's `@media` support
-                // does not. Dropped rather than half-applied, which is the rule everywhere else in
-                // this engine.
-                return (null, null);
-            }
-
-            atRule = effect.AtRule;
         }
 
-        return (prefix + selector, atRule);
+        return prefix + selector;
     }
 
     /// <summary>Escapes a class name so it can be a CSS selector.</summary>
     /// <param name="name">The class name as written in the markup.</param>
     /// <returns>The escaped form.</returns>
     /// <remarks>
-    ///     A utility's class name contains the characters its grammar is made of — <c>:</c>,
-    ///     <c>/</c>, <c>[</c>, <c>.</c> — and every one of them means something else in a selector.
-    ///     <c>hover:w-1/2</c> unescaped reads as a pseudo-class on a class called <c>hover</c>.
+    ///     <para>
+    ///         A utility's class name contains the characters its grammar is made of — <c>:</c>,
+    ///         <c>/</c>, <c>[</c>, <c>.</c> — and every one of them means something else in a selector.
+    ///         <c>hover:w-1/2</c> unescaped reads as a pseudo-class on a class called <c>hover</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A leading digit is escaped as a code point and not with a backslash, and the
+    ///         difference is the whole <c>2xl:</c> breakpoint.</b> CSS Syntax 3 § 4.3.8 says an
+    ///         identifier starting with a digit must have that digit written as
+    ///         <c>\</c> + hex + a space, because <c>\2</c> <i>begins</i> a hex escape — so
+    ///         <c>.2xl\:p-4</c> is not a selector at all and <c>.\2xl\:p-4</c> is a selector for
+    ///         something else entirely. The engine ships <c>--breakpoint-2xl</c> in its default theme,
+    ///         so every <c>2xl:</c> utility in every project emitted a rule ExCSS then refused, with a
+    ///         diagnostic nobody was reading and no test looking. <c>\32 xl\:p-4</c> is the form, space
+    ///         included — the space is the escape's terminator, not padding.
+    ///     </para>
     /// </remarks>
     public static string Escape(string name) {
         ArgumentNullException.ThrowIfNull(name);
 
         var escaped = new StringBuilder(name.Length + 8);
 
-        foreach (var c in name) {
+        for (var i = 0; i < name.Length; i++) {
+            var c = name[i];
+
+            // The two positions § 4.3.8 calls out: the first character, and the second when the first
+            // is a hyphen — `-2xl` would otherwise read as a negative number rather than an identifier.
+            if (char.IsAsciiDigit(c) && (i == 0 || (i == 1 && name[0] == '-'))) {
+                escaped.Append("\\3").Append(c).Append(' ');
+                continue;
+            }
+
             if (!char.IsAsciiLetterOrDigit(c) && c is not ('-' or '_')) {
                 escaped.Append('\\');
             }
@@ -172,15 +246,5 @@ public sealed class UtilityGenerator {
         }
 
         return escaped.ToString();
-    }
-
-    static StringBuilder Bucket(SortedDictionary<string, StringBuilder> buckets, string key) {
-        if (buckets.TryGetValue(key, out var bucket)) {
-            return bucket;
-        }
-
-        bucket = new StringBuilder();
-        buckets[key] = bucket;
-        return bucket;
     }
 }

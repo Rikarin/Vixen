@@ -651,7 +651,7 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 | `!important` | **suffix** `bg-red-500!` | ✅ suffix | *matches v4, not v3* |
 | Negative values `-mt-4` | ✅ | ✅ | |
 | Prefix (`tw:flex`) | ✅ | ⛔ | |
-| Two media variants on one utility | nests | dropped | known |
+| Two media variants on one utility | nests | ✅ nests | A15 |
 
 The 25 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
 last only odd even dark ltr rtl group peer data aria` plus the five breakpoint names when the theme
@@ -841,19 +841,74 @@ reason this is not optional for an editor: a panel that must lay out differently
 is the normal case, and the mechanism that answers it is `@container`, not `@media`.
 
 ⚠ **It needs engine work, and the size is set by a constraint two levels down.** Doc 09 lists
-container queries as P2 and unsupported. Worse, Vixen's `@media` **does not nest** — which is why two
-media variants on one utility are dropped rather than nested — and a container query is a conditional
-group rule that must nest inside a media query and inside `@layer utilities`. So the prerequisite is
-not `@container` itself but a **conditional-group rule model in the cascade** that can carry a stack
-of conditions rather than one. That is the same change that fixes `sm:md:p-4`, and it should be done
-once for both.
+container queries as P2 and unsupported.
 
-The evaluation side is cheaper than it looks: a container query resolves against the nearest ancestor
-with `container-type`, whose size the layout already computed. It is a second style pass over a
-subtree whose containing block changed — the same shape as the invalidation the cascade already does.
+⚠ ~~Worse, Vixen's `@media` **does not nest**~~ — **this was wrong, and A15 established that it was
+wrong before spending anything on it.** `StyleSheetLoader.LoadMedia` recurses into the rule it has just
+matched, so a conditional group rule inside another has always loaded and always conjoined, in either
+order with `@layer`. The 0.5 EM budgeted for "a conditional-group rule model in the cascade" bought a
+`List<string>` in `UtilityGenerator` and a trie in its emitter, because **the cascade never carried one
+condition per rule at all** — `@media` is evaluated at load and discarded, so a `StyleRule` has nowhere
+for a condition to live and needed none. The prerequisite existed; what did not exist was a test, and
+the belief survived because nothing had ever written a nested query.
 
-**Size: 1.25 EM** — 0.5 for nested conditional groups, 0.5 for `container-type`/`container-name` and
-the resolution walk, 0.25 for the variant table and the `@sm/name` grammar.
+**So what is left for `@container` is only `@container`,** and the shape is genuinely different from
+`@media`'s in the one way that matters: `@media` is answered **once per document** at load, and
+`@container` must be answered **per element**, because the same rule applies to one panel and not to
+its neighbour. That is the whole cost, and it is not a parsing cost:
+
+1. **`container-type` / `container-name` as real properties**, read by the layout, plus the
+   containment they imply — `size` containment means the container's own size must not depend on its
+   contents, which is a constraint the layout has to *enforce* and not merely record, or the query is
+   circular.
+2. **The resolution walk**: nearest ancestor with a matching `container-type`/`container-name`, whose
+   size the layout has already computed. Cheap in itself.
+3. **The load-time/match-time split has to move.** Everything else in this cascade is decided at load
+   because it is a property of the document; a container query is a property of an *element's
+   ancestry*, so either the rule carries its condition to match time — which is the `StyleRule` change
+   A15 turned out not to need — or the cascade runs a second pass over the subtree whose containing
+   block changed. The second is the same shape as the invalidation the cascade already does and is
+   probably right, but it is a real ordering problem: layout depends on style, and a container query
+   makes style depend on layout. That cycle is the risk, not the syntax.
+4. **The variant table and the `@sm/name` grammar** — `@sm:`…`@7xl:`, `@max-*`, `@min-[…]`, named
+   `@container/main`, and stacked ranges `@sm:@max-md:`. Stacking is free now: it is the same at-rule
+   chain `sm:md:` uses, and the emitter does not care that a link in the chain is `@container`.
+
+**Size: 0.75 EM**, down from 1.25 — the 0.5 for nested conditional groups is spent and was nearly free.
+0.5 for `container-type`/`container-name`, the containment constraint and the resolution walk; 0.25 for
+the variant table and the grammar. ⚠ The risk moved rather than shrank: it is now concentrated in item
+3, the style↔layout cycle, which is the item this document cannot size from the outside.
+
+### D6. The variants had almost no end-to-end coverage, and that was worth more than A15 ⚠
+
+A15's scope note asked whether the utility system's variants had *any* proof that an element under a
+variant computes a different value in a real document — as opposed to a generator test proving the
+selector text is spelled right. The audit's answer, family by family, was **four out of twenty-odd**:
+`hover:`, `focus:` (only ever stacked with `hover:`), `md:` (only `md:`, none of the other four
+breakpoints) and `[&>*]:`. Everything else was `Assert.Contains` on the emitted string, or nothing:
+
+- **Nothing at all**: `peer-*` and `aria-*` — the strings appeared in `Variants.cs` and in no test.
+- **Text only**: `dark:` (both strategies), `ltr:`/`rtl:`, `group-*`, `data-*`.
+- **Nothing, not even text**: `focus-visible`, `focus-within`, `active`, `disabled`, `enabled`,
+  `checked`, `first`, `last`, `only`, `odd`, `even` — eleven of the thirteen entries in one dictionary.
+- **Four of five breakpoints**: `sm:`, `lg:`, `xl:`, `2xl:` appear nowhere in any test.
+
+The mechanical cause was one signature: the only end-to-end helper took an `ElementState` and a
+`MediaContext` and nothing else, so it could not set an attribute, add an ancestor, or add a sibling —
+which is precisely the set of variants that went untested. Fixing the fixture is most of fixing the
+coverage.
+
+⚠ **And the gap was hiding a live bug.** `2xl:` emitted `.2xl\:p-4`, which is not a selector: CSS
+Syntax 3 § 4.3.8 requires a leading digit to be escaped as a code point (`.\32 xl\:p-4`), because `\2`
+begins a hex escape. ExCSS refused the rule and contributed nothing, silently, in every project using
+the shipped theme — `--breakpoint-2xl` has been the engine default since C3. One of five breakpoints
+tested, and it was not the one whose shape differed.
+
+`VariantCoverageTests` is the answer and it is enumerated rather than listed: it walks
+`Variants.StateVariants` and `ThemeTokens.Screens`, checked in both directions, so a variant added
+without a scene fails the build and a scene for a variant that no longer exists fails it too. Every
+case asserts a computed value positively **and** negatively, because a rule that applied
+unconditionally passes every positive assertion ever written about it.
 
 ### D4. oklch, and what it costs
 
@@ -1412,13 +1467,13 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content` | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟢 | The 22 selector-only variants (`empty`, `nth-*`, `*-of-type`, form states) | `Variants`, `ElementState` | — | 0.3 |
 | A14 🟢 | The 13 media-feature variants | `MediaQuery` | — | 0.2 |
-| A15 🟡 | Nested conditional-group rules — the `sm:md:` fix and `@container`'s prerequisite | cascade | — | 0.5 |
-| A16 🟡 | Container queries: `container-type`, the resolution walk, the `@` variants | cascade + layout | — | 0.75 |
+| A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing** — a `StyleRule` still carries no condition. ⚠ The real finding was next door: see § D6 | cascade | — | done |
+| A16 🟡 | Container queries: `container-type` and its containment constraint, the resolution walk, the `@` variants. ⚠ **Re-sized from 0.75 by A15**: nested conditional groups are done and the at-rule chain does not care that a link is `@container`, so the remaining risk is one item — a container query makes style depend on layout, and layout already depends on style. See § D3 | cascade + layout | — | 0.75 |
 | A17 🟢 | `has-*` | `SelectorMatcher` + invalidation | doc 09 P2 | 0.4 |
 | A18 🟢 | Scroll properties as `ScrollView` inputs rather than CSS | `Vixen.Ui.Controls` | — | 0.3 |
 | A19 🟢 | `text-decoration`, `text-transform`, `font-variant-numeric`, `font-stretch` | `Vixen.Ui.Text` | — | 0.4 |
 | A20 ✅ | **Run the `Animator`** — built on the style engine, `Observe` from the updater, `Advance` on the tick, `Apply` before the consumers read (F10). **Landed with F11**, which the same seam turned up: `UiDocument` never handed the cascade a `MediaContext` either, so every breakpoint, every `dark:` under the media strategy and every `color-gamut` query was dead | `StyleEngine`, `UiDocument` | **#46** | done |
-| | | | **A total** | **6.9** |
+| | | | **A total** | **6.4** |
 
 ### Track B — layout modes
 
@@ -1458,10 +1513,10 @@ mixed-content paragraph sit behind it.
 
 | Track | EM |
 |---|--:|
-| A — properties | 6.7 |
+| A — properties | 6.2 |
 | B — layout modes | 9.4 |
 | C — families | 3.2 |
-| **Total** | **19.3** |
+| **Total** | **18.8** |
 
 ⚠ **Two thirds of that is B2 and B3.** Everything else together is about six engineer-months, and it
 is the two thirds that decides whether this is a year or a quarter.
@@ -1495,8 +1550,10 @@ otherwise produce three `.vcss` files that a v4 `@theme` then has to re-do. **1.
 **Wave 2 — the cheap properties, in parallel.** A1, A2, A3, A4, A6, A13, A14, A19, C1, C2, C6. Eleven
 independent items, no shared file except `DrawListBuilder` between A1–A3. **1.9 EM, parallel.**
 
-**Wave 3 — the two cascade features.** A15 then A16 (`@container`), A17 (`has-*`), A12
-(pseudo-elements). Sequential within the cascade; parallel with wave 4. **2.15 EM.**
+**Wave 3 — the two cascade features.** ✅ A15 is done, and it cost almost nothing because the cascade
+already nested; what it bought instead was the discovery that the variant table had four end-to-end
+tests in it (§ D6). Then A16 (`@container`), A17 (`has-*`), A12 (pseudo-elements). Sequential within
+the cascade; parallel with wave 4. **1.65 EM.**
 
 **Wave 4 — the oracle, then block, then grid.** ✅ B0 first and alone, and it is done: 0.4 EM bought
 **3 116** Chrome-derived fixtures for the two modes that had none — 884 block, 84 float, 28

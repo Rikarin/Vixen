@@ -218,4 +218,105 @@ public class MediaContextTests {
 
         Assert.NotSame(animations, document.Styles.Animations);
     }
+
+    /// <summary>A conditional group rule inside another one, which is what <c>sm:md:</c> emits.</summary>
+    const string Nested = """
+        root { width: 4000px; height: 200px; }
+        #box { width: 10px; height: 20px; }
+        @media (min-width: 640px) {
+            @media (min-width: 900px) { #box { width: 300px; } }
+        }
+        """;
+
+    /// <summary>
+    ///     ⚠ <b>A nested conditional group applies only where every condition in the stack holds.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         CSS Conditional 5 § 3 lets a conditional group rule contain another, and the two
+    ///         conditions conjoin. <c>StyleSheetLoader.LoadMedia</c> has always recursed into the rule
+    ///         it just matched, so this has always worked — which is worth an assertion precisely
+    ///         because doc 43 § D3 recorded the opposite ("Vixen's <c>@media</c> does not nest") and
+    ///         sized a whole cascade change against that belief. The generator was the one that could
+    ///         not nest, and it was dropping <c>sm:md:p-4</c> on the strength of this file's silence.
+    ///     </para>
+    ///     <para>
+    ///         The three widths are the three cases, and the middle one is the whole test: 700 px
+    ///         satisfies the outer condition and not the inner, so a loader that flattened the stack to
+    ///         its outermost condition — or to its innermost — passes two of these rows and fails one.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(1000f, 300f)]
+    [InlineData(700f, 10f)]
+    [InlineData(400f, 10f)]
+    public void A_nested_conditional_group_needs_every_condition_in_its_stack(float surface, float expected) {
+        using var document = new UiDocument(surface, 200f);
+        Assert.Equal(expected, Box(document, Nested).Width);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The inner condition of a nested group is re-decided too.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The guard in <c>StyleEngine.SetMedia</c> replays the conditions the loader recorded, and
+    ///     nesting changes what "a condition" is. Recording only the outer one would leave a window
+    ///     dragged from 700 px to 1000 px showing the narrow box for ever: the outer condition holds at
+    ///     both widths, so nothing would look changed and no reload would happen.
+    /// </remarks>
+    [Fact]
+    public void A_resize_that_crosses_only_the_inner_condition_re_decides() {
+        using var document = new UiDocument(700f, 200f);
+        var box = Box(document, Nested);
+
+        Assert.Equal(10f, box.Width);
+
+        document.Resize(1000f, 200f);
+        document.Update();
+        Assert.Equal(300f, box.Width);
+
+        document.Resize(700f, 200f);
+        document.Update();
+        Assert.Equal(10f, box.Width);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the guard stays tight: a condition sealed behind a false outer one costs nothing.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The inner condition here is <c>(min-width: 640px)</c> and the drag crosses it — but the
+    ///         outer condition is false at both ends, so the block could not have applied either way
+    ///         and there is nothing to re-decide. The loader never records a condition it never reached,
+    ///         which is what makes this free rather than merely correct.
+    ///     </para>
+    ///     <para>
+    ///         Worth its own test because the safe-looking fix for the one above — record every
+    ///         condition in the text, reached or not — would pass that test and fail this one, and the
+    ///         cost it would add is a full ExCSS re-parse on a frame of a window drag.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_resize_inside_a_dropped_outer_condition_reloads_nothing() {
+        using var document = new UiDocument(400f, 200f);
+
+        Box(
+            document,
+            """
+            root { width: 4000px; height: 200px; }
+            #box { width: 10px; height: 20px; }
+            @media (min-width: 2000px) {
+                @media (min-width: 640px) { #box { width: 300px; } }
+            }
+            """
+        );
+
+        var animations = document.Styles.Animations;
+
+        document.Resize(900f, 200f);
+        document.Update();
+
+        Assert.Same(animations, document.Styles.Animations);
+        Assert.Equal(10f, document.Root.Children[0].Width);
+    }
 }

@@ -487,11 +487,23 @@ values without a restart — a live theme editor becomes trivial, and is a good 
 pipeline. The generator, the grammar, the variants, the scanner and `@apply` are all there and tested
 against the style engine rather than against expected text.
 
-Two limits that are decisions rather than gaps. `text-` resolves as alignment, then font size, then
+⚠ **That last clause was true of the generator and false of the variants, for as long as it has been
+written here.** Four of the twenty-odd variant families had a test that resolved anything — `hover:`,
+`focus:` stacked with it, `md:` and `[&>*]:`; the rest asserted on emitted text or on nothing, and
+`peer-*` and `aria-*` had neither. It read as a coverage claim and was a claim about one file. Doc 43
+§ D6 has the family-by-family audit and `VariantCoverageTests` is the standing gate; the sentence above
+is safe to trust again, which it was not before.
+
+One limit that is a decision rather than a gap. `text-` resolves as alignment, then font size, then
 colour, so a colour named `center` or `lg` is unreachable through it — the price of one prefix meaning
-three properties, and worth paying for both `text-lg` and `text-accent` reading right. Two media-query
-variants on one utility (`sm:md:p-4`) are dropped rather than nested, because Vixen's `@media` support
-does not nest.
+three properties, and worth paying for both `text-lg` and `text-accent` reading right.
+
+⚠ ~~Two media-query variants on one utility (`sm:md:p-4`) are dropped rather than nested, because
+Vixen's `@media` support does not nest.~~ **Wrong on the reason and no longer true.** The cascade has
+always nested conditional group rules — `StyleSheetLoader.LoadMedia` recurses into the rule it matched —
+so what could not nest was the *generator*, which carried one at-rule for the whole variant stack. It
+carries a chain now. See doc 43 A15 and § D3; the same paragraph is what had `@container` sized against
+a prerequisite that already existed.
 
 ⚠️ **[Doc 43](43-web-styling-parity.md) reopens the family list above and measures it.** The ✅ on this
 section is true of the *machinery* and not of the *coverage*: five of the families this section names

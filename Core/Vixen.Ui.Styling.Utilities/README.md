@@ -213,6 +213,21 @@ resolving an element. That checks the generator against the *engine* rather than
 of the text it ought to produce — a generator emitting syntactically valid CSS that the cascade then
 read differently would pass every string comparison and fail this.
 
+⚠ **`VariantCoverageTests` is that assertion applied to the variant table, and it exists because the
+table did not have it.** Until it was written, four of the twenty-odd variant families had an
+end-to-end test — `hover:`, `focus:` (only stacked with `hover:`), `md:` and `[&>*]:` — and the rest
+had `Assert.Contains` on the generated text or nothing at all. `peer-*` and `aria-*` had nothing of any
+kind; `ltr:`/`rtl:` emitted `[dir=…]` and no code anywhere in the repository had ever set a `dir`
+attribute. Generated text is exactly what a *dead* variant still produces correctly, which is how
+every breakpoint in the engine stayed inert through a green suite until `UiDocument` started handing
+the cascade a `MediaContext`.
+
+Two things make it a gate rather than a list. Every case asserts a **computed property value in a
+built document, positive and negative** — a rule that applied unconditionally would pass every
+positive assertion in the file. And the cases are **enumerated off the engine's own tables**:
+`Variants.StateVariants` and `ThemeTokens.Screens`, checked both ways, so a variant added without a
+scene fails the build and a scene naming a variant that no longer exists fails it too.
+
 ## What it found
 
 **A bracket-aware search that could never find a bracket.** The parser splits on `:`, `/` and `[` while
@@ -232,6 +247,19 @@ shape of the *resolved* value — reject anything not starting with a digit — 
 `100%`, which starts with a digit. Nothing about the output distinguishes a keyword's percentage from
 a fraction's, so the check moved to the value as written. The general form is worth keeping in mind:
 *a validity test applied after resolution can only see what survived it.*
+
+**A breakpoint that could not be spelled.** `2xl:` was emitting `.2xl\:p-4`, which is not a selector —
+CSS Syntax 3 § 4.3.8 requires a leading digit to be escaped as a code point, `\32 `. ExCSS refused the
+rule and the generated sheet contributed nothing, in every project using the shipped theme, for as long
+as `--breakpoint-2xl` has been in it. Nothing caught it because the only escaping tests were
+`hover:w-1/2`, `w-[37px]` and `p-4`, and the only breakpoint tested end to end was `md:`. The lesson is
+narrower than "test more": *a table with five entries tested at one entry is tested at none of the
+interesting ones, and the interesting one is always the entry whose shape differs.*
+
+**A `~` that a test could not tell from a `+`.** The first version of `peer-*`'s coverage put the peer
+immediately before the element, where the subsequent-sibling combinator and the adjacent one select the
+same thing — so replacing `~` with `+` left it green. One filler sibling between them is the whole
+difference. *A combinator test needs a scene the weaker combinator fails.*
 
 ## Deliberate limits
 
@@ -258,9 +286,30 @@ strategy. `direction` is a CSS property here, so there is nothing else in the tr
 match — and the consequence is that an element cannot select on its own direction, only on one it
 inherits.
 
-Two media-query variants on one utility (`sm:md:p-4`) are dropped rather than nested, because Vixen's
-`@media` support does not nest. `@apply` refuses variants, because a variant would have to invent a
-rule with a different selector from the block it sits in, which is not what "apply this here" means.
+**Two conditional variants on one utility (`sm:md:p-4`, `dark:md:p-4`) nest.** They used to be
+dropped, and the reason recorded here and in doc 43 § D3 — "Vixen's `@media` support does not nest" —
+was not true of the cascade. `StyleSheetLoader.LoadMedia` recurses into the rule it has just matched,
+so a conditional group rule inside another has always loaded and always conjoined, exactly as CSS
+Conditional 5 § 3 describes. What could not nest was `UtilityGenerator`, which carried one `string?`
+for the whole variant stack and gave up when a second at-rule disagreed with the first. It carries an
+ordered, deduplicated list now, and the emitter is a trie over those chains so that `sm:m-2` and
+`sm:md:p-4` share one `@media (min-width: 640px)` rather than opening two.
+
+⚠ **That is also the prerequisite for `@container`, and it is why the list is a stack and not an
+`and`-joined string.** Flattening `sm:md:` to `@media (min-width: 640px) and (min-width: 768px)` would
+have worked and would have been a dead end: a container query is a different at-rule and cannot be
+conjoined into a media query, so the moment `@sm:` joins `md:` the flattened form has nowhere to put
+it. Nesting generalises; conjunction does not.
+
+`@apply` refuses variants, because a variant would have to invent a rule with a different selector
+from the block it sits in, which is not what "apply this here" means.
+
+⚠ **A leading digit in a class name is escaped as a code point, and until recently was not.**
+CSS Syntax 3 § 4.3.8: `\2` *begins* a hex escape, so the backslash form `.2xl\:p-4` is not a selector
+and `.\2xl\:p-4` is a selector for something else. The correct form is `.\32 xl\:p-4`, space included
+— the space terminates the escape. The engine ships `--breakpoint-2xl`, so every `2xl:` utility in
+every project was emitting a rule ExCSS then refused, with a diagnostic nobody read. `VariantCoverageTests`
+enumerates the theme's own breakpoints now, so a breakpoint that stops resolving fails the build.
 
 **Composition is faithful, not folded.** A composed utility really does emit a custom property, and
 the cascade resolves the `var()` references at use time — it is not the generator assembling them as
