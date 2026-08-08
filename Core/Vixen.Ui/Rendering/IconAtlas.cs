@@ -188,6 +188,20 @@ public sealed class IconAtlas {
     ///         shader is shared with text and text has no fringe to match. A constant added to all
     ///         three channels moves their median by the same amount, which is exactly a dilation.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is also the amplifier, and that is worth knowing before anything else here is
+    ///         blamed for a misshapen icon.</b> A dilation moves every value towards covered, so a
+    ///         texel the encoding got <i>wrong by magnitude alone</i> — right about which side of the
+    ///         shape it is on, wrong about how far — crosses the threshold and becomes wrong about the
+    ///         side too. That is exactly what happened: <c>DistanceField</c> extended a horizontal
+    ///         edge's line past its own corner, which reads as half a texel outside the shape all the
+    ///         way across the cell, and half a texel is precisely what this adds. The transport's two
+    ///         pause bars gained a bar across the top joining them and became an I-beam. Neither
+    ///         <see cref="Resolution" />, <see cref="Range" /> nor the supersample can reach a defect
+    ///         of that shape — the sweeps recorded on them were measuring the wrong thing, not
+    ///         measuring badly — and a plain square had it too, and only escaped notice because its
+    ///         phantom band had nothing to bridge.
+    ///     </para>
     /// </remarks>
     public float Feather { get; set; } = 0.5f;
 

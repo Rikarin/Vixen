@@ -154,6 +154,20 @@ public static class DistanceField {
     }
 
     /// <summary>
+    ///     How near two edges' distances have to be, in proportion, before the corner rule decides
+    ///     between them rather than the distance.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Proportional and never absolute, because the same outline is encoded at a font's
+    ///     design units and at an icon's document pixels.</b> The two edges meeting at a corner are
+    ///     exactly equidistant from every point in its exterior wedge — that is what a corner is —
+    ///     but they reach that point from opposite ends of themselves, so the arithmetic differs in
+    ///     the last bit or two. A fixed epsilon would be the whole shape at one scale and nothing at
+    ///     the other.
+    /// </remarks>
+    const float Tie = 1e-5f;
+
+    /// <summary>
     ///     The signed distance to the nearest edge carrying a channel, positive inside.
     /// </summary>
     /// <remarks>
@@ -161,6 +175,32 @@ public static class DistanceField {
     ///         Past a segment's end the distance is to the line it lies on rather than to its
     ///         endpoint — msdfgen's pseudo-distance. The nearest edge is still chosen by ordinary
     ///         distance, so a distant edge's line cannot win.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which of two equidistant edges wins is the corner, and picking the first of them
+    ///         drew a phantom bar across every icon.</b> Every point in the exterior wedge of a convex
+    ///         corner is equidistant from <i>both</i> edges that meet there, because both of them
+    ///         clamp to the shared vertex — so the ordinary distance cannot separate them and whichever
+    ///         happened to be listed first supplied the pseudo-distance for the whole wedge. Above a
+    ///         rectangle's top-left corner that is the top edge, whose line runs away to the left
+    ///         forever: the field then reads "half a texel outside the shape" two texels clear of it,
+    ///         and every channel that edge carries reads the same, so the median does too. Measured on
+    ///         the editor's pause glyph, that put a uniform band of exactly 0.5 across the full width
+    ///         of the cell half a texel above the bars — <b>bridging the gap between them</b> — and the
+    ///         same band below. Two bars became an I-beam. It is not a thin-feature problem and no
+    ///         amount of resolution or range reaches it; a plain square has it too, and only escapes
+    ///         notice because its band has nothing to bridge.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The tie goes to the edge most perpendicular to the point, which is msdfgen's
+    ///         <c>SignedDistance</c> ordering and not an invention here.</b> Of the two edges at a
+    ///         corner, the one the point lies most nearly <i>alongside</i> is the one whose line is
+    ///         being extended past its own end; the one it lies most nearly <i>off the side of</i> is
+    ///         the one still describing a real boundary. Taking that one makes the median in the wedge
+    ///         the smaller of the two half-plane distances — which is the intersection of the two half
+    ///         planes, which is the sharp corner the three channels exist to keep. So this is what
+    ///         makes a corner sharp <i>and</i> what stops it leaking; they were always the same
+    ///         mechanism.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Kept as insurance, and labelled as insurance rather than as a covered claim.</b>
@@ -176,7 +216,16 @@ public static class DistanceField {
     static float Nearest(Prepared[] edges, Vector2 point, float winding) {
         var best = float.MaxValue;
         var bestSquared = float.MaxValue;
+
+        // ⚠ Larger is worse, so <c>MaxValue</c> is "nothing has answered yet" for this as well —
+        // and a first edge that is exactly alongside its point still beats it.
+        var bestAlongside = float.MaxValue;
         var signed = 0f;
+
+        // The tie's two bounds, kept rather than recomputed: they change only when the best does, and
+        // the comparison against them is the hottest line in the encoder.
+        var further = float.MaxValue;
+        var nearer = float.MaxValue;
 
         foreach (var edge in edges) {
             // ⚠ <b>An exact rejection, not an approximate one.</b> Nothing on a segment can be nearer
@@ -185,23 +234,55 @@ public static class DistanceField {
             // the assignment below — which is what makes skipping it produce the identical field
             // rather than a cheaper one. On the first edge `best` is <c>MaxValue</c> and the squared
             // reach is infinite, so nothing is skipped before there is an answer to skip against.
+            //
+            // ⚠ Strictly further, because an edge exactly at the reach is exactly tied — and a tie is
+            // now an answer rather than a nuisance. A corner's second edge lands on this boundary.
             var toMiddle = point - edge.Middle;
             var reach = best + edge.HalfLength;
 
-            if (toMiddle.LengthSquared() >= reach * reach) {
+            if (toMiddle.LengthSquared() > reach * reach) {
                 continue;
             }
 
             var t = Math.Clamp(Vector2.Dot(point - edge.From, edge.Direction) * edge.InverseLengthSquared, 0f, 1f);
-            var offset = point - (edge.From + (t * edge.Direction));
+
+            // ⚠ The far endpoint is the stored one rather than <c>From + Direction</c>, so that two
+            // edges clamping to one shared vertex clamp to the <i>same</i> vertex. Reconstructing it
+            // by addition loses the last bit, which is enough to turn an exact tie into a near one —
+            // and the whole of the rule below is about what happens at that tie. The near end needs
+            // no such care: <c>t</c> is nought there and the addition is exact.
+            var closest = t >= 1f ? edge.To : edge.From + (t * edge.Direction);
+            var offset = point - closest;
             var distanceSquared = offset.LengthSquared();
 
-            if (distanceSquared >= bestSquared) {
+            // Clearly further than the best so far, which is the ordinary case and settles it before
+            // anything else is worked out.
+            if (distanceSquared > further) {
+                continue;
+            }
+
+            // How far the point lies <i>along</i> this edge past the nearest point on it: nought
+            // whenever the segment itself is what is nearest, and growing as the point goes round the
+            // corner. Kept un-normalised — the only moment it is compared is a tie, where the two
+            // distances are equal by definition and dividing both by the same number decides nothing.
+            // ⚠ Worth a sentence, because normalising it took a square root and a divide onto a path
+            // that runs a few million times and cost 28% of the encode where the whole rule costs 11.
+            // Reconstructing the far endpoint arithmetically to lose the branch above was measured
+            // too, and is 6% <i>slower</i> than the load it replaces — the branch predicts.
+            var alongside = t > 0f && t < 1f
+                ? 0f
+                : MathF.Abs(Vector2.Dot(edge.Direction, offset)) * edge.InverseLength;
+
+            // Tied on distance, so the corner rule decides.
+            if (distanceSquared >= nearer && alongside >= bestAlongside) {
                 continue;
             }
 
             bestSquared = distanceSquared;
             best = MathF.Sqrt(distanceSquared);
+            bestAlongside = alongside;
+            further = distanceSquared * (1f + Tie);
+            nearer = distanceSquared * (1f - Tie);
             signed = winding * Cross(edge.Direction * edge.InverseLength, point - edge.From);
         }
 
@@ -231,6 +312,7 @@ public static class DistanceField {
             prepared.Add(
                 new Prepared(
                     edge.From,
+                    edge.To,
                     direction,
                     1f / lengthSquared,
                     1f / length,
@@ -246,6 +328,7 @@ public static class DistanceField {
     /// <summary>One edge, with the parts that do not depend on the pixel already computed.</summary>
     readonly record struct Prepared(
         Vector2 From,
+        Vector2 To,
         Vector2 Direction,
         float InverseLengthSquared,
         float InverseLength,
