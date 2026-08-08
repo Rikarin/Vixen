@@ -33,6 +33,11 @@ package Vixen.Editor.Shaders
 /// not produce garbage anyone would notice. `UiShapeLayoutTests` on the host reads the committed
 /// `UiBox.reflect.json` and compares it field by field with `Vixen.Ui.Rendering.UiShape`, which is the
 /// only thing standing between a layout change and a picture that merely looks plausible.
+///
+/// ⚠ **And this is one of eight files that have to agree about it.** Four name the type and four do
+/// not: `UiRenderer` needs only the size, and three hand-maintained GLSL copies of this shader — under
+/// `Vixen.Graphics.Golden.Tests`, `Samples/02-HelloUi` and the `vixen-app` template — call the struct
+/// `Shape`. `Vixen.Ui.Rendering.UiShape`'s own remark carries the census.
 struct UiShape {
     /// Half width, half height, border thickness, and the gradient shape: 0 none, 1 linear,
     /// 2 radial, 3 conic.

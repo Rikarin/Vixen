@@ -23,11 +23,27 @@ namespace Vixen.Ui.Rendering;
 ///         This is copied into a storage buffer with <c>MemoryMarshal</c> and read back by a shader
 ///         whose own alignment rules are not C#'s — a <c>float</c> beside a <c>Vector2</c> lays out
 ///         differently under std430 than under sequential, and the failure is a box drawn with
-///         another box's radii, which looks like a bug in the geometry. Four files have to agree about
-///         this layout: this type, <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c>,
-///         <c>SoftwareUiRasterizer</c>, and the committed <c>UiBox.frag.spv</c> and
-///         <c>UiBox.reflect.json</c> beside the shader. <c>UiShapeLayoutTests</c> is what makes a
-///         disagreement a red test instead of a plausible-looking picture.
+///         another box's radii, which looks like a bug in the geometry.
+///     </para>
+///     <para>
+///         ⚠ <b>Eight files have to agree about this layout, and half of them are invisible to a
+///         search for this type's name.</b> The four that name it: this record,
+///         <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c>, the committed <c>UiBox.frag.spv</c> and
+///         <c>UiBox.reflect.json</c> beside it, and <c>SoftwareUiRasterizer</c>. The four that do not:
+///         <c>UiRenderer</c>, which needs only the <i>size</i> and once spelled it <c>80</c> in three
+///         places; and three hand-maintained GLSL copies of the box shader — under
+///         <c>Vixen.Graphics.Golden.Tests</c>, <c>Samples/02-HelloUi</c> and the
+///         <c>vixen-app</c> template — each of which calls the struct <c>Shape</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>Which test covers which half is worth knowing before changing this.</b>
+///         <c>UiShapeLayoutTests</c> pins the record's <i>shape</i> against the editor's committed
+///         reflection and has nothing to say about how a host sizes a buffer around it;
+///         <c>./build.sh CheckShaders</c> pins the Raven sources against their modules and does not
+///         see GLSL. The stride and the three GLSL copies are caught only by
+///         <c>Vixen.Graphics.Golden.Tests</c>, on a real device — which is exactly what caught them
+///         when this record grew. <c>UiRenderer</c> now derives its stride from
+///         <c>Marshal.SizeOf</c>, so that one cannot drift again; the other three still can.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The two new lanes are <i>appended</i>, and the two repurposed ones were both zero.</b>

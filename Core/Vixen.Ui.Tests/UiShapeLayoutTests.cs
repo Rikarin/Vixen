@@ -43,6 +43,16 @@ namespace Tests;
 ///         and never recompiled — <c>./build.sh CheckShaders</c> is that half, and the two together
 ///         close the loop.
 ///     </para>
+///     <para>
+///         ⚠ <b>What this does <i>not</i> cover, stated because it was learned the expensive way.</b>
+///         Eight files have to agree about this layout and this test sees two of them. It says nothing
+///         about how a host <i>sizes a buffer</i> around the record — <c>UiRenderer</c> spelled the
+///         stride <c>80</c> in three places and every assertion here stayed green — and nothing about
+///         the three hand-maintained GLSL copies of the box shader under
+///         <c>Vixen.Graphics.Golden.Tests</c>, <c>Samples/02-HelloUi</c> and the <c>vixen-app</c>
+///         template. Both were caught by <c>Vixen.Graphics.Golden.Tests</c> on a real device instead.
+///         Passing this file is necessary and is not sufficient.
+///     </para>
 /// </remarks>
 public class UiShapeLayoutTests {
     /// <summary>The C# property, and the shader field it has to sit on top of, in order.</summary>

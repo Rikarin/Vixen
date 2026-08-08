@@ -193,6 +193,37 @@ So the mitigation is two tests rather than care:
   It previously covered only the library shaders the editor loads while describing itself as covering
   these, so a `.rvn` edited and never recompiled could sit in a commit unremarked.
 
+⚠ **This section said four files have to agree. It is eight, and the four it did not name are the
+ones no grep for `UiShape` will find.** Written down because the estimate's one real miss was not the
+maths and not the layout — it was the *census*:
+
+| # | File | What it knows | Caught by |
+|---|---|---|---|
+| 1 | `Vixen.Ui.Rendering.UiShape` | the whole layout | — |
+| 2 | `Editor/Vixen.Editor.Host/Shaders/Ui.rvn` | the whole layout | `UiShapeLayoutTests`, `CheckShaders` |
+| 3 | `UiBox.frag.spv` / `UiBox.reflect.json` | the whole layout | `UiShapeLayoutTests`, `CheckShaders` |
+| 4 | `SoftwareUiRasterizer` | the whole layout | the UI suite's own pixel tests |
+| 5 | **`UiRenderer`** | only the **size**, spelled `80` three times | `Vixen.Graphics.Golden.Tests` |
+| 6 | **`Platform/Vixen.Graphics.Golden.Tests/Shaders/ui-box.frag`** | the whole layout, in GLSL | itself |
+| 7 | **`Samples/02-HelloUi/Shaders/ui-box.frag`** | ditto | nothing |
+| 8 | **`Tools/Vixen.Templates/.../Shaders/ui-box.frag`** | ditto | nothing |
+
+Five, six, seven and eight are invisible to a search for the type: number five spells the literal
+`80` and mentions no type at all, and the three GLSL copies call the struct `Shape`. The host wrote
+112-byte records into a buffer sized for 80-byte ones, and each shader indexed at the old stride, so
+every box after the first read the previous record's tail — a frame of plausible rounded rectangles
+with the wrong radii, which is the failure `UiShape`'s remark predicts almost word for word.
+
+⚠ **What actually caught it was `Vixen.Graphics.Golden.Tests` on a real device, not either new test.**
+`UiShapeLayoutTests` pins the record's *shape* against the shader's reflection and has nothing to say
+about how a host sizes a buffer around it; `CheckShaders` compiles Raven and the GLSL copies are not
+Raven. Nothing compiles those three `.frag` files, and nothing should be made to — `TestShaders.cs`
+records the decision not to require `glslc` on every CI leg. `UiRenderer` now derives its stride from
+`Marshal.SizeOf<UiShape>()`, which removes number five from the list permanently; six, seven and eight
+remain, and the honest answer to them is
+[`Core/Vixen.Ui.Renderer/README.md`](../../Core/Vixen.Ui.Renderer/README.md)'s standing point that
+three hand-maintained copies of one shader is not a design anybody chose.
+
 ⚠ **`Gradient.rvn` and `RoundedRect.rvn` are not the shader to edit, and both look like it.**
 `Raven/Library/Ui/Gradient.rvn` already has radial and conic modes and a perceptual interpolation
 option; `RoundedRect.rvn` has a `Gradient` permutation. Neither reads the `UiShape` buffer, so
