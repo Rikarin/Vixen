@@ -5,10 +5,11 @@
 
    ⚠ **This was 1 434 lines of CSS inside a C# raw string literal until doc 43's `@theme` work.**
    There was no item type, no glob and no loader for a `.vcss` anywhere in the tree, so a stylesheet
-   either lived in a `const string` or was embedded by hand — `ControlTheme` and `AdvancedTheme`
-   still do, and this file is the one that proves the path out. It is an `EmbeddedResource` by the
-   glob in `Core/Vixen.Ui/build/Vixen.Ui.targets`, and `EditorTheme.Css` reads it back by its
-   logical name.
+   either lived in a `const string` or was embedded by hand, and this file is the one that proved
+   the path out. It is an `EmbeddedResource` by the glob in
+   `Core/Vixen.Ui/build/Vixen.Ui.targets`, and `EditorTheme.Css` reads it back by its logical name.
+   The other nine hand-authored sheets — `ControlTheme` and `AdvancedTheme` among them — followed it
+   out of C# afterwards, byte for byte.
 
    The design tokens are next door in `vixen.ui.vcss`, which is the `@theme` block the utility
    generator reads. Two files rather than one because this one is loaded into a document at run time

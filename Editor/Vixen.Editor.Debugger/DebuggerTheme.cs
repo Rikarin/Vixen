@@ -29,7 +29,21 @@ public static class DebuggerTheme {
     }
 
     /// <summary>The stylesheet's text, for a caller that wants to read or amend it.</summary>
-    public static string Css => Sheet;
+    /// <remarks>
+    ///     ⚠ <b>Read out of the assembly rather than held in a <c>const string</c>, and the change
+    ///     is bigger than where the bytes live.</b> This sheet was 70 lines of CSS edited inside a
+    ///     raw string literal, which is what a tree with no <c>.vcss</c> item type forced — no syntax
+    ///     highlighting, no formatter, no way for a hot-reload watcher to see an edit, and a rebuild
+    ///     of the whole assembly for a colour. It is a real file now, embedded by the glob in
+    ///     <c>Core/Vixen.Ui/build/Vixen.Ui.targets</c>.
+    ///     <para>
+    ///         Cached, because the string is handed to <c>Load</c> once per document and re-decoding
+    ///         the UTF-8 for every caller is a cost with nothing on the other side of it. The
+    ///         resource is immutable, so the cache cannot go stale — a hot reload replaces the sheet
+    ///         through <c>UiDocument</c>, not through here.
+    ///     </para>
+    /// </remarks>
+    public static string Css => sheet ??= Read("Vixen.Editor.Debugger.DebuggerTheme.vcss");
 
     /// <summary>This assembly's utility rules, in <c>@layer utilities</c>.</summary>
     /// <remarks>
@@ -49,76 +63,19 @@ public static class DebuggerTheme {
     /// </remarks>
     public static string Utilities => VixenUtilityStyles.Utilities;
 
-    const string Sheet = """
-        debugger-status, remote-status {
-            padding: 3px 8px;
-            color: var(--text-muted);
-            font-size: 0.85em;
-            flex-shrink: 0;
-        }
+    static string? sheet;
 
-        /* ── The frame debugger ─────────────────────────────────────────────────
-           Tree on the left, state on the right. A state pane under the tree would
-           put the two things somebody is comparing a scroll apart. */
-        debugger-body, remote-body {
-            flex-direction: row;
-            flex-grow: 1;
-            flex-basis: 0px;
-            min-height: 0px;
-            gap: 0px;
-        }
+    static string Read(string name) {
+        var assembly = typeof(DebuggerTheme).Assembly;
 
-        debugger-body > tree-view, remote-body > tree-view {
-            flex-grow: 1;
-            flex-basis: 0px;
-            min-width: 0px;
-        }
+        using var stream = assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException(
+                $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is added "
+                + "by the .vcss glob in Vixen.Ui.targets, which this project imports at the bottom "
+                + "of its .csproj.");
 
-        /* ⚠ A class rather than a tag, because the state pane is a `KeyValueList` now and its tag is
-           the control's. What is left here is the pane's place in the debugger's layout — how wide
-           it is and which edge it is against — and the six rules that used to draw a row are gone:
-           two columns, a heading class and a pooling loop were the control's job and never this
-           file's. Its own `min-width: 180px` is what keeps the halves readable in a narrow dock;
-           below that the key column clips, which is the control's answer and not a new one. */
-        .debugger-state, remote-counters {
-            width: 44%;
-            min-width: 180px;
-            flex-shrink: 0;
-            flex-direction: column;
-            overflow: hidden;
-            border-left-width: 1px;
-            border-color: var(--border);
-        }
+        using var reader = new StreamReader(stream);
 
-        /* The one thing the shared row does not say: a group heading in a capture has air above it,
-           because the groups are what somebody scans the pane for. */
-        .debugger-state key-value-row.heading { margin-top: 6px; }
-
-        /* ── The remote inspector ───────────────────────────────────────────── */
-        remote-counter {
-            flex-direction: row;
-            align-items: center;
-            gap: 8px;
-            padding: 2px 8px;
-            min-height: 20px;
-        }
-
-        counter-label { flex-grow: 1; color: var(--text-muted); overflow: hidden; }
-        counter-value { width: 90px; flex-shrink: 0; text-align: right; }
-
-        remote-write {
-            flex-direction: row;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 6px;
-            flex-shrink: 0;
-            border-top-width: 1px;
-            border-color: var(--border);
-        }
-
-        remote-write > text-box { flex-grow: 1; min-width: 60px; }
-
-        /* ── The device manager ─────────────────────────────────────────────── */
-        device-manager > data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
-        """;
+        return reader.ReadToEnd();
+    }
 }

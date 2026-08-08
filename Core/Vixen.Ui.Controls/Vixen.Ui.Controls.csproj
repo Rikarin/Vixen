@@ -32,4 +32,15 @@
         <InternalsVisibleTo Include="Vixen.Ui.Controls.Tests" />
     </ItemGroup>
 
+    <!--
+        ⚠ **Imported for the `**/*.vcss` glob, which is what makes `ControlTheme.vcss` an
+        EmbeddedResource.** `ControlTheme.Css` reads it back by its logical name, so without this line
+        the property throws at the first `Install` rather than failing to compile — the error message
+        it throws names this import for that reason.
+
+        At the bottom of the file, because the glob has to run after DefaultItemExcludes is final.
+        There is no `.vxml` in this project, so the other half of the .targets is inert here.
+    -->
+    <Import Project="..\Vixen.Ui\build\Vixen.Ui.targets" />
+
 </Project>

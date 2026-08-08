@@ -248,8 +248,16 @@ have it.
 
 ⚠ **`EditorTheme.vcss` is a file now, and it was fourteen hundred lines of CSS in a
 `const string`.** There was no `.vcss` item type in the tree at all until doc 43's `@theme` work; the
-glob in `Vixen.Ui.targets` embeds it and `EditorTheme.Css` reads it back. `ControlTheme` and
-`AdvancedTheme` are still constants.
+glob in `Vixen.Ui.targets` embeds it and `EditorTheme.Css` reads it back.
+
+⚠ **And it is no longer the only one — every hand-authored sheet in the tree is a file.**
+`ControlTheme`, `AdvancedTheme`, `AssetEditorTheme`, `InspectorTheme`, `BrowserTheme`,
+`ProfilerTheme`, `DebuggerTheme`, `NodeGraphTheme` and `WorldTheme` followed, byte for byte: the CSS
+each one now loads is the old constant's text unchanged, with an SPDX header comment ahead of it and
+a trailing newline. Nothing about the cascade moved, which is the point — the extraction was
+verified by reading every sheet through its own `Css` accessor before and after and comparing the
+bytes. The only sheets still carried as constants are the **generated** ones (`EditorStyles.Utilities`
+and its per-assembly siblings), which have no file to edit because a build step writes them.
 
 ⚠ **The utility layer loses every argument it has with the sheet above**, which is what the layer is
 *for* — origin, then layer, then specificity, then order, and an unlayered rule beats a layered one
@@ -276,10 +284,12 @@ down whole. There are four such sites here — `ThemeService`'s `dark`, `Console
 `MessageLogView`'s `level-*`, and whatever a plugin puts in `EditorCommand.ClassName` — and none of
 them names a utility, so `@(VixenStyleSafelist)` is empty. A future one that does has to go in it.
 
-⚠ **The three theme sheets are still C# string constants**, so the step is given no `--base` files
-and `EditorStyles.Utilities` is the whole of what it produces. When they become `.vcss` the project
-adds `<VixenStyleBase Include="…" />` and the same step emits them ahead of the layer, `@apply`
-expanded — an item change rather than a redesign.
+⚠ **The step is still given no `--base` files**, so `EditorStyles.Utilities` is the whole of what it
+produces. That is now a choice rather than a blocker: the theme sheets *are* `.vcss` files, so the
+project can add `<VixenStyleBase Include="…" />` and have the same step emit them ahead of the layer
+with `@apply` expanded — an item change rather than a redesign. It is not done, because folding a
+sheet into the generated one changes when it is loaded and that is a cascade change, not a packaging
+one.
 
 ## The console
 

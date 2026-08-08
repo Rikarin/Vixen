@@ -448,6 +448,13 @@ on a driver that does not check is a scene drawn from memory nothing had finishe
 
 ## The world, and why the editor has one
 
+**This assembly has a stylesheet of its own, and it is a file**: `WorldTheme.vcss` at the project
+root, embedded by the `**/*.vcss` glob in `Vixen.Ui.targets` and read back by
+`EditorApplication.WorldTheme.Css`. Sixteen lines styling the world and scene panels' elements, a
+sixth user-agent sheet after the five the constructor already loads. It was a `const string` in the
+middle of `EditorWorlds.cs` until it was moved out byte for byte — the class stays `internal` and
+nested, which the resource name does not care about.
+
 `Program.cs` says the editor's loop is an interface and has no world. It now owns one, and that is
 not a contradiction: nothing here ticks systems, runs a fixed step or updates behaviours. The world
 is a **document** — the thing the hierarchy lists, the inspector edits and the gizmo drags — and it

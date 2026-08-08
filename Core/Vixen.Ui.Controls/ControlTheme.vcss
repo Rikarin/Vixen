@@ -1,0 +1,890 @@
+/* SPDX-FileCopyrightText: Copyright (c) Rikarin
+   SPDX-License-Identifier: Apache-2.0
+
+   What a control looks like before anybody styles one, as a stylesheet on disk.
+
+   ⚠ **This is the sheet every other one in the tree is written against.** It declares the nine
+   tokens — `--surface`, `--border`, `--foreground` and the rest — that `AdvancedTheme`,
+   `EditorTheme` and five editor sheets all resolve their colours through, which is why a game that
+   loads nothing else still gets a coherent set of controls and why recolouring the root recolours
+   everything downstream.
+
+   ⚠ **It is unlayered, and that is load-bearing until doc 61 changes it deliberately.** An
+   unlayered rule beats every `@layer utilities` rule regardless of specificity, so
+   `<Button class="p-2">` loses to `button { padding: … }` here. Moving this file into a layer is an
+   appearance change for every consumer at once; it is not a side effect anybody should get from an
+   extraction. */
+
+/* Every control's declared size is its outside, which is what UI work wants and
+   what LayoutStyleBuilder deliberately left to a user-agent sheet to say. */
+* { box-sizing: border-box; }
+
+/* ── Tokens ────────────────────────────────────────────────────────────
+   Everything below is written against these. An application that wants a
+   different palette sets them on the root and touches nothing else; one
+   that wants a dark theme adds the `dark` class, which is the
+   `DarkModeStrategy.Class` the utility generator already understands. */
+
+root {
+    --surface: #ffffff;
+    --surface-sunken: #f4f5f7;
+    --surface-raised: #ffffff;
+    --border: #d8dbe0;
+    --text: #1c1f23;
+    --text-muted: #6b7280;
+    --accent: #3b6cf0;
+    --accent-text: #ffffff;
+    --danger: #d64545;
+
+    --track-color: #e3e6eb;
+    --fill-color: #3b6cf0;
+    --thumb-color: #ffffff;
+    --thumb-size: 14px;
+    --selection-color: #b8ccf8;
+    --caret-color: #1c1f23;
+
+    color: var(--text);
+}
+
+root.dark {
+    --surface: #1b1d21;
+    --surface-sunken: #141619;
+    --surface-raised: #24272c;
+    --border: #383c43;
+    --text: #e8eaed;
+    --text-muted: #9aa1ab;
+    --accent: #5b87ff;
+    --accent-text: #0d0f12;
+    --danger: #f07171;
+
+    --track-color: #33373d;
+    --fill-color: #5b87ff;
+    --thumb-color: #e8eaed;
+    --selection-color: #2c4a86;
+    --caret-color: #e8eaed;
+}
+
+/* A second window's root. It is `root`'s counterpart for everything except the tokens,
+   which it inherits — one document, one palette, however many windows. `position:
+   relative` because a torn-off window is where a floating popover, a drop preview and a
+   drag ghost are positioned from once the content is no longer in the main window. */
+ui-surface {
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    background-color: var(--surface);
+}
+
+/* ── Text ───────────────────────────────────────────────────────────── */
+text { color: var(--text); }
+text.variant-subtle { color: var(--text-muted); }
+text.variant-danger { color: var(--danger); }
+
+link {
+    flex-direction: row;
+    align-items: center;
+    align-self: flex-start;
+    color: var(--accent);
+}
+
+kbd {
+    flex-direction: row;
+    align-items: center;
+    align-self: flex-start;
+    padding: 1px 5px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 4px;
+    background-color: var(--surface-sunken);
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
+badge {
+    flex-direction: row;
+    align-items: center;
+    align-self: flex-start;
+    padding: 1px 7px;
+    border-radius: 9px;
+    background-color: var(--surface-sunken);
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
+badge.variant-primary { background-color: var(--accent); color: var(--accent-text); }
+badge.variant-danger { background-color: var(--danger); color: var(--accent-text); }
+
+avatar {
+    width: 32px;
+    height: 32px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background-color: var(--surface-sunken);
+    color: var(--text-muted);
+}
+
+skeleton {
+    height: 12px;
+    border-radius: 6px;
+    background-color: var(--track-color);
+}
+
+icon { width: 16px; height: 16px; }
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+button, icon-button, toggle-button {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-start;
+    gap: 6px;
+    padding: 5px 12px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    background-color: var(--surface);
+    color: var(--text);
+}
+
+icon-button { padding: 5px; }
+icon-button label { display: none; }
+
+button.size-sm, icon-button.size-sm, toggle-button.size-sm { padding: 2px 8px; font-size: 0.9em; }
+button.size-lg, icon-button.size-lg, toggle-button.size-lg { padding: 8px 18px; font-size: 1.1em; }
+icon-button.size-sm { padding: 2px; }
+icon-button.size-lg { padding: 8px; }
+
+button:hover:not(:disabled), icon-button:hover:not(:disabled), toggle-button:hover:not(:disabled) { background-color: var(--surface-sunken); }
+button:active:not(:disabled), icon-button:active:not(:disabled), toggle-button:active:not(:disabled) { background-color: var(--track-color); }
+
+button.variant-primary {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+}
+
+button.variant-danger {
+    background-color: var(--danger);
+    border-color: var(--danger);
+    color: var(--accent-text);
+}
+
+button.variant-subtle, icon-button.variant-subtle, toggle-button.variant-subtle {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--text-muted);
+}
+
+toggle-button:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+}
+
+/* The focus ring is one rule for the whole set, and it is `:focus-visible`
+   rather than `:focus` — so a click does not light it and a Tab does. */
+button:focus-visible, icon-button:focus-visible, toggle-button:focus-visible,
+checkbox:focus-visible, switch:focus-visible, radio:focus-visible,
+textbox:focus-visible, textarea:focus-visible, search-box:focus-visible,
+numeric-input:focus-visible, select:focus-visible, multi-select:focus-visible,
+slider:focus-visible, range-slider:focus-visible, tab:focus-visible,
+menu-item:focus-visible, option:focus-visible, link:focus-visible,
+page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-visible {
+    border-color: var(--accent);
+}
+
+/* ── Disabled ───────────────────────────────────────────────────────────
+   Two halves, and the first one is the important half.
+
+   ⚠ Every `:hover` and `:active` rule above carries `:not(:disabled)`,
+   because otherwise a disabled control under the pointer lights up exactly
+   as a live one does and then does nothing when it is clicked. That is not
+   a styling nicety: hover feedback *is* the promise that something will
+   happen, and a control that makes it and then refuses is worse than one
+   that never looked interactive. The state was always right — the element
+   carries `ElementState.Disabled` — so nothing but a picture could see it.
+
+   ⚠ And the fade is `opacity` rather than a muted palette. A muted colour
+   has to be chosen against every background a control can sit on and
+   against every variant; `opacity` is one number that is correct on all of
+   them, including a primary button whose text is white on blue and whose
+   muted text colour is therefore almost exactly its unmuted one. The text
+   colour stays as well, for the controls whose background is transparent
+   and which the opacity alone barely touches. */
+:disabled {
+    color: var(--text-muted);
+    opacity: 0.55;
+}
+
+/* ⚠ And a field that will not take a keystroke, which is a different state and had no
+   picture at all. `ReadOnly` is deliberately not `Disabled` — the field still takes the
+   focus and its text can still be selected and copied, which is the whole reason a form
+   uses it — so it does not get the fade, which reads as "out of reach". What it gets is
+   the muted text `:disabled` gets, because "you cannot change this" is the half the two
+   states share and is the half somebody is about to discover by typing.
+
+   On the parts as well as the field: `field-text` inherits its colour from here, and
+   `numeric-input`'s spinners and a combo box's editable half are children that do not. */
+.read-only, .read-only field-text, .read-only icon {
+    color: var(--text-muted);
+}
+
+/* ── Toggles ────────────────────────────────────────────────────────── */
+checkbox, radio, switch {
+    flex-direction: row;
+    align-items: center;
+    align-self: flex-start;
+    gap: 8px;
+    color: var(--text);
+}
+
+checkbox box {
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 4px;
+    background-color: var(--surface);
+}
+
+checkbox box icon { width: 12px; height: 12px; display: none; }
+checkbox:checked box, checkbox.indeterminate box { background-color: var(--accent); border-color: var(--accent); }
+checkbox:checked box icon, checkbox.indeterminate box icon { display: flex; color: var(--accent-text); }
+
+radio box {
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 8px;
+    background-color: var(--surface);
+}
+
+radio box dot { width: 8px; height: 8px; border-radius: 4px; display: none; }
+radio:checked box { border-color: var(--accent); }
+radio:checked box dot { display: flex; background-color: var(--accent); }
+
+radio-group { flex-direction: column; gap: 6px; }
+
+switch track {
+    width: 34px;
+    height: 18px;
+    flex-direction: row;
+    align-items: center;
+    padding: 2px;
+    border-radius: 9px;
+    background-color: var(--track-color);
+}
+
+switch track knob {
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    background-color: var(--thumb-color);
+    margin-left: 0px;
+}
+
+switch:checked track { background-color: var(--accent); }
+switch:checked track knob { margin-left: 16px; }
+
+/* ── Fields ─────────────────────────────────────────────────────────── */
+textbox, textarea, search-box, numeric-input {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    background-color: var(--surface);
+    color: var(--text);
+    overflow: hidden;
+
+    /* ⚠ Load-bearing, and it is what the placeholder below is positioned against. An
+       absolutely-positioned child is placed by the nearest ancestor that is not `static`,
+       and `static` is the CSS initial — so without this the placeholder was laid out
+       against whatever `position: relative` happened to be somewhere above the field, which
+       in a docked panel is nothing at all. The symptom is a placeholder sitting at the left
+       edge of the *window* rather than of the box, which in the project browser reads as
+       "the placeholder overlaps the magnifying glass" because that is where it lands. */
+    position: relative;
+}
+
+textarea { min-height: 72px; align-items: flex-start; }
+
+/*
+ * A field's text does not wrap and a text area's does, which is the whole difference
+ * between them now that the framework can break a line at all. `flex-shrink: 0` is what
+ * lets the single-line one be wider than its box and scroll sideways; the text area gives
+ * that up in exchange for its text staying inside.
+ */
+/*
+ * ⚠ `min-height` in em, and it is what stops an empty field collapsing. An element with no
+ * text has no measure function at all — see `UiElement.OnTextChanged` — so it reports zero
+ * and a field holding "" is its padding and its border and nothing else: about ten pixels
+ * tall, which is a control that looks like a rule and is almost impossible to click. One em
+ * and a fifth is roughly a line box, and it is in em rather than px so that a field in a
+ * larger-typeset panel grows with the text it will hold rather than clipping it.
+ */
+field-text { flex-shrink: 0; white-space: nowrap; min-height: 1.2em; }
+textarea field-text { flex-shrink: 1; white-space: normal; }
+field-placeholder { position: absolute; left: 8px; color: var(--text-muted); display: none; }
+.empty field-placeholder { display: flex; }
+
+/* ⚠ Past the magnifying glass, because a search box has one and the other fields do not.
+   The offset is the field's own padding plus the icon and the gap after it — the place
+   `field-text` starts — so what the user typed appears exactly where the prompt for it was
+   rather than a glyph's width to the right of it. Absolute rather than in flow so that the
+   prompt does not decide how wide the box has to be: "Search assets" is wider than the
+   field the project browser gives it. */
+search-box field-placeholder { left: 28px; }
+
+search-box icon { width: 14px; height: 14px; color: var(--text-muted); }
+search-box.empty icon-button { display: none; }
+
+/* ── Virtualisation ─────────────────────────────────────────────────── */
+virtualizing-panel { flex: 1; min-height: 0; }
+virtualizing-panel scroll-view { flex: 1; }
+
+/*
+ * `position: relative` on the content and `absolute` on the rows is what makes a row's
+ * `top` mean "this far down the list" rather than "this far down the document" — and it is
+ * why a row 40 000 lines down can be placed without the 39 999 above it existing.
+ */
+.virtual-content { position: relative; }
+.virtual-content > * { position: absolute; left: 0; right: 0; }
+
+/*
+ * ⚠ Parked rather than removed. A pool that shrank would allocate on the next scroll, which
+ * is the cost virtualisation exists to avoid — so a surplus row keeps its element and stops
+ * drawing.
+ */
+.virtual-content > .parked { display: none; }
+
+/*
+ * The grid's own, and it needs a class of its own rather than sharing the list's. A row
+ * spans the width — `left: 0; right: 0` — and a tile does not: it is placed at a column as
+ * well as a line, so it carries its own `left` and `width` and must not also be pinned to
+ * the right edge.
+ */
+virtualizing-grid { flex: 1; min-height: 0; }
+virtualizing-grid scroll-view { flex: 1; }
+
+.virtual-grid { position: relative; }
+.virtual-grid > * { position: absolute; }
+.virtual-grid > .parked { display: none; }
+
+/* ── Range ──────────────────────────────────────────────────────────── */
+slider, range-slider { height: 20px; min-width: 80px; }
+
+/* ⚠ The two are not the same rule with the axes swapped by the layout: a slider draws
+   itself, so its box has to be the right way round before it is asked to. Without this a
+   vertical fader keeps the 20-pixel height and the 80-pixel minimum width of the
+   horizontal one, and is a wide short control that happens to fill upwards. */
+slider.vertical, range-slider.vertical {
+    width: 20px;
+    height: auto;
+    min-width: 0px;
+    min-height: 80px;
+}
+
+progress-bar {
+    height: 6px;
+    min-width: 80px;
+    border-radius: 3px;
+}
+
+progress-bar.vertical {
+    width: 6px;
+    height: auto;
+    min-width: 0px;
+    min-height: 80px;
+}
+
+spinner { width: 20px; height: 20px; color: var(--accent); }
+
+/* ── Containers ─────────────────────────────────────────────────────── */
+panel { flex-direction: column; }
+
+card {
+    flex-direction: column;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 8px;
+    background-color: var(--surface-raised);
+    overflow: hidden;
+}
+
+card-header { padding: 10px 14px; border-width: 0px 0px 1px 0px; border-color: var(--border); }
+card-body { flex-direction: column; padding: 14px; }
+card-footer { padding: 10px 14px; flex-direction: row; justify-content: flex-end; gap: 8px; }
+
+separator.horizontal { height: 1px; background-color: var(--border); margin: 6px 0px; }
+separator.vertical { width: 1px; align-self: stretch; background-color: var(--border); margin: 0px 6px; }
+
+alert {
+    flex-direction: row;
+    gap: 10px;
+    padding: 10px 12px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    background-color: var(--surface-sunken);
+}
+
+alert-body { flex-direction: column; gap: 2px; }
+alert-title { color: var(--text); }
+alert-message { color: var(--text-muted); }
+alert.variant-danger { border-color: var(--danger); }
+alert.variant-danger alert-title { color: var(--danger); }
+
+/* ── Key/value lists ──────────────────────────────────────────────────
+   Three rules do the work and each of them is load-bearing.
+
+   ⚠ `flex-basis: 0px` *and* `min-width: 0px`, together. The basis alone
+   divides the row in half only while both halves fit: a flex item's
+   automatic minimum size is its own content, so a long unbreakable key
+   refuses to shrink below its string and pushes past the value column —
+   measured at 388px inside a 200px row before the minimum was written.
+   The minimum alone is not enough either, because without a zero basis a
+   short key and a long value divide the *leftover* space rather than the
+   whole of it, and the split moves with the data. Both, or neither works.
+
+   ⚠ `white-space: nowrap` on both halves, and it is about height rather
+   than about width. A key with spaces in it wraps, and a wrapped key in a
+   50%-wide column is seven lines tall — one row of a uniform list
+   suddenly 196px high. Clipped is the defined behaviour here: this
+   renderer has no `text-overflow`, so `overflow: hidden` cuts the glyphs
+   at the column edge and there is no ellipsis to be had. Said out loud
+   because a reader will look for one.
+
+   ⚠ The stripe is `:nth-child`, not a class the builder applies. The
+   cascade re-resolves it when a row is inserted or removed in the middle;
+   a class does not, and a list that striped wrongly after a mutation is
+   the failure this control exists downstream of. It is also why nothing
+   but a row may be a child — every element counts, including a parked
+   one, which is why `Trim` parks at the end and never in the middle. */
+/* ⚠ The floor is the price of `min-width: 0` on the columns, and without it the control is
+   invisible. A flex container's own intrinsic width is what its children ask for, and a
+   column that has been told its minimum is zero asks for nothing — so a list in a parent
+   that does not size it comes out 20 pixels wide, which is its padding and its gap and no
+   text at all. Found by taking a picture of it, which is the only thing that could have:
+   every rectangle in the tree was consistent, equal and wrong. 160px is two readable halves;
+   a caller in a column parent is stretched past it and never sees this. */
+key-value-list { flex-direction: column; min-width: 160px; }
+
+key-value-row {
+    flex-direction: row;
+    align-items: center;
+    min-height: 1.4em;
+    padding: 2px 6px;
+    color: var(--text);
+
+    /* ⚠ The gutter is a `gap` on the row and not padding inside the value, which reads as
+       the tidier way to write it and is measurably wrong. A flex item's computed base size
+       is `max(flex-basis, its padding and border)` — CSS's rule, not this engine's — so
+       eight pixels of padding on one of two `flex-basis: 0` children gives that child eight
+       more pixels than the other: 98 against 90 in a 200-pixel row. A gap is taken off the
+       free space before it is divided, so both halves stay equal and the split is half of
+       what is left rather than half of the row. Equal is the property anyone cares about;
+       exactly-50%-with-a-gutter is not a thing that exists. */
+    gap: 8px;
+}
+
+key-value-row:nth-child(even) { background-color: var(--surface-sunken); }
+
+/* After the stripe, deliberately: the two selectors have the same
+   specificity, so source order is what decides — and a heading has to win
+   whichever side of the alternation it lands on. */
+key-value-row.heading {
+    background-color: var(--surface-sunken);
+    border-width: 0px 0px 1px 0px;
+    border-color: var(--border);
+    color: var(--text);
+}
+
+key-value-list > .parked { display: none; }
+
+key-value-key {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0px;
+    min-width: 0px;
+    overflow: hidden;
+    white-space: nowrap;
+    color: var(--text-muted);
+}
+
+key-value-value {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0px;
+    min-width: 0px;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+key-value-row.heading key-value-key, key-value-row.heading key-value-value { color: var(--text); }
+
+/* Which editors fill the half they are dropped into, listed rather than
+   `> *`: a checkbox, a switch and a badge are all the size they are, and
+   stretching one across a settings panel is how a tick box ends up eight
+   inches from its label. Same list and same argument as `property-editor`. */
+key-value-value textbox, key-value-value textarea, key-value-value numeric-input,
+key-value-value search-box, key-value-value select, key-value-value multi-select,
+key-value-value combo-box, key-value-value slider, key-value-value progress-bar {
+    flex-grow: 1;
+    min-width: 0px;
+}
+
+empty-state { flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px; }
+empty-state icon { width: 40px; height: 40px; color: var(--text-muted); }
+empty-title { color: var(--text); }
+empty-description { color: var(--text-muted); }
+empty-actions { flex-direction: row; gap: 8px; }
+
+/* ── Tabs, disclosure ───────────────────────────────────────────────── */
+tabs { flex-direction: column; }
+tab-panels { flex-direction: column; }
+
+tab-strip {
+    flex-direction: row;
+    gap: 2px;
+    border-width: 0px 0px 1px 0px;
+    border-color: var(--border);
+}
+
+tab {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-width: 0px 0px 2px 0px;
+    border-color: transparent;
+    color: var(--text-muted);
+}
+
+tab:hover:not(:disabled) { color: var(--text); }
+tab:checked { color: var(--text); border-color: var(--accent); }
+
+tab-panel { display: none; flex-direction: column; padding: 12px 0px; }
+tab-panel.selected { display: flex; }
+
+expander { flex-direction: column; border-width: 0px 0px 1px 0px; border-color: var(--border); }
+
+expander-header {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px;
+    border-width: 0px;
+    background-color: transparent;
+    color: var(--text);
+}
+
+expander-header icon { width: 12px; height: 12px; color: var(--text-muted); }
+expander-content { display: none; flex-direction: column; padding: 4px 4px 12px 20px; }
+expander.open expander-content { display: flex; }
+
+/* ── Scrolling ──────────────────────────────────────────────────────── */
+/* ⚠ A scroll view that is meant to *fill* its parent rather than be sized by hand needs
+   `flex-basis: 0px` on top of a `flex-grow` — see how the tree does it. A flex item's base
+   size is its content, and this one's content is deliberately unshrinkable, so the viewport
+   otherwise grows to the full height of what is inside it: nothing overflows, and the
+   scrollbar never appears. It is not set here because a scroll view given an explicit height
+   is just as common, and a zero basis would override that height. */
+scroll-view { flex-direction: column; overflow: hidden; position: relative; }
+scroll-content { flex-direction: column; flex-shrink: 0; align-self: flex-start; min-width: 100%; }
+
+scrollbar { position: absolute; }
+scrollbar.vertical { top: 0px; right: 0px; bottom: 0px; width: 10px; }
+scrollbar.horizontal { left: 0px; right: 0px; bottom: 0px; height: 10px; }
+
+/* ── Overlays ───────────────────────────────────────────────────────── */
+popover-content { flex-direction: column; }
+
+popover, menu, context-menu {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    flex-direction: column;
+    padding: 4px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 8px;
+    background-color: var(--surface-raised);
+}
+
+.closed { display: none; }
+
+tooltip {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    background-color: #1c1f23;
+    color: #ffffff;
+    font-size: 0.9em;
+    pointer-events: none;
+}
+
+menu-item, option {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border-width: 0px;
+    border-radius: 5px;
+    background-color: transparent;
+    color: var(--text);
+}
+
+menu-item:hover:not(:disabled), option:hover:not(:disabled), menu-item:focus, option:focus {
+    background-color: var(--surface-sunken);
+}
+
+menu-item icon, option icon { width: 12px; height: 12px; }
+menu-item kbd { margin-left: auto; }
+
+/* The arrow that says a line opens a menu rather than running something. Pushed right the
+   same way a shortcut is — the two never share a line, because a submenu is not a command
+   and so has nothing to bind — and dimmed, because it is a property of the line rather than
+   a second thing on it. */
+menu-item icon.submenu { margin-left: auto; color: var(--text-muted); }
+
+/* What kind of thing the line is, in the same right-hand column and dimmed for the same
+   reason: it qualifies the label rather than being a second thing to read. `padding-left`
+   rather than a gap so it cannot collide with a long name. */
+menu-item .menu-detail { margin-left: auto; padding-left: 12px; color: var(--text-muted); }
+
+menu-bar { flex-direction: row; gap: 2px; }
+
+menu-bar-item {
+    flex-direction: row;
+    align-items: center;
+    padding: 4px 10px;
+    border-width: 0px;
+    border-radius: 5px;
+    background-color: transparent;
+    color: var(--text);
+}
+
+menu-bar-item:hover:not(:disabled), menu-bar-item:checked { background-color: var(--surface-sunken); }
+
+/* ── Selects ────────────────────────────────────────────────────────── */
+select, multi-select, combo-box {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    background-color: var(--surface);
+    color: var(--text);
+}
+
+/* ⚠ The same floor `field-text` has, and for the same reason: a select with nothing chosen
+   yet holds an empty string, which measures zero and leaves a dropdown the height of its
+   padding. The chevron beside it is 12px and would otherwise be the only thing giving the
+   control a height at all. */
+select-field { flex-grow: 1; min-height: 1.2em; }
+select.empty select-field, multi-select.empty select-field { color: var(--text-muted); }
+select icon, multi-select icon, combo-box icon { width: 12px; height: 12px; color: var(--text-muted); }
+
+popover.select-list { flex-direction: column; padding: 4px; min-width: 120px; }
+combo-box .combo-editor { border-width: 0px; padding: 0px; flex-grow: 1; background-color: transparent; }
+
+/* ── Dialogs ────────────────────────────────────────────────────────── */
+dialog, drawer {
+    position: absolute;
+    flex-direction: column;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    align-items: center;
+    justify-content: center;
+}
+
+dialog-backdrop, drawer-backdrop {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    background-color: #00000066;
+}
+
+dialog-surface {
+    flex-direction: column;
+    min-width: 320px;
+    max-width: 560px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 10px;
+    background-color: var(--surface-raised);
+    overflow: hidden;
+}
+
+dialog-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-width: 0px 0px 1px 0px;
+    border-color: var(--border);
+}
+
+dialog-title { color: var(--text); }
+dialog-body { flex-direction: column; padding: 14px; }
+dialog-footer {
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 14px;
+    border-width: 1px 0px 0px 0px;
+    border-color: var(--border);
+}
+
+drawer { align-items: flex-start; justify-content: flex-start; }
+
+drawer-surface {
+    flex-direction: column;
+    position: absolute;
+    top: 0px;
+    bottom: 0px;
+    width: 320px;
+    border-width: 0px 1px 0px 0px;
+    border-color: var(--border);
+    background-color: var(--surface-raised);
+}
+
+drawer.side-left drawer-surface { left: 0px; }
+drawer.side-right drawer-surface { right: 0px; border-width: 0px 0px 0px 1px; }
+drawer.side-top drawer-surface { left: 0px; right: 0px; top: 0px; bottom: auto; width: auto; height: 240px; }
+drawer.side-bottom drawer-surface { left: 0px; right: 0px; bottom: 0px; top: auto; width: auto; height: 240px; }
+drawer-body { flex-direction: column; padding: 14px; }
+
+/* ── Radial menu ─────────────────────────────────────────────────────
+   ⚠ The box is fixed and transparent, and both halves matter. Fixed, because the wedges are
+   positioned against its centre by arithmetic that needs one — a box that sized itself to its
+   contents would move the centre every time the labels changed length. Transparent, because a
+   panel behind a pie menu covers the thing the menu is about: the viewport it was opened over
+   is what you are aiming at. */
+radial-menu {
+    position: absolute;
+    width: 260px;
+    height: 260px;
+    background-color: transparent;
+}
+
+/* A ring of pills. Positioned by `RadialMenu.Place`, which writes `left` and `top` per item —
+   no rule can say where the third of five wedges goes. */
+radial-item {
+    position: absolute;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 74px;
+    padding: 5px 11px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 14px;
+    background-color: var(--surface-raised);
+    color: var(--text);
+}
+
+/* ⚠ `:checked` is where the pointer is aimed, and it is emphatically not `:hover`. A pie is
+   aimed by direction and routinely overshoots the ring by a long way, so the wedge that is
+   chosen is often one the pointer is nowhere near — a hover rule would light up nothing at all
+   during the fast gesture the menu exists for. */
+radial-item:checked {
+    border-color: var(--accent);
+    background-color: var(--accent);
+    color: var(--accent-text);
+}
+
+radial-item > icon { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* ── Toasts ─────────────────────────────────────────────────────────── */
+toast-host {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+toast {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    min-width: 220px;
+    padding: 10px 12px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 8px;
+    background-color: var(--surface-raised);
+    color: var(--text);
+}
+
+toast-message { flex-grow: 1; }
+
+/* ⚠ A failure is filled rather than outlined, and it is the only variant that is. A one-pixel
+   red border on the surface colour every other toast already has is a difference nobody sees
+   in the corner of a window they are not looking at — which is the whole job of the one
+   message that must not be missed. The rest stay quiet on purpose: four filled colours in a
+   stack is a stack where none of them means anything. */
+toast.variant-danger {
+    border-color: var(--danger);
+    background-color: var(--danger);
+    color: var(--accent-text);
+}
+
+/* ── Navigation ─────────────────────────────────────────────────────── */
+breadcrumb { flex-direction: row; align-items: center; gap: 4px; }
+breadcrumb-item {
+    flex-direction: row;
+    align-items: center;
+    padding: 2px 4px;
+    border-width: 0px;
+    background-color: transparent;
+    color: var(--text-muted);
+}
+
+breadcrumb-item:hover:not(:disabled) { color: var(--text); }
+breadcrumb-item:checked { color: var(--text); }
+.breadcrumb-separator { width: 10px; height: 10px; color: var(--text-muted); }
+
+pagination { flex-direction: row; align-items: center; gap: 2px; }
+page-button {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    padding: 3px 6px;
+    border-width: 1px;
+    border-color: transparent;
+    border-radius: 5px;
+    background-color: transparent;
+    color: var(--text);
+}
+
+page-button:hover:not(:disabled) { background-color: var(--surface-sunken); }
+page-button:checked { background-color: var(--accent); color: var(--accent-text); }
+page-button.page-arrow label { display: none; }
+page-button.ellipsis { color: var(--text-muted); }
