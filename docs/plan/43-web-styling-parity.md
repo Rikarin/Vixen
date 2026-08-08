@@ -1117,14 +1117,32 @@ change to match v3.
 ⚠ **A utility class written outside `Vixen.Editor.Ui` resolves to nothing, with no diagnostic.**
 `Core/Vixen.Ui.Styling.Utilities/build/Vixen.Ui.Styling.Utilities.targets` globs `@(Compile)` plus
 `**/*.vxml;**/*.vcss` **within the consuming project**, finds `**/vixen.ui.vcss` **within the
-consuming project**, and errors if there is more than one — *"One project is one palette."* ⚠ The
-shipped default has made this **worse rather than better**: the target used to not run at all without
-a token file, which was at least loud, and a project with none now generates v4's palette against its
-own sources — so an assembly that meant to share the editor's tokens and forgot gets Tailwind's
-instead of nothing. So `Vixen.Editor.Profiler`,
-`Vixen.Editor.Debugger` and `Vixen.Editor.AssetEditors` produce no utility sheet at all, and a panel
-ported to VXML in one of them has to fall back to tag-based theme rules. That workaround has already
-been taken once.
+consuming project**, and errors if there is more than one — *"One project is one palette."* So
+`Vixen.Editor.Profiler`, `Vixen.Editor.Debugger` and `Vixen.Editor.AssetEditors` produce no utility
+sheet at all, and a panel ported to VXML in one of them has to fall back to tag-based theme rules.
+That workaround has already been taken once.
+
+⚠ **Correction, measured against the tree rather than reasoned about.** This section claimed the
+shipped default had made the defect *worse* — that a project with no token file now generates v4's
+palette against its own sources. **It does not.** The generation target's condition is
+`'@(VixenUiTokens)' != '' OR '@(VixenStyleBase)' != ''`, so a project naming no token source does not
+run the step at all: no sheet, no accessor, nothing. `ThemeTokens.CreateDefault()` is reached only
+when StyleGen *is* launched with no `@theme` to read, which MSBuild never did. A throwaway project
+importing the `.targets` with no `vixen.ui.vcss` was built to confirm it and produced no artefacts.
+The failure was therefore the original one — absent and silent — and not a plausible-looking wrong
+palette.
+
+⚠ **And what the silence actually cost is not what it looks like either.** Exactly one project in the
+tree imported the `.targets`. The two assemblies with ported VXML use almost no utilities at all —
+`hidden` is the only one, in four `.vxml` attributes and two `AddClass` calls — and it *renders*,
+because `Vixen.Ui.Controls.Advanced`'s `AdvancedTheme` hand-writes `.hidden { display: none; }` as an
+unlayered rule. `AssetEditorTheme` says so in a comment. So no panel was visibly broken; the cost was
+paid in advance, as a utility class name re-implemented by hand in a component sheet. ⚠ Worth noting
+separately: the editor's own generated sheet is **25 rules**, and most of them — `.block`, `.inline`,
+`.static`, `.ring`, `.truncate` — are bare English words the over-inclusive scanner lifted out of
+prose and `overflow: hidden` declarations rather than deliberate usages. `.hidden` is among them. A
+non-empty sheet is therefore very weak evidence that a project is wired up correctly, which is why
+C4's canary is a *token-dependent* class and not a rule count.
 
 "One project is one palette" is the right invariant and the wrong unit. The unit is the **theme**, and
 the editor is one theme spanning a dozen assemblies.
@@ -1144,6 +1162,36 @@ sheet at runtime. The targets file already has the seam: `VixenStyleBase` lets a
 sheets, and the generation target's condition is `@(VixenUiTokens) != '' OR @(VixenStyleBase) != ''`.
 What is missing is a way to say *"my tokens are that project's"*.
 
+✅ **C4 landed.** The missing sentence is a `VixenStyleTokens` item — a path to another project's
+`@theme` sheet, joining `VixenUiTokens` on the theme option and emitted *before* it so a project can
+extend the shared tokens rather than only inherit them. The two items stay distinct on purpose: a
+theme found in the project is that project's own and still bound by "one project is one palette", a
+theme named there belongs to another one, and a named path that stops resolving is an `Error` rather
+than a silent skip. `Editor/Vixen.Editor.Ui/build/Vixen.Editor.Ui.Styling.targets` packages the whole
+thing as one `Import` — the tokens, the step, and the build-order reference to the tool — so joining
+the editor's theme is one line in a `.csproj`. The three assemblies this section named —
+`Vixen.Editor.Profiler`, `Vixen.Editor.AssetEditors` and `Vixen.Editor.Debugger` — are wired, and
+each loads its own sheet from the `…Theme.Install(UiDocument)` it already had. ⚠ **Nine or so others
+are not**, deliberately: joining is one line in a `.csproj` and one in
+`SharedThemeTests.Participants`, and that list is the ledger. There is no reflection over "every
+assembly with a theme", because opting in is a decision — a project with a design of its own should
+declare its own tokens rather than be swept into the editor's.
+
+⚠ **Two incidental holes were closed with it.** The generation target's `Inputs` listed only the
+files the step *reads*, so a change to a safelist, a namespace or a token source — arguments rather
+than files — left a stale sheet looking up to date; `VixenStyleBuildLogic` now puts the declaring
+`.targets` and the project file in the input set. And a project whose token source is removed no
+longer merely regenerates an empty sheet: the accessor stops being produced and the assembly *fails
+to compile*, which is a louder failure than the test.
+
+**Guarding it is a cross-assembly test, because nothing inside one project can hold the claim.**
+`SharedThemeTests` in `Vixen.Editor.App.Tests` — the only suite that sees every participant — asserts
+for each that `bg-surface` resolves to `var(--surface)` and that `bg-blue-500` resolves to nothing.
+The pair is deliberate: the first absent means the shared tokens never arrived, the second present
+means Tailwind's arrived instead, and the editor's `@theme` empties the colour namespace precisely so
+those two questions have different answers. Sabotage-verified both ways — cutting the token source
+fails the build, pointing it at a themeless sheet builds silently and fails four assertions.
+
 ⚠ **Under v4 this gets simpler, not harder,** which is the argument for doing Part 2 § D1 first: if
 tokens are an `@theme` block in a `.vcss`, then "share the tokens" is `@import` — a mechanism the
 style engine already supports — and the MSBuild item is a path to a stylesheet rather than a new
@@ -1155,10 +1203,27 @@ is two lines and a file"*, and the file is a second `vixen.ui.vcss`: a second pa
 failure the token model exists to prevent. It also still carries *"`overflow-auto` is in neither
 column"*, which F3 has since made untrue. Both should be revised when C4 lands.
 
+✅ **§ Examples revised with C4.** It now leads with the one-line `Import` and the `…Theme.Install`
+that loads the resulting sheet, and says outright not to give a second editor assembly a
+`vixen.ui.vcss`; the own-tokens example is kept and re-scoped to the case it is actually for, a game
+or a plugin with a design of its own. ⚠ **The `overflow-auto` sentence was left alone**: F3 is not on
+this base — no `auto` handling appears in the layout's overflow path here — so correcting it would
+have been a change made on a claim rather than on the code. It should be revised when F3 lands.
+
 **And it wants a diagnostic either way.** A class name that parses as a utility, in a project with no
 token source, should be a build warning naming the project. The generator already writes an
 `unrecognised.txt`; nobody reads it because in the normal case it is noise. In the *no tokens at all*
 case it is the whole answer.
+
+⚠ **C4 declined to build that warning, and the reason is worth recording.** To warn about utility
+candidates in a project with no token source, the step has to *run* in that project — which means
+launching a process per build for every project in the tree that has never heard of utilities, to
+tell almost all of them nothing. The two failures it was aimed at are both covered more cheaply and
+more precisely: a project that *was* wired and is no longer now fails to compile, and a project that
+is wired to the *wrong* tokens fails `SharedThemeTests`. What remains uncovered is a project that
+should have opted in and never did — and that is a cross-assembly question a per-project build step
+could not have answered anyway. Adding an assembly to `SharedThemeTests.Participants` is the place
+that decision is written down.
 
 ---
 
@@ -1537,7 +1602,7 @@ mixed-content paragraph sit behind it.
 | C1 🟢 | Arbitrary properties, and v4's `bg-(--var)` shorthand | 0.15 |
 | C2 🟢 | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5) | 0.1 |
 | C3 ✅ | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet, and v4.3.3's palette ships as the engine default in oklch (D1, D4) | 0.5 |
-| C4 🟢 | Cross-assembly token sharing, shape C (Part 3) | 0.3 |
+| C4 ✅ | Cross-assembly token sharing, shape C (Part 3) — `VixenStyleTokens` names another project's `@theme`; `Vixen.Editor.Ui.Styling.targets` makes joining the editor's theme one `Import`; guarded by `SharedThemeTests`, which is cross-assembly because no per-project suite can be | 0.3 |
 | C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |
 | C6 🟢 | Doc 09's five missing families — `space`, `divide`, `mix-blend`, `origin`, `scroll` | 0.25 |
 | C7 🟢 | The ~120 families that are a table line each, once A and B land | 0.75 |

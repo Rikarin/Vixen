@@ -34,11 +34,33 @@ public static class AssetEditorTheme {
     public static int Install(UiDocument document) {
         ArgumentNullException.ThrowIfNull(document);
 
-        return document.Load(Css, StyleOrigin.UserAgent);
+        var sheet = document.Load(Css, StyleOrigin.UserAgent);
+
+        document.Load(Utilities, StyleOrigin.UserAgent);
+
+        return sheet;
     }
 
     /// <summary>The stylesheet's text, for a caller that wants to read or amend it.</summary>
     public static string Css => Sheet;
+
+    /// <summary>This assembly's utility rules, in <c>@layer utilities</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A sheet of its own over the editor's tokens, which is the arrangement the remark
+    ///         about <c>.hidden</c> below was a symptom of not having.</b>
+    ///         <c>Vixen.Editor.Ui/build/Vixen.Editor.Ui.Styling.targets</c> shares the tokens; the
+    ///         scan and the output stay this project's, so incremental build survives and this
+    ///         assembly is not rebuilt because a panel elsewhere started using <c>gap-3</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Loaded at the same origin as the sheet above.</b> Origin is the cascade's first
+    ///         question and the layer only its second, so a utility sheet loaded as <c>Author</c>
+    ///         would beat every hand-written rule in <c>Sheet</c> on origin alone — the inversion
+    ///         <c>EditorTheme.Install</c> spells out at length.
+    ///     </para>
+    /// </remarks>
+    public static string Utilities => VixenUtilityStyles.Utilities;
 
     const string Sheet = """
         /* ── Shared ─────────────────────────────────────────────────────────── */
@@ -52,7 +74,16 @@ public static class AssetEditorTheme {
         }
 
         /* `.hidden` is AdvancedTheme's and is not redeclared here: two rules for one class is two
-           places to look when something will not disappear. */
+           places to look when something will not disappear.
+
+           ⚠ It is *also* in this assembly's utility sheet now, and the pair is not the duplication
+           that sentence warns about — it is the evidence for why `Utilities` above exists. Until
+           this project could see the editor's tokens, `class="hidden"` in the two import views
+           rendered only because `AdvancedTheme` hand-writes `.hidden { display: none; }` in
+           `Vixen.Ui.Controls.Advanced`: a utility class name paid for by hand in a component sheet,
+           because the utility system stopped at an assembly boundary. AdvancedTheme's copy is
+           unlayered and still wins; the generated one is what the *next* utility written here will
+           resolve against. See docs/plan/43 Part 3. */
 
         /* ⚠ The sections scroll and the banner above them does not, which is why the scroll region
            is a child rather than the control. `min-height: 0` is the load-bearing half: a flex item's

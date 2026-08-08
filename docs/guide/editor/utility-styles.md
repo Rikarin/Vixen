@@ -142,8 +142,41 @@ about it — and note that scrolling itself is `ScrollView`, not a property.
 
 ## Examples
 
-Turning the step on in another project is two lines and a file. The `.targets` arrives with the
-package; inside this repository it is imported by hand, for the same reason the VXML generator is.
+**Another editor assembly is one line, and the line shares the tokens rather than copying them.**
+
+```xml
+<Import Project="..\Vixen.Editor.Ui\build\Vixen.Editor.Ui.Styling.targets" />
+```
+
+That import names `Vixen.Editor.Ui`'s `@theme` as this project's token source, brings in the utility
+build step, and names the tool that runs it. The project then scans only its own sources and emits
+only its own sheet, which its `…Theme.Install` loads next to the hand-written one it already loads:
+
+```csharp no-compile="two members of an assembly's own theme class; VixenUtilityStyles is generated into that assembly by the build step"
+public static int Install(UiDocument document) {
+    var sheet = document.Load(Css, StyleOrigin.UserAgent);
+
+    document.Load(Utilities, StyleOrigin.UserAgent);
+
+    return sheet;
+}
+
+public static string Utilities => VixenUtilityStyles.Utilities;
+```
+
+⚠ **Do not give the second project a `vixen.ui.vcss` of its own.** That is what this page used to
+recommend, and it is a second palette — the precise failure the token model exists to prevent, and
+two files that agree until the day somebody edits one. The unit of a palette is the *theme*, not the
+project, and the editor is one theme across a dozen assemblies. The argument is in
+`docs/plan/43-web-styling-parity.md` Part 3.
+
+Every generated sheet is entirely inside `@layer utilities`, where document order decides nothing, so
+a dozen of these loaded in whatever sequence the modules install behaves at runtime as one sheet.
+Each project keeps its own scan and its own output, so incremental build and project independence
+both survive.
+
+**A project outside the editor** — a game, a plugin with a design of its own — declares its own
+tokens, and that is the case the found-rather-than-declared glob is for:
 
 ```xml
 <PropertyGroup>
@@ -157,9 +190,17 @@ package; inside this repository it is imported by hand, for the same reason the 
 </ItemGroup>
 ```
 
-The theme file is found rather than declared: one `**/vixen.ui.vcss` per project, and two is an error
-because two would be two palettes. It is also optional — a project without one gets the engine's
-shipped `@theme` and nothing else.
+One `**/vixen.ui.vcss` per project, and two is an error because two would be two palettes.
+`VixenStyleTokens` is the other half of the same rule: a theme *found* in the project is that
+project's own, a theme *named* there belongs to another one, and a named path that no longer resolves
+fails the build rather than reverting the assembly to silence.
+
+⚠ **A project that names no token source at all generates nothing, not a default palette.** The
+generation target is conditioned on there being one, so the step does not run — the sheet is absent
+rather than wrong. `ThemeTokens.CreateDefault()` is what a project gets when the step *does* run with
+no `@theme` to read, which is why `SharedThemeTests` asserts `bg-blue-500` is absent from every
+editor sheet: that class resolves under the shipped palette and under nothing else, so its presence
+would mean an assembly had been wired to Tailwind's colours instead of the editor's.
 
 ⚠ **The generated sheet is not the whole story about whether a class name works.** A misspelt utility
 is a style that silently does nothing — neither the compiler nor the markup binder can see one,

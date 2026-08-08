@@ -59,6 +59,25 @@
                        Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 
         <!--
+            ⚠ **`VixenStyleTokens` is the unit correction: one project is one palette was the right
+            invariant with the wrong unit, and the unit is the theme.** The glob above can only ever
+            find a file *inside* the project, so an assembly that shares a design with eleven others
+            had no way to say so — its classes resolved against nothing and the step did not even
+            run. This item is a path to somebody else's `@theme` sheet, so the editor's dozen
+            assemblies can name one token source and still each scan only their own sources.
+
+            It is deliberately not a second copy of the glob. A theme *found* in the project is that
+            project's own; a theme *named* here belongs to another one, and keeping the two items
+            apart is what lets the error below go on meaning "this project declared two palettes"
+            rather than becoming a rule about how many files are on a command line.
+
+            Emitted before `@(VixenUiTokens)`, because `@theme` layers: v4's model is that a later
+            block overrides an earlier one, so shared first and local second is what makes "the
+            editor's tokens, plus the two this panel adds" expressible at all. Reversed, the shared
+            source would silently win over the project that asked to extend it.
+        -->
+
+        <!--
             ⚠ **C# is scanned as well as markup, and leaving it out was never an option.** A panel
             built in code with `AddClass("flex")` is exactly as much a user of the utility as one
             written in VXML, and a build step that only read .vxml would emit nothing for it and be
@@ -73,6 +92,19 @@
         <VixenStyleScan Include="@(Compile)" Exclude="$(IntermediateOutputPath)Vixen/**/*.cs" />
         <VixenStyleScan Include="**/*.vxml;**/*.vcss"
                         Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+
+        <!--
+            ⚠ **The build logic is an input, and leaving it out cost an afternoon before it was put
+            in.** `Inputs` below lists the files the step *reads*, which is the obvious set and the
+            incomplete one: a safelist entry, a namespace, a token source are all arguments rather
+            than files, and MSBuild compares timestamps, so changing any of them left a perfectly
+            stale sheet looking up to date. The files that *declare* those arguments are this one,
+            whatever imported it, and the project — so those are the timestamps to watch.
+
+            A file imported between the two adds itself here, which is what
+            `Vixen.Editor.Ui.Styling.targets` does; the item is the extension point for exactly that.
+        -->
+        <VixenStyleBuildLogic Include="$(MSBuildThisFileFullPath);$(MSBuildProjectFullPath)" />
     </ItemGroup>
 
     <!--
@@ -95,8 +127,8 @@
 
     <Target Name="VixenGenerateUtilityStyles"
             BeforeTargets="CoreCompile"
-            Condition="'$(VixenUtilityStyles)' != 'false' AND ('@(VixenUiTokens)' != '' OR '@(VixenStyleBase)' != '')"
-            Inputs="@(VixenStyleScan);@(VixenUiTokens);@(VixenStyleBase);$(VixenStyleGenPath)"
+            Condition="'$(VixenUtilityStyles)' != 'false' AND ('@(VixenUiTokens)' != '' OR '@(VixenStyleTokens)' != '' OR '@(VixenStyleBase)' != '')"
+            Inputs="@(VixenStyleScan);@(VixenUiTokens);@(VixenStyleTokens);@(VixenStyleBase);@(VixenStyleBuildLogic);$(VixenStyleGenPath)"
             Outputs="$(IntermediateOutputPath)Vixen/$(VixenUtilityStylesClass).stamp">
 
         <!--
@@ -128,6 +160,19 @@
         <Error Condition="'@(VixenUiTokens->Count())' &gt; '1'"
                Text="Vixen: this project has more than one vixen.ui.vcss (@(VixenUiTokens)). One project is one palette." />
 
+        <!--
+            ⚠ **A named token source that is not on disk is an error and not a skip, and this is the
+            whole reason the item exists.** The failure this task set out to remove was silence: an
+            assembly meant to share the editor's tokens, not sharing them, and rendering plausibly
+            anyway because somebody had hand-written the missing class into a component sheet. A
+            relative path is exactly the thing that rots when a project moves, so the one way to name
+            a shared theme has to fail loudly when the name stops resolving. StyleGen reports a
+            missing theme option too, but only once it has been launched, and a typo'd path would
+            otherwise just fall out of the response file.
+        -->
+        <Error Condition="'@(VixenStyleTokens)' != '' AND !Exists('%(VixenStyleTokens.FullPath)')"
+               Text="Vixen: the shared token source %(VixenStyleTokens.Identity) is not at %(VixenStyleTokens.FullPath). VixenStyleTokens names another project's @theme sheet; a project's own palette is a vixen.ui.vcss beside its sources." />
+
         <Error Condition="!Exists('$(VixenStyleGenPath)')"
                Text="Vixen: the utility build step is not at $(VixenStyleGenPath). Inside this repository, a project using utilities needs a ProjectReference to Tools/Vixen.StyleGen with ReferenceOutputAssembly=false, which is what builds it first." />
 
@@ -151,6 +196,8 @@
             <_VixenStyleArgument Include="$(_VixenStyleSheet)" />
             <_VixenStyleArgument Include="--report" />
             <_VixenStyleArgument Include="$(_VixenStyleReport)" />
+            <!-- Shared first, then the project's own: see the item's remark on why @theme layers. -->
+            <_VixenStyleArgument Include="--theme;%(VixenStyleTokens.FullPath)" Condition="'@(VixenStyleTokens)' != ''" />
             <_VixenStyleArgument Include="--theme;%(VixenUiTokens.FullPath)" Condition="'@(VixenUiTokens)' != ''" />
 
             <!-- Ordered, because the base sheets are emitted in the order they are given. -->
