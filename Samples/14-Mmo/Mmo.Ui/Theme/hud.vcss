@@ -9,9 +9,25 @@
     two states. Anything that is "this element, this property, this value" belongs in the markup as
     a utility — a rule here is a rule somebody has to find before they can change it.
 
-    ⚠ Unlayered, deliberately. The generated utilities land in `@layer utilities` and a layer loses
-    to an unlayered rule whatever the source order, so these win without `!important` anywhere.
+    ⚠ **In `@layer components`, and this file is the tree's worked example of why a game's own sheet
+    should be.** It used to be unlayered, deliberately: a layer loses to an unlayered rule whatever
+    the source order, so these rules beat the generated utilities without `!important` anywhere. That
+    is the same defect the engine's own sheets had — `class="p-2"` losing to a rule the author forgot
+    they wrote — reproduced one origin up, where nothing the engine does can fix it. A game's sheet is
+    `Author` and the engine's whole ladder is `UserAgent`, so this still beats every control default
+    without naming a layer; what the layer settles is this sheet's argument with *its own* utilities.
+
+    ⚠ **The statement above the block is not optional.** Layer *order* belongs to whoever names a
+    layer first, and this text is concatenated ahead of the generated sheet — so without it
+    `components` would be layer zero, `base` and `utilities` would be declared after it, and the
+    ladder would come out `components, base, utilities` with `base` in the middle. Naming all three
+    here says the order once; the generated sheet restates the same line and a re-declaration never
+    moves a layer.
 */
+
+@layer base, components, utilities;
+
+@layer components {
 
 /* ── The controls' own custom properties ────────────────────────────────────────────────────── */
 
@@ -62,4 +78,6 @@ loot-roll {
 */
 .quest.ready > quest-title {
     color: #4c9e4c;
+}
+
 }

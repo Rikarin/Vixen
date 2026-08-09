@@ -11,8 +11,17 @@ namespace Vixen.Ui.Styling;
 ///         utility system in [doc 09](../../docs/plan/09-ui-framework.md) work at all: a generated
 ///         `.p-4` is one class and a hand-written `.card .body` is two, so without layers the
 ///         utility loses every time and the only fix is `!important` everywhere. With
-///         <c>@layer utilities, components</c> the answer is settled once, in one line, and
-///         specificity never enters into it.
+///         <c>@layer base, components, utilities</c> the answer is settled once, in one line, and
+///         specificity never enters into it. That line is Vixen's actual ladder — every theme sheet
+///         in the tree opens with it, and <c>docs/guide/ui/cascade-layers.md</c> is what it means.
+///     </para>
+///     <para>
+///         ⚠ <b>A layer only wins if something is in a lower one, which is a less obvious condition
+///         than it sounds.</b> The ladder above was declared and emitted into for a release before
+///         anything else joined it, and a lone <c>@layer utilities</c> against a tree of unlayered
+///         component sheets is strictly <i>worse</i> than no layers at all — the utility loses to a
+///         one-tag selector it would have beaten on specificity alone. The mechanism was never wrong;
+///         it simply had nobody to argue with.
 ///     </para>
 ///     <para>
 ///         <b>Unlayered styles are not layer zero.</b> They sit <i>above</i> every layer for normal

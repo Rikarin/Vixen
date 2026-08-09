@@ -3557,9 +3557,6 @@ T:Vixen.Ui.Styling.AnimationFill sweep-pending
 T:Vixen.Ui.Styling.AnimationSpec sweep-pending
 T:Vixen.Ui.Styling.Animator sweep-pending
 T:Vixen.Ui.Styling.AttributeOperator sweep-pending
-T:Vixen.Ui.Styling.CascadeLayers sweep-pending
-T:Vixen.Ui.Styling.CascadePrecedence sweep-pending
-T:Vixen.Ui.Styling.CascadeRanks sweep-pending
 T:Vixen.Ui.Styling.ColorSchemePreference sweep-pending
 T:Vixen.Ui.Styling.Combinator sweep-pending
 T:Vixen.Ui.Styling.CompoundSelector sweep-pending
@@ -3594,7 +3591,6 @@ T:Vixen.Ui.Styling.StepPosition sweep-pending
 T:Vixen.Ui.Styling.StyleEngine sweep-pending
 T:Vixen.Ui.Styling.StyleInvalidator sweep-pending
 T:Vixen.Ui.Styling.StyleNodeId sweep-pending
-T:Vixen.Ui.Styling.StyleOrigin sweep-pending
 T:Vixen.Ui.Styling.StyleResolver sweep-pending
 T:Vixen.Ui.Styling.StyleRule sweep-pending
 T:Vixen.Ui.Styling.StyleRuleSet sweep-pending

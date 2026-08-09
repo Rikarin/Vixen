@@ -90,9 +90,13 @@ public static class MmoStyles {
 
         unrecognised = [.. generator.Unrecognised];
 
-        // Base first. It is unlayered, the utilities are in `@layer utilities`, and a layer loses to
-        // an unlayered rule whatever the order — loading it second as well would make that true for
-        // the wrong reason and hide a regression in the layering.
+        // ⚠ Base first, and it has to be: `hud.vcss` opens with `@layer base, components,
+        // utilities;` and that statement is what fixes the ladder's *order*. Concatenated the other
+        // way round the generated sheet would name `utilities` first, `utilities` would be layer
+        // zero, and `@layer components` declared afterwards would beat it — the layering silently
+        // inverted by a string concatenation. Both files carry the same statement so that either
+        // order gives the same ladder, and this order is still the deliberate one: a base sheet
+        // written second would win on source order too and hide a real layering regression.
         return Text("Theme.hud.vcss") + "\n" + utilities;
     }
 

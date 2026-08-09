@@ -10,6 +10,17 @@
 
    `DebuggerTheme.Utilities` is the generated utility sheet and stays a build-step constant. */
 
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. Everything
+   below is `components` — a look, peer to every other look, engine or editor — which is what lets a
+   `@layer utilities` class beat it and what keeps its own arguments settled by specificity and
+   source order exactly as they were. */
+
+@layer base, components, utilities;
+
+@layer components {
+
 debugger-status, remote-status {
     padding: 3px 8px;
     color: var(--text-muted);
@@ -80,3 +91,5 @@ remote-write > text-box { flex-grow: 1; min-width: 60px; }
 
 /* ── The device manager ─────────────────────────────────────────────── */
 device-manager > data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+}

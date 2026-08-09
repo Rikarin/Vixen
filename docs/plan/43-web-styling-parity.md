@@ -1192,6 +1192,35 @@ means Tailwind's arrived instead, and the editor's `@theme` empties the colour n
 those two questions have different answers. Sabotage-verified both ways — cutting the token source
 fails the build, pointing it at a themeless sheet builds silently and fails four assertions.
 
+✅ **The ladder landed, and it is the correction to the sentence this whole part is written around.**
+Every paragraph above says "the layer is what makes a component rule beat a utility" — and the
+mechanism was real, and it was pointed the wrong way. `@layer utilities` was the only layer in the
+tree; **unlayered beats every layer**, so a hand-written `button { padding: … }` beat `p-2` not
+because a layer said so but because nothing else had joined the ladder. A lone utility layer is
+strictly *worse* than no layers: the utility would have won that fight on specificity. The ten theme
+sheets now open with `@layer base, components, utilities;` and put their rules in `components` —
+`base` holds only `ControlTheme`'s reset and its nine default tokens, so a product's palette beats the
+engine's by layer rather than by install order. **Editor chrome deliberately shares `components` with
+the control looks** rather than getting a tier of its own: a layer is an unconditional claim, chrome
+already beats controls on source order, and promoting it would newly overrule every deliberately
+specific control rule with a bare tag selector — a class of movers nobody asked for. Three names, and
+they are Tailwind's minus `theme`, because Vixen's `@theme` is a build-time construct and the root
+rule the generator writes is deliberately unlayered-and-first.
+
+⚠ **The statement is emitted by `UtilityGenerator` too, and that is not belt-and-braces.** Layer
+*order* belongs to whoever names a layer first and is never revised, so a generated sheet reaching a
+document before any theme sheet would make `utilities` layer zero and every later `@layer components`
+beat it — the defect back, restored by load order alone and invisible. `SharedThemeTests` now asserts
+the statement is present on every participant's sheet as well as that no participant opens a block
+layer other than `utilities`. `Samples/14-Mmo/Mmo.Ui/Theme/hud.vcss` joined the ladder as the worked
+example for a game's own sheet: an unlayered *author* sheet still beats the engine outright on origin,
+which is right, but it also beats its own utilities, which is this same defect one origin up where
+nothing the engine does can reach it. **Zero baselines moved** — the four editor-chrome renderings are
+byte-identical before and after — and the one test that flipped is
+`StylesheetTests.The_editors_own_rules_beat_the_utility_layer`, inverted and renamed, with its
+sabotage twin re-pointed at the *chrome* sheet because unlayering the utility sheet no longer changes
+the answer.
+
 ⚠ **Under v4 this gets simpler, not harder,** which is the argument for doing Part 2 § D1 first: if
 tokens are an `@theme` block in a `.vcss`, then "share the tokens" is `@import` — a mechanism the
 style engine already supports — and the MSBuild item is a path to a stylesheet rather than a new

@@ -96,6 +96,43 @@ public class UtilityGenerationTests {
         Assert.Equal("32px", engine.Values.NameOf(value));
     }
 
+    /// <summary>
+    ///     ⚠ <b>The headline case, against the sheet a game actually gets, and it is the one the
+    ///     test above cannot make.</b> That test says an unlayered rule beats a utility — true, and
+    ///     still true, and for a release it was also what <c>ControlTheme</c> was: unlayered. So
+    ///     <c>&lt;Button class="p-2"&gt;</c> lost to <c>button { padding: 5px 12px }</c> silently and
+    ///     always, and a lone <c>@layer utilities</c> was worse than no layers at all — the utility is
+    ///     the more specific of the two and would have won a fight neither had layered.
+    ///     <para>
+    ///         Both sheets are <c>UserAgent</c>, deliberately: the ladder is the cascade's second
+    ///         question and origin is its first, so this only measures the layer if the origins agree.
+    ///         The theme is loaded <i>first</i>, where nothing but the layer can decide the outcome.
+    ///     </para>
+    /// </summary>
+    [Fact]
+    public void A_utility_beats_a_control_default_now_that_the_control_theme_is_layered() {
+        var fixture = new UtilityFixture();
+        var engine = new StyleEngine();
+
+        engine.Load(Vixen.Ui.Controls.ControlTheme.Css, StyleOrigin.UserAgent);
+        engine.Load(fixture.Generate("p-2"), StyleOrigin.UserAgent);
+
+        var element = engine.Tree.CreateElement("button", classNames: ["p-2"]);
+        var style = engine.Resolver.Resolve(engine.Tree, element);
+
+        Assert.True(style.TryGet(engine.Properties.Lookup("padding-left"), out var padding));
+        Assert.Equal("8px", engine.Values.NameOf(padding));
+
+        // And the tokens still arrive, which is the half of the sheet that moved into `base` rather
+        // than into `components`. A wrapper that swallowed the `root` rule would leave every colour
+        // below resolving to nothing, and every assertion about padding would pass anyway.
+        var root = engine.Tree.CreateElement("root");
+        var tokens = engine.Resolver.Resolve(engine.Tree, root);
+
+        Assert.True(tokens.TryGet(engine.Properties.Lookup("--surface"), out var surface));
+        Assert.Equal("#ffffff", engine.Values.NameOf(surface));
+    }
+
     [Fact]
     public void A_variant_becomes_a_pseudo_class_on_the_generated_selector() {
         var fixture = new UtilityFixture();

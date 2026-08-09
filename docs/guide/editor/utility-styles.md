@@ -31,13 +31,17 @@ more strongly to the editor than it ever did to a website: the editor has around
 visual components, all in one repository with all of the tokens, and there is no page-weight budget
 to trade against.
 
-You do not want it for something the hand-written sheet already styles. A generated utility is in
-`@layer utilities` and `EditorTheme` is not, so **an unlayered rule wins whatever the specificity and
-whatever the order** — `task-row { padding: 6px }` beats `p-3` with neither of them saying
-`!important`. That is the whole reason the layer exists, and the practical consequence is worth
-stating plainly: a utility takes effect on a property no rule in `EditorTheme` sets for that element.
-New panels get the whole vocabulary; retro-fitting one onto chrome the sheet already styles means
-deleting the hand-written rule first.
+It works on something the hand-written sheet already styles, and **it did not used to**. A generated
+utility is in `@layer utilities`; `EditorTheme` used to be in no layer at all, and an unlayered rule
+wins whatever the specificity and whatever the order — so `task-row { padding: 6px }` beat `p-3` with
+neither of them saying `!important`, and a utility only ever took effect on a property no rule in
+`EditorTheme` set for that element. Retro-fitting a class onto existing chrome began by deleting a
+rule.
+
+`EditorTheme` is now `@layer components` and the ladder is `base, components, utilities`, so
+`class="p-3"` does what somebody writing it plainly meant. See
+[the cascade layers page](../ui/cascade-layers.md) for the ladder and for what a rule that genuinely
+must not be overridden should say instead.
 
 ## Using it
 
