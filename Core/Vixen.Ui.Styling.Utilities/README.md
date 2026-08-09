@@ -262,14 +262,41 @@ all compile to `display: none` and are not interchangeable: the tag-qualified ru
 *why* a thing is not showing, and collapsing the three into `hidden` would lose the distinction the
 sheets are built on. A duplicate declaration is not a duplicate rule.
 
-⚠ **`@apply` is inert in every sheet in this tree, and writing one today ships a broken sheet.**
-`ApplyExpander` runs only over files named by `@(VixenStyleBase)`, and no project sets that item —
-every hand-written sheet reaches the runtime as a raw `EmbeddedResource` through its own
-`Theme.Css`, while the installers load the generated `Utilities` beside it. An `@apply` written into
-`EditorTheme.vcss` would therefore reach `document.Load` verbatim and be dropped by the parser as an
-unknown at-rule, silently. Making it work is not a sheet edit: the sheet has to be folded into the
-generated output and loaded from there instead, which changes *when* it is loaded and is a cascade
-change. `Vixen.Editor.Ui/README.md` records the same conclusion from the build side.
+**`@apply` works in any sheet a document installs, and it did not use to.** For a release
+`ApplyExpander` ran in exactly one place — `Tools/Vixen.StyleGen`, over files named by
+`@(VixenStyleBase)` — and no project in the tree set that item, so every hand-written sheet reached
+`document.Load` verbatim and its `@apply` was dropped by the parser as an unknown at-rule, silently.
+It is now expanded at **install** time, by `UiDocument` through `StyleEngine.Preprocessor`, which is
+the one door every sheet already comes through. See `Core/Vixen.Ui/StyleApply.cs`.
+
+Install time rather than the build path, and the two reasons are settled. `Vixen.Ui.Controls` and
+`Vixen.Ui.Controls.Advanced` hold the two largest sheets in the tree and are Core assemblies that
+doc 00 forbids from referencing `Tools/Vixen.StyleGen`, so the build path can never serve them. And
+requiring an MSBuild item before an at-rule stops being ignored is the friction doc 09's "as
+straightforward as web development" rules out: a rule that works in one project and does nothing in
+the next is worse than one that does not exist.
+
+⚠ **The design question was token *ordering*, and getting it wrong is silent.** At build time
+StyleGen holds every `@theme` before it expands anything; at install time the sheets arrive one at a
+time, and `EditorShell` installs `ControlTheme` before the sheet that declares the editor's tokens.
+An `@apply p-4` expanded against a half-built theme does not fail — `ThemeTokens.CreateDefault()`
+answers every namespace — it silently resolves to the *shipped* number. So the expansion is against
+the document's **merged** theme, and a sheet arriving with an `@theme` after a sheet that used
+`@apply` triggers a reload that expands every sheet again. The guard is exact: `ThemeTokens.Apply`
+reads nothing but `@theme` blocks, so a sheet without one cannot invalidate an earlier expansion,
+and a document with no `@apply` in it — every document in this repository today — never builds the
+merge at all. `ApplyAtInstallTests` is the gate, and its ordering case asserts against the generated
+utility as an oracle rather than against a literal.
+
+What the expander still refuses is unchanged: a variant. `@apply hover:bg-accent` would have to
+invent a rule with a different selector from the block it sits in, and every refusal is now reported
+— see the drain below.
+
+⚠ **A refused `@apply` used to be as silent as an unexpanded one.** `ApplyExpander.Diagnostics` is
+cleared at the start of every `Expand`, so an expander reused across a document's sheets keeps only
+the last sheet's refusals. `UiDocument` drains it per sheet onto log event 7005, beside the
+`StyleSheetLoader` and `SelectorCompiler` diagnostics it drains onto 7004 — see
+`Core/Vixen.Ui/StyleDiagnostics.cs` and `docs/manual/log-events.md`.
 
 ⚠ **A duplicate the generator cannot reach is not a duplicate.** `AdvancedTheme.vcss` hand-writes
 `.hidden { display: none; }` and must keep it: ten controls in `Vixen.Ui.Controls.Advanced` call

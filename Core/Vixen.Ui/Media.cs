@@ -114,6 +114,10 @@ public sealed partial class UiDocument {
     /// </remarks>
     void Remedia() {
         if (Styles.SetMedia(Media)) {
+            // ⚠ A reload builds a new loader and a new compiler, so their diagnostics start over —
+            // and a `@media` block that a wider window has just brought into play can be refused for
+            // the first time here, having been dropped unread at load.
+            DrainStyleDiagnostics();
             Forget();
         }
     }

@@ -3,6 +3,8 @@
 
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
@@ -80,9 +82,31 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="width">The surface's width in device-independent pixels.</param>
     /// <param name="height">Its height.</param>
     /// <param name="rootFontSize">The font size <c>rem</c> measures against.</param>
-    public UiDocument(float width, float height, float rootFontSize = LengthContext.InitialFontSize) {
+    /// <param name="logger">
+    ///     Where a stylesheet Vixen could not read is reported, or <c>null</c> for nowhere.
+    ///     <para>
+    ///         ⚠ <b>Optional, and a document given none is a document whose refused rules are silent
+    ///         again.</b> That is the same bargain <c>EffectScheduler</c> makes and it is a bargain
+    ///         rather than an oversight: a Core assembly cannot invent a sink, and inventing a default
+    ///         one would put a second logging story next to <c>Vixen.Core.Diagnostics</c>. Every host
+    ///         in this repository that has a log passes it — see <c>EditorShell</c> — so the silent
+    ///         case is a document built by a test or by an embedder that has not wired one yet.
+    ///     </para>
+    /// </param>
+    public UiDocument(
+        float width,
+        float height,
+        float rootFontSize = LengthContext.InitialFontSize,
+        ILogger? logger = null
+    ) {
         this.rootFontSize = rootFontSize;
+        this.logger = logger ?? NullLogger.Instance;
         Styles = new StyleEngine();
+
+        // ⚠ Before anything can load a sheet, and that includes this constructor. A sheet installed
+        // without the preprocessor in place is a sheet whose `@apply` reaches ExCSS verbatim, and the
+        // only symptom is a rule missing declarations.
+        Styles.Preprocessor = ExpandApply;
         Restyler = new StyleUpdater(Styles);
         Layout = new LayoutTree();
         Builder = new LayoutStyleBuilder(Styles.Properties, Styles.Values, Styles.Names);
@@ -297,9 +321,39 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="css">Its text.</param>
     /// <param name="origin">Who it came from.</param>
     /// <returns>The sheet's index, for <see cref="ReloadStyles" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <c>@apply</c> is expanded on the way in, against every <c>@theme</c> the document
+    ///         holds rather than only this sheet's — see <see cref="ExpandApply" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A sheet that brings tokens re-expands the ones before it.</b> <c>ControlTheme</c>
+    ///         is installed before <c>EditorTheme</c>, so an <c>@apply p-4</c> in the first would
+    ///         otherwise be measured against a <c>--spacing</c> the second had not declared yet — and
+    ///         the shipped palette answers, so the failure is a wrong number rather than an error.
+    ///         See <see cref="TokensCameLate" /> for what makes this cost nothing in a document
+    ///         without an <c>@apply</c> in it.
+    ///     </para>
+    /// </remarks>
     public int Load(string css, StyleOrigin origin = StyleOrigin.Author) {
+        ArgumentNullException.ThrowIfNull(css);
+
+        // Asked before the load, so that "a sheet that came earlier" excludes this one.
+        var late = TokensCameLate(css);
+
+        // The merge is not invalidated here: a load always grows the sheet list, and `Theme` rebuilds
+        // whenever the count it was built from has moved. `ReloadStyles` is the case that has to say
+        // so out loud, because replacing a sheet leaves the count alone.
         var sheet = Styles.Load(css, origin);
+
+        if (late) {
+            Styles.Reload();
+            Forget();
+        }
+
+        DrainStyleDiagnostics();
         Invalidate();
+
         return sheet;
     }
 
@@ -346,7 +400,14 @@ public sealed partial class UiDocument : IDisposable {
     ///     </para>
     /// </remarks>
     public void ReloadStyles(int sheet, string css) {
+        // ⚠ The sheet count does not move, so `Theme`'s own staleness check cannot see this — and a
+        // saved theme file whose `--spacing` just changed has to reach every `@apply` in the
+        // document, not only the ones in the sheet that was saved. `Replace` reloads everything,
+        // which re-runs the preprocessor over all of them against the merge rebuilt below.
+        theme = null;
+
         Styles.Replace(sheet, css);
+        DrainStyleDiagnostics();
         Forget();
     }
 

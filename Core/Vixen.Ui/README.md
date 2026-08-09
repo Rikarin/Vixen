@@ -750,6 +750,32 @@ where doing less is the correct behaviour rather than an omission.
 happens to be invisible, so using it for "I did not understand this" turns one typo into a missing
 element with nothing said about it.
 
+## Stylesheets: what the document does on the way in
+
+Two things happen to a sheet between `Load` and the parser, and both exist because the alternative
+was silence.
+
+**`@apply` is expanded.** `ApplyExpander` lives in `Vixen.Ui.Styling.Utilities` and used to be
+reachable only from the build step, over files an MSBuild item named and no project set — so the
+at-rule was inert in every hand-written sheet in the tree and said nothing about it. The document
+runs it over every sheet, through `StyleEngine.Preprocessor`, which is also what makes it survive a
+reload. `Core/Vixen.Ui/StyleApply.cs` holds the reasoning; the part worth knowing from outside is
+that the expansion is measured against **every** `@theme` in the document, not the ones that had
+arrived when the sheet did — `EditorShell` installs its token sheet third of three, and expanding in
+arrival order would give the first two the shipped palette's numbers and no error.
+
+**Refused rules are logged.** `StyleSheetLoader` and `SelectorCompiler` have always recorded what
+they had to drop, and nothing outside the tests had ever read either list. `UiDocument` drains both
+onto log event 7004 after every load and reload, and drains `ApplyExpander`'s onto 7005 — see
+`StyleDiagnostics.cs` and `docs/manual/log-events.md`. The channel is `ILogger`, so it lands in the
+`RingBufferSink` the editor's Console panel reads and the crash reporter dumps; a document
+constructed without a logger reports into `NullLogger` and behaves exactly as it did before.
+
+⚠ **`LayoutStyleBuilder.Diagnostics` is the third list of the same shape and is still unread.** It
+is produced inside the per-element pass rather than at load, so it wants a drain point in `Update`
+rather than in `Load`; that is issue #56, and `Drain` takes the source name as a parameter precisely
+so closing it is one call rather than a second mechanism.
+
 ## What it found
 
 ⚠ **Yoga's initial values are not CSS's, and they differ in four places.** `flex-direction` is

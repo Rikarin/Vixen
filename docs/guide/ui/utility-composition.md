@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Styling.Utilities.UtilityComposition]
 tags: [ui, styling, utilities, tailwind, vcss, gradients, custom-properties]
 since: 0.2
 status: preview
-related: [editor/utility-styles, ui/markup-panels, core/gamut-mapping, ui/gradients, ui/grid-layout]
+related: [editor/utility-styles, ui/markup-panels, core/gamut-mapping, ui/gradients, ui/grid-layout, ui/stylesheet-diagnostics]
 ---
 
 ## What it is

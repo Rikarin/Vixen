@@ -288,12 +288,24 @@ down whole. There are four such sites here — `ThemeService`'s `dark`, `Console
 `MessageLogView`'s `level-*`, and whatever a plugin puts in `EditorCommand.ClassName` — and none of
 them names a utility, so `@(VixenStyleSafelist)` is empty. A future one that does has to go in it.
 
-⚠ **The step is still given no `--base` files**, so `EditorStyles.Utilities` is the whole of what it
-produces. That is now a choice rather than a blocker: the theme sheets *are* `.vcss` files, so the
-project can add `<VixenStyleBase Include="…" />` and have the same step emit them ahead of the layer
-with `@apply` expanded — an item change rather than a redesign. It is not done, because folding a
-sheet into the generated one changes when it is loaded and that is a cascade change, not a packaging
-one.
+**The step is given no `--base` files, and now never needs to be.** `EditorStyles.Utilities` is the
+whole of what it produces, and `EditorTheme.vcss` reaches the runtime as its own `EmbeddedResource`,
+installed in its own place in the cascade. The reason to fold it into the generated sheet was to get
+`@apply` expanded, and `@apply` is expanded at install time now — `UiDocument` runs `ApplyExpander`
+over every sheet it loads, against the merged theme rather than one sheet's. So the sheets keep the
+load order the chrome is written against, which is the cascade change nobody wanted to make.
+
+⚠ **The order that made the ordering question real is this file's.** `EditorShell` installs
+`ControlTheme`, then `AdvancedTheme`, then `EditorTheme` — and the editor's tokens are in the last of
+the three. An `@apply` written into `ControlTheme` and expanded when it arrived would be measured
+against the shipped palette, not the editor's, and would render plausibly. See
+`Core/Vixen.Ui/StyleApply.cs` for what stops that.
+
+⚠ **The shell now takes a logger, and `Vixen.Editor.App` passes one.** `UiDocument` reports every
+rule the cascade dropped — a mistyped at-rule, an unsupported selector, an `@apply` naming no
+utility — and a document handed no logger reports them into `NullLogger`. The editor's goes to
+`EditorLog.Sink`, which is the ring the console below reads, under the category `Vixen.Ui.Styling`
+rather than `Vixen.Editor` so the two are separable in the filter.
 
 ## The console
 

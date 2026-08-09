@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Styling.CascadeLayers, T:Vixen.Ui.Styling.CascadePrecedence, T:
 tags: [ui, styling, vcss, cascade, layers, utilities, tailwind]
 since: 0.2
 status: preview
-related: [editor/utility-styles, ui/utility-composition, ui/markup-panels]
+related: [editor/utility-styles, ui/utility-composition, ui/markup-panels, ui/stylesheet-diagnostics]
 ---
 
 ## What it is

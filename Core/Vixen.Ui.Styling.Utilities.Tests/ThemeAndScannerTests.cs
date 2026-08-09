@@ -422,12 +422,13 @@ public class ThemeAndScannerTests {
     ///     <see cref="A_declaration_value_in_a_stylesheet_is_not_a_class_name" /> still passes.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Exercised against the scanner and the expander directly, because the path is not live
-    ///     in this tree.</b> <c>ApplyExpander</c> runs only over files named by
-    ///     <c>@(VixenStyleBase)</c> and no project sets that item — every hand-written sheet reaches
-    ///     the runtime as a raw <c>EmbeddedResource</c> — so no real build would demonstrate it. A
-    ///     reader should not conclude from a green test here that <c>@apply</c> works end to end;
-    ///     <c>Vixen.Ui.Styling.Utilities/README.md</c> records why it does not.
+    ///     Exercised against the scanner and the expander directly, because what it is about is the
+    ///     agreement between the two: the scanner has to hand the generator the same three names the
+    ///     expander will look for. The end-to-end claim — that an <c>@apply</c> in an installed sheet
+    ///     produces declarations at all, and against the right theme — is
+    ///     <c>ApplyAtInstallTests</c>, and it did not exist while this remark said the path was not
+    ///     live in the tree. It is live now: <c>UiDocument</c> expands on load, through
+    ///     <c>StyleEngine.Preprocessor</c>.
     /// </remarks>
     [Fact]
     public void Apply_is_not_a_declaration_and_its_utilities_survive_the_scan() {
