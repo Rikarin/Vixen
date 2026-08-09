@@ -119,8 +119,17 @@
        Its comment read: "`radius` is missing on purpose … `ThemeTokens.Radius` is a
        `Dictionary<string, float>`: it parses numbers, so `var(--radius-row)` is rejected with a
        diagnostic rather than stored." So the editor had three radii on the root, no radius tokens,
-       and `rounded-[var(--radius-row)]` as the way to say it. `Radius` holds text now, which is what
-       every other namespace already did, and these three are ordinary tokens.
+       and the only way to round a row was an arbitrary value naming the variable inline. `Radius`
+       holds text now, which is what every other namespace already did, these three are ordinary
+       tokens, and `rounded-row` resolves.
+
+       ⚠ **That old spelling is described here and no longer written out, which is not fastidiousness
+       about prose.** `CandidateScanner` scans `**/*.vcss` and deliberately parses nothing, so a class
+       name typed into a comment is indistinguishable from one typed into a `class` attribute: for as
+       long as the bracket form sat in this paragraph, every build of `Vixen.Editor.Ui` emitted a rule
+       for it, and anyone reading the generated sheet saw the editor apparently still using the
+       workaround this very comment exists to say it had stopped using. One rule of the twenty-five
+       was a sentence about history.
 
        The engine's own `--radius-xs … --radius-4xl` are deliberately *not* cleared: they are v4's
        scale, they collide with nothing here, and a new panel wanting `rounded-md` should have it. */

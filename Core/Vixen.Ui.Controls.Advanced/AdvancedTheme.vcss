@@ -8,10 +8,22 @@
    with no palette: `AdvancedTheme.Install` loads this and not the base theme, and an application
    needs both, in that order.
 
-   ⚠ **`.hidden { display: none }` lives here and is depended on across assembly boundaries.** The
-   editor's import views reach it by class name from a different assembly — see `SharedThemeTests`,
-   which records that as the cost of a token system with an assembly boundary in it. Renaming or
-   layering it is not a local change. */
+   ⚠ **`.hidden { display: none }` lives here because this assembly cannot generate it, and that is
+   a rule the build enforces rather than an oversight.** Ten controls in this project call
+   `AddClass("hidden")` — the docking pair, `TreeView`, `DataGrid`, `PropertyGrid`, `ColorPicker`,
+   `CodeEditor`, `NodeCanvas`, `Viewport`, `GradientEditor` — and the utility that would cover them
+   comes from `Tools/Vixen.StyleGen`, which doc 00's layer rules forbid a Core assembly from
+   referencing at all; `CheckArchitecture` reads the `.csproj` and fails on it. There is therefore no
+   wiring that would let the generator supply this rule *here*, and deleting it would leave all ten
+   controls inert in any application that does not happen to emit a `.hidden` of its own. It stays,
+   and it is not a duplicate awaiting cleanup.
+
+   ⚠ **It is `components` now, so the copy an editor assembly generates supersedes it rather than
+   fighting it.** The remark this replaced said layering it was not a local change; it has since been
+   layered with the rest of this file, and a project running the build step puts its own `.hidden` in
+   `utilities`, which wins by layer and declares the identical `display: none`. Two rules, one
+   outcome. The editor's import views still reach *this* one by class name from a different assembly,
+   which is what `SharedThemeTests` records as the cost of an assembly boundary in a token system. */
 
 /* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
    because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
