@@ -1,0 +1,230 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 — and the panel the inline `style` attribute was measured against.
+
+    ⚠ **This is the case `StatisticsView` could not express and had to design around.** That panel
+    wanted a computed width, markup had no way to write one, and it moved onto a `ProgressBar` —
+    which was an improvement, because a track with a fill in it *is* a progress bar. There is no
+    such control here. A bar's `left` is a fraction of a measured width times a timestamp, its
+    `top` is its debug-group depth, and no stylesheet can be written that says any of it. That is
+    what an inline style is for, and it is the whole reason `SetStyle`'s remarks call it the escape
+    hatch for "lengths no stylesheet was given".
+
+    ⚠ **The pool is gone, and that is the second half of the port.** The C# kept a `List<UiElement>`
+    of bars, reused them by index and parked the surplus with a class, because rebuilding elements
+    was the expensive thing. `@for` over a keyed immutable snapshot is the same economy written
+    once: a bar whose value is unchanged keeps its element, and a bar that is no longer in the list
+    takes its element with it. `parked` is therefore not set here at all — the theme rule still
+    exists for `FlameChartView`, which still pools.
+
+    ⚠ **Keyed on the whole bar, per the `@for` rule, and the `Slot` in it is load-bearing.** A
+    `Bar` is an immutable record struct, so its *value* is its identity — move the frame on and it
+    is a different key, the old region goes and a new one is built with the new geometry in it.
+    Keying on `bar.Name` instead would freeze every bar's position at the first frame that named
+    it, which for a timeline is the one thing it must never do. `Slot` is in the record because two
+    passes can legitimately have the same name, span and geometry, and two equal keys in one loop
+    is not a thing `BuildContext.For` can be asked to reconcile.
+-->
+@component GpuTimelineView
+@namespace Vixen.Editor.Profiler
+@inherits Vixen.Ui.Controls.Control
+@tag gpu-timeline
+@using System.Globalization
+@using Vixen.Graphics
+@using Vixen.Ui
+@using Vixen.Ui.Reactive
+
+<gpu-status ref="@Status">@Sentence()</gpu-status>
+
+<gpu-lanes ref="@Lanes" style="height: @Length(Chart.Height)">
+    @for (var bar in Chart.Bars) {
+        <gpu-bar key="@bar" class="@bar.Hue" style="@bar.Geometry">@bar.Caption</gpu-bar>
+    }
+</gpu-lanes>
+
+@code {
+    /// <summary>How tall one bar is.</summary>
+    public const float RowHeight = 20f;
+
+    /// <summary>How narrow a bar may be before it is not worth an element.</summary>
+    public const float MinimumBarWidth = 1.5f;
+
+    /// <summary>
+    ///     What is on screen: the bars and the height they need, as one immutable snapshot.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>One signal holding the whole chart, rather than one per thing the markup reads.</b>
+    ///     The height and the bars come out of a single walk of the frame, and two signals would mean
+    ///     either walking it twice or writing them in an order the reader has to know about. A
+    ///     revision counter that everything reads to force re-evaluation would be the third option
+    ///     and is the one this codebase has ruled out: there is nothing here that mutates in place, so
+    ///     a counter would be standing in for a value change that is perfectly expressible.
+    /// </remarks>
+    readonly Signal<GpuChart> chart = new(GpuChart.Empty);
+
+    /// <summary>Why the device cannot be timed, as the markup reads it.</summary>
+    readonly Signal<string?> unavailable = new(null);
+
+    GpuFrame frame = GpuFrame.Empty;
+    Action<UiDocument>? settle;
+
+    /// <summary>What the last realise was for, so an unchanged frame does no work.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept even though <see cref="Signal{T}" /> already refuses an equal value.</b> The
+    ///     signal's comparison happens <i>after</i> the chart has been built, and building it is the
+    ///     walk this guard exists to skip — <c>LayoutFinished</c> fires every frame, and a panel that
+    ///     re-measured every pass sixty times a second to discover nothing had moved would be paying
+    ///     the whole cost to save the notification.
+    /// </remarks>
+    (float Width, GpuFrame Frame, string? Unavailable) realised = (-1f, GpuFrame.Empty, "");
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The line saying what the frame cost, or why there is nothing to show.</summary>
+    public UiElement Status { get; private set; } = null!;
+
+    /// <summary>Where the bars go.</summary>
+    public UiElement Lanes { get; private set; } = null!;
+
+    /// <summary>Why the device cannot be timed, or <see langword="null" /> when it can.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Set by whoever built the panel, because "this device reports no timestamp queries" is a
+    ///         sentence only something holding the device can write.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Signal-backed, and the property is the same property it was.</b> A host assigns
+    ///         this after the panel is built — see <c>DiagnosticsModule</c> — so a plain field would
+    ///         have shown the panel's first answer for ever. Making the backing store a signal rather
+    ///         than adding a second, signal-shaped member is what keeps every caller unchanged.
+    ///     </para>
+    /// </remarks>
+    public string? Unavailable {
+        get => unavailable.Value;
+        set => unavailable.Value = value;
+    }
+
+    /// <summary>Where the newest resolved frame comes from, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pulled rather than pushed, and the difference is a class of bug rather than a
+    ///     preference.</b> A host that pushed frames into this view would be holding a reference to
+    ///     a panel whose factory runs again on every reopen — so the frame after the tab is closed
+    ///     goes to an element that has been removed from the document, and reading its bounds
+    ///     throws. Pulling means the view is driven only while it is in the tree, because the only
+    ///     thing that drives it is its own layout hook.
+    /// </remarks>
+    public Func<GpuFrame>? Source { get; set; }
+
+    /// <summary>What it is showing.</summary>
+    public GpuFrame Frame => frame;
+
+    /// <summary>Puts a frame on screen.</summary>
+    /// <param name="resolved">The frame.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="resolved" /> is null.</exception>
+    public void Show(GpuFrame resolved) {
+        ArgumentNullException.ThrowIfNull(resolved);
+
+        frame = resolved;
+        Realise();
+    }
+
+    /// <summary>Rebuilds the bars for the current width.</summary>
+    public void Realise() {
+        if (Source?.Invoke() is { } latest) {
+            frame = latest;
+        }
+
+        var width = Lanes.Bounds.Width;
+
+        if (realised == (width, frame, Unavailable)) {
+            return;
+        }
+
+        realised = (width, frame, Unavailable);
+        chart.Value = Measure(width);
+    }
+
+    /// <summary>The chart the markup walks.</summary>
+    GpuChart Chart => chart.Value;
+
+    /// <summary>Walks the frame once, producing every bar and the height they need between them.</summary>
+    GpuChart Measure(float width) {
+        if (Unavailable is not null || width <= 0f) {
+            return GpuChart.Empty;
+        }
+
+        var bars = new List<GpuBar>();
+        var deepest = 0;
+
+        foreach (var scope in frame.Scopes) {
+            var left = frame.Fraction(scope.BeginTicks) * width;
+            var span = (frame.Fraction(scope.EndTicks) * width) - left;
+
+            if (span < MinimumBarWidth) {
+                continue;
+            }
+
+            bars.Add(
+                new GpuBar(
+                    bars.Count,
+                    "flame-hue-" + FlameChartView.HueOf(scope.Name).ToString(CultureInfo.InvariantCulture),
+                    Geometry(left, scope.Level * RowHeight, span, RowHeight - 2f),
+                    span >= 48f
+                        ? string.Create(CultureInfo.InvariantCulture, $"{scope.Name} {frame.MillisecondsOf(scope):0.###} ms")
+                        : null
+                )
+            );
+
+            deepest = Math.Max(deepest, scope.Level);
+        }
+
+        return new GpuChart([.. bars], (deepest + 1) * RowHeight);
+    }
+
+    string Sentence() {
+        if (Unavailable is { } reason) {
+            return reason;
+        }
+
+        if (frame.Scopes.Count == 0) {
+            return "Waiting for the GPU to retire a frame.";
+        }
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"Frame {frame.FrameIndex} — {frame.Milliseconds:0.###} ms across {frame.Scopes.Count} pass(es)"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Where the panel used to write four <c>SetStyle</c> calls, it now writes one string.</b>
+    ///     The declaration list goes through the same parser a rule body does, so these four are the
+    ///     four longhands and mean exactly what they would mean in a stylesheet.
+    /// </summary>
+    static string Geometry(float left, float top, float width, float height) =>
+        $"left: {Length(left)}; top: {Length(top)}; width: {Length(width)}; height: {Length(height)}";
+
+    static string Length(float value) => value.ToString("0.##", CultureInfo.InvariantCulture) + "px";
+
+    /// <summary>
+    ///     Subscribes once the parts exist, which for an element-flavoured file is what
+    ///     <c>OnComposed</c> is: the generated <c>OnCreated</c> composes the body and then calls it, so
+    ///     <c>Lanes</c> is assigned and <c>Realise</c> has something to measure.
+    /// </summary>
+    partial void OnComposed() {
+        settle = _ => Realise();
+        Document.LayoutFinished += settle;
+
+        Realise();
+    }
+
+    partial void OnUnmounted() {
+        if (settle is not null) {
+            Document.LayoutFinished -= settle;
+            settle = null;
+        }
+    }
+}

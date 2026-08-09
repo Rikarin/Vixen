@@ -882,6 +882,7 @@ Vixen.Ui.UiElement.RemoveClass(string className) -> bool
 Vixen.Ui.UiElement.RemoveHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler) -> bool
 Vixen.Ui.UiElement.SetAttribute(string name, string value) -> void
 Vixen.Ui.UiElement.SetStyle(string property, string? value) -> void
+Vixen.Ui.UiElement.SetStyle(string property, string? value, bool important) -> void
 Vixen.Ui.UiElement.State.get -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.UiElement.State.set -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.UiElement.Style.get -> Vixen.Ui.Styling.ComputedStyle

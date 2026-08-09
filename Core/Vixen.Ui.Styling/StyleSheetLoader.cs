@@ -217,6 +217,90 @@ public sealed class StyleSheetLoader {
         }
     }
 
+    /// <summary>Reads the declaration list in a <c>style="…"</c> attribute.</summary>
+    /// <param name="css">The attribute's value: <c>width: 42%; flex-grow: 1</c>.</param>
+    /// <param name="into">Where the declarations go. Cleared first.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same parser a rule body goes through, wrapped in a throwaway rule.</b> A
+    ///         hand-rolled splitter on <c>;</c> and <c>:</c> is four lines and wrong in three ways —
+    ///         a <c>;</c> inside a string, a <c>:</c> inside a <c>url()</c>, and above all the
+    ///         shorthands, which <see cref="AddRule" /> gets from ExCSS for free. <c>padding: 4px</c>
+    ///         has to become the four longhands the layout actually reads, and a second implementation
+    ///         of that is a second thing that can disagree with a stylesheet about what the same
+    ///         characters mean.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A brace is refused rather than escaped.</b> The wrapper is textual, so
+    ///         <c>style="} tabs { display: none"</c> would otherwise close it and load a rule against
+    ///         the whole document. Only the first rule is read, so the worst an injection could do is
+    ///         lose declarations — but refusing outright is one rule a reader can hold, and no inline
+    ///         style has a legitimate brace in it: there are no nested blocks and no at-rules here.
+    ///     </para>
+    ///     <para>
+    ///         Refusals land in <see cref="Diagnostics" /> along with every other sheet's, so they are
+    ///         drained and logged by the pass that already reads that list. A declaration ExCSS did not
+    ///         recognise is dropped silently, exactly as it is in a stylesheet — the loud case is a
+    ///         value that produced <i>nothing</i>, which is the typo worth a line.
+    ///     </para>
+    /// </remarks>
+    public void ReadDeclarations(string css, List<InlineDeclaration> into) {
+        ArgumentNullException.ThrowIfNull(css);
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+
+        if (string.IsNullOrWhiteSpace(css)) {
+            return;
+        }
+
+        if (css.Contains('{', StringComparison.Ordinal) || css.Contains('}', StringComparison.Ordinal)) {
+            diagnostics.Add(
+                new SelectorDiagnostic(
+                    Summarise(css),
+                    "an inline style is a declaration list, so a brace cannot appear in one"
+                )
+            );
+
+            return;
+        }
+
+        if (Parser.Parse("*{" + css + "}").Children.FirstOrDefault() is IStyleRule rule) {
+            foreach (var declaration in rule.Style) {
+                ReadDeclaration(declaration.Name, declaration.Value, declaration.IsImportant, into);
+            }
+        }
+
+        if (into.Count == 0) {
+            diagnostics.Add(new SelectorDiagnostic(Summarise(css), "nothing here parsed as a CSS declaration"));
+        }
+    }
+
+    /// <summary>The <see cref="Collect" /> of the inline path: same shorthand hole, same patch.</summary>
+    void ReadDeclaration(string name, string value, bool important, List<InlineDeclaration> into) {
+        if (ShorthandExpansion.IsShorthand(name) && VarSubstitution.NeedsSubstitution(value)) {
+            expansionScratch.Clear();
+
+            if (ShorthandExpansion.TryExpand(name, value, expansionScratch)) {
+                foreach (var (longhand, part) in expansionScratch) {
+                    into.Add(new InlineDeclaration(longhand, part, important));
+                }
+
+                return;
+            }
+
+            diagnostics.Add(
+                new SelectorDiagnostic(
+                    $"{name}: {value}",
+                    "this shorthand holds a var() and could not be taken apart, so the longhands it "
+                    + "would have set are not set"
+                )
+            );
+        }
+
+        into.Add(new InlineDeclaration(name, value, important));
+    }
+
     /// <summary>Interns one declaration, taking a shorthand apart first when ExCSS could not.</summary>
     /// <remarks>
     ///     ⚠ <b>Only when the value holds a <c>var()</c>.</b> Everything else ExCSS has already

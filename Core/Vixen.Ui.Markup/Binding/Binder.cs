@@ -505,8 +505,19 @@ public sealed class Binder {
     ///         The hyphen also means it could never be a property name.
     ///     </para>
     /// </remarks>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>style</c> is here for <c>class</c>'s reason exactly.</b> An inline style is a
+    ///         cascade origin, and a component's root element has one as much as a <c>&lt;div&gt;</c>
+    ///         does — so <c>&lt;ProgressBar style="width: 42%" /&gt;</c> has to reach the element the
+    ///         control drew rather than look for a <c>Style</c> property on it. There is one:
+    ///         <c>Component.Style</c> is the scoped stylesheet a <c>.vxml</c> declares, and assigning
+    ///         a declaration list to it would be a wrong answer that compiles.
+    ///     </para>
+    /// </remarks>
     internal static bool IsUniversal(string name) =>
         string.Equals(name, "class", StringComparison.Ordinal)
+        || string.Equals(name, "style", StringComparison.Ordinal)
         || string.Equals(name, "binding-path", StringComparison.Ordinal);
 
     /// <summary>

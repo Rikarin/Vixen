@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Vixen.Ui.Reactive;
+using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Composition;
 
@@ -105,6 +106,21 @@ public sealed class BuildContext {
     ///     as long as the document lives.
     /// </remarks>
     readonly ConditionalWeakTable<UiElement, string[]> classes = new();
+
+    /// <summary>What a <c>style</c> attribute last wrote to an element, so it can take it back.</summary>
+    /// <remarks>Weak for the reason <see cref="classes" /> is, and holding property names for the same one.</remarks>
+    readonly ConditionalWeakTable<UiElement, string[]> styles = new();
+
+    /// <summary>The characters those names came from, so an unchanged binding costs no parse.</summary>
+    readonly ConditionalWeakTable<UiElement, string> styleText = new();
+
+    /// <summary>Where <see cref="SetInlineStyle" /> reads a declaration list into.</summary>
+    /// <remarks>
+    ///     One list on the context rather than one per call. Nothing re-enters this — a declaration is
+    ///     applied and forgotten before the next is read — and a <c>@for</c> that positions two hundred
+    ///     rows would otherwise allocate two hundred lists per pass.
+    /// </remarks>
+    readonly List<InlineDeclaration> styleScratch = [];
 
     /// <summary>Where subscriptions go, so that clearing a branch stops everything inside it.</summary>
     Region building;
@@ -529,10 +545,19 @@ public sealed class BuildContext {
     /// <param name="value">Its value.</param>
     /// <remarks>
     ///     <para>
-    ///         <c>class</c> is the one name handled specially, because it is a set rather than a
+    ///         <c>class</c> is one of two names handled specially, because it is a set rather than a
     ///         value: writing it replaces what the <i>last write</i> put there rather than appending
     ///         to it, which is what makes <c>class="btn @variant"</c> behave when <c>variant</c>
     ///         changes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>style</c> is the other, and it is the one name that must <i>not</i> reach the
+    ///         style tree.</b> An attribute there is data a selector can match on — <c>[style]</c> —
+    ///         and nothing reads it; in CSS an inline style is a cascade origin that outranks every
+    ///         author rule. The engine has had that origin all along
+    ///         (<c>CascadeRanks.NormalInline</c>, <c>UiElement.SetStyle</c>); what it did not have was
+    ///         a way for markup to reach it, so <c>style="width: 42%"</c> silently did nothing but add
+    ///         a selectable attribute. See <see cref="SetInlineStyle" />.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The last write, not every class the element carries.</b> An element is given
@@ -552,6 +577,11 @@ public sealed class BuildContext {
 
         if (string.Equals(name, "class", StringComparison.Ordinal)) {
             SetClasses(target, value);
+            return;
+        }
+
+        if (string.Equals(name, "style", StringComparison.Ordinal)) {
+            SetInlineStyle(target, value);
             return;
         }
 
@@ -984,6 +1014,55 @@ public sealed class BuildContext {
         }
 
         classes.AddOrUpdate(target, wanted);
+    }
+
+    /// <summary>Writes a <c>style="…"</c> attribute's declarations onto an element.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only the properties this attribute wrote last time come off</b>, which is
+    ///         <see cref="SetClasses" />'s rule and it is here for a sharper reason. A control writes
+    ///         its own inline declarations — a <c>DataGrid</c> row's <c>top</c>, a <c>Selects</c>
+    ///         popup's <c>min-width</c>, a <c>DockingHost</c> pane's <c>flex-grow</c> — and it writes
+    ///         them from its own code, after the markup has been applied. Treating the attribute as
+    ///         the element's complete inline set would delete those, and a
+    ///         <c>&lt;DataGrid style="height: 40%" /&gt;</c> would silently unposition every row in it.
+    ///     </para>
+    ///     <para>
+    ///         The text is remembered as well as the names, so re-evaluating a binding to the value it
+    ///         already had costs one string compare and no parse. That matters: this runs from an
+    ///         effect, and the parse is a real one — see
+    ///         <c>StyleSheetLoader.ReadDeclarations</c>, which goes through ExCSS so that
+    ///         <c>style="padding: 4px"</c> means what <c>padding: 4px</c> means in a rule. A caller
+    ///         moving one number sixty times a second is better served by
+    ///         <see cref="UiElement.SetStyle(string, string?)" /> directly, which interns a value and
+    ///         allocates nothing.
+    ///     </para>
+    /// </remarks>
+    void SetInlineStyle(UiElement target, string value) {
+        if (styleText.TryGetValue(target, out var last) && string.Equals(last, value, StringComparison.Ordinal)) {
+            return;
+        }
+
+        Document.Styles.Loader.ReadDeclarations(value, styleScratch);
+
+        if (styles.TryGetValue(target, out var previous)) {
+            foreach (var stale in previous) {
+                if (!styleScratch.Exists(written => string.Equals(written.Property, stale, StringComparison.Ordinal))) {
+                    target.SetStyle(stale, null);
+                }
+            }
+        }
+
+        var names = new string[styleScratch.Count];
+
+        for (var i = 0; i < styleScratch.Count; i++) {
+            var (property, declared, important) = styleScratch[i];
+            target.SetStyle(property, declared, important);
+            names[i] = property;
+        }
+
+        styles.AddOrUpdate(target, names);
+        styleText.AddOrUpdate(target, value);
     }
 
     static string Format(object? value) =>

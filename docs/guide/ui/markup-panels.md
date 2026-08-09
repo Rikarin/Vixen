@@ -4,7 +4,7 @@ slug: ui/markup-panels
 kind: guide
 area: Core
 summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref for the parts they read, and the @for key rule that decides whether a row updates at all.
-api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax]
+api: [T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration]
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
 status: preview
@@ -80,6 +80,57 @@ itself into is removed or the branch that built it closes. Whichever comes first
 
 Neither is an override, so neither costs anything when nobody implements it. `@code` may not override
 `OnCreated` or `OnRemoved`: the generated scaffold uses both, and these two run in the same places.
+
+### The three universal attributes
+
+`class`, `style` and `binding-path` mean the same on a component tag as on an element, and are never
+assigned as properties. On a capitalised tag they reach the element the control drew.
+
+`style` is an *inline style*: a cascade origin that beats every rule, not an attribute a selector can
+match. Use it for the lengths no stylesheet was given.
+
+```vxml no-compile="a bar whose left edge is a measured width times a timestamp"
+<gpu-lanes style="height: @Length(Chart.Height)">
+    @for (var bar in Chart.Bars) {
+        <gpu-bar key="@bar" class="@bar.Hue" style="@bar.Geometry">@bar.Caption</gpu-bar>
+    }
+</gpu-lanes>
+```
+
+The value may be a bound expression, which is the point of it. It goes through the same parser a rule
+body does, so `style="padding: 4px 8px"` becomes the four longhands the layout reads; a brace in the
+value is refused with a diagnostic; and re-evaluating a binding to the text it already had costs no
+parse.
+
+It takes back only the properties it wrote. A control positions its own parts with
+`UiElement.SetStyle` — a `DataGrid` row's `top`, a `DockingHost` pane's `flex-grow` — and a `style`
+attribute never reaches those.
+
+⚠ **It is the escape hatch, not the first answer.** Anything a rule can say belongs in a rule: a
+`display` toggle is a class, and `OffsetX` is cheaper than either when moving a box is enough. And
+because the parse is real, something writing one number every frame should call `SetStyle` directly.
+
+There is deliberately **no `id`**. Styling one element is a class; getting one in C# is `ref`, which
+hands back the object rather than a name and is checked by the compiler.
+
+### Controls with two places for content
+
+A child written inside a capitalised tag hangs from that control's `ContentHost`. `Tabs` has two
+places a child could go — the strip and the panels — and both are reachable by nesting:
+
+```vxml no-compile="Editor/Vixen.Editor.AssetEditors/Prefabs/PrefabView.vxml"
+<Tabs class="document-tabs">
+    <TabItem ref="@HierarchyTab" Label="Hierarchy" />
+    <TabItem Label="Compiled">
+        <CompiledSceneView ref="@Compiled" />
+    </TabItem>
+</Tabs>
+```
+
+`Tabs.ContentHost` is the strip, so `<TabItem>`s land there; `TabItem.ContentHost` is its panel, so a
+tab's own content lands where it shows. A tab pairs itself with a panel in `OnCreated` and unregisters
+in `OnRemoved`, which is what lets an `@if` or `@for` add and remove tabs — markup removes elements
+without calling `RemoveTab`.
 
 ### Where a `ref` may go
 

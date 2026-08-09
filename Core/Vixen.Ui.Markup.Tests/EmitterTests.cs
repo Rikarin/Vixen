@@ -382,6 +382,149 @@ public class EmitterTests {
         Assert.True(gauge.HasClass("size-md"));
     }
 
+    /// <summary>
+    ///     ⚠ <b><c>style</c> is a cascade origin and not an attribute.</b> Before this it reached
+    ///     <c>StyleTree.SetAttribute</c>, so <c>style="width: 42%"</c> put a string in the selector
+    ///     engine's arena where <c>[style]</c> could match it and nothing else could read it. The
+    ///     element came out however wide the stylesheet said, with no diagnostic — the panel that hit
+    ///     it moved onto a <c>ProgressBar</c> instead.
+    /// </summary>
+    [Fact]
+    public void An_inline_style_reaches_the_cascade_rather_than_the_selector_arena() {
+        const string Source = """
+                              @component Greeter
+                              <div style="width: 42px; height: 7px" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var box = component.Root.Children.Single();
+
+        document.Update();
+
+        Assert.Equal("42px", box.GetStyle("width"));
+        Assert.Equal(42f, box.Width, 0.001f);
+        Assert.Equal(7f, box.Height, 0.001f);
+
+        // And it is not also data to match on, which is what it used to be and only that.
+        Assert.Null(box.Attribute("style"));
+    }
+
+    /// <summary>A bound value is the whole point: a splitter's ratio is not a rule anyone can write.</summary>
+    [Fact]
+    public void An_inline_style_follows_a_signal() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code { public Signal<int> Wide { get; } = new(20); }
+
+                              <div style="width: @(Wide.Value)px" />
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var box = component.Root.Children.Single();
+
+        document.Update();
+        Assert.Equal(20f, box.Width, 0.001f);
+
+        ((Signal<int>)Property(instance, "Wide")).Value = 61;
+        document.Update();
+
+        Assert.Equal(61f, box.Width, 0.001f);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>It takes back the properties it wrote and no others</b>, which is
+    ///     <c>class</c>'s rule and matters more here. A control writes inline declarations from its
+    ///     own code — a <c>DataGrid</c> row's <c>top</c>, a <c>Selects</c> popup's
+    ///     <c>min-width</c> — and an attribute that owned the element's whole inline set would
+    ///     silently unposition every one of them.
+    /// </summary>
+    [Fact]
+    public void An_inline_style_that_changes_leaves_what_the_control_wrote_itself() {
+        const string Source = """
+                              @component Greeter
+                              @using Vixen.Ui.Reactive
+
+                              @code { public Signal<string> Shape { get; } = new("width: 20px"); }
+
+                              <Marker style="@Shape.Value" />
+                              """;
+
+        var (component, instance, document) = Run(Source);
+
+        using var owned = document;
+        var marker = component.Root.Children.Single();
+
+        document.Update();
+        Assert.Equal("20px", marker.GetStyle("width"));
+        Assert.Equal("5px", marker.GetStyle("top"));
+
+        ((Signal<string>)Property(instance, "Shape")).Value = "height: 9px";
+        document.Update();
+
+        // The property the attribute stopped naming is gone…
+        Assert.Null(marker.GetStyle("width"));
+        Assert.Equal("9px", marker.GetStyle("height"));
+
+        // …and the one the control wrote is not the attribute's to take.
+        Assert.Equal("5px", marker.GetStyle("top"));
+    }
+
+    /// <summary>
+    ///     A shorthand is expanded by the same parser a rule body goes through, which is the whole
+    ///     reason the attribute is handed to ExCSS rather than split on <c>;</c> and <c>:</c>.
+    /// </summary>
+    [Fact]
+    public void An_inline_shorthand_becomes_the_longhands_the_layout_reads() {
+        const string Source = """
+                              @component Greeter
+                              <div style="padding: 4px 8px" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var box = component.Root.Children.Single();
+
+        document.Update();
+
+        Assert.Equal("4px", box.GetStyle("padding-top"));
+        Assert.Equal("8px", box.GetStyle("padding-right"));
+        Assert.Equal("4px", box.GetStyle("padding-bottom"));
+        Assert.Equal("8px", box.GetStyle("padding-left"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A brace is refused rather than escaped.</b> The declarations are parsed by wrapping
+    ///     them in a throwaway rule, so a value carrying one would otherwise close the wrapper and
+    ///     load rules against the whole document.
+    /// </summary>
+    [Fact]
+    public void An_inline_style_carrying_a_brace_is_refused_and_writes_nothing() {
+        const string Source = """
+                              @component Greeter
+                              <div style="} div { width: 300px" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var box = component.Root.Children.Single();
+
+        document.Update();
+
+        Assert.False(box.HasInlineStyle);
+        Assert.Contains(
+            document.Styles.Loader.Diagnostics,
+            diagnostic => diagnostic.Reason.Contains("brace", StringComparison.Ordinal)
+        );
+    }
+
     static string Text(UiElement element) => element.Children.Single().Text ?? string.Empty;
 
     static Signal<int> Count(object instance) => (Signal<int>)Property(instance, "Count");

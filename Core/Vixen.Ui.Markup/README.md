@@ -83,12 +83,68 @@ has properties that are objects and there is no flat name for them. Nothing here
 path exists — the binder's rule is only that it will parse as C#, which is the same bargain the tag
 name is emitted under.
 
-⚠ **Two attribute names are universal**, meaning they mean the same on a component tag as on an
-element and are never assigned as properties: `class`, and `binding-path`. The second is doc 36's:
-it names a member of whatever an editor is editing, and the join happens *after* the tree is built,
-by a pass that walks it — which is Unity's rule and the only one available, since a `Build` body
-cannot name a C# type without the markup naming one too. Both land as style-tree attributes, and
-`UiElement.Attribute` is how the pass reads them back.
+⚠ **Three attribute names are universal**, meaning they mean the same on a component tag as on an
+element and are never assigned as properties: `class`, `style`, and `binding-path`. The last is doc
+36's: it names a member of whatever an editor is editing, and the join happens *after* the tree is
+built, by a pass that walks it — which is Unity's rule and the only one available, since a `Build`
+body cannot name a C# type without the markup naming one too. It lands as a style-tree attribute,
+and `UiElement.Attribute` is how the pass reads it back.
+
+**`class` and `style` are the two that do not**, and the second is the interesting one.
+
+```html
+<div style="left: @Left; top: @Top" />
+<ProgressBar style="width: 42%" />
+```
+
+A `style` is a *cascade origin*, not data: it outranks every author rule, including one marked
+`!important` in a user stylesheet. The engine has had that origin all along —
+`CascadeRanks.NormalInline`, `UiElement.SetStyle`, an `InlineStyleStore` the resolver already reads —
+and what was missing was only the route from markup to it. Until then `style="width: 42%"` reached
+`StyleTree.SetAttribute`, so it became a string a `[style]` selector could match on and nothing could
+read, and the element came out however wide the stylesheet said, with no diagnostic. `StatisticsView`
+moved its budget bar onto a `ProgressBar` because of it, which was an improvement; `GpuTimelineView`,
+whose bars are a measured width times a timestamp, had no such control to move onto.
+
+Three things about it are worth knowing:
+
+- **It takes back the properties it wrote and no others.** `class`'s rule, and it matters more here:
+  a `DataGrid` writes its rows' `top` and a `DockingHost` its panes' `flex-grow`, from their own code
+  and after the markup has been applied. An attribute that owned the element's whole inline set would
+  silently unposition all of them.
+- **The value goes through the same parser a rule body does.** So `style="padding: 4px 8px"` becomes
+  the four longhands the layout actually reads, and means exactly what those characters mean in a
+  stylesheet. A splitter on `;` and `:` would be four lines and would disagree about a `;` in a
+  string, a `:` in a `url()`, and every shorthand.
+- **A brace is refused**, with a diagnostic, because the parse wraps the text in a throwaway rule and
+  `style="} tabs { display: none"` would otherwise close it.
+
+⚠ **It is still the escape hatch and not the first answer.** Everything a rule *can* say should be
+said in one — a `display: none` toggle is a class, and `UiElement.OffsetX` is cheaper than either
+whenever moving a box is enough. What this is for is the lengths no stylesheet was given: a
+virtualised row's offset, a splitter's ratio, a bar whose left edge is a fraction of a width nobody
+knew at build time. And because the parse is a real one, a caller moving one number sixty times a
+second is better served by `SetStyle` directly; the binding skips the parse only when the text is
+unchanged.
+
+### There is no `id`, and that is a decision rather than an omission
+
+The runtime has every piece of one: `StyleTree` stores an identifier per node, `#id` compiles in
+`SelectorCompiler`, `SelectorMatcher` matches it, it carries the specificity CSS gives it, and
+`UiElement.Add(tag, id, classes)` takes one. Adding `id="…"` to the binder would be four lines.
+
+**Nothing would use it.** Across the whole tree there is not one `#id` selector in any `.vcss`, and
+every caller that has ever passed an `id` is a test in `Vixen.Ui.Tests` — nine call sites, no
+production code. The two things an `id` is for in a browser are both answered here already: styling
+one particular element is a class, and *getting* one in C# is `ref`, which hands back the object
+rather than a name to look up and is checked by the compiler. A third spelling of "this element",
+with a specificity tier of its own for the cascade to reason about and no caller to justify it, is
+worth less than the gap.
+
+⚠ **It is worth saying what would change the answer**, because "the web has it" will not. An `id`
+earns its place the day something needs to name an element it cannot hold — a stylesheet shipped
+separately from the panel it styles, or an accessibility relation like `aria-labelledby`, where the
+reference is by name because the two ends are written apart. Neither exists yet.
 
 **And `ref` is a third that is not one of them.** `ref="@Parts"` hands the thing the tag named back
 to a member of the generated class:
@@ -372,12 +428,46 @@ of a string.
 
 - **Incremental reparse.** The shared `Blender` exists and Raven uses it, but node reuse needs a
 - **`bind:` update events** (`bind:value:oninput`).
-- **An inline `style`.** There is no way to write one, and there is not meant to be — a `style="…"`
-  would land in the selector engine's attribute arena rather than in the cascade. What that costs is
-  real, though: a panel that wanted a computed width had to move onto a `ProgressBar`, and hiding a
-  part of a control is still a `SetStyle` call from `OnComposed`.
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.
+
+## `OnComposed` is the build-time hook, and it was owed a paragraph rather than a feature
+
+It is easy to read `Component`'s surface — `Build`, and a virtual `OnUnmounted` — and conclude that
+a markup panel has nowhere to do something once when it is built. It has: the emitter declares
+`partial void OnComposed()` on both flavours and calls it as the last statement of the body, so a
+`.vxml` that wants to subscribe to something, take a first reading or wire two parts together writes
+it there. `GpuTimelineView` does exactly that — it hooks `LayoutFinished` and takes its first
+measurement — and `OnUnmounted`, which the element flavour also declares as a partial, is where it
+lets go.
+
+Two things about its timing are load-bearing and neither is a defect:
+
+- **It re-runs after a hot reload,** deliberately: it is emitted *inside* `Build`, and
+  `BuildContext.Rebuild` re-enters `Build`. That is right for wiring, which has to point at the new
+  elements, and it means anything expensive or non-idempotent does not belong in it.
+- ⚠ **It runs before the panel's caller has configured it,** and this is the one that has bitten.
+  A parent assigns a component's parameters *after* `Child<T>` returns, and a host assigns them after
+  `BuildContext.Build<T>` returns — so a hook here cannot see them. `MemoryView.Take()` was moved to
+  `DiagnosticsModule` for this reason, and moving it fixed a real bug: `Control.OnCreated` called it
+  and the host called it again after assigning `Providers`, so the panel took two readings and threw
+  away the one that had them. **No build-time hook could have fixed that**, because the moment it
+  wants is "after my caller has finished with me" and nothing in the framework knows when that is.
+  The two answers that do work are the ones the panels use: a signal-backed parameter, which handles
+  re-assignment as well as the first one, or the host saying so — which for a reading somebody takes
+  once is the honest shape.
+
+## What `Component` has and an element-flavoured class has
+
+| | `Component` | `@inherits` |
+|---|---|---|
+| Build | `Build(ctx)`, abstract | generated `OnCreated` → `BuildContext.Compose` |
+| After the body | `partial void OnComposed()` | `partial void OnComposed()` |
+| Leaving | `protected virtual void OnUnmounted()` | `partial void OnUnmounted()`, from generated `OnRemoved` |
+
+⚠ **An `@code` block may not write `OnCreated` or `OnRemoved`:** the scaffold owns both, and writing
+one is a duplicate-member error from Roslyn rather than a `VXML2xxx`. `OnComposed` and `OnUnmounted`
+are what the file gets instead, and they are the same two names on both flavours on purpose.
 
 ⚠ **A `Component` used to leak every region it opened against a nested element, and the note that
 said so named one cause where there were two.** A region hangs off the element its content has as a

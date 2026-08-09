@@ -1,21 +1,25 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
-using Vixen.Graphics;
-using Vixen.Ui;
-using Vixen.Ui.Controls;
+using System.Collections.Immutable;
 
 namespace Vixen.Editor.Profiler;
 
 /// <summary>A frame's GPU passes, as a bar each.</summary>
 /// <remarks>
 ///     <para>
+///         The panel is <c>GpuTimelineView.vxml</c>; this file is the accessibility modifier and the
+///         two records the markup's snapshot is made of. The emitter's partial has no modifier, so a
+///         type another assembly holds — and <c>Vixen.Editor.Diagnostics</c> and
+///         <c>Vixen.Editor.App.Tests</c> both hold this one — needs a declaration that says
+///         <c>public</c>. Same arrangement as <c>MemoryView</c> and <c>StatisticsView</c>.
+///     </para>
+///     <para>
 ///         <b>Deliberately not a second flame chart.</b> GPU work is a sequence of passes rather than
 ///         a call tree — a pass has no caller and nothing runs "inside" another pass in any sense a
 ///         timestamp can see — so a control that drew rows of nesting would be inventing structure
 ///         that is not there. What a debug group gives is one level of grouping, which is what
-///         <see cref="GpuScope.Level" /> carries.
+///         <see cref="Vixen.Graphics.GpuScope.Level" /> carries.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It says when the device cannot be timed rather than drawing nothing.</b> Doc 20's B4
@@ -26,171 +30,32 @@ namespace Vixen.Editor.Profiler;
 ///     <para>
 ///         ⚠ <b>The frame it shows is several frames old, and the label says which.</b> Reading a
 ///         query pool the GPU has not finished writing would mean stalling the frame thread on the
-///         device once per frame; <see cref="GpuProfiler" /> refuses to, so what is on screen is the
-///         oldest submission that has retired.
+///         device once per frame; <see cref="Vixen.Graphics.GpuProfiler" /> refuses to, so what is on
+///         screen is the oldest submission that has retired.
 ///     </para>
 /// </remarks>
-public sealed partial class GpuTimelineView : Control {
-    /// <summary>How tall one bar is.</summary>
-    public const float RowHeight = 20f;
+public sealed partial class GpuTimelineView;
 
-    /// <summary>How narrow a bar may be before it is not worth an element.</summary>
-    public const float MinimumBarWidth = 1.5f;
+/// <summary>One bar, measured against a width the layout has already settled.</summary>
+/// <param name="Slot">Its position in the list, which is what keeps two identical bars apart.</param>
+/// <param name="Hue">The class that colours it.</param>
+/// <param name="Geometry">Its <c>left</c>, <c>top</c>, <c>width</c> and <c>height</c>, as a declaration list.</param>
+/// <param name="Caption">What it says, or <see langword="null" /> when it is too narrow to say anything.</param>
+/// <remarks>
+///     ⚠ <b>A record struct because the <c>@for</c> keys on it, and the key rule wants a value.</b>
+///     Nothing here is signal-backed and nothing mutates: a bar that has moved is a different bar,
+///     and that is precisely what makes replacing its region the right reconciliation.
+/// </remarks>
+internal readonly record struct GpuBar(int Slot, string Hue, string Geometry, string? Caption);
 
-    readonly List<UiElement> pool = [];
-
-    GpuFrame frame = GpuFrame.Empty;
-    Action<UiDocument>? settle;
-
-    /// <summary>What the last realise was for, so an unchanged frame does no work.</summary>
-    /// <remarks>
-    ///     The same guard <see cref="FlameChartView" /> keeps, and for the same reason — except that
-    ///     here the identity is the frame object itself, because a resolved frame is replaced rather
-    ///     than edited and a new one is always a different instance.
-    /// </remarks>
-    (float Width, GpuFrame Frame) realised = (-1f, GpuFrame.Empty);
-
-    /// <inheritdoc />
-    protected override string TagName => "gpu-timeline";
-
-    /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
-
-    /// <summary>The line saying what the frame cost, or why there is nothing to show.</summary>
-    public UiElement Status { get; private set; } = null!;
-
-    /// <summary>Where the bars go.</summary>
-    public UiElement Lanes { get; private set; } = null!;
-
-    /// <summary>Why the device cannot be timed, or <see langword="null" /> when it can.</summary>
-    /// <remarks>
-    ///     Set by whoever built the panel, because "this device reports no timestamp queries" is a
-    ///     sentence only something holding the device can write.
-    /// </remarks>
-    public string? Unavailable { get; set; }
-
-    /// <summary>Where the newest resolved frame comes from, or <see langword="null" />.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Pulled rather than pushed, and the difference is a class of bug rather than a
-    ///     preference.</b> A host that pushed frames into this view would be holding a reference to
-    ///     a panel whose factory runs again on every reopen — so the frame after the tab is closed
-    ///     goes to an element that has been removed from the document, and reading its bounds
-    ///     throws. Pulling means the view is driven only while it is in the tree, because the only
-    ///     thing that drives it is its own layout hook.
-    /// </remarks>
-    public Func<GpuFrame>? Source { get; set; }
-
-    /// <summary>What it is showing.</summary>
-    public GpuFrame Frame => frame;
-
-    /// <summary>Puts a frame on screen.</summary>
-    /// <param name="resolved">The frame.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="resolved" /> is null.</exception>
-    public void Show(GpuFrame resolved) {
-        ArgumentNullException.ThrowIfNull(resolved);
-
-        frame = resolved;
-        Realise();
-    }
-
-    /// <summary>Rebuilds the bars for the current width.</summary>
-    public void Realise() {
-        if (Source?.Invoke() is { } latest) {
-            frame = latest;
-        }
-
-        var width = Lanes.Bounds.Width;
-
-        if (realised.Width == width && ReferenceEquals(realised.Frame, frame)) {
-            return;
-        }
-
-        realised = (width, frame);
-
-        var slot = 0;
-        var deepest = 0;
-
-        if (Unavailable is null && width > 0f) {
-            foreach (var scope in frame.Scopes) {
-                var left = frame.Fraction(scope.BeginTicks) * width;
-                var right = frame.Fraction(scope.EndTicks) * width;
-                var span = right - left;
-
-                if (span < MinimumBarWidth) {
-                    continue;
-                }
-
-                while (pool.Count <= slot) {
-                    pool.Add(Lanes.Add<UiElement>("gpu-bar"));
-                }
-
-                var bar = pool[slot++];
-
-                for (var hue = 0; hue < FlameChartView.HueCount; hue++) {
-                    bar.RemoveClass("flame-hue-" + hue.ToString(CultureInfo.InvariantCulture));
-                }
-
-                bar.RemoveClass("parked");
-                bar.AddClass("flame-hue-" + FlameChartView.HueOf(scope.Name).ToString(CultureInfo.InvariantCulture));
-
-                bar.SetStyle("left", Length(left));
-                bar.SetStyle("top", Length(scope.Level * RowHeight));
-                bar.SetStyle("width", Length(span));
-                bar.SetStyle("height", Length(RowHeight - 2f));
-
-                bar.Text = span >= 48f
-                    ? string.Create(CultureInfo.InvariantCulture, $"{scope.Name} {frame.MillisecondsOf(scope):0.###} ms")
-                    : null;
-
-                deepest = Math.Max(deepest, scope.Level);
-            }
-        }
-
-        for (var index = slot; index < pool.Count; index++) {
-            pool[index].AddClass("parked");
-        }
-
-        Lanes.SetStyle("height", Length((deepest + 1) * RowHeight));
-        Status.Text = Sentence();
-    }
-
-    /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        Status = Part("gpu-status");
-        Lanes = Part("gpu-lanes");
-
-        settle = _ => Realise();
-        Document.LayoutFinished += settle;
-
-        Realise();
-    }
-
-    /// <inheritdoc />
-    protected override void OnRemoved() {
-        if (settle is not null) {
-            Document.LayoutFinished -= settle;
-            settle = null;
-        }
-
-        base.OnRemoved();
-    }
-
-    string Sentence() {
-        if (Unavailable is { } reason) {
-            return reason;
-        }
-
-        if (frame.Scopes.Count == 0) {
-            return "Waiting for the GPU to retire a frame.";
-        }
-
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"Frame {frame.FrameIndex} — {frame.Milliseconds:0.###} ms across {frame.Scopes.Count} pass(es)"
-        );
-    }
-
-    static string Length(float value) => value.ToString("0.##", CultureInfo.InvariantCulture) + "px";
+/// <summary>Every bar in a frame, and the height they need between them.</summary>
+/// <param name="Bars">The bars, in the order the passes ran.</param>
+/// <param name="Height">How tall the lanes have to be for the deepest debug group to fit.</param>
+/// <remarks>
+///     One snapshot rather than two signals: both come out of one walk of the frame, and splitting
+///     them would mean either walking it twice or writing them in an order the reader has to know.
+/// </remarks>
+internal readonly record struct GpuChart(ImmutableArray<GpuBar> Bars, float Height) {
+    /// <summary>Nothing to show — no device, no width, or no retired frame.</summary>
+    public static GpuChart Empty { get; } = new([], 0f);
 }

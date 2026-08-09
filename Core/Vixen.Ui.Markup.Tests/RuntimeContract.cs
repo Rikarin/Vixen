@@ -78,6 +78,25 @@ static class RuntimeContract {
                                          }
                                      }
 
+                                     // What a control that positions its own parts is, in the one
+                                     // respect a `style` attribute cares about: it writes inline
+                                     // declarations of its own, and a `style` that treated the
+                                     // attribute as the element's whole inline set would delete
+                                     // them. The real ones are a DataGrid row's `top` and a
+                                     // DockingHost pane's `flex-grow`.
+                                     //
+                                     // ⚠ Not `Gauge`, which answers the same question about
+                                     // classes. Two claims in one fixture means each failure is
+                                     // reported as the other's.
+                                     public class Marker : UiElement {
+                                         protected override string TagName => "marker";
+
+                                         protected override void OnCreated() {
+                                             base.OnCreated();
+                                             SetStyle("top", "5px");
+                                         }
+                                     }
+
                                      public class Label : Component {
                                          public string Title { get; set; } = "";
                                          public int Step { get; set; }

@@ -34,7 +34,22 @@ public partial class UiElement {
     ///         property sixty times a second. Only adding or removing a property allocates.
     ///     </para>
     /// </remarks>
-    public void SetStyle(string property, string? value) {
+    public void SetStyle(string property, string? value) => SetStyle(property, value, false);
+
+    /// <summary>The same, for a declaration that carried <c>!important</c>.</summary>
+    /// <param name="property">The property.</param>
+    /// <param name="value">Its value, or <c>null</c> to take the declaration away again.</param>
+    /// <param name="important">Whether it outranks an <c>!important</c> rule as well as a plain one.</param>
+    /// <remarks>
+    ///     ⚠ <b>An overload rather than an optional parameter, so that no existing call site changes
+    ///     meaning.</b> The flag exists because <c>style="…"</c> in markup can carry an
+    ///     <c>!important</c> and the cascade already has the tier for it —
+    ///     <c>CascadeRanks.ImportantInline</c> — so parsing one and then dropping it would be the
+    ///     silent wrong answer this file's neighbours keep getting caught by. Nothing in the engine
+    ///     passes <see langword="true" /> of its own accord: a control writing this is overruling
+    ///     every theme that will ever style it, twice over.
+    /// </remarks>
+    public void SetStyle(string property, string? value, bool important) {
         ArgumentNullException.ThrowIfNull(property);
 
         var styles = Document.Styles;
@@ -51,7 +66,7 @@ public partial class UiElement {
 
             inline.RemoveAt(index);
         } else {
-            var declaration = new Declaration(id, styles.Values.Intern(value), false);
+            var declaration = new Declaration(id, styles.Values.Intern(value), important);
 
             if (index >= 0) {
                 if (inline[index] == declaration) {
@@ -70,14 +85,14 @@ public partial class UiElement {
         Commit();
     }
 
-    /// <summary>Reads back a declaration written with <see cref="SetStyle" />.</summary>
+    /// <summary>Reads back a declaration written with <see cref="SetStyle(string, string?)" />.</summary>
     /// <param name="property">The property.</param>
     /// <returns>Its value, or <c>null</c> if this element has none of its own.</returns>
     /// <remarks>
     ///     ⚠ <b>What this element declared, not what it computed.</b> An element with no inline
     ///     <c>width</c> answers <c>null</c> however wide a stylesheet made it — the computed value
-    ///     is <see cref="Style" />'s to answer, and conflating the two is how a caller ends up
-    ///     writing back a value it only meant to read.
+    ///     is <see cref="UiElement.Style" />'s to answer, and conflating the two is how a caller ends
+    ///     up writing back a value it only meant to read.
     /// </remarks>
     public string? GetStyle(string property) {
         ArgumentNullException.ThrowIfNull(property);
