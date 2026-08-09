@@ -8,9 +8,20 @@ namespace Vixen.Ui.Controls;
 
 /// <summary>One tab's header.</summary>
 /// <remarks>
-///     Made by <see cref="Tabs.AddTab" /> rather than constructed, because a tab without the panel
-///     it shows is half a thing — and the pairing has to be made somewhere that can put the two in
-///     different parts of the tree.
+///     <para>
+///         A tab without the panel it shows is half a thing, and the pairing has to be made somewhere
+///         that can put the two in different parts of the tree. That used to mean
+///         <see cref="Tabs.AddTab" /> and only <see cref="Tabs.AddTab" />; it now means
+///         <see cref="OnCreated" />, so that a tab written in markup is the same tab.
+///     </para>
+///     <para>
+///         ⚠ <b>The pairing moved to a lifecycle hook rather than growing a second maker.</b>
+///         <c>AddTab</c> could not be what markup calls — a <c>.vxml</c> writes tags, and the tag is
+///         what has to work. Leaving the pairing in <c>AddTab</c> and adding an equivalent for the
+///         declarative path would be two ways to half-build a tab, and the day they disagreed the
+///         symptom would be a panel with nothing in it. So <c>AddTab</c> now does what markup does:
+///         it adds a <c>TabItem</c> to the strip and lets the tab join.
+///     </para>
 /// </remarks>
 public sealed partial class TabItem : ButtonBase {
     /// <inheritdoc />
@@ -22,6 +33,18 @@ public sealed partial class TabItem : ButtonBase {
     /// <summary>Whether this is the tab currently showing.</summary>
     public bool IsSelected => (State & ElementState.Checked) != 0;
 
+    /// <summary>A tab's content is its panel's content.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes <c>&lt;TabItem&gt;…&lt;/TabItem&gt;</c> put its children where they show
+    ///     rather than inside the header.</b> The two are in different parts of the tree, so without
+    ///     this a tab's markup content would land in the strip, beside the label, and the panel it
+    ///     was written for would be empty. The fallback matters for one instant only: an element's
+    ///     <c>ContentHost</c> can be read before <see cref="OnCreated" /> has run, and answering
+    ///     <see langword="null" /> there would be a crash where answering the header is merely the
+    ///     old behaviour.
+    /// </remarks>
+    protected override UiElement ContentHost => Panel ?? this;
+
     /// <inheritdoc />
     /// <remarks>
     ///     Selection is the <see cref="Tabs" />'s decision, so this does nothing but let the click
@@ -31,6 +54,39 @@ public sealed partial class TabItem : ButtonBase {
     /// </remarks>
     protected override void Activate(ActivationDevice device, int count, ModifierKeys modifiers) =>
         base.Activate(device, count, modifiers);
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     A tab in a strip belongs to the <see cref="Tabs" /> that strip is part of, and it is the
+    ///     only thing that can give it a panel. A <c>TabItem</c> added anywhere else is an ordinary
+    ///     button with no panel, which is what it looks like and is not worth a diagnostic.
+    /// </remarks>
+    protected override void OnCreated() {
+        base.OnCreated();
+        Owner?.Adopt(this);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Here rather than only in <see cref="Tabs.RemoveTab" />, because markup removes
+    ///     elements without asking.</b> An <c>@if</c> whose arm leaves takes its <c>TabItem</c> with
+    ///     it, and a <c>Tabs</c> that went on holding it would keep a dead tab in
+    ///     <see cref="Tabs.Items" /> and an orphaned panel in the tree — with <c>SelectedIndex</c>
+    ///     possibly pointing at it.
+    /// </remarks>
+    protected override void OnRemoved() {
+        Owner?.Orphan(this);
+        base.OnRemoved();
+    }
+
+    /// <summary>The <see cref="Tabs" /> whose strip this tab is in, if it is in one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Exactly two levels and not an ancestor walk.</b> A tab's panel can hold another
+    ///     <c>Tabs</c>, so "the nearest <c>Tabs</c> above me" is a question with the wrong answer for
+    ///     any nested tab; <see cref="Tabs.Adopt" /> checks the strip is <i>its</i> strip for the same
+    ///     reason.
+    /// </remarks>
+    Tabs? Owner => Parent?.Parent as Tabs;
 }
 
 /// <summary>A strip of tabs and the panels behind them.</summary>
@@ -95,6 +151,16 @@ public sealed partial class Tabs : Control {
         AddHandler<KeyEvent>(static (element, args) => ((Tabs) element).Keyed(args));
     }
 
+    /// <summary>Markup content is tabs, so it goes in the strip.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The strip and not <see cref="Panels" />, which is the half of the answer that is not
+    ///     obvious.</b> The children a caller writes are <c>&lt;TabItem&gt;</c>s — headers — and each
+    ///     one brings its panel with it via <see cref="TabItem.ContentHost" />. Pointing this at the
+    ///     panels instead would put every header where the content shows and leave the strip empty.
+    ///     One <c>ContentHost</c> is one slot, and this is the slot the author writes into.
+    /// </remarks>
+    protected override UiElement ContentHost => Strip;
+
     /// <summary>Adds a tab and the panel behind it.</summary>
     /// <param name="label">What the tab says.</param>
     /// <returns>The tab, whose <see cref="TabItem.Panel" /> is where the content goes.</returns>
@@ -102,12 +168,30 @@ public sealed partial class Tabs : Control {
     ///     The first tab added selects itself. A tab strip showing nothing is a state a caller can
     ///     ask for — <see cref="SelectedIndex" /> takes -1 — and never one they meant by adding a
     ///     tab.
+    ///     <para>
+    ///         ⚠ <b>Three lines, because the pairing is <see cref="TabItem.OnCreated" />'s now.</b>
+    ///         Adding the element <i>is</i> adding the tab: <c>Strip.Add&lt;TabItem&gt;()</c> runs the
+    ///         hook, which takes a panel and joins the list, so this method and
+    ///         <c>&lt;TabItem /&gt;</c> in a <c>.vxml</c> reach the same state by the same code.
+    ///     </para>
     /// </remarks>
     public TabItem AddTab(string? label = null) {
         var tab = Strip.Add<TabItem>();
         tab.Label = label;
-        tab.Panel = Panels.Add("tab-panel");
 
+        return tab;
+    }
+
+    /// <summary>Gives a tab that has just appeared in the strip its panel and its place.</summary>
+    /// <param name="tab">The tab.</param>
+    internal void Adopt(TabItem tab) {
+        // Its parent is `Strip` — `TabItem.Owner` established that much — but not necessarily *this*
+        // control's, once tabs are nested inside tabs.
+        if (!ReferenceEquals(tab.Parent, Strip) || tabs.Contains(tab)) {
+            return;
+        }
+
+        tab.Panel ??= Panels.Add("tab-panel");
         tabs.Add(tab);
 
         if (SelectedIndex < 0) {
@@ -115,25 +199,20 @@ public sealed partial class Tabs : Control {
         } else {
             Restate();
         }
-
-        return tab;
     }
 
-    /// <summary>Takes a tab and its panel out.</summary>
+    /// <summary>Takes a tab that is leaving out of the list, and its panel out of the tree.</summary>
     /// <param name="tab">The tab.</param>
-    /// <returns>Whether it was one of this control's.</returns>
     /// <remarks>
     ///     ⚠ <b>The selection moves before the removal, not after.</b> Removing the selected tab
     ///     first would leave <see cref="SelectedIndex" /> pointing at whatever slid into its place —
     ///     or past the end — and the restyle that follows would run over a list that no longer
     ///     matches it.
     /// </remarks>
-    public bool RemoveTab(TabItem tab) {
-        ArgumentNullException.ThrowIfNull(tab);
-
+    internal void Orphan(TabItem tab) {
         var index = tabs.IndexOf(tab);
         if (index < 0) {
-            return false;
+            return;
         }
 
         tabs.RemoveAt(index);
@@ -146,11 +225,28 @@ public sealed partial class Tabs : Control {
             selected--;
         }
 
-        tab.Panel.Remove();
-        tab.Remove();
+        tab.Panel?.Remove();
 
         SelectedIndex = Math.Clamp(selected, tabs.Count > 0 ? 0 : -1, tabs.Count - 1);
         Restate();
+    }
+
+    /// <summary>Takes a tab and its panel out.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <returns>Whether it was one of this control's.</returns>
+    /// <remarks>
+    ///     Removing the element is what removes the tab — <see cref="Orphan" /> is
+    ///     <see cref="TabItem.OnRemoved" />'s, so this and an <c>@if</c> arm that leaves take the
+    ///     same path and cannot drift apart.
+    /// </remarks>
+    public bool RemoveTab(TabItem tab) {
+        ArgumentNullException.ThrowIfNull(tab);
+
+        if (!tabs.Contains(tab)) {
+            return false;
+        }
+
+        tab.Remove();
 
         return true;
     }

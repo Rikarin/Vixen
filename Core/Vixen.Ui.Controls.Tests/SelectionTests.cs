@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Input;
+using Vixen.Ui.Composition;
 using Vixen.Ui.Styling;
 using Xunit;
 
@@ -107,6 +108,82 @@ public class SelectionTests {
         Assert.Equal(1, tabs.SelectedIndex);
         Assert.True(second.Panel.HasClass("selected"));
         Assert.False(first.Panel.HasClass("selected"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A tab set written as tags, which is what <c>AddTab</c> could not be.</b> A tab and
+    ///     its panel live in different halves of the tree, so before this a <c>&lt;TabItem /&gt;</c>
+    ///     landed directly under <c>tabs</c> — unstyled, outside the strip — with a null
+    ///     <c>Panel</c> and nothing able to give it one. The pairing is now
+    ///     <c>TabItem.OnCreated</c>'s, so the tag and the method reach the same state by the same
+    ///     code.
+    /// </summary>
+    [Fact]
+    public void Tabs_can_be_written_as_markup_and_the_panels_are_where_the_content_went() {
+        using var fixture = new ControlFixture();
+
+        var sheet = new TabbedSheet { Pages = ["Advanced", "About"] };
+
+        BuildContext.BuildInto(sheet, fixture.Document, fixture.Document.Root);
+        fixture.Update();
+
+        var tabs = Assert.IsType<Tabs>(sheet.Root.Children[0]);
+
+        // The class reached the control's own element, beside the parts it gave itself.
+        Assert.True(tabs.HasClass("document-tabs"));
+
+        Assert.Equal(3, tabs.Items.Count);
+        Assert.Equal(["General", "Advanced", "About"], tabs.Items.Select(tab => tab.Label));
+
+        // Every tag went into the strip, and every panel into the panels — which is the thing one
+        // `ContentHost` cannot say and two can.
+        Assert.All(tabs.Items, tab => Assert.Same(tabs.Strip, tab.Parent));
+        Assert.All(tabs.Items, tab => Assert.Same(tabs.Panels, tab.Panel.Parent));
+
+        // Content written between a tab's tags is in its panel, not beside its label.
+        var slider = Assert.IsType<Slider>(Assert.Single(tabs.Items[0].Panel.Children));
+        Assert.Equal(0.25f, slider.Value, 0.001f);
+
+        // The tab's own children are its label part and nothing the markup wrote — which is the
+        // failure this guards: before `ContentHost`, the slider was one of them.
+        Assert.DoesNotContain(tabs.Items[0].Children, child => child is Slider);
+
+        // And the first one still selects itself, because adding the element is adding the tab.
+        Assert.Equal(0, tabs.SelectedIndex);
+        Assert.True(tabs.Items[0].Panel.HasClass("selected"));
+
+        fixture.Click(tabs.Items[2]);
+        Assert.Equal(2, tabs.SelectedIndex);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A tab that leaves takes its panel and its place with it.</b> Markup removes elements
+    ///     without calling <c>RemoveTab</c>, so a <c>Tabs</c> that only unregistered from there would
+    ///     keep a dead tab in <c>Items</c>, an orphaned <c>tab-panel</c> in the tree, and possibly a
+    ///     <c>SelectedIndex</c> pointing at the gap.
+    /// </summary>
+    [Fact]
+    public void A_tab_removed_by_markup_leaves_the_list_and_takes_its_panel() {
+        using var fixture = new ControlFixture();
+
+        var sheet = new TabbedSheet { Pages = ["Advanced", "About"] };
+
+        BuildContext.BuildInto(sheet, fixture.Document, fixture.Document.Root);
+        fixture.Update();
+
+        var tabs = Assert.IsType<Tabs>(sheet.Root.Children[0]);
+        var leaving = tabs.Items[2];
+
+        fixture.Click(leaving);
+        Assert.Equal(2, tabs.SelectedIndex);
+
+        leaving.Remove();
+        fixture.Update();
+
+        Assert.Equal(2, tabs.Items.Count);
+        Assert.DoesNotContain(leaving, tabs.Items);
+        Assert.Equal(2, tabs.Panels.Children.Count);
+        Assert.Equal(1, tabs.SelectedIndex);
     }
 
     [Fact]

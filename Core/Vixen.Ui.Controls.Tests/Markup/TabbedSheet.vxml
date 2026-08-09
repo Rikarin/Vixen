@@ -1,0 +1,25 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    A tab set written as tags. The point of the fixture is that nothing here names a part: `Tabs`
+    has two, in different halves of the tree, and the markup reaches both by nesting alone.
+-->
+@component TabbedSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+
+<Tabs class="document-tabs">
+    <TabItem Label="General">
+        <Slider Minimum="0" Maximum="1" Value="0.25" />
+    </TabItem>
+
+    @for (var page in Pages) {
+        <TabItem key="@page" Label="@page" />
+    }
+</Tabs>
+
+@code {
+    /// <summary>Tabs the loop makes, so a tab can arrive and leave rather than only exist.</summary>
+    public IReadOnlyList<string> Pages { get; init; } = [];
+}

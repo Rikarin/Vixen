@@ -144,6 +144,16 @@ Vixen.Ui.Styling.InheritedProperties -> sealed class
 Vixen.Ui.Styling.InheritedProperties.InheritedPortionDiffers(Vixen.Ui.Styling.ComputedStyle before, Vixen.Ui.Styling.ComputedStyle after) -> bool
 Vixen.Ui.Styling.InheritedProperties.InheritedProperties(Vixen.Ui.Styling.NameTable properties) -> void
 Vixen.Ui.Styling.InheritedProperties.Inherits(int property) -> bool
+Vixen.Ui.Styling.InlineDeclaration -> readonly struct
+Vixen.Ui.Styling.InlineDeclaration : System.IEquatable<Vixen.Ui.Styling.InlineDeclaration>
+Vixen.Ui.Styling.InlineDeclaration.Important.get -> bool
+Vixen.Ui.Styling.InlineDeclaration.Important.init -> bool
+Vixen.Ui.Styling.InlineDeclaration.InlineDeclaration() -> void
+Vixen.Ui.Styling.InlineDeclaration.InlineDeclaration(string Property, string Value, bool Important) -> void
+Vixen.Ui.Styling.InlineDeclaration.Property.get -> string
+Vixen.Ui.Styling.InlineDeclaration.Property.init -> string
+Vixen.Ui.Styling.InlineDeclaration.Value.get -> string
+Vixen.Ui.Styling.InlineDeclaration.Value.init -> string
 Vixen.Ui.Styling.InlineStyleId -> readonly struct
 Vixen.Ui.Styling.InlineStyleId : System.IEquatable<Vixen.Ui.Styling.InlineStyleId>
 Vixen.Ui.Styling.InlineStyleId.Index.get -> int
@@ -405,6 +415,7 @@ Vixen.Ui.Styling.StyleSheetLoader -> sealed class
 Vixen.Ui.Styling.StyleSheetLoader.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.Styling.StyleSheetLoader.Load(string css, Vixen.Ui.Styling.StyleOrigin origin, Vixen.Ui.Styling.MediaContext media) -> void
 Vixen.Ui.Styling.StyleSheetLoader.MediaConditions.get -> System.Collections.Generic.IReadOnlyCollection<string>
+Vixen.Ui.Styling.StyleSheetLoader.ReadDeclarations(string css, System.Collections.Generic.List<Vixen.Ui.Styling.InlineDeclaration> into) -> void
 Vixen.Ui.Styling.StyleSheetLoader.StyleSheetLoader(Vixen.Ui.Styling.StyleRuleSet rules, Vixen.Ui.Styling.KeyframesTable keyframes, Vixen.Ui.Styling.SelectorCompiler compiler) -> void
 Vixen.Ui.Styling.StyleTree -> sealed class
 Vixen.Ui.Styling.StyleTree.AddClass(Vixen.Ui.Styling.StyleNodeId element, string className) -> bool

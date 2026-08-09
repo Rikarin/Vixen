@@ -1,15 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Editor.AssetEditors.Scenes;
-using Vixen.Editor.SceneView;
-using Vixen.Ui;
-using Vixen.Ui.Controls;
-
 namespace Vixen.Editor.AssetEditors.Prefabs;
 
 /// <summary>A prefab, open in isolation: a banner saying so, and the subtree it holds.</summary>
 /// <remarks>
+///     <para>
+///         The panel is <c>PrefabView.vxml</c>; this file is the accessibility modifier and the record
+///         its banner is made of. The emitter's partial carries no modifier, and the type is public.
+///     </para>
 ///     <para>
 ///         <b>The banner is the feature, not decoration.</b> The failure an isolated prefab mode
 ///         exists to prevent is somebody editing a prefab while believing they are editing a level —
@@ -25,86 +24,18 @@ namespace Vixen.Editor.AssetEditors.Prefabs;
 ///         otherwise be lost.
 ///     </para>
 /// </remarks>
-public sealed class PrefabView : Control {
-    SceneDocument? document;
-    SceneHierarchyView? hierarchy;
+public sealed partial class PrefabView;
 
-    /// <inheritdoc />
-    protected override string TagName => "prefab-editor";
-
-    /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
-
-    /// <summary>The strip that says this is a prefab and not a level.</summary>
-    public Alert Banner { get; private set; } = null!;
-
-    /// <summary>Where the tree goes.</summary>
-    public UiElement Body { get; private set; } = null!;
-
-    /// <summary>The tree over the prefab's entities.</summary>
-    public SceneHierarchyView? Hierarchy => hierarchy;
-
-    /// <summary>What a build makes of this prefab, the one-root rule included.</summary>
-    public CompiledSceneView? Compiled { get; private set; }
-
-    /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        Banner = Part<Alert>();
-        Body = Part("prefab-body");
-    }
-
-    /// <summary>Shows a prefab.</summary>
-    /// <param name="prefab">The document, opened into a world of its own.</param>
-    public void Show(SceneDocument prefab) {
-        ArgumentNullException.ThrowIfNull(prefab);
-
-        if (document is { } previous) {
-            previous.StructureChanged -= Restate;
-            hierarchy?.Detach();
-        }
-
-        document = prefab;
-
-        // ⚠ The body is rebuilt rather than added to, because `Show` may be called a second time
-        // with a different document and the tabs already hold the first one's tree. The banner is
-        // not rebuilt: it is this control's own part and says the same thing whichever prefab is
-        // open, which is also why it sits outside the tabs — a warning that disappeared when the
-        // author switched pane would be absent from exactly the pane checking the prefab's own rule.
-        Body.Empty();
-
-        var tabs = Body.Add<Tabs>();
-
-        tabs.AddClass("document-tabs");
-
-        hierarchy = new(prefab, tabs.AddTab("Hierarchy").Panel);
-
-        Compiled = tabs.AddTab("Compiled").Panel.Add<CompiledSceneView>();
-        Compiled.Show(prefab);
-
-        prefab.StructureChanged += Restate;
-        Restate(prefab);
-    }
-
-    /// <summary>Whether the prefab is in a state that can be saved.</summary>
-    public bool IsSavable => document?.Roots.Count == 1;
-
-    void Restate(SceneDocument prefab) {
-        var roots = prefab.Roots.Count;
-
-        Banner.Title = "Editing a prefab in isolation";
-
-        Banner.Message = roots switch {
-            1 => $"Changes here apply to every instance of '{prefab.Title.Peek()}' the next time it is imported.",
-            0 => "A prefab needs one root entity. This one has none, so it cannot be saved yet.",
-            _ => $"A prefab has one root and this has {roots}. Parent the loose entities under one before saving."
-        };
-
-        if (roots == 1) {
-            Banner.RemoveClass("invalid");
-        } else {
-            Banner.AddClass("invalid");
-        }
-    }
+/// <summary>What the prefab banner is saying, and whether it is a complaint.</summary>
+/// <param name="Message">The sentence under the title.</param>
+/// <param name="IsValid">Whether the prefab has the one root it needs.</param>
+/// <remarks>
+///     ⚠ <b>A snapshot rather than two signals or a counter.</b> Both fields come from one reading of
+///     the root count, and the value is what changes — so assigning it is the notification, and a
+///     <c>Signal&lt;int&gt;</c> bumped to force a re-read would be standing in for a value change that
+///     is perfectly expressible.
+/// </remarks>
+internal readonly record struct PrefabBanner(string Message, bool IsValid) {
+    /// <summary>Before a prefab has been shown.</summary>
+    public static PrefabBanner Empty { get; } = new(string.Empty, true);
 }

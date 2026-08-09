@@ -1,0 +1,137 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 — and the panel the declarative `<Tabs>` was measured against.
+
+    ⚠ **`@inherits`, so the class is still a `Control`.** `SceneEditorFactories` writes
+    `panel.Add<PrefabView>()`, which needs `T : UiElement, new()`. A `Component` cannot satisfy that
+    constraint however the affordance is spelled.
+
+    ⚠ **The tabs are declared once and outlive the document, which is the interesting half of the
+    port.** The C# built them inside `Show` and began with `Body.Empty()`, because `Show` may be
+    called again with a different prefab and the tabs already held the first one's tree. Written as
+    markup they are structure rather than content: the strip, the two panels and the
+    `CompiledSceneView` are built once, and `Show` replaces only the thing that is actually this
+    document's — the hierarchy tree. That is one `Empty()` on one panel instead of a rebuild of
+    everything, and the selected tab now survives a reopen, which it did not before.
+
+    ⚠ **`<TabItem>`'s children land in its panel and not in the strip beside its label.** A tab and
+    its panel are in different parts of the tree — `tab-strip` and `tab-panels` — so the pairing
+    cannot be parenthood, and before this a `TabItem` written as a tag had a null `Panel` and no way
+    to get one. `TabItem.ContentHost` is the panel and `Tabs.ContentHost` is the strip; between them
+    a nested tag reaches both halves without the markup naming either part.
+
+    ⚠ **The banner is one signal holding a snapshot, not a revision counter.** `Restate` runs on
+    every structure change and what it has to say is a function of the root count, so the count is
+    the value and `PrefabBanner` is the whole of what the markup reads. A `Signal<SceneDocument?>`
+    would not do: the document is the same object before and after an entity is reparented, so
+    nothing would notify.
+-->
+@component PrefabView
+@namespace Vixen.Editor.AssetEditors.Prefabs
+@inherits Vixen.Ui.Controls.Control
+@tag prefab-editor
+@using Vixen.Editor.AssetEditors.Scenes
+@using Vixen.Editor.SceneView
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<!--
+    Outside the tabs on purpose: a warning that disappeared when the author switched pane would be
+    absent from exactly the pane checking the prefab's own rule.
+-->
+<Alert ref="@Banner"
+       class="@BannerClass"
+       Title="Editing a prefab in isolation"
+       Message="@BannerMessage" />
+
+<prefab-body ref="@Body">
+    <Tabs ref="@Panes" class="document-tabs">
+        <!--
+            No content: a `SceneHierarchyView` is a model over a panel rather than an element, so it
+            has no tag to write and `Show` builds it against `HierarchyTab.Panel`.
+        -->
+        <TabItem ref="@HierarchyTab" Label="Hierarchy" />
+
+        <TabItem Label="Compiled">
+            <CompiledSceneView ref="@Compiled" />
+        </TabItem>
+    </Tabs>
+</prefab-body>
+
+@code {
+    /// <summary>What the banner says, as one value the markup follows.</summary>
+    readonly Signal<PrefabBanner> banner = new(PrefabBanner.Empty);
+
+    SceneDocument? document;
+    SceneHierarchyView? hierarchy;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The strip that says this is a prefab and not a level.</summary>
+    public Alert Banner { get; private set; } = null!;
+
+    /// <summary>Where the tree goes.</summary>
+    public UiElement Body { get; private set; } = null!;
+
+    /// <summary>The two panes: the entities, and what a build makes of them.</summary>
+    public Tabs Panes { get; private set; } = null!;
+
+    /// <summary>The tree over the prefab's entities.</summary>
+    public SceneHierarchyView? Hierarchy => hierarchy;
+
+    /// <summary>What a build makes of this prefab, the one-root rule included.</summary>
+    public CompiledSceneView? Compiled { get; private set; }
+
+    /// <summary>The tab the hierarchy is behind, so <see cref="Show" /> can reach its panel.</summary>
+    TabItem HierarchyTab { get; set; } = null!;
+
+    string BannerMessage => banner.Value.Message;
+
+    string BannerClass => banner.Value.IsValid ? string.Empty : "invalid";
+
+    /// <summary>Shows a prefab.</summary>
+    /// <param name="prefab">The document, opened into a world of its own.</param>
+    public void Show(SceneDocument prefab) {
+        ArgumentNullException.ThrowIfNull(prefab);
+
+        if (document is { } previous) {
+            previous.StructureChanged -= Restate;
+            hierarchy?.Detach();
+        }
+
+        document = prefab;
+
+        // ⚠ Only the hierarchy panel is emptied, where the C# emptied the whole body. A
+        // `SceneHierarchyView` adds a `TreeView` to the panel it is given, so a second `Show` over a
+        // panel that still held the first one's tree would show two. Everything else here — the
+        // strip, the panels, the compiled view — is markup and belongs to the control rather than to
+        // the document.
+        HierarchyTab.Panel.Empty();
+        hierarchy = new(prefab, HierarchyTab.Panel);
+
+        Compiled!.Show(prefab);
+
+        prefab.StructureChanged += Restate;
+        Restate(prefab);
+    }
+
+    /// <summary>Whether the prefab is in a state that can be saved.</summary>
+    public bool IsSavable => document?.Roots.Count == 1;
+
+    void Restate(SceneDocument prefab) {
+        var roots = prefab.Roots.Count;
+
+        banner.Value = new PrefabBanner(
+            roots switch {
+                1 => $"Changes here apply to every instance of '{prefab.Title.Peek()}' the next time it is imported.",
+                0 => "A prefab needs one root entity. This one has none, so it cannot be saved yet.",
+                _ => $"A prefab has one root and this has {roots}. Parent the loose entities under one before saving."
+            },
+            roots == 1
+        );
+    }
+}

@@ -892,8 +892,12 @@ override Vixen.Ui.Controls.Spinner.TagName.get -> string
 override Vixen.Ui.Controls.Switch.OnCreated() -> void
 override Vixen.Ui.Controls.Switch.TagName.get -> string
 override Vixen.Ui.Controls.TabItem.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
+override Vixen.Ui.Controls.TabItem.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.TabItem.OnCreated() -> void
+override Vixen.Ui.Controls.TabItem.OnRemoved() -> void
 override Vixen.Ui.Controls.TabItem.TagName.get -> string
 override Vixen.Ui.Controls.Tabs.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Tabs.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Tabs.OnCreated() -> void
 override Vixen.Ui.Controls.Tabs.TagName.get -> string
 override Vixen.Ui.Controls.TextArea.AcceptsNewlines.get -> bool

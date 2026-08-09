@@ -40,6 +40,49 @@ ticked checkbox is `:checked`, not swapped geometry. What is left for code is th
 things the cascade genuinely cannot express — a slider's thumb at 37%, a caret at index 4 — and
 those are drawn in `OnDraw` against custom properties the theme still owns.
 
+## Content, and how a control that has parts takes some
+
+A control with parts of its own cannot let a caller's children land beside them, so every one that
+takes content says where it goes by overriding `ContentHost`: `ScrollView` answers its `Content`,
+`KeyValueRow` its value half, `Disclosure` and `Overlay` their bodies. Nothing else is needed for
+`<ScrollView><Expander>…</Expander></ScrollView>` to mean what it looks like, and markup never has to
+name a part.
+
+**`Tabs` is the case one `ContentHost` cannot express, and it is worth reading before adding a second
+one like it.** A tab and the panel it shows are in different halves of the tree — `tab-strip` and
+`tab-panels` — so the pairing cannot be parenthood, and a control with two places for content has one
+property to say so with. `AddTab` existed because of that, and being imperative-only it was the last
+thing keeping `PrefabView` out of markup.
+
+```html
+<Tabs class="document-tabs">
+    <TabItem Label="Hierarchy" ref="@HierarchyTab" />
+    <TabItem Label="Compiled">
+        <CompiledSceneView ref="@Compiled" />
+    </TabItem>
+</Tabs>
+```
+
+The answer is **two hosts and a lifecycle hook**, not a second slot mechanism:
+
+- `Tabs.ContentHost` is `Strip`, because the children a caller writes are headers.
+- `TabItem.ContentHost` is `Panel`, so a tab's own content goes where it shows.
+- `TabItem.OnCreated` is what pairs the two: a tab that finds itself in a `Tabs`'s strip takes a
+  `tab-panel` and joins the list.
+
+⚠ **The pairing moved into the hook rather than being duplicated.** `AddTab` could not be what markup
+calls — a `.vxml` writes tags — so leaving the pairing where it was and adding a declarative
+equivalent beside it would have been two ways to half-build a tab, and the day they disagreed the
+symptom is a panel with nothing in it. `AddTab` is now three lines that do what the markup does:
+add a `TabItem` to the strip, and let the tab join. `RemoveTab` went the same way — it removes the
+element, and `TabItem.OnRemoved` is what unregisters — because **markup removes elements without
+asking**. An `@if` whose arm leaves takes its `TabItem` with it, and a `Tabs` that only unregistered
+from `RemoveTab` would keep a dead tab in `Items`, an orphaned panel in the tree, and a
+`SelectedIndex` possibly pointing at the gap.
+
+⚠ **`TabItem.Owner` is exactly two levels up and not an ancestor walk**, because a tab's panel can
+hold another `Tabs` and "the nearest `Tabs` above me" is the wrong answer for every nested tab.
+
 ## What is in the framework because of this
 
 Four things were missing from `Vixen.Ui` and are now there, because no control set works without
