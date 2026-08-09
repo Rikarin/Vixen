@@ -212,6 +212,58 @@ but it is the reason `font-bold` can look like it did nothing.
 or it is not, and scaling it with the base would mean a theme with a larger base silently thickened
 every rule in the editor.
 
+## The boundary: what stays hand-written, and why
+
+The layer ladder made a real question askable for the first time. While control defaults were
+unlayered they beat every utility whatever the specificity, so "should this be a utility?" had one
+answer — it could not be — and the sheets were written accordingly. `@layer base, components,
+utilities` removed that constraint, and the honest finding is that **it moved the boundary far less
+than it looks like it should have.** This section is the boundary, written down, so that the next
+sweep does not have to rediscover it.
+
+**A tag-keyed control default stays.** `button { padding: … }` gives a control its look with no
+classes on the element, which is what a user-agent sheet is for and what makes a game that loads
+`ControlTheme` and nothing else get coherent controls. A utility cannot express it, because there is
+no element to put the class on. This is most of every sheet in the tree and none of it is debt.
+
+**A rule whose CSS is more legible than its utility spelling stays.** `@apply` on a five-declaration
+block reads worse than the five declarations and hides what it sets behind names the reader must
+expand. The argument that makes `p-4` worth having runs the other way here: `p-4` is twice `p-2` and
+everyone can see it — the utility *carries* the scale relationship, which is information the raw
+`16px` loses. `display: none` carries nothing that `hidden` carries; `position: relative` carries
+nothing that `relative` carries. Convert where the utility name says something the value does not.
+That is the whole test, and single-declaration rules almost never pass it.
+
+⚠ **A semantic class name is not a utility with a worse name.** `.parked`, `.closed` and `.hidden`
+all compile to `display: none` and are not interchangeable: the tag-qualified rules that use them say
+*why* a thing is not showing, and collapsing the three into `hidden` would lose the distinction the
+sheets are built on. A duplicate declaration is not a duplicate rule.
+
+⚠ **`@apply` is inert in every sheet in this tree, and writing one today ships a broken sheet.**
+`ApplyExpander` runs only over files named by `@(VixenStyleBase)`, and no project sets that item —
+every hand-written sheet reaches the runtime as a raw `EmbeddedResource` through its own
+`Theme.Css`, while the installers load the generated `Utilities` beside it. An `@apply` written into
+`EditorTheme.vcss` would therefore reach `document.Load` verbatim and be dropped by the parser as an
+unknown at-rule, silently. Making it work is not a sheet edit: the sheet has to be folded into the
+generated output and loaded from there instead, which changes *when* it is loaded and is a cascade
+change. `Vixen.Editor.Ui/README.md` records the same conclusion from the build side.
+
+⚠ **A duplicate the generator cannot reach is not a duplicate.** `AdvancedTheme.vcss` hand-writes
+`.hidden { display: none; }` and must keep it: ten controls in `Vixen.Ui.Controls.Advanced` call
+`AddClass("hidden")`, and that assembly is Core, which doc 00's layer rules forbid from referencing
+`Tools/Vixen.StyleGen` — `CheckArchitecture` enforces it by reading the `.csproj`. There is no wiring
+that would let the build step emit the class for that project, so the rule is load-bearing wherever a
+consumer does not generate a `.hidden` of its own. Before deleting a hand-written class that looks
+generated, check that the assembly needing it can actually run the step.
+
+⚠ **A class name in a comment becomes a rule.** `CandidateScanner` deliberately parses nothing and
+scans `**/*.vcss` along with the C#, so prose is indistinguishable from a `class` attribute. Most of
+what a generated sheet contains is this — `.absolute`, `.block`, `.hidden`, `.static` are harvested
+from `position: absolute` and friends in the sheets themselves. The consequence for the boundary is
+practical: **rule count in a generated sheet is not a progress signal**, in either direction. It went
+neither up nor down for this change; what changed is that one of the twenty-five stopped being an
+abandoned workaround quoted in a comment.
+
 ## The gate
 
 `UtilityFamilyTests` is the one [doc 14](../../docs/plan/14-roadmap.md) names for 4b: one case per
@@ -286,6 +338,14 @@ split has no fallback.** `rounded-tl-lg` reaches the family `rounded` with the v
 table answers it, and the class is reported unknown — where Tailwind would go on to try `rounded-tl`
 as a root of its own. Until `SplitName` retries the next-longest prefix on failure, adding a
 per-corner or per-axis family is blocked by the shorter family that shadows it.
+
+⚠ **`transition` on its own animates nothing here, where in Tailwind it animates.** Vixen's family
+emits `transition-property` and stops; `duration-*` and `ease-*` are separate families over
+`transition-duration` and `transition-timing-function`. Tailwind's `transition` shorthand sets all
+three, defaulting to 150ms and a timing function, so a class that is a complete instruction there is
+half of one here — `transition` without a `duration-*` computes a `0s` duration and the property
+snaps. The divergence is worth knowing before it is worth fixing: nothing in the tree writes the
+class today, and the two occurrences in generated sheets are the English word out of comments.
 
 An arbitrary value on a border edge is read by its shape: `border-[#f00]` is a colour and
 `border-[3px]` is a width, and `border-[var(--x)]` is a width because there is genuinely no way to

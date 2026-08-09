@@ -41,9 +41,16 @@ code-editor-pane, group-editor, compositor-editor, shadergraph-editor, prefab-ed
    this project could see the editor's tokens, `class="hidden"` in the two import views
    rendered only because `AdvancedTheme` hand-writes `.hidden { display: none; }` in
    `Vixen.Ui.Controls.Advanced`: a utility class name paid for by hand in a component sheet,
-   because the utility system stopped at an assembly boundary. AdvancedTheme's copy is
-   unlayered and still wins; the generated one is what the *next* utility written here will
-   resolve against. See docs/plan/43 Part 3. */
+   because the utility system stopped at an assembly boundary.
+
+   ⚠ AdvancedTheme's copy is **not** unlayered, whatever this remark used to say: it sits inside
+   that file's `@layer components` block, so the generated `.hidden` in `utilities` is the one
+   that wins here now. Nothing observable changed, because both declare `display: none` — but
+   the ordering is the layer's and not the accident of which sheet was installed first, and
+   that is the whole difference the ladder bought. AdvancedTheme keeps its copy for a reason
+   that is not this one: `Vixen.Ui.Controls.Advanced` is a Core assembly and cannot reference
+   `Tools/Vixen.StyleGen`, so no build step can ever emit that class for it.
+   See docs/plan/43 Part 3. */
 
 /* ⚠ The sections scroll and the banner above them does not, which is why the scroll region
    is a child rather than the control. `min-height: 0` is the load-bearing half: a flex item's
