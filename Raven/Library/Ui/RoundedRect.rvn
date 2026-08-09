@@ -11,12 +11,34 @@ import Vixen.Shaders.Core
 //
 // Per-corner radii, because a card with only its top corners rounded is extremely common and faking it
 // with a clip rect costs another draw call.
+//
+// ⚠ **The engine's own UI does not draw through this shader, and the name is why that needs saying.**
+// A search for "rounded rect" finds this file first, and it is a self-contained library primitive: no
+// C# in the repository references it, and nothing in `Vixen.Ui.Renderer` binds it. The path a panel
+// actually takes is `UiShape` → `DrawListBuilder` → `UiRenderer`, whose fragment stage is a
+// hand-written GLSL file outside the Raven pipeline entirely — and there are three copies of it, in
+// `Platform/Vixen.Graphics.Golden.Tests/Shaders`, `Samples/02-HelloUi/Shaders` and
+// `Tools/Vixen.Templates/templates/vixen-app/Shaders`, only the first of which anything covers. Read
+// this shader as a reference implementation of the distance-field technique, not as the thing whose
+// behaviour you are debugging.
+//
+// It is compiled by `LibraryTreeTests`, which walks the library, but it is not in
+// `LibraryReflectionTests`' `Published` list, so no generated binding keys exist for it — that list
+// grows when a node starts binding a shader, not in anticipation.
 
 shader RoundedRect {
     /// Whether to stroke a border inside the shape's edge.
     [Permutation] val Bordered: bool = false
 
     /// Whether to fill with a two-stop gradient rather than a flat colour.
+    ///
+    /// ⚠ **Top to bottom, and only ever that.** `Fragment` interpolates on `localPx.y / size.y` with
+    /// the axis hardcoded, so there is no uniform that turns this gradient sideways and no angle to
+    /// set — a caller enabling this permutation and expecting to choose a direction gets a vertical
+    /// one silently. Deliberately not fixed here: the engine's gradients live on the other path, where
+    /// `GradientFill` already carries linear, radial and conic with arbitrary stops and interpolation
+    /// spaces, and adding a competing half-implementation to an unused library shader would make the
+    /// name above more misleading rather than less.
     [Permutation] val Gradient: bool = false
 
     var projection: mat4
