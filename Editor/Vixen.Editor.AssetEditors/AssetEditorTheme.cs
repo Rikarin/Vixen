@@ -68,10 +68,11 @@ public static class AssetEditorTheme {
     ///         assembly is not rebuilt because a panel elsewhere started using <c>gap-3</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Loaded at the same origin as the sheet above.</b> Origin is the cascade's first
-    ///         question and the layer only its second, so a utility sheet loaded as <c>Author</c>
-    ///         would beat every hand-written rule in <c>Sheet</c> on origin alone — the inversion
-    ///         <c>EditorTheme.Install</c> spells out at length.
+    ///         ⚠ <b>Loaded at the same origin as the sheet above, which is what keeps the ladder
+    ///         inside one origin.</b> Origin is the cascade's first question and the layer only its
+    ///         second, so <c>components</c> → <c>utilities</c> orders nothing across an origin
+    ///         boundary: as <c>Author</c> these would stop being ordered against <c>Sheet</c> at all
+    ///         and would start beating a player's <c>User</c> overrides, which are supposed to win.
     ///     </para>
     /// </remarks>
     public static string Utilities => VixenUtilityStyles.Utilities;

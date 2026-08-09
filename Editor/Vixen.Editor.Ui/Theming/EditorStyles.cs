@@ -31,14 +31,22 @@ namespace Vixen.Editor.Ui;
 ///         one of them was edited.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The utility layer loses every argument it has with <see cref="EditorTheme" />, and
-///         that is deliberate — but it is a sharper trade here than in a game.</b> Everything
-///         generated lands in <c>@layer utilities</c> and the hand-written sheet is unlayered, so
-///         <c>task-row { padding: 6px }</c> beats <c>p-3</c> without either of them saying
-///         <c>!important</c>. The consequence is worth stating plainly: a utility only takes effect on
-///         a property no rule in <see cref="EditorTheme" /> already sets for that element. New panels
-///         get the whole vocabulary; retro-fitting one onto chrome the sheet already styles means
-///         deleting the hand-written rule first.
+///         ⚠ <b>The utility layer wins every argument it has with <see cref="EditorTheme" />, and it
+///         is worth knowing that it used to lose every one of them.</b> Everything generated lands in
+///         <c>@layer utilities</c>; the hand-written sheet was unlayered, an unlayered rule beats
+///         every layer whatever the specificity, and so <c>task-row { padding: 6px }</c> beat
+///         <c>p-3</c> without either of them saying <c>!important</c>. A utility could only take
+///         effect on a property no rule in <see cref="EditorTheme" /> already set for that element,
+///         which meant retro-fitting one onto existing chrome began by deleting a rule. The sheet is
+///         now <c>@layer components</c>, <c>utilities</c> comes after it, and a class written on an
+///         element does what somebody writing it plainly meant.
+///     </para>
+///     <para>
+///         ⚠ <b>What that costs, since nothing is free:</b> a chrome rule that genuinely must not be
+///         overridable by a class has to say so, and the way to say it is <c>!important</c> — which
+///         in a layered cascade is not the blunt instrument it is in an unlayered one, because
+///         importance <i>reverses</i> the layer order and an important <c>components</c> rule
+///         therefore beats an important <c>utilities</c> one. Nothing in the sheet needs it today.
 ///     </para>
 ///     <para>
 ///         A public wrapper over an internal generated type rather than a generated public type,

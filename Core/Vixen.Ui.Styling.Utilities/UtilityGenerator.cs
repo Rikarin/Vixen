@@ -15,6 +15,15 @@ namespace Vixen.Ui.Styling.Utilities;
 ///         settled once, declaratively, and specificity never enters into it.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And an <c>@layer base, components, utilities;</c> statement above it, which is what
+///         makes the layer worth anything.</b> A layer only wins if something loses to it, and until
+///         the engine's own sheets moved into <c>components</c> nothing did: an unlayered rule beats
+///         every layer, so a control default beat every utility silently and always. The statement is
+///         also the ladder's *order*, and order is decided by whoever declares a name first — so a
+///         sheet naming only its own layer is a sheet whose position depends on load order. Every
+///         theme sheet in the tree opens with the same line for the same reason.
+///     </para>
+///     <para>
 ///         Only the utilities that are <i>used</i> are emitted. The alternative — every combination
 ///         of every family and every token — is a stylesheet in the tens of megabytes, and the
 ///         scanner exists so that nobody has to think about that.
@@ -91,6 +100,14 @@ public sealed class UtilityGenerator {
         }
 
         var css = new StringBuilder();
+
+        // ⚠ The order statement, and it is not decoration: `CascadeLayers.Declare` fixes a layer's
+        // position the *first* time anything names it, so a document that loaded this sheet before
+        // any theme sheet would make `utilities` layer zero and every later `@layer components` beat
+        // it — the exact defect the layer exists to fix, restored silently by load order. Naming all
+        // three here means a generated sheet arriving first still puts them in the right order, and
+        // a re-declaration by a theme sheet is a no-op. Tailwind's own output opens the same way.
+        css.Append("@layer base, components, utilities;\n\n");
         css.Append("@layer utilities {\n");
         Emit(root, css, 2);
         css.Append("}\n");

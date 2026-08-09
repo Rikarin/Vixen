@@ -9,11 +9,29 @@
    loads nothing else still gets a coherent set of controls and why recolouring the root recolours
    everything downstream.
 
-   ⚠ **It is unlayered, and that is load-bearing until doc 61 changes it deliberately.** An
-   unlayered rule beats every `@layer utilities` rule regardless of specificity, so
-   `<Button class="p-2">` loses to `button { padding: … }` here. Moving this file into a layer is an
-   appearance change for every consumer at once; it is not a side effect anybody should get from an
-   extraction. */
+   ⚠ **This sheet declares the ladder, and every other sheet in the tree restates it.** The
+   statement below is the one line that decides `<Button class="p-2">`: it used to lose to
+   `button { padding: … }` here, because an unlayered rule beats every `@layer utilities` rule
+   whatever the specificity, and a control default therefore beat every utility silently and always.
+   `base` is what an element is before anybody styled it, `components` is what a *thing* looks like —
+   engine control or editor panel, they are peers — and `utilities` is what the generator emits.
+   Later wins, so a utility now takes the property it names and nothing else does.
+
+   ⚠ **Restating the statement in every sheet is not redundancy, it is the ordering.**
+   `CascadeLayers.Declare` fixes a layer's position the *first* time anything names it and never
+   moves it afterwards, so whichever sheet a document happens to load first is the sheet that
+   decides the order. A sheet that named only its own layer would put `components` after `utilities`
+   in any document that loaded a generated sheet before this one — correct-looking, silent, and the
+   original defect back again. `UtilityGenerator` emits the same statement for the same reason.
+
+   ⚠ **A layer cannot settle an argument across origins**, because `CascadePrecedence` compares
+   `OriginRank` before `LayerRank`. Everything here and every sheet that layers over it is
+   `UserAgent`, which is what makes the ladder mean anything; a game's own sheet is `Author` and
+   beats the whole of it regardless of what either says about layers. See `docs/guide/ui/cascade-layers.md`. */
+
+@layer base, components, utilities;
+
+@layer base {
 
 /* Every control's declared size is its outside, which is what UI work wants and
    what LayoutStyleBuilder deliberately left to a user-agent sheet to say. */
@@ -23,7 +41,14 @@
    Everything below is written against these. An application that wants a
    different palette sets them on the root and touches nothing else; one
    that wants a dark theme adds the `dark` class, which is the
-   `DarkModeStrategy.Class` the utility generator already understands. */
+   `DarkModeStrategy.Class` the utility generator already understands.
+
+   ⚠ In `base` rather than in `components`, and the difference is observable:
+   a downstream sheet's `root { --accent: … }` is a `components` rule and now
+   beats these by *layer* instead of by the accident that this file happens to
+   be installed first. `EditorTheme` restating the palette for a tool window
+   would otherwise revert to these nine the day somebody installed the two
+   sheets the other way round. */
 
 root {
     --surface: #ffffff;
@@ -63,6 +88,10 @@ root.dark {
     --selection-color: #2c4a86;
     --caret-color: #e8eaed;
 }
+
+}
+
+@layer components {
 
 /* A second window's root. It is `root`'s counterpart for everything except the tokens,
    which it inherits — one document, one palette, however many windows. `position:
@@ -888,3 +917,5 @@ page-button:hover:not(:disabled) { background-color: var(--surface-sunken); }
 page-button:checked { background-color: var(--accent); color: var(--accent-text); }
 page-button.page-arrow label { display: none; }
 page-button.ellipsis { color: var(--text-muted); }
+
+}

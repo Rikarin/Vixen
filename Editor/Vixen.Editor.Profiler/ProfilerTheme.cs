@@ -71,12 +71,14 @@ public static class ProfilerTheme {
     ///         behaves as one sheet.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Loaded at the same origin as the sheet above, which is what keeps the layer
-    ///         meaningful.</b> Origin is the cascade's first question and the layer only its second,
-    ///         so a utility sheet loaded as <c>Author</c> here would beat every hand-written rule in
-    ///         <c>Sheet</c> on origin alone — the inversion <c>EditorTheme.Install</c> spells out at
-    ///         length. It is loaded second so that a layering regression cannot hide behind source
-    ///         order.
+    ///         ⚠ <b>Loaded at the same origin as the sheet above, which is what keeps the whole
+    ///         ladder inside one origin and therefore meaningful.</b> Origin is the cascade's first
+    ///         question and the layer only its second, so <c>base</c> → <c>components</c> →
+    ///         <c>utilities</c> only orders anything among sheets that agree about origin. Loaded as
+    ///         <c>Author</c> these utilities would stop being ordered against <c>Sheet</c> at all and
+    ///         would start beating a player's accessibility overrides, which are <c>User</c> and are
+    ///         supposed to win. It is loaded second so that a layering regression cannot hide behind
+    ///         source order.
     ///     </para>
     /// </remarks>
     public static string Utilities => VixenUtilityStyles.Utilities;

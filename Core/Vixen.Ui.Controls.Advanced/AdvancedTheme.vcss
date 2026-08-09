@@ -13,6 +13,17 @@
    which records that as the cost of a token system with an assembly boundary in it. Renaming or
    layering it is not a local change. */
 
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. Everything
+   below is `components` — a look, peer to every other look, engine or editor — which is what lets a
+   `@layer utilities` class beat it and what keeps its own arguments settled by specificity and
+   source order exactly as they were. */
+
+@layer base, components, utilities;
+
+@layer components {
+
 /* ── Docking ────────────────────────────────────────────────────────── */
 /* ⚠ `min-width: 0px` so a tab strip too wide for the window cannot widen the whole docking
    area — see `dock-tabs-viewport` for the other half of it. `dock-group` has always had the
@@ -982,3 +993,5 @@ timeline-header.parked { display: none; }
 timeline-name { flex-grow: 1; }
 
 timeline-lanes { flex-grow: 1; flex-shrink: 1; min-width: 0px; }
+
+}

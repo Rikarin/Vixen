@@ -10,6 +10,17 @@
 
    Written against `ControlTheme`'s and `EditorTheme`'s tokens like every other editor sheet. */
 
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. Everything
+   below is `components` — a look, peer to every other look, engine or editor — which is what lets a
+   `@layer utilities` class beat it and what keeps its own arguments settled by specificity and
+   source order exactly as they were. */
+
+@layer base, components, utilities;
+
+@layer components {
+
 /* The search box takes what is left and the type filter keeps its width, so a long importer
    name is what gets clipped rather than the search field disappearing. */
 browser-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; padding: 5px 6px; }
@@ -222,3 +233,5 @@ add-component-row.back { color: var(--text-muted); }
 
 add-component-row.parked { display: none; }
 add-component-empty { padding: 6px; color: var(--text-muted); }
+
+}
