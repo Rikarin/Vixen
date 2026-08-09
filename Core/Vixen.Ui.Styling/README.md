@@ -431,3 +431,28 @@ classes against, the inline-style store, and the tree. What does not is the rule
 derived from it, the interning cache included — so a computed style from before a reload is a
 different object from the identical one after, and a caller has to forget what it applied rather
 than compare against it.
+
+⚠ **The text the engine keeps is the text it was handed, not the text the parser saw.**
+`StyleEngine.Preprocessor` is a transform every sheet goes through on its way to ExCSS, and a reload
+runs it again — which is the whole reason it exists as a seam here rather than as something a caller
+does before calling `Load`. A caller's transform is applied once and then silently dropped by the
+next resize, because `SetMedia` replays `SheetText`. Keeping the original is also what
+`HotReloadHost`'s rollback needs: putting a sheet back means putting back what somebody wrote.
+
+The one filler today is `UiDocument`, which points it at `ApplyExpander` so that `@apply` means
+something in a hand-written sheet — see `Core/Vixen.Ui/StyleApply.cs`. This assembly deliberately
+does not know what a utility is, which is why the seam is a `Func<string, string>` rather than an
+interface naming a vocabulary that lives above it.
+
+## Diagnostics go somewhere now
+
+`StyleSheetLoader.Diagnostics` and `SelectorCompiler.Diagnostics` are still what they were: lists of
+what could not be loaded and why, appended to as the sheets arrive. What changed is that something
+reads them. `UiDocument` drains both onto the log after every load and every reload — event 7004,
+`docs/manual/log-events.md` — so an at-rule Vixen does not understand, or a selector it cannot
+compile, now says so in the editor's Console panel and in a game's log ring instead of being dropped
+in silence.
+
+⚠ **Both lists restart when the engine reloads**, because `Build` constructs a new loader and a new
+compiler. A reader that watches them has to key its position on the *object* and not on a count;
+`UiDocument.Drain` does, and the reason is written down there.

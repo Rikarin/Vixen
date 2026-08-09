@@ -178,6 +178,30 @@ public sealed class StyleEngine {
     static bool Holds(string condition, MediaContext context) =>
         MediaQuery.TryEvaluate(condition, context, out var matches, out _) && matches;
 
+    /// <summary>A transform every sheet's text goes through on its way to the parser.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The seam <c>@apply</c> needs, and the reason it is here rather than in front of
+    ///         <see cref="Load" />.</b> A caller can already transform its own text before handing it
+    ///         over; what it cannot do is be present for a <see cref="Reload" />, and a reload is not
+    ///         a rare event — <see cref="SetMedia" /> triggers one, <see cref="Replace" /> triggers
+    ///         one, and both replay <see cref="SheetText" />. A transform applied by the caller would
+    ///         be applied once and then quietly dropped by the next resize.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What <see cref="sheets" /> keeps is the text as it was handed in, not the text the
+    ///         parser saw.</b> That is what makes the transform re-runnable, and it is also what
+    ///         <c>HotReloadHost</c> depends on: a failed reload puts a sheet back, and putting back
+    ///         an already-expanded sheet would expand it twice the next time round.
+    ///     </para>
+    ///     <para>
+    ///         Deliberately a <c>Func</c> rather than an interface. This assembly does not know what a
+    ///         utility is — <c>Vixen.Ui.Styling.Utilities</c> sits above it — so the seam has to be
+    ///         something that assembly can fill without this one naming its vocabulary.
+    ///     </para>
+    /// </remarks>
+    public Func<string, string>? Preprocessor { get; set; }
+
     /// <summary>Loads a stylesheet.</summary>
     /// <param name="css">Its text.</param>
     /// <param name="origin">Who it came from.</param>
@@ -189,10 +213,15 @@ public sealed class StyleEngine {
     public int Load(string css, StyleOrigin origin = StyleOrigin.Author, MediaContext? media = null) {
         ArgumentNullException.ThrowIfNull(css);
 
+        // ⚠ Added before the preprocessor runs, because a preprocessor that needs to know what the
+        // whole document declares — which is exactly what `@apply` needs — reads `SheetText`, and a
+        // sheet that is not in the list yet is a sheet whose own `@theme` it cannot see.
         sheets.Add(new(css, origin, media));
-        Loader.Load(css, origin, media ?? Media);
+        Loader.Load(Preprocess(css), origin, media ?? Media);
         return sheets.Count - 1;
     }
+
+    string Preprocess(string css) => Preprocessor is null ? css : Preprocessor(css);
 
     /// <summary>Replaces a loaded sheet with new text.</summary>
     /// <param name="sheet">The index <see cref="Load" /> returned.</param>
@@ -241,7 +270,7 @@ public sealed class StyleEngine {
         Build();
 
         foreach (var sheet in sheets) {
-            Loader.Load(sheet.Css, sheet.Origin, sheet.Media ?? Media);
+            Loader.Load(Preprocess(sheet.Css), sheet.Origin, sheet.Media ?? Media);
         }
     }
 

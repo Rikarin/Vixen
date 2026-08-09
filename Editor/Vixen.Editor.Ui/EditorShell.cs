@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Microsoft.Extensions.Logging;
 using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Composition;
@@ -70,8 +71,19 @@ public sealed class EditorShell : IDisposable {
     /// <param name="width">The surface's width in device-independent pixels.</param>
     /// <param name="height">Its height.</param>
     /// <param name="mode">Which theme to start in.</param>
-    public EditorShell(float width, float height, ThemeMode mode = ThemeMode.Dark) {
-        Document = new UiDocument(width, height);
+    /// <param name="logger">
+    ///     Where a stylesheet the cascade could not read is reported.
+    ///     <para>
+    ///         ⚠ <b>What makes <c>UiDocument</c>'s diagnostic drain reach a person in the one
+    ///         application that edits <c>.vcss</c> files.</b> The drain logs; a document handed no
+    ///         logger logs into <c>NullLogger</c>, which is the pre-existing silence with an extra
+    ///         step. <c>Vixen.Editor.App</c> passes a logger over its own <c>RingBufferSink</c>, which
+    ///         is the ring the Console panel reads — so a mistyped at-rule in <c>EditorTheme.vcss</c>
+    ///         appears in the panel the moment the sheet is installed rather than never.
+    ///     </para>
+    /// </param>
+    public EditorShell(float width, float height, ThemeMode mode = ThemeMode.Dark, ILogger? logger = null) {
+        Document = new UiDocument(width, height, logger: logger);
 
         // ⚠ In this order, and all three. Each is written against the tokens the one before it
         // declares, and a custom property nothing declared substitutes to nothing.

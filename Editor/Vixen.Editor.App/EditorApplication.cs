@@ -409,7 +409,13 @@ sealed partial class EditorApplication : IDisposable {
         Recent = new ProjectHistory(directory);
         IsScratch = projectRoot is null;
 
-        Shell = new EditorShell(width, height);
+        // ⚠ The logger is the point of the third argument: `UiDocument` reports every stylesheet rule
+        // it had to drop, and a document handed none reports them into `NullLogger`. Filed under the
+        // cascade's own category rather than `EditorLog.Category`, so that "the styling is wrong" and
+        // "the editor said something" are separable in the console's category filter. The three
+        // user-agent sheets are installed inside this constructor, so the logger has to arrive with
+        // it rather than be set afterwards.
+        Shell = new EditorShell(width, height, logger: log.Sink.CreateLogger("Vixen.Ui.Styling"));
 
         // ⚠ Before anything that could notify, which on a first run is the project scan and the
         // plugin loader. A mirror attached afterwards would miss exactly the messages somebody opens

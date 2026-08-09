@@ -85,6 +85,25 @@ at most one line per five seconds when it is not.
 | 7002 | Error | `The effect declared at {Origin} threw and has been suspended.` | 0.1.0 |
 | 7003 | Warning | `An effect flush hit its budget of {Budget} runs with work still queued.` | 0.1.0 |
 
+### `Vixen.Ui` — the cascade's refusals
+
+`UiDocument` drains `StyleSheetLoader.Diagnostics` and `SelectorCompiler.Diagnostics` onto these two
+ids after every load and every reload. Both lists were public and, outside the repository's own
+tests, unread — so any CSS Vixen did not understand used to vanish without a word. The category is
+whatever the host names when it builds the document; `Vixen.Editor.App` files them under
+`Vixen.Ui.Styling`, deliberately apart from the editor's own `Vixen.Editor`, so that "the styling is
+wrong" is one filter in the Console panel.
+
+⚠ **`LayoutStyleBuilder.Diagnostics` is the third list of the same shape and is still unread** — it
+is produced inside the per-element pass rather than at load, so it needs a drain point in
+`UiDocument.Update`. Tracked as #56; it will use 7004 rather than an id of its own, because it is
+the same event with a different source.
+
+| Id | Level | Message | Since |
+|---|---|---|---|
+| 7004 | Warning | `{Source} refused '{Text}': {Reason}.` — an at-rule, a selector or a declaration the cascade dropped. The rule stays in the sheet and does nothing, which is why silence was expensive | 0.1.0 |
+| 7005 | Warning | `An @apply could not be expanded: {Reason}.` — a utility name that is not one, or one carrying a variant. The declarations it stood for are simply absent from the block | 0.1.0 |
+
 ### `Vixen.Audio` and its backends
 
 The 9 000 range is shared by four gameplay subsystems, so it is subdivided a hundred at a time:

@@ -313,6 +313,8 @@ Vixen.Ui.Styling.StyleEngine.Loader.get -> Vixen.Ui.Styling.StyleSheetLoader
 Vixen.Ui.Styling.StyleEngine.Matcher.get -> Vixen.Ui.Styling.SelectorMatcher
 Vixen.Ui.Styling.StyleEngine.Media.get -> Vixen.Ui.Styling.MediaContext
 Vixen.Ui.Styling.StyleEngine.Names.get -> Vixen.Ui.Styling.NameTable
+Vixen.Ui.Styling.StyleEngine.Preprocessor.get -> System.Func<string, string>?
+Vixen.Ui.Styling.StyleEngine.Preprocessor.set -> System.Func<string, string>?
 Vixen.Ui.Styling.StyleEngine.Properties.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleEngine.Reload() -> void
 Vixen.Ui.Styling.StyleEngine.Replace(int sheet, string css) -> void

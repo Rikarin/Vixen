@@ -60,6 +60,26 @@
         <ProjectReference Include="..\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
 
         <!--
+            ⚠ **What makes `@apply` mean something at run time, and it is a reference this assembly
+            did not use to need.** `ApplyExpander` and `ThemeTokens` live in
+            `Vixen.Ui.Styling.Utilities`; until now the only thing that ran them was
+            `Tools/Vixen.StyleGen`, over files named by an MSBuild item no project set — so the
+            at-rule was inert in every hand-written sheet in the tree and said nothing about it.
+            Expanding at *install* time instead puts it behind `UiDocument.Load`, which is the one
+            door every sheet already comes through, and costs no project a build-step opt-in.
+
+            It has to be here rather than in `Vixen.Ui.Styling`, which is where the seam
+            (`StyleEngine.Preprocessor`) is: Utilities references Styling, so Styling cannot
+            reference Utilities. And it cannot be in `Vixen.Ui.Controls` — the assembly with the
+            largest hand-written sheet — because that would leave every *other* sheet's `@apply`
+            depending on whether the controls happened to be installed.
+
+            The dependency is code-only: Utilities dropped its YamlDotNet reference when `@theme`
+            replaced `vixen.ui.yaml`, so this adds no package to a UI application.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Styling.Utilities\Vixen.Ui.Styling.Utilities.csproj" />
+
+        <!--
             The signal graph. Vixen.Ui.Composition is where markup meets state: one effect per
             dynamic expression is the whole of ADR-010, and an effect is what Reactive is.
         -->

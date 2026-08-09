@@ -824,7 +824,7 @@ Vixen.Ui.UiDocument.SurfaceRemoved -> System.Action<Vixen.Ui.UiDocument, Vixen.U
 Vixen.Ui.UiDocument.Surfaces.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiSurface>
 Vixen.Ui.UiDocument.Tick(System.TimeSpan now) -> void
 Vixen.Ui.UiDocument.Ticked -> System.Action<Vixen.Ui.UiDocument, System.TimeSpan>?
-Vixen.Ui.UiDocument.UiDocument(float width, float height, float rootFontSize = 16) -> void
+Vixen.Ui.UiDocument.UiDocument(float width, float height, float rootFontSize = 16, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
 Vixen.Ui.UiDocument.Update() -> bool
 Vixen.Ui.UiDocument.Viewport.get -> Vixen.Ui.LengthContext
 Vixen.Ui.UiDocument.Windows.get -> Vixen.Ui.IUiWindowHost?

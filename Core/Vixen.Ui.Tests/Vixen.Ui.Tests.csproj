@@ -52,6 +52,14 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
 
+        <!--
+            For `RingBufferSink`, and the choice is the point of `StyleDiagnosticDrainTests`: the
+            claim being tested is not "a delegate was called" but "a refused stylesheet rule lands in
+            the ring the editor's Console panel reads". A hand-rolled capturing logger would prove the
+            first and say nothing about the second.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
+
         <!-- Analyzers do not flow transitively, so the sample elements below need it named here. -->
         <ProjectReference Include="..\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
                           OutputItemType="Analyzer"
