@@ -125,11 +125,24 @@ public class SharedThemeTests {
 
     /// <summary>The sheets compose: every one of them is layered, so their union is order-free.</summary>
     /// <remarks>
-    ///     ⚠ <b>Shape C's whole claim rests on this and nothing else.</b> Per-assembly sheets are only
-    ///     safe because each lands in <c>@layer utilities</c>, where document order decides nothing —
-    ///     a dozen of them loaded in whatever sequence the modules happen to install behaves as one
-    ///     sheet. An unlayered utility sheet would make the answer depend on which panel's assembly
-    ///     was touched first, which is not a bug anyone would find twice.
+    ///     <para>
+    ///         ⚠ <b>Shape C's whole claim rests on this and nothing else.</b> Per-assembly sheets are
+    ///         only safe because each lands in <c>@layer utilities</c>, where document order decides
+    ///         nothing — a dozen of them loaded in whatever sequence the modules happen to install
+    ///         behaves as one sheet. An unlayered utility sheet would make the answer depend on which
+    ///         panel's assembly was touched first, which is not a bug anyone would find twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two <c>@layer</c>s now, and the first one is doing a job the second cannot.</b>
+    ///         A block layer only says "these rules are in <c>utilities</c>"; where <c>utilities</c>
+    ///         <i>sorts</i> is fixed by whoever names it first, so a sheet that opened its block and
+    ///         said nothing else would be a sheet whose position depends on the install order it is
+    ///         supposed to be immune to. The <c>@layer base, components, utilities;</c> statement is
+    ///         the ordering, every participant emits the same one, and a re-declaration never moves a
+    ///         layer — which is what makes the union order-free in the second sense as well as the
+    ///         first. What must still be true is that no participant opens a block layer other than
+    ///         <c>utilities</c>.
+    ///     </para>
     /// </remarks>
     [Theory]
     [MemberData(nameof(Participants))]
@@ -137,13 +150,27 @@ public class SharedThemeTests {
         string assembly,
         string utilities
     ) {
-        Assert.StartsWith("@layer utilities {", utilities.TrimStart(), StringComparison.Ordinal);
+        var text = utilities.TrimStart();
 
-        Assert.False(
-            utilities.Contains("@layer", StringComparison.Ordinal)
-            && utilities.IndexOf("@layer", StringComparison.Ordinal)
-            != utilities.LastIndexOf("@layer", StringComparison.Ordinal),
-            $"{assembly}'s sheet opens more than one layer; the union of these is only order-free "
-            + "while every rule in all of them is in @layer utilities.");
+        Assert.True(
+            text.StartsWith("@layer base, components, utilities;", StringComparison.Ordinal),
+            $"{assembly}'s sheet does not open with the ladder, so where its utilities sort depends "
+            + "on which assembly's sheet a document happened to load first.");
+
+        var blocks = new List<string>();
+
+        for (var i = text.IndexOf("@layer", StringComparison.Ordinal); i >= 0;
+             i = text.IndexOf("@layer", i + 1, StringComparison.Ordinal)) {
+            var terminator = text.IndexOfAny(['{', ';'], i);
+
+            if (terminator >= 0 && text[terminator] == '{') {
+                blocks.Add(text[i..terminator].Trim());
+            }
+        }
+
+        Assert.True(
+            blocks is ["@layer utilities"],
+            $"{assembly}'s sheet opens {string.Join(", ", blocks)} rather than @layer utilities alone; "
+            + "the union of these is only order-free while every rule in all of them is in one layer.");
     }
 }

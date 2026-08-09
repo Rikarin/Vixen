@@ -259,19 +259,23 @@ verified by reading every sheet through its own `Css` accessor before and after 
 bytes. The only sheets still carried as constants are the **generated** ones (`EditorStyles.Utilities`
 and its per-assembly siblings), which have no file to edit because a build step writes them.
 
-⚠ **The utility layer loses every argument it has with the sheet above**, which is what the layer is
-*for* — origin, then layer, then specificity, then order, and an unlayered rule beats a layered one
-whatever the last two say. So `task-row { padding: 6px }` beats `p-3` with neither saying
-`!important`, and a utility only takes effect on a property no hand-written rule sets for that
-element. New panels get the whole vocabulary; retro-fitting one onto styled chrome means deleting the
-hand-written rule first.
+⚠ **The utility layer wins every argument it has with the sheet above, and it used to lose every one
+of them.** The cascade reads origin, then layer, then specificity, then order — and an unlayered rule
+beats a layered one whatever the last two say. `EditorTheme` was unlayered, so `task-row { padding:
+6px }` beat `p-3` with neither saying `!important`, and a utility only took effect on a property no
+hand-written rule set for that element. The sheet is `@layer components` now, the ladder is `base,
+components, utilities`, and retro-fitting a class onto styled chrome no longer starts by deleting a
+rule. A rule that genuinely must not be overridden says `!important`, which in a layered cascade
+reverses the layer order and is therefore a precise instrument rather than a blunt one.
 
-⚠ **The generated sheet has to load at the same origin as this one.** A layer is the cascade's
-*second* question; the origin is its first. Loaded as `Author` the utilities would beat every rule in
-`EditorTheme` outright and the layer would settle nothing — `StylesheetTests` keeps that arrangement
-in the suite as a measured fact rather than a claim in a comment, alongside the same test with the
-`@layer` wrapper replaced by `@media all`, which is how the utilities README's layer test was found
-to have been asserting document order all along.
+⚠ **The generated sheet has to load at the same origin as this one, and that is what the ladder rests
+on.** A layer is the cascade's *second* question; the origin is its first, so `components` →
+`utilities` orders nothing across an origin boundary — a design that reached for origins to express
+the tiers would look right and do nothing. `StylesheetTests` keeps the mismatched arrangement in the
+suite as a measured fact rather than a claim in a comment, alongside the sabotage twin with the
+chrome sheet's `@layer` wrapper replaced by `@media all`, which is what stops the main assertion
+passing on source order — the way the utilities README's layer test was once found to have been doing
+all along.
 
 ⚠ **Not every family the generator emits is one the engine reads.** `overflow-x-*` and `overflow-y-*`
 are the pair to know about: the unprefixed `overflow` is read and the per-axis forms are interned by

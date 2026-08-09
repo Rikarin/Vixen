@@ -10,6 +10,17 @@
    `ProfilerTheme.Utilities` is the generated utility sheet and stays a build-step constant; only
    the hand-authored sheet is a file. */
 
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. Everything
+   below is `components` — a look, peer to every other look, engine or editor — which is what lets a
+   `@layer utilities` class beat it and what keeps its own arguments settled by specificity and
+   source order exactly as they were. */
+
+@layer base, components, utilities;
+
+@layer components {
+
 /* ── Shared ─────────────────────────────────────────────────────────────
    Every panel here is a strip, a body and sometimes a detail line. The
    strips are the console's, deliberately: three diagnostics panels whose
@@ -182,3 +193,5 @@ statistic-row.over progress-bar { --fill-color: var(--danger); }
 statistic-row.near statistic-value { color: var(--warning); }
 statistic-row.over statistic-value { color: var(--danger); }
 statistic-detail { flex-grow: 1; color: var(--text-muted); font-size: 0.85em; overflow: hidden; }
+
+}

@@ -10,8 +10,22 @@
    ⚠ **The one extracted sheet whose class is `internal` and nested**, inside `EditorApplication`
    in `EditorWorlds.cs`. That changes nothing about the file: the logical name is the root namespace
    plus this file's name, so it is `Vixen.Editor.App.WorldTheme.vcss` however deeply the class that
-   reads it is nested. It is also why this sheet is not in doc 61's layering scope by accident — an
-   internal sheet is still a user-agent sheet and still beats every utility. */
+   reads it is nested. ⚠ It is also why this sheet nearly escaped the layering: an internal sheet is
+   still a user-agent sheet, and an unlayered one would still have beaten every utility. There was no
+   "doc 61" to defer that to — the plan section is
+   [doc 43 Part 3](../../docs/plan/43-web-styling-parity.md), and the scope is every sheet a document
+   loads rather than every sheet with a public accessor. */
+
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. Everything
+   below is `components` — a look, peer to every other look, engine or editor — which is what lets a
+   `@layer utilities` class beat it and what keeps its own arguments settled by specificity and
+   source order exactly as they were. */
+
+@layer base, components, utilities;
+
+@layer components {
 
 world-title { font-weight: 600; margin-top: 6px; }
 world-facts { flex-direction: column; gap: 2px; }
@@ -29,3 +43,5 @@ scene-row {
 
 scene-row.selected { background-color: var(--accent-deep, var(--accent)); color: #ffffff; }
 scene-name { flex-grow: 1; min-width: 0; }
+
+}

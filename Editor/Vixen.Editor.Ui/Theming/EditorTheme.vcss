@@ -15,6 +15,17 @@
    generator reads. Two files rather than one because this one is loaded into a document at run time
    and `@theme` is a build-time construct the cascade has never heard of. */
 
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. Everything
+   below is `components` — a look, peer to every other look, engine or editor — which is what lets a
+   `@layer utilities` class beat it and what keeps its own arguments settled by specificity and
+   source order exactly as they were. */
+
+@layer base, components, utilities;
+
+@layer components {
+
 /* ── Tokens ─────────────────────────────────────────────────────────────
    The control set's nine, restated for a tool window, plus the ones only an
    editor has. Dark is the editor's default and is the one that was designed;
@@ -38,7 +49,15 @@
    ⚠ The shadows and radii are tokens too. They are the difference between
    "a panel" and "a panel that is on top of something", and a sheet that
    wrote them inline would make changing the whole editor's depth a
-   forty-place edit. */
+   forty-place edit.
+
+   ⚠ **In `components` and not in `base`, which is the one place this sheet
+   disagrees with `ControlTheme`.** That sheet's nine are `base` because they
+   are what a control is worth before any product had an opinion; these are a
+   product having one, and a product's palette must beat the defaults by
+   *layer* rather than by the accident that the editor's sheet is installed
+   second. Read the tiers as authority, not as subject matter: `base` is
+   nobody's decision, `components` is somebody's. */
 root {
     /* ⚠ Named, and the editor ships the face — see `Vixen.Editor.App.Fonts`. A
        declaration is what lets `font-weight` mean anything at all: the registry
@@ -1447,3 +1466,5 @@ choice-list > button.choice:checked { background-color: var(--accent); color: va
 choice-detail { color: var(--text-muted); font-size: 0.85em; }
 button.choice:checked choice-detail { color: var(--accent-text); }
 button.choice-action { margin-top: 6px; }
+
+}

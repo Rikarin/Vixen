@@ -62,12 +62,13 @@ public sealed class StyleGenTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>The base sheet is first, and unlayered, and that is what decides the cascade.</b> A
-    ///     generated utility is in <c>@layer utilities</c> and a layer loses to an unlayered rule
-    ///     whatever the source order — so putting the hand-written sheet second would make it win for
-    ///     the second reason as well, and a regression in the layering would then pass every test.
-    ///     This is also the shape the step will be used in once the editor's three themes stop being
-    ///     C# string constants: they arrive as <c>--base</c> files and nothing else changes.
+    ///     ⚠ <b>The base sheet is first, and the order is what this pins — not who wins.</b> The
+    ///     sheet here names no layer, so it is unlayered and beats the generated utilities whatever
+    ///     the specificity; a sheet that opened <c>@layer components</c> would lose to them instead.
+    ///     Either way the tool has to emit it <em>first</em>, because a base rule written second would
+    ///     win on source order too and a regression in the layering would then pass every test. It is
+    ///     also first because a base sheet is where <c>@layer base, components, utilities;</c> belongs
+    ///     when the project writes one: the ladder's order is fixed by whoever names a layer first.
     /// </summary>
     [Fact]
     public void The_base_sheet_comes_first_and_its_apply_is_expanded() {

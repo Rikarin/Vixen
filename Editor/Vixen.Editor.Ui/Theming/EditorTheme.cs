@@ -50,17 +50,25 @@ public static class EditorTheme {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Two sheets, in this order, at this origin — and every part of that sentence is
-    ///         load-bearing.</b> <see cref="EditorStyles.Utilities" /> is entirely inside
-    ///         <c>@layer utilities</c>, and a layer is the cascade's <i>second</i> question: origin
-    ///         comes first. So the utility sheet has to share this one's origin or the layer decides
-    ///         nothing. Loaded as <c>Author</c> it would beat every rule below on origin alone —
-    ///         <c>p-3</c> would silently win against <c>task-row { padding: 6px }</c>, which is the
-    ///         opposite of what a utility layer is for.
+    ///         load-bearing.</b> This sheet is entirely inside <c>@layer components</c> and
+    ///         <see cref="EditorStyles.Utilities" /> is entirely inside <c>@layer utilities</c>, which
+    ///         comes later and therefore wins. That is the whole ladder, and it only works because
+    ///         both are the same origin: a layer is the cascade's <i>second</i> question and origin is
+    ///         its first, so a ladder spread across two origins is not a ladder at all. The reverse
+    ///         arrangement is measured rather than remembered — see
+    ///         <c>StylesheetTests.An_origin_outranks_the_whole_ladder</c>.
     ///     </para>
     ///     <para>
-    ///         And the base sheet is loaded <em>first</em>, where the layer is the only thing that can
-    ///         make it win. Loading it second would make it win on source order as well, and a
-    ///         layering regression would then pass every test in the suite — the mistake
+    ///         ⚠ <b>The consequence, stated plainly, because it inverted:</b> <c>p-3</c> now wins
+    ///         against <c>task-row { padding: 6px }</c>. It used to lose — this sheet was unlayered,
+    ///         an unlayered rule beats every layer, and so every chrome rule beat every utility
+    ///         silently and always. Retro-fitting a utility onto chrome the sheet already styles no
+    ///         longer means deleting the hand-written rule first.
+    ///     </para>
+    ///     <para>
+    ///         And the chrome sheet is loaded <em>first</em>, where nothing but the layer can decide
+    ///         the outcome. Loading it second would make the utility win on source order as well, and
+    ///         a layering regression would then pass every test in the suite — the mistake
     ///         <c>Vixen.Ui.Styling.Utilities</c>' README records having made once already.
     ///     </para>
     ///     <para>

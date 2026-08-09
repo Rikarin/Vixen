@@ -105,10 +105,20 @@ needs a `font-family` that can pick the first name the face registry knows.
 
 ## The ideas
 
-**Everything lands in `@layer utilities`,** and that one line is what makes the system behave. A
-generated `.p-4` is one class and a hand-written `.card .body` is two, so on specificity alone the
-utility loses every time and the only remedy is `!important` on everything the generator emits. With a
-layer the question is settled once, declaratively, and specificity never enters into it.
+**Everything lands in `@layer utilities`, under an `@layer base, components, utilities;` statement,**
+and those two lines are what make the system behave. A generated `.p-4` is one class and a
+hand-written `.card .body` is two, so on specificity alone the utility loses every time and the only
+remedy is `!important` on everything the generator emits. With a layer the question is settled once,
+declaratively, and specificity never enters into it.
+
+⚠ **A layer only wins if something else is in a lower one.** For a release this sheet was the only
+layered thing in the tree, and a lone `@layer utilities` against unlayered component sheets is
+strictly worse than no layers at all: an unlayered rule beats every layer, so `.p-4` lost to a bare
+tag selector it would have beaten on specificity. The engine's ten theme sheets are `@layer
+components` now, which is what the `utilities` layer was always for. The statement is emitted
+alongside because layer *order* is fixed by whoever names a layer first — a sheet that only opened its
+own block would sort wherever the load order happened to put it. See
+[the cascade layers page](../../docs/guide/ui/cascade-layers.md).
 
 **Only what is used is emitted.** Every family crossed with every token is a stylesheet in the tens of
 megabytes; the scanner exists so nobody has to think about that.

@@ -9,6 +9,17 @@
    a custom property nothing declared substitutes to nothing — which is a popup with no background
    over a canvas. */
 
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. Everything
+   below is `components` — a look, peer to every other look, engine or editor — which is what lets a
+   `@layer utilities` class beat it and what keeps its own arguments settled by specificity and
+   source order exactly as they were. */
+
+@layer base, components, utilities;
+
+@layer components {
+
 /* ── The view ───────────────────────────────────────────────────────── */
 node-graph { flex-direction: column; flex-grow: 1; overflow: hidden; position: relative; }
 node-graph > node-canvas { flex-grow: 1; }
@@ -70,3 +81,5 @@ node-search-row:checked { background-color: var(--accent); color: var(--accent-f
 node-search-category { flex-grow: 1; text-align: right; color: var(--foreground-muted); }
 node-search-port { color: var(--accent); }
 node-search-port:empty { display: none; }
+
+}

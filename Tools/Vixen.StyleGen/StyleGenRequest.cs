@@ -35,12 +35,20 @@ internal sealed record StyleGenRequest {
 
     /// <summary>The hand-written sheets, in order, emitted before the utilities.</summary>
     /// <remarks>
-    ///     ⚠ <b>Before, and unlayered, which is what makes a component rule beat a utility.</b> The
-    ///     generated sheet is entirely inside <c>@layer utilities</c> and a layer loses to an
-    ///     unlayered rule whatever the order — so emitting the base sheet <em>second</em> would make
-    ///     it win for the wrong reason and hide a regression in the layering. <c>@apply</c> in these
-    ///     files is expanded here, which is the one place it can be: it has to happen before the CSS
-    ///     parser sees the text.
+    ///     ⚠ <b>Before, and the tool does not layer them — which layer they are in is the sheet's own
+    ///     business and the sheet should say so.</b> A base sheet that names no layer is unlayered,
+    ///     and an unlayered rule beats every layer whatever the specificity, so such a sheet beats the
+    ///     utilities generated beside it: the same defect the engine's own themes carried until they
+    ///     moved into <c>@layer components</c>. <c>Samples/14-Mmo/Mmo.Ui/Theme/hud.vcss</c> is the
+    ///     worked example of the other choice, and it also shows why such a sheet must restate
+    ///     <c>@layer base, components, utilities;</c> — emitted first, it is the sheet that fixes the
+    ///     ladder's order for everything after it.
+    ///     <para>
+    ///         Emitted <em>first</em> either way, so that a layering regression cannot hide behind
+    ///         source order: written second a base rule would win on order as well, and a test would
+    ///         pass with the layering removed entirely. <c>@apply</c> in these files is expanded here,
+    ///         which is the one place it can be: it has to happen before the CSS parser sees the text.
+    ///     </para>
     /// </remarks>
     internal IReadOnlyList<string> Base { get; init; } = [];
 

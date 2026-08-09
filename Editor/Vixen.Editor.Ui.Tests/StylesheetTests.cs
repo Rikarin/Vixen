@@ -165,18 +165,47 @@ public partial class StylesheetTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The layer, and <em>only</em> the layer, can produce this answer.</b>
-    ///     <c>task-center { min-width: 280px }</c> is a tag selector and <c>.min-w-0</c> is a class —
-    ///     so the utility is the more specific of the two — and the utility sheet is loaded
-    ///     <i>second</i>, so it also wins on source order. Both of the tie-breaks a careless test
-    ///     could be measuring instead point the other way, and the hand-written rule still wins,
-    ///     because it is unlayered and the utility is in <c>@layer utilities</c>.
-    ///     <see cref="Without_the_layer_the_utility_wins" /> is the same fixture with the layer taken
-    ///     out, and it is what stops this test passing for the wrong reason.
+    ///     ⚠ <b>The ladder, and <em>only</em> the ladder, can produce this answer — and it is the
+    ///     opposite of the answer this test asserted before the theme sheets were layered.</b>
+    ///     <c>task-center { min-width: 280px }</c> used to win because it was unlayered and unlayered
+    ///     beats every layer, so every chrome rule beat every utility silently and always. It is now
+    ///     a <c>components</c> rule, <c>utilities</c> comes after <c>components</c>, and
+    ///     <c>class="min-w-0"</c> does what somebody writing it plainly meant.
+    ///     <para>
+    ///         Specificity and source order are both still pointing the other way from what makes
+    ///         this interesting — the utility is the more specific of the two and is loaded second, so
+    ///         a careless reading of a pass here would be measuring either of those. What rules them
+    ///         out is <see cref="With_the_components_layer_gone_the_hand_written_rule_wins_again" />,
+    ///         which changes nothing but the layer and gets the old answer back.
+    ///     </para>
     /// </summary>
     [Fact]
-    public void The_editors_own_rules_beat_the_utility_layer() {
+    public void A_utility_beats_a_chrome_rule_because_the_ladder_says_so() {
         using var ui = Editor();
+
+        var panel = ui.Create("task-center", ui.Document.Root, null, "min-w-0");
+
+        ui.Frame();
+
+        Assert.Equal("0", ui.StyleOf(panel, "min-width"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The sabotage, kept in the suite rather than run once and thrown away — and pointed at
+    ///     the other sheet now.</b> The utilities README records a layer test that passed with the
+    ///     <c>@layer</c> wrapper replaced by <c>@media all</c>, because it was accidentally asserting
+    ///     document order. This is that replacement, made permanent, and the sheet it is applied to
+    ///     had to move: unlayering the <i>utility</i> sheet no longer changes the answer, because a
+    ///     utility that beats a <c>components</c> rule by layer also beats it unlayered, by
+    ///     specificity. Unlayering the <i>chrome</i> sheet does change it, and getting <c>280px</c>
+    ///     back is what proves its twin above is measuring the ladder and not the load order.
+    /// </summary>
+    [Fact]
+    public void With_the_components_layer_gone_the_hand_written_rule_wins_again() {
+        using var ui = UiTest.Create();
+
+        ui.Document.Load(Unlayered(EditorTheme.Css), StyleOrigin.UserAgent);
+        ui.Document.Load(EditorStyles.Utilities, StyleOrigin.UserAgent);
 
         var panel = ui.Create("task-center", ui.Document.Root, null, "min-w-0");
 
@@ -186,48 +215,27 @@ public partial class StylesheetTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The sabotage, kept in the suite rather than run once and thrown away.</b> The utilities
-    ///     README records a layer test that passed with the whole <c>@layer</c> wrapper replaced by
-    ///     <c>@media all</c>, because it was accidentally asserting document order. This is that
-    ///     replacement, made permanent: with the layer gone the utility takes the element, and the
-    ///     assertion above is therefore about the layer and not about the order the sheets were
-    ///     loaded in. If this one ever starts agreeing with its twin, one of them has stopped
-    ///     measuring anything.
+    ///     ⚠ <b>Why the whole ladder has to live inside one origin, shown rather than asserted in a
+    ///     comment.</b> <c>CascadePrecedence</c> compares <c>OriginRank</c> <i>before</i>
+    ///     <c>LayerRank</c>, so no arrangement of layers settles anything across an origin boundary.
+    ///     Here the chrome sheet is <c>Author</c> and the utility sheet is <c>UserAgent</c>: the
+    ///     chrome rule is in the lower layer and wins anyway, and it would win if it were in the
+    ///     lowest layer there is. A design that reached for origins to express the base → components
+    ///     → utilities ordering would look right and do nothing, which is the mistake this keeps
+    ///     measured rather than remembered.
     /// </summary>
     [Fact]
-    public void Without_the_layer_the_utility_wins() {
+    public void An_origin_outranks_the_whole_ladder() {
         using var ui = UiTest.Create();
 
-        ui.Document.Load(EditorTheme.Css, StyleOrigin.UserAgent);
-        ui.Document.Load(Unlayered(EditorStyles.Utilities), StyleOrigin.UserAgent);
+        ui.Document.Load(EditorTheme.Css, StyleOrigin.Author);
+        ui.Document.Load(EditorStyles.Utilities, StyleOrigin.UserAgent);
 
         var panel = ui.Create("task-center", ui.Document.Root, null, "min-w-0");
 
         ui.Frame();
 
-        Assert.Equal("0", ui.StyleOf(panel, "min-width"));
-    }
-
-    /// <summary>
-    ///     ⚠ <b>Why the utility sheet has to share <c>EditorTheme</c>'s origin, shown rather than
-    ///     asserted in a comment.</b> A layer is the cascade's <i>second</i> question and the origin
-    ///     is its first, so <c>@layer utilities</c> settles nothing across an origin boundary: the
-    ///     same sheet loaded as <c>Author</c> beats every hand-written editor rule outright. This is
-    ///     the arrangement <c>EditorTheme.Install</c> must not use, kept here so that "it has to be
-    ///     UserAgent" is a measured fact.
-    /// </summary>
-    [Fact]
-    public void Loaded_as_author_the_layer_stops_deciding_anything() {
-        using var ui = UiTest.Create();
-
-        ui.Document.Load(EditorTheme.Css, StyleOrigin.UserAgent);
-        ui.Document.Load(EditorStyles.Utilities, StyleOrigin.Author);
-
-        var panel = ui.Create("task-center", ui.Document.Root, null, "min-w-0");
-
-        ui.Frame();
-
-        Assert.Equal("0", ui.StyleOf(panel, "min-width"));
+        Assert.Equal("280px", ui.StyleOf(panel, "min-width"));
     }
 
     /// <summary>
@@ -262,12 +270,16 @@ public partial class StylesheetTests {
 
     static string Fixtures(string name) => Path.Combine(AppContext.BaseDirectory, "__fixtures__", name);
 
-    /// <summary>The same sheet with its layer taken away, for the sabotage test.</summary>
+    /// <summary>A sheet with its block layer taken away, for the sabotage test.</summary>
     /// <remarks>
     ///     <c>@media all</c> rather than deleting the wrapper, because the braces have to stay
     ///     balanced and an at-rule that matches everything is the smallest change that keeps the file
-    ///     parseable while removing the one thing under test.
+    ///     parseable while removing the one thing under test. The <c>@layer base, components,
+    ///     utilities;</c> statement at the top is left alone deliberately: it declares three empty
+    ///     layers and contributes no rules, so what the replacement removes is the sheet's
+    ///     <i>membership</i> of a layer and nothing else.
     /// </remarks>
     static string Unlayered(string css) =>
-        css.Replace("@layer utilities {", "@media all {", StringComparison.Ordinal);
+        css.Replace("@layer utilities {", "@media all {", StringComparison.Ordinal)
+            .Replace("@layer components {", "@media all {", StringComparison.Ordinal);
 }

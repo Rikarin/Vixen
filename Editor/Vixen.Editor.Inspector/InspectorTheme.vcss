@@ -11,6 +11,17 @@
    Written entirely against `ControlTheme`'s and `EditorTheme`'s tokens, so it has no palette of
    its own and recolouring the root recolours it. */
 
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. Everything
+   below is `components` — a look, peer to every other look, engine or editor — which is what lets a
+   `@layer utilities` class beat it and what keeps its own arguments settled by specificity and
+   source order exactly as they were. */
+
+@layer base, components, utilities;
+
+@layer components {
+
 /* ── The view ───────────────────────────────────────────────────────── */
 inspector { flex-direction: column; flex-grow: 1; gap: 6px; padding: 2px; overflow: hidden; }
 
@@ -211,3 +222,5 @@ inspector-row:hover .list-up, inspector-row:hover .list-down, inspector-row:hove
 /* The count, and whatever the last resort drew. Muted and small: it is a statement about the
    value rather than a way of changing it. */
 .property-readonly { color: var(--text-muted); font-size: 0.9em; }
+
+}

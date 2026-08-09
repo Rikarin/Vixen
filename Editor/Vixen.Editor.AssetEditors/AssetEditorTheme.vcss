@@ -12,6 +12,17 @@
    resolves through. `AssetEditorTheme.Utilities` is a separate sheet and stays a build-step
    constant: it is generated, not authored, and there is nothing on disk to edit. */
 
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. Everything
+   below is `components` — a look, peer to every other look, engine or editor — which is what lets a
+   `@layer utilities` class beat it and what keeps its own arguments settled by specificity and
+   source order exactly as they were. */
+
+@layer base, components, utilities;
+
+@layer components {
+
 /* ── Shared ─────────────────────────────────────────────────────────── */
 import-settings, texture-editor, sprite-editor, model-editor, material-editor,
 code-editor-pane, group-editor, compositor-editor, shadergraph-editor, prefab-editor {
@@ -806,3 +817,4 @@ font-chain-row.error { color: var(--danger, #f2696e); }
 
 /* ── The sequencer ──────────────────────────────────────────────── */
 
+}
