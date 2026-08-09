@@ -736,10 +736,14 @@ public static class UtilityFamilies {
     }
 
     static bool Resolve(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
-        // An arbitrary value goes straight through. That is the point of it: `w-[37px]` exists
-        // precisely for the case the token scale does not cover, and second-guessing it would make
-        // the escape hatch useless.
+        // An arbitrary value goes straight through, once it is CSS at all. That is the point of it:
+        // `w-[37px]` exists precisely for the case the token scale does not cover, and second-guessing
+        // it would make the escape hatch useless.
         if (candidate.Arbitrary is { } arbitrary) {
+            if (!IsPlausibleValue(arbitrary)) {
+                return false;
+            }
+
             return family.Kind == ValueKind.BorderEdge
                 ? EmitInto(LooksLikeColor(arbitrary) ? family.ColorProperties! : family.Properties, arbitrary, declarations)
                 : Emit(family, arbitrary, declarations);
@@ -868,6 +872,160 @@ public static class UtilityFamilies {
     static bool TryShadow(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
         var key = candidate.Value.Length == 0 ? ThemeTokens.DefaultKey : candidate.Value;
         return tokens.Shadow.TryGetValue(key, out var shadow) && Emit(family, shadow, declarations);
+    }
+
+    /// <summary>Whether an arbitrary value is CSS at all, and so worth emitting a declaration for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An unused rule is free by the scanner's own argument and a malformed one is not.</b>
+    ///         The scanner is over-inclusive on purpose, so <c>text[1..]</c> — a C# range expression —
+    ///         arrives here as the utility <c>text</c> with the arbitrary value <c>1..</c>, and
+    ///         <c>font-size: 1..</c> was emitted, parsed by ExCSS, and dropped without a word. A rule
+    ///         nothing matches costs nothing; a declaration the parser throws away is noise in every
+    ///         diagnostic anyone ever runs over the generated sheet, and is indistinguishable from the
+    ///         real parse failure the next person is looking for. So a candidate whose value is not CSS
+    ///         is refused outright, and refusing means <i>no rule</i> — the caller reports it
+    ///         unrecognised, the same as a misspelt utility, rather than emitting an empty block.
+    ///     </para>
+    ///     <para>
+    ///         <b>"Plausible" is a token-shape test and must never become a value parser.</b> The
+    ///         question asked is whether the text could be a CSS component-value sequence at all, not
+    ///         whether the property would accept it: <c>font-size: red</c> is refused by CSS and
+    ///         accepted here, because deciding otherwise means a table of every property's grammar and
+    ///         a new way for the escape hatch to be wrong. Three things are checked, and they are the
+    ///         three that no CSS value can violate. Parentheses balance. A string and a <c>url()</c>
+    ///         are closed, and their contents are a single token that nothing inside this method reads.
+    ///         And every <c>.</c> outside those belongs to a number — CSS has no other use for one —
+    ///         which is what <c>1..</c> fails and what <c>[3px]</c>, <c>[50%]</c>, <c>[1fr]</c>,
+    ///         <c>[#f00]</c>, <c>[var(--x)]</c>, <c>[calc(100%-2rem)]</c> and <c>[0.5]</c> all pass.
+    ///     </para>
+    /// </remarks>
+    static bool IsPlausibleValue(string value) {
+        var text = value.AsSpan();
+
+        if (text.IsWhiteSpace()) {
+            return false;
+        }
+
+        var depth = 0;
+
+        for (var i = 0; i < text.Length; i++) {
+            var c = text[i];
+
+            // A string is one token and its insides are content rather than syntax. Unterminated, it
+            // is not a token at all.
+            if (c is '\'' or '"') {
+                var close = text[(i + 1)..].IndexOf(c);
+                if (close < 0) {
+                    return false;
+                }
+
+                i += close + 1;
+                continue;
+            }
+
+            if (c == '(') {
+                // ⚠ `url(…)` is a token whose body CSS Syntax 3 § 4.3.6 consumes without tokenising,
+                // so `url(a/b2.png)` is a url and not a malformed number followed by a word.
+                if (i >= 3 && text[(i - 3)..i].Equals("url", StringComparison.OrdinalIgnoreCase)) {
+                    var close = text[(i + 1)..].IndexOf(')');
+                    if (close < 0) {
+                        return false;
+                    }
+
+                    i += close + 1;
+                    continue;
+                }
+
+                depth++;
+                continue;
+            }
+
+            if (c == ')') {
+                if (--depth < 0) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (StartsNumber(text, i)) {
+                var after = EndOfNumber(text, i);
+
+                // The whole of the defect: a number followed by a second decimal point. `1..` is what
+                // `text[1..]` leaves behind and is not a number, a dimension or anything else.
+                if (after < text.Length && text[after] == '.') {
+                    return false;
+                }
+
+                i = after - 1;
+                continue;
+            }
+
+            if (c == '.') {
+                return false;
+            }
+        }
+
+        return depth == 0;
+    }
+
+    /// <summary>Whether a number begins here, as CSS Syntax 3 § 4.3.10 defines it.</summary>
+    static bool StartsNumber(ReadOnlySpan<char> text, int i) {
+        var c = text[i];
+
+        if (c is '+' or '-') {
+            return i + 1 < text.Length
+                && (char.IsAsciiDigit(text[i + 1])
+                    || (text[i + 1] == '.' && i + 2 < text.Length && char.IsAsciiDigit(text[i + 2])));
+        }
+
+        if (c == '.') {
+            return i + 1 < text.Length && char.IsAsciiDigit(text[i + 1]);
+        }
+
+        return char.IsAsciiDigit(c);
+    }
+
+    /// <summary>Where the number beginning here ends, as CSS Syntax 3 § 4.3.12 consumes it.</summary>
+    /// <remarks>
+    ///     The exponent is only taken when digits really follow it, which is what keeps the <c>e</c>
+    ///     of <c>1em</c> out of the number and the <c>5</c> of <c>1e5</c> in it.
+    /// </remarks>
+    static int EndOfNumber(ReadOnlySpan<char> text, int i) {
+        if (text[i] is '+' or '-') {
+            i++;
+        }
+
+        while (i < text.Length && char.IsAsciiDigit(text[i])) {
+            i++;
+        }
+
+        if (i < text.Length && text[i] == '.' && i + 1 < text.Length && char.IsAsciiDigit(text[i + 1])) {
+            i++;
+
+            while (i < text.Length && char.IsAsciiDigit(text[i])) {
+                i++;
+            }
+        }
+
+        if (i < text.Length && text[i] is 'e' or 'E') {
+            var exponent = i + 1;
+
+            if (exponent < text.Length && text[exponent] is '+' or '-') {
+                exponent++;
+            }
+
+            if (exponent < text.Length && char.IsAsciiDigit(text[exponent])) {
+                i = exponent;
+
+                while (i < text.Length && char.IsAsciiDigit(text[i])) {
+                    i++;
+                }
+            }
+        }
+
+        return i;
     }
 
     /// <summary>Whether an arbitrary value on a border edge is a colour rather than a width.</summary>

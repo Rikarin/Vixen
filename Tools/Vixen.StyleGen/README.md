@@ -23,6 +23,14 @@ Three things were wrong with the bootstrap beyond its being repeated.
   silently missing on exactly the panels that most needed it. The build step scans `@(Compile)` too,
   which `CandidateScanner` is built for: it does not parse anything, it takes every run of characters
   that could be a class name and lets the generator throw the rest away.
+
+  ⚠ **A scanned `.vcss` is the one exception, and this is where the choice is made.** The scanner
+  parses nothing, so `position: absolute` in a hand-written sheet looked exactly like
+  `class="absolute"` — which put `.absolute`, `.block`, `.grid`, `.hidden`, `.inline`, `.relative` and
+  `.static` into the editor's generated sheet, none of them written by anybody. A class name cannot be
+  *used* from the right of a colon, so `CandidateScanner.ScanStyleSheet` skips a declaration's value;
+  the extension is what selects it, because this is the only place that knows what kind of file it just
+  read. `@apply p-4 flex;` is not a declaration and is scanned whole.
 - **It cost start-up time in every process that opened a document**, including every test.
 - **It produced a string and not a file**, so nothing else in the tool chain could see the sheet.
 
@@ -85,7 +93,7 @@ needs no quoting.
 | | |
 |---|---|
 | `--theme <file.vcss>` | A sheet whose `@theme` blocks layer over the shipped default. Repeatable and ordered. Absent means the default alone. |
-| `--scan <file>` | Searched for class names. Repeatable. C# and markup alike. |
+| `--scan <file>` | Searched for class names. Repeatable. C# and markup alike; a `.vcss` or `.css` is read as a stylesheet, which is the one input where a declaration's value can be skipped. |
 | `--base <file.vcss>` | A hand-written sheet, emitted **before** the utilities, with `@apply` expanded. Repeatable and ordered. |
 | `--safelist <name>` | Emitted whether or not anything was seen to use it. Repeatable. |
 | `--output`, `--accessor`, `--report` | Where the three outputs go. |

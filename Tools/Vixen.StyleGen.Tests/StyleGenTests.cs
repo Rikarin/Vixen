@@ -120,6 +120,40 @@ public sealed class StyleGenTests : IDisposable {
         Assert.DoesNotContain(".flexx", result.Css, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A <c>.vcss</c> in the scan set is read as a stylesheet, and the seven rules that fixes
+    ///     were never class names.</b> The step globs <c>**/*.vcss</c> alongside the C# and the markup,
+    ///     and the scanner parses nothing — so <c>position: absolute</c> in a hand-written sheet was
+    ///     indistinguishable from <c>class="absolute"</c> and put <c>.absolute</c>, <c>.block</c>,
+    ///     <c>.grid</c>, <c>.hidden</c>, <c>.inline</c>, <c>.relative</c> and <c>.static</c> into
+    ///     <c>Vixen.Editor.Ui</c>'s generated sheet. The scope is decided here, by extension, because
+    ///     this is the only place that knows what kind of file it just read.
+    /// </summary>
+    /// <remarks>
+    ///     The same text under a <c>.cs</c> name still yields <c>flex</c>, which is the half that must
+    ///     not change: a colon in C# says nothing about what is on the other side of it.
+    /// </remarks>
+    [Fact]
+    public void A_stylesheets_declaration_values_are_not_scanned_as_class_names() {
+        const string css = "panel-row { display: flex; position: absolute; }";
+
+        var asSheet = Run(new StyleGenRequest {
+            Themes = [Write("vixen.ui.vcss", Tokens)],
+            Scan = [Write("Panel.vcss", css)]
+        });
+
+        Assert.DoesNotContain(".flex ", asSheet.Css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".absolute ", asSheet.Css, StringComparison.Ordinal);
+
+        var asCode = Run(new StyleGenRequest {
+            Themes = [Write("vixen.ui.vcss", Tokens)],
+            Scan = [Write("Panel.cs", css)]
+        });
+
+        Assert.Contains(".flex { display: flex; }", asCode.Css, StringComparison.Ordinal);
+        Assert.Contains(".absolute { position: absolute; }", asCode.Css, StringComparison.Ordinal);
+    }
+
     /// <summary>A token that will not read is an error, not a stylesheet with a hole in it.</summary>
     /// <remarks>
     ///     ⚠ <b>The failure shape changed with the format and got narrower, which is worth saying.</b>
