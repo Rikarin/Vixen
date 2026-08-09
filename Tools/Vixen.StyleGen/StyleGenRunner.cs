@@ -117,7 +117,22 @@ internal static class StyleGenRunner {
                 continue;
             }
 
-            CandidateScanner.Scan(File.ReadAllText(path), candidates);
+            var text = File.ReadAllText(path);
+
+            // ⚠ **A stylesheet is the one scanned input whose shape says where a class name cannot
+            // be, and reading it as plain text is what put `.absolute`, `.block`, `.grid`,
+            // `.hidden`, `.inline`, `.relative` and `.static` into the editor's sheet.** None of
+            // them was written by anybody: they are the right-hand sides of `position: absolute`
+            // and `display: block` in the editor's own `.vcss` files, and a class name cannot be
+            // used from there. Decided by extension rather than by sniffing the text, because the
+            // build step already globs `**/*.vcss` as its own item and the two should agree.
+            if (Path.GetExtension(path.AsSpan()).Equals(".vcss", StringComparison.OrdinalIgnoreCase)
+                || Path.GetExtension(path.AsSpan()).Equals(".css", StringComparison.OrdinalIgnoreCase)) {
+                CandidateScanner.ScanStyleSheet(text, candidates);
+                continue;
+            }
+
+            CandidateScanner.Scan(text, candidates);
         }
 
         foreach (var safe in request.Safelist) {

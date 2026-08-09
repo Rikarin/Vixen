@@ -98,6 +98,7 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.RingWidth = "--tw-ring-width
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateX = "--tw-translate-x" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateY = "--tw-translate-y" -> string
 static Vixen.Ui.Styling.Utilities.CandidateScanner.Scan(string text, System.Collections.Generic.ISet<string> into) -> void
+static Vixen.Ui.Styling.Utilities.CandidateScanner.ScanStyleSheet(string text, System.Collections.Generic.ISet<string> into) -> void
 static Vixen.Ui.Styling.Utilities.ThemeTokens.CreateDefault() -> Vixen.Ui.Styling.Utilities.ThemeTokens
 static Vixen.Ui.Styling.Utilities.ThemeTokens.Parse(string css) -> Vixen.Ui.Styling.Utilities.ThemeTokens
 static Vixen.Ui.Styling.Utilities.ThemeTokens.Strip(string css) -> string

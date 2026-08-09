@@ -21,7 +21,7 @@ every component is in the same repository as every token.
 | `UtilityComposition` | The `--tw-*` fragments, and what each is worth unset. `from-*`/`via-*`/`to-*` + `bg-linear-*` is the worked case; the guide is [ui/utility-composition](../../docs/guide/ui/utility-composition.md). |
 | `Variants` | `hover:`, `md:`, `dark:`, `ltr:`/`rtl:`, `group-*`, `peer-*`, `data-*`, `aria-*`, `[&>*]`. |
 | `UtilityGenerator` | The stylesheet, into `@layer utilities`. |
-| `CandidateScanner` | Deliberately over-inclusive extraction from source text. |
+| `CandidateScanner` | Deliberately over-inclusive extraction from source text; `ScanStyleSheet` skips a `.vcss` declaration's value, which is the one place a class name cannot be. |
 | `ApplyExpander` | `@apply` inside VCSS. |
 | Build step | `build/Vixen.Ui.Styling.Utilities.targets` + `Tools/Vixen.StyleGen`. A project gets its sheet with no code of its own; a `vixen.ui.vcss` is optional. |
 | Token hot reload | ⏳ waits on the asset pipeline |
@@ -129,6 +129,29 @@ one unused rule that no element matches; a false negative is a style silently mi
 someone debugs for an hour. The asymmetry is enormous and the design follows it. It also means the
 scanner cannot be defeated by cleverness the way a parser can: a class name built by concatenation is
 invisible to analysis, but its pieces are usually literals.
+
+⚠ **One input is narrowed, by structure and not by judgement: a `.vcss` has its declaration values
+skipped.** `CandidateScanner.ScanStyleSheet` is the entry point and `Vixen.StyleGen` picks it by
+extension. **A class name cannot be *used* from the right of a colon** — the text between a
+declaration's `:` and its terminator is a value — so this takes nothing away from the asymmetry above,
+and it is deliberately not generalised to C# or `.vxml`, where a colon means whatever the language says
+it means. The rule is `identifier`-then-`:`, not any `:`, and the two exceptions that shape says are
+both real. `@apply p-4 hover:bg-accent flex;` is a statement inside a block whose value *is* a list of
+class names, and a bare-colon rule loses `flex` from it. And a comment in this tree can end where
+nobody meant it to — CSS closes at the first `*/`, which prose about `**/*.vcss` contains — so the text
+after one is loose sentences, colons and all; a bare-colon rule swallowed a paragraph of the editor's
+own theme file and lost `rounded-md` with it.
+
+⚠ **A malformed declaration is not the same free thing an unused rule is.** The scanner handed
+`text[1..]` — a C# range expression — to the arbitrary-value path, which emitted
+`.text\[1\.\.\] { font-size: 1..; }` in every build of `Vixen.Editor.Ui`; ExCSS dropped the declaration
+and said nothing. A rule nothing matches costs nothing, but a dropped declaration is noise in every
+diagnostic a reader of the generated sheet will run and is indistinguishable from the real parse
+failure they are looking for. `UtilityFamilies` refuses a bracketed value that is not CSS *shaped* —
+parentheses balance, strings and `url()` are closed, and every `.` outside them belongs to a number —
+and refusing means no rule at all, reported alongside the misspelt utilities. It is a token-shape test
+and must not become a value parser: `font-size: red` is nonsense CSS refuses and this accepts, because
+deciding otherwise needs a table of every property's grammar.
 
 **Spacing is one base number, not a named scale.** `p-4` is twice `p-2` and everyone can see it.
 `p-md` reads better in a design tool and worse in a stylesheet, because nothing about it says whether
@@ -256,13 +279,14 @@ that would let the build step emit the class for that project, so the rule is lo
 consumer does not generate a `.hidden` of its own. Before deleting a hand-written class that looks
 generated, check that the assembly needing it can actually run the step.
 
-⚠ **A class name in a comment becomes a rule.** `CandidateScanner` deliberately parses nothing and
-scans `**/*.vcss` along with the C#, so prose is indistinguishable from a `class` attribute. Most of
-what a generated sheet contains is this — `.absolute`, `.block`, `.hidden`, `.static` are harvested
-from `position: absolute` and friends in the sheets themselves. The consequence for the boundary is
-practical: **rule count in a generated sheet is not a progress signal**, in either direction. It went
-neither up nor down for this change; what changed is that one of the twenty-five stopped being an
-abandoned workaround quoted in a comment.
+⚠ **A class name in a comment becomes a rule, and that is now the *only* way most of them get there.**
+`CandidateScanner` deliberately parses nothing, so prose is indistinguishable from a `class` attribute.
+`.absolute`, `.block`, `.hidden` and `.static` used to be harvested from `position: absolute` and
+friends in the sheets themselves; `ScanStyleSheet` closed that door, and all four are still in the
+editor's sheet — out of the word "absolutely" in a comment, the C# keyword `static`, a dictionary key
+`["grid"]`, and sentences about blocks and hidden commands. The consequence for the boundary is
+practical: **rule count in a generated sheet is not a progress signal**, in either direction. Closing
+the declaration-value hole moved it by nothing at all.
 
 ## The gate
 
@@ -317,6 +341,19 @@ as `--breakpoint-2xl` has been in it. Nothing caught it because the only escapin
 `hover:w-1/2`, `w-[37px]` and `p-4`, and the only breakpoint tested end to end was `md:`. The lesson is
 narrower than "test more": *a table with five entries tested at one entry is tested at none of the
 interesting ones, and the interesting one is always the entry whose shape differs.*
+
+**A range expression that became a stylesheet rule.** `text[1..]` in `EditorIconAttribute` parsed as the
+utility `text` with the arbitrary value `1..`, and `font-size: 1..` went into the editor's sheet on every
+build. Nothing caught it because the arbitrary path was written as "goes straight through" and meant it
+— and because a dropped declaration is exactly as quiet as a rule nobody matches. *The escape hatch has
+to refuse what is not CSS, and it has to refuse by emitting nothing rather than by emitting less.*
+
+**An exclusion that would have eaten the thing it was excluding for.** Skipping a `.vcss` declaration's
+value is safe, and "skip from any `:` to the next `;`" is not the same rule: `@apply p-4 hover:bg-accent
+flex;` loses `flex`, and a comment that ended early at a `**/*.vcss` loses the paragraph after it. Both
+were found by sabotage — the exception deleted, the suite red on two tests, the exception restored —
+and the fix in both cases is that a declaration's colon comes straight after an identifier. *A rule
+about delimiters still has to be a rule about the delimiters the language actually has.*
 
 **A `~` that a test could not tell from a `+`.** The first version of `peer-*`'s coverage put the peer
 immediately before the element, where the subsequent-sibling combinator and the adjacent one select the

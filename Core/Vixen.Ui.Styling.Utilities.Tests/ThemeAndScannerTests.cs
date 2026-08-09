@@ -318,6 +318,192 @@ public class ThemeAndScannerTests {
         Assert.Equal(2, fixture.Generator.RuleCount);
     }
 
+    /// <summary>
+    ///     ⚠ <b>An unused rule is free by the scanner's own argument and a malformed one is not.</b>
+    ///     <c>text[1..]</c> is a C# range expression, and every build of <c>Vixen.Editor.Ui</c> turned
+    ///     it into <c>.text\[1\.\.\] { font-size: 1..; }</c> — a declaration ExCSS drops without a
+    ///     word. That is not one more unused rule: it is a dropped declaration in the generated sheet,
+    ///     indistinguishable from the real parse failure the next person is looking for. The refusal
+    ///     has to produce <i>no rule</i>, not an empty one, which is why this asserts on the whole
+    ///     sheet and not only on the absence of the value.
+    /// </summary>
+    [Fact]
+    public void An_arbitrary_value_that_is_not_css_produces_no_rule_at_all() {
+        var fixture = new UtilityFixture();
+        var css = fixture.Generate("text[1..]", "w-[37px]");
+
+        Assert.DoesNotContain("1..", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("text", css, StringComparison.Ordinal);
+        Assert.Contains(".w-\\[37px\\] { width: 37px; }", css, StringComparison.Ordinal);
+
+        Assert.Equal(1, fixture.Generator.RuleCount);
+        Assert.Contains("text[1..]", fixture.Generator.Unrecognised);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The guard is a token-shape test and must never become a CSS value parser.</b> These
+    ///     are the forms Tailwind genuinely allows in brackets, and each one is a way the escape hatch
+    ///     would stop being an escape hatch if the test grew opinions: a variable reference, a
+    ///     function whose body it does not understand, a hex colour, a dimension, a percentage, a grid
+    ///     unit, a string. <c>font-size: red</c> is nonsense CSS refuses and this accepts, deliberately
+    ///     — deciding otherwise needs a table of every property's grammar.
+    /// </summary>
+    [Theory]
+    [InlineData("w-[var(--x)]", "width: var(--x)")]
+    [InlineData("w-[calc(100%-2rem)]", "width: calc(100%-2rem)")]
+    [InlineData("border-[#f00]", "border-color: #f00")]
+    [InlineData("border-[3px]", "border-width: 3px")]
+    [InlineData("w-[50%]", "width: 50%")]
+    [InlineData("w-[1fr]", "width: 1fr")]
+    [InlineData("w-[.5em]", "width: .5em")]
+    [InlineData("w-[1e3px]", "width: 1e3px")]
+    [InlineData("bg-[url(a/b2.png)]", "background-color: url(a/b2.png)")]
+    [InlineData("text-['a.b']", "font-size: 'a.b'")]
+    public void A_bracketed_value_tailwind_allows_is_still_emitted(string candidate, string declaration) {
+        Assert.Equal([declaration], new UtilityFixture().Emits(candidate));
+    }
+
+    /// <summary>The shapes that are not CSS at all, and so name no rule.</summary>
+    /// <remarks>
+    ///     Each is what the over-inclusive scan hands the generator out of ordinary source text: a
+    ///     range, a slice, a stray delimiter. <c>1..</c> is the one that reached a shipped sheet.
+    /// </remarks>
+    [Theory]
+    [InlineData("text[1..]")]
+    [InlineData("w[2..3]")]
+    [InlineData("w-[.]")]
+    [InlineData("w-[calc(100%-2rem]")]
+    [InlineData("w-[')]")]
+    [InlineData("w-[ ]")]
+    public void A_bracketed_value_that_is_not_css_names_no_utility(string candidate) {
+        Assert.Null(new UtilityFixture().Declarations(candidate));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Seven of the editor's twenty-five rules were CSS keywords, not class names.</b>
+    ///     <c>.absolute</c>, <c>.block</c>, <c>.grid</c>, <c>.hidden</c>, <c>.inline</c>,
+    ///     <c>.relative</c> and <c>.static</c> came out of <c>position: absolute</c> and friends in the
+    ///     editor's own sheets, because the scanner globs <c>**/*.vcss</c> and parses nothing. A class
+    ///     name cannot be <i>used</i> from the right of a colon, so skipping a declaration's value
+    ///     costs nothing — and the narrowing is scoped to stylesheet input, which
+    ///     <see cref="Source_text_is_not_narrowed_the_way_a_stylesheet_is" /> is the other half of.
+    /// </summary>
+    [Fact]
+    public void A_declaration_value_in_a_stylesheet_is_not_a_class_name() {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+
+        CandidateScanner.ScanStyleSheet(
+            """
+            @layer components {
+                tree-row { position: absolute; display: block; }
+                tree-row:hover data-grid { border-radius: 2px; }
+            }
+            """,
+            found
+        );
+
+        Assert.DoesNotContain("absolute", found);
+        Assert.DoesNotContain("block", found);
+        Assert.DoesNotContain("2px", found);
+
+        // The selector is not a value, and a `{` is what says so: the run that looked like a property
+        // name ran into an opening brace, so nothing was dropped.
+        Assert.Contains("tree-row:hover", found);
+        Assert.Contains("data-grid", found);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>@apply p-4 flex;</c> is a statement inside a block whose value <i>is</i> a list of
+    ///     class names, and it is the exception the exclusion has to get right.</b> The test is
+    ///     written against a variant, because that is the form with a colon in it — sabotage the rule
+    ///     to "skip from any <c>:</c> inside a block" and <c>flex</c> disappears, which is exactly the
+    ///     silent false negative the over-inclusive design exists to prevent. Verified by doing it:
+    ///     with <c>IsDeclaration</c> made to return true, this test fails on <c>flex</c> and
+    ///     <see cref="A_declaration_value_in_a_stylesheet_is_not_a_class_name" /> still passes.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Exercised against the scanner and the expander directly, because the path is not live
+    ///     in this tree.</b> <c>ApplyExpander</c> runs only over files named by
+    ///     <c>@(VixenStyleBase)</c> and no project sets that item — every hand-written sheet reaches
+    ///     the runtime as a raw <c>EmbeddedResource</c> — so no real build would demonstrate it. A
+    ///     reader should not conclude from a green test here that <c>@apply</c> works end to end;
+    ///     <c>Vixen.Ui.Styling.Utilities/README.md</c> records why it does not.
+    /// </remarks>
+    [Fact]
+    public void Apply_is_not_a_declaration_and_its_utilities_survive_the_scan() {
+        const string sheet = ".card { @apply p-4 hover:bg-accent flex; color: red; }";
+
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        CandidateScanner.ScanStyleSheet(sheet, found);
+
+        Assert.Contains("p-4", found);
+        Assert.Contains("hover:bg-accent", found);
+        Assert.Contains("flex", found);
+
+        // And `red` is gone, which is the rule the exception is an exception to.
+        Assert.DoesNotContain("red", found);
+
+        // The expander reads the same text and agrees about which of the three it can place.
+        var expander = new ApplyExpander(ThemeTokens.Parse(UtilityFixture.Theme));
+        var expanded = expander.Expand(sheet);
+
+        Assert.Contains("padding: 16px;", expanded, StringComparison.Ordinal);
+        Assert.Contains("display: flex;", expanded, StringComparison.Ordinal);
+        Assert.Contains("variant", Assert.Single(expander.Diagnostics), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A comment is scanned, and a comment in this tree can end where nobody meant it to.</b>
+    ///     CSS closes a comment at its first <c>*/</c>, and prose about a glob — <c>**/*.vcss</c> —
+    ///     contains one, so everything after it is loose text with sentence colons in it. A rule that
+    ///     skipped from any colon swallowed the rest of the paragraph and lost <c>rounded-md</c> out of
+    ///     the editor's own theme file. Requiring an identifier immediately before the colon is what
+    ///     tells a property name from a sentence.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The declaration after such a comment is <i>also</i> left alone, because the statement the
+    ///     tracker is following started inside the wreckage and does not end until the next <c>;</c>.
+    ///     That is over-inclusion, which is the side this design errs on: one unused rule for a value
+    ///     that happened to look like a class name, and never a missing style.
+    /// </remarks>
+    [Fact]
+    public void A_sentence_after_an_early_closed_comment_is_still_scanned() {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+
+        CandidateScanner.ScanStyleSheet(
+            """
+            @theme {
+                --radius-xs: 2px;
+
+                /* The scanner globs **/*.vcss and parses nothing: a panel wanting `rounded-md`
+                   should have it. */
+                --radius-md: 6px;
+            }
+            """,
+            found
+        );
+
+        Assert.Contains("rounded-md", found);
+
+        // The declaration before the comment is still read as one.
+        Assert.DoesNotContain("2px", found);
+    }
+
+    /// <summary>
+    ///     The other half of the narrowing: it is scoped to stylesheets and nothing else. A colon in
+    ///     C# is a ternary, a label, a named argument or a string, and none of them says a class name
+    ///     is not on the other side of it.
+    /// </summary>
+    [Fact]
+    public void Source_text_is_not_narrowed_the_way_a_stylesheet_is() {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        CandidateScanner.Scan("""{ var css = "position: absolute"; element.AddClass(on ? "flex" : "hidden"); }""", found);
+
+        Assert.Contains("absolute", found);
+        Assert.Contains("flex", found);
+        Assert.Contains("hidden", found);
+    }
+
     [Fact]
     public void Apply_writes_the_utilities_out_where_they_were_written() {
         var expander = new ApplyExpander(ThemeTokens.Parse(UtilityFixture.Theme));
