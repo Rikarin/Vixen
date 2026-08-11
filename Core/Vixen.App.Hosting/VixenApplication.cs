@@ -519,14 +519,16 @@ public sealed class VixenApplication : IDisposable {
     ///         ⚠ <b>Characters come from <see cref="PlatformEventKind.TextInput" /> and never from
     ///         key codes.</b> A key is a physical position: mapping <c>Key.A</c> to <c>'a'</c> gives
     ///         a console that types the wrong letters on AZERTY and nothing at all in Japanese, and
-    ///         the platform already does this properly once <see cref="ITextInput" /> is active.
-    ///         Which is why the grave key both opens the panel and starts text input.
+    ///         the platform already does this properly. On SDL desktop the events arrive without
+    ///         anything asking — see the <see cref="ITextInput" /> handling below, which starts it
+    ///         only where it is genuinely off.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Grave rather than a bindable action.</b> An action would have to come from a
-    ///         game's <c>.vxinput</c>, and the console is most wanted in a build whose input map is
-    ///         the thing being investigated. It is the key every engine uses for this, and it is
-    ///         swallowed on the way in so that a game bound to it does not also see it.
+    ///         ⚠ <b>The backtick key rather than a bindable action.</b> An action would have to come
+    ///         from a game's <c>.vxinput</c>, and the console is most wanted in a build whose input
+    ///         map is the thing being investigated. It is the key every engine uses for this, and it
+    ///         is swallowed on the way in so that a game bound to it does not also see it. Which key
+    ///         that is, physically, is <see cref="IsConsoleKey" />'s problem and not a small one.
     ///     </para>
     /// </remarks>
     bool Console(in PlatformEvent platformEvent) {
@@ -534,17 +536,26 @@ public sealed class VixenApplication : IDisposable {
             return false;
         }
 
-        if (platformEvent.Kind is PlatformEventKind.KeyDown && platformEvent.Key is Key.Grave) {
+        if (platformEvent.Kind is PlatformEventKind.KeyDown && IsConsoleKey(platformEvent.Key)) {
             console.Enabled = !console.Enabled;
 
             if (console.Enabled) {
                 console.ClearInput();
+            }
 
-                if (Services.Window is { } window) {
+            // ⚠ Only when the platform says text input is off, and only then is it turned back off.
+            // On SDL desktop it is already running — the characters arrive with nothing asked for —
+            // and calling Activate anyway is a state change made for no reason on the one platform
+            // where the console is most used. Where it genuinely is off (a browser canvas, a phone,
+            // which is what ITextInput was drawn for) this is what starts it.
+            if (console.Enabled) {
+                if (!Services.Platform.TextInput.IsActive && Services.Window is { } window) {
                     Services.Platform.TextInput.Activate(window);
+                    activatedTextInput = true;
                 }
-            } else {
+            } else if (activatedTextInput) {
                 Services.Platform.TextInput.Deactivate();
+                activatedTextInput = false;
             }
 
             return true;
@@ -589,7 +600,12 @@ public sealed class VixenApplication : IDisposable {
 
                     case Key.Escape:
                         console.Enabled = false;
-                        Services.Platform.TextInput.Deactivate();
+
+                        if (activatedTextInput) {
+                            Services.Platform.TextInput.Deactivate();
+                            activatedTextInput = false;
+                        }
+
                         break;
 
                     default:
@@ -609,6 +625,23 @@ public sealed class VixenApplication : IDisposable {
                 return false;
         }
     }
+
+    /// <summary>The key that opens the console — both of them, and the second is not a courtesy.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The physical key below <kbd>Esc</kbd> is <see cref="Key.Grave" /> on an ANSI keyboard
+    ///     and the one beside left shift is <see cref="Key.NonUsBackslash" /> on an ISO one, and on a
+    ///     Mac the key that types a backtick is the <em>second</em> of those.</b> A check for
+    ///     <c>Grave</c> alone opens the console for nobody in Europe, which is how the first run of
+    ///     this on a real machine reported "the key does nothing" with every count reading correct —
+    ///     a scancode is a position on a board, not a character, and the two keyboards disagree about
+    ///     which position carries this one.
+    /// </remarks>
+    static bool IsConsoleKey(Key key) => key is Key.Grave or Key.NonUsBackslash;
+
+    /// <summary>
+    ///     Whether this host started text input, so that it only stops what it started.
+    /// </summary>
+    bool activatedTextInput;
 
     /// <summary>
     ///     Whether any window is still open — asked by state rather than by list membership.

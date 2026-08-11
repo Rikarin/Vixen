@@ -231,7 +231,20 @@ public sealed class AppBuilder {
         // ⚠ Added here rather than inside AppGraphics because the ring is this method's. It goes into
         // the same DiagnosticOverlays the overlay system was handed — the object, not a copy — which
         // is the one thing about this feature that fails silently if it is got wrong.
-        graphics?.Overlays?.Add(new LogOverlay(logs));
+        if (graphics?.Overlays is { } panels) {
+            panels.Add(new LogOverlay(logs));
+
+            // Said here rather than where the rest were built, because the count has to be the final
+            // one. A build with the switch on and no commands is a console that will answer `help`
+            // and nothing else, which is worth knowing before somebody types a subsystem's verb and
+            // concludes the subsystem is broken.
+            // Into locals first: CA1873 is right that building a logger inside the call is work done
+            // whether or not anybody is listening, and this happens once at start-up either way.
+            var overlayLog = loggerFactory.CreateLogger("Vixen.App");
+            var commands = graphics.Console!.Registered.Count;
+
+            HostLog.OverlaysEnabled(overlayLog, panels.Registered.Count, commands);
+        }
 
         var services = new AppServices(
             host,

@@ -849,8 +849,6 @@ public sealed class AppGraphics : IDisposable {
         Renderer.Host.Debug = debugNode;
 
         overlaySystem = new(Overlays, Debug) { Viewport = new(Target.X, Target.Y) };
-
-        HostLog.OverlaysEnabled(logger, Overlays.Registered.Count, Console.Registered.Count);
     }
 
     /// <summary>Hands the panels this frame's numbers, before the loop draws them.</summary>

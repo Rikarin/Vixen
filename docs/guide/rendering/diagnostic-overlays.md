@@ -28,7 +28,7 @@ or, for a development build that always wants them:
 config.Graphics.Overlays = true;
 ```
 
-Press the **grave** key (<code>`</code>) for the console. Type `overlays` to list the panels and
+Press the **backtick** key for the console. Type `overlays` to list the panels and
 `overlay <name>` to switch one on.
 
 ## What it is for
@@ -96,6 +96,17 @@ involved — is a platform's question. `VixenApplication` answers it: characters
 `PlatformEventKind.TextInput` and never from key codes, so the console types the right letters on a
 non-US layout, and every key is swallowed while the panel is open so that typing `reload` does not
 also make the player reload.
+
+⚠ **Both `Key.Grave` and `Key.NonUsBackslash` open it, and the second is not a courtesy.** A scancode
+is a position on a board, not a character: the key that types a backtick is below <kbd>Esc</kbd> on an
+ANSI keyboard and beside left shift on an ISO one. Checking `Grave` alone opens the console for
+nobody in Europe — which is exactly how the first run of this on a real machine reported "the key
+does nothing" with every count reading correct.
+
+⚠ **Text input is started only where the platform says it is off.** `ITextInput` is documented as
+off by default; on SDL desktop it is already running and the characters arrive with nothing asked
+for. The host therefore checks `IsActive` first, and stops only what it started — a browser canvas
+or a phone, which is what the interface was drawn for, still gets its `Activate`.
 
 ⚠ **Ageing happens after the frame is recorded, and it is not a system.** `DebugDrawSystem` ages the
 accumulator in `SystemPhase.PostRender`, which is after the drain only if the drain is itself a

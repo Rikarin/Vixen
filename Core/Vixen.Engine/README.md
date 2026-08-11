@@ -498,6 +498,12 @@ output has no depth attachment — which the overlay pass, over the frame's last
 does not. `DebugDrawRenderer.DepthTested = false` did not help, because the pipeline was already
 made. It now builds the tested pipeline only when there is depth to test.
 
+⚠ **And two things only a real machine could say, both found by running it.** The console key is
+`Key.Grave` on an ANSI keyboard and `Key.NonUsBackslash` on an ISO one — a scancode is a position on
+a board, not a character — so a check for `Grave` alone opens the console for nobody in Europe, with
+every count still reading correct. And `ITextInput` is documented as off by default while SDL desktop
+already has it running: the host asks `IsActive` first and stops only what it started.
+
 **One trap, found the expensive way, and still worth reading.** `EditorApplication` held a
 `DiagnosticsModule` of its own while the plugin system registered a different one, so the host wrote
 the device and the resolved frame into an object no panel read — and the panel reported "No graphics
