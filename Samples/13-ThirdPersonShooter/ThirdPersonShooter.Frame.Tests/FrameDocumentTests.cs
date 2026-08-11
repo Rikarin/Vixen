@@ -166,6 +166,36 @@ public sealed class FrameDocumentTests : IDisposable {
         Assert.Equal(2, chain.BuildsPerFrame);
     }
 
+    /// <summary>Both marches measure their shell in metres, and in the same metres.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Unset is not neutral here — it is the hit test collapsing.</b> Left alone, both
+    ///         nodes keep the device-depth shell of 0.02, and under this camera's reverse-Z 0.1/1000
+    ///         planes that shell reaches past the far plane for every surface beyond 4.98 m. The
+    ///         frame's median surface sits at five to eight metres, so over most of the picture
+    ///         "is this sample inside that surface" becomes "is this sample behind it at all", and a
+    ///         ray thirty metres past a wall reports a hit on the wall. Nothing about the frame says
+    ///         so: the colour is right and the place is wrong.
+    ///     </para>
+    ///     <para>
+    ///         One metre is <c>Arena.vxscene</c>'s number, not a tuned one — the floor slab, the four
+    ///         walls and the four pillars are all authored at <c>halfExtents</c> 0.5 on their thin
+    ///         axis, so it is the thickness of every solid that bounds this room. The two nodes are
+    ///         asserted together because they march one chain over one depth buffer, and a shell that
+    ///         differs between them is the same ray stopped in two places.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Both_marches_measure_their_shell_in_the_levels_own_metres() {
+        using var built = Build();
+
+        var gather = Assert.IsType<ScreenProbeGatherRenderer>(built.Builder.Nodes["Gather"]);
+        var mirrors = Assert.IsType<ReflectionRenderer>(built.Builder.Nodes["Mirrors"]);
+
+        Assert.Equal(1f, gather.ScreenLinearThickness);
+        Assert.Equal(mirrors.ScreenLinearThickness, gather.ScreenLinearThickness);
+    }
+
     /// <summary>The culling node adopts the host's group, which is the handover the game relies on.</summary>
     [Fact]
     public void The_document_turns_the_hosts_culling_group_on() {
