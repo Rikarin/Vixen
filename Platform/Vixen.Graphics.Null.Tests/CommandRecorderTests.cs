@@ -201,6 +201,42 @@ public sealed class CommandRecorderTests : IDisposable {
         Assert.Throws<InvalidOperationException>(list.Finish);
     }
 
+    /// <summary>
+    ///     A pass whose name is empty records the same balanced stream as any other — no group is
+    ///     opened for it here, so none is left open by it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This one passed the day it was written</b>, and it is worth keeping for what it
+    ///     records rather than for what it caught. The Vulkan backend brackets every render pass with
+    ///     a debug group taken from <c>RenderPassDescription.Name</c>, and an empty name there used to
+    ///     emit the end without the begin. This backend never had that shape: a pass's name rides on
+    ///     the <see cref="RecordedCommandKind.BeginRenderPass" /> command itself, and
+    ///     <c>PushDebugGroup</c> counts depth rather than declining a name it does not like. The test
+    ///     pins that difference, so a future "let the Null lists label their passes too" arrives with
+    ///     the balance already asserted.
+    /// </remarks>
+    [Fact]
+    public void AnUnnamedPassRecordsABalancedStream() {
+        using var list = device.BeginCommandList(name: "Unnamed");
+        list.BeginRenderPass(new RenderPassDescription(Attachments(), null, string.Empty));
+        list.EndRenderPass();
+        list.Finish();
+
+        device.GraphicsQueue.Submit([list]);
+
+        var commands = device.Recorder!.Commands;
+
+        Assert.Equal(
+            commands.Count(command => command.Kind == RecordedCommandKind.PushDebugGroup),
+            commands.Count(command => command.Kind == RecordedCommandKind.PopDebugGroup)
+        );
+
+        Assert.Equal(
+            commands.Count(command => command.Kind == RecordedCommandKind.BeginRenderPass),
+            commands.Count(command => command.Kind == RecordedCommandKind.EndRenderPass)
+        );
+    }
+
     [Fact]
     public void AListSubmittedBeforeItIsFinishedIsRefused() {
         using var list = device.BeginCommandList();

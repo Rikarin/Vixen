@@ -826,6 +826,45 @@ public sealed class AppGraphics : IDisposable {
 
         Resize();
         HostLog.GraphicsStarted(logger, Device.Adapter.Name, Device.Adapter.Kind, built.X, built.Y);
+        ReportScaling();
+    }
+
+    /// <summary>Says so when the frame is not the size the window was asked for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The point of this method is that the difference is invisible otherwise.</b> A
+    ///         window is requested in logical points and a swapchain is built in physical pixels
+    ///         (<see cref="FramebufferOf" />), so on a retina display the frame has four times the
+    ///         pixels the application named and nothing before this line said which of the two numbers
+    ///         <see cref="HostLog.GraphicsStarted" /> is reporting. Quadrupling a number somebody chose
+    ///         is a decision the engine is entitled to make and not one it may make quietly.
+    ///     </para>
+    ///     <para>
+    ///         Read off the window rather than off <c>WindowOptions</c>, and deliberately: the window
+    ///         manager is entitled to have ignored the requested size, so the honest comparison is
+    ///         between the client area the window actually has and the framebuffer it actually got.
+    ///     </para>
+    /// </remarks>
+    void ReportScaling() {
+        if (window is null) {
+            return;
+        }
+
+        var points = window.ClientSize;
+
+        if (points.X <= 0 || points.Y <= 0 || (points.X == built.X && points.Y == built.Y)) {
+            return;
+        }
+
+        HostLog.FramebufferScaled(
+            logger,
+            points.X,
+            points.Y,
+            built.X / (float)points.X,
+            built.X,
+            built.Y,
+            built.X * (float)built.Y / (points.X * (float)points.Y)
+        );
     }
 
     /// <summary>Lends the acquired image to the document, under the name the frame writes.</summary>

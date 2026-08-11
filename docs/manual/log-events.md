@@ -151,6 +151,11 @@ started" rather than "just now".
 | 13019 | Warning | `The startup scene {Address} was not loaded ({Reason}) — the world is empty.` — something asked for a level, so an empty window has a reason nothing else in the log would give | 0.1.0 |
 | 13020 | Information | `Remote content: {Bundles} downloadable bundle(s), cached under {Cache}.` — the line that turns a first-run stall into an explanation, and says where the space went |
 | 13021 | Information | `Unpacked content: chunks read from the artefact store at {Root}, with nothing bundled.` — doc 17's Editor variant; a run whose content came from somebody's `Library/` has to be identifiable in a log attached to a bug report | 0.1.0 |
+| 13022 | Warning | `{Finding}` — one of the render graph's lint findings, said once per distinct finding; every one describes a frame that draws and quietly wastes or discards work | 0.1.0 |
+| 13023 | Information | `Look profile {Source} applied.` — which layer supplied it, the document's inline one or the host's | 0.1.0 |
+| 13024 | Warning | `Look profile {Address} was not loaded ({Reason}) — the frame keeps its neutral values.` | 0.1.0 |
+| 13025 | Information | `GPU pass timing requested: {Attached} on '{Adapter}'.` — worth a line in both directions, because a profiled frame is not the frame that ships and an unsupported one is an empty timeline with no reason for it | 0.1.0 |
+| 13026 | Information | `The window asked for {PointWidth}×{PointHeight} points and the display scale is ×{Scale}, so the frame is {PixelWidth}×{PixelHeight} — {Factor}× the pixels.` — 13010 reports the result; this one reports that the result is not what was asked for, which on a retina display is four times the pixels and rather more than four times the screen-space cost | 0.1.0 |
 
 Every other range is still reserved rather than allocated: the subsystems that will log have not been
 written, and the ranges exist so that when they are, nobody has to invent a numbering scheme under
