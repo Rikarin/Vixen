@@ -260,6 +260,7 @@ static class StandardFrame {
     const string SceneDepth = "SceneDepth";
     const string SceneAlbedo = "SceneAlbedo";
     const string SceneNormals = "SceneNormals";
+    const string SceneSpecular = "SceneSpecular";
     const string SceneMotion = "SceneMotion";
     const string ShadowAtlas = "ShadowAtlas";
     const string PunctualAtlas = "PunctualShadowAtlas";
@@ -497,7 +498,7 @@ static class StandardFrame {
         var probes = frame.Gi == GiMode.Probes;
         var mirrors = frame.Reflections == ReflectionsMode.Screen;
 
-        // The ambient split: three targets on Main and the combine at the far end. Reflections need
+        // The ambient split: four targets on Main and the combine at the far end. Reflections need
         // it too, because the combine's validity blend is the only compositor the traced plane has.
         var split = frame.Gi != GiMode.Off || mirrors;
 
@@ -642,6 +643,19 @@ static class StandardFrame {
                     Scale = tier.RenderScale
                 }
             );
+
+            // The fourth plane: what each surface reflects at normal incidence. Declared with the
+            // other two rather than behind `mirrors`, because member order is target order — a plane
+            // that appears only in some frames would make the Main pass's attachment list depend on
+            // a post node, and the shading pass writes location 3 either way.
+            resources.Add(
+                new() {
+                    Name = SceneSpecular,
+                    Format = PixelFormat.Rgba16Float,
+                    Usage = TextureUsage.ColourTarget | TextureUsage.Sampled,
+                    Scale = tier.RenderScale
+                }
+            );
         }
 
         if (motion) {
@@ -775,13 +789,16 @@ static class StandardFrame {
             : [];
 
         // Member order is target order and the shader dictates it: location 0 is direct light,
-        // 1 albedo with occlusion in alpha, 2 world normal with roughness in alpha. Only SceneHdr
-        // is loaded — that is the sky — while the split planes clear, because loading a target no
-        // pass produced is refused by the graph.
+        // 1 albedo with occlusion in alpha, 2 world normal with roughness in alpha, 3 the surface's
+        // f0. Only SceneHdr is loaded — that is the sky — while the split planes clear, because
+        // loading a target no pass produced is refused by the graph.
+        //
+        // ⚠ The specular plane is appended and never inserted. Reordering this list is not a
+        // different layout, it is albedo shaded as radiance through the entire chain.
         nodes.Add(
             new RenderPassAsset {
                 Name = "Main",
-                ColourTargets = split ? [SceneHdr, SceneAlbedo, SceneNormals] : [SceneHdr],
+                ColourTargets = split ? [SceneHdr, SceneAlbedo, SceneNormals, SceneSpecular] : [SceneHdr],
                 DepthTarget = SceneDepth,
                 Loaded = [SceneHdr],
                 SceneTextures = sceneTextures,
@@ -939,6 +956,7 @@ static class StandardFrame {
                     Direct = SceneHdr,
                     Albedo = SceneAlbedo,
                     Normals = SceneNormals,
+                    Specular = SceneSpecular,
                     Irradiance = probes ? "ProbeIrradiance" : "",
                     Occlusion = frame.Gi != GiMode.Off ? "AmbientOcclusion" : "",
                     ContactOcclusion = frame.Gi != GiMode.Off ? "ScreenOcclusion" : "",
@@ -1228,6 +1246,10 @@ static class StandardFrame {
                     SceneNormals =>
                         "The split's other plane — world normal with roughness in alpha — read by every "
                         + "screen-space march below.",
+                    SceneSpecular =>
+                        "What each surface reflects at normal incidence. f0 itself and not metalness: the "
+                        + "albedo plane is base colour times one minus metalness, which is black on a metal, "
+                        + "so there would be nothing left to rebuild it from.",
                     SceneMotion =>
                         "Signed float, not unorm: a motion vector points either way, and eight bits would "
                         + "quantise a slow pan into steps TAA then accumulates.",

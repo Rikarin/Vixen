@@ -485,6 +485,42 @@ public sealed class SceneLightingTests : IDisposable {
         Assert.Equal(Vector3.Zero, parameters.Get(ForwardPlusKeys.LightColor));
     }
 
+    // --- The specular-ambient scale -----------------------------------------
+
+    /// <summary>
+    ///     The scale is written for every frame, sky or no sky, because the shader's declared
+    ///     default is not a fallback.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <c>ClusteredShading.ambientSpecularScale</c> is declared <c>= 1f</c>, and that
+    ///         number only reaches the buffer through the generated <c>ForwardPlusKeys</c> class.
+    ///         This path interns its names as strings, which takes the <em>no-default</em> overload
+    ///         — so a member nobody sets is zero, and the split path would silently lose every
+    ///         surface's specular ambient rather than keeping it.
+    ///     </para>
+    ///     <para>
+    ///         Which is why it is written outside <c>WriteEnvironment</c>: that method returns early
+    ///         for a scene with no sky, and this member's zero does not mean "no sky", it means
+    ///         "drop the term".
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_specular_ambient_scale_is_written_even_with_no_environment() {
+        var lighting = new SceneLighting();
+        var parameters = new ParameterCollection();
+
+        lighting.Extract(parameters, Pass());
+
+        Assert.Equal(1f, parameters.Get(ForwardPlusKeys.AmbientSpecularScale));
+
+        // And the zero a reflections plane asks for arrives as a zero rather than as an absence.
+        lighting.AmbientSpecular = 0f;
+        lighting.Extract(parameters, Pass());
+
+        Assert.Equal(0f, parameters.Get(ForwardPlusKeys.AmbientSpecularScale));
+    }
+
     // --- In a frame ---------------------------------------------------------
 
     /// <summary>

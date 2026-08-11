@@ -442,8 +442,9 @@ public sealed class TerrainRenderer : IDisposable {
         layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "terrain"));
 
         // Every colour format the output declares, not the first: a split frame hands the lit
-        // shader three targets — the scene, the albedo plane and the normal plane — and a pipeline
-        // declaring fewer attachments than the pass would be a validation error at the draw.
+        // shader four targets — the scene, the albedo plane, the normal plane and the f0 plane —
+        // and a pipeline declaring fewer attachments than the pass would be a validation error at
+        // the draw.
         var attachments = new ColourTargetState[Math.Max(output.ColourCount, 1)];
 
         for (var target = 0; target < attachments.Length; target++) {

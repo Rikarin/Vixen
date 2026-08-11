@@ -310,6 +310,9 @@ shader FoliageLit : FoliageBase {
 
             // Raw and signed — `SceneNormals`' convention, where an encode misleads every reader.
             targets.normal = float4(n, 1f)
+
+            // Dielectric — `TerrainTargets.specular`'s note; bark and leaves are not metals.
+            targets.specular = float4(0.04f, 0.04f, 0.04f, 0f)
         } else {
             val irradiance = Ibl.IrradianceSh9(n, environmentSh)
 

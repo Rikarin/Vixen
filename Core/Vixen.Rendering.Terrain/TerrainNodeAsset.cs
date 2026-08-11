@@ -59,6 +59,9 @@ public sealed record TerrainNodeAsset : ISceneRendererAsset {
     /// <summary>And its normal plane, on the same terms.</summary>
     public string Normals { get; init; } = "SceneNormals";
 
+    /// <summary>And its specular plane — the surface's f0 — on the same terms.</summary>
+    public string Specular { get; init; } = "SceneSpecular";
+
     /// <summary>The cascade atlas the frame renders, which the lit ground samples.</summary>
     public string ShadowAtlas { get; init; } = "ShadowAtlas";
 

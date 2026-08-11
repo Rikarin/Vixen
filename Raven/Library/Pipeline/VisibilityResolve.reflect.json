@@ -269,6 +269,22 @@
               "DefaultValue": "1"
             },
             {
+              "Name": "ambientSpecularScale",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 400,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1"
+            },
+            {
               "Name": "probeVolumes",
               "Type": {
                 "Scalar": "Struct",
@@ -280,7 +296,7 @@
                 "IsArray": true,
                 "IsStruct": true
               },
-              "Offset": 400,
+              "Offset": 416,
               "Size": 256,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -297,7 +313,7 @@
                 "IsArray": false,
                 "IsStruct": true
               },
-              "Offset": 400,
+              "Offset": 416,
               "Size": 48,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -313,7 +329,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 400,
+              "Offset": 416,
               "Size": 12,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -329,7 +345,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 416,
+              "Offset": 432,
               "Size": 12,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -345,7 +361,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 432,
+              "Offset": 448,
               "Size": 12,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -361,7 +377,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 448,
+              "Offset": 464,
               "Size": 4,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -377,7 +393,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 452,
+              "Offset": 468,
               "Size": 4,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -394,7 +410,7 @@
                 "IsArray": false,
                 "IsStruct": true
               },
-              "Offset": 656,
+              "Offset": 672,
               "Size": 144,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -410,7 +426,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 656,
+              "Offset": 672,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -426,7 +442,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 672,
+              "Offset": 688,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -442,7 +458,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 688,
+              "Offset": 704,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -458,7 +474,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 704,
+              "Offset": 720,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -474,7 +490,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 720,
+              "Offset": 736,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -490,7 +506,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 736,
+              "Offset": 752,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -506,7 +522,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 752,
+              "Offset": 768,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -522,7 +538,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 768,
+              "Offset": 784,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -538,7 +554,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 784,
+              "Offset": 800,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -555,7 +571,7 @@
                 "IsArray": false,
                 "IsStruct": true
               },
-              "Offset": 800,
+              "Offset": 816,
               "Size": 96,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -571,7 +587,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 800,
+              "Offset": 816,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -587,7 +603,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 816,
+              "Offset": 832,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -603,7 +619,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 832,
+              "Offset": 848,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -619,7 +635,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 848,
+              "Offset": 864,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -635,7 +651,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 864,
+              "Offset": 880,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -651,7 +667,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 876,
+              "Offset": 892,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -667,14 +683,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 880,
+              "Offset": 896,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
             }
           ],
-          "Size": 896,
+          "Size": 912,
           "IsWritable": false
         },
         {
@@ -2090,6 +2106,16 @@
           "Members": [],
           "Size": 0,
           "IsWritable": false
+        },
+        {
+          "Binding": 14,
+          "Name": "specularTarget",
+          "Type": "StorageImage",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
         }
       ]
     },
@@ -2779,10 +2805,10 @@
       "DefaultValue": "1"
     },
     {
-      "Name": "probeVolumes[].box.minimum",
+      "Name": "ambientSpecularScale",
       "Type": {
         "Scalar": "Float",
-        "Rows": 3,
+        "Rows": 1,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -2791,13 +2817,13 @@
       "Set": 0,
       "Binding": 0,
       "Offset": 400,
-      "Size": 12,
-      "ArrayStride": 64,
+      "Size": 4,
+      "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1"
     },
     {
-      "Name": "probeVolumes[].box.maximum",
+      "Name": "probeVolumes[].box.minimum",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -2815,7 +2841,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "probeVolumes[].box.center",
+      "Name": "probeVolumes[].box.maximum",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -2833,6 +2859,24 @@
       "DefaultValue": ""
     },
     {
+      "Name": "probeVolumes[].box.center",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 448,
+      "Size": 12,
+      "ArrayStride": 64,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "probeVolumes[].radius",
       "Type": {
         "Scalar": "Float",
@@ -2844,7 +2888,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 448,
+      "Offset": 464,
       "Size": 4,
       "ArrayStride": 64,
       "MatrixStride": 0,
@@ -2862,7 +2906,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 452,
+      "Offset": 468,
       "Size": 4,
       "ArrayStride": 64,
       "MatrixStride": 0,
@@ -2880,7 +2924,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 656,
+      "Offset": 672,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -2898,7 +2942,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 672,
+      "Offset": 688,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -2916,7 +2960,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 688,
+      "Offset": 704,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -2934,7 +2978,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 704,
+      "Offset": 720,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -2952,7 +2996,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 720,
+      "Offset": 736,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -2970,7 +3014,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 736,
+      "Offset": 752,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -2988,7 +3032,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 752,
+      "Offset": 768,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3006,7 +3050,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 768,
+      "Offset": 784,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3024,7 +3068,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 784,
+      "Offset": 800,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3042,7 +3086,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 800,
+      "Offset": 816,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3060,7 +3104,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 816,
+      "Offset": 832,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3078,7 +3122,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 832,
+      "Offset": 848,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3096,7 +3140,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 848,
+      "Offset": 864,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3114,7 +3158,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 864,
+      "Offset": 880,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3132,7 +3176,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 876,
+      "Offset": 892,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -3150,7 +3194,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 880,
+      "Offset": 896,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

@@ -380,6 +380,9 @@ shader GrassLit : GrassBlade {
 
             // Raw and signed, and the *ground's* — the stream's own note says why.
             targets.normal = float4(n, 1f)
+
+            // Dielectric — `TerrainTargets.specular`'s note; a blade of grass is not a mirror.
+            targets.specular = float4(0.04f, 0.04f, 0.04f, 0f)
         } else {
             val irradiance = Ibl.IrradianceSh9(n, environmentSh)
 

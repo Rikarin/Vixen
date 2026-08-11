@@ -119,6 +119,15 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
     /// <summary>The split's normal plane — world normal, roughness in alpha. On <see cref="Albedo" />'s terms.</summary>
     public string Normals { get; set; } = string.Empty;
 
+    /// <summary>The split's f0 plane — specular reflectance at normal incidence. On <see cref="Albedo" />'s terms.</summary>
+    /// <remarks>
+    ///     ⚠ Named with the other two or the node refuses. A resolve that wrote albedo and normals
+    ///     but left this plane holding last frame's texels would hand <c>!AmbientCombine</c> an
+    ///     <c>f0</c> for a surface that is no longer there — and unlike a missing plane, a stale one
+    ///     draws a picture.
+    /// </remarks>
+    public string Specular { get; set; } = string.Empty;
+
     /// <summary>Which depth resource to test and write against.</summary>
     /// <remarks>
     ///     Required, for the reason in the class remarks: without a depth test the nearest cluster is
@@ -301,21 +310,24 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
         // rather than fail inside a command list.
         var colour = resolve is null ? default : frame.Texture(ToString(), Colour);
 
-        // Both split planes or neither: one without the other is a half-split frame no combine can
+        // All three split planes or none: one without the others is a half-split frame no combine can
         // read, and a loud refusal here beats an albedo plane quietly holding last frame's texels.
-        if (Albedo.Length > 0 != Normals.Length > 0) {
+        var named = (Albedo.Length > 0 ? 1 : 0) + (Normals.Length > 0 ? 1 : 0) + (Specular.Length > 0 ? 1 : 0);
+
+        if (named is not (0 or 3)) {
             throw new CompositorBindingException(
                 ToString(),
                 "target",
-                Albedo.Length > 0 ? Normals : Albedo,
-                "is empty while its split partner is named. The ambient split writes albedo and "
-                + "normals together or not at all — name both planes, or neither"
+                Albedo.Length > 0 ? Normals.Length > 0 ? Specular : Normals : Albedo,
+                "is empty while its split partners are named. The ambient split writes albedo, "
+                + "normals and specular together or not at all — name all three planes, or none"
             );
         }
 
         var split = resolve is not null && Albedo.Length > 0;
         var albedo = split ? frame.Texture(ToString(), Albedo) : default;
         var normal = split ? frame.Texture(ToString(), Normals) : default;
+        var specular = split ? frame.Texture(ToString(), Specular) : default;
 
         // A second pass, and not a second node. The binning samples what the draw wrote, so it cannot be
         // inside the render pass that writes it — an attachment being written is not a texture being read
@@ -334,6 +346,7 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
                 if (split) {
                     pass.Writes(albedo);
                     pass.Writes(normal);
+                    pass.Writes(specular);
                 }
 
                 pass.SideEffect();
@@ -357,8 +370,17 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
 
                         var albedoView = split ? context.View(albedo) : default;
                         var normalView = split ? context.View(normal) : default;
+                        var specularView = split ? context.View(specular) : default;
 
-                        if (resolve.Prepare(view, context.View(colour), context.View(identity), size, albedoView, normalView)) {
+                        if (resolve.Prepare(
+                                view,
+                                context.View(colour),
+                                context.View(identity),
+                                size,
+                                albedoView,
+                                normalView,
+                                specularView
+                            )) {
                             resolve.Record(context.CommandList);
                         }
                     }

@@ -1087,15 +1087,20 @@ public sealed class Arena : IDisposable {
         permutations.Set(ForwardPlusKeys.UseImageBasedLighting, ImageBasedLight);
         permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
 
-        // ⚠ **The split: three targets out of the one shading pass, and the frame's diffuse
-        // ambient moves out of the material.** With this on, ForwardPlus writes direct light,
-        // emissive and specular ambient to target 0, albedo (occlusion in alpha) to target 1 and
-        // world normal (roughness in alpha) to target 2 — and holds diffuse ambient back entirely,
-        // because the document's !AmbientCombine rebuilds it from real screen irradiance and real
-        // occlusion, which a forward pass adding everything into one number can never un-add.
-        // The other halves live in Frame.vxcompositor: the Main pass's three colourTargets in this
-        // exact order, and the combine at the chain's end. Flip this alone and target 0 is a frame
-        // missing its ambient with nothing downstream to put it back.
+        // ⚠ **The split: four targets out of the one shading pass, and the frame's diffuse
+        // ambient moves out of the material.** With this on, ForwardPlus writes direct light and
+        // emissive to target 0, albedo (occlusion in alpha) to target 1, world normal (roughness in
+        // alpha) to target 2 and the surface's f0 to target 3 — and holds diffuse ambient back
+        // entirely, because the document's !AmbientCombine rebuilds it from real screen irradiance
+        // and real occlusion, which a forward pass adding everything into one number can never
+        // un-add. Its specular ambient goes the same way here, because this document names a
+        // reflections plane: `ambientSpecularScale` zeroes the prefiltered-cube term the combine's
+        // traced answer replaces, weighted by the f0 on target 3.
+        //
+        // The other halves live in Frame.vxcompositor: the Main pass's four colourTargets in this
+        // exact order, and the combine at the chain's end with `specular:` and `reflections:` both
+        // named. Flip this alone and target 0 is a frame missing its ambient with nothing
+        // downstream to put it back.
         permutations.Set(ForwardPlusKeys.SplitOutputs, true);
 
         // ⚠ Off again — on for exactly one increment, and the move is the story. It came on when

@@ -92,6 +92,16 @@ resources:
     format: Rgba16Float
     usage: ColourTarget, Sampled, CopySource
 
+  # And the fourth: specular reflectance at normal incidence — the material's f0 — in rgb, alpha
+  # unused. Three channels and not one metalness channel, and that is the whole finding: MaterialData
+  # keeps a diffuse colour and an f0 rather than a metalness, the pair is underdetermined, and
+  # SceneAlbedo above holds base colour times one minus metalness — which is *black* on a metal, so
+  # there would be nothing left for a reader to rebuild f0 from. Without it the combine weighed this
+  # level's one metal, the ramps, as though it were paint.
+  - name: SceneSpecular
+    format: Rgba16Float
+    usage: ColourTarget, Sampled
+
   - name: VisibilityBuffer
     format: R32UInt
     usage: ColourTarget, Sampled, Storage
@@ -418,7 +428,7 @@ game: !Sequence
     #
     # Re-enabling is a checklist, not a flag: mount WorldRenderer.Clusters; move !Sky above
     # !VisibilityBuffer and make the resolve load rather than clear SceneHdr; add SceneAlbedo,
-    # SceneNormals to Main's `loaded:` and `depthLoad: Load` beside them; and compose the same
+    # SceneNormals and SceneSpecular to Main's `loaded:` and `depthLoad: Load` beside them; and compose the same
     # shadow shaders behind VisibilityResolve's slots that Arena.Paint gives ForwardPlus — the
     # resolve keeps NoDirectionalShadows/NoPunctualShadows today, which next to a shadowed forward
     # pixel is a lighting seam along every material boundary.
@@ -439,6 +449,7 @@ game: !Sequence
       colour: SceneHdr
       albedo: SceneAlbedo
       normals: SceneNormals
+      specular: SceneSpecular
 
     # ── the background, which is the environment cube and not a colour ──────────────────────────
     # ⚠ Before the pass that draws the scene, filling a target that pass then *loads*. That is what
@@ -461,18 +472,25 @@ game: !Sequence
     #    checklist above — because a resolve with a depth of its own would be two frames
     #    composited.
     # ⚠ Member order is target order, and the shader dictates it: with SplitOutputs on (Arena.Paint
-    # again) ForwardPlus writes location 0 = direct light, emissive and specular ambient, 1 = albedo
-    # with the material's occlusion in alpha, 2 = world normal with roughness in alpha. Diffuse
+    # again) ForwardPlus writes location 0 = direct light and emissive, 1 = albedo with the material's
+    # occlusion in alpha, 2 = world normal with roughness in alpha, 3 = the surface's f0. Diffuse
     # ambient is in none of them — the combine below owns it, which is the whole split. Reordering
-    # this list is not a different layout, it is albedo shaded as radiance through the entire chain.
+    # this list is not a different layout, it is albedo shaded as radiance through the entire chain,
+    # which is why SceneSpecular was appended and not slotted in beside its neighbours.
+    #
+    # ⚠ Specular ambient is in none of them either, now that the f0 plane exists: the combine adds
+    # the traced reflection weighted by that f0 instead, and the pass holds its own prefiltered-cube
+    # term back so the dusk sky is not counted twice. The two halves are one switch —
+    # AmbientCombineRenderer.Build — and naming `specular:` below is what throws it.
     - !RenderPass
       name: Main
-      colourTargets: [SceneHdr, SceneAlbedo, SceneNormals]
+      colourTargets: [SceneHdr, SceneAlbedo, SceneNormals, SceneSpecular]
       depthTarget: SceneDepth
 
       # ⚠ Per target, and it has to be. SceneHdr keeps what the sky pass above put there — that is
       # the background, and clearing it would throw a full-screen pass away and look exactly like the
-      # node not existing. SceneAlbedo and SceneNormals are left to `load`, which clears — the
+      # node not existing. SceneAlbedo, SceneNormals and SceneSpecular are left to `load`, which
+      # clears — the
       # visibility resolve above does write both, but its planes go the way its colour already goes
       # (the ordering note at the foot of this file): loading them here on a host with no virtualized
       # geometry wired would be a read of a target no pass produced, which the graph refuses by name,
@@ -540,6 +558,7 @@ game: !Sequence
       depth: SceneDepth
       albedo: SceneAlbedo
       normals: SceneNormals
+      specular: SceneSpecular
       shadowAtlas: ShadowAtlas
       view: Camera
       grass: true
@@ -613,10 +632,10 @@ game: !Sequence
 
     # ── the lamps' embers ───────────────────────────────────────────────────────────────────────
     # A pass of its own rather than a second child of Main, and the reason is Main's *other*
-    # attachments. That pass writes SceneHdr, SceneAlbedo and SceneNormals, so a pipeline built for
-    # it declares three colour targets — and `ParticleSprite` returns one value, which leaves
-    # attachments 1 and 2 undefined and additively blended into the albedo and normals planes. One
-    # target here means the question does not arise.
+    # attachments. That pass writes SceneHdr, SceneAlbedo, SceneNormals and SceneSpecular, so a
+    # pipeline built for it declares four colour targets — and `ParticleSprite` returns one value,
+    # which leaves attachments 1 to 3 undefined and additively blended into the albedo, normals and
+    # f0 planes. One target here means the question does not arise.
     #
     # Depth is Main's, loaded and read-only, on the velocity pass's terms: an ember behind a wall is
     # rejected by the depth the opaque pass already wrote, and nothing here writes depth back.
@@ -890,6 +909,13 @@ game: !Sequence
       direct: SceneHdr
       albedo: SceneAlbedo
       normals: SceneNormals
+
+      # ⚠ Half of one change with `reflections:` above it, and neither half is safe alone. With both,
+      # the shading pass stops writing its prefiltered-cube specular and this adds the traced plane
+      # weighted by the surface's own f0 — about 0.55 on the ramps rather than a dielectric's 0.04.
+      # With only one of them the frame either counts the sky twice or reflects a metal as paint, so
+      # the node requires both before it moves anything.
+      specular: SceneSpecular
       irradiance: ProbeIrradiance
       occlusion: AmbientOcclusion
       contactOcclusion: ScreenOcclusion

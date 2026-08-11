@@ -95,7 +95,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// <remarks>
     ///     The canonical name is <c>!StandardFrame</c>'s and the presence of the resource is the
     ///     signal: a frame that splits declares the plane and the Main pass writes it, so the ground
-    ///     joins with the same three targets — direct light, albedo, raw world normal — and the
+    ///     joins with the same four targets — direct light, albedo, raw world normal, f0 — and the
     ///     ambient combine rebuilds its diffuse ambient like everything else's. A frame that does
     ///     not split declares no such resource and the ground draws one target, ambient included.
     /// </remarks>
@@ -103,6 +103,15 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
     /// <summary>And its normal plane, on the same terms.</summary>
     public string Normals { get; set; } = "SceneNormals";
+
+    /// <summary>And its specular plane — the surface's f0 — on the same terms.</summary>
+    /// <remarks>
+    ///     The ground writes a dielectric 0.04 into it: dirt, grass and bark are dielectrics and the
+    ///     splat has no metalness authoring. The plane is not optional for all that — member order is
+    ///     target order, so a pass declaring three attachments against a shader that writes four is
+    ///     refused at the draw rather than short one plane.
+    /// </remarks>
+    public string Specular { get; set; } = "SceneSpecular";
 
     /// <summary>The frame's cascade atlas — half of what makes the ground frame-lit at all.</summary>
     /// <remarks>
@@ -331,7 +340,12 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
         var output = Split
             ? new RenderOutput(
-                [colourFormat, frame.FormatOf(ToString(), Albedo), frame.FormatOf(ToString(), Normals)],
+                [
+                    colourFormat,
+                    frame.FormatOf(ToString(), Albedo),
+                    frame.FormatOf(ToString(), Normals),
+                    frame.FormatOf(ToString(), Specular)
+                ],
                 depthFormat
             )
             : new RenderOutput([colourFormat], depthFormat);
@@ -435,6 +449,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                     // is: the ground joins a frame, it does not start one.
                     pass.ColourAttachment(frame.Texture(ToString(), Albedo), LoadAction.Load, default);
                     pass.ColourAttachment(frame.Texture(ToString(), Normals), LoadAction.Load, default);
+                    pass.ColourAttachment(frame.Texture(ToString(), Specular), LoadAction.Load, default);
                 }
 
                 pass.DepthAttachment(depth, LoadAction.Load, 0f);
@@ -511,7 +526,8 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     ///     the frame already states: the atlas and the split planes are declared resources, the
     ///     cascades and the cluster buffers are published parameters, and the camera is the scene
     ///     lighting's. A hand-authored frame that provides them differently names its own resources
-    ///     through <see cref="ShadowAtlas" />, <see cref="Albedo" /> and <see cref="Normals" />.
+    ///     through <see cref="ShadowAtlas" />, <see cref="Albedo" />, <see cref="Normals" /> and
+    ///     <see cref="Specular" />.
     /// </remarks>
     (bool Lit, bool Split, bool Clustered) DetectMode(CompositorFrame frame) {
         if (Frame is not { Lighting.Camera: not null } constants) {
@@ -524,7 +540,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             return (false, false, false);
         }
 
-        var split = frame.Has(Albedo) && frame.Has(Normals);
+        var split = frame.Has(Albedo) && frame.Has(Normals) && frame.Has(Specular);
 
         // Both halves of the clustered contract, because they publish separately: the light list
         // comes from the lighting feature and the lists from the pass's own sceneBuffers line. The
