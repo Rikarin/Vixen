@@ -64,6 +64,71 @@ counters, any of which at zero is a black window or a frame lit by less than it 
 | ✅ | `ThirdPersonShooter.Frame.Tests/` — the frame document parsed and built against the Null device, so a YAML mistake fails a test rather than a launch |
 | ⬜ | Wiring `--vixen-frames` into CI as a gate — no sample is run headlessly in CI today, so this is a pattern to establish rather than a row to fill in |
 
+## The gates, the ground under your feet, and the lake
+
+The perimeter has four eight-metre gates in it, one per wall, and the ground outside stops a
+character. Both are new, and each closed a gap that was in the engine rather than in this level.
+
+**A gate is a wall entity split in two.** `arena-wall.obj` is 64 × 6 × 1 with its base at y = 0, so
+one entity carries a `scale` on x and the `!BoxCollision` beside it carries half-extents in metres,
+and the two come out of one arithmetic — segment = (64 − gate) / 2, `scale.x` = segment / 64,
+`halfX` = segment / 2. That is the doorway trick the houses already use, moved to the perimeter. The
+two halves are authored independently and nothing in the content build compares them, so
+`FrameDocumentTests.Every_gate_is_the_same_hole_in_the_mesh_and_in_the_collider` does: a hole you can
+see and not walk through, or walk through and not see, is worse than no hole at all.
+
+⚠ **The apron rose from −1.2 m to −0.2 m for the gates.** It only ever had to be "below the floor
+slab and out of sight", because the perimeter was solid and nobody could reach it. A 1.2 m drop is a
+one-way trip past a 1.1 m jump, so the arena would have let people out and not back in.
+
+**The terrain has a collider, and until this sample nothing in the engine ever built one.** Every
+piece existed: `PhysicsShapes.HeightField` registers the Jolt shape and
+`Vixen.Physics.Tests/HeightFieldShapeTests` exercises it thoroughly;
+`TerrainSamples.FillCollisionSamples` produces exactly the span that shape consumes, in metres, with
+holes as the caller's sentinel; and `Editor/Vixen.Editor.Terrain/ITerrainColliders` is the seam the
+sculpt tools call after every stroke. Nothing joined them. The only implementation of that interface
+anywhere is a test double that records tile indices, and the only callers of `FillCollisionSamples`
+were two assertions. So a terrain in a *game* had no collision, in any project, and the symptom was
+not an error — a character walked off the arena floor, fell through the ground, and
+`RespawnWhenBelow` put them back. `TerrainGroundSystem` is the missing call: one static body per
+tile, four for this 252 m of ground, and the quarry's hole is a pit you fall into because the
+sentinel travels.
+
+It cannot live in `Vixen.Rendering.Terrain`, which does not reference `Vixen.Physics` and must not —
+nothing in the rendering stack does. It belongs in a small join assembly on `Vixen.Water.Physics`'
+precedent, and it is here because a sample is where it can be shown without deciding that.
+
+**And there is a lake, ten metres past the north gate.** It is the tree's only `!WaterSurface` node:
+before this, `WaterMeshRenderer` was exercised by the golden suite alone. Three more absences had to
+be filled to get a body as far as the fold, and all three are the same shape as the collider —
+
+- `WaterZoneSystem.Splines` and `.Waves` are null until a game sets them, and no host sets them.
+  `AssetWaterSource` is the implementation and is constructed nowhere outside its own tests.
+- `WaterZoneSystem.Ground` defaults to `FlatWaterGround(0)` and only the editor's presenter has ever
+  replaced it, so in a game the depth of every lake was its own surface height above zero rather than
+  surface minus terrain. Doc 35 § D3 is explicit that the terrain is a first-class producer of that
+  channel; `TerrainGroundSystem` is a game being it.
+- `CharacterState.Immersion` is written by nothing, so `CharacterMoveMode.Swimming` could not be
+  entered from any scene. `WaterImmersionSystem` writes it, and a character dropped into the middle
+  of the lake settles at y = −0.334 against the −0.33 its own `SwimRestImmersion` predicts.
+
+⚠ **A fourth is a defect rather than a gap, and the sample works around it.**
+`WaterZoneSystem.GatherBodies` keys a body's cache on its component and its placement and stores the
+*failure* with it, so a body whose `SplineFor` answered null is recorded as unresolved and never
+asked again. `AssetWaterSource` answers null for the first frames by construction. The zone's sea
+state is the evidence: `GatherZones` re-resolves every fold with no cache, so the `.vxwaves` arrives
+late and works while the `.vxspline` beside it arrives late and does not. `Arena.Warm` blocks until
+the asset is in the source's cache; the real fix is one line in the fold.
+
+⚠ **The water does not draw yet, and the counters say where it stops.** The scene folds — one zone,
+one body, nothing unresolved — the field rasterises, and `!WaterSurface` submits 45 patches. Not one
+fragment survives: `WaterNormal` is empty, so the composite has nothing to integrate and the frame is
+identical whether it runs or not. The patch counter is patches *submitted*, which is why
+`Arena.ReportFrame` prints it beside the fold's five. Moving the node up beside `!Terrain`, turning
+tiling off, routing the composite to a target of its own and matching the golden fixture's plane
+formats each changed nothing, and all 21 water goldens pass on this device. The ground outside the
+walls draws black too, which is being looked at separately, and the two may be one thing.
+
 ## The picture, and what is in the way
 
 ⚠ **`WorldRenderer`'s mesh path had never drawn on a device, and this project is the first thing to

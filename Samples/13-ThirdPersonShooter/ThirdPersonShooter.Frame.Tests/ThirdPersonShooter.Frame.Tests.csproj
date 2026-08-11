@@ -32,6 +32,10 @@
              its .vxterrain carries. -->
         <ProjectReference Include="..\..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 
+        <!-- The lake's three node kinds — !WaterSurface, !Copy's consumer !Water — on exactly the
+             terms above: the document names them and the builder cannot know them itself. -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+
         <!--
           The Null backend, so a YAML or wiring mistake in the document fails a test on any machine
           rather than a launch on one with a GPU. Vixen.Rendering.Tests' CompositorAssetTests is the
@@ -59,5 +63,10 @@
         -->
         <None Include="..\Assets\Materials\*.vxmat" Link="Assets\Materials\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
         <None Include="..\Assets\Terrain\Outskirts.vxterrain" Link="Assets\Terrain\Outskirts.vxterrain" CopyToOutputDirectory="PreserveNewest" />
+
+        <!-- The scene and the lake's ring, so the gate arithmetic and the water's two halves are
+             checked against the files an author edits rather than against numbers copied here. -->
+        <None Include="..\Assets\Scenes\Arena.vxscene" Link="Assets\Scenes\Arena.vxscene" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\Assets\Water\Lake.vxspline" Link="Assets\Water\Lake.vxspline" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 </Project>

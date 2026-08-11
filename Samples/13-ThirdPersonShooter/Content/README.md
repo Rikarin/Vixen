@@ -85,11 +85,20 @@ by the palette slot the cull already writes into `FoliageCullParameters` — the
 ⚠ **The grass has not been read as blades on a device, and the sample cannot currently show it.**
 The field rasterises — an A/B at a temporarily inflated card width turns the ridge silhouette from a
 clean line into a thick vegetated mass and back — but at the authored 0.6 m the only viewpoints this
-sample allows put the field either in the arena's shade or out past its 55 m cull. The terrain
-carries no collider (colliders are built from the level's authored boxes), so a `VIXEN_SPAWN` into
-the field falls through it and `RespawnWhenBelow` cycles the camera below the surface; the one
-static perch is a wall top, seven metres above ground the low sun does not reach. Judging the blade
-silhouette needs either a free camera or a viewpoint the level does not have.
+sample allows put the field either in the arena's shade or out past its 55 m cull.
+
+⚠ **The half of that paragraph about falling through the terrain is fixed and the rest is not.** It
+used to read "the terrain carries no collider, so a `VIXEN_SPAWN` into the field falls through it and
+`RespawnWhenBelow` cycles the camera below the surface", and that was true of the whole engine rather
+than of this sample: `PhysicsShapes.HeightField`, `TerrainSamples.FillCollisionSamples` and the
+editor's `ITerrainColliders` were all built and tested and nothing anywhere called them. See
+`TerrainGroundSystem`, which is the missing call. A `VIXEN_SPAWN` outside the walls now lands on the
+ground and stays on it — `VIXEN_SPAWN=0,4,-40,0` finishes at y = 1.3314, which is `TerrainSeed`'s own
+arithmetic for that spot to four decimals.
+
+What has *not* changed is the light: the ground outside the walls draws essentially black at every
+viewpoint tried, which is the same absence the grass has and is being looked at separately. So the
+blade silhouette still cannot be judged from here, for a different reason than before.
 
 ⚠ **The third map is ORM, not roughness alone**: occlusion in R, roughness in G, metalness in B.
 One texture rather than three is the usual packing, and it matters here beyond tidiness — a
