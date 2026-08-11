@@ -119,7 +119,7 @@ resources:
   # name, which is the one way this could have failed loudly; it did.
   - name: SceneCombined
     format: Rgba16Float
-    usage: ColourTarget, Sampled, CopySource
+    usage: ColourTarget, Sampled, CopySource, CopyDestination
 
   - name: SceneCombinedCopy
     format: Rgba16Float
@@ -142,7 +142,7 @@ resources:
   # unsigned format would fold half of every wave onto the other half.
   - name: WaterNormal
     format: Rgba16Float
-    usage: ColourTarget, Sampled
+    usage: ColourTarget, Sampled, CopySource
 
 stages:
   - name: Opaque
@@ -571,7 +571,16 @@ game: !Sequence
       levelCount: 5
       farDistance: 2000
       # TerrainSeed.LakeSurface — where the *far* skirt sits, for a camera looking past the window.
-      # Nothing in this level is beyond the window, so it only ever shows on the horizon.
+      #
+      # ⚠ The claim that used to be here — "nothing in this level is beyond the window, so it only
+      # ever shows on the horizon" — was checked when the lake first drew and is half true, and the
+      # half that is not is a cost rather than a picture. `WaterSurfaceMesh.SelectFar` tiles every
+      # frustum-visible cell out to `farDistance` with no coverage test, so this level submits 34
+      # skirt patches to the window's 10; every one of them is then occluded, by the arena's walls
+      # from inside and by the outskirts from the lake shore, and turning the skirt off (farDistance
+      # 0) was measured to give a pixel-identical frame from both viewpoints. Left on because it is
+      # what a camera taken above the ridge would want, and recorded here because 34 of 44 patches
+      # is what the counter in `Arena.ReportFrame` is mostly counting.
       restHeight: 1.2
       # A quarter-metre of shallows before the water is fully water, forty centimetres before it
       # foams, and half a metre of crest above the rest height before a wave breaks. This lake's
@@ -932,22 +941,25 @@ game: !Sequence
       normal: WaterNormal
       view: Camera
       tiled: true
-      # ⚠ The same sun the sky was baked from and the cascades were fitted to — the level's
-      # directional light, whose direction Arena.SunDirection reads and whose fallback this repeats.
-      # Left unstated the water lights with a noon sun whatever the sky above it says, and the
-      # forward-scattering peak lands in the wrong half of the frame: a lake lit from a different day
-      # than the hills around it. Eight degrees up, travelling north-east, which is the level's
-      # premise and the reason everything inside the walls is in shade.
+      # ⚠ **These three are overwritten every frame by `Arena.FeedWater`, and they have to be.**
+      # `sunDirection`, `sunColour` and `skyColour` are the *radiance* the volume scatters, in the
+      # frame's own units — this level's sun is about twenty thousand and its sky is thousands — and
+      # what a document can write by hand is a tint around one. A tint here is not a slightly wrong
+      # lake: the integration is exactly right and lands four decades under the exposure, so the water
+      # tonemaps to the same black as the shaded ground it sits in, with the fold, the patch counts,
+      # the info texture and the composite's build count all reporting success. That is task #119, and
+      # it cost a week because a lake that is four decades too dim and a water pass that never ran are
+      # pixel-for-pixel the same picture.
       #
-      # ⚠ Static, and the level's sun is not: a SunOrbit turns it once every thirty seconds. So the
-      # scattering peak is right at one moment of the orbit and approximate at the rest of it — the
-      # same approximation ArenaIllumination already makes, which reads the direction once at wire-up.
-      # Fixing it properly is one line in a host that pushes the direction onto this node per frame,
-      # and it is owed rather than done.
+      # ⚠ And the level's sun *moves* — a SunOrbit turns it once every thirty seconds — so a direction
+      # stated here is right at one moment of the orbit and wrong for the rest of it. Both halves are
+      # `WaterRenderer.LightFrom`, called per frame.
+      #
+      # What is left below is the fallback for an editor or a host that does not push: eight degrees
+      # up, travelling north-east, which is this level's premise and the reason everything inside the
+      # walls is in shade.
       sunDirection: -0.5698 -0.1400 0.8098
       sunColour: 1.0 0.72 0.42
-      # The horizon's own colour, not a default blue-grey. Without a sky colour deep water is black —
-      # the volume integrates what arrives from the whole hemisphere, and at dusk that is this.
       skyColour: 0.36 0.30 0.30
       # An inland lake: more scattering and less absorption than open sea, which is what makes
       # shallow water read as green rather than as a darker version of the sky.

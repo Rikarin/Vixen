@@ -7,6 +7,7 @@ using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Water;
 using Vixen.Shaders;
 using Xunit;
@@ -324,6 +325,89 @@ public sealed class WaterPassTests : IDisposable {
         Assert.Equal(Vector3.One, new WaterAsset().BehindScale);
         Assert.Equal(0.02f, new WaterAsset().SurfaceF0);
         Assert.Equal(new Vector3(0f, -1f, 0f), new WaterAsset().SunDirection);
+    }
+
+    /// <summary>A sun and a sky, as a frame holds them.</summary>
+    sealed class Frame(RenderLight? sun) : ISunSource {
+        public RenderLight? Sun => sun;
+    }
+
+    /// <summary>
+    ///     ⚠ The composite's radiance comes from the frame's own lighting, not from the document.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Task #119, as a property.</b> <c>sunColour</c> and <c>skyColour</c> are radiances in
+    ///         the frame's units and a document can only write a tint — this level's sun is twenty
+    ///         thousand and the number an author types is one. The volume then integrates <em>exactly
+    ///         correctly</em> to a value four decades under the exposure, which tonemaps to the same
+    ///         black as unlit ground: a lake that is four decades too dim and a water pass that never
+    ///         ran are pixel-for-pixel the same picture, and every counter in the stack says success.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The sky assertion is against the environment's <em>mean radiance</em> and not its
+    ///         <c>L00</c>. An SH projection of a uniform environment has <c>L00 = L·Y₀·4π</c>, so
+    ///         handing the coefficient over is 3.54× too much sky — a lake that glows, from a number
+    ///         with no second source to check it against.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_composite_takes_its_radiance_from_the_frames_own_lighting() {
+        using var node = Node();
+
+        // What a document can write: a tint, around one.
+        node.SunColour = new(1f, 0.72f, 0.42f);
+        node.SkyColour = new(0.36f, 0.30f, 0.30f);
+        node.SunDirection = new(0f, -1f, 0f);
+
+        var sun = RenderLight.Directional(
+            Vector3.Normalize(new(-0.57f, -0.14f, 0.81f)),
+            new(1f, 0.62f, 0.18f),
+            13_785f
+        );
+
+        var sky = new EnvironmentLight { Intensity = 1f, Irradiance = new() { L00 = new(6698f, 6254f, 5249f) } };
+        var lighting = new SceneLighting { Sun = new Frame(sun), Environment = sky };
+
+        Assert.True(node.LightFrom(lighting));
+
+        Assert.Equal(sun.Direction, node.SunDirection);
+        Assert.Equal(sun.Radiance, node.SunColour);
+        Assert.Equal(sky.Irradiance.L00 * 0.282095f, node.SkyColour);
+
+        // ⚠ The assertion that is the bug rather than the getter: what the frame supplies is orders of
+        // magnitude above anything a document states, and it is that gap — not a hue — that decides
+        // whether there is a lake in the picture. A hundred is far below the four decades measured and
+        // far above any tint.
+        Assert.True(
+            node.SunColour.X > 100f,
+            $"the water is lit at {node.SunColour.X}, which is a tint rather than a radiance"
+        );
+
+        Assert.True(node.SkyColour.X > 100f, $"the sky over the water is {node.SkyColour.X}");
+    }
+
+    /// <summary>
+    ///     ⚠ And a frame with no sun leaves what the document stated exactly where it was.
+    /// </summary>
+    /// <remarks>
+    ///     The other half of the same decision, and the reason this returns a bool. A host that feeds
+    ///     the node before its lighting has a sun — which is every host, on the first frame — must get
+    ///     the authored fallback rather than black: zeroed radiance is a lake lit by nothing, which is
+    ///     the very picture this whole wiring exists to stop being possible.
+    /// </remarks>
+    [Fact]
+    public void A_frame_with_no_sun_leaves_the_authored_numbers_alone() {
+        using var node = Node();
+
+        node.SunColour = new(1f, 0.72f, 0.42f);
+        node.SkyColour = new(0.36f, 0.30f, 0.30f);
+
+        Assert.False(node.LightFrom(new SceneLighting { Sun = new Frame(null) }));
+        Assert.False(node.LightFrom(new SceneLighting()));
+
+        Assert.Equal(new Vector3(1f, 0.72f, 0.42f), node.SunColour);
+        Assert.Equal(new Vector3(0.36f, 0.30f, 0.30f), node.SkyColour);
     }
 
     /// <summary>A factory answers nothing for a node kind that is not its own.</summary>
