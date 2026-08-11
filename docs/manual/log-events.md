@@ -10,7 +10,12 @@ five-minute job that is easy to skip until it is too late to fix.
 ## Rules
 
 - **An id is permanent.** Once shipped it never changes meaning and is never reused, even if the log
-  line it named is deleted. Retire the range entry instead, so an old log still decodes.
+  line it named is deleted. Keep the row and say so in its *Since* cell — `0.1.0, retired in 0.3.0` —
+  so an old log still decodes and nobody hands the number to something new.
+- **One id, one call site.** Two `[LoggerMessage]` methods sharing a number make the register
+  ambiguous the first time somebody greps for one in a support log, which is the only moment it is
+  worth anything. `Vixen.DocGen.Tests` asserts this on every build, because the rules above were
+  followed by all three branches that independently allocated 13026 and only their union was wrong.
 - **The message text may change freely.** The id is the contract; the wording is not.
 - **The level may change.** A warning that turns out to be noise can become `Debug` without a new id.
 - **Add the entry in the same commit as the log line.** A register updated later is a register that
@@ -48,6 +53,12 @@ identifies its origin on sight.
 | 14 000 – 14 999 | `Samples/*` — the samples, which use the same generated call sites the engine does | **in use** |
 | 15 000 – 15 999 | `Vixen.Video` and its codecs | reserved |
 | 16 000 – 16 999 | `Vixen.Xr` and its backends | **in use** |
+| 27 000 – 27 999 | `Vixen.Live.*` — the online service tier, numbered after docs/plan/27 | **in use** |
+
+The jump from 16 to 27 is deliberate and is the one range not allocated in order: the service tier
+took the number of [its own design document](../plan/27-mmo-framework.md), so a line from a shard in
+somebody's cluster names the document that explains what a shard is. 17 000 – 26 999 stays free for
+the subsystems between.
 
 ## Allocated ids
 
@@ -149,7 +160,7 @@ started" rather than "just now".
 | 13017 | Warning | `The compositor declares no stage called {Stage}, so nothing in the world will be drawn.` — the failure that otherwise draws an empty window and reports nothing | 0.1.0 |
 | 13018 | Information | `Startup scene {Address} loaded: {Entities} entities.` | 0.1.0 |
 | 13019 | Warning | `The startup scene {Address} was not loaded ({Reason}) — the world is empty.` — something asked for a level, so an empty window has a reason nothing else in the log would give | 0.1.0 |
-| 13020 | Information | `Remote content: {Bundles} downloadable bundle(s), cached under {Cache}.` — the line that turns a first-run stall into an explanation, and says where the space went |
+| 13020 | Information | `Remote content: {Bundles} downloadable bundle(s), cached under {Cache}.` — the line that turns a first-run stall into an explanation, and says where the space went | 0.1.0 |
 | 13021 | Information | `Unpacked content: chunks read from the artefact store at {Root}, with nothing bundled.` — doc 17's Editor variant; a run whose content came from somebody's `Library/` has to be identifiable in a log attached to a bug report | 0.1.0 |
 | 13022 | Warning | `{Finding}` — one of the render graph's lint findings, said once per distinct finding; every one describes a frame that draws and quietly wastes or discards work | 0.1.0 |
 | 13023 | Information | `Look profile {Source} applied.` — which layer supplied it, the document's inline one or the host's | 0.1.0 |
@@ -214,12 +225,80 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14015 | Information | `Stopping after {Frames} frame(s): {Objects} object(s) extracted, {Variants} shader variant(s) compiled.` | 0.1.0 |
 | 14016 | Information | `The ground: {Terrains} terrain(s) and {Fields} grass field(s) drawn in the last frame; extraction saw {Extracted} terrain(s), {Waiting} still loading, {Refused} refused grass rule(s).` — zero drawn with zero waiting is a scene problem; zero drawn with one waiting is content that never arrived | 0.1.0 |
 | 14017 | Information | `The pines: {Volumes} foliage volume(s) drawn in the last frame, {Missing} mesh(es) still missing; extraction saw {Extracted} volume(s), {Refused} refused.` — drawn with meshes missing is content that never arrived; volumes refused is a broken palette type | 0.1.0 |
+| 14018 | Information | `The ground's motion: {Active} under this frame's TAA, {Draws} reprojection draw(s) recorded in the last frame.` — active with no draws is a velocity pass that ran against nothing, which reads as a still image being jittered | 0.1.0 |
 | 14021 | Information | `Built {Triangles} triangles into {Clusters} clusters over {Pages} page(s) on {Adapter} ({Kind}). The host never learns how many are drawn.` | 0.1.0 |
 | 14022 | Error | `There is no window to present to.` — `Samples/12` needs a real display | 0.1.0 |
 | 14023 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
 | 14024 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
 | 14025 | Information | `The last frame's traversal accepted {Visible} of {Clusters} clusters, with {Resident} page(s) resident.` — printed at shutdown; zero visible after a real run is a frame that drew nothing, and it is what caught the traversal accepting more clusters than the mesh has | 0.1.0 |
+| 14026 | Information | `Running on {Adapter} ({Kind}), presenting {Format} at {Width}×{Height} with {Images} images.` — `Samples/11`; reads the same as 14001 and is a separate id, see below | 0.1.0 |
+| 14027 | Error | `There is no window to present to.` — `Samples/11` needs a real display | 0.1.0 |
+| 14028 | Error | `The device was lost.` — `Samples/11`; recreation arrives in Phase 2 | 0.1.0 |
+| 14031 | Information | `Loaded scene '{Scene}' with {Entities} entities.` | 0.1.0 |
+| 14032 | Warning | `Nothing is published at '{Address}'. The level is empty; run the content build.` | 0.1.0 |
+| 14033 | Warning | `This build shipped no content, so there is no level, no sound and no input map.` | 0.1.0 |
+| 14034 | Information | `Built {Colliders} collider(s) from the level's authored boxes, over {Shapes} registered shape(s).` | 0.1.0 |
+| 14035 | Information | `Rebuilt '{Address}' with the distance field, the probe field and the virtualized path in it.` — the first build ran before this game existed and every field node in it captured a null | 0.1.0 |
+| 14036 | Information | `Player {Slot} spawned at {Position}, possessing its pawn.` | 0.1.0 |
+| 14037 | Warning | `No input map at '{Address}' ({Reason}).` — the player stands still, which is what a controller with no source does rather than a crash | 0.1.0 |
+| 14038 | Information | `Loaded {Clips} sound(s); {Missing} were not published.` | 0.1.0 |
+| 14039 | Information | `Ran {Frames} frame(s). The player finished at {Position}, {Mode}, having fired {Shots} shot(s) and respawned {Respawns} time(s).` — the shutdown line | 0.1.0 |
+| 14040 | Warning | `No Raven/Library above the binary and no baked shaders, so every material will resolve to a miss and the screen will be black.` — a development build run from outside the repository | 0.1.0 |
+| 14041 | Information | `Drew {Objects} object(s) from {Meshes} loaded mesh(es) ({FailedMeshes} unresolved) using {Variants} shader variant(s), with {Misses} miss(es) and {BoundMaterials} material set(s) bound.` — any of those at zero is a black screen | 0.1.0 |
+| 14042 | Error | `The level's material would not compile, so every object will draw with nothing: {Diagnostics}` | 0.1.0 |
+| 14043 | Information | `The frame's set 0 was written {Writes} time(s), and was last {Completeness}.` — zero writes is a black screen whatever the rest of the summary says | 0.1.0 |
+| 14044 | Warning | `Nothing filled the frame's {Bindings}, so set 0 never bound and every draw in the shading pass was refused.` | 0.1.0 |
+| 14045 | Information | `The frame drew from {Position}, through {ViewProjection}.` — a view-projection still at identity is a camera nothing extracted into | 0.1.0 |
+| 14046 | Information | `The shared geometry holds {Vertices} vertex(es) and {Indices} index(es) over {Slices} slice(s), of which {Uploaded} byte(s) reached the device.` | 0.1.0 |
+| 14047 | Information | `The frame holds {Count} render object(s), the first two at {A} and {B}, and recorded {Draws} draw(s) over {Indices} index(es).` | 0.1.0 |
+| 14048 | Information | `Set 1 was filled with {Bytes} byte(s); the matrix at offset zero is {Sent}.` — what the vertex stage multiplied by | 0.1.0 |
+| 14049 | Information | `Lighting: {Lights} punctual light(s), sun {Sun}, sky L00 {Sky} at intensity {Intensity}, {Bound} of {Slots} probe slot(s) filled.` — all of these at zero is a surface lit by nothing | 0.1.0 |
+| 14050 | Information | `The level holds {Renderables} entity(s) with a MeshRenderable, of which {Placed} also have a WorldTransform, and {Lights} light(s) of which {LitPlaced} do.` | 0.1.0 |
+| 14051 | Information | `Post-process volumes: {Contributing} of {Total} reaching the camera, and the fold {State}.` — placed and not contributing is this feature's commonest failure and looks exactly like not wired up at all | 0.1.0 |
+| 14052 | Information | `Composited {Instances} distance field(s) from the same boxes into the clipmap.` — zero is occlusion that marches a clipmap holding nothing and answers "nothing is near" everywhere | 0.1.0 |
+| 14053 | Information | `GI wired: {Cards} surface card(s) over the level's boxes ({Dropped} dropped by the atlas), {Captured} texel(s) captured, and the load-time radiosity settled at a change of {Change}.` | 0.1.0 |
+| 14054 | Information | `GI frame: {Bricks} irradiance brick(s) filled, {Bounces} cache bounce(s) recorded, culled on the device: {CulledOnDevice}. Cache light: {Light}. Cache bounce: {Bounce}.` | 0.1.0 |
+| 14055 | Information | `GI screen: {Probes} screen probe(s) placed, gather trace: {Gather}. Reflections: {Mirrors}. The nearest chain is rebuilt {Ring} time(s) a frame.` | 0.1.0 |
+| 14056 | Information | `VSM: {Marked} page(s) marked by the last serviced frame, {Drawn} drawn this frame, {Resident} resident in {Slots} slot(s) after {Allocations} allocation(s).` | 0.1.0 |
+| 14057 | Information | `Textures: {Painted} of {Requested} material texture(s) loaded, {Failed} failed. Survey: {Promotions} promotion(s), {Demotions} demotion(s). Streaming {Streamed} texture(s), {Resident} of {Budget} byte(s) resident, {Loading} in flight; {Swaps} swap(s), {Refusals} refusal(s), {Rejections} rejection(s), {Image} byte(s) of image.` | 0.1.0 |
+| 14058 | Information | `Ground: {Terrains} terrain(s), {Fields} grass field(s) and {Volumes} foliage volume(s) drawn, {Extracted} extracted with {Waiting} still loading, {RefusedGrass} grass rule(s) refused.` | 0.1.0 |
+| 14059 | Information | `Material maps: {Indexed} texture(s) hold a bindless slot, {Unresolved} pairing(s) resolved to slot zero.` — unresolved above zero once the level has settled draws the table's magenta checker | 0.1.0 |
+| 14060 | Information | `GPU frame {Frame}: {Milliseconds} ms across {Passes} pass(es), {Attributed} ms attributed, {Ordering}.` | 0.1.0 |
+| 14061 | Information | `  {Rank}. {Name} {Milliseconds} ms  {Share}%` — one row of the pass table 14060 heads | 0.1.0 |
+| 14062 | Warning | `GPU frame has {Unattributed} ms ({Share}%) outside any pass — the timeline is missing work.` | 0.1.0 |
+| 14063 | Information | `Built {Tiles} height-field collider(s) of {Samples}² samples at {MetresPerQuad} m a quad.` | 0.1.0 |
+| 14064 | Information | `Water: {Zones} zone(s), {Bodies} bod(ies), {Zoneless} zoneless, {UnresolvedBodies} unresolved spline(s), {UnresolvedWaves} unresolved sea state(s).` | 0.1.0 |
+| 14065 | Warning | `No asset manager, so the water has no spline source and no sea state source.` — every water body counts as unresolved and nothing is drawn | 0.1.0 |
+| 14066 | Information | `Water mesh: {Zones} zone(s) recorded, {Patches} patch(es) drawn, {Dropped} dropped, over {Builds} build(s); the composite built {Composites} time(s); {Swimming} character(s) were swimming.` — a composite count of −1 is a document with no `!Water` node in it at all | 0.1.0 |
+| 14067 | Information | `The sky says the sun is {Illuminance} lux, tinted ({Red}, {Green}, {Blue}), and the level's directional light now says the same.` | 0.1.0 |
+| 14068 | Information | `{Effects} lamp(s) are drifting embers and {Waiting} are waiting for one; {Particles} particle(s) were expanded last frame, through {Sets} particle material set(s).` | 0.1.0 |
 
-Two of those read the same as 14002 and 14004 and are separate ids anyway. A shared id would make
-this register ambiguous the first time somebody greps for one in a support log, and the register is
-only useful if an id names exactly one call site.
+The 14 000 range is subdivided a sample at a time: `Samples/01` at 14001, `Samples/03` at 14011,
+`Samples/12` at 14021, `Samples/13` at 14031, and `Samples/11` at 14005 **and** 14026 — two runs,
+because for a while it logged its first three lines under 14001–14003, which are `Samples/01`'s.
+
+That is what all of 14022, 14023, 14026, 14027 and 14028 are about. Five of the rows above read the
+same as 14001 to 14004 and are separate ids anyway: a shared id makes this register ambiguous the
+first time somebody greps for one in a support log, and the register is only useful if an id names
+exactly one call site. `Samples/12` allocated its own and `Samples/11` did not, which nothing
+noticed until a test was asked to look — see `Vixen.DocGen.Tests.LogEventRegisterTests`.
+
+### `Vixen.Live` — the service tier
+
+Numbered from its design document rather than from the sequence, and subdivided by process: the
+orchestrator at 27 000, the gate at 27 100. **Nothing here is logged per tick.** A shard's whole life
+is a handful of lines, because these processes run unattended and the log is the only thing anybody
+reads afterwards.
+
+| Id | Level | Message | Since |
+|---|---|---|---|
+| 27001 | Information | `Spawning shard {Shard} for {Map}: {Reason}` | 0.1.0 |
+| 27002 | Error | `Could not start shard {Shard} for {Map}` | 0.1.0 |
+| 27003 | Information | `Draining shard {Shard}: {Reason}` | 0.1.0 |
+| 27004 | Warning | `Shard {Shard} cannot finish draining: {Reason}` — the players on it are not leaving, and the drain has a deadline | 0.1.0 |
+| 27005 | Warning | `Shard {Shard} missed its heartbeats` | 0.1.0 |
+| 27101 | Information | `Signed in {Account} through {Scheme}.` | 0.1.0 |
+| 27102 | Information | `Placed {Player} on {Shard}: {Reason}` | 0.1.0 |
+| 27103 | Information | `Did not place {Player}: {Status} — {Reason}` — an ordinary answer as well as a failure, which is why it is not a warning | 0.1.0 |
+| 27104 | Debug | `Service-plane socket opened for {Account}; {Open} open.` | 0.1.0 |
+| 27105 | Debug | `Service-plane socket closed for {Account}; {Open} open.` | 0.1.0 |

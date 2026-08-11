@@ -219,7 +219,7 @@ static partial class SampleLog {
     public static partial void SoundsLoaded(ILogger logger, int clips, int missing);
 
     [LoggerMessage(
-        EventId = 14051,
+        EventId = 14067,
         Level = LogLevel.Information,
         Message = "The sky says the sun is {Illuminance} lux, tinted ({Red}, {Green}, {Blue}), and the level's "
             + "directional light now says the same. A scene that named both a sun direction and a sun "
@@ -228,7 +228,7 @@ static partial class SampleLog {
     public static partial void SunFromSky(ILogger logger, float illuminance, float red, float green, float blue);
 
     [LoggerMessage(
-        EventId = 14052,
+        EventId = 14068,
         Level = LogLevel.Information,
         Message = "{Effects} lamp(s) are drifting embers and {Waiting} are waiting for one; {Particles} "
             + "particle(s) were expanded last frame, through {Sets} particle material set(s). Zero running "

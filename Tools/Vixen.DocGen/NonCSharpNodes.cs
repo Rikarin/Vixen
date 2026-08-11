@@ -190,7 +190,16 @@ static partial class NonCSharpNodes {
         }
     }
 
-    static IEnumerable<DocNode> LogEvents(string repositoryRoot, SourceLinks links) {
+    /// <summary>
+    ///     One node per row of the log-event register.
+    /// </summary>
+    /// <remarks>
+    ///     Public inside this assembly because <see cref="LogEventRegister" /> — the gate that checks
+    ///     the register against the <c>[LoggerMessage]</c> attributes it registers — has to read the
+    ///     same rows the graph is built from. A second parser of the same table is how the register and
+    ///     the gate would come to disagree about what a row is.
+    /// </remarks>
+    public static IEnumerable<DocNode> LogEvents(string repositoryRoot, SourceLinks links) {
         var path = Path.Combine(repositoryRoot, "docs", "manual", "log-events.md");
 
         if (!File.Exists(path)) {
