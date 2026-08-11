@@ -401,7 +401,9 @@ public class VirtualShadowRendererTests : IDisposable {
 
     /// <summary>Where <c>Raven/Library</c> is, found the way a development effect source finds it.</summary>
     static string LibraryPath() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        for (; directory is not null; directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library");
 
             if (Directory.Exists(candidate)) {
