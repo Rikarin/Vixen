@@ -354,6 +354,7 @@ Vixen.Rendering.Water.WaterRenderer.FoamColour.get -> Vixen.Core.Mathematics.Vec
 Vixen.Rendering.Water.WaterRenderer.FoamColour.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Water.WaterRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.Water.WaterRenderer.LightFrom(Vixen.Rendering.Lighting.SceneLighting lighting) -> bool
 Vixen.Rendering.Water.WaterRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Water.WaterRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Water.WaterRenderer.Pass.get -> Vixen.Rendering.Compositor.FullScreenRenderer

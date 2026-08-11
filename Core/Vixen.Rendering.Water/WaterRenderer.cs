@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Lighting;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
@@ -248,6 +249,57 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
 
     /// <summary>How many frames have declared the pass.</summary>
     public int BuildCount { get; private set; }
+
+    /// <summary>
+    ///     Takes <see cref="SunDirection" />, <see cref="SunColour" /> and <see cref="SkyColour" />
+    ///     from the frame's own lighting.
+    /// </summary>
+    /// <param name="lighting">The scene's sun and sky.</param>
+    /// <returns>Whether there was a sun to read. False leaves all three where they were.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="lighting" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>These three are radiances in the frame's own units, and that is the whole reason
+    ///         this method exists rather than a document naming three colours.</b> Everything else in a
+    ///         lit frame is physical — a dusk sun is twenty thousand and a sky is thousands — while a
+    ///         hand-authored <c>sunColour: 1.0 0.72 0.42</c> is a <em>tint</em>, four decades below the
+    ///         scene it is composited into. The volume then integrates correctly to a number the
+    ///         exposure resolves as black, and a lake that is four decades too dim is pixel-for-pixel
+    ///         the same picture as a water pass that never ran. That is task #119: the fold, the patch
+    ///         selection, the info texture, the surface planes and this pass were all correct, and the
+    ///         frame had no water in it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sky term is the environment's mean radiance and not its <c>L00</c>.</b> An SH
+    ///         projection of a uniform environment of radiance <c>L</c> has <c>L00 = L·Y₀·4π</c>, so
+    ///         handing <c>L00</c> straight over is three and a half times too much sky — which is a
+    ///         lake that glows, and is exactly the kind of error that hides inside a number nobody has
+    ///         a second source for.
+    ///     </para>
+    ///     <para>
+    ///         Per frame rather than at wire-up, because a level whose sun moves is a lake whose
+    ///         scattering peak moves with it. It costs three assignments.
+    ///     </para>
+    /// </remarks>
+    public bool LightFrom(SceneLighting lighting) {
+        ArgumentNullException.ThrowIfNull(lighting);
+
+        if (lighting.Sun?.Sun is not { } sun) {
+            return false;
+        }
+
+        SunDirection = sun.Direction;
+        SunColour = sun.Radiance;
+
+        if (lighting.Environment is { } sky) {
+            // Y₀ · 4π = 3.5449, so the mean radiance is the coefficient over that — which is the same
+            // as multiplying by Y₀. `Intensity` is the artistic scale the ambient term is multiplied
+            // by everywhere else, so the water reads the sky the rest of the frame is lit by.
+            SkyColour = sky.Irradiance.L00 * (0.282095f * sky.Intensity);
+        }
+
+        return true;
+    }
 
     /// <inheritdoc />
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {

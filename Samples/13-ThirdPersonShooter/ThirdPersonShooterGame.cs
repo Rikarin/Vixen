@@ -153,6 +153,11 @@ public sealed class ThirdPersonShooterGame : Game {
         // document reload replaces. Re-asserting them every frame costs nothing when nothing
         // changed, and is what survives the reload. See ArenaIllumination.Feed.
         arena?.FeedIllumination();
+
+        // And the lake's, which is the same shape of wiring one subsystem over: !Water's sun and sky
+        // are radiances in the frame's units, a document can only write a tint, and the difference
+        // between the two is a lake that tonemaps to black. See Arena.FeedWater.
+        arena?.FeedWater();
     }
 
     /// <inheritdoc />

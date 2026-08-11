@@ -1180,6 +1180,38 @@ public sealed class Arena : IDisposable {
         }
     }
 
+    /// <summary>Gives the lake's composite the sun and sky the rest of the frame is lit by.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this the lake is invisible, and every counter in this file reports
+    ///         success.</b> <c>!Water</c>'s <c>sunColour</c> and <c>skyColour</c> are radiances in the
+    ///         frame's own units — this level's sun is about twenty thousand and its sky is thousands —
+    ///         and what a document can write by hand is a tint around one. The volume integration is
+    ///         then perfectly correct and lands four decades under the exposure, which is a lake that
+    ///         tonemaps to the same black as the shaded ground it sits in. The surface pass, the fold,
+    ///         the info texture and the composite were all working while the frame had no water in it;
+    ///         see <see cref="WaterRenderer.LightFrom" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per frame rather than at wire-up, and that is the second half of the same bug.</b>
+    ///         <see cref="SunOrbit" /> turns this level's sun once every <see cref="SunPeriod" />
+    ///         seconds, so a direction read once is a scattering peak in the wrong half of the frame
+    ///         for all but one moment of the orbit — which the document recorded as owed. Reading it
+    ///         here costs three assignments and follows the orbit exactly.
+    ///     </para>
+    /// </remarks>
+    public void FeedWater() {
+        if (services?.Graphics is not { } graphics) {
+            return;
+        }
+
+        foreach (var node in graphics.Renderer.Host.Builder.Nodes.Values) {
+            if (node is Rendering.Water.WaterRenderer water) {
+                water.LightFrom(graphics.Renderer.SceneEnvironment);
+            }
+        }
+    }
+
     /// <summary>What the frame actually drew, for a headless leg that has to assert on something.</summary>
     /// <remarks>
     ///     ⚠ <b>The counter that catches a black screen.</b> Everything else this project logs is
