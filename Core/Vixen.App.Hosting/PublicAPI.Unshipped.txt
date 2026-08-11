@@ -87,8 +87,8 @@ Vixen.App.AppGraphics.End() -> void
 Vixen.App.AppGraphics.FrameCount.get -> int
 Vixen.App.AppGraphics.GpuFrame.get -> Vixen.Graphics.GpuFrame
 Vixen.App.AppGraphics.IsLost.get -> bool
-Vixen.App.AppGraphics.Overlays.get -> Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays?
 Vixen.App.AppGraphics.LastCapturePath.get -> string?
+Vixen.App.AppGraphics.Overlays.get -> Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays?
 Vixen.App.AppGraphics.ParticleStages.get -> Vixen.Rendering.RenderStageMask
 Vixen.App.AppGraphics.Recreate(bool force = false) -> void
 Vixen.App.AppGraphics.Renderer.get -> Vixen.Engine.Renderer.WorldRenderer
