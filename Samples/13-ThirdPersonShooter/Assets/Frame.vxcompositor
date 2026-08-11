@@ -640,6 +640,23 @@ game: !Sequence
     # `screenTraces: true` is what makes this node the second taker of the builder's nearest chain
     # — the !Reflections below is the other — and TakeTracePyramid sizes the ring for both, which
     # the frame tests pin at exactly two.
+    #
+    # ⚠ `screenLinearThickness` is the shell in METRES, and leaving it unset is not a neutral
+    # default — it is the whole hit test collapsing. Unset, the march keeps the device-depth shell
+    # of 0.02, and under reverse-Z with this camera's 0.1/1000 planes device depth is
+    # `z = -1.0001e-4 + 0.10001/d`: the shell reaches from a surface at `d` back to
+    # `0.10001/(z - 0.02 + 1.0001e-4)`, which is *negative* — past the far plane — for every
+    # `z < 0.02`, that is for every surface further away than 4.98 m. The frame's median surface
+    # sits at 5–8 m and its p10 at 32 m, so across most of the picture the test "is this sample
+    # inside that surface" degenerates into "is this sample behind that surface at all", and a ray
+    # sailing thirty metres past a wall reports a hit on it. Indirect light with the right colour,
+    # arriving from the wrong place, which is the class of wrong answer that looks plausible.
+    #
+    # One metre is the arena's own number rather than a knob turned until the frame looked nice:
+    # Arena.vxscene authors the floor slab, all four walls and all four pillars at `halfExtents`
+    # 0.5 on their thin axis, so one metre is the thickness of every solid that bounds this room.
+    # The crates are thicker (1.6 m) and the cover panels thinner (0.3 m), and a shell sized to
+    # the room's own walls is the one that survives someone adding another wall.
     - !ScreenProbeGather
       name: Gather
       depth: SceneDepth
@@ -648,6 +665,7 @@ game: !Sequence
       view: Camera
       tileSize: 16
       screenTraces: true
+      screenLinearThickness: 1.0
       planeTolerance: 0.02
 
     # ── doc 19 § L5: traced reflections ─────────────────────────────────────────────────────────
@@ -672,6 +690,10 @@ game: !Sequence
     # sky, the level and the sparks, so a screen hit reflects this frame's own lit opaques. This
     # node is also the second taker of the builder's nearest chain — the gather above is the other
     # — and TakeTracePyramid sizes the ring for both, which the frame tests pin at exactly two.
+    #
+    # ⚠ `screenLinearThickness` for the same reason the gather above carries it, and this is the
+    # node where the defect is *visible* rather than diffuse: a diffuse gather averages a wrong-place
+    # hit into thirty-two others, a mirror shows it. The same metre, from the same walls.
     - !Reflections
       name: Mirrors
       depth: SceneDepth
@@ -681,6 +703,7 @@ game: !Sequence
       view: Camera
       roughnessThreshold: 0.45
       screenSteps: 32
+      screenLinearThickness: 1.0
 
     # ── doc 19's two screen passes ──────────────────────────────────────────────────────────────
     # `source` is the *type* bound to this pass's `distanceField` compose slot — see Clipmap above
