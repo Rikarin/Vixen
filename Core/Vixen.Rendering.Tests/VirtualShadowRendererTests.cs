@@ -8,6 +8,7 @@ using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Xunit;
 
 namespace Tests;
@@ -287,6 +288,130 @@ public class VirtualShadowRendererTests : IDisposable {
         // Standing still afterwards costs nothing again.
         Frame(h);
         Assert.Equal(0, h.Node.DrawnPages);
+    }
+
+    // --- The marking dispatch covers the screen ------------------------------
+
+    /// <summary>Every pixel of the screen falls inside the marking dispatch, and barely so.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The failure this is the guard for is absence with every counter reporting success.</b>
+    ///         <see cref="VirtualShadowAtlas.Mark" /> sizes its dispatch in workgroups and
+    ///         <c>VirtualShadowMark.Main</c> turns a group index back into pixels, so the two multiply
+    ///         the same numbers in opposite directions and nothing checks that they agree. A host that
+    ///         kept the old per-pixel tiling after the shader went to blocks would dispatch sixteen
+    ///         times the groups it needed; one that did the reverse would leave the right and bottom of
+    ///         the screen unmarked — a strip of the picture whose pages are never asked for, which
+    ///         shades as the cascades' own shadow and nothing at all in the logs. It is the same shape
+    ///         as the cascade atlas that rendered two of its four folds below the texture's bottom
+    ///         edge: an empty scissor, silently, with every counter saying it ran.
+    ///     </para>
+    ///     <para>
+    ///         Both directions are asserted: enough groups to reach the last pixel, and not a whole
+    ///         extra tile of them.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(3200, 1800)]
+    [InlineData(1920, 1080)]
+    [InlineData(1, 1)]
+    [InlineData(33, 17)]
+    public void The_marking_dispatch_reaches_the_last_pixel_and_no_further(int width, int height) {
+        using var h = Build();
+
+        h.Atlas.Effects = Marking();
+        h.Atlas.Pipelines = new(device);
+
+        h.Atlas.Begin(
+            [new() { First = 0, Kind = 0u, TexelWorldSize = VirtualShadowMap.TexelOf(0, 10f) }],
+            1,
+            VirtualShadowMap.TexelOf(0, 10f)
+        );
+
+        var depth = device.CreateTexture(
+            new(PixelFormat.Depth32Float, 4, 4, TextureUsage.DepthStencilTarget | TextureUsage.Sampled, Name: "Depth")
+        );
+
+        var list = device.BeginCommandList();
+
+        device.Recorder!.Clear();
+        Assert.True(h.Atlas.Mark(list, device.CreateTextureView(depth), new("Camera"), new(width, height)));
+
+        // The recorder only sees a list that was finished and submitted — see NullCommandList.Flush.
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
+
+        var dispatch = Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.Dispatch));
+        var tile = VirtualShadowMap.MarkTile;
+
+        Assert.InRange((int)dispatch.A * tile, width, width + tile - 1);
+        Assert.InRange((int)dispatch.B * tile, height, height + tile - 1);
+    }
+
+    /// <summary>The shader's block size and the host's are the same number.</summary>
+    /// <remarks>
+    ///     Two files hold it — <c>Vsm.MarkBlock</c> decides how many pixels an invocation walks and
+    ///     <see cref="VirtualShadowMap.MarkBlock" /> decides how many invocations are launched — and
+    ///     they are not derived from each other, exactly as <c>PageTexels</c> and <c>PagesPerSide</c>
+    ///     are not. Disagreeing is not a compile error on either side: it is a screen partly marked
+    ///     and partly not.
+    /// </remarks>
+    [Fact]
+    public void The_shader_and_the_host_agree_about_the_block_size() {
+        var source = Path.Combine(LibraryPath(), "VirtualShadows", "VirtualShadows.rvn");
+
+        Assert.True(File.Exists(source), $"the Raven library was not found at '{source}'");
+
+        var declared = System.Text.RegularExpressions.Regex.Match(
+            File.ReadAllText(source),
+            @"const\s+val\s+MarkBlock\s*=\s*(\d+)"
+        );
+
+        Assert.True(declared.Success, "VirtualShadows.rvn no longer declares Vsm.MarkBlock");
+        Assert.Equal(VirtualShadowMap.MarkBlock, int.Parse(declared.Groups[1].Value));
+    }
+
+    /// <summary>An effect standing in for the compiled marking pass, so <c>Mark</c> records.</summary>
+    EffectSystem Marking() {
+        var system = new EffectSystem();
+        var layouts = new DescriptorSetLayoutHandle[4];
+
+        DescriptorBinding[] bindings = [
+            new(VirtualShadowMarkKeys.SceneDepthBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
+            new(VirtualShadowMarkKeys.LevelsBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+            new(VirtualShadowMarkKeys.MarksBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute)
+        ];
+
+        for (var slot = 0; slot < layouts.Length; slot++) {
+            layouts[slot] = device.CreateDescriptorSetLayout(
+                new((DescriptorSetSlot)slot, bindings, $"VirtualShadowMark.Set{slot}")
+            );
+        }
+
+        system.Add(
+            new() {
+                Key = VirtualShadowAtlas.Key,
+                Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
+                SetLayouts = [.. layouts]
+            }
+        );
+
+        return system;
+    }
+
+    /// <summary>Where <c>Raven/Library</c> is, found the way a development effect source finds it.</summary>
+    static string LibraryPath() {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        for (; directory is not null; directory = directory.Parent) {
+            var candidate = Path.Combine(directory.FullName, "Raven", "Library");
+
+            if (Directory.Exists(candidate)) {
+                return candidate;
+            }
+        }
+
+        return string.Empty;
     }
 
     /// <summary>A direction swung about the up axis by some degrees, elevation kept.</summary>

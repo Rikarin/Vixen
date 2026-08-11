@@ -49,6 +49,17 @@ struct Vsm {
     /// The most maps — clipmap levels plus spot lights — one frame may address.
     const val MaxLevels = 16
 
+    /// How many pixels on a side one marking invocation reads.
+    ///
+    /// **Not a sampling rate.** Every pixel of the block is still loaded and still asks for its own
+    /// page; what the block buys is that a run of pixels landing in the same word of the bitset is one
+    /// `atomicOr` instead of sixteen. Sampling one pixel of a block instead would be the tempting
+    /// version and it is wrong: a page's screen footprint is only bounded below by a hundred and
+    /// twenty-eight pixels on a surface facing the camera, and it shrinks with the cosine of the
+    /// obliquity — so a grazing floor near the horizon has pages narrower than a pixel, and the
+    /// pixels that would lose them are exactly the ones that will look them up.
+    const val MarkBlock = 4
+
     /// What the page table holds for a virtual page with no physical page behind it.
     ///
     /// All ones rather than zero, because zero is a real physical page — the first one — and a table
