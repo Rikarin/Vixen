@@ -288,18 +288,32 @@ public sealed class VirtualShadowAtlas : IDisposable {
     /// <param name="samplers">Where the comparison sampler comes from.</param>
     /// <param name="camera">The view whose footprint decides a level.</param>
     /// <param name="height">How many pixels tall that view is.</param>
+    /// <param name="constantBias">The constant depth bias, already in a level's normalised depth.</param>
+    /// <param name="slopeBias">The slope-scaled depth bias, already in a level's normalised depth.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <remarks>
-    ///     By name and per pass, which is <see cref="Compositor.PunctualShadowRenderer" />'s
-    ///     arrangement: a composed feature's bindings belong to whichever pass composed it, so the same
-    ///     values are written once per pass rather than once for a set nobody owns.
+    ///     <para>
+    ///         By name and per pass, which is <see cref="Compositor.PunctualShadowRenderer" />'s
+    ///         arrangement: a composed feature's bindings belong to whichever pass composed it, so the
+    ///         same values are written once per pass rather than once for a set nobody owns.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two biases are converted before they arrive here, and until they were
+    ///         published at all the lookup used its own declaration's defaults</b> — raw normalised
+    ///         depth against a four hundred metre box, which is metres of world. See
+    ///         <see cref="VirtualShadowMap.DepthScale" /> for what that cost and
+    ///         <see cref="Compositor.VirtualShadowRenderer.ConstantBias" /> for where the metres are
+    ///         stated.
+    ///     </para>
     /// </remarks>
     public void Publish(
         ParameterCollection parameters,
         IReadOnlyList<string> passes,
         SamplerCache? samplers,
         RenderView camera,
-        int height
+        int height,
+        float constantBias,
+        float slopeBias
     ) {
         ArgumentNullException.ThrowIfNull(parameters);
         ArgumentNullException.ThrowIfNull(passes);
@@ -314,6 +328,8 @@ public sealed class VirtualShadowAtlas : IDisposable {
             parameters.Set(ParameterKeys.New<int>($"{pass}.shadowAtlasPages"), Pages.PagesPerSide);
             parameters.Set(ParameterKeys.New<float>($"{pass}.shadowScreenHeightScale"), camera.ScreenHeightScale);
             parameters.Set(ParameterKeys.New<int>($"{pass}.shadowScreenHeight"), height);
+            parameters.Set(ParameterKeys.New<float>($"{pass}.shadowPageConstantBias"), constantBias);
+            parameters.Set(ParameterKeys.New<float>($"{pass}.shadowPageSlopeBias"), slopeBias);
 
             if (atlasView.IsValid) {
                 parameters.Set(ParameterKeys.New<TextureViewHandle>($"{pass}.shadowPages"), atlasView);

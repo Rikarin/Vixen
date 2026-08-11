@@ -103,7 +103,7 @@ shader ClusteredShading {
     ///
     /// Neutral here for the reason `PunctualVisibility` is: a shading pass that composes nothing is a
     /// pass whose shadows are the cascades', which is every pass in the engine until one does.
-    func DirectionalShadow(positionWS: float3, n: float3, NdotL: float, viewDepth: float): DirectionalShadowSample {
+    func DirectionalShadow(positionWS: float3, n: float3, NdotL: float, viewDistance: float): DirectionalShadowSample {
         var result: DirectionalShadowSample
         result.visibility = 1f
         result.found = 0f
@@ -693,13 +693,24 @@ shader ClusteredShading {
     /// `positionVS` already exists for the clustered variant, which is the case that has a second
     /// use for it.
     func Shadow(p: ShadingPoint, n: float3, NdotL: float): float {
-        val viewDepth = ClusterGrid.DepthOf(Math.TransformPoint(view, p.positionWS))
+        val positionVS = Math.TransformPoint(view, p.positionWS)
+        val viewDepth = ClusterGrid.DepthOf(positionVS)
 
         // The virtual map first, where a pass composed one. It answers at the resolution this pixel
         // needs rather than at whichever cascade's the pixel's distance landed in, which is the whole
         // of phase 7 — and it answers `found = 0` for a point no level reaches or no page has been
         // drawn for, which is what the cascades below are still here to cover.
-        val virtual = DirectionalShadow(p.positionWS, n, NdotL, viewDepth)
+        //
+        // ⚠ **`length(positionVS)` and not `viewDepth`, because the marking pass measures the radial
+        // distance.** `VirtualShadowMark.Main` computes its footprint from
+        // `length(world - viewPosition)`; this handed the lookup the view-space *depth*, which is that
+        // distance times the cosine of the angle off the view axis and up to 1.55 times smaller in the
+        // corners of a 16:9 frame at 60° vertical. `Vsm.LevelFor` rounds up through a `log2`, so that
+        // is up to a whole level of disagreement between the pass that asks for a page and the lookup
+        // that reads one — over a wide band of the screen, systematically, and covered up by the
+        // fallback to `level + 1` landing on precisely the level the marking pass had asked for. The
+        // cascade splits below stay on the depth, which is what they are fitted in.
+        val virtual = DirectionalShadow(p.positionWS, n, NdotL, length(positionVS))
 
         if (virtual.found > 0f) {
             return virtual.visibility

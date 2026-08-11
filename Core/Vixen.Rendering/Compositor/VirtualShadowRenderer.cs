@@ -144,6 +144,28 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// </remarks>
     public float LightSnapDegrees { get; set; } = 0.5f;
 
+    /// <summary>The constant depth bias the lookup compares with, in metres.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Metres, and that is the whole of the fix.</b>
+    ///         <see cref="ShadowMapRenderer.ConstantBias" />'s counterpart, converted by
+    ///         <see cref="VirtualShadowMap.DepthScale" /> before it is published — because a level's
+    ///         box is <see cref="Depthrange" /> metres deep, so one unit of the normalised depth the
+    ///         lookup compares in is four hundred metres of world at the default.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Until this existed the lookup used its own declaration's default of 0.002 in
+    ///         normalised depth, which is <em>0.8 m</em> — a hundred times the cascades'. A page that
+    ///         answered therefore biased away every shadow whose caster stood within a metre of its
+    ///         receiver, while the cascades kept it; the two answers could not agree, and a page
+    ///         arriving put a contact shadow out.
+    ///     </para>
+    /// </remarks>
+    public float ConstantBias { get; set; } = 0.008f;
+
+    /// <summary>The slope-scaled depth bias, in metres. <see cref="ConstantBias" />' other half.</summary>
+    public float SlopeBias { get; set; } = 0.01f;
+
     /// <summary>How many pages may be allocated per frame.</summary>
     public int PagesPerFrame { get; set; } = 16;
 
@@ -243,7 +265,19 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
         atlas.UploadTable();
 
         if (Scene is { } parameters) {
-            atlas.Publish(parameters, [.. Passes], Samplers, camera, compositor.FrameSize.Y);
+            // The two biases are metres here and normalised depth there, and the multiply is the
+            // whole difference between a bias and a number — see ConstantBias.
+            var scale = VirtualShadowMap.DepthScale(Depthrange);
+
+            atlas.Publish(
+                parameters,
+                [.. Passes],
+                Samplers,
+                camera,
+                compositor.FrameSize.Y,
+                ConstantBias * scale,
+                SlopeBias * scale
+            );
         }
     }
 

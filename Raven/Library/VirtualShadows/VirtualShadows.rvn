@@ -205,7 +205,7 @@ struct DirectionalShadowSample {
 /// What a shading pass needs to shadow the sun, whatever is behind it.
 protocol IDirectionalShadowSource {
     /// How much of the sun reaches a surface, and whether this source could say.
-    func Sample(positionWS: float3, n: float3, NdotL: float, viewDepth: float): DirectionalShadowSample
+    func Sample(positionWS: float3, n: float3, NdotL: float, viewDistance: float): DirectionalShadowSample
 }
 
 /// The default: no virtual map, so the cascades answer everything.
@@ -213,7 +213,7 @@ protocol IDirectionalShadowSource {
 /// **Declares nothing and costs nothing**, which is the whole reason the slot has a default — see the
 /// file comment. Folded away entirely in every compilation that does not bind a real one.
 shader NoDirectionalShadows : IDirectionalShadowSource {
-    func Sample(positionWS: float3, n: float3, NdotL: float, viewDepth: float): DirectionalShadowSample {
+    func Sample(positionWS: float3, n: float3, NdotL: float, viewDistance: float): DirectionalShadowSample {
         var result: DirectionalShadowSample
         result.visibility = 1f
         result.found = 0f
@@ -257,13 +257,28 @@ shader VirtualShadowLookup : IDirectionalShadowSource {
 
     [PerFrame] var shadowScreenHeight: int = 1080
 
-    /// Constant and slope-scaled bias, in the map's own depth units.
-    [PerFrame] var shadowPageConstantBias: float = 0.002f
+    /// Constant and slope-scaled bias, in the map's own normalised depth.
+    ///
+    /// ⚠ **A distance divided by the level's depth range, and the division is what makes it one.** A
+    /// clipmap level's box is `depthRange` metres deep — four hundred in the shipped frame — so one
+    /// unit of the depth this compares in is four hundred metres of world. These two used to stand at
+    /// 0.002 and 0.004 and were never published by a host at all: 0.8 m of constant bias and 1.6 m per
+    /// unit of slope, against a cascade path whose own biases are 0.008 m and 0.01 m. On a floor under
+    /// this level's low sun the slope term alone reached fourteen metres, which is every shadow within
+    /// fourteen metres of its caster biased out of existence — but only where a page had been drawn,
+    /// because everywhere else `ClusteredShading.Shadow` falls through to the cascades and their bias
+    /// is a distance. Two answers that cannot agree, and a page arriving is a shadow going out. See
+    /// `VirtualShadowMap.DepthScale` and `ShadowCascade.depthScale`, which is the same lesson learned
+    /// on the cascade path first.
+    ///
+    /// The defaults here are the shipped conversion — 0.008 m and 0.01 m over four hundred — so a host
+    /// that publishes nothing gets the cascades' own bias rather than a hundred times it.
+    [PerFrame] var shadowPageConstantBias: float = 0.00002f
 
-    [PerFrame] var shadowPageSlopeBias: float = 0.004f
+    [PerFrame] var shadowPageSlopeBias: float = 0.000025f
 
     /// The lookup: choose the level, find the page, and compare.
-    func Sample(positionWS: float3, n: float3, NdotL: float, viewDepth: float): DirectionalShadowSample {
+    func Sample(positionWS: float3, n: float3, NdotL: float, viewDistance: float): DirectionalShadowSample {
         var result: DirectionalShadowSample
         result.visibility = 1f
         result.found = 0f
@@ -274,7 +289,18 @@ shader VirtualShadowLookup : IDirectionalShadowSource {
 
         // The level this pixel needs, from its own footprint — which is the thing four cascades cannot
         // do and the whole reason this exists.
-        val texel = Vsm.WorldTexelSize(viewDepth, shadowScreenHeightScale, shadowScreenHeight)
+        //
+        // ⚠ **`viewDistance` and not the view-space depth, because `VirtualShadowMark.Main` marks from
+        // `length(world - viewPosition)`.** A pixel's footprint is an angular quantity, so the distance
+        // it scales with is the radial one; the depth is that distance times the cosine of the angle
+        // off the view axis, which at this frame's 60° vertical field over 16:9 reaches 1/1.55 in the
+        // corners. `LevelFor` is a `ceil(log2(·))`, so a factor of 1.55 is up to a whole level: the
+        // lookup asked for a level finer than any pixel had marked, over a wide band of the screen, and
+        // the fallback below then answered at level + 1 — which is exactly the level the marking pass
+        // had asked for. That is why the fallback appeared to work "for a reason worth keeping": most
+        // of what it was covering for was this mismatch and not the annulus geometry it was credited
+        // to. The two shaders now derive the level from the same distance.
+        val texel = Vsm.WorldTexelSize(viewDistance, shadowScreenHeightScale, shadowScreenHeight)
         val level = Vsm.LevelFor(texel, shadowFirstTexel, shadowClipmapLevels)
 
         // Offset along the normal before projecting, exactly as the cascade path does: a bias applied

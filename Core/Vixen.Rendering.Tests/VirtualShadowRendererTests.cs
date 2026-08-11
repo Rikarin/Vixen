@@ -213,6 +213,59 @@ public class VirtualShadowRendererTests : IDisposable {
         Assert.Equal(12, Published(h));
     }
 
+    // --- The bias -------------------------------------------------------------
+
+    /// <summary>The lookup's bias arrives as a distance, divided by the level's own depth range.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>ShadowCascade.depthScale</c>'s lesson, one shadow path late.</b> A clipmap
+    ///         level's box is <see cref="VirtualShadowRenderer.Depthrange" /> metres deep, so one unit
+    ///         of the normalised depth the lookup compares in is four hundred metres of world at the
+    ///         shipped setting. Until this test existed the node published neither bias at all and the
+    ///         shader fell back to its own declaration — 0.002 and 0.004 raw, which is <em>0.8 m</em>
+    ///         of constant bias and 1.6 m per unit of slope against a cascade path biased by 0.008 m
+    ///         and 0.01 m.
+    ///     </para>
+    ///     <para>
+    ///         That is not a tuning difference: it is why a page and a cascade cannot agree. The map
+    ///         answers where a page has been drawn and the cascades answer everywhere else, so a bias
+    ///         a hundred times theirs means every shadow whose caster stands within a metre of its
+    ///         receiver is present in one answer and biased away in the other — and a page arriving
+    ///         then puts that shadow out, which is a blink at a page boundary rather than at anything
+    ///         in the world.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_page_bias_reaches_the_lookup_as_a_distance() {
+        using var h = Build();
+
+        h.Node.Scene = new();
+
+        h.Compositor.Collect();
+
+        var parameters = h.Node.Scene;
+        var scale = VirtualShadowMap.DepthScale(h.Node.Depthrange);
+
+        foreach (var prefix in (string[])["ForwardPlus.VirtualShadowLookup", "VisibilityResolve.VirtualShadowLookup"]) {
+            var constant = parameters.Get(ParameterKeys.New<float>($"{prefix}.shadowPageConstantBias"));
+            var slope = parameters.Get(ParameterKeys.New<float>($"{prefix}.shadowPageSlopeBias"));
+
+            Assert.Equal(h.Node.ConstantBias * scale, constant, 9);
+            Assert.Equal(h.Node.SlopeBias * scale, slope, 9);
+
+            // And read back the other way, which is the statement that matters: whatever the node
+            // publishes, one unit of it is one unit of the map's depth, and the metres it stands for
+            // are the metres the node was given.
+            Assert.Equal(h.Node.ConstantBias, constant / scale, 5);
+            Assert.Equal(h.Node.SlopeBias, slope / scale, 5);
+
+            // The number the shader used to fall back to, stated so the size of the mistake is on the
+            // record: raw 0.002 over this box is four fifths of a metre — a hundred times the node's.
+            Assert.Equal(0.8f, 0.002f / scale, 2);
+            Assert.Equal(100f, 0.002f / scale / h.Node.ConstantBias, 1);
+        }
+    }
+
     // --- The sun and the snap ------------------------------------------------
 
     /// <summary>A sun drifting less than the snap leaves every drawn page standing.</summary>
