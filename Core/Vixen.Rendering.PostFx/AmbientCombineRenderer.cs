@@ -16,12 +16,12 @@ namespace Vixen.Rendering.PostFx;
 /// <remarks>
 ///     <para>
 ///         The other half of <c>ForwardPlus.SplitOutputs</c>. A split pass writes direct light,
-///         emissive and specular ambient to one target and its albedo and normals to two more,
-///         precisely so the screen-space passes have something to modulate: this node multiplies an
-///         irradiance plane by the albedo, an occlusion plane into that ambient and a sun-visibility
-///         channel into the direct term, and blends a traced reflections plane over the result by
-///         the surface's own specular reflectance. The formula is one line —
-///         <c>direct × sun + albedo × irradiance × occlusion</c>, reflections lerped over — and
+///         emissive and specular ambient to one target and its albedo, normals and <c>f0</c> to three
+///         more, precisely so the screen-space passes have something to modulate: this node multiplies
+///         an irradiance plane by the albedo, an occlusion plane into that ambient and a
+///         sun-visibility channel into the direct term, and adds a traced reflections plane weighted
+///         by the surface's own specular reflectance. The formula is one line —
+///         <c>direct × sun + albedo × irradiance × occlusion + reflections × reflectance</c> — and
 ///         <c>AmbientCombine.rvn</c> states every term's stand-in semantics beside it.
 ///     </para>
 ///     <para>
@@ -59,6 +59,29 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     public required string Normals { get; init; }
 
     /// <summary>
+    ///     Its fourth: specular reflectance at normal incidence — the material's <c>f0</c>. Null
+    ///     weighs every surface as a dielectric, which is what this node did before the plane existed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Three channels, and it carries <c>f0</c> rather than metalness because metalness
+    ///         cannot be carried.</b> <c>MaterialData</c> keeps a diffuse colour and an <c>f0</c>, and
+    ///         the pair is underdetermined; worse, the albedo plane holds <c>base × (1 − metalness)</c>
+    ///         and is therefore black at metalness one, so a consumer handed a metalness channel would
+    ///         still have no base colour to rebuild a metal's <c>f0</c> from. <c>AmbientCombine.rvn</c>
+    ///         has the audit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Naming it is half of one change.</b> With it and <see cref="Reflections" /> both
+    ///         named, the shading pass stops writing its own specular ambient
+    ///         (<see cref="Lighting" />) and this node adds the traced answer in its place. Naming
+    ///         only one of the two leaves the frame exactly as it was, deliberately — see
+    ///         <see cref="Configure" />.
+    ///     </para>
+    /// </remarks>
+    public string? Specular { get; set; }
+
+    /// <summary>
     ///     Screen irradiance over π — what <c>!IndirectDiffuse</c> publishes, and what
     ///     <c>!ScreenProbeGather</c>'s upsample publishes. Null contributes no ambient at all.
     /// </summary>
@@ -81,6 +104,25 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     ///     weight falls back to normal incidence, which is the modest end of the range.
     /// </remarks>
     public string? Reflections { get; set; }
+
+    /// <summary>
+    ///     The scene's lighting, whose <see cref="Lighting.SceneLighting.AmbientSpecular" /> this node owns, or
+    ///     null for a host that would rather write it itself.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A compositor node reaching into the frame's lighting, because the question is the
+    ///         document's and the answer belongs to the shading pass.</b> Whether a frame has a traced
+    ///         reflections plane is a fact about the graph — nothing a material or an environment
+    ///         could know — and it decides whether the shading pass keeps its prefiltered specular
+    ///         ambient. There is no other object that knows both.
+    ///     </para>
+    ///     <para>
+    ///         Written on every build, which costs an assignment: a document that is rebuilt with the
+    ///         reflections node removed has to put the term back.
+    ///     </para>
+    /// </remarks>
+    public Lighting.SceneLighting? Lighting { get; set; }
 
     /// <summary>A multiplier on the rebuilt ambient alone — the split-mode seat of <c>ambientIntensity</c>.</summary>
     public float Intensity { get; set; } = 1f;
@@ -132,7 +174,25 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         parameters.Set(AmbientCombineKeys.UseIrradiance, Irradiance is null ? 0f : 1f);
         parameters.Set(AmbientCombineKeys.UseOcclusion, Occlusion is null ? 0f : 1f);
         parameters.Set(AmbientCombineKeys.UseContactOcclusion, ContactOcclusion is null ? 0f : 1f);
-        parameters.Set(AmbientCombineKeys.UseReflections, Reflections is null ? 0f : 1f);
+        parameters.Set(AmbientCombineKeys.UseSpecular, Specular is null ? 0f : 1f);
+
+        // ⚠ **One condition for both halves, and it is not "is there a reflections plane".** The
+        // shader *adds* the traced reflection rather than lerping toward it, which only balances
+        // once the shading pass has stopped writing the term the addition replaces — and the pass
+        // only stops when the line below tells it to. Split the two and the frame either counts the
+        // sky twice or loses every surface's specular ambient.
+        //
+        // Both required, and a document with reflections but no specular plane therefore draws the
+        // frame it drew before: a half-migrated document losing its metals' reflectance is the
+        // failure nobody would see, where a document that lost its reflections is one somebody does.
+        var replaces = Reflections is not null && Specular is not null;
+
+        parameters.Set(AmbientCombineKeys.UseReflections, replaces ? 1f : 0f);
+
+        if (Lighting is { } lighting) {
+            lighting.AmbientSpecular = replaces ? 0f : 1f;
+        }
+
         parameters.Set(AmbientCombineKeys.Intensity, Intensity);
 
         // The upsample runs when there is a depth to test against and an AO plane worth testing —
@@ -189,6 +249,7 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         Bind(AmbientCombineKeys.OcclusionBinding, Occlusion ?? Direct);
         Bind(AmbientCombineKeys.ContactOcclusionBinding, ContactOcclusion ?? Direct);
         Bind(AmbientCombineKeys.ReflectionsBinding, Reflections ?? Direct);
+        Bind(AmbientCombineKeys.SpecularBinding, Specular ?? Direct);
         Bind(AmbientCombineKeys.DepthBufferBinding, Depth ?? Direct);
 
         // Point for the planes the split pass wrote at frame resolution — texel for texel — and

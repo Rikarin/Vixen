@@ -512,11 +512,11 @@ public sealed record ReflectionsAsset : ISceneRendererAsset {
 ///         The node a split document ends its lighting with. <c>ForwardPlus.SplitOutputs</c> (and the
 ///         resolve, under the same key) writes direct light to one target and holds diffuse ambient
 ///         back; this multiplies an irradiance plane by the albedo plane, occlusion into that ambient
-///         and sun visibility into the direct term, and blends reflections over by validity —
-///         <c>direct × sun + albedo × irradiance × occlusion</c>, one full-screen pass. A document
-///         names the planes; the first three are the split pass's own targets, and everything after
-///         them is optional with a stated stand-in: absent occlusion reads as one, absent irradiance
-///         and reflections as nothing.
+///         and sun visibility into the direct term, and adds reflections weighted by the surface's own
+///         <c>f0</c> — <c>direct × sun + albedo × irradiance × occlusion</c>, one full-screen pass. A
+///         document names the planes; the first three are the split pass's own targets, and everything
+///         after them is optional with a stated stand-in: absent occlusion reads as one, absent
+///         irradiance and reflections as nothing, an absent <c>f0</c> plane as a dielectric.
 ///     </para>
 ///     <para>
 ///         <b>Sun visibility multiplies DIRECT and occlusion multiplies AMBIENT</b> —
@@ -541,6 +541,18 @@ public sealed record AmbientCombineAsset : ISceneRendererAsset {
 
     /// <summary>Its third: world normal in xyz, roughness in a. Zero length marks a skyward pixel.</summary>
     public string Normals { get; init; } = "SceneNormals";
+
+    /// <summary>
+    ///     Its fourth: specular reflectance at normal incidence — the material's <c>f0</c> — in rgb.
+    ///     Empty weighs every surface as a dielectric.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Empty by default, and not because it is a refinement: naming it with
+    ///     <see cref="Reflections" /> is what moves the frame's specular ambient from the shading
+    ///     pass's prefiltered cube to the traced plane, and naming only one of the two changes
+    ///     nothing at all. <c>AmbientCombineRenderer.Specular</c> has the reasoning.
+    /// </remarks>
+    public string Specular { get; init; } = string.Empty;
 
     /// <summary>
     ///     Screen irradiance over π — <c>!IndirectDiffuse</c>'s output, or <c>!ScreenProbeGather</c>'s;
@@ -876,6 +888,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             Direct = declared.Direct,
             Albedo = declared.Albedo,
             Normals = declared.Normals,
+            Specular = declared.Specular is { Length: > 0 } specular ? specular : null,
             Irradiance = declared.Irradiance is { Length: > 0 } irradiance ? irradiance : null,
             Occlusion = declared.Occlusion is { Length: > 0 } occlusion ? occlusion : null,
             ContactOcclusion = declared.ContactOcclusion is { Length: > 0 } contact ? contact : null,
@@ -888,7 +901,11 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,
-            Samplers = builder.Samplers
+            Samplers = builder.Samplers,
+
+            // The one node that writes back into the scene's lighting, because it is the only object
+            // that knows both halves of the substitution — see AmbientCombineRenderer.Lighting.
+            Lighting = builder.SceneConstants?.Lighting
         };
 
     /// <summary>The sky node, with the frame's camera and the frame's set 0 in it.</summary>

@@ -402,6 +402,8 @@ Vixen.Rendering.Terrain.TerrainNodeAsset.ScenePass.get -> string
 Vixen.Rendering.Terrain.TerrainNodeAsset.ScenePass.init -> string
 Vixen.Rendering.Terrain.TerrainNodeAsset.ShadowAtlas.get -> string
 Vixen.Rendering.Terrain.TerrainNodeAsset.ShadowAtlas.init -> string
+Vixen.Rendering.Terrain.TerrainNodeAsset.Specular.get -> string
+Vixen.Rendering.Terrain.TerrainNodeAsset.Specular.init -> string
 Vixen.Rendering.Terrain.TerrainNodeAsset.TerrainNearRange.get -> float?
 Vixen.Rendering.Terrain.TerrainNodeAsset.TerrainNearRange.init -> float?
 Vixen.Rendering.Terrain.TerrainNodeAsset.TerrainNodeAsset() -> void
@@ -497,6 +499,8 @@ Vixen.Rendering.Terrain.TerrainSceneRenderer.ScenePass.set -> string
 Vixen.Rendering.Terrain.TerrainSceneRenderer.ShadowAtlas.get -> string
 Vixen.Rendering.Terrain.TerrainSceneRenderer.ShadowAtlas.set -> string
 Vixen.Rendering.Terrain.TerrainSceneRenderer.SharedPlacements.get -> int
+Vixen.Rendering.Terrain.TerrainSceneRenderer.Specular.get -> string
+Vixen.Rendering.Terrain.TerrainSceneRenderer.Specular.set -> string
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Split.get -> bool
 Vixen.Rendering.Terrain.TerrainSceneRenderer.TerrainSceneRenderer() -> void
 Vixen.Rendering.Terrain.TerrainSceneRenderer.TerrainsDrawn.get -> int

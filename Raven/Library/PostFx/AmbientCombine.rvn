@@ -57,12 +57,14 @@ import Vixen.Shaders.Shading
 // a reflectance baked into the producer would be applied twice there, at the wrong index. One
 // plane, one meaning (radiance and validity), and each consumer weighs it by the BRDF it has.
 //
-// ⚠ **`f0` is dielectric and fixed, because the split has no plane that carries it.** The normals
-// target carries a normal and a roughness and that is all, so a metal's traced reflection is
-// weighted here as though it were paint — too dim, and dimmer the more metallic it is. Until a
-// plane carries `f0` this is a floor, not an estimate.
+// ⚠ **`f0` comes from a plane of its own — the split's fourth target — and it took a fourth target
+// because nothing smaller carries it.** Before that plane existed this pass assumed a dielectric
+// 0.04 for every surface, so a metal's traced reflection was weighted here as though it were paint:
+// too dim, and dimmer the more metallic it is. The stand-in rule still gives that answer for a
+// document that binds no specular plane (`useSpecular` at zero), and it is still a floor rather
+// than an estimate.
 //
-// **What that plane would have to be, audited rather than assumed.** The obvious reading is "one
+// **What that plane had to be, audited rather than assumed.** The obvious reading is "one
 // metalness channel", and it is wrong twice over:
 //
 //   - **`MaterialData` has no metalness and cannot be asked for one.** It keeps `diffuseColor` and
@@ -72,28 +74,37 @@ import Vixen.Shaders.Shading
 //     `(0.42 - 0.04) / (0.40 - 0.04) = 1.06`, saturating to 1, a half-metal encoded as a mirror.
 //     And a metalness channel does not help even where it is right, because the albedo plane holds
 //     `base(1 - m)`, which is *black* at `m = 1`: there is no base colour left to rebuild `f0` from.
-//   - So the plane has to carry **`f0` itself, three channels**. That is what settles the choice
+//   - So the plane has to carry **`f0` itself, three channels**. That is what settled the choice
 //     between a fourth target and repacking `SceneNormals` octahedrally: octahedral folds `xyz`
 //     into `xy` and frees **one** channel, not the three this needs. It also cannot be done at all
 //     without a new validity signal, because `Math.EncodeOctahedral(0, 0, 1)` is `(0, 0)` — exactly
 //     the cleared sky — and the length test twelve lines below `Fragment` is the only sky test this
 //     pass has.
 //
-// ⚠ **And the fourth plane cannot land alone.** With a real `f0` the lerp below removes
-// `reflectance ×` the whole combined colour, and on a metal `reflectance` is around 0.55 rather
-// than 0.04 — so it would take away half of the surface's *direct* sunlight to make room for the
-// traced answer. Correcting `f0` therefore forces the other half of the same change: the pass must
-// stop writing `AmbientSpecular` into target 0 and this must **add** `mirror × reflectance` rather
-// than lerp toward it. That is one plane, one uniform on `ClusteredShading`, and a look decision
-// for every surface in the frame rather than for metals alone — a rough dielectric's specular
-// ambient would move from a prefiltered cube to whatever `ReflectionTrace` answers above its
-// `roughnessThreshold`, which is the irradiance field.
+// ⚠ **And the fourth plane could not land alone, which is why the blend below adds.** With a real
+// `f0` a lerp removes `reflectance ×` the whole combined colour, and on a metal `reflectance` is
+// around 0.55 rather than 0.04 — so it would take away half of the surface's *direct* sunlight to
+// make room for the traced answer. Correcting `f0` therefore forced the other half of the same
+// change: the split pass stops writing `AmbientSpecular` into target 0, and this **adds**
+// `mirror × reflectance` rather than lerping toward it. One plane, one uniform on
+// `ClusteredShading` (`ambientSpecularScale`), and `AmbientCombineRenderer.Build` turning both on
+// together — a half of either is a frame that counts the sky twice or a metal that reflects
+// nothing.
+//
+// ⚠ **It is a look decision for every surface in the frame and not for metals alone.** Dropping
+// `AmbientSpecular` moves *every* surface's specular ambient from the prefiltered cube to whatever
+// `ReflectionTrace` answers — and above its `roughnessThreshold` that answer is the irradiance
+// field rather than a trace. Sample 13's concrete is roughness 0.81 against a threshold of 0.45, so
+// the walls and the floor take that route too. The two are estimates of the same dusk sky and
+// should land close; a large divergence on rough surfaces is a finding about one of them.
 //
 // The size of what is being bought, measured on sample 13's ramp — the level's one metal — at 512
 // frames: zeroing `AmbientSpecular` moves that surface by (7.9, 8.3, 5.1) of (99.2, 81.0, 71.3),
 // and zeroing this pass's reflection blend moves it by (0.9, 2.6, 2.9). So the whole correction
 // redirects about a twelfth of the metal's pixel between two estimates of the same dusk sky. Too
-// dim remains the safe direction to be wrong in.
+// dim remains the safe direction to be wrong in — and a realised delta much *larger* than that
+// twelfth would mean the two terms are being counted together, which is what the addition and the
+// scalar exist to prevent.
 
 shader AmbientCombine {
     /// The split pass's first target: direct light, emissive and specular ambient; alpha carried.
@@ -126,6 +137,14 @@ shader AmbientCombine {
     /// Stand-in semantics: `useReflections` 0 blends none of it in.
     var reflections: Texture2D
 
+    /// The split pass's fourth target: specular reflectance at normal incidence in `rgb`.
+    ///
+    /// `ForwardTargets.specular`, `TerrainTargets.specular` and the resolve's fourth storage image
+    /// all write the same thing — `MaterialData.f0` — and this is the only consumer of it.
+    /// Stand-in semantics: `useSpecular` 0 reads a dielectric 0.04 for every pixel, which is the
+    /// weight this pass used before the plane existed.
+    var specular: Texture2D
+
     /// For the full-resolution planes the split pass wrote — texel-for-texel, nothing to filter.
     var pointSampler: Sampler
 
@@ -147,7 +166,17 @@ shader AmbientCombine {
 
     var useContactOcclusion: float = 0f
 
+    /// 1 where the traced plane *replaces* the split pass's own specular ambient, 0 otherwise.
+    ///
+    /// ⚠ **Not "is there a reflections resource".** The addition below only balances if the pass
+    /// held its own specular ambient back, and it only holds it back if the host also zeroed
+    /// `ClusteredShading.ambientSpecularScale`. One switch for both halves, set from one condition
+    /// in `AmbientCombineRenderer.Build`, so the two can never disagree: on with only one of them,
+    /// the frame either counts the dusk sky twice or loses a metal's reflection entirely.
     var useReflections: float = 0f
+
+    /// 1 where `specular` is the real plane, 0 where the host bound a stand-in — see the binding.
+    var useSpecular: float = 0f
 
     /// A multiplier on the rebuilt ambient alone — the split-mode seat of `ambientIntensity`,
     /// which the pass no longer applies to the diffuse half because the pass no longer has it.
@@ -240,12 +269,21 @@ shader AmbientCombine {
 
         // The traced plane, weighted by what this surface actually reflects rather than by whether
         // the trace answered — see the ⚠ at the head of this file for what blending by validity
-        // alone did. A miss is still a miss: alpha zero leaves the pass's own specular ambient
-        // standing, which is the semantics the plane was always meant to have.
+        // alone did.
+        //
+        // ⚠ **Added, not lerped, and the two are not interchangeable once `f0` is real.** A lerp
+        // takes `reflectance ×` the whole combined colour away to make room, which at a metal's
+        // 0.55 is half of its *direct* sunlight; and it is only the right shape at all while the
+        // term being replaced is still in `lit`. With `useReflections` on it is not: the split pass
+        // held its specular ambient back, so this is the frame's only specular ambient and the
+        // arithmetic is a sum. A miss — alpha zero — is then genuinely nothing, which is honest:
+        // `ReflectionTrace` writes 1 at every pixel that has a surface, so the only misses are the
+        // pixels this function already returned early for.
         val mirror = reflections.Sample(linearSampler, uv)
-        val reflectance = Reflectance(Math.SafeNormalize(surface.xyz), surface.a)
+        val f0 = lerp(float3(0.04f, 0.04f, 0.04f), specular.Sample(pointSampler, uv).rgb, useSpecular)
+        val reflectance = Reflectance(f0, Math.SafeNormalize(surface.xyz), surface.a)
 
-        color = lerp(color, mirror.rgb, saturate(mirror.a) * reflectance * useReflections)
+        color += mirror.rgb * reflectance * saturate(mirror.a) * useReflections
 
         return float4(color, lit.a)
     }
@@ -255,23 +293,22 @@ shader AmbientCombine {
     ///
     /// The split-sum specular integral, exactly as `Ibl.Specular` applies it to a prefiltered cube:
     /// `f0 · dfg.x + dfg.y`, with `Ibl.EnvironmentDfg` answering for this roughness at this angle.
-    /// Blending the plane by *that* is what makes a lerp read as replacing the pass's own IBL
-    /// specular with the traced answer — the two are the same term over the same integral, one
-    /// filtered off a cube and one marched — rather than as painting radiance over a finished frame.
+    /// Weighing the plane by *that* is what makes the addition read as *supplying* the pass's IBL
+    /// specular from the trace — the two are the same term over the same integral, one filtered off
+    /// a cube and one marched — rather than as painting radiance over a finished frame.
     ///
-    /// ⚠ **`f0` is 0.04 and every surface here is a dielectric, because nothing in the split says
-    /// otherwise.** The albedo plane's alpha is occlusion and the normals plane's is roughness;
-    /// there is no `f0` anywhere in the three targets, and a metal's `f0` is its base colour. So a
-    /// chrome pillar reflects at four per cent here instead of ninety — visibly too dim, and the
-    /// direction to be wrong in: a mirror that is too weak is a surface, and one that is too strong
-    /// is the bug this replaced. The head of this file audits what a fourth plane would cost and why
-    /// it cannot be one channel, and why it cannot land without add-not-lerp beside it.
+    /// ⚠ **Three channels, because `f0` is.** A metal's `f0` is its base colour and a tinted one at
+    /// that: galvanised steel is not grey-neutral, and folding this to a scalar would put a metal's
+    /// reflection back at the wrong hue after going to the trouble of a plane to carry it. Where
+    /// the caller has no plane it passes a dielectric 0.04 in all three, which is the number this
+    /// function assumed for every surface before the plane existed — a chrome pillar reflecting at
+    /// four per cent instead of ninety, which is the direction it is safe to be wrong in.
     ///
     /// The view direction comes from the frame's own unprojection rather than from a camera
     /// position, and needs no depth to do it: a pixel's view ray is a line in world space, so
     /// unprojecting this pixel at two different device depths gives two points on it and their
     /// difference is the direction. Reverse-Z, so 1 is the near plane and the nearer of the two.
-    func Reflectance(n: float3, perceptualRoughness: float): float {
+    func Reflectance(f0: float3, n: float3, perceptualRoughness: float): float3 {
         var NdotV = 1f
 
         if (useView > 0f) {
@@ -283,7 +320,7 @@ shader AmbientCombine {
 
         val dfg = Ibl.EnvironmentDfg(NdotV, perceptualRoughness)
 
-        return saturate(0.04f * dfg.x + dfg.y)
+        return saturate(f0 * dfg.x + float3(dfg.y, dfg.y, dfg.y))
     }
 
     /// A reduced plane's `rg` at this pixel: its four nearest texels, each weighted by bilinear

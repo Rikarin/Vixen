@@ -327,6 +327,31 @@ shader ClusteredShading {
     [PerFrame] var ambientIntensity: float = 1f
 
 
+    /// How much of the split path's specular ambient this pass keeps — 1 normally, 0 where a
+    /// reflections plane replaces it. Read by `AmbientSpecular` and by nothing else.
+    ///
+    /// **The other half of the split's `f0` plane, and it cannot be a permutation.** With a real
+    /// `f0` on a fourth target the combine stops lerping toward the traced radiance and *adds* it,
+    /// weighted by the surface's own reflectance — and a metal's reflectance is about 0.55, so
+    /// leaving this pass's prefiltered-cube specular in the colour as well would count the sky
+    /// twice on exactly the surfaces the plane was added for. One of the two estimates has to go,
+    /// and the traced one is the one that knows about the room.
+    ///
+    /// ⚠ **A uniform and not a permutation, on `AmbientCombine`'s own reasoning one file along.** A
+    /// permutation would key a variant on a *frame* property — whether the document names a
+    /// reflections node — which is not a property of the material this pass is compiled for; and a
+    /// value in `Permutations` that is not also in `PermutationKeys[shader]` never reaches the
+    /// compiler, so the variant would silently take the default here and the whole change would
+    /// read as "no effect". The bindings do not fold either way: this is a member of a block that
+    /// is bound whole.
+    ///
+    /// ⚠ **Written by the host every frame rather than left to this default.** A declared default
+    /// only reaches the buffer through the generated `*Keys` class, and the frame path interns its
+    /// names as strings — so an unwritten member is *zero*, not one. `SceneLighting.Extract` writes
+    /// it unconditionally for that reason.
+    [PerFrame] var ambientSpecularScale: float = 1f
+
+
     /// Whether local reflection probes stand in for the environment where they apply.
     ///
     /// A permutation rather than a weight of zero, because the *work* differs: with it off there is
@@ -785,8 +810,15 @@ shader ClusteredShading {
     /// ambient from a screen irradiance plane — albedo times irradiance times occlusion — but an
     /// irradiance plane carries no directional lobe, so there is nothing on screen a specular term
     /// could be rebuilt from. The prefiltered environment and the reflection probes therefore keep
-    /// shading here, in the pass, and a traced-reflections composite replacing them is a later
-    /// refinement (`!Reflections` blends over the combined result; it does not substitute for this).
+    /// shading here, in the pass — unless the frame has a reflections plane to put in their place,
+    /// which is what `ambientSpecularScale` says and the only thing it says.
+    ///
+    /// ⚠ **The composite does now substitute for this, and the substitution is all-or-nothing.**
+    /// `AmbientCombine` weighs the traced plane by the surface's own reflectance off the split's
+    /// fourth target, and *adds* it. Keeping this term as well would give a metal the dusk sky
+    /// twice; dropping it without the plane would weigh a metal's reflection as though it were
+    /// paint. The host sets the scale to zero exactly when both halves are there —
+    /// `AmbientCombineRenderer.Build`.
     ///
     /// ⚠ A copy of `Ambient`'s first half rather than a refactor of it, deliberately: the combined
     /// term is what every existing variant compiles, and the split's whole promise is that turning

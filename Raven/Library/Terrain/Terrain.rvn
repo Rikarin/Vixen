@@ -54,7 +54,7 @@ struct TerrainNode {
     var padding0: float
 }
 
-/// The split pass's three answers, in attachment order — `ForwardTargets`' arrangement.
+/// The split pass's four answers, in attachment order — `ForwardTargets`' arrangement.
 ///
 /// Declaration order is target order. With `SplitOutputs` off only `color` is ever written, and a
 /// target nothing writes is not an output — so the default lit variant still presents the single
@@ -71,6 +71,15 @@ struct TerrainTargets {
     /// roughness rides in `a`; the splat has no roughness authoring yet, so it is 1 — fully rough
     /// ground, which is what the combine's specular terms should assume of dirt.
     var normal: float4
+
+    /// Specular reflectance at normal incidence, `a` unused — `ForwardTargets.specular`'s plane.
+    ///
+    /// A dielectric 0.04 for everything the terrain stack draws, and that is not a placeholder: dirt,
+    /// grass and bark are dielectrics, the splat has no metalness authoring, and a ground that
+    /// reported a metal's `f0` would reflect the sky like a lake. The literal rather than
+    /// `MaterialDefaults.DielectricF0` because this package does not import the material one and an
+    /// import here would bring bindings with it; the two numbers agree and a parity test says so.
+    var specular: float4
 }
 
 shader TerrainBase {
@@ -699,6 +708,9 @@ shader TerrainLit : TerrainBase {
             targets.color = float4(colour, 1f)
             targets.albedo = float4(albedo, 1f)
             targets.normal = float4(n, 1f)
+
+            // Dielectric, and the ground has nothing else to be — the member's own note.
+            targets.specular = float4(0.04f, 0.04f, 0.04f, 0f)
         } else {
             // The sky's spherical harmonics, exactly as the unsplit scene pass adds them — so a
             // terrain in shadow is lit by the same sky as the wall beside it.

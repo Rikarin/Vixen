@@ -1134,6 +1134,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Colour = declared.Colour,
             Albedo = declared.Albedo,
             Normals = declared.Normals,
+            Specular = declared.Specular,
             ViewIndex = declared.ViewIndex,
             View = declared.View is { Length: > 0 } view ? Bind(Views, declared.Name, "view", view) : null,
 

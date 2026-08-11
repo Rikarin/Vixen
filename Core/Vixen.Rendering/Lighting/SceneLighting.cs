@@ -51,6 +51,9 @@ public sealed class SceneLighting {
     /// <summary>The shader's name for how that cube is sampled.</summary>
     const string EnvironmentSamplerName = "environmentSampler";
 
+    /// <summary>The shader's name for how much of the split path's specular ambient survives.</summary>
+    const string AmbientSpecularName = "ambientSpecularScale";
+
     /// <summary>The shader's name for the probe array. Its length is the binding's.</summary>
     const string ProbesName = "probes";
 
@@ -59,6 +62,34 @@ public sealed class SceneLighting {
 
     /// <summary>The scene's sky, or null for a scene lit by lamps alone.</summary>
     public EnvironmentLight? Environment { get; set; }
+
+    /// <summary>
+    ///     How much of a split shading pass's own specular ambient it keeps — 1 normally, 0 where a
+    ///     traced reflections plane replaces it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The frame's half of one change, not a quality knob.</b> A split pass writes the
+    ///         prefiltered environment's specular into target 0 and the material's <c>f0</c> onto the
+    ///         fourth plane; <c>!AmbientCombine</c> then weighs the traced reflections plane by that
+    ///         <c>f0</c> and <em>adds</em> it. Both estimate the same sky, so exactly one of them may
+    ///         stand: at 1 with the addition live the frame counts it twice, and at 0 without the
+    ///         addition every surface loses its specular ambient altogether.
+    ///     </para>
+    ///     <para>
+    ///         Which is why nothing but <c>AmbientCombineRenderer.Build</c> writes it, and why it
+    ///         writes it from the single condition that decides both halves — see that method. A
+    ///         frame with no combine node never has it changed and keeps the 1 it was born with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written into every shader's parameters unconditionally, and the declared default
+    ///         in the <c>.rvn</c> is not a fallback.</b> A shader's default only reaches the buffer
+    ///         through the generated <c>*Keys</c> class, and this path interns its names as strings —
+    ///         so a member nobody sets is <em>zero</em>, not one, and a frame that simply forgot to
+    ///         write this would silently lose all of its specular ambient.
+    ///     </para>
+    /// </remarks>
+    public float AmbientSpecular { get; set; } = 1f;
 
     /// <summary>The probes to bind, in the order an object's index refers to them.</summary>
     /// <remarks>
@@ -128,6 +159,12 @@ public sealed class SceneLighting {
         WriteSun(parameters, shader);
         WriteEnvironment(parameters, shader);
         WriteProbes(parameters, shader, effect);
+
+        // ⚠ Outside WriteEnvironment on purpose: that method returns early for a scene with no sky,
+        // and this member's zero is not "no sky" but "drop the specular ambient". A shader that does
+        // not declare it ignores the name, which is what every other unconditional write here relies
+        // on.
+        parameters.Set(ParameterKeys.New<float>($"{shader}.{AmbientSpecularName}"), AmbientSpecular);
 
         if (Camera is { } camera) {
             ClusterGrid.Apply(parameters, camera, shader);

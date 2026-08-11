@@ -285,6 +285,7 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
             Depth = terrain.Depth,
             Albedo = terrain.Albedo,
             Normals = terrain.Normals,
+            Specular = terrain.Specular,
             ShadowAtlas = terrain.ShadowAtlas,
             ScenePass = terrain.ScenePass,
             View = view,

@@ -1020,6 +1020,9 @@ public sealed record VisibilityBufferAsset : ISceneRendererAsset {
     /// <summary>The split's normal plane, on <see cref="Albedo" />'s terms.</summary>
     public string Normals { get; init; } = string.Empty;
 
+    /// <summary>The split's f0 plane, on <see cref="Albedo" />'s terms.</summary>
+    public string Specular { get; init; } = string.Empty;
+
     /// <summary>The view it draws from, by the name the document's views are known by.</summary>
     /// <remarks>
     ///     A virtualized document has no <c>SingleStage</c> in it — a cluster draw is not a stage — so

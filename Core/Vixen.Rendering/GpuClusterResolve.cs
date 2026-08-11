@@ -161,20 +161,21 @@ public sealed class GpuClusterResolve : IDisposable {
     /// </remarks>
     public bool IrradianceField { get; set; }
 
-    /// <summary>Whether the resolve splits its answer across three planes — the ambient split.</summary>
+    /// <summary>Whether the resolve splits its answer across four planes — the ambient split.</summary>
     /// <remarks>
     ///     <para>
     ///         On <c>ForwardPlus.SplitOutputs</c>'s exact terms, because the resolve shades into the
     ///         same frame: colour keeps direct light, emissive and specular ambient; the albedo plane
     ///         carries diffuse albedo with the material's occlusion in alpha; the normal plane the
-    ///         shading normal with roughness in alpha. Diffuse ambient becomes <c>!AmbientCombine</c>'s
-    ///         job. A frame that splits one path and not the other shades the same material two ways
-    ///         on two sides of a tile boundary, so whoever sets this sets the forward key too.
+    ///         shading normal with roughness in alpha; the specular plane the surface's <c>f0</c>.
+    ///         Diffuse ambient becomes <c>!AmbientCombine</c>'s job. A frame that splits one path and
+    ///         not the other shades the same material two ways on two sides of a tile boundary, so
+    ///         whoever sets this sets the forward key too.
     ///     </para>
     ///     <para>
-    ///         ⚠ The two extra planes are bindings in <em>every</em> variant — a binding is declared,
+    ///         ⚠ The three extra planes are bindings in <em>every</em> variant — a binding is declared,
     ///         not read into existence — so <see cref="Prepare" /> always fills them: with the caller's
-    ///         planes here, and with the colour target aliased when this is off, which costs two
+    ///         planes here, and with the colour target aliased when this is off, which costs three
     ///         descriptor writes and no bytes.
     ///     </para>
     /// </remarks>
@@ -255,6 +256,7 @@ public sealed class GpuClusterResolve : IDisposable {
     ///     aliases <paramref name="target" /> into the binding, which the off variant never writes.
     /// </param>
     /// <param name="normal">The split's normal plane, on the same terms.</param>
+    /// <param name="specular">The split's f0 plane, on the same terms.</param>
     /// <returns>Whether anything is ready to dispatch.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view" /> is null.</exception>
     /// <remarks>
@@ -268,7 +270,8 @@ public sealed class GpuClusterResolve : IDisposable {
         TextureViewHandle identities,
         Int2 size,
         TextureViewHandle albedo = default,
-        TextureViewHandle normal = default
+        TextureViewHandle normal = default,
+        TextureViewHandle specular = default
     ) {
         ArgumentNullException.ThrowIfNull(view);
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -314,11 +317,13 @@ public sealed class GpuClusterResolve : IDisposable {
 
             var bin = Bin.For(bins, entry.Index, device);
 
-            // The colour aliased rather than left unfilled: the two split planes are bindings of every
-            // variant, a set is written wholly or not at all, and the off variant never stores through
-            // them — so the alias is two descriptor writes buying a set that always completes.
+            // The colour aliased rather than left unfilled: the three split planes are bindings of
+            // every variant, a set is written wholly or not at all, and the off variant never stores
+            // through them — so the alias is three descriptor writes buying a set that always
+            // completes.
             var albedoPlane = albedo.IsValid ? albedo : target;
             var normalPlane = normal.IsValid ? normal : target;
+            var specularPlane = specular.IsValid ? specular : target;
 
             if (!bin.Fill(
                     device,
@@ -334,6 +339,7 @@ public sealed class GpuClusterResolve : IDisposable {
                     size,
                     albedoPlane,
                     normalPlane,
+                    specularPlane,
                     parameters,
                     writes
                 )) {
@@ -462,6 +468,7 @@ public sealed class GpuClusterResolve : IDisposable {
             Int2 size,
             TextureViewHandle albedo,
             TextureViewHandle normal,
+            TextureViewHandle specular,
             ParameterCollection parameters,
             List<DescriptorWrite> writes
         ) {
@@ -474,6 +481,7 @@ public sealed class GpuClusterResolve : IDisposable {
             parameters.Set(VisibilityResolveKeys.Target, target);
             parameters.Set(VisibilityResolveKeys.AlbedoTarget, albedo);
             parameters.Set(VisibilityResolveKeys.NormalTarget, normal);
+            parameters.Set(VisibilityResolveKeys.SpecularTarget, specular);
             parameters.Set(VisibilityResolveKeys.Visible, visibility.Visible);
             parameters.Set(VisibilityResolveKeys.Instances, visibility.Instances);
             parameters.Set(VisibilityResolveKeys.Geometry, visibility.Geometry);

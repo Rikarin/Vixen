@@ -41,11 +41,16 @@ import Vixen.Shaders.DistanceFields
 // visibility-buffer resolve shade the same surfaces with the same lights: see
 // `docs/plan/22-virtualized-geometry.md` phase 5, and `VisibilityResolve.rvn`.
 
-/// The split pass's three answers, in attachment order — see `SplitOutputs`.
+/// The split pass's four answers, in attachment order — see `SplitOutputs`.
 ///
 /// Declaration order is target order, `SurfaceCardRaster`'s rule. With the permutation off only
 /// `color` is ever written, and a target nothing writes is not an output — so the default variant
 /// still presents the single attachment every existing composition binds.
+///
+/// ⚠ **`specular` is appended, and appending is the only safe direction.** Member order *is*
+/// attachment order, so putting the new plane anywhere but last renumbers every existing one — and
+/// a document whose `colourTargets:` list still reads albedo, normal is then not a different
+/// layout but albedo shaded as radiance through the whole chain.
 struct ForwardTargets {
     /// Direct light, emissive and specular ambient; the material's alpha rides in `a`.
     var color: float4
@@ -55,11 +60,22 @@ struct ForwardTargets {
 
     /// The shading normal in world space, with perceptual roughness in `a`.
     var normal: float4
+
+    /// Specular reflectance at normal incidence — `MaterialData.f0` — with `a` unused and zero.
+    ///
+    /// **Three channels, and it is `f0` rather than metalness because metalness is the one thing
+    /// this engine cannot put on a plane.** `MaterialData` keeps `diffuseColor` and `f0`; the pair
+    /// is underdetermined (`diffuse = base(1 - m)` and `f0 = lerp(0.04, base, m)` are two equations
+    /// in three unknowns), and the albedo plane holds `base(1 - m)`, which is **black at m = 1** —
+    /// so there is no base colour left for a consumer to rebuild a metal's `f0` from. The audit is
+    /// at the head of `AmbientCombine.rvn`, and `GBuffer.rvn` carries the same finding for the
+    /// deferred layout.
+    var specular: float4
 }
 
 shader ForwardPlus : ClusteredShading {
 
-    /// Whether the fragment splits its answer across three targets instead of summing one.
+    /// Whether the fragment splits its answer across four targets instead of summing one.
     ///
     /// **The ambient split — what screen-space GI application was blocked on.** A combined frame
     /// has no normals plane for an AO or reflection pass to read, no albedo for a screen irradiance
@@ -70,18 +86,20 @@ shader ForwardPlus : ClusteredShading {
     ///   0  direct light + emissive (+ specular ambient — see below), alpha carried
     ///   1  diffuse albedo, material occlusion in alpha
     ///   2  world normal, roughness in alpha
+    ///   3  specular reflectance at normal incidence — `f0` — alpha unused
     ///
-    /// **Only *diffuse* ambient moves — the environment, field and probe indirect diffuse that
-    /// `!AmbientCombine` rebuilds as albedo × irradiance × occlusion. Specular ambient (the
-    /// prefiltered environment and the reflection probes) stays in target 0**, because no screen
-    /// plane carries the directional lobe it needs; a reflections composite replacing it is a
-    /// later refinement. See `ClusteredShading.AmbientSpecular`.
+    /// **Only *diffuse* ambient always moves — the environment, field and probe indirect diffuse
+    /// that `!AmbientCombine` rebuilds as albedo × irradiance × occlusion. Specular ambient (the
+    /// prefiltered environment and the reflection probes) stays in target 0** unless the frame has
+    /// a traced reflections plane to put in its place, which is what
+    /// `ClusteredShading.ambientSpecularScale` says and the only thing it says.
     ///
-    /// ⚠ **That refinement is one change with the missing `f0` plane, not an alternative to it** —
+    /// ⚠ **That refinement is one change with the `f0` plane above, not an alternative to it** —
     /// `AmbientCombine.rvn`'s head has the audit. Dropping this term is what lets the combine *add*
     /// the traced reflection instead of lerping toward it, and lerping is only harmless while the
     /// weight is a dielectric's four per cent; at a metal's fifty-five it would take half the
-    /// surface's direct sunlight with it. Neither half is safe on its own.
+    /// surface's direct sunlight with it. Neither half is safe on its own, so
+    /// `AmbientCombineRenderer.Build` turns both on together or neither.
     ///
     /// A permutation rather than a branch because the two variants have different *interfaces*:
     /// off, the two extra members are never stored, and a target nothing writes is not an output —
@@ -424,8 +442,9 @@ shader ForwardPlus : ClusteredShading {
         var targets: ForwardTargets
 
         if (SplitOutputs) {
-            // Diffuse ambient is the combine's job now; the specular half has no plane to move to
-            // and stays — see the permutation's own note and `AmbientSpecular`.
+            // Diffuse ambient is the combine's job now. The specular half stays here unless the
+            // frame has a traced plane to put in its place, which `ambientSpecularScale` says —
+            // see the permutation's own note and `AmbientSpecular`.
             if (UseImageBasedLighting) {
                 color += AmbientSpecular(d, p, n, v)
             }
@@ -437,6 +456,11 @@ shader ForwardPlus : ClusteredShading {
             // to multiply into the ambient it rebuilds.
             targets.albedo = float4(d.diffuseColor, d.occlusion)
             targets.normal = float4(n, d.perceptualRoughness)
+
+            // `f0` itself and not metalness, and the whole of it — see `ForwardTargets.specular`.
+            // Alpha is written because a struct member the shader leaves alone is a target the
+            // compiler still counts, and an undefined alpha is a plane a reader cannot test.
+            targets.specular = float4(d.f0, 0f)
         } else {
             // Either source of ambient light brings the whole term in, and the term itself decides
             // which halves it has. Gating on the IBL flag alone would make a project that has a

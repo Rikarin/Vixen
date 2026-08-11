@@ -37,22 +37,23 @@ import Vixen.Shaders.VirtualShadows
 
 shader VisibilityResolve : ClusteredShading {
 
-    /// Whether the resolve splits its answer across three planes, on `ForwardPlus.SplitOutputs`'s
+    /// Whether the resolve splits its answer across four planes, on `ForwardPlus.SplitOutputs`'s
     /// exact terms — same key name, same target order, same semantics.
     ///
     /// The resolve shades into the same frame the forward pass does, and the two paths disagreeing
     /// per pixel is the bug class `ClusteredShading` exists to remove: a virtualized mesh whose
     /// ambient stayed baked into its colour while its forward-drawn neighbour's moved to the
     /// combine would split the difference right down a material boundary. So the split lands in
-    /// both or in neither. Only diffuse ambient moves — specular ambient stays in the colour, see
-    /// `ClusteredShading.AmbientSpecular` — and the two extra planes carry what `ForwardTargets`'
-    /// members carry: albedo with the material's occlusion in alpha, normal with roughness in alpha.
+    /// both or in neither. Only diffuse ambient always moves — specular ambient stays in the colour
+    /// unless the frame replaces it, see `ClusteredShading.AmbientSpecular` — and the three extra
+    /// planes carry what `ForwardTargets`' members carry: albedo with the material's occlusion in
+    /// alpha, normal with roughness in alpha, and `f0` with an unused alpha.
     ///
-    /// ⚠ A compute pass has no render targets to prune, so the two planes below are *bindings*,
+    /// ⚠ A compute pass has no render targets to prune, so the three planes below are *bindings*,
     /// and a binding is in the plan whether or not a variant writes it — the note at the top of
-    /// `ForwardPlus.rvn`. A host binds all three storage images in every variant;
+    /// `ForwardPlus.rvn`. A host binds all four storage images in every variant;
     /// `GpuClusterResolve` aliases the colour target into the spare slots when the split is off,
-    /// which costs two descriptor writes and no bytes.
+    /// which costs three descriptor writes and no bytes.
     [Permutation] val SplitOutputs: bool = false
 
     /// What the surface does with a light, chosen per material — the same slot `ForwardPlus` composes.
@@ -192,6 +193,12 @@ shader VisibilityResolve : ClusteredShading {
     /// And its third: the shading normal in world space, perceptual roughness in alpha.
     [Format("rgba16f")] var normalTarget: RWTexture2D<float4>
 
+    /// And its fourth: specular reflectance at normal incidence — `MaterialData.f0`, alpha unused.
+    ///
+    /// Appended for the reason `albedoTarget` states, one plane along. `ForwardTargets.specular`
+    /// carries the audit for why it is `f0` and three channels rather than one metalness channel.
+    [Format("rgba16f")] var specularTarget: RWTexture2D<float4>
+
     /// One workgroup per tile of this material's bin, one invocation per pixel.
     ///
     /// The dispatch is indirect: `VisibilityTiles.rvn` wrote the tile count into the argument triple
@@ -320,14 +327,16 @@ shader VisibilityResolve : ClusteredShading {
         color += Punctual(d, point, n, v, alpha)
 
         if (SplitOutputs) {
-            // Diffuse ambient is the combine's job now; the specular half has no plane to move to
-            // and stays — `ForwardPlus` makes the same move under the same key, which is the point.
+            // Diffuse ambient is the combine's job now; the specular half stays unless the frame
+            // has a traced plane to put in its place, which `ambientSpecularScale` says —
+            // `ForwardPlus` makes the same move under the same key, which is the point.
             if (UseImageBasedLighting) {
                 color += AmbientSpecular(d, point, n, v)
             }
 
             albedoTarget.Store(pixel, float4(d.diffuseColor, d.occlusion))
             normalTarget.Store(pixel, float4(n, d.perceptualRoughness))
+            specularTarget.Store(pixel, float4(d.f0, 0f))
         } else {
             if (UseImageBasedLighting || UseIrradianceField) {
                 color += Ambient(d, point, n, v)
