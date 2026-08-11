@@ -365,11 +365,13 @@ public sealed class RenderGraph {
                 // the GPU cull, the clipmap, the surface cache, the probe gather, the exposure
                 // reduce. Without this a capture of sample 13 is a wall of anonymous dispatches.
                 //
-                // ⚠ Guarded on the name being there, and not out of tidiness. A backend may decline
-                // to open a group it cannot name — the Vulkan one returns early on an empty string —
-                // while its pop is unconditional, so pushing "" and popping it anyway closes a group
-                // somebody else opened. That is an unbalanced label stack, and it surfaces as a
-                // validation error at submit, a whole frame away from the unnamed pass that caused it.
+                // ⚠ Guarded on the name being there, and no longer for safety's sake. It used to be:
+                // the Vulkan backend returned early on an empty string while its pop was
+                // unconditional, so pushing "" and popping it anyway closed a group somebody else
+                // opened, and every pass after it in the capture hung under a label it had nothing to
+                // do with. That asymmetry is fixed where it lived — `VulkanCommandList.UnnamedGroup`
+                // opens a placeholder and the pop refuses to underflow — so this guard is now only
+                // taste: a nameless group is a level in the tree that carries no information.
                 var named = !string.IsNullOrEmpty(pass.Name);
 
                 if (named) {

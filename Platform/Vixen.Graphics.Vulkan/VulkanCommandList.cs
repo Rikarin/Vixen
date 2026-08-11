@@ -24,6 +24,17 @@ namespace Vixen.Graphics.Vulkan;
 ///     </para>
 /// </remarks>
 sealed unsafe class VulkanCommandList : ICommandList {
+    /// <summary>What a group with no name is opened under.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A placeholder, not a skip.</b> Declining to open a group a caller asked for is only
+    ///     half a decision: the matching <see cref="PopDebugGroup" /> still arrives, and it closes
+    ///     whichever group was open instead — so one unnamed pass renests every pass after it under a
+    ///     label it has nothing to do with. A capture that is wrong and looks authoritative is worse
+    ///     than one with no labels at all, and there is no crash and no validation message to say so.
+    ///     A name nobody wrote is worth a line in the tree that says exactly that.
+    /// </remarks>
+    internal const string UnnamedGroup = "(unnamed)";
+
     readonly VulkanDevice device;
     readonly Vk api;
 
@@ -31,6 +42,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
     bool usingRenderPassObject;
     VulkanPipeline? bound;
     bool disposed;
+    int debugGroupDepth;
 
     internal VulkanCommandList(VulkanDevice device, CommandBuffer buffer, QueueKind kind, string name) {
         this.device = device;
@@ -645,13 +657,22 @@ sealed unsafe class VulkanCommandList : ICommandList {
         }
     }
 
+    /// <summary>How many labels this list has opened and not yet closed.</summary>
+    /// <remarks>
+    ///     Counts what was <em>emitted</em>, so it is zero throughout on a device without
+    ///     <c>VK_EXT_debug_utils</c> — where neither half of the pair is recorded and the stack is
+    ///     balanced by never existing. A test asserts on it because nothing else can see a label
+    ///     stack: the commands go straight into a buffer, and the only other reader is a capture.
+    /// </remarks>
+    internal int DebugGroupDepth => debugGroupDepth;
+
     /// <inheritdoc />
     public void PushDebugGroup(string name) {
-        if (device.DebugUtils is not { } utils || string.IsNullOrEmpty(name)) {
+        if (device.DebugUtils is not { } utils) {
             return;
         }
 
-        var text = (byte*)SilkMarshal.StringToPtr(name);
+        var text = (byte*)SilkMarshal.StringToPtr(string.IsNullOrEmpty(name) ? UnnamedGroup : name);
 
         try {
             var label = new DebugUtilsLabelEXT {
@@ -660,13 +681,28 @@ sealed unsafe class VulkanCommandList : ICommandList {
             };
 
             utils.CmdBeginDebugUtilsLabel(Buffer, &label);
+            debugGroupDepth++;
         } finally {
             SilkMarshal.Free((nint)text);
         }
     }
 
     /// <inheritdoc />
-    public void PopDebugGroup() => device.DebugUtils?.CmdEndDebugUtilsLabel(Buffer);
+    /// <remarks>
+    ///     ⚠ <b>Conditional on there being something to close</b>, which is the second half of the
+    ///     guarantee <see cref="UnnamedGroup" /> makes. A pop with nothing under it is
+    ///     <c>VUID-vkCmdEndDebugUtilsLabelEXT-commandBuffer-01912</c> and, unvalidated, closes a label
+    ///     opened by whatever ran before this list — an unbalanced stack that the rest of the frame
+    ///     inherits. Swallowing it here keeps a caller's own accounting mistake local to the caller.
+    /// </remarks>
+    public void PopDebugGroup() {
+        if (device.DebugUtils is not { } utils || debugGroupDepth == 0) {
+            return;
+        }
+
+        debugGroupDepth--;
+        utils.CmdEndDebugUtilsLabel(Buffer);
+    }
 
     /// <inheritdoc />
     public void InsertDebugMarker(string name) {

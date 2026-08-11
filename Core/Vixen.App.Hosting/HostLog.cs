@@ -84,6 +84,49 @@ static partial class HostLog {
     public static partial void GraphicsStarted(ILogger logger, string adapter, AdapterKind kind, int width, int height);
 
     /// <summary>
+    ///     The line that says a chosen number was reinterpreted.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>WindowOptions.Size</c> is in logical points and a swapchain is in physical pixels,
+    ///         which is the engine's deliberate choice and documented on the property. The consequence
+    ///         is not: on a 2× display a game that asked for 1600×900 renders 3200×1800 — four times
+    ///         the pixels, and rather more than four times the cost of the screen-space passes, whose
+    ///         rays also march twice as far in texels.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="GraphicsStarted" /> reports the result, not that it differs from the
+    ///         request.</b> Nothing else in the run does either, so the only way to discover that the
+    ///         frame is four times the size somebody picked is to notice the number and do the
+    ///         division — which is exactly what nobody does, and which has already cost this repo an
+    ///         afternoon once, when stand-in frame targets were imported at the logical size into a
+    ///         retina frame and quarter-sized half the chain.
+    ///     </para>
+    ///     <para>
+    ///         Information rather than a warning: every retina Mac and every 150% Windows desktop
+    ///         says this, so a warning would be noise within a week. It is said once, at startup, and
+    ///         not on every resize.
+    ///     </para>
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 13026,
+        Level = LogLevel.Information,
+        Message = "The window asked for {PointWidth}×{PointHeight} points and the display scale is "
+            + "×{Scale}, so the frame is {PixelWidth}×{PixelHeight} — {Factor}× the pixels. What is "
+            + "rendered is the frame document's to decide: scale its scene-sized resources, or lower "
+            + "a !StandardFrame's resolution.renderScale."
+    )]
+    public static partial void FramebufferScaled(
+        ILogger logger,
+        int pointWidth,
+        int pointHeight,
+        float scale,
+        int pixelWidth,
+        int pixelHeight,
+        float factor
+    );
+
+    /// <summary>
     ///     A warning rather than information, even though it is exactly what a dedicated server wants.
     ///     A head that asked for a window and is drawing into nothing has to say so — the same stance
     ///     the headless platform fallback takes, and for the same reason: the alternative is an
