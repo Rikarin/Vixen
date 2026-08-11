@@ -15,7 +15,7 @@ namespace Vixen.Samples.VideoPlayback;
 /// </remarks>
 static partial class SampleLog {
     [LoggerMessage(
-        EventId = 14001,
+        EventId = 14026,
         Level = LogLevel.Information,
         Message = "Running on {Adapter} ({Kind}), presenting {Format} at {Width}×{Height} "
             + "with {Images} images."
@@ -31,14 +31,14 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
-        EventId = 14002,
+        EventId = 14027,
         Level = LogLevel.Error,
         Message = "There is no window to present to."
     )]
     public static partial void NoWindow(ILogger logger);
 
     [LoggerMessage(
-        EventId = 14003,
+        EventId = 14028,
         Level = LogLevel.Error,
         Message = "The device was lost."
     )]

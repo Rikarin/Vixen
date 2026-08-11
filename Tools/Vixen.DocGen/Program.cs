@@ -245,6 +245,15 @@ static async Task<int> Run(Arguments arguments) {
     problems.AddRange(exemptionErrors);
     problems.AddRange(PageLinks.Check(pages, nodes.Select(node => node.Slug).ToHashSet(StringComparer.Ordinal)));
 
+    // The log-event register against the `[LoggerMessage]` attributes it registers. Also asserted by
+    // Vixen.DocGen.Tests, which is where it runs on every push; here because this is where the join
+    // between a page's `api:` list and an id lives, and a duplicate claim is only visible from here.
+    problems.AddRange(LogEventRegister.Check(
+        nodes,
+        LogEventRegister.Sites(root),
+        LogEventRegister.Ranges(root),
+        [.. pages.SelectMany(page => page.Front.Api.Select(id => (id, page.Front.Slug)))]));
+
     if (arguments.UpdateExemptions) {
         var update = Coverage.Write(root, nodes);
 
