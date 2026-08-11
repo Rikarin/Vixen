@@ -112,8 +112,9 @@ static partial class HostLog {
         EventId = 13026,
         Level = LogLevel.Information,
         Message = "The window asked for {PointWidth}×{PointHeight} points and the display scale is "
-            + "×{Scale}, so the frame is {PixelWidth}×{PixelHeight} — {Factor}× the pixels. Lower "
-            + "resolution.renderScale to render fewer of them."
+            + "×{Scale}, so the frame is {PixelWidth}×{PixelHeight} — {Factor}× the pixels. What is "
+            + "rendered is the frame document's to decide: scale its scene-sized resources, or lower "
+            + "a !StandardFrame's resolution.renderScale."
     )]
     public static partial void FramebufferScaled(
         ILogger logger,
