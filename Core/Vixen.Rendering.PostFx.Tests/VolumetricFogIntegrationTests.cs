@@ -914,6 +914,33 @@ public class VolumetricFogIntegrationTests : IDisposable {
         Assert.Equal(fog.AmbientColour, declared.AmbientColour);
     }
 
+    /// <summary>
+    ///     A document can say how much history survives, and the expansion carries it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An asset field and not a tier knob</b>, which is the decision this records. A tier
+    ///     trades quality for cost; <c>Feedback</c> has no cost axis, because the history volume is
+    ///     allocated, reprojected and sampled at every value including zero — the pair is
+    ///     <c>Reprojects</c>'s business and the dispatch is identical either way. What it trades is
+    ///     crawl against lag, which is a look decision a scene makes and not a machine one.
+    /// </remarks>
+    [Fact]
+    public void A_document_decides_how_much_of_the_volume_survives_the_frame() {
+        var builder = new CompositorBuilder(new RenderSystem()) { Device = device };
+
+        builder.Factories.Add(new PostEffectFactory());
+
+        var compositor = builder.Build(
+            new() {
+                Version = CompositorBuilder.SupportedVersion,
+                Game = new VolumetricFogAsset { Name = "Volumetrics", Feedback = 0.5f }
+            }
+        );
+
+        Assert.Equal(0.9f, new VolumetricFogAsset().Feedback);
+        Assert.Equal(0.5f, Assert.IsType<VolumetricFogRenderer>(compositor.Game).Feedback);
+    }
+
     /// <summary>An <c>ISunSource</c> holding one answer, for the two tests above.</summary>
     sealed class Star(RenderLight? sun) : ISunSource {
         public RenderLight? Sun { get; } = sun;

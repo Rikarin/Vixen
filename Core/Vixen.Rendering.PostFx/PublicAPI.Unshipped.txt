@@ -1567,6 +1567,8 @@ Vixen.Rendering.PostFx.VolumetricFogAsset.Enabled.get -> bool
 Vixen.Rendering.PostFx.VolumetricFogAsset.Enabled.init -> bool
 Vixen.Rendering.PostFx.VolumetricFogAsset.Far.get -> float
 Vixen.Rendering.PostFx.VolumetricFogAsset.Far.init -> float
+Vixen.Rendering.PostFx.VolumetricFogAsset.Feedback.get -> float
+Vixen.Rendering.PostFx.VolumetricFogAsset.Feedback.init -> float
 Vixen.Rendering.PostFx.VolumetricFogAsset.FogHeight.get -> float
 Vixen.Rendering.PostFx.VolumetricFogAsset.FogHeight.init -> float
 Vixen.Rendering.PostFx.VolumetricFogAsset.Height.get -> int

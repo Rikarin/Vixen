@@ -381,6 +381,26 @@ public sealed record VolumetricFogAsset : ISceneRendererAsset {
     ///     valley is black; with a unit-scale one it is a valley with no fog in it.
     /// </summary>
     public Vector3 AmbientColour { get; init; } = new(1400f, 1680f, 2200f);
+
+    /// <summary>How much of the reprojected history survives into this frame's scattering volume.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A per-scene look decision and not a tier one, which is why it is here and not in
+    ///         <see cref="PostFidelityQuality" />. A tier trades quality for <em>cost</em>, and this
+    ///         knob has no cost axis: the history volume is allocated, reprojected and sampled at every
+    ///         value including zero — <c>VolumetricFogRenderer.Reprojects</c> is availability, decided
+    ///         by whether the node owns its pair, and the dispatch is the same one either way. Lowering
+    ///         it saves nothing and buys nothing but a different artefact.
+    ///     </para>
+    ///     <para>
+    ///         What it does trade is crawl against lag. At 0.9 a shaft takes about ten frames to answer
+    ///         a light that moved; a scene whose sun swings wants it lower and should expect the edges
+    ///         to shimmer for it. ⚠ Zero is not "no reprojection" — the sample point is still offset per
+    ///         frame, so zero is the offsets with nothing averaging them back out, which is the crawl at
+    ///         its worst rather than the crawl removed.
+    ///     </para>
+    /// </remarks>
+    public float Feedback { get; init; } = 0.9f;
 }
 
 /// <summary>Outlines from depth and normal discontinuities.</summary>
