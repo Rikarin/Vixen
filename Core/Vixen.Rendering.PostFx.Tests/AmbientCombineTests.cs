@@ -31,9 +31,19 @@ public class AmbientCombineTests {
     // --- The formula, as the shader states it --------------------------------
 
     /// <summary>
-    ///     <c>direct × sun + albedo × irradiance × occlusion</c>, reflections lerped over by
-    ///     validity — <c>AmbientCombine.rvn</c>'s fragment, term for term.
+    ///     <c>direct × sun + albedo × irradiance × occlusion + reflections × reflectance</c> —
+    ///     <c>AmbientCombine.rvn</c>'s fragment, term for term.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The reflections term is a sum and not a lerp, and the difference is the whole of
+    ///     the <c>f0</c> plane.</b> A lerp removes <c>reflectance ×</c> the combined colour to make
+    ///     room, which at a dielectric's four per cent was a rounding error and at a metal's
+    ///     fifty-five is half its direct sunlight. It is also only the right shape while the term
+    ///     being replaced is still in <c>direct</c>: with the plane bound it is not — the shading
+    ///     pass held its specular ambient back — so this is the frame's only specular ambient.
+    ///     <paramref name="dfg" /> is <c>Ibl.EnvironmentDfg</c>'s answer, handed in rather than
+    ///     restated, because what is worth pinning here is what the pass does with it.
+    /// </remarks>
     static Vector4 Combine(
         Vector4 direct,
         Vector4 normals,
@@ -42,10 +52,13 @@ public class AmbientCombineTests {
         Vector2 field,
         float contact,
         Vector4 reflections,
+        Vector3 specular = default,
+        Vector2 dfg = default,
         float useIrradiance = 0f,
         float useOcclusion = 0f,
         float useContactOcclusion = 0f,
         float useReflections = 0f,
+        float useSpecular = 0f,
         float intensity = 1f
     ) {
         var n = new Vector3(normals.X, normals.Y, normals.Z);
@@ -62,8 +75,12 @@ public class AmbientCombineTests {
         var color = new Vector3(direct.X, direct.Y, direct.Z) * sun
             + new Vector3(albedo.X, albedo.Y, albedo.Z) * incoming * open * intensity;
 
+        // The plane's stand-in is a dielectric, which is the weight this pass used before it existed.
+        var f0 = Vector3.Lerp(new(0.04f), specular, useSpecular);
+        var reflectance = Vector3.Clamp(f0 * dfg.X + new Vector3(dfg.Y), Vector3.Zero, Vector3.One);
         var validity = Math.Clamp(reflections.W, 0f, 1f) * useReflections;
-        color = Vector3.Lerp(color, new(reflections.X, reflections.Y, reflections.Z), validity);
+
+        color += new Vector3(reflections.X, reflections.Y, reflections.Z) * reflectance * validity;
 
         return new(color, direct.W);
     }
@@ -83,7 +100,17 @@ public class AmbientCombineTests {
         var direct = new Vector4(0.5f, 0.25f, 0.125f, 1f);
 
         // Garbage in every optional plane, deliberately.
-        var result = Combine(direct, Surface, new(0.8f, 0.6f, 0.4f, 0.5f), new(9f), new(9f, 9f), 9f, new(9f));
+        var result = Combine(
+            direct,
+            Surface,
+            new(0.8f, 0.6f, 0.4f, 0.5f),
+            new(9f),
+            new(9f, 9f),
+            9f,
+            new(9f),
+            specular: new(9f),
+            dfg: new(9f, 9f)
+        );
 
         Assert.Equal(direct, result);
     }
@@ -101,10 +128,13 @@ public class AmbientCombineTests {
             new(0.5f, 0.5f),
             0.8f,
             new(1f, 0f, 0f, 1f),
+            specular: new(0.56f),
+            dfg: new(0.9f, 0.03f),
             useIrradiance: 1f,
             useOcclusion: 1f,
             useContactOcclusion: 1f,
-            useReflections: 1f
+            useReflections: 1f,
+            useSpecular: 1f
         );
 
         Assert.Equal(direct, result);
@@ -114,8 +144,10 @@ public class AmbientCombineTests {
     /// <remarks>
     ///     By hand: open = 0.5 × 0.5 × 0.8 = 0.2, sun = 0.5;
     ///     ambient = albedo × irradiance × open × intensity = (0.064, 0.048, 0.064);
-    ///     direct × sun = (0.25, 0.125, 0.0625); summed = (0.314, 0.173, 0.1265);
-    ///     reflections at validity 0.25 pull a quarter of the way to red.
+    ///     direct × sun = (0.25, 0.125, 0.0625); summed = (0.314, 0.173, 0.1265).
+    ///     The plane's f0 of 0.5 against dfg (0.8, 0.05) is a reflectance of 0.45, and the traced
+    ///     red at validity 0.25 therefore <em>adds</em> 0.1125 to the red channel and nothing to
+    ///     the other two — where a lerp would have taken 11.25 per cent off all three.
     /// </remarks>
     [Fact]
     public void One_pixel_through_every_term() {
@@ -127,17 +159,71 @@ public class AmbientCombineTests {
             new(0.5f, 0.5f),
             0.8f,
             new(1f, 0f, 0f, 0.25f),
+            specular: new(0.5f),
+            dfg: new(0.8f, 0.05f),
             useIrradiance: 1f,
             useOcclusion: 1f,
             useContactOcclusion: 1f,
             useReflections: 1f,
+            useSpecular: 1f,
             intensity: 2f
         );
 
-        Assert.Equal(0.75f * 0.314f + 0.25f, result.X, 1e-5f);
-        Assert.Equal(0.75f * 0.173f, result.Y, 1e-5f);
-        Assert.Equal(0.75f * 0.1265f, result.Z, 1e-5f);
+        Assert.Equal(0.314f + 0.45f * 0.25f, result.X, 1e-5f);
+        Assert.Equal(0.173f, result.Y, 1e-5f);
+        Assert.Equal(0.1265f, result.Z, 1e-5f);
         Assert.Equal(1f, result.W, 1e-5f);
+    }
+
+    /// <summary>
+    ///     The f0 plane is what tells a metal from paint, and a lerp at a metal's weight would have
+    ///     eaten half its direct sunlight.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two facts in one pixel, and both are why the plane and the addition had to land
+    ///         together. The stand-in weighs the traced plane at a dielectric's 0.04; the ramp
+    ///         material's f0 of 0.56 weighs it at fourteen times that, which is the whole point of
+    ///         carrying three channels rather than deriving them from an albedo that is black on a
+    ///         metal.
+    ///     </para>
+    ///     <para>
+    ///         And the third value below is what the old arithmetic would have done with that
+    ///         weight: <c>lerp</c> at 0.51 removes just over half of a surface whose radiance is
+    ///         mostly its own direct sunlight. Too dim was the safe direction to be wrong in; this
+    ///         is not dim, it is a hole.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_metals_f0_weighs_the_trace_fourteen_times_a_dielectrics() {
+        var direct = new Vector4(1f, 1f, 1f, 1f);
+        var traced = new Vector4(2f, 2f, 2f, 1f);
+        var dfg = new Vector2(0.9f, 0.03f);
+
+        Vector4 At(Vector3 f0, float useSpecular) =>
+            Combine(
+                direct,
+                Surface,
+                new(0f, 0f, 0f, 1f),
+                Vector3.Zero,
+                new(1f, 1f),
+                1f,
+                traced,
+                specular: f0,
+                dfg: dfg,
+                useReflections: 1f,
+                useSpecular: useSpecular
+            );
+
+        // The stand-in: 0.04 × 0.9 + 0.03 = 0.066, so the trace adds 0.132 over the direct one.
+        Assert.Equal(1f + 2f * 0.066f, At(new(0.56f), 0f).X, 1e-5f);
+
+        // The plane: 0.56 × 0.9 + 0.03 = 0.534, which is 8.1 times as much of the same radiance.
+        Assert.Equal(1f + 2f * 0.534f, At(new(0.56f), 1f).X, 1e-5f);
+
+        // And what a lerp would have made of that weight: 46.6 per cent of the surface's own light
+        // left standing, which is the frame this addition exists to avoid.
+        Assert.Equal(1f * (1f - 0.534f) + 2f * 0.534f, Lerp(1f, 2f, 0.534f), 1e-5f);
     }
 
     /// <summary>Sun visibility multiplies direct only, and occlusion multiplies ambient only.</summary>

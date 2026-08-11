@@ -121,6 +121,12 @@ public sealed class ClusterResolveTests : IDisposable {
         // On: the caller's own planes.
         resolve.SplitOutputs = true;
 
+        Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64), Target(), Target(), Target()));
+        Assert.Equal(0, resolve.Unresolved);
+
+        // ⚠ And a caller that hands in only the two the split had before the f0 plane: the third
+        // slot still has to be filled, because a set is written wholly or not at all and the
+        // alternative to an alias is not a missing plane but every dispatch refused.
         Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64), Target(), Target()));
         Assert.Equal(0, resolve.Unresolved);
     }
@@ -388,12 +394,13 @@ public sealed class ClusterResolveTests : IDisposable {
             new("tiles", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
             new("target", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageTexture),
 
-            // The ambient split's two planes. In the set for every variant — a binding is declared,
-            // not read into existence — which is what obliges Prepare to fill them even with the
-            // split off, and what this fixture exists to hold it to: leave them out here and a
-            // Prepare that forgot the aliases would still return true.
+            // The ambient split's three planes. In the set for every variant — a binding is
+            // declared, not read into existence — which is what obliges Prepare to fill them even
+            // with the split off, and what this fixture exists to hold it to: leave one out here and
+            // a Prepare that forgot its alias would still return true.
             new("albedoTarget", DescriptorSetSlot.PerMaterial, 11, DescriptorKind.StorageTexture),
-            new("normalTarget", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageTexture)
+            new("normalTarget", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageTexture),
+            new("specularTarget", DescriptorSetSlot.PerMaterial, 13, DescriptorKind.StorageTexture)
         ];
 
         static readonly ImmutableArray<EffectBinding> TileBindings = [

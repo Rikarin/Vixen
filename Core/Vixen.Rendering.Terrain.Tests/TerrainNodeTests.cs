@@ -545,6 +545,9 @@ public sealed class TerrainNodeTests : IDisposable {
               - name: SceneNormals
                 format: Rgba16Float
                 usage: ColourTarget, Sampled
+              - name: SceneSpecular
+                format: Rgba16Float
+                usage: ColourTarget, Sampled
             game: !Sequence
               name: Frame
               children:
@@ -962,6 +965,11 @@ public sealed class TerrainNodeTests : IDisposable {
         if (splitPlanes) {
             compositor.Imports["SceneAlbedo"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "albedo");
             compositor.Imports["SceneNormals"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "normals");
+
+            // All three, because `DetectMode` gates on all three: the ground writes an f0 of its own
+            // now, and a pass declaring three attachments against a shader that writes four is
+            // refused at the draw rather than short one plane.
+            compositor.Imports["SceneSpecular"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "specular");
         }
 
         var graph = new RenderGraph(device);

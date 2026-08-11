@@ -338,7 +338,7 @@ glTF changes the assets and none of the code.
   mesh casts through the fallback mesh phase 1 generates (the traversal cannot yet cut clusters per
   page — named as owed there), and the directional form is a clipmap centred on the camera
 - [docs/plan/19](../../docs/plan/19-lighting-and-global-illumination.md) — the ambient split end to
-  end: `ForwardPlus.SplitOutputs` writing direct light, albedo and normals to three targets,
+  end: `ForwardPlus.SplitOutputs` writing direct light, albedo, normals and `f0` to four targets,
   `!ScreenProbeGather` tracing screen probes over the `!GlobalDistanceField` clipmap with the
   `!IrradianceField` as its far field and the `!SurfaceCache` behind its hits, `!DistanceFieldAo`
   and `!Ssao` producing the room's and the crease's occlusion, and `!AmbientCombine` rebuilding the
@@ -359,8 +359,8 @@ the point: a frame that cannot be written down is a frame every host has to reim
 
 Everything the engine can currently compose is on, and since the ambient split that is the whole
 page: GPU object culling with Hi-Z occlusion (`!GpuCulling` + `!HiZ`), the virtualized path
-with its resolve split onto the same three planes the forward pass writes (`!VisibilityBuffer
-albedo:/normals:`), the distance field, the irradiance field — filled by `TracedIrradianceFiller`
+with its resolve split onto the same four planes the forward pass writes (`!VisibilityBuffer
+albedo:/normals:/specular:`), the distance field, the irradiance field — filled by `TracedIrradianceFiller`
 and consumed as the screen-probe trace's far field — the surface cache behind the trace's hits,
 `!ScreenProbeGather` over the frame's own Depth32Float depth and Rgba16Float normals,
 `!DistanceFieldAo` (`sunShadow: false` — the shadow path owns the sun: the `!VirtualShadow` map

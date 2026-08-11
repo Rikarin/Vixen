@@ -160,12 +160,15 @@ public class StandardFrameTests {
         var contact = Node<SsaoAsset>(document, "ContactOcclusion");
         var combine = Node<AmbientCombineAsset>(document, "Combine");
 
-        // The split: three targets in the shader's order, and the combine reads the same names —
-        // one contract seen from both ends.
-        Assert.Equal(["SceneHdr", "SceneAlbedo", "SceneNormals"], main.ColourTargets);
+        // The split: four targets in the shader's order, and the combine reads the same names —
+        // one contract seen from both ends. ⚠ The f0 plane is *last*, and the order is not a
+        // preference: member order is target order, so a list that put it anywhere else would shade
+        // albedo as radiance through the whole chain.
+        Assert.Equal(["SceneHdr", "SceneAlbedo", "SceneNormals", "SceneSpecular"], main.ColourTargets);
         Assert.Equal(main.ColourTargets[0], combine.Direct);
         Assert.Equal(main.ColourTargets[1], combine.Albedo);
         Assert.Equal(main.ColourTargets[2], combine.Normals);
+        Assert.Equal(main.ColourTargets[3], combine.Specular);
 
         // Every optional seat names the plane the node above it publishes, never a guess.
         Assert.Equal(gather.Output, combine.Irradiance);

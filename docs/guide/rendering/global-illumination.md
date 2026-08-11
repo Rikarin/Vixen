@@ -3,7 +3,7 @@ title: The ambient split, and the nodes that fill it
 slug: rendering/global-illumination
 kind: guide
 area: Rendering
-summary: Why a lit frame is written to three targets with its diffuse ambient deliberately missing, what the screen probes, the surface cache and the traced reflections put into that hole, and the one node at the far end that adds it all back up.
+summary: Why a lit frame is written to four targets with its diffuse ambient deliberately missing, what the screen probes, the surface cache and the traced reflections put into that hole, and the one node at the far end that adds it all back up.
 api: [T:Vixen.Rendering.PostFx.ScreenProbeGatherAsset, T:Vixen.Rendering.PostFx.ReflectionsAsset, T:Vixen.Rendering.PostFx.AmbientCombineAsset, T:Vixen.Rendering.PostFx.AmbientCombineRenderer, T:Vixen.Rendering.Compositor.SurfaceCacheAsset, R:PostFx/AmbientCombine, T:Vixen.Shaders.Generated.AmbientCombineKeys, T:Vixen.Shaders.Generated.AmbientCombineConstants]
 tags: [rendering, compositor, lighting, global-illumination, reflections]
 since: 0.1
@@ -14,14 +14,25 @@ related: [rendering/lit-path, rendering/standard-frame, rendering/render-quality
 ## What it is
 
 Four node kinds and one arrangement of render targets. The arrangement is the part worth
-understanding first: with the split on, the shading pass stops writing one colour and writes three
+understanding first: with the split on, the shading pass stops writing one colour and writes four
 planes, and the diffuse ambient it would have summed into the first one is **not written at all**.
 
 | Target | What the shading pass puts in it |
 |---|---|
-| 0 — `SceneHdr` | Direct light, emissive, and the specular ambient |
+| 0 — `SceneHdr` | Direct light, emissive, and the specular ambient — unless a reflections plane replaces it |
 | 1 — `SceneAlbedo` | Diffuse albedo in `rgb`, the material's own occlusion in `a` |
 | 2 — `SceneNormals` | World normal in `xyz`, roughness in `a` |
+| 3 — `SceneSpecular` | Specular reflectance at normal incidence — `f0` — in `rgb` |
+
+⚠ **Member order is target order, so the list is appended to and never reordered.** A document
+whose `colourTargets:` puts these in another order is not a different layout; it is albedo shaded as
+radiance through the whole chain, with every counter reporting success.
+
+⚠ **`SceneSpecular` carries `f0` rather than metalness, and it has to.** The engine's
+`MaterialData` keeps a diffuse colour and an `f0`, not a metalness, and the two do not determine
+each other; worse, `SceneAlbedo` holds base colour × (1 − metalness), which is *black* on a metal —
+so a metalness channel would leave a reader with no base colour to rebuild `f0` from. Three
+channels, at the end of the list.
 
 That is `ForwardPlus.SplitOutputs` — a permutation on the forward pass, mirrored under the same key
 by the visibility-buffer resolve so the two paths cannot disagree per pixel. The four nodes are what
@@ -59,8 +70,15 @@ would have a reflection buffer and no place to put it.
 ⚠ **The split is the material's decision as much as the document's.** The nodes here write and read
 planes; whether the shading pass *produces* them is `ForwardPlus.SplitOutputs` in the material. A
 document that names `!AmbientCombine` over a pass compiled without the split is a frame whose
-`SceneAlbedo` and `SceneNormals` are whatever the clear left there, and the combine will faithfully
-multiply by it.
+`SceneAlbedo`, `SceneNormals` and `SceneSpecular` are whatever the clear left there, and the combine
+will faithfully multiply by it.
+
+⚠ **`specular:` and `reflections:` on `!AmbientCombine` are one switch, not two settings.** With
+both named, the shading pass stops writing its own prefiltered-cube specular ambient and the combine
+*adds* the traced plane weighted by the surface's `f0` — about 0.55 on a metal against a dielectric's
+0.04. With only one of them named the node changes nothing at all, deliberately: the alternative to
+a half-migrated document drawing the frame it drew before is a frame that either counts the sky twice
+or loses every surface's specular ambient, and neither of those throws.
 
 ⚠ **Nothing here is baked, and that is the trade.** Everything the probes gather, the cards remember
 and the mirrors trace follows a scene that changes — a lamp switched on, a wall knocked down. For a
@@ -267,6 +285,7 @@ The whole chain, hand-authored — the shape sample 13's frame uses:
   direct: SceneHdr
   albedo: SceneAlbedo
   normals: SceneNormals
+  specular: SceneSpecular
   irradiance: ProbeIrradiance
   occlusion: AmbientOcclusion
   contactOcclusion: ScreenOcclusion
@@ -297,7 +316,7 @@ the split exists purely so two occlusion planes have a term to darken:
   output: SceneCombined
 ```
 
-`irradiance:` and `reflections:` are empty and the frame is correct: no ambient rebuilt from a plane,
+`irradiance:`, `reflections:` and `specular:` are empty and the frame is correct: no ambient rebuilt from a plane,
 nothing blended over, and the shading pass's specular ambient still in `SceneHdr` where it always was.
 
 ### `intensity` is not an exposure knob

@@ -106,7 +106,8 @@ public sealed class FrameDocumentTests : IDisposable {
     /// <summary>The Main pass's target order is ForwardPlus.SplitOutputs' contract, member for member.</summary>
     /// <remarks>
     ///     Location 0 is direct light, 1 is albedo with occlusion in alpha, 2 is world normal with
-    ///     roughness in alpha — the shader dictates the order and the document can only repeat it,
+    ///     roughness in alpha, 3 is the surface's f0 — the shader dictates the order and the
+    ///     document can only repeat it, and the f0 plane is appended for exactly that reason,
     ///     so a reorder here is albedo shaded as radiance with every counter reporting success.
     ///     Asserted with the visibility resolve's split knobs, because the two paths writing the
     ///     same planes on the same terms is the whole reason the knobs exist — and with the
@@ -119,12 +120,13 @@ public sealed class FrameDocumentTests : IDisposable {
 
         var main = Assert.IsType<RenderPassRenderer>(built.Builder.Nodes["Main"]);
 
-        Assert.Equal(["SceneHdr", "SceneAlbedo", "SceneNormals"], main.ColourTargets);
+        Assert.Equal(["SceneHdr", "SceneAlbedo", "SceneNormals", "SceneSpecular"], main.ColourTargets);
 
         var visibility = Assert.IsType<VisibilityBufferRenderer>(built.Builder.Nodes["Visibility"]);
 
         Assert.Equal("SceneAlbedo", visibility.Albedo);
         Assert.Equal("SceneNormals", visibility.Normals);
+        Assert.Equal("SceneSpecular", visibility.Specular);
 
         // The consuming end of the same contract: each seat names exactly the plane a node above
         // publishes, the reflections target included now that the renderer can publish one.
@@ -134,6 +136,11 @@ public sealed class FrameDocumentTests : IDisposable {
         Assert.Equal("SceneAlbedo", combine.Albedo);
         Assert.Equal("SceneNormals", combine.Normals);
         Assert.Equal("Reflections", combine.Reflections);
+
+        // ⚠ Named together with the line above it or neither moves: the combine adds the traced
+        // plane weighted by this one's f0, and the shading pass only holds its own specular ambient
+        // back when both are there. Half the pair is the frame this document had before.
+        Assert.Equal("SceneSpecular", combine.Specular);
 
         // ⚠ Both AO planes run at half resolution and this node is the only full-resolution reader
         // either of them has, so the depth and the camera are what make the difference between an
@@ -299,6 +306,7 @@ public sealed class FrameDocumentTests : IDisposable {
         Assert.Equal("SceneDepth", node.Depth);
         Assert.Equal("SceneAlbedo", node.Albedo);
         Assert.Equal("SceneNormals", node.Normals);
+        Assert.Equal("SceneSpecular", node.Specular);
         Assert.Equal("ShadowAtlas", node.ShadowAtlas);
     }
 

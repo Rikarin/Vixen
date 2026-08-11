@@ -328,12 +328,18 @@ their rotated up axis — a field is the ground, slightly furred, not thousands 
 terrain: the eight-light per-object list is chosen per object, and a terrain is the biggest object
 in any frame — the exact shape that list reorders worst on.
 
-⚠ **The split planes follow the frame.** When the document declares `SceneAlbedo` and `SceneNormals`
-(`albedo:` / `normals:` rename them), the node binds them as its second and third targets, loaded,
-and the lit shaders write raw albedo and the **raw signed world normal** — `SceneNormals`' own
-convention, where zero is the sky — while withholding diffuse ambient, which the `!AmbientCombine`
-at the other end of the frame rebuilds from real irradiance and real occlusion. Screen-space GI, AO
-and the combine then see the ground exactly as they see everything else.
+⚠ **The split planes follow the frame.** When the document declares `SceneAlbedo`, `SceneNormals`
+and `SceneSpecular` (`albedo:` / `normals:` / `specular:` rename them), the node binds them as its
+second, third and fourth targets, loaded, and the lit shaders write raw albedo, the **raw signed
+world normal** — `SceneNormals`' own convention, where zero is the sky — and a dielectric `f0` of
+0.04, while withholding diffuse ambient, which the `!AmbientCombine` at the other end of the frame
+rebuilds from real irradiance and real occlusion. Screen-space GI, AO and the combine then see the
+ground exactly as they see everything else.
+
+All three or none: the presence of the resources is the signal, and a pass that declared three
+attachments against a shader that writes four is refused at the draw rather than short one plane.
+The ground's `f0` is a constant because dirt, grass and bark are dielectrics and the splat has no
+metalness authoring — not a placeholder, an answer.
 
 ## Shadow casting
 

@@ -163,6 +163,7 @@ public class PostEffectTests : IDisposable {
             new(AmbientCombineKeys.OcclusionBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(AmbientCombineKeys.ContactOcclusionBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(AmbientCombineKeys.ReflectionsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(AmbientCombineKeys.SpecularBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(AmbientCombineKeys.DepthBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(AmbientCombineKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
             new(AmbientCombineKeys.LinearSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
@@ -1559,7 +1560,7 @@ public class PostEffectTests : IDisposable {
             .Where(binding => binding.Kind == DescriptorKind.SampledTexture)
             .ToArray();
 
-        Assert.Equal(8, textures.Length);
+        Assert.Equal(9, textures.Length);
 
         // Every optional slot holds the direct plane — the depth the upsample would test against
         // among them, which is exactly why its own switch has to be off below.
@@ -1568,6 +1569,7 @@ public class PostEffectTests : IDisposable {
                      AmbientCombineKeys.OcclusionBinding,
                      AmbientCombineKeys.ContactOcclusionBinding,
                      AmbientCombineKeys.ReflectionsBinding,
+                     AmbientCombineKeys.SpecularBinding,
                      AmbientCombineKeys.DepthBufferBinding
                  ]) {
             Assert.Equal("SceneColour", textures.Single(b => b.Binding == binding).Resource);
@@ -1578,6 +1580,7 @@ public class PostEffectTests : IDisposable {
         Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseOcclusion));
         Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseContactOcclusion));
         Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseReflections));
+        Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseSpecular));
         Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseBilateral));
 
         // One read per distinct plane, not per binding.
@@ -1595,13 +1598,16 @@ public class PostEffectTests : IDisposable {
             Occlusion = "AmbientOcclusion",
             ContactOcclusion = "Contact",
             Reflections = "Mirrors",
+            Specular = "SceneSpecular",
             Intensity = 2f,
             Output = "Out"
         };
 
         using var h = Build(combine);
 
-        foreach (var name in (string[])["SceneAlbedo", "Indirect", "AmbientOcclusion", "Contact", "Mirrors"]) {
+        foreach (var name in (string[])[
+                     "SceneAlbedo", "Indirect", "AmbientOcclusion", "Contact", "Mirrors", "SceneSpecular"
+                 ]) {
             h.Compositor.Imports[name] = Colour(name);
         }
 
@@ -1625,13 +1631,72 @@ public class PostEffectTests : IDisposable {
 
         Assert.Equal("Mirrors", textures.Single(b => b.Binding == AmbientCombineKeys.ReflectionsBinding).Resource);
 
+        Assert.Equal(
+            "SceneSpecular",
+            textures.Single(b => b.Binding == AmbientCombineKeys.SpecularBinding).Resource
+        );
+
         Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseIrradiance));
         Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseOcclusion));
         Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseContactOcclusion));
         Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseReflections));
+        Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseSpecular));
         Assert.Equal(2f, combine.Pass.Parameters.Get(AmbientCombineKeys.Intensity));
 
-        Assert.Equal(7, combine.Pass.Reads.Count);
+        Assert.Equal(8, combine.Pass.Reads.Count);
+    }
+
+    /// <summary>
+    ///     The traced plane replaces the shading pass's own specular ambient, or neither happens —
+    ///     one condition, so the two can never disagree.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the invariant the whole f0 plane rests on.</b> The shader <em>adds</em>
+    ///         the traced reflection weighted by the surface's f0, which only balances once the
+    ///         shading pass has stopped writing the prefiltered-cube term the addition replaces —
+    ///         and it only stops when <c>SceneLighting.AmbientSpecular</c> reaches zero. On with one
+    ///         of the two and the frame counts the dusk sky twice; off with the other and every
+    ///         surface loses its specular ambient outright. Neither failure throws.
+    ///     </para>
+    ///     <para>
+    ///         So a half-migrated document — reflections named, no f0 plane — draws the frame it
+    ///         drew before rather than either of those, which is what the middle two cases pin.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true, true, 1f, 0f)]
+    [InlineData(true, false, 0f, 1f)]
+    [InlineData(false, true, 0f, 1f)]
+    [InlineData(false, false, 0f, 1f)]
+    public void The_trace_replaces_the_passes_specular_ambient_or_neither_moves(
+        bool reflections,
+        bool specular,
+        float useReflections,
+        float ambientSpecular
+    ) {
+        var lighting = new SceneLighting();
+
+        using var combine = new AmbientCombineRenderer {
+            Direct = "SceneColour",
+            Albedo = "SceneAlbedo",
+            Normals = "SceneNormals",
+            Reflections = reflections ? "Mirrors" : null,
+            Specular = specular ? "SceneSpecular" : null,
+            Lighting = lighting,
+            Output = "Out"
+        };
+
+        using var h = Build(combine);
+
+        foreach (var name in (string[])["SceneAlbedo", "Mirrors", "SceneSpecular"]) {
+            h.Compositor.Imports[name] = Colour(name);
+        }
+
+        Frame(h);
+
+        Assert.Equal(useReflections, combine.Pass.Parameters.Get(AmbientCombineKeys.UseReflections));
+        Assert.Equal(ambientSpecular, lighting.AmbientSpecular);
     }
 
     /// <summary>
@@ -1785,6 +1850,11 @@ public class PostEffectTests : IDisposable {
                             Albedo = "SceneAlbedo",
                             Normals = "SceneNormals",
                             Reflections = "Reflections",
+
+                            // Named with it, because the two are one switch: without the f0 plane
+                            // the node leaves the reflection blend off and this test would be
+                            // asserting a term nothing turned on.
+                            Specular = "SceneSpecular",
                             Output = "Combined"
                         }
                     ]
@@ -1796,7 +1866,7 @@ public class PostEffectTests : IDisposable {
 
         // Everything the combine reads except the target under test. Importing "Reflections" too
         // would make this test the same lie the other fixtures tell.
-        foreach (var name in (string[])["SceneColour", "SceneDepth", "SceneNormals", "SceneAlbedo"]) {
+        foreach (var name in (string[])["SceneColour", "SceneDepth", "SceneNormals", "SceneAlbedo", "SceneSpecular"]) {
             compositor.Imports[name] = Colour(name);
         }
 
