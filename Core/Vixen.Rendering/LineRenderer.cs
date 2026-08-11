@@ -37,6 +37,59 @@ public readonly record struct LineShaders(ShaderHandle Vertex, ShaderHandle Frag
     ///     <see cref="VertexLocations" /> for why the number belongs to the shader.
     /// </remarks>
     public VertexLocations Locations { get; init; }
+
+    /// <summary>The two modules embedded in this assembly, created on a device.</summary>
+    /// <param name="device">The device to create them on.</param>
+    /// <returns>The pair, with <see cref="Locations" /> left at the GLSL's 0 and 1.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because until this existed a game could not build a <see cref="LineRenderer" />
+    ///         at all.</b> The modules were committed under <c>Shaders/</c> and named by no project
+    ///         file, so the only two things in the tree that ever loaded a line stage were the golden
+    ///         suite, which keeps a byte-identical copy beside its own fixtures, and the editor,
+    ///         whose <c>Line.rvn</c> lives under <c>Editor/</c> where a game may not reach. Every
+    ///         line <c>DebugDraw</c> has been accumulating since Phase 2 had a renderer written for
+    ///         it and no shader a running game could feed it.
+    ///     </para>
+    ///     <para>
+    ///         This is not the compiler these remarks refuse to grow: it reads two pre-compiled
+    ///         modules out of the assembly's resources. A project with its own line stage — a Raven
+    ///         one, with the attributes at 1 and 2 — constructs <see cref="LineShaders" /> itself and
+    ///         never calls this.
+    ///     </para>
+    ///     <para>
+    ///         The caller owns the handles and destroys them, as it would for any other
+    ///         <c>CreateShader</c>: nothing is cached here, because a cache keyed on a device would
+    ///         outlive the device.
+    ///     </para>
+    /// </remarks>
+    public static LineShaders Default(IGraphicsDevice device) {
+        ArgumentNullException.ThrowIfNull(device);
+
+        return new(
+            device.CreateShader(ShaderStage.Vertex, Module("line.vert.spv"), "line vertex"),
+            device.CreateShader(ShaderStage.Fragment, Module("line.frag.spv"), "line fragment")
+        );
+    }
+
+    static byte[] Module(string name) {
+        var assembly = typeof(LineShaders).Assembly;
+
+        // Named rather than found by suffix. A resource missing from the build is a shader that
+        // silently is not there, and every symptom of that — no grid, no gizmo, no debug line —
+        // reads as "the feature is not wired" rather than as a packaging mistake.
+        using var stream = assembly.GetManifestResourceStream($"Vixen.Rendering.{name}")
+            ?? throw new InvalidOperationException(
+                $"'{name}' is not embedded in {assembly.GetName().Name}. It is declared in the "
+                + "project file beside the GLSL it was compiled from."
+            );
+
+        var bytes = new byte[stream.Length];
+        stream.ReadExactly(bytes);
+
+        return bytes;
+    }
 }
 
 /// <summary>Draws world-space line segments: a grid, a gizmo, a debug ray, a collider's outline.</summary>
@@ -123,12 +176,21 @@ public sealed class LineRenderer : IDisposable {
             new([], [new(ShaderStage.Vertex, 0, 64)], "line")
         );
 
-        pipeline = Pipeline(shaders, output, depthTest: true, "line");
-
         // ⚠ A second pipeline differing only in the depth test, because a gizmo has to be reachable
         // through the thing it is moving. An editor that hid its handles behind geometry is one where
         // the only way to grab an axis is to orbit until nothing is in front of it.
         overlayPipeline = Pipeline(shaders, output, depthTest: false, "line overlay");
+
+        // ⚠ And only when the output has depth to test against. A target with no depth attachment is
+        // an ordinary thing to draw lines into — a debug overlay over the frame's last colour buffer,
+        // the golden fixtures' scratch texture — and building a pipeline for it anyway is refused by
+        // GraphicsPipelineDescription.Validate by name, which turned "put the overlays on screen"
+        // into an exception from inside a constructor that had asked for nothing of the sort.
+        // `depthTested: true` on such an output then draws untested rather than failing, which is
+        // the only thing it could mean.
+        pipeline = output.DepthFormat == PixelFormat.Undefined
+            ? overlayPipeline
+            : Pipeline(shaders, output, depthTest: true, "line");
 
         Resize(capacity);
     }
@@ -194,7 +256,12 @@ public sealed class LineRenderer : IDisposable {
 
         disposed = true;
 
-        device.Destroy(pipeline);
+        // One handle when there was no depth to test against — see the constructor. Destroying it
+        // twice is a double free on every backend that recycles handles.
+        if (pipeline != overlayPipeline) {
+            device.Destroy(pipeline);
+        }
+
         device.Destroy(overlayPipeline);
         device.Destroy(layout);
 

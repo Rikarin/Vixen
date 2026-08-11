@@ -501,8 +501,21 @@ public sealed class DebugDraw {
     /// </summary>
     /// <param name="seconds">How much time passed.</param>
     /// <remarks>
-    ///     Called after a renderer has drained, not before, or a line asked for during a frame would
-    ///     never be seen. <see cref="DebugDrawSystem" /> runs it in <c>PostRender</c> for that reason.
+    ///     <para>
+    ///         Called after a renderer has drained, not before, or a line asked for during a frame
+    ///         would never be seen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="DebugDrawSystem" /> is only that call for a host that records its
+    ///         frame inside the loop, and the shipped one does not.</b> This used to say the
+    ///         <c>PostRender</c> phase was "after the drain" — it is after the drain only if the
+    ///         drain is a system. <c>VixenApplication</c> runs <c>EngineLoop.Frame</c> to completion,
+    ///         <em>every</em> phase including <c>PostRender</c>, and records the GPU frame afterwards
+    ///         through <c>AppGraphics.Begin</c>; a <see cref="DebugDrawSystem" /> in that loop deletes
+    ///         every one-frame primitive between the overlay that drew it and the renderer that would
+    ///         have. The symptom is the whole feature drawing nothing with every count reading
+    ///         correct. Such a host calls this itself, once, after its frame is recorded.
+    ///     </para>
     /// </remarks>
     public void Advance(float seconds) {
         Age(lines, seconds);

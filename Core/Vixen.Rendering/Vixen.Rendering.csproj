@@ -18,6 +18,23 @@
 
     <ItemGroup>
         <!--
+          ⚠ The two line modules, embedded rather than left beside the source unbuilt. They were
+          committed here and referenced by no project file at all: the only builds that ever loaded a
+          line stage were the golden suite, which keeps a byte-identical copy of its own, and the
+          editor, whose Line.rvn is under Editor/. So LineRenderer — the pipeline DebugDraw's whole
+          output goes through — could not be constructed by a game, because a game had nowhere to get
+          a LineShaders from.
+
+          This is not the assembly growing a compiler, which its own remarks rule out: these are
+          pre-compiled modules read out of the assembly, the same bytes Vixen.Graphics.Golden.Tests
+          renders `debug-world` and `debug-overlay` with.
+        -->
+        <EmbeddedResource Include="Shaders\line.vert.spv" LogicalName="Vixen.Rendering.line.vert.spv" />
+        <EmbeddedResource Include="Shaders\line.frag.spv" LogicalName="Vixen.Rendering.line.frag.spv" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
           For Diagnostics/RenderingLog only. Abstractions rather than the implementation, on
           Vixen.Audio's terms: the render system takes an ILogger a host already built and never
           decides where a line goes. What it buys is docs/manual/log-events.md's 4 000 range — a

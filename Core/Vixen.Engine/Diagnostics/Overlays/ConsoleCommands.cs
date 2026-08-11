@@ -159,18 +159,84 @@ public sealed class ConsoleCommands {
     /// <summary>How many entered lines are remembered.</summary>
     public const int MaxHistory = 64;
 
+    static readonly Lock ContributionLock = new();
+    static readonly List<Action<ConsoleCommands>> Contributions = [];
+    static readonly List<WeakReference<ConsoleCommands>> Live = [];
+
     readonly Dictionary<string, ConsoleCommand> commands = new(StringComparer.OrdinalIgnoreCase);
     readonly List<string> output = [];
     readonly List<string> history = [];
     readonly ConsoleContext context;
 
-    /// <summary>Builds a registry with the built-in commands in it.</summary>
+    /// <summary>Builds a registry with the built-in commands and every contributed one in it.</summary>
     public ConsoleCommands() {
         context = new(this);
 
         Register("help", "Lists the commands, or explains one: help [command]", Help);
         Register("clear", "Empties the console output", _ => Clear());
         Register("echo", "Writes its arguments back", static entry => entry.Write(string.Join(' ', entry.Arguments)));
+
+        Action<ConsoleCommands>[] contributed;
+
+        lock (ContributionLock) {
+            contributed = [.. Contributions];
+
+            Live.RemoveAll(reference => !reference.TryGetTarget(out _));
+            Live.Add(new(this));
+        }
+
+        foreach (var contribution in contributed) {
+            contribution(this);
+        }
+    }
+
+    /// <summary>
+    ///     Adds a subsystem's verbs to every console there is, now and later.
+    /// </summary>
+    /// <param name="register">What puts the verbs into a registry. Called once per registry.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="register" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because <c>[ConsoleCommand]</c> alone has never made a verb typable, and the
+    ///         count is what said so.</b> Water's six were the only ones in the tree — not because no
+    ///         other subsystem wanted verbs, but because reaching an attributed method needs
+    ///         <see cref="RegisterFrom(Assembly)" />, which is
+    ///         <see cref="RequiresUnreferencedCodeAttribute" /> and had no callers, so anybody who
+    ///         wrote one found out it did nothing and stopped writing them. This is the seam that
+    ///         makes the next subsystem's verbs arrive on their own: a
+    ///         <c>[ModuleInitializer]</c> beside the verbs calls this, and any console built in any
+    ///         host has them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registries already built get them too.</b> A module initialiser runs when its
+    ///         assembly is first touched, which for most subsystems is <em>after</em> the host has
+    ///         constructed its console — so applying only to future registries would make the whole
+    ///         thing depend on an ordering no subsystem can see. Live registries are held weakly, so
+    ///         contributing does not keep a console alive.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Trim-safe, which is the point of it being a delegate.</b> Nothing here reflects;
+    ///         the contribution names its own verbs, exactly as
+    ///         <see cref="Register(string, string, Action{ConsoleContext})" />'s remarks ask a
+    ///         shipping title to.
+    ///     </para>
+    /// </remarks>
+    public static void Contribute(Action<ConsoleCommands> register) {
+        ArgumentNullException.ThrowIfNull(register);
+
+        ConsoleCommands[] existing;
+
+        lock (ContributionLock) {
+            Contributions.Add(register);
+
+            existing = [.. Live
+                .Select(reference => reference.TryGetTarget(out var live) ? live : null)
+                .OfType<ConsoleCommands>()];
+        }
+
+        foreach (var registry in existing) {
+            register(registry);
+        }
     }
 
     /// <summary>Everything registered, in no particular order.</summary>

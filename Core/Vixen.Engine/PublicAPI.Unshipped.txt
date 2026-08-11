@@ -1054,6 +1054,7 @@ static Vixen.Engine.Diagnostics.DebugFont.LineHeightFor(float size) -> float
 static Vixen.Engine.Diagnostics.DebugFont.MeasureHeight(System.ReadOnlySpan<char> text, float size) -> float
 static Vixen.Engine.Diagnostics.DebugFont.MeasureWidth(System.ReadOnlySpan<char> text, float size) -> float
 static Vixen.Engine.Diagnostics.DebugFont.SegmentCount(System.ReadOnlySpan<char> text) -> int
+static Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Contribute(System.Action<Vixen.Engine.Diagnostics.Overlays.ConsoleCommands> register) -> void
 static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Default.get -> Vixen.Engine.Diagnostics.Overlays.OverlayTheme
 static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Fade(Vixen.Core.Mathematics.Color4 colour, float alpha) -> Vixen.Core.Mathematics.Color4
 static Vixen.Engine.Players.ControlRotation.Default.get -> Vixen.Engine.Players.ControlRotation

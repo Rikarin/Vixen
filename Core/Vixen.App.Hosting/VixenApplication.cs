@@ -7,6 +7,7 @@ using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
+using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Scenes;
 using Vixen.Platform;
 
@@ -38,6 +39,9 @@ public sealed class VixenApplication : IDisposable {
     GameTime time = GameTime.Zero;
     TimeSpan lastLooseWarning = TimeSpan.Zero;
     long lastTimestamp;
+
+    /// <summary>The console panel, when this build has one. See <see cref="Initialise" />.</summary>
+    ConsoleOverlay? console;
     bool initialised;
     bool stopped;
     bool disposed;
@@ -221,6 +225,15 @@ public sealed class VixenApplication : IDisposable {
 
         game.OnInitialise();
 
+        // ⚠ After OnInitialise, and found by name in the registry the overlay system was handed
+        // rather than kept beside it. That is the point: what this drives has to be the same object
+        // the frame draws, and asking the registry is the only way to be sure of it — the editor's
+        // two DiagnosticsModules are what a private field of my own would grow into.
+        //
+        // A game is free to have replaced or removed it, which is why this is a lookup and a null
+        // check rather than an assertion.
+        console = Services.Graphics?.Overlays?.Find("console") as ConsoleOverlay;
+
         clock.Start();
         lastTimestamp = Stopwatch.GetTimestamp();
     }
@@ -306,6 +319,13 @@ public sealed class VixenApplication : IDisposable {
         if (frame) {
             Services.Graphics!.End();
         }
+
+        // ⚠ Here, and not as a system in the loop above. The frame's debug geometry has to survive
+        // until the compositor's node has drained it, and the node drains inside Begin — which is
+        // after every phase of EngineLoop.Frame, PostRender included. A DebugDrawSystem in that loop
+        // would delete each frame's lines one call before anything drew them, and the symptom is the
+        // whole feature quietly drawing nothing. See AppGraphics.AdvanceDebug.
+        Services.Graphics?.AdvanceDebug(time.DeltaSeconds);
 
         limiter.Wait(FrameRateLimit());
     }
@@ -433,6 +453,14 @@ public sealed class VixenApplication : IDisposable {
                 continue;
             }
 
+            // ⚠ Before the device set, so that a console that is open keeps the game from seeing the
+            // keys as well. `ConsoleOverlay.IsCapturingInput` exists for exactly this sentence, and
+            // its own remarks name the bug it prevents: typing `reload` also making the player
+            // reload. After OnEvent, so a game that wants the key first still gets it.
+            if (Console(platformEvent)) {
+                continue;
+            }
+
             // After the game's own hook, so that an application intercepting an event also keeps the
             // action system from seeing it — which is what "return true to stop the host acting on
             // it" has to mean if it is to be usable for a modal dialog.
@@ -477,6 +505,143 @@ public sealed class VixenApplication : IDisposable {
             stopped = true;
         }
     }
+
+    /// <summary>Offers one event to the console, and says whether the console took it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The host end of a seam <c>ConsoleOverlay</c> deliberately leaves open.</b> The
+    ///         overlay reads no keyboard — <c>Type</c>, <c>Backspace</c>, <c>Submit</c> and the
+    ///         history moves are pushed in — because which device produces a character, and whether
+    ///         an IME is involved, is a platform's question and <c>Vixen.Engine</c> has no platform.
+    ///         This is the answer for the shipped host and it is the whole of it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Characters come from <see cref="PlatformEventKind.TextInput" /> and never from
+    ///         key codes.</b> A key is a physical position: mapping <c>Key.A</c> to <c>'a'</c> gives
+    ///         a console that types the wrong letters on AZERTY and nothing at all in Japanese, and
+    ///         the platform already does this properly. On SDL desktop the events arrive without
+    ///         anything asking — see the <see cref="ITextInput" /> handling below, which starts it
+    ///         only where it is genuinely off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The backtick key rather than a bindable action.</b> An action would have to come
+    ///         from a game's <c>.vxinput</c>, and the console is most wanted in a build whose input
+    ///         map is the thing being investigated. It is the key every engine uses for this, and it
+    ///         is swallowed on the way in so that a game bound to it does not also see it. Which key
+    ///         that is, physically, is <see cref="IsConsoleKey" />'s problem and not a small one.
+    ///     </para>
+    /// </remarks>
+    bool Console(in PlatformEvent platformEvent) {
+        if (console is null) {
+            return false;
+        }
+
+        if (platformEvent.Kind is PlatformEventKind.KeyDown && IsConsoleKey(platformEvent.Key)) {
+            console.Enabled = !console.Enabled;
+
+            if (console.Enabled) {
+                console.ClearInput();
+            }
+
+            // ⚠ Only when the platform says text input is off, and only then is it turned back off.
+            // On SDL desktop it is already running — the characters arrive with nothing asked for —
+            // and calling Activate anyway is a state change made for no reason on the one platform
+            // where the console is most used. Where it genuinely is off (a browser canvas, a phone,
+            // which is what ITextInput was drawn for) this is what starts it.
+            if (console.Enabled) {
+                if (!Services.Platform.TextInput.IsActive && Services.Window is { } window) {
+                    Services.Platform.TextInput.Activate(window);
+                    activatedTextInput = true;
+                }
+            } else if (activatedTextInput) {
+                Services.Platform.TextInput.Deactivate();
+                activatedTextInput = false;
+            }
+
+            return true;
+        }
+
+        if (!console.IsCapturingInput) {
+            return false;
+        }
+
+        switch (platformEvent.Kind) {
+            case PlatformEventKind.TextInput:
+                // ⚠ The grave that opened the panel arrives here too on some platforms, as the
+                // character it produced. Dropping it is why the panel does not open with a backtick
+                // already typed into it.
+                if (platformEvent.Text is not "`" and not "~") {
+                    console.Type(platformEvent.Text);
+                }
+
+                return true;
+
+            case PlatformEventKind.KeyDown:
+                switch (platformEvent.Key) {
+                    case Key.Backspace:
+                        console.Backspace();
+                        break;
+
+                    case Key.Enter or Key.KeypadEnter:
+                        console.Submit();
+                        break;
+
+                    case Key.Tab:
+                        console.Complete();
+                        break;
+
+                    case Key.Up:
+                        console.Recall(back: true);
+                        break;
+
+                    case Key.Down:
+                        console.Recall(back: false);
+                        break;
+
+                    case Key.Escape:
+                        console.Enabled = false;
+
+                        if (activatedTextInput) {
+                            Services.Platform.TextInput.Deactivate();
+                            activatedTextInput = false;
+                        }
+
+                        break;
+
+                    default:
+                        break;
+                }
+
+                return true;
+
+            // ⚠ Swallowed as well, and this is the half that is easy to leave out: a key-up the game
+            // never saw the key-down for leaves an action latched on for ever, which is a player who
+            // sprints until he next presses shift.
+            case PlatformEventKind.KeyUp:
+            case PlatformEventKind.TextEditing:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>The key that opens the console — both of them, and the second is not a courtesy.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The physical key below <kbd>Esc</kbd> is <see cref="Key.Grave" /> on an ANSI keyboard
+    ///     and the one beside left shift is <see cref="Key.NonUsBackslash" /> on an ISO one, and on a
+    ///     Mac the key that types a backtick is the <em>second</em> of those.</b> A check for
+    ///     <c>Grave</c> alone opens the console for nobody in Europe, which is how the first run of
+    ///     this on a real machine reported "the key does nothing" with every count reading correct —
+    ///     a scancode is a position on a board, not a character, and the two keyboards disagree about
+    ///     which position carries this one.
+    /// </remarks>
+    static bool IsConsoleKey(Key key) => key is Key.Grave or Key.NonUsBackslash;
+
+    /// <summary>
+    ///     Whether this host started text input, so that it only stops what it started.
+    /// </summary>
+    bool activatedTextInput;
 
     /// <summary>
     ///     Whether any window is still open — asked by state rather than by list membership.

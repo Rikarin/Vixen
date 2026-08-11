@@ -10,6 +10,7 @@ Vixen.App.AppArguments.LogFilePath.get -> string?
 Vixen.App.AppArguments.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel??
 Vixen.App.AppArguments.LooseContentPath.get -> string?
 Vixen.App.AppArguments.MaxFrames.get -> int?
+Vixen.App.AppArguments.Overlays.get -> bool
 Vixen.App.AppArguments.Remaining.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.App.AppArguments.StartupScene.get -> string?
 Vixen.App.AppArguments.Unrecognised.get -> System.Collections.Generic.IReadOnlyList<string>
@@ -71,10 +72,13 @@ Vixen.App.AppConfig.WorkerCount.get -> int?
 Vixen.App.AppConfig.WorkerCount.set -> int?
 Vixen.App.AppGraphics -> sealed class
 Vixen.App.AppGraphics : System.IDisposable
+Vixen.App.AppGraphics.AdvanceDebug(float seconds) -> void
 Vixen.App.AppGraphics.AppGraphics(Vixen.Graphics.IGraphicsDevice device, Vixen.App.GraphicsOptions options, Vixen.Platform.IWindow? window, Vixen.Assets.AssetManager? assets, Vixen.Shaders.EffectStore? shaders, Vixen.Engine.Frames.EngineLoop? engine, Microsoft.Extensions.Logging.ILoggerFactory logs, bool ownsDevice = true) -> void
 Vixen.App.AppGraphics.Begin() -> bool
 Vixen.App.AppGraphics.Camera.get -> Vixen.Rendering.Ecs.CameraExtractionSystem
 Vixen.App.AppGraphics.Commands.get -> Vixen.Graphics.ICommandList?
+Vixen.App.AppGraphics.Console.get -> Vixen.Engine.Diagnostics.Overlays.ConsoleCommands?
+Vixen.App.AppGraphics.Debug.get -> Vixen.Engine.Diagnostics.DebugDraw?
 Vixen.App.AppGraphics.Device.get -> Vixen.Graphics.IGraphicsDevice
 Vixen.App.AppGraphics.Dispose() -> void
 Vixen.App.AppGraphics.Effects.get -> Vixen.Shaders.EffectSystem
@@ -82,6 +86,7 @@ Vixen.App.AppGraphics.End() -> void
 Vixen.App.AppGraphics.FrameCount.get -> int
 Vixen.App.AppGraphics.GpuFrame.get -> Vixen.Graphics.GpuFrame
 Vixen.App.AppGraphics.IsLost.get -> bool
+Vixen.App.AppGraphics.Overlays.get -> Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays?
 Vixen.App.AppGraphics.ParticleStages.get -> Vixen.Rendering.RenderStageMask
 Vixen.App.AppGraphics.Recreate(bool force = false) -> void
 Vixen.App.AppGraphics.Renderer.get -> Vixen.Engine.Renderer.WorldRenderer
@@ -168,6 +173,8 @@ Vixen.App.GraphicsOptions.Look.get -> string?
 Vixen.App.GraphicsOptions.Look.set -> string?
 Vixen.App.GraphicsOptions.Output.get -> string
 Vixen.App.GraphicsOptions.Output.set -> string
+Vixen.App.GraphicsOptions.Overlays.get -> bool
+Vixen.App.GraphicsOptions.Overlays.set -> bool
 Vixen.App.GraphicsOptions.ParticleStage.get -> string
 Vixen.App.GraphicsOptions.ParticleStage.set -> string
 Vixen.App.GraphicsOptions.PresentMode.get -> Vixen.Graphics.PresentMode

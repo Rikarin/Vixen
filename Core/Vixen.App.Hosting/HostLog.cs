@@ -221,6 +221,20 @@ static partial class HostLog {
     )]
     public static partial void GpuProfiling(ILogger logger, bool attached, string adapter);
 
+    /// <summary>
+    ///     That the diagnostic overlays are in this frame, with the two counts that say whether the
+    ///     wiring reached anything. A build with the switch on and zero commands is a console that
+    ///     will answer <c>help</c> and nothing else, which is worth knowing before somebody types a
+    ///     subsystem's verb and concludes the subsystem is broken.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13026,
+        Level = LogLevel.Information,
+        Message = "Diagnostic overlays on: {Panels} panel(s), {Commands} console command(s). "
+            + "Press the grave key for the console; type 'overlays' to list them."
+    )]
+    public static partial void OverlaysEnabled(ILogger logger, int panels, int commands);
+
     [LoggerMessage(
         EventId = 13018,
         Level = LogLevel.Information,

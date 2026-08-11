@@ -3,7 +3,10 @@
 
 using Microsoft.Extensions.Logging;
 using Vixen.Assets;
+using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
+using Vixen.Engine.Diagnostics;
+using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Renderer;
 using Vixen.Graphics;
@@ -57,6 +60,18 @@ public sealed class AppGraphics : IDisposable {
     ISwapChain? swapChain;
     ICommandList? commands;
     GpuProfiler? gpu;
+
+    DebugOverlayRenderer? debugNode;
+    DiagnosticOverlaySystem? overlaySystem;
+    FrameStatsOverlay? frameStats;
+    LineShaders lineShaders;
+    bool ownsLineShaders;
+
+    // What MeshRenderFeature's two counters read at the end of the previous frame. They count for the
+    // life of the renderer rather than for a frame — see MeshRenderFeature.DrawCount — so the panel's
+    // "this frame" numbers are a difference, and taking it here is the only place both readings exist.
+    int lastDraws;
+    long lastIndices;
 
     /// <summary>The framebuffer size the swapchain was last built for.</summary>
     /// <remarks>
@@ -130,6 +145,14 @@ public sealed class AppGraphics : IDisposable {
         // and a view added afterwards is one nothing refers to.
         View = new(options.View);
         Renderer.Host.Builder.Views[options.View] = View;
+
+        // ⚠ Also before Load, and for a stricter reason than the view's: the node is appended by
+        // SceneRenderHost.Load itself, so one assigned afterwards would sit in a field until the
+        // *next* build — and for a project that never reloads its compositor, for ever. See
+        // GraphicsOptions.Overlays for what this switch is and why it is off.
+        if (options.Overlays) {
+            BuildOverlays();
+        }
 
         // ⚠ Loaded here rather than at Load below, because the document is the top vote in the
         // quality waterfall and the two consumers of a resolved tier are wired before the build
@@ -299,6 +322,14 @@ public sealed class AppGraphics : IDisposable {
 
             engine.Add(Volumes);
             Renderer.Register(engine, Stages, ParticleStages);
+
+            // ⚠ The overlay system and *not* DebugDrawSystem beside it. This one is a PreRender
+            // reader that draws panels into the accumulator, which is exactly where doc 13 puts it:
+            // everything it reports on has run and nothing has drained yet. The ageing half cannot
+            // be a system in this loop at all — see AdvanceDebug.
+            if (overlaySystem is not null) {
+                engine.Add(overlaySystem);
+            }
         }
 
         Resize();
@@ -306,6 +337,46 @@ public sealed class AppGraphics : IDisposable {
 
     /// <summary>The device everything here lives on.</summary>
     public IGraphicsDevice Device { get; }
+
+    /// <summary>
+    ///     The one accumulator every subsystem's debug geometry goes into, or null when
+    ///     <see cref="GraphicsOptions.Overlays" /> is off.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One instance, and everything that draws or drains reads it off here.</b> The
+    ///         overlay system pushes into it, the compositor node drains it, and the host ages it —
+    ///         all three from this property, because the failure mode of the alternative is already
+    ///         on the record: the editor built two <c>DiagnosticsModule</c>s and the half that was
+    ///         fed was not the half that drew, which reads as a platform limitation rather than as a
+    ///         second object.
+    ///     </para>
+    ///     <para>
+    ///         A game draws into it directly — <c>services.Graphics?.Debug?.Line(a, b, colour)</c> —
+    ///         and so does anything it hands the object to. Null is a build that did not ask for the
+    ///         overlays; a caller that wants its own accumulator regardless makes one and drains it
+    ///         itself.
+    ///     </para>
+    /// </remarks>
+    public DebugDraw? Debug { get; private set; }
+
+    /// <summary>The registry of diagnostic panels, or null when the overlays are off.</summary>
+    /// <remarks>
+    ///     Frame stats, the mini flame chart and the console are added here by the host; the log tail
+    ///     is added by <c>AppBuilder</c>, which is what owns the ring it reads. A subsystem's own
+    ///     panel — <c>AudioOverlay</c>, water's <c>stat water</c> — is added by whoever has the
+    ///     numbers, which is the seam <c>IDiagnosticOverlay</c> exists to be.
+    /// </remarks>
+    public DiagnosticOverlays? Overlays { get; private set; }
+
+    /// <summary>What the console runs, or null when the overlays are off.</summary>
+    /// <remarks>
+    ///     Already carries every verb any loaded subsystem contributed through
+    ///     <see cref="ConsoleCommands.Contribute" /> — water's six arrive that way — plus
+    ///     <c>overlay</c> and <c>overlays</c>. A game adds its own with
+    ///     <see cref="ConsoleCommands.Register(string, string, Action{ConsoleContext})" />.
+    /// </remarks>
+    public ConsoleCommands? Console { get; private set; }
 
     /// <summary>Where variants are compiled or looked up.</summary>
     /// <remarks>
@@ -548,6 +619,11 @@ public sealed class AppGraphics : IDisposable {
             GpuFrame = gpu.Latest;
         }
 
+        // After the submit and before the next loop pass, which is the only moment both readings of
+        // the frame exist: the panels are drawn in PreRender, which for the frame just recorded has
+        // already happened and for the next one has not.
+        ReadStatistics();
+
         Device.EndFrame();
 
         switch (swapChain!.Present()) {
@@ -697,11 +773,112 @@ public sealed class AppGraphics : IDisposable {
         gpu?.Dispose();
         gpu = null;
 
+        // Detached for the same reason: Load appends whatever is in this field, and a disposed node
+        // in it would be appended again by a reload during shutdown.
+        Renderer.Host.Debug = null;
+        debugNode?.Dispose();
+        debugNode = null;
+
+        if (ownsLineShaders) {
+            Device.Destroy(lineShaders.Vertex);
+            Device.Destroy(lineShaders.Fragment);
+            ownsLineShaders = false;
+        }
+
         Renderer.Dispose();
 
         if (ownsDevice) {
             Device.Dispose();
         }
+    }
+
+    /// <summary>
+    ///     Ages the frame's debug geometry, which a host does itself and after the frame is recorded.
+    /// </summary>
+    /// <param name="seconds">How much time passed.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <c>DebugDrawSystem</c>, and the difference is the whole feature working or
+    ///         not.</b> That system ages in <c>SystemPhase.PostRender</c>, which is after the drain
+    ///         only for a host whose renderer is a system in the same graph. <c>VixenApplication</c>
+    ///         runs <c>EngineLoop.Frame</c> to completion and records the GPU frame afterwards, so
+    ///         <c>PostRender</c> lands between the overlay that drew a panel and the node that would
+    ///         have drawn it — every one-frame primitive deleted, every counter still reading
+    ///         correct, and nothing on the screen.
+    ///     </para>
+    ///     <para>
+    ///         Safe to call when the overlays are off; it does nothing.
+    ///     </para>
+    /// </remarks>
+    public void AdvanceDebug(float seconds) => Debug?.Advance(seconds);
+
+    /// <summary>Builds the one accumulator, the one registry and the one console, and the node.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Everything here is built once and exposed, rather than made where it is used.</b>
+    ///         Three consumers need the same <c>DebugDraw</c> — the overlay system that draws panels
+    ///         into it, the compositor node that drains it, and <see cref="AdvanceDebug" /> — and the
+    ///         way this feature fails when they are not the same object is not an exception, it is an
+    ///         empty screen beside counters that all read as if it worked.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The line stages come out of <c>Vixen.Rendering</c>'s own resources.</b> Until they
+    ///         were published there, the only line shader a build could reach was
+    ///         <c>Editor/Vixen.Editor.Host/Shaders/Line.rvn</c> — which is why the accumulator had a
+    ///         renderer, a golden image and no game that could construct one.
+    ///     </para>
+    /// </remarks>
+    void BuildOverlays() {
+        Debug = new();
+        Overlays = new();
+        Console = new();
+
+        // The two that report on the frame itself. The log tail is AppBuilder's, because the ring it
+        // reads is; a subsystem's own panel is added by whoever holds its numbers.
+        frameStats = new() { Enabled = true };
+
+        Overlays.Add(frameStats);
+        Overlays.Add(new FrameGraphOverlay());
+        Overlays.Add(new ConsoleOverlay(Console));
+        Overlays.RegisterCommands(Console);
+
+        lineShaders = LineShaders.Default(Device);
+        ownsLineShaders = true;
+
+        debugNode = new(Device, lineShaders, Debug, View) { Target = options.Output };
+        Renderer.Host.Debug = debugNode;
+
+        overlaySystem = new(Overlays, Debug) { Viewport = new(Target.X, Target.Y) };
+    }
+
+    /// <summary>Hands the panels this frame's numbers, before the loop draws them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Last frame's, and honestly so.</b> The overlays are drawn in <c>PreRender</c> and the
+    ///     frame is recorded afterwards, so the newest draw count in existence when a panel is drawn
+    ///     is the previous frame's — which is what every frame-stats panel in every engine shows and
+    ///     what makes it stable enough to read. The GPU figure is older still and says by how much.
+    /// </remarks>
+    void ReadStatistics() {
+        if (frameStats is null) {
+            return;
+        }
+
+        var draws = Renderer.Meshes.DrawCount;
+        var indices = Renderer.Meshes.IndexCount;
+
+        frameStats.Statistics = new() {
+            GpuMilliseconds = GpuFrame.Milliseconds,
+
+            // How many frames back the reading is. Zero scopes is nobody measuring, which
+            // FrameStatsOverlay draws as a dash rather than as a very fast frame.
+            GpuLatency = GpuFrame.Scopes.Count > 0 ? Math.Max(0, FrameCount - GpuFrame.FrameIndex) : 0,
+            DrawCalls = Math.Max(0, draws - lastDraws),
+            Triangles = Math.Max(0L, indices - lastIndices) / 3L,
+            Visible = Renderer.Extraction?.ObjectCount ?? 0
+        };
+
+        lastDraws = draws;
+        lastIndices = indices;
     }
 
     /// <summary>The document the frame is built from: the project's, or the built-in one.</summary>
@@ -904,5 +1081,13 @@ public sealed class AppGraphics : IDisposable {
 
         Renderer.Host.FrameSize = size;
         Camera.AspectRatio = size.X / (float)Math.Max(size.Y, 1);
+
+        // ⚠ Render-target pixels, not window points, and kept current here because nothing in
+        // Vixen.Engine can know either. A stale value draws the panels for the size the window used
+        // to be, which after a resize is a corner panel hanging off the edge — and on a 2× display
+        // with the logical size it is every panel at half size in the top-left quarter.
+        if (overlaySystem is not null) {
+            overlaySystem.Viewport = new(size.X, size.Y);
+        }
     }
 }
