@@ -70,7 +70,13 @@ sealed record LogEventRange(int First, int Last, IReadOnlyList<string> Owners, b
 ///     </para>
 /// </remarks>
 static partial class LogEventRegister {
-    static readonly string[] SkippedDirectories = ["bin", "obj", "artifacts", ".git", "node_modules", "packages"];
+    // ⚠ `.claude` holds git worktrees, and a worktree is a *whole checkout* — so without it every id
+    // in the engine is reported as claimed by as many call sites as there are branches in flight
+    // (twenty-two, the day this was written). That failure is invisible in the worktree an agent
+    // builds this in and appears only on the tree that has the others underneath it, which is
+    // exactly the union-only defect this file exists to catch, one level up.
+    static readonly string[] SkippedDirectories =
+        ["bin", "obj", "artifacts", ".git", ".claude", "node_modules", "packages"];
 
     /// <summary>A row of the range table: two numbers, a subsystem cell and a status.</summary>
     [GeneratedRegex(@"^\|\s*([\d\s ]+?)\s*[–-]\s*([\d\s ]+?)\s*\|(.+?)\|\s*\**(.+?)\**\s*\|\s*$",
