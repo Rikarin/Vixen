@@ -98,13 +98,20 @@ import Vixen.Shaders.Shading
 // the walls and the floor take that route too. The two are estimates of the same dusk sky and
 // should land close; a large divergence on rough surfaces is a finding about one of them.
 //
-// The size of what is being bought, measured on sample 13's ramp — the level's one metal — at 512
-// frames: zeroing `AmbientSpecular` moves that surface by (7.9, 8.3, 5.1) of (99.2, 81.0, 71.3),
-// and zeroing this pass's reflection blend moves it by (0.9, 2.6, 2.9). So the whole correction
-// redirects about a twelfth of the metal's pixel between two estimates of the same dusk sky. Too
-// dim remains the safe direction to be wrong in — and a realised delta much *larger* than that
-// twelfth would mean the two terms are being counted together, which is what the addition and the
-// scalar exist to prevent.
+// The size of what was bought, measured on sample 13's ramp — the level's one metal — at 512
+// frames. Before: zeroing `AmbientSpecular` moved that surface by (7.9, 8.3, 5.1) of
+// (99.2, 81.0, 71.3), and zeroing this pass's reflection blend moved it by (0.9, 2.6, 2.9) — so the
+// correction redirects about a twelfth of the metal's pixel between two estimates of the same dusk
+// sky. Realised: (99.2, 81.0, 71.3) to (101.8, 83.6, 73.7), a twelfth's worth of term moving for a
+// fortieth's worth of pixel, which is what it should be when the two estimates agree. A delta much
+// *larger* than that twelfth would have meant they were being counted together, which is what the
+// addition and the scalar exist to prevent.
+//
+// The rough dielectrics moved by half a level out of 255 — the concrete floor (roughness 0.81, so
+// the irradiance field answers rather than a trace) went (60.5, 54.2, 51.3) to (61.0, 54.6, 51.6),
+// and the whole frame's mean channel 102.633 to 102.721. That is the finding the paragraph above
+// asks for: the prefiltered cube and `ReflectionTrace`'s wide answer are estimates of the same sky
+// and they do not disagree. Too dim remains the safe direction to be wrong in.
 
 shader AmbientCombine {
     /// The split pass's first target: direct light, emissive and specular ambient; alpha carried.

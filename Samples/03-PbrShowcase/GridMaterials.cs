@@ -26,7 +26,7 @@ namespace Vixen.Samples.PbrShowcase;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The permutations here and the document's knobs are one contract.</b> `gi: Ambient`
-///         splits the shading pass's output across three targets, so <c>SplitOutputs</c> must be on
+///         splits the shading pass's output across four targets, so <c>SplitOutputs</c> must be on
 ///         or target 0 is a frame missing its ambient with nothing downstream to put it back;
 ///         `shadows: Cascades` at `quality: High` fills four cascades, so <c>CascadeCount</c> must
 ///         say four or a fragment selects a slot nobody wrote; and the two compose slots below are
