@@ -62,7 +62,25 @@ counters, any of which at zero is a black window or a frame lit by less than it 
 | ✅ | The full `dotnet build` chain, a headless run, and physics that demonstrably ran |
 | ✅ | **A picture.** Set 0 fills, materials bind, and the frame draws through the whole authored chain |
 | ✅ | `ThirdPersonShooter.Frame.Tests/` — the frame document parsed and built against the Null device, so a YAML mistake fails a test rather than a launch |
+| ✅ | **Its picture is a file.** `--vixen-headless --vixen-frames 512 --vixen-capture ./shots` renders on the real device with no window and writes the last frame as a PNG — reproducibly, and two runs at once |
 | ⬜ | Wiring `--vixen-frames` into CI as a gate — no sample is run headlessly in CI today, so this is a pattern to establish rather than a row to fill in |
+
+## Looking at it
+
+```
+dotnet build -c Release
+dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+    --vixen-headless --vixen-frames 512 --vixen-variant Development --vixen-capture ./shots
+```
+
+⚠ **512, and not fewer.** The frame's exposure, surface cache and probe history all climb for a long
+time: the whole-frame mean channel goes 9.2 → 23.6 → 35.8 → 37.4 at 4, 64, 256 and 512 frames, so a
+short run is a picture of a renderer that has not started yet. Two runs at the same count agree to a
+mean absolute channel of 0.002/255, which is what makes an A/B against another commit mean anything.
+
+⚠ **The spawn corner faces away from the sun, so a correct frame is almost all shade.** That has been
+mistaken for a broken one. [The guide](../../docs/guide/rendering/capturing-a-frame.md) says what else
+a headless picture is and is not.
 
 ## The picture, and what is in the way
 
