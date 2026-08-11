@@ -421,4 +421,57 @@ static partial class SampleLog {
             + "timeline is missing work."
     )]
     public static partial void GpuUnattributed(ILogger logger, double unattributed, double share);
+
+    /// <summary>
+    ///     ⚠ Said when the outskirts get a collider, which until this sample nothing anywhere built.
+    ///     Zero tiles is a terrain a character falls through — the ground draws perfectly and stops
+    ///     nothing, and <c>RespawnWhenBelow</c> turns that into a camera that cycles below the
+    ///     surface rather than into an error.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14063,
+        Level = LogLevel.Information,
+        Message = "Built {Tiles} height-field collider(s) of {Samples}² samples at {MetresPerQuad} m a quad."
+    )]
+    public static partial void TerrainCollisionBuilt(
+        ILogger logger,
+        int tiles,
+        int samples,
+        float metresPerQuad
+    );
+
+    /// <summary>
+    ///     ⚠ Said once the water has folded. Every number after the first is a silent failure with
+    ///     its own picture: a zoneless body is a lake nothing rasterised, an unresolved body is a
+    ///     <c>.vxspline</c> that did not arrive and therefore a lake that is simply not in the level,
+    ///     and an unresolved sea state is water that looks entirely convincing and is the wrong sea.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14064,
+        Level = LogLevel.Information,
+        Message = "Water: {Zones} zone(s), {Bodies} bod(ies), {Zoneless} zoneless, {UnresolvedBodies} "
+            + "unresolved spline(s), {UnresolvedWaves} unresolved sea state(s)."
+    )]
+    public static partial void WaterFolded(
+        ILogger logger,
+        int zones,
+        int bodies,
+        int zoneless,
+        int unresolvedBodies,
+        int unresolvedWaves
+    );
+
+    /// <summary>
+    ///     ⚠ Said when the water sources are not wired. <c>WaterZoneSystem.Splines</c> is null until
+    ///     something sets it and <em>nothing in the engine does</em> — <c>AssetWaterSource</c> is
+    ///     constructed by its own tests and by no host — so a game that does not do it itself gets a
+    ///     scene whose water bodies all count as unresolved and no water at all, with no error.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14065,
+        Level = LogLevel.Warning,
+        Message = "No asset manager, so the water has no spline source and no sea state source. "
+            + "Every water body in the level will count as unresolved and nothing will be drawn."
+    )]
+    public static partial void NoWaterSource(ILogger logger);
 }

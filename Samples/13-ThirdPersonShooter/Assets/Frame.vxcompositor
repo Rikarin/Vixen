@@ -106,6 +106,44 @@ resources:
     format: Rg16Float
     usage: ColourTarget, Sampled
 
+  # ── the lake ────────────────────────────────────────────────────────────────────────────────
+  # Doc 35's three planes, and the one declaration in this file that exists purely so a !Copy is
+  # legal.
+  #
+  # ⚠ **SceneCombined is declared here and is produced by !AmbientCombine, which used to declare it
+  # itself.** A node's own `DeclareOutput` checks `frame.Has(Output)` first and steps aside, so this
+  # wins — and it has to, because a node declares `ColourTarget | Sampled` and nothing else. The water
+  # pass reads a *copy* of the frame behind it (§ B1: sampling a target you are writing is undefined,
+  # not slow), the copy needs a CopySource on its source, and neither a document nor a node can add a
+  # usage to a texture after it is created. The build refuses a !Copy whose ends lack the flags by
+  # name, which is the one way this could have failed loudly; it did.
+  - name: SceneCombined
+    format: Rgba16Float
+    usage: ColourTarget, Sampled, CopySource
+
+  - name: SceneCombinedCopy
+    format: Rgba16Float
+    usage: Sampled, CopyDestination
+
+  # The surface plane: the water surface's own device depth in `r`, its coverage in `g`. Doc 35 § D8
+  # assumed a G-buffer shading-model id here and there is not one — the deferred path is ⬜ and this
+  # engine is Forward+ — so the mesh pass writes the mask an id comparison would have produced.
+  #
+  # ⚠ Rgba16Float and not Rgba8UNorm, which is what the golden fixtures use. `r` is a *device* depth
+  # under this camera's reverse-Z 0.1/1000 planes, where everything past a few metres crowds into the
+  # bottom of the range: eight unorm bits put the whole outdoors into about three codes, and the
+  # composite then reconstructs a world position that steps. Half-float has its mantissa where
+  # reverse-Z has its values.
+  - name: WaterSurface
+    format: Rgba16Float
+    usage: ColourTarget, Sampled
+
+  # And the normal plane: the surface's world normal in `xyz`, its foam in `a`. Signed, so an
+  # unsigned format would fold half of every wave onto the other half.
+  - name: WaterNormal
+    format: Rgba16Float
+    usage: ColourTarget, Sampled
+
 stages:
   - name: Opaque
 
@@ -790,6 +828,90 @@ game: !Sequence
       view: Camera
       output: SceneCombined
       intensity: 1.0
+
+    # ── the lake ───────────────────────────────────────────────────────────────────────────────
+    # Doc 35's pass, spliced where § D8 puts it: after the lighting is finished and before anything
+    # temporal or tonal. Three nodes, and the order between them is not a preference.
+    #
+    # ⚠ **`!WaterSurface` is a rasterisation against the scene's own depth, and against an *undefined*
+    # depth buffer it draws nothing at all with no validation error anywhere.** Its depth state is
+    # Greater with no write and it loads rather than clears — the surface joins a frame that already
+    # has its opaque depth — so every fragment fails the test if the buffer has not been written. This
+    # module's history is a fully green device-free test suite over a pass that had never rendered a
+    # pixel, and the way it drew one was a fixture that cleared the depth first. Here the depth is
+    # real: !Main and !Ground both wrote it, hundreds of lines up, and a lake behind a hill is
+    # correctly hidden by that same test.
+    #
+    # ⚠ **The copy is the whole of § B1, and it is not fussiness.** Reading the target a pass is also
+    # writing is undefined behaviour on a driver rather than approximate, which is why the blocker was
+    # named as the copy and not as the pass. `behind:` must name the copy and never SceneCombined; the
+    # graph refuses the case where the two are equal.
+    #
+    # ⚠ **And the copy is what makes `tiled: true` correct.** Tile classification leaves a dry tile's
+    # pixels exactly as it found them, so the tiled picture equals the untiled one only where the
+    # output already holds what `behind:` is a copy of — which is true here *because* the !Copy filled
+    # it from this very target one node ago. A hand-wired node without one is a frame with water in
+    # the wet tiles and last frame's contents in the dry ones.
+    - !WaterSurface
+      name: Lake
+      surface: WaterSurface
+      normal: WaterNormal
+      sceneDepth: SceneDepth
+      view: Camera
+      # 64 m of level 0 over five levels reaches 1 km, which is well past this 252 m of ground: the
+      # far skirt is what covers the rest and it is drawn without the wave sum.
+      nearRange: 64
+      levelCount: 5
+      farDistance: 2000
+      # TerrainSeed.LakeSurface — where the *far* skirt sits, for a camera looking past the window.
+      # Nothing in this level is beyond the window, so it only ever shows on the horizon.
+      restHeight: 1.2
+      # A quarter-metre of shallows before the water is fully water, forty centimetres before it
+      # foams, and half a metre of crest above the rest height before a wave breaks. This lake's
+      # shelf rises through all three over about four metres of shore, which is what makes the
+      # margin read as a beach rather than as a cut.
+      shoreDepth: 0.25
+      foamDepth: 0.4
+      foamCrest: 0.4
+
+    - !Copy
+      name: WaterBehind
+      source: SceneCombined
+      destination: SceneCombinedCopy
+
+    - !Water
+      name: Water
+      output: SceneCombined
+      behind: SceneCombinedCopy
+      sceneDepth: SceneDepth
+      surface: WaterSurface
+      normal: WaterNormal
+      view: Camera
+      tiled: true
+      # ⚠ The same sun the sky was baked from and the cascades were fitted to — the level's
+      # directional light, whose direction Arena.SunDirection reads and whose fallback this repeats.
+      # Left unstated the water lights with a noon sun whatever the sky above it says, and the
+      # forward-scattering peak lands in the wrong half of the frame: a lake lit from a different day
+      # than the hills around it. Eight degrees up, travelling north-east, which is the level's
+      # premise and the reason everything inside the walls is in shade.
+      #
+      # ⚠ Static, and the level's sun is not: a SunOrbit turns it once every thirty seconds. So the
+      # scattering peak is right at one moment of the orbit and approximate at the rest of it — the
+      # same approximation ArenaIllumination already makes, which reads the direction once at wire-up.
+      # Fixing it properly is one line in a host that pushes the direction onto this node per frame,
+      # and it is owed rather than done.
+      sunDirection: -0.5698 -0.1400 0.8098
+      sunColour: 1.0 0.72 0.42
+      # The horizon's own colour, not a default blue-grey. Without a sky colour deep water is black —
+      # the volume integrates what arrives from the whole hemisphere, and at dusk that is this.
+      skyColour: 0.36 0.30 0.30
+      # An inland lake: more scattering and less absorption than open sea, which is what makes
+      # shallow water read as green rather than as a darker version of the sky.
+      scattering: 0.05 0.09 0.10
+      absorption: 0.42 0.09 0.04
+      phaseG: 0.7
+      surfaceF0: 0.02
+      foam: true
 
     # ── the accumulator ────────────────────────────────────────────────────────────────────────
     # Where the motion vector pass finally pays for itself twice. TAA reprojects last frame's colour

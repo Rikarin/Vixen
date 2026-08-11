@@ -70,6 +70,24 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 
         <!--
+            The lake: WaterRendererFactory for the document's !WaterSurface, !Copy and !Water nodes,
+            and the two components the scene carries.
+
+            ⚠ Named here even though both assemblies already arrive transitively — Vixen.App.Hosting
+            references Vixen.Rendering.Water, which is why AppGraphics can construct a WaterZoneSystem
+            for every game whether or not it asked. A reference a project depends on and does not name
+            is one that disappears the day the transitive path changes, and the failure would be a
+            compile error in a sample rather than anything the engine's own gates would catch.
+
+            ⚠ Vixen.Water.Physics is deliberately *not* here. Doc 35 § D1 keeps the Jolt join out of
+            the kernel and the renderer, and a game opts in; this level floats nothing, so it does
+            not. Swimming needs no such reference — see WaterImmersion.cs, which needs the query and
+            not the solver.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Water\Vixen.Water.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+
+        <!--
             Not linked into the game — ReferenceOutputAssembly is false — but built before it, so the
             content build above has a tool to run. A shipped game restores the CLI as a dotnet tool
             instead and never references it.

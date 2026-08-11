@@ -14,31 +14,85 @@ roots:
       - !MeshRenderable { mesh: vx:833ecd4f4b9e4de68770140c94e40c33#21d4ea2f, material: vx:dfb64c6f6a7b4fe5a33d5626e0f73720, castsShadows: true }
       - !BoxCollision { halfExtents: 32 0.5 32, centre: 0 -0.5 0, friction: 0.8 }
 
-  # Four walls, each turned to face in.
-  - name: Wall0
-    position: 0 0 -32
+  # Four walls, each turned to face in, and each with an eight-metre gate cut out of the middle of it.
+  #
+  # ⚠ **The gate is cut by splitting the entity, not by editing the mesh, and that is what keeps the
+  # hole you can see and the hole you can walk through in step.** `arena-wall.obj` is 64 × 6 × 1 with
+  # its base at y = 0, so one entity carries `scale` on x and the `!BoxCollision` beside it carries
+  # half-extents in metres — two numbers from one arithmetic:
+  #
+  #     segment  = (64 − gate) / 2 = 28 m
+  #     scale.x  = segment / 64    = 0.4375
+  #     halfX    = segment / 2     = 14
+  #     offset   = (gate + segment) / 2 = 18 m along the wall's own x
+  #
+  # That is `HouseAWallS0`/`S1`'s doorway trick a hundred lines down, on the perimeter instead of on a
+  # shed, and it is stated here because the two halves are authored independently and nothing in the
+  # build checks that they agree. `FrameDocumentTests.Every_gate_is_the_same_hole_in_the_mesh_and_in_the_collider`
+  # is what checks it — a hole you can see and not walk through, or walk through and not see, is worse
+  # than no hole at all.
+  #
+  # ⚠ **And this changes the light, deliberately.** A six-degree sun behind a six-metre wall throws a
+  # fifty-seven-metre shadow, which is why nearly everything in here is in shade; four gates let four
+  # bars of direct sun across the floor as the sun orbits, and the floor is no longer uniformly dark.
+  # That is the level looking different, not the level looking wrong.
+  - name: Wall0A
+    position: -18 0 -32
     rotation: 0 0.000000 0 1.000000
+    scale: 0.4375 1 1
     components:
       - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 32 3 0.5, centre: 0 3 0, friction: 0.4 }
-  - name: Wall1
-    position: 0 0 32
+      - !BoxCollision { halfExtents: 14 3 0.5, centre: 0 3 0, friction: 0.4 }
+  - name: Wall0B
+    position: 18 0 -32
+    rotation: 0 0.000000 0 1.000000
+    scale: 0.4375 1 1
+    components:
+      - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
+      - !BoxCollision { halfExtents: 14 3 0.5, centre: 0 3 0, friction: 0.4 }
+  # The south gate, which is the one the lake is through.
+  - name: Wall1A
+    position: -18 0 32
     rotation: 0 1.000000 0 0.000000
+    scale: 0.4375 1 1
     components:
       - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 32 3 0.5, centre: 0 3 0, friction: 0.4 }
-  - name: Wall2
-    position: -32 0 0
+      - !BoxCollision { halfExtents: 14 3 0.5, centre: 0 3 0, friction: 0.4 }
+  - name: Wall1B
+    position: 18 0 32
+    rotation: 0 1.000000 0 0.000000
+    scale: 0.4375 1 1
+    components:
+      - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
+      - !BoxCollision { halfExtents: 14 3 0.5, centre: 0 3 0, friction: 0.4 }
+  - name: Wall2A
+    position: -32 0 -18
     rotation: 0 0.707107 0 0.707107
+    scale: 0.4375 1 1
     components:
       - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 32 3 0.5, centre: 0 3 0, friction: 0.4 }
-  - name: Wall3
-    position: 32 0 0
+      - !BoxCollision { halfExtents: 14 3 0.5, centre: 0 3 0, friction: 0.4 }
+  - name: Wall2B
+    position: -32 0 18
+    rotation: 0 0.707107 0 0.707107
+    scale: 0.4375 1 1
+    components:
+      - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
+      - !BoxCollision { halfExtents: 14 3 0.5, centre: 0 3 0, friction: 0.4 }
+  - name: Wall3A
+    position: 32 0 -18
     rotation: 0 -0.707107 0 0.707107
+    scale: 0.4375 1 1
     components:
       - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 32 3 0.5, centre: 0 3 0, friction: 0.4 }
+      - !BoxCollision { halfExtents: 14 3 0.5, centre: 0 3 0, friction: 0.4 }
+  - name: Wall3B
+    position: 32 0 18
+    rotation: 0 -0.707107 0 0.707107
+    scale: 0.4375 1 1
+    components:
+      - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
+      - !BoxCollision { halfExtents: 14 3 0.5, centre: 0 3 0, friction: 0.4 }
 
   # Cover to run behind and vault onto.
   - name: Crate0
@@ -259,6 +313,51 @@ roots:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 140000, temperature: 2200, range: 26, radius: 0.14 }
       - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
+
+  # The lake, out through the south gate. Two entities, because a zone and a body are two things:
+  # the zone is the window the field is rasterised into and the body is one piece of water in it.
+  #
+  # ⚠ **A zone must exist or nothing renders**, which is Unreal's rule kept for its reason: the field
+  # is the interchange every consumer reads, and a body with no zone is a body nothing has rasterised.
+  # `WaterZoneSystem.ZonelessBodies` is the number that says so, and `Arena.ReportFrame` prints it.
+  #
+  # ⚠ **The zone's window follows the *view*, not this entity.** A zone entity's transform places it
+  # in the hierarchy for prefabs and duplication and decides nothing about which texels are covered —
+  # doc 35 § D3 makes the window a sliding one, so the 256 m square is centred wherever the camera is.
+  # Which is why this is at the origin and the *body* is at the lake.
+  - name: LakeZone
+    position: 0 0 0
+    components:
+      - !WaterZoneComponent
+        # 256 m over 257 samples is exactly one metre a texel — the resolution has to be a power of
+        # two *plus one*, because the samples include both edges, and 256 would be 1.0039 m a texel
+        # against a snap grid stated in whole metres, which is a shoreline that crawls as you walk.
+        extent: 256
+        resolution: 257
+        precision: Full
+        scrollThreshold: 0.25
+        # The bed is 3.8 m below the surface at the middle, so the waves are at full height there and
+        # attenuate to nothing over the last four metres of the shelf. Attenuation lives in the
+        # evaluator rather than the material, so the buoyancy solver and the vertex stage agree.
+        attenuationDepth: 4
+        waveAsset: Assets/Water/Lake.vxwaves
+  - name: Lake
+    # ⚠ `TerrainSeed.LakeCentre`, and the two have to match: this is where the *surface* is and that
+    # is where the *bed* is, and depth is their difference. They are in two files because one is a
+    # committed heightfield and the other is a scene; nothing in the build compares them, so
+    # `FrameDocumentTests.The_lake_in_the_scene_sits_over_the_bed_the_seed_dug` does.
+    position: 0 0 62
+    components:
+      - !WaterBodyComponent
+        kind: Lake
+        spline: Assets/Water/Lake.vxspline
+        # TerrainSeed.LakeSurface. Forty centimetres below the rim the bed rises to, so the water
+        # runs out inside the dug bowl rather than exactly at its edge.
+        surfaceHeight: 1.2
+        priority: 1
+        shoreFalloff: 1.5
+        bedRamp: 6
+        depth: 4.2
 
   # Where players come in. Found by component, because a compiled scene carries no name table
   # a running game can query — see SpawnPoint.

@@ -1,0 +1,23 @@
+# The lake's sea state. An inland lake with six-metre walls on one side of it: short waves, a
+# hand's breadth of chop, and a wind that comes off the hills to the north-east.
+#
+# ⚠ The zone names this file, and a name that does not resolve is not an error — the zone falls back
+# to its inline spectrum and draws a perfectly convincing wrong sea. `WaterZoneSystem.UnresolvedWaves`
+# is the only thing that says so, which is why `Arena.SupplyFrame` logs it.
+#
+# ⚠ `count` is the permutation axis and is quantised to Eight / Sixteen / ThirtyTwo, so raising the
+# sea state does not compile a shader — doc 35 § D7. Eight is right for water this size; the
+# wavelengths below are all shorter than the lake is wide, which is what stops the surface reading as
+# one slab tilting.
+name: Lake
+spectrum:
+  windDirection: 2.2
+  windSpeed: 4.5
+  directionalSpread: 0.8
+  minimumWavelength: 1.5
+  maximumWavelength: 9
+  wavelengthFalloff: 1
+  amplitudeScale: 1
+  steepness: 0.3
+  seed: 13
+  count: Eight

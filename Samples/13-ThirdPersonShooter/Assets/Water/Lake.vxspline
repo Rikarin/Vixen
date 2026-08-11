@@ -1,0 +1,41 @@
+# The lake outside the arena's south gate — the ring `Arena.vxscene`'s !WaterBodyComponent names.
+#
+# ⚠ Authored around this asset's own origin, not around the lake's. The body entity carries the
+# placement (0, 0, 62) and `AssetWaterSource` builds the curve *at* that placement, so moving the
+# entity moves the water. A ring authored at world coordinates would sit at (0, 0, 62) plus itself
+# the moment anybody dragged the entity, which is the failure `ACurveIsBuiltAtThePlacementItIsAskedFor`
+# exists for.
+#
+# ⚠ And it has to agree with `TerrainSeed.LakeRadius`, which is what digs the bed underneath it. The
+# spline decides where the water *is*; the heightfield decides how deep. Neither knows about the
+# other, and the sample's own test is what says they still match.
+#
+# A 24-gon on a 20 m circle, tangents left at zero so the segments are straight: the sagitta is
+# 17 cm against a 1.5 m shore falloff, which is under the width of the band that fades it out.
+name: Lake
+isClosed: true
+points:
+  - position: 0.0000 0 20.0000
+  - position: 5.1764 0 19.3185
+  - position: 10.0000 0 17.3205
+  - position: 14.1421 0 14.1421
+  - position: 17.3205 0 10.0000
+  - position: 19.3185 0 5.1764
+  - position: 20.0000 0 0.0000
+  - position: 19.3185 0 -5.1764
+  - position: 17.3205 0 -10.0000
+  - position: 14.1421 0 -14.1421
+  - position: 10.0000 0 -17.3205
+  - position: 5.1764 0 -19.3185
+  - position: 0.0000 0 -20.0000
+  - position: -5.1764 0 -19.3185
+  - position: -10.0000 0 -17.3205
+  - position: -14.1421 0 -14.1421
+  - position: -17.3205 0 -10.0000
+  - position: -19.3185 0 -5.1764
+  - position: -20.0000 0 -0.0000
+  - position: -19.3185 0 5.1764
+  - position: -17.3205 0 10.0000
+  - position: -14.1421 0 14.1421
+  - position: -10.0000 0 17.3205
+  - position: -5.1764 0 19.3185
