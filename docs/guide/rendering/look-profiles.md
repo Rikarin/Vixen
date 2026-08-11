@@ -27,7 +27,7 @@ settings:
   meterMaximumEv: 13.5     # …or brighter than this
   bloomThreshold: 1.2
   bloomKnee: 0.4
-  fogColour: 0.35 0.30 0.42
+  fogColour: 1400 1200 1680   # ⚠ a radiance in cd/m², not a tint — see below
   fogDensity: 0.015
   vignetteIntensity: 0.35
   grading:
@@ -37,6 +37,14 @@ settings:
 
 Every field is optional — doc 32's "says nothing / has an opinion" distinction — so a look that only
 pins the exposure says nothing about anything else, and `null` is never `0`.
+
+> ⚠ **`fogColour` is a radiance in cd/m², and it is the one field here a colour picker will get
+> wrong.** Everything else on this list is a ratio or a stop; this one is a luminance the frame's own
+> scene colour is lerped toward, and a lit frame's sky averages thousands of it. A value near one is
+> not a subtler fog — it is a fade to black that is too faint to see, which is exactly how it went
+> unnoticed in three separate passes. Prefer saying nothing: a `!Fog` node with no opinion laid over
+> it takes the sky's mean radiance and the sun's illuminance from the scene, which is the number this
+> field is trying to guess. See `FogRenderer.Colour`.
 
 The precedence is fixed, four layers, never ambiguous:
 
