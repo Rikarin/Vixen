@@ -167,8 +167,20 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const float EmberLuminance = 40000f;
 
+    /// <summary>The lake's ring, which <c>Arena.vxscene</c>'s <c>!WaterBodyComponent</c> names.</summary>
+    /// <remarks>Here as well as there because <see cref="Warm" /> has to ask for it by name before
+    ///     the world has been folded once — see there for why.</remarks>
+    public const string LakeSpline = "Assets/Water/Lake.vxspline";
+
+    /// <summary>How many times <see cref="Warm" /> asks before giving up.</summary>
+    const int WaterWarmAttempts = 400;
+
+    /// <summary>How long it waits between asks, in milliseconds.</summary>
+    const int WaterWarmInterval = 10;
+
     readonly ILogger logger;
     AppServices? services;
+    TerrainGroundSystem? ground;
 
     Arena(PhysicsScene physics, SceneHandle scene, ILogger logger) {
         Physics = physics;
@@ -187,6 +199,12 @@ public sealed class Arena : IDisposable {
 
     /// <summary>How many point lights the level placed, each now breathing.</summary>
     public int LampCount { get; private set; }
+
+    /// <summary>What tells a character how deep in the lake it is, or null headless.</summary>
+    public WaterImmersionSystem? Immersion { get; private set; }
+
+    /// <summary>The heightfield's collider and the water's bed, or null if there is no terrain source.</summary>
+    public TerrainGroundSystem? Ground => ground;
 
     /// <summary>The camera-following clipmap every distance-field trace marches, or null.</summary>
     public GlobalDistanceField? DistanceField { get; private set; }
@@ -332,6 +350,20 @@ public sealed class Arena : IDisposable {
         // put them in. A game never orders them by hand, which is the point of them having phases.
         loop.AddPhysics(Physics);
 
+        // ⚠ The two joins the engine has no assembly for, and without which the outskirts are scenery.
+        // The first gives the heightfield a collider — see TerrainGroundSystem for the three built
+        // pieces it is the missing call between — and the second gives a character an immersion, which
+        // is the whole of what CharacterMoveMode.Swimming was waiting for. Both are ordinary systems
+        // in ordinary phases; neither needed a change anywhere else.
+        if (ground is { } terrain) {
+            loop.Add(terrain);
+        }
+
+        if (services?.Graphics is { } graphics) {
+            Immersion = new(graphics.Water);
+            loop.Add(Immersion);
+        }
+
         LightTheLamps(loop);
     }
 
@@ -465,6 +497,8 @@ public sealed class Arena : IDisposable {
         // note beside `ForwardPlusKeys.MaxLights` there for what the two of them are between them.
         graphics.Renderer.Lighting.MaxLightsPerObject = LightsPerObject;
 
+        SupplyWater(graphics, services);
+
         Paint(graphics);
 
         var builder = graphics.Renderer.Host.Builder;
@@ -567,6 +601,94 @@ public sealed class Arena : IDisposable {
         if (services.Engine is { } engine) {
             FillDistanceField(graphics.Renderer.Host, engine.World);
         }
+    }
+
+    /// <summary>Gives the water its curves, its sea state and the ground its depth is measured
+    ///     against — the three things <c>WaterZoneSystem</c> has no way to find on its own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>All three are null-or-flat until a game sets them, and no host in the engine
+    ///         does.</b> <c>AppGraphics</c> constructs the <c>WaterZoneSystem</c> and the
+    ///         <c>WaterClockSystem</c> for every project — so the clock is not this sample's problem —
+    ///         and then leaves <c>Splines</c> null, <c>Waves</c> null and <c>Ground</c> at
+    ///         <c>FlatWaterGround(0)</c>. <c>AssetWaterSource</c> is the implementation of the first
+    ///         two and is constructed <em>nowhere in the tree</em> outside its own tests; the terrain
+    ///         is the intended producer of the third (doc 35 § D3) and nothing outside the editor's
+    ///         presenter has ever been it. Each absence is silent and each has its own picture: no
+    ///         curve is a lake that is not in the level, no sea state is the wrong sea drawn
+    ///         convincingly, and flat ground at y = 0 is a lake whose depth is its own surface height
+    ///         — 1.2 m of water everywhere, over a bed the terrain dug to 3.8.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="ground" /> is handed over before it has a heightfield, and that is the
+    ///         point of it being an object rather than a value.</b> The <c>.vxterrain</c> loads
+    ///         asynchronously and the fold runs from the first frame; a ground read once at start-up
+    ///         would be a lake rasterised over whatever the terrain was not yet. See
+    ///         <see cref="TerrainGroundSystem.HeightAt" /> for what it answers meanwhile and why it is
+    ///         not zero.
+    ///     </para>
+    /// </remarks>
+    void SupplyWater(AppGraphics graphics, AppServices services) {
+        if (services.Assets is not { } assets) {
+            SampleLog.NoWaterSource(logger);
+            return;
+        }
+
+        var source = new AssetWaterSource(assets);
+
+        // ⚠ **Warmed before the first fold, and this is a workaround for an engine defect rather
+        // than a nicety.** `WaterZoneSystem.GatherBodies` caches a body against its component and its
+        // placement, and it caches the *failure* too: a body whose `SplineFor` answered null is
+        // recorded as unresolved and, because nothing about the component or the transform then
+        // changes, is never asked again for the life of the world. `AssetWaterSource` answers null
+        // for the first few frames by construction — it starts a `Task` and polls it — so a lake
+        // named in a scene can never appear in a running game. Nothing caught it because every other
+        // caller is synchronous: the editor's presenter builds its curve from the document in hand,
+        // and every test's source is a literal.
+        //
+        // The zone's sea state has the opposite arrangement and is the evidence: `GatherZones`
+        // re-resolves every fold with no cache, so the `.vxwaves` here arrives late and works, while
+        // the `.vxspline` beside it arrives late and does not.
+        //
+        // So this blocks until the asset is in the source's own cache, at which point the fold's
+        // first ask is answered synchronously whatever placement it uses. Blocking is the same trade
+        // `Arena.Load` already makes for the scene: there is nothing worth showing until the level is
+        // there. The real fix is one line in the fold — do not cache a null — and it is owed.
+        Warm(source);
+
+        graphics.Water.Splines = source;
+        graphics.Water.Waves = source;
+
+        if (graphics.Renderer.Terrains is { } terrains && services.Engine is not null) {
+            ground = new TerrainGroundSystem(Physics, terrains, logger);
+            graphics.Water.Ground = ground;
+        }
+    }
+
+    /// <summary>Waits for the lake's curve to reach the source's cache, or gives up saying so.</summary>
+    /// <remarks>
+    ///     Identity, because what is being warmed is the <em>asset</em> and not the curve: a curve is
+    ///     cached per placement and an asset is cached per name, and once the asset is there any
+    ///     placement is answered without a read. So the placement here does not have to be the one
+    ///     the fold will ask for, which is good, because the fold asks for the body entity's world
+    ///     transform and this method has no business knowing it.
+    /// </remarks>
+    void Warm(AssetWaterSource source) {
+        for (var attempt = 0; attempt < WaterWarmAttempts; attempt++) {
+            if (source.SplineFor(LakeSpline, Matrix4x4.Identity) is not null) {
+                return;
+            }
+
+            if (source.Failed > 0) {
+                break;
+            }
+
+            Thread.Sleep(WaterWarmInterval);
+        }
+
+        // Not thrown over: a build that shipped no water content is a level with no lake in it, which
+        // is a worse level and a running one. The count is what says which of the two happened.
+        SampleLog.NoWaterSource(logger);
     }
 
     /// <summary>
@@ -1096,6 +1218,39 @@ public sealed class Arena : IDisposable {
         if (scene.MissingBinding is { } binding) {
             SampleLog.SceneSetMissing(logger, binding);
         }
+
+        // ⚠ And the water's five, which are the same kind of number as the one above: a zone that
+        // folded, a body that resolved and a sea state that arrived are three separate silent
+        // failures, each of which draws a frame nobody would call broken. See SampleLog.WaterFolded.
+        var water = graphics.Water;
+
+        SampleLog.WaterFolded(
+            logger,
+            water.ZoneCount,
+            water.BodyCount,
+            water.ZonelessBodies,
+            water.UnresolvedBodies,
+            water.UnresolvedWaves
+        );
+
+        // ⚠ And the node's own three, which answer a different question from the fold's five. A fold
+        // that resolved a body says the *scene* is right; these say a patch was selected, uploaded
+        // and recorded. The gap between them is where doc 35's silent no-draw lives: the surface pass
+        // tests Greater against a loaded depth buffer, so a document that put this node where the
+        // depth is not yet real draws nothing, with no validation error anywhere.
+        var built = graphics.Renderer.Host.Builder.Nodes.Values;
+        var mesh = built.OfType<Rendering.Water.WaterMeshRenderer>().FirstOrDefault();
+        var composite = built.OfType<Rendering.Water.WaterRenderer>().FirstOrDefault();
+
+        SampleLog.WaterDrawn(
+            logger,
+            mesh?.ZonesDrawn ?? 0,
+            mesh?.PatchesDrawn ?? 0,
+            mesh?.DroppedPatches ?? 0,
+            mesh?.BuildCount ?? 0,
+            composite?.BuildCount ?? -1,
+            Immersion?.Swimming ?? 0
+        );
 
         ReportGpuFrame(graphics.GpuFrame);
 

@@ -115,6 +115,17 @@ public sealed class ThirdPersonShooterGame : Game {
         // ⚠ Deliberately not in CasterStages. The terrain does not cast into the cascades yet, and
         // adding the stage would extract nothing for it while every counter said the pass ran.
         config.Graphics.Factories.Add(new Rendering.Terrain.TerrainFactory());
+
+        // And the lake's, on exactly the terrain's terms: the document names !WaterSurface, !Water
+        // and !Underwater, and constructing the factory is what claims those three names and runs the
+        // [ModuleInitializer] that registers !WaterZoneComponent and !WaterBodyComponent — the two
+        // names Arena.vxscene carries. Without this the *scene* fails to load, before the frame does.
+        //
+        // ⚠ The factory's Zones property is deliberately left alone. AppGraphics recognises this type
+        // and hands it the WaterZoneSystem it built for the world, which is an object that does not
+        // exist yet at this point — the same arrangement TerrainFactory.Scene gets and for the same
+        // reason. A !WaterSurface node whose Zones nobody set draws nothing at all and says nothing.
+        config.Graphics.Factories.Add(new Rendering.Water.WaterRendererFactory());
     }
 
     /// <inheritdoc />

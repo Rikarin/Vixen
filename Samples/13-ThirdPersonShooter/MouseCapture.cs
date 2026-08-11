@@ -26,29 +26,61 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///         after an alt-tab steers itself while somebody reads their mail. Clicking back in takes it
 ///         again — which is what every game does and what nothing in the engine can decide for one.
 ///     </para>
+///     <para>
+///         ⚠ <b>It starts <em>un</em>captured, and that is a fix rather than a preference.</b> This
+///         began at <c>wanted = true</c>, and an SDL window takes focus the moment it is created — so
+///         the pointer was grabbed the instant the window appeared, before anybody had touched it.
+///         With a sample being launched from a script every few minutes beside somebody working,
+///         that is a mouse and a keyboard disappearing mid-sentence into a game nobody asked to play.
+///         The paragraph above already had the answer written down — "clicking back in takes it
+///         again" — and only the initial state disagreed with it. So the first click takes the
+///         pointer, exactly as clicking back in after an alt-tab does, and the two are now one rule
+///         rather than a rule and an exception.
+///     </para>
+///     <para>
+///         ⚠ <b>The release is a release and no longer a toggle, and that follows from the line
+///         above.</b> Escape used to flip <c>wanted</c>, which reads correctly only from a captured
+///         start: from an uncaptured one the first Escape would <em>grab</em> the pointer, which is
+///         the opposite of what the key means everywhere. Press to take, Escape to give back, and
+///         the pair is complete without a flip.
+///     </para>
+///     <para>
+///         <b>What this does not touch is the keyboard.</b> A focused window receives key events
+///         whatever the cursor is doing, so a sample that pops up still takes typing until somebody
+///         clicks away — that is window activation rather than pointer capture, it belongs to the
+///         platform layer, and it is bounded now in a way it was not: with the pointer free, clicking
+///         away is possible at all.
+///     </para>
 /// </remarks>
 [UpdateInGroup(SystemPhase.Input)]
 [UpdateAfter(typeof(InputUpdateSystem))]
 public sealed class MouseCaptureSystem : SystemBase {
     readonly IWindow? window;
     readonly InputAction? release;
+    readonly InputAction? capture;
 
-    bool wanted = true;
+    bool wanted;
     bool wasFocused = true;
 
-    /// <summary>Captures the pointer of a window, until an action asks for it back.</summary>
+    /// <summary>Captures the pointer of a window on a click, until an action asks for it back.</summary>
     /// <param name="window">The window, or null in a headless run — where this does nothing.</param>
     /// <param name="release">The action that gives the pointer back, normally Escape.</param>
-    public MouseCaptureSystem(IWindow? window, InputAction? release) {
+    /// <param name="capture">
+    ///     The action that takes it, normally the primary mouse button. Null leaves the pointer free
+    ///     for the whole run, which is what a headless or scripted run wants.
+    /// </param>
+    public MouseCaptureSystem(IWindow? window, InputAction? release, InputAction? capture = null) {
         this.window = window;
         this.release = release;
+        this.capture = capture;
     }
 
     /// <summary>Whether the game is currently asking for the pointer.</summary>
     /// <remarks>
     ///     What it <em>asks</em> for, which is not what the window is doing while it is unfocused —
     ///     the two are separate so that regaining focus restores what the player last chose rather
-    ///     than re-grabbing a pointer they deliberately let go of.
+    ///     than re-grabbing a pointer they deliberately let go of. It now starts <see langword="false" />;
+    ///     see the class remarks for why that is the fix and the model is unchanged.
     /// </remarks>
     public bool IsCapturing => wanted;
 
@@ -58,11 +90,17 @@ public sealed class MouseCaptureSystem : SystemBase {
             return dependency;
         }
 
-        if (release?.WasPressedThisFrame == true) {
-            wanted = !wanted;
-        }
-
         var focused = window.IsFocused;
+
+        if (release?.WasPressedThisFrame == true) {
+            wanted = false;
+        } else if (focused && capture?.WasPressedThisFrame == true) {
+            // ⚠ Gated on focus, because a click is only a click *into this window* when this window
+            // is the one receiving it. Without the gate a sample in the background could take the
+            // pointer off whatever the person was actually clicking on, which is the failure this
+            // whole change exists to remove, arriving one step later.
+            wanted = true;
+        }
 
         // Only on a change, and only through the property that already early-outs on one: relative
         // mode is a global SDL state, and setting it every frame is a syscall per frame to say what

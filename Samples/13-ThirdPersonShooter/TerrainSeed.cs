@@ -14,10 +14,11 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///     <para>
 ///         <b>Around the arena, not under it.</b> The play space has an authored floor —
 ///         <c>arena-floor.obj</c>, a slab whose top is y = 0 — and a heightfield under it would be
-///         two surfaces competing for the same depth at every pixel. So the apron sits at −1.2 m
-///         inside the walls, where nothing can see it, and everything this terrain is *for* happens
-///         outside the 32 m perimeter: the ground the arena stands on, which until now was the
-///         skybox meeting nothing.
+///         two surfaces competing for the same depth at every pixel. So the apron sits just under the
+///         slab — <see cref="ApronHeight" />, which is a doorstep rather than a drop now that the
+///         walls have gates in them — and everything this terrain is *for* happens outside the 32 m
+///         perimeter: the ground the arena stands on, which until now was the skybox meeting nothing,
+///         and the lake a player can now walk out to.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Deliberately multi-tile, on <c>03-PbrShowcase</c>'s argument.</b> Four tiles rather
@@ -66,6 +67,89 @@ internal static class TerrainSeed {
     ///     buried inside this radius and the ground only starts to be ground beyond it.
     /// </remarks>
     const float ArenaReach = 34f;
+
+    /// <summary>Where the flat ground around and under the arena sits, in metres.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This was −1.2 m, and the gates are why it is not any more.</b> The number only ever
+    ///         had to be "below the floor slab and out of sight", because the perimeter was solid and
+    ///         nobody could reach the apron; now every wall has an eight-metre gate in it and the strip
+    ///         of ground on the far side of one is the first thing a player steps onto. A 1.2 m drop is
+    ///         a one-way trip — <c>PlayerRig</c> asks for 1.1 m of jump — so the arena would have let
+    ///         people out and not back in.
+    ///     </para>
+    ///     <para>
+    ///         Twenty centimetres clears the slab, whose top is y = 0 and whose underside is −1 m, so
+    ///         nothing inside the walls z-fights and nothing outside them is a cliff. It is a doorstep.
+    ///     </para>
+    /// </remarks>
+    const float ApronHeight = -0.2f;
+
+    /// <summary>Where the lake sits, in world metres on the ground plane.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Ten metres past the north gate, which is the whole of why it is here and not
+    ///         somewhere prettier.</b> The wall at <c>z = −32</c> has a gap in it
+    ///         (<c>Arena.vxscene</c>'s <c>Wall0A</c>/<c>Wall0B</c>), and a player who walks through it
+    ///         reaches the shore in about three seconds. Water nobody can get to is water nobody can
+    ///         tell is broken.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>North rather than south, and that is arithmetic rather than taste.</b> The
+    ///         level's sun travels along roughly <c>(−0.57, −0.14, 0.81)</c> — eight degrees up — so a
+    ///         six-metre wall throws its shadow forty-three metres in the direction the light goes,
+    ///         which is <em>+Z</em>. The first lake this sample had was centred at <c>(0, 62)</c> and
+    ///         was therefore inside that shadow along its whole length: a correct frame and a broken
+    ///         one were the same black band, which is exactly the trap this level's own README warns
+    ///         about for the arena floor. Mirrored to <c>−Z</c> the wall's shadow falls away from the
+    ///         water and the low sun rakes across it, which is both the honest picture and the good
+    ///         one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>These four numbers are the terrain's and the water's at once, and they have to
+    ///         be.</b> The bed below is carved here, into the committed heightfield; the surface above
+    ///         is <c>Arena.vxscene</c>'s <c>!WaterBodyComponent</c> and the ring is
+    ///         <c>Assets/Water/Lake.vxspline</c>. Depth is <em>surface minus ground</em> — doc 35 § D3
+    ///         stores neither — so a bed dug here and a surface typed there that disagree do not
+    ///         produce an error, they produce a lake that is dry, or one whose shoreline is nowhere
+    ///         near its bank. <see cref="LakeSurface" /> is the number the scene repeats, and the
+    ///         sample's own test asserts the two agree.
+    ///     </para>
+    /// </remarks>
+    public static readonly Vector2 LakeCentre = new(0f, -62f);
+
+    /// <summary>How far the ring in <c>Lake.vxspline</c> reaches from the centre, in metres.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Smaller than <see cref="LakeBowl" />, and the gap between them is not slack.</b> A
+    ///     body's coverage comes from its spline and its depth comes from <em>surface minus
+    ///     ground</em>, and the two have to run out in the same place or the shoreline is drawn twice:
+    ///     a bed that rises above the surface inside the ring gives a band of coverage with negative
+    ///     depth — water the field says is there and the shading says is not — which reads as a
+    ///     flickering rim rather than as a beach. Digging the bowl six metres wider than the ring puts
+    ///     roughly a hand's depth of water under the whole boundary, so coverage runs out first.
+    /// </remarks>
+    public const float LakeRadius = 20f;
+
+    /// <summary>How far the bed is dug out to before the shelf begins, in metres.</summary>
+    const float LakeBowl = 26f;
+
+    /// <summary>How wide the shelf is that returns the dug bed to the hills, in metres.</summary>
+    const float LakeShelf = 20f;
+
+    /// <summary>Where the ground stands at the bowl's edge, in metres.</summary>
+    const float LakeRim = 1.6f;
+
+    /// <summary>How far below the rim the middle of the bed sits, in metres.</summary>
+    const float LakeDepth = 4.2f;
+
+    /// <summary>Where the lake's surface sits, in world metres.</summary>
+    /// <remarks>
+    ///     Forty centimetres below the rim, so the water runs out inside the dug bowl rather than
+    ///     exactly at its edge — see <see cref="LakeRadius" />. The deepest water is then
+    ///     <see cref="LakeDepth" /> − 0.4 = 3.8 m, which is over a 1.8 m capsule's swim threshold
+    ///     with room to spare — see <c>WaterImmersionSystem</c>.
+    /// </remarks>
+    public const float LakeSurface = LakeRim - 0.4f;
 
     /// <summary>Writes the terrain beside a project directory.</summary>
     /// <param name="projectDirectory">The sample's directory — the one holding <c>Assets/</c>.</param>
@@ -139,6 +223,14 @@ internal static class TerrainSeed {
                 continue;
             }
 
+            // And out of the lake, which is the quarry's problem upside down: there *is* ground, it
+            // is simply under three metres of water, and a bush standing on it is a bush standing on
+            // the bed with its leaves in the swell. Same predicate the paint uses, so a lake that
+            // moves moves both.
+            if (LakeShare(x, z) > 0.2f) {
+                continue;
+            }
+
             var height = HeightAt((int)((x / 2f) + (HalfExtent / 2f)), (int)((z / 2f) + (HalfExtent / 2f)));
 
             volume.Add(
@@ -196,7 +288,8 @@ internal static class TerrainSeed {
 
     /// <summary>The height at a sample, in metres, in the terrain's own space.</summary>
     /// <remarks>
-    ///     Flat at −1.2 m under the arena and for a few metres past its walls, then rising into two
+    ///     Flat at <see cref="ApronHeight" /> under the arena and for a few metres past its walls,
+    ///     then rising into two
     ///     octaves of hills. The rise starts outside <see cref="ArenaReach" /> so no slope ever
     ///     climbs into the play space, and the far hills crest around 12 m — high enough to close the
     ///     horizon behind the six-metre walls, which is what the sky used to meet on its own.
@@ -212,7 +305,56 @@ internal static class TerrainSeed {
 
         var t = SmoothStep(ArenaReach, ArenaReach + 40f, radius);
 
-        return ((1f - t) * -1.2f) + (t * (hills + 5.5f));
+        return Basin(dx, dz, ((1f - t) * ApronHeight) + (t * (hills + 5.5f)));
+    }
+
+    /// <summary>The lake's bed, carved into whatever the hills were doing there.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A bowl inside <see cref="LakeRadius" /> that reaches <see cref="LakeRim" /> exactly at
+    ///         the shoreline, and a shelf that blends the rim back into the hills over
+    ///         <see cref="LakeShelf" /> metres. Both halves meet at the rim, so the surface is
+    ///         continuous — which matters more here than the shape does, because a step in the ground
+    ///         under water is a step in the *depth*, and depth is what the surface's colour, its foam
+    ///         and its wave attenuation are all read from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Carved rather than found.</b> These hills have no basin anywhere: the generator is
+    ///         two octaves of sine over a radial ramp, which produces saddles and no closed contour
+    ///         below its surroundings. Dropping a water body onto the nearest dip would have given a
+    ///         lake with one open side that drained across the map — visibly, because the shoreline is
+    ///         where the field says depth reaches zero and the field reads this function.
+    ///     </para>
+    /// </remarks>
+    static float Basin(float dx, float dz, float natural) {
+        var toCentre = MathF.Sqrt(
+            ((dx - LakeCentre.X) * (dx - LakeCentre.X)) + ((dz - LakeCentre.Y) * (dz - LakeCentre.Y))
+        );
+
+        if (toCentre >= LakeBowl + LakeShelf) {
+            return natural;
+        }
+
+        // The rim at the bowl's edge and the full depth at the middle, smooth at both ends so the bed
+        // has no crease a normal would catch the light on.
+        var bowl = LakeRim - (LakeDepth * (1f - SmoothStep(0f, LakeBowl, toCentre)));
+        var shelf = SmoothStep(LakeBowl, LakeBowl + LakeShelf, toCentre);
+
+        return ((1f - shelf) * bowl) + (shelf * natural);
+    }
+
+    /// <summary>How far into the lake a position is: one at the middle, zero at the shelf's edge.</summary>
+    /// <remarks>
+    ///     The one predicate the paint and the bushes share, so "do not stand in the water" and "do
+    ///     not paint grass on the bed" cannot drift apart. World metres, as
+    ///     <see cref="LakeCentre" /> is.
+    /// </remarks>
+    static float LakeShare(float dx, float dz) {
+        var toCentre = MathF.Sqrt(
+            ((dx - LakeCentre.X) * (dx - LakeCentre.X)) + ((dz - LakeCentre.Y) * (dz - LakeCentre.Y))
+        );
+
+        return 1f - SmoothStep(LakeBowl * 0.5f, LakeBowl + (LakeShelf * 0.5f), toCentre);
     }
 
     /// <summary>Paints the three weight layers from the shape: grass on the gentle, rock on the
@@ -260,8 +402,14 @@ internal static class TerrainSeed {
                 var dz = (z - (HalfExtent / 2f)) * 2f;
                 var apron = 1f - SmoothStep(ArenaReach, ArenaReach + 18f, MathF.Sqrt((dx * dx) + (dz * dz)));
 
+                // ⚠ The lake bed is bare for the same reason the apron is, and the reason is not
+                // taste: the Grass layer is what `Outskirts.vxgrass` scatters on, so painting grass
+                // under the water grows a lawn on the bed — visible through a transparent surface,
+                // and swaying, because the wind displacement does not know it is submerged.
+                var bare = MathF.Max(apron, LakeShare(dx, dz));
+
                 var rockShare = SmoothStep(0.35f, 0.75f, slope);
-                var dirtShare = (1f - rockShare) * apron;
+                var dirtShare = (1f - rockShare) * bare;
                 var grassShare = 1f - rockShare - dirtShare;
 
                 // Bytes summing to exactly the budget, dirt taking the rounding remainder — the

@@ -136,10 +136,19 @@ public sealed class PlayerRig : IDisposable {
         rig.Sounds = GameSounds.Load(services, logger);
         rig.Dress(loop, arena, services);
 
-        // After BindInput, because the action it releases on comes off the map that loaded.
+        // After BindInput, because the two actions it works from come off the map that loaded.
+        //
+        // ⚠ Fire is what takes the pointer, and it is the primary mouse button rather than a binding
+        // of its own on purpose: "click in the window" is the gesture, and inventing a second action
+        // for it would be a binding an author has to remember to author. The click that captures also
+        // fires a shot, which is what every game that grabs on click does. See MouseCaptureSystem for
+        // why the initial state is *un*captured and why Escape is no longer a toggle.
+        var map = rig.Actions?["Player"];
+
         rig.Capture = new(
             services.Window,
-            rig.Actions?["Player"] is { } map && map.TryFind("Menu", out var menu) ? menu : null
+            map is not null && map.TryFind("Menu", out var menu) ? menu : null,
+            map is not null && map.TryFind("Fire", out var fire) ? fire : null
         );
 
         SampleLog.PlayerSpawned(logger, 0, start.Position);
