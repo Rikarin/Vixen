@@ -44,6 +44,16 @@ public sealed record AppArguments {
     /// </remarks>
     public bool GpuProfiling { get; private init; }
 
+    /// <summary>Whether <c>--vixen-overlays</c> was given.</summary>
+    /// <remarks>
+    ///     Turns on <see cref="GraphicsOptions.Overlays" />: the frame-stats panel, the console, the
+    ///     log tail, the mini flame chart, and a frame's <c>DebugDraw</c> actually drawn. A flag for
+    ///     <see cref="GpuProfiling" />'s reason turned round — this is wanted on the run where
+    ///     something is already wrong, on a build that has already shipped, by somebody who cannot
+    ///     rebuild it.
+    /// </remarks>
+    public bool Overlays { get; private init; }
+
     /// <summary>The SDL video driver named by <c>--vixen-video-driver</c>, or
     /// <see langword="null" />.</summary>
     public string? VideoDriver { get; private init; }
@@ -154,6 +164,10 @@ public sealed record AppArguments {
 
                 case "--vixen-gpu-profile":
                     parsed = parsed with { GpuProfiling = true };
+                    continue;
+
+                case "--vixen-overlays":
+                    parsed = parsed with { Overlays = true };
                     continue;
 
                 case "--vixen-variant" when Take(out var variant) && Enum.TryParse<BuildVariant>(variant, true, out var value):

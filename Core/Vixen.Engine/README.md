@@ -441,6 +441,9 @@ overlays.RegisterCommands(commands);
 loop.Add(new DiagnosticOverlaySystem(overlays, draw) { Viewport = target.Size });
 ```
 
+A game does not write that block: `--vixen-overlays`, or `config.Graphics.Overlays = true`, and
+`AppGraphics` builds it. The block is what a host with its own loop writes — see below.
+
 The toggleable panels [docs/plan/13](../../docs/plan/13-diagnostics.md) § Diagnostic overlays asks
 for, drawn out of `DebugDraw`'s screen-space list — so they are present **in every build**, with no
 editor attached, no interface running and no font asset resident. A panel is a background fill, a
@@ -457,41 +460,49 @@ pushed in by the host, because which device produces a character — and whether
 seeing it — is a platform's question. `IsCapturingInput` is what a host polls to know that typing
 `reload` must not also make the player reload.
 
-### ⚠ Nothing constructs the block above
+### The host that constructs the block above
 
-`DiagnosticOverlaySystem` is referenced by its own tests and by nothing else in the tree. Every
-overlay here is written, tested and unreachable in a running game, for the same reason the GPU
-timeline drew an empty frame for months: **the consumer is complete and no producer is wired to it.**
+`AppGraphics` does, when `GraphicsOptions.Overlays` says so — `--vixen-overlays` is how an operator
+says so without editing a game. It builds one `DebugDraw`, one `DiagnosticOverlays` and one
+`ConsoleCommands`, exposes all three, adds `DiagnosticOverlaySystem` to the loop, and hands a
+`DebugOverlayRenderer` to `SceneRenderHost`, which appends it to every compositor it builds.
 
-A note from the work that fixed the GPU half, because the two are the same question and the answer
-found there constrains the answer here.
-
-**What that seam turned out to be.** Three joins, in this order, and none of them is a new
-abstraction:
+This section used to say that nothing did. The three joins that closed it are the ones the GPU
+profiler's fix found, and the note is kept because the third one is not obvious:
 
 1. **The instrument moves to where a game can reference it.** `GpuProfiler` was in
-   `Vixen.Editor.Profiler`; it is now in `Vixen.Graphics`, with the *panels* left in the editor. The
-   equivalent here is already right — `DiagnosticOverlays` is in `Vixen.Engine` — so this step is
-   done, and it is why the remaining two are the whole job.
+   `Vixen.Editor.Profiler`; it is now in `Vixen.Graphics`. `DiagnosticOverlays` was already in
+   `Vixen.Engine`, so this looked done — and one level down it was not. The only line shader a
+   build could reach was `Editor/Vixen.Editor.Host/Shaders/Line.rvn`, so `DebugDrawRenderer` was in
+   `Core/` and could not be constructed by a game anyway. `LineShaders.Default` publishes the two
+   modules `Vixen.Rendering` had been carrying, unreferenced by any project file, since the viewport
+   was written.
 2. **The framework emits, not the caller.** One loop in `RenderGraph.Execute` gave forty renderers
-   scopes at once. `DebugDraw` has the same property: the accumulator is already reached by
-   `Vixen.Physics`, `Vixen.Navigation` and `Vixen.Audio` without any of them linking a graphics API.
-   What is missing is not emission, it is the *host* line.
-3. **The host owns the switch, and it is off by default.** `AppGraphics` constructs the profiler when
-   `GraphicsOptions.GpuProfiling` says so, and `--vixen-gpu-profile` is how an operator says so
-   without editing a game. `AppGraphics`/`AppBuilder` is where a `DiagnosticOverlaySystem`
-   registration belongs, under a `GraphicsOptions` flag beside `GpuProfiling` and a
-   `--vixen-overlays` beside `--vixen-gpu-profile`.
+   scopes at once; here it is `SceneRenderHost.Load`, which appends the node to whatever document it
+   just built. Appending at the host's call site instead would have lost the node on any reload —
+   which `Samples/13` performs — and the node would then sit in a compositor the frame had stopped
+   drawing.
+3. **The host owns the switch, and it is off by default.** `GraphicsOptions.Overlays` beside
+   `GpuProfiling`, `--vixen-overlays` beside `--vixen-gpu-profile`.
 
-**And the readings are already there for it.** `AppGraphics.GpuFrame` is public and populated — one
-scope per render-graph pass, named, in declaration order. A `GpuOverlay` beside `FrameStatsOverlay`
-is a rows-of-text panel over that property and needs nothing new from the graphics layer. That is the
-overlap the two tasks share; it is one flag and one `loop.Add` apart.
+⚠ **`DebugDrawSystem` is not part of that wiring, and adding it would break the feature.** It ages
+the accumulator in `PostRender`, which is after the drain only for a host whose renderer is a system
+in the same graph. `VixenApplication` runs every phase of `EngineLoop.Frame` and records the GPU
+frame afterwards, so `PostRender` lands between the overlay that drew a panel and the node that would
+have drawn it: every one-frame primitive deleted, every counter still correct, nothing on screen.
+`AppGraphics.AdvanceDebug` is the call that replaces it.
 
-**One trap, found the expensive way.** `EditorApplication` held a `DiagnosticsModule` of its own
-while the plugin system registered a different one, so the host wrote the device and the resolved
-frame into an object no panel read — and the panel reported "No graphics device" beside a window a
-Vulkan device was drawing. Whatever hosts these overlays must hold *the same* `DiagnosticOverlays`
-the systems push into. A second instance fails silently and reads as a platform limitation.
+⚠ **And `LineRenderer` used to refuse a target with no depth.** It built both pipelines at
+construction, and the depth-tested one is rejected by `GraphicsPipelineDescription.Validate` when the
+output has no depth attachment — which the overlay pass, over the frame's last colour target,
+does not. `DebugDrawRenderer.DepthTested = false` did not help, because the pipeline was already
+made. It now builds the tested pipeline only when there is depth to test.
+
+**One trap, found the expensive way, and still worth reading.** `EditorApplication` held a
+`DiagnosticsModule` of its own while the plugin system registered a different one, so the host wrote
+the device and the resolved frame into an object no panel read — and the panel reported "No graphics
+device" beside a window a Vulkan device was drawing. Everything above holds *one* of each object and
+exposes it; `HostedOverlayTests.ThereIsOneAccumulatorAndTheNodeHasIt` is the assertion that it stays
+that way.
 
 Licensed under Apache-2.0.

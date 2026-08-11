@@ -238,6 +238,12 @@ public sealed class AppConfig {
             Graphics.GpuProfiling = true;
         }
 
+        // The same one-way rule, and here it matters more: a development build that switches the
+        // overlays on in OnConfigure must not lose them because this run left the flag off.
+        if (arguments.Overlays) {
+            Graphics.Overlays = true;
+        }
+
         if (arguments.WorkerCount is { } workers) {
             WorkerCount = workers;
         }

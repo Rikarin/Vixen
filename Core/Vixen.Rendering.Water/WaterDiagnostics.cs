@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Vixen.Core;
 using Vixen.Engine.Diagnostics.Overlays;
 
@@ -121,11 +122,14 @@ public static class WaterDebug {
     ///         longer requires reflection.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Registering them does not make them typable.</b> Nothing in this tree constructs a
-    ///         <see cref="ConsoleCommands" />, a <c>DiagnosticOverlays</c> or a <c>DebugDraw</c> outside
-    ///         its own tests, and no compositor node draws a frame's <c>DebugDraw</c> — so a game has a
-    ///         console only once doc 13's host wiring exists. This closes water's end of that link and
-    ///         no more; see <see cref="WaterOverlay" /> for the other half.
+    ///         <b>And a host no longer has to call this.</b> When these remarks were written nothing
+    ///         in the tree constructed a <see cref="ConsoleCommands" />, a <c>DiagnosticOverlays</c>
+    ///         or a <c>DebugDraw</c> outside its own tests, so registering the six made them typable
+    ///         nowhere. Doc 13's host wiring exists now, and <see cref="WaterConsole" /> below hands
+    ///         this method to <see cref="ConsoleCommands.Contribute" /> when the assembly is first
+    ///         touched — so a game that renders water has <c>water.showFlow</c> without naming it.
+    ///         The method stays public because a host with its own registry and no engine loop — a
+    ///         tool, a test — still wants one call rather than six.
     ///     </para>
     /// </remarks>
     public static int Register(ConsoleCommands into) {
@@ -159,6 +163,33 @@ public static class WaterDebug {
 
         return wanted;
     }
+}
+
+/// <summary>Hands water's six verbs to every console, when the assembly is first touched.</summary>
+/// <remarks>
+///     <para>
+///         <b>The line that turns "registered" into "typable" without a host knowing water exists.</b>
+///         <c>AppGraphics</c> constructs a <c>WaterZoneSystem</c> in every frame it builds, which is
+///         what touches this assembly; the initializer then contributes, and a console built before
+///         or after gets the same six.
+///     </para>
+///     <para>
+///         ⚠ <b>This is the shape the next subsystem should copy.</b> The reason water's were the
+///         only <c>[ConsoleCommand]</c>s in the tree is that an attribute nobody can invoke teaches
+///         people not to write any; four lines here are what make a verb reach a prompt.
+///     </para>
+/// </remarks>
+static class WaterConsole {
+    [ModuleInitializer]
+    [SuppressMessage(
+        "Usage",
+        "CA2255:The 'ModuleInitializer' attribute should not be used in libraries",
+        Justification =
+            "One delegate appended to a static list, which is the same trade QualityTierSerializer "
+            + "makes: the alternative is every host remembering to register a subsystem's console "
+            + "verbs, which is exactly the omission that left six verbs unreachable for a phase."
+    )]
+    internal static void Register() => ConsoleCommands.Contribute(commands => WaterDebug.Register(commands));
 }
 
 /// <summary>What the water stack did this frame, as numbers only it can know.</summary>

@@ -85,6 +85,26 @@ public sealed class SceneRenderHost : IDisposable {
     /// <summary>The compositor the last <see cref="Load" /> built, or null.</summary>
     public GraphicsCompositor? Compositor { get; private set; }
 
+    /// <summary>
+    ///     The node that draws a frame's <c>DebugDraw</c>, appended to every document this builds.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Here rather than at the host's call site, and that placement is the whole of what
+    ///         makes it survive.</b> <see cref="Load" /> is callable again — a project that swaps its
+    ///         quality preset swaps its compositor, and <c>Samples/13</c> reloads its own document
+    ///         once the shader library is attached — so a host that appended the node to the tree it
+    ///         got back from the first build would be holding a node in a compositor the frame stopped
+    ///         drawing. That is the same shape as the editor's two <c>DiagnosticsModule</c>s: the
+    ///         instance that was fed is not the instance that draws, and it fails by showing nothing.
+    ///     </para>
+    ///     <para>
+    ///         Null is a build with no debug drawing in it, which is every build that did not ask for
+    ///         one. Assigning it after a <see cref="Load" /> takes effect at the next one.
+    ///     </para>
+    /// </remarks>
+    public DebugOverlayRenderer? Debug { get; set; }
+
     /// <summary>How many pixels the frame covers.</summary>
     /// <remarks>
     ///     <para>
@@ -135,6 +155,45 @@ public sealed class SceneRenderHost : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         Compositor = Builder.Build(asset);
+        Append(Compositor, Debug);
+    }
+
+    /// <summary>Puts a node at the end of a built frame, whatever shape the document was.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Appended to the built tree rather than expanded into the document.</b> A
+    ///         transformer would mean every authored <c>.vxcompositor</c> in the world silently
+    ///         gaining a node it does not declare, and a document that round-tripped through the
+    ///         editor would then declare it — which is a diagnostic switch becoming part of a
+    ///         project's content. What the tree gets is not saved anywhere.
+    ///     </para>
+    ///     <para>
+    ///         A root that is not a sequence is wrapped in one, because a document's <c>game:</c> may
+    ///         be a single node — <c>!StandardFrame</c> expands to a sequence, but a one-pass frame
+    ///         written by hand does not have to.
+    ///     </para>
+    /// </remarks>
+    static void Append(GraphicsCompositor compositor, SceneRenderer? node) {
+        if (node is null) {
+            return;
+        }
+
+        if (compositor.Game is not { } root) {
+            compositor.Game = node;
+            return;
+        }
+
+        if (root is SceneRendererSequence sequence) {
+            sequence.Children.Add(node);
+            return;
+        }
+
+        var wrapped = new SceneRendererSequence { Name = root.Name };
+
+        wrapped.Children.Add(root);
+        wrapped.Children.Add(node);
+
+        compositor.Game = wrapped;
     }
 
     /// <summary>Lends the frame a texture the host owns.</summary>

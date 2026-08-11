@@ -6228,6 +6228,7 @@ static Vixen.Rendering.Lighting.SurfaceCacheCardData.From(in Vixen.Rendering.Sur
 static Vixen.Rendering.Lighting.SurfaceCardCapture.Output.get -> Vixen.Rendering.RenderOutput
 static Vixen.Rendering.Lighting.SurfaceCardCapture.Projection(in Vixen.Rendering.SurfaceCache.SurfaceCard card) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.Lighting.SurfaceCardCapture.SinglePassOutput.get -> Vixen.Rendering.RenderOutput
+static Vixen.Rendering.LineShaders.Default(Vixen.Graphics.IGraphicsDevice device) -> Vixen.Rendering.LineShaders
 static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor, System.Collections.Generic.IReadOnlyDictionary<string, string>? slots = null) -> Vixen.Rendering.Materials.MaterialCompilation
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition() -> Vixen.Shaders.ShaderComposition
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition(params System.ReadOnlySpan<(string Slot, string Filler)> overrides) -> Vixen.Shaders.ShaderComposition

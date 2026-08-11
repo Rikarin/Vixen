@@ -344,7 +344,6 @@ T:Vixen.App.BuildVariant sweep-pending
 T:Vixen.App.BuildVariantAttribute sweep-pending
 T:Vixen.App.BuildVariants sweep-pending
 T:Vixen.App.ContentMount sweep-pending
-T:Vixen.App.GraphicsOptions sweep-pending
 T:Vixen.App.PlatformInput sweep-pending
 T:Vixen.App.VixenApplication sweep-pending
 T:Vixen.AssetCompiler.ArtifactMessage sweep-pending
@@ -1672,7 +1671,6 @@ T:Vixen.Engine.Coroutines.CoroutineScheduler sweep-pending
 T:Vixen.Engine.Coroutines.CoroutineUpdateSystem sweep-pending
 T:Vixen.Engine.Coroutines.ICoroutineOwner sweep-pending
 T:Vixen.Engine.Coroutines.ResumePoint sweep-pending
-T:Vixen.Engine.Diagnostics.DebugDraw sweep-pending
 T:Vixen.Engine.Diagnostics.DebugDrawSystem sweep-pending
 T:Vixen.Engine.Diagnostics.DebugFont sweep-pending
 T:Vixen.Engine.Diagnostics.DebugLine sweep-pending
@@ -1681,15 +1679,10 @@ T:Vixen.Engine.Diagnostics.DebugText sweep-pending
 T:Vixen.Engine.Diagnostics.IDebugFontSink sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommand sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommandAttribute sweep-pending
-T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommands sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.ConsoleContext sweep-pending
-T:Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem sweep-pending
-T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.FrameStatistics sweep-pending
-T:Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay sweep-pending
-T:Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.LogOverlay sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.OverlayAnchor sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.OverlayRegion sweep-pending
@@ -2904,7 +2897,6 @@ T:Vixen.Rendering.Lighting.SurfaceCapturePlane sweep-pending
 T:Vixen.Rendering.Lighting.SurfaceCardCapture sweep-pending
 T:Vixen.Rendering.Lighting.SurfaceCardCapture.DrawCard sweep-pending
 T:Vixen.Rendering.LineRenderer sweep-pending
-T:Vixen.Rendering.LineShaders sweep-pending
 T:Vixen.Rendering.LineVertex sweep-pending
 T:Vixen.Rendering.Materials.AnisotropicShading sweep-pending
 T:Vixen.Rendering.Materials.AnisotropyFeature sweep-pending

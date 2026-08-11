@@ -8,7 +8,7 @@ api: [T:Vixen.Graphics.IGpuScopeSink, T:Vixen.Graphics.GpuProfiler, T:Vixen.Grap
 tags: [rendering, render-graph, profiling, diagnostics, gpu]
 since: 0.1
 status: preview
-related: [rendering/choosing-a-frame, rendering/standard-frame, rendering/reading-the-frame]
+related: [rendering/choosing-a-frame, rendering/standard-frame, rendering/reading-the-frame, rendering/diagnostic-overlays]
 ---
 
 ## What it is
@@ -156,4 +156,6 @@ Two numbers in that summary are worth more than the ranking:
 
 - [Choosing a frame](choosing-a-frame.md) — what the passes being timed are.
 - [Reading the frame](reading-the-frame.md) — the other two ways a pass consumes its own output.
+- [Diagnostic overlays and the console](diagnostic-overlays.md) — the panel that shows this
+  number in a running game, wired by the same three joins.
 - `docs/plan/13-diagnostics.md` — where the per-pass timestamp rule is written down.

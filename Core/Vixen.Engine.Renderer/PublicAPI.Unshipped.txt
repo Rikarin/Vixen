@@ -101,6 +101,18 @@ Vixen.Engine.Renderer.DebugGeometry.DebugGeometry() -> void
 Vixen.Engine.Renderer.DebugGeometry.LabelCount.get -> int
 Vixen.Engine.Renderer.DebugGeometry.Screen.get -> System.ReadOnlySpan<Vixen.Rendering.LineVertex>
 Vixen.Engine.Renderer.DebugGeometry.World.get -> System.ReadOnlySpan<Vixen.Rendering.LineVertex>
+Vixen.Engine.Renderer.DebugOverlayRenderer -> sealed class
+Vixen.Engine.Renderer.DebugOverlayRenderer : System.IDisposable
+Vixen.Engine.Renderer.DebugOverlayRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Engine.Renderer.DebugOverlayRenderer.DebugOverlayRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.LineShaders shaders, Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Rendering.RenderView view) -> void
+Vixen.Engine.Renderer.DebugOverlayRenderer.Dispose() -> void
+Vixen.Engine.Renderer.DebugOverlayRenderer.Draw.get -> Vixen.Engine.Diagnostics.DebugDraw
+Vixen.Engine.Renderer.DebugOverlayRenderer.Draws.get -> int
+Vixen.Engine.Renderer.DebugOverlayRenderer.Dropped.get -> int
+Vixen.Engine.Renderer.DebugOverlayRenderer.ScreenCount.get -> int
+Vixen.Engine.Renderer.DebugOverlayRenderer.Target.get -> string
+Vixen.Engine.Renderer.DebugOverlayRenderer.Target.init -> string
+Vixen.Engine.Renderer.DebugOverlayRenderer.WorldCount.get -> int
 Vixen.Engine.Renderer.DebugView -> readonly struct
 Vixen.Engine.Renderer.DebugView : System.IEquatable<Vixen.Engine.Renderer.DebugView>
 Vixen.Engine.Renderer.DebugView.DebugView() -> void
@@ -115,6 +127,8 @@ Vixen.Engine.Renderer.SceneRenderHost -> sealed class
 Vixen.Engine.Renderer.SceneRenderHost : System.IDisposable
 Vixen.Engine.Renderer.SceneRenderHost.Builder.get -> Vixen.Rendering.Compositor.CompositorBuilder
 Vixen.Engine.Renderer.SceneRenderHost.Compositor.get -> Vixen.Rendering.Compositor.GraphicsCompositor?
+Vixen.Engine.Renderer.SceneRenderHost.Debug.get -> Vixen.Engine.Renderer.DebugOverlayRenderer?
+Vixen.Engine.Renderer.SceneRenderHost.Debug.set -> Vixen.Engine.Renderer.DebugOverlayRenderer?
 Vixen.Engine.Renderer.SceneRenderHost.Dispose() -> void
 Vixen.Engine.Renderer.SceneRenderHost.Draw(Vixen.Graphics.ICommandList list) -> bool
 Vixen.Engine.Renderer.SceneRenderHost.Effects.get -> Vixen.Shaders.EffectSystem
@@ -236,6 +250,7 @@ Vixen.Engine.Renderer.WorldRenderer.VfxEffects.get -> Vixen.Rendering.Ecs.IVfxEf
 Vixen.Engine.Renderer.WorldRenderer.VfxEffects.set -> Vixen.Rendering.Ecs.IVfxEffectSource?
 Vixen.Engine.Renderer.WorldRenderer.ViewBlock.get -> Vixen.Rendering.ViewConstants
 Vixen.Engine.Renderer.WorldRenderer.WorldRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects, int vertexCapacity = 1048576, int indexCapacity = 2097152) -> void
+override Vixen.Engine.Renderer.DebugOverlayRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView
 static Vixen.Engine.Renderer.TextureStreamer.WantedWidth(float radius, float distance, float viewportHeight, float verticalFieldOfView) -> int
 static Vixen.Engine.Renderer.TextureStreamer.WantedWidth(in Vixen.Core.Mathematics.BoundingSphere bounds, Vixen.Rendering.RenderView view, float viewportHeight) -> int

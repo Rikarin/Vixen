@@ -258,4 +258,38 @@ public sealed class GraphicsOptions {
     ///     </para>
     /// </remarks>
     public bool GpuProfiling { get; set; }
+
+    /// <summary>
+    ///     Whether the frame carries the diagnostic overlays, the console and a drawn
+    ///     <c>DebugDraw</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The switch [doc 13](../../docs/plan/13-diagnostics.md) § Diagnostic overlays needed
+    ///         and did not have.</b> Frame stats, the mini flame chart, the log tail and the console
+    ///         were written, tested and reachable from nowhere — <c>DiagnosticOverlaySystem</c> was
+    ///         constructed by its own tests and by nothing else in the tree, and no node drew a
+    ///         frame's <c>DebugDraw</c>, so every subsystem that had been writing lines into the
+    ///         accumulator for phases was writing into a list nothing read. Turning this on builds one
+    ///         <c>DebugDraw</c>, one <c>DiagnosticOverlays</c> and one <c>ConsoleCommands</c>, adds
+    ///         the two systems that draw and age them, and appends the node that puts the result on
+    ///         the screen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off by default, and on for the asking rather than for the build kind.</b> Doc 13
+    ///         asks for these "in every build", which is a statement about what is <em>compiled</em>
+    ///         rather than about what is drawn: a shipping title wants the panels available for a
+    ///         support case and absent from a player's screen. <c>--vixen-overlays</c> is how an
+    ///         operator asks without editing a game, exactly as <c>--vixen-gpu-profile</c> is for
+    ///         <see cref="GpuProfiling" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It costs a line pipeline pair and one pass, and nothing else while every panel is
+    ///         off.</b> An overlay reads what its subsystem already published; the pass declares
+    ///         itself only when the frame has geometry queued. What it is not free of is the
+    ///         accumulator: <c>DebugDraw.Enabled</c> stays true, so a subsystem drawing gizmos is
+    ///         allocating them again.
+    ///     </para>
+    /// </remarks>
+    public bool Overlays { get; set; }
 }

@@ -6,6 +6,7 @@ using Vixen.Assets;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
+using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Input;
 using Vixen.Engine.Scenes;
@@ -226,6 +227,11 @@ public sealed class AppBuilder {
         // world; and before the game sees the services, because OnInitialise is where a game places
         // its camera and expects something to be looking through it.
         var graphics = config.Graphics.Enabled ? Graphics(config, window, content, engine, loggerFactory) : null;
+
+        // ⚠ Added here rather than inside AppGraphics because the ring is this method's. It goes into
+        // the same DiagnosticOverlays the overlay system was handed — the object, not a copy — which
+        // is the one thing about this feature that fails silently if it is got wrong.
+        graphics?.Overlays?.Add(new LogOverlay(logs));
 
         var services = new AppServices(
             host,
