@@ -574,6 +574,30 @@ public sealed class AppGraphics : IDisposable {
         // frame to go back to what the document said.
         Renderer.Host.Compositor?.Apply(Volumes.Overlay);
 
+        // ⚠ **The frame's lighting is told which camera it is being lit for, and nothing was telling
+        // it.** `SceneLighting.Camera` had exactly two writers in the whole tree and both were unit
+        // tests, so in every running game it was null — a finished consumer nothing fed, on
+        // `IWaterGround`'s precedent. Two things read it and both failed silently:
+        //
+        //  - `SceneLighting.Extract` only calls `ClusterGrid.Apply` when it is set, so the froxel
+        //    grid's half-tangents and planes were never written into set 0. A frame running clustered
+        //    lights binned them with one set of numbers and looked them up with zeros.
+        //  - `TerrainSceneRenderer.DetectMode` gates the *entire* frame-lit ground on it, so terrain
+        //    and grass could never leave the preview shaders — whose output is a reflectance in
+        //    [0, 1] rather than a radiance in cd/m². Against this level's daylight sky that is about
+        //    one nit in a frame metered for thousands, which draws as **black ground under a correct
+        //    sky** at every viewpoint and every hour. Both counters said the ground was drawn,
+        //    because it was.
+        //
+        // Here for the reason the volume fold above is here: `PreRender` has just written
+        // `View.Camera` and the nodes read their parameters when they build, which is the next thing
+        // that happens. A null camera is still the honest answer for a view that has none — an
+        // orthographic one leaves it null by design — and both readers already treat that as "not
+        // this frame" rather than as zero.
+        if (Renderer.SceneEnvironment is { } lighting) {
+            lighting.Camera = View.Camera;
+        }
+
         commands = Device.BeginCommandList(QueueKind.Graphics, "frame");
 
         // ⚠ Before anything is recorded, because what it records is the pool reset — which Vulkan
