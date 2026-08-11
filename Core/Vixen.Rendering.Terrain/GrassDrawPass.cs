@@ -187,7 +187,7 @@ public sealed class GrassDrawPass : IDisposable {
         layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "grass"));
 
         // Every colour format the output declares — TerrainRenderer's reason: a split frame hands
-        // the lit shader three targets, and a pipeline declaring fewer is refused at the draw.
+        // the lit shader four targets, and a pipeline declaring fewer is refused at the draw.
         var attachments = new ColourTargetState[Math.Max(output.ColourCount, 1)];
 
         for (var target = 0; target < attachments.Length; target++) {

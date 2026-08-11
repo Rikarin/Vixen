@@ -498,7 +498,7 @@ static class StandardFrame {
         var probes = frame.Gi == GiMode.Probes;
         var mirrors = frame.Reflections == ReflectionsMode.Screen;
 
-        // The ambient split: three targets on Main and the combine at the far end. Reflections need
+        // The ambient split: four targets on Main and the combine at the far end. Reflections need
         // it too, because the combine's validity blend is the only compositor the traced plane has.
         var split = frame.Gi != GiMode.Off || mirrors;
 
