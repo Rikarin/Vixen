@@ -5,6 +5,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
+using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Vixen.Ui.Text;
 using Vixen.Ui.Text.Rasterizing;

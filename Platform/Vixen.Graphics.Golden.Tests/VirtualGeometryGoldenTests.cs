@@ -9,6 +9,7 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.VirtualGeometry;
 using Vixen.Shaders;
+using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 

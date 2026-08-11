@@ -10,6 +10,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Water;
 using Vixen.Shaders;
+using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Vixen.Water;
 using Xunit;

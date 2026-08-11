@@ -1,19 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-namespace Vixen.Ui.Testing.Visual;
+using Vixen.Core.Imaging;
 
-/// <summary>An 8-bit RGBA image in memory.</summary>
-/// <param name="Width">Its width in pixels.</param>
-/// <param name="Height">Its height in pixels.</param>
-/// <param name="Pixels">Its pixels, row-major, four bytes each.</param>
-public readonly record struct Bitmap(int Width, int Height, byte[] Pixels) {
-    /// <summary>The byte offset of a pixel.</summary>
-    /// <param name="x">Its column.</param>
-    /// <param name="y">Its row.</param>
-    /// <returns>Where it starts in <see cref="Pixels" />.</returns>
-    public int Offset(int x, int y) => ((y * Width) + x) * 4;
-}
+namespace Vixen.Ui.Testing.Visual;
 
 /// <summary>How far two pictures of the same interface may be apart.</summary>
 /// <param name="Channel">How far one channel may differ, in 0–255, before that pixel counts as wrong.</param>

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
-using Vixen.Ui.Testing.Visual;
+using Vixen.Core.Imaging;
 using Xunit;
 
-namespace Vixen.Ui.Testing.Tests;
+namespace Vixen.Core.Imaging.Tests;
 
 /// <summary>
 ///     The codec every picture suite's evidence passes through.

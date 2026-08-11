@@ -11,6 +11,7 @@ using Vixen.Rendering.Vfx;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
+using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Vixen.Vfx;
 using Xunit;

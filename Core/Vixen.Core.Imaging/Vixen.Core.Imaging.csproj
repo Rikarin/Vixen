@@ -4,8 +4,9 @@
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>Vixen.Core.Imaging</RootNamespace>
         <Description>
-            Engine texture data: the KTX2 container the runtime reads, mip chains, and the format
-            arithmetic that both depend on. No image codec — decoding a PNG is import-time work.
+            Engine texture data: the KTX2 container the runtime reads, mip chains, the format
+            arithmetic both depend on, and the small PNG encoder every picture in this repository is
+            written by.
         </Description>
         <PackageTags>imaging;ktx2;texture;mipmap;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -29,6 +30,14 @@
           nothing at run time.
         -->
         <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          Crc32, for the PNG chunk checksums. Microsoft's, and already in the repository — it came
+          with PngCodec from Vixen.Ui.Testing, which no longer needs it.
+        -->
+        <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
     <ItemGroup>
