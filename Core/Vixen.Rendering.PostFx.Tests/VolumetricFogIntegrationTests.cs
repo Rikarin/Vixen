@@ -811,6 +811,114 @@ public class VolumetricFogIntegrationTests : IDisposable {
     static ResourceBinding Binding(ComputeRenderer step, uint binding) =>
         Assert.Single(step.Descriptors.Bindings, entry => entry.Binding == binding);
 
+    /// <summary>
+    ///     The medium is lit by the scene's sun, in the scene's units.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The assertion the whole feature turned out to rest on.</b> <c>Scatter</c> computes
+    ///         <c>σs · p(θ) · sunColour</c> and <c>Fog.rvn</c>'s composite adds the marched result
+    ///         straight into a frame lit in cd/m² — so <c>sunColour</c> is an illuminance and nothing
+    ///         else. It shipped as <c>(1, 0.9, 0.7)</c>, which is a tint: five orders of magnitude
+    ///         under a sun of 90 000 lux, and measured on sample 3 at 512 frames the entire in-scatter
+    ///         came to 0.04/255 mean channel against a 0.03/255 run-to-run floor. The volume was
+    ///         filled, marched and composited correctly every frame and was arithmetically
+    ///         indistinguishable from a pass that never ran.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Both numbers from one source, which is the half a direction-only fix would have
+    ///         missed. <c>RenderLight.Radiance</c> is an illuminance in lux for a directional light —
+    ///         the same quantity the shading pass multiplies — so taking the direction from the frame
+    ///         and the brightness from the document is a medium lit by a sun that is not the one
+    ///         casting the shadows it is marched against.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_medium_is_lit_by_the_scenes_sun_and_in_its_units() {
+        using var h = Build();
+
+        var light = new RenderLight {
+            Kind = LightKind.Directional,
+            Direction = Vector3.Normalize(new(-0.35f, -0.65f, -0.4f)),
+            Colour = new(1f, 0.9f, 0.7f),
+            Intensity = 90_000f,
+            Unit = LightUnit.Lux
+        };
+
+        h.Fog.Sun = new Star(light);
+
+        Frame(h);
+
+        var reached = h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.SunColour);
+
+        Assert.Equal(light.Direction, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.SunDirection));
+        Assert.Equal(light.Radiance, reached);
+
+        // Stated as a magnitude as well as an equality: `Radiance` could itself regress to a tint,
+        // and the property this exists for is that what reaches the shader is commensurate with a
+        // frame lit in photometric units rather than with an author's 0..1 slider.
+        Assert.True(
+            reached.X > 1000f,
+            $"The medium's sun reached the shader as {reached}, which is a tint and not an "
+            + "illuminance. A frame lit in cd/m² adds this straight into its scene colour, so a "
+            + "unit-scale value is a fog that is not dim but absent."
+        );
+    }
+
+    /// <summary>
+    ///     A frame with no directional light leaves the authored pair alone.
+    /// </summary>
+    /// <remarks>
+    ///     Availability rather than preference, on <c>Shadowed</c>'s rule — and the fallback is the
+    ///     authored value rather than zero because a frame between scenes has no sun for a frame or
+    ///     two, and a medium that went black for them would flash.
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Without_a_sun_the_authored_pair_is_what_the_medium_gets(bool sourced) {
+        using var h = Build();
+
+        h.Fog.SunDirection = Vector3.Normalize(new(1f, -2f, 0.5f));
+        h.Fog.SunColour = new(12_000f, 11_000f, 9_000f);
+
+        if (sourced) {
+            h.Fog.Sun = new Star(null);
+        }
+
+        Frame(h);
+
+        Assert.Equal(h.Fog.SunDirection, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.SunDirection));
+        Assert.Equal(h.Fog.SunColour, h.Fog.Steps[1].Parameters.Get(VolumetricFogKeys.SunColour));
+    }
+
+    /// <summary>
+    ///     The two authored defaults are photometric quantities and not colours.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A test about a default, deliberately.</b> Every other assertion here passes for a fog
+    ///     whose inputs are fifteen stops down — the march is right, the slicing is right, the
+    ///     reprojection lands on the right texel — because none of them compares the medium against
+    ///     the frame it is composited into. This is the one that does, and the shape of it is the
+    ///     lesson: a number whose name is a colour, in a renderer whose units are photometric, is
+    ///     worth checking against a magnitude rather than against its name.
+    /// </remarks>
+    [Fact]
+    public void The_authored_defaults_are_photometric() {
+        var fog = new VolumetricFogRenderer();
+        var declared = new VolumetricFogAsset();
+
+        Assert.True(fog.SunColour.X > 1000f, $"SunColour defaults to {fog.SunColour}, a tint.");
+        Assert.True(fog.AmbientColour.X > 100f, $"AmbientColour defaults to {fog.AmbientColour}, a tint.");
+        Assert.Equal(fog.SunColour, declared.SunColour);
+        Assert.Equal(fog.AmbientColour, declared.AmbientColour);
+    }
+
+    /// <summary>An <c>ISunSource</c> holding one answer, for the two tests above.</summary>
+    sealed class Star(RenderLight? sun) : ISunSource {
+        public RenderLight? Sun { get; } = sun;
+    }
+
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
 
