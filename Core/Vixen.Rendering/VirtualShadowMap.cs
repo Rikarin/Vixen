@@ -132,14 +132,15 @@ public static class VirtualShadowMap {
     ///         quarter of a million read-modify-writes onto each of two dozen addresses.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Sampling one pixel per block instead would drop pages, and no block size makes that
-    ///         safe.</b> A page is <see cref="PageTexels" /> texels a side and
+    ///         ⚠ <b>Sampling one pixel per block instead loses most of the pages, and no block size
+    ///         makes that safe.</b> A page is <see cref="PageTexels" /> texels a side and
     ///         <see cref="LevelFor" /> picks a level whose texels are no finer than the pixel's, so a
     ///         page is at least that many pixels across — but only on a surface facing the camera. The
-    ///         bound scales with the cosine of the surface's obliquity and goes to zero on a floor
-    ///         receding to the horizon, where sample 13's pages are already narrower than a pixel. The
-    ///         pixels a centre-sampled block would stop asking for are exactly the ones whose lookup
-    ///         wants the page.
+    ///         bound scales with the cosine of the obliquity and goes to zero on a floor receding to
+    ///         the horizon. Measured: a four-by-four block reading only its centre marks forty pages a
+    ///         frame in sample 13 against a hundred and thirteen for all sixteen, and most of what it
+    ///         drops is in the middle of a marked run rather than at its edge. The pixels that lose the
+    ///         page are exactly the ones whose lookup wants it.
     ///     </para>
     /// </remarks>
     public const int MarkBlock = 4;

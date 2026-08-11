@@ -59,14 +59,15 @@ shader VirtualShadowMark {
     /// A block straddling a wall and the floor behind it asks for both pages, exactly as sixteen
     /// separate invocations did — what the block changes is only how many times the answer is written.
     ///
-    /// ⚠ **Sampling one pixel per block instead is the tempting version, and it drops pages.** The
-    /// "a page is a hundred and twenty-eight texels, and a level is chosen so a texel is no finer than
-    /// a pixel, so a page is at least a hundred and twenty-eight pixels across" argument holds only for
-    /// a surface facing the camera: a page's screen width is that bound times the cosine of the
-    /// surface's obliquity, which goes to zero on a floor receding to the horizon. In sample 13 the
-    /// distant ground's pages are already narrower than one pixel. A block that sampled its centre
-    /// would silently stop asking for them, and the pixels that lose the page are precisely the ones
-    /// whose lookup wanted it — a band of unshadowed ground that moves with the camera.
+    /// ⚠ **Sampling one pixel per block instead is the tempting version, and it loses most of the
+    /// pages.** The argument for it is that a page is a hundred and twenty-eight texels and a level is
+    /// chosen so a texel is no finer than a pixel, so a page must be a hundred and twenty-eight pixels
+    /// across — but that bound holds only for a surface facing the camera, and it scales with the
+    /// cosine of the obliquity, which goes to zero on a floor receding to the horizon. Measured rather
+    /// than argued: a four-by-four block sampling only its centre marks forty pages a frame in sample
+    /// 13 where reading all sixteen marks a hundred and thirteen, and most of what it loses is in the
+    /// middle of a marked run rather than at its edge. The pixels that lose the page are precisely the
+    /// ones whose lookup wanted it.
     ///
     /// **What the block is actually for is the atomic.** Marking is a write of one bit into a bitset
     /// twenty-three words wide in a real frame, so five and three quarter million invocations were
@@ -158,11 +159,13 @@ shader VirtualShadowMark {
     /// number where that map does not cover it at all.
     ///
     /// ⚠ **A query and not a writer, and the accumulator it feeds is a local of `Main`.** The obvious
-    /// shape is a `Mark` that takes the running word and mask as `inout` and updates them — it was
-    /// written that way first, and it dropped a page a frame in sample 13: one level-zero page that
-    /// per-pixel marking asked for and this did not, silently, with every counter agreeing. The
-    /// accumulator never leaves a register now, which is the version whose marked set is bit-identical
-    /// to the per-pixel pass's over four hundred frames.
+    /// shape is a `Mark` that takes the running word and mask as `inout` and updates them; written
+    /// that way, sample 13's marked set differed from the per-pixel pass's by a page a frame. Every
+    /// one of those pages was at the *edge* of a marked run — a pixel whose `uv · 32` sat within an
+    /// ULP of a page seam, resolving to one side or the other depending on how the compiler contracted
+    /// the arithmetic around it, which rearranging the function changes. Nothing was dropped and
+    /// `inout` was not at fault. This shape is kept because it is the one measured bit-identical over
+    /// three hundred and ninety-nine frames, which is the only way that agreement can be claimed.
     func Bit(index: int, position: float3): int {
         if (index < 0 || index >= levels.Length) {
             return -1
