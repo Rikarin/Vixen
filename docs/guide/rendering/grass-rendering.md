@@ -100,6 +100,17 @@ cannot fill.
 of every cell on one cache line, and would make a cell's run depend on the order the workgroups
 retired in.
 
+⚠ **The candidate grid is thinned to fit the run, and that clamp is what makes the field the same
+field twice.** The kernel claims a place with `atomicAdd` and drops the candidates whose place is past
+the end of the run, so a cell that generates more candidates than its run holds keeps whichever
+blades reached the counter first — a compute dispatch does not promise that twice, and the field was
+a different subset of itself on every frame. `GrassDispatch.CandidateSide` is
+`GrassType.GridOf`'s answer clamped by `SideThatFits(BladesPerCell)`; `AuthoredSide` is what the rule
+asked for and `Thinned` is whether the two differ. A rule authored at 18 candidates per square metre
+over a 32 m cell wants 18 496 places and the default run holds 4 096, so it draws at four per square
+metre — raise `grassBladesPerCell:` on the `!Terrain` node, or author the density the run can hold,
+and the two numbers agree again.
+
 ⚠ **The instance buffer is device-local and never read back.** Staging a blade to the host would
 throw away the whole point of scattering on the device.
 

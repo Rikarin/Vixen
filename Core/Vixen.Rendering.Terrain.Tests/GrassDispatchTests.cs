@@ -146,7 +146,9 @@ public sealed class GrassDispatchTests : IDisposable {
     /// <summary>The dispatch covers every candidate slot of every cell, and no more.</summary>
     [Fact]
     public void TheDispatchCoversTheCandidateGrid() {
-        using var pass = Build();
+        // A run wide enough for the type's own grid, so this test is about the dispatch shape and
+        // not about the clamp the next one is about.
+        using var pass = Build(bladesPerCell: 8192);
         var type = Meadow;
 
         pass.Prepare(type, Grid, Resident(3), Source(), Blade);
@@ -154,11 +156,66 @@ public sealed class GrassDispatchTests : IDisposable {
         var side = type.GridOf(Grid.CellSize);
         var groups = (side + GrassDispatch.GroupSize - 1) / GrassDispatch.GroupSize;
 
+        Assert.Equal(side, pass.AuthoredSide);
+        Assert.Equal(side, pass.CandidateSide);
+        Assert.False(pass.Thinned);
         Assert.Equal((groups, groups, 3), pass.Groups);
 
         // Every candidate is covered — the tail is the shader's own bounds test, not a lost slot.
         Assert.True(groups * GrassDispatch.GroupSize >= side);
         Assert.True((groups - 1) * GrassDispatch.GroupSize < side);
+    }
+
+    /// <summary>A cell never generates more candidates than its run has places for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The invariant the blinking grass was the absence of.</b>
+    ///         <c>GrassScatter.rvn</c> hands a candidate its place with <c>atomicAdd</c> and drops the
+    ///         ones whose place is past the end of the run — so a cell with more candidates than
+    ///         places keeps whichever blades reached the atomic first, and a compute dispatch does not
+    ///         promise that twice. The count was right on every frame and the *field* was a different
+    ///         field on every frame, which is what a person sees as blades appearing and disappearing.
+    ///     </para>
+    ///     <para>
+    ///         Sixty-four candidates a side against a run of two hundred and fifty-six: the old
+    ///         arithmetic took <c>GridOf</c>'s answer whole and dispatched four thousand and
+    ///         ninety-six candidates into it, sixteen times over.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheCandidateGridNeverOutgrowsTheRun() {
+        using var pass = Build(bladesPerCell: 256);
+        var type = Meadow;
+
+        pass.Prepare(type, Grid, Resident(3), Source(), Blade);
+
+        Assert.Equal(64, pass.AuthoredSide);
+        Assert.Equal(16, pass.CandidateSide);
+        Assert.True(pass.Thinned);
+
+        // The whole point, said as the property rather than as the number: every candidate the
+        // kernel generates has somewhere to go, so the order it reaches the counter in is invisible.
+        Assert.True((long)pass.CandidateSide * pass.CandidateSide <= pass.BladesPerCell);
+
+        // And the dispatch shrank with it — a workgroup covering candidates that cannot be kept is
+        // eight by eight invocations spent to be thrown away.
+        Assert.Equal((2, 2, 3), pass.Groups);
+    }
+
+    /// <summary>The clamp is the floor of the square root, at the boundary and either side of it.</summary>
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(0, 1)]
+    [InlineData(-7, 1)]
+    [InlineData(255, 15)]
+    [InlineData(256, 16)]
+    [InlineData(257, 16)]
+    [InlineData(4095, 63)]
+    [InlineData(4096, 64)]
+    [InlineData(18496, 136)]
+    public void TheClampIsTheFloorOfTheRoot(int bladesPerCell, int side) {
+        Assert.Equal(side, GrassDispatch.SideThatFits(bladesPerCell));
+        Assert.True((long)side * side <= Math.Max(1, bladesPerCell));
     }
 
     /// <summary>Nothing resident is nothing recorded.</summary>

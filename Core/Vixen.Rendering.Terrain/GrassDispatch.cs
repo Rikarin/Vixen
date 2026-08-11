@@ -115,6 +115,18 @@ public struct GrassInstanceRecord {
 ///         it in between — and what reads it is the indirect draw, which would then draw a cell's
 ///         previous population out of its current bytes.
 ///     </para>
+///     <para>
+///         ⚠ <b>The candidate grid is clamped so a cell can never generate more candidates than its
+///         run holds, and that clamp is what makes the field the same field twice.</b> The kernel's
+///         <c>atomicAdd</c> hands out places in the order the invocations happen to arrive, and the
+///         ones past the end return without writing — so on an oversubscribed cell the survivors are
+///         whichever blades the scheduler ran first, re-decided on every dispatch. The count came out
+///         right and the picture did not: a field drawn from a different subset of itself every frame,
+///         with the losers clustered wherever the workgroups happened to retire last. Thinning the
+///         grid before the dispatch makes membership a fact about the candidate again — the same
+///         thing <see cref="Vixen.Foliage.GrassType.Density" /> already is — and leaves the atomic
+///         deciding only the order of a run that everybody fits into, which nothing can see.
+///     </para>
 /// </remarks>
 public sealed class GrassDispatch : IDisposable {
     /// <summary>How many candidates a workgroup covers on each axis. `[ComputeShader(8, 8, 1)]`.</summary>
@@ -311,6 +323,31 @@ public sealed class GrassDispatch : IDisposable {
     /// <summary>Rounds a slot's block up to the offset granularity every target accepts.</summary>
     static long Align(long size) => (size + SlotAlignment - 1) / SlotAlignment * SlotAlignment;
 
+    /// <summary>The widest square candidate grid whose every slot has a place in one cell's run.</summary>
+    /// <param name="bladesPerCell">How many blades the run holds.</param>
+    /// <returns>The side, at least one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Floor of the square root, computed as a comparison rather than trusted from
+    ///     <see cref="Math.Sqrt" />.</b> The rounding of a double at the boundary is the difference
+    ///     between a grid that fits and one that overflows by a single candidate, and a single
+    ///     candidate is enough to put the race back — the last place is then claimed by whichever
+    ///     invocation reached the atomic first, which is a blade that appears and disappears.
+    /// </remarks>
+    public static int SideThatFits(int bladesPerCell) {
+        var run = Math.Max(1, bladesPerCell);
+        var side = Math.Max(1, (int)Math.Sqrt(run));
+
+        while ((long)(side + 1) * (side + 1) <= run) {
+            side++;
+        }
+
+        while (side > 1 && (long)side * side > run) {
+            side--;
+        }
+
+        return side;
+    }
+
     /// <summary>How many bytes one indirect command is — <c>DrawIndexedIndirect</c>'s stride.</summary>
     public static int DrawCommandBytes => Marshal.SizeOf<DrawCommand>();
 
@@ -330,6 +367,29 @@ public sealed class GrassDispatch : IDisposable {
 
     /// <summary>How many blades a cell's run holds.</summary>
     public int BladesPerCell { get; }
+
+    /// <summary>The candidate grid the last <see cref="Prepare" /> scattered a cell over, per axis.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Vixen.Foliage.GrassType.GridOf" />'s answer, clamped by
+    ///     <see cref="SideThatFits" /> — and the clamp is the difference between a field and a
+    ///     flicker.</b> The class remarks say why: a cell with more candidates than places races for
+    ///     them, and the race is re-run on every dispatch. Squared, this is never more than
+    ///     <see cref="BladesPerCell" />.
+    /// </remarks>
+    public int CandidateSide { get; private set; }
+
+    /// <summary>What the type asked for, before the run's capacity thinned it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept beside the clamped one so a person can find out.</b> A field drawn at a quarter
+    ///     of its authored density is a picture somebody has to be able to explain, and the two
+    ///     numbers differing is the whole explanation — <see cref="Thinned" /> is the question in one
+    ///     word. Raising <c>grassBladesPerCell</c> on the node, or lowering the rule's density to
+    ///     what the run can hold, are the two ways to close the gap.
+    /// </remarks>
+    public int AuthoredSide { get; private set; }
+
+    /// <summary>Whether the last <see cref="Prepare" /> had to thin the type's grid to fit the run.</summary>
+    public bool Thinned => CandidateSide < AuthoredSide;
 
     /// <summary>How many cells the last <see cref="Prepare" /> wrote records for.</summary>
     public int CellCount { get; private set; }
@@ -411,7 +471,15 @@ public sealed class GrassDispatch : IDisposable {
             device.Write(commands, slot * commandStride, MemoryMarshal.AsBytes(arguments.AsSpan(0, CellCount)));
         }
 
-        var side = type.GridOf(grid.CellSize);
+        // ⚠ Clamped, and the class remarks say what the clamp is for: a cell that generates more
+        // candidates than its run holds does not draw the first ones, it draws whichever ones the
+        // scheduler let reach the atomic first — a different subset every dispatch. Thinning here
+        // means every candidate that survives the density test has a place waiting for it, so the
+        // order the atomic hands them out in stops being visible.
+        AuthoredSide = type.GridOf(grid.CellSize);
+        CandidateSide = Math.Min(AuthoredSide, SideThatFits(BladesPerCell));
+
+        var side = CandidateSide;
         var groups = (side + GroupSize - 1) / GroupSize;
 
         Groups = (groups, groups, Math.Max(CellCount, 1));
