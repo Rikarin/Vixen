@@ -66,6 +66,48 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
     /// </remarks>
     public float AspectRatio { get; set; }
 
+    /// <summary>
+    ///     The size of what the frame is drawn into, in pixels, or zero for no sub-pixel jitter.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What turns temporal antialiasing from a blur into a supersampler.</b> The resolve
+    ///         averages samples taken at different points inside the pixel; taking them is this
+    ///         system's job, because it is the only thing that builds the projection. Set it to the
+    ///         frame's size when the tree has a <c>!TemporalAntialiasing</c> node in it and leave it at
+    ///         zero otherwise — a jittered camera with nothing accumulating it is a frame that shakes
+    ///         by half a pixel and buys nothing for it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Pixels, so that the offset means the same thing at every resolution.</b> The
+    ///         sequence is in pixels and the matrix wants normalised device coordinates, which is
+    ///         <c>2 × pixels / size</c> — and the frame's size is the only place that conversion can
+    ///         honestly be done, because a camera does not know what it is being drawn into any more
+    ///         than it knows its own aspect ratio. Hence the field beside
+    ///         <see cref="AspectRatio" />, and the same reasoning.
+    ///     </para>
+    /// </remarks>
+    public Int2 JitterTarget { get; set; }
+
+    /// <summary>How many offsets the sequence uses before it repeats. Eight is the usual.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A cycle rather than an ever-advancing sequence, and the difference shows up on a
+    ///     still camera.</b> A history at <c>feedback: 0.9</c> holds roughly twenty frames; if every
+    ///     one of those carried an offset the resolve had never seen before, the average never
+    ///     reaches a fixed point and one-pixel geometry keeps flickering by a percent or so. Eight
+    ///     repeating offsets converge to an exact answer, which is what a screenshot of a stationary
+    ///     scene should be. Zero or less means "do not wrap", for a caller that wants the raw Halton.
+    /// </remarks>
+    public int JitterPeriod { get; set; } = 8;
+
+    /// <summary>The offset the last extraction applied, in pixels.</summary>
+    /// <remarks>Zero when <see cref="JitterTarget" /> is, which is how a diagnostic tells "no TAA in
+    ///     this tree" from "TAA that is not being fed".</remarks>
+    public Vector2 Jitter { get; private set; }
+
+    /// <summary>How many jittered frames have been extracted, which indexes the sequence.</summary>
+    int jitterFrame;
+
     /// <summary>Whether the last pass found a camera to render from.</summary>
     /// <remarks>
     ///     What says "the level has no camera in it" out loud. Without it the two failures that look
@@ -162,6 +204,8 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
         // by whatever moved it, and by the time extraction runs the old value is gone.
         View.Advance();
 
+        var offset = NextJitter();
+
         View.Camera = camera.Orthographic
             ? null
             : new RenderCamera(
@@ -173,17 +217,61 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
                 camera.NearPlane,
                 camera.FarPlane
             ) {
-                Lens = camera
+                Lens = camera,
+                Jitter = offset
             };
 
         Chosen = camera;
         View.Position = placement.Position;
-        View.ViewProjection = CameraMath.ViewProjection(in camera, in placement, AspectRatio);
+
+        // ⚠ The same offset applied to the same frame's other matrix, and it must be the same one.
+        // This matrix is built from the transform's inverse and `RenderCamera.Projection` from the
+        // field of view; a screen-space pass inverts the second to unproject a depth buffer the first
+        // rasterised. `CameraMath.Jittered` is what makes those two agree — see its remarks for why
+        // jittering a projection and jittering a view-projection give the same answer.
+        View.ViewProjection = CameraMath.Jittered(
+            CameraMath.ViewProjection(in camera, in placement, AspectRatio),
+            offset
+        );
 
         // What turns an object's radius and distance into a fraction of the screen, which is what a LOD
         // threshold is authored against. Zero for an orthographic view rather than a wrong number: size
         // on screen there does not fall off with distance at all, so the whole expression a consumer
         // multiplies is the wrong shape — and zero is RenderView's documented "no screen-size work".
         View.ScreenHeightScale = camera.Orthographic ? 0f : 1f / MathF.Tan(camera.FieldOfView * 0.5f);
+    }
+
+    /// <summary>Takes the next offset off the sequence, in normalised device coordinates.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The counter only advances on a jittered frame</b>, so a tree with no temporal
+    ///         resolve in it does not silently walk the sequence — and a frame that switches TAA on
+    ///         starts at the beginning rather than at wherever the run happens to have got to. It is
+    ///         also what makes a headless capture's offsets a function of the frame index alone.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="Jitter" /> is left in pixels because that is the unit a person reads; only
+    ///         the matrix wants the doubled fraction of the target.
+    ///     </para>
+    /// </remarks>
+    Vector2 NextJitter() {
+        if (JitterTarget.X <= 0 || JitterTarget.Y <= 0) {
+            Jitter = Vector2.Zero;
+            return Vector2.Zero;
+        }
+
+        var index = JitterPeriod > 0 ? jitterFrame % JitterPeriod : jitterFrame;
+
+        jitterFrame++;
+
+        // Wrapped rather than left to overflow: a run long enough to reach int.MaxValue is a
+        // dedicated server, and a negative index would hand Halton a loop that never terminates.
+        if (jitterFrame < 0) {
+            jitterFrame = 0;
+        }
+
+        Jitter = CameraMath.SubpixelJitter(index);
+
+        return new(2f * Jitter.X / JitterTarget.X, 2f * Jitter.Y / JitterTarget.Y);
     }
 }

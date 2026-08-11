@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Engine.Cameras;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
 using Vixen.Shaders;
@@ -94,12 +95,22 @@ public sealed class TemporalAntialiasingRenderer() : PostEffectRenderer(
     ///     </para>
     ///     <para>
     ///         Returned rather than applied, because what it offsets is the *projection matrix*, and
-    ///         that belongs to the view. A host adds <c>2 × jitter / size</c> to the projection's third
-    ///         column and passes the same jitter to whatever computes motion vectors.
+    ///         that belongs to the view. <c>CameraExtractionSystem.JitterTarget</c> is what turns it on
+    ///         — the host sets it to the frame's size when a tree has one of these in it — and
+    ///         <c>CameraMath.Jittered</c> is where it reaches a matrix. The motion vectors need no
+    ///         separate arrangement: both this frame's matrix and last frame's carry their own offset,
+    ///         so the vector between them already describes where the history texel is rather than
+    ///         where the world point was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sequence itself is <see cref="CameraMath.SubpixelJitter" />, and this is a call
+    ///         to it.</b> Two Haltons would agree until somebody changed one, and what would then
+    ///         disagree is the offset the camera sampled at and the offset this pass believes it
+    ///         sampled at — a resolve reading its history from the wrong place, which looks exactly
+    ///         like a resolve that is merely soft.
     ///     </para>
     /// </remarks>
-    public static Vector2 Jitter(int frameIndex) =>
-        new(Halton(frameIndex + 1, 2) - 0.5f, Halton(frameIndex + 1, 3) - 0.5f);
+    public static Vector2 Jitter(int frameIndex) => CameraMath.SubpixelJitter(frameIndex);
 
     /// <inheritdoc />
     protected override void DeclareOutput(CompositorFrame frame, Int2 size) {
@@ -223,19 +234,5 @@ public sealed class TemporalAntialiasingRenderer() : PostEffectRenderer(
         }
 
         base.Dispose(disposing);
-    }
-
-    /// <summary>Van der Corput's radical inverse in a given base — one term of a Halton sequence.</summary>
-    static float Halton(int index, int radix) {
-        var result = 0f;
-        var fraction = 1f / radix;
-
-        while (index > 0) {
-            result += (index % radix) * fraction;
-            index /= radix;
-            fraction /= radix;
-        }
-
-        return result;
     }
 }

@@ -78,14 +78,45 @@ public readonly record struct RenderCamera(
     /// <summary>The view matrix this camera describes.</summary>
     public Matrix4x4 View => Matrix4x4.LookAt(Position, Position + Vector3.Normalize(Forward), Up);
 
+    /// <summary>
+    ///     The sub-pixel offset this frame's projection carries, in normalised device coordinates.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Temporal antialiasing's half of the camera.</b> The resolve averages samples taken
+    ///         at different points inside the pixel, and this is where the taking happens —
+    ///         <c>TemporalAntialiasingRenderer.Jitter</c> is the sequence, <c>CameraExtractionSystem</c>
+    ///         turns it into these units, and <see cref="Engine.Cameras.CameraMath.Jittered" /> is the
+    ///         one place it is applied to a matrix.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here rather than only in <see cref="RenderView.ViewProjection" />, because those
+    ///         two are built from different things and have to agree.</b> The view's matrix comes from
+    ///         the transform's inverse and this one from the field of view; the ambient-occlusion pass
+    ///         inverts <em>this</em> to turn a depth texel into a view-space position, and the depth
+    ///         texel it is inverting was rasterised through the other. An offset in one and not the
+    ///         other is half a pixel of disagreement in every screen-space effect — the kind of wrong
+    ///         that looks like a slightly noisier frame and is never attributed.
+    ///     </para>
+    ///     <para>
+    ///         Zero for every view that is not being temporally resolved, which is a shadow cascade, a
+    ///         probe face, the editor's viewport, and any frame with no TAA node in it.
+    ///     </para>
+    /// </remarks>
+    public Vector2 Jitter { get; init; }
+
     /// <summary>The projection matrix this camera describes.</summary>
     /// <remarks>
     ///     Reversed depth is not applied here: it is a property of how the near and far planes are
     ///     handed to the projection, and <see cref="Matrix4x4.PerspectiveFieldOfView" /> is where the
-    ///     engine's convention already lives.
+    ///     engine's convention already lives. <see cref="Jitter" /> is, because a projection that did
+    ///     not carry it would not be the projection the frame was drawn through.
     /// </remarks>
     public Matrix4x4 Projection =>
-        Matrix4x4.PerspectiveFieldOfView(FieldOfView, AspectRatio, NearPlane, FarPlane);
+        Engine.Cameras.CameraMath.Jittered(
+            Matrix4x4.PerspectiveFieldOfView(FieldOfView, AspectRatio, NearPlane, FarPlane),
+            Jitter
+        );
 
     /// <summary>What a shader and a frustum are both built from.</summary>
     public Matrix4x4 ViewProjection => View * Projection;
