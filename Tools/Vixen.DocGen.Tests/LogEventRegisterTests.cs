@@ -67,6 +67,25 @@ public sealed class LogEventRegisterTests {
             + string.Join(Environment.NewLine + "  ", problems));
     }
 
+    /// <summary>
+    ///     Every allocated id is somebody's to write about.
+    /// </summary>
+    /// <remarks>
+    ///     Separate from the gate above because <c>CheckDocs</c> already asserts it over the whole
+    ///     graph and would report it twice; here so that it runs in a second rather than after a
+    ///     design-time build of forty projects. It is also the only rule that fails against the state
+    ///     capturing-a-frame was actually in — see <c>LogEventRegister.Uncovered</c>.
+    /// </remarks>
+    [Fact]
+    public void EveryEventIsWrittenAboutOrExcused() {
+        var uncovered = LogEventRegister.Uncovered(Rows(), Claims(), Coverage.Read(Root).Entries);
+
+        Assert.True(
+            uncovered.Count == 0,
+            $"{uncovered.Count} log event(s) with neither a page nor an exemption:{Environment.NewLine}  "
+            + string.Join(Environment.NewLine + "  ", uncovered));
+    }
+
     /// <summary>The register is not empty, so a green run cannot mean the parser stopped matching.</summary>
     /// <remarks>
     ///     The rows and the sites are read by two different parsers of two different languages, and a

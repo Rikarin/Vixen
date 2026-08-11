@@ -347,6 +347,43 @@ static partial class LogEventRegister {
         return problems;
     }
 
+    /// <summary>
+    ///     Every allocated id is written about by exactly one page, or has a line saying it is not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the half that caught the capturing-a-frame defect, and the only half that
+    ///         would have.</b> When that page's <c>api:</c> list claimed 13026 and 13027 — the ids the
+    ///         capture feature had before the collision was renumbered — nothing about the claim itself
+    ///         was wrong: both ids existed, and only one page claimed each. What said so was 13028 and
+    ///         13029 being covered by nothing, which is this rule.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="Coverage.Check" /> already asserts it over the whole graph, and that is what
+    ///         <c>CheckDocs</c> runs. It is repeated here because <c>CheckDocs</c> needs a design-time
+    ///         build of the solution and this needs three markdown files: a rule that only fires after
+    ///         a merge is a rule that fires after the merge that broke it.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Uncovered(
+        IReadOnlyList<DocNode> rows,
+        IReadOnlyList<(string Id, string Page)> claims,
+        IReadOnlyList<Exemption> exemptions
+    ) {
+        var covered = claims.Select(claim => claim.Id).ToHashSet(StringComparer.Ordinal);
+        var excused = exemptions.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal);
+
+        return [
+            .. rows
+                .Where(row => row.Kind == DocKind.LogEvent)
+                .Where(row => !covered.Contains(row.Id) && !excused.Contains(row.Id))
+                .OrderBy(row => row.Name, StringComparer.Ordinal)
+                .Select(row => $"{row.Id} is written about by no guide page and has no line in "
+                    + $"{Coverage.RelativePath} — an id nobody documented is the shape a renumbering "
+                    + "leaves behind when a page keeps claiming the ids the feature used to have")
+        ];
+    }
+
     static IEnumerable<string> RangeProblems(
         IReadOnlyList<LogEventSite> sites,
         IReadOnlyList<LogEventRange> ranges
