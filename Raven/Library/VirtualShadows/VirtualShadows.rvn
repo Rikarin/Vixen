@@ -288,9 +288,35 @@ shader VirtualShadowLookup : IDirectionalShadowSource {
             return fromLevel
         }
 
-        // A page that is not there yet, at the level this pixel wanted. The next level out covers four
-        // times the area at half the density, so it is very often resident when the finer one is not —
-        // and a coarser shadow is a better answer than none while the finer page is being drawn.
+        // A page that is not there yet, at the level this pixel wanted.
+        //
+        // ⚠ **Nothing guarantees the coarser page is there either, because the marking pass never asks
+        // for it.** `VirtualShadowMark.Main` marks `LevelFor` alone — the level the pixel itself needs
+        // — so a page at `level + 1` exists only where some *other*, further-away pixel's own level was
+        // the coarser one. That is not the same set, and the old comment here claimed it was: it said
+        // the next level out "is very often resident when the finer one is not", argued from its
+        // covering four times the area at half the density, which is a statement about the map's shape
+        // and not about what was allocated.
+        //
+        // Measured instead, in sample 13 over 398 frames with the camera walking at a 60 Hz frame's
+        // pace: the lookup misses at its own level on 31% of the pages a frame asks for, and this line
+        // answers 22% of those misses — some 7% of every page demanded, which is not the "very often"
+        // that stood here and is not nothing either. It works for a reason worth keeping: a level's
+        // pixels form an annulus that *ends* where the next level's begins, so pixels just beyond a
+        // level boundary mark exactly the coarse pages that pixels just inside it fall into — 85% of
+        // the successful fallbacks land on a page another pixel marked that same frame — and a coarse
+        // level refits at twice the camera travel of the one below it, so what it has it keeps.
+        //
+        // ⚠ **Marking `level + 1` as well, to make this hold always, was measured and is worse.** It
+        // lifts the pages answered from 76% to 85%, and drops the pages answered *at the level the
+        // pixel asked for* from 69% to 64%, because the coarse duplicates compete for the same sixteen
+        // allocations and sixteen draws a frame and fill the slot pool (913 of 1024 resident, against
+        // 1001 with them). It buys half-resolution answers with full-resolution ones. What the misses
+        // actually are is budget-starvation — raising `pagesPerFrame` from 16 to 64 alone takes the
+        // 69% to 83% — so the page to spend is the finer one, every time.
+        //
+        // Missing here is not a hole: `ClusteredShading.Shadow` falls through to the cascades, so what
+        // this line changes is a cascade's answer into a clipmap page one level coarse than ideal.
         return Look(level + 1, offset, NdotL)
     }
 

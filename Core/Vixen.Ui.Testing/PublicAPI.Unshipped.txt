@@ -65,7 +65,7 @@ Vixen.Ui.Testing.UiTest -> sealed class
 Vixen.Ui.Testing.UiTest : System.IDisposable
 Vixen.Ui.Testing.UiTest.Advance(System.TimeSpan duration) -> void
 Vixen.Ui.Testing.UiTest.At(float x, float y) -> Vixen.Ui.Testing.UiSubject
-Vixen.Ui.Testing.UiTest.Capture() -> Vixen.Ui.Testing.Visual.Bitmap
+Vixen.Ui.Testing.UiTest.Capture() -> Vixen.Core.Imaging.Bitmap
 Vixen.Ui.Testing.UiTest.ColorOf(Vixen.Ui.UiElement element, string property) -> Vixen.Core.Mathematics.Color4?
 Vixen.Ui.Testing.UiTest.Contains(string text) -> Vixen.Ui.Testing.UiSubject
 Vixen.Ui.Testing.UiTest.Create(string tag, Vixen.Ui.UiElement? parent = null, string? id = null, params string[] classNames) -> Vixen.Ui.UiElement
@@ -125,17 +125,6 @@ Vixen.Ui.Testing.UiTestOptions.Tolerance.set -> Vixen.Ui.Testing.Visual.ImageTol
 Vixen.Ui.Testing.UiTestOptions.UiTestOptions() -> void
 Vixen.Ui.Testing.UiTestOptions.UpdateBaselines.get -> bool
 Vixen.Ui.Testing.UiTestOptions.UpdateBaselines.set -> bool
-Vixen.Ui.Testing.Visual.Bitmap -> readonly struct
-Vixen.Ui.Testing.Visual.Bitmap : System.IEquatable<Vixen.Ui.Testing.Visual.Bitmap>
-Vixen.Ui.Testing.Visual.Bitmap.Bitmap() -> void
-Vixen.Ui.Testing.Visual.Bitmap.Bitmap(int Width, int Height, byte[] Pixels) -> void
-Vixen.Ui.Testing.Visual.Bitmap.Height.get -> int
-Vixen.Ui.Testing.Visual.Bitmap.Height.init -> int
-Vixen.Ui.Testing.Visual.Bitmap.Offset(int x, int y) -> int
-Vixen.Ui.Testing.Visual.Bitmap.Pixels.get -> byte[]
-Vixen.Ui.Testing.Visual.Bitmap.Pixels.init -> byte[]
-Vixen.Ui.Testing.Visual.Bitmap.Width.get -> int
-Vixen.Ui.Testing.Visual.Bitmap.Width.init -> int
 Vixen.Ui.Testing.Visual.ImageComparer -> static class
 Vixen.Ui.Testing.Visual.ImageComparison -> readonly struct
 Vixen.Ui.Testing.Visual.ImageComparison : System.IEquatable<Vixen.Ui.Testing.Visual.ImageComparison>
@@ -162,7 +151,6 @@ Vixen.Ui.Testing.Visual.ImageTolerance.Fraction.get -> double
 Vixen.Ui.Testing.Visual.ImageTolerance.Fraction.init -> double
 Vixen.Ui.Testing.Visual.ImageTolerance.ImageTolerance() -> void
 Vixen.Ui.Testing.Visual.ImageTolerance.ImageTolerance(int Channel, double Fraction) -> void
-Vixen.Ui.Testing.Visual.PngCodec -> static class
 Vixen.Ui.Testing.Visual.SoftwareUiRasterizer -> static class
 Vixen.Ui.Testing.Visual.VisualBaseline -> static class
 const Vixen.Ui.Testing.UiTest.PointerId = 1 -> int
@@ -174,16 +162,12 @@ override Vixen.Ui.Testing.UiSubject.ToString() -> string
 override Vixen.Ui.Testing.Visual.ImageComparison.ToString() -> string
 static Vixen.Ui.Testing.UiTest.Adopt(Vixen.Ui.UiDocument document, Vixen.Ui.Testing.UiTestOptions? options = null) -> Vixen.Ui.Testing.UiTest
 static Vixen.Ui.Testing.UiTest.Create(float width = 1280, float height = 720, Vixen.Ui.Testing.UiTestOptions? options = null) -> Vixen.Ui.Testing.UiTest
-static Vixen.Ui.Testing.Visual.ImageComparer.Compare(in Vixen.Ui.Testing.Visual.Bitmap rendered, in Vixen.Ui.Testing.Visual.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Ui.Testing.Visual.ImageComparison
-static Vixen.Ui.Testing.Visual.ImageComparer.Diff(in Vixen.Ui.Testing.Visual.Bitmap rendered, in Vixen.Ui.Testing.Visual.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Ui.Testing.Visual.Bitmap
+static Vixen.Ui.Testing.Visual.ImageComparer.Compare(in Vixen.Core.Imaging.Bitmap rendered, in Vixen.Core.Imaging.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Ui.Testing.Visual.ImageComparison
+static Vixen.Ui.Testing.Visual.ImageComparer.Diff(in Vixen.Core.Imaging.Bitmap rendered, in Vixen.Core.Imaging.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Core.Imaging.Bitmap
 static Vixen.Ui.Testing.Visual.ImageTolerance.Edges.get -> Vixen.Ui.Testing.Visual.ImageTolerance
 static Vixen.Ui.Testing.Visual.ImageTolerance.Exact.get -> Vixen.Ui.Testing.Visual.ImageTolerance
 static Vixen.Ui.Testing.Visual.ImageTolerance.Slight.get -> Vixen.Ui.Testing.Visual.ImageTolerance
-static Vixen.Ui.Testing.Visual.PngCodec.Decode(System.ReadOnlySpan<byte> data) -> Vixen.Ui.Testing.Visual.Bitmap
-static Vixen.Ui.Testing.Visual.PngCodec.Encode(in Vixen.Ui.Testing.Visual.Bitmap image) -> byte[]
-static Vixen.Ui.Testing.Visual.PngCodec.Load(string path) -> Vixen.Ui.Testing.Visual.Bitmap
-static Vixen.Ui.Testing.Visual.PngCodec.Save(string path, in Vixen.Ui.Testing.Visual.Bitmap image) -> void
 static Vixen.Ui.Testing.Visual.SoftwareUiRasterizer.BoxDistance(Vixen.Core.Mathematics.Vector2 point, Vixen.Core.Mathematics.Vector2 half, Vixen.Core.Mathematics.Vector2 radius) -> float
-static Vixen.Ui.Testing.Visual.SoftwareUiRasterizer.Render(Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas, int width, int height, Vixen.Core.Mathematics.Color4 background) -> Vixen.Ui.Testing.Visual.Bitmap
+static Vixen.Ui.Testing.Visual.SoftwareUiRasterizer.Render(Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas, int width, int height, Vixen.Core.Mathematics.Color4 background) -> Vixen.Core.Imaging.Bitmap
 static Vixen.Ui.Testing.Visual.VisualBaseline.SourceDirectory(Vixen.Ui.Testing.UiTest test) -> string
-static Vixen.Ui.Testing.Visual.VisualBaseline.Verify(Vixen.Ui.Testing.UiTest test, string name, in Vixen.Ui.Testing.Visual.Bitmap rendered, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> string
+static Vixen.Ui.Testing.Visual.VisualBaseline.Verify(Vixen.Ui.Testing.UiTest test, string name, in Vixen.Core.Imaging.Bitmap rendered, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> string

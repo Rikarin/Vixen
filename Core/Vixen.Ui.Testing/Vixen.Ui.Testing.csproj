@@ -38,6 +38,19 @@
 
         <!-- InputKey, for the keys a test presses. -->
         <ProjectReference Include="..\Vixen.Input\Vixen.Input.csproj" />
+
+        <!--
+            Bitmap and PngCodec, which used to live here. They went down to the imaging assembly
+            when a game head needed to write its own frame to a file: a test framework is the one
+            assembly a shipping head cannot reference, and Platform/ cannot reference the UI layer
+            at all — so this library owning the tree's PNG encoder guaranteed a second one.
+
+            The cost is one abstraction assembly in the graph: Vixen.Core.Imaging names
+            Vixen.Graphics for PixelFormat, and that is the RHI *contract* — no backend, no native
+            dependency — so nothing is dragged in at run time and no GPU appears anywhere near the
+            software rasteriser.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
     </ItemGroup>
 
     <ItemGroup>
@@ -49,9 +62,6 @@
             public surface for the same reason, so this adds no dependency the consumer did not have.
         -->
         <PackageReference Include="ExCSS" />
-
-        <!-- Crc32, for the PNG chunk checksums. Microsoft's, and already in the repository. -->
-        <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
     <ItemGroup>

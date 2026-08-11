@@ -74,6 +74,32 @@ public sealed record AppArguments {
     /// </remarks>
     public int? MaxFrames { get; private init; }
 
+    /// <summary>
+    ///     The directory from <c>--vixen-capture</c> to write the last frame into, or
+    ///     <see langword="null" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What makes a sample's picture a file rather than a screenshot. The alternative — run
+    ///         it, raise its window, grab the display — cannot be done twice at once, fights every
+    ///         convergence the frame has, and produces a different picture each time; an agent got
+    ///         the <em>sign</em> of a lighting change wrong that way and blamed the sun.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It says "I want a picture", and that is what waives the no-surface refusal.</b>
+    ///         <c>GraphicsHost</c> makes Vulkan decline when there is nothing to present to, on
+    ///         purpose: without it a dedicated server would silently stop running on the device that
+    ///         draws nothing and start needing a driver. This flag is the operator saying the
+    ///         opposite in as many words, so it is the one thing allowed to turn that refusal off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Wants <c>--vixen-frames</c> beside it.</b> The picture written is the last
+    ///         frame's, and a run with no frame count has no last frame — the host says so at
+    ///         startup rather than exiting with an empty directory.
+    ///     </para>
+    /// </remarks>
+    public string? CapturePath { get; private init; }
+
     /// <summary>The backend order from <c>--vixen-backend</c>, or empty for none given.</summary>
     /// <remarks>
     ///     <para>
@@ -200,6 +226,10 @@ public sealed record AppArguments {
 
                 case "--vixen-loose-content" when Take(out var path):
                     parsed = parsed with { LooseContentPath = path };
+                    continue;
+
+                case "--vixen-capture" when Take(out var capture):
+                    parsed = parsed with { CapturePath = capture };
                     continue;
 
                 case "--vixen-scene" when Take(out var scene):

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Imaging;
+
 namespace Vixen.Ui.Testing.Visual;
 
 /// <summary>A committed picture, and what happens when the interface stops matching it.</summary>

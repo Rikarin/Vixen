@@ -19,12 +19,19 @@ namespace Vixen.Platform.Linux;
 ///     </para>
 ///     <para>
 ///         <b>There is a second hand-written PNG codec in this repository</b> —
-///         <c>Vixen.Ui.Testing.Visual.PngCodec</c>, which the golden-image suites use — and this is
-///         not that one, because <c>Platform/</c> cannot reference the UI layer
-///         (<c>docs/plan/00</c> § layer discipline) and a testing library is the wrong direction for
-///         a dependency regardless. Consolidating them means moving that codec and its
-///         <c>Bitmap</c> down into <c>Vixen.Core.Imaging</c>, which is a change to two shipped
-///         public surfaces and is its own piece of work rather than something to do in passing here.
+///         <c>Vixen.Core.Imaging.PngCodec</c>, which the golden-image suites, the UI baselines and
+///         <c>--vixen-capture</c> all write through. The reference this file's comment used to give
+///         as the reason the two could not be merged is gone: that codec sat in
+///         <c>Vixen.Ui.Testing</c>, which <c>Platform/</c> may not reference, and it has since moved
+///         down into <c>Vixen.Core.Imaging</c>, which <c>Platform/</c> may.
+///     </para>
+///     <para>
+///         What still keeps them apart is what each reads. The decoder here accepts greyscale
+///         and truecolour, with and without alpha, because that is what a toolkit puts on a
+///         clipboard; <c>PngCodec</c> accepts 8-bit RGBA and refuses the rest, deliberately, because
+///         a golden reference in an unexpected format is a broken fixture rather than something to
+///         guess about. Merging them means deciding which of those two contracts the one codec has,
+///         and that is a decision rather than a tidy-up.
 ///     </para>
 ///     <para>
 ///         <b>What is supported is what a clipboard produces.</b> Eight bits per channel,

@@ -127,6 +127,84 @@ public class VirtualShadowMapTests {
     }
 
     /// <summary>
+    ///     A page lies wholly inside one page of the next level out, whatever the camera is doing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The property <c>VirtualShadowLookup.Sample</c>'s fallback is only coherent because
+    ///         of.</b> When the page a pixel wants is absent, the lookup asks the next level out —
+    ///         and that is a well-posed question only if the finer page's whole world footprint sits
+    ///         inside a single coarser page. It does, and not by luck: both levels snap their centre to
+    ///         a whole page of their own grid, and a coarse page is exactly two fine ones across, so the
+    ///         coarse grid's lines are a subset of the fine grid's however the camera moves.
+    ///     </para>
+    ///     <para>
+    ///         Sabotage: snap either level to a texel rather than a page — or make the extents anything
+    ///         but powers of two apart — and a fine page straddles two coarse ones. The fallback then
+    ///         reads whichever the page *centre* landed in, which is a shadow taken from up to half a
+    ///         coarse page away: right at the frame's fine detail, wrong at its edges, and only where a
+    ///         page happened to be missing. Nothing about that picture names this function.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_page_lies_wholly_inside_one_page_of_the_next_level_out() {
+        var (right, up, _) = VirtualShadowMap.Basis(Sun);
+
+        // Off the lattice deliberately, and several places along it: the claim is about every camera
+        // position rather than a favourable one, and each of these snaps the two levels differently.
+        foreach (var offset in (float[])[0f, 0.37f, 1.5f, 4.2f, 11.9f]) {
+            var camera = (right * offset) + (up * offset * 0.5f) + (Sun * offset * 0.25f);
+
+            for (var level = 0; level < 7; level++) {
+                var fine = Level(level, camera);
+                var coarse = Level(level + 1, camera);
+
+                Assert.True(Matrix4x4.Invert(fine, out var inverse));
+
+                for (var y = 0; y < VirtualShadowMap.PagesPerSide; y++) {
+                    for (var x = 0; x < VirtualShadowMap.PagesPerSide; x++) {
+                        // ⚠ The four corners a *thousandth* of a page inside, and the margin is the
+                        // whole strength of this test. Enough to be off the seam — a corner exactly on
+                        // one resolves to whichever side the arithmetic lands, which is not the claim
+                        // — and no more, because a texel snap misaligns the two grids by around one
+                        // fine texel, a hundred and twenty-eighth of a page. A margin of a fiftieth,
+                        // which is the comfortable-looking number to write, is wider than the fault
+                        // and passes cheerfully with the snap sabotaged.
+                        var parents = new HashSet<Int2>();
+
+                        foreach (var (u, v) in ((float, float)[])[(0.001f, 0.001f), (0.999f, 0.001f), (0.001f, 0.999f), (0.999f, 0.999f)]) {
+                            var world = Unproject(inverse, (x + u) / VirtualShadowMap.PagesPerSide, (y + v) / VirtualShadowMap.PagesPerSide);
+
+                            // A fine page always lands somewhere in the coarser level, which covers
+                            // twice its extent about the same camera.
+                            Assert.True(VirtualShadowMap.PageOf(coarse, world, out var parent));
+                            parents.Add(parent);
+                        }
+
+                        Assert.Single(parents);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Where a map's own UV puts a point in the world, at the middle of its depth range.</summary>
+    /// <remarks>
+    ///     The depth is arbitrary and that is the point: every clipmap level is orthographic along the
+    ///     same snapped light, so where a point lands in a level's page grid does not depend on how far
+    ///     along the light it is. A perspective map would need the real depth, which is why this helper
+    ///     is here rather than in <see cref="VirtualShadowMap" />.
+    /// </remarks>
+    static Vector3 Unproject(in Matrix4x4 inverse, float u, float v) {
+        // NdcToUv's convention, run backwards — v is flipped and u is not. A helper that agreed with
+        // itself but not with Transform.NdcToUv would assert a nesting the shaders never see.
+        var ndc = new Vector4((u * 2f) - 1f, -((v * 2f) - 1f), 0.5f, 1f);
+        var world = Matrix4x4.TransformVector4(ndc, inverse);
+
+        return new Vector3(world.X, world.Y, world.Z) / world.W;
+    }
+
+    /// <summary>
     ///     A sun drifting less than the snap does not move the projection; past it, it does.
     /// </summary>
     /// <remarks>

@@ -1,4 +1,15 @@
 #nullable enable
+Vixen.Core.Imaging.Bitmap -> readonly struct
+Vixen.Core.Imaging.Bitmap : System.IEquatable<Vixen.Core.Imaging.Bitmap>
+Vixen.Core.Imaging.Bitmap.Bitmap() -> void
+Vixen.Core.Imaging.Bitmap.Bitmap(int Width, int Height, byte[] Pixels) -> void
+Vixen.Core.Imaging.Bitmap.Height.get -> int
+Vixen.Core.Imaging.Bitmap.Height.init -> int
+Vixen.Core.Imaging.Bitmap.Offset(int x, int y) -> int
+Vixen.Core.Imaging.Bitmap.Pixels.get -> byte[]
+Vixen.Core.Imaging.Bitmap.Pixels.init -> byte[]
+Vixen.Core.Imaging.Bitmap.Width.get -> int
+Vixen.Core.Imaging.Bitmap.Width.init -> int
 Vixen.Core.Imaging.BlockCompression.BlockCompressor -> static class
 Vixen.Core.Imaging.BrdfLut -> static class
 Vixen.Core.Imaging.CubeMap -> static class
@@ -49,6 +60,7 @@ Vixen.Core.Imaging.MipOptions.RenormaliseNormals.get -> bool
 Vixen.Core.Imaging.MipOptions.RenormaliseNormals.init -> bool
 Vixen.Core.Imaging.MipOptions.Srgb.get -> bool
 Vixen.Core.Imaging.MipOptions.Srgb.init -> bool
+Vixen.Core.Imaging.PngCodec -> static class
 Vixen.Core.Imaging.SphericalHarmonicsL1 -> struct
 Vixen.Core.Imaging.SphericalHarmonicsL1 : System.IEquatable<Vixen.Core.Imaging.SphericalHarmonicsL1>
 Vixen.Core.Imaging.SphericalHarmonicsL1.SphericalHarmonicsL1() -> void
@@ -153,6 +165,10 @@ static Vixen.Core.Imaging.MipOptions.Colour.get -> Vixen.Core.Imaging.MipOptions
 static Vixen.Core.Imaging.MipOptions.CutoutColour.get -> Vixen.Core.Imaging.MipOptions
 static Vixen.Core.Imaging.MipOptions.Linear.get -> Vixen.Core.Imaging.MipOptions
 static Vixen.Core.Imaging.MipOptions.NormalMap.get -> Vixen.Core.Imaging.MipOptions
+static Vixen.Core.Imaging.PngCodec.Decode(System.ReadOnlySpan<byte> data) -> Vixen.Core.Imaging.Bitmap
+static Vixen.Core.Imaging.PngCodec.Encode(in Vixen.Core.Imaging.Bitmap image) -> byte[]
+static Vixen.Core.Imaging.PngCodec.Load(string path) -> Vixen.Core.Imaging.Bitmap
+static Vixen.Core.Imaging.PngCodec.Save(string path, in Vixen.Core.Imaging.Bitmap image) -> void
 static Vixen.Core.Imaging.SphericalHarmonicsL1.Evaluate(Vixen.Core.Mathematics.Vector3 direction, System.Span<float> basis) -> void
 static Vixen.Core.Imaging.SphericalHarmonicsL1.From(Vixen.Core.Imaging.SphericalHarmonicsL2 wider) -> Vixen.Core.Imaging.SphericalHarmonicsL1
 static Vixen.Core.Imaging.SphericalHarmonicsL1.Lerp(Vixen.Core.Imaging.SphericalHarmonicsL1 from, Vixen.Core.Imaging.SphericalHarmonicsL1 to, float amount) -> Vixen.Core.Imaging.SphericalHarmonicsL1

@@ -4,7 +4,7 @@ slug: rendering/choosing-a-frame
 kind: guide
 area: Rendering
 summary: The two-audience story — start with the Standard Frame's knobs, explode the document when you need surgery, and hand-author only when the frame itself is the subject.
-api: [T:Vixen.Rendering.PostFx.StandardFrameAsset, T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.Compositor.QualityTier]
+api: [T:Vixen.Rendering.PostFx.StandardFrameAsset, T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.Compositor.QualityTier, L:13022]
 tags: [rendering, compositor, presets, getting-started]
 since: 0.1
 status: preview
@@ -76,6 +76,22 @@ this order, and each step is deliberately smaller than the next:
    removing a link the expansion always emits — run `vixen frame explode Assets/Frame.vxcompositor`.
    It replaces the node with the fully expanded document, comments included, and the header says
    what the trade was: one-way, every line yours, nothing regenerates it.
+
+### The frame tells you when it is wrong
+
+A document that has been exploded or hand-authored can express things nothing checks at load: a
+resource written twice with nothing reading the first write, a pass whose output nobody wants. The
+render graph finds those while it builds and the host reports them as log event **13022**, once per
+distinct finding rather than once per frame — because a warning repeated sixty times a second is a
+warning its reader has muted.
+
+```
+warn  VX2101: 'Meter.Step0' writes 'Meter.Level0' and 'Meter.Step1' overwrites it before anything
+      reads it — the first write is discarded every frame.
+```
+
+⚠ These are frames that draw. Nothing throws, nothing is missing from the picture, and the work is
+simply spent and dropped — which is why it has to be a line in a log rather than an exception.
 
 Hand-author from scratch only when the frame itself is the subject — a renderer experiment, a
 non-standard pipeline, a golden test. That is sample 13's territory: its `Frame.vxcompositor` is

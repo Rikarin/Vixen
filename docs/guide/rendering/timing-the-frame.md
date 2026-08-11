@@ -4,11 +4,11 @@ slug: rendering/timing-the-frame
 kind: guide
 area: Rendering
 summary: The render graph brackets every pass it runs with a named scope, so a document that adds a node gets a bar in the timeline without anybody opting in — and an optional sink is what keeps that free when nobody is measuring.
-api: [T:Vixen.Graphics.IGpuScopeSink, T:Vixen.Graphics.GpuProfiler, T:Vixen.Graphics.GpuFrame, T:Vixen.Graphics.GpuScope, T:Vixen.Graphics.GpuTimestamps]
+api: [T:Vixen.Graphics.IGpuScopeSink, T:Vixen.Graphics.GpuProfiler, T:Vixen.Graphics.GpuFrame, T:Vixen.Graphics.GpuScope, T:Vixen.Graphics.GpuTimestamps, L:13025]
 tags: [rendering, render-graph, profiling, diagnostics, gpu]
 since: 0.1
 status: preview
-related: [rendering/choosing-a-frame, rendering/standard-frame, rendering/reading-the-frame, rendering/diagnostic-overlays]
+related: [rendering/choosing-a-frame, rendering/standard-frame, rendering/reading-the-frame, rendering/diagnostic-overlays, rendering/capturing-a-frame]
 ---
 
 ## What it is
