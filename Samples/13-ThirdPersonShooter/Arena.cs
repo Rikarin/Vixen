@@ -1233,6 +1233,25 @@ public sealed class Arena : IDisposable {
             water.UnresolvedWaves
         );
 
+        // ⚠ And the node's own three, which answer a different question from the fold's five. A fold
+        // that resolved a body says the *scene* is right; these say a patch was selected, uploaded
+        // and recorded. The gap between them is where doc 35's silent no-draw lives: the surface pass
+        // tests Greater against a loaded depth buffer, so a document that put this node where the
+        // depth is not yet real draws nothing, with no validation error anywhere.
+        var built = graphics.Renderer.Host.Builder.Nodes.Values;
+        var mesh = built.OfType<Rendering.Water.WaterMeshRenderer>().FirstOrDefault();
+        var composite = built.OfType<Rendering.Water.WaterRenderer>().FirstOrDefault();
+
+        SampleLog.WaterDrawn(
+            logger,
+            mesh?.ZonesDrawn ?? 0,
+            mesh?.PatchesDrawn ?? 0,
+            mesh?.DroppedPatches ?? 0,
+            mesh?.BuildCount ?? 0,
+            composite?.BuildCount ?? -1,
+            Immersion?.Swimming ?? 0
+        );
+
         ReportGpuFrame(graphics.GpuFrame);
 
         // ⚠ The third thing a black frame can be, after "no variant" and "no set 0": a camera that

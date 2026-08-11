@@ -544,6 +544,44 @@ game: !Sequence
       view: Camera
       grass: true
 
+    # ── the lake's geometry ────────────────────────────────────────────────────────────────────
+    # Doc 35 § D4's quadtree, drawn into two planes and no colour: a coverage mask with the surface's
+    # own device depth, and the surface's world normal with its foam. The composite two hundred lines
+    # down is what turns those into water.
+    #
+    # ⚠ **It goes here, immediately after the ground, and its own remarks say why:** the surface is
+    # rasterised against the scene's own depth so a lake behind a hill is hidden by it, and that depth
+    # has just been written by !Main and !Ground. Its depth state is Greater with no write and it
+    # *loads* rather than clears, so against a depth buffer that is not yet real every fragment fails
+    # the test and the pass draws nothing — with no validation error anywhere. That is this module's
+    # own history: a fully green device-free suite over a pass that had never rendered a pixel.
+    #
+    # ⚠ **`Arena.ReportFrame` prints the patch count and the zone count for this node**, because
+    # "45 patches drawn" and "the surface plane is empty" are both true at once when the depth test is
+    # the thing failing — the counter is patches *submitted*, not fragments that survived.
+    - !WaterSurface
+      name: Lake
+      surface: WaterSurface
+      normal: WaterNormal
+      sceneDepth: SceneDepth
+      view: Camera
+      # 64 m of level 0 over five levels reaches 1 km, which is well past this 252 m of ground: the
+      # far skirt is what covers the rest and it is drawn without the wave sum.
+      nearRange: 64
+      levelCount: 5
+      farDistance: 2000
+      # TerrainSeed.LakeSurface — where the *far* skirt sits, for a camera looking past the window.
+      # Nothing in this level is beyond the window, so it only ever shows on the horizon.
+      restHeight: 1.2
+      # A quarter-metre of shallows before the water is fully water, forty centimetres before it
+      # foams, and half a metre of crest above the rest height before a wave breaks. This lake's
+      # shelf rises through all three over about four metres of shore, which is what makes the
+      # margin read as a beach rather than as a cut.
+      shoreDepth: 0.25
+      foamDepth: 0.4
+      foamCrest: 0.4
+
+
     # ── where everything was last frame ─────────────────────────────────────────────────────────
     # The debt Taa.rvn has carried since it was written: it declares a motionVectors input and nothing
     # produced one. Motion blur wants the same texture.
@@ -833,8 +871,13 @@ game: !Sequence
     # Doc 35's pass, spliced where § D8 puts it: after the lighting is finished and before anything
     # temporal or tonal. Three nodes, and the order between them is not a preference.
     #
-    # ⚠ **`!WaterSurface` is a rasterisation against the scene's own depth, and against an *undefined*
-    # depth buffer it draws nothing at all with no validation error anywhere.** Its depth state is
+    # ⚠ **`!WaterSurface` sits up beside `!Terrain`, not down here, and that is its own remarks'
+    # instruction rather than a preference:** the surface is rasterised against the scene's own depth,
+    # so it belongs where that depth has just been written and long before the copy. What is down here
+    # is only the pair that needs the *lit* frame — the copy and the composite.
+    #
+    # ⚠ **Against an *undefined* depth buffer the surface pass draws nothing at all with no
+    # validation error anywhere.** Its depth state is
     # Greater with no write and it loads rather than clears — the surface joins a frame that already
     # has its opaque depth — so every fragment fails the test if the buffer has not been written. This
     # module's history is a fully green device-free test suite over a pass that had never rendered a
@@ -852,28 +895,6 @@ game: !Sequence
     # output already holds what `behind:` is a copy of — which is true here *because* the !Copy filled
     # it from this very target one node ago. A hand-wired node without one is a frame with water in
     # the wet tiles and last frame's contents in the dry ones.
-    - !WaterSurface
-      name: Lake
-      surface: WaterSurface
-      normal: WaterNormal
-      sceneDepth: SceneDepth
-      view: Camera
-      # 64 m of level 0 over five levels reaches 1 km, which is well past this 252 m of ground: the
-      # far skirt is what covers the rest and it is drawn without the wave sum.
-      nearRange: 64
-      levelCount: 5
-      farDistance: 2000
-      # TerrainSeed.LakeSurface — where the *far* skirt sits, for a camera looking past the window.
-      # Nothing in this level is beyond the window, so it only ever shows on the horizon.
-      restHeight: 1.2
-      # A quarter-metre of shallows before the water is fully water, forty centimetres before it
-      # foams, and half a metre of crest above the rest height before a wave breaks. This lake's
-      # shelf rises through all three over about four metres of shore, which is what makes the
-      # margin read as a beach rather than as a cut.
-      shoreDepth: 0.25
-      foamDepth: 0.4
-      foamCrest: 0.4
-
     - !Copy
       name: WaterBehind
       source: SceneCombined

@@ -474,4 +474,31 @@ static partial class SampleLog {
             + "Every water body in the level will count as unresolved and nothing will be drawn."
     )]
     public static partial void NoWaterSource(ILogger logger);
+
+    /// <summary>
+    ///     ⚠ The half of the water the fold's counts cannot see. A body can resolve, be claimed by a
+    ///     zone and be rasterised into a perfectly good field while the <c>!WaterSurface</c> node
+    ///     draws nothing at all — its depth state is <c>Greater</c> against a <em>loaded</em> depth
+    ///     buffer, so a document that placed it where the scene depth is not yet real fails every
+    ///     fragment silently, with no validation error anywhere. Zones drawn at zero with the fold
+    ///     reporting a body is exactly that, and patches at zero with zones above zero is a selector
+    ///     whose coverage predicate found no water in the window.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14066,
+        Level = LogLevel.Information,
+        Message = "Water mesh: {Zones} zone(s) recorded, {Patches} patch(es) drawn, {Dropped} dropped, "
+            + "over {Builds} build(s); the composite built {Composites} time(s); {Swimming} "
+            + "character(s) were swimming. A composite count of \u22121 is a document with no !Water "
+            + "node in it at all."
+    )]
+    public static partial void WaterDrawn(
+        ILogger logger,
+        int zones,
+        int patches,
+        int dropped,
+        int builds,
+        int composites,
+        int swimming
+    );
 }

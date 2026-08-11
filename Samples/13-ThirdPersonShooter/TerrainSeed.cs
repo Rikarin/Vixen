@@ -88,11 +88,22 @@ internal static class TerrainSeed {
     /// <summary>Where the lake sits, in world metres on the ground plane.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Ten metres past the south gate, which is the whole of why it is here and not
-    ///         somewhere prettier.</b> The wall at <c>z = +32</c> has a gap in it
-    ///         (<c>Arena.vxscene</c>'s <c>Wall1A</c>/<c>Wall1B</c>), and a player who walks through it
+    ///         <b>Ten metres past the north gate, which is the whole of why it is here and not
+    ///         somewhere prettier.</b> The wall at <c>z = −32</c> has a gap in it
+    ///         (<c>Arena.vxscene</c>'s <c>Wall0A</c>/<c>Wall0B</c>), and a player who walks through it
     ///         reaches the shore in about three seconds. Water nobody can get to is water nobody can
     ///         tell is broken.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>North rather than south, and that is arithmetic rather than taste.</b> The
+    ///         level's sun travels along roughly <c>(−0.57, −0.14, 0.81)</c> — eight degrees up — so a
+    ///         six-metre wall throws its shadow forty-three metres in the direction the light goes,
+    ///         which is <em>+Z</em>. The first lake this sample had was centred at <c>(0, 62)</c> and
+    ///         was therefore inside that shadow along its whole length: a correct frame and a broken
+    ///         one were the same black band, which is exactly the trap this level's own README warns
+    ///         about for the arena floor. Mirrored to <c>−Z</c> the wall's shadow falls away from the
+    ///         water and the low sun rakes across it, which is both the honest picture and the good
+    ///         one.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>These four numbers are the terrain's and the water's at once, and they have to
@@ -105,7 +116,7 @@ internal static class TerrainSeed {
     ///         sample's own test asserts the two agree.
     ///     </para>
     /// </remarks>
-    public static readonly Vector2 LakeCentre = new(0f, 62f);
+    public static readonly Vector2 LakeCentre = new(0f, -62f);
 
     /// <summary>How far the ring in <c>Lake.vxspline</c> reaches from the centre, in metres.</summary>
     /// <remarks>

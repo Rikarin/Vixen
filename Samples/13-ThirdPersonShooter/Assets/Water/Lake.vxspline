@@ -1,8 +1,8 @@
-# The lake outside the arena's south gate — the ring `Arena.vxscene`'s !WaterBodyComponent names.
+# The lake outside the arena's north gate — the ring `Arena.vxscene`'s !WaterBodyComponent names.
 #
 # ⚠ Authored around this asset's own origin, not around the lake's. The body entity carries the
-# placement (0, 0, 62) and `AssetWaterSource` builds the curve *at* that placement, so moving the
-# entity moves the water. A ring authored at world coordinates would sit at (0, 0, 62) plus itself
+# placement (0, 0, -62) and `AssetWaterSource` builds the curve *at* that placement, so moving the
+# entity moves the water. A ring authored at world coordinates would sit at (0, 0, -62) plus itself
 # the moment anybody dragged the entity, which is the failure `ACurveIsBuiltAtThePlacementItIsAskedFor`
 # exists for.
 #

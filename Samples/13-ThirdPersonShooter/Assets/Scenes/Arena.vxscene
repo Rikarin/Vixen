@@ -36,6 +36,7 @@ roots:
   # fifty-seven-metre shadow, which is why nearly everything in here is in shade; four gates let four
   # bars of direct sun across the floor as the sun orbits, and the floor is no longer uniformly dark.
   # That is the level looking different, not the level looking wrong.
+  # The north gate, which is the one the lake is through.
   - name: Wall0A
     position: -18 0 -32
     rotation: 0 0.000000 0 1.000000
@@ -50,7 +51,6 @@ roots:
     components:
       - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
       - !BoxCollision { halfExtents: 14 3 0.5, centre: 0 3 0, friction: 0.4 }
-  # The south gate, which is the one the lake is through.
   - name: Wall1A
     position: -18 0 32
     rotation: 0 1.000000 0 0.000000
@@ -314,7 +314,7 @@ roots:
       - !Light { kind: Point, unit: Lumen, intensity: 140000, temperature: 2200, range: 26, radius: 0.14 }
       - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
 
-  # The lake, out through the south gate. Two entities, because a zone and a body are two things:
+  # The lake, out through the north gate. Two entities, because a zone and a body are two things:
   # the zone is the window the field is rasterised into and the body is one piece of water in it.
   #
   # ⚠ **A zone must exist or nothing renders**, which is Unreal's rule kept for its reason: the field
@@ -346,7 +346,7 @@ roots:
     # is where the *bed* is, and depth is their difference. They are in two files because one is a
     # committed heightfield and the other is a scene; nothing in the build compares them, so
     # `FrameDocumentTests.The_lake_in_the_scene_sits_over_the_bed_the_seed_dug` does.
-    position: 0 0 62
+    position: 0 0 -62
     components:
       - !WaterBodyComponent
         kind: Lake
