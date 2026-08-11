@@ -110,6 +110,25 @@ public sealed class TerrainSceneSource {
     /// <summary>This frame's terrains, in extraction order.</summary>
     public List<TerrainSceneEntry> Terrains { get; } = [];
 
+    /// <summary>What second the wind is at, from the frame's clock.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The frame's clock, not the node's own.</b> <c>TerrainSceneRenderer</c> used to
+    ///         hold a <c>Stopwatch</c> started when it was constructed, which made the grass's sway a
+    ///         function of how long the <em>process</em> had been alive — content load, shader
+    ///         compile and pipeline warm-up included. Two headless runs at the same
+    ///         <c>--vixen-frames</c> therefore drew every blade at a different phase, and no flag
+    ///         could make them agree because nothing about that clock was reachable.
+    ///     </para>
+    ///     <para>
+    ///         Negative for a source nobody has extracted, which the node reads as "use zero" rather
+    ///         than as a wind that has run backwards. <c>GrassDrawPass.Prepare</c> already takes the
+    ///         time as a parameter, and its remarks already say why — so that two views of one field
+    ///         agree about where the blades are — which is the same reason this is here.
+    ///     </para>
+    /// </remarks>
+    public float Time { get; set; } = -1f;
+
     /// <summary>And its foliage volumes, on the same terms.</summary>
     public List<FoliageSceneEntry> Foliage { get; } = [];
 

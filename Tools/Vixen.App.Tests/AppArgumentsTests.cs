@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -78,6 +79,94 @@ public class AppArgumentsTests {
         config.Apply(AppArguments.Parse(["--vixen-headless"]));
 
         Assert.Equal("artifacts/shots", config.Graphics.CapturePath);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Asking for a picture is asking for one that can be compared with another.</b> Two
+    ///     headless runs of one build at <c>--vixen-frames 511</c> put sample 13's camera four pixels
+    ///     apart, which flipped a quarter of a million pixels — more than two consecutive frames of a
+    ///     single run flip — so every per-pixel diff taken that way was measuring the clock.
+    /// </summary>
+    [Fact]
+    public void ACaptureRunGetsAFixedClockWithoutAnybodyTypingOne() {
+        var config = new AppConfig();
+        config.Apply(AppArguments.Parse(["--vixen-capture", "shots", "--vixen-frames", "8"]));
+        config.ImplyCaptureFrameTime();
+
+        Assert.Equal(AppConfig.DefaultCaptureFrameTime, config.FixedFrameTime);
+    }
+
+    /// <summary>
+    ///     ⚠ After <c>OnConfigure</c>, because a screenshot-tool head asks for its capture directory
+    ///     in code and never sees the flag — and wants the same reproducible clock.
+    /// </summary>
+    [Fact]
+    public void AGameThatAsksForACaptureDirectoryGetsTheFixedClockToo() {
+        var config = new AppConfig();
+        config.Apply(AppArguments.Parse(["--vixen-headless"]));
+
+        Assert.Null(config.FixedFrameTime);
+
+        config.Graphics.CapturePath = "artifacts/shots";
+        config.ImplyCaptureFrameTime();
+
+        Assert.Equal(AppConfig.DefaultCaptureFrameTime, config.FixedFrameTime);
+    }
+
+    /// <summary>
+    ///     Zero is a value and not an absence — the one way to say "I want a wall-clock picture", and
+    ///     the reason the implication cannot simply test the property for null.
+    /// </summary>
+    [Fact]
+    public void AnExplicitZeroTakesTheFixedClockBackOffACaptureRun() {
+        var config = new AppConfig();
+        config.Apply(AppArguments.Parse(["--vixen-capture", "shots", "--vixen-fixed-step", "0"]));
+        config.ImplyCaptureFrameTime();
+
+        Assert.Null(config.FixedFrameTime);
+    }
+
+    [Theory]
+    [InlineData("--vixen-fixed-step", "0.02")]
+    [InlineData("--vixen-fixed-step=0.02", null)]
+    public void AFixedStepIsReadInSeconds(string first, string? second) {
+        var parsed = AppArguments.Parse(second is null ? [first] : [first, second]);
+
+        Assert.Equal(TimeSpan.FromSeconds(0.02), parsed.FixedFrameTime);
+        Assert.Empty(parsed.Unrecognised);
+    }
+
+    /// <summary>
+    ///     Invariant culture, because a launch script written on a machine with a comma decimal
+    ///     separator has to mean the same thing on the build agent that runs it. Built by hand rather
+    ///     than named, because the test host runs in globalization-invariant mode and
+    ///     <c>new CultureInfo("de-DE")</c> throws there.
+    /// </summary>
+    [Fact]
+    public void AFixedStepIsReadTheSameWayInEveryCulture() {
+        var comma = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+        comma.NumberFormat.NumberDecimalSeparator = ",";
+
+        var previous = CultureInfo.CurrentCulture;
+
+        try {
+            CultureInfo.CurrentCulture = comma;
+
+            Assert.Equal(
+                TimeSpan.FromSeconds(0.02),
+                AppArguments.Parse(["--vixen-fixed-step", "0.02"]).FixedFrameTime
+            );
+        } finally {
+            CultureInfo.CurrentCulture = previous;
+        }
+    }
+
+    [Fact]
+    public void ANegativeFixedStepIsATypoRatherThanTimeRunningBackwards() {
+        var parsed = AppArguments.Parse(["--vixen-fixed-step", "-0.02"]);
+
+        Assert.Null(parsed.FixedFrameTime);
+        Assert.Equal(["--vixen-fixed-step"], parsed.Unrecognised);
     }
 
     /// <summary>

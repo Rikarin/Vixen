@@ -94,6 +94,11 @@ public sealed class TerrainExtractionSystem : SystemBase, IDeclaredAccess {
 
     /// <inheritdoc />
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+        // ⚠ Here and not in the node, because this is the only end that has a clock the host can
+        // steer. See `TerrainSceneSource.Time`: the node's own stopwatch made grass sway a function
+        // of process age, which no `--vixen-fixed-step` could reach.
+        scene.Time = (float)context.Time.TotalSeconds;
+
         Extract(context.World);
         return dependency;
     }

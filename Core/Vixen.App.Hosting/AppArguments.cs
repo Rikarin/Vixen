@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 
 namespace Vixen.App;
@@ -75,6 +76,32 @@ public sealed record AppArguments {
     public int? MaxFrames { get; private init; }
 
     /// <summary>
+    ///     How long every frame is told it took, from <c>--vixen-fixed-step</c>, or
+    ///     <see langword="null" /> for the wall clock.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="AppConfig.FixedStep" />.</b> That one is how long a
+    ///         <em>simulation</em> step covers, and the number of them a frame owes still comes from
+    ///         how much time passed. This replaces "how much time passed" — every frame is told the
+    ///         same delta whatever the machine was doing — which is what makes frame <em>N</em> of a
+    ///         run mean the same instant of simulated time on every run of the same build.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it is for is the A/B.</b> Without it two headless runs at the same
+    ///         <c>--vixen-frames</c> land the camera about a centimetre apart, which is four pixels,
+    ///         which saturates a per-pixel diff so completely that two runs of identical code differ
+    ///         by more pixels than two consecutive frames of one run. A picture that cannot be
+    ///         compared to another picture is not much of a measurement.
+    ///     </para>
+    ///     <para>
+    ///         In seconds. <c>0</c> turns it off again, which is the value a game that set one in
+    ///         <c>OnConfigure</c> needs in order to say "not this run".
+    ///     </para>
+    /// </remarks>
+    public TimeSpan? FixedFrameTime { get; private init; }
+
+    /// <summary>
     ///     The directory from <c>--vixen-capture</c> to write the last frame into, or
     ///     <see langword="null" />.
     /// </summary>
@@ -96,6 +123,12 @@ public sealed record AppArguments {
     ///         ⚠ <b>Wants <c>--vixen-frames</c> beside it.</b> The picture written is the last
     ///         frame's, and a run with no frame count has no last frame — the host says so at
     ///         startup rather than exiting with an empty directory.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It turns the clock fixed</b> — see <see cref="FixedFrameTime" />, which this
+    ///         defaults to a sixtieth of a second unless the command line or the game says otherwise.
+    ///         Asking for a picture is asking for one that can be compared with another, and a
+    ///         wall-clock delta means frame 512 is a different instant on every run.
     ///     </para>
     /// </remarks>
     public string? CapturePath { get; private init; }
@@ -230,6 +263,13 @@ public sealed record AppArguments {
 
                 case "--vixen-capture" when Take(out var capture):
                     parsed = parsed with { CapturePath = capture };
+                    continue;
+
+                // Seconds, and a negative one is a typo rather than a request to run time backwards.
+                case "--vixen-fixed-step" when Take(out var step)
+                    && double.TryParse(step, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds)
+                    && seconds >= 0d:
+                    parsed = parsed with { FixedFrameTime = TimeSpan.FromSeconds(seconds) };
                     continue;
 
                 case "--vixen-scene" when Take(out var scene):
