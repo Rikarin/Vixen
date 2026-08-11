@@ -26,7 +26,7 @@ namespace Vixen.Platform.Linux;
 ///         down into <c>Vixen.Core.Imaging</c>, which <c>Platform/</c> may.
 ///     </para>
 ///     <para>
-///         What still keeps them apart is what each reads. <see cref="Decode" /> accepts greyscale
+///         What still keeps them apart is what each reads. The decoder here accepts greyscale
 ///         and truecolour, with and without alpha, because that is what a toolkit puts on a
 ///         clipboard; <c>PngCodec</c> accepts 8-bit RGBA and refuses the rest, deliberately, because
 ///         a golden reference in an unexpected format is a broken fixture rather than something to

@@ -57,6 +57,7 @@ public sealed class AppGraphics : IDisposable {
     ISwapChain? swapChain;
     ICommandList? commands;
     GpuProfiler? gpu;
+    FrameCapture? capture;
 
     /// <summary>The framebuffer size the swapchain was last built for.</summary>
     /// <remarks>
@@ -67,6 +68,7 @@ public sealed class AppGraphics : IDisposable {
     Int2 built;
 
     int reportedWarnings;
+    string captureName = "frame";
     bool disposed;
 
     /// <summary>Builds the frame a world is drawn through.</summary>
@@ -526,6 +528,45 @@ public sealed class AppGraphics : IDisposable {
         return true;
     }
 
+    /// <summary>Asks for the next frame that finishes to be written as a picture.</summary>
+    /// <param name="name">The file's name without an extension.</param>
+    /// <returns>
+    ///     Whether the request was taken. <see langword="false" /> when no capture directory was
+    ///     configured, or when the frame has a window to present to — a presented image is created
+    ///     without the transfer-source flag, so nothing can copy out of it.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         The picture is the resource named by <see cref="GraphicsOptions.Output" /> as the
+    ///         frame's last pass left it — after tonemapping, antialiasing and every post effect, and
+    ///         before a present that here does not happen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A headless picture is not a screenshot of the window, and should not be read as
+    ///         one.</b> It reproduces, which a screenshot does not; it is the right artefact for "is
+    ///         the grass black", "did the shadow appear", "is it washed out". It is the wrong one for
+    ///         "what does a player see", because there is no present, the format is what was asked
+    ///         for rather than what a surface offered, and no display's backing scale is involved.
+    ///         See <a href="../../docs/guide/rendering/capturing-a-frame.md">capturing a frame</a>.
+    ///     </para>
+    /// </remarks>
+    public bool RequestCapture(string name) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        if (options.CapturePath is not { Length: > 0 } directory || !IsOffscreen) {
+            return false;
+        }
+
+        capture = new(Device, directory);
+        captureName = name;
+
+        return true;
+    }
+
+    /// <summary>Where the last capture was written, or <see langword="null" /> if there was none.</summary>
+    public string? LastCapturePath { get; private set; }
+
     /// <summary>Closes the frame: submits it and presents.</summary>
     public void End() {
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -535,6 +576,11 @@ public sealed class AppGraphics : IDisposable {
         }
 
         commands = null;
+
+        // ⚠ Before Finish, because a copy recorded after it is a copy on no list; and the read half
+        // is below the submit, because device.Read is immediate while this executes at submit. The
+        // two cannot be the same call, and putting them together is what produces a black PNG.
+        capture?.Record(list, swapChain!.CurrentTexture, swapChain.Size, swapChain.Format);
 
         list.Finish();
         Device.GraphicsQueue.Submit([list]);
@@ -570,6 +616,17 @@ public sealed class AppGraphics : IDisposable {
 
             default:
                 break;
+        }
+
+        // Last, because it waits for the queue: everything above is what the frame owes the next
+        // one, and a capture is what the run owes whoever asked for it.
+        if (capture is { } pending) {
+            capture = null;
+            LastCapturePath = pending.Write(captureName);
+
+            if (LastCapturePath is { } written) {
+                HostLog.FrameCaptured(logger, written);
+            }
         }
     }
 
@@ -844,11 +901,36 @@ public sealed class AppGraphics : IDisposable {
             Name: options.Output
         );
 
+        // ⚠ The exit state is what the image is *for* after the frame, and the two answers are not
+        // interchangeable. A presented image ends in Present; an offscreen one has no presentation
+        // engine to hand it to, and PRESENT_SRC is a layout that only means anything where the
+        // swapchain extension is loaded — so an offscreen frame that asked for it would be a
+        // validation error on a device that never enabled the thing the layout belongs to.
+        //
+        // CopySource is also exactly where a capture wants it, which is why the readback needs no
+        // barrier of its own. That is the golden suite's arrangement, and its Fixture explains at
+        // length why an *imported* target is the thing that makes it work: a transient the graph
+        // created would be stored DontCare and read back as undefined memory.
         Renderer.Host.Import(
             options.Output,
-            new(swapChain.CurrentTexture, view, description, ResourceState.Undefined, ResourceState.Present)
+            new(
+                swapChain.CurrentTexture,
+                view,
+                description,
+                ResourceState.Undefined,
+                IsOffscreen ? ResourceState.CopySource : ResourceState.Present
+            )
         );
     }
+
+    /// <summary>Whether the frame has nothing to present to, and is therefore readable.</summary>
+    /// <remarks>
+    ///     The window's own answer rather than a setting, because it is the surface that decides: a
+    ///     headless window is a real window with a real size whose surface is
+    ///     <see cref="Core.SurfaceKind.None" />, and a head with no window at all is the same case
+    ///     with less of it.
+    /// </remarks>
+    bool IsOffscreen => !(window?.Surface.Handle ?? Core.SurfaceHandle.None).CanPresent;
 
     /// <summary>Tells the frame and the camera how big the target is.</summary>
     /// <remarks>

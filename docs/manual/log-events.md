@@ -140,7 +140,7 @@ started" rather than "just now".
 | 13008 | Information | `No content: {Reason}` — ordinary for a sample or a tool, and the line that makes "my asset was not found" a five-second diagnosis | 0.1.0 |
 | 13009 | Warning | `LOOSE CONTENT — still reading from {Path} instead of bundles.` — repeated every 60 s, per docs/plan/17 Q5b | 0.1.0 |
 | 13010 | Information | `Graphics on {Adapter} ({Kind}), {Width}×{Height}.` | 0.1.0 |
-| 13011 | Warning | `Nothing will be presented: {Reason} The frame runs against the Null backend.` — a warning even though it is exactly what a dedicated server wants, because a head that asked for a window and is drawing into nothing has to say so | 0.1.0 |
+| 13011 | Warning | `Nothing will be presented: {Reason}` — a warning even though it is exactly what a dedicated server wants, because a head that asked for a window and is drawing into nothing has to say so. ⚠ It used to end "The frame runs against the Null backend", which stopped being true when a capture gained the right to open an offscreen Vulkan device that draws the whole frame | 0.1.0 |
 | 13012 | Information | `Shaders: {Variants} baked variants.` | 0.1.0 |
 | 13013 | Information | `No baked shaders: {Reason}` — ordinary for a project that has not captured a manifest yet, and the line that turns "every material draws as a miss" into a build step somebody has not run | 0.1.0 |
 | 13014 | Error | `The graphics device was lost. Nothing more will be drawn this run.` | 0.1.0 |
@@ -151,6 +151,12 @@ started" rather than "just now".
 | 13019 | Warning | `The startup scene {Address} was not loaded ({Reason}) — the world is empty.` — something asked for a level, so an empty window has a reason nothing else in the log would give | 0.1.0 |
 | 13020 | Information | `Remote content: {Bundles} downloadable bundle(s), cached under {Cache}.` — the line that turns a first-run stall into an explanation, and says where the space went |
 | 13021 | Information | `Unpacked content: chunks read from the artefact store at {Root}, with nothing bundled.` — doc 17's Editor variant; a run whose content came from somebody's `Library/` has to be identifiable in a log attached to a bug report | 0.1.0 |
+| 13022 | Warning | `{Finding}` — the render graph's own lint, surfaced once per distinct finding rather than every frame | 0.1.0 |
+| 13023 | Information | `Look profile {Source} applied.` | 0.1.0 |
+| 13024 | Warning | `Look profile {Address} was not loaded ({Reason}) — the frame keeps its neutral values.` | 0.1.0 |
+| 13025 | Information | `GPU pass timing requested: {Attached} on '{Adapter}'.` | 0.1.0 |
+| 13026 | Information | `Captured the frame to {Path}.` — `--vixen-capture`; a picture nobody was told about is one its operator cannot tell from a capture that failed | 0.1.0 |
+| 13027 | Warning | `--vixen-capture was given without --vixen-frames, so there is no last frame to capture and nothing will be written to {Path}.` — the one way to ask for a picture and correctly get none, said at startup while somebody is still watching | 0.1.0 |
 
 Every other range is still reserved rather than allocated: the subsystems that will log have not been
 written, and the ranges exist so that when they are, nobody has to invent a numbering scheme under

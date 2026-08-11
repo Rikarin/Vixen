@@ -238,6 +238,13 @@ public sealed class AppConfig {
             Graphics.GpuProfiling = true;
         }
 
+        // ⚠ Only ever set from here, for the reason above it: a game that asked for a capture
+        // directory in OnConfigure — a screenshot tool head, say — means it, and the absence of the
+        // flag must not undo it.
+        if (arguments.CapturePath is { Length: > 0 } capture) {
+            Graphics.CapturePath = capture;
+        }
+
         if (arguments.WorkerCount is { } workers) {
             WorkerCount = workers;
         }

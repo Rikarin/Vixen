@@ -159,6 +159,23 @@ public sealed class GraphicsOptions {
     /// </remarks>
     public string Output { get; set; } = "SceneColour";
 
+    /// <summary>Where to write the last frame's picture, or <see langword="null" /> for nowhere.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>--vixen-capture</c>'s destination: a directory, into which the frame named by
+    ///         <see cref="Output" /> is written as a PNG once, on the frame the loop stops after.
+    ///         See <a href="../../docs/guide/rendering/capturing-a-frame.md">capturing a frame</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Setting this changes which backend opens.</b> A run with nothing to present to
+    ///         normally falls through to the device that draws nothing, which would write a black
+    ///         PNG and report success. Asking for a picture is what says that fallback is not what
+    ///         was wanted — see <c>AppArguments.CapturePath</c> for why the refusal exists in the
+    ///         first place.
+    ///     </para>
+    /// </remarks>
+    public string? CapturePath { get; set; }
+
     /// <summary>Which graphics APIs to try, most preferred first.</summary>
     /// <remarks>
     ///     <para>

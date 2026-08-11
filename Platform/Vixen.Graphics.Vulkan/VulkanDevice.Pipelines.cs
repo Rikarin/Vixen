@@ -692,9 +692,20 @@ public sealed unsafe partial class VulkanDevice {
 
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A surface of <see cref="Core.SurfaceKind.None" /> gets a chain that presents to
+    ///     nothing rather than an exception.</b> Vulkan opens without a surface — that is what the
+    ///     golden-image suites run on — and the only thing it then cannot do is build a
+    ///     <c>VkSwapchainKHR</c>. Refusing here would push every offscreen caller into a second code
+    ///     path around <see cref="ISwapChain" />, which is how a headless frame stops being the same
+    ///     frame as a windowed one. See <see cref="VulkanOffscreenSwapChain" />.
+    /// </remarks>
     public ISwapChain CreateSwapChain(in SwapChainDescription description) {
         ThrowIfDisposed();
-        return new VulkanSwapChain(this, description);
+
+        return description.Surface.Kind == Core.SurfaceKind.None
+            ? new VulkanOffscreenSwapChain(this, description)
+            : new VulkanSwapChain(this, description);
     }
 
     /// <inheritdoc />

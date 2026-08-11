@@ -177,6 +177,13 @@ public sealed class VixenApplication : IDisposable {
             HostLog.NoWindow(logger, reason);
         }
 
+        // At startup rather than at the end, because the end of a run with no frame count is
+        // whenever somebody closes the window — by which time the person who typed the flag has
+        // stopped watching, and the absent file reads as a capture that failed.
+        if (Services.Config.Graphics.CapturePath is { Length: > 0 } capture && Services.Config.MaxFrames <= 0) {
+            HostLog.CaptureWithoutFrameCount(logger, capture);
+        }
+
         if (Services.Content is { Assets: { } assets, Root: var root }) {
             HostLog.ContentMounted(logger, root, assets.Catalog.Entries.Count);
 
@@ -299,6 +306,14 @@ public sealed class VixenApplication : IDisposable {
         // Services.Graphics.Commands by the time the application is asked, so an overlay, a UI or a
         // debug pass records on top of it rather than under it — and a game that draws nothing of its
         // own gets the whole thing for free.
+        // ⚠ Asked after Advance, which is what makes "this is the last frame" answerable at all:
+        // IsStopping is read at the *top* of RunFrame, so the frame that brings the count to N is
+        // the one that renders in full and the loop exits after it. Before Begin, because the copy
+        // it arranges goes on the list Begin opens.
+        if (Services.Config.MaxFrames > 0 && time.FrameCount >= Services.Config.MaxFrames) {
+            Services.Graphics?.RequestCapture("frame");
+        }
+
         var frame = Services.Graphics?.Begin() ?? false;
 
         game.OnRender(time);

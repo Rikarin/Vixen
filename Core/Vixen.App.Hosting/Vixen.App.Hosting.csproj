@@ -32,6 +32,13 @@
         <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
 
         <!--
+          PngCodec, for the capture flag. Reachable transitively through Vixen.Engine.Renderer
+          already; named here because a transitive reference is somebody else's decision, and the
+          somebody else could reasonably stop needing it.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+
+        <!--
           The content the application loads. A host that could not open a catalog left every game to
           stand up the catalog, the bundle source and the manager itself, which is what Samples/07
           does by hand and what a game should not have to.
