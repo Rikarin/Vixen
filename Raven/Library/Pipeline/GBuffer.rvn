@@ -63,8 +63,17 @@ struct GBuffer {
         d.emissive = targets.target2.rgb
         d.alpha = 1f
 
-        // f0 is derived rather than stored: the encoding keeps base colour and metalness, and a
-        // dielectric's f0 is a constant, so storing f0 as well would be three redundant channels.
+        // f0 is derived rather than stored: a dielectric's f0 is a constant, so storing f0 as well
+        // would look like three redundant channels.
+        //
+        // ⚠ **It is not redundant, and this line loses every metal.** The claim above it used to be
+        // "the encoding keeps base colour and metalness"; target 0 keeps `d.diffuseColor`, which is
+        // `base × (1 - metalness)` and therefore **black at metalness 1**. Rebuilding f0 from it
+        // gives `lerp(0.04, black, 1)` — a chrome pillar decodes as a surface that reflects nothing
+        // at all. `Metalness` below has the matching defect from the same cause. Nothing ships this
+        // yet (the deferred path is ⬜ in `docs/overview.md`), and the fix is the one
+        // `AmbientCombine.rvn`'s head audits for the forward split: carry `f0` itself, which is
+        // three channels, and this layout has exactly one free — `target2.a`.
         d.f0 = Brdf.F0FromMetalness(targets.target0.rgb, targets.target1.w, MaterialDefaults.DielectricF0)
         return d
     }
@@ -72,8 +81,14 @@ struct GBuffer {
     /// Recovers metalness from a packed surface, which `Encode` needs and `MaterialData` does not hold.
     ///
     /// `MaterialData` keeps `f0` rather than metalness, because that is what a BRDF wants. Going
-    /// backwards is only possible because a dielectric's f0 is known: how far f0 has moved away from
+    /// backwards looks possible because a dielectric's f0 is known: how far f0 has moved away from
     /// it *is* the metalness.
+    ///
+    /// ⚠ **It is not possible, and this is exact only at the two ends.** `diffuse = base(1 - m)`
+    /// and `f0 = lerp(0.04, base, m)` are two equations in three unknowns, so no arithmetic on the
+    /// pair recovers `m`. The ratio below is 0 at `m = 0` and saturates to 1 at `m = 1`, which is
+    /// why it passed: everything between is wrong and wrong upward. A base of 0.8 at `m = 0.5`
+    /// gives `(0.42 - 0.04) / (0.40 - 0.04) = 1.06`, so a half-metal encodes as a mirror.
     static func Metalness(d: MaterialData): float {
         val dielectric = MaterialDefaults.DielectricF0
         val range = max(Math.MaxComponent(d.diffuseColor) - dielectric, Const.Epsilon)
