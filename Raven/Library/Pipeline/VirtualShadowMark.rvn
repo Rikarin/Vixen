@@ -111,6 +111,18 @@ shader VirtualShadowMark {
             // are the spots, because a pixel may be inside more than one of them and a spot has no
             // level to choose. One loop rather than a call and a loop, because the accumulator below
             // has to be a local of this function — see the remarks on `Bit`.
+            //
+            // ⚠ **One level and not also `index + 1`, which is a deliberate refusal and not an
+            // oversight.** `VirtualShadowLookup.Sample` falls back to the next level out when the page
+            // it wanted is absent, so marking the coarser page here would make that fallback always
+            // find something — and the block accumulator makes it nearly free to write, since
+            // consecutive pixels share a coarse word even more than a fine one. Measured in sample 13
+            // with a walking camera, it is still the wrong trade: it asks for 26% more pages a frame,
+            // the pool goes from 913 of 1024 resident to 1001, and the pages answered *at the level
+            // the pixel asked for* fall from 69% to 64% — the coarse duplicates win the sixteen draws
+            // a frame away from the fine pages that the fallback exists to cover for. The misses are
+            // budget-starvation, not marking: `pagesPerFrame` from 16 to 64 takes the same 69% to 83%.
+            // See the fallback in `VirtualShadows.rvn` for the whole measurement.
             for (source in 0 .. Vsm.MaxLevels) {
                 var index = -1
 
