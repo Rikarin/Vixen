@@ -70,8 +70,8 @@ Authored by hand, it is two nodes:
   far: 64
   density: 0.02
   sunDirection: [0.3, -0.8, 0.5]
-  sunColour: [1.0, 0.9, 0.7]
-  ambientColour: [0.35, 0.42, 0.55]
+  sunColour: [90000, 81000, 63000]
+  ambientColour: [1400, 1680, 2200]
 
 - !Fog
   name: Air
@@ -83,6 +83,20 @@ Authored by hand, it is two nodes:
   volumeFar: 64
   volumeSlices: 64
 ```
+
+⚠ **`sunDirection` and `sunColour` are the fallback, not the answer.** A host that hands the compositor
+a lighting feature — every host with lights in it does — gives the medium the scene's own directional
+light, and these two are what a document with no such host gets. Authoring them is for a frame that
+wants its air lit by something other than its sun.
+
+⚠ **`sunColour` is an illuminance in lux and `ambientColour` a radiance in cd/m².** They are not
+tints. The lighting pass computes `σs · p(θ) · sunColour` and the composite adds the marched result
+straight into a frame lit in cd/m², so a value near one is a sun a hundred thousand times too dim.
+This shipped as `[1.0, 0.9, 0.7]` for several releases: the volume was filled, marched and
+composited correctly every frame, and on sample 3 at 512 frames the whole in-scatter came to 0.04/255
+mean channel against a 0.03/255 run-to-run floor — a pass arithmetically indistinguishable from one
+that never ran. See [Light that behaves like light](physical-lighting.md); a clear midday sun is
+around 90 000 lux and a clear zenith around 4 000 cd/m².
 
 ⚠ **`volumeFar` and `volumeSlices` must be the numbers the dispatch used.** The composite finds a
 pixel's slice by inverting the grid's depth distribution, so a far plane or a slice count that
@@ -268,8 +282,8 @@ A back-lit haze, where the anisotropy is what makes looking toward the sun brigh
   view: Camera
   density: 0.015
   phaseG: 0.85
-  sunColour: [2.0, 1.6, 1.1]
-  ambientColour: [0.2, 0.26, 0.4]
+  sunColour: [120000, 96000, 66000]
+  ambientColour: [800, 1040, 1600]
 ```
 
 ⚠ **`ambientColour` of zero is not "no ambient", it is a valley that goes black whenever the sun is

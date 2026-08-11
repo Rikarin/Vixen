@@ -1567,6 +1567,8 @@ Vixen.Rendering.PostFx.VolumetricFogAsset.Enabled.get -> bool
 Vixen.Rendering.PostFx.VolumetricFogAsset.Enabled.init -> bool
 Vixen.Rendering.PostFx.VolumetricFogAsset.Far.get -> float
 Vixen.Rendering.PostFx.VolumetricFogAsset.Far.init -> float
+Vixen.Rendering.PostFx.VolumetricFogAsset.Feedback.get -> float
+Vixen.Rendering.PostFx.VolumetricFogAsset.Feedback.init -> float
 Vixen.Rendering.PostFx.VolumetricFogAsset.FogHeight.get -> float
 Vixen.Rendering.PostFx.VolumetricFogAsset.FogHeight.init -> float
 Vixen.Rendering.PostFx.VolumetricFogAsset.Height.get -> int
@@ -1668,6 +1670,8 @@ Vixen.Rendering.PostFx.VolumetricFogRenderer.Shadowed.get -> bool
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Shadows.get -> bool
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Shadows.init -> bool
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Steps.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.ComputeRenderer>
+Vixen.Rendering.PostFx.VolumetricFogRenderer.Sun.get -> Vixen.Rendering.ISunSource?
+Vixen.Rendering.PostFx.VolumetricFogRenderer.Sun.set -> Vixen.Rendering.ISunSource?
 Vixen.Rendering.PostFx.VolumetricFogRenderer.SunColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.VolumetricFogRenderer.SunColour.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.VolumetricFogRenderer.SunDirection.get -> Vixen.Core.Mathematics.Vector3

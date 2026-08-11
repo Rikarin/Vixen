@@ -1097,6 +1097,13 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             SunColour = declared.SunColour,
             PhaseG = declared.PhaseG,
             AmbientColour = declared.AmbientColour,
+            Feedback = declared.Feedback,
+
+            // ⚠ The same source the shadow nodes fit their cascades along. A medium marched against
+            // one sun's cascades and lit by another's direction is a valley whose beams miss the
+            // shafts they belong to — and the illuminance that comes with it is what keeps the
+            // in-scatter in the units the rest of the frame is lit in.
+            Sun = builder.Sun,
             ShadowAtlas = declared.ShadowAtlas,
             ScenePass = declared.ScenePass,
             Shadows = declared.Shadows,

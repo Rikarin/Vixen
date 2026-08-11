@@ -360,16 +360,47 @@ public sealed record VolumetricFogAsset : ISceneRendererAsset {
     public float HeightFalloffRate { get; init; } = 0.05f;
 
     /// <summary>Which way the light travels, and what it carries.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The fallback and not the answer.</b> A host that hands the builder an
+    ///     <c>ISunSource</c> — every host with a lighting feature does — gives the medium the scene's
+    ///     own sun, and this is what a document with none gets. See <c>VolumetricFogRenderer.Sun</c>.
+    /// </remarks>
     public Vector3 SunDirection { get; init; } = new(0f, -1f, 0f);
 
-    /// <inheritdoc cref="SunDirection" />
-    public Vector3 SunColour { get; init; } = new(1f, 0.9f, 0.7f);
+    /// <summary>
+    ///     What it carries, as an illuminance in <b>lux</b>. ⚠ Not a tint — see
+    ///     <c>VolumetricFogRenderer.SunColour</c> for what a unit one measured.
+    /// </summary>
+    public Vector3 SunColour { get; init; } = new(90000f, 81000f, 63000f);
 
     /// <summary>Henyey–Greenstein anisotropy.</summary>
     public float PhaseG { get; init; } = 0.7f;
 
-    /// <summary>What arrives from the whole sky. ⚠ Without it a back-lit valley is black.</summary>
-    public Vector3 AmbientColour { get; init; } = new(0.35f, 0.42f, 0.55f);
+    /// <summary>
+    ///     What arrives from the whole sky, as a radiance in <b>cd/m²</b>. ⚠ Without it a back-lit
+    ///     valley is black; with a unit-scale one it is a valley with no fog in it.
+    /// </summary>
+    public Vector3 AmbientColour { get; init; } = new(1400f, 1680f, 2200f);
+
+    /// <summary>How much of the reprojected history survives into this frame's scattering volume.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A per-scene look decision and not a tier one, which is why it is here and not in
+    ///         <see cref="PostFidelityQuality" />. A tier trades quality for <em>cost</em>, and this
+    ///         knob has no cost axis: the history volume is allocated, reprojected and sampled at every
+    ///         value including zero — <c>VolumetricFogRenderer.Reprojects</c> is availability, decided
+    ///         by whether the node owns its pair, and the dispatch is the same one either way. Lowering
+    ///         it saves nothing and buys nothing but a different artefact.
+    ///     </para>
+    ///     <para>
+    ///         What it does trade is crawl against lag. At 0.9 a shaft takes about ten frames to answer
+    ///         a light that moved; a scene whose sun swings wants it lower and should expect the edges
+    ///         to shimmer for it. ⚠ Zero is not "no reprojection" — the sample point is still offset per
+    ///         frame, so zero is the offsets with nothing averaging them back out, which is the crawl at
+    ///         its worst rather than the crawl removed.
+    ///     </para>
+    /// </remarks>
+    public float Feedback { get; init; } = 0.9f;
 }
 
 /// <summary>Outlines from depth and normal discontinuities.</summary>

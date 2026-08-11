@@ -159,22 +159,70 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
     /// <summary>How fast it thins above that, per world unit.</summary>
     public float HeightFalloffRate { get; set; } = 0.05f;
 
-    /// <summary>Which way the light travels.</summary>
+    /// <summary>Which way the light travels, when no <see cref="Sun" /> answers.</summary>
     public Vector3 SunDirection { get; set; } = new(0f, -1f, 0f);
 
-    /// <summary>What it carries.</summary>
-    public Vector3 SunColour { get; set; } = new(1f, 0.9f, 0.7f);
+    /// <summary>
+    ///     What it carries, <b>as an illuminance in lux</b>, when no <see cref="Sun" /> answers.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Lux, and the old default of <c>(1, 0.9, 0.7)</c> was a tint.</b> The shader computes
+    ///         <c>σs · p(θ) · sunColour</c> and adds the result to a frame lit in cd/m², so this number
+    ///         is the sun's illuminance on a plane facing it — <c>PhysicalSky.SunIlluminance</c>
+    ///         is around 90 000 for a clear midday and <c>RenderLight.Radiance</c> is that same quantity
+    ///         for a directional light. A unit tint here is the sun a hundred thousand times too dim,
+    ///         which is not a fog that is subtle: measured on sample 3 at 512 frames, the whole
+    ///         in-scatter came to 0.04/255 mean channel against a 0.03/255 run-to-run floor. The pass
+    ///         ran, wrote a correct volume, and was arithmetically indistinguishable from one that had
+    ///         not.
+    ///     </para>
+    ///     <para>
+    ///         Prefer <see cref="Sun" />: a frame's sun is a fact of the scene and not of the document,
+    ///         and two derivations of it is a valley whose beams point somewhere nothing is lit from.
+    ///     </para>
+    /// </remarks>
+    public Vector3 SunColour { get; set; } = new(90000f, 81000f, 63000f);
+
+    /// <summary>Where the frame's directional light comes from, or null to use the two above.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>VirtualShadowRenderer.Sun</c>'s property for the same reason and from the same
+    ///         object: the shading pass, the shadow node and the medium have to agree about which way
+    ///         the light travels and how much of it there is, and a document cannot carry a light the
+    ///         scene decides. <c>RenderLight.Radiance</c> is an illuminance in lux for a directional
+    ///         light, which is exactly what <see cref="SunColour" /> has to be.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Availability rather than preference, on <see cref="Shadowed" />'s rule: a source with
+    ///         no directional light in it leaves the authored pair alone rather than blacking the
+    ///         medium out.
+    ///     </para>
+    /// </remarks>
+    public ISunSource? Sun { get; set; }
 
     /// <summary>Henyey–Greenstein anisotropy. Air's forward peak is what makes a beam a beam.</summary>
     public float PhaseG { get; set; } = 0.7f;
 
-    /// <summary>What arrives from the whole sky.</summary>
+    /// <summary>What arrives from the whole sky, <b>as a radiance in cd/m²</b>.</summary>
     /// <remarks>
-    ///     ⚠ Zero here is not "no ambient", it is a valley that is black whenever the sun is behind
-    ///     the viewer — a phase function is normalised over the sphere, so one directional light
-    ///     contributes almost nothing outside its forward peak.
+    ///     <para>
+    ///         ⚠ Zero here is not "no ambient", it is a valley that is black whenever the sun is behind
+    ///         the viewer — a phase function is normalised over the sphere, so one directional light
+    ///         contributes almost nothing outside its forward peak.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A radiance and not a tint</b>, for <see cref="SunColour" />'s reason and with the
+    ///         same history: light arriving uniformly from every direction is scattered uniformly, so
+    ///         the shader adds this straight into the in-scatter with no phase factor and it has to be
+    ///         in the units the frame is lit in. <c>PhysicalSky.Radiance</c> puts a clear zenith
+    ///         near 4 000 cd/m² and its own remarks call values in the thousands ordinary; the default
+    ///         here is a clear-sky average carrying the blue the old unit-scale tint described. A sky
+    ///         this scene does not have is worth authoring — a bare <c>0.35</c> is not an author's
+    ///         restraint, it is fifteen stops.
+    ///     </para>
     /// </remarks>
-    public Vector3 AmbientColour { get; set; } = new(0.35f, 0.42f, 0.55f);
+    public Vector3 AmbientColour { get; set; } = new(1400f, 1680f, 2200f);
 
     /// <summary>The cascade atlas the frame's shadow node rendered.</summary>
     /// <remarks>
@@ -711,8 +759,14 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
 
         node.Parameters.Set(VolumetricFogKeys.FogNear, Near);
         node.Parameters.Set(VolumetricFogKeys.FogFar, Far);
-        node.Parameters.Set(VolumetricFogKeys.SunDirection, SunDirection);
-        node.Parameters.Set(VolumetricFogKeys.SunColour, SunColour);
+
+        // ⚠ The scene's own sun where there is one, both numbers together. Taking the direction from
+        // the frame and the brightness from the document is how a medium ends up lit by a sun that is
+        // not the one casting the shadows it is being marched against.
+        var (direction, colour) = Sunlight();
+
+        node.Parameters.Set(VolumetricFogKeys.SunDirection, direction);
+        node.Parameters.Set(VolumetricFogKeys.SunColour, colour);
         node.Parameters.Set(VolumetricFogKeys.PhaseG, applied.VolumetricPhaseG?.Over(PhaseG) ?? PhaseG);
         node.Parameters.Set(VolumetricFogKeys.AmbientColour, AmbientColour);
 
@@ -796,6 +850,25 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostPro
             Binding = VolumetricFogKeys.HistoryBinding, Kind = DescriptorKind.SampledTexture, Resource = history
         });
     }
+
+    /// <summary>The sun the medium is lit by: the scene's where there is one, the authored pair else.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Both halves from one source or neither, which is the point of deriving them here rather
+    ///         than at two call sites. <c>RenderLight.Direction</c> points the way the light travels —
+    ///         the sense <see cref="SunDirection" /> is documented in and the one
+    ///         <c>TerrainSceneRenderer</c> and <c>VirtualShadowRenderer</c> take from the same
+    ///         property — and <c>RenderLight.Radiance</c> is, for a directional light, an illuminance
+    ///         in lux.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A source whose <c>Sun</c> is null falls through to the authored pair rather than to
+    ///         zero. A frame between scenes has no directional light for a frame or two, and a medium
+    ///         that went black for them would flash.
+    ///     </para>
+    /// </remarks>
+    (Vector3 Direction, Vector3 Colour) Sunlight() =>
+        Sun?.Sun is { } star ? (star.Direction, star.Radiance) : (SunDirection, SunColour);
 
     /// <summary>Where in its froxel this frame samples, or dead centre when nothing averages it.</summary>
     /// <remarks>
