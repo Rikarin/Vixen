@@ -258,6 +258,37 @@ public sealed class TerrainNodeTests : IDisposable {
         Assert.Empty(scene.Terrains);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The wind's clock is the frame's, and it used not to be.</b>
+    ///     <c>TerrainSceneRenderer</c> held a <c>Stopwatch</c> started when the node was constructed,
+    ///     so every blade's sway was a function of how long the <em>process</em> had been alive —
+    ///     content load, shader compile and pipeline warm-up included. Two headless runs at the same
+    ///     <c>--vixen-frames</c> therefore drew the grass at a different phase and nothing could make
+    ///     them agree, because no flag reached that clock. Now it arrives with the extraction, from
+    ///     the same <c>GameTime</c> the water and the lamps read.
+    /// </summary>
+    [Fact]
+    public void TheWindsClockIsTheFramesAndNotTheProcessAge() {
+        var scene = new TerrainSceneSource();
+        using var loop = new Vixen.Engine.Frames.EngineLoop(registerDefaultSystems: false);
+
+        loop.Add(new TerrainExtractionSystem(scene));
+
+        // Negative until somebody extracts, which the node reads as a still field rather than as a
+        // wind that has already been blowing for however long the process took to start.
+        Assert.Equal(-1f, scene.Time);
+
+        loop.Frame(TimeSpan.FromSeconds(0.25));
+        Assert.Equal(0.25f, scene.Time, 5);
+
+        loop.Frame(TimeSpan.FromSeconds(0.25));
+        Assert.Equal(0.5f, scene.Time, 5);
+
+        // And a paused game's grass stands still, because the clock it reads is the scaled one.
+        loop.Frame(TimeSpan.FromSeconds(0.25), timeScale: 0f);
+        Assert.Equal(0.5f, scene.Time, 5);
+    }
+
     /// <summary>A grass component's rule rides its terrain's entry.</summary>
     [Fact]
     public void AGrassComponentRidesItsTerrain() {

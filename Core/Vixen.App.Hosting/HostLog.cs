@@ -167,6 +167,20 @@ static partial class HostLog {
     )]
     public static partial void CaptureWithoutFrameCount(ILogger logger, string path);
 
+    /// <summary>
+    ///     ⚠ Said out loud because it changes what the run <em>is</em>. A frame handed a constant
+    ///     delta is not measuring anything about this machine, and a reader who does not know that is
+    ///     a reader who will quote a frame time from a run that had none. It is also the line that
+    ///     answers "why is my capture reproducible now" without anybody reading the host.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13030,
+        Level = LogLevel.Information,
+        Message = "The clock is fixed at {Milliseconds} ms a frame, so frame N is the same instant "
+        + "on every run and no wall time reaches the simulation."
+    )]
+    public static partial void FixedFrameTime(ILogger logger, double milliseconds);
+
     [LoggerMessage(EventId = 13012, Level = LogLevel.Information, Message = "Shaders: {Variants} baked variants.")]
     public static partial void ShadersMounted(ILogger logger, int variants);
 

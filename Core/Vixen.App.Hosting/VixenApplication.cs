@@ -188,6 +188,13 @@ public sealed class VixenApplication : IDisposable {
             HostLog.CaptureWithoutFrameCount(logger, capture);
         }
 
+        // Beside the capture warning and for its reason: what the flags did is worth saying while
+        // somebody is still watching, and a run whose frame times are all identical is a run whose
+        // frame times mean something different from the usual.
+        if (Services.Config.FixedFrameTime is { Ticks: > 0 } fixedFrameTime) {
+            HostLog.FixedFrameTime(logger, fixedFrameTime.TotalMilliseconds);
+        }
+
         if (Services.Content is { Assets: { } assets, Root: var root }) {
             HostLog.ContentMounted(logger, root, assets.Catalog.Entries.Count);
 
@@ -680,10 +687,24 @@ public sealed class VixenApplication : IDisposable {
         return false;
     }
 
+    /// <summary>Moves the clock on by one frame.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The clock is not always the clock.</b> With <see cref="AppConfig.FixedFrameTime" />
+    ///     set, every frame is told it took exactly that long and the stopwatch is not read at all —
+    ///     which is what makes frame <em>N</em> of a headless run the same instant of simulated time
+    ///     on every run of the build, and therefore what makes two captures comparable. The timestamp
+    ///     is still kept up to date, so turning the setting off mid-run would not hand the next frame
+    ///     the whole elapsed interval.
+    /// </remarks>
     void Advance() {
         var now = Stopwatch.GetTimestamp();
         var elapsed = TimeSpan.FromSeconds((now - lastTimestamp) / (double)Stopwatch.Frequency);
         lastTimestamp = now;
+
+        if (Services.Config.FixedFrameTime is { Ticks: > 0 } fixedFrameTime) {
+            time = time.Advance(fixedFrameTime, time.TimeScale);
+            return;
+        }
 
         // A frame that took a second — a breakpoint, a stalled driver, a laptop lid — must not be
         // handed to the simulation as a second of elapsed time, or everything moving teleports. The

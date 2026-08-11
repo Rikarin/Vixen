@@ -1022,7 +1022,9 @@ static Vixen.Engine.Cameras.CameraLens.Blend(in Vixen.Engine.Cameras.CameraLens 
 static Vixen.Engine.Cameras.CameraLens.Default.get -> Vixen.Engine.Cameras.CameraLens
 static Vixen.Engine.Cameras.CameraLens.From(in Vixen.Engine.Cameras.Camera camera) -> Vixen.Engine.Cameras.CameraLens
 static Vixen.Engine.Cameras.CameraMath.Frustum(in Vixen.Engine.Cameras.Camera camera, in Vixen.Engine.Transforms.WorldTransform transform, float aspectRatio = 0) -> Vixen.Core.Mathematics.BoundingFrustum
+static Vixen.Engine.Cameras.CameraMath.Jittered(in Vixen.Core.Mathematics.Matrix4x4 matrix, Vixen.Core.Mathematics.Vector2 jitter) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Engine.Cameras.CameraMath.Projection(in Vixen.Engine.Cameras.Camera camera, float aspectRatio = 0) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Engine.Cameras.CameraMath.SubpixelJitter(int frameIndex) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Engine.Cameras.CameraMath.View(in Vixen.Engine.Transforms.WorldTransform transform) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Engine.Cameras.CameraMath.ViewProjection(in Vixen.Engine.Cameras.Camera camera, in Vixen.Engine.Transforms.WorldTransform transform, float aspectRatio = 0) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Engine.Cameras.CameraNoise.Handheld.get -> Vixen.Engine.Cameras.CameraNoise

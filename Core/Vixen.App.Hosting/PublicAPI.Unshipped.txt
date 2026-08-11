@@ -4,6 +4,7 @@ Vixen.App.AppArguments : System.IEquatable<Vixen.App.AppArguments>
 Vixen.App.AppArguments.AppArguments() -> void
 Vixen.App.AppArguments.Backends.get -> System.Collections.Generic.IReadOnlyList<Vixen.App.GraphicsBackend>
 Vixen.App.AppArguments.CapturePath.get -> string?
+Vixen.App.AppArguments.FixedFrameTime.get -> System.TimeSpan?
 Vixen.App.AppArguments.FrameRateLimit.get -> int?
 Vixen.App.AppArguments.GpuProfiling.get -> bool
 Vixen.App.AppArguments.Headless.get -> bool
@@ -33,6 +34,8 @@ Vixen.App.AppConfig.Apply(Vixen.App.AppArguments arguments) -> void
 Vixen.App.AppConfig.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.App.AppConfig.ExitWhenAllWindowsClose.get -> bool
 Vixen.App.AppConfig.ExitWhenAllWindowsClose.set -> bool
+Vixen.App.AppConfig.FixedFrameTime.get -> System.TimeSpan?
+Vixen.App.AppConfig.FixedFrameTime.set -> System.TimeSpan?
 Vixen.App.AppConfig.FixedStep.get -> System.TimeSpan?
 Vixen.App.AppConfig.FixedStep.set -> System.TimeSpan?
 Vixen.App.AppConfig.FrameRateLimit.get -> int
@@ -232,6 +235,7 @@ static Vixen.App.ContentMount.LooseMountPoint.get -> Vixen.Core.IO.VirtualPath
 static Vixen.App.ContentMount.Open(Vixen.Core.IO.VirtualFileSystem files, string? loosePath = null, Vixen.Assets.IContentTransport? transport = null) -> Vixen.App.ContentMount
 static Vixen.App.PlatformInput.Submit(this Vixen.Input.InputDeviceSet devices, in Vixen.Platform.PlatformEvent platformEvent, Vixen.Platform.IInputSource? source = null) -> bool
 static Vixen.App.PlatformInput.SyncGamepads(this Vixen.Input.InputDeviceSet devices, Vixen.Platform.IInputSource source) -> void
+static readonly Vixen.App.AppConfig.DefaultCaptureFrameTime -> System.TimeSpan
 virtual Vixen.App.Game.Dispose(bool disposing) -> void
 virtual Vixen.App.Game.OnConfigure(Vixen.App.AppConfig config) -> void
 virtual Vixen.App.Game.OnEvent(in Vixen.Platform.PlatformEvent platformEvent) -> bool

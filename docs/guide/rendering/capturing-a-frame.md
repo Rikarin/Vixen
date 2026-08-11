@@ -4,7 +4,7 @@ slug: rendering/capturing-a-frame
 kind: guide
 area: Rendering
 summary: A headless run renders on the real GPU with no window and writes its last frame as a PNG, so a sample's picture is a file two people can produce at once rather than a screenshot of whoever's display was in front.
-api: [T:Vixen.Core.Imaging.Bitmap, T:Vixen.Core.Imaging.PngCodec, L:13011, L:13026, L:13028, L:13029]
+api: [T:Vixen.Core.Imaging.Bitmap, T:Vixen.Core.Imaging.PngCodec, L:13011, L:13026, L:13028, L:13029, L:13030]
 tags: [rendering, headless, capture, screenshot, diagnostics, testing]
 since: 0.1
 status: preview
@@ -28,6 +28,7 @@ buffer once the queue has retired the frame, and encoded by `PngCodec`.
 |---|---|
 | `--vixen-capture <dir>` | Where the picture goes. Also what waives the no-surface refusal, below. |
 | `--vixen-frames N` | Which frame. The captured one is the last, and without this there is no last. |
+| `--vixen-fixed-step <s>` | How long each frame is *told* it took. Implied by `--vixen-capture` at 1/60. `0` puts the wall clock back. |
 | `GraphicsOptions.CapturePath` | The same setting from `OnConfigure`, for a head that always captures. |
 | `AppGraphics.RequestCapture(name)` | Asking for one frame by hand, if the loop is yours. |
 | `Vixen.Core.Imaging.PngCodec` | Baseline 8-bit RGBA PNG, in about two hundred lines and no dependency. |
@@ -98,9 +99,37 @@ exit zero.
 **A capture reproduces at any frame count. It has not *converged* at most of them, and those are two
 different things.**
 
-Reproducibility is settled: two independent runs of sample 13 at 256 frames differ by a mean absolute
-channel of **0.002/255**, with fifteen the worst single channel anywhere in 1600×900. That is what
-makes an A/B meaningful.
+Reproducibility is settled *for the simulation*, and the flag above is what settled it. A capture run
+is handed a constant frame delta, so frame *N* is the same instant of simulated time on every run:
+sample 13's player position and the whole 4×4 view-projection now match to the last printed digit
+across two runs, where before they were about four pixels apart at frame 511 — a difference that
+saturated any per-pixel diff taken across the pair.
+
+⚠ **The picture is not settled everywhere, and where it is not is worth knowing before you measure
+anything.** Two independent runs, same build, 256 frames, 1600×900:
+
+| Viewpoint | Flipped pixels | Mean channel gap | Mean \|delta\| |
+|---|---|---|---|
+| The spawn corner (no `VIXEN_SPAWN`) | 36 of 1 440 000 | 0.0000 | 0.000009/255 |
+| The grass field (`VIXEN_SPAWN=45,3,0,0`) | 640 000 – 880 000 | 0.13 – 0.42 | 0.97 – 1.18/255 |
+
+The first is reproducible enough for a per-pixel diff. The second is not reproducible at all, and the
+residue is not spread evenly — it sits on the GI-lit hillside, where a 200 × 150 block reaches a mean
+absolute channel of **15/255** while the sky beside it stays at 0.3. `--vixen-workers 0` roughly
+halves it; `--vixen-frame-limit 25` does not touch it, so it is not the host simply running ahead of
+the device. The counters move with it: screen probes placed varies over 3788–3795 and virtual-shadow
+resident pages over 247–254 between runs whose camera matrices are bit-identical.
+
+**So: over ground with grass and screen-probe GI on it, quote a band statistic and give it a floor of
+about half a percent of the mean channel. A per-pixel diff there is measuring the renderer's own
+scheduling.** Over walls and sky, a per-pixel diff is sound.
+
+⚠ **A thresholded count is far noisier than a mean, and it is the statistic people reach for.** Six
+runs of one build at the same frame count and viewpoint, counting pixels that read as grass — green
+above both red and blue by four — spread over 620 633 to 654 954: **±5 % about the mean**, against
+±0.5 % for the mean channel of the same six frames. Anything smaller than that measured by counting
+pixels in a band is not a measurement. If a hypothesis is about a one-percent effect, it needs a
+region mean, a still camera, and the frame count held fixed.
 
 Convergence is the slow one. Sample 13's frame carries a GPU cull, a surface cache, a screen-probe
 gather and an exposure meter, and several of them keep device state across frames, so the picture

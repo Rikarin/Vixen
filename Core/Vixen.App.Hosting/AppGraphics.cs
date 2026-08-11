@@ -598,6 +598,8 @@ public sealed class AppGraphics : IDisposable {
             lighting.Camera = View.Camera;
         }
 
+        AimTheJitter();
+
         commands = Device.BeginCommandList(QueueKind.Graphics, "frame");
 
         // ⚠ Before anything is recorded, because what it records is the pool reset — which Vulkan
@@ -621,6 +623,62 @@ public sealed class AppGraphics : IDisposable {
         }
 
         return true;
+    }
+
+    /// <summary>
+    ///     Tells the camera whether this frame's tree resolves temporally, and at what size.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The last thing nobody was doing.</b> <c>TemporalAntialiasingRenderer.Jitter</c>
+    ///         has existed since the pass was written, documented as "a host adds it to the
+    ///         projection", and no host did — so every temporally resolved frame in this engine was
+    ///         averaging the same sub-pixel sample over and over. That is the case the pass's own
+    ///         remarks name: a frame that gets blurrier and no sharper, which is exactly what sample
+    ///         13's <c>!Sharpen</c> node was put in to undo.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only when a tree actually has one, because a jittered camera nothing accumulates
+    ///         is strictly worse than a still one</b> — the frame shakes by half a pixel and no pass
+    ///         averages the shake out. Hence the walk rather than an option: what decides is the
+    ///         document, and a document is loaded, rebuilt and switched at run time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It reaches the next frame's extraction, not this one's.</b> The camera is
+    ///         extracted in <c>SystemPhase.PreRender</c>, which has already run by the time
+    ///         <see cref="Begin" /> is called — see the note on the lighting assignment above, which
+    ///         is here for the mirror-image reason. A Halton sequence has no meaningful phase, so
+    ///         starting it one frame late costs nothing; what would cost something is the geometry
+    ///         and the camera description disagreeing about which offset this frame took, and those
+    ///         are read together inside one <c>Extract</c>.
+    ///     </para>
+    /// </remarks>
+    void AimTheJitter() =>
+        Camera.JitterTarget = ResolvesTemporally(Renderer.Host.Compositor?.Game) ? Renderer.Host.FrameSize : default;
+
+    /// <summary>Whether any node under this one is a temporal resolve.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Disabled nodes count, on <c>GraphicsCompositor.Apply</c>'s precedent.</b> A resolve
+    ///     switched off for a frame and on again the next would otherwise get one frame of history
+    ///     accumulated from an unjittered camera, which is a frame of ghosting at the moment somebody
+    ///     toggled the setting to look at it.
+    /// </remarks>
+    static bool ResolvesTemporally(SceneRenderer? node) {
+        if (node is null) {
+            return false;
+        }
+
+        if (node is TemporalAntialiasingRenderer) {
+            return true;
+        }
+
+        foreach (var child in node.Nested) {
+            if (ResolvesTemporally(child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Asks for the next frame that finishes to be written as a picture.</summary>

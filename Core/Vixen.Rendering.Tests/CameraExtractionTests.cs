@@ -165,6 +165,168 @@ public sealed class CameraExtractionTests {
         Assert.Equal(1f, view.ScreenHeightScale, 5);
     }
 
+    // ------------------------------------------------------------- the sub-pixel offset
+
+    /// <summary>
+    ///     ⚠ <b>The whole point of the offset: it moves the picture by exactly that much of a pixel,
+    ///     at every depth.</b> A jitter that shifted near geometry more than far geometry would not be
+    ///     a camera shake, it would be a shear — and it would resolve into a frame that is subtly
+    ///     wrong in a way no counter reports.
+    /// </summary>
+    [Theory]
+    [InlineData(1f)]
+    [InlineData(7f)]
+    [InlineData(400f)]
+    public void TheOffsetMovesTheProjectedPointByItselfAtEveryDepth(float distance) {
+        var camera = new RenderCamera(Vector3.Zero, -Vector3.UnitZ, Vector3.UnitY, MathF.PI / 3f, 16f / 9f, 0.1f, 1000f);
+        var jitter = new Vector2(0.013f, -0.007f);
+        var offset = camera with { Jitter = jitter };
+        var point = new Vector3(0.6f, -0.3f, -distance);
+
+        var before = Project(camera.ViewProjection, point);
+        var after = Project(offset.ViewProjection, point);
+
+        Assert.Equal(jitter.X, after.X - before.X, 5);
+        Assert.Equal(jitter.Y, after.Y - before.Y, 5);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The one that catches the shortcut.</b> On a bare projection the offset reduces to
+    ///     <c>M31 -= j.X</c>, and writing only that is tempting — but on a view-projection the fourth
+    ///     column is not <c>(0, 0, −1, 0)</c>, so the same two stores shear the frame instead of
+    ///     shifting it. This asserts the two orders agree, which is what lets the ambient-occlusion
+    ///     pass invert <c>RenderCamera.Projection</c> to unproject a depth buffer the *view's* matrix
+    ///     rasterised.
+    /// </summary>
+    [Fact]
+    public void OffsettingTheProjectionAndOffsettingTheProductAreTheSameMatrix() {
+        var camera = new RenderCamera(
+            new(3f, 4f, -5f),
+            Vector3.Normalize(new(0.3f, -0.2f, -1f)),
+            Vector3.UnitY,
+            MathF.PI / 3f,
+            16f / 9f,
+            0.1f,
+            1000f
+        );
+
+        var jitter = new Vector2(0.013f, -0.007f);
+        var product = CameraMath.Jittered(camera.View * camera.Projection, jitter);
+        var separately = camera.View * CameraMath.Jittered(camera.Projection, jitter);
+        var point = new Vector3(2f, 1f, -37f);
+
+        var a = Project(product, point);
+        var b = Project(separately, point);
+
+        Assert.Equal(a.X, b.X, 5);
+        Assert.Equal(a.Y, b.Y, 5);
+        Assert.Equal(a.Z, b.Z, 5);
+    }
+
+    /// <summary>
+    ///     Both matrices the extraction writes carry the same offset, because they are built from
+    ///     different things — the transform's inverse and the field of view — and every screen-space
+    ///     pass in the frame inverts one to unproject a buffer the other drew.
+    /// </summary>
+    [Fact]
+    public void BothOfTheFramesMatricesCarryTheSameOffset() {
+        using var world = new World();
+        var view = new RenderView("Camera");
+
+        var system = new CameraExtractionSystem(view) {
+            AspectRatio = 16f / 9f,
+            JitterTarget = new(1600, 900)
+        };
+
+        world.Add(Placed(world, new(0f, 2f, 6f)), Camera.Perspective);
+        Resolve(world);
+
+        system.Extract(world);
+
+        Assert.NotEqual(Vector2.Zero, system.Jitter);
+        Assert.Equal(system.Jitter, view.Camera!.Value.Jitter * new Vector2(800f, 450f));
+
+        var point = new Vector3(1f, 0f, -20f);
+        var throughTheView = Project(view.ViewProjection, point);
+        var throughTheCamera = Project(view.Camera!.Value.ViewProjection, point);
+
+        Assert.Equal(throughTheView.X, throughTheCamera.X, 4);
+        Assert.Equal(throughTheView.Y, throughTheCamera.Y, 4);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A tree with no temporal resolve in it gets no offset</b>, because a camera that shakes
+    ///     by half a pixel with nothing averaging the shake out is strictly worse than a still one.
+    ///     Zero is the default, so this is also the regression guard for every frame that had no TAA
+    ///     before the jitter was wired at all.
+    /// </summary>
+    [Fact]
+    public void WithNoTargetThereIsNoOffsetAtAll() {
+        using var world = new World();
+        var view = new RenderView("Camera");
+        var system = new CameraExtractionSystem(view) { AspectRatio = 16f / 9f };
+
+        var entity = Placed(world, new(0f, 2f, 6f));
+        world.Add(entity, Camera.Perspective);
+        Resolve(world);
+
+        system.Extract(world);
+        system.Extract(world);
+
+        Assert.Equal(Vector2.Zero, system.Jitter);
+        Assert.Equal(Vector2.Zero, view.Camera!.Value.Jitter);
+
+        Assert.Equal(
+            CameraMath.ViewProjection(Camera.Perspective, world.Read<WorldTransform>(entity), 16f / 9f),
+            view.ViewProjection
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Eight offsets that repeat, rather than a sequence that never comes back.</b> A history
+    ///     at <c>feedback: 0.9</c> holds about twenty frames; if every one carried an offset the
+    ///     resolve had never seen, the average would never reach a fixed point and one-pixel geometry
+    ///     would keep wobbling. A cycle converges to an exact answer, which is what a screenshot of a
+    ///     stationary scene should be.
+    /// </summary>
+    [Fact]
+    public void TheOffsetsRepeatSoAStillCameraCanConverge() {
+        using var world = new World();
+        var view = new RenderView("Camera");
+
+        var system = new CameraExtractionSystem(view) {
+            AspectRatio = 1f,
+            JitterTarget = new(64, 64)
+        };
+
+        world.Add(Placed(world, Vector3.Zero), Camera.Perspective);
+        Resolve(world);
+
+        var seen = new List<Vector2>();
+
+        for (var frame = 0; frame < 8; frame++) {
+            system.Extract(world);
+            seen.Add(system.Jitter);
+        }
+
+        // Eight distinct points inside the pixel, and then the same eight again.
+        Assert.Equal(8, seen.Distinct().Count());
+        Assert.All(seen, offset => Assert.InRange(offset.X, -0.5f, 0.5f));
+        Assert.All(seen, offset => Assert.InRange(offset.Y, -0.5f, 0.5f));
+
+        for (var frame = 0; frame < 8; frame++) {
+            system.Extract(world);
+            Assert.Equal(seen[frame], system.Jitter);
+        }
+    }
+
+    /// <summary>A world position through a matrix, divided through — where it lands in NDC.</summary>
+    static Vector3 Project(in Matrix4x4 matrix, Vector3 point) {
+        var clip = Matrix4x4.TransformVector4(new(point.X, point.Y, point.Z, 1f), matrix);
+
+        return new(clip.X / clip.W, clip.Y / clip.W, clip.Z / clip.W);
+    }
+
     static Entity Placed(World world, Vector3 position) =>
         Hierarchy.CreateTransform(world, LocalTransform.At(position));
 

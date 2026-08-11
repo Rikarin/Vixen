@@ -189,6 +189,70 @@ public sealed class AppConfig {
     /// </remarks>
     public TimeSpan? FixedStep { get; set; }
 
+    /// <summary>
+    ///     How long each frame is told it took, or <see langword="null" /> to ask the clock.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A different thing from <see cref="FixedStep" /> above, and the names are close
+    ///         enough to be worth the sentence.</b> <see cref="FixedStep" /> is how much simulated
+    ///         time one <c>FixedUpdate</c> covers; how many of those a frame owes is still decided by
+    ///         how much real time passed. This decides <em>that</em>: every frame is handed the same
+    ///         delta, and the wall clock stops reaching the simulation at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it buys is that frame <em>N</em> is a fixed instant.</b> Two headless runs of
+    ///         one build at the same <c>--vixen-frames</c> otherwise land the camera a centimetre
+    ///         apart, and every convergence in the frame — temporal antialiasing, exposure adaptation,
+    ///         the screen probes' history — is a different number of settled frames in each. Set from
+    ///         <c>--vixen-fixed-step</c>, and defaulted to a sixtieth of a second whenever
+    ///         <see cref="GraphicsOptions.CapturePath" /> is set, because a picture exists to be
+    ///         compared with another picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Pacing is untouched.</b> <see cref="FrameRateLimit" /> still sleeps against a real
+    ///         clock, and a frame that genuinely took 40 ms still took 40 ms — this changes what the
+    ///         frame is <em>told</em>, not how fast it runs. A profiler reading wall time is unaffected;
+    ///         a benchmark reading <c>GameTime</c> is, deliberately, and should not set this.
+    ///     </para>
+    /// </remarks>
+    public TimeSpan? FixedFrameTime { get; set; }
+
+    /// <summary>A sixtieth of a second: what a capture run is given when nobody else decided.</summary>
+    public static readonly TimeSpan DefaultCaptureFrameTime = TimeSpan.FromSeconds(1d / 60d);
+
+    /// <summary>Whether the command line said anything about <see cref="FixedFrameTime" />.</summary>
+    bool fixedFrameTimeAsked;
+
+    /// <summary>
+    ///     Gives a capture run a fixed clock, unless the command line or the game already decided.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Called after <see cref="Game.OnConfigure" />, because a game may be what set
+    ///         <see cref="GraphicsOptions.CapturePath" />.</b> A screenshot-tool head asks for a
+    ///         capture directory in code and never sees the flag, and it wants the same reproducible
+    ///         clock the flag implies. Same order, and the same reason, as
+    ///         <see cref="StartupScene" />'s default.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The implication was measured, not assumed.</b> Two headless runs of one build at
+    ///         <c>--vixen-frames 511</c> put sample 13's camera at 44.980286 and 44.989930 — about
+    ///         four pixels apart — which flipped 258 000 pixels, <em>more</em> than two consecutive
+    ///         frames of a single run flip. Every per-pixel diff taken that way was noise, so the
+    ///         useful default is the one nobody has to remember to type.
+    ///     </para>
+    /// </remarks>
+    internal void ImplyCaptureFrameTime() {
+        if (fixedFrameTimeAsked || FixedFrameTime is not null) {
+            return;
+        }
+
+        if (Graphics.CapturePath is { Length: > 0 }) {
+            FixedFrameTime = DefaultCaptureFrameTime;
+        }
+    }
+
     /// <summary>Which SDL video driver to insist on, or <see langword="null" /> to let it choose.</summary>
     public string? VideoDriver { get; set; }
 
@@ -249,6 +313,15 @@ public sealed class AppConfig {
         // flag must not undo it.
         if (arguments.CapturePath is { Length: > 0 } capture) {
             Graphics.CapturePath = capture;
+        }
+
+        // ⚠ Zero is a value and not an absence: it is how a run says "not this time" to a fixed step
+        // a game asked for in OnConfigure, and to the one a capture implies. See
+        // `ImplyCaptureFrameTime`, which is what turns the implication into a value and is called
+        // after OnConfigure for the reason `StartupScene`'s default is.
+        if (arguments.FixedFrameTime is { } frameTime) {
+            FixedFrameTime = frameTime > TimeSpan.Zero ? frameTime : null;
+            fixedFrameTimeAsked = true;
         }
 
         if (arguments.WorkerCount is { } workers) {

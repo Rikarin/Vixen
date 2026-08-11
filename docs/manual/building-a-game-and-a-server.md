@@ -166,6 +166,7 @@ Every host argument starts `--vixen-`; anything else is left for the game. `--vi
 |---|---|
 | `--vixen-variant <name>` | Overrides the compiled-in variant |
 | `--vixen-frames <n>` | Runs *n* frames and exits — what makes any head CI-runnable |
+| `--vixen-fixed-step <s>` | Tells every frame it took *s* seconds, whatever the clock says, so frame *n* is a fixed instant. Implied by `--vixen-capture`; `0` puts the wall clock back |
 | `--vixen-headless` | No display server, whatever the variant says |
 | `--vixen-workers <n>` | Job-system workers. `0` is supported and tested |
 | `--vixen-frame-limit <n>` | Frames per second, `0` for uncapped |

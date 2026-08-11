@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Foliage;
@@ -73,7 +72,6 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     readonly Dictionary<FoliageVolume, FoliageStand?> stands = [];
     readonly List<(FoliageStand Stand, FoliageSceneEntry Entry)> foliageDrawn = [];
     readonly HashSet<TerrainMap> placed = [];
-    readonly Stopwatch clock = Stopwatch.StartNew();
     readonly TerrainFrameLighting lighting = new();
 
     TerrainShaders terrainShaders;
@@ -388,7 +386,10 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             return;
         }
 
-        var time = (float)clock.Elapsed.TotalSeconds;
+        // ⚠ The frame's clock, handed over by the extraction system, and never a stopwatch of this
+        // node's own — see `TerrainSceneSource.Time` for what that cost. A source nobody extracted
+        // reports a negative time, which is a still field rather than a wind at process age.
+        var time = Math.Max(scene.Time, 0f);
 
         // The clock the grass velocity shader re-evaluates the wind at. This frame's value on the
         // very first frame, which is a sway delta of zero — the honest answer for a field nobody

@@ -522,6 +522,8 @@ Vixen.Rendering.Terrain.TerrainSceneSource.TerrainSceneSource() -> void
 Vixen.Rendering.Terrain.TerrainSceneSource.Terrains.get -> System.Collections.Generic.List<Vixen.Rendering.Terrain.TerrainSceneEntry>
 Vixen.Rendering.Terrain.TerrainSceneSource.Textures.get -> Vixen.Rendering.Terrain.ITerrainTextures?
 Vixen.Rendering.Terrain.TerrainSceneSource.Textures.set -> Vixen.Rendering.Terrain.ITerrainTextures?
+Vixen.Rendering.Terrain.TerrainSceneSource.Time.get -> float
+Vixen.Rendering.Terrain.TerrainSceneSource.Time.set -> float
 Vixen.Rendering.Terrain.TerrainShaders -> readonly struct
 Vixen.Rendering.Terrain.TerrainShaders : System.IEquatable<Vixen.Rendering.Terrain.TerrainShaders>
 Vixen.Rendering.Terrain.TerrainShaders.Fragment.get -> Vixen.Graphics.ShaderHandle

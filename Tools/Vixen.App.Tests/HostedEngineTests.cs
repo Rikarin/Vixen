@@ -141,6 +141,72 @@ public sealed class HostedEngineTests : IDisposable {
         Assert.Equal(TimeSpan.FromSeconds(0.1), application.Services.Engine!.FixedStep.Step);
     }
 
+    /// <summary>
+    ///     ⚠ <b>What makes two headless runs comparable at all.</b> The delta was the wall clock, so
+    ///     frame 511 of one run was a different instant of simulated time from frame 511 of the next
+    ///     — measured at 44.980286 against 44.989930 metres of camera travel in sample 13, about four
+    ///     pixels, which saturates any per-pixel diff taken across the pair.
+    /// </summary>
+    [Fact]
+    public void AFixedFrameTimeMakesFrameNTheSameInstantOnEveryRun() {
+        var step = TimeSpan.FromSeconds(0.02);
+
+        Assert.Equal(step * 12, RunTwelve(step));
+        Assert.Equal(RunTwelve(step), RunTwelve(step));
+
+        TimeSpan RunTwelve(TimeSpan fixedFrameTime) {
+            using var application = Build(new FixedClockGame(fixedFrameTime));
+
+            application.Initialise();
+
+            for (var frame = 0; frame < 12; frame++) {
+                application.RunFrame();
+            }
+
+            return application.Time.Total;
+        }
+    }
+
+    /// <summary>
+    ///     The sabotage half: with no fixed frame time the same twelve frames land on a different
+    ///     instant every run, which is the behaviour the flag exists to switch off. Asserted as "not
+    ///     a whole number of anything" rather than as "different from the other run", because two
+    ///     wall-clock runs being equal to the tick is not impossible, only vanishingly unlikely.
+    /// </summary>
+    [Fact]
+    public void WithoutOneTheClockIsStillTheWallClock() {
+        using var application = Build(new SilentGame());
+
+        application.Initialise();
+
+        for (var frame = 0; frame < 12; frame++) {
+            application.RunFrame();
+        }
+
+        Assert.NotEqual(TimeSpan.Zero, application.Time.Total);
+        Assert.NotEqual(TimeSpan.FromSeconds(0.02) * 12, application.Time.Total);
+    }
+
+    /// <summary>
+    ///     Pacing is a real clock's business and stays one: this changes what a frame is <em>told</em>
+    ///     it took, not how long it took.
+    /// </summary>
+    [Fact]
+    public void AFixedFrameTimeIsTheDeltaTheEngineSees() {
+        using var application = Build(new FixedClockGame(TimeSpan.FromSeconds(0.25)));
+        var engine = application.Services.Engine!;
+
+        application.Initialise();
+        application.RunFrame();
+
+        Assert.Equal(TimeSpan.FromSeconds(0.25), engine.Time.Elapsed);
+
+        // Fifteen sixtieths of a second owed by one frame, capped by the accumulator's own
+        // maximum — the point being that the *simulation* saw a quarter of a second, not a
+        // clamped wall-clock delta that happened to be near one.
+        Assert.True(engine.LastFixedSteps > 1);
+    }
+
     VixenApplication Build(Game game) =>
         VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0"])
             .WithPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files }))
@@ -161,6 +227,13 @@ public sealed class HostedEngineTests : IDisposable {
         protected internal override void OnConfigure(AppConfig config) {
             base.OnConfigure(config);
             config.UseEngine = false;
+        }
+    }
+
+    sealed class FixedClockGame(TimeSpan step) : SilentGame {
+        protected internal override void OnConfigure(AppConfig config) {
+            base.OnConfigure(config);
+            config.FixedFrameTime = step;
         }
     }
 

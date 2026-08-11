@@ -147,6 +147,10 @@ public sealed class AppBuilder {
         // Before the platform exists, because it decides what the platform will be.
         game.OnConfigure(config);
 
+        // After it, because a game asking for a capture directory in code wants the reproducible
+        // clock the flag implies just as much as the operator who typed the flag does.
+        config.ImplyCaptureFrameTime();
+
         // One filter, shared by every sink: doc 13 asks for per-category levels that are
         // live-editable, and a host whose console and file disagreed about what "verbose asset
         // loading" means would make that setting untrustworthy.
