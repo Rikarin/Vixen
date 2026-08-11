@@ -57,11 +57,43 @@ import Vixen.Shaders.Shading
 // a reflectance baked into the producer would be applied twice there, at the wrong index. One
 // plane, one meaning (radiance and validity), and each consumer weighs it by the BRDF it has.
 //
-// ⚠ **`f0` is dielectric and fixed, because the split has no metalness plane.** The normals target
-// carries a normal and a roughness and that is all, so a metal reflects here as though it were
-// paint — too dim, and dimmer the more metallic it is. The honest fix is the one `SplitOutputs`
-// already names below: a specular-ambient term of its own for the reflection to replace, which
-// would carry the material's real `f0`. Until then this is a floor, not an estimate.
+// ⚠ **`f0` is dielectric and fixed, because the split has no plane that carries it.** The normals
+// target carries a normal and a roughness and that is all, so a metal's traced reflection is
+// weighted here as though it were paint — too dim, and dimmer the more metallic it is. Until a
+// plane carries `f0` this is a floor, not an estimate.
+//
+// **What that plane would have to be, audited rather than assumed.** The obvious reading is "one
+// metalness channel", and it is wrong twice over:
+//
+//   - **`MaterialData` has no metalness and cannot be asked for one.** It keeps `diffuseColor` and
+//     `f0`, which is what a BRDF wants, and the pair is *underdetermined*: `diffuse = base(1 - m)`
+//     and `f0 = lerp(0.04, base, m)` are two equations in three unknowns. `GBuffer.Metalness`
+//     claims to invert them and is exact only at the ends — a base of 0.8 at `m = 0.5` gives
+//     `(0.42 - 0.04) / (0.40 - 0.04) = 1.06`, saturating to 1, a half-metal encoded as a mirror.
+//     And a metalness channel does not help even where it is right, because the albedo plane holds
+//     `base(1 - m)`, which is *black* at `m = 1`: there is no base colour left to rebuild `f0` from.
+//   - So the plane has to carry **`f0` itself, three channels**. That is what settles the choice
+//     between a fourth target and repacking `SceneNormals` octahedrally: octahedral folds `xyz`
+//     into `xy` and frees **one** channel, not the three this needs. It also cannot be done at all
+//     without a new validity signal, because `Math.EncodeOctahedral(0, 0, 1)` is `(0, 0)` — exactly
+//     the cleared sky — and the length test twelve lines below `Fragment` is the only sky test this
+//     pass has.
+//
+// ⚠ **And the fourth plane cannot land alone.** With a real `f0` the lerp below removes
+// `reflectance ×` the whole combined colour, and on a metal `reflectance` is around 0.55 rather
+// than 0.04 — so it would take away half of the surface's *direct* sunlight to make room for the
+// traced answer. Correcting `f0` therefore forces the other half of the same change: the pass must
+// stop writing `AmbientSpecular` into target 0 and this must **add** `mirror × reflectance` rather
+// than lerp toward it. That is one plane, one uniform on `ClusteredShading`, and a look decision
+// for every surface in the frame rather than for metals alone — a rough dielectric's specular
+// ambient would move from a prefiltered cube to whatever `ReflectionTrace` answers above its
+// `roughnessThreshold`, which is the irradiance field.
+//
+// The size of what is being bought, measured on sample 13's ramp — the level's one metal — at 512
+// frames: zeroing `AmbientSpecular` moves that surface by (7.9, 8.3, 5.1) of (99.2, 81.0, 71.3),
+// and zeroing this pass's reflection blend moves it by (0.9, 2.6, 2.9). So the whole correction
+// redirects about a twelfth of the metal's pixel between two estimates of the same dusk sky. Too
+// dim remains the safe direction to be wrong in.
 
 shader AmbientCombine {
     /// The split pass's first target: direct light, emissive and specular ambient; alpha carried.
@@ -229,10 +261,11 @@ shader AmbientCombine {
     ///
     /// ⚠ **`f0` is 0.04 and every surface here is a dielectric, because nothing in the split says
     /// otherwise.** The albedo plane's alpha is occlusion and the normals plane's is roughness;
-    /// there is no metalness anywhere in the three targets, and a metal's `f0` is its base colour.
-    /// So a chrome pillar reflects at four per cent here instead of ninety — visibly too dim, and
-    /// the direction to be wrong in: a mirror that is too weak is a surface, and one that is too
-    /// strong is the bug this replaced.
+    /// there is no `f0` anywhere in the three targets, and a metal's `f0` is its base colour. So a
+    /// chrome pillar reflects at four per cent here instead of ninety — visibly too dim, and the
+    /// direction to be wrong in: a mirror that is too weak is a surface, and one that is too strong
+    /// is the bug this replaced. The head of this file audits what a fourth plane would cost and why
+    /// it cannot be one channel, and why it cannot land without add-not-lerp beside it.
     ///
     /// The view direction comes from the frame's own unprojection rather than from a camera
     /// position, and needs no depth to do it: a pixel's view ray is a line in world space, so

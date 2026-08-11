@@ -77,6 +77,12 @@ shader ForwardPlus : ClusteredShading {
     /// plane carries the directional lobe it needs; a reflections composite replacing it is a
     /// later refinement. See `ClusteredShading.AmbientSpecular`.
     ///
+    /// ⚠ **That refinement is one change with the missing `f0` plane, not an alternative to it** —
+    /// `AmbientCombine.rvn`'s head has the audit. Dropping this term is what lets the combine *add*
+    /// the traced reflection instead of lerping toward it, and lerping is only harmless while the
+    /// weight is a dielectric's four per cent; at a metal's fifty-five it would take half the
+    /// surface's direct sunlight with it. Neither half is safe on its own.
+    ///
     /// A permutation rather than a branch because the two variants have different *interfaces*:
     /// off, the two extra members are never stored, and a target nothing writes is not an output —
     /// so the pipeline this compiles to still matches every one-attachment pass that exists.

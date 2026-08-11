@@ -47,7 +47,12 @@ def emit(name, colour, height, rough, metal=False, alpha=None, strength=2.0, nor
     if normal:
         files.append((f"{name}-normal.png", rgba(normal_map(height, strength))))
 
-    # Roughness in R, metalness in B — the ORM convention, green left for occlusion.
+    # Occlusion in R, roughness in G, metalness in B — the ORM convention, in that order, which is
+    # what `TexturedOrmSurface.Compute` reads and what Content/README.md states. This line used to
+    # say "roughness in R … green left for occlusion", describing neither the stack below it nor any
+    # reader: the first channel is a flat 1 because these materials carry no baked occlusion, and a
+    # comment that names it roughness makes the ramp's authored 0.34 look like the one being
+    # overridden when it is the green that overrides it.
     orm = np.stack([np.ones_like(rough), rough, np.full_like(rough, 1.0 if metal else 0.0)], axis=-1)
     files.append((f"{name}-orm.png", rgba(orm)))
 
