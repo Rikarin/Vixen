@@ -232,8 +232,14 @@ public sealed record FogAsset : ISceneRendererAsset {
     /// <summary>Whether the fog brightens towards the sun.</summary>
     public bool SunScattering { get; init; } = true;
 
-    /// <summary>What colour it is.</summary>
-    public Vector3 Colour { get; init; } = new(0.5f, 0.6f, 0.7f);
+    /// <summary>What it looks like away from the sun, <b>as a radiance in cd/m²</b>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A radiance and not a tint, and a fallback rather than a setting.</b> The pass lerps a
+    ///     scene lit in cd/m² toward this, so a unit-scale colour here is a lerp toward black — see
+    ///     <c>FogRenderer.Colour</c> for what that cost twice already. A frame with a sky in it takes
+    ///     the sky's mean radiance instead and never reads this.
+    /// </remarks>
+    public Vector3 Colour { get; init; } = new(1400f, 1680f, 2200f);
 
     /// <summary>How thick it is.</summary>
     public float Density { get; init; } = 0.02f;
@@ -263,8 +269,17 @@ public sealed record FogAsset : ISceneRendererAsset {
     /// </remarks>
     public Vector3 SunDirection { get; init; } = new(0f, -1f, 0f);
 
-    /// <summary>The colour the forward-scattering peak goes toward.</summary>
-    public Vector3 SunColour { get; init; } = new(1f, 0.9f, 0.7f);
+    /// <summary>
+    ///     What it looks like straight down-sun, <b>as a radiance in cd/m²</b> — <see cref="Colour" />
+    ///     plus the sun's illuminance in lux.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A sum, not a colour.</b> That is what turns the shader's blend into
+    ///     <c>colour + p(θ)·E</c>, the source function of a lit medium; see <c>FogRenderer.SunColour</c>.
+    ///     A frame with a directional light in it takes that light's illuminance instead and never
+    ///     reads this.
+    /// </remarks>
+    public Vector3 SunColour { get; init; } = new(91400f, 82680f, 65200f);
 
     /// <summary>Henyey–Greenstein anisotropy. Air is forward-scattering, around 0.7.</summary>
     public float SunAnisotropy { get; init; } = 0.7f;

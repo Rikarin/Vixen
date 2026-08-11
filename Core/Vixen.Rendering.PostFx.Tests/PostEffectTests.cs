@@ -1440,6 +1440,9 @@ public class PostEffectTests : IDisposable {
     [Fact]
     public void A_document_names_the_suns_direction_for_the_fog() {
         using var system = new RenderSystem();
+        using var scene = new SceneConstants(device);
+
+        var star = new Star(null);
 
         using var node = (FogRenderer)new PostEffectFactory().Create(
             new FogAsset {
@@ -1451,8 +1454,14 @@ public class PostEffectTests : IDisposable {
                 SunColour = new(0.9f, 0.8f, 0.6f),
                 SunAnisotropy = 0.42f
             },
-            new(system)
+            new(system) { Sun = star, SceneConstants = scene }
         )!;
+
+        // ⚠ The two the document cannot carry, and the reason a `!Fog` node needs no colours at all.
+        // Both of this pass's targets are radiances in the frame's own units, so a node left to its
+        // authored numbers is the pass this task existed to find. See `FogRenderer.Scattering`.
+        Assert.Same(star, node.Sun);
+        Assert.Same(scene, node.Frame);
 
         Assert.Equal(3f, node.Height);
         Assert.Equal(0.11f, node.HeightFalloffRate);
@@ -1469,6 +1478,151 @@ public class PostEffectTests : IDisposable {
         Assert.Equal(FogKeys.SunDirection.DefaultValue, bare.SunDirection);
         Assert.Equal(FogKeys.SunColor.DefaultValue, bare.SunColour);
         Assert.Equal(FogKeys.SunAnisotropy.DefaultValue, bare.SunAnisotropy);
+    }
+
+    /// <summary>
+    ///     The analytic fog's two colours come from the frame's own sky and sun, in the frame's units.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both are radiances in cd/m², and both shipped as tints.</b> <c>Fog.rvn</c> ends in
+    ///         <c>lerp(colour, tint, amount)</c> against a scene lit in cd/m², so its targets are what
+    ///         a pixel <em>becomes</em> — and <c>(0.5, 0.6, 0.7)</c> against a sun of ninety thousand
+    ///         lux is not a pale veil but a lerp toward black. It is the third pass to ship this
+    ///         mistake, after <c>!Water</c> and <c>!VolumetricFog</c>, and the third to be
+    ///         indistinguishable from one that never ran: zeroing this node's contribution on sample
+    ///         13 at 512 frames moved the picture by 0.023/255 mean channel against a 0.023/255
+    ///         run-to-run floor. Deriving the two from the scene moved it by 20.2/255.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sky term is the environment's mean radiance and not its <c>L00</c></b>, which
+    ///         is 4π·Y₀ = 3.54× larger; and the sun term is an <em>illuminance</em> added to that sky,
+    ///         because <c>lerp(fog, fog + E, p)</c> is <c>fog + p·E</c> — the source function. Getting
+    ///         either of those wrong leaves a number nobody has a second source for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_frames_own_sky_and_sun_are_what_the_fog_scatters() {
+        using var node = new FogRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Fogged" };
+        using var h = Build(node);
+        using var scene = new SceneConstants(device);
+
+        var star = new RenderLight {
+            Kind = LightKind.Directional,
+            Direction = Vector3.Normalize(new(-0.35f, -0.65f, -0.4f)),
+            Colour = new(1f, 0.9f, 0.7f),
+            Intensity = 90_000f,
+            Unit = LightUnit.Lux
+        };
+
+        scene.Lighting = new() {
+            Environment = new() { Irradiance = new() { L00 = new(6698f, 6254f, 5249f) }, Intensity = 2f }
+        };
+
+        node.Sun = new Star(star);
+        node.Frame = scene;
+
+        Frame(h);
+
+        var sky = new Vector3(6698f, 6254f, 5249f) * (0.282095f * 2f);
+        var tint = node.Pass.Parameters.Get(FogKeys.FogColor);
+        var peak = node.Pass.Parameters.Get(FogKeys.SunColor);
+
+        Assert.Equal(star.Direction, node.Pass.Parameters.Get(FogKeys.SunDirection));
+        Assert.Equal(sky, tint);
+        Assert.Equal(sky + star.Radiance, peak);
+
+        // ⚠ The coefficient itself would pass an equality written against the code, so the ratio is
+        // asserted against the physics instead: an SH projection of a uniform environment of radiance
+        // L stores L·Y₀·4π, and handing that over is three and a half times too much sky.
+        Assert.True(
+            tint.X < 6698f * 2f * 0.9f,
+            $"The sky reached the fog as {tint}, which is its L00 rather than its mean radiance."
+        );
+
+        // Stated as a magnitude as well as an equality, because `Radiance` could itself regress to a
+        // tint and every other assertion in this file would still pass.
+        Assert.True(
+            peak.X > 1000f && tint.X > 100f,
+            $"The fog's targets reached the shader as {tint} and {peak}, which are tints and not "
+            + "radiances. A frame lit in cd/m² is lerped toward these, so unit-scale values are not "
+            + "a subtle fog — they are a fade to black."
+        );
+    }
+
+    /// <summary>
+    ///     A frame with neither a sun nor a sky leaves the authored pair exactly alone.
+    /// </summary>
+    /// <remarks>
+    ///     Availability rather than preference, on <c>VolumetricFogRenderer.Sunlight</c>'s rule: a
+    ///     frame between scenes has no directional light and no environment for a frame or two, and
+    ///     fog that went black for them would flash. ⚠ The fallback goes through the same identity
+    ///     the derivation does — the peak is <c>Colour + (SunColour − Colour)</c> — so a document that
+    ///     authors both gets both back unchanged rather than approximately.
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Without_a_sun_or_a_sky_the_authored_pair_is_what_the_fog_gets(bool sourced) {
+        using var node = new FogRenderer {
+            Source = "SceneColour",
+            Depth = "SceneDepth",
+            Output = "Fogged",
+            Colour = new(1200f, 1100f, 1500f),
+            SunDirection = Vector3.Normalize(new(1f, -2f, 0.5f)),
+            SunColour = new(21_000f, 13_000f, 4_000f)
+        };
+
+        using var h = Build(node);
+
+        if (sourced) {
+            node.Sun = new Star(null);
+            node.Frame = new SceneConstants(device);
+        }
+
+        Frame(h);
+
+        node.Frame?.Dispose();
+
+        Assert.Equal(node.SunDirection, node.Pass.Parameters.Get(FogKeys.SunDirection));
+        Assert.Equal(node.Colour, node.Pass.Parameters.Get(FogKeys.FogColor));
+        Assert.Equal(node.SunColour, node.Pass.Parameters.Get(FogKeys.SunColor));
+    }
+
+    /// <summary>
+    ///     The fog's two authored defaults are photometric quantities and not colours.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A test about a default, deliberately.</b> Every other assertion about this pass passes
+    ///     for a fog whose targets are fifteen stops down — the falloff is right, the height term is
+    ///     right, the binding is right, and the frame has no atmosphere in it. A default inside
+    ///     <c>[0, 1]</c> is what a colour picker produces and is the shape all three of these bugs
+    ///     had, so the value itself is the thing worth pinning.
+    /// </remarks>
+    [Fact]
+    public void The_fogs_two_defaults_are_radiances_and_not_tints() {
+        using var node = new FogRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Fogged" };
+
+        foreach (var (name, value) in new (string, Vector3)[] {
+                     ("FogRenderer.Colour", node.Colour),
+                     ("FogRenderer.SunColour", node.SunColour),
+                     ("FogAsset.Colour", new FogAsset().Colour),
+                     ("FogAsset.SunColour", new FogAsset().SunColour),
+                     ("Fog.rvn fogColor", FogKeys.FogColor.DefaultValue),
+                     ("Fog.rvn sunColor", FogKeys.SunColor.DefaultValue)
+                 }) {
+            Assert.True(
+                Math.Max(value.X, Math.Max(value.Y, value.Z)) > 1f,
+                $"{name} defaults to {value}, which is a tint. It is a target the scene's own "
+                + "radiance is lerped toward, so a value inside [0, 1] is a fog that fades a frame "
+                + "lit in cd/m² to black rather than hazing it."
+            );
+        }
+    }
+
+    /// <summary>A stand-in for the frame's directional light, or for a frame that has none.</summary>
+    sealed class Star(RenderLight? sun) : ISunSource {
+        public RenderLight? Sun { get; } = sun;
     }
 
     /// <summary>

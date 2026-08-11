@@ -43,7 +43,21 @@ shader Fog {
     var inverseViewProjection: mat4
     var cameraPosition: float3
 
-    var fogColor: float3 = float3(0.5f, 0.6f, 0.7f)
+    /// What the fog looks like away from the sun, **as a radiance in cd/m²**.
+    ///
+    /// ⚠ **A lerp target, therefore a radiance and not a tint.** `Fragment` ends in
+    /// `lerp(color, tint, amount)` against a scene colour in cd/m², so whatever this is stands in for
+    /// the surface once the fog is thick — and a unit-scale `(0.5, 0.6, 0.7)` in a frame lit at ninety
+    /// thousand lux is not a pale grey veil, it is a lerp toward black. Distance did not haze, it
+    /// faded out. The physical quantity is the medium's source function away from the forward peak,
+    /// which for light arriving evenly from the whole sky is the sky's **mean radiance** — the
+    /// environment's `L00 × Y₀ × Intensity`, and not `L00`, which is 4π·Y₀ = 3.54× too much sky.
+    ///
+    /// `FogRenderer.Colour` documents where a host gets one; the default here is a clear daylight sky
+    /// and matches `VolumetricFog.ambientColour`, which is the same quantity for the marched half of
+    /// the same medium.
+    var fogColor: float3 = float3(1400f, 1680f, 2200f)
+
     var density: float = 0.02f
 
     /// Linear mode only.
@@ -61,7 +75,25 @@ shader Fog {
     var heightFalloffRate: float = 0.05f
 
     var sunDirection: float3 = float3(0f, -1f, 0f)
-    var sunColor: float3 = float3(1f, 0.9f, 0.7f)
+
+    /// What the fog looks like straight down-sun, **as a radiance in cd/m²** — and it is a *sum*.
+    ///
+    /// ⚠ **`fogColor` plus the sun's illuminance, not the sun's colour.** The blend below is
+    /// `lerp(fogColor, sunColor, p)` where `p` is the phase function in sr⁻¹, so writing
+    /// `sunColor = fogColor + E` makes the whole expression collapse to
+    ///
+    ///     tint = fogColor + p(θ)·E
+    ///
+    /// which is exactly the single-scattering source function of a medium lit by a sky of radiance
+    /// `fogColor` and a directional light of illuminance `E` lux. That identity is the reason this is
+    /// a sum and not a colour: `p` carries the per-steradian, `E` is what `RenderLight.Radiance`
+    /// holds for a directional light, and the product is a radiance the frame can be composited with.
+    /// A tint of `(1, 0.9, 0.7)` here was five decades under a sun of ninety thousand.
+    ///
+    /// The default is this file's `fogColor` plus `VolumetricFog.sunColour`'s clear-midday default,
+    /// so the two fog nodes in one document describe one sun.
+    var sunColor: float3 = float3(91400f, 82680f, 65200f)
+
     var sunAnisotropy: float = 0.7f
 
     /// The volume's own near and far, in view depth, and how many slices it cut between them.
@@ -116,6 +148,11 @@ shader Fog {
         if (SunScattering) {
             // Henyey-Greenstein forward scattering: fog looks brighter looking toward the light. The
             // one term that distinguishes fog from a grey veil.
+            //
+            // ⚠ The weight is the phase function itself, in sr⁻¹, which is what makes the two colours
+            // add rather than merely blend — see `sunColor`. `lerp(fogColor, fogColor + E, p)` is
+            // `fogColor + p·E`, the source function, and that identity is the only reason a lerp is
+            // the right operator here.
             val cosine = dot(Math.SafeNormalize(toPixel), Math.SafeNormalize(-sunDirection))
             tint = lerp(fogColor, sunColor, HenyeyGreenstein(cosine, sunAnisotropy))
         }
@@ -193,7 +230,14 @@ shader Fog {
         return exp(-max(height - fogHeight, 0f) * heightFalloffRate)
     }
 
-    /// The Henyey-Greenstein phase function, normalised to 0..1 for use as a blend weight.
+    /// The Henyey-Greenstein phase function, in sr⁻¹, clamped at 1.
+    ///
+    /// ⚠ **The clamp is a highlight roll-off, not a normalisation.** The function's own peak at
+    /// `g = 0.7` is 1.5 sr⁻¹, reached inside about eleven degrees of the sun; past 1 the blend stops
+    /// tracking `fogColor + p·E` and holds at `fogColor + E`. That costs a third of the brightness in
+    /// a narrow cone around the sun and buys a bound: `p(0)` runs to 62 sr⁻¹ at `g = 0.95`, and an
+    /// unclamped multiply against an illuminance in the tens of thousands is a fireball wherever the
+    /// sun happens to be behind the geometry.
     func HenyeyGreenstein(cosine: float, g: float): float {
         val g2 = g * g
         val denominator = 1f + g2 - 2f * g * cosine
