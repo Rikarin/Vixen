@@ -4,7 +4,7 @@ slug: rendering/diagnostic-overlays
 kind: guide
 area: Rendering
 summary: One flag puts the frame-stats panel, the console, the log tail and every subsystem's debug lines on the screen of a running game.
-api: [T:Vixen.Engine.Renderer.DebugOverlayRenderer, T:Vixen.Engine.Diagnostics.DebugDraw, T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays, T:Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay, T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommands, T:Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay, T:Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay, T:Vixen.App.GraphicsOptions, T:Vixen.Rendering.LineShaders]
+api: [T:Vixen.Engine.Renderer.DebugOverlayRenderer, T:Vixen.Engine.Diagnostics.DebugDraw, T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays, T:Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay, T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommands, T:Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay, T:Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay, T:Vixen.App.GraphicsOptions, T:Vixen.Rendering.LineShaders, L:13027]
 tags: [diagnostics, overlay, console, debug-draw, profiling]
 since: 0.2
 status: stable

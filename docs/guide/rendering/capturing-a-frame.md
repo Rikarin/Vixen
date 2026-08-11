@@ -4,7 +4,7 @@ slug: rendering/capturing-a-frame
 kind: guide
 area: Rendering
 summary: A headless run renders on the real GPU with no window and writes its last frame as a PNG, so a sample's picture is a file two people can produce at once rather than a screenshot of whoever's display was in front.
-api: [T:Vixen.Core.Imaging.Bitmap, T:Vixen.Core.Imaging.PngCodec, L:13011, L:13026, L:13027]
+api: [T:Vixen.Core.Imaging.Bitmap, T:Vixen.Core.Imaging.PngCodec, L:13011, L:13026, L:13028, L:13029]
 tags: [rendering, headless, capture, screenshot, diagnostics, testing]
 since: 0.1
 status: preview
