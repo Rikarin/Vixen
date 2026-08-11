@@ -404,6 +404,8 @@ Vixen.Rendering.PostFx.FogRenderer.Density.set -> float
 Vixen.Rendering.PostFx.FogRenderer.End.get -> float
 Vixen.Rendering.PostFx.FogRenderer.End.set -> float
 Vixen.Rendering.PostFx.FogRenderer.FogRenderer() -> void
+Vixen.Rendering.PostFx.FogRenderer.Frame.get -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.PostFx.FogRenderer.Frame.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.PostFx.FogRenderer.Height.get -> float
 Vixen.Rendering.PostFx.FogRenderer.Height.set -> float
 Vixen.Rendering.PostFx.FogRenderer.HeightFalloff.get -> bool
@@ -416,6 +418,8 @@ Vixen.Rendering.PostFx.FogRenderer.Mode.get -> int
 Vixen.Rendering.PostFx.FogRenderer.Mode.set -> int
 Vixen.Rendering.PostFx.FogRenderer.Start.get -> float
 Vixen.Rendering.PostFx.FogRenderer.Start.set -> float
+Vixen.Rendering.PostFx.FogRenderer.Sun.get -> Vixen.Rendering.ISunSource?
+Vixen.Rendering.PostFx.FogRenderer.Sun.set -> Vixen.Rendering.ISunSource?
 Vixen.Rendering.PostFx.FogRenderer.SunAnisotropy.get -> float
 Vixen.Rendering.PostFx.FogRenderer.SunAnisotropy.set -> float
 Vixen.Rendering.PostFx.FogRenderer.SunColour.get -> Vixen.Core.Mathematics.Vector3

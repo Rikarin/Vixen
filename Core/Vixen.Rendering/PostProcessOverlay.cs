@@ -170,7 +170,12 @@ public struct PostProcessOverlay {
     /// <summary>How thick the fog is.</summary>
     public Blended? FogDensity { get; set; }
 
-    /// <summary>What colour it is.</summary>
+    /// <summary>What it looks like away from the sun, <b>as a radiance in cd/m²</b>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a tint</b>, and it is laid over a value the frame derived from its own sky rather
+    ///     than over an authored one. See <c>PostProcessSettings.FogColour</c> and
+    ///     <c>FogRenderer.Colour</c>.
+    /// </remarks>
     public BlendedColour? FogColour { get; set; }
 
     /// <summary>Whether the fog thins with altitude.</summary>

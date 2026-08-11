@@ -177,7 +177,14 @@ public struct PostProcessSettings {
     /// <summary>How thick the fog is.</summary>
     public float? FogDensity;
 
-    /// <summary>What colour it is.</summary>
+    /// <summary>What it looks like away from the sun, <b>as a radiance in cd/m²</b>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a tint.</b> The fog pass lerps a scene lit in cd/m² toward this, and it lerps from
+    ///     the sky's own mean radiance — thousands, in a lit level — so a value from a colour picker
+    ///     is not a subtler fog, it is a volume that fades whatever it reaches to black. Setting this
+    ///     at all replaces a number the frame derived from its own sky; leave it unset unless the
+    ///     volume is meant to be a different atmosphere. See <c>FogRenderer.Colour</c>.
+    /// </remarks>
     public Vector3? FogColour;
 
     /// <summary>Whether the fog thins with altitude, as an atmosphere does.</summary>

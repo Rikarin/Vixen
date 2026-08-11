@@ -1026,9 +1026,17 @@ game: !Sequence
     # ⚠ Before the shutter and before every curve, because fog is light *in the scene*: it is added
     # to what a surface sent, so a blurred lantern and the haze in front of it smear together.
     #
-    # The colour is the horizon's own — the sky above is Preetham at 2.6 turbidity with the sun six
-    # degrees up, so the air near the ground is that orange rather than the blue-grey a default fog
-    # assumes. `sunScattering` is what makes looking west brighter than looking east.
+    # ⚠ **There is no `colour:` here, and that is the fix rather than an omission.** This node used
+    # to author `0.42 0.30 0.20` on the argument that the horizon of a Preetham sky at 2.6 turbidity
+    # with the sun six degrees up is orange rather than blue-grey. The argument was right and the
+    # number was four decades wrong: `colour` is a *radiance in cd/m²*, the thing a pixel is lerped
+    # toward, and this level's sky averages about 1 900 — so a value near one was a lerp toward
+    # black, and what the frame had was not a warm haze but a distance that quietly faded out. The
+    # node now takes the sky's own mean radiance and the sun's own illuminance from the scene, which
+    # is the same correction `!Water` needed here and `!VolumetricFog` needed next door.
+    #
+    # `sunScattering` is what makes looking west brighter than looking east — and it only became
+    # true with the same change, because the direction was defaulting to straight up.
     - !Fog
       name: Air
       source: SceneResolved
@@ -1038,7 +1046,6 @@ game: !Sequence
       mode: 2
       heightFalloff: true
       sunScattering: true
-      colour: 0.42 0.30 0.20
       density: 0.006
 
     # ── what the lens cannot hold in focus ─────────────────────────────────────────────────────

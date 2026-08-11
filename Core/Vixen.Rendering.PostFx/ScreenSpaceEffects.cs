@@ -315,8 +315,28 @@ public sealed class FogRenderer() : PostEffectRenderer(
     /// <summary>Where the camera is, which the distance is measured from.</summary>
     public Vector3 CameraPosition { get; set; }
 
-    /// <summary>The fog's colour.</summary>
-    public Vector3 Colour { get; set; } = new(0.5f, 0.6f, 0.7f);
+    /// <summary>
+    ///     What the fog looks like away from the sun, <b>as a radiance in cd/m²</b>, when
+    ///     <see cref="Frame" /> has no sky in it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A lerp target, therefore a radiance and not a tint.</b> The shader ends in
+    ///         <c>lerp(colour, tint, amount)</c> against a scene in cd/m², so this is what a pixel
+    ///         <em>becomes</em> once the fog is thick. The old default of <c>(0.5, 0.6, 0.7)</c> in a
+    ///         frame lit at ninety thousand lux was not a pale veil, it was a lerp toward black:
+    ///         distance did not haze over, it faded out. <c>WaterRenderer.LightFrom</c> and
+    ///         <c>VolumetricFogRenderer.SunColour</c> are the same mistake in the two passes either
+    ///         side of this one, and this is the third.
+    ///     </para>
+    ///     <para>
+    ///         Prefer <see cref="Frame" />: the physical quantity is the sky's <b>mean radiance</b>,
+    ///         which is a fact of the scene, and a document cannot carry one. The default is a clear
+    ///         daylight sky and is the same number <c>VolumetricFogRenderer.AmbientColour</c> defaults
+    ///         to, that being the same quantity for the marched half of the same medium.
+    ///     </para>
+    /// </remarks>
+    public Vector3 Colour { get; set; } = new(1400f, 1680f, 2200f);
 
     /// <summary>How quickly it accumulates with distance.</summary>
     public float Density { get; set; } = 0.02f;
@@ -339,15 +359,78 @@ public sealed class FogRenderer() : PostEffectRenderer(
     /// </remarks>
     public float HeightFalloffRate { get; set; } = 0.05f;
 
-    /// <summary>Which way the light travels.</summary>
+    /// <summary>Which way the light travels, when no <see cref="Sun" /> answers.</summary>
     /// <remarks>
     ///     ⚠ The scattering peak lands where this points away from. Left at the default the fog
     ///     brightens toward straight up rather than toward whatever lights the scene.
     /// </remarks>
     public Vector3 SunDirection { get; set; } = new(0f, -1f, 0f);
 
-    /// <summary>The colour the peak goes toward.</summary>
-    public Vector3 SunColour { get; set; } = new(1f, 0.9f, 0.7f);
+    /// <summary>
+    ///     What the fog looks like straight down-sun, <b>as a radiance in cd/m²</b>, when
+    ///     <see cref="Sun" /> has no directional light in it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Colour" /> plus the sun's illuminance, and that sum is the whole
+    ///         point.</b> The shader blends <c>lerp(fogColour, sunColour, p)</c> with <c>p</c> the
+    ///         phase function in sr⁻¹, so a sun term written as a sum collapses the blend to
+    ///         <c>fogColour + p·E</c> — the single-scattering source function of a medium under a sky
+    ///         of radiance <see cref="Colour" /> and a directional light of illuminance <c>E</c> lux.
+    ///         The old default of <c>(1, 0.9, 0.7)</c> was a tint five decades under a sun of ninety
+    ///         thousand, which is a forward peak that could only ever darken the pixel it brightened.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The identity holds while <c>p ≤ 1</c>. Past that the shader's clamp holds the peak at
+    ///         <see cref="Colour" /> <c>+ E</c> rather than tracking <c>p</c> to its 1.5 sr⁻¹ maximum
+    ///         — a third of the brightness inside about eleven degrees of the sun, in exchange for a
+    ///         bound at high <see cref="SunAnisotropy" />. See <c>Fog.rvn</c>'s
+    ///         <c>HenyeyGreenstein</c>.
+    ///     </para>
+    ///     <para>
+    ///         Prefer <see cref="Sun" />, on <c>VolumetricFogRenderer.Sun</c>'s argument: the sun that
+    ///         shades the frame, the sun that casts its shadows and the sun this fog scatters have to
+    ///         be one fact, and a document cannot carry one. The default is <see cref="Colour" />'s
+    ///         plus <c>VolumetricFogRenderer.SunColour</c>'s, so a document with both fog nodes in it
+    ///         describes one sun.
+    ///     </para>
+    /// </remarks>
+    public Vector3 SunColour { get; set; } = new(91400f, 82680f, 65200f);
+
+    /// <summary>Where the frame's directional light comes from, or null to use the authored pair.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>VolumetricFogRenderer.Sun</c>'s property, from <c>CompositorBuilder.Sun</c>, which is
+    ///         the source <c>ShadowMapRenderer</c> and <c>VirtualShadowRenderer</c> already fit their
+    ///         cascades along. <c>RenderLight.Direction</c> points the way the light travels and
+    ///         <c>RenderLight.Radiance</c> is, for a directional light, an <b>illuminance in lux</b> —
+    ///         which is what the sum in <see cref="SunColour" /> is built from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Availability rather than preference: a source with no directional light in it leaves
+    ///         the authored pair alone rather than blacking the peak out, because a frame between
+    ///         scenes has no sun for a frame or two and fog that flashed would be worse than fog that
+    ///         lagged.
+    ///     </para>
+    /// </remarks>
+    public ISunSource? Sun { get; set; }
+
+    /// <summary>The frame's own lighting, which is where the sky's mean radiance comes from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Read per frame rather than snapshotted, and it has to be: <c>SceneLighting.Environment</c>
+    ///         is filled by the frame's sky node after the compositor is built, so a copy taken at
+    ///         wire-up is null forever. <c>VolumetricFogRenderer.Frame</c> takes the same object from
+    ///         the same <c>CompositorBuilder.SceneConstants</c> for the cascades it marches against.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sky term is the environment's mean radiance and not its <c>L00</c>.</b> An SH
+    ///         projection of a uniform environment of radiance <c>L</c> has <c>L00 = L·Y₀·4π</c>, so
+    ///         handing the coefficient over is 3.54× too much sky. <c>WaterRenderer.LightFrom</c>
+    ///         derives it from the same two fields for the same reason.
+    ///     </para>
+    /// </remarks>
+    public SceneConstants? Frame { get; set; }
 
     /// <summary>Henyey–Greenstein anisotropy, 0 isotropic to just under 1 sharply forward.</summary>
     public float SunAnisotropy { get; set; } = 0.7f;
@@ -409,14 +492,22 @@ public sealed class FogRenderer() : PostEffectRenderer(
 
         parameters.Set(FogKeys.InverseViewProjection, InverseViewProjection);
         parameters.Set(FogKeys.CameraPosition, CameraPosition);
-        parameters.Set(FogKeys.FogColor, applied.FogColour?.Over(Colour) ?? Colour);
+
+        // ⚠ The frame's own sky and sun where there are any, because both of this pass's colours are
+        // photometric quantities of the scene rather than settings of the document. See Scattering.
+        var (direction, tint, peak) = Scattering();
+
+        // The overlay is laid over the derived value, not over the authored one: a volume that wants
+        // a different fog is asking for a different *radiance*, and lerping toward it from a number
+        // four decades away would make the volume's weight a brightness control.
+        parameters.Set(FogKeys.FogColor, applied.FogColour?.Over(tint) ?? tint);
         parameters.Set(FogKeys.Density, applied.FogDensity?.Over(Density) ?? Density);
         parameters.Set(FogKeys.FogStart, Start);
         parameters.Set(FogKeys.FogEnd, End);
         parameters.Set(FogKeys.FogHeight, Height);
         parameters.Set(FogKeys.HeightFalloffRate, HeightFalloffRate);
-        parameters.Set(FogKeys.SunDirection, SunDirection);
-        parameters.Set(FogKeys.SunColor, SunColour);
+        parameters.Set(FogKeys.SunDirection, direction);
+        parameters.Set(FogKeys.SunColor, peak);
         parameters.Set(FogKeys.SunAnisotropy, SunAnisotropy);
         parameters.Set(FogKeys.VolumeNear, VolumeNear);
         parameters.Set(FogKeys.VolumeFar, VolumeFar);
@@ -434,6 +525,43 @@ public sealed class FogRenderer() : PostEffectRenderer(
         }
 
         Sample(bindings, FogKeys.LinearSamplerBinding, Samplers!.LinearClamp);
+    }
+
+    /// <summary>The three numbers the medium scatters by, from the frame's lighting where it has any.</summary>
+    /// <returns>
+    ///     Which way the light travels, the radiance away from the peak, and the radiance at it.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Both colours are radiances in cd/m², and neither is a tint.</b> The shader composites
+    ///         <c>lerp(colour, lerp(fog, sun, p), amount)</c> into a scene lit in cd/m², so the two
+    ///         targets stand in for a surface — and the sum <c>sun = fog + E</c> is what turns that
+    ///         inner blend into <c>fog + p·E</c>, which is the single-scattering source function.
+    ///         Deriving both here rather than at two call sites is what keeps the sum true: a sky
+    ///         taken from the frame and a sun taken from the document is a peak that is not a peak.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Each half falls through to its authored value independently, on
+    ///         <c>VolumetricFogRenderer.Sunlight</c>'s rule. A frame between scenes has no sun and no
+    ///         sky for a frame or two, and fog that went black for them would flash.
+    ///     </para>
+    /// </remarks>
+    (Vector3 Direction, Vector3 Tint, Vector3 Peak) Scattering() {
+        // ⚠ Y₀ = 0.282095, and Y₀·4π = 3.5449 is what separates a mean radiance from the coefficient
+        // an SH projection stores. `Intensity` is the artistic scale every other ambient term is
+        // multiplied by, so the fog reads the sky the rest of the frame is lit by.
+        var tint = Frame?.Lighting?.Environment is { } sky
+            ? sky.Irradiance.L00 * (0.282095f * sky.Intensity)
+            : Colour;
+
+        var star = Sun?.Sun;
+
+        // ⚠ The peak is built from an *illuminance*, never from a colour, and the authored fallback is
+        // read back through the same identity: `SunColour - Colour` is what the pair was saying the
+        // sun carried. With neither a sun nor a sky this returns the authored pair exactly.
+        var illuminance = star is { } lit ? lit.Radiance : SunColour - Colour;
+
+        return (star?.Direction ?? SunDirection, tint, tint + illuminance);
     }
 }
 

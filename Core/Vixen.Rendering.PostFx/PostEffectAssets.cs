@@ -1088,6 +1088,15 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             VolumeNear = declared.VolumeNear,
             VolumeFar = declared.VolumeFar,
             VolumeSlices = declared.VolumeSlices,
+
+            // ⚠ The two the document cannot carry, and without them the pass is arithmetic on
+            // tints. Both of this node's colours are photometric — a radiance the pixel is lerped
+            // toward, and that radiance plus the sun's illuminance — so a `!Fog` left to its
+            // authored numbers is a lerp toward black in a frame lit at ninety thousand lux. The
+            // same source the shadow nodes fit their cascades along, and the same scene block the
+            // volumetric fog reads, so one sun and one sky serve the whole frame.
+            Sun = builder.Sun,
+            Frame = builder.SceneConstants,
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,
