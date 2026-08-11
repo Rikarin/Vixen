@@ -64,6 +64,22 @@ can act on them; only the IDE's jump-to-file loses. Fixing it means carrying a p
 `ImportDiagnostic`, which is a change to a type the planner and every importer share, and it is owed
 rather than done here.
 
+⚠ **The pre-compile import is passed `--advisory`, and does not put anything in that list.** It runs
+`BeforeTargets=CoreCompile`, so on a clean build the game assembly does not exist and a level naming
+the game's own components cannot resolve them — not a finding, a consequence of the ordering. Left to
+itself the tool emitted `error VX1001` for each, `ContinueOnError` demoted them into the warning
+summary, and its own non-zero exit added an `MSB3073` naming this file: three warnings per clean
+build that nobody could act on, and among which a real `VX1001` was indistinguishable. That class had
+already been misdiagnosed twice.
+
+Under the flag the same lines are prose carrying the same code and the same absolute path, the run
+does not fail, and a clean `-c Release` build of `Samples/13-ThirdPersonShooter` reports **0
+warnings**. A genuinely broken asset still fails it, as one `error VX1001` from the content build —
+which is now the only one in the list.
+
+`ContinueOnError` stays on the same condition, for the failure the flag cannot cover: a tool that
+crashed, rather than a project that has not compiled yet.
+
 ## Properties
 
 | Property | Default | What it decides |

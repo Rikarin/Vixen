@@ -526,6 +526,116 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.Contains(VixenCommand.Create().Subcommands, command => command.Name == verb);
 
 
+    // ── The advisory pass ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     A scene naming a component nothing in this build declares. What `Vixen.Sdk`'s pre-compile
+    ///     import meets on every clean build of every game that puts its own components in a level.
+    /// </summary>
+    void SceneNamingAnUndeclaredComponent(string relativePath) =>
+        Asset(
+            relativePath,
+            """
+            version: 1
+            name: Arena
+            roots:
+              - name: Floor
+                position: 0 0 0
+                components:
+                  - !BoxCollision { halfExtents: 32 0.5 32 }
+            """
+        );
+
+    /// <summary>
+    ///     ⚠ <b>The control, and the reason the test below is about anything.</b> Without the flag
+    ///     this is an error-list entry and a failed run, which is what every other caller keeps.
+    /// </summary>
+    /// <remarks>
+    ///     An <em>error</em>, and it reached a build log as a warning only because
+    ///     <c>ContinueOnError</c> demotes what a task emitted. Two demotions deep is a long way from
+    ///     "an importer said this", which is part of why this class was twice misread.
+    /// </remarks>
+    [Fact]
+    public async Task AnUnresolvableComponentIsAnErrorAndAFailureByDefault() {
+        SceneNamingAnUndeclaredComponent("Scenes/Arena.vxscene");
+
+        var (code, output) = await Run("import", "--format", "msbuild");
+
+        Assert.Equal(ExitCode.Failed, code);
+        Assert.Contains($"error {DiagnosticCode.Import}:", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Under <c>--advisory</c> the same finding keeps its code, its path and its sentence, and
+    ///     stops being an entry in a list of things to act on.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The pass runs <c>BeforeTargets=CoreCompile</c>, so the assembly declaring
+    ///         <c>BoxCollision</c> is the one the compiler it precedes would have produced: it cannot
+    ///         resolve this and never will. The content build after <c>Build</c> loads the assembly
+    ///         and does fail, which is where a real one is reported.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted as "not an MSBuild diagnostic" rather than as "not printed".</b> Silence
+    ///         would leave <c>2 failed</c> in the log with nothing saying what — and this pass is the
+    ///         only one some project configurations run at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task AnAdvisoryImportSaysTheSameThingWithoutDressingItAsADiagnostic() {
+        SceneNamingAnUndeclaredComponent("Scenes/Arena.vxscene");
+
+        var (code, output) = await Run("import", "--format", "msbuild", "--advisory");
+
+        Assert.Equal(ExitCode.Success, code);
+
+        // Neither word, so MSBuild reads the line as prose and no error list gains an entry.
+        Assert.DoesNotContain($"warning {DiagnosticCode.Import}:", output, StringComparison.Ordinal);
+        Assert.DoesNotContain($"error {DiagnosticCode.Import}:", output, StringComparison.Ordinal);
+
+        // And everything a reader needs is still on it.
+        Assert.Contains($"advisory {DiagnosticCode.Import}:", output, StringComparison.Ordinal);
+        Assert.Contains("BoxCollision", output, StringComparison.Ordinal);
+        Assert.Contains(Path.Combine(root, "Assets", "Scenes", "Arena.vxscene"), output, StringComparison.Ordinal);
+        Assert.Contains("the authority", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The half that is a bug rather than noise.</b> The addresses are written after the
+    ///     import, so returning early on a failed asset skipped them — on precisely the build that
+    ///     had no assembly to resolve a level against, and whose whole reason for running before
+    ///     <c>CoreCompile</c> is to put that file in front of it.
+    /// </summary>
+    [Fact]
+    public async Task AnAdvisoryImportStillWritesTheAddressConstantsAFailedAssetUsedToCost() {
+        SceneNamingAnUndeclaredComponent("Scenes/Arena.vxscene");
+        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Group("Core");
+
+        var into = Path.Combine(root, "obj", "Addresses.g.cs");
+        var (code, _) = await Run("import", "--addresses", into, "--addresses-namespace", "MyGame", "--advisory");
+
+        Assert.Equal(ExitCode.Success, code);
+
+        var source = await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken);
+        Assert.Contains("public const string Address = \"items/sword\";", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>The same run without the flag, which is what the file above used to be.</summary>
+    [Fact]
+    public async Task AFailedAssetStillCostsTheAddressConstantsWithoutTheFlag() {
+        SceneNamingAnUndeclaredComponent("Scenes/Arena.vxscene");
+        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Group("Core");
+
+        var into = Path.Combine(root, "obj", "Addresses.g.cs");
+        var (code, _) = await Run("import", "--addresses", into, "--addresses-namespace", "MyGame");
+
+        Assert.Equal(ExitCode.Failed, code);
+        Assert.False(File.Exists(into));
+    }
+
     // ── Address constants ───────────────────────────────────────────────────────────────────────
 
     /// <summary>

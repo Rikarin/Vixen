@@ -39,6 +39,27 @@ no addressable assets" does not belong in a failure summary.
 
 [`Vixen.Sdk`](../Vixen.Sdk/README.md) passes this flag. Nobody else needs to.
 
+### `--advisory`, for the one pass that is allowed to be wrong
+
+`Vixen.Sdk` runs `import` **before** `CoreCompile`, so that generated C# exists when the compiler
+reads its inputs — which means that on a clean build the game assembly does not exist yet and a level
+naming the game's own `!BoxCollision` cannot resolve it here, ever. Sample 13 produced two such
+`VX1001`s on every clean build; the content build after `Build` resolved both.
+
+Under this flag the same finding comes out as `<absolute path>: advisory VX1001: <message>` — same
+code, same path, same sentence, and no `error` or `warning`, which is the only thing MSBuild reads to
+decide whether a line is a diagnostic. **It prints no less. It claims less.** Silence would leave
+`2 failed` in the log with nothing saying what, and this pass is the only import some project
+configurations run.
+
+⚠ It also stops a failed asset ending the run, and that half is a bug rather than a preference: the
+addresses are written *after* the import, so returning early skipped them on precisely the build with
+no assembly to resolve a level against — which surfaces as a compile error about a missing constant,
+three steps from its cause.
+
+Nothing else may pass it. A run that is the authority on whether the content is good says so by not
+being advisory.
+
 ## Where the work happens
 
 ⚠ **The pipeline itself is `ContentPipeline`, in

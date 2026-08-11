@@ -62,3 +62,10 @@ is the same argument the [log event register](log-events.md) makes, for the same
 
 Severity is not part of the code. `VX1001` is an error, a warning or information depending on what the
 importer said, because the importer is what knows.
+
+⚠ **`advisory` is a fourth word, and it is a claim about the run rather than about the finding.**
+`vixen import --advisory` — which only `Vixen.Sdk`'s pre-compile pass passes, because it runs before
+the game assembly exists and therefore cannot resolve a level naming the game's own types — writes
+`<path>: advisory VX1001: <message>`. MSBuild reads only `error` and `warning`, so the line stays
+prose and no error list gains an entry it would be wrong to act on. The code and the path are
+unchanged, so the same search still finds it.
