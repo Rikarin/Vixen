@@ -207,7 +207,9 @@ Vixen.Rendering.Terrain.GrassCellRecord.First -> uint
 Vixen.Rendering.Terrain.GrassCellRecord.GrassCellRecord() -> void
 Vixen.Rendering.Terrain.GrassDispatch -> sealed class
 Vixen.Rendering.Terrain.GrassDispatch : System.IDisposable
+Vixen.Rendering.Terrain.GrassDispatch.AuthoredSide.get -> int
 Vixen.Rendering.Terrain.GrassDispatch.BladesPerCell.get -> int
+Vixen.Rendering.Terrain.GrassDispatch.CandidateSide.get -> int
 Vixen.Rendering.Terrain.GrassDispatch.Capacity.get -> int
 Vixen.Rendering.Terrain.GrassDispatch.Ceiling.get -> long
 Vixen.Rendering.Terrain.GrassDispatch.CellCount.get -> int
@@ -224,6 +226,7 @@ Vixen.Rendering.Terrain.GrassDispatch.Record(Vixen.Graphics.ICommandList command
 Vixen.Rendering.Terrain.GrassDispatch.RecordDraws(Vixen.Graphics.ICommandList commandList) -> int
 Vixen.Rendering.Terrain.GrassDispatch.Refused.get -> int
 Vixen.Rendering.Terrain.GrassDispatch.RunOf(int slot) -> (long Offset, long Length)
+Vixen.Rendering.Terrain.GrassDispatch.Thinned.get -> bool
 Vixen.Rendering.Terrain.GrassDraw -> readonly struct
 Vixen.Rendering.Terrain.GrassDraw : System.IEquatable<Vixen.Rendering.Terrain.GrassDraw>
 Vixen.Rendering.Terrain.GrassDraw.Distances.get -> float[]
@@ -1181,6 +1184,7 @@ static Vixen.Rendering.Terrain.FoliageDrawPass.UploadMesh(Vixen.Graphics.IGraphi
 static Vixen.Rendering.Terrain.FoliageVolumeComponent.Of(string volume, params string[] palette) -> Vixen.Rendering.Terrain.FoliageVolumeComponent
 static Vixen.Rendering.Terrain.GrassCellRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.GrassDispatch.DrawCommandBytes.get -> int
+static Vixen.Rendering.Terrain.GrassDispatch.SideThatFits(int bladesPerCell) -> int
 static Vixen.Rendering.Terrain.GrassInstanceRecord.Of(in Vixen.Foliage.GrassBlade blade) -> Vixen.Rendering.Terrain.GrassInstanceRecord
 static Vixen.Rendering.Terrain.GrassInstanceRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.TerrainComponent.Of(string terrain) -> Vixen.Rendering.Terrain.TerrainComponent
