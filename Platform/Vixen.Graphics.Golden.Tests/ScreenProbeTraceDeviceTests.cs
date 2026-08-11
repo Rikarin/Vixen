@@ -577,6 +577,203 @@ public sealed class ScreenProbeTraceDeviceTests {
         Compare(reference, texels, _ => true);
     }
 
+    /// <summary>The surface a probe stands on cannot stop the rays it fires — on the device, through
+    ///     both marches, over a buffer the probes are actually standing on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fixtures above cannot reach this and that is why it exists.</b> They place
+    ///         probes by <see cref="Floor" /> and fill the depth by hand, so no probe stands on what
+    ///         its own texel holds and no ray can be stopped by the surface it left. Here the two are
+    ///         one plane — tilted away from the camera, so that a hemisphere of rays splits between
+    ///         those climbing toward the camera and those running down the slope, and the second kind
+    ///         begins its own texel's crossing standing on the surface it was fired from.
+    ///     </para>
+    ///     <para>
+    ///         Both marches, because both kernels carry the guard and both had the defect. The
+    ///         reference is <c>ScreenSpaceTrace</c>'s answer, so what this holds is that the kernels
+    ///         except the same texel by the same bar: with the guard taken out of
+    ///         <c>ScreenProbeTrace.rvn</c> alone, the device stops rays the reference does not and
+    ///         every probe on the slope disagrees.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheSurfaceAProbeStandsOnStopsNothingOnTheDevice() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var screenSurface = new ReconstructedScreenSurface(new(64, 48));
+
+        for (var y = 0; y < 48; y++) {
+            for (var x = 0; x < 64; x++) {
+                screenSurface.Depth[(y * 64) + x] = TiltedPlane.Depth(new(x, y));
+            }
+        }
+
+        var pyramid = new ScreenDepthPyramid(new(64, 48));
+
+        pyramid.Build(screenSurface.Depth);
+
+        var camera = Matrix4x4.Orthographic(4f, 4f, 1f, 9f);
+        var settings = new ScreenProbeGatherSettings { MaxDistance = 8f };
+        var plane = new TiltedPlane();
+
+        var reference = new ScreenProbeAtlas(new(new(64, 48)));
+
+        new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings) {
+            ScreenTrace = new(screenSurface) { ViewProjection = camera, Pyramid = pyramid }
+        }.Fill(reference, plane);
+
+        // The screen has to be answering something, or agreement is two identical skies.
+        var bare = new ScreenProbeAtlas(new(new(64, 48)));
+
+        new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings).Fill(bare, plane);
+
+        Assert.True(Differs(reference, bare), "the screen stopped no ray at all, so the scene tests nothing");
+
+        var traced = new ScreenProbeAtlas(new(new(64, 48)));
+
+        for (var y = 0; y < traced.Layout.GridSize.Y; y++) {
+            for (var x = 0; x < traced.Layout.GridSize.X; x++) {
+                var probe = new Int2(x, y);
+
+                Assert.True(plane.TrySurface(traced.Layout.Anchor(probe), out var position, out var normal));
+                traced.SetSurface(probe, position, normal);
+            }
+        }
+
+        using var allocator = new DescriptorAllocator(device);
+        using var texture = new ScreenProbeTexture(traced) { AtlasIsWritten = true };
+
+        var loader = new EffectLoader(device);
+        var effects = new EffectSystem();
+
+        effects.AddProvider(
+            new Compiling(
+                loader,
+                name => name == "NearestReduce"
+                    ? RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn"))
+                    : RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"])
+            )
+        );
+
+        var pipelines = new ComputePipelineCache(device);
+
+        var chain = new HiZPyramid(device) {
+            Reduction = HiZReduction.Nearest,
+            Effects = effects,
+            Pipelines = pipelines
+        };
+
+        owned.Owns(chain.Dispose);
+
+        var depthTexture = owned.Owned(
+            "tilted screen depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            64,
+            48
+        );
+
+        var depthTexels = new float[64 * 48 * 4];
+
+        for (var i = 0; i < 64 * 48; i++) {
+            depthTexels[i * 4] = screenSurface.Depth[i];
+        }
+
+        var staging = device.CreateBuffer(
+            new(
+                (long)depthTexels.Length * sizeof(float),
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "tilted depth staging"
+            )
+        );
+
+        device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(depthTexels.AsSpan()));
+
+        using var trace = new ScreenProbeTraceFill(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            Descriptors = allocator,
+            SkyColour = new(Radiance),
+            SkyGradient = new(0.3f),
+            MaxDistance = 8f,
+            ScreenDepth = depthTexture.View,
+            ScreenViewport = new(64, 48),
+            ViewProjection = camera
+        };
+
+        var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
+        var uploaded = false;
+
+        // Both marches over one fixture: the hierarchical one, then the fixed-step walk with the
+        // chain deliberately unused. Both kernels carry the guard and both had the defect.
+        foreach (var hierarchical in new[] { true, false }) {
+            allocator.BeginFrame();
+            VulkanDiagnostics.Reset();
+            device.BeginFrame();
+
+            using (var commands = device.BeginCommandList(QueueKind.Graphics, "tilted screen trace")) {
+                if (!uploaded) {
+                    commands.Barrier(
+                        new([], [new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                    );
+
+                    commands.CopyBufferToTexture(staging, 0, new TextureRegion(depthTexture.Texture), new(64, 48, 1));
+
+                    commands.Barrier(
+                        new([], [new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                    );
+                }
+
+                Assert.True(chain.Build(commands, depthTexture.View, new(64, 48)), "the chain did not build");
+
+                trace.ScreenPyramid = chain.View;
+                trace.ScreenPyramidLevels = hierarchical ? chain.Levels + 1 : 0;
+
+                if (hierarchical) {
+                    Assert.Equal(pyramid.Levels, trace.ScreenPyramidLevels);
+                }
+
+                if (!uploaded) {
+                    texture.Upload(device, commands);
+                    uploaded = true;
+                }
+
+                Assert.Equal(traced.Layout.ProbeCount, trace.Record(commands, texture));
+                Assert.True(texture.RecordReadback(commands));
+
+                commands.Finish();
+                device.GraphicsQueue.Submit([commands]);
+            }
+
+            device.EndFrame();
+            device.WaitIdle();
+
+            Assert.Null(trace.Skipped);
+            Assert.Empty(effects.Misses);
+            Assert.True(texture.TryRead(texels));
+            AssertClean();
+
+            var walked = new ScreenProbeAtlas(new(new(64, 48)));
+
+            new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings) {
+                ScreenTrace = new(screenSurface) {
+                    ViewProjection = camera,
+                    Pyramid = hierarchical ? pyramid : null
+                }
+            }.Fill(walked, plane);
+
+            Compare(walked, texels, _ => true);
+        }
+
+        device.Destroy(staging);
+    }
+
     /// <summary>Whether any texel of two same-shaped atlases disagrees.</summary>
     static bool Differs(ScreenProbeAtlas left, ScreenProbeAtlas right) {
         var layout = left.Layout;
@@ -670,6 +867,35 @@ public sealed class ScreenProbeTraceDeviceTests {
         public Vector3 Sky(Vector3 direction) => new(baseline + (tilt * direction.Y));
 
         public Vector3 Surface(Vector3 position, Vector3 normal, Vector3 direction) => Vector3.Zero;
+    }
+
+    /// <summary>A plane tilted away from the camera, and the depth a frame would have drawn of it —
+    ///     the one fixture here whose probes stand on exactly what their own texel holds.</summary>
+    /// <remarks>
+    ///     Under <c>Orthographic(4, 4, 1, 9)</c> a pixel's ndc is its position over two and a surface
+    ///     at <c>z</c> reads <c>(z + 9) / 8</c>, so a plane and its depth buffer are the same two
+    ///     lines of arithmetic. The tilt is gentle on purpose: a steep one steps more depth across a
+    ///     texel than a near-tangent ray gains over it, which is a limit of point-sampled depth
+    ///     rather than the guard this fixture is here to hold.
+    /// </remarks>
+    sealed class TiltedPlane : IScreenSurface {
+        const float Slope = 0.5f;
+
+        public static float Depth(Int2 pixel) => (Position(pixel).Z + 9f) / 8f;
+
+        public bool TrySurface(Int2 pixel, out Vector3 position, out Vector3 normal) {
+            position = Position(pixel);
+            normal = Vector3.Normalize(new(-Slope, 0f, 1f));
+
+            return true;
+        }
+
+        static Vector3 Position(Int2 pixel) {
+            var x = 2f * ((((pixel.X + 0.5f) / 64f) * 2f) - 1f);
+            var y = 2f * -((((pixel.Y + 0.5f) / 48f) * 2f) - 1f);
+
+            return new(x, y, -5f + (Slope * x));
+        }
     }
 
     /// <summary>Every pixel shows a floor at y = 0, facing up.</summary>

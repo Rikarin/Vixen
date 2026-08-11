@@ -946,6 +946,266 @@ public sealed class ReflectionTraceDeviceTests {
         public Vector3 Emissive(Vector3 position, Vector3 normal) => position.X > 1f ? new(1.5f, 1f, 0.5f) : Vector3.Zero;
     }
 
+    /// <summary>A mirror does not reflect itself — on the device, through both marches, over a depth
+    ///     buffer the reflectors are the geometry of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The failure this shuts is the one <c>docs/overview.md</c> § L5 names.</b> A mirror
+    ///         ray leaves its reflector at the angle it arrived at, so on a floor seen at a grazing
+    ///         angle it hugs the surface it left — and the first cell crossing begins standing on
+    ///         that surface, inside its shell. The march stopped there and the reflection came back
+    ///         as the reflector's own colour, which is a mirror showing itself.
+    ///     </para>
+    ///     <para>
+    ///         The other fixtures cannot reach it: they place reflectors on a floor and fill the
+    ///         depth with a wall that has nothing to do with them, so no ray can meet the surface it
+    ///         was fired from. Here the depth is what a frame would have drawn of the floor the
+    ///         reflectors are on — the view ray through each pixel, met with the plane — so the
+    ///         reflector's own texel holds the reflector's own depth. The colour encodes its pixel,
+    ///         which is what lets the assertion be the meaning rather than only the agreement: no
+    ///         texel may come back holding its own colour.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMirrorDoesNotReflectItselfOnTheDevice() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        // ndc.x = x/z, ndc.y = y/z, device depth = 1/z — the near plane at one, reversed.
+        var viewProjection = new Matrix4x4(
+            new Vector4(1f, 0f, 0f, 0f),
+            new Vector4(0f, 1f, 0f, 0f),
+            new Vector4(0f, 0f, 0f, 1f),
+            new Vector4(0f, 0f, 1f, 0f)
+        );
+
+        var camera = Vector3.Zero;
+        var surface = new ReconstructedScreenSurface(new(Side, Side));
+        var depths = new Vector4[Side * Side];
+        var colours = new Vector4[Side * Side];
+        var positions = new Vector4[Side * Side];
+        var normals = new Vector4[Side * Side];
+        var floor = new Vector3[Side * Side];
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                var at = (y * Side) + x;
+
+                colours[at] = new(0.1f * x, 0.1f * y, 0.3f, 1f);
+
+                var ndcX = (((x + 0.5f) / Side) * 2f) - 1f;
+                var ndcY = -((((y + 0.5f) / Side) * 2f) - 1f);
+
+                // The rows looking above the horizon meet no floor: sky, and no reflector either.
+                if (ndcY >= -0.15f) {
+                    continue;
+                }
+
+                // Where the view ray through this pixel meets the plane y = −1, which is the whole
+                // of "the depth buffer and the reflectors are one surface".
+                var z = -1f / ndcY;
+
+                floor[at] = new(ndcX * z, -1f, z);
+                surface.Depth[at] = 1f / z;
+                depths[at] = new(1f / z, 0f, 0f, 0f);
+                positions[at] = new(floor[at], 1f);
+                normals[at] = new(0f, 1f, 0f, 0f);
+            }
+        }
+
+        var pyramid = new ScreenDepthPyramid(new(Side, Side));
+
+        pyramid.Build(surface.Depth);
+
+        using var allocator = new DescriptorAllocator(device);
+
+        var loader = new EffectLoader(device);
+        var effects = new EffectSystem();
+
+        effects.AddProvider(
+            new Compiling(
+                loader,
+                name => name == "NearestReduce"
+                    ? RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn"))
+                    : RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+            )
+        );
+
+        var pipelines = new ComputePipelineCache(device);
+
+        var chain = new HiZPyramid(device) {
+            Reduction = HiZReduction.Nearest,
+            Effects = effects,
+            Pipelines = pipelines
+        };
+
+        owned.Owns(chain.Dispose);
+
+        var positionPlane = owned.Owned("self-positions", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
+        var normalPlane = owned.Owned("self-normals", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
+        var depthPlane = owned.Owned("self-depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
+        var colourPlane = owned.Owned("self-colour", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
+        var target = owned.Owned("self-target", TextureUsage.Storage | TextureUsage.CopySource, PixelFormat.Rgba32Float, Side, Side);
+
+        var staging = owned.Buffer<Vector4>([.. positions, .. normals, .. depths, .. colours], BufferUsage.CopySource);
+
+        using var trace = new ReflectionTraceFill(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            Descriptors = allocator,
+            Positions = positionPlane.View,
+            Normals = normalPlane.View,
+            Target = target.View,
+            ScreenDepth = depthPlane.View,
+            ScreenColour = colourPlane.View,
+            ViewProjection = viewProjection,
+            ScreenViewport = new(Side, Side),
+            ScreenSteps = 32,
+            ScreenThickness = 0.05f,
+            ScreenLinearThickness = 0.5f,
+            Viewport = new(Side, Side),
+            CameraPosition = camera,
+            MaxDistance = 8f
+        };
+
+        trace.Parameters.Set(
+            ParameterKeys.New<Vector3>($"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"),
+            SkyMiss
+        );
+
+        var uploaded = false;
+
+        // Both marches over one fixture: the hierarchical one, then the fixed-step walk with the
+        // chain deliberately unused. Both kernels carry the guard and both had the defect.
+        foreach (var hierarchical in new[] { true, false }) {
+            var readback = device.CreateBuffer(
+                new BufferDescription(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "self-readback")
+            );
+
+            allocator.BeginFrame();
+            VulkanDiagnostics.Reset();
+            device.BeginFrame();
+
+            using (var commands = device.BeginCommandList(QueueKind.Graphics, "self-ssr")) {
+                if (!uploaded) {
+                    commands.Barrier(
+                        new(
+                            [],
+                            [
+                                new TextureBarrier(positionPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                                new TextureBarrier(normalPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                                new TextureBarrier(depthPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                                new TextureBarrier(colourPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                                new TextureBarrier(target.Texture, ResourceState.Undefined, SurfaceCacheTexture.PlaneIsBeingWritten)
+                            ]
+                        )
+                    );
+
+                    var plane = Side * Side * 16;
+
+                    commands.CopyBufferToTexture(staging, 0, new TextureRegion(positionPlane.Texture), new(Side, Side, 1));
+                    commands.CopyBufferToTexture(staging, plane, new TextureRegion(normalPlane.Texture), new(Side, Side, 1));
+                    commands.CopyBufferToTexture(staging, plane * 2, new TextureRegion(depthPlane.Texture), new(Side, Side, 1));
+                    commands.CopyBufferToTexture(staging, plane * 3, new TextureRegion(colourPlane.Texture), new(Side, Side, 1));
+
+                    commands.Barrier(
+                        new(
+                            [],
+                            [
+                                new TextureBarrier(positionPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                                new TextureBarrier(normalPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                                new TextureBarrier(depthPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                                new TextureBarrier(colourPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
+                            ]
+                        )
+                    );
+
+                    uploaded = true;
+                } else {
+                    commands.Barrier(
+                        new([], [new TextureBarrier(target.Texture, ResourceState.CopySource, SurfaceCacheTexture.PlaneIsBeingWritten)])
+                    );
+                }
+
+                // The reduce first, into the same list — the march may only skip by texels it wrote.
+                Assert.True(chain.Build(commands, depthPlane.View, new(Side, Side)), "the chain did not build");
+
+                trace.ScreenPyramid = chain.View;
+                trace.ScreenPyramidLevels = hierarchical ? chain.Levels + 1 : 0;
+
+                Assert.Equal(Side * Side, trace.Record(commands));
+
+                commands.Barrier(
+                    new([], [new TextureBarrier(target.Texture, SurfaceCacheTexture.PlaneIsBeingWritten, ResourceState.CopySource)])
+                );
+
+                commands.CopyTextureToBuffer(new TextureRegion(target.Texture), new(Side, Side, 1), readback, 0);
+                commands.Finish();
+                device.GraphicsQueue.Submit([commands]);
+            }
+
+            device.EndFrame();
+            device.WaitIdle();
+
+            Assert.Null(trace.Skipped);
+            Assert.Empty(effects.Misses);
+            AssertClean();
+
+            var bytes = new float[Side * Side * 4];
+
+            device.Read(readback, 0, MemoryMarshal.AsBytes(bytes.AsSpan()));
+            device.Destroy(readback);
+
+            var reference = new TracedReflections(new EmptyWorld(), new UniformSky(0f), new SkyFallback(new UniformSky(SkyMiss))) {
+                MaxDistance = 8f,
+                ScreenTrace = new ScreenSpaceTrace(surface) {
+                    ViewProjection = viewProjection,
+                    Steps = 32,
+                    Thickness = 0.05f,
+                    LinearThickness = 0.5f,
+                    Pyramid = hierarchical ? pyramid : null
+                },
+                ScreenColour = pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
+            };
+
+            var worst = 0f;
+            var reflectors = 0;
+
+            for (var y = 0; y < Side; y++) {
+                for (var x = 0; x < Side; x++) {
+                    var at = (y * Side) + x;
+
+                    if (positions[at].W <= 0f) {
+                        continue;
+                    }
+
+                    reflectors++;
+
+                    var answer = new Vector3(bytes[at * 4], bytes[(at * 4) + 1], bytes[(at * 4) + 2]);
+                    var view = Vector3.Normalize(floor[at] - camera);
+
+                    worst = MathF.Max(worst, (answer - reference.Reflect(floor[at], new(0f, 1f, 0f), view, 0f)).Length());
+
+                    // The colour encodes the pixel, so this is the § L5 failure stated as an
+                    // assertion: a mirror answering with the colour of the mirror.
+                    var own = new Vector3(colours[at].X, colours[at].Y, colours[at].Z);
+
+                    Assert.True(
+                        (answer - own).Length() > 1e-3f,
+                        $"texel {x},{y} reflected itself: it holds {answer} and its own colour is {own}"
+                    );
+                }
+            }
+
+            Assert.True(reflectors >= 24, $"only {reflectors} texels held a reflector — the fixture referees too little");
+            Assert.True(worst < 1e-4f, $"the march drifted {worst} from the reference, hierarchical {hierarchical}");
+        }
+    }
+
     sealed class EmptyWorld : IDistanceField {
         public float Sample(Vector3 position) => 1e6f;
 
