@@ -144,9 +144,32 @@ never looks at, which is the whole reason that pass is compute.
 ⚠ Auto-exposure and `ev100` are alternatives, not layers. A scene lit in lux and lumens usually wants
 a fixed exposure value — see [lighting a scene in lux and lumens](physical-lighting.md).
 
-**The one node with no shipped producer.** `!TemporalAntialiasing` needs a motion-vector texture and
-**nothing in the engine writes one yet**; `docs/plan/30` tracks it. The node exists and is correct;
-a frame that names it has to supply the texture itself.
+### The two halves temporal antialiasing needs from outside itself
+
+`!TemporalAntialiasing` cannot work alone, and both of the things it needs are now shipped — this
+paragraph used to say neither was.
+
+**Motion vectors.** `MotionVectorRenderFeature` and `Pipeline/MotionVectors.rvn` write them, and
+`WorldRenderer.Motion` is where the feature lives; a frame supplies the texture by declaring a pass
+over the `Motion` stage. Sample 13's `Velocity` pass is the worked example — after the main pass and
+sharing its depth read-only, so the velocity written for a pixel belongs to whatever ended up visible
+there.
+
+**The camera's sub-pixel offset.** The resolve averages samples taken at different points inside the
+pixel, and taking them is the camera's job. `AppGraphics` sets `CameraExtractionSystem.JitterTarget`
+to the frame's size whenever the tree has a `!TemporalAntialiasing` in it, and
+`CameraMath.SubpixelJitter` is the sequence — eight Halton offsets that repeat, so a still camera
+converges to an exact answer instead of chasing offsets it has never seen.
+
+⚠ **A host driving a `RenderView` by hand gets neither.** The editor's viewport sets
+`RenderView.ViewProjection` directly, so it never advances `PreviousViewProjection` and never carries
+an offset; a temporal resolve there blurs rather than supersamples. That is the case the pass's own
+remarks describe — *a frame that gets blurrier and no sharper* — and it is what every frame in this
+engine did until the jitter was wired.
+
+⚠ **Do not offset the camera in a tree with no temporal resolve in it.** A jittered camera that
+nothing accumulates is a frame that shakes by half a pixel and buys nothing for it, which is why the
+switch is the presence of the node rather than a setting.
 
 ## Defocus comes off the lens, and only off the lens
 

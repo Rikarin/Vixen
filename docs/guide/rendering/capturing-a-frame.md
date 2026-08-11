@@ -4,7 +4,7 @@ slug: rendering/capturing-a-frame
 kind: guide
 area: Rendering
 summary: A headless run renders on the real GPU with no window and writes its last frame as a PNG, so a sample's picture is a file two people can produce at once rather than a screenshot of whoever's display was in front.
-api: [T:Vixen.Core.Imaging.Bitmap, T:Vixen.Core.Imaging.PngCodec, L:13011, L:13026, L:13028, L:13029]
+api: [T:Vixen.Core.Imaging.Bitmap, T:Vixen.Core.Imaging.PngCodec, L:13011, L:13026, L:13028, L:13029, L:13030]
 tags: [rendering, headless, capture, screenshot, diagnostics, testing]
 since: 0.1
 status: preview
@@ -123,6 +123,13 @@ resident pages over 247–254 between runs whose camera matrices are bit-identic
 **So: over ground with grass and screen-probe GI on it, quote a band statistic and give it a floor of
 about half a percent of the mean channel. A per-pixel diff there is measuring the renderer's own
 scheduling.** Over walls and sky, a per-pixel diff is sound.
+
+⚠ **A thresholded count is far noisier than a mean, and it is the statistic people reach for.** Six
+runs of one build at the same frame count and viewpoint, counting pixels that read as grass — green
+above both red and blue by four — spread over 620 633 to 654 954: **±5 % about the mean**, against
+±0.5 % for the mean channel of the same six frames. Anything smaller than that measured by counting
+pixels in a band is not a measurement. If a hypothesis is about a one-percent effect, it needs a
+region mean, a still camera, and the frame count held fixed.
 
 Convergence is the slow one. Sample 13's frame carries a GPU cull, a surface cache, a screen-probe
 gather and an exposure meter, and several of them keep device state across frames, so the picture

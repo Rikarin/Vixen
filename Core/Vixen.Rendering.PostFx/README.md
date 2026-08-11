@@ -24,7 +24,7 @@ should not link one.
 | Effect | Reads | Notes |
 |---|---|---|
 | `FxaaRenderer` | colour | The fallback antialiasing: needs no history, no motion vectors, no depth. Softens texture detail along with geometry, which is the trade |
-| `TemporalAntialiasingRenderer` | colour, history, motion, depth | The default where it can run. Owns its history and alternates it, because a pass cannot read the target it writes |
+| `TemporalAntialiasingRenderer` | colour, history, motion, depth | The default where it can run. Owns its history and alternates it, because a pass cannot read the target it writes. Its sub-pixel offset is applied by `CameraExtractionSystem`, not here: what it offsets is the projection |
 | `SharpenRenderer` | colour | Contrast-adaptive, to put back what antialiasing and upscaling took out |
 | `AmbientOcclusionRenderer` | depth, normals | Half resolution by default, which is the standard trade for an effect that is low frequency by nature |
 | `FogRenderer` | colour, depth | A post-process because fog depends on distance, which the depth buffer already holds for every pixel |

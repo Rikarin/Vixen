@@ -1299,6 +1299,14 @@ game: !Sequence
 
     # What the temporal resolve softened, put back. A contrast-adaptive sharpen rather than an
     # unsharp mask, so a flat wall gains nothing and an edge gains what TAA took.
+    #
+    # ⚠ 0.35 was re-judged once the camera's sub-pixel offset was actually applied, because until
+    # then this node was arguably compensating for a resolve that averaged the same sample over and
+    # over rather than for genuine supersampling. It is not: measured at 256 frames, taking it to
+    # zero moves the wall-top staircase by 0.001 px (0.1667 against 0.1658) and costs 20% of the
+    # frame's acutance (1.570 against 1.307). It is adding micro-contrast in texture, not
+    # re-aliasing silhouettes, which is what a contrast-adaptive sharpen is for — it backs off
+    # exactly where the resolve did its work. Left where it is.
     - !Sharpen
       name: Recover
       source: SceneAntialiased

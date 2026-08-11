@@ -35,6 +35,50 @@ namespace Vixen.Rendering.Ecs;
 ///         looks like the renderer is broken.
 ///     </para>
 ///     <para>
+///         <b>It also carries the sub-pixel offset temporal antialiasing needs</b> — see
+///         <see cref="JitterTarget" />. That makes this the one place a frame's projection is decided,
+///         and the audit of who is allowed to see the offset is worth writing down, because the
+///         dangerous half of applying it is not applying it:
+///     </para>
+///     <list type="bullet">
+///         <item>
+///             <b>Immune, because they read scalars and not a matrix.</b> The shadow cascade fit
+///             (<c>ShadowCascades.Split</c>, <c>Sphere</c>, <c>Fit</c> take position, forward, field of
+///             view, aspect and the planes), the froxel grid (<c>ClusterGrid.Apply</c> writes
+///             <c>tanHalfFov</c> and the planes, deliberately not the matrix), the volumetric fog's own
+///             froxel volume, and <see cref="RenderView.ScreenHeightScale" /> for LOD.
+///         </item>
+///         <item>
+///             <b>Safe because they invert this frame's matrix to unproject this frame's depth</b>, so
+///             the offset cancels: the deferred world-position reconstruction, SSAO (which inverts
+///             <see cref="RenderCamera.Projection" /> — hence the offset living there too), SSR, the
+///             screen-probe gather's placement and its host readback of depth and normals, the
+///             distance-field AO, the sky's per-pixel ray, the water and underwater passes, and the
+///             virtual-shadow page marking.
+///         </item>
+///         <item>
+///             <b>Safe because both matrices carry their own frame's offset</b>: motion vectors, and
+///             the terrain, grass and foliage velocity passes. The vector between a jittered current
+///             and a jittered previous is exactly where the history <em>texel</em> is, which is what
+///             the resolve samples — so no separate un-jittering is needed anywhere.
+///         </item>
+///         <item>
+///             <b>Moved by half a pixel and judged acceptable</b>: the culling frustum, which
+///             <see cref="RenderView.ViewProjection" /> re-derives (a jittered camera really does see a
+///             half-pixel-shifted volume); the Hi-Z occlusion test, which uses the previous frame's
+///             matrix against the previous frame's depth and so is self-consistent; and the fog's
+///             temporal reprojection, whose previous matrix is jittered and whose froxels are two
+///             orders of magnitude wider than the offset.
+///         </item>
+///         <item>
+///             ⚠ <b>The one consumer that would rather not have it: <c>MotionBlurRenderer</c>.</b> A
+///             still camera now produces a velocity of up to one pixel — the difference between two
+///             consecutive offsets — where the truth is zero. Its <c>MinimumRadius</c> of half a pixel
+///             is what keeps that a copy rather than a smear, since the shutter fraction halves it
+///             again; a frame that lowers that threshold would be buying a permanent sub-pixel blur.
+///         </item>
+///     </list>
+///     <para>
 ///         <b>In <see cref="SystemPhase.PreRender" />, ordered by its declared access</b> — the placement
 ///         <see cref="LightExtractionSystem" /> explains: <c>TransformSystem</c> writes
 ///         <see cref="WorldTransform" /> in the same phase and this reads it, so a camera moved this frame

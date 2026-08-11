@@ -1401,6 +1401,11 @@ Vixen.Rendering.Ecs.CameraExtractionSystem.CameraExtractionSystem(Vixen.Renderin
 Vixen.Rendering.Ecs.CameraExtractionSystem.Chosen.get -> Vixen.Engine.Cameras.Camera
 Vixen.Rendering.Ecs.CameraExtractionSystem.Extract(Vixen.Ecs.World world) -> void
 Vixen.Rendering.Ecs.CameraExtractionSystem.Found.get -> bool
+Vixen.Rendering.Ecs.CameraExtractionSystem.Jitter.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Ecs.CameraExtractionSystem.JitterPeriod.get -> int
+Vixen.Rendering.Ecs.CameraExtractionSystem.JitterPeriod.set -> int
+Vixen.Rendering.Ecs.CameraExtractionSystem.JitterTarget.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.Ecs.CameraExtractionSystem.JitterTarget.set -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Ecs.CameraExtractionSystem.View.get -> Vixen.Rendering.RenderView
 Vixen.Rendering.Ecs.ClusterState -> enum : int
 Vixen.Rendering.Ecs.ClusterState.ClusterState() -> void
@@ -3842,6 +3847,8 @@ Vixen.Rendering.RenderCamera.FieldOfView.get -> float
 Vixen.Rendering.RenderCamera.FieldOfView.init -> float
 Vixen.Rendering.RenderCamera.Forward.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.RenderCamera.Forward.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RenderCamera.Jitter.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.RenderCamera.Jitter.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Rendering.RenderCamera.Lens.get -> Vixen.Engine.Cameras.Camera
 Vixen.Rendering.RenderCamera.Lens.init -> Vixen.Engine.Cameras.Camera
 Vixen.Rendering.RenderCamera.NearPlane.get -> float
