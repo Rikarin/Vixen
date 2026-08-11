@@ -127,11 +127,35 @@ Four things it pins, because a golden that drifts by one frame's history fails r
   the tone curve are calibrated in real units, so a scene in 0–1 colours is a dozen stops under
   everything downstream and comes back flat white. That was this fixture's first picture.
 
-⚠ **`tier-low` has no sun shadow, and that is a defect rather than a tier.** A resolved
-`cascadeCount` of anything but four draws no directional shadow at all, because nothing wires the
-number into the shader's `CascadeCount` permutation — the shader reads four cascade slots while the
-host fills two. Low ships two. If that reference gains a shadow, the fix has landed and the new
-picture is the right one.
+⚠ **`tier-low` gained the sun shadow it was recorded without, and that is the reference being
+corrected rather than a tier changing appearance.** It was recorded while a resolved `cascadeCount`
+of anything but four drew no directional shadow at all: `ClusteredShading.rvn` sizes
+`cascades[CascadeCount]` from a permutation, so the count is a property of the compiled variant as
+much as of `ShadowMapRenderer`, and nothing joined the two. A host fitting two cascades into a pass
+compiled for the shader's declared four folds its atlas 2 × 1 against a lookup expecting 2 × 2, so
+`CascadeContaining` answers −1 across most of the screen and the shadow term is one everywhere —
+a frame with no sun shadow in it rather than a wrong one. `90a55247` published the count through
+`ShadowMapRenderer.CascadeCountKey`, from `CompositorBuilder` at build time because a variant is
+cached by its effect key.
+
+**Only Low moved, and the tier table says why.** `RenderQuality.EngineDefaults` ships
+`shadows.cascadeCount` of two at Low and four at Medium, High and Epic, so Low was the only tier the
+bug had anything to break — which is question 4 below answered rather than assumed. (The fix's own
+commit message says "every tier below High ships fewer than four", which overstates it: Medium ships
+four and was never affected.)
+
+What moved, against the reference recorded without the shadow: **763 of 16 384 pixels (4.657%) past
+12/255, where 0.200% is the most that may, and an average channel of 1.572/255 where 0.350 is** —
+the count hard and the mean modestly, which is the signature of the frame gaining something rather
+than being regraded. 96.0% of all the channel movement lies inside those 763 pixels, every one of
+which is *darker*; they form three wedges on the floor, each anchored at one caster's base and
+pointing down-sun, and nothing in the sky, on the caster faces or on the slab moved at all. A mean
+larger than that area accounts for would have meant a second change riding along.
+
+⚠ The picture itself was regenerated in `2b334bda`, whose whole message is the word "screenshots" —
+question 5 below going unanswered, and the reason this paragraph exists. A golden that changed for a
+good reason and says so nowhere is indistinguishable, six weeks later, from one that was rewritten
+because it was failing.
 
 ⚠ **`tier-high` and `tier-epic` were re-recorded when the local exposure stopped washing them.**
 They are the only two tiers whose `post.localExposure` is on, and the effect pivoted around the wrong
