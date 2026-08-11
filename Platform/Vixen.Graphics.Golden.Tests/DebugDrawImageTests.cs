@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Renderer;
 using Vixen.Rendering;
-using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 

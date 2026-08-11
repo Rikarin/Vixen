@@ -3,10 +3,10 @@
 
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering;
-using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 

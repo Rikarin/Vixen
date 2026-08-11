@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
@@ -10,7 +11,6 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Water;
 using Vixen.Shaders;
-using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Vixen.Water;
 using Xunit;

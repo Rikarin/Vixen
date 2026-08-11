@@ -3,13 +3,13 @@
 
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.VirtualGeometry;
 using Vixen.Shaders;
-using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 

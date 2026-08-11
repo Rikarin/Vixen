@@ -3,6 +3,7 @@
 
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
@@ -11,7 +12,6 @@ using Vixen.Rendering.Features;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
-using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 
