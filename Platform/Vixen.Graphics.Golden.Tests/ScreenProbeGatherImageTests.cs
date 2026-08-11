@@ -64,18 +64,30 @@ public sealed class ScreenProbeGatherImageTests {
         Assert.Null(node.ResolveSkippedSeen);
     }
 
-    /// <summary>The screen trace wired through the node changes what the probes see.</summary>
+    /// <summary>A frame holding one surface and sky is the sky, and the screen trace wired through
+    ///     the node does not change that.</summary>
     /// <remarks>
-    ///     A wiring assertion, not a closed form — the arithmetic is pinned texel by texel in
-    ///     <c>ScreenProbeTraceDeviceTests</c>. Every probe stands on the one flat surface the frame
-    ///     drew, so the screen trace blackens a cone of directions behind each probe — and the
-    ///     surface's own normal faces <i>away</i> from that cone, so the frame lands <i>above</i>
-    ///     the sky, not below it: the L1 truncation's overshoot, doc 19 § L3's "beside an occluder
-    ///     the away-facing answer overshoots the sky", drawn by a whole frame. The traceless frame
-    ///     is the sky exactly, so anything but the sky here is the screen trace's doing.
+    ///     <para>
+    ///         <b>This asserted the opposite, and the opposite was a defect.</b> It read the frame
+    ///         landing above the sky as doc 19 § L3's "beside an occluder the away-facing answer
+    ///         overshoots the sky" — but there is no occluder in this frame. The G-buffer is one
+    ///         clear: a flat surface at device depth 0.5 filling the screen, and nothing else. The
+    ///         only thing the screen could stop a ray with was the surface every probe is standing
+    ///         on, which the hierarchical march did for a third to a half of every ray a probe
+    ///         fired, and the frame's overshoot was that darkening seen from the front.
+    ///     </para>
+    ///     <para>
+    ///         So the closed form here is the sky, exactly, with the trace on — a whole frame saying
+    ///         a probe's own surface stops nothing. What a screen trace does when there <i>is</i>
+    ///         something to stop is refereed where a fixture can hold real geometry:
+    ///         <c>ScreenProbeTraceDeviceTests.ThePyramidMarchStopsTheSameRaysOnTheDevice</c> for a
+    ///         wall, and <c>TheSurfaceAProbeStandsOnStopsNothingOnTheDevice</c> for the surface a
+    ///         probe stands on. This fixture cannot: its G-buffer comes from a clear, and a clear is
+    ///         one surface.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void TheScreenTraceDarkensWhatItStops() {
+    public void TheScreenTraceStopsNothingInAFrameOfOneSurface() {
         if (!TryOpen(out var fixture)) {
             return;
         }
@@ -84,10 +96,13 @@ public sealed class ScreenProbeGatherImageTests {
         var pictures = Render(owned, 0.5f, frames: 3, out var node, screenTraces: true);
 
         var centre = Pixel(pictures[^1], 16, 16);
+        var corner = Pixel(pictures[^1], 2, 2);
 
         Assert.Null(node.TraceSkippedSeen);
-        Assert.True(centre.X > Radiance + 0.03f, $"the screen trace stopped nothing: {centre}");
-        Assert.True(centre.X < 1f, $"the overshoot has no ceiling: {centre}");
+        Assert.Equal(Radiance, centre.X, 0.02f);
+        Assert.Equal(Radiance, centre.Y, 0.02f);
+        Assert.Equal(Radiance, centre.Z, 0.02f);
+        Assert.Equal(Radiance, corner.X, 0.02f);
     }
 
     /// <summary>The accumulated and filtered path draws the same flat frame a raw resolve draws.</summary>
