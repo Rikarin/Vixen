@@ -210,7 +210,14 @@ public sealed class VirtualShadowAtlas : IDisposable {
 
         list.BindPipeline(pipeline);
         list.BindDescriptorSet(Slot, descriptors[ring]);
-        list.Dispatch((size.X + 7) / 8, (size.Y + 7) / 8);
+        // One workgroup per VirtualShadowMap.MarkTile square, which is eight blocks of
+        // VirtualShadowMap.MarkBlock pixels each way — the tiling VirtualShadowMark.Main derives from
+        // its group index. Rounded up, so the screen's right and bottom edges are covered by a
+        // workgroup whose out-of-range pixels read nothing.
+        list.Dispatch(
+            (size.X + VirtualShadowMap.MarkTile - 1) / VirtualShadowMap.MarkTile,
+            (size.Y + VirtualShadowMap.MarkTile - 1) / VirtualShadowMap.MarkTile
+        );
 
         list.Barrier(new([new(markBuffer, ResourceState.ShaderWrite, ResourceState.CopySource)], []));
         list.CopyBuffer(markBuffer, 0, markReadback, 0, MarkWords * sizeof(uint));

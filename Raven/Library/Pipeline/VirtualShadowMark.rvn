@@ -52,74 +52,135 @@ shader VirtualShadowMark {
     /// How many world units one texel of clipmap level zero covers.
     var firstTexel: float
 
-    /// One workgroup per eight-by-eight block of the screen, one invocation per pixel.
+    /// One workgroup per thirty-two-pixel square of the screen, one invocation per `Vsm.MarkBlock`
+    /// square of pixels within it.
     ///
-    /// **Per pixel and not per tile**, because the level a pixel needs is a function of its own depth:
-    /// a tile straddling a wall and the floor behind it needs two levels, and taking one of them is
-    /// either a page nobody uses or a shadow at the wrong resolution on half the tile.
+    /// **Every pixel is still read, and the level is still a function of that pixel's own depth.**
+    /// A block straddling a wall and the floor behind it asks for both pages, exactly as sixteen
+    /// separate invocations did — what the block changes is only how many times the answer is written.
+    ///
+    /// ⚠ **Sampling one pixel per block instead is the tempting version, and it drops pages.** The
+    /// "a page is a hundred and twenty-eight texels, and a level is chosen so a texel is no finer than
+    /// a pixel, so a page is at least a hundred and twenty-eight pixels across" argument holds only for
+    /// a surface facing the camera: a page's screen width is that bound times the cosine of the
+    /// surface's obliquity, which goes to zero on a floor receding to the horizon. In sample 13 the
+    /// distant ground's pages are already narrower than one pixel. A block that sampled its centre
+    /// would silently stop asking for them, and the pixels that lose the page are precisely the ones
+    /// whose lookup wanted it — a band of unshadowed ground that moves with the camera.
+    ///
+    /// **What the block is actually for is the atomic.** Marking is a write of one bit into a bitset
+    /// twenty-three words wide in a real frame, so five and three quarter million invocations were
+    /// serialising a quarter of a million read-modify-writes onto each of a couple of dozen words.
+    /// Sixteen pixels of a block almost always want the same word, so they coalesce into one write in
+    /// a register before any of them reaches memory.
     [ComputeShader(64)]
     func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
-        val pixel = int2(int(group.x), int(group.y)) * 8 + int2(int(lane) % 8, int(lane) / 8)
+        val block = int2(int(group.x), int(group.y)) * 8 + int2(int(lane) % 8, int(lane) / 8)
+        val origin = block * Vsm.MarkBlock
 
-        if (pixel.x >= screen.x || pixel.y >= screen.y) {
-            return
-        }
+        // The write this invocation is part-way through: which word of the bitset, and which of its
+        // bits the pixels so far have asked for. A negative word is "nothing accumulated yet", which
+        // is not a value a real word index can take.
+        var word = -1
+        var mask = 0u
 
-        val depth = sceneDepth.Load(int3(pixel.x, pixel.y, 0)).x
+        for (step in 0 .. (Vsm.MarkBlock * Vsm.MarkBlock) - 1) {
+            val pixel = origin + int2(step % Vsm.MarkBlock, step / Vsm.MarkBlock)
 
-        // Reverse-Z: zero is the far plane, which is a pixel nothing drew. The sky needs no shadow
-        // page, and marking one would allocate the coarsest level of the clipmap for every pixel of it.
-        if (depth <= 0f) {
-            return
-        }
-
-        val centre = float2(float(pixel.x), float(pixel.y)) + float2(0.5f, 0.5f)
-        val uv = centre / float2(float(screen.x), float(screen.y))
-
-        val world = Transform.UvDepthToWorld(inverseViewProjection, uv, depth)
-        val texel = Vsm.WorldTexelSize(length(world - viewPosition), screenHeightScale, screen.y)
-
-        // The clipmap: one level, chosen by this pixel's own footprint.
-        if (clipmapLevels > 0) {
-            Mark(Vsm.LevelFor(texel, firstTexel, clipmapLevels), world)
-        }
-
-        // And every spot, because a pixel may be inside more than one of them and a spot has no level
-        // to choose. The loop is bounded by the constant and broken out of at the count, which is the
-        // shape every bounded loop in this library has.
-        for (i in 0 .. Vsm.MaxLevels - 1) {
-            val index = clipmapLevels + i
-
-            if (index >= levelCount) {
-                break
+            if (pixel.x >= screen.x || pixel.y >= screen.y) {
+                continue
             }
 
-            Mark(index, world)
+            val depth = sceneDepth.Load(int3(pixel.x, pixel.y, 0)).x
+
+            // Reverse-Z: zero is the far plane, which is a pixel nothing drew. The sky needs no shadow
+            // page, and marking one would allocate the coarsest level of the clipmap for every pixel
+            // of it.
+            if (depth <= 0f) {
+                continue
+            }
+
+            val centre = float2(float(pixel.x), float(pixel.y)) + float2(0.5f, 0.5f)
+            val uv = centre / float2(float(screen.x), float(screen.y))
+
+            val world = Transform.UvDepthToWorld(inverseViewProjection, uv, depth)
+            val texel = Vsm.WorldTexelSize(length(world - viewPosition), screenHeightScale, screen.y)
+
+            // Source zero is the clipmap, whose one level this pixel's own footprint chooses; the rest
+            // are the spots, because a pixel may be inside more than one of them and a spot has no
+            // level to choose. One loop rather than a call and a loop, because the accumulator below
+            // has to be a local of this function — see the remarks on `Bit`.
+            for (source in 0 .. Vsm.MaxLevels) {
+                var index = -1
+
+                if (source == 0) {
+                    if (clipmapLevels > 0) {
+                        index = Vsm.LevelFor(texel, firstTexel, clipmapLevels)
+                    }
+                } else {
+                    index = clipmapLevels + source - 1
+
+                    if (index >= levelCount) {
+                        break
+                    }
+                }
+
+                val bit = Bit(index, world)
+
+                if (bit >= 0) {
+                    // A new word ends the run and starts another. The words are rows of a level's page
+                    // grid, so a block that stays on one surface never leaves its word and a block that
+                    // crosses to another writes the first one out — never more atomics than the one per
+                    // page per pixel marking paid unconditionally before, and usually one for sixteen.
+                    if (bit / 32 != word) {
+                        if (word >= 0) {
+                            val ended = atomicOr(marks[word], mask)
+                        }
+
+                        word = bit / 32
+                        mask = 0u
+                    }
+
+                    mask = mask | (1u << (bit % 32))
+                }
+            }
+        }
+
+        // A million pixels asking for the same page is still one bit that changes nothing — what this
+        // no longer is is a million writes to say so. A compacted list would need the same atomic and
+        // a deduplication pass after it.
+        if (word >= 0) {
+            val last = atomicOr(marks[word], mask)
         }
     }
 
-    /// Sets the bit for the page of `map` that covers a world position, if it covers it at all.
-    func Mark(index: int, world: float3) {
+    /// Which bit of the mark bitset is the page of `index` covering a world position, or a negative
+    /// number where that map does not cover it at all.
+    ///
+    /// ⚠ **A query and not a writer, and the accumulator it feeds is a local of `Main`.** The obvious
+    /// shape is a `Mark` that takes the running word and mask as `inout` and updates them — it was
+    /// written that way first, and it dropped a page a frame in sample 13: one level-zero page that
+    /// per-pixel marking asked for and this did not, silently, with every counter agreeing. The
+    /// accumulator never leaves a register now, which is the version whose marked set is bit-identical
+    /// to the per-pixel pass's over four hundred frames.
+    func Bit(index: int, position: float3): int {
         if (index < 0 || index >= levels.Length) {
-            return
+            return -1
         }
 
         val level = levels[index]
-        val page = Vsm.PageOf(level.viewProjection, world)
+        val page = Vsm.PageOf(level.viewProjection, position)
 
         if (page.z == 0) {
-            return
+            return -1
         }
 
         val bit = Vsm.IndexOf(level.first, page)
 
         if (bit < 0 || bit >= marks.Length * 32) {
-            return
+            return -1
         }
 
-        // One atomic per pixel, and a million pixels asking for the same page is a million writes that
-        // change nothing — which is the cheapest correct answer to "which pages does this frame want".
-        // A compacted list would need the same atomic and a deduplication pass after it.
-        val old = atomicOr(marks[bit / 32], 1u << (bit % 32))
+        return bit
     }
 }
