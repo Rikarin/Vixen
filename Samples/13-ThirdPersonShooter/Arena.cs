@@ -167,6 +167,17 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const float EmberLuminance = 40000f;
 
+    /// <summary>The lake's ring, which <c>Arena.vxscene</c>'s <c>!WaterBodyComponent</c> names.</summary>
+    /// <remarks>Here as well as there because <see cref="Warm" /> has to ask for it by name before
+    ///     the world has been folded once — see there for why.</remarks>
+    public const string LakeSpline = "Assets/Water/Lake.vxspline";
+
+    /// <summary>How many times <see cref="Warm" /> asks before giving up.</summary>
+    const int WaterWarmAttempts = 400;
+
+    /// <summary>How long it waits between asks, in milliseconds.</summary>
+    const int WaterWarmInterval = 10;
+
     readonly ILogger logger;
     AppServices? services;
     TerrainGroundSystem? ground;
@@ -625,6 +636,26 @@ public sealed class Arena : IDisposable {
 
         var source = new AssetWaterSource(assets);
 
+        // ⚠ **Warmed before the first fold, and this is a workaround for an engine defect rather
+        // than a nicety.** `WaterZoneSystem.GatherBodies` caches a body against its component and its
+        // placement, and it caches the *failure* too: a body whose `SplineFor` answered null is
+        // recorded as unresolved and, because nothing about the component or the transform then
+        // changes, is never asked again for the life of the world. `AssetWaterSource` answers null
+        // for the first few frames by construction — it starts a `Task` and polls it — so a lake
+        // named in a scene can never appear in a running game. Nothing caught it because every other
+        // caller is synchronous: the editor's presenter builds its curve from the document in hand,
+        // and every test's source is a literal.
+        //
+        // The zone's sea state has the opposite arrangement and is the evidence: `GatherZones`
+        // re-resolves every fold with no cache, so the `.vxwaves` here arrives late and works, while
+        // the `.vxspline` beside it arrives late and does not.
+        //
+        // So this blocks until the asset is in the source's own cache, at which point the fold's
+        // first ask is answered synchronously whatever placement it uses. Blocking is the same trade
+        // `Arena.Load` already makes for the scene: there is nothing worth showing until the level is
+        // there. The real fix is one line in the fold — do not cache a null — and it is owed.
+        Warm(source);
+
         graphics.Water.Splines = source;
         graphics.Water.Waves = source;
 
@@ -632,6 +663,32 @@ public sealed class Arena : IDisposable {
             ground = new TerrainGroundSystem(Physics, terrains, logger);
             graphics.Water.Ground = ground;
         }
+    }
+
+    /// <summary>Waits for the lake's curve to reach the source's cache, or gives up saying so.</summary>
+    /// <remarks>
+    ///     Identity, because what is being warmed is the <em>asset</em> and not the curve: a curve is
+    ///     cached per placement and an asset is cached per name, and once the asset is there any
+    ///     placement is answered without a read. So the placement here does not have to be the one
+    ///     the fold will ask for, which is good, because the fold asks for the body entity's world
+    ///     transform and this method has no business knowing it.
+    /// </remarks>
+    void Warm(AssetWaterSource source) {
+        for (var attempt = 0; attempt < WaterWarmAttempts; attempt++) {
+            if (source.SplineFor(LakeSpline, Matrix4x4.Identity) is not null) {
+                return;
+            }
+
+            if (source.Failed > 0) {
+                break;
+            }
+
+            Thread.Sleep(WaterWarmInterval);
+        }
+
+        // Not thrown over: a build that shipped no water content is a level with no lake in it, which
+        // is a worse level and a running one. The count is what says which of the two happened.
+        SampleLog.NoWaterSource(logger);
     }
 
     /// <summary>
