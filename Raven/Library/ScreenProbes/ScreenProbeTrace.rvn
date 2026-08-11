@@ -172,6 +172,18 @@ shader ScreenProbeTrace {
         val slope = ShellSlope(fromClip, toClip)
         val shellA = fromZ - slope * inverseFrom
 
+        // ⚠ The texel the ray starts in — the one texel whose surface has to clear a bar before it
+        // may stop the ray. A cell crossing is an interval, and the first one begins *on* the
+        // surface the ray was fired from, so the shell test straddles that surface and the march
+        // reported it before the ray had gone anywhere: replayed over an arena's depth at three
+        // camera poses, 59%, 31% and 53% of every hit was this one. The bar is the shell, not a
+        // refusal — a ray straight down the view axis never leaves this texel, and refusing it
+        // outright would blind the march for the ray's whole length. `ScreenSpaceTrace` states it
+        // at length, and floors rather than taking the DDA's first cell for the same reason this
+        // does: an origin exactly on a boundary enters the cell before its own.
+        val startX = int(floor(fromX))
+        val startY = int(floor(fromY))
+
         var along = 0f
         var level = pyramidLevels - 1
         var size = 1
@@ -299,7 +311,12 @@ shader ScreenProbeTrace {
                     size = size / 2
                 } else {
                     // Texel level: the shell, held against the segment. A sky texel occludes
-                    // nothing.
+                    // nothing, and the texel the ray started in occludes only a surface the ray
+                    // began clearly in front of — by more than the shell it would be judged
+                    // against, which is the one length in the problem and the exact margin within
+                    // which "standing on it" cannot be told from "just behind it".
+                    val started = px == startX && py == startY
+
                     if (nearest > 0f) {
                         if (slope > 0f) {
                             val surfaceInverseW = (nearest - shellA) / slope
@@ -310,12 +327,16 @@ shader ScreenProbeTrace {
                                 val wExit = 1f / (inverseFrom + (inverseTo - inverseFrom) * exit)
 
                                 if (max(wAt, wExit) > surfaceW && min(wAt, wExit) < surfaceW + screenLinearThickness) {
-                                    return int2(px, py)
+                                    if (!started || fromClip.w < surfaceW - screenLinearThickness) {
+                                        return int2(px, py)
+                                    }
                                 }
                             }
                         } else {
                             if (enter < nearest && leave > max(nearest - screenThickness, 0f)) {
-                                return int2(px, py)
+                                if (!started || fromZ > nearest + screenThickness) {
+                                    return int2(px, py)
+                                }
                             }
                         }
                     }
@@ -348,6 +369,21 @@ shader ScreenProbeTrace {
         val shellA = fromClip.z * inverseFrom - slope * inverseFrom
         val step = maxDistance / float(screenSteps)
 
+        // The pixel the ray starts in and the depth it starts at — the sampled half of the guard
+        // `PyramidMarch` states. Sampling at step midpoints keeps a sample off the origin *point*,
+        // which is not the same as keeping it out of the origin's own texel: at a short enough ray
+        // the first midpoint is still inside it, standing on the surface the ray was fired from
+        // and inside its shell. A ray whose origin is behind the camera's plane has no start pixel
+        // to except, and matches nothing.
+        val startNdc = fromClip.xyz * inverseFrom
+        var startX = -1
+        var startY = -1
+
+        if (fromClip.w > Const.Epsilon) {
+            startX = int(floor((startNdc.x * 0.5f + 0.5f) * screenViewport.x))
+            startY = int(floor((startNdc.y * -0.5f + 0.5f) * screenViewport.y))
+        }
+
         for (i in 0 .. screenSteps - 1) {
             val world = origin + direction * ((float(i) + 0.5f) * step)
             val clip = viewProjection * float4(world, 1f)
@@ -366,6 +402,7 @@ shader ScreenProbeTrace {
                     }
 
                     val surfaceDepth = depthBuffer.Load(int3(px, py, 0)).r
+                    val started = px == startX && py == startY
 
                     if (surfaceDepth > 0f) {
                         if (slope > 0f) {
@@ -375,12 +412,16 @@ shader ScreenProbeTrace {
                                 val surfaceW = 1f / surfaceInverseW
 
                                 if (clip.w > surfaceW && clip.w < surfaceW + screenLinearThickness) {
-                                    return true
+                                    if (!started || fromClip.w < surfaceW - screenLinearThickness) {
+                                        return true
+                                    }
                                 }
                             }
                         } else {
                             if (ndc.z < surfaceDepth && ndc.z > surfaceDepth - screenThickness) {
-                                return true
+                                if (!started || startNdc.z > surfaceDepth + screenThickness) {
+                                    return true
+                                }
                             }
                         }
                     }

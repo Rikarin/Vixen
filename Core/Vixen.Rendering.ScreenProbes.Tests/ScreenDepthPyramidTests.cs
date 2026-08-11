@@ -172,6 +172,79 @@ public class ScreenDepthPyramidTests {
         }
     }
 
+    [Fact]
+    public void TheSurfaceARayLeavesDoesNotStopIt() {
+        // A probe standing on what the buffer actually shows, which the fixtures above never are:
+        // the depth is a plane tilted away from the camera — z = −5 + x/2, so a column at x reads
+        // (4 + x/2) / 8 — and the probe stands on it, biased off along its normal exactly as
+        // `TracedScreenProbeGather` biases one. Nothing else is in the buffer, so every hit here is
+        // the ray being stopped by the surface it was fired from.
+        //
+        // The ray leaves just above the plane and runs down the slope, which is where a hemisphere
+        // puts most of its rays and where the defect lived: the crossing of the probe's own texel
+        // begins on the probe's own surface, so it straddles the stored depth and the shell test is
+        // true before the ray has gone anywhere. Both marches, because both had it — the walk's
+        // step midpoints keep a sample off the origin point, not out of the origin's texel.
+        //
+        // ⚠ The tilt is gentle on purpose, and it is what makes this a test of the guard rather
+        // than of grazing angles in general. A steep plane steps more depth across one texel than a
+        // near-tangent ray gains over it, so the ray is inside the *next* texel's shell too and a
+        // point-sampled buffer cannot tell it from the surface — true of any screen trace, and not
+        // what this pins. Here the ray descends more slowly than the plane does, so once it is past
+        // its own texel nothing in the buffer is in front of it.
+        var surface = new ReconstructedScreenSurface(new(32, 32));
+
+        for (var y = 0; y < 32; y++) {
+            for (var x = 0; x < 32; x++) {
+                surface.Depth[(y * 32) + x] = (4f + (0.5f * WorldX(x))) / 8f;
+            }
+        }
+
+        var pyramid = new ScreenDepthPyramid(new(32, 32));
+
+        pyramid.Build(surface.Depth);
+
+        var normal = Vector3.Normalize(new(-0.5f, 0f, 1f));
+        var tangent = Vector3.Normalize(new(-1f, 0f, -0.5f));
+        var position = new Vector3(WorldX(16), 0f, -5f + (0.5f * WorldX(16)));
+
+        // Just off the tangent: above the plane, and pointed down it — a hemisphere's commonest ray.
+        var direction = Vector3.Normalize(tangent + (normal * 0.15f));
+        var origin = position + (normal * 0.01f);
+
+        foreach (var withPyramid in new[] { false, true }) {
+            var trace = new ScreenSpaceTrace(surface) {
+                ViewProjection = Matrix4x4.Orthographic(4f, 4f, 1f, 9f),
+                Steps = 32,
+                Thickness = 0.02f,
+                Pyramid = withPyramid ? pyramid : null
+            };
+
+            Assert.False(trace.TryHit(origin, direction, 4f, out var pixel), $"stopped at {pixel}, pyramid {withPyramid}");
+
+            // And the guard is not a hole: a wall the buffer shows in front of a ray still stops
+            // it, including one that lives in the ray's own texel — this ray runs straight down the
+            // view axis and never leaves it, which is why the guard is a bar and not a refusal.
+            var wall = new ReconstructedScreenSurface(new(32, 32));
+
+            wall.Depth.Fill(0.5f);
+
+            var walled = new ScreenSpaceTrace(wall) {
+                ViewProjection = Matrix4x4.Orthographic(4f, 4f, 1f, 9f),
+                Steps = 32,
+                Thickness = 0.02f,
+                Pyramid = withPyramid ? new ScreenDepthPyramid(new(32, 32)) : null
+            };
+
+            walled.Pyramid?.Build(wall.Depth);
+
+            Assert.True(walled.TryHit(new(0f, 0f, -2f), new(0f, 0f, -1f), 8f, out _), $"the wall missed, pyramid {withPyramid}");
+        }
+    }
+
+    /// <summary>The world x a pixel column stands at — ndc.x = x / 2 under the fixture's camera.</summary>
+    static float WorldX(int column) => 2f * ((((column + 0.5f) / 32f) * 2f) - 1f);
+
     /// <summary>Both marches over one camera's grid of rays: naive implies fast, same pixels.</summary>
     static void AssertAgreement(ScreenSpaceTrace trace, ScreenDepthPyramid pyramid, bool exactPixels) {
         var checked_ = 0;
