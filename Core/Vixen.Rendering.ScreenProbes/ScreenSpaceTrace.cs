@@ -179,6 +179,25 @@ public sealed class ScreenSpaceTrace {
 
         ShellOf(fromClip, toClip, out var shellA, out var shellB);
 
+        // The pixel the ray starts in and the depth it starts at — the sampled half of the guard
+        // `Hierarchical` states at length. Sampling at step midpoints keeps a sample off the
+        // origin *point*, which is not the same as keeping it out of the origin's own texel: at a
+        // short enough ray the first midpoint is still inside it, standing on the surface the ray
+        // was fired from and inside its shell. The pyramid march found that surface for almost
+        // every probe ray; this finds it whenever half a step is smaller than a texel, which is
+        // what `APerspectiveRayMarchesThePyramidAndAgreesToo` fires at. A ray with no start pixel
+        // — an origin behind the camera's plane — has no texel to except, and matches nothing.
+        var start = new Int2(-1, -1);
+
+        if (fromClip.W > Epsilon) {
+            var startNdc = new Vector3(fromClip.X, fromClip.Y, fromClip.Z) / fromClip.W;
+
+            start = new(
+                (int)MathF.Floor(((startNdc.X * 0.5f) + 0.5f) * viewport.X),
+                (int)MathF.Floor(((startNdc.Y * -0.5f) + 0.5f) * viewport.Y)
+            );
+        }
+
         pixel = default;
 
         for (var i = 0; i < Steps; i++) {
@@ -218,6 +237,11 @@ public sealed class ScreenSpaceTrace {
                 continue;
             }
 
+            // In the texel the ray started in, only a surface the ray began clearly in front of —
+            // by more than the shell it would be judged against — is something other than the
+            // surface the ray stands on.
+            var started = x == start.X && y == start.Y;
+
             if (shellB > 0f) {
                 // The linear shell: the surface's view depth from the ray's own constants, the
                 // sample's from its w directly. Behind is a larger view depth.
@@ -226,7 +250,9 @@ public sealed class ScreenSpaceTrace {
                 if (surfaceInverseW > 1e-6f) {
                     var surfaceW = 1f / surfaceInverseW;
 
-                    if (clip.W > surfaceW && clip.W < surfaceW + LinearThickness) {
+                    if (clip.W > surfaceW
+                        && clip.W < surfaceW + LinearThickness
+                        && (!started || fromClip.W < surfaceW - LinearThickness)) {
                         pixel = new(x, y);
 
                         return true;
@@ -238,7 +264,9 @@ public sealed class ScreenSpaceTrace {
 
             // Behind the surface — smaller device depth, because depth is reversed — and within
             // its shell.
-            if (ndc.Z < surfaceDepth && ndc.Z > surfaceDepth - Thickness) {
+            if (ndc.Z < surfaceDepth
+                && ndc.Z > surfaceDepth - Thickness
+                && (!started || (fromClip.Z / fromClip.W) > surfaceDepth + Thickness)) {
                 pixel = new(x, y);
 
                 return true;
@@ -292,7 +320,9 @@ public sealed class ScreenSpaceTrace {
     ///     space — so a cell crossing is one interval and the skip test is two endpoint compares.
     ///     The texel test holds the shell against the <i>segment</i> rather than a sample —
     ///     continuous, so a shell the fixed steps could straddle cannot be stepped over — in view
-    ///     units where <see cref="LinearThickness" /> bought them, device units otherwise.
+    ///     units where <see cref="LinearThickness" /> bought them, device units otherwise. The one
+    ///     crossing it does not test is the first: a ray begins on the surface it was fired from,
+    ///     and a continuous test over that texel finds it there.
     /// </remarks>
     bool Hierarchical(ScreenDepthPyramid pyramid, Vector4 fromClip, Vector4 toClip, out Int2 pixel) {
         pixel = default;
@@ -318,6 +348,33 @@ public sealed class ScreenSpaceTrace {
         var delta = to - from;
         var along = 0f;
         var level = pyramid.Levels - 1;
+
+        // ⚠ The texel the ray starts in — the one texel whose surface has to clear a bar before it
+        // may stop the ray, and the hierarchical half of the guard the fixed-step walk states at
+        // `Hit`. The walk tests points, and its first point stands half a step from the origin;
+        // this tests a cell's whole crossing, and its first crossing begins *on* the surface the
+        // ray was fired from. The stored depth there is that same surface, so the interval
+        // straddles it and the shell test below was true before the ray had gone anywhere.
+        // Replayed over the arena's depth at three camera poses, 32 cosine rays a probe: 59%, 31%
+        // and 53% of every hit the pyramid march reported was this, median reach one hundredth of
+        // a metre — which is `SurfaceBias`, the distance the ray had travelled. The bias cannot
+        // cure it in any size that stays a bias: it moves the origin a hundredth of a metre, and
+        // what has to be cleared is the texel's own depth span.
+        //
+        // ⚠ Refusing the texel outright is what it must NOT do, and the fixture that says so is
+        // `TheLinearShellPassesBehindWhatTheDeviceShellCannot`: a ray straight down the view axis
+        // never leaves the texel it started in, so the wall two units in front of it lives there
+        // too, and a march that skips its own texel is blind for the ray's whole length. The bar
+        // is the shell instead, which the texel test below states.
+        //
+        // ⚠ Floored, not `Entering` — the texel the origin's surface is stored in, which is not
+        // always the first cell the DDA crosses. An origin that lands exactly on a cell boundary
+        // travelling the other way enters the cell *before* it, and excepting that one would both
+        // except a texel the ray was not fired from and leave the real one unguarded. This is the
+        // fixed-step walk's `start` by the same arithmetic, which is the point: the guard has to be
+        // one rule the two marches evaluate twice, or the agreement they are held to is a fiction.
+        var startX = (int)MathF.Floor(from.X);
+        var startY = (int)MathF.Floor(from.Y);
 
         // The coarsest level still worth asking, and what buys one back — see AscentCredit.
         var ceiling = level;
@@ -373,8 +430,14 @@ public sealed class ScreenSpaceTrace {
                 continue;
             }
 
-            // Texel level: the shell, held against the segment. A sky texel occludes nothing.
+            // Texel level: the shell, held against the segment. A sky texel occludes nothing, and
+            // the texel the ray started in occludes only a surface the ray began clearly in front
+            // of — clearly meaning by more than the shell it would be judged against, which is the
+            // one length in the problem and the exact margin within which "standing on it" cannot
+            // be told from "just behind it". A probe stands on its surface; a ray fired down the
+            // view axis at a wall two units away does not.
             var surfaceDepth = pyramid.Nearest(0, new(px, py));
+            var started = px == startX && py == startY;
 
             if (surfaceDepth > 0f) {
                 if (shellB > 0f) {
@@ -389,13 +452,17 @@ public sealed class ScreenSpaceTrace {
                         var wEnter = MathF.Min(wAt, wExit);
                         var wLeave = MathF.Max(wAt, wExit);
 
-                        if (wLeave > surfaceW && wEnter < surfaceW + LinearThickness) {
+                        if (wLeave > surfaceW
+                            && wEnter < surfaceW + LinearThickness
+                            && (!started || fromClip.W < surfaceW - LinearThickness)) {
                             pixel = new(px, py);
 
                             return true;
                         }
                     }
-                } else if (enter < surfaceDepth && leave > MathF.Max(surfaceDepth - Thickness, 0f)) {
+                } else if (enter < surfaceDepth
+                    && leave > MathF.Max(surfaceDepth - Thickness, 0f)
+                    && (!started || from.Z > surfaceDepth + Thickness)) {
                     pixel = new(px, py);
 
                     return true;
