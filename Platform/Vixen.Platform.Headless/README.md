@@ -21,8 +21,20 @@ assume a window exists.
 ## What a headless window is
 
 Everything a window is except a picture: an id, a size, a framebuffer size, a scale factor, focus, a
-lifecycle and an event stream. Its surface reports `SurfaceKind.None`, which is what tells a graphics
-backend to render offscreen instead of building a swapchain.
+lifecycle and an event stream. Its surface reports `SurfaceKind.None`.
+
+⚠ **That used to be described here as "what tells a graphics backend to render offscreen instead of
+building a swapchain", and it was not true.** What it told a backend was to *decline*: `GraphicsHost`
+makes Vulkan and WebGPU refuse a surface they cannot present to — deliberately, so that a dedicated
+server does not quietly acquire a real GPU device — and the chain fell through to `Vixen.Graphics.Null`,
+which draws nothing. A whole game booting headless therefore produced a black frame with every counter
+reporting success.
+
+It is true now for Vulkan, and only when something asks for a picture: `--vixen-capture` opens the
+device without a surface and `VulkanOffscreenSwapChain` gives the frame an ordinary texture to write.
+Without that flag, headless still means the device that draws nothing, which is the right default for
+the head this platform was built for. See
+[capturing a frame](../../docs/guide/rendering/capturing-a-frame.md).
 
 Its state is also *writable* in a way a real window's is not, deliberately. Setting `ClientSize` here
 really does resize and really does raise `WindowResized`; `SetDpiScale` is the only way to exercise a

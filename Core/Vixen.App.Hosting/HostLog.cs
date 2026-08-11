@@ -131,13 +131,41 @@ static partial class HostLog {
     ///     A head that asked for a window and is drawing into nothing has to say so — the same stance
     ///     the headless platform fallback takes, and for the same reason: the alternative is an
     ///     afternoon spent wondering why the window is black.
+    ///     <para>
+    ///         ⚠ <b>The message no longer names the Null backend.</b> It used to, because Null was
+    ///         the only device that could win without a surface; an offscreen Vulkan device draws the
+    ///         whole frame and keeps it, and telling its operator the frame ran against a device that
+    ///         draws nothing would be a lie about the picture they are holding.
+    ///     </para>
     /// </summary>
     [LoggerMessage(
         EventId = 13011,
         Level = LogLevel.Warning,
-        Message = "Nothing will be presented: {Reason} The frame runs against the Null backend."
+        Message = "Nothing will be presented: {Reason}"
     )]
     public static partial void NoPresentingDevice(ILogger logger, string reason);
+
+    /// <summary>
+    ///     Where the picture went, said once. A capture that wrote a file nobody was told about is a
+    ///     run whose operator goes looking in the directory they typed and finds it — or does not,
+    ///     and cannot tell whether the frame or the write is what failed.
+    /// </summary>
+    [LoggerMessage(EventId = 13028, Level = LogLevel.Information, Message = "Captured the frame to {Path}.")]
+    public static partial void FrameCaptured(ILogger logger, string path);
+
+    /// <summary>
+    ///     ⚠ A warning, because it is the one way to ask for a capture and get nothing. The picture
+    ///     written is the last frame's, and a run with no frame count has no last frame — so the
+    ///     process would run until somebody closed it and exit having written no file, which looks
+    ///     exactly like a capture that failed.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13029,
+        Level = LogLevel.Warning,
+        Message = "--vixen-capture was given without --vixen-frames, so there is no last frame to "
+        + "capture and nothing will be written to {Path}."
+    )]
+    public static partial void CaptureWithoutFrameCount(ILogger logger, string path);
 
     [LoggerMessage(EventId = 13012, Level = LogLevel.Information, Message = "Shaders: {Variants} baked variants.")]
     public static partial void ShadersMounted(ILogger logger, int variants);
@@ -228,7 +256,7 @@ static partial class HostLog {
     ///     subsystem's verb and concludes the subsystem is broken.
     /// </summary>
     [LoggerMessage(
-        EventId = 13026,
+        EventId = 13027,
         Level = LogLevel.Information,
         Message = "Diagnostic overlays on: {Panels} panel(s), {Commands} console command(s). "
             + "Press the grave key for the console; type 'overlays' to list them."

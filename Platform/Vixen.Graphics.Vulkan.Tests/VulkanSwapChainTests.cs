@@ -342,18 +342,34 @@ public sealed class VulkanSwapChainTests {
         Assert.Empty(VulkanSurface.RequiredExtensions(SurfaceKind.None));
 
     /// <summary>
-    ///     A swapchain asked for on a device with no surface is a caller error worth naming, because
-    ///     the cause is upstream: the device was created without the window's handle.
+    ///     A swapchain asked for on a device with no surface is answered offscreen, not refused.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This test asserted the opposite, and the claim it was defending has been
+    ///         withdrawn.</b> It said a surfaceless request was "a caller error worth naming, because
+    ///         the cause is upstream: the device was created without the window's handle" — which is
+    ///         one thing it can mean and not the only one. The other is a run that has no window on
+    ///         purpose and wants its frame anyway, and that run is the majority of them: every
+    ///         golden fixture, every dedicated server, and now every <c>--vixen-capture</c>.
+    ///     </para>
+    ///     <para>
+    ///         The mistake the old message was guarding against is still caught, one level up:
+    ///         <c>GraphicsHost</c> declines Vulkan for a surface it cannot present to unless
+    ///         something asked for a picture, so a head that meant to have a window and did not still
+    ///         hears about it — with the log line that can say so in a sentence, rather than an
+    ///         exception from a constructor.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void ASwapChainOnAHeadlessDeviceIsRefused() {
+    public void ASwapChainOnAHeadlessDeviceIsOffscreenRatherThanRefused() {
         VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
-        var thrown = Assert.Throws<InvalidOperationException>(
-            () => owned.CreateSwapChain(new(SurfaceHandle.None, new Int2(640, 480)))
-        );
+        using var chain = owned.CreateSwapChain(new(SurfaceHandle.None, new Int2(640, 480)));
 
-        Assert.Contains("surface", thrown.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(new Int2(640, 480), chain.Size);
+        Assert.Equal(SwapChainStatus.Ready, chain.AcquireNextImage(out var view));
+        Assert.True(view.IsValid);
     }
 }

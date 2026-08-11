@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Input;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
+using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Vixen.Ui.Text.Rasterizing;
 

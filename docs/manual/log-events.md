@@ -140,7 +140,7 @@ started" rather than "just now".
 | 13008 | Information | `No content: {Reason}` — ordinary for a sample or a tool, and the line that makes "my asset was not found" a five-second diagnosis | 0.1.0 |
 | 13009 | Warning | `LOOSE CONTENT — still reading from {Path} instead of bundles.` — repeated every 60 s, per docs/plan/17 Q5b | 0.1.0 |
 | 13010 | Information | `Graphics on {Adapter} ({Kind}), {Width}×{Height}.` | 0.1.0 |
-| 13011 | Warning | `Nothing will be presented: {Reason} The frame runs against the Null backend.` — a warning even though it is exactly what a dedicated server wants, because a head that asked for a window and is drawing into nothing has to say so | 0.1.0 |
+| 13011 | Warning | `Nothing will be presented: {Reason}` — a warning even though it is exactly what a dedicated server wants, because a head that asked for a window and is drawing into nothing has to say so. ⚠ It used to end "The frame runs against the Null backend", which stopped being true when a capture gained the right to open an offscreen Vulkan device that draws the whole frame | 0.1.0 |
 | 13012 | Information | `Shaders: {Variants} baked variants.` | 0.1.0 |
 | 13013 | Information | `No baked shaders: {Reason}` — ordinary for a project that has not captured a manifest yet, and the line that turns "every material draws as a miss" into a build step somebody has not run | 0.1.0 |
 | 13014 | Error | `The graphics device was lost. Nothing more will be drawn this run.` | 0.1.0 |
@@ -156,6 +156,9 @@ started" rather than "just now".
 | 13024 | Warning | `Look profile {Address} was not loaded ({Reason}) — the frame keeps its neutral values.` | 0.1.0 |
 | 13025 | Information | `GPU pass timing requested: {Attached} on '{Adapter}'.` — worth a line in both directions, because a profiled frame is not the frame that ships and an unsupported one is an empty timeline with no reason for it | 0.1.0 |
 | 13026 | Information | `The window asked for {PointWidth}×{PointHeight} points and the display scale is ×{Scale}, so the frame is {PixelWidth}×{PixelHeight} — {Factor}× the pixels.` — 13010 reports the result; this one reports that the result is not what was asked for, which on a retina display is four times the pixels and rather more than four times the screen-space cost | 0.1.0 |
+| 13027 | Information | `Diagnostic overlays on: {Panels} panel(s), {Commands} console command(s).` — a build with the switch on and zero commands is a console that answers `help` and nothing else, worth knowing before somebody types a subsystem's verb and concludes the subsystem is broken | 0.1.0 |
+| 13028 | Information | `Captured the frame to {Path}.` — `--vixen-capture`; a picture nobody was told about is one its operator cannot tell from a capture that failed | 0.1.0 |
+| 13029 | Warning | `--vixen-capture was given without --vixen-frames, so there is no last frame to capture and nothing will be written to {Path}.` — the one way to ask for a picture and correctly get none, said at startup while somebody is still watching | 0.1.0 |
 
 Every other range is still reserved rather than allocated: the subsystems that will log have not been
 written, and the ranges exist so that when they are, nobody has to invent a numbering scheme under

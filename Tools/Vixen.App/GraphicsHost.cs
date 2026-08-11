@@ -83,13 +83,18 @@ public static class GraphicsHost {
         IReadOnlyList<GraphicsBackend> order = options.Backends.Count > 0 ? [.. options.Backends] : Default;
         var refusals = new List<string>(order.Count);
 
+        // ⚠ Asking for a picture is what buys a device with no surface. See TryOpen's comment for
+        // why the refusal is there; this is the one statement of intent specific enough to overrule
+        // it, because a capture written by the Null device is a black PNG and a passing run.
+        var offscreen = options.CapturePath is { Length: > 0 };
+
         foreach (var backend in order) {
-            if (TryOpen(backend, window, logs, out var device, out var refusal)) {
+            if (TryOpen(backend, window, logs, offscreen, out var device, out var refusal)) {
                 // ⚠ Opening is not presenting. A device can be perfectly healthy and still have no
                 // surface — an application that asked for no window, or a window made without the
                 // backend's surface flag — and the host logs that as the reason a picture is not
                 // appearing. Asked once, here, where the answer can still be turned into a sentence.
-                reason = Presentable(backend, window, refusals);
+                reason = Presentable(backend, offscreen && !(window?.Surface.Handle ?? SurfaceHandle.None).CanPresent, refusals);
 
                 return device;
             }
@@ -158,6 +163,7 @@ public static class GraphicsHost {
         GraphicsBackend backend,
         IWindow? window,
         ILoggerFactory? logs,
+        bool offscreen,
         out IGraphicsDevice? device,
         out string? reason
     ) {
@@ -174,7 +180,15 @@ public static class GraphicsHost {
         // swapchain on a surface, so what they need is a surface that can be presented to. OpenGL
         // has no swapchain at all — it draws into the window's own default framebuffer — so what it
         // needs is a window, and whether that window can give it a context is the window's answer.
+        //
+        // ⚠ `offscreen` is the one thing that lifts the first of those, and only for Vulkan. It
+        // means the caller asked for a picture written to a file, which is a request the Null device
+        // can only answer with a black PNG — so declining and falling through is the wrong answer
+        // there, and VulkanOffscreenSwapChain is what makes the right one possible. WebGPU keeps the
+        // refusal because it has no equivalent: its swapchain is its surface, and a WebGPU device
+        // with none has nothing for the frame's last pass to write into.
         var refused = backend switch {
+            GraphicsBackend.Vulkan when !surface.CanPresent && offscreen => null,
             GraphicsBackend.Vulkan or GraphicsBackend.WebGpu when !surface.CanPresent => window is null
                 ? "the application asked for no window."
                 : $"the window's surface is {surface.Kind}, which cannot be presented to.",
@@ -283,13 +297,20 @@ public static class GraphicsHost {
 
     /// <summary>What to say about the device that opened, or null when there is nothing to say.</summary>
     /// <remarks>
-    ///     ⚠ <b>Null is the only winner that can have no surface</b>, because
-    ///     <see cref="TryOpen" /> makes the presenting backends decline without one. So there is no
-    ///     "opened but cannot present" case left to describe for the others — a device that got this
-    ///     far is one that can draw to the window.
+    ///     ⚠ <b>Two winners can have no surface, and they mean opposite things.</b> Null draws
+    ///     nothing because that is what it is for; an offscreen Vulkan device draws the whole frame
+    ///     and keeps it, because a capture asked for it. Both are "nothing will appear on a screen"
+    ///     and only one of them is a downgrade, so they are worth different sentences — a run that
+    ///     said "the Null backend draws nothing" while writing a real picture would send its reader
+    ///     hunting for a bug that is not there.
     /// </remarks>
-    static string? Presentable(GraphicsBackend backend, IWindow? window, List<string> refusals) {
-        var note = backend == GraphicsBackend.Null ? "the Null backend draws nothing by design." : null;
+    static string? Presentable(GraphicsBackend backend, bool offscreen, List<string> refusals) {
+        var note = backend switch {
+            GraphicsBackend.Null => "the Null backend draws nothing by design.",
+            _ when offscreen => $"{Spell(backend)} is drawing offscreen, because a capture was asked "
+                + "for and there is nothing to present to.",
+            _ => null
+        };
 
         if (note is not null) {
             return refusals.Count > 0 ? string.Join(" ", refusals) + " " + note : note;

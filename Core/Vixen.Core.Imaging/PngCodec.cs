@@ -6,7 +6,7 @@ using System.IO.Compression;
 using System.IO.Hashing;
 using System.Text;
 
-namespace Vixen.Ui.Testing.Visual;
+namespace Vixen.Core.Imaging;
 
 /// <summary>PNG, encoded and decoded, in about two hundred lines and with no imaging dependency.</summary>
 /// <remarks>
@@ -23,16 +23,20 @@ namespace Vixen.Ui.Testing.Visual;
 ///         <c>System.IO.Compression</c>'s.
 ///     </para>
 ///     <para>
-///         <b>Written for <c>Vixen.Graphics.Golden.Tests</c> and moved here</b>, which is why a UI
-///         testing library owns the tree's PNG codec. That suite needed one first; this one needed
-///         the same thing for its screenshots, and two hand-rolled PNG encoders is one too many.
+///         <b>Written for <c>Vixen.Graphics.Golden.Tests</c>, then owned by
+///         <c>Vixen.Ui.Testing</c>, and now here.</b> Each move was the same argument one step
+///         further down: a picture is written by more things than the one that needed it first, and
+///         the assembly a consumer cannot reference is the assembly that forces a second encoder.
+///         A UI testing library was the wrong owner for the last of those reasons — a game head that
+///         wants to write its own frame to a file cannot reference a test framework to do it, and
+///         <c>Platform/</c> could not reference it at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The direction of the reference is the whole reason it could be consolidated at all.</b>
-///         A shipping library can be referenced by a test project and a test project can be
-///         referenced by nothing, so the copy that ships is the only one that can be the shared one —
-///         and it is also the copy under a documentation and API-compatibility obligation, which is
-///         the right one to make load bearing.
+///         ⚠ <b>The direction of the reference is the whole reason it can be shared.</b> Everything
+///         that encodes a picture — the golden suites, the UI baselines, a
+///         <c>--vixen-capture</c> run — is above this assembly, and none of them is above each
+///         other. Sitting under all three is what stops the count of hand-written PNG encoders in
+///         this repository from going back up.
 ///     </para>
 /// </remarks>
 public static class PngCodec {

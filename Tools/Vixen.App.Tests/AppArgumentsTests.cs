@@ -38,7 +38,8 @@ public class AppArgumentsTests {
             "--vixen-frame-limit", "144",
             "--vixen-log-level", "Debug",
             "--vixen-log-file", "/tmp/logs",
-            "--vixen-loose-content", "/tmp/content"
+            "--vixen-loose-content", "/tmp/content",
+            "--vixen-capture", "/tmp/shots"
         ]);
 
         Assert.Equal(BuildVariant.Development, parsed.Variant);
@@ -48,7 +49,35 @@ public class AppArgumentsTests {
         Assert.Equal(LogLevel.Debug, parsed.LogLevel);
         Assert.Equal("/tmp/logs", parsed.LogFilePath);
         Assert.Equal("/tmp/content", parsed.LooseContentPath);
+        Assert.Equal("/tmp/shots", parsed.CapturePath);
         Assert.Empty(parsed.Unrecognised);
+    }
+
+    /// <summary>
+    ///     The capture directory reaches the graphics options, which is what decides both where the
+    ///     picture goes and — through <c>GraphicsHost</c> — which backend opens for it.
+    /// </summary>
+    [Theory]
+    [InlineData("--vixen-capture", "shots")]
+    [InlineData("--vixen-capture=shots", null)]
+    public void ACaptureDirectoryReachesTheGraphicsOptions(string first, string? second) {
+        var config = new AppConfig();
+        config.Apply(AppArguments.Parse(second is null ? [first] : [first, second]));
+
+        Assert.Equal("shots", config.Graphics.CapturePath);
+    }
+
+    /// <summary>
+    ///     ⚠ The same stance <c>GpuProfiling</c> takes, and for the same reason: <c>Apply</c> runs
+    ///     before <c>OnConfigure</c>, so a head that always captures sets the option there and the
+    ///     absence of the flag must not undo it.
+    /// </summary>
+    [Fact]
+    public void AnAbsentCaptureFlagDoesNotClearOneAGameSet() {
+        var config = new AppConfig { Graphics = { CapturePath = "artifacts/shots" } };
+        config.Apply(AppArguments.Parse(["--vixen-headless"]));
+
+        Assert.Equal("artifacts/shots", config.Graphics.CapturePath);
     }
 
     /// <summary>

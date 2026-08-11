@@ -12,11 +12,19 @@ MipChain.Generate(texture);
 File.WriteAllBytes("hero.ktx2", Ktx2.Write(texture));
 ```
 
-## No image codec, on purpose
+## No *authoring* image codec, on purpose
 
-There is no PNG decoder here. Decoding a PNG is import-time work, and ADR-015 keeps ImageSharp out of
-every runtime assembly — for its licence as much as its size. What ships is KTX2, where the bytes in
-the file are the bytes the GPU wants, so loading a texture is a header parse and an upload.
+Nothing here decodes the formats an artist saves. Reading a JPEG, a TGA or a 16-bit interlaced PNG is
+import-time work, and ADR-015 keeps a general imaging library out of every runtime assembly — for its
+licence as much as its size. What ships is KTX2, where the bytes in the file are the bytes the GPU
+wants, so loading a texture is a header parse and an upload.
+
+`PngCodec` is not that, and the distinction is the whole reason it is allowed to be here. It reads
+and writes one thing — baseline 8-bit RGBA, non-interlaced — in about two hundred lines over
+`System.IO.Compression`, and it exists because a *picture somebody is going to look at* has to be
+openable in a file browser. Three things in this repository write one: the golden-image suites, the
+UI baselines, and `--vixen-capture`. None of them can reference the others, so the encoder sits under
+all three. See [capturing a frame](../../docs/guide/rendering/capturing-a-frame.md).
 
 ## KTX2
 

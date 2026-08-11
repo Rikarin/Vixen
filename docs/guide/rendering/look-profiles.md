@@ -4,7 +4,7 @@ slug: rendering/look-profiles
 kind: guide
 area: Rendering
 summary: One .vxlook asset carrying the project's artistic base — exposure target, meter clamps, grade, fog, lens — folded under every scene's volumes, never baked into the frame.
-api: [T:Vixen.Rendering.LookAsset, T:Vixen.Rendering.BlendedGrading, T:Vixen.Rendering.BlendedToggle]
+api: [T:Vixen.Rendering.LookAsset, T:Vixen.Rendering.BlendedGrading, T:Vixen.Rendering.BlendedToggle, L:13023, L:13024]
 tags: [rendering, post-processing, compositor, look, presets]
 since: 0.1
 status: preview

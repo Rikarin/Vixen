@@ -3,6 +3,7 @@ Vixen.App.AppArguments -> sealed record
 Vixen.App.AppArguments : System.IEquatable<Vixen.App.AppArguments>
 Vixen.App.AppArguments.AppArguments() -> void
 Vixen.App.AppArguments.Backends.get -> System.Collections.Generic.IReadOnlyList<Vixen.App.GraphicsBackend>
+Vixen.App.AppArguments.CapturePath.get -> string?
 Vixen.App.AppArguments.FrameRateLimit.get -> int?
 Vixen.App.AppArguments.GpuProfiling.get -> bool
 Vixen.App.AppArguments.Headless.get -> bool
@@ -87,9 +88,11 @@ Vixen.App.AppGraphics.FrameCount.get -> int
 Vixen.App.AppGraphics.GpuFrame.get -> Vixen.Graphics.GpuFrame
 Vixen.App.AppGraphics.IsLost.get -> bool
 Vixen.App.AppGraphics.Overlays.get -> Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays?
+Vixen.App.AppGraphics.LastCapturePath.get -> string?
 Vixen.App.AppGraphics.ParticleStages.get -> Vixen.Rendering.RenderStageMask
 Vixen.App.AppGraphics.Recreate(bool force = false) -> void
 Vixen.App.AppGraphics.Renderer.get -> Vixen.Engine.Renderer.WorldRenderer
+Vixen.App.AppGraphics.RequestCapture(string name) -> bool
 Vixen.App.AppGraphics.Stages.get -> Vixen.Rendering.RenderStageMask
 Vixen.App.AppGraphics.Suspend() -> void
 Vixen.App.AppGraphics.SwapChain.get -> Vixen.Graphics.ISwapChain?
@@ -154,6 +157,8 @@ Vixen.App.GraphicsBackend.Vulkan = 1 -> Vixen.App.GraphicsBackend
 Vixen.App.GraphicsBackend.WebGpu = 2 -> Vixen.App.GraphicsBackend
 Vixen.App.GraphicsOptions -> sealed class
 Vixen.App.GraphicsOptions.Backends.get -> System.Collections.Generic.IList<Vixen.App.GraphicsBackend>
+Vixen.App.GraphicsOptions.CapturePath.get -> string?
+Vixen.App.GraphicsOptions.CapturePath.set -> string?
 Vixen.App.GraphicsOptions.CasterStages.get -> System.Collections.Generic.IList<string>
 Vixen.App.GraphicsOptions.Compositor.get -> string?
 Vixen.App.GraphicsOptions.Compositor.set -> string?

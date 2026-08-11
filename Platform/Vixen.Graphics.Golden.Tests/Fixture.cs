@@ -4,6 +4,7 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
+using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Graph = Vixen.Graphics.RenderGraph.RenderGraph;
 using GraphTexture = Vixen.Graphics.RenderGraph.GraphTexture;

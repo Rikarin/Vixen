@@ -754,6 +754,35 @@ dotnet_diagnostic.VXIO0001.severity = none
 dotnet_diagnostic.VXIO0001.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Core.Imaging/PngCodec.cs
+#
+# The same argument as the block above, which is where this file used to be. A
+# PNG written by this codec is a picture for a person to open — a golden
+# reference, a diff under artifacts/, the frame a --vixen-capture run was asked
+# for — and the directory it goes in arrived from a command line or from MSBuild.
+# None of it is content a build ships or a player addresses, so there is no mount
+# it could be named against, and the one Path call is the mkdir -p that keeps a
+# capture from failing on a directory nobody created.
+#
+# ⚠ Encode and Decode are the assembly's real surface and touch no path at all.
+# A caller that does have a mount reads its own bytes and calls those.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Core.Imaging/PngCodec.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.App.Hosting/FrameCapture.cs
+#
+# --vixen-capture names a directory on the machine running the game, the way
+# --vixen-log-file does, and joins one file name onto it. It is an operator's
+# path from a command line, not an address into content: no mount contains the
+# place a person wants a screenshot put, and the file is read by an image viewer
+# rather than by the engine. One Path.Combine, in the one file that has it.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.App.Hosting/FrameCapture.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Core/Vixen.Fuzz/Corpus.cs
 #
 # A fuzz corpus is a directory of loose .bin files — Core/Vixen.Fuzz.Tests/
