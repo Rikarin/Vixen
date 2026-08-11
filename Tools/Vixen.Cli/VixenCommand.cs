@@ -443,6 +443,23 @@ public static class VixenCommand {
             Description = "Emit a DefId beside each address. Needs the project to reference Vixen.Gameplay."
         };
 
+        // ⚠ The flag that says this run is not the verdict, for the one caller that can know it.
+        // Vixen.Sdk runs this BeforeTargets=CoreCompile so generated C# exists before the compiler
+        // reads its inputs — which means that on a clean build the game assembly does not exist yet
+        // and a level naming the game's own !BoxCollision cannot resolve it *here*, ever. The
+        // authority is the content build after Build, which loads the assembly and does fail.
+        //
+        // What this changes is two things and not the amount of output. Nothing is dressed as an
+        // MSBuild diagnostic, because a warning nobody can act on is one that teaches its readers to
+        // skip the code it carries; and an asset that failed no longer ends the run, because the one
+        // job this pass has — writing the addresses CoreCompile is about to read — happens after the
+        // import and was being skipped exactly on the builds where it is advisory.
+        var advisory = new Option<bool>("--advisory") {
+            Description =
+                "This pass runs before the game assembly is compiled, so an unresolved type is "
+                + "expected: report findings as notes rather than diagnostics and do not fail."
+        };
+
         var command = new Command("import", "Import everything in the project that has changed.") {
             project,
             target,
@@ -452,7 +469,8 @@ public static class VixenCommand {
             assemblies,
             addresses,
             addressNamespace,
-            addressIds
+            addressIds,
+            advisory
         };
 
         command.SetAction(async (parseResult, cancellationToken) => {
@@ -463,7 +481,25 @@ public static class VixenCommand {
                     return (int)ExitCode.UsageError;
                 }
 
-                var diagnostics = new DiagnosticWriter(writer, parseResult.GetValue(format), opened.Paths.Root);
+                var isAdvisory = parseResult.GetValue(advisory);
+
+                var diagnostics = new DiagnosticWriter(
+                    writer,
+                    parseResult.GetValue(format),
+                    opened.Paths.Root,
+                    isAdvisory
+                );
+
+                // Once, before anything, because the alternative is repeating it on every line: the
+                // reason a line is a note rather than a warning is a property of the run and not of
+                // the asset it is about.
+                if (isAdvisory) {
+                    diagnostics.Line(
+                        "Advisory import: the game assembly is not compiled yet, so a level naming the "
+                        + "game's own types cannot resolve them here. The content build after Build "
+                        + "loads it and is the authority; anything real is reported there, as an error."
+                    );
+                }
 
                 // Before anything is imported, so that a scene compiled in this run can name a
                 // component the game declares.
@@ -484,7 +520,12 @@ public static class VixenCommand {
 
                 ImportRunner.Report(summary, diagnostics);
 
-                if (summary.Failed > 0) {
+                // ⚠ Not a return under --advisory, and the addresses below are the reason rather
+                // than the exit code. This runs before CoreCompile to put generated C# in front of
+                // it; returning here skips that write, so a project using address constants lost
+                // them on precisely the build that had no assembly to resolve a level against —
+                // which is a compile error about a missing constant, three steps from its cause.
+                if (summary.Failed > 0 && !isAdvisory) {
                     return (int)ExitCode.Failed;
                 }
 

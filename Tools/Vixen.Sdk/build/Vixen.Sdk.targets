@@ -182,9 +182,22 @@
                 the compile items, and it is not the authority on whether the content is good — the
                 content build after Build is, it runs its own import with the assembly present, and it
                 does fail the build. Anything genuinely wrong is reported there, as an error, once.
+
+                ⚠ And the tool is *told*, rather than only having its exit code ignored. Left to
+                itself it emitted `error VX1001` for every level naming the game's own components,
+                which ContinueOnError then demoted into every clean build's warning summary: three
+                warnings nobody could act on, and a real VX1001 indistinguishable among them. This
+                class had already been misdiagnosed twice. The advisory flag below keeps the same
+                text, the same code and the same absolute path, and stops the line being an MSBuild
+                diagnostic at all — and stops the run ending before it writes the addresses, which
+                is the file this whole target runs before CoreCompile to produce.
+
+                ContinueOnError stays on the same condition anyway. It is now for the failure the
+                flag cannot cover: a tool that crashed rather than a project that has not compiled.
             -->
             <VixenImportIsAdvisory>false</VixenImportIsAdvisory>
             <VixenImportIsAdvisory Condition="'$(VixenGameAssembly)' != '' AND !Exists('$(VixenGameAssembly)')">true</VixenImportIsAdvisory>
+            <VixenImportAdvisoryFlag Condition="'$(VixenImportIsAdvisory)' == 'true'">--advisory</VixenImportAdvisoryFlag>
 
             <!--
                 Absolute, and computed here for the same ordering reason as VixenGameAssembly above:
@@ -202,7 +215,7 @@
 
         <Message Importance="normal" Text="Vixen: importing $(VixenProjectDirectory) for $(VixenTarget)" />
 
-        <Exec Command="$(VixenToolCommand) import --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --format msbuild $(VixenAssemblyFlags) $(VixenAddressFlags)"
+        <Exec Command="$(VixenToolCommand) import --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --format msbuild $(VixenAssemblyFlags) $(VixenAddressFlags) $(VixenImportAdvisoryFlag)"
               WorkingDirectory="$(VixenProjectDirectory)"
               ContinueOnError="$(VixenImportIsAdvisory)"
               StandardOutputImportance="high" />

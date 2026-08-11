@@ -57,8 +57,31 @@ public static class DiagnosticCode {
 ///         whatever directory the build happens to be running in, which is not the project's, so the
 ///         IDE opens nothing.
 ///     </para>
+///     <para>
+///         ⚠ <b>A third word, <c>advisory</c>, for a run whose verdict is provisional.</b> Only
+///         <c>error</c> and <c>warning</c> make an MSBuild diagnostic, so writing anything else keeps
+///         the line prose — and this deliberately is not "print less": the code and the absolute path
+///         stay on it, so the same search finds it and a person reading the log learns what the pass
+///         could not resolve. What it stops is the line reaching the error list and the CI summary,
+///         which is where a reader is entitled to assume that everything listed is worth acting on.
+///         The damage a provisional warning does is never its own; it is that it makes a real one
+///         indistinguishable, and a build whose every clean run carries two <c>VX1001</c>s teaches
+///         its readers to skip <c>VX1001</c>.
+///     </para>
 /// </remarks>
-public sealed class DiagnosticWriter(TextWriter output, DiagnosticFormat format, string? root = null) {
+/// <param name="output">Where the lines go.</param>
+/// <param name="format">Which reader they are written for.</param>
+/// <param name="root">The project, for turning an asset's relative path into an absolute one.</param>
+/// <param name="advisory">
+///     Whether this run is allowed to be wrong — see the remarks. Only <c>vixen import --advisory</c>
+///     sets it, and only <c>Vixen.Sdk</c>'s pre-compile pass passes that.
+/// </param>
+public sealed class DiagnosticWriter(
+    TextWriter output,
+    DiagnosticFormat format,
+    string? root = null,
+    bool advisory = false
+) {
     /// <summary>How it is writing.</summary>
     public DiagnosticFormat Format => format;
 
@@ -69,7 +92,7 @@ public sealed class DiagnosticWriter(TextWriter output, DiagnosticFormat format,
     /// <param name="message">What to say.</param>
     public void Asset(ImportSeverity severity, string path, string code, string message) {
         if (format == DiagnosticFormat.Text) {
-            output.WriteLine($"  {Word(severity)} {path}: {message}");
+            output.WriteLine($"  {Word(severity, advisory)} {path}: {message}");
             return;
         }
 
@@ -82,7 +105,7 @@ public sealed class DiagnosticWriter(TextWriter output, DiagnosticFormat format,
         output.WriteLine(
             severity == ImportSeverity.Information
                 ? $"{file}: {message}"
-                : $"{file}: {Word(severity).TrimEnd()} {code}: {message}"
+                : $"{file}: {Word(severity, advisory).TrimEnd()} {code}: {message}"
         );
     }
 
@@ -97,12 +120,12 @@ public sealed class DiagnosticWriter(TextWriter output, DiagnosticFormat format,
     /// </remarks>
     public void Project(ImportSeverity severity, string code, string message) {
         if (format == DiagnosticFormat.Text) {
-            output.WriteLine($"  {Word(severity)} {message}");
+            output.WriteLine($"  {Word(severity, advisory)} {message}");
             return;
         }
 
         output.WriteLine(
-            severity == ImportSeverity.Information ? message : $"{Word(severity).TrimEnd()} {code}: {message}"
+            severity == ImportSeverity.Information ? message : $"{Word(severity, advisory).TrimEnd()} {code}: {message}"
         );
     }
 
@@ -119,10 +142,17 @@ public sealed class DiagnosticWriter(TextWriter output, DiagnosticFormat format,
             _ => ImportSeverity.Information
         };
 
-    static string Word(ImportSeverity severity) =>
-        severity switch {
-            ImportSeverity.Error => "error  ",
-            ImportSeverity.Warning => "warning",
-            _ => "note   "
+    /// <summary>The word that decides whether a line is a diagnostic or prose.</summary>
+    /// <remarks>
+    ///     Both columns are seven characters wide so the human form stays aligned, and
+    ///     <c>advisory</c> is eight — which is the one place the alignment is deliberately given up,
+    ///     because a reader skimming that column should notice the odd one out.
+    /// </remarks>
+    static string Word(ImportSeverity severity, bool advisory = false) =>
+        (severity, advisory) switch {
+            (ImportSeverity.Information, _) => "note   ",
+            (_, true) => "advisory",
+            (ImportSeverity.Error, _) => "error  ",
+            _ => "warning"
         };
 }
