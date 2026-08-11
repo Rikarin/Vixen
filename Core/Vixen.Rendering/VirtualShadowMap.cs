@@ -184,6 +184,40 @@ public static class VirtualShadowMap {
             ? 0f
             : 2f * MathF.Max(distance, 0f) / (screenHeightScale * screenHeight);
 
+    /// <summary>How close to the light a clipmap level's box begins.</summary>
+    /// <remarks>
+    ///     Not zero, because an orthographic projection with a near plane of zero has no depth range
+    ///     to normalise against. It is a constant rather than a knob for
+    ///     <see cref="DepthScale" />'s sake: the metres-to-normalised-depth conversion is a function
+    ///     of the level's box alone, and a near plane a caller could move would be a second number a
+    ///     bias has to be kept in step with.
+    /// </remarks>
+    public const float ClipmapNear = 0.0625f;
+
+    /// <summary>One metre along the light, in a clipmap level's normalised depth.</summary>
+    /// <param name="depthRange">How deep the level's box is along the light, in world units.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>ShadowCascade.depthScale</c>'s counterpart, and it exists for the identical
+    ///         reason.</b> A level's box is <paramref name="depthRange" /> metres deep — four hundred
+    ///         by default — so one unit of normalised depth is four hundred metres of world, and a
+    ///         bias stated as a raw normalised number is not a distance at all. The cascade path
+    ///         learned that the expensive way and records it at length on
+    ///         <c>ShadowCascade.depthScale</c>: a constant in normalised depth is centimetres in one
+    ///         projection and metres in the next.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The virtual map ran without this for its whole life, and its default biases —
+    ///         0.002 and 0.004 in normalised depth — were <em>0.8 m and 1.6 m per unit of slope</em>
+    ///         against a four hundred metre box, a hundred times the cascades' own. Where a page
+    ///         answered, every contact shadow within a metre or so of its caster was biased away;
+    ///         where no page had been drawn the cascade kept it. That is two estimates of one
+    ///         quantity that cannot agree, and a page arriving is then a shadow going out.
+    ///     </para>
+    /// </remarks>
+    public static float DepthScale(float depthRange) =>
+        1f / MathF.Max(depthRange - ClipmapNear, 1e-3f);
+
     /// <summary>How wide one clipmap level is, in world units.</summary>
     /// <param name="level">Which level, zero being the finest.</param>
     /// <param name="firstExtent">How wide level zero is.</param>
@@ -284,7 +318,7 @@ public static class VirtualShadowMap {
         var view = Matrix4x4.LookAt(origin, centre, reference);
 
         var half = extent * 0.5f;
-        var projection = Matrix4x4.OrthographicOffCenter(-half, half, -half, half, 0.0625f, depth);
+        var projection = Matrix4x4.OrthographicOffCenter(-half, half, -half, half, ClipmapNear, depth);
 
         return view * projection;
     }

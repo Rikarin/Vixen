@@ -426,6 +426,99 @@ public class VirtualShadowMapTests {
         Assert.Contains("if (depth <= 0f) {", mark, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     The pass that asks for a page and the lookup that reads one measure the same distance.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A page a pixel never asked for is a page no budget will ever draw for it.</b>
+    ///         <c>VirtualShadowMark.Main</c> takes its footprint from
+    ///         <c>length(world - viewPosition)</c> — the radial distance, which is the one a pixel's
+    ///         angular footprint actually scales with — and <c>ClusteredShading.Shadow</c> handed the
+    ///         lookup <c>ClusterGrid.DepthOf</c>, the view-space <em>depth</em>. Those differ by the
+    ///         cosine of the angle off the view axis: at sample 13's 60° vertical field over 16:9 the
+    ///         corner of the screen is 1.55 times further along the ray than it is down the axis, and
+    ///         <c>Vsm.LevelFor</c> is a <c>ceil(log2(·))</c>, so up to a whole level.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The lookup asked for the finer one</b> — depth is the smaller number — so over a
+    ///         wide band of the screen it looked up a page nothing had marked, and the fallback to
+    ///         <c>level + 1</c> then answered, at half the resolution the pixel had asked for, from
+    ///         precisely the page the marking pass had asked for. That is why the fallback measured as
+    ///         useful and why "85% of successful fallbacks land on a page another pixel marked this
+    ///         frame" was true: most of what it covered for was this mismatch, not the annulus
+    ///         geometry it was credited to.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the sources because no host arithmetic can see it — both sides call the same
+    ///         <c>Vsm.LevelFor</c> and differ only in what they hand it, which is a fact about two call
+    ///         sites in two files.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_marking_pass_and_the_lookup_measure_the_same_distance() {
+        var shared = Source("VirtualShadows", "VirtualShadows.rvn");
+        var mark = Source("Pipeline", "VirtualShadowMark.rvn");
+        var shading = Source("Pipeline", "ClusteredShading.rvn");
+
+        // The marking pass: radial, from the eye to the world point the depth decoded to.
+        Assert.Contains(
+            "Vsm.WorldTexelSize(length(world - viewPosition), screenHeightScale, screen.y)",
+            mark,
+            StringComparison.Ordinal
+        );
+
+        // The lookup: whatever it was handed, and it is named for the quantity rather than for the
+        // axis — a parameter called `viewDepth` is what let a depth be passed for a distance.
+        Assert.Contains(
+            "func Sample(positionWS: float3, n: float3, NdotL: float, viewDistance: float)",
+            shared,
+            StringComparison.Ordinal
+        );
+
+        Assert.Contains(
+            "Vsm.WorldTexelSize(viewDistance, shadowScreenHeightScale, shadowScreenHeight)",
+            shared,
+            StringComparison.Ordinal
+        );
+
+        // And the one call site that decides which of the two the lookup is handed.
+        Assert.Contains(
+            "DirectionalShadow(p.positionWS, n, NdotL, length(positionVS))",
+            shading,
+            StringComparison.Ordinal
+        );
+
+        // The cascade splits stay on the depth, because that is what they were fitted in — the fix
+        // is that one quantity stopped standing in for the other, not that the other went away.
+        Assert.Contains(
+            "val viewDepth = ClusterGrid.DepthOf(positionVS)",
+            shading,
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>The lookup's own bias defaults are a distance over the shipped box, not a raw number.</summary>
+    /// <remarks>
+    ///     The declaration is what a host that publishes nothing gets, so it is where the hundredfold
+    ///     bias lived: 0.002 and 0.004 against a four hundred metre level are 0.8 m and 1.6 m per unit
+    ///     of slope, where <c>ShadowMapRenderer</c>'s own are 0.008 m and 0.01 m.
+    ///     <see cref="VirtualShadowMap.DepthScale" /> is the conversion, and this pins the sources to
+    ///     it so the declaration and the node cannot drift apart.
+    /// </remarks>
+    [Fact]
+    public void The_lookups_declared_bias_is_the_cascades_bias_over_the_shipped_depth_range() {
+        var shared = Source("VirtualShadows", "VirtualShadows.rvn");
+        var scale = VirtualShadowMap.DepthScale(400f);
+
+        // 0.008 m and 0.01 m over four hundred, which is what the node publishes at its defaults.
+        Assert.Equal(0.00002f, 0.008f * scale, 7);
+        Assert.Equal(0.000025f, 0.01f * scale, 7);
+
+        Assert.Contains("shadowPageConstantBias: float = 0.00002f", shared, StringComparison.Ordinal);
+        Assert.Contains("shadowPageSlopeBias: float = 0.000025f", shared, StringComparison.Ordinal);
+    }
+
     /// <summary>A shipped shader's source, found by walking up rather than by counting directories.</summary>
     static string Source(string folder, string file) {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
