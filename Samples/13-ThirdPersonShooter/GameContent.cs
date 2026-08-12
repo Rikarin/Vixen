@@ -7,7 +7,11 @@ using Vixen.Assets;
 using Vixen.Audio;
 using Vixen.Audio.Backend.OpenAL;
 using Vixen.Audio.Devices;
+using Vixen.Audio.Diagnostics;
+using Vixen.Audio.Ecs;
 using Vixen.Audio.Mixing;
+using Vixen.Engine.Diagnostics.Overlays;
+using Vixen.Engine.Frames;
 using Vixen.Core;
 
 namespace Vixen.Samples.ThirdPersonShooter;
@@ -160,6 +164,52 @@ public sealed class GameSounds : IDisposable {
         }
 
         engine.Play(clip, new PlaybackSettings { Gain = gain });
+    }
+
+    /// <summary>Puts the engine in the frame, and its panel on the screen.</summary>
+    /// <param name="loop">The frame loop.</param>
+    /// <param name="overlays">Where the panel goes, or <see langword="null" /> when there is none.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="loop" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <see cref="AudioSystem" /> is a bug fix and not a tidy-up, and the panel is
+    ///         what found it.</b> <c>AudioEngine.Update</c> is what collects a voice whose sound has
+    ///         finished — a slot goes <c>Finished</c> on the mixer thread and only that call returns
+    ///         it to <c>Free</c> — and nothing in this project ever called it. <c>TryClaim</c> takes
+    ///         only free slots and <c>TrySteal</c> considers only playing or paused ones, so every
+    ///         one-shot this game fired consumed a slot permanently: after sixty-four footsteps the
+    ///         pool was full of finished sounds and the game went silent for the rest of the run,
+    ///         with every play request counted into <c>DroppedRequests</c> and read by nobody.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And every number on the panel would have been a zero.</b> <c>Statistics</c> is
+    ///         assembled inside that same <c>Update</c>, so an <see cref="AudioOverlay" /> registered
+    ///         against this engine as it stood would have drawn <c>load 0 %</c>, <c>voices 0/0</c> and
+    ///         <c>0/0/0</c> faults over a game whose audio had stopped working — a panel making a
+    ///         subsystem's failure look like its idle state.
+    ///     </para>
+    ///     <para>
+    ///         The system rather than a bare <c>engine.Update(delta)</c> in <c>OnUpdate</c>, because
+    ///         it is the engine's own answer and it is the phase that is right: <c>PostRender</c> is
+    ///         the first phase in which a source's <c>WorldTransform</c> is this frame's. This game
+    ///         has no <c>AudioSource</c> entities yet, and the six queries it runs over an archetype
+    ///         set that has none cost nothing — what it is here for is the last line of
+    ///         <c>Synchronize</c>.
+    ///     </para>
+    /// </remarks>
+    public void Register(EngineLoop loop, DiagnosticOverlays? overlays) {
+        ArgumentNullException.ThrowIfNull(loop);
+
+        if (engine is null) {
+            return;
+        }
+
+        loop.Add(new AudioSystem(engine));
+
+        // Registered switched off, like the host's own subsystem panels: `overlay audio` is how it is
+        // asked for. Guarded because a machine with no sound card has no engine to report on, and a
+        // panel of dashes is worse than no panel.
+        overlays?.Add(new AudioOverlay(engine));
     }
 
     static (AudioEngine?, IAudioDevice?, OpenALBackend?) OpenDevice(AppServices services) {

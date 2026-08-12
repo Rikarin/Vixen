@@ -10,6 +10,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
+using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Players;
 using Vixen.Engine.Transforms;
@@ -191,9 +192,15 @@ public sealed class PlayerRig : IDisposable {
 
     /// <summary>Adds the systems this player needs to the loop.</summary>
     /// <param name="loop">The frame loop.</param>
+    /// <param name="overlays">The host's panels, so the audio one can be registered, or null.</param>
     /// <exception cref="ArgumentNullException"><paramref name="loop" /> is null.</exception>
-    public void Register(EngineLoop loop) {
+    public void Register(EngineLoop loop, DiagnosticOverlays? overlays = null) {
         ArgumentNullException.ThrowIfNull(loop);
+
+        // The audio engine's own frame, plus its panel. See GameSounds.Register: without this the
+        // voice pool fills with finished one-shots and the game goes permanently silent, and every
+        // number the `audio` overlay draws is a zero.
+        Sounds.Register(loop, overlays);
 
         loop.Add(Input)
             .Add(Possession)
