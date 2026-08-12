@@ -86,12 +86,19 @@ distinct finding rather than once per frame — because a warning repeated sixty
 warning its reader has muted.
 
 ```
-warn  VX2101: 'Meter.Step0' writes 'Meter.Level0' and 'Meter.Step1' overwrites it before anything
-      reads it — the first write is discarded every frame.
+warn  VX2101: 'Blur.Horizontal' writes 'Blur.Scratch' and 'Blur.Vertical' overwrites it before
+      anything reads it — the first write is discarded every frame.
 ```
 
 ⚠ These are frames that draw. Nothing throws, nothing is missing from the picture, and the work is
 simply spent and dropped — which is why it has to be a line in a log rather than an exception.
+
+⚠ **And read it as a claim about the declaration, not only about the passes.** The graph knows what
+a node said it does, which is not always what it does: sample 13's meter reported this pair for
+months because its histogram declared a write of the image its `target` binding has to name and
+never stores a texel into. Nothing was being discarded. Before rearranging passes, check that each
+one declares what it actually touches — `Reads`, `Writes`, and `Bound` for the storage image a
+variant is obliged to bind and produces nothing in.
 
 Hand-author from scratch only when the frame itself is the subject — a renderer experiment, a
 non-standard pipeline, a golden test. That is sample 13's territory: its `Frame.vxcompositor` is

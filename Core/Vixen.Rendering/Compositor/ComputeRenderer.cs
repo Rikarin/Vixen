@@ -97,6 +97,37 @@ public sealed class ComputeRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public IList<string> Writes { get; } = [];
 
+    /// <summary>The names of storage images it binds and produces nothing in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For the storage binding a variant has to fill and never stores to</b>, which is what
+    ///         every multi-mode compute shader in the library ends up with: a descriptor set is written
+    ///         whole or not at all, so a dispatch that has no use for the image its sibling variant
+    ///         writes still has to name one. <c>AutoExposure</c>'s histogram is the case — its clear,
+    ///         its build and its resolve all bind <c>target</c> and <c>average</c>, and not one of the
+    ///         three stores a texel.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither <see cref="Reads" /> nor <see cref="Writes" /> says this, and both say
+    ///         something false.</b> <see cref="Writes" /> claims a result, so a run of passes that each
+    ///         bind the same image reads to the graph as a frame's work overwritten before anybody
+    ///         looked — which is VX2101, correctly reported against a declaration that was wrong.
+    ///         <see cref="Reads" /> claims contents <em>and</em> asks for the read-only layout, and a
+    ///         storage descriptor is written with <c>General</c>: the image would be bound in a layout
+    ///         the dispatch is not allowed to bind it in. So this declares the use the graph needs to
+    ///         see — the resource is live here and must arrive in <see cref="ResourceState.ShaderWrite" />
+    ///         — and no production at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The image has to be imported.</b> Nothing writes it, and the graph refuses a read
+    ///         of a transient no earlier pass produces — rightly, because the contents of one are last
+    ///         frame's memory. An import is memory somebody else owns and is answerable without a
+    ///         producer, which is the same reason <c>VolumetricFogRenderer</c> owns its shadow
+    ///         stand-in rather than declaring one.
+    ///     </para>
+    /// </remarks>
+    public IList<string> Bound { get; } = [];
+
     /// <summary>How many workgroups to run.</summary>
     public Int3 Groups { get; set; } = new(1, 1, 1);
 
@@ -222,7 +253,7 @@ public sealed class ComputeRenderer : SceneRenderer, IDisposable {
             buffers[name] = frame.Buffer(ToString(), name);
         }
 
-        foreach (var name in Reads.Concat(Writes)) {
+        foreach (var name in Reads.Concat(Writes).Concat(Bound)) {
             textures[name] = frame.Texture(ToString(), name);
         }
 
@@ -257,6 +288,7 @@ public sealed class ComputeRenderer : SceneRenderer, IDisposable {
         var bufferWrites = BufferWrites.Select(name => buffers[name]).ToArray();
         var textureReads = Reads.Select(name => textures[name]).ToArray();
         var textureWrites = Writes.Select(name => textures[name]).ToArray();
+        var textureBound = Bound.Select(name => textures[name]).ToArray();
         var groups = Groups;
 
         frame.Graph.AddPass(
@@ -278,6 +310,13 @@ public sealed class ComputeRenderer : SceneRenderer, IDisposable {
 
                 foreach (var write in textureWrites) {
                     pass.Writes(write);
+                }
+
+                // A use and not a production — see Bound. The state is the one a storage descriptor
+                // is written with, so the barrier that lands the image in General is placed and the
+                // graph is told nothing about contents that do not exist.
+                foreach (var bound in textureBound) {
+                    pass.Reads(bound, ResourceState.ShaderWrite);
                 }
 
                 pass.Execute(

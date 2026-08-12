@@ -142,6 +142,7 @@ Vixen.Rendering.PostFx.AutoExposureRenderer.Device.set -> Vixen.Graphics.IGraphi
 Vixen.Rendering.PostFx.AutoExposureRenderer.Dispose() -> void
 Vixen.Rendering.PostFx.AutoExposureRenderer.Exposure.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.PostFx.AutoExposureRenderer.ExposureResource.get -> string
+Vixen.Rendering.PostFx.AutoExposureRenderer.GridResource.get -> string
 Vixen.Rendering.PostFx.AutoExposureRenderer.HighPercentile.get -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.HighPercentile.set -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.Histogram.get -> Vixen.Graphics.BufferHandle

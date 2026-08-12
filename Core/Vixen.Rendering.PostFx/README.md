@@ -139,3 +139,21 @@ values that are already logarithmic.
 ⚠ **The chain starts at 512 rather than at the frame's size.** Reducing 4K to 1×1 is eleven dispatches
 and measures nothing a 512-wide version does not — exposure is a property of the whole image, and
 every step after the first is averaging an average.
+
+⚠ **The histogram meter declares one image and produces nothing in it.** Its clear, build and resolve
+all bind `target` and `average` because a descriptor set is written whole or not at all, and what the
+build takes from that image is `GetDimensions` — the grid it meters the frame on. Declaring it as a
+write is what made sample 13 report VX2101 twice at every launch: three producers with no reader
+between them is the shape of a frame's work thrown away, and nothing was being thrown away. It is
+owned by the node and declared through `ComputeRenderer.Bound`; see the compositor's README.
+
+⚠ **The frame that creates the exposure buffer is told the scene has been there for hours, and that
+is the launch.** A fresh device-local allocation holds no exposure, and the claim that one was seeded
+to `1` lived in this class's remarks and in none of its code — so the adaptation eased from zero
+toward its target and took about five time constants to arrive. At sample 13's `darkenRate` of 0.6
+that is eight and a half seconds of a black screen slowly lighting, which reads as a broken renderer
+rather than as an eye adjusting. The blend is `1 - exp(-dt·rate)` and saturates, so the fix is the
+elapsed time and not a second path through the adaptation: the first frame lands on what it metered
+and every frame after it eases at the authored rate, with the rates, the clamps and the value it
+converges on all untouched. **Measured on sample 13:** frame 1's mean channel went from 8.3 to 45.7,
+frame 8 from 10.8 to 37.8 against a settled 38.4, and frame 1024 stayed at 38.4.

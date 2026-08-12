@@ -215,6 +215,109 @@ public class AutoExposureTests : IDisposable {
         Assert.NotEqual(first, h.Exposure.Histogram);
     }
 
+    /// <summary>Neither meter leaves the graph anything to complain about.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>VX2101, twice, on every launch of sample 13.</b> The histogram's three dispatches
+    ///         each declared a write of the image its <c>target</c> and <c>average</c> bindings point
+    ///         at, and not one of the three modes stores a texel into it — so the graph saw three
+    ///         producers with no reader between them and said so, correctly, about a declaration that
+    ///         was wrong. Nothing was being discarded: the meter's data path is the histogram buffer,
+    ///         which is declared read and written by the passes that do each.
+    ///     </para>
+    ///     <para>
+    ///         Asserted over the whole warning list rather than by matching the code, because the next
+    ///         wrong declaration will not be this one. Both meters, because the reduction chain is
+    ///         where a genuine discarded write would be — nine steps handing an image along, and
+    ///         swapping two of them is a level that goes nowhere.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Neither_meter_leaves_the_graph_a_warning() {
+        using var metered = Build(histogram: true);
+
+        Frame(metered);
+        Frame(metered);
+
+        Assert.Empty(metered.Graph.Warnings);
+
+        using var chained = Build();
+
+        Frame(chained);
+        Frame(chained);
+
+        Assert.Empty(chained.Graph.Warnings);
+    }
+
+    /// <summary>A step rebuilt every frame declares the same things, not one more set of them.</summary>
+    /// <remarks>
+    ///     ⚠ The chain's nodes are kept and reconfigured rather than rebuilt, and its buffer reads
+    ///     were appended to a list nothing emptied — so the tenth minute of a session declared
+    ///     thousands of copies of the same two names. Invisible in the picture, because a duplicate
+    ///     read asks for a state the resource is already in, and an unbounded list on a hot path
+    ///     either way.
+    /// </remarks>
+    [Fact]
+    public void A_rebuilt_step_declares_the_same_resources_it_did_last_frame() {
+        using var h = Build(start: 16);
+
+        Frame(h);
+
+        var declared = h.Exposure.Steps
+            .Take(h.Exposure.PassCount)
+            .Select(step => (step.Reads.Count, step.Writes.Count, step.Bound.Count, step.BufferReads.Count, step.BufferWrites.Count))
+            .ToArray();
+
+        Frame(h);
+        Frame(h);
+        Frame(h);
+
+        Assert.Equal(
+            declared,
+            h.Exposure.Steps
+                .Take(h.Exposure.PassCount)
+                .Select(step => (step.Reads.Count, step.Writes.Count, step.Bound.Count, step.BufferReads.Count, step.BufferWrites.Count))
+                .ToArray()
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ The first frame lands on what it metered; every frame after it eases at the authored rate.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a launch looked like without this.</b> A fresh device-local buffer holds no
+    ///         exposure — the claim that one was seeded to <c>1</c> was in this class's remarks and in
+    ///         none of its code — so the adaptation eased from zero toward its target and took about
+    ///         five time constants to arrive. At sample 13's <c>darkenRate</c> of 0.6 that is eight and
+    ///         a half seconds of a black screen slowly lighting up, which reads as a broken renderer
+    ///         rather than as an eye adjusting.
+    ///     </para>
+    ///     <para>
+    ///         The blend is <c>1 - exp(-dt·rate)</c> and saturates, so the fix is the elapsed time and
+    ///         not a second code path through the adaptation: one frame told the scene has been there
+    ///         for hours arrives at the target exactly, and the rates, the clamps and the value it
+    ///         converges on are all untouched.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_frame_that_has_no_previous_exposure_lands_on_its_target() {
+        using var h = Build(histogram: true);
+
+        h.Exposure.DeltaTime = 1f / 60f;
+        Frame(h);
+
+        var first = h.Exposure.Steps[h.Exposure.PassCount - 1].Parameters.Get(AutoExposureKeys.DeltaTime);
+
+        // Enough that the blend is one to a float at any rate anybody would author — a tenth of an
+        // e-fold per second still arrives.
+        Assert.True(1f - MathF.Exp(-first * 0.1f) >= 1f, $"a blend of {1f - MathF.Exp(-first * 0.1f)} does not settle");
+
+        Frame(h);
+
+        Assert.Equal(1f / 60f, h.Exposure.Steps[h.Exposure.PassCount - 1].Parameters.Get(AutoExposureKeys.DeltaTime), 6);
+    }
+
     /// <summary>
     ///     The tonemapper reads the buffer where one is named, and the scalar where it is not.
     /// </summary>
