@@ -5,9 +5,11 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Features;
 using Vixen.Rendering.Materials;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 
@@ -106,7 +108,16 @@ public sealed class StandardFrameTierImageTests {
         Particles = false
     };
 
+    /// <summary>The same frame with the ambient split on, which is the shape sample 13 ships.</summary>
+    static StandardFrameAsset SplitFrame => Frame with {
+        Name = "Split",
+        Gi = GiMode.Ambient,
+        Reflections = ReflectionsMode.Screen
+    };
+
     static GraphicsCompositorAsset Document => new() { Game = Frame };
+
+    static GraphicsCompositorAsset SplitDocument => new() { Game = SplitFrame };
 
     [Theory]
     [InlineData(QualityTier.Low, "tier-low")]
@@ -175,6 +186,102 @@ public sealed class StandardFrameTierImageTests {
                 + "move."
             );
         }
+    }
+
+    /// <summary>
+    ///     The split frame: GI on, reflections on, and every plane the combine reads present.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The four tier goldens above cannot reach this path and never could.</b>
+    ///         <see cref="Frame" /> stages <c>Gi = Off, Reflections = Off</c> and
+    ///         <c>StandardFrame.Emit</c> splits on <c>frame.Gi != GiMode.Off || mirrors</c>, so all
+    ///         four references are pictures of the single-target frame. Nothing above them covers
+    ///         <c>ForwardPlus.SplitOutputs</c>, the albedo, normal and <c>f0</c> planes, the rebuild
+    ///         in <c>!AmbientCombine</c>, or the reflection blend — which is the shape sample 13
+    ///         ships and the one most of this area's recent work went into.
+    ///     </para>
+    ///     <para>
+    ///         <b>One picture at one tier rather than a fifth row of the theory, argued on cost.</b>
+    ///         The theory renders four scenes and <see cref="TheFourTiersDoNotAgree" /> renders four
+    ///         more; this is a ninth, about a twelfth added to the slowest fixture in the suite. A
+    ///         fifth row would be four more scenes — half again — to buy tier variation this fixture
+    ///         has already measured itself unable to see: the remarks on <see cref="Least" /> name
+    ///         the reflection steps, the probe tile size and the AO scales as exactly the knobs that
+    ///         move nothing at 128², and High against Epic differs by ten pixels for that reason.
+    ///         What a second tier would add here is a second picture of the same arithmetic.
+    ///     </para>
+    ///     <para>
+    ///         <b>High, and not for the shipping-default reason.</b> Its <c>gi.ssaoScale</c> is 0.5,
+    ///         so the occlusion planes arrive at half the frame's resolution and the combine's
+    ///         bilateral upsample is a path this picture actually takes — at Epic's scale of 1 the
+    ///         upsample degenerates to its own texel at weight one and is not under test at all.
+    ///     </para>
+    ///     <para>
+    ///         <b><see cref="GiMode.Ambient" /> and not <see cref="GiMode.Probes" />.</b> Probes emit
+    ///         an irradiance field and a surface cache over scene data this fixture does not stage —
+    ///         cards, a probe grid. Ambient emits the clipmap and the occlusion pair over the same
+    ///         split, which is all the split itself needs, and is what turns <c>useSpecular</c> and
+    ///         <c>useReflections</c> on together in <c>AmbientCombineRenderer.Configure</c>: with
+    ///         both the shading pass stops writing its own specular ambient and this pass adds the
+    ///         traced answer weighted by <c>f0</c>. Neither half is reachable with GI off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The scene already holds what the two arithmetic decisions need.</b>
+    ///         <see cref="Smooth" /> is metalness 1 at roughness 0.12 — under the tier's
+    ///         <c>roughnessThreshold</c> of 0.5, so it is screen-traced, and its <c>f0</c> is its
+    ///         base colour rather than a dielectric 0.04 — and <see cref="Rough" /> is metalness 0
+    ///         at roughness 0.85, whose <c>f0</c> is 0.04 and which takes the wide path. One picture
+    ///         holds both ends of the plane the fourth target exists to carry.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ASplitFrameLooksLikeItsReference() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        using var scene = Stage(owned, QualityTier.High, SplitDocument, split: true);
+
+        // The claim the picture cannot make for itself: that this frame is the split one. A
+        // regression that quietly stopped splitting would re-record as a perfectly good picture.
+        Assert.True(
+            scene.Renderer.Host.Builder.Nodes.ContainsKey("Combine"),
+            "The split frame expanded without an !AmbientCombine node, so whatever this renders is "
+            + "not the path the reference is a picture of."
+        );
+
+        Assert.True(
+            scene.Renderer.Host.Builder.Nodes.ContainsKey("Mirrors"),
+            "The split frame expanded without a !Reflections node, so the reflection blend below is "
+            + "weighting a plane nothing wrote."
+        );
+
+        var picture = scene.Frames(Frames);
+
+        // ⚠ The claim the two node assertions above cannot make, and the one this fixture was
+        // actually caught by. Both nodes existed, the graph ran, the frame came back clean — and it
+        // was bit-identical to `tier-high` across every one of its 16 384 pixels, because
+        // `SplitOutputs` was off and a cleared normals plane makes the combine treat the whole frame
+        // as sky and hand the direct target straight back. Every structural assertion available
+        // passed. So the difference is asserted against a committed picture of the *unsplit* frame at
+        // the same tier, which costs one file load and no second rendering: whatever else moves this
+        // reference, it can never again be re-recorded as the frame beside it.
+        var unsplit = PngCodec.Load(Path.Combine(GoldenImage.ReferenceDirectory, "tier-high.png"));
+        var against = GoldenImage.Compare(unsplit, picture, Tolerance.Shaded);
+
+        Assert.True(
+            against.Fraction > 0.25,
+            $"The split frame and the unsplit tier-high reference differ in only "
+            + $"{against.DifferingPixels} of {against.TotalPixels} pixels ({against.Fraction:P3}), "
+            + "where a quarter of the frame is the least a rebuilt one may. The likeliest cause is "
+            + "that ForwardPlus compiled without SplitOutputs: the shading pass then writes location "
+            + "0 alone, the albedo, normal and f0 planes stay at the clear, and !AmbientCombine reads "
+            + "a zero-length normal as sky and returns the direct target untouched."
+        );
+
+        GoldenImage.Verify("frame-split", picture, Tolerance.Shaded);
     }
 
     /// <summary>
@@ -247,12 +354,46 @@ public sealed class StandardFrameTierImageTests {
     ///         which is the axis a shadow projection folds around.
     ///     </para>
     /// </remarks>
-    static TierScene Stage(Fixture fixture, QualityTier tier) {
+    static TierScene Stage(Fixture fixture, QualityTier tier) => Stage(fixture, tier, Document, split: false);
+
+    /// <param name="split">
+    ///     Whether the shading pass writes the four planes as well as the frame declaring them.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>Two halves, and the expansion only emits one of them.</b> A <c>gi:</c> above
+    ///     <see cref="GiMode.Off" /> declares the split targets and the combine that reads them, but
+    ///     whether <c>ForwardPlus</c> <em>writes</em> them is a permutation on the material — which
+    ///     <see cref="StandardFrameAsset" />'s own remarks state is the host's, alongside the caster
+    ///     stages, and owed to a later increment. Nothing in the engine sets it: samples 03 and 13
+    ///     are the only places in the tree that do, and this fixture is a third project doing the
+    ///     same thing.
+    ///     <para>
+    ///         Without it the frame is not merely unsplit, it is <em>silently</em> unsplit. The
+    ///         single-target variant writes location 0 and leaves the albedo, normal and <c>f0</c>
+    ///         planes at the clear; <c>AmbientCombine</c>'s sky test is the normal plane's length, so
+    ///         a cleared plane makes every pixel in the frame read as sky and the pass returns the
+    ///         direct target untouched. This fixture's first rendering was <b>bit-identical</b> to
+    ///         <c>tier-high</c> across all 16 384 pixels for exactly that reason — a golden that
+    ///         would have been recorded, passed forever, and asserted nothing about the split at all.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="MaterialRenderFeature.SetPermutation" /> rather than the two lines the
+    ///         samples use: it registers this one key beside whatever is already registered, where
+    ///         assigning <c>PermutationKeys["ForwardPlus"]</c> the generated list would enrol every
+    ///         other permutation the shader has at once and change what the four tier goldens above
+    ///         resolve to.
+    ///     </para>
+    /// </remarks>
+    static TierScene Stage(Fixture fixture, QualityTier tier, GraphicsCompositorAsset document, bool split) {
         var effects = new EffectSystem();
 
         effects.AddProvider(new Compiling(new(fixture.Device), Compiler));
 
-        var scene = TierScene.Open(fixture, effects, Document, tier);
+        var scene = TierScene.Open(fixture, effects, document, tier);
+
+        if (split) {
+            scene.Renderer.Materials.SetPermutation("ForwardPlus", ForwardPlusKeys.SplitOutputs, true);
+        }
 
         var casters = scene.Stages.TryGetValue("Shadow", out var shadow) ? shadow.Mask : default;
         var opaque = scene.Stages["Opaque"].Mask;

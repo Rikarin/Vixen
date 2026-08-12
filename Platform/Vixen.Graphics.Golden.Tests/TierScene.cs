@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Renderer;
+using Vixen.Rendering.DistanceFields;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
@@ -52,6 +53,29 @@ sealed class TierScene : IDisposable {
 
     readonly Fixture fixture;
     readonly List<Action> cleanup = [];
+
+    /// <summary>
+    ///     The same boxes again, as signed distances — what a GI frame marches.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Scene data and not harness wiring, which is why it is built here beside the
+    ///         geometry.</b> <c>CompositorBuilder.DistanceField</c> is a project's to supply — samples
+    ///         03 and 13 both set it — and a <c>!GlobalDistanceField</c> node with none returns before
+    ///         it uploads anything. What that costs is not a frame without ambient occlusion: the
+    ///         clipmap's bindings never reach set 0, and <c>!DistanceFieldAo</c>'s pipeline then draws
+    ///         with set 0 unbound, which is a validation error and a fault rather than a picture.
+    ///     </para>
+    ///     <para>
+    ///         Analytic rather than sampled off the triangles: every object here is an axis-aligned
+    ///         box, and a box's exact distance is four lines. A rasterised field of the same box would
+    ///         be the same numbers with quantisation on top, and the quantisation would be this
+    ///         fixture's rather than the engine's.
+    ///     </para>
+    /// </remarks>
+    readonly List<DistanceFieldInstance> occluders = [];
+
+    GlobalDistanceField? distances;
 
     (TextureHandle Texture, TextureViewHandle View, TextureDescription Description) owned;
 
@@ -133,6 +157,13 @@ sealed class TierScene : IDisposable {
         renderer.Host.Builder.Views["Camera"] = scene.View;
         renderer.Host.Builder.Factories.Add(new PostEffectFactory());
         renderer.Host.Builder.Quality = tier;
+
+        // Before the build, like the view and the factory: the clipmap node takes this by value as
+        // the builder creates it, so a field assigned afterwards is one no node holds. Left at its
+        // own defaults — 32³ cells over a finest half-extent of 8 m, four levels — because the scene
+        // is nine metres across and level zero alone already covers it at a quarter of a metre.
+        scene.distances = new();
+        renderer.Host.Builder.DistanceField = scene.distances;
         renderer.Host.Load(document);
         renderer.Host.FrameSize = new(Fixture.Side, Fixture.Side);
 
@@ -354,6 +385,8 @@ sealed class TierScene : IDisposable {
         var first = vertices.Count;
         var start = indices.Count;
 
+        occluders.Add(new(BoxField(half), centre, Quaternion.Identity, 1f));
+
         foreach (var axis in (int[])[0, 1, 2]) {
             foreach (var sign in (float[])[-1f, 1f]) {
                 var normal = axis switch {
@@ -398,6 +431,60 @@ sealed class TierScene : IDisposable {
         Pending.Add(new(first, start, indices.Count - start, centre, Vector3.Distance(Vector3.Zero, half), material, stages));
     }
 
+    /// <summary>
+    ///     One box's exact signed distance, on a grid a margin wider than the box itself.
+    /// </summary>
+    /// <param name="half">The box's half extents.</param>
+    /// <remarks>
+    ///     <para>
+    ///         The margin is what makes the field useful. A field bounded exactly at the surface holds
+    ///         only distances at or below zero, so every query outside the box — which is every query
+    ///         an occlusion cone makes — falls outside the instance's bound and is rejected before it
+    ///         reads anything. Half the box again, so a cone starting on one surface can still measure
+    ///         its way to another.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Resolution is per axis and deliberately not cubic: the floor is nine metres by a
+    ///         quarter, and a cube of samples over it would spend sixteen planes resolving a slab two
+    ///         cells thick while the span it has to cover gets sixteen as well. What matters is the
+    ///         cell size, which is held near even along each axis.
+    ///     </para>
+    /// </remarks>
+    static MeshDistanceField BoxField(Vector3 half) {
+        var margin = half * 0.5f;
+        var extent = half + margin;
+        var bounds = new BoundingBox(-extent, extent);
+        var cell = MathF.Max(extent.X, MathF.Max(extent.Y, extent.Z)) / 8f;
+
+        var resolution = new Int3(
+            Math.Clamp((int)MathF.Ceiling(2f * extent.X / cell) + 1, 4, 32),
+            Math.Clamp((int)MathF.Ceiling(2f * extent.Y / cell) + 1, 4, 32),
+            Math.Clamp((int)MathF.Ceiling(2f * extent.Z / cell) + 1, 4, 32)
+        );
+
+        var distances = new float[resolution.X * resolution.Y * resolution.Z];
+        var field = new MeshDistanceField(bounds, resolution, distances);
+
+        for (var z = 0; z < resolution.Z; z++) {
+            for (var y = 0; y < resolution.Y; y++) {
+                for (var x = 0; x < resolution.X; x++) {
+                    var point = field.PositionOf(x, y, z);
+
+                    // The textbook box distance: the positive part of |p| − half gives the outside,
+                    // and the largest negative component gives the inside. Both, so a cone that
+                    // starts a hair under a surface still gets a signed answer rather than a zero.
+                    var q = Abs(point) - half;
+                    var outside = new Vector3(MathF.Max(q.X, 0f), MathF.Max(q.Y, 0f), MathF.Max(q.Z, 0f)).Length();
+                    var inside = MathF.Min(MathF.Max(q.X, MathF.Max(q.Y, q.Z)), 0f);
+
+                    distances[(((z * resolution.Y) + y) * resolution.X) + x] = outside + inside;
+                }
+            }
+        }
+
+        return field;
+    }
+
     /// <summary>What has been described and not yet handed to the render system.</summary>
     public List<PendingDraw> Pending { get; } = [];
 
@@ -415,6 +502,27 @@ sealed class TierScene : IDisposable {
     /// <summary>Uploads the geometry and adds every described object to the render system.</summary>
     public void Commit(RenderStageMask viewStages) {
         var system = Renderer.Host.System;
+
+        // ⚠ Here rather than in `Supply`, and the difference is the order the fixture is written in:
+        // `Supply` runs inside `Open`, before a single `Box` has been described, so a clipmap fed
+        // there would composite an empty scene and never be asked again — `ShouldComposite` returns
+        // false for an unchanged instance list, so the emptiness would be permanent. Every box is
+        // known by now.
+        foreach (var node in Renderer.Host.Builder.Nodes.Values) {
+            if (node is not GlobalDistanceFieldRenderer clipmap) {
+                continue;
+            }
+
+            foreach (var occluder in occluders) {
+                clipmap.Instances.Add(occluder);
+            }
+
+            // Centred on the scene rather than on the camera, which stands outside it: the node
+            // falls back to its view's position and has no view, and a clipmap centred on the
+            // origin is one whose finest level holds every box here.
+            clipmap.ViewPosition = Vector3.Zero;
+            clipmap.InstancesVersion++;
+        }
 
         var vertexBuffer = fixture.Buffer<SurfaceVertex>(vertices.ToArray(), BufferUsage.Vertex);
         var indexBuffer = fixture.Buffer<ushort>(indices.ToArray(), BufferUsage.Index);

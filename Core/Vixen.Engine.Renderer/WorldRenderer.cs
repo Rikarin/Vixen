@@ -226,6 +226,21 @@ public sealed class WorldRenderer : IDisposable {
         Host.Builder.Descriptors = MaterialDescriptors;
         Host.Builder.Samplers = Samplers;
 
+        // ⚠ A fifth, and it was the same omission one layer along: the compute nodes — the
+        // reflections march, the screen-probe gather, the clipmap — resolve their kernels through an
+        // *effect system* rather than through the module describer above, and `CompositorBuilder`
+        // held the only seat for one. Nothing in the engine filled it; sample 13 assigned
+        // `builder.Effects` by hand, which is why the omission survived a shipping split frame.
+        //
+        // What it cost was a `!StandardFrame` with `reflections: screen` refusing to build at all.
+        // `ReflectionRenderer.Build` returns before it publishes its target when it has no effect
+        // system — the same silent early return the paragraph above is about — and the
+        // `!AmbientCombine` after it then names a resource nothing bound, which is a
+        // `CompositorBindingException` out of the middle of the first frame rather than a frame
+        // missing its reflections. The same effect system every material compiles through, for the
+        // reason a second one is always wrong: two variant caches disagreeing about one shader.
+        Host.Builder.Effects = effects;
+
         // The same feature the shading pass reads its sun from, so a shadow node fits its cascades
         // along the light the frame is actually lit by rather than along a constant.
         Host.Builder.Sun = Lighting;

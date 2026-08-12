@@ -180,6 +180,86 @@ is either invisible at 128² or belongs to the GI and reflection stacks the fixt
 the pair is held only to "differ at all" — zero would mean the tier stopped resolving. It is not
 evidence that Epic is worth its cost.
 
+## The split golden
+
+`frame-split` is the fifth picture in that class and the first that renders a **split** frame:
+`gi: ambient`, `reflections: screen`, at High. Until it existed **no golden anywhere covered the
+split path** — the four tier references stage `Gi = Off, Reflections = Off` and `StandardFrame.Emit`
+splits on `frame.Gi != GiMode.Off || mirrors`, so all four are pictures of the single-target frame.
+`ForwardPlus.SplitOutputs`, the albedo, normal and `f0` planes, `!AmbientCombine`'s rebuild and the
+reflection blend were verified by unit tests and by hand, and by nothing the suite would defend.
+
+One picture at one tier, not a fifth row of the theory. The theory renders four scenes and
+`TheFourTiersDoNotAgree` four more; this is a ninth, about a twelfth added to the fixture. A fifth
+row would be four more scenes to buy tier variation this fixture has already measured itself unable
+to see — the reflection steps, the probe tile size and the AO scales are named above as exactly the
+knobs that move nothing at 128². High rather than Epic because High's `gi.ssaoScale` is 0.5, so the
+occlusion planes arrive at half resolution and the combine's bilateral upsample is a path the
+picture takes; at Epic's scale of 1 it degenerates to its own texel.
+
+**Three things had to be wired before it rendered at all, and each was a real gap.**
+
+- `CompositorBuilder.Effects` was set in exactly one place in the tree — sample 13 — and never by
+  the engine's own host. `ReflectionRenderer.Build` returns before publishing its target without
+  one, so a `!StandardFrame` with `reflections: screen` died on `CompositorBindingException:
+  'AmbientCombine' refers to target 'Reflections', which nothing bound`. `WorldRenderer` sets it
+  now, beside the four the comment there already describes.
+- The clipmap needs a `CompositorBuilder.DistanceField`, which is a project's to supply. Without one
+  `!DistanceFieldAo` draws with set 0 unbound — a validation error, not a frame without occlusion.
+  `TierScene` builds one analytically from the same boxes it draws.
+- **`ForwardPlus.SplitOutputs` is a permutation on the material and nothing in the engine sets it**
+  — `StandardFrameAsset`'s own remarks say so and call it owed. Its absence is silent and total: the
+  single-target variant writes location 0, the other three planes stay at the clear, and
+  `AmbientCombine` reads a zero-length normal as sky and hands the direct target straight back. This
+  fixture's first rendering was **bit-identical to `tier-high` across all 16 384 pixels** with every
+  structural assertion passing. That is why the test asserts the picture differs from the committed
+  `tier-high` reference by more than a quarter of the frame before it verifies anything: it is the
+  one claim that catches a golden about to be re-recorded as the frame beside it.
+
+⚠ **This reference is a picture of a frame with no diffuse ambient in it, and that is a defect it
+records rather than one it hides.** In split mode `ForwardPlus` withholds the diffuse ambient for
+the combine to rebuild (`ForwardPlus.rvn:444-457`), and the combine rebuilds it from an irradiance
+plane — which `StandardFrame` names only when `gi: probes`: `Irradiance = probes ? "ProbeIrradiance"
+: ""`. So `gi: ambient` splits, drops the term and puts nothing back, and
+`StandardFrameTests.Ambient_gi_runs_the_occlusion_pair_without_the_probe_machinery` asserts the
+empty seat as correct. Against `tier-high` the floor in shadow moves **(−17.2, −28.8, −29.6)** and
+the caster **(−15.1, −22.0, −22.5)** — the cool sky term leaving — while the sky itself rises
+(+13.3, +12.1, +11.0) because the meter lifts a frame that lost a lighting term. When that is fixed
+this golden will move by a large mean, and it should.
+
+What the picture is *right* about is the half the recent work went into. The metal slab moves
+**(+26.0, +22.2, +16.5)** against the unsplit reference — warm, in the direction of its own `f0` of
+(0.85, 0.82, 0.76) — which is the traced plane arriving weighted by the fourth target and added
+rather than lerped. The rough floor's `f0` is 0.04 and its reflection contribution is accordingly
+invisible. One metal and one rough dielectric, so both ends of the plane are in one frame.
+
+Run-to-run on MoltenVK the fixture is **bit-identical** — 0 pixels over 12/255, mean channel exactly
+0.000, over two renderings — so `Tolerance.Shaded` sits far above its own noise, as it does for the
+four tiers.
+
+**What breaking the pipeline does to it**, each measured against the committed reference, where the
+bounds are 0.200% of pixels over 12/255 and a mean channel of 0.350:
+
+| Sabotage | Pixels over 12/255 | Mean channel | What moves |
+|---|---|---|---|
+| `f0` forced back to a fixed dielectric 0.04 | 274 (1.672%) | 0.583 | the slab alone, −8.1/−6.3/−2.2, dimmer and cooler; the floor moves +0.04, because its `f0` already *is* 0.04 |
+| `lerp` restored in place of the add | 608 (3.711%) | 1.947 | the slab −39.2/−38.2/−35.4 — a quarter of it gone, which is the lerp taking `reflectance ×` its direct sunlight away |
+| `mirror.a` as a lerp weight rather than a validity flag | 13 040 (79.590%) | 24.072 | the bug verbatim: the floor and the caster become a flat mirror of the trace and the sun shadow disappears |
+| the screen march turned off entirely (`screenSteps: 0`) | 276 (1.685%) | 0.689 | the slab, worst channel 90 — so the march is load bearing here, not just declared |
+| the shell moved from device depth to a linear 0.5 | 229 (1.398%) | 0.605 | the slab, worst channel 89 |
+
+Every one crosses **both** bounds, and the worst pixel of four of the five is inside the metal slab
+at (84, 63) or beside it — which is the fixture behaving as intended: the arithmetic under test is
+the reflection weight, and the surface that carries it is the metal.
+
+⚠ **The last row is a correction to a claim, not a sabotage.** The shell fix is described as
+"the screen trace's thickness shell to the device-depth 0.02 that reaches the far plane", as though
+reverting it were the break — but `ReflectionsAsset.ScreenLinearThickness` defaults to zero, which
+*is* the device-depth shell, and `StandardFrame` never sets it. Grep confirms the only assignments
+in the tree are two device tests. So a Standard Frame ships the device-depth shell today and there
+is nothing to revert; what the row above shows is the opposite direction — that the golden *would*
+catch the shell changing, if anything ever set it.
+
 **What the tier goldens cannot see.** A fidelity *number* — 1024 cascade texels against 512, 64
 froxel slices against 32, a five-level bloom pyramid against four — changes almost nothing a picture
 can measure at this size; the largest of those three moved the average channel by 0.010. That is not
