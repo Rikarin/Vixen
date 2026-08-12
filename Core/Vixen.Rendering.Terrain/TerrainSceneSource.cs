@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Foliage;
+using Vixen.Terrain;
 using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Rendering.Terrain;
@@ -106,9 +107,28 @@ public readonly record struct FoliageSceneEntry(FoliageVolume Volume, Vector3 Or
 ///         standing.
 ///     </para>
 /// </remarks>
-public sealed class TerrainSceneSource {
+public sealed class TerrainSceneSource : ITerrainPlacements {
     /// <summary>This frame's terrains, in extraction order.</summary>
     public List<TerrainSceneEntry> Terrains { get; } = [];
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <b>The same list, as everything that is not drawing asks about it.</b> Resolving a
+    ///     <see cref="TerrainComponent" />'s asset name and placing the result at its entity's
+    ///     transform is work only this assembly does — the asset source and the extraction pass are
+    ///     both here — and a collider, a spawner or a navmesh bake that had to reference a *renderer*
+    ///     to find the ground would put a graphics device in a headless build. So the answer is given
+    ///     through a kernel interface: see <see cref="ITerrainPlacements" />, and
+    ///     <c>Vixen.Terrain.Physics.TerrainColliderSystem</c> for the consumer that made it necessary.
+    /// </remarks>
+    public int PlacementCount => Terrains.Count;
+
+    /// <inheritdoc />
+    public TerrainPlacement PlacementAt(int index) {
+        var entry = Terrains[index];
+
+        return new(entry.Terrain, entry.Origin);
+    }
 
     /// <summary>What second the wind is at, from the frame's clock.</summary>
     /// <remarks>

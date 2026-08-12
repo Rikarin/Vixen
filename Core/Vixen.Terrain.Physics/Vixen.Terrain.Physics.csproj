@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Terrain.Physics</RootNamespace>
+        <Description>
+            Gives a terrain a collider: one Jolt height-field shape per tile, holes carried through as
+            the shape's own no-collision sentinel. A separate assembly on purpose — docs/plan/31 § D1
+            keeps the terrain kernel device-free and the render stack physics-free, so the one call
+            joining Vixen.Terrain's samples to Vixen.Physics' shape lives in neither of them.
+        </Description>
+        <PackageTags>terrain;heightfield;collision;physics;jolt;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The two halves this assembly exists to join, and nothing else — Vixen.Water.Physics'
+            arrangement exactly. The kernel says what a tile's heights are and knows nothing about a
+            body; the physics world registers a shape and knows nothing about an edit layer.
+
+            ⚠ Note what is *not* here: Vixen.Rendering.Terrain. A collider finds the ground through
+            `ITerrainPlacements`, which is a *kernel* interface, so a dedicated server can run this
+            without linking a graphics device. `TerrainComponent`, `ITerrainAssetSource` and the
+            extraction pass all live over there because resolving an asset name is render-stack work;
+            one reference to them would put Vulkan in a headless build, which is § D1 undone in a line.
+        -->
+        <ProjectReference Include="..\Vixen.Terrain\Vixen.Terrain.csproj" />
+        <ProjectReference Include="..\Vixen.Physics\Vixen.Physics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Terrain.Physics.Tests" />
+    </ItemGroup>
+
+</Project>

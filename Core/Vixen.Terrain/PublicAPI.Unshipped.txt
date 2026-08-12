@@ -52,6 +52,9 @@ Vixen.Terrain.IBrushMask.Sample(Vixen.Core.Mathematics.Vector2 uv) -> float
 Vixen.Terrain.IPatchSource -> interface
 Vixen.Terrain.IPatchSource.BoundsOf(int x, int z, int quads) -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Terrain.IPatchSource.Covers(int x, int z, int quads) -> bool
+Vixen.Terrain.ITerrainPlacements -> interface
+Vixen.Terrain.ITerrainPlacements.PlacementAt(int index) -> Vixen.Terrain.TerrainPlacement
+Vixen.Terrain.ITerrainPlacements.PlacementCount.get -> int
 Vixen.Terrain.PatchSelector -> sealed class
 Vixen.Terrain.PatchSelector.DepthCount.get -> int
 Vixen.Terrain.PatchSelector.PatchSelector(int rootQuads, int depthCount, Vixen.Terrain.TerrainLodRanges ranges) -> void
@@ -336,6 +339,14 @@ Vixen.Terrain.TerrainNoise.TerrainNoise() -> void
 Vixen.Terrain.TerrainNoise.TerrainNoise(int Octaves = 4, float Frequency = 0.02, float Lacunarity = 2, float Gain = 0.5, bool Ridged = false, uint Seed = 2654435769) -> void
 Vixen.Terrain.TerrainPaint -> static class
 Vixen.Terrain.TerrainPick -> static class
+Vixen.Terrain.TerrainPlacement -> readonly struct
+Vixen.Terrain.TerrainPlacement : System.IEquatable<Vixen.Terrain.TerrainPlacement>
+Vixen.Terrain.TerrainPlacement.Origin.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Terrain.TerrainPlacement.Origin.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Terrain.TerrainPlacement.Terrain.get -> Vixen.Terrain.Terrain
+Vixen.Terrain.TerrainPlacement.Terrain.init -> Vixen.Terrain.Terrain
+Vixen.Terrain.TerrainPlacement.TerrainPlacement() -> void
+Vixen.Terrain.TerrainPlacement.TerrainPlacement(Vixen.Terrain.Terrain Terrain, Vixen.Core.Mathematics.Vector3 Origin) -> void
 Vixen.Terrain.TerrainRect -> readonly struct
 Vixen.Terrain.TerrainRect : System.IEquatable<Vixen.Terrain.TerrainRect>
 Vixen.Terrain.TerrainRect.Clip(Vixen.Terrain.TerrainRect other) -> Vixen.Terrain.TerrainRect

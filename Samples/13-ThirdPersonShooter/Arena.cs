@@ -21,6 +21,7 @@ using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Materials;
+using Vixen.Terrain.Physics;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 using Vixen.Vfx;
@@ -203,8 +204,17 @@ public sealed class Arena : IDisposable {
     /// <summary>What tells a character how deep in the lake it is, or null headless.</summary>
     public WaterImmersionSystem? Immersion { get; private set; }
 
-    /// <summary>The heightfield's collider and the water's bed, or null if there is no terrain source.</summary>
+    /// <summary>The water's bed, or null if there is no terrain source.</summary>
     public TerrainGroundSystem? Ground => ground;
+
+    /// <summary>What gives the heightfield its collision, or null headless of a renderer.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>TileCount</c> at zero with a terrain in the scene is the whole failure this sample
+    ///     was the first thing in the tree to notice.</b> The ground draws perfectly and stops nothing,
+    ///     and <c>RespawnWhenBelow</c> turns that into a camera cycling below the surface rather than
+    ///     into an error.
+    /// </remarks>
+    public TerrainColliderSystem? Colliders { get; private set; }
 
     /// <summary>The camera-following clipmap every distance-field trace marches, or null.</summary>
     public GlobalDistanceField? DistanceField { get; private set; }
@@ -350,16 +360,23 @@ public sealed class Arena : IDisposable {
         // put them in. A game never orders them by hand, which is the point of them having phases.
         loop.AddPhysics(Physics);
 
-        // ⚠ The two joins the engine has no assembly for, and without which the outskirts are scenery.
-        // The first gives the heightfield a collider — see TerrainGroundSystem for the three built
-        // pieces it is the missing call between — and the second gives a character an immersion, which
-        // is the whole of what CharacterMoveMode.Swimming was waiting for. Both are ordinary systems
-        // in ordinary phases; neither needed a change anywhere else.
+        // The lake's bed: the terrain is the producer of WaterZoneSystem.Ground and nothing in the
+        // engine is, outside the editor's presenter. Doc 35 § D3.
         if (ground is { } terrain) {
             loop.Add(terrain);
         }
 
         if (services?.Graphics is { } graphics) {
+            // ⚠ The one line that stops the outskirts being scenery. Vixen.Terrain.Physics is opted
+            // into by a game — doc 31 § D1 keeps the Jolt join out of both the kernel and the
+            // renderer — and it finds the ground through the renderer's own frame list, which is a
+            // TerrainSceneSource and therefore an ITerrainPlacements. Nothing about this level is in
+            // it: it works for any scene carrying a TerrainComponent.
+            Colliders = new(Physics, graphics.Renderer.TerrainScene);
+            loop.Add(Colliders);
+
+            // And this gives a character an immersion, which is the whole of what
+            // CharacterMoveMode.Swimming was waiting for.
             Immersion = new(graphics.Water);
             loop.Add(Immersion);
         }
@@ -660,7 +677,7 @@ public sealed class Arena : IDisposable {
         graphics.Water.Waves = source;
 
         if (graphics.Renderer.Terrains is { } terrains && services.Engine is not null) {
-            ground = new TerrainGroundSystem(Physics, terrains, logger);
+            ground = new TerrainGroundSystem(terrains);
             graphics.Water.Ground = ground;
         }
     }
@@ -1412,6 +1429,10 @@ public sealed class Arena : IDisposable {
                 graphics.Renderer.TerrainExtraction?.RefusedGrass ?? 0
             );
         }
+
+        // ⚠ And what the ground stops, which draws identically whether it is there or not: a terrain
+        // with no collision looks exactly like one with it until somebody walks onto it.
+        SampleLog.TerrainCollisionBuilt(logger, Colliders?.TileCount ?? 0, Colliders?.TerrainCount ?? 0);
 
         var painted = graphics.Renderer.Painted;
         var streamer = painted?.Streaming;

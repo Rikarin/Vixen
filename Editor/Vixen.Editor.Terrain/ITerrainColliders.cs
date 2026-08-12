@@ -20,6 +20,16 @@ namespace Vixen.Editor.Terrain;
 ///         written as the caller's sentinel, and <c>PhysicsShapes.HeightField</c> takes exactly that.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Nothing in the tree implements this, and that is still true.</b> The only
+///         implementation is a test double that records tile indices. The runtime half of the job
+///         landed as <c>Vixen.Terrain.Physics.TerrainColliderSystem</c> — one height-field shape per
+///         tile, over an <c>ITerrainPlacements</c> — and its
+///         <c>Rebuild(Terrain, TerrainRect)</c> deliberately carries this interface's signature, so
+///         an adapter is three lines. It has to live on <em>this</em> side of the line, because a
+///         runtime assembly may not reference <c>Editor/</c>; until somebody writes it, a sculpt
+///         stroke in the editor moves the ground and rebuilds no collision.
+///     </para>
+///     <para>
 ///         ⚠ <b>Per tile, and that is [§ D2]'s whole argument rather than an optimisation.</b> A tile
 ///         is one Jolt height-field shape; a stroke touches one or two of them out of sixteen, and
 ///         rebuilding the terrain's collision because somebody smoothed a ridge is a pause an artist
