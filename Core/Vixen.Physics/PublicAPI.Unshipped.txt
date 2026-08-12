@@ -308,6 +308,7 @@ Vixen.Physics.Ecs.PhysicsDebugDrawSystem.PhysicsDebugDrawSystem(Vixen.Physics.Ec
 Vixen.Physics.Ecs.PhysicsInterpolation -> struct
 Vixen.Physics.Ecs.PhysicsInterpolation.CurrentPosition -> Vixen.Core.Mathematics.Vector3
 Vixen.Physics.Ecs.PhysicsInterpolation.CurrentRotation -> Vixen.Core.Mathematics.Quaternion
+Vixen.Physics.Ecs.PhysicsInterpolation.DrawnPosition -> Vixen.Core.Mathematics.Vector3
 Vixen.Physics.Ecs.PhysicsInterpolation.PhysicsInterpolation() -> void
 Vixen.Physics.Ecs.PhysicsInterpolation.PreviousPosition -> Vixen.Core.Mathematics.Vector3
 Vixen.Physics.Ecs.PhysicsInterpolation.PreviousRotation -> Vixen.Core.Mathematics.Quaternion
@@ -319,6 +320,7 @@ Vixen.Physics.Ecs.PhysicsInterpolationSystem.PhysicsInterpolationSystem(Vixen.En
 Vixen.Physics.Ecs.PhysicsScene -> sealed class
 Vixen.Physics.Ecs.PhysicsScene : System.IDisposable
 Vixen.Physics.Ecs.PhysicsScene.BodyCount.get -> int
+Vixen.Physics.Ecs.PhysicsScene.CharacterAdoptionCount.get -> long
 Vixen.Physics.Ecs.PhysicsScene.CharacterCount.get -> int
 Vixen.Physics.Ecs.PhysicsScene.Contacts.get -> System.ReadOnlySpan<Vixen.Physics.Ecs.EntityContactEvent>
 Vixen.Physics.Ecs.PhysicsScene.Dispose() -> void

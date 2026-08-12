@@ -129,6 +129,15 @@ public sealed class PhysicsWritebackSystem(PhysicsScene scene) : SystemBase, IDe
 ///         is dragged to <c>(0, 0, 0)</c> until a step has filled both. Seed it with the pose the
 ///         entity is being created at.
 ///     </para>
+///     <para>
+///         ⚠ <b>It writes what it drew back into <see cref="PhysicsInterpolation.DrawnPosition" />,
+///         and that is not bookkeeping.</b> On a character, <c>LocalTransform</c> is an input as well
+///         as an output — <c>PhysicsScene.Adopt</c> takes a transform that disagrees with the
+///         controller as a teleport — so a smoothed pose left here was undone on the next step, and a
+///         character carrying this component walked at exactly half its <c>WalkSpeed</c>. The bridge
+///         compares against the recorded value to tell this pass's own pose from one a game, a
+///         respawn or a rollback wrote.
+///     </para>
 /// </remarks>
 [UpdateInGroup(SystemPhase.LateUpdate)]
 [UpdateBefore(typeof(TransformSystem))]
@@ -138,8 +147,14 @@ public sealed class PhysicsInterpolationSystem(FixedStepAccumulator accumulator)
         .WithAll<PhysicsInterpolation, LocalTransform>();
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <c>Write</c> and not <c>Read</c> on the interpolation, because the pose drawn is recorded
+    ///     back into it. The alternative — a second component holding one vector — is a second
+    ///     archetype and a second thing to seed, for a fact that belongs to the smoothing that
+    ///     produced it.
+    /// </remarks>
     public SystemAccess Access { get; } = SystemAccess.Declare()
-        .Read<PhysicsInterpolation>()
+        .Write<PhysicsInterpolation>()
         .Write<LocalTransform>()
         .Build();
 
@@ -151,16 +166,23 @@ public sealed class PhysicsInterpolationSystem(FixedStepAccumulator accumulator)
         var alpha = Math.Clamp(accumulator.Alpha, 0f, 1f);
 
         foreach (var chunk in context.World.Chunks(Interpolated)) {
-            var states = chunk.ReadValues<PhysicsInterpolation>();
+            var states = chunk.Values<PhysicsInterpolation>();
             var transforms = chunk.Values<LocalTransform>();
 
             for (var index = 0; index < chunk.Count; index++) {
                 var state = states[index];
-                transforms[index].Position = Vector3.Lerp(state.PreviousPosition, state.CurrentPosition, alpha);
+                var drawn = Vector3.Lerp(state.PreviousPosition, state.CurrentPosition, alpha);
+
+                transforms[index].Position = drawn;
 
                 // Slerp and not lerp: a normalised lerp between two rotations more than a few degrees
                 // apart moves at a visibly uneven rate, which on a spinning body reads as a wobble.
                 transforms[index].Rotation = Quaternion.Slerp(state.PreviousRotation, state.CurrentRotation, alpha);
+
+                // ⚠ The receipt. Exactly what was written, so the character bridge can recognise its
+                // own smoothing rather than infer it — see the field's own remarks for the half-speed
+                // walk this closes and for why inferring it from the segment is worse.
+                states[index].DrawnPosition = drawn;
             }
         }
 

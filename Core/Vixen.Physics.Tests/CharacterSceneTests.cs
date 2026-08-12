@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Engine.Frames;
 using Vixen.Engine.Players;
 using Vixen.Engine.Transforms;
 using Vixen.Physics.Bodies;
@@ -338,6 +339,153 @@ public sealed class CharacterSceneTests {
 
         Assert.Equal(settled.X, entities.Read<LocalTransform>(walker).Position.X, 5);
         Assert.Equal(settled.Z, entities.Read<LocalTransform>(walker).Position.Z, 5);
+    }
+
+    /// <summary>One scripted walk through a whole frame loop, with the smoothing on or off.</summary>
+    /// <param name="interpolated">Whether the walker carries a <c>PhysicsInterpolation</c>.</param>
+    /// <param name="frames">How many frames to run. Each is exactly one fixed step.</param>
+    /// <param name="adoptions">How many times the bridge took the transform as a teleport.</param>
+    /// <returns>How far the character's <i>simulated</i> pose travelled, in the ground plane.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A whole <c>EngineLoop</c> and not <c>Advance</c>, because the defect this measures
+    ///         is not in the fixed step at all.</b> <c>PhysicsInterpolationSystem</c> runs in
+    ///         <c>LateUpdate</c>, so calling the four physics passes by hand — which is what every
+    ///         other test in this file does — cannot see it. That is why a bug worth 50% of every
+    ///         character's speed survived a suite this size.
+    ///     </para>
+    ///     <para>
+    ///         The frame delta is exactly one step, which leaves <c>alpha</c> at zero and is the worst
+    ///         case rather than a contrived one: it is every machine holding its refresh rate and
+    ///         every <c>--vixen-fixed-step</c> capture.
+    ///     </para>
+    ///     <para>
+    ///         The controller's own position, not the entity's. What the smoothing writes onto the
+    ///         transform is up to a step behind by design, so comparing transforms would measure the
+    ///         interpolation's lag and call it a difference in speed.
+    ///     </para>
+    /// </remarks>
+    static float Walked(bool interpolated, int frames, out long adoptions) {
+        using var loop = new EngineLoop();
+        using var scene = new PhysicsScene(loop.World);
+
+        loop.AddPhysics(scene);
+        Ground(scene);
+
+        var start = new Vector3(0f, 0f, 0f);
+        var walker = Walker(scene, start);
+
+        // Forward, at full throttle, held for the whole run. Nothing clears it: no PlayerInputSystem
+        // is registered, so the intent is a constant and the walk is a function of the step alone.
+        loop.World.Set(walker, new MoveIntent { Move = new(0f, 1f) });
+
+        if (interpolated) {
+            // Seeded at the spawn pose. A zeroed one drags the entity to the origin, which this file's
+            // sibling in PhysicsSceneTests and the sample's own remarks both warn about.
+            loop.World.Add(
+                walker,
+                new PhysicsInterpolation {
+                    PreviousPosition = start,
+                    CurrentPosition = start,
+                    PreviousRotation = Quaternion.Identity,
+                    CurrentRotation = Quaternion.Identity,
+                    DrawnPosition = start
+                }
+            );
+        }
+
+        for (var frame = 0; frame < frames; frame++) {
+            loop.Frame(TimeSpan.FromSeconds(Step));
+        }
+
+        Assert.True(scene.TryGetCharacter(walker, out var controller));
+
+        adoptions = scene.CharacterAdoptionCount;
+
+        var travelled = controller!.Position - (start + CharacterMovement.Default.ShapeOffset);
+
+        return MathF.Sqrt((travelled.X * travelled.X) + (travelled.Z * travelled.Z));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A component that only asks for smoothing must not change how fast the character
+    ///     walks, and for as long as this repository has existed it halved it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>PhysicsInterpolationSystem</c> writes <c>LocalTransform</c> to the pose at
+    ///         <c>alpha</c>, which on a frame one fixed step long is the <i>previous</i> step's; the
+    ///         next <c>StepCharacters</c> read that as a teleport and pulled the controller back to
+    ///         it. Every other step was therefore undone, and the arithmetic gives exactly half.
+    ///     </para>
+    ///     <para>
+    ///         Measured rather than reasoned about, because nothing in this repository could measure a
+    ///         moving character until a scripted walk existed: sample 13 covered 1.819 m of a scripted
+    ///         first second with the component and 3.821 m without it, on the same route.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void SmoothingACharacterDoesNotChangeHowFarItWalks() {
+        const int Frames = 120;
+
+        var smoothed = Walked(true, Frames, out var adoptions);
+        var plain = Walked(false, Frames, out _);
+
+        Assert.True(
+            MathF.Abs(smoothed - plain) < 1e-3f,
+            $"A character with PhysicsInterpolation walked {smoothed} m in {Frames} frames "
+            + $"and one without it walked {plain} m — a ratio of {smoothed / plain:0.0000}. "
+            + "The smoothing is writing LocalTransform and PhysicsScene.Adopt is taking it as a "
+            + "teleport, so every other step is being undone."
+        );
+
+        // And the mechanism itself, not only its consequence. A walking character is teleported by
+        // nobody; a count that climbs with the frames is the two writers fighting.
+        Assert.Equal(0L, adoptions);
+    }
+
+    /// <summary>
+    ///     And the thing the adopt exists for still works on a smoothed character: a written transform
+    ///     is a teleport, which is what a respawn, a checkpoint and a rollback all are.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the half the fix could have broken.</b> Teaching the bridge to ignore an
+    ///     interpolated pose is one step away from teaching it to ignore a correction, and a client
+    ///     whose corrections stopped reaching the controller would replay from the guess it was
+    ///     correcting for ever. <c>PredictedPlayerMovement</c>'s own tests are the other guard.
+    /// </remarks>
+    [Fact]
+    public void ASmoothedCharacterIsStillTeleportedByAWrittenTransform() {
+        using var loop = new EngineLoop();
+        using var scene = new PhysicsScene(loop.World);
+
+        loop.AddPhysics(scene);
+        Ground(scene);
+
+        var walker = Walker(scene, Vector3.Zero);
+
+        loop.World.Set(walker, new MoveIntent { Move = new(0f, 1f) });
+        loop.World.Add(walker, new PhysicsInterpolation { DrawnPosition = Vector3.Zero });
+
+        for (var frame = 0; frame < 30; frame++) {
+            loop.Frame(TimeSpan.FromSeconds(Step));
+        }
+
+        var before = scene.CharacterAdoptionCount;
+
+        // The stick released and the velocity cleared by hand, which is exactly what a respawn does
+        // and for the reason its own remarks give: the controller keeps the walk it was doing and
+        // would otherwise arrive at the spawn point already moving. Without both, the assertion below
+        // measures one more step of walking rather than where the write put the character.
+        loop.World.Set(walker, default(MoveIntent));
+        loop.World.Get<CharacterState>(walker).Velocity = Vector3.Zero;
+        loop.World.Get<LocalTransform>(walker).Position = new(12f, 0.1f, -8f);
+        loop.Frame(TimeSpan.FromSeconds(Step));
+
+        Assert.True(scene.TryGetCharacter(walker, out var controller));
+        Assert.Equal(12f, controller!.Position.X, 1);
+        Assert.Equal(-8f, controller.Position.Z, 1);
+        Assert.Equal(before + 1, scene.CharacterAdoptionCount);
     }
 
     [Fact]
