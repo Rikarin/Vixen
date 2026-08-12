@@ -146,6 +146,40 @@ mean absolute channel of 0.002/255, which is what makes an A/B against another c
 mistaken for a broken one. [The guide](../../docs/guide/rendering/capturing-a-frame.md) says what else
 a headless picture is and is not.
 
+### Walking, because a still frame cannot show a temporal defect
+
+`VIXEN_SPAWN` places the camera and nothing moves it afterwards, so every picture above is of a
+**still** frame — and reprojection, motion vectors, motion blur, the fog's temporal history and the
+virtual shadow map's refit are all things that only happen when the camera moves. `VIXEN_WALK` is the
+other half: a script the player is driven by instead of a device.
+
+```
+VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK=20 \
+dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+    --vixen-headless --vixen-frames 512 --vixen-variant Development --vixen-capture ./shots
+```
+
+A script is legs separated by `;`, each `seconds:forward:strafe:yawRate:pitchRate` with everything
+after the duration optional — so `20` is "walk straight ahead for twenty seconds", `2:0:0:90` is
+"stand still and pan ninety degrees a second", and the two joined by a `;` do one then the other.
+`ScriptedWalk` is the whole of it, and it is an `IPlayerInputSource`, which is the seam the engine
+already documents as the one a planner, a replay or a test takes — so nothing in the engine changed
+to make this work.
+
+⚠ **It rides the fixed step and has no clock of its own.** `--vixen-capture` implies
+`--vixen-fixed-step` at a sixtieth, so a leg's duration is an exact number of frames and two runs walk
+identically. The tests beside it were checked against a sabotaged copy holding a `Stopwatch` — the
+second clock that was found driving the grass wind — and the result is written down there, because the
+obvious guard is the one that does not catch it.
+
+⚠ **The route matters, and the level is full of things to walk into.** `Crate4` sits at (0, 0, 12)
+and is 1.6 m tall, so the obvious script — spawn at the origin, walk south — stops dead after eleven
+metres with every counter reporting a successful run. `x = −3` misses it and threads the south gate,
+whose hole is `x ∈ [−4, 4]`.
+
+⚠ **The character walks at half the speed the level asks for**, and it is not this harness's doing —
+see the note under *the gates* above. Write a script's durations against 2.25 m/s, not 4.5.
+
 ## The picture, and what is in the way
 
 ⚠ **`WorldRenderer`'s mesh path had never drawn on a device, and this project is the first thing to

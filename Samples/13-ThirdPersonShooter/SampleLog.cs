@@ -212,6 +212,26 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
+        EventId = 14069,
+        Level = LogLevel.Information,
+        Message = "The player is driven by the script '{Script}', which lasts {Seconds} simulated second(s) "
+            + "— {Frames} frame(s) at the sixtieth a capture is fixed to. A run shorter than that "
+            + "captures a moment part-way through the walk, and the frame count is the only thing that "
+            + "decides which."
+    )]
+    public static partial void WalkScripted(ILogger logger, string script, double seconds, int frames);
+
+    [LoggerMessage(
+        EventId = 14070,
+        Level = LogLevel.Information,
+        Message = "The script ran {Elapsed} of {Duration} simulated second(s) and the player covered "
+            + "{Distance} m of ground. Zero metres with a script that has time on it is a walk nothing "
+            + "acted on — an input source that was replaced, or a character with no intent — and it "
+            + "captures as a still frame with every counter reporting success."
+    )]
+    public static partial void WalkSummary(ILogger logger, double elapsed, double duration, float distance);
+
+    [LoggerMessage(
         EventId = 14038,
         Level = LogLevel.Information,
         Message = "Loaded {Clips} sound(s); {Missing} were not published."

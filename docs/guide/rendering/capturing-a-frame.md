@@ -156,6 +156,32 @@ count.
 ⚠ A picture from the spawn corner of a *correct* sample 13 frame looks almost entirely in shade even
 at 512, because the spawn faces away from the sun. That is not a bug and has been mistaken for one.
 
+### ⚠ A capture is of a still frame unless something drives the camera
+
+Everything above is about a camera that does not move, and **the renderer's temporal half is not
+exercised by one**. Reprojection is antialiasing's entire job; motion vectors are a target of zeroes;
+motion blur is a copy; the fog's history has nothing to reproject; and the virtual shadow map refits
+its finest level every 0.31 m of walking and never refits at all when nobody walks. Two
+investigations into a reported shadow blink have now ended at "the mechanism most likely to produce
+this lives under motion, and I could not measure it".
+
+Nothing in the host drives a camera, and that is deliberate — a scripted camera in `Vixen.App` is the
+first half of a cutscene or a replay system. What the engine gives instead is
+`Vixen.Engine.Players.IPlayerInputSource`, whose own documentation names a planner, a replay and a
+test as the things that implement it. A scripted walk is one of those, in the game, in about two
+hundred lines: `Samples/13-ThirdPersonShooter/ScriptedWalk.cs` is the reference implementation and
+`VIXEN_WALK` is how a run asks for it.
+
+⚠ **Whatever drives it must ride the fixed step.** A source that reads a `Stopwatch` makes the walk a
+function of how fast the machine rendered, which is exactly the wall-clock non-reproducibility
+`--vixen-fixed-step` was added to remove — and a second clock of exactly that kind was found driving
+`TerrainSceneSource`'s grass wind, where it made the sway a function of process age.
+`IPlayerInputSource.Sample` is handed the frame's delta; that is the only time it may use.
+
+⚠ **Measure the walking floor before concluding anything from a walking diff.** It is not the still
+floor, and neither is a constant — see the table above and the sample's README for the numbers this
+repository has measured.
+
 ### Where the picture comes from
 
 The frame's last colour target, after tonemapping, antialiasing and every post effect. In sample 13
