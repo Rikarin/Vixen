@@ -6,7 +6,11 @@ using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
+using Vixen.Ecs;
 using Vixen.Engine.Renderer;
+using Vixen.Engine.Transforms;
+using Vixen.Rendering;
+using Vixen.Rendering.Water;
 using Vixen.Water;
 using Xunit;
 
@@ -129,6 +133,65 @@ public sealed class AssetWaterSourceTests {
                     && source.Failed == 2
             )
         );
+    }
+
+    /// <summary>
+    ///     ⚠ A lake named in a scene appears in a running game, over the real asynchronous source.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The end-to-end half of the retry, and the reason this belongs beside the source
+    ///         rather than beside the fold.</b> Every spline source in
+    ///         <c>WaterZoneSystemTests</c> is a literal that answers on the first ask; this one starts
+    ///         a <see cref="Task" /> and polls it, which is what a game has and is what made the fold's
+    ///         cached failure permanent — the first fold's ask <em>is</em> the ask that starts the
+    ///         read, so it cannot have landed, and a fold that remembered that answer never asked
+    ///         again.
+    ///     </para>
+    ///     <para>
+    ///         The zone and the body are the ones a scene carries, so what is being asserted is the
+    ///         whole path: a component naming a <c>.vxspline</c>, a source that has not got it yet, and
+    ///         a field with water in it a few folds later.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ALakeWhoseSplineIsStillLoadingAppearsOnceItLands() {
+        using var world = new World();
+
+        var source = new AssetWaterSource(Content(Lake(), null));
+        var view = new RenderView("Camera");
+        var system = new WaterZoneSystem(view) { Splines = source, Ground = new FlatWaterGround(-10f) };
+
+        var zone = world.Create();
+
+        world.Add(zone, WaterZoneComponent.Default);
+        world.Add(zone, new WorldTransform { Value = Matrix4x4.Identity });
+
+        var body = world.Create();
+
+        world.Add(body, WaterBodyComponent.Default with { Spline = SplineAddress, SurfaceHeight = 2f });
+        world.Add(body, new WorldTransform { Value = Matrix4x4.Identity });
+
+        // The first fold is the one that starts the read, so it is answered with null — which used to
+        // be the answer for the rest of the run.
+        system.Fold(world);
+
+        Assert.Equal(0, system.BodyCount);
+        Assert.Equal(1, system.UnresolvedBodies);
+
+        Assert.True(
+            Settles(
+                () => {
+                    system.Fold(world);
+
+                    return system.BodyCount == 1;
+                }
+            )
+        );
+
+        Assert.Equal(0, system.UnresolvedBodies);
+        Assert.Equal(0, source.Failed);
+        Assert.True(system.States[zone].Field!.Sample(Vector2.Zero).Coverage > 0.9f);
     }
 
     /// <summary>Asks until the load lands, which is what the fold does by asking next frame.</summary>

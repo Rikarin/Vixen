@@ -446,6 +446,94 @@ public sealed class WaterZoneSystemTests : IDisposable {
         Assert.Equal(WaterBodyComponent.Default.ShoreFalloff, body.ShoreFalloff);
     }
 
+    // --- An asset that is not ready yet is not an asset that does not exist ---
+
+    /// <summary>A source that answers null until the asset it is standing in for has landed.</summary>
+    /// <remarks>
+    ///     Which is <c>AssetWaterSource</c>'s behaviour and not an unkind test double: it starts a
+    ///     <see cref="Task" /> on the first ask and polls it, so every game source answers null for the
+    ///     first few frames <em>by construction</em>. Every other source in this file is a literal and
+    ///     answers on the first ask, which is exactly why nothing here caught the fold caching the
+    ///     null.
+    /// </remarks>
+    sealed class Streaming(float half) : IWaterSplineSource {
+        readonly Square square = new(half);
+
+        public bool Landed { get; set; }
+
+        public int Calls { get; private set; }
+
+        public Spline? SplineFor(string name, in Matrix4x4 placement) {
+            Calls++;
+
+            return Landed ? square.SplineFor(name, placement) : null;
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ A spline that arrives late is asked for again, and the lake appears.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fold caches a body against its component and its placement, and it used to cache
+    ///         the <em>failure</em> with it.</b> A body whose <c>SplineFor</c> answered null was
+    ///         recorded as unresolved, and because nothing about the component or the transform then
+    ///         changed it was never asked again for the life of the world — so a lake named in a scene
+    ///         could never appear in a running game, and the failure was permanent rather than
+    ///         transient.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The count of asks is the assertion, not just the body count.</b> A fold that
+    ///         resolved once and then held the answer would satisfy "the lake appears" on any test
+    ///         whose source answers immediately — which is every other source in this file, and is why
+    ///         the defect survived a suite that covers this fold thoroughly.
+    ///     </para>
+    ///     <para>
+    ///         The tail is the other half and guards the over-correction: caching nothing at all would
+    ///         also make the lake appear, and would rebuild every body every frame — marking every zone
+    ///         dirty and re-rasterising every field, which is
+    ///         <see cref="A_still_scene_rasterises_once_however_many_frames_run" />'s whole subject.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_spline_that_arrives_late_is_asked_again_and_the_lake_appears() {
+        var zone = Zone(WaterZoneComponent.Default);
+
+        Body(new(0f, 2f, 0f));
+
+        var source = new Streaming(40f);
+        var system = new WaterZoneSystem(view) { Splines = source, Ground = new FlatWaterGround(-10f) };
+
+        for (var frame = 0; frame < 5; frame++) {
+            system.Fold(world);
+        }
+
+        Assert.Equal(0, system.BodyCount);
+        Assert.Equal(1, system.UnresolvedBodies);
+        Assert.Equal(5, source.Calls);
+
+        source.Landed = true;
+        system.Fold(world);
+
+        Assert.Equal(1, system.BodyCount);
+        Assert.Equal(0, system.UnresolvedBodies);
+        Assert.Single(system.States[zone].Bodies);
+        Assert.True(system.States[zone].Field!.Sample(Vector2.Zero).Coverage > 0.9f);
+
+        // And the success is still cached: the source is not asked again, no body is rebuilt, and the
+        // field is not re-rasterised.
+        var asked = source.Calls;
+        var rasterised = system.States[zone].RasterCount;
+
+        for (var frame = 0; frame < 50; frame++) {
+            system.Fold(world);
+        }
+
+        Assert.Equal(asked, source.Calls);
+        Assert.Equal(0, system.RebuiltBodies);
+        Assert.Equal(rasterised, system.States[zone].RasterCount);
+    }
+
     // --- The components themselves -------------------------------------------
 
     /// <summary>The components carry what the kernel's own descriptions want.</summary>

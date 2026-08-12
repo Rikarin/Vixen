@@ -147,7 +147,8 @@ before this, `WaterMeshRenderer` was exercised by the golden suite alone. Three 
 be filled to get a body as far as the fold, and all three are the same shape as the collider —
 
 - `WaterZoneSystem.Splines` and `.Waves` are null until a game sets them, and no host sets them.
-  `AssetWaterSource` is the implementation and is constructed nowhere outside its own tests.
+  `AssetWaterSource` is the implementation, and `Arena.SupplyWater` is the only place in the tree
+  outside its own tests that constructs one.
 - `WaterZoneSystem.Ground` defaults to `FlatWaterGround(0)` and only the editor's presenter has ever
   replaced it, so in a game the depth of every lake was its own surface height above zero rather than
   surface minus terrain. Doc 35 § D3 is explicit that the terrain is a first-class producer of that
@@ -156,22 +157,27 @@ be filled to get a body as far as the fold, and all three are the same shape as 
   entered from any scene. `WaterImmersionSystem` writes it, and a character dropped into the middle
   of the lake settles at y = −0.334 against the −0.33 its own `SwimRestImmersion` predicts.
 
-⚠ **A fourth is a defect rather than a gap, and the sample works around it.**
-`WaterZoneSystem.GatherBodies` keys a body's cache on its component and its placement and stores the
-*failure* with it, so a body whose `SplineFor` answered null is recorded as unresolved and never
-asked again. `AssetWaterSource` answers null for the first frames by construction. The zone's sea
-state is the evidence: `GatherZones` re-resolves every fold with no cache, so the `.vxwaves` arrives
-late and works while the `.vxspline` beside it arrives late and does not. `Arena.Warm` blocks until
-the asset is in the source's cache; the real fix is one line in the fold.
+⚠ **A fourth was a defect rather than a gap, and this sample used to work around it.**
+`WaterZoneSystem.GatherBodies` keyed a body's cache on its component and its placement and stored the
+*failure* with it, so a body whose `SplineFor` answered null was recorded as unresolved and never
+asked again — and `AssetWaterSource` answers null for the first frames by construction, which made a
+lake named in a scene one that could never appear. The zone's sea state was the evidence:
+`GatherZones` re-resolves every fold with no cache, so the `.vxwaves` arrived late and worked while
+the `.vxspline` beside it arrived late and did not. The fold caches the success and not the answer
+now, `Arena.Warm`'s blocking loop is gone, and
+`WaterZoneSystemTests.A_spline_that_arrives_late_is_asked_again_and_the_lake_appears` counts the asks
+rather than only the bodies — because a source that answers on the first ask, which is every other
+one in that file, cannot tell the two behaviours apart. A 60-frame headless run of this level is the
+A/B: with the fold as it was and no warm loop it ends `1 zone(s), 0 bod(ies), 1 unresolved spline(s)`,
+and with the fold as it is, `1 zone(s), 1 bod(ies), 0 unresolved spline(s)`.
 
-⚠ **The water does not draw yet, and the counters say where it stops.** The scene folds — one zone,
-one body, nothing unresolved — the field rasterises, and `!WaterSurface` submits 45 patches. Not one
-fragment survives: `WaterNormal` is empty, so the composite has nothing to integrate and the frame is
-identical whether it runs or not. The patch counter is patches *submitted*, which is why
-`Arena.ReportFrame` prints it beside the fold's five. Moving the node up beside `!Terrain`, turning
-tiling off, routing the composite to a target of its own and matching the golden fixture's plane
-formats each changed nothing, and all 21 water goldens pass on this device. The ground outside the
-walls draws black too, which is being looked at separately, and the two may be one thing.
+⚠ **The water drew nothing for a while, and none of the counters could see why.** The scene folded —
+one zone, one body, nothing unresolved — the field rasterised, `!WaterSurface` submitted its patches,
+and the frame was identical whether the pass ran or not. `!Water` composites absorption and
+scattering against the sun and sky colours, which in this level are a radiance of thousands, and the
+document was handing it an authored tint around one: the integration was exactly right, four decades
+under the exposure. `WaterRenderer.LightFrom` takes all three from the frame's own `SceneLighting`
+now.
 ## Looking at it
 
 ```

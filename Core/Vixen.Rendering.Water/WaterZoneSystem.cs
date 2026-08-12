@@ -24,7 +24,10 @@ namespace Vixen.Rendering.Water;
 ///         ⚠ <b>Answering null is not an error, it is a body whose spline has not loaded.</b> A fold
 ///         that threw would fail a frame during streaming; a fold that silently skipped would leave an
 ///         author looking at dry ground with nothing to read. It skips and counts —
-///         <see cref="WaterZoneSystem.UnresolvedBodies" />.
+///         <see cref="WaterZoneSystem.UnresolvedBodies" /> — <b>and it asks again on the next fold</b>,
+///         which is what makes "not loaded yet" different from "does not exist". A source that will
+///         never have the curve is expected to remember that itself and answer cheaply, which is what
+///         <c>AssetWaterSource</c>'s failed entries are for.
 ///     </para>
 /// </remarks>
 public interface IWaterSplineSource {
@@ -156,6 +159,9 @@ public sealed class WaterZoneSystem(RenderView view)
     /// <remarks>
     ///     Distinct from <see cref="ZonelessBodies" /> because the fix is different: one is a zone
     ///     that does not reach, the other is an asset that has not loaded or a name that is wrong.
+    ///     ⚠ <b>Every body counted here is asked for again by the next fold</b> — see
+    ///     <see cref="IWaterSplineSource" /> — so a number that falls to zero a few frames into a level
+    ///     is streaming working, and one that stays is content.
     /// </remarks>
     public int UnresolvedBodies { get; private set; }
 
@@ -531,28 +537,37 @@ public sealed class WaterZoneSystem(RenderView view)
 
                 // Rebuilt only when something about it changed — see RebuiltBodies for what happens
                 // when this is skipped.
+                //
+                // ⚠ The *success* is what is cached, and the failure deliberately is not. A body whose
+                // spline had not loaded used to be recorded as unresolved against its component and
+                // its placement, and neither of those then changes — so it was never asked again for
+                // the life of the world. Every source a game has answers null for its first few frames
+                // by construction (AssetWaterSource starts a read and polls it), which made a lake
+                // named in a scene one that could never appear: a permanent failure out of a transient
+                // one. GatherZones has always re-resolved with no cache at all, so the .vxwaves beside
+                // the .vxspline arrived late and worked while the curve did not.
                 if (built.TryGetValue(entity, out var cached)
                     && cached.Component.Equals(component)
                     && cached.Placement.Equals(placements[i].Value)) {
-                    if (cached.Body is { } kept) {
-                        resolved.Add(kept);
-                        BodyCount++;
-                    } else {
-                        UnresolvedBodies++;
-                    }
+                    resolved.Add(cached.Body);
+                    BodyCount++;
 
                     continue;
                 }
 
                 var body = Build(component, placements[i]);
 
-                built[entity] = new(component, placements[i].Value, body);
-                RebuiltBodies++;
-
                 if (body is null) {
+                    // ⚠ And the stale entry goes with it, so a body whose spline was swapped for one
+                    // that has not loaded is asked for the new curve rather than drawn with the old.
+                    built.Remove(entity);
                     UnresolvedBodies++;
+
                     continue;
                 }
+
+                built[entity] = new(component, placements[i].Value, body);
+                RebuiltBodies++;
 
                 resolved.Add(body);
                 BodyCount++;
@@ -686,5 +701,12 @@ public sealed class WaterZoneSystem(RenderView view)
         return true;
     }
 
-    readonly record struct Built(WaterBodyComponent Component, Matrix4x4 Placement, WaterBody? Body);
+    /// <summary>A body that resolved, and what it resolved from.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Body" /> is not nullable, and that is the guard rather than a tidiness.</b>
+    ///     An entry in this dictionary means "this component at this placement produced this curve";
+    ///     a body that did not resolve has no entry, which is what makes the next fold ask again. It
+    ///     held a nullable body once, and the null it held was a lake that could never appear.
+    /// </remarks>
+    readonly record struct Built(WaterBodyComponent Component, Matrix4x4 Placement, WaterBody Body);
 }

@@ -484,8 +484,9 @@ static partial class SampleLog {
     /// <summary>
     ///     ⚠ Said when the water sources are not wired. <c>WaterZoneSystem.Splines</c> is null until
     ///     something sets it and <em>nothing in the engine does</em> — <c>AssetWaterSource</c> is
-    ///     constructed by its own tests and by no host — so a game that does not do it itself gets a
-    ///     scene whose water bodies all count as unresolved and no water at all, with no error.
+    ///     constructed by its own tests and by <c>Arena.SupplyWater</c>, and by no host — so a game
+    ///     that does not do it itself gets a scene whose water bodies all count as unresolved and no
+    ///     water at all, with no error.
     /// </summary>
     [LoggerMessage(
         EventId = 14065,
