@@ -119,6 +119,26 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
     /// <summary>And how many they had to drop. ⚠ Non-zero is a hole in the water.</summary>
     public int DroppedPatches { get; private set; }
 
+    /// <summary>How many draw calls those zones actually recorded.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Summed from what each pass recorded, rather than derived as two per zone.</b> A zone
+    ///     records the skirt and the window as separate instanced draws and <em>skips whichever has
+    ///     no instances</em> — see <see cref="WaterSurfacePass.Record" /> — so a zone whose skirt is
+    ///     wholly culled issues one draw and not two. ⚠ Both water frames this repository can
+    ///     measure populate both, so the derived figure was not observably wrong in either: what is
+    ///     wrong with it is that it is an assumption about a number the pass was already counting.
+    /// </remarks>
+    public int DrawsRecorded { get; private set; }
+
+    /// <summary>How many times any zone has sent its info field to the device.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The reading that says the amortisation is real</b>, aggregated from every zone's
+    ///     <see cref="WaterInfoTexture.UploadCount" />. It tracks the rasterisation count, not the
+    ///     frame count; a number that climbs once per frame is a megabyte a frame crossing the bus to
+    ///     restate what the device already has, and nothing in a picture shows it.
+    /// </remarks>
+    public int InfoUploads { get; private set; }
+
     /// <summary>How many frames have declared the pass.</summary>
     public int BuildCount { get; private set; }
 
@@ -167,6 +187,7 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
         ZonesDrawn = 0;
         PatchesDrawn = 0;
         DroppedPatches = 0;
+        DrawsRecorded = 0;
 
         if (Device is null || Samplers is null || Zones is null || View is not { } view) {
             // A document naming this node in a host that has not wired the renderer up should cost a
@@ -222,9 +243,19 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
 
                 pass.Execute(
                     context => {
+                        var uploads = 0;
+
                         foreach (var (zone, state, component) in ready) {
                             Stage(zone, state, component, context.CommandList, meshView);
+
+                            // Summed after staging rather than counted inside it, because a zone that
+                            // had nothing new to send does not call Stage's upload half at all — and a
+                            // counter incremented at the call site would count the asking rather than
+                            // the sending, which is the difference the number exists to show.
+                            uploads += zone.Info.UploadCount;
                         }
+
+                        InfoUploads = uploads;
                     }
                 );
             }
@@ -252,6 +283,7 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
                             ZonesDrawn++;
                             PatchesDrawn += zone.Pass.NearPatches + zone.Pass.FarPatches;
                             DroppedPatches += zone.Pass.DroppedPatches;
+                            DrawsRecorded += zone.Pass.Draws;
                         }
                     }
                 );

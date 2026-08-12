@@ -308,6 +308,13 @@ public sealed class AppConfig {
             Graphics.Overlays = true;
         }
 
+        // Added to rather than replacing, on the same one-way rule: a development head that always
+        // wants its own panel up says so in OnConfigure, and this run's command line names the ones
+        // it also wants for this run.
+        foreach (var panel in arguments.EnabledOverlays) {
+            Graphics.EnabledOverlays.Add(panel);
+        }
+
         // ⚠ Only ever set from here, for the reason above it: a game that asked for a capture
         // directory in OnConfigure — a screenshot tool head, say — means it, and the absence of the
         // flag must not undo it.

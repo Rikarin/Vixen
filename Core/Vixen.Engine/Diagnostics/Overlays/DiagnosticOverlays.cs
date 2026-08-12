@@ -57,6 +57,7 @@ public interface IDiagnosticOverlay {
 public sealed class DiagnosticOverlays {
     readonly List<IDiagnosticOverlay> overlays = [];
     readonly OverlaySurface surface = new();
+    readonly HashSet<string> requested = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Whether any overlay is drawn at all — the single switch, for a shipping build.</summary>
     public bool Enabled { get; set; } = true;
@@ -84,6 +85,41 @@ public sealed class DiagnosticOverlays {
         }
 
         overlays.Add(overlay);
+
+        // ⚠ Applied on registration and not once at start-up, because a subsystem's panel is
+        // registered by whoever owns its numbers and that is generally after the host has finished
+        // reading its command line — `Samples/13` adds the audio panel from `OnInitialise`. A switch
+        // applied once would turn on the host's own panels and silently miss every other one, which
+        // reads as "that overlay's name does not work".
+        if (requested.Contains(overlay.Name)) {
+            overlay.Enabled = true;
+        }
+    }
+
+    /// <summary>Asks for panels by name, whether or not they have been registered yet.</summary>
+    /// <param name="names">What they are called. Unknown names are kept, not refused.</param>
+    /// <remarks>
+    ///     ⚠ <b>An unknown name is remembered rather than rejected</b>, for the same reason the check
+    ///     lives in <see cref="Add" />: at the moment a command line is read, most of the panels a
+    ///     build has do not exist yet, so "there is no overlay called that" would be true of every
+    ///     correct request. <c>overlays</c> at the console is what lists the ones that arrived.
+    /// </remarks>
+    public void Request(IEnumerable<string>? names) {
+        if (names is null) {
+            return;
+        }
+
+        foreach (var name in names) {
+            if (string.IsNullOrWhiteSpace(name)) {
+                continue;
+            }
+
+            requested.Add(name.Trim());
+
+            if (Find(name) is { } existing) {
+                existing.Enabled = true;
+            }
+        }
     }
 
     /// <summary>Removes an overlay.</summary>

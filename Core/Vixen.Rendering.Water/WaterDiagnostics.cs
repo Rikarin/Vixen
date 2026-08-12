@@ -252,7 +252,11 @@ public readonly record struct WaterMeshStatistics {
     /// <summary>How many vertices those patches are, which is what the draw actually costs.</summary>
     public int Vertices { get; init; }
 
-    /// <summary>How many draws it took. Two per zone at most: the window and the skirt.</summary>
+    /// <summary>How many draws it took, as the passes counted them.</summary>
+    /// <remarks>
+    ///     Two per zone at most — the skirt and the window — and fewer whenever one of the two has no
+    ///     instances, which is the ordinary case for a lake that fits inside its own window.
+    /// </remarks>
     public int Draws { get; init; }
 }
 
@@ -281,14 +285,27 @@ public sealed class WaterOverlay : IDiagnosticOverlay {
     /// <summary>What the systems reported. The host sets this once a frame.</summary>
     public WaterStatistics Statistics { get; set; }
 
-    /// <summary>Reads this frame's numbers off a zone system.</summary>
+    /// <summary>Reads this frame's numbers off a zone system, and the node that drew it.</summary>
     /// <param name="zones">The system.</param>
+    /// <param name="mesh">
+    ///     The surface node, for the upload count, or <see langword="null" /> when there is none.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="zones" /> is null.</exception>
     /// <remarks>
-    ///     A convenience so a host wires one line rather than seven, and so the mapping from a
-    ///     counter to a row lives beside the row rather than in whichever host copied it last.
+    ///     <para>
+    ///         A convenience so a host wires one line rather than seven, and so the mapping from a
+    ///         counter to a row lives beside the row rather than in whichever host copied it last.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two sources rather than one, because the last row's number is not the fold's.</b>
+    ///         Rasterising a field is <see cref="WaterZoneSystem" />'s and sending it to the device is
+    ///         the node's, and the two differ by exactly what the amortisation saved — which is what
+    ///         the row is for. Before the node was passed in, <c>uploads</c> was structurally
+    ///         unreachable from here and drew a flat zero over a frame that was uploading: a panel
+    ///         asserting an amortisation nobody had measured.
+    ///     </para>
     /// </remarks>
-    public void Read(WaterZoneSystem zones) {
+    public void Read(WaterZoneSystem zones, WaterMeshRenderer? mesh = null) {
         ArgumentNullException.ThrowIfNull(zones);
 
         var rasterisations = 0;
@@ -304,7 +321,8 @@ public sealed class WaterOverlay : IDiagnosticOverlay {
             Unresolved = zones.UnresolvedBodies,
             UnresolvedWaves = zones.UnresolvedWaves,
             Rebuilt = zones.RebuiltBodies,
-            Rasterisations = rasterisations
+            Rasterisations = rasterisations,
+            Uploads = mesh?.InfoUploads ?? 0
         };
     }
 
@@ -334,7 +352,20 @@ public sealed class WaterOverlay : IDiagnosticOverlay {
         // that is not on screen; this one is water that is, drawn from a sea state nobody authored.
         WaterRows.Draw(in region, 4, "no waves", statistics.UnresolvedWaves, theme.Text, statistics.UnresolvedWaves > 0 ? theme.Warning : theme.Muted);
 
-        WaterRows.Draw(in region, 5, "rebuilt", statistics.Rebuilt, theme.Text, statistics.Rebuilt > statistics.Bodies ? theme.Warning : theme.Muted);
+        // ⚠ `>=` and not `>`, and the difference is the row working at all. A rebuild increments
+        // both counters — `GatherBodies` counts the body it just built into `BodyCount` as well as
+        // into `RebuiltBodies` — so `Rebuilt > Bodies` is arithmetically unreachable, and the shade
+        // that says "the amortisation is not happening" could never be drawn. Equality is the
+        // condition <see cref="WaterStatistics.Rebuilt" />'s own remarks describe: a number equal to
+        // the body count every frame is a fold rebuilding everything.
+        WaterRows.Draw(
+            in region,
+            5,
+            "rebuilt",
+            statistics.Rebuilt,
+            theme.Text,
+            statistics.Bodies > 0 && statistics.Rebuilt >= statistics.Bodies ? theme.Warning : theme.Muted
+        );
         WaterRows.Draw(in region, 6, "rasters", statistics.Rasterisations, theme.Text, theme.Muted);
         WaterRows.Draw(in region, 7, "uploads", statistics.Uploads, theme.Text, theme.Muted);
     }
@@ -361,22 +392,29 @@ public sealed class WaterMeshOverlay : IDiagnosticOverlay {
 
     /// <summary>Reads this frame's numbers off a surface node.</summary>
     /// <param name="mesh">The node.</param>
-    /// <param name="gridQuads">How many quads the shared patch spans, so vertices can be derived.</param>
     /// <exception cref="ArgumentNullException"><paramref name="mesh" /> is null.</exception>
-    public void Read(WaterMeshRenderer mesh, int gridQuads = 32) {
+    /// <remarks>
+    ///     ⚠ <b>Both numbers here were derived, and both are now read off the node.</b> The lattice
+    ///     is <see cref="WaterMeshRenderer.GridQuads" /> quads across — a document may say otherwise,
+    ///     and a vertex count computed from a hard-coded 32 is then a plausible number for a mesh
+    ///     that is not there. The draw count was two per zone, where
+    ///     <see cref="WaterSurfacePass.Record" /> skips whichever of the skirt and the window has no
+    ///     instances; <see cref="WaterMeshRenderer.DrawsRecorded" /> is what the passes counted.
+    ///     Neither derivation was observably wrong in the two water frames this repository can
+    ///     measure, which is the whole reason to prefer the counter: a panel that agrees with the
+    ///     truth by coincidence is one nobody will re-check.
+    /// </remarks>
+    public void Read(WaterMeshRenderer mesh) {
         ArgumentNullException.ThrowIfNull(mesh);
 
-        var perPatch = (gridQuads + 1) * (gridQuads + 1);
+        var perPatch = (mesh.GridQuads + 1) * (mesh.GridQuads + 1);
 
         Statistics = new() {
             Zones = mesh.ZonesDrawn,
             Patches = mesh.PatchesDrawn,
             Dropped = mesh.DroppedPatches,
             Vertices = mesh.PatchesDrawn * perPatch,
-
-            // Two per zone at most — the window and the skirt — and a zone with no patches draws
-            // neither, which is why this is not simply twice the zone count.
-            Draws = mesh.ZonesDrawn * 2
+            Draws = mesh.DrawsRecorded
         };
     }
 

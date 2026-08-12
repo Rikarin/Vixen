@@ -123,6 +123,30 @@ Vixen.Engine.Renderer.DebugView.Right.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Right.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Up.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Up.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Renderer.GpuOverlay -> sealed class
+Vixen.Engine.Renderer.GpuOverlay : Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay
+Vixen.Engine.Renderer.GpuOverlay.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Renderer.GpuOverlay.Anchor.set -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Renderer.GpuOverlay.Available.get -> bool
+Vixen.Engine.Renderer.GpuOverlay.Available.set -> bool
+Vixen.Engine.Renderer.GpuOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.OverlaySurface surface, in Vixen.Core.GameTime time) -> void
+Vixen.Engine.Renderer.GpuOverlay.DrawnRows.get -> int
+Vixen.Engine.Renderer.GpuOverlay.Dropped.get -> int
+Vixen.Engine.Renderer.GpuOverlay.Dropped.set -> int
+Vixen.Engine.Renderer.GpuOverlay.Enabled.get -> bool
+Vixen.Engine.Renderer.GpuOverlay.Enabled.set -> bool
+Vixen.Engine.Renderer.GpuOverlay.Frame.get -> Vixen.Graphics.GpuFrame
+Vixen.Engine.Renderer.GpuOverlay.Frame.set -> Vixen.Graphics.GpuFrame
+Vixen.Engine.Renderer.GpuOverlay.GpuOverlay() -> void
+Vixen.Engine.Renderer.GpuOverlay.Latency.get -> int
+Vixen.Engine.Renderer.GpuOverlay.Latency.set -> int
+Vixen.Engine.Renderer.GpuOverlay.Name.get -> string
+Vixen.Engine.Renderer.GpuOverlay.PeakOf(string? pass) -> double
+Vixen.Engine.Renderer.GpuOverlay.Reset() -> void
+Vixen.Engine.Renderer.GpuOverlay.UnattributedFraction.get -> float
+Vixen.Engine.Renderer.GpuOverlay.VisiblePasses.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Engine.Renderer.GpuOverlay.Width.get -> float
+Vixen.Engine.Renderer.GpuOverlay.Width.set -> float
 Vixen.Engine.Renderer.ITextureStreamSource -> interface
 Vixen.Engine.Renderer.ITextureStreamSource.ReadAsync(int texture, long offset, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Engine.Renderer.SceneRenderHost -> sealed class
@@ -256,6 +280,8 @@ Vixen.Engine.Renderer.WorldRenderer.VfxEffects.get -> Vixen.Rendering.Ecs.IVfxEf
 Vixen.Engine.Renderer.WorldRenderer.VfxEffects.set -> Vixen.Rendering.Ecs.IVfxEffectSource?
 Vixen.Engine.Renderer.WorldRenderer.ViewBlock.get -> Vixen.Rendering.ViewConstants
 Vixen.Engine.Renderer.WorldRenderer.WorldRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects, int vertexCapacity = 1048576, int indexCapacity = 2097152) -> void
+const Vixen.Engine.Renderer.GpuOverlay.MaxRows = 12 -> int
+const Vixen.Engine.Renderer.GpuOverlay.PeakSeconds = 3 -> float
 override Vixen.Engine.Renderer.DebugOverlayRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView
 static Vixen.Engine.Renderer.TextureStreamer.WantedWidth(float radius, float distance, float viewportHeight, float verticalFieldOfView) -> int

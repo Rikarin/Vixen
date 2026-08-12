@@ -4,7 +4,7 @@ slug: rendering/diagnostic-overlays
 kind: guide
 area: Rendering
 summary: One flag puts the frame-stats panel, the console, the log tail and every subsystem's debug lines on the screen of a running game.
-api: [T:Vixen.Engine.Renderer.DebugOverlayRenderer, T:Vixen.Engine.Diagnostics.DebugDraw, T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays, T:Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay, T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommands, T:Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay, T:Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay, T:Vixen.App.GraphicsOptions, T:Vixen.Rendering.LineShaders, L:13027]
+api: [T:Vixen.Engine.Renderer.DebugOverlayRenderer, T:Vixen.Engine.Renderer.GpuOverlay, T:Vixen.Engine.Diagnostics.DebugDraw, T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays, T:Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay, T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommands, T:Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay, T:Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay, T:Vixen.App.GraphicsOptions, T:Vixen.Rendering.LineShaders, L:13027]
 tags: [diagnostics, overlay, console, debug-draw, profiling]
 since: 0.2
 status: stable
@@ -69,12 +69,71 @@ and nothing to dispose:
 services.Graphics?.Debug?.Arrow(muzzle, muzzle + aim * 5f, new(1f, 0.3f, 0.2f, 1f), seconds: 1f);
 ```
 
-Adding a panel of your own is one call, and the panel belongs to whoever has the numbers — which is
-what `IDiagnosticOverlay` is for:
+### Which panels are already there
+
+`--vixen-overlays` registers six. Only `stats` starts switched on; the rest are asked for by name, and
+`overlays` lists them.
+
+| `overlay <name>` | Shows |
+|---|---|
+| `stats` | fps, the CPU/GPU split, draws, triangles, visible objects, memory, and a frame-time graph |
+| `framegraph` | a mini flame chart of the last frame off the profiler's rings |
+| `gpu` | where the frame's GPU time went, pass by pass — needs `--vixen-gpu-profile` |
+| `water` | the zone fold: zones, bodies, and the three silent failures that draw a convincing wrong lake |
+| `watermesh` | the surface node: zones drawn, patches selected and dropped, vertices, draws |
+| `console` | the command prompt |
+
+`log` is added by `AppBuilder`, which owns the ring it reads. `audio` is **not** registered by the
+host — nothing in `AppGraphics` owns an `AudioEngine` — so a game that opens a device registers it.
+
+⚠ **A headless run has nobody to type `overlay gpu` at**, and that is the run a picture comes from.
+`--vixen-overlay gpu,water,watermesh,audio` switches them on by name and implies `--vixen-overlays`:
+
+```bash
+./MyGame --vixen-headless --vixen-frames 240 --vixen-overlay gpu,water --vixen-gpu-profile \
+         --vixen-capture ./shots
+```
+
+A name whose panel does not exist yet is kept rather than refused, and applied when it is registered
+— which is what makes `audio` work when the game adds it from `OnInitialise`, long after the command
+line was read.
+
+### The GPU panel
+
+`GpuOverlay` draws one bar per render-graph pass, and it is built to be *watched* rather than
+sampled. Three things follow from that and each is deliberate:
+
+* **Rows are in the frame's declaration order, not in cost order.** A table whose rows swap places
+  cannot be read while the camera is moving. Cost decides which twelve passes get a row; the graph
+  decides where each sits.
+* **Each bar carries a peak that decays over three seconds.** A GPU reading moves by more than ten
+  percent between two frames of a still camera, so the bar is smoothed — and the tick is the worst
+  that pass has been recently, which is what catches a spike you were not watching for.
+* **Two rows exist so the panel cannot lie by omission.** `unattributed` is the frame span the
+  level-zero passes do not fill, which is GPU work happening outside any pass the graph ran.
+  `dropped` appears only when the scope pool overflowed, which makes a timeline stop partway through
+  a frame while every bar that *is* there still looks right.
+
+⚠ **Without `--vixen-gpu-profile` the panel says so** rather than drawing zeroes, because an empty
+breakdown because nothing measured looks exactly like an empty breakdown because the frame was free.
+Timestamps stay off by default for a reason that is not caution: on tile-based hardware a query write
+can force a tile resolve and change the timings it reports.
+
+### Adding your own
+
+Adding a panel is one call, and the panel belongs to whoever has the numbers — which is what
+`IDiagnosticOverlay` is for:
 
 ```csharp no-compile="a fragment of Game.OnInitialise"
 services.Graphics?.Overlays?.Add(new AudioOverlay(audio));
 ```
+
+⚠ **Check that the numbers behind it are real before you register it.** A panel wired to a counter
+nobody has validated makes that counter authoritative. `Samples/13` registered `audio` and the
+registration is what found that the sample never called `AudioEngine.Update` — the call that returns
+a finished voice to the pool *and* the call that assembles `AudioStatistics`. The panel would have
+drawn `load 0 %`, `voices 0/0` and no faults over a game whose audio had stopped working after
+sixty-four sounds.
 
 ⚠ **A subsystem's console verbs should arrive on their own.** `[ConsoleCommand]` alone has never made
 a verb typable — the only thing that could find an attributed method is

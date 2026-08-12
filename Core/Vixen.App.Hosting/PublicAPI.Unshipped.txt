@@ -4,6 +4,7 @@ Vixen.App.AppArguments : System.IEquatable<Vixen.App.AppArguments>
 Vixen.App.AppArguments.AppArguments() -> void
 Vixen.App.AppArguments.Backends.get -> System.Collections.Generic.IReadOnlyList<Vixen.App.GraphicsBackend>
 Vixen.App.AppArguments.CapturePath.get -> string?
+Vixen.App.AppArguments.EnabledOverlays.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.App.AppArguments.FixedFrameTime.get -> System.TimeSpan?
 Vixen.App.AppArguments.FrameRateLimit.get -> int?
 Vixen.App.AppArguments.GpuProfiling.get -> bool
@@ -167,6 +168,7 @@ Vixen.App.GraphicsOptions.Compositor.get -> string?
 Vixen.App.GraphicsOptions.Compositor.set -> string?
 Vixen.App.GraphicsOptions.Enabled.get -> bool
 Vixen.App.GraphicsOptions.Enabled.set -> bool
+Vixen.App.GraphicsOptions.EnabledOverlays.get -> System.Collections.Generic.IList<string>
 Vixen.App.GraphicsOptions.Factories.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.ISceneRendererFactory>
 Vixen.App.GraphicsOptions.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.App.GraphicsOptions.Format.set -> Vixen.Graphics.PixelFormat

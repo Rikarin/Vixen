@@ -168,7 +168,11 @@ public sealed class ThirdPersonShooterGame : Game {
         player = PlayerRig.Spawn(services, arena);
 
         arena.Register(loop);
-        player.Register(loop);
+
+        // The overlays, because the audio panel belongs to whoever holds the AudioEngine and that is
+        // this project rather than the host — `IDiagnosticOverlay`'s whole seam. Null when the run
+        // did not ask for panels, which the rig treats as "do not register one".
+        player.Register(loop, services.Graphics?.Overlays);
     }
 
     /// <inheritdoc />

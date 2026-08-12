@@ -30,6 +30,37 @@ public sealed class DiagnosticOverlayTests {
         Assert.Equal(1, overlays.DrawnCount);
     }
 
+    /// <summary>A panel asked for before it exists is switched on when it arrives.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The ordering that makes <c>--vixen-overlay audio</c> mean anything.</b> A subsystem's
+    ///     panel is registered by whoever owns its numbers, which is generally a game's
+    ///     <c>OnInitialise</c> — long after the host read its command line. A request applied once at
+    ///     start-up would switch on the host's own panels and silently ignore every other name, which
+    ///     reads as "that overlay's name does not work" and sends somebody to the parser.
+    /// </remarks>
+    [Fact]
+    public void A_panel_requested_before_it_is_registered_is_switched_on_when_it_arrives() {
+        var overlays = new DiagnosticOverlays();
+        var early = new Recording("stats") { Enabled = false };
+
+        overlays.Add(early);
+        overlays.Request(["stats", "audio"]);
+
+        Assert.True(early.Enabled);
+
+        // The one that did not exist when the request was made — the audio panel's case exactly.
+        var late = new Recording("audio") { Enabled = false };
+        overlays.Add(late);
+
+        Assert.True(late.Enabled);
+
+        // And a panel nobody asked for is untouched, so the flag is a request and not a reset.
+        var other = new Recording("water") { Enabled = false };
+        overlays.Add(other);
+
+        Assert.False(other.Enabled);
+    }
+
     /// <summary>
     ///     Names are what the console types and what a settings file writes down, so two overlays
     ///     answering to one would be a toggle that silently flips the wrong one.

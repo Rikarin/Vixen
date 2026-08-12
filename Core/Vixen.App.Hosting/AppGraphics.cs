@@ -71,6 +71,9 @@ public sealed class AppGraphics : IDisposable {
     DebugOverlayRenderer? debugNode;
     DiagnosticOverlaySystem? overlaySystem;
     FrameStatsOverlay? frameStats;
+    GpuOverlay? gpuOverlay;
+    Vixen.Rendering.Water.WaterOverlay? waterOverlay;
+    Vixen.Rendering.Water.WaterMeshOverlay? waterMeshOverlay;
     LineShaders lineShaders;
     bool ownsLineShaders;
 
@@ -1005,8 +1008,31 @@ public sealed class AppGraphics : IDisposable {
 
         Overlays.Add(frameStats);
         Overlays.Add(new FrameGraphOverlay());
+
+        // ⚠ The three this host can honestly feed, and no more. An overlay is registered here only
+        // when this class holds the object its numbers come from: the GPU frame is this class's
+        // property, and the water zones are the system it constructs. `AudioOverlay` is deliberately
+        // absent — nothing in the host owns an `AudioEngine`, and a panel wired to an engine nobody
+        // updates draws a full set of zeroes that reads as "audio is idle and fine".
+        //
+        // Registered switched off. A panel that appears the moment somebody passes --vixen-overlays
+        // is a panel in the way; `overlay gpu`, `overlay water` and `overlay watermesh` are how each
+        // is asked for, and `overlays` lists them.
+        gpuOverlay = new() { Available = gpu is not null };
+        waterOverlay = new();
+        waterMeshOverlay = new();
+
+        Overlays.Add(gpuOverlay);
+        Overlays.Add(waterOverlay);
+        Overlays.Add(waterMeshOverlay);
+
         Overlays.Add(new ConsoleOverlay(Console));
         Overlays.RegisterCommands(Console);
+
+        // ⚠ After the host's own and *not* last, because the request outlives this call: a name for a
+        // panel nobody has registered yet is kept and honoured when it arrives, which is what makes
+        // `--vixen-overlay audio` work on a game that adds its audio panel from OnInitialise.
+        Overlays.Request(options.EnabledOverlays);
 
         lineShaders = LineShaders.Default(Device);
         ownsLineShaders = true;
@@ -1027,6 +1053,40 @@ public sealed class AppGraphics : IDisposable {
     void ReadStatistics() {
         if (frameStats is null) {
             return;
+        }
+
+        if (gpuOverlay is not null) {
+            gpuOverlay.Frame = GpuFrame;
+            gpuOverlay.Latency = GpuFrame.Scopes.Count > 0 ? Math.Max(0, FrameCount - GpuFrame.FrameIndex) : 0;
+
+            // ⚠ The frame being recorded's overflow, not the resolved frame's — `GpuProfiler.Dropped`
+            // is cleared at each BeginFrame. It is still the right number to show: a document that
+            // overflows the pool overflows it every frame, and the alternative is a breakdown that
+            // stops halfway down the frame with nothing on the panel saying so.
+            gpuOverlay.Dropped = gpu?.Dropped ?? 0;
+        }
+
+        // ⚠ Found by walking the built tree rather than captured once, because `SceneRenderHost.Load`
+        // is callable again — a project that swaps its quality preset swaps its compositor, and
+        // Samples/13 reloads its document once the shader library is attached. A node captured at
+        // wire time is a node in a frame that stopped drawing, which is the failure the debug node's
+        // own placement exists to avoid. A dozen entries, no allocation, once a frame.
+        var surface = default(Vixen.Rendering.Water.WaterMeshRenderer);
+
+        if (waterOverlay is not null || waterMeshOverlay is not null) {
+            foreach (var node in Renderer.Host.Builder.Nodes.Values) {
+                if (node is Vixen.Rendering.Water.WaterMeshRenderer found) {
+                    surface = found;
+
+                    break;
+                }
+            }
+        }
+
+        waterOverlay?.Read(Water, surface);
+
+        if (surface is not null) {
+            waterMeshOverlay?.Read(surface);
         }
 
         var draws = Renderer.Meshes.DrawCount;
