@@ -14,6 +14,7 @@ using Vixen.Graphics;
 using Vixen.Platform.Headless;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Features;
 using Vixen.Rendering.PostFx;
 using Vixen.Rendering.Terrain;
 using Xunit;
@@ -247,6 +248,62 @@ public sealed class HostedRendererTests : IDisposable {
         // And the tier was actually consulted rather than the defaults happening to match: Low is
         // below the record's own numbers everywhere it says anything.
         Assert.NotEqual(new TerrainVegetationQuality(), vegetation);
+    }
+
+    /// <summary>
+    ///     The host's quality tier reaches the per-object light budget, and the shader compiled
+    ///     against it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same last step as the ground's budgets, on the array one along from the
+    ///         cascades.</b> Every tier named a <c>maxLightsPerObject</c> — four on Low — and nothing
+    ///         read any of them: <c>ForwardLightingRenderFeature</c> kept its constructor's eight,
+    ///         whatever the settings screen said. A quality knob that changes no behaviour is a
+    ///         defect on its own, before anything about shaders.
+    ///     </para>
+    ///     <para>
+    ///         And the second half, which is what makes the first mean anything:
+    ///         <c>ClusteredShading.rvn</c> sizes <c>lights[MaxLights]</c> from a permutation declared
+    ///         sixteen, so a host that moved its own number and published nothing would have the
+    ///         shorter of the two win in silence. <c>CompositorBuilder</c> publishes it as the frame
+    ///         is built, which is why this can be asserted off the material feature after
+    ///         <c>Build</c> and before anything has drawn.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheHostsQualityTierReachesThePerObjectLightBudget() {
+        var game = new TieredGame(QualityTier.Low);
+        using var application = Build(game);
+
+        var renderer = application.Services.Graphics!.Renderer;
+        var tier = RenderQuality.Resolve(QualityTier.Low);
+
+        Assert.Equal(tier.MaxLightsPerObject, renderer.Lighting.MaxLightsPerObject);
+
+        // Which is not the feature's own default, so the assertion above cannot be passing on it.
+        Assert.NotEqual(new ForwardLightingRenderFeature().MaxLightsPerObject, renderer.Lighting.MaxLightsPerObject);
+
+        // And the shader the frame's draws resolve to is compiled for the same number.
+        var key = ForwardLightingRenderFeature.MaxLightsKey("ForwardPlus");
+
+        Assert.Equal(tier.MaxLightsPerObject, renderer.Materials.Permutations.Get(key));
+        Assert.Contains(key, renderer.Materials.PermutationKeys["ForwardPlus"]);
+    }
+
+    /// <summary>Two tiers, two budgets — otherwise the fold could be a constant.</summary>
+    [Fact]
+    public void ADifferentTierIsADifferentLightBudget() {
+        var low = new TieredGame(QualityTier.Low);
+        var high = new TieredGame(QualityTier.High);
+
+        using var quietly = Build(low);
+        using var lavishly = Build(high);
+
+        Assert.True(
+            quietly.Services.Graphics!.Renderer.Lighting.MaxLightsPerObject
+            < lavishly.Services.Graphics!.Renderer.Lighting.MaxLightsPerObject
+        );
     }
 
     /// <summary>Two tiers, two sets of budgets — otherwise the fold could be a constant.</summary>
@@ -522,6 +579,14 @@ public sealed class HostedRendererTests : IDisposable {
     /// </summary>
     sealed class WindowedGame : Game {
         protected internal override void OnConfigure(AppConfig config) => config.Window = new();
+    }
+
+    /// <summary>A game that says which tier it is and nothing else.</summary>
+    sealed class TieredGame(QualityTier tier) : SilentGame {
+        protected internal override void OnConfigure(AppConfig config) {
+            base.OnConfigure(config);
+            config.Graphics.Quality = tier;
+        }
     }
 
     /// <summary>
