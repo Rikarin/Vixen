@@ -111,7 +111,11 @@ public class DiagnosticFormatterTests {
 
         Assert.Contains("missingA", rendered);
         Assert.Contains("missingB", rendered);
-        Assert.Contains("\n\n", rendered);
+
+        // ⚠ The host's ending, not "\n". The formatter builds on `AppendLine`, so the blank line is
+        // "\r\n\r\n" on Windows and this assertion was the only thing in the file that said
+        // otherwise — a red Windows leg for a formatter that was doing the right thing.
+        Assert.Contains(Environment.NewLine + Environment.NewLine, rendered, StringComparison.Ordinal);
     }
 
     static string Format(DiagnosticSeverity severity) {
