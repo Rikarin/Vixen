@@ -227,7 +227,15 @@ public sealed class WorldRendererTests : IDisposable {
 
         // And its own texture, which is gap three: the view is in the material's parameters under the
         // name its feature samples, so the feature has something to give a table slot to.
-        for (var frame = 0; frame < 8; frame++) {
+        var key = ParameterKeys.New<TextureViewHandle>("baseColorMap");
+
+        // ⚠ A condition with a cap, the shape the loop above already has, and not a fixed count. The
+        // texture is the last of the three hops and the only one waiting on a page from the streamer,
+        // so eight frames is plenty on an idle machine and a coin toss on a loaded one — this is one
+        // of the tests that failed on CI on a different leg most runs. The cap still says the same
+        // thing a fixed count said: a load that needs sixty-four frames has stopped being
+        // asynchronous and started being slow.
+        for (var frame = 0; frame < 64 && !Carries(renderer.Materials.Materials[index], key); frame++) {
             var commands = device.BeginCommandList();
 
             renderer.Draw(commands);
@@ -236,7 +244,6 @@ public sealed class WorldRendererTests : IDisposable {
             Thread.Sleep(10);
         }
 
-        var key = ParameterKeys.New<TextureViewHandle>("baseColorMap");
         var material = renderer.Materials.Materials[index];
 
         Assert.True(material.Parameters.Has(key));
@@ -706,6 +713,10 @@ public sealed class WorldRendererTests : IDisposable {
                 Indices = [0, 1, 2]
             };
     }
+
+    /// <summary>Whether a material has arrived at the point of holding a usable view under a name.</summary>
+    static bool Carries(Material material, ParameterKey<TextureViewHandle> key) =>
+        material.Parameters.Has(key) && material.Parameters.Get(key).IsValid;
 
     /// <inheritdoc />
     public void Dispose() => device.Dispose();

@@ -404,15 +404,27 @@ public sealed class VirtualGeometryGoldenTests {
         // Several frames, because the streaming loop is a loop: a traversal asks for the pages a cut
         // wanted and did not have, the request comes back after the frame that made it was submitted,
         // and the pages arrive for a later frame. The picture that matters is the settled one.
+        //
+        // ⚠ `Frames` is a floor and the outstanding requests are the condition, which is what makes
+        // this a measurement of the cut rather than of the machine. Six frames settles a cut on a
+        // driver that answers quickly; on lavapipe it did not, and a cut still one level coarse has
+        // clusters too large to route — which arrived as "a threshold of 16 routed nothing to the
+        // software raster" on the Linux leg and looked like a routing defect rather than a slow
+        // stream. The cap is what says the streaming stopped converging at all.
         Bitmap picture = default;
 
-        for (var frame = 0; frame < Frames; frame++) {
+        for (var frame = 0; frame < Frames || (clusters.Visibility.RequestedPages > 0 && frame < Frames * 8); frame++) {
             fixture.Graph.Reset();
 
             var built = compositor.Build(fixture.Graph, effects, device);
 
             picture = fixture.Render(built.Texture("harness", "VisibilityBuffer"));
         }
+
+        Assert.True(
+            clusters.Visibility.RequestedPages == 0,
+            $"The cut still wanted {clusters.Visibility.RequestedPages} page(s) after {Frames * 8} frames."
+        );
 
         softwareClusters = clusters.Visibility.SoftwareClusters;
 

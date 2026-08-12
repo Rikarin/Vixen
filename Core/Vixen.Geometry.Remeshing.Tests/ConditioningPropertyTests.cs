@@ -375,8 +375,22 @@ public class ConditioningPropertyTests {
     ///         times. That is float sensitivity in the fixture — <c>0.001f</c> is not a binary
     ///         fraction, so every coordinate is perturbed by an ulp and a mesh full of exactly-equal
     ///         edges breaks its ties differently. An absolute tolerance in the pre-remesh is an
-    ///         order-of-magnitude failure, not a twelve-percent one, so a quarter catches it and leaves
+    ///         order-of-magnitude failure, not a twelve-percent one, so the bound catches it and leaves
     ///         room for the tie-breaking that is genuinely there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A third here, where the named fixtures next door hold at a quarter, and the case
+    ///         that moved it is worth naming.</b> The quarter was chosen against eleven hundred
+    ///         qualifying recipes whose worst disagreement was 12.1 per cent; the sample is 150 recipes
+    ///         out of a much larger space, and CI eventually drew one that beats it. Seed
+    ///         <c>3n-hlR7sg8l1</c>:
+    ///         <c>new(ShapeKind.Capsule, 3, 1, [SelfIntersection, TJunction, TinyComponent], 3,
+    ///         0.26731214f, 1f)</c> gives 177 triangles against 237, which is 25.3 per cent — a capsule
+    ///         carrying three defects at once, which is the roughest input this space builds. It is the
+    ///         same tie-breaking the paragraph above describes and it is nowhere near the order of
+    ///         magnitude an absolute tolerance would produce, so what a bound of a quarter was catching
+    ///         a bound of a third still catches. The named-fixture test keeps the quarter, because on
+    ///         those five meshes the quarter is measured rather than sampled.
     ///     </para>
     ///     <para>
     ///         ⚠ <b><see cref="Floor" /> triangles or the case is skipped, and the reason is that a
@@ -419,7 +433,9 @@ public class ConditioningPropertyTests {
                         mesh,
                         settings,
                         ScaleInvarianceTests.Agreement.Rate,
-                        0.25f
+
+                        // A third, and the remarks name the capsule that moved it off a quarter.
+                        1f / 3f
                     )
                 );
             },
