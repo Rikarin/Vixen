@@ -338,6 +338,25 @@ public sealed class ShadowMapRenderer : SceneRenderer {
         var camera = Camera?.Camera ?? new RenderCamera(Eye, Forward, Up, FieldOfView, AspectRatio, NearPlane, 0f);
         var light = Sun?.Sun is { } sun ? sun.Direction : LightDirection;
 
+        // ⚠ Both halves are fallbacks that draw. Every cascade is fitted to `camera`, so a node with
+        // no Camera fits them to this type's authored Eye/Forward defaults — a frustum at the origin,
+        // unrelated to the view being shaded — and the atlas is then filled with casters from
+        // somewhere the player is not. The frame has four cascades in it and a shadow term that
+        // samples them, and the shadows land in the wrong place; nothing else in the frame says why.
+        // The sun is the same shape one input along: no Sun node leaves every cascade fitted to this
+        // node's authored LightDirection rather than to the scene's.
+        Degrade(
+            (Camera, Sun?.Sun) switch {
+                (null, null) => "no Camera and no Sun, so the cascades are fitted to a fabricated "
+                    + "frustum at the node's authored Eye and lit from its authored LightDirection",
+                (null, _) => "no Camera, so the cascades are fitted to a fabricated frustum at the "
+                    + "node's authored Eye rather than to the view being shaded",
+                (_, null) => "no Sun, so the cascades are fitted to the node's authored "
+                    + "LightDirection rather than to the scene's sun",
+                _ => null
+            }
+        );
+
         ShadowCascades.Split(camera.NearPlane, ShadowDistance, SplitLambda, splits.AsSpan(0, count));
 
         while (views.Count < count) {

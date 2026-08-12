@@ -48,6 +48,64 @@ public abstract class SceneRenderer {
     /// </remarks>
     public bool Enabled { get; set; } = true;
 
+    /// <summary>
+    ///     Why this node drew something other than what it was asked for, this frame — or null,
+    ///     meaning every input it needed was there.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The state the whole tree is full of and nothing could see.</b> A compositor node
+    ///         asked for an input it did not get almost never fails: it takes a designed-in fallback,
+    ///         draws, and leaves every counter healthy — an absent camera becomes an identity matrix,
+    ///         an absent shadow map becomes the default white view, an absent frame becomes zeroed
+    ///         light. Each of those is the right thing to do and none of them is the thing the author
+    ///         asked for, so the only place the difference existed was in the picture.
+    ///     </para>
+    ///     <para>
+    ///         The nodes that already answered this each invented their own word for it —
+    ///         <c>Skipped</c> on nine compute fills, <c>PreviewReason</c> on the terrain,
+    ///         <c>MissingMeshes</c> on the foliage draw, and four parallel <c>…Skipped</c> strings on
+    ///         <c>ScreenProbeGatherRenderer</c> hand-forwarded from its children. This is that, under
+    ///         one name, on the base class every one of them already derives, so
+    ///         <see cref="GraphicsCompositor.Degradations" /> can collect the frame's whole list
+    ///         without knowing a single node type.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A counter and not a log line, and that is the point.</b>
+    ///         <c>Vixen.Rendering.PostFx</c> and <c>Vixen.Rendering.Water</c> emit no log events at
+    ///         all and take no <c>ILogger</c>; giving each degrade its own event would mean a logger
+    ///         on nodes that have never needed one, plus a register row and a guide page per site. A
+    ///         host that wants lines writes them once, off the collected list.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This frame, not the worst frame there has ever been</b> — <c>TerrainSceneRenderer</c>
+    ///         already says so about <c>PreviewReason</c> and it is the property that makes the answer
+    ///         worth reading. A node must therefore call <see cref="Degrade" /> on <em>both</em> paths
+    ///         each time it decides, so recovering is as visible as degrading.
+    ///     </para>
+    /// </remarks>
+    public string? Degraded { get; private set; }
+
+    /// <summary>Records why this node is drawing something other than what it was asked for.</summary>
+    /// <param name="reason">
+    ///     What was missing and what happened instead, as a sentence a developer who did not write
+    ///     the node can act on — or null, for "everything I needed was there".
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         Say both halves. "No camera" names the input; "no camera, so the cascades are fitted to
+    ///         a fabricated frustum at the origin" names the consequence, which is the half that tells
+    ///         somebody staring at a wrong picture whether they are looking at this.
+    ///     </para>
+    ///     <para>
+    ///         Called from whichever phase makes the decision — usually <see cref="Build" />, because
+    ///         that is where a node reads the frame. <see cref="Record" /> may run on several threads,
+    ///         but each node writes only its own field, so recording a degrade there is safe and
+    ///         reading the tree afterwards is a different phase.
+    ///     </para>
+    /// </remarks>
+    protected void Degrade(string? reason) => Degraded = reason;
+
     /// <summary>Declares the views and stages this node needs, before anything is culled.</summary>
     protected internal virtual void Collect(GraphicsCompositor compositor) { }
 

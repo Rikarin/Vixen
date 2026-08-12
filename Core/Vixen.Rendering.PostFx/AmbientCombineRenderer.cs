@@ -257,6 +257,16 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
 
         parameters.Set(AmbientCombineKeys.UseView, driven ? 1f : 0f);
 
+        // ⚠ And on the CPU too, because until this line the whole of what the node knew went into a
+        // shader uniform and stayed there. `driven` is a node that has already worked out that it is
+        // about to combine ambient light the wrong way; nothing outside the fragment could ask.
+        Degrade(
+            driven
+                ? null
+                : "no View and no InverseViewProjection, so the reflection weight is taken at normal "
+                + "incidence for every surface instead of at the real view angle"
+        );
+
         // Each AO plane's own texel, measured off the plane the graph actually declared — the
         // upsample has to find that plane's texel centres, and guessing a scale here would break
         // the day a document runs one AO pass at half resolution and the other at full.

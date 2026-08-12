@@ -10,6 +10,7 @@ using Vixen.Engine.Renderer;
 using Vixen.Rendering;
 using Vixen.Rendering.Materials;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Xunit;
 
 namespace Tests;
@@ -116,6 +117,78 @@ public sealed class AssetMaterialSourceTests {
 
         Assert.True(Settles(source, out _));
         Assert.Equal(1, source.Unpainted);
+    }
+
+    /// <summary>
+    ///     A project that sets no <see cref="AssetMaterialSource.Permutations" /> still compiles the
+    ///     shadow term, because a permutation nobody sets takes the shader's declared default.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The claim this pins down is one this file used to make and that was never true.</b>
+    ///         The remarks on <see cref="AssetMaterialSource.Permutations" /> said a null collection
+    ///         compiled "with every permutation off", and therefore that a level rendering four
+    ///         cascades drew with a shader that had no shadow term in it. Off is not what unset means:
+    ///         <c>EffectKey.From</c> falls through to <c>PermutationKey.DefaultValue</c> for a key the
+    ///         collection does not carry, and that default is the <c>.rvn</c>'s —
+    ///         <c>ClusteredShading.rvn</c> declares <c>UseShadows: bool = true</c> and
+    ///         <c>CascadeCount: int = 4</c>, and has since the file was written.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through the generated keys rather than by name, so a shader that renames a
+    ///         permutation breaks this rather than silently passing on a key nothing selects by. The
+    ///         key list is the same <c>UsedPermutationKeys</c> that <c>MaterialRenderFeature.KeysFor</c>
+    ///         hands <c>EffectKey.From</c>, which is what makes this the variant a draw resolves to and
+    ///         not a rehearsal of one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AProjectThatSetsNoPermutationsStillCompilesTheShadowTerm() {
+        using var source = new AssetMaterialSource(
+            Content(new MaterialContent { Shader = "ForwardPlus", Features = [new MetalRoughnessFeature()] })
+        );
+
+        // The state under test, and the one WorldRenderer.Mount leaves a project in.
+        Assert.Null(source.Permutations);
+        Assert.True(Settles(source, out var material));
+
+        var key = EffectKey.From(
+            material.ShaderName,
+            material.Parameters,
+            ForwardPlusKeys.UsedPermutationKeys,
+            material.Composition
+        );
+
+        var values = key.Values.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+
+        Assert.Equal("true", values[ForwardPlusKeys.UseShadows.Name]);
+        Assert.Equal("4", values[ForwardPlusKeys.CascadeCount.Name]);
+    }
+
+    /// <summary>What a null <see cref="AssetMaterialSource.Permutations" /> does cost.</summary>
+    /// <remarks>
+    ///     The other half of the correction above, and the reason the property is still worth setting:
+    ///     the permutations whose declared default is <em>off</em> stay off, so a project with a
+    ///     reflection probe or an irradiance field gets materials compiled not to read either. That is
+    ///     a real difference and a small one — a missing specular reflection rather than a scene with
+    ///     no shadows — and it is what a guard should be sized for.
+    /// </remarks>
+    [Fact]
+    public void APermutationWhoseDefaultIsOffIsWhatANullCollectionCosts() {
+        var permutations = new ParameterCollection();
+
+        permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
+
+        using var without = new AssetMaterialSource(Content(new() { Shader = "ForwardPlus" }));
+        using var with = new AssetMaterialSource(Content(new() { Shader = "ForwardPlus" })) {
+            Permutations = permutations
+        };
+
+        Assert.True(Settles(without, out var plain));
+        Assert.True(Settles(with, out var told));
+
+        Assert.False(plain.Parameters.Get(ForwardPlusKeys.UseReflectionProbe));
+        Assert.True(told.Parameters.Get(ForwardPlusKeys.UseReflectionProbe));
     }
 
     /// <summary>Asks until the load lands, which is what a frame does by asking again next frame.</summary>

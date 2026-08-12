@@ -122,6 +122,21 @@ public sealed class SkyRenderer() : PostEffectRenderer(
         // the same point in the frame — after the views are settled and before the pass is recorded.
         if (View is { } view && Matrix4x4.Invert(view.ViewProjection, out var inverse)) {
             InverseViewProjection = inverse;
+            Degrade(null);
+        } else {
+            // ⚠ The matrix is left at whatever it was, which for a node nobody named a camera on is
+            // Identity — and unprojecting through an identity sends every pixel's ray to the same
+            // place, so the whole sky is one direction of the cube smeared over the screen. It is a
+            // picture, it is stable, and it moves not at all when the camera turns, which is the one
+            // symptom somebody might eventually notice. Its sibling AmbientCombineRenderer already
+            // told its shader about exactly this; this says it where a person can read it.
+            Degrade(
+                View is null
+                    ? "no View, so InverseViewProjection is the identity and every pixel samples the "
+                    + "environment cube in the same direction"
+                    : "the View's ViewProjection is not invertible, so the sky is unprojected through "
+                    + "the last matrix that was"
+            );
         }
 
         parameters.Set(SkyKeys.Soften, Soften);
