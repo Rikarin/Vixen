@@ -1029,6 +1029,11 @@ public sealed class AppGraphics : IDisposable {
         Overlays.Add(new ConsoleOverlay(Console));
         Overlays.RegisterCommands(Console);
 
+        // ⚠ After the host's own and *not* last, because the request outlives this call: a name for a
+        // panel nobody has registered yet is kept and honoured when it arrives, which is what makes
+        // `--vixen-overlay audio` work on a game that adds its audio panel from OnInitialise.
+        Overlays.Request(options.EnabledOverlays);
+
         lineShaders = LineShaders.Default(Device);
         ownsLineShaders = true;
 

@@ -309,4 +309,22 @@ public sealed class GraphicsOptions {
     ///     </para>
     /// </remarks>
     public bool Overlays { get; set; }
+
+    /// <summary>Which panels start switched on, by the names <c>overlay &lt;name&gt;</c> uses.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Because a headless run has nobody to type at the console, and that is the run a
+    ///         picture comes from.</b> <c>--vixen-overlays</c> registers the panels and leaves all but
+    ///         the frame stats switched off, which is right for a person with a keyboard and leaves a
+    ///         capture unable to show any of the others. <c>--vixen-overlay gpu,water</c> fills it in,
+    ///         and implies <see cref="Overlays" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A name here is honoured whenever its panel is registered, including much later.</b>
+    ///         A subsystem's panel belongs to whoever owns its numbers, so a game adds one from
+    ///         <c>OnInitialise</c> — long after this list was read. See
+    ///         <c>DiagnosticOverlays.Request</c>.
+    ///     </para>
+    /// </remarks>
+    public IList<string> EnabledOverlays { get; } = [];
 }

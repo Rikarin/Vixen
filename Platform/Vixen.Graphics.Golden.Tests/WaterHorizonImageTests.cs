@@ -112,12 +112,14 @@ public sealed class WaterHorizonImageTests {
     /// <summary>The overlay's numbers are what the pass counted, not what a caller assumed.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The sabotage assertion for two numbers <c>stat watermesh</c> used to derive.</b>
-    ///         Its draw count was <c>ZonesDrawn * 2</c> — the window and the skirt — and
-    ///         <see cref="WaterSurfacePass.Record" /> issues a draw only for whichever of the two has
-    ///         instances. This frame is a horizon: one zone whose window <em>and</em> skirt are both
-    ///         populated, so the old arithmetic and the new counter agree here at two, and the
-    ///         assertion that discriminates is the one below on a frame that draws only a skirt.
+    ///         ⚠ <b>Two numbers <c>stat watermesh</c> used to derive, and this pins where they come
+    ///         from rather than what they came out as.</b> The draw count was <c>ZonesDrawn * 2</c> —
+    ///         the window and the skirt — where <see cref="WaterSurfacePass.Record" /> issues a draw
+    ///         only for whichever of the two has instances. Both frames this repository can measure
+    ///         (this ocean and <c>Samples/13</c>'s lake) populate both, so the derivation and the
+    ///         counter agree at two in both, and no frame here catches the difference by its value.
+    ///         What the assertion catches is a number read off the wrong object, which is the failure
+    ///         that actually happened.
     ///     </para>
     ///     <para>
     ///         And its vertex count assumed a 32-quad lattice where the node publishes

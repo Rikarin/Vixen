@@ -381,13 +381,15 @@ public sealed class WaterMeshOverlay : IDiagnosticOverlay {
     /// <param name="mesh">The node.</param>
     /// <exception cref="ArgumentNullException"><paramref name="mesh" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Both derived numbers were wrong, and both were wrong by asserting a constant the
-    ///     node already knew.</b> The lattice is <see cref="WaterMeshRenderer.GridQuads" /> quads
-    ///     across — a document may say otherwise, and <c>Samples/13</c>'s does not — so a vertex
-    ///     count computed from a hard-coded 32 is a plausible number for a different mesh. And the
-    ///     draw count was two per zone, where a zone whose water is wholly inside its window records
-    ///     one: see <see cref="WaterMeshRenderer.DrawsRecorded" />, which is what the pass counted
-    ///     rather than what a caller assumed.
+    ///     ⚠ <b>Both numbers here were derived, and both are now read off the node.</b> The lattice
+    ///     is <see cref="WaterMeshRenderer.GridQuads" /> quads across — a document may say otherwise,
+    ///     and a vertex count computed from a hard-coded 32 is then a plausible number for a mesh
+    ///     that is not there. The draw count was two per zone, where
+    ///     <see cref="WaterSurfacePass.Record" /> skips whichever of the skirt and the window has no
+    ///     instances; <see cref="WaterMeshRenderer.DrawsRecorded" /> is what the passes counted.
+    ///     Neither derivation was observably wrong in the two water frames this repository can
+    ///     measure, which is the whole reason to prefer the counter: a panel that agrees with the
+    ///     truth by coincidence is one nobody will re-check.
     /// </remarks>
     public void Read(WaterMeshRenderer mesh) {
         ArgumentNullException.ThrowIfNull(mesh);

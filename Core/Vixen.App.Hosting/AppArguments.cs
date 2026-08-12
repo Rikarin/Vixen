@@ -55,6 +55,15 @@ public sealed record AppArguments {
     /// </remarks>
     public bool Overlays { get; private init; }
 
+    /// <summary>The panel names from <c>--vixen-overlay a,b</c>, which also implies the above.</summary>
+    /// <remarks>
+    ///     What a headless capture needs and the console cannot give it: <c>--vixen-overlays</c>
+    ///     leaves every panel but the frame stats switched off, which is right for somebody at a
+    ///     keyboard and useless to a run with nobody typing. See
+    ///     <see cref="GraphicsOptions.EnabledOverlays" />.
+    /// </remarks>
+    public IReadOnlyList<string> EnabledOverlays { get; private init; } = [];
+
     /// <summary>The SDL video driver named by <c>--vixen-video-driver</c>, or
     /// <see langword="null" />.</summary>
     public string? VideoDriver { get; private init; }
@@ -227,6 +236,19 @@ public sealed record AppArguments {
 
                 case "--vixen-overlays":
                     parsed = parsed with { Overlays = true };
+                    continue;
+
+                // Implies --vixen-overlays: asking for a panel by name and then not getting the
+                // registry that holds it is a command line that is right and does nothing.
+                case "--vixen-overlay" when Take(out var panels):
+                    parsed = parsed with {
+                        Overlays = true,
+                        EnabledOverlays = [
+                            .. parsed.EnabledOverlays,
+                            .. panels.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        ]
+                    };
+
                     continue;
 
                 case "--vixen-variant" when Take(out var variant) && Enum.TryParse<BuildVariant>(variant, true, out var value):

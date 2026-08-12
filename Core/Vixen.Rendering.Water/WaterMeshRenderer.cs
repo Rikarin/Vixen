@@ -123,10 +123,10 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
     /// <remarks>
     ///     ⚠ <b>Summed from what each pass recorded, rather than derived as two per zone.</b> A zone
     ///     records the skirt and the window as separate instanced draws and <em>skips whichever has
-    ///     no instances</em> — see <see cref="WaterSurfacePass.Record" /> — so a lake wholly inside
-    ///     its window issues one draw and not two. The derived figure was the number an overlay
-    ///     showed before this existed, and it over-reported by exactly the case somebody would open
-    ///     the panel to check.
+    ///     no instances</em> — see <see cref="WaterSurfacePass.Record" /> — so a zone whose skirt is
+    ///     wholly culled issues one draw and not two. ⚠ Both water frames this repository can
+    ///     measure populate both, so the derived figure was not observably wrong in either: what is
+    ///     wrong with it is that it is an assumption about a number the pass was already counting.
     /// </remarks>
     public int DrawsRecorded { get; private set; }
 

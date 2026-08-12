@@ -86,6 +86,18 @@ services.Graphics?.Debug?.Arrow(muzzle, muzzle + aim * 5f, new(1f, 0.3f, 0.2f, 1
 `log` is added by `AppBuilder`, which owns the ring it reads. `audio` is **not** registered by the
 host — nothing in `AppGraphics` owns an `AudioEngine` — so a game that opens a device registers it.
 
+⚠ **A headless run has nobody to type `overlay gpu` at**, and that is the run a picture comes from.
+`--vixen-overlay gpu,water,watermesh,audio` switches them on by name and implies `--vixen-overlays`:
+
+```bash
+./MyGame --vixen-headless --vixen-frames 240 --vixen-overlay gpu,water --vixen-gpu-profile \
+         --vixen-capture ./shots
+```
+
+A name whose panel does not exist yet is kept rather than refused, and applied when it is registered
+— which is what makes `audio` work when the game adds it from `OnInitialise`, long after the command
+line was read.
+
 ### The GPU panel
 
 `GpuOverlay` draws one bar per render-graph pass, and it is built to be *watched* rather than

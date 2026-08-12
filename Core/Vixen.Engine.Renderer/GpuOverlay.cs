@@ -307,7 +307,13 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
             // makes people turn diagnostics off.
             if (track.Level != scope.Level || track.Label is null) {
                 track.Level = scope.Level;
-                track.Label = scope.Level == 0 ? scope.Name : "└ " + scope.Name;
+
+                // ⚠ Spaces, and specifically not the box-drawing arrow `SampleLog`'s ranked
+                // breakdown uses. DebugFont's stroke table runs from space to tilde and draws
+                // anything outside it as a tofu box — so the first picture of this panel had a
+                // rectangle where every nested pass's marker should have been. A log line has a
+                // font; this does not.
+                track.Label = scope.Level == 0 ? scope.Name : new string(' ', 2 * scope.Level) + scope.Name;
             }
 
             Hold(track, cost, seconds);
@@ -423,10 +429,9 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
 
         /// <summary>The name, indented when the scope is nested inside another.</summary>
         /// <remarks>
-        ///     The same arrow <c>SampleLog</c>'s ranked breakdown uses, and for the same reason: a
-        ///     stage inside a pass is a candidate answer to "what is the most expensive thing here",
-        ///     so it is ranked beside its parent — and the arrow is what stops it being read as a
-        ///     second pass whose cost should be added.
+        ///     A stage inside a pass is a candidate answer to "what is the most expensive thing in
+        ///     this frame", so it gets a row beside its parent — and the indent is what stops it
+        ///     being read as a second pass whose cost should be added to the one above it.
         /// </remarks>
         public string? Label;
     }
