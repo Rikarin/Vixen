@@ -260,9 +260,26 @@ public sealed class GpuClusterResolve : IDisposable {
     /// <returns>Whether anything is ready to dispatch.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view" /> is null.</exception>
     /// <remarks>
-    ///     Outside the frame's command list, because writing a descriptor set is not a recorded
-    ///     operation and the values are the host's. <see cref="Record" /> is the half that goes in the
-    ///     list.
+    ///     <para>
+    ///         Outside the frame's command list, because writing a descriptor set is not a recorded
+    ///         operation and the values are the host's. <see cref="Record" /> is the half that goes in
+    ///         the list.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A registered traversal is not a prepared one.</b>
+    ///         <see cref="GpuClusterVisibility.MeshCount" /> counts registrations and survives a
+    ///         <see cref="GpuClusterVisibility.Prepare" /> that returned false — most ordinarily because
+    ///         the culling variant is still compiling, which is what the first frames after a
+    ///         shader-cache miss look like. Seven of this set's bindings are that object's buffers and
+    ///         they are made inside that <c>Prepare</c>, so a resolve that went ahead on the strength of
+    ///         the registration wrote seven well-formed descriptors naming nothing —
+    ///         <see cref="EffectSetWriter" /> asks whether a name is <em>set</em>, not whether what it is
+    ///         set to exists, so the set completed and every counter reported a healthy pass. The frame's
+    ///         virtualized geometry is simply absent for those frames, which is the same outcome a bin
+    ///         whose own variant is still compiling already has, one granularity up: there is no fallback
+    ///         to take, because <c>MeshExtractionSystem</c> sends an object down the virtualized path or
+    ///         the ordinary one and never both.
+    ///     </para>
     /// </remarks>
     public bool Prepare(
         RenderView view,
@@ -286,6 +303,7 @@ public sealed class GpuClusterResolve : IDisposable {
         if (Effects is null
             || Pipelines is null
             || Visibility is not { MeshCount: > 0 } visibility
+            || !visibility.Visible.IsValid
             || Tiles is not { } tiles
             || Pages is not { } pages
             || !target.IsValid

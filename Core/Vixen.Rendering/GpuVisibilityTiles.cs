@@ -219,6 +219,15 @@ public sealed class GpuVisibilityTiles : IDisposable {
     ///         can check that — an open command list does not say what has been recorded into it — which
     ///         is why <see cref="Compositor.VisibilityBufferRenderer" /> owns the ordering.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A registered traversal is not a prepared one.</b>
+    ///         <see cref="GpuClusterVisibility.MeshCount" /> counts registrations, which survive a
+    ///         <see cref="GpuClusterVisibility.Prepare" /> that returned false — and the ordinary cause
+    ///         of that is the culling variant still compiling, which is what the first frames after a
+    ///         shader-cache miss look like. Its buffers are made inside that <c>Prepare</c>, so binning
+    ///         on the strength of the registration alone writes a set of well-formed descriptors naming
+    ///         nothing. <see cref="GpuClusterRaster" /> asks the same question of the same handle.
+    ///     </para>
     /// </remarks>
     public bool Record(ICommandList list, TextureViewHandle identities, Int2 size) {
         ArgumentNullException.ThrowIfNull(list);
@@ -229,6 +238,7 @@ public sealed class GpuVisibilityTiles : IDisposable {
         if (Effects is null
             || Pipelines is null
             || Visibility is not { MeshCount: > 0 } visibility
+            || !visibility.Visible.IsValid
             || !identities.IsValid
             || size.X <= 0
             || size.Y <= 0) {

@@ -433,6 +433,14 @@ game: !Sequence
     # shadow shaders behind VisibilityResolve's slots that Arena.Paint gives ForwardPlus — the
     # resolve keeps NoDirectionalShadows/NoPunctualShadows today, which next to a shadowed forward
     # pixel is a lighting seam along every material boundary.
+    #
+    # ⚠ And one thing to expect rather than to fix, once it is on: **the first frames after a
+    # shader-cache miss draw no virtualized geometry at all.** GpuClusterVisibility.Prepare returns
+    # false while the culling variant compiles, and the binning and the resolve both refuse a
+    # traversal that made no buffers rather than binding descriptors naming nothing — so those
+    # frames show whatever !Sky and Main put there, and fill themselves in a frame or two. There is
+    # no fallback to take: MeshExtractionSystem sends an object down the virtualized path or the
+    # ordinary one, so Main is not drawing these objects and cannot start.
     - !ClusterCulling
       name: Traversal
       enabled: false

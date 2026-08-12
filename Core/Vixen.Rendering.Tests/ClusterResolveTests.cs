@@ -136,14 +136,14 @@ public sealed class ClusterResolveTests : IDisposable {
         // Off: no planes handed in, the colour aliased into all three slots, the set complete.
         Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64)));
         Assert.Equal(0, resolve.Unresolved);
-        EveryViewNamesSomething();
+        EveryDescriptorNamesSomething();
 
         // On: the caller's own planes.
         resolve.SplitOutputs = true;
 
         Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64), Target(), Target(), Target()));
         Assert.Equal(0, resolve.Unresolved);
-        EveryViewNamesSomething();
+        EveryDescriptorNamesSomething();
 
         // ⚠ And a caller that hands in only the two the split had before the f0 plane: the third
         // slot still has to be filled, because a set is written wholly or not at all and the
@@ -152,11 +152,11 @@ public sealed class ClusterResolveTests : IDisposable {
         // when a plane arrived beside it.
         Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64), Target(), Target()));
         Assert.Equal(0, resolve.Unresolved);
-        EveryViewNamesSomething();
+        EveryDescriptorNamesSomething();
     }
 
     /// <summary>
-    ///     Every texture descriptor the device has been handed so far points at a view that exists.
+    ///     Every descriptor the device has been handed so far points at something that exists.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -165,17 +165,18 @@ public sealed class ClusterResolveTests : IDisposable {
     ///         another is the same defect.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The views and not the buffers, and the reason is about this fixture rather than
-    ///         about the rule.</b> Every storage buffer in the resolve's set comes off
-    ///         <c>GpuClusterVisibility</c>, which creates them in <c>EnsureBuffers</c> — reached only
-    ///         from its own <c>Prepare</c>, which a real frame runs before the resolve's and this
-    ///         fixture does not. So <c>visible</c>, <c>geometry</c>, <c>meshes</c>, <c>residency</c>
-    ///         and <c>clusterMaterials</c> are written here naming nothing, and asserting on them
-    ///         would be asserting on a state no frame has. The views are the handles this test
-    ///         actually hands in, which makes them the ones its arguments are a claim about.
+    ///         ⚠ <b>The buffers as well as the views, which they were not while this fixture stopped
+    ///         short of preparing the traversal.</b> Seven of the resolve's bindings are
+    ///         <c>GpuClusterVisibility</c>'s buffers, made in <c>EnsureBuffers</c> and reached only from
+    ///         its own <c>Prepare</c> — so a fixture that never ran one wrote <c>visible</c>,
+    ///         <c>geometry</c>, <c>meshes</c>, <c>residency</c> and <c>clusterMaterials</c> naming
+    ///         nothing, and excluding them from this check was the honest thing to do about a state no
+    ///         frame has. <see cref="Registered" /> prepares now, so they are in scope — and they have to
+    ///         be, because a real frame <em>can</em> reach that state: a <c>Prepare</c> that returned
+    ///         false leaves <c>MeshCount</c> counting registrations and made no buffers at all.
     ///     </para>
     /// </remarks>
-    void EveryViewNamesSomething() =>
+    void EveryDescriptorNamesSomething() {
         Assert.All(
             device.RecordedWrites!.Where(
                 write => write.Kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture
@@ -187,6 +188,20 @@ public sealed class ClusterResolveTests : IDisposable {
                 + "visible anywhere else: a host resolved the name to a handle it never created."
             )
         );
+
+        Assert.All(
+            device.RecordedWrites!.Where(
+                write => write.Kind is DescriptorKind.StorageBuffer or DescriptorKind.DynamicStorageBuffer
+            ),
+            write => Assert.True(
+                write.Buffer.IsValid,
+                $"Binding {write.Binding} was written as a {write.Kind} naming nothing. The commonest "
+                + "way to get here is a traversal that registered meshes and never prepared: MeshCount "
+                + "goes on counting registrations, so every count reports a healthy pass over buffers "
+                + "nobody created."
+            )
+        );
+    }
 
     /// <summary>
     ///     Each material dispatches against its own bin's arguments, and only the prepared ones dispatch.
@@ -300,6 +315,117 @@ public sealed class ClusterResolveTests : IDisposable {
         Assert.Equal(1, resolve.Record(Open()));
     }
 
+    /// <summary>
+    ///     A traversal that registered meshes and never prepared binds nothing at all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is a real frame's state, not a fixture's.</b>
+    ///         <c>GpuClusterVisibility.Prepare</c> returns false whenever the culling variant is still
+    ///         compiling, which is what the first frames after a shader-cache miss look like — and
+    ///         <c>VirtualGeometryRenderFeature</c> has nothing to do with the answer, so the frame goes
+    ///         on. What survives that <c>Prepare</c> is <c>MeshCount</c>, because it counts
+    ///         <c>Register</c> and not the frame; what does not survive it is every buffer, because
+    ///         <c>EnsureBuffers</c> is inside it.
+    ///     </para>
+    ///     <para>
+    ///         So both consumers used to go ahead: the binning bound three of the traversal's buffers and
+    ///         the resolve seven, all of them naming nothing, and <em>every counter reported a healthy
+    ///         pass</em> — <c>EffectSetWriter</c> counts a descriptor naming nothing as filled, so the
+    ///         set completed, <c>ResolvedMaterials</c> was one and <c>Unresolved</c> was zero. That is
+    ///         the whole reason this is asserted through <c>RecordedWrites</c> and not through the
+    ///         return values alone: the return values were the thing that lied.
+    ///     </para>
+    ///     <para>
+    ///         Refusing is the frame's answer as well as the pass's. The virtualized geometry is absent
+    ///         for those frames, and there is nothing to fall back to — <c>MeshExtractionSystem</c> sends
+    ///         an object down the virtualized path <em>or</em> the ordinary one, so a classic pass in the
+    ///         same document is not drawing these objects and cannot start. It is the same hole a bin
+    ///         whose own variant is still compiling already leaves, one granularity up, and it fills
+    ///         itself in a frame or two.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_traversal_that_never_prepared_binds_nothing() {
+        using var visibility = Registered(out var pages, out var source, prepared: false);
+        using var pool = new MeshletPagePool(device, source, pages.Pages.Length, pages.PageSize);
+        using var tiles = new GpuVisibilityTiles(device) { Effects = effects, Pipelines = pipelines, Visibility = visibility };
+        using var resolve = Resolve(visibility, tiles, pool);
+
+        resolve.Materials = [new(Textured(), 0)];
+
+        // The registration is what made MeshCount nonzero, and it is all that happened.
+        Assert.True(visibility.MeshCount > 0);
+        Assert.True(visibility.MaterialCount > 0);
+        Assert.False(visibility.Visible.IsValid);
+
+        var identities = Identities();
+
+        Assert.False(Recorded(list => tiles.Record(list, identities, new(64, 64))));
+        Assert.False(resolve.Prepare(Camera(), Target(), identities, new(64, 64)));
+
+        // Not counted as a bin that failed, because no bin was reached: the pass had no traversal to
+        // resolve rather than a material it could not compile.
+        Assert.Equal(0, resolve.ResolvedMaterials);
+        Assert.Equal(0, resolve.Unresolved);
+
+        Assert.DoesNotContain(
+            Record(list => resolve.Record(list)),
+            command => command.Kind == RecordedCommandKind.DispatchIndirect
+        );
+
+        // And the point of the whole thing: nothing was written, so nothing dead was written.
+        EveryDescriptorNamesSomething();
+    }
+
+    /// <summary>
+    ///     The fixture's set 2 is the one the shipped reflection declares, name for name and index for
+    ///     index.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Because it was not, and nothing said so.</b> The list claimed in a comment to be
+    ///     <c>VisibilityResolve.reflect.json</c>'s and was missing <c>bones</c>, which the shader has had
+    ///     at binding 8 since the palette arrived — so every binding after it was numbered one short and
+    ///     one of the seven buffers the resolve fills from the traversal was a binding this fixture never
+    ///     asked for. That is the failure a fixture is <em>for</em>: a leaner invented variant lets the
+    ///     host get the real one wrong and every test still passes. Read from the file rather than
+    ///     restated here, because a second hand-written list is a second thing to get wrong.
+    /// </remarks>
+    [Fact]
+    public void The_fixtures_resolve_set_is_the_shipped_reflections() {
+        var root = System.Text.Json.JsonDocument.Parse(File.ReadAllText(ReflectionPath())).RootElement;
+
+        var declared = root.GetProperty("Sets")
+            .EnumerateArray()
+            .Single(set => set.GetProperty("Set").GetInt32() == (int)DescriptorSetSlot.PerMaterial)
+            .GetProperty("Bindings")
+            .EnumerateArray()
+            .Select(binding => (binding.GetProperty("Name").GetString()!, binding.GetProperty("Binding").GetInt32()))
+            .ToArray();
+
+        // The uniform block is named for the shader in the reflection and for its slot in the fixture,
+        // which is the one difference that is not drift.
+        Assert.Equal(
+            declared.Skip(1).ToArray(),
+            AlwaysCompiles.Resolve.Skip(1).Select(binding => (binding.Name, (int)binding.Binding)).ToArray()
+        );
+    }
+
+    static string ReflectionPath() {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            var candidate = Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "VisibilityResolve.reflect.json");
+
+            if (File.Exists(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new FileNotFoundException(
+            "Raven/Library/Pipeline/VisibilityResolve.reflect.json was not found above "
+            + $"'{AppContext.BaseDirectory}'. Regenerate it with VIXEN_REGENERATE=1 in Vixen.Raven.Tests."
+        );
+    }
+
     GpuClusterResolve Resolve(GpuClusterVisibility visibility, GpuVisibilityTiles tiles, MeshletPagePool pool) =>
         new(device) {
             Effects = effects,
@@ -309,7 +435,23 @@ public sealed class ClusterResolveTests : IDisposable {
             Pages = pool
         };
 
-    GpuClusterVisibility Registered(out MeshletPageSet pages, out MemoryMeshletPageSource source) {
+    /// <summary>
+    ///     A traversal in the state the frame's consumers see it in: registered, and prepared.
+    /// </summary>
+    /// <param name="pages">The page set the registration was built from.</param>
+    /// <param name="source">Where those pages are read back from.</param>
+    /// <param name="prepared">
+    ///     False to stop after the registration, which is the state a frame is in when the culling
+    ///     variant is still compiling — see <see cref="A_traversal_that_never_prepared_binds_nothing" />.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>The <c>Prepare</c> is what makes this a frame's state rather than a fixture's</b>, and
+    ///     for a long time this helper stopped short of it. Seven of the resolve's bindings are that
+    ///     object's buffers and every one of them is made inside <c>EnsureBuffers</c>, which nothing but
+    ///     <c>Prepare</c> reaches — so a fixture that skipped it wrote seven descriptors naming nothing
+    ///     and every assertion about the set was an assertion about a state no frame has.
+    /// </remarks>
+    GpuClusterVisibility Registered(out MeshletPageSet pages, out MemoryMeshletPageSource source, bool prepared = true) {
         var input = Sphere(8, 16);
         var mesh = MeshletBuilder.Build(input);
 
@@ -319,13 +461,32 @@ public sealed class ClusterResolveTests : IDisposable {
         registry.Add(0, pages);
         source = registry;
 
-        var visibility = new GpuClusterVisibility(device);
+        var visibility = new GpuClusterVisibility(device) { Effects = effects, Pipelines = pipelines };
+
         visibility.Register(mesh, pages, 0);
         visibility.Begin(1);
         visibility.Set(0, new() { Flags = GpuCulling.Alive, Scale = 1f });
-        visibility.UploadInstances();
+
+        if (!prepared) {
+            return visibility;
+        }
+
+        Assert.True(
+            visibility.Prepare([Camera()], [1f], [1f]),
+            "The traversal did not prepare, so its buffers do not exist and every assertion below "
+            + "would be about a frame that never happens."
+        );
 
         return visibility;
+    }
+
+    /// <summary>The same as <see cref="Record" />, keeping what the recorded call answered.</summary>
+    bool Recorded(Func<ICommandList, bool> record) {
+        var answer = false;
+
+        Record(list => answer = record(list));
+
+        return answer;
     }
 
     IReadOnlyList<RecordedCommand> Record(Action<ICommandList> record) {
@@ -447,17 +608,43 @@ public sealed class ClusterResolveTests : IDisposable {
             new("meshes", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer),
             new("residency", DescriptorSetSlot.PerMaterial, 6, DescriptorKind.StorageBuffer),
             new("pages", DescriptorSetSlot.PerMaterial, 7, DescriptorKind.StorageBuffer),
-            new("clusterMaterials", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
-            new("tiles", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
-            new("target", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageTexture),
+
+            // ⚠ The palette, which this fixture did not declare and the reflection has had at 8 all
+            // along — so every binding below it was numbered one short of the shader's, and the seventh
+            // of the traversal's buffers was one the set never asked for. A fixture that invents a
+            // leaner variant lets the host get it wrong and says nothing, which is the whole reason the
+            // comment above claims this list is the reflection's.
+            new("bones", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
+            new("clusterMaterials", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
+            new("tiles", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageBuffer),
+            new("target", DescriptorSetSlot.PerMaterial, 11, DescriptorKind.StorageTexture),
 
             // The ambient split's three planes. In the set for every variant — a binding is
             // declared, not read into existence — which is what obliges Prepare to fill them even
             // with the split off, and what this fixture exists to hold it to: leave one out here and
             // a Prepare that forgot its alias would still return true.
-            new("albedoTarget", DescriptorSetSlot.PerMaterial, 11, DescriptorKind.StorageTexture),
-            new("normalTarget", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageTexture),
-            new("specularTarget", DescriptorSetSlot.PerMaterial, 13, DescriptorKind.StorageTexture)
+            new("albedoTarget", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageTexture),
+            new("normalTarget", DescriptorSetSlot.PerMaterial, 13, DescriptorKind.StorageTexture),
+            new("specularTarget", DescriptorSetSlot.PerMaterial, 14, DescriptorKind.StorageTexture)
+        ];
+
+        // The traversal's own set, so this fixture can run `GpuClusterVisibility.Prepare` — which is
+        // what makes its buffers, and therefore what the resolve's seven storage bindings actually name
+        // in a frame. Eleven, all of them, for `GpuVisibilityGroupTests`' reason: a permutation folds
+        // away the code that read a binding and leaves the declaration, so `Culling.rvn` reports all
+        // eleven whichever variant was asked for.
+        static readonly ImmutableArray<EffectBinding> CullingBindings = [
+            new("occluders", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.SampledTexture),
+            new("objects", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
+            new("views", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
+            new("visibility", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer),
+            new("clusterRecords", DescriptorSetSlot.PerMaterial, 4, DescriptorKind.StorageBuffer),
+            new("instances", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer),
+            new("children", DescriptorSetSlot.PerMaterial, 6, DescriptorKind.StorageBuffer),
+            new("roots", DescriptorSetSlot.PerMaterial, 7, DescriptorKind.StorageBuffer),
+            new("visible", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
+            new("requests", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
+            new("residency", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageBuffer)
         ];
 
         static readonly ImmutableArray<EffectBinding> TileBindings = [
@@ -470,13 +657,18 @@ public sealed class ClusterResolveTests : IDisposable {
             new("arguments", DescriptorSetSlot.PerMaterial, 6, DescriptorKind.StorageBuffer)
         ];
 
+        /// <summary>The resolve's set 2, for the test that holds it to the shipped reflection.</summary>
+        public static ImmutableArray<EffectBinding> Resolve => ResolveBindings;
+
         readonly DescriptorSetLayoutHandle resolveLayout = Layout(device, ResolveBindings, "VisibilityResolve");
         readonly DescriptorSetLayoutHandle tileLayout = Layout(device, TileBindings, "VisibilityTiles");
+        readonly DescriptorSetLayoutHandle cullingLayout = Layout(device, CullingBindings, GpuCulling.ShaderName);
 
         public Effect? TryGet(EffectKey key) =>
             key.ShaderName switch {
                 "VisibilityResolve" => Compiled(key, ResolveBindings, resolveLayout),
                 "VisibilityTiles" => Compiled(key, TileBindings, tileLayout),
+                GpuCulling.ShaderName => Compiled(key, CullingBindings, cullingLayout),
                 _ => new() { Key = key, Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")] }
             };
 

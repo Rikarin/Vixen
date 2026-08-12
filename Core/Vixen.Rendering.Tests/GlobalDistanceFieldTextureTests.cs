@@ -205,6 +205,58 @@ public class GlobalDistanceFieldTextureTests {
     }
 
     /// <summary>
+    ///     Before an upload the numbers go in and the handles do not, so the set refuses rather than
+    ///     completing over descriptors naming nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Setting a name to a handle nothing made is worse than not setting it.</b>
+    ///         <c>EffectSetWriter</c> asks whether a name is <em>set</em>, not whether what it is set to
+    ///         exists — so a default handle counts as a filled descriptor, the set completes, and every
+    ///         counter reports a healthy pass over a volume the driver may sample as anything. Omitting
+    ///         the name refuses the set instead, which is a black frame that names the binding and lands
+    ///         on the first frame rather than a distance field that reads as a surface everywhere.
+    ///     </para>
+    ///     <para>
+    ///         Production never gets here — <c>GlobalDistanceFieldRenderer</c> uploads immediately before
+    ///         it applies, and so does every golden device test — and nothing enforced that. This is what
+    ///         makes the ordering unnecessary rather than lucky, and it is why the ordering is now
+    ///         something a caller may get wrong loudly instead of quietly.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void BeforeAnUploadTheHandlesAreOmittedRatherThanWrittenDead() {
+        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 2));
+        var parameters = new ParameterCollection();
+
+        mirror.Apply(parameters, "ForwardPlus.GlobalDistanceField");
+
+        // The numbers are the field's and are known without a device, so they go in either way — a
+        // guard that dropped them too would be a shader with no idea where the clipmap is.
+        Assert.True(parameters.Has(ParameterKeys.New<Vector3>("ForwardPlus.GlobalDistanceField.distanceFieldVolumes[0].minimum")));
+
+        for (var level = 0; level < 2; level++) {
+            Assert.False(
+                parameters.Has(
+                    ParameterKeys.New<TextureViewHandle>(
+                        GlobalDistanceFieldTexture.LevelBinding(level, "ForwardPlus.GlobalDistanceField")
+                    )
+                ),
+                $"level {level}'s volume was named before anything created it"
+            );
+        }
+
+        Assert.False(
+            parameters.Has(
+                ParameterKeys.New<SamplerHandle>(
+                    GlobalDistanceFieldTexture.SamplerBinding("ForwardPlus.GlobalDistanceField")
+                )
+            ),
+            "the sampler was named before anything created it"
+        );
+    }
+
+    /// <summary>
     ///     The names are the slot's, not the declaring shader's — which is why <c>Apply</c> has no
     ///     default prefix any more. This is the shape the bindings generator actually emitted.
     /// </summary>
