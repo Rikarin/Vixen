@@ -588,6 +588,7 @@ Vixen.Rendering.Compositor.GraphicsCompositor.BufferImports.get -> System.Collec
 Vixen.Rendering.Compositor.GraphicsCompositor.BufferResources.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.RenderBufferAsset>
 Vixen.Rendering.Compositor.GraphicsCompositor.Build(Vixen.Graphics.RenderGraph.RenderGraph graph, Vixen.Shaders.EffectSystem effects, Vixen.Graphics.IGraphicsDevice? device = null) -> Vixen.Rendering.Compositor.CompositorFrame
 Vixen.Rendering.Compositor.GraphicsCompositor.Collect() -> void
+Vixen.Rendering.Compositor.GraphicsCompositor.Degradations(System.Collections.Generic.ICollection<(string Node, string Reason)> into) -> int
 Vixen.Rendering.Compositor.GraphicsCompositor.FrameSize.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Compositor.GraphicsCompositor.FrameSize.set -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Compositor.GraphicsCompositor.Game.get -> Vixen.Rendering.Compositor.SceneRenderer?
@@ -970,6 +971,8 @@ Vixen.Rendering.Compositor.ScenePublishAsset.Resource.get -> string
 Vixen.Rendering.Compositor.ScenePublishAsset.Resource.init -> string
 Vixen.Rendering.Compositor.ScenePublishAsset.ScenePublishAsset() -> void
 Vixen.Rendering.Compositor.SceneRenderer -> abstract class
+Vixen.Rendering.Compositor.SceneRenderer.Degrade(string? reason) -> void
+Vixen.Rendering.Compositor.SceneRenderer.Degraded.get -> string?
 Vixen.Rendering.Compositor.SceneRenderer.Enabled.get -> bool
 Vixen.Rendering.Compositor.SceneRenderer.Enabled.set -> bool
 Vixen.Rendering.Compositor.SceneRenderer.Name.get -> string

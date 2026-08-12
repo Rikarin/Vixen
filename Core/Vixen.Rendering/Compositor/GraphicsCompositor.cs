@@ -89,6 +89,60 @@ public sealed class GraphicsCompositor(RenderSystem system) {
         }
     }
 
+    /// <summary>
+    ///     Every node that drew something other than what it was asked for, in tree order.
+    /// </summary>
+    /// <param name="into">Where the pairs go. Not cleared — the caller decides.</param>
+    /// <returns>How many were added.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="into" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one place that answers "this frame drew — and here is what it drew differently
+    ///         than you asked".</b> Every renderer already had the answer and none of it was
+    ///         collectable: the reasons sat on nine different property names, on types in four
+    ///         assemblies, read by a sample's hand-written log line that named each node by hand and
+    ///         went stale the moment one was added. <see cref="SceneRenderer.Degraded" /> is the one
+    ///         name and this is the walk, over <see cref="SceneRenderer.Nested" /> — so a node type
+    ///         that did not exist when this was written is still in the list.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Disabled nodes are skipped, which is the opposite of <see cref="Apply" />.</b> An
+    ///         overlay has to reach a node that is off, because it is what the node goes back to when
+    ///         it comes on. A degrade is a claim about a draw, and a node that is off did not draw —
+    ///         reporting its last enabled frame's reason would be the stale answer this exists to
+    ///         avoid.
+    ///     </para>
+    ///     <para>
+    ///         Fill-a-collection rather than an enumerable property, on <see cref="Apply" />'s terms:
+    ///         a host that wants this every frame should not allocate to ask, and the normal answer is
+    ///         nothing at all.
+    ///     </para>
+    /// </remarks>
+    public int Degradations(ICollection<(string Node, string Reason)> into) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        var found = 0;
+
+        Visit(Game, into, ref found);
+
+        return found;
+
+        static void Visit(SceneRenderer? node, ICollection<(string, string)> into, ref int found) {
+            if (node is not { Enabled: true }) {
+                return;
+            }
+
+            if (node.Degraded is { } reason) {
+                into.Add((node.ToString(), reason));
+                found++;
+            }
+
+            foreach (var child in node.Nested) {
+                Visit(child, into, ref found);
+            }
+        }
+    }
+
     /// <summary>The views this frame's collect phase declared, in first-use order.</summary>
     public IReadOnlyList<RenderView> Views => views;
 
