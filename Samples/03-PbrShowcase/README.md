@@ -85,9 +85,10 @@ cannot say:
 - **The knobs' host halves**, each marked ⚠ where it is paid:
   - `shadows:`/`antialiasing: Taa` → the `Shadow` and `Motion` caster stages in `OnConfigure`,
     because a document cannot decide what an object is extracted as.
-  - `gi: Ambient` → `SplitOutputs` on the materials (`GridMaterials`) and a `GlobalDistanceField`
-    handed to the builder (`SupplyFrame`), filled with exact analytic sphere distances so the
-    occlusion under each sphere is a real march.
+  - `gi: Ambient` → a `GlobalDistanceField` handed to the builder (`SupplyFrame`), filled with exact
+    analytic sphere distances so the occlusion under each sphere is a real march. `SplitOutputs` was
+    the other half of this one and is not any more: `CompositorBuilder` reads it off the expanded
+    Main pass's four `colourTargets`, so `GridMaterials` no longer sets it.
   - the per-frame set → `ShowcaseFrame`, sample 13's `ArenaFrame` carried over: a baked Preetham
     sky (which is also the image-based ambient the old sample lacked), the probe fallback, and the
     stand-ins for bindings the shader declares whatever the permutations say.

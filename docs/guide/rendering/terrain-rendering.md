@@ -368,7 +368,7 @@ That is now audible and inspectable:
 The commonest single cause is the first bullet above: `SceneLighting.Camera` had exactly two writers
 in the whole tree and both were unit tests, so in every running game it was null and no terrain ever
 left the preview. Its sibling consequence — a clustered frame looking its lights up in a grid nobody
-described — is [log event 4004](../../manual/log-events.md), and both exist because a silent degrade
+described — is log event 4004 (`docs/manual/log-events.md`), and both exist because a silent degrade
 costs more to diagnose than the feature costs to build.
 
 ## Shadow casting

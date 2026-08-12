@@ -450,6 +450,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
         Uploads.Clear();
         Readbacks.Clear();
         Nodes.Clear();
+        splits.Clear();
 
         ViewBlock = asset.ViewBlock is { } block && Device is not null ? Block(block) : null;
 
@@ -465,6 +466,10 @@ public sealed class CompositorBuilder(RenderSystem system) {
         }
 
         var compositor = new GraphicsCompositor(system) { Game = asset.Game is null ? null : Node(asset.Game) };
+
+        // After the tree, because it is the tree that says which passes declare the split's four
+        // attachments — and still before anything draws, which is what a permutation needs.
+        SplitOutputs();
 
         foreach (var resource in asset.Resources) {
             compositor.Resources.Add(resource);
@@ -717,6 +722,13 @@ public sealed class CompositorBuilder(RenderSystem system) {
         if (declared.Shader is { Length: > 0 } shader) {
             node.ShaderName = shader;
         }
+
+        // After ShaderName is settled, because that is what the permutation is qualified by. Or-ed
+        // rather than assigned, and recorded for every pass rather than only for a splitting one —
+        // see SplitOutputs for both.
+        splits[node.ShaderName] =
+            splits.GetValueOrDefault(node.ShaderName)
+            || RenderPassRenderer.SplitsOutputs(node.ColourTargets.Count);
 
         // ⚠ The other half of set 0, and the half a document could not say until now. The block, the
         // environment and the probes come from the frame's own objects; a shadow atlas is a graph
@@ -975,6 +987,64 @@ public sealed class CompositorBuilder(RenderSystem system) {
     int reductions;
     int argumentPasses;
     int traceMarches;
+
+    // Whether any pass qualified by a shader's name declares the ambient split's four attachments,
+    // accumulated over the tree and applied once it is built — see SplitOutputs.
+    readonly Dictionary<string, bool> splits = new(StringComparer.Ordinal);
+
+    /// <summary>Tells the material features which shading passes this document splits.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The half of the ambient split a document could say and nothing acted on.</strong>
+    ///         A frame that declares <c>colourTargets: [SceneHdr, SceneAlbedo, SceneNormals,
+    ///         SceneSpecular]</c> has asked for the split in the only terms a document has;
+    ///         <c>ForwardPlus.SplitOutputs</c> is what makes the shading pass write them, and until
+    ///         this ran it was set in two sample projects and nowhere else. The absence was silent
+    ///         and total rather than degraded: the single-target variant writes location 0, the other
+    ///         three planes stay at the clear, and <c>AmbientCombine.rvn</c> reads a zero-length
+    ///         normal as sky and returns the direct target untouched — so a split document rendered
+    ///         pixel-identically to an unsplit one, with every structural assertion passing.
+    ///     </para>
+    ///     <para>
+    ///         Inferred from the frame rather than taken from a host knob, which is the answer
+    ///         <c>TerrainSceneRenderer</c> and <see cref="VisibilityBufferRenderer" /> already give:
+    ///         the split is a property of what the frame declares, and a third place to state it is a
+    ///         third place for the three to disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Or-ed across passes, and both halves of that matter.</b> A shader name qualifies
+    ///         several passes — sample 13's <c>Main</c>, <c>Velocity</c> and <c>Sparks</c> all leave
+    ///         <see cref="RenderPassRenderer.ShaderName" /> at its default — so taking the last pass's
+    ///         answer would let a one-target velocity pass turn the split back off. And the value is
+    ///         written whether it is true or false, never merely when true: <c>Permutations</c>
+    ///         outlives a build, so a reload from a document that dropped the split has to say so.
+    ///     </para>
+    ///     <para>
+    ///         After the tree and before <see cref="Build(GraphicsCompositorAsset)" /> returns, on
+    ///         <c>MaterialRenderFeature.SetPermutation</c>'s terms: building a node resolves no
+    ///         variant, and a value published after one resolved leaves it compiled for the old one.
+    ///     </para>
+    /// </remarks>
+    void SplitOutputs() {
+        foreach (var (shaderName, split) in splits) {
+            var key = RenderPassRenderer.SplitOutputsKey(shaderName);
+
+            foreach (var feature in system.Features) {
+                if (feature is not RootRenderFeature root) {
+                    continue;
+                }
+
+                foreach (var subFeature in root.SubFeatures) {
+                    // Every material feature and not the first, exactly as the cascade count is
+                    // pushed: a host has one per draw path, and which of them draws the pass named
+                    // here is not something this can tell.
+                    if (subFeature is MaterialRenderFeature materials) {
+                        materials.SetPermutation(shaderName, key, split);
+                    }
+                }
+            }
+        }
+    }
 
     /// <summary>The depth reduction, over the pyramid the host supplied.</summary>
     HiZRenderer Reduce(HiZAsset declared) {

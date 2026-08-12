@@ -207,14 +207,21 @@ picture takes; at Epic's scale of 1 it degenerates to its own texel.
 - The clipmap needs a `CompositorBuilder.DistanceField`, which is a project's to supply. Without one
   `!DistanceFieldAo` draws with set 0 unbound — a validation error, not a frame without occlusion.
   `TierScene` builds one analytically from the same boxes it draws.
-- **`ForwardPlus.SplitOutputs` is a permutation on the material and nothing in the engine sets it**
-  — `StandardFrameAsset`'s own remarks say so and call it owed. Its absence is silent and total: the
-  single-target variant writes location 0, the other three planes stay at the clear, and
+- **`ForwardPlus.SplitOutputs` was a permutation on the material and nothing in the engine set it**
+  — `StandardFrameAsset`'s own remarks said so and called it owed. Its absence was silent and total:
+  the single-target variant writes location 0, the other three planes stay at the clear, and
   `AmbientCombine` reads a zero-length normal as sky and hands the direct target straight back. This
   fixture's first rendering was **bit-identical to `tier-high` across all 16 384 pixels** with every
   structural assertion passing. That is why the test asserts the picture differs from the committed
   `tier-high` reference by more than a quarter of the frame before it verifies anything: it is the
   one claim that catches a golden about to be re-recorded as the frame beside it.
+
+  The gap is closed — `CompositorBuilder` reads the permutation off the shading pass's four
+  `colourTargets` and pushes it to the material features, the way it already pushed `CascadeCount`
+  from the shadow node (`RenderPassRenderer.SplitOutputsKey`), so this fixture sets nothing and the
+  two sample projects that used to set it by hand no longer do. **The quarter-of-a-frame assertion
+  stays**, and now guards the inference as well: a pass that loses a target, or a permutation that
+  stops reaching the feature, lands on it exactly as a missing host knob did.
 
 ⚠ **This reference is a picture of a frame with no diffuse ambient in it, and that is a defect it
 records rather than one it hides.** In split mode `ForwardPlus` withholds the diffuse ambient for

@@ -146,6 +146,60 @@ public sealed class RenderPassRenderer : SceneRenderer {
     /// <summary>Which pass's names the published resources are qualified by.</summary>
     public string ShaderName { get; set; } = "ForwardPlus";
 
+    /// <summary>How many colour attachments a pass writing the ambient split declares.</summary>
+    /// <remarks>
+    ///     Location 0 is direct light and emissive, 1 albedo with the material's occlusion in alpha,
+    ///     2 the world normal with roughness in alpha, 3 the surface's <c>f0</c> — the order
+    ///     <c>ForwardPlus.rvn</c> declares its output struct in, which is the order a document's
+    ///     <c>colourTargets</c> has to name them in. Four is therefore not a threshold: it is the
+    ///     count of that struct's members, and a pass with any other number is not a split pass.
+    /// </remarks>
+    public const int SplitTargetCount = 4;
+
+    /// <summary>Whether a pass with this many colour attachments is shading into the split.</summary>
+    /// <param name="targets">How many colour attachments the pass declares.</param>
+    /// <remarks>
+    ///     The mesh forward path's answer to the question <c>TerrainSceneRenderer.DetectMode</c> asks
+    ///     as <c>frame.Has(Albedo) &amp;&amp; frame.Has(Normals) &amp;&amp; frame.Has(Specular)</c> and
+    ///     <see cref="VisibilityBufferRenderer" /> asks of its three target names: is the split there
+    ///     to be written. Asked of the attachment count rather than of resource names because a pass
+    ///     is where the answer is actually enforced — a variant writing location 3 into a pass that
+    ///     declares one attachment is a pipeline the device refuses, and one writing location 0 into
+    ///     a pass that declares four leaves three planes at the clear.
+    /// </remarks>
+    public static bool SplitsOutputs(int targets) => targets >= SplitTargetCount;
+
+    /// <summary>
+    ///     The shader permutation that has to carry <see cref="SplitsOutputs" />, for the pass named.
+    /// </summary>
+    /// <param name="shaderName">The shading pass, as <see cref="ShaderName" /> names it.</param>
+    /// <returns>The key, interned under <c>&lt;pass&gt;.SplitOutputs</c>.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The other half of a split frame, and the half nothing in the engine set.</strong>
+    ///         A document that declares the four planes and an <c>!AmbientCombine</c> to read them has
+    ///         said everything a document can say; whether <c>ForwardPlus</c> <em>writes</em> them is a
+    ///         permutation, and a permutation belongs to the material layer that resolves variants.
+    ///         Until this existed the two halves were joined by hand in two sample projects, and a
+    ///         frame that declared the split without them rendered pixel-identically to one that never
+    ///         split at all — the single-target variant writes location 0, the other three planes stay
+    ///         at the clear, and <c>AmbientCombine.rvn</c> reads a zero-length normal as sky and hands
+    ///         the direct target straight back.
+    ///     </para>
+    ///     <para>
+    ///         Given to <c>MaterialRenderFeature.SetPermutation</c> by <c>CompositorBuilder</c>, on
+    ///         <see cref="ShadowMapRenderer.CascadeCountKey" />'s exact terms and for its reason: the
+    ///         value is a fact about the frame rather than about an object or a material, and it has
+    ///         to be set before the first <c>Prepare</c>, because a variant is cached by its effect
+    ///         key and a value published after one resolved leaves it compiled for the old one.
+    ///     </para>
+    /// </remarks>
+    public static PermutationKey<bool> SplitOutputsKey(string shaderName) {
+        ArgumentException.ThrowIfNullOrEmpty(shaderName);
+
+        return ParameterKeys.NewPermutation(false, $"{shaderName}.SplitOutputs");
+    }
+
     /// <summary>
     ///     The frame's set for whatever draws in this pass, or null for a pass that binds none.
     /// </summary>

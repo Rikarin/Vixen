@@ -256,7 +256,7 @@ flicker near the edges of the screen.
 
 **A renderer that quietly draws something else is worse than one that refuses.** Since 0.1.0 the
 absence is said once — not per frame, and by the first shading pass that notices — as
-[log event 4004](../../manual/log-events.md), through `SceneLighting.Logger`. A hosted game fills
+log event 4004 (`docs/manual/log-events.md`), through `SceneLighting.Logger`. A hosted game fills
 both members together; a test or a tool that fills neither degrades exactly as it did before, and in
 the same silence it asked for.
 
