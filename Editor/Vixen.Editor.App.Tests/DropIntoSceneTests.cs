@@ -203,6 +203,15 @@ public class DropIntoSceneTests {
         editor.Ui.At(from.X, from.Y).DragTo(to.X, to.Y);
         editor.Settle();
 
+        // ⚠ Given more frames before the count is read. `Settle` is two, which is the editor's own
+        // latency and says nothing about a drop that has to resolve two assets — on a loaded macOS
+        // runner one of the two landed inside that window and the other did not, and the failure read
+        // as "the selection was dropped one at a time". The assertion is still the assertion: a drop
+        // that really makes one entity, or three, fails here exactly as before, a second later.
+        for (var settle = 0; settle < 60 && Instances(editor).Count < 2; settle++) {
+            editor.Settle();
+        }
+
         Assert.Equal(2, Instances(editor).Count);
 
         editor.Run("edit.undo");
