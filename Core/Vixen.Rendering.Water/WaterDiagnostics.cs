@@ -352,7 +352,20 @@ public sealed class WaterOverlay : IDiagnosticOverlay {
         // that is not on screen; this one is water that is, drawn from a sea state nobody authored.
         WaterRows.Draw(in region, 4, "no waves", statistics.UnresolvedWaves, theme.Text, statistics.UnresolvedWaves > 0 ? theme.Warning : theme.Muted);
 
-        WaterRows.Draw(in region, 5, "rebuilt", statistics.Rebuilt, theme.Text, statistics.Rebuilt > statistics.Bodies ? theme.Warning : theme.Muted);
+        // ⚠ `>=` and not `>`, and the difference is the row working at all. A rebuild increments
+        // both counters — `GatherBodies` counts the body it just built into `BodyCount` as well as
+        // into `RebuiltBodies` — so `Rebuilt > Bodies` is arithmetically unreachable, and the shade
+        // that says "the amortisation is not happening" could never be drawn. Equality is the
+        // condition <see cref="WaterStatistics.Rebuilt" />'s own remarks describe: a number equal to
+        // the body count every frame is a fold rebuilding everything.
+        WaterRows.Draw(
+            in region,
+            5,
+            "rebuilt",
+            statistics.Rebuilt,
+            theme.Text,
+            statistics.Bodies > 0 && statistics.Rebuilt >= statistics.Bodies ? theme.Warning : theme.Muted
+        );
         WaterRows.Draw(in region, 6, "rasters", statistics.Rasterisations, theme.Text, theme.Muted);
         WaterRows.Draw(in region, 7, "uploads", statistics.Uploads, theme.Text, theme.Muted);
     }
