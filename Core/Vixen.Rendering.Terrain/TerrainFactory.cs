@@ -314,7 +314,14 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
                     terrain.TerrainStreamingMegabytes ?? Vegetation.TerrainStreamingMegabytes
             },
             Device = builder.Device,
-            Modules = builder.Modules
+            Modules = builder.Modules,
+
+            // ⚠ Where the ground gets a voice. Without it a frame that cannot light the terrain
+            // falls back to the preview shaders — whose output is a reflectance rather than a
+            // luminance — and says nothing at all, which is a black ground under a correct sky and
+            // every counter reporting "drawn". Null in a builder with no host behind it, which
+            // keeps a tool's build exactly as quiet as it was.
+            Logger = builder.Logger
         };
 
         // The caster node built earlier in this walk gets the surface node whose draw sets it

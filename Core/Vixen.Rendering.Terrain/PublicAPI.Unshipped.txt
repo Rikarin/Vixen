@@ -489,11 +489,14 @@ Vixen.Rendering.Terrain.TerrainSceneRenderer.Grass.set -> bool
 Vixen.Rendering.Terrain.TerrainSceneRenderer.GrassFieldsDrawn.get -> int
 Vixen.Rendering.Terrain.TerrainSceneRenderer.GrassLayersMissing.get -> int
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Lit.get -> bool
+Vixen.Rendering.Terrain.TerrainSceneRenderer.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Rendering.Terrain.TerrainSceneRenderer.Logger.set -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.MotionVectors.get -> bool
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Normals.get -> string
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Normals.set -> string
+Vixen.Rendering.Terrain.TerrainSceneRenderer.PreviewReason.get -> string?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.RefusedTerrains.get -> int
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Scene.get -> Vixen.Rendering.Terrain.TerrainSceneSource?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.Scene.set -> Vixen.Rendering.Terrain.TerrainSceneSource?

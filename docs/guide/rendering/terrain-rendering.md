@@ -4,7 +4,7 @@ slug: rendering/terrain-rendering
 kind: guide
 area: Rendering
 summary: A quadtree with a vertex morph, one instanced grid patch, no vertex buffer, and one draw call however many patches it takes.
-api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, T:Vixen.Shaders.Generated.TerrainLitKeys, T:Vixen.Shaders.Generated.TerrainLitConstants, T:Vixen.Shaders.Generated.TerrainLitCascadesElement, T:Vixen.Shaders.Generated.TerrainCasterKeys, T:Vixen.Shaders.Generated.TerrainCasterConstants, R:Terrain/Terrain, R:Terrain/TerrainLit, R:Terrain/TerrainCaster, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures, T:Vixen.Rendering.Terrain.TerrainStreamer, T:Vixen.Rendering.Terrain.TerrainTilePages, T:Vixen.Rendering.Terrain.TerrainTileSource, T:Vixen.Rendering.Terrain.ITerrainTileSource, T:Vixen.Rendering.Terrain.TerrainTileHandler, T:Vixen.Engine.Renderer.AssetTerrainTextures, T:Vixen.Rendering.Terrain.TerrainNodeAsset, T:Vixen.Rendering.Terrain.TerrainFactory, T:Vixen.Rendering.Terrain.TerrainSceneRenderer, T:Vixen.Rendering.Terrain.TerrainSceneSource, T:Vixen.Rendering.Terrain.TerrainSceneEntry, T:Vixen.Rendering.Terrain.ITerrainAssetSource, T:Vixen.Rendering.Terrain.TerrainExtractionSystem, T:Vixen.Rendering.Terrain.TerrainVegetationQuality, T:Vixen.Engine.Renderer.AssetTerrainSource, R:Terrain/TerrainVelocity, T:Vixen.Shaders.Generated.TerrainVelocityKeys, T:Vixen.Shaders.Generated.TerrainVelocityConstants, L:14016]
+api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, T:Vixen.Shaders.Generated.TerrainLitKeys, T:Vixen.Shaders.Generated.TerrainLitConstants, T:Vixen.Shaders.Generated.TerrainLitCascadesElement, T:Vixen.Shaders.Generated.TerrainCasterKeys, T:Vixen.Shaders.Generated.TerrainCasterConstants, R:Terrain/Terrain, R:Terrain/TerrainLit, R:Terrain/TerrainCaster, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures, T:Vixen.Rendering.Terrain.TerrainStreamer, T:Vixen.Rendering.Terrain.TerrainTilePages, T:Vixen.Rendering.Terrain.TerrainTileSource, T:Vixen.Rendering.Terrain.ITerrainTileSource, T:Vixen.Rendering.Terrain.TerrainTileHandler, T:Vixen.Engine.Renderer.AssetTerrainTextures, T:Vixen.Rendering.Terrain.TerrainNodeAsset, T:Vixen.Rendering.Terrain.TerrainFactory, T:Vixen.Rendering.Terrain.TerrainSceneRenderer, T:Vixen.Rendering.Terrain.TerrainSceneSource, T:Vixen.Rendering.Terrain.TerrainSceneEntry, T:Vixen.Rendering.Terrain.ITerrainAssetSource, T:Vixen.Rendering.Terrain.TerrainExtractionSystem, T:Vixen.Rendering.Terrain.TerrainVegetationQuality, T:Vixen.Engine.Renderer.AssetTerrainSource, R:Terrain/TerrainVelocity, T:Vixen.Shaders.Generated.TerrainVelocityKeys, T:Vixen.Shaders.Generated.TerrainVelocityConstants, L:14016, L:4003]
 tags: [terrain, rendering, lod, cdlod, instancing]
 since: 0.1
 status: preview
@@ -340,6 +340,36 @@ All three or none: the presence of the resources is the signal, and a pass that 
 attachments against a shader that writes four is refused at the draw rather than short one plane.
 The ground's `f0` is a constant because dirt, grass and bark are dielectrics and the splat has no
 metalness authoring — not a placeholder, an answer.
+
+### The preview degrade says so out loud
+
+⚠ **A renderer that quietly draws something else is worse than one that refuses.** The fallback above
+is right and is worth keeping — an editor pane has to draw ground before a game exists — but the two
+paths are not interchangeable, and for the whole life of the engine there was no way to tell them
+apart from outside the process.
+
+`Terrain`'s fragment returns `Albedo() * (0.25 + 0.75 * light)`: a **reflectance in [0, 1]**, where
+`TerrainLit` returns a **luminance in cd/m²**. Against a daylight sky of some thousands of lux that
+is about one nit in a frame metered for thousands, so the preview ground draws as **black ground
+under a correct sky** — at every viewpoint, at every hour, with `TerrainSceneRenderer.TerrainsDrawn`
+reporting the terrain drawn, because it was. Nothing about the picture says "the wrong shader"; it
+looks like a broken sun, a broken splat or a broken exposure, and it was diagnosed as all three.
+
+That is now audible and inspectable:
+
+- **`TerrainSceneRenderer.PreviewReason`** is the sentence naming which of the three inputs was
+  missing, or `null` on a lit frame. `Lit` says *that* the ground fell back; this says *which*.
+- **Log event 4003** says the same sentence once — on the transition into the preview, not per frame
+  — through `TerrainSceneRenderer.Logger`, which `TerrainFactory` fills from `CompositorBuilder.Logger`
+  and a hosted game fills from its own logger factory under the `Vixen.Rendering` category. A builder
+  with no host behind it leaves it null, and a build that is meant to be quiet stays exactly as quiet
+  as it was.
+
+The commonest single cause is the first bullet above: `SceneLighting.Camera` had exactly two writers
+in the whole tree and both were unit tests, so in every running game it was null and no terrain ever
+left the preview. Its sibling consequence — a clustered frame looking its lights up in a grid nobody
+described — is [log event 4004](../../manual/log-events.md), and both exist because a silent degrade
+costs more to diagnose than the feature costs to build.
 
 ## Shadow casting
 

@@ -264,6 +264,8 @@ Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.get -> Vixen.R
 Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.set -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
 Vixen.Rendering.Compositor.CompositorBuilder.Lights.get -> Vixen.Rendering.IPunctualLightSource?
 Vixen.Rendering.Compositor.CompositorBuilder.Lights.set -> Vixen.Rendering.IPunctualLightSource?
+Vixen.Rendering.Compositor.CompositorBuilder.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Rendering.Compositor.CompositorBuilder.Logger.set -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Rendering.Compositor.CompositorBuilder.Look.get -> Vixen.Rendering.LookAsset?
 Vixen.Rendering.Compositor.CompositorBuilder.Look.set -> Vixen.Rendering.LookAsset?
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
@@ -2752,6 +2754,8 @@ Vixen.Rendering.Lighting.SceneLighting.Dropped.get -> int
 Vixen.Rendering.Lighting.SceneLighting.Environment.get -> Vixen.Rendering.Lighting.EnvironmentLight?
 Vixen.Rendering.Lighting.SceneLighting.Environment.set -> Vixen.Rendering.Lighting.EnvironmentLight?
 Vixen.Rendering.Lighting.SceneLighting.Extract(Vixen.Shaders.ParameterCollection parameters, Vixen.Shaders.Effect effect) -> void
+Vixen.Rendering.Lighting.SceneLighting.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Rendering.Lighting.SceneLighting.Logger.set -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Rendering.Lighting.SceneLighting.Probes.get -> Vixen.Rendering.Lighting.ReflectionProbeSelector?
 Vixen.Rendering.Lighting.SceneLighting.Probes.set -> Vixen.Rendering.Lighting.ReflectionProbeSelector?
 Vixen.Rendering.Lighting.SceneLighting.SceneLighting() -> void

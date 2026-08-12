@@ -39,4 +39,34 @@ static partial class RenderingLog {
             + "will draw nothing until the pool is bigger. The request is still queued."
     )]
     public static partial void PinnedPageRefused(ILogger logger, long refusals, int pinned, int capacity);
+
+    /// <summary>
+    ///     The froxel grid was never told which camera it is for, so the shader used its own defaults.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Once per degrade, not once per pass and never per frame.</b>
+    ///         <see cref="Lighting.SceneLighting.Extract" /> runs for every shading pass of every
+    ///         frame; the first pass that notices says this and the rest are silent until a camera
+    ///         arrives and goes away again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The consequence is <em>not</em> zeros. <c>ClusteredShading.rvn</c> declares
+    ///         <c>tanHalfFov = float2(1, 0.5625)</c>, <c>nearPlane = 0.1</c> and
+    ///         <c>farPlane = 1000</c>, which is exactly a 16:9 camera at a ninety-degree horizontal
+    ///         field of view — a plausible grid for a camera nobody has, which is why nothing about
+    ///         the picture says the numbers are missing.
+    ///     </para>
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 4004,
+        Level = LogLevel.Warning,
+        Message = "SceneLighting.Camera is null, so nothing wrote the froxel grid's half-tangents or "
+            + "planes for pass '{Pass}'. A clustered frame still shades: it looks every fragment up "
+            + "in the grid with the shader's declared defaults — a 16:9 camera at 90° horizontal "
+            + "with planes at 0.1 and 1000 — so lights land in the wrong froxel rather than nowhere, "
+            + "which draws as flicker near the screen edges rather than as an error. Set it beside "
+            + "the frame's view camera."
+    )]
+    public static partial void LightingCameraMissing(ILogger logger, string pass);
 }

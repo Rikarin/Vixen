@@ -4,7 +4,7 @@ slug: rendering/physical-lighting
 kind: guide
 area: Rendering
 summary: Colour temperature, photometric units, an analytic daylight sky, and the one exposure that brings them back to a display.
-api: [T:Vixen.Rendering.Photometry, T:Vixen.Rendering.LightUnit, T:Vixen.Rendering.Lighting.PhysicalSky, T:Vixen.Rendering.Lighting.SkyParameters, T:Vixen.Rendering.Lighting.EnvironmentTexture, T:Vixen.Rendering.PostFx.SkyRenderer, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Engine.Cameras.Camera, R:PostFx/Sky]
+api: [T:Vixen.Rendering.Photometry, T:Vixen.Rendering.LightUnit, T:Vixen.Rendering.Lighting.PhysicalSky, T:Vixen.Rendering.Lighting.SkyParameters, T:Vixen.Rendering.Lighting.EnvironmentTexture, T:Vixen.Rendering.PostFx.SkyRenderer, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Engine.Cameras.Camera, R:PostFx/Sky, L:4004]
 tags: [rendering, lighting, exposure, sky]
 since: 0.1
 status: stable
@@ -240,8 +240,30 @@ camera that cannot exist.
 sets the defocus, through `CircleOfConfusion`. Two unrelated sliders can be set so that a bright image
 has deep focus, which no lens does.
 
+### The camera the *lighting* is told about, which is a third thing
+
+`SceneLighting.Camera` is not the frame's camera and not the view's — it is the four numbers that
+place a fragment in the froxel grid: the field of view, the aspect ratio and the two planes.
+`ClusterGrid.Apply` is the one implementation that writes them, and it is called only when that
+member is set.
+
+⚠ **When it is not set, the shading pass does not stop — it uses the shader's declared defaults.**
+`ClusteredShading.rvn` declares `tanHalfFov = float2(1, 0.5625)`, `nearPlane = 0.1` and
+`farPlane = 1000`, which is exactly a 16:9 camera at a ninety-degree horizontal field of view. That
+is a *plausible* grid for a camera nobody has, so every fragment finds a froxel, every lamp shades
+something, and nothing in the picture says the numbers were never written. It reads as lights that
+flicker near the edges of the screen.
+
+**A renderer that quietly draws something else is worse than one that refuses.** Since 0.1.0 the
+absence is said once — not per frame, and by the first shading pass that notices — as
+[log event 4004](../../manual/log-events.md), through `SceneLighting.Logger`. A hosted game fills
+both members together; a test or a tool that fills neither degrades exactly as it did before, and in
+the same silence it asked for.
+
 ## See also
 
+- [Drawing a terrain](terrain-rendering.md) — the sibling degrade, and what a reflectance in a cd/m²
+  frame looks like.
 - [Making everything cast a shadow](shadows.md) — the other half of a directional light.
 - [The post-processing node kinds](post-processing.md) — every screen-space effect, and their order.
 - [Turning on dynamic global illumination](lit-path.md) — where the bounced light comes from.

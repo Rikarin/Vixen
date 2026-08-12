@@ -83,10 +83,22 @@ class that has to be a log line rather than a counter nobody reads. What keeps i
 `PageResidency.Service` compares two longs when the frame is healthy and formats nothing, and reports
 at most one line per five seconds when it is not.
 
+⚠ **The range is a prefix, not one assembly.** `Vixen.Rendering.Terrain` and `Vixen.Rendering.PostFx`
+draw from these thousand ids too, which is why 4003 is a terrain line and is not in the 13 000 range
+the host owns. The table above is the authority; the assembly a line comes from is not.
+
+**A renderer that quietly draws something else is worse than one that refuses.** 4003 and 4004 are
+both that shape: a required input was absent, a designed-in fallback took over, the frame drew, and
+every counter stayed healthy — so the picture looked like a different bug entirely. Both are said
+*once per degrade* rather than per frame, because what a reader wants is a cause and a cause does not
+change sixty times a second.
+
 | Id | Level | Message | Since |
 |---|---|---|---|
 | 4001 | Warning | `The page pool refused {Refusals} request(s): {Resident} of {Capacity} page(s) are resident and {Pinned} of those are pinned, so there was nothing left to evict.` — the frame drew something coarser than it asked for, which is designed behaviour and still worth seeing | 0.1.0 |
 | 4002 | Error | `{Refusals} pinned page(s) could not be given a slot: {Pinned} of {Capacity} page(s) are pinned already.` — error rather than warning because it is permanent: a refused request is a coarser frame and the next frame asks again, and the only thing that pins is a registration that has already happened | 0.1.0 |
+| 4003 | Warning | `'{Node}' is drawing the ground with the preview shaders because {Missing}.` — `Vixen.Rendering.Terrain`, said once per degrade. The preview fragment returns a reflectance in [0, 1] rather than a luminance in cd/m², so under a physically metered sky the ground is roughly one nit in a frame exposed for thousands: **black ground under a correct sky**, at every viewpoint and every hour, with `TerrainsDrawn` reporting it drawn. `{Missing}` names which of the three inputs was absent — the lighting camera, the published cascades, or the shadow atlas resource | 0.1.0 |
+| 4004 | Warning | `SceneLighting.Camera is null, so nothing wrote the froxel grid's half-tangents or planes for pass '{Pass}'.` — said once per degrade, by the first shading pass that notices. ⚠ The consequence is *not* zeros: `ClusteredShading.rvn` declares `tanHalfFov = float2(1, 0.5625)`, `nearPlane = 0.1` and `farPlane = 1000`, which is a 16:9 camera at ninety degrees horizontal — a plausible grid for a camera nobody has | 0.1.0 |
 
 ### `Vixen.Ui.Reactive` — the signal graph
 
