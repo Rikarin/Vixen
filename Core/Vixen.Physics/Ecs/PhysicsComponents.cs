@@ -201,6 +201,32 @@ public struct PhysicsInterpolation {
 
     /// <summary>Which way it faces at the end of the current step.</summary>
     public Quaternion CurrentRotation;
+
+    /// <summary>The position <c>PhysicsInterpolationSystem</c> last wrote onto the transform.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Provenance, and it is what keeps a character from walking at half speed.</b> This
+    ///         smoothing writes <c>LocalTransform</c>, and <c>LocalTransform</c> is an <i>input</i> to
+    ///         a <c>CharacterMovement</c>: <c>PhysicsScene.Adopt</c> reads it at the top of
+    ///         every step and takes anything that disagrees with the controller as a teleport, because
+    ///         that is how a respawn, a checkpoint and a rollback reach a <c>CharacterController</c> at
+    ///         all. With <c>alpha</c> at zero — every frame whose delta is one fixed step — the pose
+    ///         written here is the <i>previous</i> step's, so the adopt undid every other step and a
+    ///         4.5 m/s walk covered 2.25.
+    ///     </para>
+    ///     <para>
+    ///         Recording the exact value written is what lets the bridge tell its own smoothing's pose
+    ///         from a pose somebody else wrote, without guessing from geometry. The obvious guess — is
+    ///         the transform on the segment between the two poses — swallows the commonest correction
+    ///         there is, because a client that mispredicts along its own path is corrected <i>along
+    ///         that segment</i>.
+    ///     </para>
+    ///     <para>
+    ///         Position and no rotation, because a character's rotation is owned by its controller and
+    ///         a written one is not adopted. A rigid body never reads this at all.
+    ///     </para>
+    /// </remarks>
+    public Vector3 DrawnPosition;
 }
 
 /// <summary>

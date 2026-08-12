@@ -156,6 +156,54 @@ count.
 ⚠ A picture from the spawn corner of a *correct* sample 13 frame looks almost entirely in shade even
 at 512, because the spawn faces away from the sun. That is not a bug and has been mistaken for one.
 
+### ⚠ A capture is of a still frame unless something drives the camera
+
+Everything above is about a camera that does not move, and **the renderer's temporal half is not
+exercised by one**. Reprojection is antialiasing's entire job; motion vectors are a target of zeroes;
+motion blur is a copy; the fog's history has nothing to reproject; and the virtual shadow map refits
+its finest level every 0.31 m of walking and never refits at all when nobody walks. Two
+investigations into a reported shadow blink have now ended at "the mechanism most likely to produce
+this lives under motion, and I could not measure it".
+
+Nothing in the host drives a camera, and that is deliberate — a scripted camera in `Vixen.App` is the
+first half of a cutscene or a replay system. What the engine gives instead is
+`Vixen.Engine.Players.IPlayerInputSource`, whose own documentation names a planner, a replay and a
+test as the things that implement it. A scripted walk is one of those, in the game, in about two
+hundred lines: `Samples/13-ThirdPersonShooter/ScriptedWalk.cs` is the reference implementation and
+`VIXEN_WALK` is how a run asks for it.
+
+⚠ **Whatever drives it must ride the fixed step.** A source that reads a `Stopwatch` makes the walk a
+function of how fast the machine rendered, which is exactly the wall-clock non-reproducibility
+`--vixen-fixed-step` was added to remove — and a second clock of exactly that kind was found driving
+`TerrainSceneSource`'s grass wind, where it made the sway a function of process age.
+`IPlayerInputSource.Sample` is handed the frame's delta; that is the only time it may use.
+
+⚠ **Measure the walking floor before concluding anything from a walking diff.** It is not the still
+floor, and neither is a constant — see the table above and the sample's README for the numbers this
+repository has measured. On this repository's arena the walking floor came out about **six times
+tighter** than the still floor from the same start pose, which is the opposite of what was expected:
+the floor turns out to be a property of what is on screen rather than of whether the camera moved.
+
+⚠ Those walking numbers were measured while a character carrying `PhysicsInterpolation` walked at half
+the speed its `CharacterMovement` asked for — an engine defect the same harness found and which is now
+fixed. A script's durations are against the level's own walk speed again, so the same script covers
+twice the ground and sees twice as much of the level: **re-measure the floor rather than quoting these
+numbers.** The sample's README says what the mechanism was.
+
+### Two frames of one run, rather than two runs
+
+`--vixen-capture` writes the last frame, so frame *N* and frame *N* + 1 are two whole runs — and two
+runs differ by the renderer's own scheduling as well as by the frame step. For a *temporal* question
+that is the wrong instrument: over grass and screen-probe GI the cross-run residue reaches a mean
+absolute channel near 1/255, which is half of what one frame of walking produces.
+
+`AppGraphics.RequestCapture(name)` is the public way to ask for one frame by hand, and a loop over it
+is a strip: many frames of **one** run, sharing a schedule, a streaming state and a probe history, so
+their difference is the frame step and nothing else. `VIXEN_STRIP=first-last[/stride]` in sample 13 is
+thirty lines of exactly that, and the stride is what reaches a multi-second timescale — a strip of
+thirty consecutive frames is half a second, and a defect somebody describes in seconds will not be in
+it.
+
 ### Where the picture comes from
 
 The frame's last colour target, after tonemapping, antialiasing and every post effect. In sample 13

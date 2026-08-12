@@ -428,6 +428,12 @@ public class RemesherTests {
     ///     ends into one output vertex, which is what "collapse" means — but a patch whose whole width
     ///     or whole height comes to zero produces no quads at all and is a bug. Both halves are asserted:
     ///     zeros are allowed to be present, and every patch's two dimensions are positive.
+    ///
+    ///     ⚠ <b>A fan has three sides rather than two pairs, and its constraint is the same law written
+    ///     once more.</b> Its three spokes are what the router solved for, so what has to hold is that
+    ///     each side equals the two spokes it runs between — <c>n₀ = a + c</c>, <c>n₁ = a + b</c>,
+    ///     <c>n₂ = b + c</c> — and that each spoke is at least one, which is the whole of the parity and
+    ///     the triangle inequality a three-quads-round-a-centre filling needs.
     /// </remarks>
     [Theory]
     [InlineData("box")]
@@ -444,7 +450,23 @@ public class RemesherTests {
             Assert.True(count >= 0, "A side quantized to a negative number of quads.");
         }
 
-        foreach (var patch in layout.Patches) {
+        for (var index = 0; index < layout.Patches.Count; index++) {
+            var patch = layout.Patches[index];
+
+            if (patch.IsFan) {
+                var (a, b, c) = quantization.Spokes[index];
+
+                Assert.True(a > 0 && b > 0 && c > 0, $"{name}: a fan quantized to spokes {a}, {b}, {c}.");
+
+                int[] wanted = [a + c, a + b, b + c];
+
+                for (var at = 0; at < 3; at++) {
+                    Assert.Equal(wanted[at], patch.Sides[at].Sum(use => quantization.Counts[use.Arc]));
+                }
+
+                continue;
+            }
+
             var wide = patch.Sides[0].Sum(use => quantization.Counts[use.Arc]);
             var tall = patch.Sides[1].Sum(use => quantization.Counts[use.Arc]);
 
@@ -475,9 +497,23 @@ public class RemesherTests {
     ///     a thousand times. Asserting the count would be asserting that R1 is bit-exact under scaling,
     ///     which it is not and does not claim to be. What must hold is that <i>nothing degrades</i> — the
     ///     result is still all quads, still as near the surface, still with nothing on a feature.
+    ///
+    ///     ⚠⚠ <b>The four factors around a thousandth are a swept neighbourhood rather than four
+    ///     sizes, and sweeping is what found the defect.</b> A single sample at <c>1e-3</c> passed while
+    ///     <c>0.0009</c> came back with ten boundary edges: the ulp-level perturbation above reaches the
+    ///     partition as a different flood, and at that one scale it left a patch bounded by three arcs
+    ///     that <c>Divide</c> could not corner and <c>Merge</c> was too large to dissolve — dropped, and
+    ///     the drop is the hole. <b><c>Assert.Equal(unit.Mesh.IsSolid, scaled.Mesh.IsSolid)</c> is the
+    ///     assertion that caught it and it is not to be weakened to "solid, or a warning saying it is
+    ///     not".</b> A warning is what the pipeline owes a caller about a hole; it is not permission for
+    ///     one, and a test that accepts the apology tests only that the apology was printed. The layout
+    ///     carries such a patch as a fan now, so all four are solid.
     /// </remarks>
     [Theory]
+    [InlineData(9e-4f)]
+    [InlineData(9.9e-4f)]
     [InlineData(1e-3f)]
+    [InlineData(1.1e-3f)]
     [InlineData(1e+3f)]
     public void The_same_shape_at_another_size_gives_the_same_answer(float factor) {
         var settings = new RemeshSettings { TargetQuads = 400 };
@@ -489,30 +525,8 @@ public class RemesherTests {
         Assert.Equal(0, scaled.NonQuadCount);
         Assert.Equal(unit.SingularitiesOnFeatures, scaled.SingularitiesOnFeatures);
 
-        // Solid, or else the stage that lost it said so — which is the promise this pipeline actually
-        // makes, and asserting the first half alone is what made this the Windows leg's oldest red.
-        //
-        // ⚠ What is being separated here. A patch the layout can neither divide nor merge is dropped
-        // and its area is a hole, and `PatchLayout` documents the case it cannot repair: a
-        // three-sided patch whose every bounding arc is a feature has nothing it is allowed to
-        // dissolve, so it goes on being dropped every round (PatchLayout.cs, the block above
-        // `degenerate++`). Whether a given partition contains one is decided by tie-breaks between
-        // near-equal edge lengths, and 0.001f is not a binary fraction — so the same sphere at a
-        // thousandth is a *differently* conditioned mesh, and which side of that coin it lands on is
-        // the machine's rounding rather than anything about scale. Measured here at ×0.0009: solid at
-        // ×0.001, ×0.00099, ×0.0011 and ×0.002, and ten boundary edges at ×0.0009, from one dropped
-        // patch. The Windows runner lands on it at ×0.001; nothing about that leg is special.
-        //
-        // So the assertion is the invariant that does hold: nothing is lost silently. When the real
-        // repair lands — three quads round a centre point, which keeps the crease and fills the hole
-        // — this goes back to the equality above and the sweep stops mattering.
-        if (unit.Mesh.IsSolid && !scaled.Mesh.IsSolid) {
-            Assert.Contains(
-                scaled.Warnings,
-                warning => warning.Contains("dropped", StringComparison.Ordinal)
-                    || warning.Contains("boundary edge", StringComparison.Ordinal)
-            );
-        }
+        Assert.Equal(unit.Mesh.IsSolid, scaled.Mesh.IsSolid);
+        Assert.Equal(unit.Mesh.Boundary.Count, scaled.Mesh.Boundary.Count);
 
         // Within a factor of two of the same count, which is a statement that the density field and
         // the quantization are reading a scale-free number rather than a length.

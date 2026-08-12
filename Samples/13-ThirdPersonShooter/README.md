@@ -99,6 +99,49 @@ It cannot live in `Vixen.Rendering.Terrain`, which does not reference `Vixen.Phy
 nothing in the rendering stack does. It belongs in a small join assembly on `Vixen.Water.Physics`'
 precedent, and it is here because a sample is where it can be shown without deciding that.
 
+### ⚠ A character with `PhysicsInterpolation` used to walk at half speed — fixed, and this is how it was found
+
+The level asks for `WalkSpeed = 4.5` and the player covered **2.25 m/s**. The factor was exactly two
+and the mechanism was two systems writing one component:
+
+- `PhysicsInterpolationSystem` runs in `LateUpdate` and writes `LocalTransform` to
+  `Lerp(Previous, Current, alpha)`. With a frame delta equal to the fixed step — which is every
+  `--vixen-capture` run and every machine holding 60 fps — `alpha` is 0, so the transform was put back
+  to the **previous** step's pose.
+- `PhysicsScene.Adopt`, at the top of the next `StepCharacters`, saw a `LocalTransform` that differed
+  from the controller's position by more than a tenth of a millimetre and **teleported the controller
+  to it**, because a character's transform is how a game teleports one.
+
+So every other frame's step was undone before it was taken, and the arithmetic gives exactly half. The
+same file stated the premise that made it possible: *"a character needs no tag, because nothing else
+writes its transform between two steps"* — `PhysicsInterpolationSystem` does, on the same entity,
+every frame. That sentence is now a paragraph saying the opposite, because a comment asserting the
+invariant being violated is how this survived.
+
+A/B, same route, on the Null device: with the component, 1.819 m in the first second and 8.561 m in
+four; with the two lines that add it removed, **3.821 m** in the first second. Nothing else changed.
+After the fix the same route covers **3.746 m** and **17.171 m** — the remaining 0.075 m is one fixed
+step at walk speed, because `Report` reads the transform and what is *drawn* is a step behind the
+simulation by design.
+
+It was not this sample's misuse. `PhysicsScene.WriteCharacterBack` fills a character's
+`PhysicsInterpolation` itself, which is what puts a character in that pass's query at all.
+
+**The repair, and why it is not the obvious one.** `PhysicsInterpolationSystem` now records the exact
+pose it wrote in `PhysicsInterpolation.DrawnPosition`, and `Adopt` ignores a transform still sitting
+on it. The obvious repair — do not adopt a transform lying on the segment between the two
+interpolated poses — is worse rather than cheaper: `Adopt` is on the path a rollback replays, and a
+client that mispredicts *along its own path* is corrected along exactly that segment, so the guess
+would swallow the commonest correction there is. Excluding characters from the smoothing was the other
+candidate and trades this defect for the camera judder the comment in `PlayerRig.CreatePawn`
+describes. `PhysicsScene.CharacterAdoptionCount` is the number that would have made this visible from
+the start: a walking character is adopted zero times, and this one was adopted sixty times a second.
+
+**And this sample is what could see it at all.** A still capture cannot see a speed;
+`CharacterSceneTests.SmoothingACharacterDoesNotChangeHowFarItWalks` is the regression test the
+measurement bought, and it runs a whole `EngineLoop` because the four physics passes called by hand —
+what every other test in that file does — never run `LateUpdate` and so could not see it either.
+
 **And there is a lake, ten metres past the north gate.** It is the tree's only `!WaterSurface` node:
 before this, `WaterMeshRenderer` was exercised by the golden suite alone. Three more absences had to
 be filled to get a body as far as the fold, and all three are the same shape as the collider —
@@ -145,6 +188,109 @@ mean absolute channel of 0.002/255, which is what makes an A/B against another c
 ⚠ **The spawn corner faces away from the sun, so a correct frame is almost all shade.** That has been
 mistaken for a broken one. [The guide](../../docs/guide/rendering/capturing-a-frame.md) says what else
 a headless picture is and is not.
+
+### Walking, because a still frame cannot show a temporal defect
+
+`VIXEN_SPAWN` places the camera and nothing moves it afterwards — the pawn falls the twenty
+centimetres from its spawn height to the floor and that is the whole of the motion a headless run has
+ever had, over about a fifth of a second. So every picture above is of a **still** frame, and
+reprojection, motion vectors, motion blur, the fog's temporal history and the virtual shadow map's
+refit are all things that only happen when the camera moves. `VIXEN_WALK` is the other half: a script
+the player is driven by instead of a device.
+
+```
+VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK=20 \
+dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+    --vixen-headless --vixen-frames 512 --vixen-variant Development --vixen-capture ./shots
+```
+
+A script is legs separated by `;`, each `seconds:forward:strafe:yawRate:pitchRate` with everything
+after the duration optional — so `20` is "walk straight ahead for twenty seconds", `2:0:0:90` is
+"stand still and pan ninety degrees a second", and the two joined by a `;` do one then the other.
+`ScriptedWalk` is the whole of it, and it is an `IPlayerInputSource`, which is the seam the engine
+already documents as the one a planner, a replay or a test takes — so nothing in the engine changed
+to make this work.
+
+⚠ **It rides the fixed step and has no clock of its own.** `--vixen-capture` implies
+`--vixen-fixed-step` at a sixtieth, so a leg's duration is an exact number of frames and two runs walk
+identically. The tests beside it were checked against a sabotaged copy holding a `Stopwatch` — the
+second clock that was found driving the grass wind — and the result is written down there, because the
+obvious guard is the one that does not catch it.
+
+⚠ **The route matters, and the level is full of things to walk into.** `Crate4` sits at (0, 0, 12)
+and is 1.6 m tall, so the obvious script — spawn at the origin, walk south — stops dead after eleven
+metres with every counter reporting a successful run. `x = −3` misses it and threads the south gate,
+whose hole is `x ∈ [−4, 4]`.
+
+⚠ **The character used to walk at half the speed the level asks for**, and it was not this harness's
+doing — see *A character with `PhysicsInterpolation` used to walk at half speed* above, which this
+harness is what found. A script's durations are now against the level's own 4.5 m/s, so **every route
+written before that fix goes twice as far as its author measured**. The twenty-second script above
+now covers 87.9 m and finishes at (−3.2, 3.7, 111.9), up on the terrain rather than just past the
+gate; it still walks the whole way with no respawns, but it is a different picture than it was.
+
+`VIXEN_STRIP=first-last[/stride]` is the other half, and it is what makes a temporal question
+answerable at all: it writes a picture of **every** frame in a range beside the ordinary `frame.png`,
+so frame *N* and frame *N* + 1 come out of one run and their difference is the frame step rather than
+two runs' scheduling. `0-1200/30` samples twenty seconds of walking at half-second intervals, which is
+the timescale a person reporting "it blinks for ten or twenty seconds" is describing.
+
+### What a walking capture measures, and what it does not
+
+Measured on this level at 1600 × 900, 512 frames, from `-3,0.2,24,180` walking out of the south gate:
+
+| | Mean channel gap | Mean \|delta\| | Flipped pixels |
+|---|---|---|---|
+| Two identical **walking** runs | 0.0040 | 0.0085/255 | 32 157 of 1 440 000 |
+| Two identical **still** runs, same start pose | 0.0197 | 0.0492/255 | 170 194 of 1 440 000 |
+
+⚠ **The walking floor is about six times *tighter* than the still floor at the same viewpoint**, which
+is the opposite of what was expected. Two walking runs land on bit-identical player positions —
+`(-3.0024705, 0.69134784, 42.6403)` both times — so nothing in the walk itself contributes, and what
+is left is the renderer's own scheduling residue over whatever is on screen. The still view here looks
+at the arena floor and the walls, and the walking one ends up in deep grass; screen-probe GI over
+built surfaces is apparently noisier run-to-run than grass is. **The floor is a property of the
+viewpoint, not of whether the camera moved** — measure it where you intend to measure, every time.
+
+A *within-run* frame-to-frame delta is a different and much better instrument, because the two frames
+share one schedule. Walking, mid-arena, facing down-sun, thirty-one consecutive frames:
+
+| | Whole-frame mean \|delta\| | Worst 32 × 32 tile | Tiles over 4/255 |
+|---|---|---|---|
+| Still | 0.17 – 0.25 | 1.9 – 2.9 | 0 |
+| Walking | 0.57 – 0.71 | 5.5 – 11.2 | 8 – 22 |
+
+Both series are **smooth**: the walking one's frame-to-frame delta never departs from its own median
+by more than 12 %, and the single largest regional event in thirty frames — a tile at 11.2 — is a
+lamp's ember particles against the sky, not a shadow.
+
+### ⚠ Walking does not reproduce the reported shadow blink
+
+Four walking routes, all captured as within-run strips so the comparison is free of cross-run noise:
+out of the south gate onto the terrain, across the gate itself, the same at three times the throttle
+(≈ 6 m/s, so the clipmap's finest level recentres about every three frames instead of every eight),
+and mid-arena facing down-sun where the walls' shadows are actually on screen. **None shows a blink.**
+
+The whole-frame frame-to-frame delta stays within 8–40 % of its own median in every strip; every
+regional peak that was chased turned out to be embers or the third-person camera's occlusion spring
+pulling in behind the pawn. The direct measurement is the shadowed floor's own brightness, over
+thirty-one consecutive frames of walking mid-arena:
+
+| Region | Walking: total range / worst single-frame step | Still: the same |
+|---|---|---|
+| The shadow boundary by the walls | 0.62 / 0.15 of 255 | 0.26 / 0.11 |
+| Open shadowed floor | 0.40 / 0.08 | 0.11 / 0.02 |
+
+Motion makes the shadowed floor about three times less steady, and three times a hundredth of a unit
+is still a hundredth of a unit. A page/cascade disagreement flipping over a region would be units, not
+hundredths.
+
+⚠ **This is a negative result at *this* timescale and not a closure.** The complaint was ten to
+twenty seconds; a strip of thirty-one consecutive frames is half a second. A twenty-second strided
+strip does swing — the whole-frame mean channel runs 83.9 → 102.4 → 87.7 → 109.4 over the walk — but
+at half-second sampling that is auto-exposure and the camera's own occlusion, both of which change
+what is on screen, and it cannot separate a shadow from a view. Closing the question wants a
+per-frame counter of pages absent at the shading pass, not another picture.
 
 ## The picture, and what is in the way
 

@@ -191,24 +191,45 @@ static class PatchExtractor {
         var grids = new List<PatchGrid>(layout.Patches.Count);
 
         for (var index = 0; index < layout.Patches.Count; index++) {
-            var refused = Fill(
-                mesh,
-                output,
-                layout,
-                samples,
-                layout.Patches[index],
-                index,
-                projector,
-                arcOf,
-                sourceOf,
-                pinned,
-                out var grid
-            );
+            string? refused;
+
+            if (layout.Patches[index].IsFan) {
+                refused = Fan(
+                    mesh,
+                    output,
+                    layout,
+                    samples,
+                    quantization,
+                    layout.Patches[index],
+                    index,
+                    projector,
+                    arcOf,
+                    sourceOf,
+                    pinned,
+                    grids
+                );
+            } else {
+                refused = Fill(
+                    mesh,
+                    output,
+                    layout,
+                    samples,
+                    layout.Patches[index],
+                    index,
+                    projector,
+                    arcOf,
+                    sourceOf,
+                    pinned,
+                    out var grid
+                );
+
+                if (refused is null && grid is not null) {
+                    grids.Add(grid);
+                }
+            }
 
             if (refused is not null) {
                 skipped[refused] = skipped.GetValueOrDefault(refused) + 1;
-            } else if (grid is not null) {
-                grids.Add(grid);
             }
         }
 
@@ -511,7 +532,7 @@ static class PatchExtractor {
             patch,
             samples,
             output,
-            grid,
+            side,
             wide,
             tall,
             out var blended
@@ -559,6 +580,318 @@ static class PatchExtractor {
         };
 
         return null;
+    }
+
+    /// <summary>Fills a three-sided patch as three quads round a centre, or names why it could not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one construction in this file that adds a vertex the layout never asked for,
+    ///         and it is what turns a dropped patch into a filled one.</b> A boundary of three arcs
+    ///         holds no rectangle, so <see cref="Fill" /> has nothing to lay; what it does hold is the
+    ///         standard three-to-quads subdivision — a centre point, a spoke out to the middle of each
+    ///         of the three sides, and three quad blocks between consecutive spokes. § D7's answer for a
+    ///         patch bounded by fewer than four arcs is divide or merge, and <c>Merge</c> will not
+    ///         dissolve a crease; this is the third answer, and it costs no crease and leaves no hole.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every size here comes off <see cref="Quantization.Spokes" /> rather than being
+    ///         chosen.</b> The blocks are <c>a × b</c>, <c>b × c</c> and <c>c × a</c> and the sides are
+    ///         <c>a + c</c>, <c>a + b</c> and <c>b + c</c> — the router solved for those three numbers
+    ///         under the same conservation constraints every other patch is under, so the halves meet
+    ///         the neighbours' seams by index exactly as § D8 requires. A fan whose sides do not add up
+    ///         to what its spokes say is refused rather than repaired, because the disagreement can only
+    ///         mean the fan was left out of the system.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The interior comes through the same Tutte embedding, onto a triangle instead of a
+    ///         square.</b> <see cref="PatchParameterization.Fan" /> maps the patch's own triangles onto
+    ///         the reference triangle; the centre is its centroid, the spokes are straight runs in the
+    ///         parameter domain, and every block is a bilinear patch of a convex quadrilateral there —
+    ///         all of which lift back onto the surface by barycentric coordinates. The transfinite blend
+    ///         is the fallback, exactly as it is for a four-sided patch, and each block keeps whichever
+    ///         of the two folds less.
+    ///     </para>
+    /// </remarks>
+    static string? Fan(
+        ManifoldMesh mesh,
+        EditMesh output,
+        PatchLayout layout,
+        int[][] samples,
+        Quantization quantization,
+        LayoutPatch patch,
+        int index,
+        SurfaceProjector projector,
+        List<int> arcOf,
+        List<int> sourceOf,
+        List<bool> pinned,
+        List<PatchGrid> grids
+    ) {
+        var (a, b, c) = quantization.Spokes[index];
+
+        if (a < 1 || b < 1 || c < 1) {
+            return "a three-sided patch had no centre to fan round";
+        }
+
+        // Where the spoke leaves side k, in quads from that side's own first corner, and how many
+        // quads the side has in all: n₀ = a + c, n₁ = a + b, n₂ = b + c.
+        int[] split = [a, b, c];
+        int[] along = [a + c, a + b, b + c];
+
+        // How many quads the spoke out of side k's midpoint has. Block k is `split[k]` by this.
+        int[] spokes = [b, c, a];
+
+        var side = new int[3][];
+        var rim = new HashSet<int>();
+        var walked = 0;
+
+        for (var at = 0; at < 3; at++) {
+            side[at] = Chain(samples, patch.Sides[at]);
+
+            if (side[at].Length - 1 != along[at]) {
+                return "a three-sided patch's sides disagreed with its centre";
+            }
+
+            // Every rim vertex once, counting each corner with the side it starts — which is the same
+            // fold test `Fill`'s grid guards make, taken over the whole boundary at once because a fan
+            // has three boundaries to lay rather than four edges of one grid.
+            for (var step = 0; step < side[at].Length - 1; step++) {
+                walked++;
+                rim.Add(side[at][step]);
+            }
+        }
+
+        for (var at = 0; at < 3; at++) {
+            if (side[at][^1] != side[(at + 1) % 3][0]) {
+                return "the three sides did not join up at a corner";
+            }
+        }
+
+        if (rim.Count != walked) {
+            return "a side walked the same vertex twice";
+        }
+
+        var lifted = Lifted(mesh, layout, patch, samples, output, side, split, along, spokes);
+        var blended = lifted is null ? "the fan could not be embedded on a triangle" : null;
+
+        var middle = lifted?[0] ?? projector.Project(Middle(output, side));
+        var hub = Placed(output, arcOf, sourceOf, pinned, middle);
+        var spoke = new int[3][];
+        var cursor = 1;
+
+        for (var at = 0; at < 3; at++) {
+            var chain = new int[spokes[at] + 1];
+
+            chain[0] = side[at][split[at]];
+            chain[^1] = hub;
+
+            for (var step = 1; step < spokes[at]; step++) {
+                var position = lifted is not null
+                    ? lifted[cursor + step - 1]
+                    : projector.Project(
+                        Vector3.Lerp(output.Positions[chain[0]], middle, (float) step / spokes[at])
+                    );
+
+                chain[step] = Placed(output, arcOf, sourceOf, pinned, position);
+            }
+
+            cursor += spokes[at] - 1;
+            spoke[at] = chain;
+        }
+
+        for (var block = 0; block < 3; block++) {
+            var wide = split[block];
+            var tall = spokes[block];
+            var back = (block + 2) % 3;
+
+            // C → M(block) → centre → M(back) → C, which is the patch's own anticlockwise walk with
+            // two of its four sides taken through the middle.
+            int[][] chains = [
+                side[block][..(wide + 1)],
+                spoke[block],
+                [.. spoke[back].Reverse()],
+                side[back][split[back]..]
+            ];
+
+            var grid = new int[wide + 1][];
+
+            for (var i = 0; i <= wide; i++) {
+                grid[i] = new int[tall + 1];
+            }
+
+            for (var i = 0; i <= wide; i++) {
+                grid[i][0] = chains[0][i];
+                grid[i][tall] = chains[2][wide - i];
+            }
+
+            for (var j = 0; j <= tall; j++) {
+                grid[wide][j] = chains[1][j];
+                grid[0][j] = chains[3][tall - j];
+            }
+
+            Vector3[,]? embedded = null;
+
+            if (lifted is not null) {
+                embedded = new Vector3[wide - 1, tall - 1];
+
+                for (var i = 1; i < wide; i++) {
+                    for (var j = 1; j < tall; j++) {
+                        embedded[i - 1, j - 1] = lifted[cursor++];
+                    }
+                }
+            }
+
+            var reason = blended;
+            var interior = Chosen(output, projector, grid, embedded, wide, tall, ref reason);
+
+            for (var i = 1; i < wide; i++) {
+                for (var j = 1; j < tall; j++) {
+                    grid[i][j] = Placed(output, arcOf, sourceOf, pinned, interior[i - 1, j - 1]);
+                }
+            }
+
+            var group = mesh.Group(patch.Triangles[0]);
+            var first = output.FaceCount;
+
+            for (var i = 0; i < wide; i++) {
+                for (var j = 0; j < tall; j++) {
+                    output.AddFace([grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]], group);
+                }
+            }
+
+            grids.Add(
+                new() {
+                    Patch = index,
+                    Wide = wide,
+                    Tall = tall,
+                    Vertices = grid,
+                    FirstFace = first,
+                    Sides = chains,
+
+                    // Only the two halves that lie on the patch's own boundary can be a crease; the two
+                    // spokes are interior to the fan and belong to nothing outside it.
+                    IsFeature = [
+                        patch.Sides[block].All(use => layout.Arcs[use.Arc].IsFeature),
+                        false,
+                        false,
+                        patch.Sides[back].All(use => layout.Arcs[use.Arc].IsFeature)
+                    ],
+                    Blended = reason
+                }
+            );
+        }
+
+        return null;
+    }
+
+    /// <summary>The fan's centre, spokes and block interiors, lifted through a triangle embedding.</summary>
+    /// <remarks>
+    ///     The order is the one <see cref="Fan" /> reads back: the centroid, then each spoke's interior
+    ///     from its side's midpoint inwards, then each block's interior in <c>i</c>-major order — the
+    ///     same nesting the blocks are filled in.
+    /// </remarks>
+    static Vector3[]? Lifted(
+        ManifoldMesh mesh,
+        PatchLayout layout,
+        LayoutPatch patch,
+        int[][] samples,
+        EditMesh output,
+        int[][] side,
+        int[] split,
+        int[] along,
+        int[] spokes
+    ) {
+        var corner = new Vector2[3];
+        var middle = new Vector2[3];
+
+        for (var at = 0; at < 3; at++) {
+            corner[at] = PatchParameterization.Corner(3, at);
+        }
+
+        for (var at = 0; at < 3; at++) {
+            middle[at] = Vector2.Lerp(
+                corner[at],
+                PatchParameterization.Corner(3, at + 1),
+                (float) split[at] / along[at]
+            );
+        }
+
+        var centroid = (corner[0] + corner[1] + corner[2]) / 3f;
+        var wanted = new List<Vector2> { centroid };
+
+        for (var at = 0; at < 3; at++) {
+            for (var step = 1; step < spokes[at]; step++) {
+                wanted.Add(Vector2.Lerp(middle[at], centroid, (float) step / spokes[at]));
+            }
+        }
+
+        for (var block = 0; block < 3; block++) {
+            var wide = split[block];
+            var tall = spokes[block];
+            var back = (block + 2) % 3;
+
+            for (var i = 1; i < wide; i++) {
+                for (var j = 1; j < tall; j++) {
+                    wanted.Add(
+                        Bilinear(
+                            corner[block],
+                            middle[block],
+                            centroid,
+                            middle[back],
+                            (float) i / wide,
+                            (float) j / tall
+                        )
+                    );
+                }
+            }
+        }
+
+        return PatchParameterization.Fan(
+            mesh,
+            layout.Arcs,
+            patch,
+            samples,
+            output,
+            side,
+            along,
+            [.. wanted],
+            out _
+        );
+    }
+
+    /// <summary>The bilinear point of a parameter-domain quadrilateral, corners anticlockwise.</summary>
+    static Vector2 Bilinear(Vector2 c00, Vector2 c10, Vector2 c11, Vector2 c01, float s, float t) =>
+        (c00 * (1f - s) * (1f - t)) + (c10 * s * (1f - t)) + (c11 * s * t) + (c01 * (1f - s) * t);
+
+    /// <summary>The average of a fan's rim, which is where its centre goes when the embedding refuses.</summary>
+    static Vector3 Middle(EditMesh output, int[][] side) {
+        var sum = Vector3.Zero;
+        var count = 0;
+
+        foreach (var chain in side) {
+            for (var step = 0; step < chain.Length - 1; step++) {
+                sum += output.Positions[chain[step]];
+                count++;
+            }
+        }
+
+        return count > 0 ? sum / count : Vector3.Zero;
+    }
+
+    /// <summary>Adds one interior output position, with the three per-vertex tables the rest reads.</summary>
+    static int Placed(
+        EditMesh output,
+        List<int> arcOf,
+        List<int> sourceOf,
+        List<bool> pinned,
+        Vector3 position
+    ) {
+        var placed = output.AddPosition(position);
+
+        arcOf.Add(-1);
+        sourceOf.Add(-1);
+        pinned.Add(false);
+
+        return placed;
     }
 
     /// <summary>The interior that folds least, out of the embedding and the blend.</summary>

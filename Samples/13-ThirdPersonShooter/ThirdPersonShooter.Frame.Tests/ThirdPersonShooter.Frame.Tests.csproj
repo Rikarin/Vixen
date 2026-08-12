@@ -45,6 +45,20 @@
 
         <!-- The YAML dialect, to read the actual authored document rather than a copy of it. -->
         <ProjectReference Include="..\..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!-- IPlayerInputSource, ControlRotation and MoveIntent — what ScriptedWalk below implements
+             and writes. -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+    </ItemGroup>
+
+    <!--
+      ⚠ The walk harness's own source, linked rather than referenced. Referencing the game project
+      would drag its content build into every `dotnet test`, and this file is a parser and an
+      accumulator with no game in it — the same "one copy, linked" argument the documents above are
+      included under.
+    -->
+    <ItemGroup>
+        <Compile Include="..\ScriptedWalk.cs" Link="ScriptedWalk.cs" />
     </ItemGroup>
 
     <!--

@@ -158,13 +158,13 @@ public class PatchParameterizationTests {
         var grid = Rim(mesh, corner, output, out var samples);
 
         Assert.NotNull(
-            PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, Across, Across, out _)
+            PatchParameterization.Interior(mesh, arcs, patch, samples, output, Sides(samples), Across, Across, out _)
         );
 
         output.MovePosition(grid[1][0], output.Positions[grid[1][0]] * 1.2f);
 
         Assert.Null(
-            PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, Across, Across, out _)
+            PatchParameterization.Interior(mesh, arcs, patch, samples, output, Sides(samples), Across, Across, out _)
         );
     }
 
@@ -176,7 +176,7 @@ public class PatchParameterizationTests {
 
         grid = Rim(mesh, corner, output, out var samples);
 
-        var found = PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, Across, Across, out _);
+        var found = PatchParameterization.Interior(mesh, arcs, patch, samples, output, Sides(samples), Across, Across, out _);
 
         rim = [.. output.Positions];
 
@@ -242,7 +242,7 @@ public class PatchParameterizationTests {
             [grid[0][0], grid[0][1], grid[0][2]]
         ];
 
-        var interior = PatchParameterization.Interior(mesh, arcs, patch, samples, output, grid, 2, 2, out var refused);
+        var interior = PatchParameterization.Interior(mesh, arcs, patch, samples, output, Sides(samples), 2, 2, out var refused);
 
         Assert.True(
             interior is not null,
@@ -375,6 +375,19 @@ public class PatchParameterizationTests {
 
     /// <summary>One arc over a chain.</summary>
     static LayoutArc Arc(int[] chain) => new() { Vertices = chain, IsFeature = false, Length = 1f, Target = Across };
+
+    /// <summary>
+    ///     The four sides as the boundary walk lays them, which is what <c>PatchExtractor.Chain</c>
+    ///     hands the parameterization. ⚠ Sides 2 and 3 are <i>reversed</i> uses of their arcs in every
+    ///     fixture here, so the walk reads their sample runs backwards — passing the canonical runs
+    ///     instead would pin each of those sides against the other end of itself.
+    /// </summary>
+    static int[][] Sides(int[][] samples) => [
+        samples[0],
+        samples[1],
+        [.. samples[2].Reverse()],
+        [.. samples[3].Reverse()]
+    ];
 
     /// <summary>
     ///     The grid's four sides, as output positions. ⚠ One sample per chain vertex, which is exact
