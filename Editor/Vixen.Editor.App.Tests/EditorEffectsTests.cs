@@ -87,6 +87,36 @@ public sealed class EditorEffectsTests : IDisposable {
         Assert.Empty(effects.System.Misses);
     }
 
+    /// <summary>The shading pass compiles too, which is the variant a viewport actually needs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>Tonemap</c> proves the chain and not the frame.</b> It declares no slots, so it
+    ///         compiles whatever the composition says; <c>ForwardPlus</c> is the pass every surface in
+    ///         the scene is drawn by, it is where <see cref="Rendering.Materials.MaterialCompiler" />'s
+    ///         composition is actually spent, and it is the one whose absence would leave a
+    ///         compositor-driven pane with lights, geometry, post — and no shaded pixel anywhere.
+    ///     </para>
+    ///     <para>
+    ///         The set layouts are asserted rather than only the stages, because they are what a
+    ///         pipeline is created against and what <c>WorldRenderer.AdoptViewLayout</c> reads set 1's
+    ///         layout out of. A variant that came back with stages and no layouts would resolve, draw
+    ///         nothing, and report success.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_shading_pass_compiles_on_demand() {
+        using var effects = new EditorEffects(device, Project());
+
+        Assert.Null(effects.Refusal);
+
+        var resolved = effects.System.Resolve(EffectKey.Of("ForwardPlus"));
+
+        Assert.NotNull(resolved);
+        Assert.NotEmpty(resolved.Stages);
+        Assert.NotEmpty(resolved.SetLayouts);
+        Assert.Empty(effects.System.Misses);
+    }
+
     /// <summary>The second ask for a variant is the same object rather than a second compilation.</summary>
     [Fact]
     public void A_variant_is_compiled_once() {
