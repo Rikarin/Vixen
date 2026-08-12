@@ -218,6 +218,14 @@ public class BindlessSamplingDeviceTests {
         device.Destroy(block);
         device.Destroy(staging);
 
+        // ⚠ The two sets as well, and they were the omission. A descriptor set outliving the device
+        // is VUID-vkDestroyDevice-device-05137 — reported at the *next* fixture's teardown, since the
+        // layers report against the device being destroyed and this file's device is not the one that
+        // fails. The message lands in VulkanDiagnostics, which is process-wide, so a test that ran
+        // several files later failed with a leak it had not caused.
+        device.Destroy(drawSet);
+        device.Destroy(tableSet);
+
         Clean();
 
         var actual = new byte[Slots];
@@ -416,6 +424,10 @@ public class BindlessSamplingDeviceTests {
         device.Destroy(results);
         device.Destroy(block);
         device.Destroy(staging);
+
+        // The same two, for the same reason as the test above.
+        device.Destroy(drawSet);
+        device.Destroy(tableSet);
 
         Clean();
 

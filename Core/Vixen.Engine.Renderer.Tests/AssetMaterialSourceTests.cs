@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.IO;
@@ -193,7 +194,11 @@ public sealed class AssetMaterialSourceTests {
 
     /// <summary>Asks until the load lands, which is what a frame does by asking again next frame.</summary>
     static bool Settles(AssetMaterialSource source, out Material material) {
-        for (var attempt = 0; attempt < 200; attempt++) {
+        var deadline = Stopwatch.StartNew();
+
+        // A deadline rather than a count of attempts, for the reason AssetWaterSourceTests.Settles
+        // gives: two hundred attempts is one second, which is an idle machine's answer.
+        while (deadline.Elapsed < TimeSpan.FromSeconds(30)) {
             if (source.TryGet(Hero, out material)) {
                 return true;
             }

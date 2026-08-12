@@ -161,6 +161,35 @@ public sealed class AnimationEventData {
 /// </remarks>
 [DataContract("AnimationClipAsset")]
 public sealed class AnimationClipAsset {
+    /// <summary>
+    ///     ⚠ <b>The maths scalars, registered by the type that needs them.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A clip carries <see cref="Vector3" /> members — a constraint tag's region, its offsets,
+    ///         its pole — and the converter table those are written through is process-wide and starts
+    ///         empty. Until this ran, the only thing that filled it was <c>SceneSerializer</c>'s static
+    ///         constructor, so whether a <c>.vxanim</c> round-tripped its vectors depended on whether
+    ///         anything in the process had touched a <i>scene</i> first. An editor that opened a clip
+    ///         before ever opening a level read every one of those members back as zero, and said
+    ///         nothing.
+    ///     </para>
+    ///     <para>
+    ///         Found as a test that passed in its assembly and failed alone: <c>AuthoringTests</c>'
+    ///         constraint round trip asserts a region of <c>(0.05, 0.01, 0.05)</c> and got
+    ///         <c>(0, 0, 0)</c> whenever it ran before anything scene-shaped. It failed the Windows
+    ///         leg one run and the macOS leg the next, which is what an ordering dependency looks like
+    ///         from CI.
+    ///     </para>
+    ///     <para>
+    ///         Tied to this type rather than to a module initializer, which is
+    ///         <c>SceneScalars.Register</c>'s reasoning and is right: the table is global, so
+    ///         registering merely because an assembly is referenced would make the blast radius every
+    ///         document in the process instead of the formats that share the convention.
+    ///     </para>
+    /// </remarks>
+    static AnimationClipAsset() => MathScalars.Register();
+
     /// <summary>The version this reader and writer speak.</summary>
     public const int Current = 1;
 

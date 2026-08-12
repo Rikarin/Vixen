@@ -464,6 +464,7 @@ public sealed class WaterPassImageTests {
             // which is correct and is not what these assertions are about.
             InverseViewProjection = Orthographic(),
             CameraPosition = Vector3.Zero,
+
             Foam = true,
             Tiled = tiled,
             Pipelines = tiled ? new(device) : null,

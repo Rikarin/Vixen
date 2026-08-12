@@ -193,7 +193,13 @@ public sealed class SceneManifestTests : IDisposable {
         files.Mount(new("/content"), new PhysicalFileProvider(output, isReadOnly: true));
 
         var catalog = CatalogFormat.Read(File.ReadAllBytes(Path.Combine(output, ContentPipeline.CatalogFileName)));
-        var assets = new AssetManager(catalog, new LocalBundleSource(files, new("/content")));
+
+        // ⚠ Disposed, and that is the temp directory's business rather than tidiness: the source
+        // keeps every bundle it opened open, and Windows refuses to delete a file something holds —
+        // so an undisposed reader here failed this test in `Dispose`, several assertions after the
+        // one that was actually being made, and only on the one leg.
+        using var bundles = new LocalBundleSource(files, new("/content"));
+        var assets = new AssetManager(catalog, bundles);
 
         var asset = assets.Load<SceneAsset>(Assert.Single(manifest.Scenes), TestContext.Current.CancellationToken).Result;
 

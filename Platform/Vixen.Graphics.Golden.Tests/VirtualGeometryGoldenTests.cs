@@ -136,9 +136,18 @@ public sealed class VirtualGeometryGoldenTests {
     ///         routed nothing produces a picture identical to the baseline for the least interesting
     ///         reason there is, and that is exactly how this test would pass with the whole phase
     ///         removed — so <see cref="GpuClusterVisibility.SoftwareClusters" /> is checked as well as
-    ///         the pixels.
+    ///         the pixels. That check is what caught this test never having run: it asked for a
+    ///         threshold of 16 against a cut whose one cluster measures 535 pixels, and the leg that
+    ///         could have said so is the only leg that runs the test at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>What the sweep does not cover, stated where the numbers are.</b> A flat quad's cut is
+    ///         a single cluster, so every threshold either routes all of the frame or none of it, and
+    ///         the mixed frame — where the merge has to resolve the two rasters against each other —
+    ///         needs a fixture whose clusters differ in screen size. See the measurement in the method.
     ///     </para>
     /// </remarks>
+
     [Fact]
     public void The_software_raster_draws_what_the_hardware_raster_draws() {
         if (!TryOpen(out var fixture)) {
@@ -158,10 +167,29 @@ public sealed class VirtualGeometryGoldenTests {
 
         Assert.Equal(0, none);
 
-        // Every threshold in the sweep, including one that routes only some of the clusters — which is
-        // the case the merge exists for, because it is the only one where the two rasters have to
-        // resolve against each other rather than each owning the frame.
-        foreach (var threshold in (float[])[16f, 1e6f]) {
+        // ⚠ **A threshold of 16 was arithmetically impossible, and this test had never passed.** The
+        // threshold is compared against a cluster's *own* screen size — `Cull.Software` asks whether
+        // `2 · radius · errorScale / distance` is under it — and nothing in this fixture is 16 pixels
+        // across. The plane is four units wide at four units from a 60° camera 128 pixels tall, so
+        // `errorScale` is 110.85 and the seven meshlets the builder makes measure 228, 269, 361, 482,
+        // 535, 535 and 535. The Linux leg is not different: it is the only leg that runs this at all
+        // — macOS CI skips it, and so does every Mac without 64-bit buffer atomics — so no machine
+        // that could fail the assertion had ever reached it.
+        //
+        // ⚠ **And the cut is one cluster, so "only some of them" is not a frame this fixture can
+        // make.** Measured against lavapipe by sweeping the threshold and reading
+        // `SoftwareClusters`: 0 routed at 16, 100, 200, 300 and 400; 1 routed at 600, 1 000, 10 000
+        // and a million. A flat quad's cut is its root — that is the same LOD-invariance the coverage
+        // test above relies on — and one cluster is either routed or it is not.
+        //
+        // So the sweep is two thresholds that both route it, an order of magnitude apart, and what is
+        // asserted is phase 6's actual exit criterion: the software raster draws what the hardware
+        // raster draws, per pixel. **OWED: the mixed frame.** The merge resolving two rasters against
+        // each other needs a cut with more than one cluster in it, which needs a fixture whose
+        // clusters differ in screen size — a plane at an angle, or a mesh with depth — and choosing
+        // one is a measurement rather than a guess. Nothing here asserts that case today, and the
+        // paragraph above this method that says it does is wrong until it lands.
+        foreach (var threshold in (float[])[1e3f, 1e6f]) {
             owned.Graph.Reset();
 
             var software = Virtualized(owned, geometry, threshold, out var routed);
@@ -404,15 +432,40 @@ public sealed class VirtualGeometryGoldenTests {
         // Several frames, because the streaming loop is a loop: a traversal asks for the pages a cut
         // wanted and did not have, the request comes back after the frame that made it was submitted,
         // and the pages arrive for a later frame. The picture that matters is the settled one.
+        //
+        // ⚠ `Frames` is a floor and the outstanding requests are the condition, which is what makes
+        // this a measurement of the cut rather than of the machine. Six frames settles a cut on a
+        // driver that answers quickly; on lavapipe it did not, and a cut still one level coarse has
+        // clusters too large to route — which arrived as "a threshold of 16 routed nothing to the
+        // software raster" on the Linux leg and looked like a routing defect rather than a slow
+        // stream. The cap is what says the streaming stopped converging at all.
         Bitmap picture = default;
 
-        for (var frame = 0; frame < Frames; frame++) {
+        // ⚠ The condition is the *residency*, not the request count, and that distinction is the whole
+        // bug. `RequestedPages` is what the last readback asked for, and it goes to zero the moment
+        // the traversal's asks have been handed to the loader — with the pages still in flight. A cut
+        // measured there is a cut one level coarse, whose clusters are too large to route, which is
+        // what "a threshold of 16 routed nothing to the software raster" was: not a routing defect,
+        // a picture taken too early. `Loading` counts the arrived-and-unplaced too, which is what
+        // makes waiting on it mean anything.
+        bool Settled() =>
+            clusters.Visibility.RequestedPages == 0
+            && clusters.Residency.PendingRequests == 0
+            && clusters.Residency.Loading == 0;
+
+        for (var frame = 0; frame < Frames || (!Settled() && frame < Frames * 16); frame++) {
             fixture.Graph.Reset();
 
             var built = compositor.Build(fixture.Graph, effects, device);
 
             picture = fixture.Render(built.Texture("harness", "VisibilityBuffer"));
         }
+
+        Assert.True(
+            Settled(),
+            $"The stream never settled: {clusters.Visibility.RequestedPages} page(s) wanted, "
+            + $"{clusters.Residency.PendingRequests} queued, {clusters.Residency.Loading} on the way."
+        );
 
         softwareClusters = clusters.Visibility.SoftwareClusters;
 

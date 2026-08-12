@@ -153,9 +153,14 @@ static class DialogArguments {
 
         // The trailing separator is load-bearing for both tools: without it a directory is offered
         // as the name of the file to save rather than as the place to save it in.
-        return string.IsNullOrEmpty(name)
-            ? directory.EndsWith('/') ? directory : directory + "/"
-            : Path.Combine(directory, name);
+        //
+        // ⚠ Joined with '/' by hand rather than through Path.Combine. Whatever host builds this
+        // string, a Linux tool reads it, so the running machine's separator is never the right one —
+        // Path.Combine produced a backslash on the Windows test leg and nowhere else, which is why
+        // only half of this method ever looked wrong.
+        var place = directory.EndsWith('/') ? directory : directory + "/";
+
+        return string.IsNullOrEmpty(name) ? place : place + name;
     }
 
     static string Patterns(in FileFilter filter, char separator) {

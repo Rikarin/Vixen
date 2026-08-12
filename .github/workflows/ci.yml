@@ -99,6 +99,52 @@ jobs:
         if: matrix.os == 'macos-14'
         run: brew install sdl2 spirv-tools
 
+      # The third leg, for the third time, and the argument does not change with the operating
+      # system: three tests fail rather than skip when spirv-val is absent, and the Windows leg has
+      # been failing all three on every run since they were written.
+      #
+      # ⚠ The Vulkan SDK rather than a spirv-tools package, because there is no such package here:
+      # SPIRV-Tools publishes no release binaries, and LunarG's SDK is the one distribution that
+      # carries spirv-val.exe with a version anybody can name. It brings the loader and the
+      # validation layers with it; it does *not* bring a driver, so it does not change what
+      # Vixen.Platform.Desktop.Tests can do — see DesktopPlatformTests, which skips when a window
+      # cannot be made.
+      #
+      # The Bin directory goes on the path by hand. Chocolatey shims what a package installs into its
+      # own directory, and this package installs into C:\VulkanSDK, so nothing is shimmed and PATH is
+      # whatever the installer's own registry write left for the *next* process.
+      #
+      # ⚠ Retried, because the community feed answers 503 often enough to be a fact rather than an
+      # accident — it took this leg down two minutes into a run that had nothing wrong with it. Three
+      # attempts with a growing pause; a step that fetches from somebody else's server on every build
+      # and gives up on the first refusal is a red build that says nothing about the change.
+      - name: Install spirv-tools (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $installed = $false
+
+          foreach ($pause in 0, 20, 60) {
+            if ($pause -gt 0) {
+              Write-Host "The chocolatey feed refused; waiting $pause s and asking again."
+              Start-Sleep -Seconds $pause
+            }
+
+            choco install vulkan-sdk --no-progress --yes
+
+            if ($LASTEXITCODE -eq 0) {
+              $installed = $true
+              break
+            }
+          }
+
+          if (-not $installed) { throw "The Vulkan SDK could not be installed after three attempts." }
+
+          $sdk = Get-ChildItem C:\VulkanSDK -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $sdk) { throw "The Vulkan SDK installed nothing under C:\VulkanSDK." }
+          "$($sdk.FullName)\Bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & "$($sdk.FullName)\Bin\spirv-val.exe" --version
+
       # Keyed on the manifest, because that is the only thing that changes what would be downloaded.
       # A version bump is a new key and a fresh fetch; anything else is a hit.
       - name: Cache native dependencies
@@ -212,8 +258,32 @@ jobs:
         with:
           global-json-file: global.json
 
+      # ⚠ The same install the test and checks legs carry, and for the third time the same reason:
+      # Pack builds, building a sample runs its content build, and a content build imports models
+      # through Assimp — which the Silk.NET loader will not find in runtimes/linux-x64/native on
+      # Linux. Without it every `.obj` under Samples/ fails to import with VX1001 and the job dies.
+      #
+      # It was missing because this job had never run. `pack` needs `test` and `checks`, both of
+      # which have been failing for months, so it was skipped on every push — and a job that is
+      # always skipped is a job whose steps nobody has ever checked. It ran for the first time on the
+      # run that made the other three green, and failed on its first sample.
+      - name: Install Assimp
+        run: sudo apt-get update && sudo apt-get install -y libassimp5
+
+      # ⚠ `--skip Test`, because this job's `needs:` already *is* the test run. Pack depends on Test in
+      # the target graph — which is right for a developer typing `nuke Pack` — and in this workflow it
+      # means the whole suite runs a fourth time, on a leg that has none of the native dependencies
+      # the three test legs install for it. That is how this job spent twenty-five minutes in order to
+      # fail on `TheSpirvValidatorIsInstalled`, a test that had passed on all three legs half an hour
+      # earlier.
+      #
+      # ⚠ And Restore and Compile are named rather than left to be dependencies, because Nuke's
+      # `--skip` takes the chain with it: skipping Test alone skipped Compile "because of Test" and
+      # Restore "because of Compile", and Pack then ran with nothing built. Naming them puts them back
+      # in as invoked targets. Compile is what DotNetPack's --no-build needs, and Restore is what
+      # Compile's --no-restore needs.
       - name: Pack
-        run: ./build.sh Pack --configuration Release
+        run: ./build.sh Restore Compile Pack --configuration Release --skip Test
         shell: bash
 
       - name: Upload packages

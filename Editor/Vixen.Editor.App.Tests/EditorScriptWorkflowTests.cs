@@ -118,7 +118,12 @@ public class EditorScriptWorkflowTests {
 
             Write(editor, "ProjectTools.cs", MenuItem);
 
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            // ⚠ Thirty, and ten was measured to be too few. This waits on a file-system event and then
+            // on a Roslyn compile of what arrived, on a runner with a dozen test assemblies to itself
+            // — the Windows leg spent the whole ten seconds here and reported the watcher as broken.
+            // It is the same number, for the same reason, as AssetWatchTests.Ceiling: waiting longer
+            // costs a passing build nothing, and costs a genuinely broken watcher thirty seconds.
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
 
             while (DateTime.UtcNow < deadline && !editor.CanRun("scripts.tools.say-hello")) {
                 Thread.Sleep(25);

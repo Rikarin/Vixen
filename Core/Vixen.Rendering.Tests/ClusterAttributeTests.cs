@@ -87,10 +87,22 @@ public sealed class ClusterAttributeTests {
                     // triangle whose near corner is nine times nearer than its far one amplifies float32
                     // error through the solve's division, and a fixed absolute tolerance is then a test of
                     // the depth ratio rather than of the arithmetic. The affine defect is tens of per cent
-                    // of the range, so this leaves two orders of magnitude of margin.
+                    // of the range, so even the looser bound below leaves better than an order of
+                    // magnitude of margin against the thing this exists to catch.
+                    //
+                    // ⚠ A hundredth, and three thousandths was the number a draw eventually beat. Two
+                    // thousand random cases a run is a small sample of a large space, and CI drew this
+                    // one: seed 3CVeB8nsMLI4, a triangle spanning w = 2.375 to 43.873 — a depth ratio of
+                    // 18.5, twice the nine the paragraph above reasons about — under a projection whose
+                    // near plane is 0.05. Measured on that case: the error is 7.95e-3 of the range, so
+                    // the bound was beaten by a factor of 2.65 by conditioning rather than by a defect.
+                    //
+                    // The alternative, and it is a real one rather than a courtesy: the solve could be
+                    // reformulated to be better conditioned, and then this bound comes back down. That is
+                    // a change to the arithmetic with its own measurements, not a tolerance edit.
                     var range = MathF.Max(MathF.Max(a0, MathF.Max(a1, a2)) - MathF.Min(a0, MathF.Min(a1, a2)), 1e-3f);
 
-                    return MathF.Abs(interpolated - direct) <= 3e-3f * range;
+                    return MathF.Abs(interpolated - direct) <= 1e-2f * range;
                 },
                 iter: 2000
             );

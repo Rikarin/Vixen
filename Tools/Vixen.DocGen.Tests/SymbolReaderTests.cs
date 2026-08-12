@@ -228,7 +228,14 @@ public class SymbolReaderTests {
     [InlineData("/repo/Core/Vixen.Core/World.cs", false)]
     [InlineData("/elsewhere/World.cs", true)]
     public void GeneratedCodeIsRecognisedByWhereItIsNot(string path, bool expected) {
-        var links = new SourceLinks("/repo", "https://github.com/rikarin/Vixen", "abc123");
+        // ⚠ The root gets the same treatment as the path. Converting one and not the other put every
+        // case outside the tree on Windows, where "outside the tree" is itself an answer — `false`
+        // came back `true` and looked like a bug in the predicate.
+        var links = new SourceLinks(
+            "/repo".Replace('/', Path.DirectorySeparatorChar),
+            "https://github.com/rikarin/Vixen",
+            "abc123"
+        );
 
         Assert.Equal(expected, links.IsGenerated(path.Replace('/', Path.DirectorySeparatorChar)));
     }

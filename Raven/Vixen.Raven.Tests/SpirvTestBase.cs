@@ -92,8 +92,15 @@ public static class SpirvTestBase {
                 }
             )!;
 
+            // Drained before the wait, the same way GoldenSpirvTests has to: a validator that rejects
+            // a large module writes more than a pipe holds, and reading after the exit is a deadlock
+            // waiting for a big enough complaint.
+            var output = process.StandardOutput.ReadToEndAsync();
+            var errors = process.StandardError.ReadToEndAsync();
+
             process.WaitForExit();
-            var log = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+
+            var log = output.GetAwaiter().GetResult() + errors.GetAwaiter().GetResult();
 
             Assert.True(process.ExitCode == 0, $"spirv-val rejected {unit.Name}:\n{log}\n\n{unit.Code}");
         } finally {
@@ -111,9 +118,15 @@ public static class SpirvTestBase {
                 continue;
             }
 
-            var candidate = Path.Combine(directory, name);
-            if (File.Exists(candidate)) {
-                return candidate;
+            // ⚠ With Windows' suffix as well as without. A validator on PATH as spirv-val.exe is not
+            // a file called spirv-val, so asking only for the bare name reports "not installed" for
+            // one that is — and that reads as a skip rather than as the hole it is.
+            foreach (var candidate in OperatingSystem.IsWindows()
+                ? [Path.Combine(directory, name + ".exe"), Path.Combine(directory, name)]
+                : new[] { Path.Combine(directory, name) }) {
+                if (File.Exists(candidate)) {
+                    return candidate;
+                }
             }
         }
 

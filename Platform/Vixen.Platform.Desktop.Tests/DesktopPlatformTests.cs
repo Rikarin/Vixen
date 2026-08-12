@@ -43,7 +43,28 @@ public sealed class DesktopPlatformTests : IDisposable {
             );
         } catch (PlatformNotSupportedException exception) {
             unavailable = $"SDL could not start a video driver: {exception.Message}";
+
+            return;
         }
+
+        // ⚠ Whether a window can be made at all, asked once here rather than found out ten times.
+        //
+        // `RequestGpuSurface` asks SDL for SDL_WINDOW_VULKAN, and SDL refuses the window outright
+        // when the loader it finds has no driver behind it — "Installed Vulkan doesn't implement the
+        // VK_KHR_surface extension", which is what a Windows runner with vulkan-1.dll and no ICD
+        // says. That is the same class of fact as SDL not being installed: nothing here was ever
+        // going to run, and ten failures that all say so is noise the leg has carried for months.
+        try {
+            using (platform!.CreateWindow(new() { Title = "Vixen.Tests" })) { }
+        } catch (PlatformNotSupportedException exception) {
+            unavailable = $"SDL cannot create a window here: {exception.Message}";
+
+            return;
+        }
+
+        // The probe's own create and destroy events, taken off the queue here so that a test that
+        // drains for one kind sees only what its own window did.
+        platform.PumpEvents();
     }
 
     /// <summary>

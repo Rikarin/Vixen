@@ -158,7 +158,19 @@ public sealed class RemoteEffectSource : IEffectSource, IDisposable {
             for (var attempt = 0; attempt < 2; attempt++) {
                 try {
                     return Exchange(key);
-                } catch (Exception exception) when (exception is IOException or SocketException or InvalidDataException or ObjectDisposedException) {
+                    // ⚠ OperationCanceledException belongs in this list, and it is the one that was
+                    // missing. Nothing outside this class holds the token — every one of them comes
+                    // from a `Timeout` deadline below — so a cancellation here means the compiler did
+                    // not answer in time, which is the same miss as a compiler that is not there. A
+                    // host whose SYN is dropped rather than refused (a firewalled Windows box, a
+                    // laptop that went to sleep mid-request) reached the deadline instead of the
+                    // socket error, and the exception went through this filter and out of a method
+                    // whose whole contract is to return null.
+                } catch (Exception exception) when (exception is IOException
+                    or SocketException
+                    or InvalidDataException
+                    or ObjectDisposedException
+                    or OperationCanceledException) {
                     // The first failure is usually a connection the server closed while idle, which
                     // is ordinary and worth one silent retry. The second is the machine being gone.
                     Close();

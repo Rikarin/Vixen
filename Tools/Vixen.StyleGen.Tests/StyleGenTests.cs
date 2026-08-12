@@ -398,6 +398,11 @@ public sealed class StyleGenTests : IDisposable {
 
     /// <summary>Reads a generated <c>const string</c> back out of the C#, undoing the escaping.</summary>
     static string Decode(string accessor, string name) {
+        // ⚠ The generated file carries the host's line endings, and every landmark below is a
+        // newline. Searching for ";\n" on Windows found nothing, `end` came back -1, and the slice
+        // threw with a negative length rather than saying which assumption was wrong.
+        accessor = accessor.Replace("\r\n", "\n", StringComparison.Ordinal);
+
         var start = accessor.IndexOf($"public const string {name} =", StringComparison.Ordinal);
         Assert.True(start >= 0, $"the accessor has no '{name}'");
 

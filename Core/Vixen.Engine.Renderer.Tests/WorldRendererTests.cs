@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core;
@@ -204,7 +205,14 @@ public sealed class WorldRendererTests : IDisposable {
 
         // Long enough for three asynchronous hops and no longer: a count that has to grow to keep this
         // passing is a load that has stopped being asynchronous and started being slow.
-        for (var frame = 0; frame < 16 && renderer.Extraction!.ObjectCount == 0; frame++) {
+        // ⚠ A deadline as well as the count, and the count is no longer the thing that ends it. The
+        // remark above is right that a growing *frame* count means a load has stopped being
+        // asynchronous — but sixteen frames is also about a fifth of a second of wall clock, and on a
+        // CI runner sharing itself with several test assemblies the three hops take longer than that
+        // while remaining perfectly asynchronous. Time is what this was really asserting.
+        var patience = Stopwatch.StartNew();
+
+        while (renderer.Extraction!.ObjectCount == 0 && patience.Elapsed < TimeSpan.FromSeconds(30)) {
             loop.Frame(TimeSpan.FromMilliseconds(16));
 
             var commands = device.BeginCommandList();
@@ -227,7 +235,16 @@ public sealed class WorldRendererTests : IDisposable {
 
         // And its own texture, which is gap three: the view is in the material's parameters under the
         // name its feature samples, so the feature has something to give a table slot to.
-        for (var frame = 0; frame < 8; frame++) {
+        var key = ParameterKeys.New<TextureViewHandle>("baseColorMap");
+
+        // ⚠ A condition with a deadline, the shape the loop above now has, and not a fixed count. The
+        // texture is the last of the three hops and the only one waiting on a page from the streamer,
+        // so eight frames is plenty on an idle machine and a coin toss on a loaded one — this is one
+        // of the tests that failed on CI on a different leg most runs, and sixty-four frames was
+        // still only two thirds of a second.
+        patience.Restart();
+
+        while (!Carries(renderer.Materials.Materials[index], key) && patience.Elapsed < TimeSpan.FromSeconds(30)) {
             var commands = device.BeginCommandList();
 
             renderer.Draw(commands);
@@ -236,7 +253,6 @@ public sealed class WorldRendererTests : IDisposable {
             Thread.Sleep(10);
         }
 
-        var key = ParameterKeys.New<TextureViewHandle>("baseColorMap");
         var material = renderer.Materials.Materials[index];
 
         Assert.True(material.Parameters.Has(key));
@@ -706,6 +722,10 @@ public sealed class WorldRendererTests : IDisposable {
                 Indices = [0, 1, 2]
             };
     }
+
+    /// <summary>Whether a material has arrived at the point of holding a usable view under a name.</summary>
+    static bool Carries(Material material, ParameterKey<TextureViewHandle> key) =>
+        material.Parameters.Has(key) && material.Parameters.Get(key).IsValid;
 
     /// <inheritdoc />
     public void Dispose() => device.Dispose();

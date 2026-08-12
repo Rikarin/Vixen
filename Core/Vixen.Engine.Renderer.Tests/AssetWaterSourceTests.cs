@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
@@ -195,8 +196,18 @@ public sealed class AssetWaterSourceTests {
     }
 
     /// <summary>Asks until the load lands, which is what the fold does by asking next frame.</summary>
+    /// <remarks>
+    ///     ⚠ A deadline in seconds rather than a count of attempts, and it is deliberately generous.
+    ///     Two hundred attempts five milliseconds apart is one second, which is plenty of time for a
+    ///     load on an idle machine and is not on a CI runner with several test assemblies competing
+    ///     for it — measured, both tests here failed on the Windows leg for that and nothing else.
+    ///     A long deadline costs a run nothing while the answer arrives and costs a broken build
+    ///     thirty seconds, which is the right way round.
+    /// </remarks>
     static bool Settles(Func<bool> landed) {
-        for (var attempt = 0; attempt < 200; attempt++) {
+        var deadline = Stopwatch.StartNew();
+
+        while (deadline.Elapsed < TimeSpan.FromSeconds(30)) {
             if (landed()) {
                 return true;
             }

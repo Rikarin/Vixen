@@ -579,7 +579,11 @@ public sealed class CoroutineTests {
 
         var waited = Stopwatch.StartNew();
 
-        while (resumedOn == 0 && waited.Elapsed < TimeSpan.FromSeconds(10)) {
+        // ⚠ Thirty seconds, because what is being waited for is a thread-pool continuation and the
+        // pool is shared with everything else the runner is doing. Ten was enough on a developer's
+        // machine and not on the Windows leg, which spent all of it and reported `resumedOn` as zero
+        // — a coroutine that never came back, from a scheduler that was working perfectly.
+        while (resumedOn == 0 && waited.Elapsed < TimeSpan.FromSeconds(30)) {
             clock.Begin(scheduler);
             scheduler.Drain(ResumePoint.Update);
             Thread.Sleep(1);

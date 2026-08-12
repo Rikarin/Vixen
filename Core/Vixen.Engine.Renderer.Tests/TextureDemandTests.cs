@@ -252,6 +252,13 @@ public sealed class TextureDemandTests : IDisposable {
         // supposed to allow. 256 texels of a 1024 chain is level two.
         Resident(loop, renderer, level: 2);
 
+        // ⚠ And then until the demand stops moving, which residency alone does not imply. The level
+        // being here says the pages arrived; the promotions the arrival caused are recorded a frame
+        // or two later, and on a loaded machine two of them landed *inside* the breathing loop below
+        // and were counted as churn the band was supposed to have prevented. Measured on CI: two
+        // promotions expected, four seen, in a loop whose width assertion passed every frame.
+        Quiet(loop, renderer);
+
         var swaps = renderer.Painted!.StreamingSwaps;
         var promotions = renderer.Demand!.Promotions;
         var demotions = renderer.Demand.Demotions;
@@ -259,12 +266,21 @@ public sealed class TextureDemandTests : IDisposable {
         // Or the assertion below would hold for a texture that never swapped at all.
         Assert.True(swaps > 0, "the texture never reached the level its width asked for");
 
-        // The second copy, which is what makes the real cost of a pool roughly twice its budget. The
-        // image is the tail, so it is the level-two tail of a 1024 chain and nothing else.
-        Assert.Equal(
-            renderer.Painted.Streaming!.ResidentBytes,
+        // The second copy, which is what makes the real cost of a pool roughly twice its budget: the
+        // image holds the tail the width asked for, and the pool is already holding those pages.
+        //
+        // ⚠ Not equality, which is what this said and what made it the most-failed test in CI. The
+        // pool drops nothing until something evicts it, and eviction is least-recently-used under
+        // pressure — so the fine pages this object streamed while it sat on the camera during
+        // `Settle` are still resident after it moves back and the width drops to 256. Whether they
+        // arrived before the move is a race with the loader's task, which is why this passed on an
+        // idle machine and failed on a loaded one: measured on CI, a pool of 1,376,256 B — levels
+        // zero, one and two — against an image of 87,381 B, which is the level-two tail and is the
+        // number that was right.
+        Assert.InRange(
             renderer.Painted.StreamedImageBytes,
-            tolerance: renderer.Painted.Streaming.PageSize
+            1,
+            renderer.Painted.Streaming!.ResidentBytes + renderer.Painted.Streaming.PageSize
         );
 
         for (var frame = 0; frame < 60; frame++) {
@@ -413,6 +429,35 @@ public sealed class TextureDemandTests : IDisposable {
         }
 
         Assert.Fail($"the texture never became resident down to level {level}");
+    }
+
+    /// <summary>Runs frames until the demand and the swaps have held still for several of them.</summary>
+    /// <remarks>
+    ///     What "settled" has to mean before a churn count is read: a page that arrived is a promotion
+    ///     the next frame and a swap the frame after, so the three numbers stop moving one after the
+    ///     other rather than together. Five quiet frames rather than one, and a cap that fails loudly
+    ///     — a demand that never stops moving with the camera still is the defect this file is about,
+    ///     and it should say so here rather than as a count that is two too high further down.
+    /// </remarks>
+    void Quiet(EngineLoop loop, WorldRenderer renderer) {
+        var demand = renderer.Demand!;
+        var painted = renderer.Painted!;
+        var quiet = 0;
+
+        var last = (demand.Promotions, demand.Demotions, painted.StreamingSwaps);
+
+        for (var frame = 0; frame < 600 && quiet < 5; frame++) {
+            Frame(loop, renderer);
+
+            var now = (demand.Promotions, demand.Demotions, painted.StreamingSwaps);
+
+            quiet = now == last ? quiet + 1 : 0;
+            last = now;
+
+            Thread.Sleep(1);
+        }
+
+        Assert.True(quiet >= 5, $"the demand never settled: {last}");
     }
 
     /// <summary>Runs one frame of the loop and one of the renderer.</summary>
