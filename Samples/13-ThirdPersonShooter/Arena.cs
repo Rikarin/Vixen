@@ -21,9 +21,9 @@ using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Materials;
-using Vixen.Terrain.Physics;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
+using Vixen.Terrain.Physics;
 using Vixen.Vfx;
 
 namespace Vixen.Samples.ThirdPersonShooter;
