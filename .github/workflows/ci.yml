@@ -113,11 +113,33 @@ jobs:
       # The Bin directory goes on the path by hand. Chocolatey shims what a package installs into its
       # own directory, and this package installs into C:\VulkanSDK, so nothing is shimmed and PATH is
       # whatever the installer's own registry write left for the *next* process.
+      #
+      # ⚠ Retried, because the community feed answers 503 often enough to be a fact rather than an
+      # accident — it took this leg down two minutes into a run that had nothing wrong with it. Three
+      # attempts with a growing pause; a step that fetches from somebody else's server on every build
+      # and gives up on the first refusal is a red build that says nothing about the change.
       - name: Install spirv-tools (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          choco install vulkan-sdk --no-progress --yes
+          $installed = $false
+
+          foreach ($pause in 0, 20, 60) {
+            if ($pause -gt 0) {
+              Write-Host "The chocolatey feed refused; waiting $pause s and asking again."
+              Start-Sleep -Seconds $pause
+            }
+
+            choco install vulkan-sdk --no-progress --yes
+
+            if ($LASTEXITCODE -eq 0) {
+              $installed = $true
+              break
+            }
+          }
+
+          if (-not $installed) { throw "The Vulkan SDK could not be installed after three attempts." }
+
           $sdk = Get-ChildItem C:\VulkanSDK -Directory | Sort-Object Name -Descending | Select-Object -First 1
           if (-not $sdk) { throw "The Vulkan SDK installed nothing under C:\VulkanSDK." }
           "$($sdk.FullName)\Bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
