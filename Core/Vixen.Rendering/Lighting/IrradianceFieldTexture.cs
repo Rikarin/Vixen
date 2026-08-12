@@ -443,6 +443,14 @@ public sealed class IrradianceFieldTexture : IDisposable {
     ///         default here was wrong for the only consumer that existed last time and would have bound
     ///         nothing at all, silently.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A handle is written only if it exists, and the numbers are written either way</b> —
+    ///         <see cref="GlobalDistanceFieldTexture.Apply" />'s rule, for its reason. The volumes and
+    ///         the two samplers are made by <see cref="Upload" />, and a name set to a handle nothing
+    ///         made is worse than a name nobody set: <see cref="EffectSetWriter" /> asks whether a name
+    ///         is <em>set</em>, so it counts the descriptor as filled and completes the set. Omitting it
+    ///         refuses the set, which says which binding and says it on the first frame.
+    ///     </para>
     /// </remarks>
     public void Apply(ParameterCollection parameters, string shaderName) {
         ArgumentNullException.ThrowIfNull(parameters);
@@ -471,15 +479,25 @@ public sealed class IrradianceFieldTexture : IDisposable {
         // The volumes the numbers describe, beside the numbers describing them. Writing one without
         // the other is a shader told exactly where to look in a texture nothing bound.
         for (var channel = 0; channel < Channels; channel++) {
-            parameters.Set(
-                ParameterKeys.New<TextureViewHandle>(PoolBinding(channel, shaderName)),
-                poolViews[channel]
-            );
+            if (poolViews[channel].IsValid) {
+                parameters.Set(
+                    ParameterKeys.New<TextureViewHandle>(PoolBinding(channel, shaderName)),
+                    poolViews[channel]
+                );
+            }
         }
 
-        parameters.Set(ParameterKeys.New<TextureViewHandle>(IndirectionBinding(shaderName)), indirectionView);
-        parameters.Set(ParameterKeys.New<SamplerHandle>(SamplerBinding(shaderName)), sampler);
-        parameters.Set(ParameterKeys.New<SamplerHandle>(PointSamplerBinding(shaderName)), pointSampler);
+        if (indirectionView.IsValid) {
+            parameters.Set(ParameterKeys.New<TextureViewHandle>(IndirectionBinding(shaderName)), indirectionView);
+        }
+
+        if (sampler.IsValid) {
+            parameters.Set(ParameterKeys.New<SamplerHandle>(SamplerBinding(shaderName)), sampler);
+        }
+
+        if (pointSampler.IsValid) {
+            parameters.Set(ParameterKeys.New<SamplerHandle>(PointSamplerBinding(shaderName)), pointSampler);
+        }
     }
 
     /// <summary>The shader's name for one of the pool volumes.</summary>

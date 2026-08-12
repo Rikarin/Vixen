@@ -101,6 +101,12 @@ public class IrradianceShadingDeviceTests {
     /// </remarks>
     [Fact]
     public void TheFieldVariantCompilesAndBindsThePoolPerFrame() {
+        if (!Fixture.TryOpen(out var fixture, out var reason)) {
+            Skip(reason);
+            return;
+        }
+
+        using var owned = fixture!;
         var material = Composed();
         var data = RavenEffects.Everything().TryGet(Key(material.Composition));
 
@@ -121,7 +127,7 @@ public class IrradianceShadingDeviceTests {
         // And the names the renderer writes are the names the variant declares. This is the pair that
         // fails silently: a prefix spelled two ways binds nothing and lights nothing, and the picture is
         // the same one a field that found no light produces.
-        var written = Names();
+        var written = Names(owned);
 
         foreach (var name in frame) {
             Assert.True(
@@ -452,14 +458,29 @@ public class IrradianceShadingDeviceTests {
     }
 
     /// <summary>The names <c>IrradianceFieldTexture</c> writes for the forward pass.</summary>
-    static HashSet<string> Names() {
+    /// <param name="fixture">A device, because the names are only written once the volumes exist.</param>
+    /// <remarks>
+    ///     ⚠ <b>Uploaded first, and that is why this needs a device at all.</b> It used to construct the
+    ///     mirror and apply it without ever touching one, so <c>Create</c> never ran and all seven
+    ///     handles were written as defaults — which made this an assertion that <c>Apply</c> names seven
+    ///     descriptors pointing at nothing, and it passed. <c>Apply</c> omits a handle it has not made
+    ///     now, exactly as <c>SceneLighting</c> does, so the only way to ask it what it writes is to ask
+    ///     it in the state <c>IrradianceFieldRenderer</c> asks it in.
+    /// </remarks>
+    static HashSet<string> Names(Fixture fixture) {
         var parameters = new ParameterCollection();
         var field = new IrradianceField(new BoundingBox(new(-1f), new(1f)), new(1));
 
-        new IrradianceFieldTexture(field).Apply(
-            parameters,
-            $"ForwardPlus.{MaterialCompiler.IrradianceFieldShader}"
-        );
+        using var texture = new IrradianceFieldTexture(field);
+
+        var commands = fixture.Device.BeginCommandList(QueueKind.Graphics, "irradiance names");
+
+        texture.Upload(fixture.Device, commands);
+        commands.Finish();
+        fixture.Device.GraphicsQueue.Submit([commands]);
+        fixture.Device.GraphicsQueue.WaitIdle();
+
+        texture.Apply(parameters, $"ForwardPlus.{MaterialCompiler.IrradianceFieldShader}");
 
         return [.. parameters.Keys.Select(key => key.Name)];
     }

@@ -218,6 +218,19 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
     ///         <c>ForwardPlus.distanceFieldVolumes[0]</c>. A default here was wrong for the only
     ///         consumer that exists and would have bound nothing at all, silently.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A handle is written only if it exists, and the numbers are written either way.</b>
+    ///         The volumes and the sampler are made by <see cref="Upload" />, so before one there is
+    ///         nothing to name — and a name set to an invalid handle is worse than a name nobody set:
+    ///         <see cref="EffectSetWriter" /> asks whether a name is <em>set</em>, not whether what it is
+    ///         set to exists, so it counts a descriptor naming nothing as filled and completes the set.
+    ///         An omitted name refuses the set instead, which is a black frame that says which binding
+    ///         and lands on the first frame rather than a volume sampling as an undefined distance. Every
+    ///         caller in the tree does upload first — <c>GlobalDistanceFieldRenderer</c> and the golden
+    ///         device tests — and nothing enforced that ordering, so this is what makes it unnecessary
+    ///         rather than lucky. <c>SceneLighting.WriteEnvironment</c> guards its two handles the same
+    ///         way and for the same reason.
+    ///     </para>
     /// </remarks>
     public void Apply(ParameterCollection parameters, string shaderName) {
         ArgumentNullException.ThrowIfNull(parameters);
@@ -236,13 +249,17 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
 
             // The volume this slot describes, beside the numbers describing it. Writing one without
             // the other is a shader told exactly where to look in a texture nothing bound.
-            parameters.Set(
-                ParameterKeys.New<TextureViewHandle>(LevelBinding(level, shaderName)),
-                views[level]
-            );
+            if (views[level].IsValid) {
+                parameters.Set(
+                    ParameterKeys.New<TextureViewHandle>(LevelBinding(level, shaderName)),
+                    views[level]
+                );
+            }
         }
 
-        parameters.Set(ParameterKeys.New<SamplerHandle>(SamplerBinding(shaderName)), sampler);
+        if (sampler.IsValid) {
+            parameters.Set(ParameterKeys.New<SamplerHandle>(SamplerBinding(shaderName)), sampler);
+        }
     }
 
     /// <summary>The shader's name for one level's volume texture.</summary>

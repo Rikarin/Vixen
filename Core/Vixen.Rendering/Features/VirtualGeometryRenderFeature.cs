@@ -391,7 +391,16 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
             softwareThreshold[i] = SoftwareThreshold;
         }
 
-        Visibility.Prepare(
+        // ⚠ Discarded here and answered elsewhere, which is worth saying because the discard used to be
+        // the whole of it. False is ordinary — the culling variant still compiling is what the first
+        // frames after a shader-cache miss look like — and it means no buffers were made, while
+        // MeshCount goes on counting registrations. So the answer this drops is kept on the object as
+        // GpuClusterVisibility.Visible, and every consumer of the traversal asks that handle before
+        // binding anything of the traversal's: see GpuClusterRaster.Ready, GpuVisibilityTiles.Record and
+        // GpuClusterResolve.Prepare. Nothing useful is left for this method to do with it — the frame's
+        // virtualized objects are absent until the variant lands, and there is no fallback to take
+        // because MeshExtractionSystem sent them down this path instead of the ordinary one.
+        _ = Visibility.Prepare(
             system.Views,
             errorScale.AsSpan(0, system.Views.Count),
             errorThreshold.AsSpan(0, system.Views.Count),

@@ -8,6 +8,7 @@ using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
@@ -251,7 +252,15 @@ public sealed class ForwardFrameTests : IDisposable {
         public required RenderPassRenderer Pass { get; init; }
         public required ShadowMapRenderer Shadows { get; init; }
 
+        /// <summary>The two mirrors set 0's composed slots are filled from, held so they are closed.</summary>
+        public required IrradianceFieldTexture Irradiance { get; init; }
+
+        /// <summary>The clipmap, on the same terms.</summary>
+        public required GlobalDistanceFieldTexture Clipmap { get; init; }
+
         public void Dispose() {
+            Clipmap.Dispose();
+            Irradiance.Dispose();
             Scene.Dispose();
             View.Dispose();
             System.Dispose();
@@ -338,21 +347,42 @@ public sealed class ForwardFrameTests : IDisposable {
         // short is a set nothing binds. A project that composes `NoIrradiance` instead declares none of
         // them and needs none of this, which is what `MaterialCompiler` gives every material by default.
         //
-        // No device is touched: `Apply` writes the handles the mirror holds, and before an upload those
-        // are default ones. What is being checked here is the *names*, which is the half that fails
-        // silently — a binding whose name nobody wrote is indistinguishable from a frame nobody drew.
-        new IrradianceFieldTexture(new(new(new(-8f), new(8f)), new(2))).Apply(
-            scene.Parameters,
-            $"ForwardPlus.{MaterialCompiler.IrradianceFieldShader}"
-        );
-
         // And the clipmap's, which arrived with ambient occlusion for the third time and the same
         // reason both times before it. `ForwardPlus` composes `GlobalDistanceField` into its
-        // `distanceField` slot, so set 0 declares five volumes, their level count and a sampler
-        // whether or not `UseDistanceFieldOcclusion` is on — and a set one entry short is a set
-        // nothing binds, which is every draw in the pass refused rather than an effect that is
-        // missing. This test failed the moment the slot was added, which is exactly its job.
-        new GlobalDistanceFieldTexture(new()).Apply(scene.Parameters, "ForwardPlus.GlobalDistanceField");
+        // `distanceField` slot, so set 0 declares four volumes and a sampler whether or not
+        // `UseDistanceFieldOcclusion` is on — and a set one entry short is a set nothing binds, which is
+        // every draw in the pass refused rather than an effect that is missing. This test failed the
+        // moment the slot was added, which is exactly its job.
+        //
+        // ⚠ **Uploaded before applied, because that is the order production has and the only order
+        // either `Apply` now answers.** This used to construct both mirrors and apply them without ever
+        // touching a device, so `Create` never ran and all nine names — two of the clipmap's and seven
+        // of the field's — were written holding default handles. The set completed anyway, because
+        // `EffectSetWriter` asks whether a name is *set* and not whether what it is set to exists, and
+        // this test then asserted that a complete set of dead descriptors was complete. Both `Apply`
+        // methods omit a handle they have not made now, so the assertion is about the frame a real
+        // caller reaches — `GlobalDistanceFieldRenderer` and `IrradianceFieldRenderer` both upload
+        // first, and nothing but this made that ordering more than a habit.
+        var irradiance = new IrradianceFieldTexture(new(new(new(-8f), new(8f)), new(2)));
+        var field = new GlobalDistanceField();
+
+        // Empty, and composited anyway: `Upload` refuses a clipmap nothing has composited, because
+        // every level would be a volume of zeroes and zero is a surface. What set 0 needs is four
+        // volumes that exist, not four volumes with a scene in them.
+        field.Update(Vector3.Zero, [], parallel: false);
+
+        var clipmap = new GlobalDistanceFieldTexture(field);
+
+        var upload = device.BeginCommandList();
+
+        irradiance.Upload(device, upload);
+        clipmap.Upload(device, upload);
+
+        upload.Finish();
+        device.GraphicsQueue.Submit([upload]);
+
+        irradiance.Apply(scene.Parameters, $"ForwardPlus.{MaterialCompiler.IrradianceFieldShader}");
+        clipmap.Apply(scene.Parameters, "ForwardPlus.GlobalDistanceField");
 
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",
@@ -424,7 +454,9 @@ public sealed class ForwardFrameTests : IDisposable {
             Lighting = lighting,
             Lights = lights,
             Pass = pass,
-            Shadows = shadows
+            Shadows = shadows,
+            Irradiance = irradiance,
+            Clipmap = clipmap
         };
     }
 
