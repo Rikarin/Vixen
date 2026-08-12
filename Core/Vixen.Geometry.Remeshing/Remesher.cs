@@ -382,7 +382,7 @@ public static class Remesher {
         var scale = 1f;
 
         for (var attempt = 0; attempt < BrakeAttempts; attempt++) {
-            var planned = Quantizer.QuadCount(layout, solved.Counts);
+            var planned = Quantizer.QuadCount(layout, solved);
 
             if (planned <= allowed) {
                 if (attempt > 0) {
@@ -410,7 +410,7 @@ public static class Remesher {
         }
 
         warnings.Add(
-            $"The quantization planned {Quantizer.QuadCount(layout, solved.Counts)} quads against "
+            $"The quantization planned {Quantizer.QuadCount(layout, solved)} quads against "
             + $"{settings.TargetQuads} asked for and would not come down in {BrakeAttempts} attempts. "
             + "The partition is unusable rather than merely coarse."
         );
