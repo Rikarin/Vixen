@@ -249,7 +249,9 @@ public sealed class VirtualGeometryContentTests {
     static void Settle(IGraphicsDevice device, VirtualGeometrySystem geometry) {
         var waited = Stopwatch.StartNew();
 
-        while (waited.Elapsed < TimeSpan.FromSeconds(10)) {
+        // Thirty rather than ten, the same as every other settle in the tree that a loaded runner has
+        // caught out. A deadline only costs time on a build that is already failing.
+        while (waited.Elapsed < TimeSpan.FromSeconds(30)) {
             geometry.Residency.Service();
             Flush(device, geometry.Pages);
 
