@@ -374,8 +374,8 @@ Vixen.Rendering.Water.WaterRenderer.Scattering.get -> Vixen.Core.Mathematics.Vec
 Vixen.Rendering.Water.WaterRenderer.Scattering.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.SkyColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.SkyColour.set -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.Water.WaterRenderer.Sun.get -> Vixen.Rendering.Lighting.ISunSource?
-Vixen.Rendering.Water.WaterRenderer.Sun.set -> Vixen.Rendering.Lighting.ISunSource?
+Vixen.Rendering.Water.WaterRenderer.Sun.get -> Vixen.Rendering.ISunSource?
+Vixen.Rendering.Water.WaterRenderer.Sun.set -> Vixen.Rendering.ISunSource?
 Vixen.Rendering.Water.WaterRenderer.SunColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.SunColour.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.SunDirection.get -> Vixen.Core.Mathematics.Vector3
