@@ -5,11 +5,9 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.Features;
 using Vixen.Rendering.Materials;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
-using Vixen.Shaders.Generated;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 
@@ -242,7 +240,7 @@ public sealed class StandardFrameTierImageTests {
         }
 
         using var owned = fixture!;
-        using var scene = Stage(owned, QualityTier.High, SplitDocument, split: true);
+        using var scene = Stage(owned, QualityTier.High, SplitDocument);
 
         // The claim the picture cannot make for itself: that this frame is the split one. A
         // regression that quietly stopped splitting would re-record as a perfectly good picture.
@@ -276,9 +274,12 @@ public sealed class StandardFrameTierImageTests {
             $"The split frame and the unsplit tier-high reference differ in only "
             + $"{against.DifferingPixels} of {against.TotalPixels} pixels ({against.Fraction:P3}), "
             + "where a quarter of the frame is the least a rebuilt one may. The likeliest cause is "
-            + "that ForwardPlus compiled without SplitOutputs: the shading pass then writes location "
-            + "0 alone, the albedo, normal and f0 planes stay at the clear, and !AmbientCombine reads "
-            + "a zero-length normal as sky and returns the direct target untouched."
+            + "that ForwardPlus compiled without SplitOutputs — CompositorBuilder infers it from the "
+            + "Main pass's four colourTargets, so a pass that lost a target or a permutation that "
+            + "stopped reaching the material feature both land here. The shading pass then writes "
+            + "location 0 alone, the albedo, normal and f0 planes stay at the clear, and "
+            + "!AmbientCombine reads a zero-length normal as sky and returns the direct target "
+            + "untouched."
         );
 
         GoldenImage.Verify("frame-split", picture, Tolerance.Shaded);
@@ -354,47 +355,34 @@ public sealed class StandardFrameTierImageTests {
     ///         which is the axis a shadow projection folds around.
     ///     </para>
     /// </remarks>
-    static TierScene Stage(Fixture fixture, QualityTier tier) => Stage(fixture, tier, Document, split: false);
+    static TierScene Stage(Fixture fixture, QualityTier tier) => Stage(fixture, tier, Document);
 
-    /// <param name="split">
-    ///     Whether the shading pass writes the four planes as well as the frame declaring them.
-    /// </param>
     /// <remarks>
-    ///     ⚠ <b>Two halves, and the expansion only emits one of them.</b> A <c>gi:</c> above
-    ///     <see cref="GiMode.Off" /> declares the split targets and the combine that reads them, but
-    ///     whether <c>ForwardPlus</c> <em>writes</em> them is a permutation on the material — which
-    ///     <see cref="StandardFrameAsset" />'s own remarks state is the host's, alongside the caster
-    ///     stages, and owed to a later increment. Nothing in the engine sets it: samples 03 and 13
-    ///     are the only places in the tree that do, and this fixture is a third project doing the
-    ///     same thing.
+    ///     ⚠ <b>Nothing here turns the split on, and something used to have to.</b> A <c>gi:</c> above
+    ///     <see cref="GiMode.Off" /> declares the split targets and the combine that reads them;
+    ///     whether <c>ForwardPlus</c> <em>writes</em> them is a permutation, and
+    ///     <c>CompositorBuilder</c> now infers it from the expanded Main pass's four
+    ///     <c>colourTargets</c> — so opening a split document is the whole of it, exactly as opening
+    ///     an unsplit one is.
     ///     <para>
-    ///         Without it the frame is not merely unsplit, it is <em>silently</em> unsplit. The
-    ///         single-target variant writes location 0 and leaves the albedo, normal and <c>f0</c>
-    ///         planes at the clear; <c>AmbientCombine</c>'s sky test is the normal plane's length, so
-    ///         a cleared plane makes every pixel in the frame read as sky and the pass returns the
-    ///         direct target untouched. This fixture's first rendering was <b>bit-identical</b> to
+    ///         Worth stating rather than merely deleting, because of what the missing half looked
+    ///         like: not an unsplit frame but a <em>silently</em> unsplit one. The single-target
+    ///         variant writes location 0 and leaves the albedo, normal and <c>f0</c> planes at the
+    ///         clear; <c>AmbientCombine</c>'s sky test is the normal plane's length, so a cleared
+    ///         plane makes every pixel in the frame read as sky and the pass returns the direct
+    ///         target untouched. This fixture's first rendering was <b>bit-identical</b> to
     ///         <c>tier-high</c> across all 16 384 pixels for exactly that reason — a golden that
     ///         would have been recorded, passed forever, and asserted nothing about the split at all.
-    ///     </para>
-    ///     <para>
-    ///         <see cref="MaterialRenderFeature.SetPermutation" /> rather than the two lines the
-    ///         samples use: it registers this one key beside whatever is already registered, where
-    ///         assigning <c>PermutationKeys["ForwardPlus"]</c> the generated list would enrol every
-    ///         other permutation the shader has at once and change what the four tier goldens above
-    ///         resolve to.
+    ///         The comparison against <c>tier-high</c> in <see cref="ASplitFrameLooksLikeItsReference" />
+    ///         is what stands guard over that now, and it stands over the inference too.
     ///     </para>
     /// </remarks>
-    static TierScene Stage(Fixture fixture, QualityTier tier, GraphicsCompositorAsset document, bool split) {
+    static TierScene Stage(Fixture fixture, QualityTier tier, GraphicsCompositorAsset document) {
         var effects = new EffectSystem();
 
         effects.AddProvider(new Compiling(new(fixture.Device), Compiler));
 
         var scene = TierScene.Open(fixture, effects, document, tier);
-
-        if (split) {
-            scene.Renderer.Materials.SetPermutation("ForwardPlus", ForwardPlusKeys.SplitOutputs, true);
-        }
-
         var casters = scene.Stages.TryGetValue("Shadow", out var shadow) ? shadow.Mask : default;
         var opaque = scene.Stages["Opaque"].Mask;
 

@@ -77,6 +77,73 @@ public class CompositorAssetTests : IDisposable {
                   stage: Transparent
         """;
 
+    /// <summary>The same frame, splitting its shading across the ambient split's four planes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What a split document <em>is</em>, in the only terms a file has: four
+    ///         <c>colourTargets</c> on the shading pass, in the order <c>ForwardPlus.rvn</c> declares
+    ///         its output struct in. Nothing here says <c>SplitOutputs</c>, because nothing in a
+    ///         document can — that is a permutation, and the whole point of
+    ///         <c>RenderPassRenderer.SplitOutputsKey</c> is that the builder reads it back off these
+    ///         four names.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The velocity pass is here for the or, and only for it.</b> It leaves
+    ///         <see cref="RenderPassRenderer.ShaderName" /> at its default, so it is qualified by the
+    ///         same name as <c>Main</c> and carries one colour target — which is sample 13's shape and
+    ///         the standard frame's, and which a builder that took the <em>last</em> pass's answer
+    ///         would let turn the split back off.
+    ///     </para>
+    /// </remarks>
+    const string SplitDocument = """
+        version: 2
+        resources:
+          - name: SceneColour
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+          - name: SceneAlbedo
+            format: Rgba8UNormSrgb
+            usage: ColourTarget, Sampled
+          - name: SceneNormals
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+          - name: SceneSpecular
+            format: Rgba8UNorm
+            usage: ColourTarget, Sampled
+          - name: SceneMotion
+            format: Rg16Float
+            usage: ColourTarget, Sampled
+          - name: SceneDepth
+            format: Depth32Float
+            usage: DepthStencilTarget
+        stages:
+          - name: Opaque
+          - name: Motion
+        game: !Sequence
+          name: Frame
+          children:
+            - !RenderPass
+              name: Main
+              colourTargets: [SceneColour, SceneAlbedo, SceneNormals, SceneSpecular]
+              depthTarget: SceneDepth
+              children:
+                - !SingleStage
+                  name: OpaqueDraw
+                  view: Camera
+                  stage: Opaque
+            - !RenderPass
+              name: Velocity
+              colourTargets: [SceneMotion]
+              depthTarget: SceneDepth
+              depthLoad: Load
+              readOnlyDepth: true
+              children:
+                - !SingleStage
+                  name: MotionVectors
+                  view: Camera
+                  stage: Motion
+        """;
+
     /// <summary>A frame that culls on the device, as a document says it.</summary>
     /// <remarks>
     ///     Two nodes and two flags. What the file cannot say is what the resources are — a visibility
@@ -1045,6 +1112,122 @@ public class CompositorAssetTests : IDisposable {
 
         Assert.NotNull(effect);
         Assert.Contains(new KeyValuePair<string, string>("ForwardPlus.CascadeCount", "2"), effect!.Key.Values);
+    }
+
+    /// <summary>
+    ///     A document's four colour targets are what makes the shading pass write four.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The other half of the ambient split, which a document could always declare and
+    ///         nothing ever acted on.</strong> <c>ForwardPlus.SplitOutputs</c> is a permutation and no
+    ///         production code in the engine set it: two sample projects did, by hand, beside their
+    ///         own frames. A third project that declared the planes and the combine and forgot the
+    ///         permutation got a frame that was <em>pixel-identical</em> to an unsplit one — the
+    ///         single-target variant writes location 0, the other three planes stay at the clear, and
+    ///         <c>AmbientCombine.rvn</c> reads a zero-length normal as sky and hands the direct target
+    ///         straight back. Nothing is invalid and nothing is refused.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are asserted for the reason the cascade pair above states: the value is
+    ///         what a variant is compiled for, and the key is what the effect key is built from.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_documents_split_targets_select_the_shading_variant() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(SplitDocument);
+        using var h = Build();
+
+        h.Builder.Build(asset);
+
+        var key = RenderPassRenderer.SplitOutputsKey("ForwardPlus");
+
+        Assert.True(h.Materials.Permutations.Get(key));
+        Assert.Contains(key, h.Materials.PermutationKeys["ForwardPlus"]);
+    }
+
+    /// <summary>
+    ///     And a one-target pass under the same shader name does not take it back off.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The or, which the document's velocity pass exists for.</b>
+    ///     <see cref="RenderPassRenderer.ShaderName" /> qualifies the permutation and several passes
+    ///     leave it at its default — sample 13's <c>Main</c>, <c>Velocity</c> and <c>Sparks</c> all
+    ///     do, and so does everything <c>StandardFrame</c> emits. A builder that assigned rather than
+    ///     or-ed would answer with whichever pass it walked last, which is a split frame whose
+    ///     shading pass writes one plane because a velocity pass exists somewhere after it.
+    /// </remarks>
+    [Fact]
+    public void A_one_target_pass_beside_a_split_one_does_not_unsplit_the_frame() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(SplitDocument);
+        using var h = Build();
+
+        var compositor = h.Builder.Build(asset);
+        var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
+
+        // The pass that would have won an assignment: last in the tree, one target, same name.
+        var velocity = Assert.IsType<RenderPassRenderer>(children[1]);
+
+        Assert.Equal("ForwardPlus", velocity.ShaderName);
+        Assert.Single(velocity.ColourTargets);
+        Assert.True(h.Materials.Permutations.Get(RenderPassRenderer.SplitOutputsKey("ForwardPlus")));
+    }
+
+    /// <summary>
+    ///     An unsplit document says so, rather than leaving whatever was there.
+    /// </summary>
+    /// <remarks>
+    ///     <c>Permutations</c> belongs to the feature and outlives a build, so a host that reloads
+    ///     from a split document to an unsplit one has to be told — writing the value only when it is
+    ///     true would leave the shading pass compiled for four targets in a pass that declares one,
+    ///     which is a pipeline the device refuses rather than a frame that looks wrong. The key is
+    ///     registered either way, so the effect key carries the answer rather than the absence of
+    ///     one.
+    /// </remarks>
+    [Fact]
+    public void An_unsplit_document_turns_the_split_back_off() {
+        using var h = Build();
+        var key = RenderPassRenderer.SplitOutputsKey("ForwardPlus");
+
+        h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(SplitDocument));
+        Assert.True(h.Materials.Permutations.Get(key));
+
+        h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+
+        Assert.False(h.Materials.Permutations.Get(key));
+        Assert.Contains(key, h.Materials.PermutationKeys["ForwardPlus"]);
+    }
+
+    /// <summary>
+    ///     And it lands in the effect key, which is the only place it can change anything.
+    /// </summary>
+    /// <remarks>
+    ///     What the assertions above are <em>for</em>, on
+    ///     <see cref="The_count_is_in_the_key_the_shading_variant_was_resolved_from" />'s terms: a
+    ///     permutation the feature holds and the effect key omits looks identical from the
+    ///     collection's side, and the compiler is never told — so it produces the variant the
+    ///     shader's own <c>= false</c> describes, which is the whole of the failure this closes.
+    /// </remarks>
+    [Fact]
+    public void The_split_is_in_the_key_the_shading_variant_was_resolved_from() {
+        using var h = Build();
+
+        var compositor = h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(SplitDocument));
+        compositor.FrameSize = new(512, 512);
+
+        // The frame's last target has to belong to somebody outside the graph, or the pass that
+        // writes it is one the graph is right to cull — see Compose.
+        compositor.Imports["SceneColour"] =
+            Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget, "SceneColour");
+
+        var mesh = AddMesh(h, -10f, new Material("ForwardPlus"), h.Builder.Stages["Opaque"].Mask);
+
+        Frame(h, compositor);
+
+        var effect = h.Materials.EffectOf(h.System, mesh);
+
+        Assert.NotNull(effect);
+        Assert.Contains(new KeyValuePair<string, string>("ForwardPlus.SplitOutputs", "true"), effect!.Key.Values);
     }
 
     // --- Refusals -----------------------------------------------------------

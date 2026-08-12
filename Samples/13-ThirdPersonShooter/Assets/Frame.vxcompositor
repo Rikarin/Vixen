@@ -74,7 +74,8 @@ resources:
     height: 2816
 
   # The split's second target: what every surface *is*, kept apart from what lit it. With
-  # `ForwardPlus.SplitOutputs` on (see Arena.Paint) the shading pass holds its diffuse ambient back
+  # `ForwardPlus.SplitOutputs` on (which the Main pass's four colourTargets below decide, not a host)
+  # the shading pass holds its diffuse ambient back
   # and writes albedo here instead — rgb, with the material's own occlusion in alpha — so the
   # !AmbientCombine at the other end of the frame can multiply real irradiance and real occlusion
   # into it. Rgba16Float rather than eight bits because the visibility resolve writes the same
@@ -471,12 +472,17 @@ game: !Sequence
     #    the pair returns, depth becomes shared — `depthLoad: Load` here, on the re-enable
     #    checklist above — because a resolve with a depth of its own would be two frames
     #    composited.
-    # ⚠ Member order is target order, and the shader dictates it: with SplitOutputs on (Arena.Paint
-    # again) ForwardPlus writes location 0 = direct light and emissive, 1 = albedo with the material's
-    # occlusion in alpha, 2 = world normal with roughness in alpha, 3 = the surface's f0. Diffuse
+    # ⚠ Member order is target order, and the shader dictates it: with SplitOutputs on ForwardPlus
+    # writes location 0 = direct light and emissive, 1 = albedo with the material's occlusion in
+    # alpha, 2 = world normal with roughness in alpha, 3 = the surface's f0. Diffuse
     # ambient is in none of them — the combine below owns it, which is the whole split. Reordering
     # this list is not a different layout, it is albedo shaded as radiance through the entire chain,
     # which is why SceneSpecular was appended and not slotted in beside its neighbours.
+    #
+    # ⚠ **This line is what turns SplitOutputs on, and nothing else does.** The permutation used to
+    # be set by hand in Arena.Paint beside this list; CompositorBuilder counts the colour targets a
+    # pass declares and pushes the answer to the material features now, so the two halves cannot
+    # come apart. Drop a target here and the shading pass compiles single-target with it.
     #
     # ⚠ Specular ambient is in none of them either, now that the f0 plane exists: the combine adds
     # the traced reflection weighted by that f0 instead, and the pass holds its own prefiltered-cube
