@@ -205,6 +205,21 @@ public sealed class AppGraphics : IDisposable {
         // the same two layers — see PostEffectFactory.QualityOf.
         var quality = PostEffectFactory.QualityOf(document, options.Quality, preset);
 
+        // ⚠ The light budget, which the tiers have carried since they were written and nothing read.
+        //
+        // LightQuality said "carried, not yet consumed" and it was exactly true: Low asks for four
+        // lights an object and every tier drew eight, because eight is this feature's constructor
+        // default and no line of the waterfall reached it. The same shape as the vegetation budgets
+        // below — a resolved number, handed to the object that owns the behaviour, before anything
+        // is built from it — and the same shape as the defect one array along, where a tier's
+        // cascade count reached no shader either.
+        //
+        // Before Load, necessarily and for two reasons: the block's size is fixed at the first frame
+        // that prepares, and CompositorBuilder reads this number to compile the shading passes
+        // against a `lights[]` of the same length. A game that wants its own budget sets it after
+        // this and reloads the document, which is what sample 13 does.
+        Renderer.Lighting.MaxLightsPerObject = quality.MaxLightsPerObject;
+
         // ⚠ Before the factories too, because a !WaterSurface node is handed this as it is created
         // and a node with no zones draws nothing at all. It is also the one water clock — see
         // WaterZoneSystem.WaterTime — so the surface, the underwater volume and a buoyancy solver all
