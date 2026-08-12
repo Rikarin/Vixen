@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Imaging;
@@ -174,6 +175,100 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture),
             copy => copy.E == 256
         );
+    }
+
+    /// <summary>
+    ///     And it says so, to the logger the host handed the source — through the chain a game builds
+    ///     and not past it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The assertion the sibling test in <c>Vixen.Rendering.Tests</c> cannot make.</b>
+    ///         <c>PageResidencyTests.Refusals_are_logged_once_and_a_healthy_frame_logs_nothing</c>
+    ///         sets <c>PageResidency.Logger</c> itself, so what it proves is that the log call works
+    ///         once somebody has already made the link — and for as long as event 4001 has existed,
+    ///         nobody in a shipped game had. The residency was built by <see cref="TextureStreamer" />
+    ///         and the streamer by <see cref="AssetTextureSource" />, and neither carried a logger, so
+    ///         the one signal that says the streaming budget is too small for the scene reached a log
+    ///         only in a test that reached past both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing here touches the residency.</b> The only thing set is
+    ///         <see cref="AssetTextureSource.Logger" />, which is what a host has. That is the whole
+    ///         point of the test: if either forward is dropped it goes red, and an assertion made on
+    ///         the residency would stay green with the chain cut.
+    ///     </para>
+    ///     <para>
+    ///         The refusal is forced the way
+    ///         <see cref="APoolTooSmallForTheTextureStillDrawsItAtTheFloor" /> forces it — a pool of one
+    ///         page against a 256-square chain, where the pinned floor is already the whole budget.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARefusalReachesTheLoggerTheHostHandedTheSource() {
+        var log = new CaptureLogger();
+
+        using var source = new AssetTextureSource(device, Content(256, 256), 64 * 1024) { Logger = log };
+
+        // The first forward, before a frame has run: what a host set is what the streamer holds.
+        Assert.Same(log, source.Streaming!.Logger);
+
+        Settle(source);
+
+        var waited = Stopwatch.StartNew();
+
+        while (waited.Elapsed < Patience && log.Lines.Count == 0) {
+            source.TryGet(Bark, out _);
+
+            Record(source);
+
+            Thread.Sleep(1);
+        }
+
+        Assert.True(source.Streaming.Rejections > 0, "nothing was refused by a one-page pool");
+
+        var refused = Assert.Single(log.Lines, line => line.Id == 4001);
+
+        Assert.Equal(LogLevel.Warning, refused.Level);
+
+        // The number that tells somebody which fix this is: the pool is one page and all of it pinned.
+        Assert.Contains("1", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A source with no pool keeps what it was given rather than reading as a dropped link.</summary>
+    /// <remarks>
+    ///     There is nothing under it to log — no streamer, no residency and no refusal — so the value
+    ///     goes nowhere, and answering null would be indistinguishable from a forward that failed.
+    /// </remarks>
+    [Fact]
+    public void ASourceWithNoPoolStillRoundTripsTheLoggerItWasGiven() {
+        var log = new CaptureLogger();
+
+        using var source = new AssetTextureSource(device, Content(2, 2)) { Logger = log };
+
+        Assert.Null(source.Streaming);
+        Assert.Same(log, source.Logger);
+
+        Settle(source);
+
+        Assert.Empty(log.Lines);
+    }
+
+    /// <summary>Every line the chain wrote, with the id it wrote it under.</summary>
+    sealed class CaptureLogger : ILogger {
+        public List<(int Id, LogLevel Level, string Message)> Lines { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter
+        ) => Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
     }
 
     /// <summary>Records one frame's uploads and submits them, which is what reaches the recorder.</summary>

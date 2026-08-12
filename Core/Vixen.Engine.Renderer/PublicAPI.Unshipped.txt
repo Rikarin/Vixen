@@ -43,6 +43,8 @@ Vixen.Engine.Renderer.AssetTextureSource.AssetTextureSource(Vixen.Graphics.IGrap
 Vixen.Engine.Renderer.AssetTextureSource.Dispose() -> void
 Vixen.Engine.Renderer.AssetTextureSource.Failed.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.Loaded.get -> int
+Vixen.Engine.Renderer.AssetTextureSource.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Engine.Renderer.AssetTextureSource.Logger.set -> void
 Vixen.Engine.Renderer.AssetTextureSource.Requested.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.StreamedImageBytes.get -> long
 Vixen.Engine.Renderer.AssetTextureSource.Streaming.get -> Vixen.Engine.Renderer.TextureStreamer?
@@ -181,6 +183,8 @@ Vixen.Engine.Renderer.TextureStreamer.Evictions.get -> long
 Vixen.Engine.Renderer.TextureStreamer.IsRegistered(int texture) -> bool
 Vixen.Engine.Renderer.TextureStreamer.Loading.get -> int
 Vixen.Engine.Renderer.TextureStreamer.Loads.get -> long
+Vixen.Engine.Renderer.TextureStreamer.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Engine.Renderer.TextureStreamer.Logger.set -> void
 Vixen.Engine.Renderer.TextureStreamer.MipBias.get -> float
 Vixen.Engine.Renderer.TextureStreamer.MipBias.set -> float
 Vixen.Engine.Renderer.TextureStreamer.PageSize.get -> int
@@ -219,6 +223,8 @@ Vixen.Engine.Renderer.WorldRenderer.Hierarchies.get -> Vixen.Rendering.Ecs.IVirt
 Vixen.Engine.Renderer.WorldRenderer.Hierarchies.set -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
 Vixen.Engine.Renderer.WorldRenderer.Host.get -> Vixen.Engine.Renderer.SceneRenderHost
 Vixen.Engine.Renderer.WorldRenderer.Lighting.get -> Vixen.Rendering.Features.ForwardLightingRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Engine.Renderer.WorldRenderer.Logger.set -> void
 Vixen.Engine.Renderer.WorldRenderer.MaterialDescriptors.get -> Vixen.Graphics.DescriptorAllocator
 Vixen.Engine.Renderer.WorldRenderer.Materials.get -> Vixen.Rendering.Features.MaterialRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.Meshes.get -> Vixen.Rendering.Features.MeshRenderFeature

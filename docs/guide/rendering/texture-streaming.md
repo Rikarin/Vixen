@@ -233,6 +233,18 @@ happened and will not happen again, so whatever those pages belong to draws noth
 pool is bigger. `4001` in a burst means raise the slot count; `4002` even once means the pinned floor
 does not fit the budget it was given.
 
+**Where the logger comes from.** `PageResidency` is built by `TextureStreamer`, the streamer by
+`AssetTextureSource` and that source by `WorldRenderer.Mount` — three constructors a game never sees
+— so the logger arrives from the other end, as a property forwarded down each link. `AppGraphics`
+fills `WorldRenderer.Logger` with a `Vixen.Rendering`-category logger, which is what makes these two
+lines appear in a shipped game; a host assembling the renderer itself sets that property or gets
+nothing. It is order-free with respect to `Mount`, unlike `WorldRenderer.Textures`, which sizes the
+pool and therefore has to come first.
+
+⚠ **The texture pool only.** `VirtualGeometrySystem`, `VirtualShadowAtlas` and the terrain and
+foliage streamers each hold a `PageResidency` of their own, and none of those is given a logger yet —
+a refusal in one of them is still only a counter.
+
 ## See also
 
 - [Meshes and materials](mesh-and-material.md) — where a material's textures come from.
