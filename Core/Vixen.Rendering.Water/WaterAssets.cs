@@ -66,10 +66,20 @@ public sealed record WaterAsset : ISceneRendererAsset {
     /// <summary>§ D8's scale on what is behind the water. One is the physical answer.</summary>
     public Vector3 BehindScale { get; init; } = Vector3.One;
 
-    /// <summary>The radiance the volume scatters.</summary>
-    public Vector3 SunColour { get; init; } = new(1f, 0.96f, 0.9f);
+    /// <summary>
+    ///     What the sun delivers to the volume, <b>as an illuminance in lux</b>, for a host with no
+    ///     lighting feature in it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A fallback rather than the answer, and never a tint.</b> A host that hands the
+    ///     compositor an <c>ISunSource</c> — every host with a lighting feature does — gives the water
+    ///     the scene's own sun, and this is what a document with none gets. Written as a colour it is
+    ///     four decades under the frame it composites into, which is a lake that tonemaps to the same
+    ///     black as a pass that never ran; see <c>WaterRenderer.SunColour</c> for what that cost.
+    /// </remarks>
+    public Vector3 SunColour { get; init; } = new(90000f, 81000f, 63000f);
 
-    /// <summary>Which way the light travels.</summary>
+    /// <summary>Which way the light travels, for a host with no sun to read.</summary>
     /// <remarks>
     ///     ⚠ Left unstated, the water lights with a noon sun whatever the sky in the same document
     ///     says — the forward-scattering peak lands in the wrong place, which reads as a lake lit
@@ -77,8 +87,16 @@ public sealed record WaterAsset : ISceneRendererAsset {
     /// </remarks>
     public Vector3 SunDirection { get; init; } = new(0f, -1f, 0f);
 
-    /// <summary>What arrives from the whole sky. ⚠ Without it, deep water is black.</summary>
-    public Vector3 SkyColour { get; init; } = new(0.35f, 0.45f, 0.6f);
+    /// <summary>
+    ///     What arrives from the whole sky, <b>as a radiance in cd/m²</b>, for a frame with no
+    ///     environment in it. ⚠ Without it, deep water is black.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ On <see cref="SunColour" />'s terms, and the same number
+    ///     <see cref="UnderwaterAsset.SkyColour" /> defaults to — a sky that changed value at the
+    ///     waterline is a lake that changes colour when you put your head under.
+    /// </remarks>
+    public Vector3 SkyColour { get; init; } = new(1400f, 1680f, 2200f);
 
     /// <summary>Water against air. ⚠ Not a base colour.</summary>
     public float SurfaceF0 { get; init; } = 0.02f;
@@ -225,8 +243,15 @@ public sealed record UnderwaterAsset : ISceneRendererAsset {
     /// <summary>Henyey–Greenstein anisotropy, carried so the medium is one description.</summary>
     public float PhaseG { get; init; } = 0.7f;
 
-    /// <summary>What arrives from the whole sky. ⚠ Without it, below the surface is black.</summary>
-    public Vector3 SkyColour { get; init; } = new(0.35f, 0.45f, 0.6f);
+    /// <summary>
+    ///     What arrives from the whole sky, <b>as a radiance in cd/m²</b>, for a frame with no
+    ///     environment in it. ⚠ Without it, below the surface is black.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The same number <see cref="WaterAsset.SkyColour" /> defaults to, for the reason
+    ///     <see cref="Scattering" />'s remarks give from the other side.
+    /// </remarks>
+    public Vector3 SkyColour { get; init; } = new(1400f, 1680f, 2200f);
 
     /// <summary>§ D8's scale on what shows through.</summary>
     public Vector3 BehindScale { get; init; } = Vector3.One;
@@ -307,6 +332,10 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
             Absorption = declared.Absorption,
             PhaseG = declared.PhaseG,
             SkyColour = declared.SkyColour,
+
+            // The same environment !Water reads, so the sky is one number either side of the
+            // waterline — see WaterRenderer.Frame.
+            Frame = builder.SceneConstants,
             BehindScale = declared.BehindScale,
             Distortion = declared.Distortion,
             DistortionAmount = declared.DistortionAmount,
@@ -374,6 +403,14 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
             SunColour = declared.SunColour,
             SunDirection = declared.SunDirection,
             SkyColour = declared.SkyColour,
+
+            // ⚠ The frame's own sun and sky, which is what makes a !Water node in a plain document
+            // correct — the three above are photometric quantities of the scene and a document can
+            // only write a tint. Task #119 fixed this by having one sample call LightFrom every
+            // frame; every other host omitted it, and the fix was in the tree while the lake stayed
+            // black. !Fog and !VolumetricFog take the same two from the same builder.
+            Sun = builder.Sun,
+            Frame = builder.SceneConstants,
             SurfaceF0 = declared.SurfaceF0,
             FoamColour = declared.FoamColour,
             Foam = declared.Foam,

@@ -154,10 +154,13 @@ public sealed class ThirdPersonShooterGame : Game {
         // changed, and is what survives the reload. See ArenaIllumination.Feed.
         arena?.FeedIllumination();
 
-        // And the lake's, which is the same shape of wiring one subsystem over: !Water's sun and sky
-        // are radiances in the frame's units, a document can only write a tint, and the difference
-        // between the two is a lake that tonemaps to black. See Arena.FeedWater.
-        arena?.FeedWater();
+        // ⚠ The lake used to need the same treatment here — Arena.FeedWater, calling
+        // WaterRenderer.LightFrom once a frame — and it does not any more. !Water's sun and sky are
+        // photometric quantities of the scene, so WaterRendererFactory now takes them from
+        // CompositorBuilder.Sun and .SceneConstants the way !Fog and !VolumetricFog do, from the same
+        // two objects this method was reaching for. A host that has to remember is a host that works
+        // until somebody writes a second one: this sample was the only one that remembered, and the
+        // fix for task #119 was in the tree while every other host's lake stayed black.
     }
 
     /// <inheritdoc />

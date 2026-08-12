@@ -120,7 +120,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "1, 0.96, 0.9"
+              "DefaultValue": "90000, 81000, 63000"
             },
             {
               "Name": "sunDirection",
@@ -152,7 +152,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.35, 0.45, 0.6"
+              "DefaultValue": "1400, 1680, 2200"
             },
             {
               "Name": "surfaceF0",
@@ -504,7 +504,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "1, 0.96, 0.9"
+      "DefaultValue": "90000, 81000, 63000"
     },
     {
       "Name": "sunDirection",
@@ -540,7 +540,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.35, 0.45, 0.6"
+      "DefaultValue": "1400, 1680, 2200"
     },
     {
       "Name": "surfaceF0",

@@ -967,26 +967,29 @@ game: !Sequence
       normal: WaterNormal
       view: Camera
       tiled: true
-      # ⚠ **These three are overwritten every frame by `Arena.FeedWater`, and they have to be.**
-      # `sunDirection`, `sunColour` and `skyColour` are the *radiance* the volume scatters, in the
-      # frame's own units — this level's sun is about twenty thousand and its sky is thousands — and
-      # what a document can write by hand is a tint around one. A tint here is not a slightly wrong
-      # lake: the integration is exactly right and lands four decades under the exposure, so the water
-      # tonemaps to the same black as the shaded ground it sits in, with the fold, the patch counts,
-      # the info texture and the composite's build count all reporting success. That is task #119, and
-      # it cost a week because a lake that is four decades too dim and a water pass that never ran are
-      # pixel-for-pixel the same picture.
+      # ⚠ **These three are overridden every frame by the frame's own lighting, and they have to be.**
+      # `sunColour` is an *illuminance in lux* and `skyColour` a *radiance in cd/m²* — this level's sun
+      # is about twenty thousand and its sky about nineteen hundred — and what a document can write by
+      # hand is a tint around one. A tint here is not a slightly wrong lake: the integration is exactly
+      # right and lands four decades under the exposure, so the water tonemaps to the same black as the
+      # shaded ground it sits in, with the fold, the patch counts, the info texture and the composite's
+      # build count all reporting success. That is task #119, and it cost a week because a lake that is
+      # four decades too dim and a water pass that never ran are pixel-for-pixel the same picture.
       #
       # ⚠ And the level's sun *moves* — a SunOrbit turns it once every thirty seconds — so a direction
-      # stated here is right at one moment of the orbit and wrong for the rest of it. Both halves are
-      # `WaterRenderer.LightFrom`, called per frame.
+      # stated here is right at one moment of the orbit and wrong for the rest of it.
       #
-      # What is left below is the fallback for an editor or a host that does not push: eight degrees
-      # up, travelling north-east, which is this level's premise and the reason everything inside the
-      # walls is in shade.
+      # Both halves used to be `Arena.FeedWater` calling `WaterRenderer.LightFrom` once a frame, and
+      # are now `WaterRendererFactory` handing the node `CompositorBuilder.Sun` and `.SceneConstants` —
+      # the same two objects, without a host that has to remember. !Fog and !VolumetricFog take theirs
+      # the same way.
+      #
+      # What is left below is the fallback for an editor or a host with no lighting feature: this
+      # level's dusk, eight degrees up and travelling north-east, which is its premise and the reason
+      # everything inside the walls is in shade.
       sunDirection: -0.5698 -0.1400 0.8098
-      sunColour: 1.0 0.72 0.42
-      skyColour: 0.36 0.30 0.30
+      sunColour: 20000 14400 8400
+      skyColour: 1900 1580 1580
       # An inland lake: more scattering and less absorption than open sea, which is what makes
       # shallow water read as green rather than as a darker version of the sky.
       scattering: 0.05 0.09 0.10
