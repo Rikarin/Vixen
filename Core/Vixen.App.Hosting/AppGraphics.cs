@@ -128,7 +128,13 @@ public sealed class AppGraphics : IDisposable {
             HostLog.ShadersMounted(logger, shaders.Count);
         }
 
-        Renderer = new(device, Effects, options.VertexCapacity, options.IndexCapacity);
+        Renderer = new(device, Effects, options.VertexCapacity, options.IndexCapacity) {
+            // Under `Vixen.Rendering` rather than this class's own category, because the ids that
+            // arrive here are that assembly's — the 4 000 range in docs/manual/log-events.md — and a
+            // filter written against the register has to be able to name them. Set before Mount below
+            // as a matter of taste only; WorldRenderer.Logger forwards either way round.
+            Logger = logs.CreateLogger("Vixen.Rendering")
+        };
 
         // ⚠ Attached once, here, and never per frame. The graph reads its sink at Execute and the
         // sink's pools are sized at construction, so a profiler swapped mid-run would be one whose

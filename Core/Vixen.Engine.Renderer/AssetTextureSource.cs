@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers;
+using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Imaging;
@@ -58,9 +59,11 @@ public sealed class AssetTextureSource : IDisposable {
 
     readonly AssetTextureStreamSource? streamSource;
     readonly List<Entry> streamed = [];
+
     readonly BufferHandle[] streamStaging;
     readonly long[] streamStagingCapacity;
 
+    ILogger? logger;
     long streamAt;
     int streamSlot;
     int nextStreamId;
@@ -119,6 +122,32 @@ public sealed class AssetTextureSource : IDisposable {
     ///     whole exactly as it was before this existed, and none of the per-frame work below runs.
     /// </remarks>
     public TextureStreamer? Streaming { get; }
+
+    /// <summary>Where the streamer's refusals are reported, or null for nobody watching.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The middle link of the chain that carries a host's logger to
+    ///         <c>PageResidency.Logger</c>.</b> A game builds this and never sees the streamer
+    ///         or the residency under it, so a logger that stopped here would leave events 4001 and
+    ///         4002 documented and unreachable.
+    ///     </para>
+    ///     <para>
+    ///         Kept in a field as well as forwarded, so that a source with no pool round-trips what it
+    ///         was given rather than answering null and reading as a link that did not take. There is
+    ///         nothing under it to log in that case — with <see cref="Streaming" /> null there is no
+    ///         residency and no refusal to report.
+    ///     </para>
+    /// </remarks>
+    public ILogger? Logger {
+        get => logger;
+        set {
+            logger = value;
+
+            if (Streaming is { } streaming) {
+                streaming.Logger = value;
+            }
+        }
+    }
 
     /// <summary>How many swaps were skipped because the frame's staging was full.</summary>
     /// <remarks>

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Engine.Frames;
 using Vixen.Graphics;
@@ -60,6 +61,7 @@ public sealed class WorldRenderer : IDisposable {
     readonly TextureViewHandle missingMapView;
     readonly BufferHandle missingMapStaging;
 
+    ILogger? logger;
     bool missingMapUploaded;
     bool disposed;
 
@@ -506,6 +508,38 @@ public sealed class WorldRenderer : IDisposable {
     /// </remarks>
     public TextureStreamingQuality Textures { get; set; } = new();
 
+    /// <summary>Where the streaming pool's refusals are reported, or null for nobody watching.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The host's end of the chain that reaches <c>PageResidency.Logger</c></b>, through
+    ///         <see cref="Painted" /> and <see cref="TextureStreamer.Logger" />. Events 4001 and 4002
+    ///         are the only signal that says the streaming budget is too small for the scene — a frame
+    ///         that draws something coarser than it asked for raises no exception and drops no frame —
+    ///         and until this existed no link in the production chain carried a logger, so they were
+    ///         documented, tested and unreachable from a game.
+    ///     </para>
+    ///     <para>
+    ///         Unlike <see cref="Textures" /> this is <em>not</em> order-sensitive: setting it forwards
+    ///         to whatever source is mounted now, and <see cref="Mount" /> hands it to the one it
+    ///         builds. A host that logs after mounting and one that logs before get the same frames.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The texture pool only.</b> <see cref="VirtualGeometrySystem" />'s residency and the
+    ///         terrain and foliage streamers hold their own <c>PageResidency</c> instances, and those
+    ///         are still unwatched.
+    ///     </para>
+    /// </remarks>
+    public ILogger? Logger {
+        get => logger;
+        set {
+            logger = value;
+
+            if (Painted is { } painted) {
+                painted.Logger = value;
+            }
+        }
+    }
+
     /// <summary>The virtualized stack, if this renderer was given one.</summary>
     /// <remarks>
     ///     <para>
@@ -589,6 +623,12 @@ public sealed class WorldRenderer : IDisposable {
 
         // Only where there is a table to put them in: an AssetTextureSource with nothing indexing its
         // views would upload every texture in the level and hand the slots to nobody.
+        //
+        // ⚠ The logger rides along rather than being left to the caller, and this is the link the
+        // whole chain exists for: the source is built here, the streamer under it in that
+        // constructor and the residency under that, so a host that never sees any of the three has
+        // nowhere else to say where 4001 goes. Order-free — see Logger, which forwards the other way
+        // for a host that logs after mounting.
         Painted = Table is null
             ? null
             : new AssetTextureSource(
@@ -596,7 +636,9 @@ public sealed class WorldRenderer : IDisposable {
                 assets,
                 (long)Math.Max(0, Textures.PoolMegabytes) * 1024 * 1024,
                 Textures.MipBias
-            );
+            ) {
+                Logger = logger
+            };
         Painter = painting = new(assets, Painted);
 
         // Only where there is something to size. A survey over a source with no streamer would walk

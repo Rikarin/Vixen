@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
@@ -319,6 +320,29 @@ public sealed class TextureStreamer : IDisposable {
     ///     should be.
     /// </remarks>
     public float MipBias { get; set; }
+
+    /// <summary>
+    ///     Where the residency's refusals are reported, or null for a service nobody is watching.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A forward onto <see cref="PageResidency.Logger" /> and nothing else</b>, because the
+    ///         residency is built in this constructor and a host never sees it. Without this link the
+    ///         two lines that say "the streaming budget is too small for this scene" — events 4001 and
+    ///         4002 — are reachable only from a test that reaches past the streamer and sets the
+    ///         property itself, which is to say not reachable from a game at all.
+    ///     </para>
+    ///     <para>
+    ///         Settable rather than a constructor argument for the reason
+    ///         <see cref="PageResidency.Logger" /> is: the streamer is built where the budget is known
+    ///         and the logger arrives from the host, and those are not the same place. Nothing is
+    ///         logged per frame — <see cref="Service" /> compares two longs when the frame is healthy.
+    ///     </para>
+    /// </remarks>
+    public ILogger? Logger {
+        get => residency.Logger;
+        set => residency.Logger = value;
+    }
 
     /// <summary>Says a texture is streamable, and pins the page that is always resident.</summary>
     /// <param name="texture">The number a caller identifies it by.</param>

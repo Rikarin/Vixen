@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Imaging;
@@ -280,6 +281,77 @@ public sealed class WorldRendererTests : IDisposable {
 
         Assert.NotNull(early.Extraction!.Meshes);
         Assert.NotNull(early.Extraction.Materials);
+    }
+
+    /// <summary>
+    ///     A logger set either side of mounting reaches the streaming pool's residency.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The host end of the chain that carries events 4001 and 4002 out of a game.</b> The
+    ///         residency is built by <c>TextureStreamer</c>, the streamer by
+    ///         <see cref="AssetTextureSource" /> and that source by <see cref="WorldRenderer.Mount" />
+    ///         — three constructors a host never sees, which is why the property forwards rather than
+    ///         being taken as an argument by any of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Both orders, for <see cref="MountingEitherSideOfRegisteringWiresTheSources" />'s
+    ///         reason and not <see cref="WorldRenderer.Textures" />'s: a pool cannot be resized after
+    ///         it is built, so that one is honestly order-sensitive, and a logger has no such excuse.
+    ///         Each direction is a separate line of wiring and a frame exercises only one of them.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ALoggerSetEitherSideOfMountingReachesTheStreamingPool() {
+        var log = new NullLogger();
+
+        // Set before, which Mount has to carry over to the source it builds.
+        using (var early = Streaming()) {
+            early.Logger = log;
+            early.Mount(Mounted());
+
+            Assert.Same(log, early.Painted!.Streaming!.Logger);
+        }
+
+        // And set after, where the property is the one that has to push it down.
+        using var late = Streaming();
+
+        late.Mount(Mounted());
+
+        Assert.Null(late.Painted!.Streaming!.Logger);
+
+        late.Logger = log;
+
+        Assert.Same(log, late.Painted.Streaming.Logger);
+    }
+
+    /// <summary>A renderer with a table and a pool, which is what makes a streamer exist to reach.</summary>
+    WorldRenderer Streaming() {
+        var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+
+        renderer.Host.Builder.Views["Camera"] = new("camera");
+        renderer.Host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+
+        // Before Mount, necessarily — see WorldRenderer.Textures. One megabyte is enough that the
+        // 1024-square chain Mounted writes is streamed rather than loaded whole.
+        renderer.Textures = new() { PoolMegabytes = 1 };
+
+        return renderer;
+    }
+
+    /// <summary>A logger that is only ever compared, never written to.</summary>
+    sealed class NullLogger : ILogger {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => false;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter
+        ) { }
     }
 
     /// <summary>
