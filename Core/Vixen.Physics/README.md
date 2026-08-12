@@ -82,6 +82,18 @@ changed it. The tag is how game code says it was them; the bridge acts on it and
 A kinematic body needs none of this — its transform is authored by definition and the bridge drives
 the body towards it every step.
 
+**A character needs no tag, and that is a claim with a scar on it.** Writing a character's
+`LocalTransform` *is* the teleport: `PhysicsScene.Adopt` takes anything disagreeing with the
+controller and snaps the controller to it, which is what makes a respawn, a checkpoint load and a
+rollback reach a `CharacterController` at all. The premise underneath — that nothing else writes a
+character's transform between two steps — was false for as long as it was written down.
+`PhysicsInterpolationSystem` writes it every frame, and on a frame one fixed step long it writes the
+*previous* step's pose, so every other step was adopted away and every character in the engine walked
+at exactly half its `WalkSpeed`. The smoothing now records what it wrote in
+`PhysicsInterpolation.DrawnPosition` and the bridge ignores a transform still sitting on it;
+`PhysicsScene.CharacterAdoptionCount` is the number to watch, because a walking character is adopted
+zero times and that one was adopted sixty times a second.
+
 **A body's entity should be a root.** Physics works in world space and the bridge reads and writes
 `LocalTransform`, so an entity with a `Parent` has its local transform treated as though it were a
 world one — physics and the transform hierarchy then write the same component meaning different
