@@ -208,7 +208,14 @@ static class VulkanFeatures {
             // The *bit*, not the extension — see ShaderAtomicInt64. A device may offer the extension and
             // decline the buffer atomic, in which case a pipeline using one is refused at creation, which
             // is a long way from the capability check that should have taken the hardware-raster path.
-            HasInt64Atomics = HasAtomicInt64(extensions, apiVersion) && atomics.ShaderBufferInt64Atomics,
+            //
+            // And `shaderInt64` with them, which is a separate permission and the one a module
+            // actually declares: an atomic on a 64-bit integer is 64-bit integer arithmetic, so a
+            // device that offered the atomic without the type would take the software-raster path
+            // and then be refused at vkCreateComputePipelines for a capability it never enabled.
+            HasInt64Atomics = HasAtomicInt64(extensions, apiVersion)
+                && atomics.ShaderBufferInt64Atomics
+                && features.ShaderInt64,
 
             // Core since 1.1, which AdapterSelection already made the floor.
             HasSubgroupOperations = true,

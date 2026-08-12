@@ -908,6 +908,15 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             GeometryShader = adapter.Supported.GeometryShader,
             TessellationShader = adapter.Supported.TessellationShader,
             ShaderFloat64 = adapter.Supported.ShaderFloat64,
+
+            // ⚠ The 64-bit *integer* bit, which is not the same permission as the 64-bit atomic
+            // chained in below and is the one the visibility buffer needs. A module that packs depth
+            // and cluster into one 64-bit value declares SPIR-V's Int64 capability, and a capability
+            // a module declares must be enabled on the device or pipeline creation is invalid usage
+            // — VUID-VkShaderModuleCreateInfo-pCode-08740. Every driver this backend was brought up
+            // on permits it anyway, so the omission cost nothing until a leg ran with the validation
+            // layers loaded, where the two virtual-geometry goldens failed on every push for weeks.
+            ShaderInt64 = adapter.Supported.ShaderInt64,
             PipelineStatisticsQuery = adapter.Supported.PipelineStatisticsQuery,
             FragmentStoresAndAtomics = adapter.Supported.FragmentStoresAndAtomics
         };

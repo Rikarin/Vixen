@@ -387,16 +387,25 @@ public sealed class VulkanFeatureTests {
         var declined = new PhysicalDeviceShaderAtomicInt64Features { ShaderBufferInt64Atomics = false };
         var extension = new HashSet<string> { "VK_KHR_shader_atomic_int64" };
 
+        // The type the atomic operates on, which is a permission of its own — see the third block.
+        var wide = new PhysicalDeviceFeatures { ShaderInt64 = true };
+
         // Core 1.2 with the bit on, and the same device with it off — which is MoltenVK.
-        Assert.True(Translate(apiVersion: VulkanFeatures.Version12, atomics: offered).HasInt64Atomics);
-        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, atomics: declined).HasInt64Atomics);
+        Assert.True(Translate(wide, apiVersion: VulkanFeatures.Version12, atomics: offered).HasInt64Atomics);
+        Assert.False(Translate(wide, apiVersion: VulkanFeatures.Version12, atomics: declined).HasInt64Atomics);
 
         // A 1.1 device reaches it through the extension, and only with the bit.
-        Assert.True(Translate(extensions: extension, atomics: offered).HasInt64Atomics);
-        Assert.False(Translate(extensions: extension, atomics: declined).HasInt64Atomics);
+        Assert.True(Translate(wide, extensions: extension, atomics: offered).HasInt64Atomics);
+        Assert.False(Translate(wide, extensions: extension, atomics: declined).HasInt64Atomics);
+
+        // ⚠ And the atomic without `shaderInt64`, which is the combination that cost two goldens: a
+        // module doing 64-bit arithmetic declares SPIR-V's Int64 capability whether the arithmetic
+        // is an atomic or not, and a device that never enabled the type refuses the pipeline. The
+        // capability has to be the whole permission, or the raster takes a path it cannot finish.
+        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, atomics: offered).HasInt64Atomics);
 
         // And the bit alone, from a 1.1 device that never offered the extension, says nothing.
-        Assert.False(Translate(atomics: offered).HasInt64Atomics);
+        Assert.False(Translate(wide, atomics: offered).HasInt64Atomics);
     }
 
     /// <summary>
