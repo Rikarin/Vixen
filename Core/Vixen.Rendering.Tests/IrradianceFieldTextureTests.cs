@@ -254,6 +254,50 @@ public class IrradianceFieldTextureTests {
     }
 
     /// <summary>
+    ///     Before an upload the numbers go in and the seven handles do not, so the set refuses rather
+    ///     than completing over descriptors naming nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <c>GlobalDistanceFieldTexture</c>'s rule and its reason. <c>EffectSetWriter</c> asks whether a
+    ///     name is <em>set</em>, not whether what it is set to exists, so a default handle is counted as
+    ///     a filled descriptor and the whole set completes — which is how a fixture came to assert that
+    ///     seven dead <c>IrradianceFieldProbes.*</c> descriptors were a complete set. Omitting the name
+    ///     refuses the set, which names the binding and does it on the first frame.
+    /// </remarks>
+    [Fact]
+    public void BeforeAnUploadTheHandlesAreOmittedRatherThanWrittenDead() {
+        using var mirror = new IrradianceFieldTexture(Filled());
+        var parameters = new ParameterCollection();
+
+        mirror.Apply(parameters, Slot);
+
+        // The numbers are the field's and need no device, so they go in either way.
+        Assert.True(parameters.Has(ParameterKeys.New<Vector3>($"{Slot}.irradianceField.minimum")));
+
+        for (var channel = 0; channel < 4; channel++) {
+            Assert.False(
+                parameters.Has(ParameterKeys.New<TextureViewHandle>(IrradianceFieldTexture.PoolBinding(channel, Slot))),
+                $"pool volume {channel} was named before anything created it"
+            );
+        }
+
+        Assert.False(
+            parameters.Has(ParameterKeys.New<TextureViewHandle>(IrradianceFieldTexture.IndirectionBinding(Slot))),
+            "the index volume was named before anything created it"
+        );
+
+        Assert.False(
+            parameters.Has(ParameterKeys.New<SamplerHandle>(IrradianceFieldTexture.SamplerBinding(Slot))),
+            "the sampler was named before anything created it"
+        );
+
+        Assert.False(
+            parameters.Has(ParameterKeys.New<SamplerHandle>(IrradianceFieldTexture.PointSamplerBinding(Slot))),
+            "the point sampler was named before anything created it"
+        );
+    }
+
+    /// <summary>
     ///     The names are the slot's, not the declaring shader's — the shape the bindings generator
     ///     actually emits, and the mistake the distance-field mirror had to be corrected for.
     /// </summary>

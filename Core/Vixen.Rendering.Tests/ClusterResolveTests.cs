@@ -378,6 +378,54 @@ public sealed class ClusterResolveTests : IDisposable {
         EveryDescriptorNamesSomething();
     }
 
+    /// <summary>
+    ///     The fixture's set 2 is the one the shipped reflection declares, name for name and index for
+    ///     index.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Because it was not, and nothing said so.</b> The list claimed in a comment to be
+    ///     <c>VisibilityResolve.reflect.json</c>'s and was missing <c>bones</c>, which the shader has had
+    ///     at binding 8 since the palette arrived — so every binding after it was numbered one short and
+    ///     one of the seven buffers the resolve fills from the traversal was a binding this fixture never
+    ///     asked for. That is the failure a fixture is <em>for</em>: a leaner invented variant lets the
+    ///     host get the real one wrong and every test still passes. Read from the file rather than
+    ///     restated here, because a second hand-written list is a second thing to get wrong.
+    /// </remarks>
+    [Fact]
+    public void The_fixtures_resolve_set_is_the_shipped_reflections() {
+        var root = System.Text.Json.JsonDocument.Parse(File.ReadAllText(ReflectionPath())).RootElement;
+
+        var declared = root.GetProperty("Sets")
+            .EnumerateArray()
+            .Single(set => set.GetProperty("Set").GetInt32() == (int)DescriptorSetSlot.PerMaterial)
+            .GetProperty("Bindings")
+            .EnumerateArray()
+            .Select(binding => (binding.GetProperty("Name").GetString()!, binding.GetProperty("Binding").GetInt32()))
+            .ToArray();
+
+        // The uniform block is named for the shader in the reflection and for its slot in the fixture,
+        // which is the one difference that is not drift.
+        Assert.Equal(
+            declared.Skip(1).ToArray(),
+            AlwaysCompiles.Resolve.Skip(1).Select(binding => (binding.Name, (int)binding.Binding)).ToArray()
+        );
+    }
+
+    static string ReflectionPath() {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            var candidate = Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "VisibilityResolve.reflect.json");
+
+            if (File.Exists(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new FileNotFoundException(
+            "Raven/Library/Pipeline/VisibilityResolve.reflect.json was not found above "
+            + $"'{AppContext.BaseDirectory}'. Regenerate it with VIXEN_REGENERATE=1 in Vixen.Raven.Tests."
+        );
+    }
+
     GpuClusterResolve Resolve(GpuClusterVisibility visibility, GpuVisibilityTiles tiles, MeshletPagePool pool) =>
         new(device) {
             Effects = effects,
@@ -560,17 +608,24 @@ public sealed class ClusterResolveTests : IDisposable {
             new("meshes", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer),
             new("residency", DescriptorSetSlot.PerMaterial, 6, DescriptorKind.StorageBuffer),
             new("pages", DescriptorSetSlot.PerMaterial, 7, DescriptorKind.StorageBuffer),
-            new("clusterMaterials", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
-            new("tiles", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
-            new("target", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageTexture),
+
+            // ⚠ The palette, which this fixture did not declare and the reflection has had at 8 all
+            // along — so every binding below it was numbered one short of the shader's, and the seventh
+            // of the traversal's buffers was one the set never asked for. A fixture that invents a
+            // leaner variant lets the host get it wrong and says nothing, which is the whole reason the
+            // comment above claims this list is the reflection's.
+            new("bones", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
+            new("clusterMaterials", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
+            new("tiles", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageBuffer),
+            new("target", DescriptorSetSlot.PerMaterial, 11, DescriptorKind.StorageTexture),
 
             // The ambient split's three planes. In the set for every variant — a binding is
             // declared, not read into existence — which is what obliges Prepare to fill them even
             // with the split off, and what this fixture exists to hold it to: leave one out here and
             // a Prepare that forgot its alias would still return true.
-            new("albedoTarget", DescriptorSetSlot.PerMaterial, 11, DescriptorKind.StorageTexture),
-            new("normalTarget", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageTexture),
-            new("specularTarget", DescriptorSetSlot.PerMaterial, 13, DescriptorKind.StorageTexture)
+            new("albedoTarget", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageTexture),
+            new("normalTarget", DescriptorSetSlot.PerMaterial, 13, DescriptorKind.StorageTexture),
+            new("specularTarget", DescriptorSetSlot.PerMaterial, 14, DescriptorKind.StorageTexture)
         ];
 
         // The traversal's own set, so this fixture can run `GpuClusterVisibility.Prepare` — which is
@@ -601,6 +656,9 @@ public sealed class ClusterResolveTests : IDisposable {
             new("tiles", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer),
             new("arguments", DescriptorSetSlot.PerMaterial, 6, DescriptorKind.StorageBuffer)
         ];
+
+        /// <summary>The resolve's set 2, for the test that holds it to the shipped reflection.</summary>
+        public static ImmutableArray<EffectBinding> Resolve => ResolveBindings;
 
         readonly DescriptorSetLayoutHandle resolveLayout = Layout(device, ResolveBindings, "VisibilityResolve");
         readonly DescriptorSetLayoutHandle tileLayout = Layout(device, TileBindings, "VisibilityTiles");
