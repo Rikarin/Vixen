@@ -237,13 +237,28 @@ Run-to-run on MoltenVK the fixture is **bit-identical** — 0 pixels over 12/255
 0.000, over two renderings — so `Tolerance.Shaded` sits far above its own noise, as it does for the
 four tiers.
 
-**What breaking the pipeline does to it**, measured against the committed reference:
+**What breaking the pipeline does to it**, each measured against the committed reference, where the
+bounds are 0.200% of pixels over 12/255 and a mean channel of 0.350:
 
-| Sabotage | Pixels over 12/255 | Mean channel |
-|---|---|---|
-| `f0` forced back to a fixed dielectric 0.04 | see the commit | |
-| `lerp` restored in place of the add | | |
-| `mirror.a` used as a lerp weight rather than a validity flag | | |
+| Sabotage | Pixels over 12/255 | Mean channel | What moves |
+|---|---|---|---|
+| `f0` forced back to a fixed dielectric 0.04 | 274 (1.672%) | 0.583 | the slab alone, −8.1/−6.3/−2.2, dimmer and cooler; the floor moves +0.04, because its `f0` already *is* 0.04 |
+| `lerp` restored in place of the add | 608 (3.711%) | 1.947 | the slab −39.2/−38.2/−35.4 — a quarter of it gone, which is the lerp taking `reflectance ×` its direct sunlight away |
+| `mirror.a` as a lerp weight rather than a validity flag | 13 040 (79.590%) | 24.072 | the bug verbatim: the floor and the caster become a flat mirror of the trace and the sun shadow disappears |
+| the screen march turned off entirely (`screenSteps: 0`) | 276 (1.685%) | 0.689 | the slab, worst channel 90 — so the march is load bearing here, not just declared |
+| the shell moved from device depth to a linear 0.5 | 229 (1.398%) | 0.605 | the slab, worst channel 89 |
+
+Every one crosses **both** bounds, and the worst pixel of four of the five is inside the metal slab
+at (84, 63) or beside it — which is the fixture behaving as intended: the arithmetic under test is
+the reflection weight, and the surface that carries it is the metal.
+
+⚠ **The last row is a correction to a claim, not a sabotage.** The shell fix is described as
+"the screen trace's thickness shell to the device-depth 0.02 that reaches the far plane", as though
+reverting it were the break — but `ReflectionsAsset.ScreenLinearThickness` defaults to zero, which
+*is* the device-depth shell, and `StandardFrame` never sets it. Grep confirms the only assignments
+in the tree are two device tests. So a Standard Frame ships the device-depth shell today and there
+is nothing to revert; what the row above shows is the opposite direction — that the golden *would*
+catch the shell changing, if anything ever set it.
 
 **What the tier goldens cannot see.** A fidelity *number* — 1024 cascade texels against 512, 64
 froxel slices against 32, a five-level bloom pyramid against four — changes almost nothing a picture
