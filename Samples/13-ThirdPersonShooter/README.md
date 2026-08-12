@@ -180,10 +180,12 @@ a headless picture is and is not.
 
 ### Walking, because a still frame cannot show a temporal defect
 
-`VIXEN_SPAWN` places the camera and nothing moves it afterwards, so every picture above is of a
-**still** frame — and reprojection, motion vectors, motion blur, the fog's temporal history and the
-virtual shadow map's refit are all things that only happen when the camera moves. `VIXEN_WALK` is the
-other half: a script the player is driven by instead of a device.
+`VIXEN_SPAWN` places the camera and nothing moves it afterwards — the pawn falls the twenty
+centimetres from its spawn height to the floor and that is the whole of the motion a headless run has
+ever had, over about a fifth of a second. So every picture above is of a **still** frame, and
+reprojection, motion vectors, motion blur, the fog's temporal history and the virtual shadow map's
+refit are all things that only happen when the camera moves. `VIXEN_WALK` is the other half: a script
+the player is driven by instead of a device.
 
 ```
 VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK=20 \
@@ -246,7 +248,35 @@ share one schedule. Walking, mid-arena, facing down-sun, thirty-one consecutive 
 
 Both series are **smooth**: the walking one's frame-to-frame delta never departs from its own median
 by more than 12 %, and the single largest regional event in thirty frames — a tile at 11.2 — is a
-lamp's ember particles against the sky, not a shadow. See the shadow note below.
+lamp's ember particles against the sky, not a shadow.
+
+### ⚠ Walking does not reproduce the reported shadow blink
+
+Four walking routes, all captured as within-run strips so the comparison is free of cross-run noise:
+out of the south gate onto the terrain, across the gate itself, the same at three times the throttle
+(≈ 6 m/s, so the clipmap's finest level recentres about every three frames instead of every eight),
+and mid-arena facing down-sun where the walls' shadows are actually on screen. **None shows a blink.**
+
+The whole-frame frame-to-frame delta stays within 8–40 % of its own median in every strip; every
+regional peak that was chased turned out to be embers or the third-person camera's occlusion spring
+pulling in behind the pawn. The direct measurement is the shadowed floor's own brightness, over
+thirty-one consecutive frames of walking mid-arena:
+
+| Region | Walking: total range / worst single-frame step | Still: the same |
+|---|---|---|
+| The shadow boundary by the walls | 0.62 / 0.15 of 255 | 0.26 / 0.11 |
+| Open shadowed floor | 0.40 / 0.08 | 0.11 / 0.02 |
+
+Motion makes the shadowed floor about three times less steady, and three times a hundredth of a unit
+is still a hundredth of a unit. A page/cascade disagreement flipping over a region would be units, not
+hundredths.
+
+⚠ **This is a negative result at *this* timescale and not a closure.** The complaint was ten to
+twenty seconds; a strip of thirty-one consecutive frames is half a second. A twenty-second strided
+strip does swing — the whole-frame mean channel runs 83.9 → 102.4 → 87.7 → 109.4 over the walk — but
+at half-second sampling that is auto-exposure and the camera's own occlusion, both of which change
+what is on screen, and it cannot separate a shadow from a view. Closing the question wants a
+per-frame counter of pages absent at the shading pass, not another picture.
 
 ## The picture, and what is in the way
 
