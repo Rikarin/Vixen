@@ -67,7 +67,11 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     IGraphicsDevice? owner;
     BufferHandle exposure;
     BufferHandle histogram;
+    TextureHandle grid;
+    TextureViewHandle gridView;
+    Int2 gridSize;
     bool seeded;
+    bool adapted;
 
     /// <inheritdoc />
     /// <remarks>
@@ -190,12 +194,42 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     /// </remarks>
     public string HistogramResource => $"{this}.Histogram";
 
+    /// <summary>What the histogram's <c>target</c> and <c>average</c> bindings point at.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one image the histogram meter needs, and it needs it for its size.</b> None of
+    ///         the three dispatches stores a texel: the clear zeroes bins, the build accumulates into
+    ///         them, the resolve reads them. What the build does take from this image is
+    ///         <c>GetDimensions</c> — the grid it meters the frame on, and the reason it is the chain's
+    ///         first size rather than 1×1. The two storage bindings then point at it because a
+    ///         descriptor set is written whole or not at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Imported, and declared through <see cref="ComputeRenderer.Bound" /> rather than
+    ///         <c>Writes</c>.</b> Saying "writes" three times over is what VX2101 reported every launch
+    ///         — three producers and no reader is a frame's work discarded, which is exactly what the
+    ///         lint is for and exactly what the declaration claimed. Nothing was actually lost, and
+    ///         nothing was actually written; see <see cref="ComputeRenderer.Bound" /> for why a read
+    ///         cannot say it either, and why the image has to be somebody's rather than the graph's.
+    ///     </para>
+    /// </remarks>
+    public string GridResource => $"{this}.Grid";
+
     /// <summary>How the buffer is described to the graph and to whoever copies it.</summary>
     BufferDescription Description =>
         new(ExposureSize, BufferUsage.Storage | BufferUsage.CopySource, MemoryAccess.DeviceLocal, ExposureResource);
 
     BufferDescription HistogramDescription =>
         new(HistogramSize, BufferUsage.Storage, MemoryAccess.DeviceLocal, HistogramResource);
+
+    TextureDescription GridDescription =>
+        new(
+            PixelFormat.R32Float,
+            Math.Max(gridSize.X, 1),
+            Math.Max(gridSize.Y, 1),
+            TextureUsage.Storage | TextureUsage.Sampled,
+            Name: GridResource
+        );
 
     /// <summary>How many dispatches the last build produced — the reductions plus the adaptation.</summary>
     public int PassCount { get; private set; }
@@ -217,7 +251,9 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
             return;
         }
 
-        Acquire(Device);
+        var sizes = Chain();
+
+        Acquire(Device, UseHistogram ? sizes[0] : Int2.Zero);
 
         // ⚠ Imported into the *frame* rather than registered on the compositor, which is the same
         // thing `TemporalAntialiasingRenderer` does with its history and for the same two reasons.
@@ -248,27 +284,27 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
             HistogramDescription
         );
 
-        var sizes = Chain();
         var index = 0;
 
-        // Declared whichever meter runs, because the histogram's three modes still *bind* `target`
-        // and `average` — a set is written whole or not at all, and there is no variant in which
-        // those two bindings fold away. One 256² image and its chain is what that costs; the passes
-        // that would fill it are the part that is skipped.
-        for (var level = 0; level < sizes.Count; level++) {
-            Declare(frame, Level(level), sizes[level]);
-        }
-
         if (UseHistogram) {
+            // ⚠ One image, and no chain at all. Declaring the halving sequence here cost nine
+            // transients the histogram has no pass to fill, and the one image it does bind it binds
+            // for its dimensions — see `GridResource`.
+            frame.Add(GridResource, frame.Graph.ImportTexture(grid, gridView, GridDescription), GridDescription);
+
             // Three dispatches instead of ten, and the middle one is the only one that touches the
             // frame. ⚠ The clear is its own dispatch rather than the first thing the build does: a
             // build invocation cannot clear "its" bin, because a bin belongs to a luminance rather
             // than to a pixel and every invocation is racing every other for all of them. A dispatch
             // boundary is the only ordering a device offers between the last write and the first read.
-            Meter(index++, 2, "Clear", sizes[0], new(1, 1, 1));
-            Meter(index++, 3, "Build", sizes[0], new(Groups(sizes[0].X), Groups(sizes[0].Y), 1));
-            Meter(index++, 4, "Resolve", sizes[0], new(1, 1, 1));
+            Meter(index++, 2, "Clear", new(1, 1, 1));
+            Meter(index++, 3, "Build", new(Groups(sizes[0].X), Groups(sizes[0].Y), 1));
+            Meter(index++, 4, "Resolve", new(1, 1, 1));
         } else {
+            for (var level = 0; level < sizes.Count; level++) {
+                Declare(frame, Level(level), sizes[level]);
+            }
+
             for (var level = 0; level < sizes.Count; level++) {
                 Reduce(index++, level, level == 0 ? Source : Level(level - 1), Level(level), sizes[level]);
             }
@@ -281,6 +317,9 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
         for (var step = 0; step < index; step++) {
             BuildChild(steps[step], compositor, frame);
         }
+
+        // Whatever this frame metered, the next one has something to ease from — see `Bind`.
+        adapted = true;
     }
 
     /// <summary>The sizes of the chain, halving from <see cref="StartSize" /> to 1×1.</summary>
@@ -315,6 +354,13 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         node.Reads.Clear();
         node.Writes.Clear();
+        node.Bound.Clear();
+
+        // ⚠ BufferReads with the rest, which it was not: the node is reused frame after frame and the
+        // two names below were appended to a list nothing emptied, so a session's tenth minute
+        // declared a thousand copies of the same two reads. Harmless to the picture — a duplicate
+        // read asks for a state the resource is already in — and an unbounded list either way.
+        node.BufferReads.Clear();
         node.BufferWrites.Clear();
         node.Descriptors.Bindings.Clear();
 
@@ -384,7 +430,7 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     ///         overflowing a bin.
     ///     </para>
     /// </remarks>
-    void Meter(int index, int mode, string name, Int2 size, Int3 groups) {
+    void Meter(int index, int mode, string name, Int3 groups) {
         var node = At(index, name);
 
         node.Parameters.Set(AutoExposureKeys.Mode, mode);
@@ -393,12 +439,18 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         node.Reads.Clear();
         node.Writes.Clear();
+        node.Bound.Clear();
         node.BufferReads.Clear();
         node.BufferWrites.Clear();
         node.Descriptors.Bindings.Clear();
 
         node.Reads.Add(Source);
-        node.Writes.Add(Level(0));
+
+        // ⚠ Bound rather than written, by all three, because not one of them stores a texel into it.
+        // Declaring a write here is what VX2101 reported at every launch of sample 13: three
+        // producers with no reader between them, which is the shape of a frame's work thrown away —
+        // a true finding about a false declaration. See `GridResource`.
+        node.Bound.Add(GridResource);
 
         // ⚠ <b>Each step declares what it actually does to the bins, and the resolve's is a read.</b>
         // Declaring the write on all three did order them — a write-after-write is still a barrier —
@@ -441,11 +493,11 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
         });
 
         node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = Level(0)
+            Binding = AutoExposureKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = GridResource
         });
 
         node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.AverageBinding, Kind = DescriptorKind.StorageTexture, Resource = Level(0)
+            Binding = AutoExposureKeys.AverageBinding, Kind = DescriptorKind.StorageTexture, Resource = GridResource
         });
 
         node.Descriptors.Bindings.Add(new() {
@@ -455,8 +507,6 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
         node.Descriptors.Bindings.Add(new() {
             Binding = AutoExposureKeys.HistogramBinding, Kind = DescriptorKind.StorageBuffer, Resource = HistogramResource
         });
-
-        _ = size;
     }
 
     void Adapt(int index, string average) {
@@ -471,6 +521,8 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         node.Reads.Clear();
         node.Writes.Clear();
+        node.Bound.Clear();
+        node.BufferReads.Clear();
         node.BufferWrites.Clear();
         node.Descriptors.Bindings.Clear();
 
@@ -515,9 +567,28 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
         });
     }
 
+    /// <summary>How long the frame that has no previous exposure is told it took.</summary>
+    /// <remarks>
+    ///     Any elapsed time whose <c>1 - exp(-dt·rate)</c> is one to a float, which every rate anybody
+    ///     would author reaches long before this. Three hours rather than <c>float.MaxValue</c> so
+    ///     that a capture showing it reads as a decision instead of as a corrupted uniform.
+    /// </remarks>
+    const float SettleTime = 3f * 60f * 60f;
+
     /// <summary>The scalars every step carries, whether or not its mode reads them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first frame after the buffer is created is told the scene has been there
+    ///     forever, and that is what stops a launch being a fade-in from black.</b> A fresh
+    ///     device-local allocation holds no exposure — this class used to claim it seeded one to
+    ///     <c>1</c> and never did — so the adaptation eased from zero toward a target it reached in
+    ///     about five time constants: at sample 13's <c>darkenRate</c> of 0.6 that is eight and a half
+    ///     seconds of a black screen slowly lighting, which reads as a broken renderer. A blend of
+    ///     <c>1 - exp(-dt·rate)</c> saturates, so a first frame handed <see cref="SettleTime" /> lands
+    ///     exactly on what it metered and every frame after it eases at the authored rate. The
+    ///     direction the rates apply in is unchanged, and so is what the meter converges on.
+    /// </remarks>
     void Bind(ComputeRenderer node) {
-        node.Parameters.Set(AutoExposureKeys.DeltaTime, DeltaTime);
+        node.Parameters.Set(AutoExposureKeys.DeltaTime, adapted ? DeltaTime : SettleTime);
         node.Parameters.Set(AutoExposureKeys.BrightenRate, BrightenRate);
         node.Parameters.Set(AutoExposureKeys.DarkenRate, DarkenRate);
         node.Parameters.Set(AutoExposureKeys.MiddleGrey, MiddleGrey);
@@ -594,15 +665,18 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
         );
     }
 
-    /// <summary>Creates the exposure buffer, once, and seeds it so the first frame is not black.</summary>
+    /// <summary>Creates the memory that outlives a frame, once.</summary>
     /// <remarks>
-    ///     ⚠ <b>Seeded to one rather than left zero.</b> A zeroed buffer is an exposure of zero, and
-    ///     the adaptation eases <i>toward</i> its target — so the first several frames of a session
-    ///     would be black and then fade in, which reads as a broken renderer rather than as an eye
-    ///     adjusting. One is the neutral multiplier every authored exposure starts at.
+    ///     ⚠ <b>Nothing here puts a value in the exposure buffer, and nothing can cheaply.</b> A
+    ///     device-local buffer is filled by a staging copy inside a command list, which is a buffer
+    ///     and a submission for four bytes. What replaces the seed is <see cref="Bind" />'s first
+    ///     frame: an adaptation told that all the time in the world has passed lands on what it
+    ///     metered, which is the same thing a seed was for and is right about the value rather than
+    ///     hopeful about it.
     /// </remarks>
-    void Acquire(IGraphicsDevice device) {
+    void Acquire(IGraphicsDevice device, Int2 metering) {
         if (seeded && ReferenceEquals(owner, device)) {
+            AcquireGrid(device, metering);
             return;
         }
 
@@ -625,6 +699,29 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
         ));
 
         seeded = true;
+
+        AcquireGrid(device, metering);
+    }
+
+    /// <summary>Creates the histogram's one image, and recreates it when the chain's start changes.</summary>
+    /// <remarks>
+    ///     Only when a histogram is what runs: the reduction chain declares its own levels and has no
+    ///     use for this. See <see cref="GridResource" /> for why it is owned rather than declared.
+    /// </remarks>
+    void AcquireGrid(IGraphicsDevice device, Int2 metering) {
+        if (metering == gridSize && (metering == Int2.Zero || grid.IsValid)) {
+            return;
+        }
+
+        ReleaseGrid(device);
+        gridSize = metering;
+
+        if (metering == Int2.Zero) {
+            return;
+        }
+
+        grid = device.CreateTexture(GridDescription);
+        gridView = device.CreateTextureView(grid);
     }
 
     void Release() {
@@ -636,12 +733,29 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
             if (histogram.IsValid) {
                 device.Destroy(histogram);
             }
+
+            ReleaseGrid(device);
         }
 
+        gridSize = Int2.Zero;
         exposure = default;
         histogram = default;
         owner = null;
         seeded = false;
+        adapted = false;
+    }
+
+    void ReleaseGrid(IGraphicsDevice device) {
+        if (gridView.IsValid) {
+            device.Destroy(gridView);
+        }
+
+        if (grid.IsValid) {
+            device.Destroy(grid);
+        }
+
+        gridView = default;
+        grid = default;
     }
 
     /// <inheritdoc />

@@ -1552,6 +1552,18 @@ barrier after. Its effect resolves through the ordinary `EffectSystem`, so a com
 permuted, cached and baked like a graphics one, and a shipping build cannot compile one for the same
 structural reason it cannot compile a vertex shader.
 
+**There is a third list, `Bound`, and it exists because reads and writes cannot both be a lie.** A
+descriptor set is written whole or not at all, so a multi-mode compute shader has variants obliged to
+name a storage image they never store a texel into — `AutoExposure`'s histogram binds `target` and
+`average` in all three of its dispatches and writes neither. Declaring that as a write says the pass
+produced something, and a run of passes each claiming to produce the same image is a frame's work
+discarded before anyone read it: **VX2101, reported truthfully about a declaration that was wrong,
+twice on every launch of sample 13 for as long as the histogram meter existed.** Declaring it as a
+read is the other lie and a worse one — it claims contents *and* asks for the read-only layout, when a
+storage descriptor is written with `General`. `Bound` says the third thing: live here, wanted in
+`ShaderWrite`, produces nothing. The image has to be imported rather than declared, because the graph
+refuses a read of a transient no pass writes and is right to.
+
 **A contributed flag and a shader permutation are different names for the same thing**, and
 `PermutationSources` is what joins them. A sub-feature's key is the renderer's — `Vixen.Clustered`, so
 that one feature drives the flag across every shader that has it — and the shader's is its own,
