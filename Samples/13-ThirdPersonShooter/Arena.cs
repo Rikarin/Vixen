@@ -1074,14 +1074,22 @@ public sealed class Arena : IDisposable {
             return;
         }
 
-        // ⚠ The project's, not this material's, and that distinction was a level with no shadows in
-        // it. Every one of these is a fact about the *frame* — is there a shadow atlas, is there an
-        // environment cube, is the probe field filled — so it is true of the nine .vxmat files and
-        // of this fallback at once. Set here only, it reached the one material a renderable with no
-        // reference falls back to, which in this level is none of them: the frame rendered four
-        // cascades into an atlas that every draw was compiled not to sample.
+        // ⚠ The project's, not this material's. Every one of these is a fact about the *frame* — is
+        // there an environment cube, is the probe field filled, how many lights fit in a block — so
+        // it is true of the nine .vxmat files and of this fallback at once. Set here only, it
+        // reached the one material a renderable with no reference falls back to, which in this level
+        // is none of them, and the nine drew under different permutations from the one.
         //
-        // AssetMaterialSource.Permutations is where a project says it once.
+        // ⚠ **It was not "a level with no shadows in it", which is what this comment used to say.**
+        // A permutation nobody sets takes the .rvn's declared default, not false, and
+        // ClusteredShading.rvn declares `UseShadows: bool = true` and `CascadeCount: int = 4` — so
+        // the sun's cascades were sampled either way and the attribution was wrong. What actually
+        // differed between the fallback and the nine is the permutations whose default is *off*:
+        // UseReflectionProbe below, and MaxLights, which the shader defaults to 16 while this sets
+        // 24. AssetMaterialSourceTests.AProjectThatSetsNoPermutationsStillCompilesTheShadowTerm pins
+        // the defaults, so the sentence cannot rot back into being true unnoticed.
+        //
+        // AssetMaterialSource.Permutations is still where a project says all of it once.
         var permutations = new ParameterCollection();
 
         permutations.Set(ForwardPlusKeys.UseImageBasedLighting, ImageBasedLight);

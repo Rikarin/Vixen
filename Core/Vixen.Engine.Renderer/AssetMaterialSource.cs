@@ -113,12 +113,29 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///         be a claim about a document it has never seen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Without it a project's own materials are compiled with every permutation off</b>,
-    ///         and that is not a dimmer picture: it is a different <em>variant</em>, so a level whose
-    ///         frame renders four shadow cascades draws with a shader that has no shadow term in it,
-    ///         and nothing anywhere reports a mismatch. It went unnoticed because the fallback
-    ///         material a host sets on the extraction <em>could</em> be given them by hand — so a
-    ///         project with one grey material had shadows and the same project with nine did not.
+    ///         ⚠ <b>Without it a project's own materials take each permutation's declared default —
+    ///         which is not the same as off, and this paragraph said it was.</b> It claimed a null
+    ///         collection compiled "with every permutation off", and therefore that a level rendering
+    ///         four cascades drew with a shader that had no shadow term in it. That never happened
+    ///         and cannot: <c>EffectKey.From</c> falls through to <see cref="ParameterKey" />'s
+    ///         <c>DefaultValue</c> for a key the collection does not carry, and those defaults are the
+    ///         <c>.rvn</c>'s — <c>ClusteredShading.rvn</c> has declared <c>UseShadows: bool = true</c>
+    ///         and <c>CascadeCount: int = 4</c> since the file was written. A project that sets
+    ///         nothing here is shadowed, in four cascades.
+    ///         <c>AssetMaterialSourceTests.AProjectThatSetsNoPermutationsStillCompilesTheShadowTerm</c>
+    ///         is the guard, and it is the one worth having: the claim becomes true the day somebody
+    ///         flips that default, and nothing else would notice.
+    ///     </para>
+    ///     <para>
+    ///         What a null collection <em>does</em> cost is every permutation whose declared default is
+    ///         off — <c>UseReflectionProbe</c>, <c>UseIrradianceField</c>,
+    ///         <c>UseDistanceFieldOcclusion</c> — so a project that built a probe or a field gets
+    ///         materials compiled not to read it. Real, and a missing specular reflection rather than
+    ///         a scene with no shadows. The frame's own permutations are a separate layer and are not
+    ///         affected either way: <c>MaterialRenderFeature.Permutations</c> is applied last and wins,
+    ///         which is how <c>CompositorBuilder</c> already keeps <c>CascadeCount</c> agreeing with
+    ///         the <c>!ShadowMap</c> node whatever a material or a project says — see
+    ///         <c>ShadowMapRenderer.CascadeCountKey</c>.
     ///     </para>
     ///     <para>
     ///         Applied at compile time rather than copied afterwards, because a permutation is part of
