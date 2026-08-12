@@ -34,8 +34,34 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///     </para>
 /// </remarks>
 public sealed class ThirdPersonShooterGame : Game {
+    static readonly (int First, int Last, int Stride)? Strip = ParseStrip();
+
     Arena? arena;
     PlayerRig? player;
+
+    /// <summary>Reads <c>VIXEN_STRIP=first-last[/stride]</c>, or <see langword="null" /> if unset.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The stride is what reaches the timescale a person complains about.</b> A blink
+    ///     reported as "ten to twenty seconds" is not a frame-to-frame event, and a strip of thirty
+    ///     consecutive frames covers half a second — it would answer a question nobody asked.
+    ///     <c>0-1200/30</c> is forty-one pictures spread over twenty seconds of walking, which is the
+    ///     shape of the thing being looked for.
+    /// </remarks>
+    static (int First, int Last, int Stride)? ParseStrip() {
+        if (Environment.GetEnvironmentVariable("VIXEN_STRIP") is not { Length: > 0 } spec) {
+            return null;
+        }
+
+        var parts = spec.Split('/');
+        var stride = parts.Length > 1 && int.TryParse(parts[1], out var every) && every > 0 ? every : 1;
+
+        return parts[0].Split('-') is { Length: 2 } range
+            && int.TryParse(range[0], out var first)
+            && int.TryParse(range[1], out var last)
+            && last >= first
+                ? (first, last, stride)
+                : null;
+    }
 
     /// <summary>What the frame is called in content, so the host loads it instead of its built-in.</summary>
     /// <remarks>
@@ -161,6 +187,45 @@ public sealed class ThirdPersonShooterGame : Game {
         // two objects this method was reaching for. A host that has to remember is a host that works
         // until somebody writes a second one: this sample was the only one that remembered, and the
         // fix for task #119 was in the tree while every other host's lake stayed black.
+
+        CaptureStrip();
+    }
+
+    /// <summary>Asks for a picture of every frame in <c>VIXEN_STRIP</c>'s range.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>⚠ A temporal artefact is a difference between two <em>consecutive</em> frames, and
+    ///         until this there was no way to hold two.</b> <c>--vixen-capture</c> writes the last
+    ///         frame only, so frame <i>N</i> and frame <i>N</i> + 1 were two whole runs — and two runs
+    ///         differ by the renderer's own scheduling as well as by the thing being looked for. Over
+    ///         grass and screen-probe GI that scheduling residue reaches a mean absolute channel
+    ///         around 1/255 and a band statistic spreads ±5 %, so a cross-run pair cannot answer "did
+    ///         this pixel change between frames" at all. Two frames of <em>one</em> run share the
+    ///         schedule, the streaming state and the probe history, and their difference is the frame
+    ///         step and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         <c>VIXEN_STRIP=first-last</c>, inclusive, written as <c>frame-0512.png</c> beside the
+    ///         ordinary <c>frame.png</c> in <c>--vixen-capture</c>'s directory. It is the sample's and
+    ///         not the host's for <c>ScriptedWalk</c>'s reason: <c>AppGraphics.RequestCapture</c> is
+    ///         already the public way to ask for one frame by hand, and a strip is a loop over it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Every frame in the range is a full readback and a PNG encode on the frame's own
+    ///         thread, so a wide strip changes how long the run takes and nothing about what it
+    ///         renders — the clock is fixed, which is exactly why that is safe to say.
+    ///     </para>
+    /// </remarks>
+    void CaptureStrip() {
+        if (Services.Graphics is not { } graphics || Strip is not var (first, last, stride)) {
+            return;
+        }
+
+        var frame = graphics.FrameCount;
+
+        if (frame >= first && frame <= last && (frame - first) % stride == 0) {
+            graphics.RequestCapture($"frame-{frame:0000}");
+        }
     }
 
     /// <inheritdoc />

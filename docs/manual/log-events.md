@@ -284,6 +284,8 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14066 | Information | `Water mesh: {Zones} zone(s) recorded, {Patches} patch(es) drawn, {Dropped} dropped, over {Builds} build(s); the composite built {Composites} time(s); {Swimming} character(s) were swimming.` — a composite count of −1 is a document with no `!Water` node in it at all | 0.1.0 |
 | 14067 | Information | `The sky says the sun is {Illuminance} lux, tinted ({Red}, {Green}, {Blue}), and the level's directional light now says the same.` | 0.1.0 |
 | 14068 | Information | `{Effects} lamp(s) are drifting embers and {Waiting} are waiting for one; {Particles} particle(s) were expanded last frame, through {Sets} particle material set(s).` | 0.1.0 |
+| 14069 | Information | `The player is driven by the script '{Script}', which lasts {Seconds} simulated second(s) — {Frames} frame(s) at the sixtieth a capture is fixed to.` — `VIXEN_WALK`; a capture shorter than the script is a picture of a moment part-way through the walk | 0.1.0 |
+| 14070 | Information | `The script ran {Elapsed} of {Duration} simulated second(s) and the player covered {Distance} m of ground.` — zero metres with a script that has time on it is a walk nothing acted on, and it captures as a still frame with every other counter reporting success | 0.1.0 |
 
 The 14 000 range is subdivided a sample at a time: `Samples/01` at 14001, `Samples/03` at 14011,
 `Samples/12` at 14021, `Samples/13` at 14031, and `Samples/11` at 14005 **and** 14026 — two runs,

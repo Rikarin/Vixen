@@ -41,10 +41,20 @@ public sealed class PlayerRig : IDisposable {
     readonly ILogger logger;
     readonly World world;
     readonly PhysicsScene physics;
+    readonly Vector3 spawn;
 
-    PlayerRig(World world, PhysicsScene physics, Entity controller, Entity pawn, PlayerCamera camera, ILogger logger) {
+    PlayerRig(
+        World world,
+        PhysicsScene physics,
+        Entity controller,
+        Entity pawn,
+        PlayerCamera camera,
+        Vector3 spawn,
+        ILogger logger
+    ) {
         this.world = world;
         this.physics = physics;
+        this.spawn = spawn;
         this.logger = logger;
 
         Controller = controller;
@@ -75,6 +85,14 @@ public sealed class PlayerRig : IDisposable {
 
     /// <summary>Where the game's sounds came from.</summary>
     public GameSounds Sounds { get; private set; } = GameSounds.Silent;
+
+    /// <summary>The script driving the player, if <c>VIXEN_WALK</c> asked for one.</summary>
+    /// <remarks>
+    ///     Kept so <see cref="Report" /> can say how far through the script the run stopped. A capture
+    ///     taken before the script finished is a picture of a different moment than the one asked for,
+    ///     and the frame count is the only thing that decides which.
+    /// </remarks>
+    public ScriptedWalk? Walk { get; private set; }
 
     /// <summary>Builds a player into a loaded level.</summary>
     /// <param name="services">What the host built.</param>
@@ -130,9 +148,25 @@ public sealed class PlayerRig : IDisposable {
         // new body with no code — which is the property the whole arrangement exists for.
         var camera = PlayerCameras.ThirdPerson(world, controller, distance: 4.5f, shoulderHeight: 1.5f);
 
-        var rig = new PlayerRig(world, arena.Physics, controller, pawn, camera, logger);
+        var rig = new PlayerRig(world, arena.Physics, controller, pawn, camera, start.Position, logger);
 
         rig.BindInput(services);
+
+        // ⚠ **After BindInput, because it is meant to win.** `PlayerInputSystem.Bind` replaces, and a
+        // scripted run asked for a script rather than for a device — a headless run has no devices
+        // anyway, so the map above would leave the player standing still, which is the whole reason
+        // every capture this repository has ever taken is of a still frame. See ScriptedWalk for why
+        // this is a sample facility and why it has no clock of its own.
+        if (ScriptedWalk.FromEnvironment() is { } walk) {
+            rig.Walk = walk;
+            rig.Input.Bind(controller, walk);
+
+            var script = walk.ToString();
+            var frames = (int)Math.Round(walk.Duration * 60d);
+
+            SampleLog.WalkScripted(logger, script, walk.Duration, frames);
+        }
+
         rig.Sounds = GameSounds.Load(services, logger);
         rig.Dress(loop, arena, services);
 
@@ -409,6 +443,16 @@ public sealed class PlayerRig : IDisposable {
             world.Has<CharacterState>(Pawn) && Weapon is { } weapon ? weapon.Shots : 0,
             Respawn?.Respawns ?? 0
         );
+
+        // ⚠ Reported separately and always, when a script was asked for. "The camera moved" is the
+        // one claim a walking capture rests on, and a final position that happens to look plausible
+        // is not it — a script whose source was replaced, or whose legs all parsed to zero throttle,
+        // ends exactly where a still run ends and every other line here reads identically.
+        if (Walk is { } walk) {
+            var distance = Vector3.Distance(spawn, position);
+
+            SampleLog.WalkSummary(logger, walk.Elapsed, walk.Duration, distance);
+        }
     }
 
     /// <summary>The weapon behaviour, kept so the run summary can read its counter.</summary>
