@@ -258,6 +258,18 @@ jobs:
         with:
           global-json-file: global.json
 
+      # ⚠ The same install the test and checks legs carry, and for the third time the same reason:
+      # Pack builds, building a sample runs its content build, and a content build imports models
+      # through Assimp — which the Silk.NET loader will not find in runtimes/linux-x64/native on
+      # Linux. Without it every `.obj` under Samples/ fails to import with VX1001 and the job dies.
+      #
+      # It was missing because this job had never run. `pack` needs `test` and `checks`, both of
+      # which have been failing for months, so it was skipped on every push — and a job that is
+      # always skipped is a job whose steps nobody has ever checked. It ran for the first time on the
+      # run that made the other three green, and failed on its first sample.
+      - name: Install Assimp
+        run: sudo apt-get update && sudo apt-get install -y libassimp5
+
       - name: Pack
         run: ./build.sh Pack --configuration Release
         shell: bash
