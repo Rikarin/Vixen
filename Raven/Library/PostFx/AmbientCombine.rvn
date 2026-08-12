@@ -13,11 +13,25 @@ import Vixen.Shaders.Shading
 //
 //     combined = direct × sunVisibility + albedo × irradiance × occlusion, reflections blended over
 //
+// where `irradiance` is a screen plane if the frame has one and the scene's own sky if it does not —
+// see the ⚠ two paragraphs down, which is the difference between a split frame and a dark one.
+//
 // Every plane after the first three is optional, and each has a stand-in with stated semantics: the
 // host binds *something* into every slot — a set is written wholly or not at all — and a `use…`
-// switch at zero makes the term read as "off" (occlusion 1, sun 1, irradiance 0, reflections 0)
-// whatever texels the stand-in holds. A document that names no AO node gets unoccluded ambient, not
-// a frame modulated by garbage.
+// switch at zero makes the term read as "off" (occlusion 1, sun 1, reflections 0) whatever texels
+// the stand-in holds. A document that names no AO node gets unoccluded ambient, not a frame
+// modulated by garbage.
+//
+// ⚠ **Irradiance is the one plane whose absence is not "off", because "off" was a black hole.** The
+// split pass withholds the diffuse ambient unconditionally and this node is the only thing that can
+// put it back; an absent irradiance plane therefore used to mean the term was withheld and never
+// restored. `!StandardFrame` splits for reflections as well as for GI, so the two configurations
+// that hit it — `gi: ambient` and `gi: off, reflections: screen` — were whole frames rendered with
+// no diffuse ambient in them at all. So the stand-in for irradiance is the scene's own sky,
+// `environmentSh`, evaluated per pixel against the normals plane: the same nine coefficients and
+// the same `Ibl.IrradianceSh9` the unsplit pass reads, which is what makes splitting a frame with
+// no GI in it change nothing. `useEnvironmentSh` at zero is the honest nothing, for a scene that
+// has no environment.
 //
 // ⚠ **Sun visibility multiplies DIRECT and occlusion multiplies AMBIENT — `!DistanceFieldAo`'s own
 // rule, kept here.** Its plane carries occlusion in `r` and sun visibility in `g` precisely so a
@@ -129,7 +143,8 @@ shader AmbientCombine {
 
     /// Screen irradiance over π in `rgb` — what `!IndirectDiffuse` publishes, and what
     /// `!ScreenProbeGather`'s upsample publishes; either plane multiplies straight by albedo.
-    /// Stand-in semantics: `useIrradiance` 0 contributes no ambient at all.
+    /// Stand-in semantics: `useIrradiance` 0 falls back to `environmentSh` below — see it for why
+    /// that is not the same as contributing nothing.
     var irradiance: Texture2D
 
     /// `!DistanceFieldAo`'s plane: occlusion in `r`, sun visibility in `g`.
@@ -185,9 +200,46 @@ shader AmbientCombine {
     /// 1 where `specular` is the real plane, 0 where the host bound a stand-in — see the binding.
     var useSpecular: float = 0f
 
-    /// A multiplier on the rebuilt ambient alone — the split-mode seat of `ambientIntensity`,
-    /// which the pass no longer applies to the diffuse half because the pass no longer has it.
+    /// A multiplier on the rebuilt ambient alone: the **document's**, `!AmbientCombine`'s own
+    /// `intensity:` knob, applied to whatever rebuilt the term — a screen plane or the sky below.
+    ///
+    /// ⚠ Not the scene's `ambientIntensity`, which arrives separately and under its own name now
+    /// that this pass reads the environment. This used to be described as that value's split-mode
+    /// seat, and it could not be: nothing wrote it from an `EnvironmentLight`, and one seat for the
+    /// compositor's number and the scene's would have them overwriting each other.
     var intensity: float = 1f
+
+    /// The scene's sky as nine coefficients: `EnvironmentLight.Irradiance`, the same projection
+    /// `ClusteredShading.Ambient` reads under the same name.
+    ///
+    /// ⚠ **This is what a split frame with no irradiance plane is lit by, and without it there was
+    /// nothing.** The split pass withholds diffuse ambient unconditionally, on the promise that this
+    /// node rebuilds it — but the only thing it had to rebuild it *from* was a screen plane, and a
+    /// frame below `gi: probes` publishes none. `!StandardFrame` splits for reflections too, so
+    /// `gi: ambient` and `gi: off, reflections: screen` both used to arrive here with
+    /// `useIrradiance` at zero and lose the term outright: `material.rgb * incoming` with `incoming`
+    /// identically zero. The sky is not a screen plane and needs no producer — nine numbers the
+    /// scene already has — so it answers where nothing else does.
+    var environmentSh: ShCoefficients
+
+    /// 1 where the host wrote a real sky into `environmentSh`, 0 where nothing did.
+    ///
+    /// The stand-in rule again, and it has to be a switch rather than "are the coefficients zero":
+    /// an unlit scene and a scene nobody told this pass about are the same nine zeros, and the
+    /// second is a bug worth being able to see. A scene with no environment at all keeps the frame
+    /// it had.
+    var useEnvironmentSh: float = 0f
+
+    /// `EnvironmentLight.Intensity`, on the reconstructed sky alone — the same name and the same
+    /// value `ClusteredShading` reads, written by the same `EnvironmentLight.Apply`.
+    ///
+    /// The name is the protocol: `Apply` qualifies its nine coefficients and this scalar by whatever
+    /// pass it is given, so declaring them under the spellings the shading passes use is what lets
+    /// one environment write itself into this pass without a second code path to drift from.
+    ///
+    /// ⚠ **Not `intensity` above.** That is the document's multiplier and this is the scene's, and
+    /// the rebuilt sky needs this one to land where the unsplit pass's ambient did.
+    var ambientIntensity: float = 1f
 
     /// 1 to upsample the AO pair bilaterally, 0 for the plain linear read.
     ///
@@ -246,6 +298,11 @@ shader AmbientCombine {
             return lit
         }
 
+        // Hoisted, because three terms below want it now: the AO plane test, the sky rebuild and
+        // the reflection weight. The split pass stores a unit vector, so this is a formality
+        // against interpolation and a zero-length guard — worth doing once rather than three times.
+        val n = Math.SafeNormalize(surface.xyz)
+
         val material = albedo.Sample(pointSampler, uv)
         var field = float2(1f, 1f)
         var contact = 1f
@@ -255,7 +312,6 @@ shader AmbientCombine {
             // the plane test below compares like with like.
             val deviceDepth = depthBuffer.Sample(pointSampler, uv).r
             val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
-            val n = Math.SafeNormalize(surface.xyz)
 
             field = Upsample(occlusion, occlusionTexel, world, n)
             contact = Upsample(contactOcclusion, contactTexel, world, n).x
@@ -264,7 +320,17 @@ shader AmbientCombine {
             contact = contactOcclusion.Sample(linearSampler, uv).r
         }
 
-        val incoming = irradiance.Sample(linearSampler, uv).rgb * useIrradiance
+        // ⚠ **The sky, where no screen plane answers — the term the split would otherwise drop.**
+        // Over π, in the plane's own units: `IrradianceSh9` returns irradiance and the multiply
+        // below is by albedo alone, so the Lambert `1/π` that `Ibl.Diffuse` applies for the unsplit
+        // pass has to be applied here instead. Without it every ambient-lit surface is π times too
+        // bright, which reads as a badly exposed frame rather than as a missing constant.
+        val sky = Ibl.IrradianceSh9(n, environmentSh) * (Const.InvPi * ambientIntensity * useEnvironmentSh)
+
+        // A lerp rather than a sum, and `useIrradiance` is only ever 0 or 1: a screen plane's
+        // irradiance already contains what the sky sends — the gather's rays hit it and the field's
+        // did — so adding this to it would count the sky twice. It is a fallback, not a term.
+        val incoming = lerp(sky, irradiance.Sample(linearSampler, uv).rgb, useIrradiance)
 
         // The material's own occlusion rides in the albedo plane's alpha, so it multiplies here
         // exactly as `Ibl.Diffuse` multiplied it before the split — and the two screen terms
@@ -288,7 +354,7 @@ shader AmbientCombine {
         // pixels this function already returned early for.
         val mirror = reflections.Sample(linearSampler, uv)
         val f0 = lerp(float3(0.04f, 0.04f, 0.04f), specular.Sample(pointSampler, uv).rgb, useSpecular)
-        val reflectance = Reflectance(f0, Math.SafeNormalize(surface.xyz), surface.a)
+        val reflectance = Reflectance(f0, n, surface.a)
 
         color += mirror.rgb * reflectance * saturate(mirror.a) * useReflections
 
