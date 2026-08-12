@@ -99,6 +99,30 @@ jobs:
         if: matrix.os == 'macos-14'
         run: brew install sdl2 spirv-tools
 
+      # The third leg, for the third time, and the argument does not change with the operating
+      # system: three tests fail rather than skip when spirv-val is absent, and the Windows leg has
+      # been failing all three on every run since they were written.
+      #
+      # ⚠ The Vulkan SDK rather than a spirv-tools package, because there is no such package here:
+      # SPIRV-Tools publishes no release binaries, and LunarG's SDK is the one distribution that
+      # carries spirv-val.exe with a version anybody can name. It brings the loader and the
+      # validation layers with it; it does *not* bring a driver, so it does not change what
+      # Vixen.Platform.Desktop.Tests can do — see DesktopPlatformTests, which skips when a window
+      # cannot be made.
+      #
+      # The Bin directory goes on the path by hand. Chocolatey shims what a package installs into its
+      # own directory, and this package installs into C:\VulkanSDK, so nothing is shimmed and PATH is
+      # whatever the installer's own registry write left for the *next* process.
+      - name: Install spirv-tools (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install vulkan-sdk --no-progress --yes
+          $sdk = Get-ChildItem C:\VulkanSDK -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $sdk) { throw "The Vulkan SDK installed nothing under C:\VulkanSDK." }
+          "$($sdk.FullName)\Bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & "$($sdk.FullName)\Bin\spirv-val.exe" --version
+
       # Keyed on the manifest, because that is the only thing that changes what would be downloaded.
       # A version bump is a new key and a fresh fetch; anything else is a hit.
       - name: Cache native dependencies

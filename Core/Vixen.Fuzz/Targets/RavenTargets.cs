@@ -454,19 +454,33 @@ public static class Spirv {
     ///     trying not to have.
     /// </remarks>
     static string? Find(string name) {
+        // ⚠ The host's PATH separator, not ':'. Windows separates PATH with ';', so splitting on a
+        // colon there hands back one entry beginning "C" and finds nothing whatever is installed —
+        // and a validator reported absent is a gate that goes green having checked nothing.
+        //
+        // Spelled out rather than taken from System.IO.Path, which VXIO0001 reserves for
+        // Vixen.Platform, the editor and the tools: this is engine code, and the exception it gets
+        // is the one File.Exists below already relies on — a tool on the host's PATH is a host path
+        // and has no VirtualPath spelling.
+        var windows = OperatingSystem.IsWindows();
+
         var directories = (Environment.GetEnvironmentVariable("PATH") ?? "")
-            .Split(':')
+            .Split(windows ? ';' : ':')
             .Concat(["/opt/homebrew/bin", "/usr/local/bin"]);
 
         foreach (var directory in directories) {
-            if (string.IsNullOrEmpty(directory)) {
+            if (string.IsNullOrWhiteSpace(directory)) {
                 continue;
             }
 
-            var candidate = $"{directory.TrimEnd('/')}/{name}";
+            var prefix = directory.TrimEnd('/', '\\') + (windows ? '\\' : '/');
 
-            if (File.Exists(candidate)) {
-                return candidate;
+            // And with Windows' suffix as well as without: spirv-val.exe is not a file called
+            // spirv-val, so asking only for the bare name reports "not installed" for one that is.
+            foreach (var candidate in windows ? [prefix + name + ".exe", prefix + name] : new[] { prefix + name }) {
+                if (File.Exists(candidate)) {
+                    return candidate;
+                }
             }
         }
 

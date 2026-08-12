@@ -148,12 +148,17 @@ public class VfxShaderEmitterTests {
         }
     }
 
+    // ⚠ The name is tried with Windows' suffix as well as without. A tool on PATH as spirv-val.exe
+    // is not a file called spirv-val, and a lookup that only asks for the bare name reports "not
+    // installed" for a validator sitting right there — which reads as a skip and is really a hole.
     static string? FindTool(string name) =>
         (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
         .Split(Path.PathSeparator)
         .Concat(["/opt/homebrew/bin", "/usr/local/bin"])
         .Where(directory => !string.IsNullOrWhiteSpace(directory))
-        .Select(directory => Path.Combine(directory, name))
+        .SelectMany(directory => OperatingSystem.IsWindows()
+            ? new[] { Path.Combine(directory, name + ".exe"), Path.Combine(directory, name) }
+            : [Path.Combine(directory, name)])
         .FirstOrDefault(File.Exists);
 
     static void Clean(string source) {

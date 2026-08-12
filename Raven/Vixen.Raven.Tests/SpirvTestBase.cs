@@ -111,9 +111,15 @@ public static class SpirvTestBase {
                 continue;
             }
 
-            var candidate = Path.Combine(directory, name);
-            if (File.Exists(candidate)) {
-                return candidate;
+            // ⚠ With Windows' suffix as well as without. A validator on PATH as spirv-val.exe is not
+            // a file called spirv-val, so asking only for the bare name reports "not installed" for
+            // one that is — and that reads as a skip rather than as the hole it is.
+            foreach (var candidate in OperatingSystem.IsWindows()
+                ? [Path.Combine(directory, name + ".exe"), Path.Combine(directory, name)]
+                : new[] { Path.Combine(directory, name) }) {
+                if (File.Exists(candidate)) {
+                    return candidate;
+                }
             }
         }
 
