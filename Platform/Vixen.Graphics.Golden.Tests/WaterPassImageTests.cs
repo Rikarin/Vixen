@@ -441,6 +441,17 @@ public sealed class WaterPassImageTests {
 
         using var water = new WaterRenderer {
             Name = "Water",
+
+            // ⚠ Tint-scale, stated here rather than inherited. These fixtures assert an *ordering* —
+            // red absorbed before green, four metres darker than half a metre, the reflection plane
+            // weighted by Fresnel — against a target with no tonemap in front of it. The shipped
+            // defaults are photometric (90 000 lux of sun, 1 400 cd/m² of sky), and a fixture that
+            // took them saturated every channel to 1 and asserted an ordering between whites.
+            // A golden that silently inherits a shipping default breaks whenever that default moves
+            // for reasons of its own, which is exactly what happened.
+            SunColour = new(1f, 0.96f, 0.9f),
+            SkyColour = new(0.35f, 0.45f, 0.6f),
+
             Output = "Display",
             Behind = "Behind",
             SceneDepth = "SceneDepth",
