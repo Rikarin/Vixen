@@ -99,6 +99,38 @@ It cannot live in `Vixen.Rendering.Terrain`, which does not reference `Vixen.Phy
 nothing in the rendering stack does. It belongs in a small join assembly on `Vixen.Water.Physics`'
 precedent, and it is here because a sample is where it can be shown without deciding that.
 
+### ⚠ A character with `PhysicsInterpolation` walks at half speed — an engine defect, unfixed
+
+The level asks for `WalkSpeed = 4.5` and the player covers **2.25 m/s**. The factor is exactly two and
+the mechanism is two systems writing one component:
+
+- `PhysicsInterpolationSystem` runs in `LateUpdate` and writes `LocalTransform` to
+  `Lerp(Previous, Current, alpha)`. With a frame delta equal to the fixed step — which is every
+  `--vixen-capture` run and every machine holding 60 fps — `alpha` is 0, so the transform is put back
+  to the **previous** step's pose.
+- `PhysicsScene.Adopt`, at the top of the next `StepCharacters`, sees a `LocalTransform` that differs
+  from the controller's position by more than a tenth of a millimetre and **teleports the controller
+  to it**, because a character's transform is how a game teleports one.
+
+So every other frame's step is undone before it is taken, and the arithmetic gives exactly half. The
+same file states the premise that is no longer true: *"a character needs no tag, because nothing else
+writes its transform between two steps"* — `PhysicsInterpolationSystem` does, on the same entity,
+every frame.
+
+A/B, same route, on the Null device: with the component, 1.819 m in the first second and 8.561 m in
+four; with the two lines that add it removed, **3.821 m** in the first second. Nothing else changed.
+
+It is not this sample's misuse. `PhysicsScene.WriteCharacterBack` fills a character's
+`PhysicsInterpolation` itself and its own remarks say a character without one "simply is not
+smoothed, which is what a camera bolted to it wants".
+
+⚠ **Unfixed here on purpose.** `Adopt` is on the path a rollback replays, and the obvious repair — do
+not adopt a transform that lies on the segment between the interpolation's two poses — changes what a
+mispredicted step does. That wants its own task and its own prediction tests, not a line added while
+measuring something else. Until then, a scripted walk's durations are against 2.25 m/s, and **this is
+the first thing anything in this repository has done that could notice**: a still capture cannot see
+a speed.
+
 **And there is a lake, ten metres past the north gate.** It is the tree's only `!WaterSurface` node:
 before this, `WaterMeshRenderer` was exercised by the golden suite alone. Three more absences had to
 be filled to get a body as far as the fold, and all three are the same shape as the collider —
@@ -178,7 +210,43 @@ metres with every counter reporting a successful run. `x = −3` misses it and t
 whose hole is `x ∈ [−4, 4]`.
 
 ⚠ **The character walks at half the speed the level asks for**, and it is not this harness's doing —
-see the note under *the gates* above. Write a script's durations against 2.25 m/s, not 4.5.
+see *A character with `PhysicsInterpolation` walks at half speed* below. Write a script's durations
+against 2.25 m/s, not 4.5.
+
+`VIXEN_STRIP=first-last[/stride]` is the other half, and it is what makes a temporal question
+answerable at all: it writes a picture of **every** frame in a range beside the ordinary `frame.png`,
+so frame *N* and frame *N* + 1 come out of one run and their difference is the frame step rather than
+two runs' scheduling. `0-1200/30` samples twenty seconds of walking at half-second intervals, which is
+the timescale a person reporting "it blinks for ten or twenty seconds" is describing.
+
+### What a walking capture measures, and what it does not
+
+Measured on this level at 1600 × 900, 512 frames, from `-3,0.2,24,180` walking out of the south gate:
+
+| | Mean channel gap | Mean \|delta\| | Flipped pixels |
+|---|---|---|---|
+| Two identical **walking** runs | 0.0040 | 0.0085/255 | 32 157 of 1 440 000 |
+| Two identical **still** runs, same start pose | 0.0197 | 0.0492/255 | 170 194 of 1 440 000 |
+
+⚠ **The walking floor is about six times *tighter* than the still floor at the same viewpoint**, which
+is the opposite of what was expected. Two walking runs land on bit-identical player positions —
+`(-3.0024705, 0.69134784, 42.6403)` both times — so nothing in the walk itself contributes, and what
+is left is the renderer's own scheduling residue over whatever is on screen. The still view here looks
+at the arena floor and the walls, and the walking one ends up in deep grass; screen-probe GI over
+built surfaces is apparently noisier run-to-run than grass is. **The floor is a property of the
+viewpoint, not of whether the camera moved** — measure it where you intend to measure, every time.
+
+A *within-run* frame-to-frame delta is a different and much better instrument, because the two frames
+share one schedule. Walking, mid-arena, facing down-sun, thirty-one consecutive frames:
+
+| | Whole-frame mean \|delta\| | Worst 32 × 32 tile | Tiles over 4/255 |
+|---|---|---|---|
+| Still | 0.17 – 0.25 | 1.9 – 2.9 | 0 |
+| Walking | 0.57 – 0.71 | 5.5 – 11.2 | 8 – 22 |
+
+Both series are **smooth**: the walking one's frame-to-frame delta never departs from its own median
+by more than 12 %, and the single largest regional event in thirty frames — a tile at 11.2 — is a
+lamp's ember particles against the sky, not a shadow. See the shadow note below.
 
 ## The picture, and what is in the way
 

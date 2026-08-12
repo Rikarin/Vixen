@@ -180,7 +180,23 @@ function of how fast the machine rendered, which is exactly the wall-clock non-r
 
 ⚠ **Measure the walking floor before concluding anything from a walking diff.** It is not the still
 floor, and neither is a constant — see the table above and the sample's README for the numbers this
-repository has measured.
+repository has measured. On this repository's arena the walking floor came out about **six times
+tighter** than the still floor from the same start pose, which is the opposite of what was expected:
+the floor turns out to be a property of what is on screen rather than of whether the camera moved.
+
+### Two frames of one run, rather than two runs
+
+`--vixen-capture` writes the last frame, so frame *N* and frame *N* + 1 are two whole runs — and two
+runs differ by the renderer's own scheduling as well as by the frame step. For a *temporal* question
+that is the wrong instrument: over grass and screen-probe GI the cross-run residue reaches a mean
+absolute channel near 1/255, which is half of what one frame of walking produces.
+
+`AppGraphics.RequestCapture(name)` is the public way to ask for one frame by hand, and a loop over it
+is a strip: many frames of **one** run, sharing a schedule, a streaming state and a probe history, so
+their difference is the frame step and nothing else. `VIXEN_STRIP=first-last[/stride]` in sample 13 is
+thirty lines of exactly that, and the stride is what reaches a multi-second timescale — a strip of
+thirty consecutive frames is half a second, and a defect somebody describes in seconds will not be in
+it.
 
 ### Where the picture comes from
 
