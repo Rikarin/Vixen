@@ -184,6 +184,12 @@ repository has measured. On this repository's arena the walking floor came out a
 tighter** than the still floor from the same start pose, which is the opposite of what was expected:
 the floor turns out to be a property of what is on screen rather than of whether the camera moved.
 
+⚠ Those walking numbers were measured while a character carrying `PhysicsInterpolation` walked at half
+the speed its `CharacterMovement` asked for — an engine defect the same harness found and which is now
+fixed. A script's durations are against the level's own walk speed again, so the same script covers
+twice the ground and sees twice as much of the level: **re-measure the floor rather than quoting these
+numbers.** The sample's README says what the mechanism was.
+
 ### Two frames of one run, rather than two runs
 
 `--vixen-capture` writes the last frame, so frame *N* and frame *N* + 1 are two whole runs — and two

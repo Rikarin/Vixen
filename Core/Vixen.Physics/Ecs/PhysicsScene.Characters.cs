@@ -36,6 +36,19 @@ public sealed partial class PhysicsScene {
     /// <summary>How many entities have a character controller.</summary>
     public int CharacterCount => charactersByHandle.Count;
 
+    /// <summary>How many times a character's controller has been moved to a written transform.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A character being adopted on nearly every step is two writers fighting over one
+    ///     component, and this is the number that says so.</b> A teleport, a respawn and a
+    ///     reconciliation each add one; a walking character adds none. That distinction was invisible
+    ///     for as long as it existed — an interpolated character was adopted sixty times a second and
+    ///     the only symptom was that it covered half the ground its <c>WalkSpeed</c> asked for, which
+    ///     no still capture and no unit test could see. <c>Vixen.Physics</c> has no logger to warn
+    ///     through, so this is a counter a run summary, a test or an overlay can read — the same shape
+    ///     as <c>FixedStepAccumulator.DroppedSteps</c> and <c>ClientPrediction.MispredictionCount</c>.
+    /// </remarks>
+    public long CharacterAdoptionCount { get; private set; }
+
     /// <summary>The controller an entity was given, if it has one.</summary>
     /// <param name="entity">The entity.</param>
     /// <param name="controller">Its controller.</param>
@@ -94,11 +107,22 @@ public sealed partial class PhysicsScene {
                     continue;
                 }
 
-                var intent = Entities.TryGet<MoveIntent>(entities[index], out var value) ? value : default;
+                var entity = entities[index];
+                var intent = Entities.TryGet<MoveIntent>(entity, out var value) ? value : default;
 
-                Adopt(controller, in bodies[index], in transforms[index]);
+                // The pose the smoothing last drew, if this character is smoothed at all. Read here
+                // rather than inside Adopt so that the one component lookup serves both ends of the
+                // step — the same lookup WriteCharacterBack would make anyway.
+                var drawn = Entities.TryGet<PhysicsInterpolation>(entity, out var interpolation)
+                    ? interpolation.DrawnPosition
+                    : (Vector3?)null;
+
+                if (Adopt(controller, in bodies[index], in transforms[index], in drawn)) {
+                    CharacterAdoptionCount++;
+                }
+
                 Drive(controller, in settings[index], ref states[index], ref bodies[index], in intent, deltaTime);
-                WriteCharacterBack(controller, in bodies[index], ref transforms[index], entities[index]);
+                WriteCharacterBack(controller, in bodies[index], ref transforms[index], entity);
             }
         }
     }
@@ -114,6 +138,7 @@ public sealed partial class PhysicsScene {
     const float TeleportThreshold = 1e-4f;
 
     /// <summary>Takes a transform somebody else wrote as the character's new position.</summary>
+    /// <returns>Whether the controller was moved.</returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Without this, writing a character's <c>LocalTransform</c> does nothing at all.</b>
@@ -121,14 +146,34 @@ public sealed partial class PhysicsScene {
     ///         wrote <i>out</i> of it, so a teleport, a checkpoint load and a spawn point were all
     ///         silently ignored — the transform was overwritten from the controller on the same step.
     ///         The equivalent for a rigid body is <c>PhysicsTeleport</c>, which exists because the
-    ///         bridge writes that component every step and so cannot tell who changed it; a character
-    ///         needs no tag, because nothing else writes its transform between two steps.
+    ///         bridge writes that component every step and so cannot tell who changed it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This file used to claim a character needs no such tag, "because nothing else
+    ///         writes its transform between two steps". That was never true, and it cost 50% of every
+    ///         character's speed.</b> <c>PhysicsInterpolationSystem</c> writes it, on the same entity,
+    ///         every frame — and <see cref="WriteCharacterBack" /> is what puts a character in that
+    ///         pass's query in the first place. With <c>alpha</c> at zero, which is every frame whose
+    ///         delta is one fixed step, the pose it leaves is the <i>previous</i> step's; this read it
+    ///         as a teleport and pulled the controller back, so every other step was undone and a
+    ///         4.5 m/s walk covered 2.25. Sample 13 measured 1.819 m of a scripted first second
+    ///         against 3.821 m with the component taken off.
+    ///     </para>
+    ///     <para>
+    ///         So the question is not "does the transform disagree with the controller" — the bridge
+    ///         is no longer the only thing that writes it — but "did anything <i>other than the
+    ///         engine's own smoothing</i> write it". <see cref="PhysicsInterpolation.DrawnPosition" />
+    ///         is the receipt that answers it exactly, rather than by guessing from geometry: the
+    ///         guess, that an adopted pose lying between the two interpolated ones is the smoothing's,
+    ///         swallows the commonest correction a predicted client ever gets, because a client that
+    ///         mispredicts along its own path is corrected along that same segment.
     ///     </para>
     ///     <para>
     ///         It is also what makes a character predictable. A rollback restores the entity's
     ///         transform from the server's snapshot and replays; if the controller kept the
     ///         mispredicted position, every replay would start from the guess it was correcting and
-    ///         the correction would never converge.
+    ///         the correction would never converge. A restored snapshot is not the drawn pose, so it
+    ///         is still adopted — <c>PredictedPlayerMovement</c> and its tests are what pin that.
     ///     </para>
     ///     <para>
     ///         <see cref="CharacterController.RefreshContacts" /> after the move, so
@@ -136,15 +181,29 @@ public sealed partial class PhysicsScene {
     ///         rather than where it was — its own remarks name teleporting as the case.
     ///     </para>
     /// </remarks>
-    static void Adopt(CharacterController controller, in CharacterBody body, in LocalTransform transform) {
+    static bool Adopt(
+        CharacterController controller,
+        in CharacterBody body,
+        in LocalTransform transform,
+        in Vector3? drawn
+    ) {
         var written = transform.Position + body.BuiltOffset;
 
         if ((written - controller.Position).LengthSquared() <= TeleportThreshold * TeleportThreshold) {
-            return;
+            return false;
+        }
+
+        // The engine's own smoothing, still exactly where it left it. Nobody has written this
+        // transform since, so there is nothing to adopt — and adopting it would undo the step that
+        // produced the pose it was drawn from.
+        if (drawn is { } pose
+            && (transform.Position - pose).LengthSquared() <= TeleportThreshold * TeleportThreshold) {
+            return false;
         }
 
         controller.Position = written;
         controller.RefreshContacts();
+        return true;
     }
 
     /// <summary>Runs one character through the rules and moves it.</summary>
@@ -277,6 +336,10 @@ public sealed partial class PhysicsScene {
         // Filled for the same reason a body's is: PhysicsInterpolationSystem draws between the last
         // two steps, so a character stepping at 60 Hz is smooth at any frame rate. A character with
         // no PhysicsInterpolation simply is not smoothed, which is what a camera bolted to it wants.
+        //
+        // ⚠ And this line is why a character is in that pass's query at all, which is the other half
+        // of the half-speed defect Adopt's remarks describe: the bridge hands the smoothing an entity
+        // whose transform the bridge then reads back as an instruction.
         if (!Entities.Has<PhysicsInterpolation>(entity)) {
             return;
         }
@@ -286,6 +349,13 @@ public sealed partial class PhysicsScene {
         interpolation.PreviousRotation = interpolation.CurrentRotation;
         interpolation.CurrentPosition = position;
         interpolation.CurrentRotation = transform.Rotation;
+
+        // The receipt is the transform as it stands, because that is what was just written to it.
+        // Kept in step here and not only in the smoothing pass, so a build that carries the component
+        // without running that pass — a headless server, a prediction replay — holds a pose the
+        // engine really wrote rather than a zeroed one. Otherwise a game teleporting a character to
+        // the world origin would find the teleport quietly ignored.
+        interpolation.DrawnPosition = position;
     }
 
     void SynchronizeCharacters() {

@@ -99,37 +99,48 @@ It cannot live in `Vixen.Rendering.Terrain`, which does not reference `Vixen.Phy
 nothing in the rendering stack does. It belongs in a small join assembly on `Vixen.Water.Physics`'
 precedent, and it is here because a sample is where it can be shown without deciding that.
 
-### ⚠ A character with `PhysicsInterpolation` walks at half speed — an engine defect, unfixed
+### ⚠ A character with `PhysicsInterpolation` used to walk at half speed — fixed, and this is how it was found
 
-The level asks for `WalkSpeed = 4.5` and the player covers **2.25 m/s**. The factor is exactly two and
-the mechanism is two systems writing one component:
+The level asks for `WalkSpeed = 4.5` and the player covered **2.25 m/s**. The factor was exactly two
+and the mechanism was two systems writing one component:
 
 - `PhysicsInterpolationSystem` runs in `LateUpdate` and writes `LocalTransform` to
   `Lerp(Previous, Current, alpha)`. With a frame delta equal to the fixed step — which is every
-  `--vixen-capture` run and every machine holding 60 fps — `alpha` is 0, so the transform is put back
+  `--vixen-capture` run and every machine holding 60 fps — `alpha` is 0, so the transform was put back
   to the **previous** step's pose.
-- `PhysicsScene.Adopt`, at the top of the next `StepCharacters`, sees a `LocalTransform` that differs
-  from the controller's position by more than a tenth of a millimetre and **teleports the controller
+- `PhysicsScene.Adopt`, at the top of the next `StepCharacters`, saw a `LocalTransform` that differed
+  from the controller's position by more than a tenth of a millimetre and **teleported the controller
   to it**, because a character's transform is how a game teleports one.
 
-So every other frame's step is undone before it is taken, and the arithmetic gives exactly half. The
-same file states the premise that is no longer true: *"a character needs no tag, because nothing else
+So every other frame's step was undone before it was taken, and the arithmetic gives exactly half. The
+same file stated the premise that made it possible: *"a character needs no tag, because nothing else
 writes its transform between two steps"* — `PhysicsInterpolationSystem` does, on the same entity,
-every frame.
+every frame. That sentence is now a paragraph saying the opposite, because a comment asserting the
+invariant being violated is how this survived.
 
 A/B, same route, on the Null device: with the component, 1.819 m in the first second and 8.561 m in
 four; with the two lines that add it removed, **3.821 m** in the first second. Nothing else changed.
+After the fix the same route covers **3.746 m** and **17.171 m** — the remaining 0.075 m is one fixed
+step at walk speed, because `Report` reads the transform and what is *drawn* is a step behind the
+simulation by design.
 
-It is not this sample's misuse. `PhysicsScene.WriteCharacterBack` fills a character's
-`PhysicsInterpolation` itself and its own remarks say a character without one "simply is not
-smoothed, which is what a camera bolted to it wants".
+It was not this sample's misuse. `PhysicsScene.WriteCharacterBack` fills a character's
+`PhysicsInterpolation` itself, which is what puts a character in that pass's query at all.
 
-⚠ **Unfixed here on purpose.** `Adopt` is on the path a rollback replays, and the obvious repair — do
-not adopt a transform that lies on the segment between the interpolation's two poses — changes what a
-mispredicted step does. That wants its own task and its own prediction tests, not a line added while
-measuring something else. Until then, a scripted walk's durations are against 2.25 m/s, and **this is
-the first thing anything in this repository has done that could notice**: a still capture cannot see
-a speed.
+**The repair, and why it is not the obvious one.** `PhysicsInterpolationSystem` now records the exact
+pose it wrote in `PhysicsInterpolation.DrawnPosition`, and `Adopt` ignores a transform still sitting
+on it. The obvious repair — do not adopt a transform lying on the segment between the two
+interpolated poses — is worse rather than cheaper: `Adopt` is on the path a rollback replays, and a
+client that mispredicts *along its own path* is corrected along exactly that segment, so the guess
+would swallow the commonest correction there is. Excluding characters from the smoothing was the other
+candidate and trades this defect for the camera judder the comment in `PlayerRig.CreatePawn`
+describes. `PhysicsScene.CharacterAdoptionCount` is the number that would have made this visible from
+the start: a walking character is adopted zero times, and this one was adopted sixty times a second.
+
+**And this sample is what could see it at all.** A still capture cannot see a speed;
+`CharacterSceneTests.SmoothingACharacterDoesNotChangeHowFarItWalks` is the regression test the
+measurement bought, and it runs a whole `EngineLoop` because the four physics passes called by hand —
+what every other test in that file does — never run `LateUpdate` and so could not see it either.
 
 **And there is a lake, ten metres past the north gate.** It is the tree's only `!WaterSurface` node:
 before this, `WaterMeshRenderer` was exercised by the golden suite alone. Three more absences had to
@@ -211,9 +222,12 @@ and is 1.6 m tall, so the obvious script — spawn at the origin, walk south —
 metres with every counter reporting a successful run. `x = −3` misses it and threads the south gate,
 whose hole is `x ∈ [−4, 4]`.
 
-⚠ **The character walks at half the speed the level asks for**, and it is not this harness's doing —
-see *A character with `PhysicsInterpolation` walks at half speed* below. Write a script's durations
-against 2.25 m/s, not 4.5.
+⚠ **The character used to walk at half the speed the level asks for**, and it was not this harness's
+doing — see *A character with `PhysicsInterpolation` used to walk at half speed* above, which this
+harness is what found. A script's durations are now against the level's own 4.5 m/s, so **every route
+written before that fix goes twice as far as its author measured**. The twenty-second script above
+now covers 87.9 m and finishes at (−3.2, 3.7, 111.9), up on the terrain rather than just past the
+gate; it still walks the whole way with no respawns, but it is a different picture than it was.
 
 `VIXEN_STRIP=first-last[/stride]` is the other half, and it is what makes a temporal question
 answerable at all: it writes a picture of **every** frame in a range beside the ordinary `frame.png`,
