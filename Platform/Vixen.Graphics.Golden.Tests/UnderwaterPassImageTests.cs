@@ -287,6 +287,13 @@ public sealed class UnderwaterPassImageTests {
             SurfaceNormal = Vector3.UnitY,
             Submersion = submersion,
 
+            // ⚠ The sky this file's numbers were written against — the pre-photometric default, and
+            // the same pinning WaterPassImageTests does for the same reason. The scene here is
+            // authored in 0–1 and the shipped default is two thousand cd/m², which is right for a
+            // frame that gets tonemapped and reads (1, 1, 1) at every graded pixel in this one. The
+            // two nodes integrate one medium, so they are given one sky.
+            SkyColour = new(0.35f, 0.45f, 0.6f),
+
             // ⚠ Wide, because this fixture reads the mask at a handful of rows. The shipped default
             // is four centimetres — narrow is the point there — and a four-centimetre feather over an
             // eight-metre view is under a pixel, which would make the scan below a coin toss on

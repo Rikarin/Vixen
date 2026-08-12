@@ -453,6 +453,20 @@ public sealed class WaterPassImageTests {
             // which is correct and is not what these assertions are about.
             InverseViewProjection = Orthographic(),
             CameraPosition = Vector3.Zero,
+
+            // ⚠ The light this file's numbers were written against, said out loud. Everything in
+            // this fixture is authored in 0–1 — the floor is (0.9, 0.8, 0.7), the sentinel and the
+            // reflection plane likewise — and the shipped defaults are photometric: ninety thousand
+            // lux of sun and two thousand cd/m² of sky, which is a correct integration of a medium
+            // lit for a real frame and reads (1, 1, 1) at every wet pixel here. Five assertions in
+            // this file went from measuring absorption to measuring the clamp.
+            //
+            // Pinned rather than scaled, and these two are the pre-photometric defaults exactly, so
+            // what each assertion expects is still something a reader can work out from the
+            // coefficients above. A fixture asserting the *exposure* would be a different test and
+            // would belong beside the tonemapper.
+            SunColour = new(1f, 0.96f, 0.9f),
+            SkyColour = new(0.35f, 0.45f, 0.6f),
             Foam = true,
             Tiled = tiled,
             Pipelines = tiled ? new(device) : null,
