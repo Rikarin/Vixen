@@ -372,11 +372,22 @@ public sealed class PageResidency : IDisposable {
     /// </remarks>
     public ILogger? Logger { get; set; }
 
-    /// <summary>How many loads are in flight.</summary>
+    /// <summary>How many pages are on their way and not yet in a slot.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Arrived-and-unplaced counts, and leaving it out was the flakiest thing in this
+    ///     repository's test suite.</b> A load's bytes land in a queue that the next
+    ///     <see cref="Service" /> drains, so between the task finishing and that call the page is in
+    ///     no slot, in no request list and — before this — in no count either. Every settle loop in
+    ///     the tree waits for <c>Loading == 0 &amp;&amp; PendingRequests == 0</c>, and each of them
+    ///     could therefore return one <see cref="Service" /> call too early, leaving a texture
+    ///     resident at its pinned level and an assertion reading a number from the wrong instant.
+    ///     Which test that hit depended on which machine ran it; on CI it was a different one most
+    ///     runs.
+    /// </remarks>
     public int Loading {
         get {
             lock (gate) {
-                return loading.Count;
+                return loading.Count + arrived.Count;
             }
         }
     }
@@ -839,18 +850,29 @@ public sealed class PageResidency : IDisposable {
 
         _ = Task.Run(
             async () => {
+                var handed = false;
+
                 try {
                     var read = await store.LoadAsync(key, buffer, cancellation.Token).ConfigureAwait(false);
 
+                    // ⚠ Enqueued and un-listed under one lock, not two. The handover is what
+                    // `Loading` counts across, so a key that is in `arrived` and still in `loading`
+                    // would be counted twice — and a page in neither, for the instant between two
+                    // lock scopes, is the hole this used to have: a caller that watched Loading fall
+                    // to zero settled on a page that had arrived and was not yet in a slot.
                     lock (gate) {
                         arrived.Enqueue((key, buffer, read));
+                        loading.Remove(key);
+                        handed = true;
                     }
                 } catch (OperationCanceledException) {
                     // Disposal, or a page nobody wants any more. Neither is an error, and the
                     // `loading` entry is removed below either way so a later request can retry.
                 } finally {
-                    lock (gate) {
-                        loading.Remove(key);
+                    if (!handed) {
+                        lock (gate) {
+                            loading.Remove(key);
+                        }
                     }
                 }
             },
