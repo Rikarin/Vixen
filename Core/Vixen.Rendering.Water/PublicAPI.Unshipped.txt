@@ -216,7 +216,7 @@ Vixen.Rendering.Water.WaterMeshOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.Ov
 Vixen.Rendering.Water.WaterMeshOverlay.Enabled.get -> bool
 Vixen.Rendering.Water.WaterMeshOverlay.Enabled.set -> bool
 Vixen.Rendering.Water.WaterMeshOverlay.Name.get -> string
-Vixen.Rendering.Water.WaterMeshOverlay.Read(Vixen.Rendering.Water.WaterMeshRenderer mesh, int gridQuads = 32) -> void
+Vixen.Rendering.Water.WaterMeshOverlay.Read(Vixen.Rendering.Water.WaterMeshRenderer mesh) -> void
 Vixen.Rendering.Water.WaterMeshOverlay.Statistics.get -> Vixen.Rendering.Water.WaterMeshStatistics
 Vixen.Rendering.Water.WaterMeshOverlay.Statistics.set -> Vixen.Rendering.Water.WaterMeshStatistics
 Vixen.Rendering.Water.WaterMeshOverlay.WaterMeshOverlay() -> void
@@ -230,6 +230,7 @@ Vixen.Rendering.Water.WaterMeshRenderer.Device.get -> Vixen.Graphics.IGraphicsDe
 Vixen.Rendering.Water.WaterMeshRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Water.WaterMeshRenderer.Dispose() -> void
 Vixen.Rendering.Water.WaterMeshRenderer.Draws.get -> System.Collections.Generic.IEnumerable<Vixen.Rendering.Water.WaterMeshRenderer.WaterZoneDraw>
+Vixen.Rendering.Water.WaterMeshRenderer.DrawsRecorded.get -> int
 Vixen.Rendering.Water.WaterMeshRenderer.DroppedPatches.get -> int
 Vixen.Rendering.Water.WaterMeshRenderer.EdgeFade.get -> float
 Vixen.Rendering.Water.WaterMeshRenderer.EdgeFade.set -> float
@@ -237,6 +238,7 @@ Vixen.Rendering.Water.WaterMeshRenderer.FarDistance.get -> float
 Vixen.Rendering.Water.WaterMeshRenderer.FarDistance.set -> float
 Vixen.Rendering.Water.WaterMeshRenderer.GridQuads.get -> int
 Vixen.Rendering.Water.WaterMeshRenderer.GridQuads.set -> int
+Vixen.Rendering.Water.WaterMeshRenderer.InfoUploads.get -> int
 Vixen.Rendering.Water.WaterMeshRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Water.WaterMeshRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Water.WaterMeshRenderer.PatchesDrawn.get -> int
@@ -328,7 +330,7 @@ Vixen.Rendering.Water.WaterOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.Overla
 Vixen.Rendering.Water.WaterOverlay.Enabled.get -> bool
 Vixen.Rendering.Water.WaterOverlay.Enabled.set -> bool
 Vixen.Rendering.Water.WaterOverlay.Name.get -> string
-Vixen.Rendering.Water.WaterOverlay.Read(Vixen.Rendering.Water.WaterZoneSystem zones) -> void
+Vixen.Rendering.Water.WaterOverlay.Read(Vixen.Rendering.Water.WaterZoneSystem zones, Vixen.Rendering.Water.WaterMeshRenderer? mesh = null) -> void
 Vixen.Rendering.Water.WaterOverlay.Statistics.get -> Vixen.Rendering.Water.WaterStatistics
 Vixen.Rendering.Water.WaterOverlay.Statistics.set -> Vixen.Rendering.Water.WaterStatistics
 Vixen.Rendering.Water.WaterOverlay.WaterOverlay() -> void

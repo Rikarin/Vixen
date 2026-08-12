@@ -109,6 +109,53 @@ public sealed class WaterHorizonImageTests {
         _ = frame;
     }
 
+    /// <summary>The overlay's numbers are what the pass counted, not what a caller assumed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sabotage assertion for two numbers <c>stat watermesh</c> used to derive.</b>
+    ///         Its draw count was <c>ZonesDrawn * 2</c> — the window and the skirt — and
+    ///         <see cref="WaterSurfacePass.Record" /> issues a draw only for whichever of the two has
+    ///         instances. This frame is a horizon: one zone whose window <em>and</em> skirt are both
+    ///         populated, so the old arithmetic and the new counter agree here at two, and the
+    ///         assertion that discriminates is the one below on a frame that draws only a skirt.
+    ///     </para>
+    ///     <para>
+    ///         And its vertex count assumed a 32-quad lattice where the node publishes
+    ///         <see cref="WaterMeshRenderer.GridQuads" />, so a document that sized its patches
+    ///         differently — as an author may — got a plausible number for a mesh that is not there.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_mesh_overlay_reports_the_draws_the_passes_recorded() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        Draw(owned, out var mesh, out _);
+
+        var overlay = new WaterMeshOverlay();
+        overlay.Read(mesh);
+
+        // Two, here: this frame's window and its skirt are both populated, so the derived arithmetic
+        // and the counted answer agree — which is why the assertion is that the overlay reads the
+        // *counter*, and not that the number came out different.
+        Assert.Equal(mesh.DrawsRecorded, overlay.Statistics.Draws);
+        Assert.Equal(2, overlay.Statistics.Draws);
+
+        // The lattice the node was actually built with, rather than the constant the overlay used to
+        // carry. Both are 32 in this fixture, so what this pins is the *source* — a node whose
+        // GridQuads moved would take the vertex count with it.
+        var perPatch = (mesh.GridQuads + 1) * (mesh.GridQuads + 1);
+
+        Assert.Equal(mesh.PatchesDrawn * perPatch, overlay.Statistics.Vertices);
+
+        // And the info field went to the device at least once, which is the row `stat water` drew as
+        // a flat zero for as long as it was unreachable from the zone system.
+        Assert.True(mesh.InfoUploads > 0, "the surface drew without ever sending its info field");
+    }
+
     /// <summary>
     ///     ⚠ Nothing inside the ocean is unwritten — the crack test, rasterised.
     /// </summary>

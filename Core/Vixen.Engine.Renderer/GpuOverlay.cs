@@ -63,6 +63,7 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
     // are stable across a reload of the same document.
     readonly Dictionary<string, Track> tracks = new(StringComparer.Ordinal);
     readonly List<Row> rows = [];
+    readonly List<string> visible = [];
 
     float[] ranking = [];
     int lastFrameIndex = -1;
@@ -104,10 +105,26 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
     /// <summary>The share of the frame no pass accounted for, from zero to one.</summary>
     public float UnattributedFraction { get; private set; }
 
+    /// <summary>Which passes have a row, top to bottom, as of the last <see cref="Draw" />.</summary>
+    /// <remarks>
+    ///     Published because the two claims this panel makes about itself — that a row keeps its
+    ///     place while the costs move, and that the rows are the expensive ones — are claims about
+    ///     this list, and a panel drawn as line segments cannot be read back any other way. A host
+    ///     with its own layout may also use it.
+    /// </remarks>
+    public IReadOnlyList<string> VisiblePasses => visible;
+
+    /// <summary>The decaying peak cost of one pass, in milliseconds, or zero if it has no history.</summary>
+    /// <param name="pass">The render-graph pass's name.</param>
+    /// <returns>The peak.</returns>
+    public double PeakOf(string? pass) =>
+        pass is not null && tracks.TryGetValue(pass, out var track) ? track.Peak : 0d;
+
     /// <summary>Forgets every smoothed cost and every peak.</summary>
     public void Reset() {
         tracks.Clear();
         rows.Clear();
+        visible.Clear();
         lastFrameIndex = -1;
         DrawnRows = 0;
         UnattributedFraction = 0f;
@@ -130,6 +147,8 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
             );
 
             DrawnRows = 0;
+            visible.Clear();
+
             return;
         }
 
@@ -362,6 +381,12 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
         // and a panel taller than the screen is refused whole by OverlaySurface.Panel.
         if (rows.Count > MaxRows) {
             rows.RemoveRange(MaxRows, rows.Count - MaxRows);
+        }
+
+        visible.Clear();
+
+        for (var index = 0; index < rows.Count; index++) {
+            visible.Add(rows[index].Name);
         }
 
         return attributed;
