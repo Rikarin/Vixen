@@ -53,6 +53,7 @@ Vixen.Graphics.Null.NullDevice.LiveResourceCount.get -> int
 Vixen.Graphics.Null.NullDevice.NullDevice() -> void
 Vixen.Graphics.Null.NullDevice.NullDevice(Vixen.Graphics.Null.NullDeviceOptions options) -> void
 Vixen.Graphics.Null.NullDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
+Vixen.Graphics.Null.NullDevice.RecordedWrites.get -> System.Collections.Generic.IReadOnlyList<Vixen.Graphics.DescriptorWrite>?
 Vixen.Graphics.Null.NullDevice.Recorder.get -> Vixen.Graphics.Null.CommandRecorder?
 Vixen.Graphics.Null.NullDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.Null.NullDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool
