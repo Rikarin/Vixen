@@ -207,6 +207,15 @@ public class StandardFrameTests {
 
         // No gather, so nothing reads the planes back — and the combine's irradiance seat stays
         // empty rather than naming a resource with no producer.
+        //
+        // ⚠ **An empty seat is "no screen plane", not "no ambient", and that distinction is what
+        // this mode used to get wrong.** The split pass withholds diffuse ambient unconditionally
+        // and the combine is the only thing that puts it back, so an empty seat meant `gi: ambient`
+        // rendered a frame with no diffuse ambient in it at all — the term withheld and never
+        // restored, which the tier golden `frame-split` was a picture of. `AmbientCombine` falls
+        // back to the scene's own environment coefficients now; the seat below stays empty because
+        // the sky is not a resource, and `The_combine_lights_a_frame_that_publishes_no_irradiance`
+        // in `PostEffectTests` is where that is asserted.
         Assert.Equal("", Node<AmbientCombineAsset>(document, "Combine").Irradiance);
 
         Assert.False(
@@ -226,6 +235,12 @@ public class StandardFrameTests {
         // compositor the plane has, which is why reflections imply the split even with gi off.
         Assert.Equal(mirrors.Target, combine.Reflections);
         Assert.Equal("SceneHdr", mirrors.Colour);
+
+        // ⚠ Both empty, and this is the configuration where that used to cost the most: gi is off,
+        // so there is no GI stack to blame and the frame is a plain lit scene — which nonetheless
+        // splits, for the reflections, and so lost its whole diffuse ambient to a combine with
+        // nothing to rebuild it from. The seats stay empty because no node here publishes those
+        // planes; the ambient comes back off the scene's environment inside `AmbientCombine`.
         Assert.Equal("", combine.Irradiance);
         Assert.Equal("", combine.Occlusion);
     }

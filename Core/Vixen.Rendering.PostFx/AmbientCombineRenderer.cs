@@ -22,7 +22,9 @@ namespace Vixen.Rendering.PostFx;
 ///         sun-visibility channel into the direct term, and adds a traced reflections plane weighted
 ///         by the surface's own specular reflectance. The formula is one line —
 ///         <c>direct × sun + albedo × irradiance × occlusion + reflections × reflectance</c> — and
-///         <c>AmbientCombine.rvn</c> states every term's stand-in semantics beside it.
+///         <c>AmbientCombine.rvn</c> states every term's stand-in semantics beside it. The irradiance
+///         is a screen plane where the frame publishes one and the scene's own sky where it does not,
+///         because the pass withheld the term either way — see <see cref="Irradiance" />.
 ///     </para>
 ///     <para>
 ///         <strong>Every plane past the first three is optional.</strong> The shader's bindings exist
@@ -83,8 +85,18 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
 
     /// <summary>
     ///     Screen irradiance over π — what <c>!IndirectDiffuse</c> publishes, and what
-    ///     <c>!ScreenProbeGather</c>'s upsample publishes. Null contributes no ambient at all.
+    ///     <c>!ScreenProbeGather</c>'s upsample publishes.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Null falls back to the scene's sky, and it did not use to.</b> Every other optional
+    ///     plane's absence means "off" because the term it modulates exists without it; this one is
+    ///     the term. The split pass withholds diffuse ambient unconditionally on the promise that
+    ///     this node rebuilds it, so a null here meant the frame lost the term outright — which is
+    ///     what <c>gi: ambient</c> and <c>gi: off, reflections: screen</c> both did, both of them
+    ///     whole frames with no diffuse ambient in them. With no plane the shader evaluates
+    ///     <see cref="Lighting" />'s environment coefficients against the normals plane instead,
+    ///     which is the same sky the unsplit pass reads.
+    /// </remarks>
     public string? Irradiance { get; set; }
 
     /// <summary><c>!DistanceFieldAo</c>'s plane: occlusion in r, sun visibility in g. Null reads both as one.</summary>
@@ -106,8 +118,9 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     public string? Reflections { get; set; }
 
     /// <summary>
-    ///     The scene's lighting, whose <see cref="Lighting.SceneLighting.AmbientSpecular" /> this node owns, or
-    ///     null for a host that would rather write it itself.
+    ///     The scene's lighting, whose <see cref="Lighting.SceneLighting.AmbientSpecular" /> this node owns
+    ///     and whose <see cref="Lighting.SceneLighting.Environment" /> it reads, or null for a host that
+    ///     would rather write both itself.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -118,13 +131,25 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     ///         ambient. There is no other object that knows both.
     ///     </para>
     ///     <para>
+    ///         It reads in the other direction too, and for the diffuse half: with no
+    ///         <see cref="Irradiance" /> plane the shader rebuilds ambient from this environment's
+    ///         nine coefficients, so a split frame below <c>gi: probes</c> is lit by the same sky an
+    ///         unsplit one is. Null there is a frame with no diffuse ambient — honest for a scene
+    ///         with no environment, and the defect this fixed for every scene that has one.
+    ///     </para>
+    ///     <para>
     ///         Written on every build, which costs an assignment: a document that is rebuilt with the
     ///         reflections node removed has to put the term back.
     ///     </para>
     /// </remarks>
     public Lighting.SceneLighting? Lighting { get; set; }
 
-    /// <summary>A multiplier on the rebuilt ambient alone — the split-mode seat of <c>ambientIntensity</c>.</summary>
+    /// <summary>A multiplier on the rebuilt ambient alone — the document's own knob.</summary>
+    /// <remarks>
+    ///     Not the scene's <see cref="Lighting.EnvironmentLight.Intensity" />, which reaches the
+    ///     shader under its own name through <see cref="Lighting" />. Two numbers with two writers:
+    ///     folding them would leave the compositor and the scene overwriting each other.
+    /// </remarks>
     public float Intensity { get; set; } = 1f;
 
     /// <summary>The full-resolution depth, for the bilateral AO upsample. Null keeps the plain linear read.</summary>
@@ -194,6 +219,19 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         }
 
         parameters.Set(AmbientCombineKeys.Intensity, Intensity);
+
+        // ⚠ **The sky, and it is the diffuse ambient of every split frame that publishes no
+        // irradiance plane.** The shading pass withholds diffuse ambient whenever it splits, and
+        // splitting is what reflections need as much as what GI needs — so below `gi: probes` the
+        // term was withheld and nothing put it back, which is a whole frame rendered with no
+        // diffuse ambient in it. Nine coefficients and a scalar, written through the same
+        // `EnvironmentLight.Apply` that fills them into `ForwardPlus`: one protocol, so the names
+        // here cannot drift from the ones a shading pass reads. It writes `environmentMipCount`
+        // too, which this pass does not declare and therefore never reads — a block is filled from
+        // the effect's own members, not from everything the collection holds.
+        parameters.Set(AmbientCombineKeys.UseEnvironmentSh, Lighting?.Environment is null ? 0f : 1f);
+
+        Lighting?.Environment?.Apply(parameters, AmbientCombineKeys.ShaderName);
 
         // The upsample runs when there is a depth to test against and an AO plane worth testing —
         // bilateral taps of the stand-in would be four reads deciding a term the switch discards.

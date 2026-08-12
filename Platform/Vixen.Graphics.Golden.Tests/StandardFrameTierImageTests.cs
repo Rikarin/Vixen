@@ -234,6 +234,18 @@ public sealed class StandardFrameTierImageTests {
     ///         at roughness 0.85, whose <c>f0</c> is 0.04 and which takes the wide path. One picture
     ///         holds both ends of the plane the fourth target exists to carry.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its first reference was a picture of a frame with no diffuse ambient in it, and
+    ///         this is what caught that.</b> The split pass withholds the diffuse half for
+    ///         <c>!AmbientCombine</c> to rebuild from an irradiance plane, and <c>!StandardFrame</c>
+    ///         names one only at <c>gi: probes</c> — so <c>gi: ambient</c> here withheld the term and
+    ///         put nothing back. Against <c>tier-high</c> that was 86.0% of the frame and a mean of
+    ///         8.473: the shadowed floor and the caster losing the cool sky, and the *sky itself*
+    ///         rising 12.6/11.4/10.2 because the meter lifts a frame short a lighting term.
+    ///         <c>AmbientCombine</c> falls back to the scene's own environment coefficients now, and
+    ///         the same comparison is 10.9% and a mean of 2.708 — the occlusion pair and the traced
+    ///         reflection, which is all a correct split adds.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void ASplitFrameLooksLikeItsReference() {
@@ -268,17 +280,30 @@ public sealed class StandardFrameTierImageTests {
         // passed. So the difference is asserted against a committed picture of the *unsplit* frame at
         // the same tier, which costs one file load and no second rendering: whatever else moves this
         // reference, it can never again be re-recorded as the frame beside it.
+        //
+        // ⚠ **The mean and not the pixel count, and the bound came down from a quarter of the
+        // frame.** Both are consequences of the split gaining its diffuse ambient back. The old
+        // numbers were taken against a split frame that had lost the term entirely, which moved
+        // 86.0% of the pixels and 8.473 of average channel — a quarter of the frame was a
+        // comfortable floor under a defect. A split frame that rebuilds its ambient correctly is
+        // *supposed* to resemble the unsplit one: what is left is the occlusion pair and the traced
+        // reflection, measured at 10.9% and a mean of 2.708. The count is the wrong instrument at
+        // that size — the AO's own deltas are 7 to 12 of 255, straddling `Tolerance.Shaded`'s
+        // threshold of 12, so a driver rounding differently moves the count and not the frame. The
+        // mean does not sit on that cliff: 1.0 is under half of what this measures and far above
+        // both zero and the 0.35 the tolerance allows two renderings of the *same* picture.
         var unsplit = PngCodec.Load(Path.Combine(GoldenImage.ReferenceDirectory, "tier-high.png"));
         var against = GoldenImage.Compare(unsplit, picture, Tolerance.Shaded);
 
         Assert.True(
-            against.Fraction > 0.25,
-            $"The split frame and the unsplit tier-high reference differ in only "
-            + $"{against.DifferingPixels} of {against.TotalPixels} pixels ({against.Fraction:P3}), "
-            + "where a quarter of the frame is the least a rebuilt one may. The likeliest cause is "
-            + "that ForwardPlus compiled without SplitOutputs: the shading pass then writes location "
-            + "0 alone, the albedo, normal and f0 planes stay at the clear, and !AmbientCombine reads "
-            + "a zero-length normal as sky and returns the direct target untouched."
+            against.MeanChannel > 1.0,
+            $"The split frame and the unsplit tier-high reference differ by an average channel of "
+            + $"{against.MeanChannel:F3}/255 over {against.DifferingPixels} of {against.TotalPixels} "
+            + $"pixels ({against.Fraction:P3}), where 1.000 is the least a rebuilt frame may — this "
+            + "one is measured at 2.708. The likeliest cause is that ForwardPlus compiled without "
+            + "SplitOutputs: the shading pass then writes location 0 alone, the albedo, normal and "
+            + "f0 planes stay at the clear, and !AmbientCombine reads a zero-length normal as sky "
+            + "and returns the direct target untouched."
         );
 
         GoldenImage.Verify("frame-split", picture, Tolerance.Shaded);

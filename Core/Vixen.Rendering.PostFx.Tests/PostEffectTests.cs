@@ -1737,8 +1737,74 @@ public class PostEffectTests : IDisposable {
         Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseSpecular));
         Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseBilateral));
 
+        // The sky's too, and it is the one switch that is off for a *scene* reason rather than a
+        // document one: this node has no Lighting, so there are no coefficients to rebuild ambient
+        // from and the honest answer is none. A frame that does have an environment is the test
+        // below.
+        Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseEnvironmentSh));
+
         // One read per distinct plane, not per binding.
         Assert.Equal(3, combine.Pass.Reads.Count);
+    }
+
+    /// <summary>
+    ///     With no irradiance plane the combine rebuilds ambient from the scene's own sky.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The frame this defends had no diffuse ambient in it whatsoever.</b> A split
+    ///         shading pass withholds the diffuse half unconditionally — <c>ForwardPlus.rvn</c>'s
+    ///         <c>SplitOutputs</c> branch adds <c>Direct</c>, <c>Punctual</c> and
+    ///         <c>AmbientSpecular</c> and pointedly not <c>Ambient</c> — on the promise that this
+    ///         node puts it back, and the only thing it had to put back was a screen irradiance
+    ///         plane. <c>!StandardFrame</c> splits for reflections as well as for GI and names an
+    ///         irradiance plane only at <c>gi: probes</c>, so <c>gi: ambient</c> and
+    ///         <c>gi: off, reflections: screen</c> both arrived here with the term withheld and
+    ///         nothing to restore it: <c>albedo × irradiance</c> with the irradiance identically
+    ///         zero, over the whole frame.
+    ///     </para>
+    ///     <para>
+    ///         So the stand-in for irradiance is the scene's environment rather than nothing, and it
+    ///         travels the protocol <see cref="EnvironmentLight.Apply" /> already is — the same nine
+    ///         names and the same <c>ambientIntensity</c> a shading pass reads, so the shader cannot
+    ///         be lit by a sky that disagrees with the one the pass beside it used.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_combine_lights_a_frame_that_publishes_no_irradiance() {
+        var sky = new ShCoefficients { L00 = new(6_698f, 6_254f, 5_249f), L10 = new(120f, 130f, 190f) };
+
+        using var combine = new AmbientCombineRenderer {
+            Direct = "SceneColour",
+            Albedo = "SceneAlbedo",
+            Normals = "SceneNormals",
+            Output = "Out",
+            Lighting = new() { Environment = new() { Irradiance = sky, Intensity = 1.5f } }
+        };
+
+        using var h = Build(combine);
+
+        h.Compositor.Imports["SceneAlbedo"] = Colour("SceneAlbedo");
+
+        Frame(h);
+
+        // On, with no irradiance plane named — which is the whole point: the two switches are not
+        // the same question, and an empty seat is "no screen plane" rather than "no ambient".
+        Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseIrradiance));
+        Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseEnvironmentSh));
+
+        // The scene's coefficients, under the names EnvironmentLight.Apply writes and the shader
+        // declares. Two of the nine, because the failure this catches is the whole block missing
+        // rather than one band landing at the wrong offset — which the reflection decides.
+        Assert.Equal(sky.L00, combine.Pass.Parameters.Get(AmbientCombineKeys.EnvironmentShL00));
+        Assert.Equal(sky.L10, combine.Pass.Parameters.Get(AmbientCombineKeys.EnvironmentShL10));
+
+        // ⚠ The scene's intensity, and not the document's. They are separate seats with separate
+        // writers: this one is EnvironmentLight.Intensity, the number the unsplit pass applies to
+        // its own ambient, and folding it into `intensity` below would have the compositor and the
+        // scene overwriting each other.
+        Assert.Equal(1.5f, combine.Pass.Parameters.Get(AmbientCombineKeys.AmbientIntensity));
+        Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.Intensity));
     }
 
     /// <summary>A named plane lands in its own slot with its switch on.</summary>
