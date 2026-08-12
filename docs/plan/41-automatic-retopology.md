@@ -855,8 +855,8 @@ rather than the target moved.
    written about. The synthetic corpus in `BrokenMeshSpace` covers the latter; the raw extraction is
    still owed.
 
-   ⚠️ **`IsSolid` now holds on six of the seven fixtures, and the four defects that stopped it were
-   one defect.** A cut with a loose end is a *slit*: the flood crosses round it, the same patch lies on
+   ⚠️ **`IsSolid` now holds on all seven fixtures at a 400 budget, and it took two repairs.** The
+   first: a cut with a loose end is a *slit*, so the flood crosses round it, the same patch lies on
    both sides, and the boundary walk traverses that arc once in each direction. `Prune` removes the
    slits it may, and [§ D4](#d4-feature-detection-and-chaining-happens-before-the-field-and-that-is-the-whole-design)
    forbids it removing a feature polyline's own loose end — a crease that runs off into a flat region
@@ -864,21 +864,38 @@ rather than the target moved.
    an opposed pair, box carried 7 loose ends and a union 25, and **a sphere carried 0 — the one fixture
    that came back solid.** The layout now walks each loose end on along the field until it lands on
    existing structure, which is [§ D7](#d7-layout-and-quantization-as-a-flow-problem-rather-than-an-ilp)'s
-   partition finishing its own cuts. A cylinder is the exception: one patch of seventy-seven can be
-   neither divided — every arc bounding it is a single mesh edge, so there is nowhere for a fourth
-   corner — nor merged. **It leaves a six-edge rim, at a 200 or 400 budget only; at 800 and above the
-   cylinder comes back solid.**
+   partition finishing its own cuts. That closed six of the seven; the cylinder was the seventh.
 
-   ⚠️ **The merge cap is *not* what refuses it, and this passage said it was.** The recorded reason
-   was "the merge is capped and an uncapped one dissolves every cut on a box". The cap is
-   `MergeTriangles = 4` and the patch is **one triangle**, so the cap never binds; raising it to
-   sixteen was measured and the rim is the same six edges. Instrumenting the drop site gives the patch
-   as `uses=3, triangles=1, features=3, arcLens=[2,2,2]` — a single source triangle with a crease along
-   all three of its sides. `Merge` picks the longest **non-feature** arc to dissolve and there is not
-   one, so it returns false however small the patch is. That refusal is right on its own terms:
-   dissolving a feature arc is deleting a crease. **What is missing is the third answer — extracting a
-   three-sided patch as three quads round a centre point, which keeps the crease and fills the hole.**
-   The runaway the cap exists to stop is real and unrelated, and the cap should stay.
+   ⚠️ **The merge cap was *not* what refused the cylinder's last patch, and this passage said it
+   was.** The recorded reason was "the merge is capped and an uncapped one dissolves every cut on a
+   box". The cap is `MergeTriangles = 4` and the patch is **one triangle**, so the cap never binds;
+   raising it to sixteen was measured and the rim stayed the same six edges. Instrumenting the drop
+   site gave the patch as `uses=3, triangles=1, features=3, arcLens=[2,2,2]` — a single source triangle
+   with a crease along all three of its sides. `Merge` picks the longest **non-feature** arc to dissolve
+   and there is not one, so it returned false however small the patch was. That refusal is right on its
+   own terms: dissolving a feature arc is deleting a crease. The runaway the cap exists to stop is real
+   and unrelated, and the cap stays.
+
+   ⚠️ **The third answer has landed: a three-sided patch is carried as a *fan* and extracted as three
+   quads round a centre point.** `PatchLayout` reaches it only after `Divide` and `Merge` have both
+   declined, and it changes nothing else — the patch keeps its arcs, so its neighbours' seams are the
+   same equalities they were. What it adds is three variables and three constraints per fan in
+   `Quantizer`: the three spokes running from the centre out to the side midpoints, with the sides
+   coming to `a + c`, `a + b` and `b + c` and the blocks to `a × b`, `b × c` and `c × a`. **That is
+   where the parity lives and it is not optional** — an all-quad mesh of a disc has an even number of
+   boundary edges, and the counts the router chose for the cylinder's patch without the fan in the
+   system were `1, 1, 1`. Stating it as three flow variables with a floor of one makes the even total
+   and the strict triangle inequality things the router *satisfies* rather than things the extraction
+   discovers. The interior comes through the same Tutte embedding [§ D8](#d8-extraction-is-all-quad-t-junction-free-and-manifold--asserted-not-hoped) uses, onto an
+   equilateral triangle instead of the unit square, with the transfinite blend beside it as it always
+   has been.
+
+   **Measured: the cylinder is solid at 200, 400, 800 and 2 000, where 200 and 400 each carried a
+   six-edge rim before.** And it is not only the all-creases case — a sphere scaled by `0.0009` at a
+   400 budget dropped a three-arc patch with *no* feature on it (arcs of 1, 2 and 2 edges, too large
+   for `MergeTriangles`, with `Divide`'s one usable split already spent) and came back with ten
+   boundary edges, while `0.001` and `0.0011` were clean. `RemesherTests.The_same_shape_at_another_size_gives_the_same_answer`
+   now sweeps `0.0009, 0.00099, 0.001, 0.0011` and asserts `IsSolid` outright at each.
 
    ⚠️ **The budget overshoot is closed, and the row that was left did belong to
    [§ D9](#d9-adaptivity-is-one-scalar-field-and-everything-writes-into-it)'s field.** Box 5 047 →

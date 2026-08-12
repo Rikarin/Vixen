@@ -27,8 +27,15 @@ enum QuantizeMode : byte {
 ///     <see cref="Quantizer" /> repairs those and <see cref="IsFeasible" /> goes false if it cannot.
 /// </remarks>
 sealed class Quantization {
-    internal Quantization(int[] counts, double deviation, bool feasible, string[] warnings) {
+    internal Quantization(
+        int[] counts,
+        (int A, int B, int C)[] spokes,
+        double deviation,
+        bool feasible,
+        string[] warnings
+    ) {
         Counts = counts;
+        Spokes = spokes;
         Deviation = deviation;
         IsFeasible = feasible;
         Warnings = warnings;
@@ -36,6 +43,28 @@ sealed class Quantization {
 
     /// <summary>How many quads run along each arc, by arc index.</summary>
     public IReadOnlyList<int> Counts { get; }
+
+    /// <summary>Per patch, a fan's three spoke counts, or three zeros where the patch is a quad.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A fan's three quad blocks are <c>a × b</c>, <c>b × c</c> and <c>c × a</c>, and its
+    ///         three sides come to <c>a + c</c>, <c>a + b</c> and <c>b + c</c>.</b> That is the whole of
+    ///         the three-to-quads subdivision written as arithmetic: <i>a</i>, <i>b</i> and <i>c</i> are
+    ///         the three spokes running from the centre out to the three side midpoints, every block's
+    ///         two opposite sides agree by construction, and the sides' total is <c>2(a + b + c)</c> —
+    ///         even, which it has to be, because no all-quad mesh of a disc has an odd boundary.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Solved for rather than derived, and that is why it lives in the flow.</b> Reading
+    ///         <c>a = (n₀ + n₁ − n₂) / 2</c> off counts the router chose without the fan in it gives a
+    ///         half-integer as often as not, and a negative one whenever one side outruns the other two
+    ///         — measured on the sphere at a thousandth, the dropped patch's three sides rounded to 1, 2
+    ///         and 2, which is odd and so has no all-quad filling at all. Three extra variables with a
+    ///         floor of one and three extra conservation constraints make the parity and the triangle
+    ///         inequality things the router <i>satisfies</i> rather than things a later stage discovers.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<(int A, int B, int C)> Spokes { get; }
 
     /// <summary>The energy — the sum over arcs of the squared distance from what the density field asked.</summary>
     /// <remarks>The number the two modes are compared on, and the reason the exact one is worth having.</remarks>
@@ -143,18 +172,55 @@ static class Quantizer {
     ) {
         ArgumentNullException.ThrowIfNull(layout);
 
-        // ⚠ The feature floor is tried, then paid for, and only then given up on, and all three halves
-        // matter. Imposing it protects docs/plan/41's second exit criterion; it also makes the system
-        // strictly harder, and a partition where it cannot be met has to produce a mesh rather than a
-        // refusal. Measured: a box quantizes with the floor on some partitions and not on others, and
-        // the fallback is the difference between a result and nothing at all.
-        //
-        // ⚠ It fires far less than it did, and the reason is the layout rather than this solver. A
-        // partition with slits in it puts one arc into three or four constraints instead of two, which
-        // is what made the floor unsatisfiable; once PatchLayout walks its loose ends out, a union and
-        // a difference both quantize with the floor on where neither used to.
+        var solved = Relieved(layout, mode, scale, true);
+
+        // ⚠ <b>The fan constraints are structural and they are still allowed to be given up, for the
+        // same reason the feature floor is.</b> Three spokes with a floor of one force every side of a
+        // three-sided patch to at least two quads, which is a lower bound the rest of the system may
+        // not be able to absorb — and a partition where it cannot has to produce a mesh rather than a
+        // refusal. Giving them up costs exactly the fans: `PatchExtractor` refuses a fan whose spokes
+        // do not add up and leaves the hole it would have left anyway, and every other patch extracts
+        // as it would have.
+        if (solved.IsFeasible || !layout.Patches.Any(patch => patch.IsFan)) {
+            return solved;
+        }
+
+        var without = Relieved(layout, mode, scale, false);
+
+        return without.IsFeasible
+            ? new(
+                [.. without.Counts],
+                [.. without.Spokes],
+                without.Deviation,
+                true,
+                [
+                    .. without.Warnings,
+                    "The three-sided patches could not be given a centre the rest of the system agreed with, "
+                    + "so they were left out."
+                ]
+            )
+            : solved;
+    }
+
+    /// <summary>The feature-floor ladder: tried, paid for, and only then given up on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ All three halves matter. Imposing the floor protects docs/plan/41's second exit
+    ///         criterion; it also makes the system strictly harder, and a partition where it cannot be
+    ///         met has to produce a mesh rather than a refusal. Measured: a box quantizes with the floor
+    ///         on some partitions and not on others, and the fallback is the difference between a result
+    ///         and nothing at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It fires far less than it did, and the reason is the layout rather than this solver. A
+    ///         partition with slits in it puts one arc into three or four constraints instead of two,
+    ///         which is what made the floor unsatisfiable; once PatchLayout walks its loose ends out, a
+    ///         union and a difference both quantize with the floor on where neither used to.
+    ///     </para>
+    /// </remarks>
+    static Quantization Relieved(PatchLayout layout, QuantizeMode mode, float scale, bool holdFans) {
         foreach (var relief in FeatureRelief) {
-            var solved = Attempt(layout, mode, scale * relief, true);
+            var solved = Attempt(layout, mode, scale * relief, true, holdFans);
 
             if (!solved.IsFeasible) {
                 continue;
@@ -163,6 +229,7 @@ static class Quantizer {
             if (relief > 1f) {
                 return new(
                     [.. solved.Counts],
+                    [.. solved.Spokes],
                     solved.Deviation,
                     true,
                     [
@@ -175,15 +242,23 @@ static class Quantizer {
             return solved;
         }
 
-        return Attempt(layout, mode, scale, false);
+        return Attempt(layout, mode, scale, false, holdFans);
     }
 
-    /// <summary>One solve, with or without the no-collapse floor under the feature arcs.</summary>
-    static Quantization Attempt(PatchLayout layout, QuantizeMode mode, float scale, bool holdFeatures) {
+    /// <summary>One solve, with or without the no-collapse floor and the fans' centres.</summary>
+    static Quantization Attempt(
+        PatchLayout layout,
+        QuantizeMode mode,
+        float scale,
+        bool holdFeatures,
+        bool holdFans
+    ) {
         var arcs = layout.Arcs.Count;
         var warnings = new List<string>();
-        var lower = new int[arcs];
-        var targets = new double[arcs];
+        var fanOf = Fans(layout, holdFans, out var fans);
+        var variables = arcs + (fans * 3);
+        var lower = new int[variables];
+        var targets = new double[variables];
 
         if (!holdFeatures) {
             warnings.Add("A feature arc had to be allowed to collapse for the layout to quantize.");
@@ -229,7 +304,33 @@ static class Quantizer {
                 : 0;
         }
 
-        var graph = Graph.Build(layout, arcs);
+        // ⚠ A spoke's floor is one and it is not negotiable within a solve, because the fan's three
+        // blocks are `a × b`, `b × c` and `c × a` — a spoke of zero is a block with no quads in it and
+        // a boundary the other two blocks cannot close round. It is the whole of the parity and the
+        // triangle inequality, stated as a bound the router already knows how to respect.
+        for (var patch = 0; patch < layout.Patches.Count; patch++) {
+            if (fanOf[patch] < 0) {
+                continue;
+            }
+
+            var sides = layout.Patches[patch].Sides;
+            var slot = arcs + (fanOf[patch] * 3);
+
+            for (var at = 0; at < 3; at++) {
+                // a = (n₀ + n₁ − n₂) / 2 and its two rotations, taken on the *targets* so the router
+                // starts where the density field would have put the centre if it could count halves.
+                targets[slot + at] = Math.Max(
+                    1d,
+                    (Wanted(layout, sides[at], scale)
+                        + Wanted(layout, sides[(at + 1) % 3], scale)
+                        - Wanted(layout, sides[(at + 2) % 3], scale)) * 0.5d
+                );
+
+                lower[slot + at] = 1;
+            }
+        }
+
+        var graph = Graph.Build(layout, variables, arcs, fanOf);
 
         // ⚠ <b>The best answer seen so far, kept because a repair round can make the system
         // unsolvable and used to take the whole result down with it.</b> Forcing a collapsed patch
@@ -257,20 +358,20 @@ static class Quantizer {
                 if (best is null) {
                     warnings.Add("The consistency system could not be satisfied, so the layout was refused.");
 
-                    return new(counts, Energy(counts, targets), false, [.. warnings]);
+                    return Result(layout, arcs, fanOf, counts, targets, false, warnings);
                 }
 
                 warnings.Add(
                     $"Forcing the collapsed patches open made the system unsolvable, so {collapsed} were left out."
                 );
 
-                return new(best, Energy(best, targets), true, [.. warnings]);
+                return Result(layout, arcs, fanOf, best, targets, true, warnings);
             }
 
             var forced = Collapsed(layout, counts, lower);
 
             if (forced == 0) {
-                return new(counts, Energy(counts, targets), true, [.. warnings]);
+                return Result(layout, arcs, fanOf, counts, targets, true, warnings);
             }
 
             best = counts;
@@ -297,27 +398,96 @@ static class Quantizer {
                     $"{fewestCollapsed} patches collapsed to nothing, could not be forced open and were left out."
                 );
 
-                return new(kept, Energy(kept, targets), true, [.. warnings]);
+                return Result(layout, arcs, fanOf, kept, targets, true, warnings);
             }
 
             warnings.Add($"{forced} patches quantized to zero in one direction and were forced open.");
         }
 
-        return new(new int[arcs], 0d, false, [.. warnings]);
+        return Result(layout, arcs, fanOf, new int[variables], targets, false, warnings);
+    }
+
+    /// <summary>Which patches are fans, numbered in patch order, and how many there are.</summary>
+    /// <remarks>
+    ///     ⚠ In patch order and not in discovery order — § D14. The three spoke variables of fan
+    ///     <i>t</i> are <c>arcs + 3t</c> onwards, so their numbering decides which node the router
+    ///     reaches first, and that has to be a function of the layout rather than of an enumeration.
+    /// </remarks>
+    static int[] Fans(PatchLayout layout, bool hold, out int fans) {
+        var fanOf = new int[layout.Patches.Count];
+
+        Array.Fill(fanOf, -1);
+
+        fans = 0;
+
+        if (!hold) {
+            return fanOf;
+        }
+
+        for (var patch = 0; patch < fanOf.Length; patch++) {
+            if (layout.Patches[patch].IsFan) {
+                fanOf[patch] = fans++;
+            }
+        }
+
+        return fanOf;
+    }
+
+    /// <summary>Splits the router's variables back into the arcs and the fans' three spokes.</summary>
+    static Quantization Result(
+        PatchLayout layout,
+        int arcs,
+        int[] fanOf,
+        int[] counts,
+        double[] targets,
+        bool feasible,
+        List<string> warnings
+    ) {
+        var spokes = new (int A, int B, int C)[layout.Patches.Count];
+
+        for (var patch = 0; patch < spokes.Length; patch++) {
+            var slot = fanOf[patch] < 0 ? -1 : arcs + (fanOf[patch] * 3);
+
+            if (slot >= 0 && slot + 2 < counts.Length) {
+                spokes[patch] = (counts[slot], counts[slot + 1], counts[slot + 2]);
+            }
+        }
+
+        return new(counts[..arcs], spokes, Energy(counts, targets), feasible, [.. warnings]);
+    }
+
+    /// <summary>What the density field asked of one side, before any rounding.</summary>
+    static double Wanted(PatchLayout layout, ArcUse[] side, float scale) {
+        var total = 0d;
+
+        foreach (var use in side) {
+            total += layout.Arcs[use.Arc].Target * scale;
+        }
+
+        return total;
     }
 
     /// <summary>How many quads a quantization would produce, without extracting them.</summary>
     /// <param name="layout">The partition.</param>
-    /// <param name="counts">One integer per arc.</param>
-    /// <returns>The sum over patches of width times height.</returns>
-    public static long QuadCount(PatchLayout layout, IReadOnlyList<int> counts) {
+    /// <param name="quantization">What the router chose.</param>
+    /// <returns>The sum over patches of width times height, and of a fan's three blocks.</returns>
+    public static long QuadCount(PatchLayout layout, Quantization quantization) {
         ArgumentNullException.ThrowIfNull(layout);
-        ArgumentNullException.ThrowIfNull(counts);
+        ArgumentNullException.ThrowIfNull(quantization);
 
         var total = 0L;
 
-        foreach (var patch in layout.Patches) {
-            total += (long) Sum(patch.Sides[0], counts) * Sum(patch.Sides[1], counts);
+        for (var patch = 0; patch < layout.Patches.Count; patch++) {
+            if (layout.Patches[patch].IsFan) {
+                var (a, b, c) = quantization.Spokes[patch];
+
+                total += ((long) a * b) + ((long) b * c) + ((long) c * a);
+
+                continue;
+            }
+
+            total += (long) Sum(layout.Patches[patch].Sides[0], quantization.Counts)
+                * Sum(layout.Patches[patch].Sides[1], quantization.Counts);
         }
 
         return total;
@@ -360,6 +530,14 @@ static class Quantizer {
 
         for (var patch = 0; patch < layout.Patches.Count; patch++) {
             var sides = layout.Patches[patch].Sides;
+
+            // ⚠ A fan has no opposite sides to collapse against, and it cannot collapse anyway: its
+            // three spokes carry a floor of one, so each of its three sides comes to at least two
+            // whenever the routing is feasible at all. Forcing one open here would raise a bound the
+            // fan never asked for.
+            if (layout.Patches[patch].IsFan) {
+                continue;
+            }
 
             for (var pair = 0; pair < 2; pair++) {
                 if (Sum(sides[pair], counts) > 0 || Sum(sides[pair + 2], counts) > 0) {
@@ -820,20 +998,60 @@ static class Quantizer {
             return residual;
         }
 
-        public static Graph Build(PatchLayout layout, int arcs) {
-            var nodes = (layout.Patches.Count * 2) + 1;
-            var ground = nodes - 1;
-            var built = new List<(int Node, int Sign)>[arcs];
+        /// <summary>Builds the constraints: two nodes per quad patch, three per fan, one ground.</summary>
+        /// <remarks>
+        ///     ⚠ <b>A fan's three constraints are the <i>same</i> conservation law the quad patches
+        ///     carry, and that is why the router needs no new machinery for it.</b> Side <i>k</i> of a
+        ///     fan equals two of its spokes — <c>n₀ = a + c</c>, <c>n₁ = a + b</c>, <c>n₂ = b + c</c> —
+        ///     which is one group of variables summing to another, exactly like "these two opposite side
+        ///     groups agree". A spoke appears in two nodes with the <i>same</i> sign, which is the
+        ///     two-headed arc the bi-directed formulation above exists for and is why it is stated in
+        ///     spokes rather than in halves of sides.
+        /// </remarks>
+        public static Graph Build(PatchLayout layout, int variables, int arcs, int[] fanOf) {
+            // A fan the caller chose not to hold contributes no node at all — it has no opposite sides
+            // to constrain and no spokes to constrain them against, so it is simply not in the system.
+            var offset = new int[layout.Patches.Count + 1];
 
-            for (var arc = 0; arc < arcs; arc++) {
+            for (var patch = 0; patch < layout.Patches.Count; patch++) {
+                offset[patch + 1] = offset[patch]
+                    + (layout.Patches[patch].IsFan ? fanOf[patch] >= 0 ? 3 : 0 : 2);
+            }
+
+            var nodes = offset[^1] + 1;
+            var ground = nodes - 1;
+            var built = new List<(int Node, int Sign)>[variables];
+
+            for (var arc = 0; arc < variables; arc++) {
                 built[arc] = [];
             }
 
             for (var patch = 0; patch < layout.Patches.Count; patch++) {
                 var sides = layout.Patches[patch].Sides;
 
+                if (layout.Patches[patch].IsFan) {
+                    if (fanOf[patch] < 0) {
+                        continue;
+                    }
+
+                    var slot = arcs + (fanOf[patch] * 3);
+
+                    for (var at = 0; at < 3; at++) {
+                        var node = offset[patch] + at;
+
+                        foreach (var use in sides[at]) {
+                            built[use.Arc].Add((node, 1));
+                        }
+
+                        built[slot + at].Add((node, -1));
+                        built[slot + ((at + 2) % 3)].Add((node, -1));
+                    }
+
+                    continue;
+                }
+
                 for (var pair = 0; pair < 2; pair++) {
-                    var node = (patch * 2) + pair;
+                    var node = offset[patch] + pair;
 
                     foreach (var use in sides[pair]) {
                         built[use.Arc].Add((node, 1));
@@ -845,10 +1063,10 @@ static class Quantizer {
                 }
             }
 
-            var incidence = new (int Node, int Sign)[arcs][];
-            var every = new (int Node, int Sign)[arcs][];
+            var incidence = new (int Node, int Sign)[variables][];
+            var every = new (int Node, int Sign)[variables][];
 
-            for (var arc = 0; arc < arcs; arc++) {
+            for (var arc = 0; arc < variables; arc++) {
                 var merged = new List<(int Node, int Sign)>();
 
                 foreach (var entry in built[arc]) {
@@ -874,7 +1092,7 @@ static class Quantizer {
 
             var counts = new int[nodes + 1];
 
-            for (var arc = 0; arc < arcs; arc++) {
+            for (var arc = 0; arc < variables; arc++) {
                 foreach (var entry in incidence[arc]) {
                     counts[entry.Node + 1]++;
                 }
@@ -887,7 +1105,7 @@ static class Quantizer {
             var entries = new (int Arc, int Sign)[counts[nodes]];
             var cursor = new int[nodes];
 
-            for (var arc = 0; arc < arcs; arc++) {
+            for (var arc = 0; arc < variables; arc++) {
                 foreach (var entry in incidence[arc]) {
                     entries[counts[entry.Node] + cursor[entry.Node]] = (arc, entry.Sign);
                     cursor[entry.Node]++;

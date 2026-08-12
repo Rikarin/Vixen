@@ -428,6 +428,12 @@ public class RemesherTests {
     ///     ends into one output vertex, which is what "collapse" means — but a patch whose whole width
     ///     or whole height comes to zero produces no quads at all and is a bug. Both halves are asserted:
     ///     zeros are allowed to be present, and every patch's two dimensions are positive.
+    ///
+    ///     ⚠ <b>A fan has three sides rather than two pairs, and its constraint is the same law written
+    ///     once more.</b> Its three spokes are what the router solved for, so what has to hold is that
+    ///     each side equals the two spokes it runs between — <c>n₀ = a + c</c>, <c>n₁ = a + b</c>,
+    ///     <c>n₂ = b + c</c> — and that each spoke is at least one, which is the whole of the parity and
+    ///     the triangle inequality a three-quads-round-a-centre filling needs.
     /// </remarks>
     [Theory]
     [InlineData("box")]
@@ -444,7 +450,23 @@ public class RemesherTests {
             Assert.True(count >= 0, "A side quantized to a negative number of quads.");
         }
 
-        foreach (var patch in layout.Patches) {
+        for (var index = 0; index < layout.Patches.Count; index++) {
+            var patch = layout.Patches[index];
+
+            if (patch.IsFan) {
+                var (a, b, c) = quantization.Spokes[index];
+
+                Assert.True(a > 0 && b > 0 && c > 0, $"{name}: a fan quantized to spokes {a}, {b}, {c}.");
+
+                int[] wanted = [a + c, a + b, b + c];
+
+                for (var at = 0; at < 3; at++) {
+                    Assert.Equal(wanted[at], patch.Sides[at].Sum(use => quantization.Counts[use.Arc]));
+                }
+
+                continue;
+            }
+
             var wide = patch.Sides[0].Sum(use => quantization.Counts[use.Arc]);
             var tall = patch.Sides[1].Sum(use => quantization.Counts[use.Arc]);
 
@@ -475,9 +497,23 @@ public class RemesherTests {
     ///     a thousand times. Asserting the count would be asserting that R1 is bit-exact under scaling,
     ///     which it is not and does not claim to be. What must hold is that <i>nothing degrades</i> — the
     ///     result is still all quads, still as near the surface, still with nothing on a feature.
+    ///
+    ///     ⚠⚠ <b>The four factors around a thousandth are a swept neighbourhood rather than four
+    ///     sizes, and sweeping is what found the defect.</b> A single sample at <c>1e-3</c> passed while
+    ///     <c>0.0009</c> came back with ten boundary edges: the ulp-level perturbation above reaches the
+    ///     partition as a different flood, and at that one scale it left a patch bounded by three arcs
+    ///     that <c>Divide</c> could not corner and <c>Merge</c> was too large to dissolve — dropped, and
+    ///     the drop is the hole. <b><c>Assert.Equal(unit.Mesh.IsSolid, scaled.Mesh.IsSolid)</c> is the
+    ///     assertion that caught it and it is not to be weakened to "solid, or a warning saying it is
+    ///     not".</b> A warning is what the pipeline owes a caller about a hole; it is not permission for
+    ///     one, and a test that accepts the apology tests only that the apology was printed. The layout
+    ///     carries such a patch as a fan now, so all four are solid.
     /// </remarks>
     [Theory]
+    [InlineData(9e-4f)]
+    [InlineData(9.9e-4f)]
     [InlineData(1e-3f)]
+    [InlineData(1.1e-3f)]
     [InlineData(1e+3f)]
     public void The_same_shape_at_another_size_gives_the_same_answer(float factor) {
         var settings = new RemeshSettings { TargetQuads = 400 };
@@ -488,7 +524,9 @@ public class RemesherTests {
         Assert.True(scaled.QuadCount > 0, $"×{factor}: {string.Join(" · ", scaled.Warnings)}");
         Assert.Equal(0, scaled.NonQuadCount);
         Assert.Equal(unit.SingularitiesOnFeatures, scaled.SingularitiesOnFeatures);
+
         Assert.Equal(unit.Mesh.IsSolid, scaled.Mesh.IsSolid);
+        Assert.Equal(unit.Mesh.Boundary.Count, scaled.Mesh.Boundary.Count);
 
         // Within a factor of two of the same count, which is a statement that the density field and
         // the quantization are reading a scale-free number rather than a length.

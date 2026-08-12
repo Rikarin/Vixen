@@ -130,13 +130,52 @@ static class PatchParameterization {
     /// </remarks>
     public const float Sliver = 1e-3f;
 
+    /// <summary>A corner of the reference polygon a patch with this many sides is embedded in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both are convex, and that is the whole of what Tutte's theorem asks of the
+    ///         domain.</b> A four-sided patch goes onto the unit square, where a uniform grid is a
+    ///         rectangle by definition; a three-sided one goes onto an equilateral triangle, where the
+    ///         three quad blocks round its centroid are the same statement one side short. Nothing else
+    ///         in this file distinguishes the two — the pin, the solve, the embedding test and the lift
+    ///         are the same code over a different corner list.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Equilateral rather than right-angled, because the fan is symmetric and its domain
+    ///         should be.</b> The three blocks meet at the centroid, and a domain triangle with a short
+    ///         side would hand one of them a grid the other two do not get; the lifted result would then
+    ///         depend on which of the three arcs the boundary walk happened to call side 0.
+    ///     </para>
+    /// </remarks>
+    /// <param name="sides">Three or four.</param>
+    /// <param name="at">Which corner, taken round the polygon.</param>
+    /// <returns>The corner.</returns>
+    public static Vector2 Corner(int sides, int at) {
+        at = ((at % sides) + sides) % sides;
+
+        if (sides == 3) {
+            return at switch {
+                0 => new(0f, 0f),
+                1 => new(1f, 0f),
+                _ => new(0.5f, MathF.Sqrt(3f) * 0.5f)
+            };
+        }
+
+        return at switch {
+            0 => new(0f, 0f),
+            1 => new(1f, 0f),
+            2 => new(1f, 1f),
+            _ => new(0f, 1f)
+        };
+    }
+
     /// <summary>Lays one patch's interior grid through a Tutte embedding of the patch's own triangles.</summary>
     /// <param name="mesh">The conditioned surface, whose triangles the patch covers.</param>
     /// <param name="arcs">The partition's arcs, which the patch's sides index into.</param>
     /// <param name="patch">The patch.</param>
     /// <param name="samples">Per arc, the output positions along it — read only for its count.</param>
     /// <param name="output">The result being built, for the rim the grid already has.</param>
-    /// <param name="grid">The patch's grid, with its four sides filled in and its interior not.</param>
+    /// <param name="sides">The four sides' output chains, in the order the boundary walk laid them.</param>
     /// <param name="wide">How many quads across, along sides 0 and 2.</param>
     /// <param name="tall">How many quads up, along sides 1 and 3.</param>
     /// <param name="refused">Why the patch could not be embedded, or <see langword="null" /> when it was.</param>
@@ -150,53 +189,32 @@ static class PatchParameterization {
         LayoutPatch patch,
         int[][] samples,
         EditMesh output,
-        int[][] grid,
+        int[][] sides,
         int wide,
         int tall,
         out string? refused
     ) {
-        refused = null;
-
         if (wide < 2 || tall < 2) {
             refused = "the patch is one quad wide";
 
             return null;
         }
 
-        var local = Localize(mesh, patch, out var triangles, out var positions);
+        var uv = Embed(
+            mesh,
+            arcs,
+            patch,
+            samples,
+            output,
+            sides,
+            [wide, tall, wide, tall],
+            out var positions,
+            out var triangles,
+            out var sign,
+            out refused
+        );
 
-        if (local.Count == 0 || triangles.Length == 0) {
-            refused = "the patch has no triangles";
-
-            return null;
-        }
-
-        var pinned = new Vector2[local.Count];
-        var isPinned = new bool[local.Count];
-
-        if (!Pin(mesh, arcs, patch, samples, local, wide, tall, pinned, isPinned, out var rims)) {
-            refused = "the rim could not be pinned to the square";
-
-            return null;
-        }
-
-        if (!IsDisc(triangles, local.Count, isPinned)) {
-            refused = "the patch is not a triangulated disc";
-
-            return null;
-        }
-
-        var uv = Solve(positions, triangles, pinned, isPinned);
-
-        if (!IsEmbedded(triangles, uv, isPinned, out var sign)) {
-            refused = "the solved map is not an embedding";
-
-            return null;
-        }
-
-        if (!Agrees(positions, rims, output, grid, wide, tall)) {
-            refused = "the pinned rim disagrees with the grid's";
-
+        if (uv is null) {
             return null;
         }
 
@@ -215,6 +233,121 @@ static class PatchParameterization {
         }
 
         return interior;
+    }
+
+    /// <summary>Lifts a list of reference-triangle points through a three-sided patch's embedding.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The three-sided patch's interior is not a grid, so the caller says which points it
+    ///     wants rather than being handed a rectangle.</b> A fan is a centroid, three spokes out to the
+    ///     side midpoints and three quad blocks between them — every one of those is a point of the
+    ///     reference triangle the caller can name, and none of them is at <c>(i / wide, j / tall)</c>.
+    ///     What this owes is the same guarantee <see cref="Interior" /> gives: a point that comes back
+    ///     is a barycentric point of one of the patch's own triangles, so it is on the surface by
+    ///     construction rather than projected onto it.
+    /// </remarks>
+    /// <param name="mesh">The conditioned surface, whose triangles the patch covers.</param>
+    /// <param name="arcs">The partition's arcs, which the patch's sides index into.</param>
+    /// <param name="patch">The patch, which must be three-sided.</param>
+    /// <param name="samples">Per arc, the output positions along it — read only for its count.</param>
+    /// <param name="output">The result being built, for the rim the sides already have.</param>
+    /// <param name="sides">The three sides' output chains, in the order the boundary walk laid them.</param>
+    /// <param name="quads">How many quads run along each of the three sides.</param>
+    /// <param name="wanted">The reference-triangle points to lift.</param>
+    /// <param name="refused">Why the patch could not be embedded, or <see langword="null" /> when it was.</param>
+    /// <returns>One surface position per wanted point, or <see langword="null" /> where it could not.</returns>
+    public static Vector3[]? Fan(
+        ManifoldMesh mesh,
+        IReadOnlyList<LayoutArc> arcs,
+        LayoutPatch patch,
+        int[][] samples,
+        EditMesh output,
+        int[][] sides,
+        int[] quads,
+        ReadOnlySpan<Vector2> wanted,
+        out string? refused
+    ) {
+        var uv = Embed(
+            mesh,
+            arcs,
+            patch,
+            samples,
+            output,
+            sides,
+            quads,
+            out var positions,
+            out var triangles,
+            out var sign,
+            out refused
+        );
+
+        if (uv is null) {
+            return null;
+        }
+
+        var lifted = new Vector3[wanted.Length];
+
+        for (var at = 0; at < wanted.Length; at++) {
+            lifted[at] = Lift(positions, triangles, uv, sign, wanted[at]);
+        }
+
+        return lifted;
+    }
+
+    /// <summary>The Tutte embedding itself: localize, pin, solve, and verify all three ways.</summary>
+    static Vector2[]? Embed(
+        ManifoldMesh mesh,
+        IReadOnlyList<LayoutArc> arcs,
+        LayoutPatch patch,
+        int[][] samples,
+        EditMesh output,
+        int[][] sides,
+        int[] quads,
+        out Vector3[] positions,
+        out int[] triangles,
+        out float sign,
+        out string? refused
+    ) {
+        refused = null;
+        sign = 0f;
+
+        var local = Localize(mesh, patch, out triangles, out positions);
+
+        if (local.Count == 0 || triangles.Length == 0) {
+            refused = "the patch has no triangles";
+
+            return null;
+        }
+
+        var pinned = new Vector2[local.Count];
+        var isPinned = new bool[local.Count];
+
+        if (!Pin(mesh, arcs, patch, samples, local, quads, pinned, isPinned, out var rims)) {
+            refused = "the rim could not be pinned to the reference polygon";
+
+            return null;
+        }
+
+        if (!IsDisc(triangles, local.Count, isPinned)) {
+            refused = "the patch is not a triangulated disc";
+
+            return null;
+        }
+
+        var uv = Solve(positions, triangles, pinned, isPinned);
+
+        if (!IsEmbedded(triangles, uv, isPinned, out sign)) {
+            refused = "the solved map is not an embedding";
+
+            return null;
+        }
+
+        if (!Agrees(positions, rims, output, sides, quads)) {
+            refused = "the pinned rim disagrees with the grid's";
+
+            return null;
+        }
+
+        return uv;
     }
 
     /// <summary>The patch's vertices, renumbered from zero in ascending source order.</summary>
@@ -260,13 +393,15 @@ static class PatchParameterization {
         return local;
     }
 
-    /// <summary>Pins the four sides' chains to the four sides of the unit square.</summary>
+    /// <summary>Pins each side's chain to the matching side of the reference polygon.</summary>
     /// <remarks>
     ///     <para>
-    ///         The walk is the one <see cref="PatchExtractor" /> fills against: side 0 runs C0 → C1 and
-    ///         becomes <c>(t, 0)</c>, side 1 runs C1 → C2 and becomes <c>(1, t)</c>, side 2 becomes
-    ///         <c>(1 - t, 1)</c> and side 3 becomes <c>(0, 1 - t)</c>. The four joins agree by
-    ///         construction, so a corner pinned twice is pinned to the same point twice.
+    ///         The walk is the one <see cref="PatchExtractor" /> fills against: side <i>k</i> runs
+    ///         C<i>k</i> → C<i>k+1</i> and becomes the straight run from <see cref="Corner" />
+    ///         <i>k</i> to <see cref="Corner" /> <i>k+1</i>, so on the square side 0 is <c>(t, 0)</c>,
+    ///         side 1 is <c>(1, t)</c>, side 2 is <c>(1 - t, 1)</c> and side 3 is <c>(0, 1 - t)</c>.
+    ///         The joins agree by construction, so a corner pinned twice is pinned to the same point
+    ///         twice.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Within a side, <c>t</c> advances by the arc's <i>quantized count</i> and not by its
@@ -288,16 +423,19 @@ static class PatchParameterization {
         LayoutPatch patch,
         int[][] samples,
         Dictionary<int, int> local,
-        int wide,
-        int tall,
+        int[] quads,
         Vector2[] pinned,
         bool[] isPinned,
         out List<(float T, int Vertex)>[] rims
     ) {
-        rims = [[], [], [], []];
+        rims = new List<(float T, int Vertex)>[quads.Length];
 
-        for (var at = 0; at < 4; at++) {
-            var quads = at % 2 == 0 ? wide : tall;
+        for (var at = 0; at < quads.Length; at++) {
+            rims[at] = [];
+        }
+
+        for (var at = 0; at < quads.Length; at++) {
+            var wanted = quads[at];
             var collapsed = 0;
             var walked = 0;
 
@@ -311,12 +449,14 @@ static class PatchParameterization {
                 }
             }
 
-            if (walked != quads) {
+            if (walked != wanted) {
                 return false;
             }
 
-            var total = quads + (collapsed * Sliver);
+            var total = wanted + (collapsed * Sliver);
             var offset = 0f;
+            var from = Corner(quads.Length, at);
+            var to = Corner(quads.Length, at + 1);
 
             foreach (var use in patch.Sides[at]) {
                 var arc = arcs[use.Arc];
@@ -347,13 +487,7 @@ static class PatchParameterization {
                     var within = span > 0f ? lengths[step] / span : (float) step / (chain.Length - 1);
                     var t = Math.Clamp((offset + (within * width)) / total, 0f, 1f);
 
-                    pinned[index] = at switch {
-                        0 => new(t, 0f),
-                        1 => new(1f, t),
-                        2 => new(1f - t, 1f),
-                        _ => new(0f, 1f - t)
-                    };
-
+                    pinned[index] = Vector2.Lerp(from, to, t);
                     isPinned[index] = true;
 
                     if (rims[at].Count == 0 || rims[at][^1].Vertex != index) {
@@ -657,9 +791,8 @@ static class PatchParameterization {
         Vector3[] positions,
         List<(float T, int Vertex)>[] rims,
         EditMesh output,
-        int[][] grid,
-        int wide,
-        int tall
+        int[][] sides,
+        int[] quads
     ) {
         var diagonal = Diagonal(positions);
 
@@ -669,29 +802,20 @@ static class PatchParameterization {
 
         var allowed = diagonal * RimAgreement;
 
-        for (var at = 0; at < 4; at++) {
-            var quads = at % 2 == 0 ? wide : tall;
+        for (var at = 0; at < quads.Length; at++) {
             var run = rims[at];
 
-            if (run.Count < 2) {
+            if (run.Count < 2 || sides[at].Length != quads[at] + 1) {
                 return false;
             }
 
-            for (var step = 0; step <= quads; step++) {
-                var t = (float) step / quads;
+            for (var step = 0; step <= quads[at]; step++) {
+                var t = (float) step / quads[at];
                 var placed = At(positions, run, t);
 
-                // Side 0 runs C0 → C1 along j = 0, side 1 runs C1 → C2 along i = wide, side 2 runs
-                // C2 → C3 back along j = tall and side 3 runs C3 → C0 back along i = 0 — the same walk
-                // `PatchExtractor.Fill` laid the grid's four edges out with.
-                var vertex = at switch {
-                    0 => grid[step][0],
-                    1 => grid[wide][step],
-                    2 => grid[wide - step][tall],
-                    _ => grid[0][tall - step]
-                };
-
-                if (Vector3.Distance(placed, output.Positions[vertex]) > allowed) {
+                // The side's own chain, in the order the boundary walk laid it — which is the order
+                // the pinning walked the same side's arcs in, so step `k` is step `k`.
+                if (Vector3.Distance(placed, output.Positions[sides[at][step]]) > allowed) {
                     return false;
                 }
             }

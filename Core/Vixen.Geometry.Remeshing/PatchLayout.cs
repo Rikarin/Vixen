@@ -39,21 +39,35 @@ sealed class LayoutArc {
     public int EdgeCount => Vertices.Length - 1;
 }
 
-/// <summary>One patch: a run of triangles, and four sides made of arcs.</summary>
+/// <summary>One patch: a run of triangles, and four sides made of arcs — or three, for a fan.</summary>
 /// <remarks>
-///     ⚠ <b>Four sides always, and a side is a <i>list</i> of arcs rather than one.</b> docs/plan/41
-///     § D7 wants a patch to be a polygon with <i>k</i> sides and a regular grid to exist inside it, and
-///     those two want different things: the grid needs four, the partition produces whatever the
-///     separatrices and features left. Grouping the boundary into four super-sides reconciles them
-///     without a T-junction — every arc still gets its own integer, and the constraint is that the two
-///     opposite groups sum to the same thing.
+///     <para>
+///         ⚠ <b>Four sides normally, and a side is a <i>list</i> of arcs rather than one.</b>
+///         docs/plan/41 § D7 wants a patch to be a polygon with <i>k</i> sides and a regular grid to
+///         exist inside it, and those two want different things: the grid needs four, the partition
+///         produces whatever the separatrices and features left. Grouping the boundary into four
+///         super-sides reconciles them without a T-junction — every arc still gets its own integer, and
+///         the constraint is that the two opposite groups sum to the same thing.
+///     </para>
+///     <para>
+///         ⚠ <b>Three sides is the one exception, and it is a <i>filled</i> patch rather than a
+///         weaker one.</b> A boundary of three arcs holds no rectangle however the arcs are grouped, so
+///         a patch that reaches <see cref="PatchLayout" />'s last resort with three of them is carried
+///         as a fan: three quad blocks round a centre point, which is the standard three-to-quads
+///         subdivision and is what lets a patch bounded entirely by creases be extracted rather than
+///         dropped. <see cref="IsFan" /> is the flag every consumer branches on, and the reason it is
+///         the side <i>count</i> is that there is nothing else about the patch that differs.
+///     </para>
 /// </remarks>
 sealed class LayoutPatch {
     /// <summary>Which triangles of the conditioned mesh it covers.</summary>
     public required int[] Triangles { get; init; }
 
-    /// <summary>Its four sides, anticlockwise round the patch, each an ordered run of arcs.</summary>
+    /// <summary>Its sides, anticlockwise round the patch, each an ordered run of arcs.</summary>
     public required ArcUse[][] Sides { get; init; }
+
+    /// <summary>Whether it is the three-sided patch that extracts as three quads round a centre.</summary>
+    public bool IsFan => Sides.Length == 3;
 }
 
 /// <summary>docs/plan/41 § D7's partition: separatrices plus feature polylines, flooded into patches.</summary>
@@ -265,6 +279,7 @@ sealed class PatchLayout {
             var built = new List<LayoutPatch>(patches.Count);
             var redo = false;
             var degenerate = 0;
+            var fanned = 0;
             var slit = 0;
             var snaky = 0;
 
@@ -317,28 +332,35 @@ sealed class PatchLayout {
                 }
 
                 if (uses.Count < 4) {
-                    // ⚠ Divide first and merge only when dividing is impossible. A patch bounded by
-                    // three arcs usually wants a fourth corner; one bounded by three arcs that are
-                    // each a single edge cannot have one, and § D7's answer for those is that a patch
-                    // too small or degenerate merges into a neighbour. Dropping it instead is what
-                    // leaves the output full of holes — measured on a box, nineteen arcs with a patch
-                    // on only one side of them and seventy boundary edges to show for it.
+                    // ⚠ Divide first, merge second, and fan only when neither is available. A patch
+                    // bounded by three arcs usually wants a fourth corner; one bounded by three arcs
+                    // that are each a single edge cannot have one, and § D7's answer for those is that
+                    // a patch too small or degenerate merges into a neighbour. Dropping it instead is
+                    // what leaves the output full of holes — measured on a box, nineteen arcs with a
+                    // patch on only one side of them and seventy boundary edges to show for it.
                     //
-                    // ⚠ And there is a third outcome that neither repair reaches, which is the
-                    // cylinder's remaining hole. `Merge` will not dissolve a feature arc — rightly,
-                    // since that is a crease — so a patch whose every bounding arc is one has nothing
-                    // it is allowed to dissolve and comes back false however small it is. Measured on
-                    // the cylinder at a 400 budget: one patch, uses=3, triangles=1, features=3, arc
-                    // lengths [2,2,2] — a single source triangle with a crease along all three sides,
-                    // dropped on every one of the six rounds and worth six boundary edges in the
-                    // output. `MergeTriangles` is not the gate there and raising it to sixteen changes
-                    // nothing; the gate is the feature test inside `Merge`. The real answer is to
-                    // extract a three-sided patch as three quads round a centre point rather than to
-                    // dissolve anything, which keeps the crease and fills the hole.
+                    // ⚠ <b>And there is a third outcome neither repair reaches, which is what `Fan`
+                    // is.</b> `Merge` will not dissolve a feature arc — rightly, since that is a
+                    // crease — so a patch whose every bounding arc is one has nothing it is allowed to
+                    // dissolve and comes back false however small it is. Measured on the cylinder at a
+                    // 400 budget: one patch, uses=3, triangles=1, features=3, arc lengths [2,2,2] — a
+                    // single source triangle with a crease along all three sides, dropped on every one
+                    // of the six rounds and worth six boundary edges in the output. `MergeTriangles`
+                    // was never the gate there and raising it to sixteen changed nothing.
+                    //
+                    // ⚠ <b>And the feature test is not the only way to arrive here either, which is
+                    // why the fan is not conditioned on it.</b> Measured on the sphere scaled by
+                    // 0.0009 at the same budget: one patch, uses=3, arcs of 1, 2 and 2 edges and
+                    // <i>none</i> of them a feature — too big for `MergeTriangles` and with a `Divide`
+                    // that had already spent its one usable split. Three sides is the condition; how
+                    // the patch got them is not.
                     if (repairing && Divide(mesh, arcs, uses, forced)) {
                         redo = true;
                     } else if (repairing && triangles.Length <= MergeTriangles && Merge(mesh, features, cut, arcs, uses)) {
                         redo = true;
+                    } else if (uses.Count == 3) {
+                        fanned++;
+                        built.Add(new() { Triangles = triangles, Sides = Fan(arcs, uses) });
                     } else {
                         degenerate++;
                     }
@@ -367,6 +389,12 @@ sealed class PatchLayout {
             if (!redo) {
                 if (degenerate > 0) {
                     warnings.Add($"{degenerate} patches could be neither divided nor merged and were dropped.");
+                }
+
+                if (fanned > 0) {
+                    warnings.Add(
+                        $"{fanned} patches were bounded by three arcs and are carried as three quads round a centre."
+                    );
                 }
 
                 if (slit > 0) {
@@ -1481,6 +1509,35 @@ sealed class PatchLayout {
         }
 
         return dissolved;
+    }
+
+    /// <summary>Groups a three-arc loop into three sides, starting at the lowest-index corner.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>There is no corner search here and there is nothing for one to decide.</b>
+    ///         <see cref="Sides" /> exists because a loop of <i>n</i> arcs has to be cut into four
+    ///         groups and which four decides the patch's aspect; a loop of exactly three arcs cut into
+    ///         three groups has one answer. What is left is the rotation, and that is what the
+    ///         quantizer's three spoke counts are indexed by.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rotated to the lowest-index corner, which is § D14 and not tidiness.</b> The
+    ///         loop's starting half-edge is an artefact of the flood order, and the three spokes are
+    ///         <i>not</i> interchangeable — the fan's blocks are a × b, b × c and c × a. Seeding from
+    ///         the walk's own first entry would give a re-exported file the same three quads in a
+    ///         different rotation and so different quad counts.
+    ///     </para>
+    /// </remarks>
+    static ArcUse[][] Fan(List<LayoutArc> arcs, List<ArcUse> uses) {
+        var first = 0;
+
+        for (var at = 1; at < uses.Count; at++) {
+            if (Ends(arcs, uses[at]).From < Ends(arcs, uses[first]).From) {
+                first = at;
+            }
+        }
+
+        return [[uses[first]], [uses[(first + 1) % 3]], [uses[(first + 2) % 3]]];
     }
 
     /// <summary>Groups a loop's arcs into four sides, at the corners that make opposite sides agree.</summary>

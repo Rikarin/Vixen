@@ -159,12 +159,15 @@ public class RemeshReportTests {
     ///         than it claims.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It has already done that once, which is the argument for writing it this way.</b>
+    ///         ⚠ <b>It has already done that twice, which is the argument for writing it this way.</b>
     ///         The list read <c>["sphere"]</c> for as long as the partition left dangling cuts in it: a
     ///         cut with a loose end is a slit, the flood puts the same patch on both sides of it, and
     ///         the extractor refuses every patch whose boundary walks an arc twice — so the box, the
     ///         plate and the stairs all came back holed. Walking those loose ends out to existing
-    ///         structure closed three of the four, and this assertion is what made the improvement
+    ///         structure closed three of the four. The cylinder was the fourth, and it took the other
+    ///         repair this comment predicted: a patch bounded by three arcs that are all creases can be
+    ///         neither divided nor merged, and <c>PatchLayout</c> now carries it as a fan — three quads
+    ///         round a centre — rather than dropping it. Both times the assertion made the improvement
     ///         announce itself instead of silently widening a guard.
     ///     </para>
     /// </remarks>
@@ -180,7 +183,7 @@ public class RemeshReportTests {
             }
         }
 
-        Assert.Equal(["box", "sphere", "plate", "stairs"], closed);
+        Assert.Equal(["box", "sphere", "cylinder", "plate", "stairs"], closed);
     }
 
     /// <summary>The mean deviation, against a brute-force recomputation over every conditioned triangle.</summary>

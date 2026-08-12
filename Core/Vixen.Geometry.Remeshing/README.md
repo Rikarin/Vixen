@@ -84,19 +84,30 @@ approximate — 210 against 508 on a box, 132 against 255 on a sphere, 283 again
 four-sided, and the extraction merges that side's two ends into one output vertex. A patch whose whole
 width or height comes to zero is a bug, and it is checked.
 
+⚠ **A patch bounded by *three* arcs is a fan, and its three spokes are variables of the same flow.**
+Three arcs hold no rectangle however they are grouped, so a patch the layout can neither divide nor
+merge is carried as three quad blocks round a centre point: the spokes `a`, `b`, `c` run from that
+centre out to the three side midpoints, the sides come to `a + c`, `a + b` and `b + c`, and the blocks
+are `a × b`, `b × c` and `c × a`. Stating it that way is what makes the sides' total `2(a + b + c)` —
+**even, which is a requirement rather than a nicety, because no all-quad mesh of a disc has an odd
+boundary** — and what puts the strict triangle inequality under a floor of one. Reading the spokes off
+counts chosen without the fan in the system gives a half-integer or a negative one about as often as
+not. The interior lifts through the same Tutte embedding a four-sided patch uses, onto an equilateral
+triangle instead of the unit square.
+
 ## What is measured today, and what is not
 
 Every result is **100 % quads** on every fixture, and every feature polyline is reproduced at the order
 the exit criterion asks for on straight hard surface — `5.15e-5` of the diagonal on a box, `2.42e-5`
 on a plate with a hole, `9.88e-5` on a cylinder.
 
-⚠ **`MeshReport.IsSolid` holds on a closed smooth surface and not yet on hard surface, and the quad
-budget is overshot.** Both come from one place: the patches the separatrix tracing produces are longer
-round than they are wide, which overshoots a quad budget *quadratically* — a patch's count is a
-product of two side lengths — and leaves a handful of patches whose four sides do not line up. Those
-are refused rather than emitted as a folded grid, so what is missing is holes rather than corruption,
-and `RemeshReport.Warnings` counts them and says why. Compacting the partition is layout work, and it
-is recorded here as owed rather than described as done.
+⚠ **`MeshReport.IsSolid` holds on every fixture at a 400-quad budget, and it took two layout
+repairs.** A cut with a loose end is a slit — the flood crosses round it and the boundary walk
+traverses that arc once in each direction — so the layout now walks each loose end on along the field
+until it lands on existing structure; that closed six of the seven. The seventh was a patch bounded by
+three arcs that were all creases, which `Merge` rightly will not dissolve, and it is the fan above.
+Where a patch is still refused it is refused rather than emitted as a folded grid, so what is missing
+is holes rather than corruption, and `RemeshReport.Warnings` counts them and says why.
 
 ## The output carries the input, or it is useless
 
