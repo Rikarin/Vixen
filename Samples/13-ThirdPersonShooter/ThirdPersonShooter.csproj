@@ -70,6 +70,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 
         <!--
+            And the ground's collider, opted into on Vixen.Water.Physics' terms: doc 31 § D1 keeps the
+            Jolt join out of the kernel and out of the renderer, so a game that wants to stand on its
+            terrain names this and a game that only draws one does not. Without it the outskirts are
+            scenery — a character walks off the arena floor and falls through the hills.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Terrain.Physics\Vixen.Terrain.Physics.csproj" />
+
+        <!--
             The lake: WaterRendererFactory for the document's !WaterSurface, !Copy and !Water nodes,
             and the two components the scene carries.
 

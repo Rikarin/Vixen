@@ -443,22 +443,18 @@ static partial class SampleLog {
     public static partial void GpuUnattributed(ILogger logger, double unattributed, double share);
 
     /// <summary>
-    ///     ⚠ Said when the outskirts get a collider, which until this sample nothing anywhere built.
-    ///     Zero tiles is a terrain a character falls through — the ground draws perfectly and stops
-    ///     nothing, and <c>RespawnWhenBelow</c> turns that into a camera that cycles below the
-    ///     surface rather than into an error.
+    ///     ⚠ Said with the run's summary, because a terrain with no collision draws exactly like one
+    ///     with it. Zero tiles is a terrain a character falls through, and <c>RespawnWhenBelow</c>
+    ///     turns that into a camera that cycles below the surface rather than into an error. The
+    ///     builder is <c>Vixen.Terrain.Physics.TerrainColliderSystem</c>, which this sample opts into.
     /// </summary>
     [LoggerMessage(
         EventId = 14063,
         Level = LogLevel.Information,
-        Message = "Built {Tiles} height-field collider(s) of {Samples}² samples at {MetresPerQuad} m a quad."
+        Message = "Ground collision: {Tiles} height-field tile(s) over {Terrains} terrain(s). Zero with a "
+            + "terrain in the scene is the outskirts being scenery."
     )]
-    public static partial void TerrainCollisionBuilt(
-        ILogger logger,
-        int tiles,
-        int samples,
-        float metresPerQuad
-    );
+    public static partial void TerrainCollisionBuilt(ILogger logger, int tiles, int terrains);
 
     /// <summary>
     ///     ⚠ Said once the water has folded. Every number after the first is a silent failure with

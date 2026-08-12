@@ -160,6 +160,8 @@
     <Project Path="Core/Vixen.Rendering.Terrain/Vixen.Rendering.Terrain.csproj" />
     <Project Path="Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj" />
     <Project Path="Core/Vixen.Terrain/Vixen.Terrain.csproj" />
+    <Project Path="Core/Vixen.Terrain.Physics/Vixen.Terrain.Physics.csproj" />
+    <Project Path="Core/Vixen.Terrain.Physics.Tests/Vixen.Terrain.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Terrain.Tests/Vixen.Terrain.Tests.csproj" />
     <!--
       Water (docs/plan/35). Beside the terrain kernel and on the same terms: a body is a spline and a

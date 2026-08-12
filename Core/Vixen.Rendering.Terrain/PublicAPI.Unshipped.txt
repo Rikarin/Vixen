@@ -518,9 +518,12 @@ Vixen.Rendering.Terrain.TerrainSceneRenderer.View.get -> Vixen.Rendering.RenderV
 Vixen.Rendering.Terrain.TerrainSceneRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Terrain.TerrainSceneRenderer.WaitingForShaders.get -> bool
 Vixen.Rendering.Terrain.TerrainSceneSource -> sealed class
+Vixen.Rendering.Terrain.TerrainSceneSource : Vixen.Terrain.ITerrainPlacements
 Vixen.Rendering.Terrain.TerrainSceneSource.Foliage.get -> System.Collections.Generic.List<Vixen.Rendering.Terrain.FoliageSceneEntry>
 Vixen.Rendering.Terrain.TerrainSceneSource.Meshes.get -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Rendering.Terrain.TerrainSceneSource.Meshes.set -> Vixen.Rendering.Ecs.IMeshSource?
+Vixen.Rendering.Terrain.TerrainSceneSource.PlacementAt(int index) -> Vixen.Terrain.TerrainPlacement
+Vixen.Rendering.Terrain.TerrainSceneSource.PlacementCount.get -> int
 Vixen.Rendering.Terrain.TerrainSceneSource.TerrainSceneSource() -> void
 Vixen.Rendering.Terrain.TerrainSceneSource.Terrains.get -> System.Collections.Generic.List<Vixen.Rendering.Terrain.TerrainSceneEntry>
 Vixen.Rendering.Terrain.TerrainSceneSource.Textures.get -> Vixen.Rendering.Terrain.ITerrainTextures?

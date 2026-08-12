@@ -82,8 +82,8 @@ see and not walk through, or walk through and not see, is worse than no hole at 
 slab and out of sight", because the perimeter was solid and nobody could reach it. A 1.2 m drop is a
 one-way trip past a 1.1 m jump, so the arena would have let people out and not back in.
 
-**The terrain has a collider, and until this sample nothing in the engine ever built one.** Every
-piece existed: `PhysicsShapes.HeightField` registers the Jolt shape and
+**The terrain has a collider, and until this sample noticed, nothing in the engine ever built one.**
+Every piece existed: `PhysicsShapes.HeightField` registers the Jolt shape and
 `Vixen.Physics.Tests/HeightFieldShapeTests` exercises it thoroughly;
 `TerrainSamples.FillCollisionSamples` produces exactly the span that shape consumes, in metres, with
 holes as the caller's sentinel; and `Editor/Vixen.Editor.Terrain/ITerrainColliders` is the seam the
@@ -91,13 +91,22 @@ sculpt tools call after every stroke. Nothing joined them. The only implementati
 anywhere is a test double that records tile indices, and the only callers of `FillCollisionSamples`
 were two assertions. So a terrain in a *game* had no collision, in any project, and the symptom was
 not an error — a character walked off the arena floor, fell through the ground, and
-`RespawnWhenBelow` put them back. `TerrainGroundSystem` is the missing call: one static body per
-tile, four for this 252 m of ground, and the quarry's hole is a pit you fall into because the
-sentinel travels.
+`RespawnWhenBelow` put them back.
 
-It cannot live in `Vixen.Rendering.Terrain`, which does not reference `Vixen.Physics` and must not —
-nothing in the rendering stack does. It belongs in a small join assembly on `Vixen.Water.Physics`'
-precedent, and it is here because a sample is where it can be shown without deciding that.
+**The join has since moved into the engine**, which is where it belonged: `Vixen.Terrain.Physics`'
+`TerrainColliderSystem`, opted into by this project's `.csproj` on `Vixen.Water.Physics`' terms —
+doc 31 § D1 forbids both of the alternatives, since the kernel may not link Jolt and the renderer
+may not link physics. It reads the renderer's own frame list, so nothing about this level is in it.
+Four static bodies over 252 m of ground, and the quarry's hole is a pit you fall into because the
+sentinel travels. `TerrainGroundSystem` kept the half that genuinely is this level's: telling the
+lake where its bed is.
+
+**Verified by a number rather than by a picture.** `VIXEN_SPAWN=0,4,-40,0` drops the pawn four
+metres above the lake's north shelf and it finishes at **y = 1.3323056**; `TerrainSeed`'s own
+arithmetic for 22 m from the lake centre is `1.6 − 4.2 × (1 − smoothstep(0, 26, 22))` = **1.332355**,
+and the millimetre between them is the height field's eight-bit-per-block compression. The number is
+identical before and after the move into the engine, which is what makes it a move rather than a
+rewrite.
 
 ### ⚠ A character with `PhysicsInterpolation` used to walk at half speed — fixed, and this is how it was found
 

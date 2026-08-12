@@ -152,12 +152,55 @@ This assembly cannot name a `ShapeDescription` — one project reference, and it
 `Vixen.Physics`. What the two agree about is an array of floats and a sentinel, which is what a height
 field *is*:
 
-```csharp no-compile="a fragment; the caller owns the buffer and the sentinel"
-terrain.Base.FillCollisionSamples(terrain, tileX, tileZ, heights, PhysicsShapes.NoCollisionHeight);
+```csharp compile
+using Vixen.Core.Mathematics;
+using Vixen.Physics.Shapes;
+using Vixen.Terrain;
+
+static class TileCollider {
+    public static ShapeId Build(PhysicsShapes shapes, Terrain terrain, int tileX, int tileZ) {
+        var description = terrain.Description;
+        var samples = description.TileSamples;
+        var heights = new float[samples * samples];
+
+        terrain.Composite.FillCollisionSamples(
+            tileX,
+            tileZ,
+            terrain.Holes,
+            PhysicsShapes.NoCollisionHeight,
+            heights
+        );
+
+        var corner = new Vector3(
+            tileX * description.TileQuads * description.MetresPerQuad,
+            0f,
+            tileZ * description.TileQuads * description.MetresPerQuad
+        );
+
+        return shapes.HeightField(
+            heights,
+            samples,
+            corner,
+            new(description.MetresPerQuad, 1f, description.MetresPerQuad)
+        );
+    }
+}
 ```
+
+⚠ **This fence is `compile`, and it used to be `no-compile`.** What it said before had a leading
+`terrain` argument that does not exist, no `holes` argument, and the buffer and the sentinel the wrong
+way round — four errors in one line, in an example nothing built. An example the gate does not compile
+is an example that rots, and this one had.
+
+⚠ **`Composite`, not `Base`.** The base grid is what the terrain was before anybody sculpted it; the
+composite is what the artist can see. A collider built from the base is ground the player falls
+through in exactly the places that were most recently edited.
 
 `HeightFieldPlacement` is the other side of it: how many samples a side, where the grid's corner is
 and what one step of it spans. `PhysicsShapes.HeightField` takes the two together.
+
+**Nothing above has to be written by a game.** [Terrain collision](terrain-collision.md) is
+`Vixen.Terrain.Physics`, which does exactly this per tile and keeps it in step with the ground.
 
 ⚠ **A height field is static and `CanBeDynamic` says so.** Jolt has no inertia tensor for one, and a
 terrain that could be given a rigid body is a terrain somebody will give a rigid body.

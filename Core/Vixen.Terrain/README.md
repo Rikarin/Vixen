@@ -175,3 +175,13 @@ every edit layer into a uniform offset of the whole terrain.
 `Vixen.Physics`. What the two agree about is an array of floats and a sentinel, which is what a
 height field *is*: `TerrainSamples.FillCollisionSamples` fills a tile's samples in metres with holes
 written as the caller's no-collision value. See [§ D10](../../docs/plan/31-terrain-grass-and-trees.md).
+
+**The caller is `Vixen.Terrain.Physics`**, a separate assembly for the reason above: it references
+this one and `Vixen.Physics`, and neither of them references the other. Until it existed the fill had
+two callers and both were assertions — a finished producer with no consumer — and no terrain in any
+project had collision.
+
+`ITerrainPlacements` is the other half of that seam and points the other way: it says *where* the
+terrains in a world are, so that a collider, a spawner or a navmesh bake can find the ground without
+referencing a renderer. `TerrainSceneSource` implements it. It names no device type — a `Terrain` is
+arrays and an origin is three floats — which is the whole reason it can live here.

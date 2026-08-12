@@ -1,0 +1,18 @@
+#nullable enable
+Vixen.Terrain.Physics.TerrainColliderSystem -> sealed class
+Vixen.Terrain.Physics.TerrainColliderSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Terrain.Physics.TerrainColliderSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Terrain.Physics.TerrainColliderSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Terrain.Physics.TerrainColliderSystem.Forget(Vixen.Terrain.Terrain terrain) -> bool
+Vixen.Terrain.Physics.TerrainColliderSystem.Friction.get -> float
+Vixen.Terrain.Physics.TerrainColliderSystem.Friction.set -> float
+Vixen.Terrain.Physics.TerrainColliderSystem.Placements.get -> Vixen.Terrain.ITerrainPlacements?
+Vixen.Terrain.Physics.TerrainColliderSystem.Placements.set -> Vixen.Terrain.ITerrainPlacements?
+Vixen.Terrain.Physics.TerrainColliderSystem.Rebuild(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainRect rect) -> bool
+Vixen.Terrain.Physics.TerrainColliderSystem.Rebuild(Vixen.Terrain.Terrain terrain, int tileX, int tileZ) -> bool
+Vixen.Terrain.Physics.TerrainColliderSystem.Rebuilds.get -> int
+Vixen.Terrain.Physics.TerrainColliderSystem.Sync() -> void
+Vixen.Terrain.Physics.TerrainColliderSystem.TerrainColliderSystem(Vixen.Physics.Ecs.PhysicsScene scene, Vixen.Terrain.ITerrainPlacements placements) -> void
+Vixen.Terrain.Physics.TerrainColliderSystem.TerrainCount.get -> int
+Vixen.Terrain.Physics.TerrainColliderSystem.TileCount.get -> int
+override Vixen.Terrain.Physics.TerrainColliderSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle

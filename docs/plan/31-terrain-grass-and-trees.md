@@ -271,11 +271,28 @@ can stand on is a demo.
 
 
 ✅ **Built.** `ShapeKind.HeightField`, `HeightFieldPlacement`, `PhysicsShapes.HeightField(…)` and the
-Jolt binding, in `Core/Vixen.Physics`. Three things came out of it that this document did not know:
+Jolt binding, in `Core/Vixen.Physics`; and — since 2026-08-12 — `Core/Vixen.Terrain.Physics`, which is
+the thing that turns a terrain into one. Three things came out of it that this document did not know:
 
-- **The ECS bridge needed no change at all.** `Collider` holds a `ShapeId` and never asks what kind
-  it is, so a terrain tile is a collider on the day the shape exists. That is the payoff of the
-  existing design and it removes a line from [T0](#t0--unblockers--10-em---built).
+- ⚠ **"The ECS bridge needed no change at all" was written here and was false for eleven months,
+  and this bullet is the correction rather than an amendment.** What it said was: *"`Collider` holds a
+  `ShapeId` and never asks what kind it is, so a terrain tile is a collider on the day the shape
+  exists."* The first clause is true and the second does not follow. `Collider` accepting the shape is
+  not the same as anything **producing** one, and nothing did: `PhysicsShapes.HeightField` had sixteen
+  tests, `TerrainSamples.FillCollisionSamples` produced exactly the span it consumes and had two
+  callers, both assertions, and `ITerrainColliders` — the seam the sculpt tools call after every
+  stroke — had one implementation in the whole tree, a test double that records tile indices. So a
+  terrain in a *game* had no collision at all, in any project, **and the symptom was not an error**: a
+  character walked onto the ground and fell through it. The ✅ is what stopped anyone looking, because
+  a ticked box is read as "done" and not as "the shape exists". The producer is now
+  `TerrainColliderSystem` in its own assembly — see [§ D1](#d1-two-runtime-assemblies-and-one-editor-assembly-and-the-kernel-touches-no-device),
+  which forbids both of the two places it might otherwise have gone: the kernel may not link Jolt and
+  the renderer may not link physics. It finds the ground through `ITerrainPlacements`, a **kernel**
+  interface that `TerrainSceneSource` implements, so the join costs no reference to the render stack
+  and a dedicated server can run it. ⚠ **`ITerrainColliders` is still unfed**: it lives under
+  `Editor/`, which a runtime assembly may not reference, so the editor's strokes still rebuild
+  nothing until somebody writes the adapter. What the runtime path does instead is poll
+  `Terrain.RevisionOf` per tile, which needs no caller to remember anything.
 - **The sample count must be a power of two**, for the reason in
   [D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s second warning.
 - **Collision is quantised, and by a stated amount.** Jolt compresses eight bits per sample against
@@ -776,6 +793,18 @@ The terrain's collider is one Jolt height-field shape per tile ([B1](#b1-there-i
 rebuilt for the tiles a stroke dirtied and nothing else. Holes are supported by the shape's own
 masked-sample form.
 
+✅ **Built, as `Core/Vixen.Terrain.Physics`.** One assembly, two references — `Vixen.Terrain` and
+`Vixen.Physics` — on `Vixen.Water.Physics`' precedent, because [§ D1](#d1-two-runtime-assemblies-and-one-editor-assembly-and-the-kernel-touches-no-device)
+rules out both of the obvious homes. ⚠ **The collider turned out not to need the renderer's map at
+all**, which was the open question: there is no renderer-side terrain type — `TerrainSceneEntry.Terrain`
+*is* `Vixen.Terrain.Terrain` — so the only thing the render stack uniquely has is the *resolution* of
+an asset name into a placed heightfield. That is exactly `IWaterSurface`'s situation, and it is answered
+the same way: `ITerrainPlacements` in the kernel, implemented by `TerrainSceneSource` in one property
+and one method. A tile is rebuilt when `Terrain.RevisionOf` moves, so sculpting keeps its collision
+without a caller remembering to say so; `Rebuild(terrain, rect)` is the synchronous form, and it carries
+`ITerrainColliders`' signature so an editor-side adapter is three lines. ⚠ **Nobody has written that
+adapter**, so the editor's strokes still rebuild nothing.
+
 Trees are the interesting case, because ten thousand static bodies is not a scene, it is a broadphase
 problem. So: **a foliage type declares a collision shape and an activation radius, and instances
 within that radius of a physics-relevant entity get a body.** The set is maintained incrementally by
@@ -998,7 +1027,9 @@ states what stopping there leaves.
 
 `ShapeKind.HeightField` and its Jolt binding
 ([B1](#b1-there-is-no-heightfield-collider-)) — **the ECS bridge turned out not to need touching**,
-because `Collider` holds an opaque `ShapeId`. The per-instance parameters beside the transform in
+because `Collider` holds an opaque `ShapeId`. ⚠ **That sentence was then read as "a terrain has
+collision", which it is not**, and no terrain in any project had any until `Vixen.Terrain.Physics`
+landed; [B1](#b1-there-is-no-heightfield-collider-)'s first bullet is the correction. The per-instance parameters beside the transform in
 `InstancingRenderFeature` ([B3](#b3-there-is-no-per-instance-data-beyond-a-transform-)). ⚠ **The
 vertex channels that were to land at the same time did not, and have since been removed** —
 [B4](#b4-meshdata-has-one-uv-set-and-no-colour-channel-) records what happened and why they are back
