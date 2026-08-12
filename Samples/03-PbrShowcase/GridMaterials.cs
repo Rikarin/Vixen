@@ -25,13 +25,18 @@ namespace Vixen.Samples.PbrShowcase;
 ///         standard frame exists to retire.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The permutations here and the document's knobs are one contract.</b> `gi: Ambient`
-///         splits the shading pass's output across four targets, so <c>SplitOutputs</c> must be on
-///         or target 0 is a frame missing its ambient with nothing downstream to put it back;
+///         ⚠ <b>The permutations here and the document's knobs are one contract.</b>
 ///         `shadows: Cascades` at `quality: High` fills four cascades, so <c>CascadeCount</c> must
 ///         say four or a fragment selects a slot nobody wrote; and the two compose slots below are
 ///         what let the document's clipmap and punctual-shadow nodes fill bindings the shader
 ///         actually declares. Every one of these is stated beside the knob it answers.
+///     </para>
+///     <para>
+///         <c>SplitOutputs</c> is <em>not</em> among them, and used to be. `gi: Ambient` splits the
+///         shading pass's output across four targets, and <c>CompositorBuilder</c> reads that off
+///         the expanded Main pass's <c>colourTargets</c> now — see
+///         <c>RenderPassRenderer.SplitOutputsKey</c>. A knob whose other half the engine derives is
+///         not a contract this project has to hold up.
 ///     </para>
 /// </remarks>
 sealed class GridMaterials : IMaterialSource {
@@ -91,7 +96,6 @@ sealed class GridMaterials : IMaterialSource {
         // class remarks for why each number is the other half of a document knob.
         var permutations = new ParameterCollection();
 
-        permutations.Set(ForwardPlusKeys.SplitOutputs, true);
         permutations.Set(ForwardPlusKeys.UseShadows, true);
         permutations.Set(ForwardPlusKeys.CascadeCount, 4);
 

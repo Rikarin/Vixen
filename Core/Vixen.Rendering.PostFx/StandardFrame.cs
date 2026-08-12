@@ -124,14 +124,20 @@ public sealed record StandardFrameExtensions {
 ///         registers is therefore the whole installation.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two facts stay the host's, exactly as they are for a hand-authored frame.</b> The
+///         ⚠ <b>One fact stays the host's, exactly as it is for a hand-authored frame.</b> The
 ///         caster stages are extraction's: a host whose objects should cast adds <c>"Shadow"</c>
 ///         (and <c>"Motion"</c> for TAA) to <c>GraphicsOptions.CasterStages</c>, because a frame
-///         document cannot decide what an object is extracted as. And the ambient split is the
-///         material's: <c>gi</c> above <see cref="GiMode.Off" /> emits the split targets and the
-///         combine, which pay off when the shading pass runs with <c>ForwardPlus.SplitOutputs</c>
-///         on. Driving both from the expansion is owed to a later increment; until then they are
-///         stated here rather than discovered.
+///         document cannot decide what an object is extracted as.
+///     </para>
+///     <para>
+///         The ambient split used to be the second, and is not any more. <c>gi</c> above
+///         <see cref="GiMode.Off" /> emits the split targets and the combine, and
+///         <c>ForwardPlus.SplitOutputs</c> — what makes the shading pass actually write those
+///         targets — is read back off them: <c>CompositorBuilder</c> pushes it to the material
+///         features from the emitted Main pass's four <c>colourTargets</c>, the same way it pushes
+///         <c>CascadeCount</c> from the shadow node. Until it did, the half a document could not say
+///         was set in two sample projects and nowhere else, and a frame missing it rendered
+///         <em>pixel-identically</em> to an unsplit one — see <c>RenderPassRenderer.SplitOutputsKey</c>.
 ///     </para>
 ///     <para>
 ///         Artistic values are deliberately neutral — the shipped node defaults, untouched — because

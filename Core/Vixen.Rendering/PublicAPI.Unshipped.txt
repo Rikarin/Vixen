@@ -5052,6 +5052,7 @@ const Vixen.Rendering.ClusterGrid.Slices = 24 -> int
 const Vixen.Rendering.ClusterGrid.TilesX = 16 -> int
 const Vixen.Rendering.ClusterGrid.TilesY = 9 -> int
 const Vixen.Rendering.Compositor.CompositorBuilder.SupportedVersion = 2 -> int
+const Vixen.Rendering.Compositor.RenderPassRenderer.SplitTargetCount = 4 -> int
 const Vixen.Rendering.Ecs.VfxEmitters.DefaultReach = 4 -> float
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.HeaderSize = 16 -> int
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.ProbeIndexOffset = 4 -> int
@@ -6138,6 +6139,8 @@ static Vixen.Rendering.ColorGrading.Neutral.get -> Vixen.Rendering.ColorGrading
 static Vixen.Rendering.ColorGradingRange.Lerp(in Vixen.Rendering.ColorGradingRange from, in Vixen.Rendering.ColorGradingRange to, float amount) -> Vixen.Rendering.ColorGradingRange
 static Vixen.Rendering.ColorGradingRange.Neutral.get -> Vixen.Rendering.ColorGradingRange
 static Vixen.Rendering.Compositor.GraphicsCompositorAsset.Default.get -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
+static Vixen.Rendering.Compositor.RenderPassRenderer.SplitOutputsKey(string shaderName) -> Vixen.Shaders.PermutationKey<bool>
+static Vixen.Rendering.Compositor.RenderPassRenderer.SplitsOutputs(int targets) -> bool
 static Vixen.Rendering.Compositor.ResourceBinding.IsBuffer(Vixen.Graphics.DescriptorKind kind) -> bool
 static Vixen.Rendering.Compositor.ResourceBinding.IsTexture(Vixen.Graphics.DescriptorKind kind) -> bool
 static Vixen.Rendering.Compositor.SceneRenderer.BuildChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void

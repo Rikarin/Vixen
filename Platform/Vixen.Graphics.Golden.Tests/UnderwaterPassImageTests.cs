@@ -274,6 +274,16 @@ public sealed class UnderwaterPassImageTests {
 
         using var under = new UnderwaterRenderer {
             Name = "Underwater",
+
+            // ⚠ Tint-scale, stated here rather than inherited. These fixtures assert an *ordering* —
+            // red absorbed before green, four metres darker than half a metre, the reflection plane
+            // weighted by Fresnel — against a target with no tonemap in front of it. The shipped
+            // defaults are photometric (90 000 lux of sun, 1 400 cd/m² of sky), and a fixture that
+            // took them saturated every channel to 1 and asserted an ordering between whites.
+            // A golden that silently inherits a shipping default breaks whenever that default moves
+            // for reasons of its own, which is exactly what happened.
+            SkyColour = new(0.35f, 0.45f, 0.6f),
+
             Output = "Display",
             Behind = "Behind",
             SceneDepth = "SceneDepth",
@@ -286,13 +296,6 @@ public sealed class UnderwaterPassImageTests {
             SurfacePoint = new(0f, surfaceHeight, 0f),
             SurfaceNormal = Vector3.UnitY,
             Submersion = submersion,
-
-            // ⚠ The sky this file's numbers were written against — the pre-photometric default, and
-            // the same pinning WaterPassImageTests does for the same reason. The scene here is
-            // authored in 0–1 and the shipped default is two thousand cd/m², which is right for a
-            // frame that gets tonemapped and reads (1, 1, 1) at every graded pixel in this one. The
-            // two nodes integrate one medium, so they are given one sky.
-            SkyColour = new(0.35f, 0.45f, 0.6f),
 
             // ⚠ Wide, because this fixture reads the mask at a handful of rows. The shipped default
             // is four centimetres — narrow is the point there — and a four-centimetre feather over an

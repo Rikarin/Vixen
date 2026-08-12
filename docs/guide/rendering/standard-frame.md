@@ -65,13 +65,16 @@ implements the builder's document-transform seam, so registering it is the whole
 builder.Factories.Add(new PostEffectFactory());
 ```
 
-Two facts stay the host's, exactly as they do for a hand-authored frame:
+One fact stays the host's, exactly as it does for a hand-authored frame: **caster stages are
+extraction's.** With `shadows:` on, add `"Shadow"` to `GraphicsOptions.CasterStages`; with
+`antialiasing: Taa` or `TaaFxaa`, add `"Motion"` too. A frame document cannot decide what an object
+is extracted as.
 
-1. **Caster stages are extraction's.** With `shadows:` on, add `"Shadow"` to
-   `GraphicsOptions.CasterStages`; with `antialiasing: Taa` or `TaaFxaa`, add `"Motion"` too. A
-   frame document cannot decide what an object is extracted as.
-2. **The ambient split is the material's.** `gi:` above `Off` emits the split targets and the
-   ambient combine, which pay off when the shading pass runs with `ForwardPlus.SplitOutputs` on.
+The ambient split used to be a second such fact and is not any more. `gi:` above `Off` emits the
+split targets and the ambient combine, and `ForwardPlus.SplitOutputs` — what makes the shading pass
+write those targets — is read back off them: the builder pushes it to the material features from the
+emitted Main pass's four `colourTargets`, the same way it pushes `CascadeCount` from the shadow node.
+Nothing to set, and no second place for the two halves to disagree.
 
 The `extensions:` lists are the three seams a project's own nodes splice into without forking the
 frame: `afterOpaque` (after the Main pass, sharing its depth), `beforePost` (lighting is whole,

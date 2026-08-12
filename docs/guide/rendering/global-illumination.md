@@ -67,11 +67,14 @@ That is also why `!Reflections` needs the split even when nothing else does: the
 blend is the only compositor the traced plane has. A frame with `reflections: Screen` and no split
 would have a reflection buffer and no place to put it.
 
-⚠ **The split is the material's decision as much as the document's.** The nodes here write and read
-planes; whether the shading pass *produces* them is `ForwardPlus.SplitOutputs` in the material. A
-document that names `!AmbientCombine` over a pass compiled without the split is a frame whose
-`SceneAlbedo`, `SceneNormals` and `SceneSpecular` are whatever the clear left there, and the combine
-will faithfully multiply by it.
+⚠ **The document decides the split, and its `colourTargets:` line is how.** The nodes here write and
+read planes; whether the shading pass *produces* them is `ForwardPlus.SplitOutputs`, a permutation —
+and `CompositorBuilder` sets it from the shading pass's four colour targets, so declaring the planes
+is declaring the split. A pass that names one target while `!AmbientCombine` reads three is the
+failure this closes: `SceneAlbedo`, `SceneNormals` and `SceneSpecular` are then whatever the clear
+left there, and the combine faithfully multiplies by it. A frame in that state renders
+*pixel-identically* to one that never split — the combine's sky test is the normal plane's length,
+and a cleared plane reads as sky everywhere.
 
 ⚠ **`specular:` and `reflections:` on `!AmbientCombine` are one switch, not two settings.** With
 both named, the shading pass stops writing its own prefiltered-cube specular ambient and the combine

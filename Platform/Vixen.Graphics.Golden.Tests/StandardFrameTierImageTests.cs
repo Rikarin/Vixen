@@ -5,11 +5,9 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.Features;
 using Vixen.Rendering.Materials;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
-using Vixen.Shaders.Generated;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 
@@ -234,6 +232,18 @@ public sealed class StandardFrameTierImageTests {
     ///         at roughness 0.85, whose <c>f0</c> is 0.04 and which takes the wide path. One picture
     ///         holds both ends of the plane the fourth target exists to carry.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its first reference was a picture of a frame with no diffuse ambient in it, and
+    ///         this is what caught that.</b> The split pass withholds the diffuse half for
+    ///         <c>!AmbientCombine</c> to rebuild from an irradiance plane, and <c>!StandardFrame</c>
+    ///         names one only at <c>gi: probes</c> — so <c>gi: ambient</c> here withheld the term and
+    ///         put nothing back. Against <c>tier-high</c> that was 86.0% of the frame and a mean of
+    ///         8.473: the shadowed floor and the caster losing the cool sky, and the *sky itself*
+    ///         rising 12.6/11.4/10.2 because the meter lifts a frame short a lighting term.
+    ///         <c>AmbientCombine</c> falls back to the scene's own environment coefficients now, and
+    ///         the same comparison is 10.9% and a mean of 2.708 — the occlusion pair and the traced
+    ///         reflection, which is all a correct split adds.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void ASplitFrameLooksLikeItsReference() {
@@ -242,7 +252,7 @@ public sealed class StandardFrameTierImageTests {
         }
 
         using var owned = fixture!;
-        using var scene = Stage(owned, QualityTier.High, SplitDocument, split: true);
+        using var scene = Stage(owned, QualityTier.High, SplitDocument);
 
         // The claim the picture cannot make for itself: that this frame is the split one. A
         // regression that quietly stopped splitting would re-record as a perfectly good picture.
@@ -268,17 +278,32 @@ public sealed class StandardFrameTierImageTests {
         // passed. So the difference is asserted against a committed picture of the *unsplit* frame at
         // the same tier, which costs one file load and no second rendering: whatever else moves this
         // reference, it can never again be re-recorded as the frame beside it.
+        //
+        // ⚠ **The mean and not the pixel count, and the bound came down from a quarter of the
+        // frame.** Both are consequences of the split gaining its diffuse ambient back. The old
+        // numbers were taken against a split frame that had lost the term entirely, which moved
+        // 86.0% of the pixels and 8.473 of average channel — a quarter of the frame was a
+        // comfortable floor under a defect. A split frame that rebuilds its ambient correctly is
+        // *supposed* to resemble the unsplit one: what is left is the occlusion pair and the traced
+        // reflection, measured at 10.9% and a mean of 2.708. The count is the wrong instrument at
+        // that size — the AO's own deltas are 7 to 12 of 255, straddling `Tolerance.Shaded`'s
+        // threshold of 12, so a driver rounding differently moves the count and not the frame. The
+        // mean does not sit on that cliff: 1.0 is under half of what this measures and far above
+        // both zero and the 0.35 the tolerance allows two renderings of the *same* picture.
         var unsplit = PngCodec.Load(Path.Combine(GoldenImage.ReferenceDirectory, "tier-high.png"));
         var against = GoldenImage.Compare(unsplit, picture, Tolerance.Shaded);
 
         Assert.True(
-            against.Fraction > 0.25,
-            $"The split frame and the unsplit tier-high reference differ in only "
-            + $"{against.DifferingPixels} of {against.TotalPixels} pixels ({against.Fraction:P3}), "
-            + "where a quarter of the frame is the least a rebuilt one may. The likeliest cause is "
-            + "that ForwardPlus compiled without SplitOutputs: the shading pass then writes location "
-            + "0 alone, the albedo, normal and f0 planes stay at the clear, and !AmbientCombine reads "
-            + "a zero-length normal as sky and returns the direct target untouched."
+            against.MeanChannel > 1.0,
+            $"The split frame and the unsplit tier-high reference differ by an average channel of "
+            + $"{against.MeanChannel:F3}/255 over {against.DifferingPixels} of {against.TotalPixels} "
+            + $"pixels ({against.Fraction:P3}), where 1.000 is the least a rebuilt frame may — this "
+            + "one is measured at 2.708. The likeliest cause is that ForwardPlus compiled without "
+            + "SplitOutputs — CompositorBuilder infers it from the Main pass's four colourTargets, "
+            + "so a pass that lost a target or a permutation that stopped reaching the material "
+            + "feature both land here. The shading pass then writes location 0 alone, the albedo, "
+            + "normal and f0 planes stay at the clear, and !AmbientCombine reads a zero-length "
+            + "normal as sky and returns the direct target untouched."
         );
 
         GoldenImage.Verify("frame-split", picture, Tolerance.Shaded);
@@ -354,47 +379,34 @@ public sealed class StandardFrameTierImageTests {
     ///         which is the axis a shadow projection folds around.
     ///     </para>
     /// </remarks>
-    static TierScene Stage(Fixture fixture, QualityTier tier) => Stage(fixture, tier, Document, split: false);
+    static TierScene Stage(Fixture fixture, QualityTier tier) => Stage(fixture, tier, Document);
 
-    /// <param name="split">
-    ///     Whether the shading pass writes the four planes as well as the frame declaring them.
-    /// </param>
     /// <remarks>
-    ///     ⚠ <b>Two halves, and the expansion only emits one of them.</b> A <c>gi:</c> above
-    ///     <see cref="GiMode.Off" /> declares the split targets and the combine that reads them, but
-    ///     whether <c>ForwardPlus</c> <em>writes</em> them is a permutation on the material — which
-    ///     <see cref="StandardFrameAsset" />'s own remarks state is the host's, alongside the caster
-    ///     stages, and owed to a later increment. Nothing in the engine sets it: samples 03 and 13
-    ///     are the only places in the tree that do, and this fixture is a third project doing the
-    ///     same thing.
+    ///     ⚠ <b>Nothing here turns the split on, and something used to have to.</b> A <c>gi:</c> above
+    ///     <see cref="GiMode.Off" /> declares the split targets and the combine that reads them;
+    ///     whether <c>ForwardPlus</c> <em>writes</em> them is a permutation, and
+    ///     <c>CompositorBuilder</c> now infers it from the expanded Main pass's four
+    ///     <c>colourTargets</c> — so opening a split document is the whole of it, exactly as opening
+    ///     an unsplit one is.
     ///     <para>
-    ///         Without it the frame is not merely unsplit, it is <em>silently</em> unsplit. The
-    ///         single-target variant writes location 0 and leaves the albedo, normal and <c>f0</c>
-    ///         planes at the clear; <c>AmbientCombine</c>'s sky test is the normal plane's length, so
-    ///         a cleared plane makes every pixel in the frame read as sky and the pass returns the
-    ///         direct target untouched. This fixture's first rendering was <b>bit-identical</b> to
+    ///         Worth stating rather than merely deleting, because of what the missing half looked
+    ///         like: not an unsplit frame but a <em>silently</em> unsplit one. The single-target
+    ///         variant writes location 0 and leaves the albedo, normal and <c>f0</c> planes at the
+    ///         clear; <c>AmbientCombine</c>'s sky test is the normal plane's length, so a cleared
+    ///         plane makes every pixel in the frame read as sky and the pass returns the direct
+    ///         target untouched. This fixture's first rendering was <b>bit-identical</b> to
     ///         <c>tier-high</c> across all 16 384 pixels for exactly that reason — a golden that
     ///         would have been recorded, passed forever, and asserted nothing about the split at all.
-    ///     </para>
-    ///     <para>
-    ///         <see cref="MaterialRenderFeature.SetPermutation" /> rather than the two lines the
-    ///         samples use: it registers this one key beside whatever is already registered, where
-    ///         assigning <c>PermutationKeys["ForwardPlus"]</c> the generated list would enrol every
-    ///         other permutation the shader has at once and change what the four tier goldens above
-    ///         resolve to.
+    ///         The comparison against <c>tier-high</c> in <see cref="ASplitFrameLooksLikeItsReference" />
+    ///         is what stands guard over that now, and it stands over the inference too.
     ///     </para>
     /// </remarks>
-    static TierScene Stage(Fixture fixture, QualityTier tier, GraphicsCompositorAsset document, bool split) {
+    static TierScene Stage(Fixture fixture, QualityTier tier, GraphicsCompositorAsset document) {
         var effects = new EffectSystem();
 
         effects.AddProvider(new Compiling(new(fixture.Device), Compiler));
 
         var scene = TierScene.Open(fixture, effects, document, tier);
-
-        if (split) {
-            scene.Renderer.Materials.SetPermutation("ForwardPlus", ForwardPlusKeys.SplitOutputs, true);
-        }
-
         var casters = scene.Stages.TryGetValue("Shadow", out var shadow) ? shadow.Mask : default;
         var opaque = scene.Stages["Opaque"].Mask;
 

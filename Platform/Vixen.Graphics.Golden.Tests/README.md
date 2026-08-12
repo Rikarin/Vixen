@@ -207,38 +207,78 @@ picture takes; at Epic's scale of 1 it degenerates to its own texel.
 - The clipmap needs a `CompositorBuilder.DistanceField`, which is a project's to supply. Without one
   `!DistanceFieldAo` draws with set 0 unbound — a validation error, not a frame without occlusion.
   `TierScene` builds one analytically from the same boxes it draws.
-- **`ForwardPlus.SplitOutputs` is a permutation on the material and nothing in the engine sets it**
-  — `StandardFrameAsset`'s own remarks say so and call it owed. Its absence is silent and total: the
-  single-target variant writes location 0, the other three planes stay at the clear, and
+- **`ForwardPlus.SplitOutputs` was a permutation on the material and nothing in the engine set it**
+  — `StandardFrameAsset`'s own remarks said so and called it owed. Its absence was silent and total:
+  the single-target variant writes location 0, the other three planes stay at the clear, and
   `AmbientCombine` reads a zero-length normal as sky and hands the direct target straight back. This
   fixture's first rendering was **bit-identical to `tier-high` across all 16 384 pixels** with every
   structural assertion passing. That is why the test asserts the picture differs from the committed
-  `tier-high` reference by more than a quarter of the frame before it verifies anything: it is the
-  one claim that catches a golden about to be re-recorded as the frame beside it.
+  `tier-high` reference before it verifies anything: it is the one claim that catches a golden about
+  to be re-recorded as the frame beside it. (By a *mean* of 1.0, which is not the bound that
+  assertion was written with — see the ⚠ below on why the count came off.)
 
-⚠ **This reference is a picture of a frame with no diffuse ambient in it, and that is a defect it
-records rather than one it hides.** In split mode `ForwardPlus` withholds the diffuse ambient for
-the combine to rebuild (`ForwardPlus.rvn:444-457`), and the combine rebuilds it from an irradiance
-plane — which `StandardFrame` names only when `gi: probes`: `Irradiance = probes ? "ProbeIrradiance"
-: ""`. So `gi: ambient` splits, drops the term and puts nothing back, and
-`StandardFrameTests.Ambient_gi_runs_the_occlusion_pair_without_the_probe_machinery` asserts the
-empty seat as correct. Against `tier-high` the floor in shadow moves **(−17.2, −28.8, −29.6)** and
-the caster **(−15.1, −22.0, −22.5)** — the cool sky term leaving — while the sky itself rises
-(+13.3, +12.1, +11.0) because the meter lifts a frame that lost a lighting term. When that is fixed
-this golden will move by a large mean, and it should.
+  The gap is closed — `CompositorBuilder` reads the permutation off the shading pass's four
+  `colourTargets` and pushes it to the material features, the way it already pushed `CascadeCount`
+  from the shadow node (`RenderPassRenderer.SplitOutputsKey`), so this fixture sets nothing and the
+  two sample projects that used to set it by hand no longer do. **The differs-from-`tier-high`
+  assertion stays**, and now guards the inference as well: a pass that loses a target, or a
+  permutation that stops reaching the feature, lands on it exactly as a missing host knob did.
 
-What the picture is *right* about is the half the recent work went into. The metal slab moves
-**(+26.0, +22.2, +16.5)** against the unsplit reference — warm, in the direction of its own `f0` of
-(0.85, 0.82, 0.76) — which is the traced plane arriving weighted by the fourth target and added
-rather than lerped. The rough floor's `f0` is 0.04 and its reflection contribution is accordingly
-invisible. One metal and one rough dielectric, so both ends of the plane are in one frame.
+⚠ **This reference used to be a picture of a frame with no diffuse ambient in it. It was
+regenerated when that was fixed, and the paragraph below is what the new picture means.** In split
+mode `ForwardPlus` withholds the diffuse ambient for the combine to rebuild
+(`ForwardPlus.rvn:444-457`), and the combine rebuilt it from an irradiance plane — which
+`StandardFrame` names only when `gi: probes`: `Irradiance = probes ? "ProbeIrradiance" : ""`. So
+`gi: ambient` split, dropped the term and put nothing back, and `gi: off, reflections: screen` did
+the same, because reflections need the split too. `AmbientCombine` now falls back to the scene's own
+environment coefficients — the same nine numbers and the same `Ibl.IrradianceSh9` the unsplit pass
+reads, per pixel off the normals plane, times `1/π` and the material's occlusion — so an empty
+irradiance seat means "no screen plane" rather than "no ambient".
+
+**Before and after, both measured against the unsplit `tier-high` at the same sample patches.**
+
+| | pixels over 12/255 | mean channel | sky | floor in shadow | caster face | metal slab |
+|---|---|---|---|---|---|---|
+| the old reference | 14 097 (86.0%) | 8.473 | +12.6, +11.4, +10.2 | −13.4, −26.1, −29.3 | −16.3, −22.5, −22.0 | +30.3, +25.5, +17.7 |
+| this one | 1 786 (10.9%) | 2.708 | −0.8, −1.1, −0.9 | −7.3, −10.4, −11.6 | −10.5, −12.4, −12.6 | +15.7, +11.3, +3.9 |
+
+Read the sky row first, because it is the one that says the term is *back* rather than merely
+different: a frame short a lighting term is a frame the auto-exposure meter lifts, so the old
+picture's sky sat eleven levels above the unsplit one for no reason a sky could have. It is now
+within a level. The shadowed floor and the caster face are still darker than unsplit, by roughly
+half of what they were — that residue is the occlusion pair, which is what `gi: ambient` is *for*,
+and it is cooler-leaning because what AO occludes is the blue sky. The whole frame moved by a mean
+of **6.959** and across **68.7%** of its pixels between the two references.
+
+⚠ **The fixture's own "this is not the unsplit frame" guard moved with it, and had to.** It read
+"more than a quarter of the frame differs from `tier-high`", a floor set under a defect that moved
+86% of it. A split frame that rebuilds its ambient correctly is *supposed* to resemble the unsplit
+one — that is the split's whole promise — so the guard is now a **mean** of 1.0 against the measured
+2.708. The mean rather than the count because the count is the wrong instrument at this size: the
+AO's own deltas are 7 to 12 of 255, straddling `Tolerance.Shaded`'s threshold of 12, so a driver
+that rounds differently moves the count without moving the frame. What the guard still catches is
+unchanged and total — `SplitOutputs` off renders bit-identically to `tier-high`, a mean of 0.000.
+
+What the picture was *right* about all along is the half the recent work went into. The metal slab
+moves **(+15.7, +11.3, +3.9)** against the unsplit reference — warm, in the direction of its own
+`f0` of (0.85, 0.82, 0.76) — which is the traced plane arriving weighted by the fourth target and
+added rather than lerped. The rough floor's `f0` is 0.04 and its reflection contribution is
+accordingly invisible. One metal and one rough dielectric, so both ends of the plane are in one
+frame.
 
 Run-to-run on MoltenVK the fixture is **bit-identical** — 0 pixels over 12/255, mean channel exactly
 0.000, over two renderings — so `Tolerance.Shaded` sits far above its own noise, as it does for the
 four tiers.
 
-**What breaking the pipeline does to it**, each measured against the committed reference, where the
-bounds are 0.200% of pixels over 12/255 and a mean channel of 0.350:
+**What breaking the pipeline does to it**, where the bounds are 0.200% of pixels over 12/255 and a
+mean channel of 0.350.
+
+⚠ **These five were measured against the *previous* reference — the one with no diffuse ambient in
+it — and have not been re-derived against this one.** Every row sabotages the reflection weight, and
+none of that arithmetic changed; what changed underneath them is the frame's exposure, which the
+restored ambient moved. So the surface each row moves and the direction it moves in still hold, and
+the magnitudes are the old picture's rather than this one's. Re-run any row before quoting its
+number.
 
 | Sabotage | Pixels over 12/255 | Mean channel | What moves |
 |---|---|---|---|
