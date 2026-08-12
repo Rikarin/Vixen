@@ -1124,8 +1124,21 @@ public sealed class Arena : IDisposable {
         // permutation off, so that door is not open here yet.
         //
         // Both numbers or neither: `MaxLights` sizes the array *in the shader's block* and
-        // `MaxLightsPerObject` sizes the block the feature *writes*. The shader reading past what the
-        // host filled is stale memory shaded as though it were a light.
+        // `MaxLightsPerObject` sizes the block the feature *writes*.
+        //
+        // ⚠ **Not because the shader would read past what the host filled** — this said that, and it
+        // is not true in either direction: the loop is bounded by `MaxLights` and broken out of at
+        // `lightCount`, and the feature never writes a count longer than the block it sized. The
+        // shorter of the two simply wins, in silence, so a project that raised one and not the other
+        // shades with sixteen and thinks it asked for twenty-four. `MaxLightsDeviceTests` measures
+        // both directions.
+        //
+        // ⚠ **And it is no longer this line that does it.** `CompositorBuilder` publishes the
+        // feature's own budget onto every shading pass the document declares, which is the engine
+        // making the agreement rather than each project remembering to — the same move the cascade
+        // count made one array along. This stays because it is a *material's* permutation and the
+        // frame's is applied after it, so the two agreeing is the state to keep; a project that
+        // deleted it would now still get twenty-four.
         permutations.Set(ForwardPlusKeys.MaxLights, LightsPerObject);
 
         material.Parameters.Apply(permutations);
