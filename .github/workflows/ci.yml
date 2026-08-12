@@ -270,8 +270,20 @@ jobs:
       - name: Install Assimp
         run: sudo apt-get update && sudo apt-get install -y libassimp5
 
+      # ⚠ `--skip Test`, because this job's `needs:` already *is* the test run. Pack depends on Test in
+      # the target graph — which is right for a developer typing `nuke Pack` — and in this workflow it
+      # means the whole suite runs a fourth time, on a leg that has none of the native dependencies
+      # the three test legs install for it. That is how this job spent twenty-five minutes in order to
+      # fail on `TheSpirvValidatorIsInstalled`, a test that had passed on all three legs half an hour
+      # earlier.
+      #
+      # ⚠ And Restore and Compile are named rather than left to be dependencies, because Nuke's
+      # `--skip` takes the chain with it: skipping Test alone skipped Compile "because of Test" and
+      # Restore "because of Compile", and Pack then ran with nothing built. Naming them puts them back
+      # in as invoked targets. Compile is what DotNetPack's --no-build needs, and Restore is what
+      # Compile's --no-restore needs.
       - name: Pack
-        run: ./build.sh Pack --configuration Release
+        run: ./build.sh Restore Compile Pack --configuration Release --skip Test
         shell: bash
 
       - name: Upload packages
