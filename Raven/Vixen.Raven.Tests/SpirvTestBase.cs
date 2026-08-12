@@ -92,8 +92,15 @@ public static class SpirvTestBase {
                 }
             )!;
 
+            // Drained before the wait, the same way GoldenSpirvTests has to: a validator that rejects
+            // a large module writes more than a pipe holds, and reading after the exit is a deadlock
+            // waiting for a big enough complaint.
+            var output = process.StandardOutput.ReadToEndAsync();
+            var errors = process.StandardError.ReadToEndAsync();
+
             process.WaitForExit();
-            var log = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+
+            var log = output.GetAwaiter().GetResult() + errors.GetAwaiter().GetResult();
 
             Assert.True(process.ExitCode == 0, $"spirv-val rejected {unit.Name}:\n{log}\n\n{unit.Code}");
         } finally {

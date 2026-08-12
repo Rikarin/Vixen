@@ -138,9 +138,16 @@ public class VfxShaderEmitterTests {
                 }
             )!;
 
+            // Drained before the wait rather than after it: glslangValidator on a shader it dislikes
+            // writes more than a pipe holds, and a parent waiting on the exit while the child waits
+            // on the write is a hang with nothing in the log. The same shape as GoldenSpirvTests,
+            // which is where it actually happened.
+            var output = process.StandardOutput.ReadToEndAsync();
+            var errors = process.StandardError.ReadToEndAsync();
+
             process.WaitForExit();
 
-            var log = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+            var log = output.GetAwaiter().GetResult() + errors.GetAwaiter().GetResult();
 
             Assert.True(process.ExitCode == 0, $"{tool} rejected {unit.Name}:\n{log}\n\n{unit.Code}");
         } finally {

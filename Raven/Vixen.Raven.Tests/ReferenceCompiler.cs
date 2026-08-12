@@ -115,11 +115,16 @@ public static class ReferenceCompiler {
             new ProcessStartInfo(tool, arguments) { RedirectStandardOutput = true, RedirectStandardError = true }
         )!;
 
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
+        // ⚠ Both at once. Draining stdout to the end first is nearly right and deadlocks anyway: a
+        // tool that fills the error pipe while this is still reading the output pipe blocks, and
+        // glslc on a broken shader is exactly that tool. spirv-dis filling stdout is the case that
+        // hung the Windows leg — see GoldenSpirvTests.
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+
         process.WaitForExit();
 
-        return (process.ExitCode, output + error);
+        return (process.ExitCode, output.GetAwaiter().GetResult() + error.GetAwaiter().GetResult());
     }
 
     /// <summary>Numbers the lines, so a compiler's "line 34" points at something.</summary>

@@ -428,11 +428,21 @@ public static class Spirv {
             }
         ) ?? throw new InvalidOperationException($"Could not start {tool}.");
 
+        // ⚠ Both output pipes are read while the module is still going in. A validator that answers
+        // before it has been given the whole module — which is what a rejection is — writes into a
+        // pipe nobody is draining, fills it, and stops reading its own input, at which point the
+        // write below blocks and neither side moves again. Redirecting a stream and not reading it
+        // is the same trap: stdout is redirected here, so it is drained here.
+        var output = process.StandardOutput.ReadToEndAsync();
+        var errors = process.StandardError.ReadToEndAsync();
+
         using (var input = process.StandardInput.BaseStream) {
             input.Write(binary, 0, binary.Length);
         }
 
-        var complaint = process.StandardError.ReadToEnd();
+        var complaint = errors.GetAwaiter().GetResult();
+
+        output.GetAwaiter().GetResult();
         process.WaitForExit();
 
         if (process.ExitCode != 0) {

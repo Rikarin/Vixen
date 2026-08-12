@@ -80,7 +80,7 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
     /// </summary>
     [Theory]
     [InlineData("lambert")]
-    public void The_listing_agrees_with_a_real_disassembler(string name) {
+    public async Task The_listing_agrees_with_a_real_disassembler(string name) {
         if (SpirvTestBase.FindTool("spirv-dis") is not { } disassembler) {
             output.WriteLine("spirv-dis was not found, so the listing was not cross-checked.");
             return;
@@ -102,10 +102,22 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
                     }
                 )!;
 
-                process.WaitForExit();
-                var disassembled = process.StandardOutput.ReadToEnd();
+                // ⚠ Both pipes drained *before* the wait, and this is the one that hung CI. A
+                // disassembly is hundreds of kilobytes and a Windows pipe holds 64 of them, so
+                // spirv-dis blocks on the write while this blocks on the exit and neither ever moves.
+                // It is not a Windows bug: the buffer is larger elsewhere and the module was smaller
+                // than it, which is the whole reason a deadlock like this survives for years. The
+                // Windows leg had never run this test because it had no spirv-dis to run it with, and
+                // the first run that did sat there until the job timed out.
+                var cancellation = TestContext.Current.CancellationToken;
+                var listing = process.StandardOutput.ReadToEndAsync(cancellation);
+                var complaint = process.StandardError.ReadToEndAsync(cancellation);
 
-                Assert.True(process.ExitCode == 0, process.StandardError.ReadToEnd());
+                await process.WaitForExitAsync(cancellation);
+
+                var disassembled = await listing;
+
+                Assert.True(process.ExitCode == 0, await complaint);
                 Assert.Equal(Opcodes(disassembled), Opcodes(unit.Code));
             } finally {
                 File.Delete(path);
