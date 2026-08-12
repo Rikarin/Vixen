@@ -471,6 +471,10 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // attachments — and still before anything draws, which is what a permutation needs.
         SplitOutputs();
 
+        // Same moment, same reason, and the same list of shading passes: how many lights one object's
+        // block holds is the host's number and the shader sizes an array from it.
+        LightBudget();
+
         foreach (var resource in asset.Resources) {
             compositor.Resources.Add(resource);
         }
@@ -1040,6 +1044,71 @@ public sealed class CompositorBuilder(RenderSystem system) {
                     // here is not something this can tell.
                     if (subFeature is MaterialRenderFeature materials) {
                         materials.SetPermutation(shaderName, key, split);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Tells the material features how long the per-object light list is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong><c>CascadeCount</c>'s defect, one array along.</strong>
+    ///         <see cref="ForwardLightingRenderFeature.MaxLightsPerObject" /> sizes the block the
+    ///         feature writes and <c>ClusteredShading.rvn</c>'s <c>MaxLights</c> sizes the array the
+    ///         shader reads out of it; the feature shipped eight, the shader declares sixteen, the
+    ///         quality tiers ask for four on Low — and nothing carried any of the three to a
+    ///         compiler. <see cref="ForwardLightingRenderFeature.MaxLightsKey" /> says what that
+    ///         disagreement costs and, as importantly, what it does not.
+    ///     </para>
+    ///     <para>
+    ///         <b>The feature's number and not the tier's</b>, which is the same division
+    ///         <see cref="Cascades" /> follows: a tier moves a knob on the host, the host is what
+    ///         sizes the block, and this carries whatever the host ended up with. A host that never
+    ///         read a tier still gets a shader that agrees with it.
+    ///     </para>
+    ///     <para>
+    ///         Over <see cref="splits" />' keys because those are the shading passes the document
+    ///         declared, by the name their variants are qualified with — the same list
+    ///         <see cref="SplitOutputs" /> walks, and the reason it is a dictionary keyed by shader
+    ///         name rather than a bool.
+    ///     </para>
+    /// </remarks>
+    void LightBudget() {
+        // The largest of them, for a host with two draw paths whose budgets differ: the block a
+        // shader is compiled to read has to hold the longest list any feature writes, and a variant
+        // sized to the shorter one would stop early on lights the other had put there. Reading past
+        // is the direction that cannot happen — the count in the block is written by whoever sized
+        // it.
+        var budget = 0;
+
+        foreach (var feature in system.Features) {
+            if (feature is not RootRenderFeature root) {
+                continue;
+            }
+
+            foreach (var subFeature in root.SubFeatures) {
+                if (subFeature is ForwardLightingRenderFeature lighting) {
+                    budget = Math.Max(budget, lighting.MaxLightsPerObject);
+                }
+            }
+        }
+
+        if (budget <= 0) {
+            return;
+        }
+
+        foreach (var shaderName in splits.Keys) {
+            var key = ForwardLightingRenderFeature.MaxLightsKey(shaderName);
+
+            foreach (var feature in system.Features) {
+                if (feature is not RootRenderFeature root) {
+                    continue;
+                }
+
+                foreach (var subFeature in root.SubFeatures) {
+                    if (subFeature is MaterialRenderFeature materials) {
+                        materials.SetPermutation(shaderName, key, budget);
                     }
                 }
             }

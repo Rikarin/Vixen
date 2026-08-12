@@ -782,10 +782,22 @@ public sealed class ForwardFrameTests : IDisposable {
     ///     The per-object block the feature writes is the size the shader declares.
     /// </summary>
     /// <remarks>
-    ///     <see cref="ForwardLightingRenderFeature.MaxLightsPerObject" /> and the shader's
-    ///     <c>MaxLights</c> permutation size the same array from opposite sides, and nothing connects
-    ///     them: a feature that wrote eight into a block sized for sixteen would leave every draw
-    ///     shading with half a block of whatever was there before.
+    ///     <para>
+    ///         <see cref="ForwardLightingRenderFeature.MaxLightsPerObject" /> and the shader's
+    ///         <c>MaxLights</c> permutation size the same array from opposite sides.
+    ///         <see cref="ForwardLightingRenderFeature.MaxLightsKey" /> is what connects them now and
+    ///         <c>CompositorBuilder</c> is what calls it; this fixture pins the shape the two agree
+    ///         about, which is a header and eighty bytes a light.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it used to say about the cost was wrong.</b> "A feature that wrote eight into
+    ///         a block sized for sixteen would leave every draw shading with half a block of whatever
+    ///         was there before" — it would not: the shader's loop is bounded by <c>MaxLights</c> and
+    ///         broken out of at <c>lightCount</c>, and the feature never writes a count longer than
+    ///         the block it sized, so no slot nobody wrote is ever read in either direction. What the
+    ///         disagreement costs is that the shorter of the two silently wins, which
+    ///         <c>MaxLightsDeviceTests</c> measures as a picture.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_per_object_block_is_the_size_the_shader_declared() {

@@ -281,14 +281,17 @@ public sealed record PostFidelityQuality {
 
 /// <summary>Light-list capacities for one tier.</summary>
 /// <remarks>
-///     ⚠ Both entries are carried, not yet consumed: the capacities live on
-///     <c>ForwardLightingRenderFeature</c>, which the host constructs before any document is read.
-///     They land in the preset first so a project's tiers do not change shape when the host learns
-///     to read them; clustered on/off and cookie resolution join them when those knobs exist.
+///     ⚠ <b>One of the two is consumed, and this said neither was.</b> <c>AppGraphics</c> hands
+///     <see cref="MaxLightsPerObject" /> to <c>ForwardLightingRenderFeature</c> before the frame
+///     document is loaded, and <c>CompositorBuilder</c> then compiles the shading passes against a
+///     light array of that length — so Low's four is four in the block <em>and</em> in the shader.
+///     <see cref="MaxLights" /> is still carried and not consumed: nothing caps the scene-wide list,
+///     which is a decision about which lights to drop rather than a number to hand over. Clustered
+///     on/off and cookie resolution join them when those knobs exist.
 /// </remarks>
 [DataContract("LightQuality")]
 public sealed record LightQuality {
-    /// <summary>How many punctual lights the frame packs.</summary>
+    /// <summary>How many punctual lights the frame packs. ⚠ Carried, not yet consumed.</summary>
     public int? MaxLights { get; init; }
 
     /// <summary>How many of them one object may read.</summary>

@@ -1115,6 +1115,79 @@ public class CompositorAssetTests : IDisposable {
     }
 
     /// <summary>
+    ///     The host's per-object light budget reaches the shader the shading pass is compiled from.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The cascade defect above, one array along, and it was live for the same
+    ///         reason.</strong> <c>ClusteredShading.rvn</c> sizes <c>lights[MaxLights]</c> from a
+    ///         permutation declared sixteen,
+    ///         <see cref="ForwardLightingRenderFeature.MaxLightsPerObject" /> sizes the block the
+    ///         feature writes and ships eight, the quality tiers ask for four on Low — and no line of
+    ///         code carried any of the three to a compiler.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it costs is not what the comments said.</b> The shader's loop breaks at
+    ///         <c>lightCount</c> and the feature never writes a count longer than the block it sized,
+    ///         so nothing reads a slot nobody wrote in either direction. What happens is that the
+    ///         shorter of the two wins in silence: a tier asking for four got eight, and the frame
+    ///         bound a 768-byte per-draw range at a block the variant declares 1296 bytes of.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are asserted, for the reason the cascade pair states: the value is what a
+    ///         variant is compiled for, the key is what the effect key is built from, and a value
+    ///         under a key the list does not carry reaches no compiler at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_hosts_light_budget_selects_the_shading_variant() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+
+        // Four, which is the Low tier's number and neither side's default — so an assertion that
+        // passes cannot be passing on eight or on sixteen.
+        using var lighting = new ForwardLightingRenderFeature { MaxLightsPerObject = 4 };
+
+        h.Meshes.Add(lighting);
+        Compose(h, asset);
+
+        var key = ForwardLightingRenderFeature.MaxLightsKey("ForwardPlus");
+
+        Assert.Equal(4, h.Materials.Permutations.Get(key));
+        Assert.Contains(key, h.Materials.PermutationKeys["ForwardPlus"]);
+    }
+
+    /// <summary>
+    ///     And it lands in the effect key, which is the only place it can change anything.
+    /// </summary>
+    /// <remarks>
+    ///     The same claim <see cref="The_count_is_in_the_key_the_shading_variant_was_resolved_from" />
+    ///     makes about the cascades, and the same silent failure it guards against: a permutation the
+    ///     feature holds and the effect key omits is invisible from the collection's side, and the
+    ///     compiler produces the variant the <c>.rvn</c>'s own <c>= 16</c> describes.
+    /// </remarks>
+    [Fact]
+    public void The_light_budget_is_in_the_key_the_shading_variant_was_resolved_from() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+        using var lighting = new ForwardLightingRenderFeature { MaxLightsPerObject = 4 };
+
+        h.Meshes.Add(lighting);
+
+        var compositor = Compose(h, asset);
+        var opaque = h.Builder.Stages["Opaque"];
+
+        var mesh = AddMesh(h, -10f, new Material("ForwardPlus"), opaque.Mask);
+
+        Frame(h, compositor);
+
+        var effect = h.Materials.EffectOf(h.System, mesh);
+
+        Assert.NotNull(effect);
+        Assert.Contains(new KeyValuePair<string, string>("ForwardPlus.MaxLights", "4"), effect!.Key.Values);
+    }
+
+    /// <summary>
     ///     A document's four colour targets are what makes the shading pass write four.
     /// </summary>
     /// <remarks>

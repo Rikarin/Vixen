@@ -127,8 +127,8 @@ public sealed class ForwardLightingRenderFeature
     ///     <para>
     ///         Eight by default, which is the number Stride's forward path settled on and roughly
     ///         where the cost of a longer loop stops being repaid. It sizes the block, so changing it
-    ///         changes every offset — set it before the first frame, and it must match the shader's
-    ///         <c>MaxLights</c> permutation or the shader reads past its own array.
+    ///         changes every offset — set it before the first frame, and it has to match the shader's
+    ///         <c>MaxLights</c> permutation, which <see cref="MaxLightsKey" /> is how a host says.
     ///     </para>
     ///     <para>
     ///         When more lights reach an object than fit, the dimmest are dropped — see
@@ -136,6 +136,51 @@ public sealed class ForwardLightingRenderFeature
     ///     </para>
     /// </remarks>
     public int MaxLightsPerObject { get; set; } = 8;
+
+    /// <summary>
+    ///     The shader permutation that has to carry <see cref="MaxLightsPerObject" />, for the pass named.
+    /// </summary>
+    /// <param name="shaderName">The shading pass, as <see cref="ShaderName" /> names it.</param>
+    /// <returns>The key, interned under <c>&lt;pass&gt;.MaxLights</c>.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <strong><c>CascadeCount</c>'s defect, one array along, and it was live in the same
+    ///         way.</strong> <c>ClusteredShading.rvn</c> declares <c>[Permutation] val MaxLights: int
+    ///         = 16</c> and sizes <c>lights[MaxLights]</c> from it, this feature writes a block sized
+    ///         from its own eight, and nothing joined the two — so every default frame bound a
+    ///         768-byte per-draw range at a block the variant declares 1296 bytes of, and the tiers
+    ///         that ask for four lights an object got eight.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the disagreement is not.</b> The shader's loop is bounded by
+    ///         <c>MaxLights</c> and broken out of at <c>lightCount</c>, and this feature never writes
+    ///         a count larger than the block it sized — so neither side ever reads a slot nobody
+    ///         wrote, whichever is shorter, and the comments here that said it did were wrong. What
+    ///         actually happens is that <em>the shorter of the two silently wins</em>: shorter here
+    ///         and <see cref="Select" /> drops the dimmest lights before they are ever written;
+    ///         shorter in the shader and the loop stops early on lights this feature did write.
+    ///     </para>
+    ///     <para>
+    ///         Given to <c>MaterialRenderFeature.SetPermutation</c>, which registers the key as well
+    ///         as setting the value — a value under a key <c>PermutationKeys</c> does not carry
+    ///         reaches no compiler, and the variant quietly takes the <c>.rvn</c>'s sixteen.
+    ///         <c>CompositorBuilder</c> is what calls this for a document's shading passes.
+    ///     </para>
+    /// </remarks>
+    public static PermutationKey<int> MaxLightsKey(string shaderName) {
+        ArgumentException.ThrowIfNullOrEmpty(shaderName);
+
+        return ParameterKeys.NewPermutation(ShaderDefaultMaxLights, $"{shaderName}.MaxLights");
+    }
+
+    /// <summary>What <c>ClusteredShading.rvn</c> declares <c>MaxLights</c> as.</summary>
+    /// <remarks>
+    ///     The shader's own number rather than this feature's default eight, on
+    ///     <c>ShadowMapRenderer.ShaderDefaultCascades</c>' terms: the default a key is interned with
+    ///     is what a host that never sets one selects on, so it has to be the value the compiler
+    ///     would have used anyway.
+    /// </remarks>
+    const int ShaderDefaultMaxLights = 16;
 
     /// <summary>What a dynamic uniform offset must be a multiple of.</summary>
     /// <remarks>
