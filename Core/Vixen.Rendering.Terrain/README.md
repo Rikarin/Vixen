@@ -120,6 +120,27 @@ and `VP_ANDROID_15_minimums` both require the capability and MoltenVK reports it
 write to `firstInstance` and fails unless the Vulkan backend still asks for the bit — but it cannot
 tell whether *your* pass gated on the capability. That part is yours.
 
+## A renderer that quietly draws something else is worse than one that refuses
+
+`TerrainSceneRenderer` picks between `TerrainLit` and the `Terrain` preview from what the frame
+provides, with no toggle. That is the right design — an editor pane has to draw ground before a game
+exists — but the two are **not interchangeable at any exposure**: the preview fragment returns
+`Albedo() * (0.25 + 0.75 * light)`, a reflectance in [0, 1], where the lit one returns a luminance in
+cd/m². Under a daylight sky that is roughly one nit in a frame metered for thousands.
+
+So the failure mode is *black ground under a correct sky*, at every viewpoint and every hour, with
+`TerrainsDrawn`, `GrassFieldsDrawn` and `FoliageVolumesDrawn` all reporting healthy — because the
+frame really did draw. It was diagnosed as a broken sun, a broken splat and a broken exposure before
+it was diagnosed as the wrong shader, and the reason is that **every counter stays healthy and the
+picture looks like a different bug.** A refusal would have cost one frame; the silence cost weeks.
+
+⚠ **A degrade needs an outside observer, not just a fallback.** `PreviewReason` names the missing
+input in words, and log event 4003 says the same sentence once — on the transition, never per frame —
+through `Logger`, which `TerrainFactory` takes from `CompositorBuilder.Logger`. When you add a
+fallback path here, add the sentence with it: a branch that returns the preview mode without setting
+a reason is the defect this section exists to describe, which is why `DetectMode` cannot return the
+tuple directly and has to go through `Preview(string)`.
+
 ## What was owed, and what is
 
 Everything this section used to list has landed, and the sentence it turned on — *until those land
