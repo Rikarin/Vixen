@@ -494,8 +494,13 @@ public class AssetWatchTests {
     /// <remarks>
     ///     Generously above the 250 ms debounce, because a loaded CI box can take a while to deliver
     ///     a file-system event — and a flaky test is worse than a slow one.
+    ///
+    ///     ⚠ Ten was not generous enough. The Windows leg waited the whole ten seconds for a file it
+    ///     had just written and never saw it, on a runner that had a dozen test assemblies to itself
+    ///     — which is the machine this number exists for. The cost of thirty is thirty seconds on a
+    ///     build where the watcher is genuinely broken, and nothing at all on every other build.
     /// </remarks>
-    static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(10);
+    static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(30);
 
     /// <summary>
     ///     ⚠ <b>The panel used to show the project as it was when the editor started.</b> Saving a
