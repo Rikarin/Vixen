@@ -141,22 +141,110 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public Vector3 BehindScale { get; set; } = Vector3.One;
 
-    /// <summary>The radiance the volume scatters.</summary>
-    public Vector3 SunColour { get; set; } = new(1f, 0.96f, 0.9f);
+    /// <summary>
+    ///     What the sun delivers to the volume, <b>as an illuminance in lux</b>, when <see cref="Sun" />
+    ///     has no directional light in it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An illuminance and never a colour, because the shader multiplies it by a phase
+    ///         function.</b> <c>WaterVolume.InScatter</c> computes
+    ///         <c>(σs⁄σt)·(1−e^−σt·d)·L·p(θ)</c> with <c>p</c> in sr⁻¹, so the only quantity that
+    ///         leaves cd/m² behind is lux — the same identity <c>FogRenderer.SunColour</c> is built on,
+    ///         and the same units <c>RenderLight.Radiance</c> carries for a directional light.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The old default of <c>(1, 0.96, 0.9)</c> was four decades under the frame it was
+    ///         composited into</b>, and that is not a dim lake: the integration is exactly right and
+    ///         lands under the exposure, so the water tonemaps to the same black as a pass that never
+    ///         ran, with the fold, the patch counts, the info texture and this node's build count all
+    ///         reporting success. That is task #119, and it cost a week.
+    ///     </para>
+    ///     <para>
+    ///         Prefer <see cref="Sun" />: the sun that shades the frame, the sun that casts its shadows
+    ///         and the sun this water scatters have to be one fact, and a document cannot carry one.
+    ///         The default is clear midday and is <c>VolumetricFogRenderer.SunColour</c>'s number, so a
+    ///         document with water and fog in it describes one sun.
+    ///     </para>
+    /// </remarks>
+    public Vector3 SunColour { get; set; } = new(90000f, 81000f, 63000f);
 
-    /// <summary>Which way the light travels.</summary>
+    /// <summary>Which way the light travels, when no <see cref="Sun" /> answers.</summary>
+    /// <remarks>
+    ///     ⚠ The forward-scattering peak lands where this points away from. Left at the default the
+    ///     water brightens toward straight up rather than toward whatever lights the scene.
+    /// </remarks>
     public Vector3 SunDirection { get; set; } = new(0f, -1f, 0f);
 
-    /// <summary>What arrives from the whole sky — the term that makes water blue rather than dark.</summary>
+    /// <summary>
+    ///     What arrives from the whole sky, <b>as a radiance in cd/m²</b>, when <see cref="Frame" />
+    ///     has no sky in it — the term that makes water blue rather than dark.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Not decoration, and it was found by measurement rather than reasoned about.</b> A
-    ///     phase function is normalised over the sphere, so a single directional light contributes
-    ///     almost nothing outside its forward peak — a sea with the sun behind the viewer integrates
-    ///     to black, which reads as a hole in the world. The image fixture measured the pass at ten
-    ///     depths and watched every channel go to zero; the arithmetic had been right about the term
-    ///     it had and silent about the one it did not.
+    ///     <para>
+    ///         ⚠ <b>Not decoration, and it was found by measurement rather than reasoned about.</b> A
+    ///         phase function is normalised over the sphere, so a single directional light contributes
+    ///         almost nothing outside its forward peak — a sea with the sun behind the viewer integrates
+    ///         to black, which reads as a hole in the world. The image fixture measured the pass at ten
+    ///         depths and watched every channel go to zero; the arithmetic had been right about the term
+    ///         it had and silent about the one it did not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A radiance rather than an illuminance, and the difference is the phase function.</b>
+    ///         <c>WaterVolume.AmbientInScatter</c> has none — light arriving uniformly from every
+    ///         direction is scattered uniformly whatever <see cref="PhaseG" /> is, because a phase
+    ///         integrates to one — so this goes into the sum in cd/m² directly, where
+    ///         <see cref="SunColour" /> is divided into it by <c>p(θ)</c> first.
+    ///     </para>
+    ///     <para>
+    ///         Prefer <see cref="Frame" />: the physical quantity is the sky's <b>mean radiance</b>,
+    ///         which is a fact of the scene rather than a setting of the document. The default is a
+    ///         clear daylight sky and is <c>FogRenderer.Colour</c>'s number, that being the same
+    ///         quantity for the medium above the surface.
+    ///     </para>
     /// </remarks>
-    public Vector3 SkyColour { get; set; } = new(0.35f, 0.45f, 0.6f);
+    public Vector3 SkyColour { get; set; } = new(1400f, 1680f, 2200f);
+
+    /// <summary>Where the frame's directional light comes from, or null to use the authored pair.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>FogRenderer.Sun</c>'s property, from <c>CompositorBuilder.Sun</c>, which is the source
+    ///         <c>ShadowMapRenderer</c> and <c>VirtualShadowRenderer</c> already fit their cascades
+    ///         along. <c>RenderLight.Direction</c> points the way the light travels and
+    ///         <c>RenderLight.Radiance</c> is, for a directional light, an illuminance in lux — which is
+    ///         what <see cref="SunColour" /> is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is what makes a <c>!Water</c> node in a plain document correct.</b>
+    ///         <see cref="LightFrom" /> does the same thing and needs the host to remember to call it
+    ///         every frame; the factory sets this once and the pass reads it per frame, which is the
+    ///         arrangement task #119's fix should have had.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Availability rather than preference: a source with no directional light in it leaves
+    ///         the authored pair alone rather than blacking the peak out, because a frame between
+    ///         scenes has no sun for a frame or two and water that flashed would be worse than water
+    ///         that lagged.
+    ///     </para>
+    /// </remarks>
+    public ISunSource? Sun { get; set; }
+
+    /// <summary>The frame's own lighting, which is where the sky's mean radiance comes from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Read per frame rather than snapshotted, and it has to be: <c>SceneLighting.Environment</c>
+    ///         is filled by the frame's sky node after the compositor is built, so a copy taken at
+    ///         wire-up is null forever. <c>FogRenderer.Frame</c> takes the same object from the same
+    ///         <c>CompositorBuilder.SceneConstants</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sky term is the environment's mean radiance and not its <c>L00</c>.</b> An SH
+    ///         projection of a uniform environment of radiance <c>L</c> has <c>L00 = L·Y₀·4π</c>, so
+    ///         handing the coefficient over is 3.54× too much sky — a lake that glows, which is exactly
+    ///         the kind of error that hides inside a number nobody has a second source for.
+    ///     </para>
+    /// </remarks>
+    public SceneConstants? Frame { get; set; }
 
     /// <summary>Water against air.</summary>
     /// <remarks>
@@ -280,6 +368,14 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
     ///         Per frame rather than at wire-up, because a level whose sun moves is a lake whose
     ///         scattering peak moves with it. It costs three assignments.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Prefer <see cref="Sun" /> and <see cref="Frame" />, which are this without the
+    ///         remembering.</b> A host that has to call a method every frame is a host that works until
+    ///         somebody writes a second one, and every host but the sample that found the bug omitted
+    ///         it — which is the same black lake with the fix already in the tree. This stays because a
+    ///         host holding a <c>SceneLighting</c> and no <c>SceneConstants</c> has no other route, and
+    ///         because it is what the pass's own tests drive.
+    ///     </para>
     /// </remarks>
     public bool LightFrom(SceneLighting lighting) {
         ArgumentNullException.ThrowIfNull(lighting);
@@ -354,9 +450,14 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
         pass.Parameters.Set(WaterKeys.Absorption, Absorption);
         pass.Parameters.Set(WaterKeys.PhaseG, PhaseG);
         pass.Parameters.Set(WaterKeys.BehindScale, BehindScale);
-        pass.Parameters.Set(WaterKeys.SunColour, SunColour);
-        pass.Parameters.Set(WaterKeys.SunDirection, SunDirection);
-        pass.Parameters.Set(WaterKeys.SkyColour, SkyColour);
+
+        // ⚠ The frame's own sun and sky where there are any, because all three are photometric
+        // quantities of the scene rather than settings of the document. See Lighting.
+        var (direction, sunlight, sky) = Lighting();
+
+        pass.Parameters.Set(WaterKeys.SunColour, sunlight);
+        pass.Parameters.Set(WaterKeys.SunDirection, direction);
+        pass.Parameters.Set(WaterKeys.SkyColour, sky);
         pass.Parameters.Set(WaterKeys.SurfaceF0, SurfaceF0);
         pass.Parameters.Set(WaterKeys.FoamColour, FoamColour);
 
@@ -420,6 +521,42 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
         }
 
         BuildChild(pass, compositor, frame);
+    }
+
+    /// <summary>The three numbers the medium is lit by, from the frame's lighting where it has any.</summary>
+    /// <returns>
+    ///     Which way the light travels, the sun's illuminance in lux, and the sky's radiance in cd/m².
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>All three are photometric quantities of the scene and none of them is a tint.</b>
+    ///         The pass composites into a frame in cd/m², so a triple a colour picker could produce is
+    ///         not a subtle version of the water — it is water four decades under the exposure, which
+    ///         is pixel-for-pixel a pass that never ran. See <see cref="SunColour" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Each falls through to its authored value independently, on <see cref="Sun" />'s rule.
+    ///         A frame between scenes has no sun and no sky for a frame or two, and a lake that went
+    ///         black for them would flash.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is read here rather than at wire-up</b>, because <c>SceneLighting.Environment</c>
+    ///         is filled by the frame's sky node after the compositor is built and a level whose sun
+    ///         moves is a lake whose scattering peak moves with it. <c>FogRenderer.Scattering</c> is
+    ///         the same three lines for the medium above the surface.
+    ///     </para>
+    /// </remarks>
+    (Vector3 Direction, Vector3 Sunlight, Vector3 Sky) Lighting() {
+        var star = Sun?.Sun;
+
+        // ⚠ Y₀ = 0.282095, and Y₀·4π = 3.5449 is what separates a mean radiance from the coefficient
+        // an SH projection stores. `Intensity` is the artistic scale every other ambient term is
+        // multiplied by, so the water reads the sky the rest of the frame is lit by.
+        var sky = Frame?.Lighting?.Environment is { } environment
+            ? environment.Irradiance.L00 * (0.282095f * environment.Intensity)
+            : SkyColour;
+
+        return (star?.Direction ?? SunDirection, star?.Radiance ?? SunColour, sky);
     }
 
     /// <summary>Sizes the tiling, declares its buffer, and points the classifier at both.</summary>

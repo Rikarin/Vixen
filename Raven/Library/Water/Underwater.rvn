@@ -89,9 +89,13 @@ shader Underwater {
     var absorption: float3 = float3(0.35f, 0.06f, 0.02f)
     var phaseG: float = 0.7f
 
-    /// What arrives from the whole sky. ⚠ Without it, everything below the surface is black — see
-    /// `WaterVolume.AmbientInScatter`, which is the term a fixture found missing rather than reasoned about.
-    var skyColour: float3 = float3(0.35f, 0.45f, 0.6f)
+    /// What arrives from the whole sky, **as a radiance in cd/m²**. ⚠ Without it, everything below the
+    /// surface is black — see `WaterVolume.AmbientInScatter`, which is the term a fixture found missing
+    /// rather than reasoned about.
+    ///
+    /// ⚠ **The same number `Water.skyColour` carries, and it has to be.** A sky read differently either
+    /// side of the waterline is a lake that changes colour when the camera crosses it.
+    var skyColour: float3 = float3(1400f, 1680f, 2200f)
 
     /// § D8's scale on what shows through, applied here for the same reason it is applied there.
     var behindScale: float3 = float3(1f)

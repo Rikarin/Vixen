@@ -84,6 +84,8 @@ Vixen.Rendering.Water.UnderwaterRenderer.DistortionScale.get -> float
 Vixen.Rendering.Water.UnderwaterRenderer.DistortionScale.set -> float
 Vixen.Rendering.Water.UnderwaterRenderer.DistortionSpeed.get -> float
 Vixen.Rendering.Water.UnderwaterRenderer.DistortionSpeed.set -> float
+Vixen.Rendering.Water.UnderwaterRenderer.Frame.get -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.Water.UnderwaterRenderer.Frame.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Water.UnderwaterRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Water.UnderwaterRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Water.UnderwaterRenderer.IsSubmerged.get -> bool
@@ -352,6 +354,8 @@ Vixen.Rendering.Water.WaterRenderer.Foam.get -> bool
 Vixen.Rendering.Water.WaterRenderer.Foam.set -> bool
 Vixen.Rendering.Water.WaterRenderer.FoamColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.FoamColour.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Water.WaterRenderer.Frame.get -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.Water.WaterRenderer.Frame.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Water.WaterRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Water.WaterRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Water.WaterRenderer.LightFrom(Vixen.Rendering.Lighting.SceneLighting lighting) -> bool
@@ -370,6 +374,8 @@ Vixen.Rendering.Water.WaterRenderer.Scattering.get -> Vixen.Core.Mathematics.Vec
 Vixen.Rendering.Water.WaterRenderer.Scattering.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.SkyColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.SkyColour.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Water.WaterRenderer.Sun.get -> Vixen.Rendering.Lighting.ISunSource?
+Vixen.Rendering.Water.WaterRenderer.Sun.set -> Vixen.Rendering.Lighting.ISunSource?
 Vixen.Rendering.Water.WaterRenderer.SunColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.SunColour.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Water.WaterRenderer.SunDirection.get -> Vixen.Core.Mathematics.Vector3

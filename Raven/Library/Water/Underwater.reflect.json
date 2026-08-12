@@ -168,7 +168,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.35, 0.45, 0.6"
+              "DefaultValue": "1400, 1680, 2200"
             },
             {
               "Name": "behindScale",
@@ -595,7 +595,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.35, 0.45, 0.6"
+      "DefaultValue": "1400, 1680, 2200"
     },
     {
       "Name": "behindScale",

@@ -106,16 +106,27 @@ shader Water {
     /// adds. One is the physical answer, and below one is a murky river an author wanted darker.
     var behindScale: float3 = float3(1f)
 
-    /// The light the volume scatters — the sun's radiance, and its direction, from the frame.
-    var sunColour: float3 = float3(1f, 0.96f, 0.9f)
+    /// What the sun delivers to the volume, **as an illuminance in lux**, and its direction — both
+    /// from the frame's own sun.
+    ///
+    /// ⚠ **An illuminance and never a colour, because `InScatter` multiplies it by a phase function**
+    /// in sr⁻¹ to reach cd/m². A tint here is not a dim lake: the integration is exactly right and
+    /// lands four decades under the exposure, so the water tonemaps to the same black as a pass that
+    /// never ran. The default is clear midday, and is `VolumetricFog.sunColour`'s number.
+    var sunColour: float3 = float3(90000f, 81000f, 63000f)
     var sunDirection: float3 = float3(0f, -1f, 0f)
 
-    /// What arrives from the whole sky, which is the term that makes water blue rather than dark.
+    /// What arrives from the whole sky, **as a radiance in cd/m²**, which is the term that makes water
+    /// blue rather than dark.
     ///
     /// ⚠ **Not decoration.** A phase function is normalised over the sphere, so a single directional
     /// light contributes almost nothing outside its forward peak — a sea with the sun behind the
     /// viewer would integrate to black. See `WaterVolume.AmbientInScatter`.
-    var skyColour: float3 = float3(0.35f, 0.45f, 0.6f)
+    ///
+    /// ⚠ **A radiance where `sunColour` is an illuminance**, and the difference is that this term has
+    /// no phase function at all — light arriving uniformly from every direction is scattered uniformly
+    /// whatever `phaseG` is. The default is a clear daylight sky, and is `Fog.fogColor`'s number.
+    var skyColour: float3 = float3(1400f, 1680f, 2200f)
 
     /// Water against air. ⚠ Not a base colour — see `SingleLayerWaterShading`.
     var surfaceF0: float = 0.02f

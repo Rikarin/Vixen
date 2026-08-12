@@ -148,8 +148,26 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
     /// <summary>Henyey–Greenstein anisotropy, carried so the medium is one description.</summary>
     public float PhaseG { get; set; } = 0.7f;
 
-    /// <summary>What arrives from the whole sky. ⚠ Without it everything below the surface is black.</summary>
-    public Vector3 SkyColour { get; set; } = new(0.35f, 0.45f, 0.6f);
+    /// <summary>
+    ///     What arrives from the whole sky, <b>as a radiance in cd/m²</b>, when <see cref="Frame" />
+    ///     has no sky in it. ⚠ Without it everything below the surface is black.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The same quantity <c>WaterRenderer.SkyColour</c> is, and it has to hold the same
+    ///     number for the same reason <see cref="Scattering" /> does</b> — a sky that changed value at
+    ///     the waterline is a lake that changes colour when you put your head under. Both defaults are
+    ///     a clear daylight sky, and both prefer the frame's own environment over them.
+    /// </remarks>
+    public Vector3 SkyColour { get; set; } = new(1400f, 1680f, 2200f);
+
+    /// <summary>The frame's own lighting, which is where the sky's mean radiance comes from.</summary>
+    /// <remarks>
+    ///     <c>WaterRenderer.Frame</c>'s property, from the same <c>CompositorBuilder.SceneConstants</c>,
+    ///     read per frame for the same two reasons: the environment is filled by the frame's sky node
+    ///     after the compositor is built, and the mean radiance is <c>L00·Y₀·Intensity</c> rather than
+    ///     the coefficient itself. Null leaves <see cref="SkyColour" /> alone.
+    /// </remarks>
+    public SceneConstants? Frame { get; set; }
 
     /// <summary>§ D8's scale on what shows through.</summary>
     public Vector3 BehindScale { get; set; } = Vector3.One;
@@ -278,7 +296,15 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
         pass.Parameters.Set(UnderwaterKeys.Scattering, Scattering);
         pass.Parameters.Set(UnderwaterKeys.Absorption, Absorption);
         pass.Parameters.Set(UnderwaterKeys.PhaseG, PhaseG);
-        pass.Parameters.Set(UnderwaterKeys.SkyColour, SkyColour);
+        // ⚠ The frame's own sky where there is one, on WaterRenderer.Lighting's terms — the two nodes
+        // integrate the same medium and a sky read differently either side of the waterline is a lake
+        // that changes colour when the camera crosses it.
+        pass.Parameters.Set(
+            UnderwaterKeys.SkyColour,
+            Frame?.Lighting?.Environment is { } environment
+                ? environment.Irradiance.L00 * (0.282095f * environment.Intensity)
+                : SkyColour
+        );
         pass.Parameters.Set(UnderwaterKeys.BehindScale, BehindScale);
         pass.Parameters.Set(UnderwaterKeys.DistortionAmount, DistortionAmount);
         pass.Parameters.Set(UnderwaterKeys.DistortionScale, DistortionScale);
