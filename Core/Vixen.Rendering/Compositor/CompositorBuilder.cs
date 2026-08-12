@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Graphics;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Features;
@@ -142,6 +143,25 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
     /// <summary>Where shader modules come from.</summary>
     public EffectPipelineDescriber? Modules { get; set; }
+
+    /// <summary>Where a node that degrades says so, or null for a build that degrades in silence.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A renderer that quietly draws something else is worse than one that refuses</b>,
+    ///         because every counter stays healthy and the picture looks like a different bug. Several
+    ///         nodes are built to fall back on purpose — an editor pane has to draw ground before a
+    ///         game exists — and the fallback is right; what was missing was any way to tell the two
+    ///         apart from outside. This is the seam a node picks a logger up from at build time, on
+    ///         <see cref="Device" />'s terms: set in a hosted game, null in a test or a tool, and a
+    ///         node that finds it null keeps its old behaviour exactly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not for anything per frame.</b> A node that takes this latches what it has said —
+    ///         see <c>TerrainSceneRenderer.PreviewReason</c> — because a per-frame line about a
+    ///         standing condition is a line nobody reads.
+    ///     </para>
+    /// </remarks>
+    public ILogger? Logger { get; set; }
 
     /// <summary>Where descriptor sets come from.</summary>
     public DescriptorAllocator? Descriptors { get; set; }

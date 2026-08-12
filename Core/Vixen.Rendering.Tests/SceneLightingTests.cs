@@ -3,6 +3,7 @@
 
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
@@ -567,6 +568,105 @@ public sealed class SceneLightingTests : IDisposable {
         Assert.Equal(2, scene.Lighting.Bound);
 
         list.Finish();
+    }
+
+    /// <summary>
+    ///     A frame with no lighting camera says so once, and a frame that has one says nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The degrade is right; the silence was not.</b> <see cref="SceneLighting.Camera" />
+    ///         had exactly two writers in the whole tree and both were unit tests, so in every running
+    ///         game <see cref="ClusterGrid.Apply" /> was never reached and every clustered fragment
+    ///         looked itself up with <c>ClusteredShading.rvn</c>'s declared defaults — a 16:9 camera
+    ///         at ninety degrees horizontal, which is a <em>plausible</em> grid for a camera nobody
+    ///         has. Nothing about the picture said the numbers were missing.
+    ///     </para>
+    ///     <para>
+    ///         Three claims, and the third is the one that makes a log line affordable:
+    ///         <see cref="SceneLighting.Extract" /> runs per shading pass per frame, so a line per
+    ///         call would be a line per pass per frame — which is a log nobody reads about a frame
+    ///         nobody can profile.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_missing_lighting_camera_is_said_once_and_a_healthy_frame_says_nothing() {
+        var effect = Pass();
+        var log = new CaptureLogger();
+        var parameters = new ParameterCollection();
+        var key = ParameterKeys.New<Vector2>($"{ForwardPlusKeys.ShaderName}.tanHalfFov");
+
+        var lighting = new SceneLighting {
+            Logger = log,
+            Camera = new RenderCamera(Vector3.Zero, -Vector3.UnitZ, Vector3.UnitY, MathF.PI / 3f, 16f / 9f, 0.1f, 500f)
+        };
+
+        lighting.Extract(parameters, effect);
+
+        // The healthy path: the grid is written, and nothing is said about it.
+        Assert.True(parameters.Has(key));
+        Assert.Empty(log.Lines);
+
+        lighting.Camera = null;
+
+        for (var pass = 0; pass < 64; pass++) {
+            lighting.Extract(parameters, effect);
+        }
+
+        // ⚠ Once, not once per pass and not once per frame. Sixty-four extracts, one line.
+        var line = Assert.Single(log.Lines);
+
+        Assert.Equal(4004, line.Id);
+        Assert.Equal(LogLevel.Warning, line.Level);
+
+        // It names the input and the pass that noticed, so a reader gets a cause rather than a
+        // symptom — the whole point of the line existing.
+        Assert.Contains("SceneLighting.Camera", line.Message, StringComparison.Ordinal);
+        Assert.Contains(ForwardPlusKeys.ShaderName, line.Message, StringComparison.Ordinal);
+
+        // And it re-arms: a camera that comes back and goes away again is a second degrade, which is
+        // a different event from the first and worth its own line.
+        lighting.Camera = new RenderCamera(Vector3.Zero, -Vector3.UnitZ, Vector3.UnitY, 1f, 1f, 0.1f, 500f);
+        lighting.Extract(parameters, effect);
+
+        Assert.Single(log.Lines);
+
+        lighting.Camera = null;
+        lighting.Extract(parameters, effect);
+
+        Assert.Equal(2, log.Lines.Count);
+    }
+
+    /// <summary>A lighting with no logger degrades exactly as quietly as it always did.</summary>
+    /// <remarks>
+    ///     The other half of the contract, and the reason nothing in a test or a tool had to change:
+    ///     a null logger is the default, and a frame built without one behaves identically.
+    /// </remarks>
+    [Fact]
+    public void A_lighting_with_no_logger_still_degrades_in_silence() {
+        var lighting = new SceneLighting();
+        var parameters = new ParameterCollection();
+
+        lighting.Extract(parameters, Pass());
+
+        Assert.False(parameters.Has(ParameterKeys.New<Vector2>($"{ForwardPlusKeys.ShaderName}.tanHalfFov")));
+    }
+
+    /// <summary>Every line the extract wrote, with the id it wrote it under.</summary>
+    sealed class CaptureLogger : ILogger {
+        public List<(int Id, LogLevel Level, string Message)> Lines { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter
+        ) => Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
     }
 
     sealed class Sunlight : ISunSource {

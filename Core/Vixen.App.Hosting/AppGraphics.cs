@@ -55,6 +55,12 @@ public sealed class AppGraphics : IDisposable {
     readonly GraphicsOptions options;
     readonly Platform.IWindow? window;
     readonly ILogger logger;
+
+    // The render system's own category, deliberately apart from the host's: "which node stopped
+    // lighting itself" is then one filter in the Console panel rather than a search through the
+    // host's startup lines. What speaks on it are the frames that drew and quietly drew something
+    // else — see CompositorBuilder.Logger and SceneLighting.Logger, the two seams it reaches.
+    readonly ILogger renderLogger;
     readonly bool ownsDevice;
 
     ISwapChain? swapChain;
@@ -116,6 +122,7 @@ public sealed class AppGraphics : IDisposable {
         this.ownsDevice = ownsDevice;
 
         logger = logs.CreateLogger("Vixen.App.Graphics");
+        renderLogger = logs.CreateLogger("Vixen.Rendering");
 
         Effects = new();
 
@@ -195,6 +202,14 @@ public sealed class AppGraphics : IDisposable {
         // read the same number rather than three that agree until the frame rate changes.
         Water = new(View);
         WaterClock = new(Water);
+
+        // ⚠ And the builder gets a voice, before any node is built from it. A node that degrades on
+        // purpose — the terrain's preview shading is the case that taught us — used to do it in
+        // total silence, and a renderer that quietly draws something else is worse than one that
+        // refuses: every counter stays healthy and the picture looks like a different bug. Its own
+        // category, so "which node stopped lighting itself" is one filter in the Console panel
+        // rather than a search through the host's own lines.
+        Renderer.Host.Builder.Logger = renderLogger;
 
         // Also before Load, and for a stricter version of the same reason: a node kind nothing has
         // bound is not a warning, it is a CompositorBindingException from inside the build. This is
@@ -596,6 +611,12 @@ public sealed class AppGraphics : IDisposable {
         // this frame" rather than as zero.
         if (Renderer.SceneEnvironment is { } lighting) {
             lighting.Camera = View.Camera;
+
+            // ⚠ And it is now allowed to say so when it is not. The bug above was invisible for the
+            // whole life of the engine because nothing that consumed this member ever complained
+            // about its absence — assigned every frame rather than once because SceneEnvironment is
+            // the renderer's to replace, and a reference compare is what a re-assert costs.
+            lighting.Logger = renderLogger;
         }
 
         AimTheJitter();

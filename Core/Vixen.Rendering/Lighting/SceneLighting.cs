@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Microsoft.Extensions.Logging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Rendering.Diagnostics;
 using Vixen.Shaders;
 
 namespace Vixen.Rendering.Lighting;
@@ -59,6 +61,9 @@ public sealed class SceneLighting {
 
     /// <summary>The shader's name for how the probes are sampled — one sampler for all of them.</summary>
     const string ProbeSamplerName = "probeSampler";
+
+    /// <summary>Whether the missing camera has already been said, so it is said once and not per pass.</summary>
+    bool reportedNoCamera;
 
     /// <summary>The scene's sky, or null for a scene lit by lamps alone.</summary>
     public EnvironmentLight? Environment { get; set; }
@@ -121,6 +126,22 @@ public sealed class SceneLighting {
     /// </remarks>
     public RenderCamera? Camera { get; set; }
 
+    /// <summary>Where a missing input is said out loud, or null to degrade in silence.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A renderer that quietly draws something else is worse than one that refuses</b>, and
+    ///         <see cref="Camera" /> is the case that proved it: it had two writers in the whole tree
+    ///         and both were unit tests, so every running game shaded its clustered lights against
+    ///         <c>ClusteredShading.rvn</c>'s declared defaults instead. Every counter said the frame
+    ///         drew, because it did.
+    ///     </para>
+    ///     <para>
+    ///         Null is the honest default for a <see cref="SceneLighting" /> built by a test or a
+    ///         tool. <c>AppGraphics</c> fills it in a hosted game, beside the camera itself.
+    ///     </para>
+    /// </remarks>
+    public ILogger? Logger { get; set; }
+
     /// <summary>How many probe slots the last extract found the shader had.</summary>
     /// <remarks>Zero for a variant compiled with <c>UseReflectionProbe</c> off, which binds none.</remarks>
     public int Slots { get; private set; }
@@ -168,6 +189,20 @@ public sealed class SceneLighting {
 
         if (Camera is { } camera) {
             ClusterGrid.Apply(parameters, camera, shader);
+            reportedNoCamera = false;
+
+            return;
+        }
+
+        // ⚠ Said, and said once. The degrade itself is right — a view with no camera is an
+        // orthographic one, and writing a made-up grid for it would be worse than writing none — but
+        // until this line existed there was no way to tell a frame that skipped the grid from one
+        // that wrote it, because the shader's defaults are a *valid* 16:9 grid and the picture looks
+        // like a different bug. Latched rather than rate-limited: Extract runs per shading pass per
+        // frame, and the cause is one fact about the scene rather than one per pass.
+        if (Logger is { } log && !reportedNoCamera) {
+            RenderingLog.LightingCameraMissing(log, shader);
+            reportedNoCamera = true;
         }
     }
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Ecs;
@@ -947,6 +948,187 @@ public sealed class TerrainNodeTests : IDisposable {
         Assert.Same(factory.Scene, node.Scene);
         Assert.Equal("SceneHdr", node.Output);
         Assert.Equal("SceneDepth", node.Depth);
+    }
+
+    // ------------------------------------------------------ the degrade says which input is missing
+
+    /// <summary>
+    ///     A frame that falls back to the preview names the missing input, once, and a lit frame is
+    ///     silent.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A renderer that quietly draws something else is worse than one that refuses.</b>
+    ///         The preview fragment returns a reflectance in [0, 1] where the frame wants cd/m² —
+    ///         about one nit against a daylight sky — so the degrade draws as black ground under a
+    ///         correct sky, with <see cref="TerrainSceneRenderer.TerrainsDrawn" /> reporting the
+    ///         terrain drawn, because it was. That combination is why this needs a line and not a
+    ///         counter: every counter was already healthy.
+    ///     </para>
+    ///     <para>
+    ///         Asserted without a device that can shade anything, which is the point: a log line is
+    ///         checkable by forcing the missing input, and does not need a picture to be wrong in.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ThePreviewFallbackNamesTheMissingInputOnce() {
+        var (builder, factory) = Builder();
+        var log = new CaptureLogger();
+
+        builder.Logger = log;
+
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LitDocument));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.Same(log, node.Logger);
+
+        // Sixteen frames of the same wrong frame, because the claim is "once per degrade" and one
+        // frame cannot distinguish that from "once per frame".
+        for (var frame = 0; frame < 16; frame++) {
+            Draw(compositor, shadowAtlas: true);
+        }
+
+        Assert.False(node.Lit);
+
+        // Every one of those frames drew the terrain — the counter is per build, and this is the
+        // combination the line exists for: a healthy counter over a wrong picture.
+        Assert.Equal(1, node.TerrainsDrawn);
+
+        var line = Assert.Single(log.Lines);
+
+        Assert.Equal(4003, line.Id);
+        Assert.Equal(LogLevel.Warning, line.Level);
+
+        // The cause, not the symptom: which input, and what the consequence of drawing anyway is.
+        Assert.Equal("this node has no SceneConstants, which is a builder with no frame wired", node.PreviewReason);
+        Assert.Contains(node.PreviewReason!, line.Message, StringComparison.Ordinal);
+        Assert.Contains("reflectance", line.Message, StringComparison.Ordinal);
+        Assert.Contains("cd/m²", line.Message, StringComparison.Ordinal);
+        Assert.Contains("Ground", line.Message, StringComparison.Ordinal);
+
+        node.Dispose();
+    }
+
+    /// <summary>
+    ///     Each of the three inputs the lit path needs names itself, and a lit frame names nothing.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The camera is the one that was silent for the engine's whole life.</b>
+    ///     <c>SceneLighting.Camera</c> had two writers in the tree and both were unit tests, so this
+    ///     branch was every shipped game's — which is exactly why "the ground fell back" was not
+    ///     enough and "the ground fell back <em>because of this</em>" is what the line has to say.
+    /// </remarks>
+    [Fact]
+    public void EachMissingInputNamesItselfAndALitFrameIsSilent() {
+        var (builder, factory) = Builder();
+        var log = new CaptureLogger();
+        var constants = LitFrame(builder);
+
+        builder.Logger = log;
+
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LitDocument));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        // The lit frame first, so that "it said something" is measured against a run where nothing
+        // did — the ground draws, and the log stays empty.
+        Draw(compositor, shadowAtlas: true);
+
+        Assert.True(node.Lit);
+        Assert.Null(node.PreviewReason);
+        Assert.Empty(log.Lines);
+
+        // Then the camera, alone. Everything else the frame publishes is still there.
+        constants.Lighting!.Camera = null;
+
+        Draw(compositor, shadowAtlas: true);
+
+        Assert.False(node.Lit);
+        Assert.Contains("SceneLighting.Camera", node.PreviewReason!, StringComparison.Ordinal);
+        Assert.Contains("SceneLighting.Camera", Assert.Single(log.Lines).Message, StringComparison.Ordinal);
+
+        // A camera that comes back is a lit frame again, and re-arms the line — the second degrade is
+        // a different event from the first and worth its own.
+        constants.Lighting.Camera = new RenderCamera(
+            new(16f, 40f, 16f), new(0f, -0.5f, 0.5f), new(0f, 1f, 0f), MathF.PI / 3f, 1f, 0.1f, 1000f);
+
+        Draw(compositor, shadowAtlas: true);
+
+        Assert.True(node.Lit);
+        Assert.Single(log.Lines);
+
+        // Away again: a second degrade is a second line, because it is a second event and a reader
+        // watching a game lose its camera mid-session wants both timestamps.
+        constants.Lighting.Camera = null;
+
+        Draw(compositor, shadowAtlas: true);
+
+        Assert.False(node.Lit);
+        Assert.Equal(2, log.Lines.Count);
+
+        // ⚠ And still one line per degrade, not one per frame, after the re-arm.
+        for (var frame = 0; frame < 8; frame++) {
+            Draw(compositor, shadowAtlas: true);
+        }
+
+        Assert.Equal(2, log.Lines.Count);
+
+        node.Dispose();
+        constants.Dispose();
+    }
+
+    /// <summary>A node with no logger falls back exactly as quietly as it always did.</summary>
+    /// <remarks>
+    ///     The other half of the contract. Null is the default and is what an editor or a tool that
+    ///     builds a document with no host behind it gets, so nothing that was silent became noisy.
+    /// </remarks>
+    [Fact]
+    public void ANodeWithNoLoggerFallsBackInSilence() {
+        var (builder, factory) = Builder();
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LitDocument));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        Draw(compositor, shadowAtlas: true);
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        Assert.Null(node.Logger);
+        Assert.False(node.Lit);
+
+        // ⚠ Still inspectable without a logger: the reason is a property, so a frame report or an
+        // editor panel can show the cause in a build that logs nothing at all.
+        Assert.NotNull(node.PreviewReason);
+
+        node.Dispose();
+    }
+
+    /// <summary>Every line a node wrote, with the id it wrote it under.</summary>
+    sealed class CaptureLogger : ILogger {
+        public List<(int Id, LogLevel Level, string Message)> Lines { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter
+        ) => Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
     }
 
     // ------------------------------------------------------------------ fixture

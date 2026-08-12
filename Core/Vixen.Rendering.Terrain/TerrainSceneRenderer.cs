@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Foliage;
@@ -82,6 +83,10 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     (PixelFormat Motion, PixelFormat Depth) velocityFormats;
     float lastTime = -1f;
     bool disposed;
+
+    // Whether the preview degrade has already been said. Latched here rather than counted, because
+    // the answer a reader wants is "why", and "why" does not change once per frame.
+    bool reportedPreview;
 
     /// <summary>The colour target the ground draws into.</summary>
     public required string Output { get; init; }
@@ -229,6 +234,33 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public bool Lit { get; private set; }
 
+    /// <summary>
+    ///     Which input the preview is standing in for, or null on a lit frame.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The degrade is right and the silence was not.</b> <see cref="Lit" /> has always said
+    ///         <em>that</em> the ground fell back; outside this repository's own tests nothing read
+    ///         it, and it never said <em>which</em> of the three inputs was missing. This does, in the
+    ///         words the log line uses, so a frame report or an overlay can show a cause rather than
+    ///         leaving the next person to infer one from a black picture.
+    ///     </para>
+    ///     <para>
+    ///         Cleared the moment the frame provides what was missing, so it describes this frame
+    ///         rather than the worst frame there has ever been.
+    ///     </para>
+    /// </remarks>
+    public string? PreviewReason { get; private set; }
+
+    /// <summary>Where <see cref="PreviewReason" /> is said out loud, or null to fall back in silence.</summary>
+    /// <remarks>
+    ///     Assigned from <c>CompositorBuilder.Logger</c> by <see cref="TerrainFactory" />, which a
+    ///     hosted game fills and a test leaves null. Said once per degrade — see
+    ///     <c>TerrainLog</c>'s remarks for why a per-frame line would be unaffordable and a counter
+    ///     would be unread.
+    /// </remarks>
+    public ILogger? Logger { get; set; }
+
     /// <summary>Whether the ground wrote the frame's split planes as well as its colour.</summary>
     public bool Split { get; private set; }
 
@@ -316,6 +348,12 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         }
 
         (Lit, Split, ClusteredLights) = mode;
+
+        // ⚠ Immediately after the assignment and before the shader resolve, so the line lands even
+        // on a frame that then goes on to wait for the compiler: "the ground is preview-shaded" and
+        // "the ground has no shaders yet" are two different reasons for the same black picture, and
+        // a reader wants to be told which one they are looking at.
+        ReportMode();
 
         if (!ResolveTerrainShaders(frame)) {
             WaitingForShaders = true;
@@ -531,15 +569,32 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     ///     <see cref="Specular" />.
     /// </remarks>
     (bool Lit, bool Split, bool Clustered) DetectMode(CompositorFrame frame) {
-        if (Frame is not { Lighting.Camera: not null } constants) {
-            return (false, false, false);
+        if (Frame is not { } constants) {
+            return Preview("this node has no SceneConstants, which is a builder with no frame wired");
+        }
+
+        if (constants.Lighting is not { } lighting) {
+            return Preview($"the frame's SceneConstants carries no SceneLighting under '{ScenePass}'");
+        }
+
+        // ⚠ The one that was silent for the whole life of the engine. Two writers in the whole tree
+        // and both unit tests, so no shipped game ever left this branch — see docs 39 and the log
+        // event's own row.
+        if (lighting.Camera is null) {
+            return Preview("SceneLighting.Camera is null, so nothing said which camera the frame is lit for");
         }
 
         var cascades = ParameterKeys.New<Matrix4x4>($"{ScenePass}.cascades[0].viewProjection");
 
-        if (!constants.Parameters.Has(cascades) || !frame.Has(ShadowAtlas)) {
-            return (false, false, false);
+        if (!constants.Parameters.Has(cascades)) {
+            return Preview($"no pass published '{ScenePass}.cascades[0].viewProjection', so there are no cascades to sample");
         }
+
+        if (!frame.Has(ShadowAtlas)) {
+            return Preview($"the frame declares no '{ShadowAtlas}' resource for the ground to sample");
+        }
+
+        PreviewReason = null;
 
         var split = frame.Has(Albedo) && frame.Has(Normals) && frame.Has(Specular);
 
@@ -550,6 +605,49 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         var clustered = PublishedBuffer("lightBuffer").IsValid && PublishedBuffer("clusters").IsValid;
 
         return (true, split, clustered);
+    }
+
+    /// <summary>Records why the preview is standing in, and answers the mode that means.</summary>
+    /// <remarks>
+    ///     A method rather than three assignments so that every one of <see cref="DetectMode" />'s
+    ///     refusals has to name its input: a branch that returned the tuple directly would be a
+    ///     silent degrade again, and this is the file that is supposed to have stopped having those.
+    /// </remarks>
+    (bool Lit, bool Split, bool Clustered) Preview(string missing) {
+        PreviewReason = missing;
+
+        return (false, false, false);
+    }
+
+    /// <summary>
+    ///     Says once — not per frame — that the ground is being drawn with something else.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The line this whole arrangement exists for.</b> A renderer that quietly draws
+    ///         something else is worse than one that refuses, because every counter stays healthy and
+    ///         the picture looks like a different bug: the preview shaders return a reflectance in
+    ///         [0, 1] where the frame wants cd/m², which against a daylight sky is about one nit in a
+    ///         picture metered for thousands. Black ground under a correct sky, and
+    ///         <see cref="TerrainsDrawn" /> saying the terrain drew.
+    ///     </para>
+    ///     <para>
+    ///         Latched on the transition rather than rate-limited. A game that never provides a
+    ///         camera pays exactly one line for its whole run; a frame that loses its camera and gets
+    ///         it back says it again, because the second degrade is a different event from the first.
+    ///     </para>
+    /// </remarks>
+    void ReportMode() {
+        if (Lit) {
+            reportedPreview = false;
+
+            return;
+        }
+
+        if (Logger is { } log && !reportedPreview) {
+            TerrainLog.GroundIsPreviewShaded(log, ToString(), PreviewReason ?? "the frame did not say");
+            reportedPreview = true;
+        }
     }
 
     /// <summary>Copies the frame's lighting into the values the lit blocks are written from.</summary>
