@@ -587,7 +587,9 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         var cascades = ParameterKeys.New<Matrix4x4>($"{ScenePass}.cascades[0].viewProjection");
 
         if (!constants.Parameters.Has(cascades)) {
-            return Preview($"no pass published '{ScenePass}.cascades[0].viewProjection', so there are no cascades to sample");
+            return Preview(
+                $"no pass published '{ScenePass}.cascades[0].viewProjection', so there are no cascades to sample"
+            );
         }
 
         if (!frame.Has(ShadowAtlas)) {
