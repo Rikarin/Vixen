@@ -6180,6 +6180,7 @@ static Vixen.Rendering.Ecs.VfxEmitters.Default(Vixen.Core.AssetReference effect)
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes) -> bool
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes, out string? missing) -> bool
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Shaders.ParameterCollection? fallback, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes, out string? missing) -> bool
+static Vixen.Rendering.Features.ForwardLightingRenderFeature.MaxLightsKey(string shaderName) -> Vixen.Shaders.PermutationKey<int>
 static Vixen.Rendering.Features.InstanceParameters.Neutral.get -> Vixen.Rendering.Features.InstanceParameters
 static Vixen.Rendering.Features.InstanceParameters.SizeInBytes.get -> int
 static Vixen.Rendering.GpuClusterCulling.Backfacing(Vixen.Core.Mathematics.Vector3 center, float radius, Vixen.Core.Mathematics.Vector3 axis, float cosine, Vixen.Core.Mathematics.Vector3 eye) -> bool

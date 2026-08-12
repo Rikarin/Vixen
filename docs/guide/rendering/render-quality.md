@@ -60,10 +60,22 @@ document transform would put content IO inside a build that must stay pure. Load
 hands the asset over.
 
 Some entries are carried, not yet consumed, and say so on their doc comments (`DfaoSamples`,
-`SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias` and
+`SurfaceCacheSize`, `TraceScale`, `LightQuality.maxLights`, `VirtualGeometry`, `LodBias` and
 `TextureQuality.ParticleBudgetScale`): they map to systems the compositor does not construct today,
 and they land in the asset first so a project's tiers do not change shape when their consumers
 learn to read them.
+
+`LightQuality.maxLightsPerObject` is consumed, and it takes two steps rather than one because the
+number is agreed with a *shader*. `AppGraphics` hands the resolved value to
+`ForwardLightingRenderFeature.MaxLightsPerObject`, which sizes the per-object block the feature
+writes; `CompositorBuilder` then publishes that same number as the `MaxLights` permutation of every
+shading pass the document declares, because `ClusteredShading.rvn` sizes `lights[MaxLights]` from
+it. Both halves or neither: the shorter of the two wins in silence, so a host that raised its
+budget without publishing it shades with the shader's declared sixteen, and a tier asking for four
+that reached neither drew eight — which is what every tier did before the wire existed. It is the
+same shape as `cascadeCount:`, one array along, and `MaxLightsDeviceTests` measures both
+directions. A game that wants its own budget sets the feature's property after the host has started
+and reloads the frame document, which republishes the permutation from it.
 
 `TextureQuality`'s other two are consumed on the vegetation's terms, by the same host and from the
 same single fold: `streamingPoolMegabytes` and `mipBias` become `WorldRenderer.Textures`, sized
