@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
@@ -145,8 +146,15 @@ public sealed class AssetTerrainSourceTests {
     }
 
     /// <summary>Asks until the load lands, which is what extraction does by asking next frame.</summary>
+    /// <remarks>
+    ///     A deadline rather than a count of attempts, for the reason
+    ///     <c>AssetWaterSourceTests.Settles</c> gives: one second is an idle machine's answer, and
+    ///     this file has failed a CI leg on it too.
+    /// </remarks>
     static bool Settles(Func<bool> landed) {
-        for (var attempt = 0; attempt < 200; attempt++) {
+        var deadline = Stopwatch.StartNew();
+
+        while (deadline.Elapsed < TimeSpan.FromSeconds(30)) {
             if (landed()) {
                 return true;
             }

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core;
@@ -204,7 +205,14 @@ public sealed class WorldRendererTests : IDisposable {
 
         // Long enough for three asynchronous hops and no longer: a count that has to grow to keep this
         // passing is a load that has stopped being asynchronous and started being slow.
-        for (var frame = 0; frame < 16 && renderer.Extraction!.ObjectCount == 0; frame++) {
+        // ⚠ A deadline as well as the count, and the count is no longer the thing that ends it. The
+        // remark above is right that a growing *frame* count means a load has stopped being
+        // asynchronous — but sixteen frames is also about a fifth of a second of wall clock, and on a
+        // CI runner sharing itself with several test assemblies the three hops take longer than that
+        // while remaining perfectly asynchronous. Time is what this was really asserting.
+        var patience = Stopwatch.StartNew();
+
+        while (renderer.Extraction!.ObjectCount == 0 && patience.Elapsed < TimeSpan.FromSeconds(30)) {
             loop.Frame(TimeSpan.FromMilliseconds(16));
 
             var commands = device.BeginCommandList();
@@ -229,13 +237,14 @@ public sealed class WorldRendererTests : IDisposable {
         // name its feature samples, so the feature has something to give a table slot to.
         var key = ParameterKeys.New<TextureViewHandle>("baseColorMap");
 
-        // ⚠ A condition with a cap, the shape the loop above already has, and not a fixed count. The
+        // ⚠ A condition with a deadline, the shape the loop above now has, and not a fixed count. The
         // texture is the last of the three hops and the only one waiting on a page from the streamer,
         // so eight frames is plenty on an idle machine and a coin toss on a loaded one — this is one
-        // of the tests that failed on CI on a different leg most runs. The cap still says the same
-        // thing a fixed count said: a load that needs sixty-four frames has stopped being
-        // asynchronous and started being slow.
-        for (var frame = 0; frame < 64 && !Carries(renderer.Materials.Materials[index], key); frame++) {
+        // of the tests that failed on CI on a different leg most runs, and sixty-four frames was
+        // still only two thirds of a second.
+        patience.Restart();
+
+        while (!Carries(renderer.Materials.Materials[index], key) && patience.Elapsed < TimeSpan.FromSeconds(30)) {
             var commands = device.BeginCommandList();
 
             renderer.Draw(commands);

@@ -413,7 +413,19 @@ public sealed class VirtualGeometryGoldenTests {
         // stream. The cap is what says the streaming stopped converging at all.
         Bitmap picture = default;
 
-        for (var frame = 0; frame < Frames || (clusters.Visibility.RequestedPages > 0 && frame < Frames * 8); frame++) {
+        // ⚠ The condition is the *residency*, not the request count, and that distinction is the whole
+        // bug. `RequestedPages` is what the last readback asked for, and it goes to zero the moment
+        // the traversal's asks have been handed to the loader — with the pages still in flight. A cut
+        // measured there is a cut one level coarse, whose clusters are too large to route, which is
+        // what "a threshold of 16 routed nothing to the software raster" was: not a routing defect,
+        // a picture taken too early. `Loading` counts the arrived-and-unplaced too, which is what
+        // makes waiting on it mean anything.
+        bool Settled() =>
+            clusters.Visibility.RequestedPages == 0
+            && clusters.Residency.PendingRequests == 0
+            && clusters.Residency.Loading == 0;
+
+        for (var frame = 0; frame < Frames || (!Settled() && frame < Frames * 16); frame++) {
             fixture.Graph.Reset();
 
             var built = compositor.Build(fixture.Graph, effects, device);
@@ -422,8 +434,9 @@ public sealed class VirtualGeometryGoldenTests {
         }
 
         Assert.True(
-            clusters.Visibility.RequestedPages == 0,
-            $"The cut still wanted {clusters.Visibility.RequestedPages} page(s) after {Frames * 8} frames."
+            Settled(),
+            $"The stream never settled: {clusters.Visibility.RequestedPages} page(s) wanted, "
+            + $"{clusters.Residency.PendingRequests} queued, {clusters.Residency.Loading} on the way."
         );
 
         softwareClusters = clusters.Visibility.SoftwareClusters;
