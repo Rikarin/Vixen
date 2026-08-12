@@ -167,7 +167,9 @@ the `.vxspline` beside it arrived late and did not. The fold caches the success 
 now, `Arena.Warm`'s blocking loop is gone, and
 `WaterZoneSystemTests.A_spline_that_arrives_late_is_asked_again_and_the_lake_appears` counts the asks
 rather than only the bodies — because a source that answers on the first ask, which is every other
-one in that file, cannot tell the two behaviours apart.
+one in that file, cannot tell the two behaviours apart. A 60-frame headless run of this level is the
+A/B: with the fold as it was and no warm loop it ends `1 zone(s), 0 bod(ies), 1 unresolved spline(s)`,
+and with the fold as it is, `1 zone(s), 1 bod(ies), 0 unresolved spline(s)`.
 
 ⚠ **The water drew nothing for a while, and none of the counters could see why.** The scene folded —
 one zone, one body, nothing unresolved — the field rasterised, `!WaterSurface` submitted its patches,
