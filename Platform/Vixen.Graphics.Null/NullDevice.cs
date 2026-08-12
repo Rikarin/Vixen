@@ -192,6 +192,7 @@ public sealed class NullDevice : IGraphicsDevice {
     readonly HandlePool<GpuQueryPool> queryPools = new();
     readonly HandlePool<GpuAccelerationStructure> accelerationStructures = new();
     readonly Lock gate = new();
+    readonly List<DescriptorWrite>? recordedWrites;
 
     bool disposed;
 
@@ -232,6 +233,7 @@ public sealed class NullDevice : IGraphicsDevice {
         Features = options.Features ?? Everything;
         FramesInFlight = Math.Max(1, options.FramesInFlight);
         Recorder = options.Record ? new CommandRecorder() : null;
+        recordedWrites = options.Record ? [] : null;
         Adapter = new NullAdapter(Features);
 
         GraphicsQueue = new NullSubmitter(QueueKind.Graphics, Recorder);
@@ -241,6 +243,28 @@ public sealed class NullDevice : IGraphicsDevice {
 
     /// <summary>The recorded command stream, or <see langword="null" /> if recording is off.</summary>
     public CommandRecorder? Recorder { get; }
+
+    /// <summary>
+    ///     Every <see cref="DescriptorWrite" /> this device has been given, in order, or
+    ///     <see langword="null" /> if recording is off.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The count is not the interesting fact; the handles are.</b>
+    ///         <see cref="DescriptorWrites" /> already answers "how many", which is what a
+    ///         deduplication test asks. What it cannot answer is <em>what a write points at</em> — and
+    ///         a descriptor that satisfies every check and names nothing is the failure this backend
+    ///         exists to catch without a driver. A host that resolves a binding to a handle it never
+    ///         created writes a well-formed descriptor over a dead slot, and the picture is a black
+    ///         texture rather than an error.
+    ///     </para>
+    ///     <para>
+    ///         Kept beside <see cref="Recorder" /> and off by the same switch, for the same reason: a
+    ///         Null device is a shipping backend as well as a test one, and a server that accumulated
+    ///         every descriptor it was ever handed would run out of memory some hours in.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<DescriptorWrite>? RecordedWrites => recordedWrites;
 
     /// <inheritdoc />
     public IGraphicsAdapter Adapter { get; }
@@ -486,6 +510,7 @@ public sealed class NullDevice : IGraphicsDevice {
             foreach (var write in writes) {
                 Validate(layout, write);
                 DescriptorWrites++;
+                recordedWrites?.Add(write);
             }
         }
     }

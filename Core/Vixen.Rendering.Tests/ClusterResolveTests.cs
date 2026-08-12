@@ -93,14 +93,33 @@ public sealed class ClusterResolveTests : IDisposable {
     }
 
     /// <summary>
-    ///     The split's two planes are filled in every variant — the caller's planes when the split is
-    ///     on, the colour aliased when it is off.
+    ///     The split's three planes are filled in every variant, and with a view that exists — the
+    ///     caller's planes when the split is on, the colour aliased when it is off.
     /// </summary>
     /// <remarks>
-    ///     The fixture's set 2 declares <c>albedoTarget</c> and <c>normalTarget</c> exactly as the
-    ///     reflection does, so <c>EffectSetWriter</c> refuses the whole set if either goes unfilled —
-    ///     which means the assertion here is simply that Prepare still succeeds, with and without
-    ///     planes of its own to bind.
+    ///     <para>
+    ///         The fixture's set 2 declares all three planes exactly as the reflection does, so
+    ///         <c>EffectSetWriter</c> refuses the whole set if any of them goes unfilled — which is why
+    ///         part of the assertion here is that Prepare still succeeds, with and without planes of
+    ///         its own to bind.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That half alone does not catch a forgotten alias, and it used to be the whole
+    ///         test.</b> <c>EffectSetWriter</c> asks whether a name is <em>set</em>, not whether what
+    ///         it is set to exists — so a <c>Prepare</c> that passed the caller's invalid plane
+    ///         straight through instead of aliasing the colour into it produced a complete set of
+    ///         well-formed descriptors, one of which named nothing, and this test passed. Verified by
+    ///         doing exactly that. The absent case was guarded and the wrong-handle case was not,
+    ///         which is the asymmetry worth naming: a set written short refuses every draw and is
+    ///         noticed within a frame, while a descriptor pointing at a dead slot samples black on one
+    ///         backend and is undefined on another.
+    ///     </para>
+    ///     <para>
+    ///         So the handles are checked where they actually land — in the writes the device was
+    ///         handed. A stand-in for a pass that is off is legitimate and this engine uses several,
+    ///         but every one of them is a <em>valid</em> handle standing in for absent data. An
+    ///         invalid one is not a stand-in; it is a binding nobody filled that says it was.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_split_planes_are_filled_in_every_variant() {
@@ -114,22 +133,60 @@ public sealed class ClusterResolveTests : IDisposable {
         var identities = Identities();
         Record(list => tiles.Record(list, identities, new(64, 64)));
 
-        // Off: no planes handed in, the colour aliased into both slots, the set complete.
+        // Off: no planes handed in, the colour aliased into all three slots, the set complete.
         Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64)));
         Assert.Equal(0, resolve.Unresolved);
+        EveryViewNamesSomething();
 
         // On: the caller's own planes.
         resolve.SplitOutputs = true;
 
         Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64), Target(), Target(), Target()));
         Assert.Equal(0, resolve.Unresolved);
+        EveryViewNamesSomething();
 
         // ⚠ And a caller that hands in only the two the split had before the f0 plane: the third
         // slot still has to be filled, because a set is written wholly or not at all and the
-        // alternative to an alias is not a missing plane but every dispatch refused.
+        // alternative to an alias is not a missing plane but every dispatch refused. This is the
+        // case the validity check exists for — the alias that was written once and not extended
+        // when a plane arrived beside it.
         Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64), Target(), Target()));
         Assert.Equal(0, resolve.Unresolved);
+        EveryViewNamesSomething();
     }
+
+    /// <summary>
+    ///     Every texture descriptor the device has been handed so far points at a view that exists.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Over the whole recorded stream rather than the last set, because the claim is about the
+    ///         pass and not about one call: a plane aliased correctly in one variant and forgotten in
+    ///         another is the same defect.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The views and not the buffers, and the reason is about this fixture rather than
+    ///         about the rule.</b> Every storage buffer in the resolve's set comes off
+    ///         <c>GpuClusterVisibility</c>, which creates them in <c>EnsureBuffers</c> — reached only
+    ///         from its own <c>Prepare</c>, which a real frame runs before the resolve's and this
+    ///         fixture does not. So <c>visible</c>, <c>geometry</c>, <c>meshes</c>, <c>residency</c>
+    ///         and <c>clusterMaterials</c> are written here naming nothing, and asserting on them
+    ///         would be asserting on a state no frame has. The views are the handles this test
+    ///         actually hands in, which makes them the ones its arguments are a claim about.
+    ///     </para>
+    /// </remarks>
+    void EveryViewNamesSomething() =>
+        Assert.All(
+            device.RecordedWrites!.Where(
+                write => write.Kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture
+            ),
+            write => Assert.True(
+                write.TextureView.IsValid,
+                $"Binding {write.Binding} was written as a {write.Kind} naming nothing. The set is "
+                + "complete and the descriptor is well-formed, which is exactly why this is not "
+                + "visible anywhere else: a host resolved the name to a handle it never created."
+            )
+        );
 
     /// <summary>
     ///     Each material dispatches against its own bin's arguments, and only the prepared ones dispatch.
