@@ -216,11 +216,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
         // `WorldTransform`, which nothing in the editor writes except the transform pass — so an
         // extraction that ran in the wrong order leaves both of these at the origin with every
         // counter green.
-        var centres = new List<Vector3>();
-
-        foreach (ref var live in objects.All) {
-            centres.Add(live.Bounds.Center);
-        }
+        var centres = Centres(frame);
 
         Assert.Contains(centres, centre => Near(centre, new Vector3(1.5f, 0.5f, 0f)));
         Assert.Contains(centres, centre => Near(centre, new Vector3(-2f, 0.5f, 1f)));
@@ -282,13 +278,34 @@ public sealed class EditorWorldRendererTests : IDisposable {
 
         Assert.Equal(3, frame.ObjectCount);
 
-        var centres = new List<Vector3>();
+        Assert.Contains(Centres(frame), centre => Near(centre, new Vector3(0f, 4f, 0f)));
+    }
 
-        foreach (ref var live in frame.Renderer.Host.System.Objects.All) {
-            centres.Add(live.Bounds.Center);
-        }
+    /// <summary>An entity moved this frame is in the frame where it is now.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The ordering assertion, and it is the reason extraction sits immediately after
+    ///     <c>ResolveTransforms</c>.</b> Both extraction queries read <c>WorldTransform</c> and neither
+    ///     writes one; in a game the phase and the declared access put them after
+    ///     <c>TransformSystem</c>, and the editor has no graph to do that. An extraction that ran first
+    ///     places every object where it was last frame — which is a gizmo drag the viewport follows one
+    ///     frame late, and every counter reports a healthy frame throughout.
+    /// </remarks>
+    [Fact]
+    public void An_entity_moved_this_frame_is_extracted_where_it_is_now() {
+        var session = Running();
+        var frame = session.Application.Frame!;
 
-        Assert.Contains(centres, centre => Near(centre, new Vector3(0f, 4f, 0f)));
+        var entity = session.Scene.CreateShape(PrimitiveKind.Sphere, LocalTransform.At(new Vector3(0f, 4f, 0f)));
+
+        session.Frame();
+
+        Assert.Equal(3, frame.ObjectCount);
+
+        session.Scene.World.Get<LocalTransform>(entity).Position = new Vector3(0f, 12f, 0f);
+        session.Frame();
+
+        Assert.Contains(Centres(frame), centre => Near(centre, new Vector3(0f, 12f, 0f)));
+        Assert.DoesNotContain(Centres(frame), centre => Near(centre, new Vector3(0f, 4f, 0f)));
     }
 
     /// <summary>The stage mask a host sets before extracting is the one the objects carry.</summary>
@@ -398,6 +415,17 @@ public sealed class EditorWorldRendererTests : IDisposable {
     // ------------------------------------------------------------------ helpers
 
     static bool Near(Vector3 left, Vector3 right) => (left - right).Length() < 0.25f;
+
+    /// <summary>Where the frame's objects actually are, which is what an ordering bug moves.</summary>
+    static List<Vector3> Centres(EditorWorldRenderer frame) {
+        var centres = new List<Vector3>();
+
+        foreach (ref var live in frame.Renderer.Host.System.Objects.All) {
+            centres.Add(live.Bounds.Center);
+        }
+
+        return centres;
+    }
 
     string Temporary() {
         var root = Path.Combine(Path.GetTempPath(), "vixen-frame-" + Guid.NewGuid().ToString("N")[..8]);
