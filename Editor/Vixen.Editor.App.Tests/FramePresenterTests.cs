@@ -74,11 +74,92 @@ public sealed class FramePresenterTests : IDisposable {
 
         Assert.Equal(2, frame.ObjectCount);
         Assert.NotEqual(default, frame.Opaque.Mask);
-        Assert.Equal(frame.Opaque.Mask, frame.Stages);
+        Assert.True(frame.Stages.Contains(frame.Opaque.Index), "the shaded stage is not in the extraction mask");
 
         foreach (ref var live in frame.Renderer.Host.System.Objects.All) {
-            Assert.Equal(frame.Opaque.Mask, live.Stages);
+            Assert.Equal(frame.Stages, live.Stages);
         }
+    }
+
+    /// <summary>Every mode's stage is in the mask, not only the mode the pane happens to open in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The union, and it is the assertion the view-mode switch turns on.</b> A mask is copied
+    ///     into a render object as it is created and a settled entity is never extracted again — so a
+    ///     mask carrying only the shaded bit is a pane that draws until somebody picks Wireframe and
+    ///     then draws nothing, while still reporting its two objects, its one light, zero waiting and
+    ///     zero dropped. Every stage the builder made, because a stage a mode might resolve to and a
+    ///     stage the mask covers have to be the same set.
+    /// </remarks>
+    [Fact]
+    public void The_extraction_mask_is_the_union_of_every_modes_stage() {
+        var frame = Running().Application.Frame!;
+        var stages = frame.Renderer.Host.Builder.Stages.Values.ToList();
+
+        // The document declares two: the shaded one and the wireframe one.
+        Assert.True(stages.Count >= 2, $"the document declared {stages.Count} stage(s), so there is no union to make");
+
+        foreach (var stage in stages) {
+            Assert.True(
+                frame.Stages.Contains(stage.Index),
+                $"stage '{stage.Name}' is one a mode can resolve to and no extracted object carries it"
+            );
+        }
+
+        // And the objects carry it, which is the half that a mask set after the first extract fails.
+        foreach (ref var live in frame.Renderer.Host.System.Objects.All) {
+            foreach (var stage in stages) {
+                Assert.True(live.Stages.Contains(stage.Index), $"an object is not in stage '{stage.Name}'");
+            }
+        }
+    }
+
+    /// <summary>A mode with a tree is the compositor's; one without is left to the tool renderer.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Registered</c> and not <c>Resolve</c>, and the difference is the whole choice.</b>
+    ///     <c>Resolve</c> falls back to the shaded tree for any mode, which is right for picking a tree
+    ///     to draw and wrong for asking whether this mode is a compositor's — read that way, every mode
+    ///     would compose and Albedo would draw the shaded picture.
+    /// </remarks>
+    [Fact]
+    public void A_mode_is_the_compositors_only_when_a_tree_was_registered_for_it() {
+        var session = Running();
+        var modes = session.Application.Viewports[0].Modes;
+
+        Assert.Contains(ViewMode.Shaded, modes.Registered);
+
+        // Nothing has authored a tree for these, and they are what the tool renderer draws.
+        Assert.DoesNotContain(ViewMode.Albedo, modes.Registered);
+        Assert.DoesNotContain(ViewMode.Normal, modes.Registered);
+        Assert.DoesNotContain(ViewMode.Roughness, modes.Registered);
+
+        // ⚠ And `Resolve` still answers for all of them, which is why the host may not ask it.
+        Assert.NotNull(modes.Resolve(ViewMode.Albedo));
+        Assert.Same(modes.Resolve(ViewMode.Shaded), modes.Resolve(ViewMode.Albedo));
+    }
+
+    /// <summary>Wireframe is a stage of its own rather than the shaded stage mutated.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because <c>PipelineKey</c> is <c>(Effect, Stage.Index, VertexLayout, Output)</c> and
+    ///     <c>PipelineCache</c> never evicts.</b> A stage's rasterizer is read once, by
+    ///     <c>EffectPipelineDescriber.Describe</c> on the first draw that misses the cache, and baked
+    ///     into a pipeline the key cannot tell from any other state on that stage — so
+    ///     <c>ViewModes.ApplyTo</c> against a stage that has already drawn changes the mode and not the
+    ///     picture. Two indices is what makes the two modes two pipelines.
+    /// </remarks>
+    [Fact]
+    public void Wireframe_is_a_second_stage_and_the_shaded_one_is_left_filled() {
+        var frame = Running().Application.Frame!;
+        var stages = frame.Renderer.Host.Builder.Stages;
+
+        Assert.True(stages.TryGetValue("Wireframe", out var wires), "there is no wireframe stage to draw one with");
+        Assert.NotEqual(frame.Opaque.Index, wires!.Index);
+
+        Assert.Equal(FillMode.Solid, frame.Opaque.Rasterizer.Fill);
+        Assert.Equal(FillMode.Wireframe, wires.Rasterizer.Fill);
+
+        // ⚠ Both faces, because a wireframe view of a closed mesh with the back faces culled is half
+        // the edges — and the half that is missing is the half a modeller is looking for.
+        Assert.Equal(CullMode.None, wires.Rasterizer.Cull);
     }
 
     /// <summary>The host's own graph stays empty, because the pane draws into the window's.</summary>
@@ -234,20 +315,59 @@ public sealed class FramePresenterTests : IDisposable {
     [Fact]
     public void The_tool_pass_loads_the_frames_colour_and_its_depth() {
         var session = Running();
+        var viewport = session.Application.Viewports[0];
+        var frame = session.Application.Frame!;
 
         using var presenter = Presenter(session);
 
-        var sequence = Assert.IsType<SceneRendererSequence>(session.Application.Frame!.Compositor.Game);
-        var pass = Assert.IsType<RenderPassRenderer>(sequence.Children[^1]);
+        var renderer = new UiRenderer(device, Shaders(), new RenderOutput([PixelFormat.Bgra8UNorm]));
 
-        Assert.Equal(LoadAction.Load, pass.Load);
-        Assert.Equal(LoadAction.Load, pass.DepthLoad);
-        Assert.Equal(FramePresenter.DepthTarget, pass.DepthTarget);
-        Assert.Contains(FramePresenter.ColourTarget, pass.ColourTargets);
+        owned.Add(renderer);
 
-        // ⚠ Read-only, which is what keeps the attachment readable by anything after it — and is
-        // true because every pipeline the pass records is depth-tested and never depth-writing.
-        Assert.True(pass.ReadOnlyDepth, "the tool pass claims to write depth, so nothing after it may read it");
+        Assert.True(presenter.Resize(viewport, renderer), "the pane never got a target");
+
+        // ⚠ Both modes, because the tool pass follows whichever tree the mode resolved to. A pass
+        // appended to one tree at construction is a wireframe pane with no grid, no markers and no
+        // gizmo — the modes would differ in a way the mode's name does not mean.
+        foreach (var mode in (ViewMode[]) [ViewMode.Shaded, ViewMode.Wireframe]) {
+            viewport.Modes.Current = mode;
+
+            var graph = new RenderGraph(device);
+
+            using var commands = device.BeginCommandList(QueueKind.Graphics, "pane");
+
+            presenter.Upload(commands, session.Application.Scene, viewport);
+
+            Assert.True(presenter.Declare(graph, viewport, out _), $"the pane declared no frame in {mode}");
+
+            var sequence = Assert.IsType<SceneRendererSequence>(frame.Compositor.Game);
+
+            // The mode's own tree first, this pane's tools after it — and nothing else.
+            Assert.Equal(2, sequence.Children.Count);
+            Assert.Same(viewport.Modes.Resolve(), sequence.Children[0]);
+
+            var pass = Assert.IsType<RenderPassRenderer>(sequence.Children[^1]);
+
+            Assert.Equal(LoadAction.Load, pass.Load);
+            Assert.Equal(LoadAction.Load, pass.DepthLoad);
+            Assert.Equal(FramePresenter.DepthTarget, pass.DepthTarget);
+            Assert.Contains(FramePresenter.ColourTarget, pass.ColourTargets);
+
+            // ⚠ Read-only, which is what keeps the attachment readable by anything after it — and is
+            // true because every pipeline the pass records is depth-tested and never depth-writing.
+            Assert.True(pass.ReadOnlyDepth, "the tool pass claims to write depth, so nothing after it may read it");
+
+            commands.Finish();
+        }
+
+        // ⚠ And the two modes are two different frames rather than one tree with a flag on it.
+        viewport.Modes.Current = ViewMode.Shaded;
+
+        var shaded = viewport.Modes.Resolve();
+
+        viewport.Modes.Current = ViewMode.Wireframe;
+
+        Assert.NotSame(shaded, viewport.Modes.Resolve());
     }
 
     /// <summary>The texture handed to the interface is the one the pane lent the frame.</summary>
