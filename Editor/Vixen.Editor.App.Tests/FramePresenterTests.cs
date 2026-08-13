@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.AssetEditors.Frame;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Graphics;
@@ -220,6 +221,121 @@ public sealed class FramePresenterTests : IDisposable {
                 Assert.True(background.Environment.IsValid, "the rebuilt sky node never got its cube");
             }
         }
+    }
+
+    /// <summary>Opening a frame document points the panes at it, and editing it moves them again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through the registry's <c>Opened</c> and the document's <c>Changed</c>, which both
+    ///     existed and neither of which the viewport listened to.</b> This is the wiring rather than
+    ///     the rebuild — <see cref="A_frame_document_reloaded_reaches_the_objects_that_were_already_extracted" />
+    ///     is the rebuild — and it is separable because a seam that is built and never fed is this
+    ///     tree's commonest defect.
+    /// </remarks>
+    [Fact]
+    public void Opening_a_frame_document_makes_the_panes_draw_it() {
+        var session = Running();
+        var frame = session.Application.Frame!;
+
+        // The editor's own frame, before anybody authored one.
+        Assert.Contains(ViewMode.Wireframe, session.Application.Viewports[0].Modes.Registered);
+
+        var name = "Frame" + StandardFrameDocument.Extension;
+        var path = Path.Combine(session.Project.Paths.Assets, name);
+
+        Directory.CreateDirectory(session.Project.Paths.Assets);
+
+        // A frame with one stage of its own, which is what makes the swap observable at all.
+        File.WriteAllText(
+            path,
+            $"""
+            version: {CompositorBuilder.SupportedVersion}
+            stages:
+              - name: Authored
+            resources:
+              - name: SceneDepth
+                format: Depth32Float
+                usage: DepthStencilTarget
+            game: !Sequence
+              name: Authored frame
+              children:
+                - !RenderPass
+                  name: Shade
+                  colourTargets: [SceneColour]
+                  depthTarget: SceneDepth
+                  children:
+                    - !SingleStage
+                      name: Authored draw
+                      view: Camera
+                      stage: Authored
+
+            """
+        );
+
+        session.Project.Assets.Scan();
+
+        Assert.True(session.Project.Assets.TryGetByPath("Assets/" + name, out var entry));
+
+        session.Editor.OpenAsset(entry.Guid);
+        session.Settle();
+
+        var stages = frame.Renderer.Host.Builder.Stages;
+
+        Assert.True(stages.TryGetValue("Authored", out var authored), "opening the document did not reach the viewport");
+        Assert.True(frame.Stages.Contains(authored!.Index), "the panes are not extracting into the opened frame's stage");
+
+        // ⚠ And the modes were re-registered, so no pane still holds a subtree of the compositor that
+        // was replaced. The document declares no wireframe, so that mode goes back to the tool renderer.
+        var modes = session.Application.Viewports[0].Modes;
+
+        Assert.Contains(ViewMode.Shaded, modes.Registered);
+        Assert.DoesNotContain(ViewMode.Wireframe, modes.Registered);
+        Assert.Same(frame.Compositor.Game, modes.Resolve(ViewMode.Shaded));
+    }
+
+    /// <summary>A frame document this build cannot read is a warning, not a dead editor.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Found by writing the test above with the wrong version number in it, which is the only
+    ///     reason it is here.</b> <c>CompositorBuilder.Build</c> throws <c>NotSupportedException</c> for
+    ///     a document written by another version of the engine — a <em>file's</em> fault rather than a
+    ///     bug — and the rebuild is reached from <c>AssetEditorRegistry.Opened</c>, which is reached
+    ///     from a double-click in the project browser. Uncaught, opening an old <c>.vxcompositor</c>
+    ///     takes the editor down, and the state it leaves is a compositor half-swapped.
+    /// </remarks>
+    [Fact]
+    public void A_frame_document_from_another_version_leaves_the_viewport_drawing() {
+        var session = Running();
+        var frame = session.Application.Frame!;
+        var before = frame.Compositor;
+
+        var name = "Ancient" + StandardFrameDocument.Extension;
+        var path = Path.Combine(session.Project.Paths.Assets, name);
+
+        Directory.CreateDirectory(session.Project.Paths.Assets);
+
+        File.WriteAllText(
+            path,
+            $"""
+            version: {CompositorBuilder.SupportedVersion + 1}
+            stages:
+              - name: Ancient
+
+            """
+        );
+
+        session.Project.Assets.Scan();
+
+        Assert.True(session.Project.Assets.TryGetByPath("Assets/" + name, out var entry));
+
+        // The whole assertion: this returns rather than throwing.
+        session.Editor.OpenAsset(entry.Guid);
+        session.Settle();
+
+        // ⚠ And the frame that worked is still the one installed, rather than half of the one that
+        // did not build. A viewport whose failure outlives the edit that caused it is worse than a
+        // refusal, because there is nothing left to undo it with.
+        Assert.Same(before, frame.Compositor);
+        Assert.Contains(ViewMode.Shaded, session.Application.Viewports[0].Modes.Registered);
+        Assert.Equal(2, frame.ObjectCount);
     }
 
     /// <summary>Wireframe is a stage of its own rather than the shaded stage mutated.</summary>
