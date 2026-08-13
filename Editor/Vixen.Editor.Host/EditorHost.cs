@@ -62,6 +62,22 @@ sealed class EditorHost : IDisposable {
     /// </remarks>
     readonly List<ScenePresenter> scenes = [];
 
+    /// <summary>The compositor-driven presenter for the first pane, while <see cref="Composed" /> is on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>TEMPORARY — this field and <see cref="Composed" /> go away with the view-mode switch.</b>
+    ///     A pane's presenter is chosen per pane, and choosing it is a mode on the viewport that the
+    ///     next increment wires; until then the only way to look at the picture at all is an
+    ///     environment variable, and a pane that draws is worth being able to look at before anything
+    ///     can toggle it. One presenter rather than one per pane for the same reason: the frame
+    ///     document, its stage and its render system are the application's, and splitting them per
+    ///     pane is part of the same increment.
+    /// </remarks>
+    FramePresenter? composed;
+
+    /// <summary>Whether the first scene pane is drawn by a compositor. TEMPORARY — see <see cref="composed" />.</summary>
+    static bool Composed =>
+        Environment.GetEnvironmentVariable("VIXEN_EDITOR_COMPOSED") is "1" or "true" or "TRUE";
+
     /// <summary>The panes' targets this frame, for the interface's pass to declare that it reads.</summary>
     readonly List<GraphTexture> sampled = [];
 
@@ -578,6 +594,23 @@ sealed class EditorHost : IDisposable {
                 var presenter = scenes[index];
                 var viewport = panes[index];
 
+                // ⚠ TEMPORARY, and deliberately the whole of the choosing. The seam is the three
+                // calls below, so a second presenter is a drop-in — what the next increment adds is
+                // a mode on the viewport deciding which, in place of this index-zero test.
+                if (index == 0 && Frames() is { } frames) {
+                    if (!frames.Resize(viewport, renderer)) {
+                        continue;
+                    }
+
+                    frames.Upload(commands, editor.Scene, viewport);
+
+                    if (frames.Declare(graph, viewport, out var composedTarget)) {
+                        sampled.Add(composedTarget);
+                    }
+
+                    continue;
+                }
+
                 if (!presenter.Resize(viewport, renderer)) {
                     continue;
                 }
@@ -728,6 +761,62 @@ sealed class EditorHost : IDisposable {
         }
     }
 
+    /// <summary>The compositor-driven presenter, built the first frame there is a renderer for it.</summary>
+    /// <returns>It, or null when the pane is not composed or the renderer has not been built.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>TEMPORARY — goes with <see cref="composed" />.</b>
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Lazily, because the renderer is the application's and arrives with the device.</b>
+    ///         <c>EnsureDevice</c> hands the device over and <c>EditorApplication.AttachRenderer</c>
+    ///         builds the frame's renderer inside that assignment — but a project whose shaders do not
+    ///         parse leaves it null, which is an ordinary state and not one this may throw on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An image number above every pane's.</b> The scene presenters take one each from
+    ///         one upwards, and a number shared with one of them is two registrations of one id — a
+    ///         pane showing whichever target was registered last.
+    ///     </para>
+    /// </remarks>
+    FramePresenter? Frames() {
+        if (!Composed) {
+            return null;
+        }
+
+        if (composed is not null) {
+            return composed;
+        }
+
+        if (editor.Frame is not { } world) {
+            return null;
+        }
+
+        composed = new FramePresenter(
+            device!,
+            world,
+            new LineShaders(
+                device!.CreateShader(ShaderStage.Vertex, Module("LineVertex.vert.spv"), "line vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("LineFragment.frag.spv"), "line fragment")
+            ) {
+                Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation)
+            },
+            new MeshShaders(
+                device.CreateShader(ShaderStage.Vertex, Module("Mesh.vert.spv"), "mesh vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
+            ) {
+                Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
+            },
+            PixelFormat.Rgba8UNorm,
+            ComposedImage
+        );
+
+        return composed;
+    }
+
+    /// <summary>The image number the composed pane registers under. TEMPORARY.</summary>
+    const ulong ComposedImage = 1024;
+
     /// <summary>Builds one pane's presenter.</summary>
     /// <param name="image">What the interface calls its target.</param>
     /// <remarks>
@@ -851,6 +940,12 @@ sealed class EditorHost : IDisposable {
         // command buffer still names them.
         gpu?.Dispose();
         gpu = null;
+
+        // ⚠ Before the application is told, like the thumbnails above: it holds a target the
+        // interface's registry names and an overlay node in a compositor the renderer owns, and the
+        // renderer goes down inside that assignment.
+        composed?.Dispose();
+        composed = null;
 
         editor.GraphicsDevice = null;
 
