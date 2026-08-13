@@ -118,6 +118,17 @@
         <ProjectReference Include="..\..\Core\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
 
         <!--
+            ⚠ And the post chain, for the two nodes without which a compositor-driven pane is not a
+            picture. `ForwardPlus` shades in cd/m² — an overcast sky is thousands of them — so a frame
+            with no `!Tonemap` in it is every surface clipped to white, which reads as broken lighting
+            rather than as a missing grade; and a frame with no `!Sky` draws the level against the
+            clear colour, which is the same picture as an environment that never reached set 0. Both
+            node kinds live here because this assembly is downstream of `Vixen.Rendering` and a
+            builder that named its types would be a cycle.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+
+        <!--
             And water's, for the terrain reference's reason one subsystem over: `WaterPresenter` runs
             `WaterZoneSystem.Fold` over the scene document's world, which is the *same* fold a game
             runs — docs/plan/35 § D2. A second implementation of it in the editor would be a second

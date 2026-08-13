@@ -7,9 +7,13 @@ using Vixen.Editor.SceneView;
 using Vixen.Engine.Renderer;
 using Vixen.Graphics;
 using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
+using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Editor.App;
 
@@ -50,7 +54,28 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed class EditorWorldRenderer : IDisposable {
+    /// <summary>What the frame document calls the view a pane looks through.</summary>
+    /// <remarks>
+    ///     <c>GraphicsCompositorAsset.Default</c>'s single stage names <c>Camera</c>, and a
+    ///     <c>view:</c> is bound by name as the builder creates the node — so a view registered after
+    ///     the build is one nothing refers to, which is a frame that collects no views and culls
+    ///     everything.
+    /// </remarks>
+    public const string CameraView = "Camera";
+
     readonly LightExtractionSystem lights;
+    readonly IGraphicsDevice device;
+
+    /// <summary>The sky the ambient term and the reflections come out of.</summary>
+    readonly EnvironmentTexture sky;
+
+    /// <summary>The two set-0 bindings the default frame declares and no node in it produces.</summary>
+    readonly TextureHandle shadowStandIn;
+    readonly TextureViewHandle shadowStandInView;
+    readonly BufferHandle shadowStandInStaging;
+    readonly BufferHandle clusterStandIn;
+
+    bool standInsUploaded;
     bool disposed;
 
     /// <summary>Builds the renderer and the bridges into it.</summary>
@@ -68,6 +93,8 @@ sealed class EditorWorldRenderer : IDisposable {
     public EditorWorldRenderer(IGraphicsDevice device, EffectSystem effects, IMeshSource? meshes = null) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(effects);
+
+        this.device = device;
 
         // ⚠ A tenth of the geometry budget a game's default reserves. A scene open in an editor is
         // one level, and the buffers are allocated for real on the device the moment this is built —
@@ -93,7 +120,178 @@ sealed class EditorWorldRenderer : IDisposable {
         };
 
         lights = new(Renderer.Lighting);
+
+        // ⚠ The view before the build, the build before the mask, and the mask before anything
+        // extracts. The first is the builder's rule — a `view:` is bound by name as each node is
+        // created — and the second is `Stages`' own: a stage's index does not exist until a document
+        // declares it, and a mask assigned after the first extraction reaches nothing that is
+        // already in the frame. Both are why the document is built in a constructor rather than by
+        // whichever pane happens to open first.
+        Renderer.Host.Builder.Views[CameraView] = View;
+
+        // The sky before the build, because the ambient term is set 0's and the background node the
+        // build creates has to be handed the cube afterwards.
+        sky = BakeSky(device);
+        Renderer.Environment = sky;
+
+        var ambient = new EnvironmentLight { MipCount = sky.MipCount, Intensity = 1f, Irradiance = SkyIrradiance };
+
+        sky.Apply(ambient);
+        Renderer.SceneEnvironment.Environment = ambient;
+
+        // ⚠ Registered before the build, because a node kind nothing has bound is not a warning —
+        // it is a `CompositorBindingException` out of the middle of the build.
+        Renderer.Host.Builder.Factories.Add(new PostEffectFactory());
+
+        // ⚠ `Builder.Build` rather than `Host.Load`, and the difference is which graph draws.
+        // `Host.Load` would put this compositor in `Host.Compositor`, and `WorldRenderer.Draw` would
+        // then build it into the host's *own* graph and execute it there — a second graph, whose
+        // resources the editor's per-window graph cannot order its interface pass against. Left null,
+        // `Host.Draw` returns immediately and `WorldRenderer.Draw` is exactly the per-frame prologue
+        // a pane needs: the descriptor pools' frame boundary, the geometry residency's flush, the
+        // sky's upload and the set-1 layout. The pane builds this into the window's graph itself.
+        Compositor = Renderer.Host.Builder.Build(Document());
+        Opaque = Renderer.Host.Builder.Stages[OpaqueStage];
+        Stages = Opaque.Mask;
+
+        // ⚠ After the build and not once, because the nodes are made by the builder — a sky node
+        // that never got its cube draws black, which is exactly what a missing background looks
+        // like. A reload of the document would have to do this again.
+        foreach (var node in Renderer.Host.Builder.Nodes.Values) {
+            if (node is SkyRenderer background) {
+                background.Environment = sky.View;
+                background.EnvironmentSampler = sky.Sampler;
+                background.MipCount = sky.MipCount;
+            }
+        }
+
+        (shadowStandIn, shadowStandInView, shadowStandInStaging) = CreateShadowStandIn(device);
+
+        clusterStandIn = device.CreateBuffer(
+            new(ClusterGrid.BufferSize, BufferUsage.Storage, MemoryAccess.HostUpload, "Editor clusters")
+        );
+
+        device.Write(clusterStandIn, 0, new byte[ClusterGrid.BufferSize]);
+
+        // ⚠ Three names, and every one of them is the difference between a picture and a black pane.
+        // `ForwardPlus` declares `shadowMap`, `shadowSampler` and `clusters` whatever its
+        // permutations say — a permutation folds code, not bindings — and `EffectSetWriter` writes a
+        // set whole or not at all. The default frame has neither a shadow node nor a culling
+        // dispatch, so nothing in it produces any of the three, and a set 0 short one binding is not
+        // a frame without shadows: it is every draw in the pass refused.
+        // The cascade matrices are zero, so `CascadeContaining` finds no cascade for any fragment and
+        // the shader answers "fully lit" without ever sampling the map — which is why one white texel
+        // is an honest stand-in rather than a shadow term somebody has to explain.
+        Renderer.SceneBlock.Parameters.Set(ForwardPlusKeys.ShadowMap, shadowStandInView);
+        Renderer.SceneBlock.Parameters.Set(ForwardPlusKeys.ShadowSampler, Renderer.Samplers.PointClamp);
+        Renderer.SceneBlock.Parameters.Set(ForwardPlusKeys.Clusters, clusterStandIn);
     }
+
+    /// <summary>What the editor frame's one stage is called.</summary>
+    const string OpaqueStage = "Opaque";
+
+    /// <summary>The linear target the scene is shaded into, before the curve.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Transient, and it is the reason the pane's own colour is the frame's <em>last</em>
+    ///     target rather than its first.</b> A shading pass writes luminance in cd/m² — an overcast
+    ///     sky is thousands of them — so an 8-bit target here is every surface clipped to white,
+    ///     which reads as "the lighting broke" rather than as "there is no exposure in this frame".
+    /// </remarks>
+    const string HdrTarget = "SceneHdr";
+
+    /// <summary>What the frame is graded at, as an exposure value at ISO 100.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Fixed rather than metered, which is an editor's decision and not a game's.</b> An
+    ///     auto-exposure node eases towards its target over about a second, so a viewport driven by
+    ///     one visibly re-grades itself whenever a designer orbits past a bright surface — and two
+    ///     panes of one scene would settle at different exposures and disagree about the colour of
+    ///     the same wall.
+    /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>Measured off the picture rather than read off the table.</b> Twelve is the documented
+    ///     value for overcast and it grades this frame to 0.89 — a pane whose sky and whose surfaces
+    ///     are twenty sRGB units apart, which reads as fog rather than as a scene. The table names
+    ///     the luminance a <em>subject</em> is at, and a subject lit by nothing but the dome over it
+    ///     sits one albedo below the sky rather than several stops below a sun.
+    /// </remarks>
+    const float Ev100 = 13.5f;
+
+    /// <summary>The frame the pane draws: a sky, one shading pass, and a curve.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>GraphicsCompositorAsset.Default</c> with the two things a picture needs added,
+    ///         and nothing else.</b> That document is one opaque stage into a colour and a depth, and
+    ///         it exists so that "a new project renders something" is true — it is not a frame
+    ///         anybody looks at, because it has no exposure in it and no background.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The names the pane lends are still exactly two.</b> <c>SceneColour</c> is the
+    ///         graded result and <c>SceneDepth</c> is what the shading pass wrote, which is what the
+    ///         tool overlay tests against — the linear intermediate between them is the graph's, so
+    ///         it can be sized, aliased and dropped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The shading pass <em>loads</em> the colour the sky filled.</b> A node that
+    ///         cleared it would draw the background and then wipe it, which is a black frame with
+    ///         correctly lit objects in it — <c>SkyAsset</c>'s own remarks say so.
+    ///     </para>
+    ///     <para>
+    ///         Zero is <em>far</em> under the engine's reversed-Z convention, which every depth state
+    ///         in the engine agrees on.
+    ///     </para>
+    /// </remarks>
+    static GraphicsCompositorAsset Document() =>
+        new() {
+            Version = CompositorBuilder.SupportedVersion,
+            Stages = [new() { Name = OpaqueStage }],
+            Resources = [
+                new() { Name = HdrTarget, Format = PixelFormat.Rgba16Float },
+                new() {
+                    Name = FramePresenter.DepthTarget,
+                    Format = FramePresenter.DepthFormat,
+                    Usage = TextureUsage.DepthStencilTarget
+                }
+            ],
+            Game = new SequenceAsset {
+                Name = "Editor frame",
+                Children = [
+                    new SkyAsset { Name = "Background", Output = HdrTarget, View = CameraView },
+                    new RenderPassAsset {
+                        Name = "Main",
+                        ColourTargets = [HdrTarget],
+                        Load = LoadAction.Load,
+                        DepthTarget = FramePresenter.DepthTarget,
+                        ClearDepth = 0f,
+                        Children = [new SingleStageAsset { Name = OpaqueStage, View = CameraView, Stage = OpaqueStage }]
+                    },
+                    new TonemapAsset {
+                        Name = "Grade",
+                        Source = HdrTarget,
+                        Output = FramePresenter.ColourTarget,
+                        Format = FramePresenter.ColourFormat,
+                        Ev100 = Ev100,
+
+                        // ⚠ Encoded here rather than by the target's format, because the interface
+                        // samples this rather than presenting it — see `EditorHost.Presenter` for the
+                        // same decision on the tool pane. A UNorm-sRGB target would be decoded on the
+                        // way into the interface's shader and encoded again on the way out.
+                        EncodeSrgb = true
+                    }
+                ]
+            }
+        };
+
+    /// <summary>The frame the pane draws, built from the document a project with none falls back to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Built into the caller's graph, not executed here.</b>
+    ///     <c>GraphicsCompositor.Build</c> takes a <c>RenderGraph</c>, resets nothing and runs
+    ///     nothing — so the editor's per-window graph is what a pane hands it, and the interface's
+    ///     pass can then declare that it reads the frame's colour like any other resource.
+    /// </remarks>
+    public GraphicsCompositor Compositor { get; }
+
+    /// <summary>The stage every extracted object is drawn in.</summary>
+    public RenderStage Opaque { get; }
 
     /// <summary>The frame, its features, its descriptor pools and its compositor builder.</summary>
     public WorldRenderer Renderer { get; }
@@ -219,6 +417,136 @@ sealed class EditorWorldRenderer : IDisposable {
         lights.Extract(world);
     }
 
+    /// <summary>Puts the one-off copies the frame's stand-ins need on the list.</summary>
+    /// <param name="commands">The frame's list, open and outside a render pass.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The texel is written, not only the layout, and both are needed.</b> A descriptor
+    ///     written against a sampled image promises the image is in <c>ShaderRead</c> when the draw
+    ///     executes, and the validation layers check that promise whether or not any instruction
+    ///     reads it — so a texture created and never transitioned is a validation error every frame
+    ///     about a resource the shader ignores. <c>WorldRenderer.UploadMissingMap</c> is the same
+    ///     shape for the same reason.
+    /// </remarks>
+    public void Upload(ICommandList commands) {
+        ArgumentNullException.ThrowIfNull(commands);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (standInsUploaded) {
+            return;
+        }
+
+        standInsUploaded = true;
+
+        commands.Barrier(
+            new([], [new TextureBarrier(shadowStandIn, ResourceState.Undefined, ResourceState.CopyDestination)])
+        );
+
+        commands.CopyBufferToTexture(shadowStandInStaging, 0, new(shadowStandIn), new(1, 1, 1));
+
+        commands.Barrier(
+            new([], [new TextureBarrier(shadowStandIn, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+        );
+    }
+
+    /// <summary>Whether the frame's set 0 found everything it needed on its last bind.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one fact a black pane is otherwise missing</b>, and the reason it is surfaced
+    ///     rather than only asserted: a set written short of one binding is never bound at all, so
+    ///     the pass draws with whatever set 0 held before — which on most drivers is a refused draw
+    ///     and on some is a fault. <see cref="MissingBinding" /> says which name had nobody to fill
+    ///     it.
+    /// </remarks>
+    public bool IsComplete => Renderer.SceneBlock.IsComplete;
+
+    /// <summary>Which of set 0's bindings nothing filled, or null when the set is whole.</summary>
+    public string? MissingBinding => Renderer.SceneBlock.MissingBinding;
+
+    /// <summary>One side of the baked sky, before prefiltering.</summary>
+    /// <remarks>
+    ///     Small deliberately, and for <c>ShowcaseFrame</c>'s reason: the convolution is on the CPU at
+    ///     eight importance samples per texel per face per level, and this runs on the frame the
+    ///     editor acquires a device. A gradient has no detail a larger cube would preserve.
+    /// </remarks>
+    const int SkySize = 16;
+
+    /// <summary>How many roughness levels the chain holds.</summary>
+    const int SkyLevels = 4;
+
+    /// <summary>The diffuse half of <see cref="sky" />, projected off the same gradient.</summary>
+    /// <remarks>
+    ///     Off the source rather than off level zero of the chain, which is already convolved with
+    ///     the narrowest lobe — projecting that would give a surface whose ambient and whose
+    ///     reflection disagree, which reads as the wrong roughness rather than as two bakes that do
+    ///     not match.
+    /// </remarks>
+    static ShCoefficients SkyIrradiance { get; set; }
+
+    /// <summary>Bakes the studio sky the editor lights an unlit scene by.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Photometric, in cd/m², because everything downstream is.</b> The shading pass
+    ///         works in real units and a sky authored as a 0–1 tint is a scene a dozen stops under
+    ///         anything the exposure machinery was built for — a pass lit by one is pixel-identical
+    ///         to a pass that never ran.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Overcast rather than a clear sky, and that is an editor's decision rather than a
+    ///         game's.</b> A scene being built has no sun until somebody places one, and a viewport
+    ///         whose default light is a hard key throws a black side on every face of every block a
+    ///         designer is placing. A bright even dome is the light a model is judged under.
+    ///     </para>
+    /// </remarks>
+    static EnvironmentTexture BakeSky(IGraphicsDevice device) {
+        var source = new CubeImage(SkySize);
+
+        for (var face = 0; face < 6; face++) {
+            var image = (CubeFace)face;
+
+            for (var y = 0; y < source.Size; y++) {
+                for (var x = 0; x < source.Size; x++) {
+                    var height = Math.Clamp((source.DirectionOf(image, x, y).Y * 0.5f) + 0.5f, 0f, 1f);
+
+                    // Warm ground and cool zenith, with unequal channels, so a swizzle anywhere in
+                    // the upload is a colour change rather than a shade change. An overcast noon
+                    // zenith is a few thousand cd/m² and the ground bounce is a fraction of it.
+                    source.At(image, x, y) = Vector3.Lerp(
+                        new(900f, 860f, 780f),
+                        new(2_600f, 2_900f, 3_400f),
+                        height
+                    );
+                }
+            }
+        }
+
+        SkyIrradiance = SphericalHarmonics.Project(source);
+
+        return EnvironmentTexture.Bake(device, source, SkyLevels, samples: 8);
+    }
+
+    /// <summary>The one opaque texel the shading pass's <c>shadowMap</c> binding points at.</summary>
+    static (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) CreateShadowStandIn(
+        IGraphicsDevice device
+    ) {
+        var texture = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                1,
+                1,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: "Editor shadow stand-in"
+            )
+        );
+
+        var staging = device.CreateBuffer(
+            new(4, BufferUsage.CopySource, MemoryAccess.HostUpload, "Editor shadow staging")
+        );
+
+        device.Write(staging, 0, [byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue]);
+
+        return (texture, device.CreateTextureView(texture), staging);
+    }
+
     /// <summary>One grey metal-roughness surface, for everything this cannot paint properly.</summary>
     /// <remarks>
     ///     ⚠ <b>Not a placeholder for a missing material — it is the material every mesh in the editor
@@ -255,5 +583,15 @@ sealed class EditorWorldRenderer : IDisposable {
         // renderer owns and releasing one afterwards would be a release against a disposed pool.
         Meshes.Clear();
         Renderer.Dispose();
+
+        // ⚠ And the sky after it. `WorldRenderer.Environment` is a reference the renderer uploads
+        // from and does not own — see that property's own remarks — so destroying the cube while the
+        // renderer still holds it would be a use-after-free on the frame that is going down.
+        sky.Dispose();
+
+        device.Destroy(shadowStandInView);
+        device.Destroy(shadowStandIn);
+        device.Destroy(shadowStandInStaging);
+        device.Destroy(clusterStandIn);
     }
 }
