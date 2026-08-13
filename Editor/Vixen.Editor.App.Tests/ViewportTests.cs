@@ -30,8 +30,10 @@ public class ViewportTests {
 
         Assert.Equal(4, panes.Select(pane => (pane.Camera.Yaw, pane.Camera.Pitch)).Distinct().Count());
 
-        // A view mode is stage state, so a pane that wanted its own needs its own everything — see
-        // `ViewModes.ApplyTo` for what sharing less than the whole pane costs.
+        // ⚠ A view mode is a compositor tree and its stage belongs to the *mode* — two panes in
+        // wireframe share one stage and both draw wireframe. What has to be per pane is the mode
+        // itself, which is what this asserts; see this project's README for why stage-per-pane is
+        // the wrong axis.
         panes[0].Modes.Current = ViewMode.Wireframe;
 
         Assert.Equal(ViewMode.Wireframe, panes[0].Modes.Current);

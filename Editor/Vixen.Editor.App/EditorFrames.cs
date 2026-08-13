@@ -3,7 +3,9 @@
 
 using Microsoft.Extensions.Logging;
 using Vixen.Core.IO.Watch;
+using Vixen.Editor.AssetEditors.Frame;
 using Vixen.Graphics;
+using Vixen.Rendering.Compositor;
 
 namespace Vixen.Editor.App;
 
@@ -85,6 +87,41 @@ sealed partial class EditorApplication {
 
         if (frame.Degraded is { } degraded) {
             log.Write(LogLevel.Information, degraded);
+        }
+
+        RegisterViewModes();
+    }
+
+    /// <summary>Tells every open pane which of its view modes a compositor draws.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole of "a view mode is a compositor", from the side that knows both halves.</b>
+    ///         The trees belong to the renderer and the modes belong to the pane, and this is the only
+    ///         object that holds a reference to each — which is why it is here rather than in the host
+    ///         or in <c>ViewportLayout</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called from three places and it has to be all three.</b> The renderer arrives
+    ///         after the panes on a cold start and before them on every rearrangement, and a rebuilt
+    ///         frame replaces trees that panes are still holding — so it runs when the device arrives,
+    ///         when the arrangement changes, and after a reload. A pane that missed it is one whose
+    ///         View menu still works, still persists, and never changes a pixel.
+    ///     </para>
+    /// </remarks>
+    internal void RegisterViewModes() {
+        foreach (var pane in Viewports) {
+            // ⚠ Cleared first: a rebuild may declare fewer modes than the build before it, and a
+            // registration that outlived its tree names a node of a compositor nothing else refers
+            // to. See `ViewModes.Clear`.
+            pane.Modes.Clear();
+
+            if (frame is null) {
+                continue;
+            }
+
+            foreach (var (mode, tree) in frame.Trees) {
+                pane.Modes.Register(mode, tree);
+            }
         }
     }
 
@@ -202,8 +239,78 @@ sealed partial class EditorApplication {
         log.Write(LogLevel.Warning, $"The viewport's frame drew something other than the document asked for. {reported}");
     }
 
+    /// <summary>The frame document the viewport is drawing, or null for the editor's own.</summary>
+    StandardFrameDocument? authored;
+
+    /// <summary>Starts drawing the panes through a frame document somebody opened, and keeps up with it.</summary>
+    /// <param name="document">The document.</param>
+    /// <remarks>
+    ///     ⚠ <b>Subscribed on open rather than polled, and the event is the document's own.</b>
+    ///     <c>StandardFrameDocument.Changed</c> fires from <c>Restate</c>, which both the inspector's
+    ///     writes and a reload from disk go through — so a knob turned in the panel and a file saved
+    ///     underneath the editor reach the pane by the same path, and neither needs a restart.
+    /// </remarks>
+    internal void Author(StandardFrameDocument document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        if (ReferenceEquals(authored, document)) {
+            return;
+        }
+
+        if (authored is not null) {
+            authored.Changed -= Reframe;
+        }
+
+        authored = document;
+        document.Changed += Reframe;
+
+        Reframe(document);
+    }
+
+    /// <summary>Rebuilds the viewport's frame from the document, and says so if it will not build.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The old frame is kept when the new one would not draw</b>, because the alternative is
+    ///     an editor whose viewport goes dark while somebody is halfway through authoring the frame
+    ///     that made it go dark. <c>Expanded</c> rather than <c>Document</c>: the presets are a
+    ///     document rewrite and the builder applies the same transformer seam either way, so handing
+    ///     over the un-expanded form would be a second opinion of it.
+    /// </remarks>
+    void Reframe(StandardFrameDocument document) {
+        if (frame is null) {
+            return;
+        }
+
+        try {
+            frame.Reload(document.Expanded, scene.World);
+            // ⚠ `NotSupportedException` is in this list because it is the one a *file* causes rather
+            // than a bug: `CompositorBuilder.Build` throws it for a document written by another
+            // version of the engine, and without it a double-click on an old `.vxcompositor` comes
+            // out of `AssetEditorRegistry.Opened` and takes the editor down.
+        } catch (Exception failure)
+            when (failure is InvalidOperationException or CompositorBindingException or NotSupportedException) {
+            log.Write(
+                LogLevel.Warning,
+                $"The viewport kept its own frame: '{document.Title.Value}' would not build. {failure.Message}"
+            );
+
+            return;
+        }
+
+        // ⚠ Every pane, because a rebuild replaces the trees they were registered against — see
+        // `ViewModes.Clear`. A pane that kept the old registration would resolve a subtree of a
+        // compositor nothing else in the editor still refers to.
+        RegisterViewModes();
+
+        log.Write(LogLevel.Information, $"The viewport is drawing '{document.Title.Value}'.");
+    }
+
     /// <summary>Drops everything device-shaped, for the application going down.</summary>
     void DisposeFrames() {
+        if (authored is not null) {
+            authored.Changed -= Reframe;
+            authored = null;
+        }
+
         frame?.Dispose();
         frame = null;
 

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Profiler;
+using Vixen.Editor.SceneView;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
@@ -62,21 +63,24 @@ sealed class EditorHost : IDisposable {
     /// </remarks>
     readonly List<ScenePresenter> scenes = [];
 
-    /// <summary>The compositor-driven presenter for the first pane, while <see cref="Composed" /> is on.</summary>
+    /// <summary>The compositor-driven presenter for each pane, or null for a pane that has no use for one.</summary>
     /// <remarks>
-    ///     ⚠ <b>TEMPORARY — this field and <see cref="Composed" /> go away with the view-mode switch.</b>
-    ///     A pane's presenter is chosen per pane, and choosing it is a mode on the viewport that the
-    ///     next increment wires; until then the only way to look at the picture at all is an
-    ///     environment variable, and a pane that draws is worth being able to look at before anything
-    ///     can toggle it. One presenter rather than one per pane for the same reason: the frame
-    ///     document, its stage and its render system are the application's, and splitting them per
-    ///     pane is part of the same increment.
+    ///     <para>
+    ///         ⚠ <b>Parallel to <see cref="scenes" /> and made on demand</b>, because which kind of
+    ///         presenter a pane wants is its view mode's answer and a mode changes mid-session. A pane
+    ///         that has been composed keeps its presenter while the arrangement holds — the target and
+    ///         the tool pipelines are what it costs, and rebuilding them on every trip through the
+    ///         View menu would be a device allocation per menu click.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>At most one of these draws in a frame, and that is the render view rather than a
+    ///         policy.</b> <c>EditorWorldRenderer</c> holds one <see cref="Vixen.Rendering.RenderView" />
+    ///         — <c>Aim</c> points it at a camera — and one <c>GraphicsCompositor</c> with one set of
+    ///         imports and one reference size. Two panes declaring in the same frame would both draw
+    ///         the second one's camera into the second one's target. See <see cref="Compose" />.
+    ///     </para>
     /// </remarks>
-    FramePresenter? composed;
-
-    /// <summary>Whether the first scene pane is drawn by a compositor. TEMPORARY — see <see cref="composed" />.</summary>
-    static bool Composed =>
-        Environment.GetEnvironmentVariable("VIXEN_EDITOR_COMPOSED") is "1" or "true" or "TRUE";
+    readonly List<FramePresenter?> frames = [];
 
     /// <summary>The panes' targets this frame, for the interface's pass to declare that it reads.</summary>
     readonly List<GraphTexture> sampled = [];
@@ -590,21 +594,22 @@ sealed class EditorHost : IDisposable {
 
             Ensure(panes.Count);
 
+            // ⚠ Decided before the loop, because "the first pane whose mode is a compositor" is a
+            // fact about the arrangement rather than about a pane — and a test written inside the
+            // loop would compose whichever pane happened to be walked first after a rearrangement.
+            var composed = Compose(panes);
+
             for (var index = 0; index < panes.Count && index < scenes.Count; index++) {
-                var presenter = scenes[index];
                 var viewport = panes[index];
 
-                // ⚠ TEMPORARY, and deliberately the whole of the choosing. The seam is the three
-                // calls below, so a second presenter is a drop-in — what the next increment adds is
-                // a mode on the viewport deciding which, in place of this index-zero test.
-                if (index == 0 && Frames() is { } frames) {
-                    if (!frames.Resize(viewport, renderer)) {
+                if (index == composed && Frames(index) is { } composition) {
+                    if (!composition.Resize(viewport, renderer)) {
                         continue;
                     }
 
-                    frames.Upload(commands, editor.Scene, viewport);
+                    composition.Upload(commands, editor.Scene, viewport);
 
-                    if (frames.Declare(graph, viewport, out var composedTarget)) {
+                    if (composition.Declare(graph, viewport, out var composedTarget)) {
                         sampled.Add(composedTarget);
                     }
 
@@ -612,10 +617,12 @@ sealed class EditorHost : IDisposable {
                     // declining halfway through a session — a document reload, a device that lost a
                     // capability. The application is what compares them against last frame's, so
                     // this is a call rather than three thousand console lines a minute.
-                    editor.ReportDegradations(frames.Degradations);
+                    editor.ReportDegradations(composition.Degradations);
 
                     continue;
                 }
+
+                var presenter = scenes[index];
 
                 if (!presenter.Resize(viewport, renderer)) {
                     continue;
@@ -626,6 +633,12 @@ sealed class EditorHost : IDisposable {
                 if (presenter.Declare(graph, viewport, out var target)) {
                     sampled.Add(target);
                 }
+            }
+
+            // ⚠ Reported as empty when no pane is composed, so the last composed pane's reasons stop
+            // being the console's most recent word on a frame nothing is drawing any more.
+            if (composed < 0) {
+                editor.ReportDegradations([]);
             }
         }
 
@@ -719,9 +732,16 @@ sealed class EditorHost : IDisposable {
     ///         use-after-free the validation layers name and the driver does not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Image ids are one-based and are the index plus one.</b> Zero means "no target" to
+    ///         ⚠ <b>Image ids are one-based and there are two per pane.</b> Zero means "no target" to
     ///         <c>Viewport.RenderTarget</c>, which draws the placeholder instead — so a pane numbered
-    ///         zero would be a pane that never shows the scene.
+    ///         zero would be a pane that never shows the scene. See <see cref="Frames" /> for why a
+    ///         pane's two presenters may not share one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The composed presenters shrink with them.</b> A pane's frame presenter owns a
+    ///         colour target, a depth target and three pipelines; left behind when the arrangement
+    ///         shrank, it would keep an image number registered against a view of a texture nothing
+    ///         resizes any more.
     ///     </para>
     /// </remarks>
     void Ensure(int wanted) {
@@ -732,10 +752,15 @@ sealed class EditorHost : IDisposable {
                 scenes[index].Dispose();
                 scenes.RemoveAt(index);
             }
+
+            for (var index = frames.Count - 1; index >= wanted; index--) {
+                frames[index]?.Dispose();
+                frames.RemoveAt(index);
+            }
         }
 
         while (scenes.Count < wanted) {
-            var presenter = Presenter((ulong) scenes.Count + 1);
+            var presenter = Presenter(SceneImage(scenes.Count));
 
             // ⚠ Every pane, and every pane created later. A source set on the first presenter only is
             // a split view where one half draws the level and the other half draws the grid, which
@@ -767,12 +792,53 @@ sealed class EditorHost : IDisposable {
         }
     }
 
-    /// <summary>The compositor-driven presenter, built the first frame there is a renderer for it.</summary>
-    /// <returns>It, or null when the pane is not composed or the renderer has not been built.</returns>
+    /// <summary>Which pane a compositor draws this frame, or −1 for none.</summary>
+    /// <param name="panes">The scene panel's panes, in reading order.</param>
+    /// <returns>An index into <paramref name="panes" />.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>TEMPORARY — goes with <see cref="composed" />.</b>
+    ///         <b><see cref="ViewModes" /> decides, and this is the whole of the decision.</b> A mode
+    ///         with a tree registered for it is a mode the compositor draws; a mode with none is the
+    ///         tool renderer's, which is where wireframe on a device without <c>fillModeNonSolid</c>,
+    ///         albedo, normals and roughness all still live. <c>Registered</c> rather than
+    ///         <c>Resolve</c>, because <c>Resolve</c> falls back to the shaded tree — right for
+    ///         picking a tree to draw, wrong for asking whether this mode is a compositor's at all.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One pane, and the limit is the render view rather than a policy.</b>
+    ///         <c>EditorWorldRenderer</c> holds a single <c>RenderView</c>, a single
+    ///         <c>GraphicsCompositor</c> and therefore a single set of imports and one reference size.
+    ///         Two panes composing in one frame would each aim that view at their own camera, and the
+    ///         second would win for both — two panes showing one camera, which reads as a broken split
+    ///         rather than as a missing feature. The rest keep the tool presenter, which draws.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Lifting it is a view <em>and</em> a stage per pane, not a stage per pane.</b> The
+    ///         stages are already per mode and already unioned into the extraction mask — see
+    ///         <c>EditorWorldRenderer.Adopt</c> — so what is missing is N views bound by name before
+    ///         the build and N sub-frames in the document, one per pane, each into its own colour.
+    ///     </para>
+    /// </remarks>
+    int Compose(IReadOnlyList<SceneViewport> panes) {
+        if (editor.Frame is null) {
+            return -1;
+        }
+
+        for (var index = 0; index < panes.Count; index++) {
+            var modes = panes[index].Modes;
+
+            if (modes.Registered.Contains(modes.Current)) {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>The compositor-driven presenter for a pane, built the first frame it needs one.</summary>
+    /// <param name="index">Which pane.</param>
+    /// <returns>It, or null when the renderer has not been built.</returns>
+    /// <remarks>
     ///     <para>
     ///         ⚠ <b>Lazily, because the renderer is the application's and arrives with the device.</b>
     ///         <c>EnsureDevice</c> hands the device over and <c>EditorApplication.AttachRenderer</c>
@@ -780,25 +846,27 @@ sealed class EditorHost : IDisposable {
     ///         parse leaves it null, which is an ordinary state and not one this may throw on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An image number above every pane's.</b> The scene presenters take one each from
-    ///         one upwards, and a number shared with one of them is two registrations of one id — a
-    ///         pane showing whichever target was registered last.
+    ///         ⚠ <b>Two image numbers per pane, interleaved, because a pane has two presenters and
+    ///         both register.</b> <c>ScenePresenter.Resize</c> re-registers only when the size
+    ///         changed, so a pane whose two presenters shared a number would keep showing the one that
+    ///         registered last however the mode was switched — the split-view failure one layer up.
+    ///         Odd is the tool presenter's, even is the frame's, and zero stays "no target".
     ///     </para>
     /// </remarks>
-    FramePresenter? Frames() {
-        if (!Composed) {
-            return null;
+    FramePresenter? Frames(int index) {
+        while (frames.Count <= index) {
+            frames.Add(null);
         }
 
-        if (composed is not null) {
-            return composed;
+        if (frames[index] is { } existing) {
+            return existing;
         }
 
         if (editor.Frame is not { } world) {
             return null;
         }
 
-        composed = new FramePresenter(
+        var presenter = new FramePresenter(
             device!,
             world,
             new LineShaders(
@@ -814,14 +882,19 @@ sealed class EditorHost : IDisposable {
                 Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
             },
             FramePresenter.ColourFormat,
-            ComposedImage
+            FrameImage(index)
         );
 
-        return composed;
+        frames[index] = presenter;
+
+        return presenter;
     }
 
-    /// <summary>The image number the composed pane registers under. TEMPORARY.</summary>
-    const ulong ComposedImage = 1024;
+    /// <summary>What the interface calls a pane's tool target.</summary>
+    static ulong SceneImage(int index) => ((ulong) index * 2) + 1;
+
+    /// <summary>And its composed one.</summary>
+    static ulong FrameImage(int index) => ((ulong) index * 2) + 2;
 
     /// <summary>Builds one pane's presenter.</summary>
     /// <param name="image">What the interface calls its target.</param>
@@ -947,11 +1020,14 @@ sealed class EditorHost : IDisposable {
         gpu?.Dispose();
         gpu = null;
 
-        // ⚠ Before the application is told, like the thumbnails above: it holds a target the
-        // interface's registry names and an overlay node in a compositor the renderer owns, and the
+        // ⚠ Before the application is told, like the thumbnails above: each holds a target the
+        // interface's registry names and a tool pass wrapping a tree the renderer owns, and the
         // renderer goes down inside that assignment.
-        composed?.Dispose();
-        composed = null;
+        foreach (var pane in frames) {
+            pane?.Dispose();
+        }
+
+        frames.Clear();
 
         editor.GraphicsDevice = null;
 

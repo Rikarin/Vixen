@@ -233,6 +233,18 @@ public sealed class ViewModes {
         trees[mode] = renderer;
     }
 
+    /// <summary>Forgets every registered tree.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a host calls before re-registering after it rebuilt its frame</b>, and leaving it
+    ///     out is worse than it sounds. A tree is a node of a particular <c>GraphicsCompositor</c>'s
+    ///     build; a registration that survived a rebuild names a node of the compositor that was
+    ///     replaced — so the mode resolves to a subtree whose stages, views and attachments belong to
+    ///     a frame nothing else in the editor still refers to. Registering over the top is not enough,
+    ///     because the point of a rebuild is that a document may declare <em>fewer</em> modes than the
+    ///     one before it.
+    /// </remarks>
+    public void Clear() => trees.Clear();
+
     /// <summary>The tree for the current mode.</summary>
     /// <returns>The tree, or the shaded one, or <see langword="null" /> if neither is registered.</returns>
     public SceneRenderer? Resolve() => Resolve(Current);
