@@ -608,6 +608,12 @@ sealed class EditorHost : IDisposable {
                         sampled.Add(composedTarget);
                     }
 
+                    // ⚠ Every frame, because the reasons are per build and a node can start
+                    // declining halfway through a session — a document reload, a device that lost a
+                    // capability. The application is what compares them against last frame's, so
+                    // this is a call rather than three thousand console lines a minute.
+                    editor.ReportDegradations(frames.Degradations);
+
                     continue;
                 }
 
@@ -807,7 +813,7 @@ sealed class EditorHost : IDisposable {
             ) {
                 Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
             },
-            PixelFormat.Rgba8UNorm,
+            FramePresenter.ColourFormat,
             ComposedImage
         );
 

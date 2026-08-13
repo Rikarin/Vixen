@@ -65,6 +65,15 @@ sealed class FramePresenter : IDisposable {
     /// <summary>The depth format, which is the engine's reversed-Z one.</summary>
     public const PixelFormat DepthFormat = PixelFormat.Depth32Float;
 
+    /// <summary>What the graded target is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A colour format the swapchain's is not.</b> The frame is sampled by the interface
+    ///     rather than presented, so it wants a linear target and the grade encodes to sRGB itself —
+    ///     a UNorm-sRGB one would be decoded on the way into the interface's shader and encoded again
+    ///     on the way out, which is a scene visibly washed out next to the panels around it.
+    /// </remarks>
+    public const PixelFormat ColourFormat = PixelFormat.Rgba8UNorm;
+
     /// <summary>What the pass this appends is called, in a degradation report and in a profile.</summary>
     const string OverlayNode = "Tools";
 
@@ -93,6 +102,10 @@ sealed class FramePresenter : IDisposable {
 
     /// <summary>This frame's camera, held between <see cref="Upload" /> and the overlay's record.</summary>
     Matrix4x4 viewProjection = Matrix4x4.Identity;
+
+    /// <summary>The mesh feature's running totals as of the last frame, so the pane can report deltas.</summary>
+    int lastDraws;
+    long lastIndices;
 
     bool disposed;
 
@@ -317,13 +330,24 @@ sealed class FramePresenter : IDisposable {
 
         var stats = viewport.Stats;
 
-        // ⚠ The frame's counts rather than the collector's, and they are the frame's because this
-        // pane's geometry is the render system's: `ObjectCount` is what extraction put in the store
-        // and `Waiting` is what is still resolving, which is the pair that distinguishes an empty
-        // scene from one whose meshes have not been imported yet.
+        // ⚠ The frame's counts rather than the collector's, because this pane's geometry is the
+        // render system's: `ObjectCount` is what extraction put in the store, which is the number
+        // that distinguishes an empty scene from one whose meshes have not been imported yet.
         stats.Entities = world.ObjectCount;
-        stats.Triangles = (int)(world.Renderer.Meshes.IndexCount / 3);
         stats.Segments = (geometry.World.Count + geometry.Overlay.Count) / 2;
+
+        // ⚠ Differences, because `MeshRenderFeature` counts across the renderer's whole life rather
+        // than per frame. Read as totals they are a triangle count that climbs for ever — an overlay
+        // that says "125 720 tris" over two crates, which reads as a scene far heavier than it is and
+        // hides the moment a level actually gets heavy.
+        var draws = world.Renderer.Meshes.DrawCount;
+        var indices = world.Renderer.Meshes.IndexCount;
+
+        stats.Draws = draws - lastDraws;
+        stats.Triangles = (int)((indices - lastIndices) / 3);
+
+        lastDraws = draws;
+        lastIndices = indices;
     }
 
     /// <summary>Declares the frame's passes, and the tool pass over them.</summary>

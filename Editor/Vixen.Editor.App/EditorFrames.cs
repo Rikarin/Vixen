@@ -150,6 +150,58 @@ sealed partial class EditorApplication {
     /// </remarks>
     void ExtractFrame() => frame?.Extract(scene.World);
 
+    /// <summary>What the composed pane's last frame reported, so a repeat is not logged twice.</summary>
+    string? reportedDegradations;
+
+    /// <summary>Says out loud what the frame drew differently than the document asked for.</summary>
+    /// <param name="degradations">
+    ///     <c>GraphicsCompositor.Degradations</c>' pairs, in tree order. Empty is the normal case and
+    ///     is reported once, so that a reader sees the pane recover as well as fail.
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The difference between a preview that is wrong and one that says it is wrong.</b>
+    ///         A node that declined to run draws a picture that is plausible and is not the one the
+    ///         document describes — a reflection pass with no effect system, a clipmap with no field —
+    ///         and nothing else in the frame reports it. Every renderer already had the answer and it
+    ///         was collectable from nowhere until <c>Degradations</c> existed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On change rather than per frame</b>, because this is called from the record loop
+    ///         and a reason that held for a minute would otherwise be three thousand console lines.
+    ///         <see cref="EditorWorldRenderer.Degraded" /> is the separate half and is logged once,
+    ///         where the renderer is built: it is a fact about the host before any document is
+    ///         loaded, so no node could be the condition of it.
+    ///     </para>
+    /// </remarks>
+    internal void ReportDegradations(IReadOnlyList<(string Node, string Reason)> degradations) {
+        ArgumentNullException.ThrowIfNull(degradations);
+
+        var reported = degradations.Count == 0
+            ? string.Empty
+            : string.Join("; ", degradations.Select(pair => $"{pair.Node}: {pair.Reason}"));
+
+        if (reported == reportedDegradations) {
+            return;
+        }
+
+        var first = reportedDegradations is null;
+
+        reportedDegradations = reported;
+
+        if (reported.Length == 0) {
+            // Nothing to say the first time there was never anything wrong; a recovery is worth a
+            // line, because it is what tells a reader the earlier one stopped applying.
+            if (!first) {
+                log.Write(LogLevel.Information, "The viewport's frame is drawing everything it was asked for.");
+            }
+
+            return;
+        }
+
+        log.Write(LogLevel.Warning, $"The viewport's frame drew something other than the document asked for. {reported}");
+    }
+
     /// <summary>Drops everything device-shaped, for the application going down.</summary>
     void DisposeFrames() {
         frame?.Dispose();

@@ -11,6 +11,7 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
+using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
@@ -128,17 +129,8 @@ sealed class EditorWorldRenderer : IDisposable {
         // whichever pane happens to open first.
         Renderer.Host.Builder.Views[CameraView] = View;
 
-        // ⚠ `Builder.Build` rather than `Host.Load`, and the difference is which graph draws.
-        // `Host.Load` would put this compositor in `Host.Compositor`, and `WorldRenderer.Draw` would
-        // then build it into the host's *own* graph and execute it there — a second graph, whose
-        // resources the editor's per-window graph cannot order its interface pass against. Left null,
-        // `Host.Draw` returns immediately and `WorldRenderer.Draw` is exactly the per-frame prologue
-        // a pane needs: the descriptor pools' frame boundary, the geometry residency's flush, the
-        // sky's upload and the set-1 layout. The pane builds this into the window's graph itself.
-        Compositor = Renderer.Host.Builder.Build(GraphicsCompositorAsset.Default);
-        Opaque = Renderer.Host.Builder.Stages[OpaqueStage];
-        Stages = Opaque.Mask;
-
+        // The sky before the build, because the ambient term is set 0's and the background node the
+        // build creates has to be handed the cube afterwards.
         sky = BakeSky(device);
         Renderer.Environment = sky;
 
@@ -146,6 +138,32 @@ sealed class EditorWorldRenderer : IDisposable {
 
         sky.Apply(ambient);
         Renderer.SceneEnvironment.Environment = ambient;
+
+        // ⚠ Registered before the build, because a node kind nothing has bound is not a warning —
+        // it is a `CompositorBindingException` out of the middle of the build.
+        Renderer.Host.Builder.Factories.Add(new PostEffectFactory());
+
+        // ⚠ `Builder.Build` rather than `Host.Load`, and the difference is which graph draws.
+        // `Host.Load` would put this compositor in `Host.Compositor`, and `WorldRenderer.Draw` would
+        // then build it into the host's *own* graph and execute it there — a second graph, whose
+        // resources the editor's per-window graph cannot order its interface pass against. Left null,
+        // `Host.Draw` returns immediately and `WorldRenderer.Draw` is exactly the per-frame prologue
+        // a pane needs: the descriptor pools' frame boundary, the geometry residency's flush, the
+        // sky's upload and the set-1 layout. The pane builds this into the window's graph itself.
+        Compositor = Renderer.Host.Builder.Build(Document());
+        Opaque = Renderer.Host.Builder.Stages[OpaqueStage];
+        Stages = Opaque.Mask;
+
+        // ⚠ After the build and not once, because the nodes are made by the builder — a sky node
+        // that never got its cube draws black, which is exactly what a missing background looks
+        // like. A reload of the document would have to do this again.
+        foreach (var node in Renderer.Host.Builder.Nodes.Values) {
+            if (node is SkyRenderer background) {
+                background.Environment = sky.View;
+                background.EnvironmentSampler = sky.Sampler;
+                background.MipCount = sky.MipCount;
+            }
+        }
 
         (shadowStandIn, shadowStandInView, shadowStandInStaging) = CreateShadowStandIn(device);
 
@@ -169,8 +187,99 @@ sealed class EditorWorldRenderer : IDisposable {
         Renderer.SceneBlock.Parameters.Set(ForwardPlusKeys.Clusters, clusterStandIn);
     }
 
-    /// <summary>What the default frame's one stage is called.</summary>
+    /// <summary>What the editor frame's one stage is called.</summary>
     const string OpaqueStage = "Opaque";
+
+    /// <summary>The linear target the scene is shaded into, before the curve.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Transient, and it is the reason the pane's own colour is the frame's <em>last</em>
+    ///     target rather than its first.</b> A shading pass writes luminance in cd/m² — an overcast
+    ///     sky is thousands of them — so an 8-bit target here is every surface clipped to white,
+    ///     which reads as "the lighting broke" rather than as "there is no exposure in this frame".
+    /// </remarks>
+    const string HdrTarget = "SceneHdr";
+
+    /// <summary>What the frame is graded at, as an exposure value at ISO 100.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Fixed rather than metered, which is an editor's decision and not a game's.</b> An
+    ///     auto-exposure node eases towards its target over about a second, so a viewport driven by
+    ///     one visibly re-grades itself whenever a designer orbits past a bright surface — and two
+    ///     panes of one scene would settle at different exposures and disagree about the colour of
+    ///     the same wall.
+    /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>Measured off the picture rather than read off the table.</b> Twelve is the documented
+    ///     value for overcast and it grades this frame to 0.89 — a pane whose sky and whose surfaces
+    ///     are twenty sRGB units apart, which reads as fog rather than as a scene. The table names
+    ///     the luminance a <em>subject</em> is at, and a subject lit by nothing but the dome over it
+    ///     sits one albedo below the sky rather than several stops below a sun.
+    /// </remarks>
+    const float Ev100 = 13.5f;
+
+    /// <summary>The frame the pane draws: a sky, one shading pass, and a curve.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>GraphicsCompositorAsset.Default</c> with the two things a picture needs added,
+    ///         and nothing else.</b> That document is one opaque stage into a colour and a depth, and
+    ///         it exists so that "a new project renders something" is true — it is not a frame
+    ///         anybody looks at, because it has no exposure in it and no background.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The names the pane lends are still exactly two.</b> <c>SceneColour</c> is the
+    ///         graded result and <c>SceneDepth</c> is what the shading pass wrote, which is what the
+    ///         tool overlay tests against — the linear intermediate between them is the graph's, so
+    ///         it can be sized, aliased and dropped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The shading pass <em>loads</em> the colour the sky filled.</b> A node that
+    ///         cleared it would draw the background and then wipe it, which is a black frame with
+    ///         correctly lit objects in it — <c>SkyAsset</c>'s own remarks say so.
+    ///     </para>
+    ///     <para>
+    ///         Zero is <em>far</em> under the engine's reversed-Z convention, which every depth state
+    ///         in the engine agrees on.
+    ///     </para>
+    /// </remarks>
+    static GraphicsCompositorAsset Document() =>
+        new() {
+            Version = CompositorBuilder.SupportedVersion,
+            Stages = [new() { Name = OpaqueStage }],
+            Resources = [
+                new() { Name = HdrTarget, Format = PixelFormat.Rgba16Float },
+                new() {
+                    Name = FramePresenter.DepthTarget,
+                    Format = FramePresenter.DepthFormat,
+                    Usage = TextureUsage.DepthStencilTarget
+                }
+            ],
+            Game = new SequenceAsset {
+                Name = "Editor frame",
+                Children = [
+                    new SkyAsset { Name = "Background", Output = HdrTarget, View = CameraView },
+                    new RenderPassAsset {
+                        Name = "Main",
+                        ColourTargets = [HdrTarget],
+                        Load = LoadAction.Load,
+                        DepthTarget = FramePresenter.DepthTarget,
+                        ClearDepth = 0f,
+                        Children = [new SingleStageAsset { Name = OpaqueStage, View = CameraView, Stage = OpaqueStage }]
+                    },
+                    new TonemapAsset {
+                        Name = "Grade",
+                        Source = HdrTarget,
+                        Output = FramePresenter.ColourTarget,
+                        Format = FramePresenter.ColourFormat,
+                        Ev100 = Ev100,
+
+                        // ⚠ Encoded here rather than by the target's format, because the interface
+                        // samples this rather than presenting it — see `EditorHost.Presenter` for the
+                        // same decision on the tool pane. A UNorm-sRGB target would be decoded on the
+                        // way into the interface's shader and encoded again on the way out.
+                        EncodeSrgb = true
+                    }
+                ]
+            }
+        };
 
     /// <summary>The frame the pane draws, built from the document a project with none falls back to.</summary>
     /// <remarks>
