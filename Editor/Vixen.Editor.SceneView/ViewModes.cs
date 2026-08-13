@@ -261,12 +261,22 @@ public sealed class ViewModes {
     /// <param name="stage">The stage the scene's geometry is drawn in.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This mutates the stage, and the stage is shared.</b> A viewport that set this and
-    ///         a second viewport in shaded mode would both draw wireframe, because a stage belongs to
-    ///         the render system rather than to a view. A four-pane layout with independent render
-    ///         modes therefore needs a stage per pane, which is what <see cref="ViewportLayout" />
-    ///         does — said here because the alternative fails silently and only in the layout nobody
-    ///         tests first.
+    ///         ⚠ <b>Called once, on a stage of the mode's own, before that stage has ever drawn.</b>
+    ///         This paragraph used to say a four-pane layout needs a stage per <em>pane</em>, and that
+    ///         is wrong twice over. <c>PipelineKey</c> is <c>(Effect, Stage.Index, VertexLayout,
+    ///         Output)</c> — the stage's <em>index</em>, not its state — and <c>PipelineCache</c> never
+    ///         evicts, so the blend, depth and raster set here are read exactly once, by
+    ///         <c>EffectPipelineDescriber.Describe</c> on the first cache miss, and baked in. Mutating
+    ///         a stage that has already drawn changes the mode and not the picture.
+    ///     </para>
+    ///     <para>
+    ///         So a stage belongs to the <b>mode</b>: two panes in wireframe share one and both draw
+    ///         wireframe correctly, a pane in shaded is on a different index and gets a different
+    ///         pipeline, and the count scales with the modes rather than the panes. What that costs is
+    ///         that the extraction mask has to be the union of every mode's stage, set before the
+    ///         first extraction — a stage bit is copied into an object as it is created and a settled
+    ///         entity is never re-extracted, so a mask narrowed to the shaded stage is a pane that
+    ///         draws nothing the moment somebody picks Wireframe, with every count still healthy.
     ///     </para>
     ///     <para>
     ///         Overdraw is additive with the depth test off, so every fragment that <i>would</i> have
