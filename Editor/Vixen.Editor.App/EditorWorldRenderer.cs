@@ -151,11 +151,9 @@ sealed class EditorWorldRenderer : IDisposable {
         // `Host.Draw` returns immediately and `WorldRenderer.Draw` is exactly the per-frame prologue
         // a pane needs: the descriptor pools' frame boundary, the geometry residency's flush, the
         // sky's upload and the set-1 layout. The pane builds this into the window's graph itself.
-        Compositor = Renderer.Host.Builder.Build(Document());
-
-        // ⚠ Everything below is what a rebuild has to do again, which is why it is one call rather
-        // than a run of statements in a constructor. See `Reload`.
-        Adopt();
+        // ⚠ Everything `Adopt` does is what a rebuild has to do again, which is why it is one call
+        // rather than a run of statements in a constructor. See `Reload`.
+        Compositor = Adopt(Renderer.Host.Builder.Build(Document()));
 
         (shadowStandIn, shadowStandInView, shadowStandInStaging) = CreateShadowStandIn(device);
 
@@ -454,10 +452,18 @@ sealed class EditorWorldRenderer : IDisposable {
     ///     </para>
     /// </remarks>
     [MemberNotNull(nameof(Opaque))]
-    void Adopt() {
+    GraphicsCompositor Adopt(GraphicsCompositor built) {
         var builder = Renderer.Host.Builder;
 
-        Opaque = builder.Stages[OpaqueStage];
+        // ⚠ By name, then whatever the document called its first stage, then a refusal. A frame that
+        // declares no stage at all draws its background and none of the scene — which is a picture,
+        // and therefore the kind of failure that gets attributed to the lighting.
+        Opaque = builder.Stages.TryGetValue(OpaqueStage, out var opaque)
+            ? opaque
+            : builder.Stages.Values.FirstOrDefault()
+            ?? throw new InvalidOperationException(
+                "This frame document declares no render stage, so nothing in the scene would be drawn."
+            );
 
         // ⚠ The union of every stage a mode might draw in, not the current mode's. A mask is copied
         // into a render object as it is created and a settled entity is never extracted again — so a
@@ -485,8 +491,14 @@ sealed class EditorWorldRenderer : IDisposable {
 
         trees.Clear();
 
+        // ⚠ The named subtree when this is the editor's own document, and the whole frame when it is
+        // a project's. A `.vxcompositor` knows nothing about the editor's mode names, and refusing to
+        // register anything for it would be a pane that falls back to the tool renderer the moment
+        // somebody opens the frame they are authoring — which is the one moment they want to see it.
         if (builder.Nodes.TryGetValue(ShadedTree, out var shaded)) {
             trees[ViewMode.Shaded] = shaded;
+        } else if (built.Game is { } whole) {
+            trees[ViewMode.Shaded] = whole;
         }
 
         // ⚠ Registered only where the device can draw it — see `Trees`. A tree that filled solid
@@ -499,6 +511,8 @@ sealed class EditorWorldRenderer : IDisposable {
 
             trees[ViewMode.Wireframe] = wireTree;
         }
+
+        return built;
     }
 
     /// <summary>Points the view where an editor camera is looking.</summary>
@@ -579,9 +593,11 @@ sealed class EditorWorldRenderer : IDisposable {
         ArgumentNullException.ThrowIfNull(world);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        Compositor = Renderer.Host.Builder.Build(asset ?? Document());
+        // ⚠ Built and adopted before anything is assigned, so a document that would leave the pane
+        // unable to draw — no stage at all — throws with the frame that works still installed. A
+        // half-swapped renderer is a viewport whose failure outlives the edit that caused it.
+        Compositor = Adopt(Renderer.Host.Builder.Build(asset ?? Document()));
 
-        Adopt();
         Resettle(world);
 
         // The mask is right and the objects are gone, so this is what puts them back under it.

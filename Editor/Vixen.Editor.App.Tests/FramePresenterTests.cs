@@ -8,6 +8,7 @@ using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.PostFx;
 using Vixen.Ui.Renderer;
 using Xunit;
 
@@ -135,6 +136,90 @@ public sealed class FramePresenterTests : IDisposable {
         // ⚠ And `Resolve` still answers for all of them, which is why the host may not ask it.
         Assert.NotNull(modes.Resolve(ViewMode.Albedo));
         Assert.Same(modes.Resolve(ViewMode.Shaded), modes.Resolve(ViewMode.Albedo));
+    }
+
+    /// <summary>A frame document edited while the editor is open reaches the pane, objects and all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The stage index is what makes this more than a rebuild.</b> A document naming a
+    ///         stage the old one did not gets a fresh index, and every object already in the store
+    ///         carries a mask without that bit — so a reload that only rebuilt would leave a pane
+    ///         reporting its two objects, its one light, nothing waiting and nothing dropped, drawing
+    ///         an empty frame. The objects have to be resettled and extracted again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the sky node has to be handed its cube again</b>, because the nodes are made
+    ///         by the builder — one that never got a cube draws black, which is exactly what a missing
+    ///         background looks like.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_frame_document_reloaded_reaches_the_objects_that_were_already_extracted() {
+        var session = Running();
+        var frame = session.Application.Frame!;
+
+        var before = frame.Stages;
+
+        Assert.Equal(2, frame.ObjectCount);
+
+        // A frame of somebody else's, naming a stage the editor's document does not.
+        frame.Reload(
+            new GraphicsCompositorAsset {
+                Version = CompositorBuilder.SupportedVersion,
+                Stages = [new() { Name = "Authored" }],
+                Resources = [
+                    new() {
+                        Name = FramePresenter.DepthTarget,
+                        Format = FramePresenter.DepthFormat,
+                        Usage = TextureUsage.DepthStencilTarget
+                    }
+                ],
+                Game = new SequenceAsset {
+                    Name = "Authored frame",
+                    Children = [
+                        new SkyAsset { Name = "Sky", Output = FramePresenter.ColourTarget, View = EditorWorldRenderer.CameraView },
+                        new RenderPassAsset {
+                            Name = "Shade",
+                            ColourTargets = [FramePresenter.ColourTarget],
+                            Load = LoadAction.Load,
+                            DepthTarget = FramePresenter.DepthTarget,
+                            Children = [
+                                new SingleStageAsset {
+                                    Name = "Authored draw",
+                                    View = EditorWorldRenderer.CameraView,
+                                    Stage = "Authored"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            session.Application.Scene.World
+        );
+
+        var stages = frame.Renderer.Host.Builder.Stages;
+
+        Assert.True(stages.TryGetValue("Authored", out var authored), "the document's own stage was not built");
+        Assert.NotEqual(before, frame.Stages);
+        Assert.True(frame.Stages.Contains(authored!.Index), "the new stage is not in the extraction mask");
+
+        // ⚠ The half with no symptom of its own: the objects were already settled when the document
+        // changed, so a reload that did not resettle leaves them in stages this frame does not draw.
+        Assert.Equal(2, frame.ObjectCount);
+
+        foreach (ref var live in frame.Renderer.Host.System.Objects.All) {
+            Assert.True(live.Stages.Contains(authored.Index), "an object still carries the old document's mask");
+        }
+
+        // The whole frame is the shaded mode, because a project's document knows no mode names.
+        Assert.Same(frame.Compositor.Game, frame.Trees[ViewMode.Shaded]);
+
+        // And a sky node the builder just made has the cube rather than nothing.
+        foreach (var node in frame.Renderer.Host.Builder.Nodes.Values) {
+            if (node is SkyRenderer background) {
+                Assert.True(background.Environment.IsValid, "the rebuilt sky node never got its cube");
+            }
+        }
     }
 
     /// <summary>Wireframe is a stage of its own rather than the shaded stage mutated.</summary>

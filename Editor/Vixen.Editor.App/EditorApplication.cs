@@ -528,6 +528,17 @@ sealed partial class EditorApplication : IDisposable {
         // entities are not in the level — see PrefabEditorFactory.
         editors = StandardEditors.CreateDefault(_ => world, _ => new World("Prefab"));
 
+        // ⚠ The one document kind the *viewport* is a view of, so opening it points the panes at it
+        // and every edit after that reaches them without a restart. Through `Opened` rather than a
+        // line in `Open`, because that event is already the seam a module hears a document on — and
+        // it deliberately does not fire for a document that was already open, which is right here:
+        // re-authoring is what `StandardFrameDocument.Changed` is for.
+        editors.Opened += document => {
+            if (document is AssetEditors.Frame.StandardFrameDocument authoredFrame) {
+                Author(authoredFrame);
+            }
+        };
+
         // ⚠ The scene the editor started with is the first entry of the multi-scene list rather
         // than a special case beside it. Everything that walks the open scenes — the panel, Save All
         // Scenes, the active-scene switch — would otherwise have to remember that one of them is not

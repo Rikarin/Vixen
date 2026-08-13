@@ -3,7 +3,9 @@
 
 using Microsoft.Extensions.Logging;
 using Vixen.Core.IO.Watch;
+using Vixen.Editor.AssetEditors.Frame;
 using Vixen.Graphics;
+using Vixen.Rendering.Compositor;
 
 namespace Vixen.Editor.App;
 
@@ -237,8 +239,73 @@ sealed partial class EditorApplication {
         log.Write(LogLevel.Warning, $"The viewport's frame drew something other than the document asked for. {reported}");
     }
 
+    /// <summary>The frame document the viewport is drawing, or null for the editor's own.</summary>
+    StandardFrameDocument? authored;
+
+    /// <summary>Starts drawing the panes through a frame document somebody opened, and keeps up with it.</summary>
+    /// <param name="document">The document.</param>
+    /// <remarks>
+    ///     ⚠ <b>Subscribed on open rather than polled, and the event is the document's own.</b>
+    ///     <c>StandardFrameDocument.Changed</c> fires from <c>Restate</c>, which both the inspector's
+    ///     writes and a reload from disk go through — so a knob turned in the panel and a file saved
+    ///     underneath the editor reach the pane by the same path, and neither needs a restart.
+    /// </remarks>
+    internal void Author(StandardFrameDocument document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        if (ReferenceEquals(authored, document)) {
+            return;
+        }
+
+        if (authored is not null) {
+            authored.Changed -= Reframe;
+        }
+
+        authored = document;
+        document.Changed += Reframe;
+
+        Reframe(document);
+    }
+
+    /// <summary>Rebuilds the viewport's frame from the document, and says so if it will not build.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The old frame is kept when the new one would not draw</b>, because the alternative is
+    ///     an editor whose viewport goes dark while somebody is halfway through authoring the frame
+    ///     that made it go dark. <c>Expanded</c> rather than <c>Document</c>: the presets are a
+    ///     document rewrite and the builder applies the same transformer seam either way, so handing
+    ///     over the un-expanded form would be a second opinion of it.
+    /// </remarks>
+    void Reframe(StandardFrameDocument document) {
+        if (frame is null) {
+            return;
+        }
+
+        try {
+            frame.Reload(document.Expanded, scene.World);
+        } catch (Exception failure) when (failure is InvalidOperationException or CompositorBindingException) {
+            log.Write(
+                LogLevel.Warning,
+                $"The viewport kept its own frame: '{document.Title.Value}' would not build. {failure.Message}"
+            );
+
+            return;
+        }
+
+        // ⚠ Every pane, because a rebuild replaces the trees they were registered against — see
+        // `ViewModes.Clear`. A pane that kept the old registration would resolve a subtree of a
+        // compositor nothing else in the editor still refers to.
+        RegisterViewModes();
+
+        log.Write(LogLevel.Information, $"The viewport is drawing '{document.Title.Value}'.");
+    }
+
     /// <summary>Drops everything device-shaped, for the application going down.</summary>
     void DisposeFrames() {
+        if (authored is not null) {
+            authored.Changed -= Reframe;
+            authored = null;
+        }
+
         frame?.Dispose();
         frame = null;
 
