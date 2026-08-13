@@ -163,6 +163,73 @@ public sealed class EditorEffectsTests : IDisposable {
         Assert.Equal(1, effects.System.MissCount);
     }
 
+    /// <summary>A rebuild keeps the one object every consumer took a reference to.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole of what makes editing a shader do anything.</b> A
+    ///         <c>WorldRenderer</c> hands its <see cref="EffectSystem" /> to the render host, to both
+    ///         material features and to the compositor builder — all in a constructor — so a rebuild
+    ///         that answered by <em>replacing</em> the system recompiles into an object nothing is
+    ///         asking any more.
+    ///     </para>
+    ///     <para>
+    ///         The failure that produces is silent in every direction: the new system reports the
+    ///         right source count and no refusal, the old one goes on answering out of its cache, and
+    ///         the editor draws the pre-edit shader with no miss and no warning for the rest of the
+    ///         session.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_rebuild_keeps_the_system_the_renderer_is_holding() {
+        using var effects = new EditorEffects(device, Project());
+
+        var held = effects.System;
+
+        Assert.NotNull(held.Resolve(EffectKey.Of("Tonemap")));
+
+        effects.Rebuild();
+
+        Assert.Same(held, effects.System);
+
+        // And the variant compiled from the old sources is gone from it, which is the other half:
+        // an identity that survived while the cache did would answer every ask with the pre-edit
+        // shader.
+        Assert.Equal(0, held.Count);
+        Assert.NotNull(held.Resolve(EffectKey.Of("Tonemap")));
+    }
+
+    /// <summary>An edit that breaks a shader is seen through the reference somebody already had.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted through <c>held</c> and never through <c>effects.System</c>.</b> That is what
+    ///     makes this a test of the identity rather than of the rebuild: a tier that swapped its system
+    ///     would report the refusal on the new one and hand the old one — the one the renderer has —
+    ///     the shader that compiled before the edit.
+    /// </remarks>
+    [Fact]
+    public void A_broken_edit_reaches_the_system_somebody_already_holds() {
+        var project = Project();
+
+        using var effects = new EditorEffects(device, project);
+
+        var held = effects.System;
+
+        Assert.NotNull(held.Resolve(EffectKey.Of("Tonemap")));
+
+        File.WriteAllText(Path.Combine(project.Paths.Assets, "Broken.rvn"), "this is not a shader at all {{{");
+        effects.Rebuild();
+
+        Assert.NotNull(effects.Refusal);
+        Assert.Null(held.Resolve(EffectKey.Of("Tonemap")));
+
+        // And fixing it puts the same reference back to work, which is what a person editing a shader
+        // in the editor actually does.
+        File.Delete(Path.Combine(project.Paths.Assets, "Broken.rvn"));
+        effects.Rebuild();
+
+        Assert.Null(effects.Refusal);
+        Assert.NotNull(held.Resolve(EffectKey.Of("Tonemap")));
+    }
+
     /// <summary>A project shader that does not parse is reported once, on the way in.</summary>
     /// <remarks>
     ///     ⚠ <b>Met at construction rather than on the frame that wanted an unrelated variant.</b>

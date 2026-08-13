@@ -913,6 +913,13 @@ sealed partial class EditorApplication : IDisposable {
         historyView?.Tick();
 
         ResolveTransforms();
+
+        // ⚠ Immediately after them and not later in this method. Both extraction queries want
+        // `WorldTransform` and neither writes one — in a game the phase and the declared access are
+        // what put them after `TransformSystem`, and the editor has no graph to do that — so an
+        // extraction anywhere above this line places every object where it was last frame.
+        ExtractFrame();
+
         FollowHistory();
         Retitle();
 
@@ -1180,6 +1187,11 @@ sealed partial class EditorApplication : IDisposable {
 
         viewports?.Dispose();
 
+        // ⚠ Before the world, because the extraction holds a residency claim per entity and a claim
+        // is released by looking the entity up. The host normally gets here first by setting
+        // `GraphicsDevice` to null on the way down — this is the path a test that never had a device
+        // takes, and the one a host that forgets takes.
+        DisposeFrames();
 
         // Before the world, because it holds a snapshot of it: a controller disposed after the world
         // would be releasing chunks into a world that had already released its own.
@@ -1434,6 +1446,12 @@ sealed partial class EditorApplication : IDisposable {
         if (!drained) {
             return;
         }
+
+        // ⚠ Before the rescan and reading `changes` rather than only its count, which is the one
+        // place in this method that cares what changed. A shader edit has to reach the effect tier
+        // that compiled the old one, and it is the only kind of change that does — see
+        // `ReloadShaders`, which also says why a rebuild is not free enough to do unconditionally.
+        ReloadShaders(changes);
 
         // ⚠ Through the browser when its panel is open and through the project when it is not. The
         // database is the editor's and outlives any panel — a file added while the Project tab is
