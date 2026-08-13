@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.SceneView;
@@ -151,19 +152,10 @@ sealed class EditorWorldRenderer : IDisposable {
         // a pane needs: the descriptor pools' frame boundary, the geometry residency's flush, the
         // sky's upload and the set-1 layout. The pane builds this into the window's graph itself.
         Compositor = Renderer.Host.Builder.Build(Document());
-        Opaque = Renderer.Host.Builder.Stages[OpaqueStage];
-        Stages = Opaque.Mask;
 
-        // ⚠ After the build and not once, because the nodes are made by the builder — a sky node
-        // that never got its cube draws black, which is exactly what a missing background looks
-        // like. A reload of the document would have to do this again.
-        foreach (var node in Renderer.Host.Builder.Nodes.Values) {
-            if (node is SkyRenderer background) {
-                background.Environment = sky.View;
-                background.EnvironmentSampler = sky.Sampler;
-                background.MipCount = sky.MipCount;
-            }
-        }
+        // ⚠ Everything below is what a rebuild has to do again, which is why it is one call rather
+        // than a run of statements in a constructor. See `Reload`.
+        Adopt();
 
         (shadowStandIn, shadowStandInView, shadowStandInStaging) = CreateShadowStandIn(device);
 
@@ -187,8 +179,37 @@ sealed class EditorWorldRenderer : IDisposable {
         Renderer.SceneBlock.Parameters.Set(ForwardPlusKeys.Clusters, clusterStandIn);
     }
 
-    /// <summary>What the editor frame's one stage is called.</summary>
+    /// <summary>What the editor frame's shaded stage is called.</summary>
     const string OpaqueStage = "Opaque";
+
+    /// <summary>And the stage the wireframe mode draws the same geometry in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A stage of its own rather than <see cref="ViewModes.ApplyTo" /> against the shaded
+    ///         one, and the pipeline cache is why.</b> <c>PipelineKey</c> is
+    ///         <c>(Effect, Stage.Index, VertexLayout, Output)</c> —
+    ///         <c>Core/Vixen.Rendering/PipelineCache.cs:33</c> — so a stage's rasterizer, blend and
+    ///         depth state are read exactly once, by <c>EffectPipelineDescriber.Describe</c> on the
+    ///         first draw that misses the cache, and baked into a pipeline the key can no longer tell
+    ///         apart from any other state on the same stage. The cache never evicts and nothing in the
+    ///         tree calls <c>Clear</c>. Mutating a stage that has already drawn is therefore silent:
+    ///         the mode changes and the picture does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which makes a stage the mode's, not the pane's.</b> Two panes in wireframe share
+    ///         this stage and both draw wireframe correctly; a pane in shaded is on a different index
+    ///         and gets a different pipeline. <see cref="ViewModes.ApplyTo" />'s own remark that "a
+    ///         four-pane layout with independent render modes needs a stage per pane" is true only of
+    ///         the mutate-a-shared-stage arrangement the cache rules out.
+    ///     </para>
+    /// </remarks>
+    const string WireframeStage = "Wireframe";
+
+    /// <summary>What the shaded subtree is called, and what <see cref="Trees" /> looks it up by.</summary>
+    const string ShadedTree = "Shaded";
+
+    /// <summary>And the wireframe one.</summary>
+    const string WireframeTree = "Wireframe view";
 
     /// <summary>The linear target the scene is shaded into, before the curve.</summary>
     /// <remarks>
@@ -243,7 +264,11 @@ sealed class EditorWorldRenderer : IDisposable {
     static GraphicsCompositorAsset Document() =>
         new() {
             Version = CompositorBuilder.SupportedVersion,
-            Stages = [new() { Name = OpaqueStage }],
+
+            // ⚠ Both stages declared by the one document, so both indices exist before anything
+            // extracts and `Stages` can be their union. A stage added later is a bit no object in the
+            // store carries — see that property's remarks.
+            Stages = [new() { Name = OpaqueStage }, new() { Name = WireframeStage, Cull = CullMode.None }],
             Resources = [
                 new() { Name = HdrTarget, Format = PixelFormat.Rgba16Float },
                 new() {
@@ -252,30 +277,74 @@ sealed class EditorWorldRenderer : IDisposable {
                     Usage = TextureUsage.DepthStencilTarget
                 }
             ],
+
+            // ⚠ One build, two subtrees, and only one of them is ever `Compositor.Game`. Building a
+            // second document on the same builder would work — `AddStage` reuses by name for exactly
+            // that case — but `Build` clears `Nodes`, `Uploads` and `Readbacks` first, so the tree
+            // built before it would be one whose sky node nothing can reach and whose uploads nothing
+            // copies. A node that is in no tree costs nothing: `Build`, `Collect` and `Degradations`
+            // all walk from `Game` down.
             Game = new SequenceAsset {
                 Name = "Editor frame",
                 Children = [
-                    new SkyAsset { Name = "Background", Output = HdrTarget, View = CameraView },
-                    new RenderPassAsset {
-                        Name = "Main",
-                        ColourTargets = [HdrTarget],
-                        Load = LoadAction.Load,
-                        DepthTarget = FramePresenter.DepthTarget,
-                        ClearDepth = 0f,
-                        Children = [new SingleStageAsset { Name = OpaqueStage, View = CameraView, Stage = OpaqueStage }]
-                    },
-                    new TonemapAsset {
-                        Name = "Grade",
-                        Source = HdrTarget,
-                        Output = FramePresenter.ColourTarget,
-                        Format = FramePresenter.ColourFormat,
-                        Ev100 = Ev100,
+                    new SequenceAsset {
+                        Name = ShadedTree,
+                        Children = [
+                            new SkyAsset { Name = "Background", Output = HdrTarget, View = CameraView },
+                            new RenderPassAsset {
+                                Name = "Main",
+                                ColourTargets = [HdrTarget],
+                                Load = LoadAction.Load,
+                                DepthTarget = FramePresenter.DepthTarget,
+                                ClearDepth = 0f,
+                                Children = [
+                                    new SingleStageAsset {
+                                        Name = "Opaque draw",
+                                        View = CameraView,
+                                        Stage = OpaqueStage
+                                    }
+                                ]
+                            },
+                            new TonemapAsset {
+                                Name = "Grade",
+                                Source = HdrTarget,
+                                Output = FramePresenter.ColourTarget,
+                                Format = FramePresenter.ColourFormat,
+                                Ev100 = Ev100,
 
-                        // ⚠ Encoded here rather than by the target's format, because the interface
-                        // samples this rather than presenting it — see `EditorHost.Presenter` for the
-                        // same decision on the tool pane. A UNorm-sRGB target would be decoded on the
-                        // way into the interface's shader and encoded again on the way out.
-                        EncodeSrgb = true
+                                // ⚠ Encoded here rather than by the target's format, because the
+                                // interface samples this rather than presenting it — see
+                                // `EditorHost.Presenter` for the same decision on the tool pane. A
+                                // UNorm-sRGB target would be decoded on the way into the interface's
+                                // shader and encoded again on the way out.
+                                EncodeSrgb = true
+                            }
+                        ]
+                    },
+
+                    // ⚠ No sky and no grade, and both absences are the mode rather than an economy.
+                    // A wireframe view is asked "where is the geometry", so a background that is a
+                    // gradient is edges lost against it — and a curve that maps an overcast sky onto
+                    // 0.89 would grade a line drawn at a few thousand cd/m² to the same grey as the
+                    // sky it was meant to stand out from. Clipped white on near-black is the picture.
+                    new SequenceAsset {
+                        Name = WireframeTree,
+                        Children = [
+                            new RenderPassAsset {
+                                Name = "Wires",
+                                ColourTargets = [FramePresenter.ColourTarget],
+                                ClearColour = new(0.04f, 0.045f, 0.06f),
+                                DepthTarget = FramePresenter.DepthTarget,
+                                ClearDepth = 0f,
+                                Children = [
+                                    new SingleStageAsset {
+                                        Name = "Wireframe draw",
+                                        View = CameraView,
+                                        Stage = WireframeStage
+                                    }
+                                ]
+                            }
+                        ]
                     }
                 ]
             }
@@ -288,10 +357,31 @@ sealed class EditorWorldRenderer : IDisposable {
     ///     nothing — so the editor's per-window graph is what a pane hands it, and the interface's
     ///     pass can then declare that it reads the frame's colour like any other resource.
     /// </remarks>
-    public GraphicsCompositor Compositor { get; }
+    public GraphicsCompositor Compositor { get; private set; }
 
-    /// <summary>The stage every extracted object is drawn in.</summary>
-    public RenderStage Opaque { get; }
+    /// <summary>The stage a shaded pane's objects are drawn in.</summary>
+    public RenderStage Opaque { get; private set; }
+
+    /// <summary>The compositor tree for each view mode this host can honestly draw.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What <see cref="ViewModes.Register" /> is fed, and the whole of "a mode is a
+    ///         compositor".</b> Each entry is a subtree of the one built document, and switching mode
+    ///         is <see cref="Compositor" />'s <c>Game</c> being pointed at a different one — no
+    ///         rebuild, no second render system, and no branch inside a renderer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A mode is absent rather than present-and-wrong.</b> Wireframe is here only when
+    ///         the device reports <c>HasWireframe</c>; <c>FillMode.Wireframe</c> needs
+    ///         <c>fillModeNonSolid</c>, which is optional in Vulkan, and a pipeline built without it
+    ///         is silently filled solid — a wireframe view drawing the shaded picture. Absent, the
+    ///         pane keeps the tool renderer's wireframe, which is drawn as segments and therefore
+    ///         works everywhere. <see cref="ViewModes.Registered" /> is what a host reads to choose.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyDictionary<ViewMode, SceneRenderer> Trees => trees;
+
+    readonly Dictionary<ViewMode, SceneRenderer> trees = [];
 
     /// <summary>The frame, its features, its descriptor pools and its compositor builder.</summary>
     public WorldRenderer Renderer { get; }
@@ -348,6 +438,69 @@ sealed class EditorWorldRenderer : IDisposable {
             + "rather than the one it names."
             : null;
 
+    /// <summary>Takes over everything a freshly built <see cref="Compositor" /> leaves for its host.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every line of this is a thing that fails silently when a rebuild forgets it</b>,
+    ///         which is why it is a method rather than a run of statements at the end of a
+    ///         constructor. A sky node that never got its cube draws black — indistinguishable from a
+    ///         frame with no background node at all. A stage mask left at the old document's indices
+    ///         is a frame that reports its objects and draws none of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The stage state is set here, before the stage has ever drawn, and that is the
+    ///         only moment it can be.</b> See <see cref="WireframeStage" />: the pipeline cache reads
+    ///         it once, on the first draw that misses.
+    ///     </para>
+    /// </remarks>
+    [MemberNotNull(nameof(Opaque))]
+    void Adopt() {
+        var builder = Renderer.Host.Builder;
+
+        Opaque = builder.Stages[OpaqueStage];
+
+        // ⚠ The union of every stage a mode might draw in, not the current mode's. A mask is copied
+        // into a render object as it is created and a settled entity is never extracted again — so a
+        // pane switched to wireframe after the scene loaded would find every object carrying the
+        // shaded bit alone, and draw nothing. Set once, before the first `Extract`, covering all of
+        // them; which stage actually runs is decided by the tree that is installed, and a stage no
+        // node asked for collects nothing.
+        var mask = Opaque.Mask;
+
+        foreach (var stage in builder.Stages.Values) {
+            mask |= stage.Mask;
+        }
+
+        Stages = mask;
+
+        // ⚠ After the build and not once, because the nodes are made by the builder — a sky node
+        // that never got its cube draws black, which is exactly what a missing background looks like.
+        foreach (var node in builder.Nodes.Values) {
+            if (node is SkyRenderer background) {
+                background.Environment = sky.View;
+                background.EnvironmentSampler = sky.Sampler;
+                background.MipCount = sky.MipCount;
+            }
+        }
+
+        trees.Clear();
+
+        if (builder.Nodes.TryGetValue(ShadedTree, out var shaded)) {
+            trees[ViewMode.Shaded] = shaded;
+        }
+
+        // ⚠ Registered only where the device can draw it — see `Trees`. A tree that filled solid
+        // would be a menu line that changes the picture into a worse copy of the one above it.
+        if (device.Features.HasWireframe
+            && builder.Stages.TryGetValue(WireframeStage, out var wires)
+            && builder.Nodes.TryGetValue(WireframeTree, out var wireTree)) {
+            // The one legitimate call: a stage dedicated to the mode, configured before it has drawn.
+            new ViewModes { Current = ViewMode.Wireframe }.ApplyTo(wires);
+
+            trees[ViewMode.Wireframe] = wireTree;
+        }
+    }
+
     /// <summary>Points the view where an editor camera is looking.</summary>
     /// <param name="camera">The pane's camera.</param>
     /// <param name="aspectRatio">Width over height, in the pane's own pixels.</param>
@@ -397,6 +550,74 @@ sealed class EditorWorldRenderer : IDisposable {
             camera.NearPlane,
             camera.FarPlane
         );
+    }
+
+    /// <summary>Rebuilds the frame from a document, without a restart and without a new device.</summary>
+    /// <param name="asset">
+    ///     The frame to build, or <see langword="null" /> for the editor's own — which is what a
+    ///     <c>StandardFrameDocument</c> being closed goes back to.
+    /// </param>
+    /// <param name="world">The scene's world, so the objects can be re-extracted under the new stages.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>Builder.Build</c> and not <c>Host.Load</c>, for the reason the constructor
+    ///         gives at length</b>: <c>Load</c> puts the compositor in <c>Host.Compositor</c>, and
+    ///         <c>WorldRenderer.Draw</c> then builds it into the host's <em>own</em> graph and
+    ///         executes it there — a second graph, whose resources the editor's per-window graph
+    ///         cannot order its interface pass against. Left null, <c>Draw</c> is exactly the
+    ///         per-frame prologue a pane needs and declares nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the objects are resettled, which is the half that has no symptom of its own.</b>
+    ///         A document naming a stage the old one did not gets a fresh index, and every object
+    ///         already in the store carries a mask without that bit — a pane that reports its two
+    ///         objects, its one light, nothing waiting and nothing dropped, and draws an empty frame.
+    ///     </para>
+    /// </remarks>
+    public void Reload(GraphicsCompositorAsset? asset, World world) {
+        ArgumentNullException.ThrowIfNull(world);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        Compositor = Renderer.Host.Builder.Build(asset ?? Document());
+
+        Adopt();
+        Resettle(world);
+
+        // The mask is right and the objects are gone, so this is what puts them back under it.
+        Extract(world);
+    }
+
+    /// <summary>Drops every extracted object, so the next <see cref="Extract" /> makes them again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <c>RenderHandle</c> is what has to go, not the object.</b> An entity is "settled"
+    ///     precisely by carrying one — <c>MeshExtractionSystem</c>'s appeared query is
+    ///     <c>.WithNone&lt;RenderHandle&gt;()</c> — so removing the object alone would leave the entity
+    ///     matching nothing, holding a handle to a slot that has been reused.
+    /// </remarks>
+    void Resettle(World world) {
+        var settled = new QueryDescription().WithAll<RenderHandle>();
+        var pending = new List<Vixen.Core.Entity>();
+
+        // ⚠ Collected before anything is removed. Removing a component moves the entity to another
+        // archetype, which is a structural change under the chunk being walked.
+        foreach (var chunk in world.Chunks(settled)) {
+            foreach (var entity in chunk.Entities[..chunk.Count]) {
+                pending.Add(entity);
+            }
+        }
+
+        foreach (var entity in pending) {
+            var handle = world.Read<RenderHandle>(entity);
+
+            Renderer.Host.System.Objects.Remove(handle.Object);
+
+            // Releases the residency claim under the entity's name, which is the same claim the
+            // handle records — one release, not two.
+            Meshes.Forget(entity);
+
+            world.Remove<RenderHandle>(entity);
+        }
     }
 
     /// <summary>Brings the frame's objects and lights up to date with a world.</summary>

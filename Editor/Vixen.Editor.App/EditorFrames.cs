@@ -86,6 +86,41 @@ sealed partial class EditorApplication {
         if (frame.Degraded is { } degraded) {
             log.Write(LogLevel.Information, degraded);
         }
+
+        RegisterViewModes();
+    }
+
+    /// <summary>Tells every open pane which of its view modes a compositor draws.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole of "a view mode is a compositor", from the side that knows both halves.</b>
+    ///         The trees belong to the renderer and the modes belong to the pane, and this is the only
+    ///         object that holds a reference to each — which is why it is here rather than in the host
+    ///         or in <c>ViewportLayout</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called from three places and it has to be all three.</b> The renderer arrives
+    ///         after the panes on a cold start and before them on every rearrangement, and a rebuilt
+    ///         frame replaces trees that panes are still holding — so it runs when the device arrives,
+    ///         when the arrangement changes, and after a reload. A pane that missed it is one whose
+    ///         View menu still works, still persists, and never changes a pixel.
+    ///     </para>
+    /// </remarks>
+    internal void RegisterViewModes() {
+        foreach (var pane in Viewports) {
+            // ⚠ Cleared first: a rebuild may declare fewer modes than the build before it, and a
+            // registration that outlived its tree names a node of a compositor nothing else refers
+            // to. See `ViewModes.Clear`.
+            pane.Modes.Clear();
+
+            if (frame is null) {
+                continue;
+            }
+
+            foreach (var (mode, tree) in frame.Trees) {
+                pane.Modes.Register(mode, tree);
+            }
+        }
     }
 
     /// <summary>Recompiles the shader library after a <c>.rvn</c> under the project changed.</summary>

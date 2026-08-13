@@ -94,6 +94,9 @@ sealed class FramePresenter : IDisposable {
     readonly List<LineVertex> pending = [];
     readonly List<(string Node, string Reason)> degradations = [];
 
+    /// <summary>Each mode's tree with this pane's tool pass after it, made once per tree.</summary>
+    readonly Dictionary<SceneRenderer, SceneRenderer> tooled = [];
+
     TextureHandle colour;
     TextureViewHandle colourView;
     TextureHandle depth;
@@ -162,11 +165,9 @@ sealed class FramePresenter : IDisposable {
 
         // A few hundred vertices at most: three arm heads of a dozen segments each, and the ball.
         handles = new(device, meshShaders, output, 4096, 8192);
-
-        Append();
     }
 
-    /// <summary>Puts the tool pass at the end of the frame the document described.</summary>
+    /// <summary>The mode's tree, with this pane's tool pass at the end of it.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Appended to the built tree rather than written into the document</b>, which is the
@@ -181,7 +182,11 @@ sealed class FramePresenter : IDisposable {
     ///         marker behind a wall read as being behind it.
     ///     </para>
     /// </remarks>
-    void Append() {
+    SceneRenderer Tooled(SceneRenderer tree) {
+        if (tooled.TryGetValue(tree, out var existing)) {
+            return existing;
+        }
+
         var pass = new RenderPassRenderer {
             Name = OverlayNode,
             Load = LoadAction.Load,
@@ -201,21 +206,18 @@ sealed class FramePresenter : IDisposable {
             }
         );
 
-        var game = world.Compositor.Game;
+        // ⚠ Wrapped rather than appended into the mode's own sequence, and memoised per tree. The
+        // trees are the builder's — subtrees of the one built document — so appending would edit the
+        // frame the document describes, and a second pane doing the same would give one tree two
+        // tool passes drawing the other pane's gizmo.
+        var wrapped = new SceneRendererSequence { Name = tree.Name };
 
-        if (game is SceneRendererSequence sequence) {
-            sequence.Children.Add(pass);
-            return;
-        }
-
-        var wrapped = new SceneRendererSequence { Name = game?.Name ?? "Frame" };
-
-        if (game is not null) {
-            wrapped.Children.Add(game);
-        }
-
+        wrapped.Children.Add(tree);
         wrapped.Children.Add(pass);
-        world.Compositor.Game = wrapped;
+
+        tooled[tree] = wrapped;
+
+        return wrapped;
     }
 
     /// <summary>Makes the target match the viewport, and re-registers it if it changed.</summary>
@@ -352,25 +354,36 @@ sealed class FramePresenter : IDisposable {
 
     /// <summary>Declares the frame's passes, and the tool pass over them.</summary>
     /// <param name="graph">The window's graph.</param>
-    /// <param name="viewport">The pane. Unused — the view was aimed in <see cref="Upload" />.</param>
+    /// <param name="viewport">The pane, for the mode whose tree this frame is.</param>
     /// <param name="texture">What the interface's pass has to declare that it reads.</param>
     /// <returns>Whether a frame was declared.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="graph" /> is null.</exception>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The imports are rewritten every frame rather than set once.</b> A
-    ///     <see cref="TextureViewHandle" /> is what a resize replaces, and an import still naming the
-    ///     view a resize destroyed is a frame attaching freed memory — which is undefined behaviour
-    ///     rather than an error.
+    ///     <para>
+    ///         ⚠ <b>The imports are rewritten every frame rather than set once.</b> A
+    ///         <see cref="TextureViewHandle" /> is what a resize replaces, and an import still naming
+    ///         the view a resize destroyed is a frame attaching freed memory — which is undefined
+    ///         behaviour rather than an error.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the tree is chosen every frame, which is the whole of the view-mode switch.</b>
+    ///         <c>Build</c>, <c>Collect</c> and <c>Degradations</c> all walk from <c>Game</c> down, so
+    ///         pointing it at another subtree is a different frame with no rebuild — and a stage no
+    ///         installed node asked for is a stage nothing collects into.
+    ///     </para>
     /// </remarks>
     public bool Declare(RenderGraph graph, SceneViewport viewport, out GraphTexture texture) {
         ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(viewport);
         ObjectDisposedException.ThrowIf(disposed, this);
 
         texture = default;
 
-        if (!IsReady) {
+        if (!IsReady || viewport.Modes.Resolve() is not { } tree) {
             return false;
         }
+
+        world.Compositor.Game = Tooled(tree);
 
         world.Compositor.Imports[ColourTarget] = new(
             colour,

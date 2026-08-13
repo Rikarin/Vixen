@@ -1675,6 +1675,11 @@ sealed partial class EditorApplication : IDisposable {
 
             chrome.Attach(pane, this);
         }
+
+        // ⚠ After the loop and not inside it, because the panes are what it walks. A rearrangement
+        // builds new `SceneViewport`s and therefore new `ViewModes`, which know nothing about the
+        // trees the renderer built before they existed — see `RegisterViewModes`.
+        RegisterViewModes();
     }
 
     /// <summary>The toolbar, the stats readout and the rubber-band drawn over each pane.</summary>
