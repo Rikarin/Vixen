@@ -318,7 +318,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Objects_carry_the_stage_mask_that_was_set_before_they_were_extracted() {
-        var device2 = new NullDevice();
+        using var device2 = new NullDevice();
         var project = new Editor.Core.EditorProject(new Editor.Core.ProjectPaths(Temporary()));
 
         using var effects = new EditorEffects(device2, project);
@@ -339,8 +339,6 @@ public sealed class EditorWorldRendererTests : IDisposable {
         var single = Assert.Single(frame.Renderer.Host.System.Objects.All.ToArray());
 
         Assert.Equal(stage.Mask, single.Stages);
-
-        device2.Dispose();
     }
 
     // ------------------------------------------------------------------ the view
