@@ -84,10 +84,21 @@ sealed partial class EditorApplication {
     }
 
     /// <summary>The device the GPU timeline reads, when the host has one.</summary>
-    /// <remarks>Forwarded to the module, which is what the panel reads.</remarks>
+    /// <remarks>
+    ///     <para>Forwarded to the module, which is what the panel reads.</para>
+    ///     <para>
+    ///         ⚠ <b>And the only announcement the application gets that there is a device at all.</b>
+    ///         The host builds one when the window can present and releases it when the window goes, so
+    ///         this is where everything device-shaped in the editor has to be built and torn down —
+    ///         see <see cref="AttachRenderer" />, which is the whole of the viewport's renderer.
+    ///     </para>
+    /// </remarks>
     public IGraphicsDevice? GraphicsDevice {
         get => diagnostics.GraphicsDevice;
-        set => diagnostics.GraphicsDevice = value;
+        set {
+            diagnostics.GraphicsDevice = value;
+            AttachRenderer(value);
+        }
     }
 
     /// <summary>The frame's GPU regions, as the host resolved them.</summary>

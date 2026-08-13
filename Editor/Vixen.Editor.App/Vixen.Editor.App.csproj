@@ -108,6 +108,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 
         <!--
+            ⚠ The standard renderer, so that the editor's viewport can be the *same* frame a game
+            draws rather than a second one shaped like it. `WorldRenderer` is where the arrangement of
+            features, descriptor allocators, vertex schemas and the four seats a compositor document
+            cannot fill was settled — every one of them a decision whose absence draws nothing and
+            reports success — and an editor that assembled its own would be a second place for all of
+            them to be got wrong differently.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
+
+        <!--
             And water's, for the terrain reference's reason one subsystem over: `WaterPresenter` runs
             `WaterZoneSystem.Fold` over the scene document's world, which is the *same* fold a game
             runs — docs/plan/35 § D2. A second implementation of it in the editor would be a second

@@ -52,6 +52,18 @@ sealed class EditorEffects : IDisposable {
 
     readonly IGraphicsDevice device;
     readonly EditorProject project;
+
+    /// <summary>The only provider <see cref="System" /> ever holds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes <see cref="Rebuild" /> reach the things that resolve through this.</b> A
+    ///     <see cref="EffectSystem" /> has no way to drop a provider, so a rebuild used to answer by
+    ///     replacing the whole system — and every consumer captured the old one in its constructor.
+    ///     <c>WorldRenderer</c> hands it to the render host, to both material features and to the
+    ///     compositor builder, so a shader edit would recompile into a system nothing was asking, and
+    ///     the editor would draw the pre-edit shader for ever with no miss, no refusal and no warning.
+    /// </remarks>
+    readonly Reloadable provider = new();
+
     bool disposed;
 
     /// <summary>Builds the chain over a project.</summary>
@@ -65,11 +77,19 @@ sealed class EditorEffects : IDisposable {
         this.device = device;
         this.project = project;
 
+        System.AddProvider(provider);
+
         Build();
     }
 
     /// <summary>The system every material and every pass resolves through.</summary>
-    public EffectSystem System { get; private set; } = new();
+    /// <remarks>
+    ///     ⚠ <b>One object for the life of the editor, and <see cref="Rebuild" /> does not replace
+    ///     it.</b> Everything that resolves through it takes it once — a <c>WorldRenderer</c> passes it
+    ///     to its render host, its two material features and its compositor builder in a constructor —
+    ///     so a system swapped underneath them is a system nobody asks any more.
+    /// </remarks>
+    public EffectSystem System { get; } = new();
 
     /// <summary>Why there are no effects, or null when there are.</summary>
     /// <remarks>
@@ -85,11 +105,18 @@ sealed class EditorEffects : IDisposable {
 
     /// <summary>Re-reads the sources, which is what a shader having been edited means.</summary>
     /// <remarks>
-    ///     ⚠ <b>A new <see cref="EffectSystem" /> rather than a cleared one, and the old effects are
-    ///     deliberately not destroyed here.</b> A resolved <see cref="Effect" /> owns device objects a
-    ///     frame in flight may still be reading, and the editor has no fence to say otherwise; what a
-    ///     rebuild costs is the memory of one generation of variants, which is a few megabytes per
-    ///     shader edit and is reclaimed on exit.
+    ///     <para>
+    ///         <b>A cleared <see cref="EffectSystem" /> rather than a new one</b> — see that property —
+    ///         and the old effects are deliberately not destroyed here. A resolved <see cref="Effect" />
+    ///         owns device objects a frame in flight may still be reading, and the editor has no fence
+    ///         to say otherwise; what a rebuild costs is the memory of one generation of variants,
+    ///         which is a few megabytes per shader edit and is reclaimed on exit.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="EffectSystem.Invalidate()" /> is what a hot reload is documented to do and
+    ///         costs exactly the same memory: it drops the resolved table without touching what was in
+    ///         it. What it keeps is the identity every consumer holds.
+    ///     </para>
     /// </remarks>
     public void Rebuild() {
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -101,7 +128,13 @@ sealed class EditorEffects : IDisposable {
         var sources = Sources().ToList();
 
         SourceCount = sources.Count;
-        System = new();
+
+        // ⚠ Cleared before the compilation rather than after it, and both lines are needed. Dropping
+        // the provider is what stops a variant asked for during the rebuild being answered out of the
+        // old compiler; invalidating is what stops one that was already resolved being handed back
+        // from memory without any provider being asked at all.
+        provider.Source = null;
+        System.Invalidate();
 
         if (sources.Count == 0) {
             Refusal = $"No shader sources: '{LibraryFolder}' is not beside the editor and the project has none.";
@@ -127,7 +160,7 @@ sealed class EditorEffects : IDisposable {
                 compiler
             );
 
-            System.AddProvider(new EffectSourceProvider(cache, new EffectLoader(device)));
+            provider.Source = new EffectSourceProvider(cache, new EffectLoader(device));
 
             Refusal = null;
         } catch (Exception failure) when (failure is ShaderCompilationException or IOException
@@ -182,6 +215,23 @@ sealed class EditorEffects : IDisposable {
         }
 
         disposed = true;
-        System = new();
+
+        provider.Source = null;
+        System.Invalidate();
+    }
+
+    /// <summary>A provider whose own source can be replaced, which <see cref="EffectSystem" />'s cannot.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than a <c>ClearProviders</c> on the system itself.</b> A shipping build adds
+    ///     one provider and never removes it — that a runtime cannot change where effects come from is
+    ///     part of what makes "no runtime shader compilation" structural — so the ability to swap one is
+    ///     the editor's need and belongs in the editor.
+    /// </remarks>
+    sealed class Reloadable : IEffectProvider {
+        /// <summary>What is asked, or null while there is nothing to ask.</summary>
+        public IEffectProvider? Source { get; set; }
+
+        /// <inheritdoc />
+        public Effect? TryGet(EffectKey key) => Source?.TryGet(key);
     }
 }
