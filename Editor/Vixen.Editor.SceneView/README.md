@@ -821,16 +821,51 @@ Doc 06 made the compositor data precisely so that "show me the normals" is a dif
 a branch inside the renderer. `ViewModes` collects them: a host registers the trees it has, and a mode
 with none falls back to shaded rather than showing nothing.
 
-Wireframe and overdraw are the exception and are here as stage state, because they are the same geometry
-with a different rasterizer and a different blend. ⚠ That mutates the stage, and a stage belongs to the
-render system rather than to a view — so a four-pane layout with independent render modes needs a stage
-per pane. `ViewportLayout` gives each pane a whole `SceneViewport` for this reason.
+✅ **And they are wired now.** `EditorWorldRenderer` builds one document with a subtree per mode and
+hands them to every pane's `ViewModes`; a pane is compositor-driven exactly when a tree is registered
+for the mode it is in, and every other mode is still the tool renderer's. Switching mode is
+`GraphicsCompositor.Game` being pointed at a different subtree — `Build`, `Collect` and `Degradations`
+all walk from `Game` down, so there is no rebuild and no second render system. The host asks
+`Modes.Registered.Contains(Modes.Current)` and **not** `Resolve`, because `Resolve` falls back to the
+shaded tree for every mode: read that way, Albedo would compose and draw the shaded picture.
 
-### …and until the viewport is compositor-driven, `ViewShading`
+### ⚠ A stage belongs to the mode, and the pipeline cache is why
 
-⚠ **All of the above is right and none of it is what the editor draws today.** A mode being a
-compositor tree needs the viewport driven by `RenderSystem` through a `GraphicsCompositor`, which is
-Phase 7's wiring rather than doc 20's. What the editor draws is `SceneMeshes` through
+`ViewModes.ApplyTo` says a four-pane layout with independent render modes needs a stage per pane. That
+is true only of the arrangement it describes — mutating one shared stage — and that arrangement does
+not work at all:
+
+`PipelineKey` is `(Effect, Stage.Index, VertexLayout, Output)` (`Core/Vixen.Rendering/PipelineCache.cs`),
+`PipelineCache` never evicts, and nothing in the tree calls `Clear`. So a stage's rasterizer, blend and
+depth state are read **exactly once** — by `EffectPipelineDescriber.Describe`, on the first draw that
+misses the cache — and baked into a pipeline the key can no longer tell apart from any other state on
+that stage. ⚠ Mutating a stage that has already drawn changes the mode and not the picture.
+
+So wireframe gets a **stage of its own**, configured before it has ever drawn, which is the one
+legitimate call of `ApplyTo`. Stage per *mode* is also strictly better than stage per pane: two panes
+in wireframe share it and both draw wireframe, and the count is the nine modes rather than the pane
+count.
+
+⚠ Which makes the extraction mask the **union** of every mode's stage, set before the first `Extract`.
+A mask is copied into a render object as it is created and a settled entity is never extracted again,
+so a mask carrying only the shaded bit is a pane that draws until somebody picks Wireframe and then
+draws nothing — while still reporting its objects, its lights, zero waiting and zero dropped.
+
+⚠ Wireframe is registered only where the device reports `HasWireframe`. `FillMode.Wireframe` needs
+`fillModeNonSolid`, which is optional in Vulkan, and a pipeline built without it is silently filled
+solid. Absent, the pane keeps the tool renderer's wireframe below, which is drawn as segments and
+works everywhere.
+
+⚠ **At most one pane composes per frame**, and that is the render view rather than a policy:
+`EditorWorldRenderer` holds one `RenderView`, one `GraphicsCompositor` and therefore one set of imports
+and one reference size, so two panes declaring in the same frame would both draw the second one's
+camera. The rest keep the tool presenter, which draws. Lifting it is a view *and* a sub-frame per pane;
+the stages are already ready for it.
+
+### …and for the modes no tree is authored for, `ViewShading`
+
+Two trees are authored — shaded and wireframe — and the other seven modes are still drawn by the tool
+renderer, so this table is still the live one for them. What it draws is `SceneMeshes` through
 `MeshInstanceRenderer`: device-resident shapes, one instance per entity, one key light, and a material
 per entity reduced to a `MaterialSurface`. `ViewShading` is the table of what *that* path can honestly
 express, and seven of the nine modes are expressible with no new module and no new pipeline:

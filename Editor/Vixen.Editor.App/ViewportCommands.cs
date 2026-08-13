@@ -339,14 +339,21 @@ sealed partial class EditorApplication {
             );
         }
 
+        // ⚠ Both excuses used to end "it arrives with the compositor-driven viewport", and that
+        // viewport arrived — so they say what is actually still missing instead. A stage and a tree
+        // are the cheap half and are exactly what Wireframe now has; what neither mode has is a
+        // shader that answers its question.
         static string Excuse(ViewMode mode) =>
             mode switch {
                 SceneView.ViewMode.Overdraw =>
-                    "Overdraw needs an additive pipeline with the depth test off, which the editor's tool "
-                    + "renderer does not carry. It arrives with the compositor-driven viewport in Phase 7.",
+                    "Overdraw needs a shader that writes a constant per fragment rather than a shaded "
+                    + "colour: an additive stage over ForwardPlus accumulates luminance in cd/m² and "
+                    + "saturates to white everywhere, which is a picture of the exposure rather than a "
+                    + "count.",
                 _ =>
-                    "Light complexity is a count off the clustered light list, which the editor's viewport does "
-                    + "not run. It arrives with the compositor-driven viewport in Phase 7."
+                    "Light complexity is a count off the clustered light list, and the editor's frame has "
+                    + "no culling dispatch in it — the cluster buffer it binds is a zeroed stand-in, so the "
+                    + "count would be zero for every pixel."
             };
     }
 
