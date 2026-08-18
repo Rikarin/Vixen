@@ -41,7 +41,17 @@ Vixen.Water.Physics.BuoyancySystem.Surface.set -> Vixen.Water.IWaterSurface
 Vixen.Water.Physics.BuoyancySystem.WakeSpeed.get -> float
 Vixen.Water.Physics.BuoyancySystem.WakeSpeed.set -> float
 Vixen.Water.Physics.BuoyancySystem.WetPontoons.get -> int
+Vixen.Water.Physics.WaterImmersionSystem -> sealed class
+Vixen.Water.Physics.WaterImmersionSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Water.Physics.WaterImmersionSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Water.Physics.WaterImmersionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Water.Physics.WaterImmersionSystem.Step(Vixen.Ecs.World world) -> void
+Vixen.Water.Physics.WaterImmersionSystem.Surface.get -> Vixen.Water.IWaterSurface
+Vixen.Water.Physics.WaterImmersionSystem.Surface.set -> Vixen.Water.IWaterSurface
+Vixen.Water.Physics.WaterImmersionSystem.Swimming.get -> int
+Vixen.Water.Physics.WaterImmersionSystem.WaterImmersionSystem(Vixen.Water.IWaterSurface surface) -> void
 override Vixen.Water.Physics.BuoyancySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Water.Physics.WaterImmersionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 readonly Vixen.Water.Physics.BuoyancyBody.Settings.get -> Vixen.Water.BuoyancySettings
 readonly Vixen.Water.Physics.BuoyancyState.IsFloating.get -> bool
 static Vixen.Water.Physics.BuoyancyBody.Default.get -> Vixen.Water.Physics.BuoyancyBody

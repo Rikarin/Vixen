@@ -8,29 +8,35 @@ using Vixen.Ecs.Systems;
 using Vixen.Engine.Transforms;
 using Vixen.Physics.Characters;
 using Vixen.Physics.Ecs;
-using Vixen.Rendering.Water;
 
-namespace Vixen.Samples.ThirdPersonShooter;
+namespace Vixen.Water.Physics;
 
 /// <summary>
 ///     Tells a character how much of it is under water, which is the one number swimming is made of.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Another finished consumer nothing fed.</b> <c>CharacterMoveMode.Swimming</c> exists,
+///         <b>[35 § D11](../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)'s
+///         only new number, written.</b> <c>CharacterMoveMode.Swimming</c> exists,
 ///         <c>CharacterMotion</c> implements wading, the swim restoring force, the drag, the speed
 ///         scale and the two-threshold hysteresis, and <c>CharacterMovement.Default</c> ships tuned
-///         numbers for all of it — and <c>CharacterState.Immersion</c> is written by <em>nothing</em>
-///         in the tree. Its own doc comment says "written by whatever knows where the water is", and
-///         in a running game nothing did, so the fourth move mode could not be entered from any
-///         scene. This is that writer.
+///         numbers for all of it — and <c>CharacterState.Immersion</c> was written by <em>nothing</em>
+///         in the tree until this existed. Its own doc comment says "written by whatever knows where
+///         the water is"; this is that writer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It belongs in the engine and it is here, for <c>TerrainGroundSystem</c>'s reason.</b>
-///         <c>Vixen.Physics</c> may not reference <c>Vixen.Rendering.Water</c> and the water kernel
-///         may not reference Jolt — doc 35 § D1 is explicit that the physics join is a separate
-///         assembly, and <c>Vixen.Water.Physics</c> is that assembly for buoyancy. A swimming
-///         character is the same join with a different force, and it has no home yet.
+///         <b>It is here for <see cref="BuoyancySystem" />'s reason and it is the same join.</b>
+///         <c>Vixen.Physics</c> may not reference the water stack and the water kernel may not link
+///         Jolt — § D1 makes the physics join a separate assembly, and this is that assembly. A
+///         swimming character and a floating crate are the same seam with a different force: one
+///         turns immersion into a mode, the other turns it into a lift.
+///     </para>
+///     <para>
+///         ⚠ <b>It finds the water through <see cref="IWaterSurface" /> and never through
+///         <c>WaterZoneSystem</c>.</b> The zone fold lives in <c>Vixen.Rendering.Water</c>, and a
+///         reference to it from here would drag a graphics device into the path a dedicated server
+///         runs — the one line § D1 exists to forbid. <c>WaterZoneSystem</c> implements the kernel
+///         interface, so a game passes the fold it already has and a headless build passes its own.
 ///     </para>
 ///     <para>
 ///         <b>In <see cref="SystemPhase.FixedUpdate" />, before the character steps.</b>
@@ -40,7 +46,7 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///         the drift § D2's whole seam exists to prevent, arriving through a phase order.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The clock is the zone system's and not the frame's.</b> There is one water time and
+///         ⚠ <b>The clock is the surface's and not the frame's.</b> There is one water time and
 ///         <c>WaterClockSystem</c> is its only writer; reading <c>GameTime</c> here would be a second
 ///         definition of "when", and a swimmer bobbing on a different swell from the one drawn under
 ///         them is exactly the disagreement the one-clock rule is against.
@@ -49,14 +55,24 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///         <b>Sampled at the capsule, not at the entity.</b> A character's origin is at its feet and
 ///         <c>CharacterMovement.ShapeOffset</c> lifts the capsule off it, so the submerged fraction is
 ///         measured from the entity's Y over the standing capsule's full height —
-///         <c>WaterQuery.Immersion</c> takes exactly that pair and is the one definition of the answer.
+///         <see cref="WaterQuery.Immersion" /> takes exactly that pair and is the one definition of
+///         the answer.
 ///     </para>
 /// </remarks>
-/// <param name="zones">The fold that knows where the water is, and what time it is.</param>
+/// <param name="surface">Where the water is, and what time it is there.</param>
 [UpdateInGroup(SystemPhase.FixedUpdate)]
 [UpdateBefore(typeof(CharacterMovementSystem))]
-public sealed class WaterImmersionSystem(WaterZoneSystem zones) : SystemBase, IDeclaredAccess {
-    readonly WaterZoneSystem zones = zones ?? throw new ArgumentNullException(nameof(zones));
+public sealed class WaterImmersionSystem(IWaterSurface surface) : SystemBase, IDeclaredAccess {
+    readonly QueryDescription characters =
+        new QueryDescription().WithAll<CharacterMovement, CharacterState, LocalTransform>();
+
+    /// <summary>Where the water is, and the clock it is at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Settable for the reason <see cref="BuoyancySystem.Surface" /> is</b>: on a client this
+    ///     is <c>WaterZoneSystem</c>; on a headless build it is whatever folded the zones there. The
+    ///     interface is the kernel's for exactly that reason — see <see cref="IWaterSurface" />.
+    /// </remarks>
+    public IWaterSurface Surface { get; set; } = surface ?? throw new ArgumentNullException(nameof(surface));
 
     /// <inheritdoc />
     public SystemAccess Access { get; } = SystemAccess.Declare()
@@ -70,19 +86,32 @@ public sealed class WaterImmersionSystem(WaterZoneSystem zones) : SystemBase, ID
     ///     ⚠ <b>The number that says this ran at all.</b> A zone whose spline never resolved answers
     ///     every query with dry land, and a character walking into a lake that is drawn perfectly and
     ///     has no field behind it simply walks along the bed — no error, no mode change, and a
-    ///     screenshot that looks like the water is a decal. This is what
-    ///     <c>SampleLog.WaterFolded</c> reports beside the zone counts.
+    ///     screenshot that looks like the water is a decal.
     /// </remarks>
     public int Swimming { get; private set; }
 
     /// <inheritdoc />
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+        // Writing CharacterState is a write to a column the character step reads on the very next
+        // system, and nothing scheduled may still be reading it.
         dependency.Complete();
 
-        var query = new QueryDescription().WithAll<CharacterMovement, CharacterState, LocalTransform>();
-        var swimming = 0;
+        Step(context.World);
 
-        foreach (var chunk in context.World.Chunks(query)) {
+        return dependency;
+    }
+
+    /// <summary>Measures one step's worth of immersion.</summary>
+    /// <param name="world">The world.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
+    /// <remarks>Public so a test can step without standing up a runner.</remarks>
+    public void Step(World world) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        var swimming = 0;
+        var waterTime = Surface.WaterTime;
+
+        foreach (var chunk in world.Chunks(characters)) {
             var movements = chunk.ReadValues<CharacterMovement>();
             var transforms = chunk.ReadValues<LocalTransform>();
             var states = chunk.Values<CharacterState>();
@@ -94,7 +123,7 @@ public sealed class WaterImmersionSystem(WaterZoneSystem zones) : SystemBase, ID
                 // ⚠ Null is "no zone claims this position", which is dry — and not the same as zero
                 // immersion left over from last step. A character that walks out of a zone keeps its
                 // old immersion for ever otherwise, and swims across the car park.
-                if (zones.QueryAt(ground) is not { } water) {
+                if (Surface.QueryAt(ground) is not { } water) {
                     states[index].Immersion = 0f;
                     continue;
                 }
@@ -105,7 +134,7 @@ public sealed class WaterImmersionSystem(WaterZoneSystem zones) : SystemBase, ID
                     ground,
                     feet.Y,
                     MathF.Max(movements[index].ShapeOffset.Y * 2f, 0.1f),
-                    zones.WaterTime
+                    waterTime
                 );
 
                 if (states[index].Immersion >= movements[index].SwimThreshold) {
@@ -115,7 +144,5 @@ public sealed class WaterImmersionSystem(WaterZoneSystem zones) : SystemBase, ID
         }
 
         Swimming = swimming;
-
-        return default;
     }
 }

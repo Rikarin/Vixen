@@ -87,13 +87,16 @@
             is one that disappears the day the transitive path changes, and the failure would be a
             compile error in a sample rather than anything the engine's own gates would catch.
 
-            ⚠ Vixen.Water.Physics is deliberately *not* here. Doc 35 § D1 keeps the Jolt join out of
-            the kernel and the renderer, and a game opts in; this level floats nothing, so it does
-            not. Swimming needs no such reference — see WaterImmersion.cs, which needs the query and
-            not the solver.
+            ⚠ And Vixen.Water.Physics, which this level does need even though it floats nothing.
+            Doc 35 § D1 keeps the Jolt join out of the kernel and the renderer and makes a game opt
+            in, and swimming is that join too: WaterImmersionSystem needs the character components
+            from Vixen.Physics and the query from Vixen.Water, which is exactly that assembly's pair
+            of references. This line used to say the opposite, because the system used to live in
+            this sample — where no game could reach it.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Water\Vixen.Water.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Water.Physics\Vixen.Water.Physics.csproj" />
 
         <!--
             Not linked into the game — ReferenceOutputAssembly is false — but built before it, so the

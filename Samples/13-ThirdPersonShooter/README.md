@@ -165,6 +165,11 @@ be filled to get a body as far as the fold, and all three are the same shape as 
 - `CharacterState.Immersion` is written by nothing, so `CharacterMoveMode.Swimming` could not be
   entered from any scene. `WaterImmersionSystem` writes it, and a character dropped into the middle
   of the lake settles at y = −0.334 against the −0.33 its own `SwimRestImmersion` predicts.
+  ⚠ **That system was written here and no longer lives here.** It is
+  `Vixen.Water.Physics.WaterImmersionSystem` now — a game-relevant system sitting in a sample is a
+  feature no game can use without copying source, and its two dependencies were always that
+  assembly's exactly. This sample is now a *consumer* of it, which is the only thing in the tree
+  that exercises it end to end.
 
 ⚠ **A fourth was a defect rather than a gap, and this sample used to work around it.**
 `WaterZoneSystem.GatherBodies` keyed a body's cache on its component and its placement and stored the
