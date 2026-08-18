@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Vixen.Editor.AssetEditors.Frame;
+using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
@@ -90,12 +91,29 @@ public sealed class ExternalEditPumpTests : IDisposable {
         session.Editor.OpenAsset(entry.Guid);
         session.Settle();
 
+        // ⚠ The setup's own write is an external change like any other, and the editor is watching.
+        // Waited out here rather than left to race whatever the test then measures: on a machine
+        // fast enough to finish opening the document inside the watcher's quarter-second debounce it
+        // is still pending when the test begins, and it drains into the assertion. That is exactly
+        // how this suite passed under load — where opening took three seconds — and failed on an idle
+        // machine, which is the inversion that hid a real bug in `FileChangeCoalescer.Suppress`.
+        Quieten(session);
+
         var document = session.Project.Documents.OfType<StandardFrameDocument>().Single();
 
         Assert.Equal(FrameQualityChoice.High, document.Settings.Quality);
 
         return (session, document, path);
     }
+
+    /// <summary>Frames until anything the setup wrote has certainly been drained and acted on.</summary>
+    /// <remarks>
+    ///     A fixed span rather than a wait on a signal, because the signal would be "the setup write
+    ///     arrived" — and on a slow machine it has already arrived and will never fire again, so a
+    ///     wait on it would burn the whole budget every time. Four debounce windows is the number
+    ///     that makes the answer the same on every machine.
+    /// </remarks>
+    static void Quieten(EditorSession session) => Pump(session, () => false, TimeSpan.FromSeconds(1));
 
     /// <summary>
     ///     ⚠ <b>The defect this was filed for.</b> Before it, a <c>.vxcompositor</c> saved by a text
@@ -132,7 +150,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
         Assert.True(document.Apply());
 
         // What an inspector's write leaves behind, which is what makes the document dirty.
-        document.Stack.Execute(new Editor.Core.DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
 
         Assert.True(document.IsDirty.Value);
 
@@ -169,19 +187,63 @@ public sealed class ExternalEditPumpTests : IDisposable {
 
         Assert.True(document.Apply());
 
-        var announced = 0;
+        var routed = new List<ExternalEditOutcome>();
 
-        document.Changed += _ => announced++;
+        session.Editor.External.Applied += edit => routed.Add(edit.Outcome);
         document.Save();
 
         // Given every chance to be wrong: frames for as long as a reload could possibly take.
         Assert.False(
-            Pump(session, () => document.IsStale.Value || announced > 0, Quiet),
-            "the editor's own save came back through the watcher as an external edit"
+            Pump(session, () => routed.Count > 0, Quiet),
+            $"the editor's own save came back through the watcher as an external edit: [{string.Join(", ", routed)}]"
         );
 
         Assert.Equal(FrameQualityChoice.Low, document.Settings.Quality);
         Assert.False(document.IsDirty.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The bug master went red on, at the level where it does damage.</b> Suppression used
+    ///     to be checked only as an event arrived, so one already waiting out its debounce survived
+    ///     the save that was about to overwrite the file — and the editor read that as somebody
+    ///     else's edit and reloaded, discarding the undo history. Any touch followed by a save inside
+    ///     a quarter of a second hits it: an import writing a sidecar and then the asset, a second
+    ///     Ctrl+S after a first, or a harness whose setup wrote the file it is about to open.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The sleep is the subject, not a settle.</b> The window this is about is bounded below
+    ///     by how long the platform takes to deliver the write and above by the watcher's 250 ms
+    ///     debounce; the test has to place the save inside it, and no signal marks it. Landing in the
+    ///     middle is the best a test can do, and a miss makes this pass rather than flake — which is
+    ///     why the deterministic half of this claim lives in <c>FileChangeCoalescerTests</c>, where
+    ///     the clock is a parameter.
+    /// </remarks>
+    [Fact]
+    public void A_save_while_a_write_to_the_same_file_is_still_settling_keeps_the_history() {
+        var (session, document, path) = Editing();
+
+        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
+
+        Assert.Equal(1, document.Stack.Depth.Value);
+
+        File.WriteAllText(path, Knobs);
+        Thread.Sleep(150);
+        document.Save();
+
+        var routed = new List<ExternalEditOutcome>();
+
+        session.Editor.External.Applied += edit => routed.Add(edit.Outcome);
+
+        Assert.False(
+            Pump(session, () => routed.Count > 0, Quiet),
+            $"a write still settling when the save began came back as an external edit: [{string.Join(", ", routed)}]"
+        );
+
+        // ⚠ The history is the assertion that bites. A reload clears the stack, so a document
+        // reloaded here has lost every undo somebody accumulated — and the damage is invisible in the
+        // contents, because the file holds exactly what the save wrote.
+        Assert.Equal(1, document.Stack.Depth.Value);
+        Assert.False(document.IsStale.Value);
     }
 
     /// <summary>
@@ -198,7 +260,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
 
         Assert.True(document.Apply());
 
-        document.Stack.Execute(new Editor.Core.DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
 
         File.WriteAllText(path, Changed);
 

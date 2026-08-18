@@ -36,8 +36,10 @@ namespace Vixen.Core.IO.Watch;
 ///         </item>
 ///         <item>
 ///             <b>Our own writes.</b> A path passed to <see cref="Suppress" /> is ignored for the
-///             suppression window. Without it, the asset pipeline writing an artefact wakes the
-///             watcher, which reimports, which writes an artefact.
+///             suppression window, and whatever was already pending for it is dropped. Without the
+///             first, the asset pipeline writing an artefact wakes the watcher, which reimports,
+///             which writes an artefact. Without the second, anything that touches a file and then
+///             saves it inside the debounce gets its own write reported straight back.
 ///         </item>
 ///     </list>
 ///     <para>
@@ -88,8 +90,35 @@ public sealed class FileChangeCoalescer {
     /// <summary>Ignores events for a path for the next <see cref="SuppressionWindow" />.</summary>
     /// <param name="path">The path the program is about to write.</param>
     /// <param name="timestamp">The current <see cref="System.Diagnostics.Stopwatch.GetTimestamp" />.</param>
-    public void Suppress(VirtualPath path, long timestamp) =>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What is already pending for that path goes with it, and that is not tidiness.</b>
+    ///         Suppression used to be checked only on the way in, so an event recorded a moment
+    ///         <em>before</em> the call survived and drained afterwards — and the window it had to
+    ///         land in is the debounce, which is a quarter of a second in the editor. Anything that
+    ///         touches a file and then saves it inside that window therefore got its own save
+    ///         reported back to it: an import that rewrites a sidecar and then writes the asset, a
+    ///         second Ctrl+S following a first, a document saved while an unrelated write to the
+    ///         same path was still settling. In the editor the consequence is a document reloading
+    ///         itself, which discards its undo history — a whole session's worth, for a race with a
+    ///         timer.
+    ///     </para>
+    ///     <para>
+    ///         Dropping it is also the <i>correct</i> answer rather than merely the convenient one.
+    ///         A pending event describes contents this program is about to replace with its own; by
+    ///         the time anybody could act on it, the file is what we wrote. Reporting it would be
+    ///         reporting a state that no longer exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the exact key.</b> A pending rename is filed under its destination, so a
+    ///         pending <c>/a.txt → /b.txt</c> is not this path's event even though it names it —
+    ///         dropping that would lose a move somebody really made.
+    ///     </para>
+    /// </remarks>
+    public void Suppress(VirtualPath path, long timestamp) {
         suppressed[path] = timestamp + (long)(SuppressionWindow.TotalSeconds * System.Diagnostics.Stopwatch.Frequency);
+        pending.Remove(path);
+    }
 
     /// <summary>Feeds in one raw event.</summary>
     /// <param name="change">What the platform reported.</param>
