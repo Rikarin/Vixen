@@ -7,6 +7,7 @@ using Vixen.Ecs;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Renderer;
 using Vixen.Graphics;
+using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
@@ -55,7 +56,7 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed class EditorWorldRenderer : IDisposable {
-    /// <summary>What the frame document calls the view a pane looks through.</summary>
+    /// <summary>What the frame document calls the view the first pane looks through.</summary>
     /// <remarks>
     ///     <c>GraphicsCompositorAsset.Default</c>'s single stage names <c>Camera</c>, and a
     ///     <c>view:</c> is bound by name as the builder creates the node — so a view registered after
@@ -64,8 +65,41 @@ sealed class EditorWorldRenderer : IDisposable {
     /// </remarks>
     public const string CameraView = "Camera";
 
+    /// <summary>How many panes the editor's own document declares a frame for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Four because <c>ViewportArrangement.Quad</c> is four</b>, and the document is built
+    ///     once in a constructor — so the slots have to exist before anybody splits the panel. A pane
+    ///     past this has no view bound by name and therefore no tree registered, which
+    ///     <c>EditorApplication.RegisterViewModes</c> turns into a pane the tool renderer draws rather
+    ///     than a pane that fails.
+    /// </remarks>
+    public const int MaxPanes = 4;
+
+    /// <summary>What the document calls the view a given pane looks through.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first pane's name is unsuffixed, and that is load-bearing rather than tidy.</b> A
+    ///     project's own <c>.vxcompositor</c> names <c>Camera</c> and knows nothing about panes — see
+    ///     <see cref="Reload" /> — so the pane an authored document draws has to be the one whose view
+    ///     is bound under that name.
+    /// </remarks>
+    public static string ViewName(int pane) => pane == 0 ? CameraView : CameraView + pane.ToString();
+
     readonly LightExtractionSystem lights;
     readonly IGraphicsDevice device;
+
+    /// <summary>One view per pane, made before the build and never replaced.</summary>
+    /// <inheritdoc cref="View" path="/remarks" />
+    readonly RenderView[] views = new RenderView[MaxPanes];
+
+    /// <summary>The panes' trees, joined into the one frame a build composes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One object, refilled, rather than a sequence per frame.</b> This is assigned to
+    ///     <c>Compositor.Game</c> once a frame for as long as the editor is open, and a node allocated
+    ///     per frame would be a per-frame allocation in the record loop for no gain at all.
+    /// </remarks>
+    readonly SceneRendererSequence composed = new() { Name = "Editor panes" };
+
+    readonly List<(string Node, string Reason)> degradations = [];
 
     /// <summary>The sky the ambient term and the reflections come out of.</summary>
     readonly EnvironmentTexture sky;
@@ -122,13 +156,19 @@ sealed class EditorWorldRenderer : IDisposable {
 
         lights = new(Renderer.Lighting);
 
-        // ⚠ The view before the build, the build before the mask, and the mask before anything
+        // ⚠ The views before the build, the build before the mask, and the mask before anything
         // extracts. The first is the builder's rule — a `view:` is bound by name as each node is
         // created — and the second is `Stages`' own: a stage's index does not exist until a document
         // declares it, and a mask assigned after the first extraction reaches nothing that is
         // already in the frame. Both are why the document is built in a constructor rather than by
         // whichever pane happens to open first.
-        Renderer.Host.Builder.Views[CameraView] = View;
+        // ⚠ All four, and not the count the panel happens to have. A pane splits mid-session and the
+        // document is built once, so a view registered when the split happens is one no node refers
+        // to — the frame would collect it, cull for it and draw nothing from it.
+        for (var pane = 0; pane < MaxPanes; pane++) {
+            views[pane] = new RenderView($"Editor {pane}");
+            Renderer.Host.Builder.Views[ViewName(pane)] = views[pane];
+        }
 
         // The sky before the build, because the ambient term is set 0's and the background node the
         // build creates has to be handed the cube afterwards.
@@ -203,20 +243,39 @@ sealed class EditorWorldRenderer : IDisposable {
     /// </remarks>
     const string WireframeStage = "Wireframe";
 
-    /// <summary>What the shaded subtree is called, and what <see cref="Trees" /> looks it up by.</summary>
-    const string ShadedTree = "Shaded";
+    /// <summary>What a pane's shaded subtree is called, and what <see cref="Trees" /> looks it up by.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Unique per pane, because <c>CompositorBuilder.Nodes</c> is a dictionary by name and a
+    ///     repeat silently overwrites</b> — <c>Core/Vixen.Rendering/Compositor/CompositorBuilder.cs:629</c>.
+    ///     Four panes sharing a node name is three panes whose tree cannot be looked up, which is
+    ///     three panes with no mode registered and therefore three panes the tool renderer draws.
+    /// </remarks>
+    static string ShadedTree(int pane) => pane == 0 ? "Shaded" : $"Shaded {pane}";
 
     /// <summary>And the wireframe one.</summary>
-    const string WireframeTree = "Wireframe view";
+    static string WireframeTree(int pane) => pane == 0 ? "Wireframe view" : $"Wireframe view {pane}";
 
-    /// <summary>The linear target the scene is shaded into, before the curve.</summary>
+    /// <summary>What a pane's node is called, which is the same name with the pane number after it.</summary>
+    static string Named(string name, int pane) => pane == 0 ? name : $"{name} {pane}";
+
+    /// <summary>The linear target a pane's scene is shaded into, before the curve.</summary>
     /// <remarks>
-    ///     ⚠ <b>Transient, and it is the reason the pane's own colour is the frame's <em>last</em>
-    ///     target rather than its first.</b> A shading pass writes luminance in cd/m² — an overcast
-    ///     sky is thousands of them — so an 8-bit target here is every surface clipped to white,
-    ///     which reads as "the lighting broke" rather than as "there is no exposure in this frame".
+    ///     <para>
+    ///         ⚠ <b>Transient, and it is the reason the pane's own colour is the frame's <em>last</em>
+    ///         target rather than its first.</b> A shading pass writes luminance in cd/m² — an overcast
+    ///         sky is thousands of them — so an 8-bit target here is every surface clipped to white,
+    ///         which reads as "the lighting broke" rather than as "there is no exposure in this frame".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One per pane, and sized explicitly rather than from the frame's reference
+    ///         size.</b> A declared resource with no size is <c>Scale</c> of <c>FrameSize</c> —
+    ///         <c>RenderResourceAsset.Describe</c> — and a frame has one of those where four panes have
+    ///         four extents. Left to the reference size, three panes would attach a colour of one size
+    ///         beside a depth of another, which is a framebuffer the driver refuses rather than a
+    ///         picture that is merely wrong. <see cref="Size" /> is what writes them.
+    ///     </para>
     /// </remarks>
-    const string HdrTarget = "SceneHdr";
+    static string HdrTarget(int pane) => pane == 0 ? "SceneHdr" : $"SceneHdr{pane}";
 
     /// <summary>What the frame is graded at, as an exposure value at ISO 100.</summary>
     /// <remarks>
@@ -259,93 +318,111 @@ sealed class EditorWorldRenderer : IDisposable {
     ///         in the engine agrees on.
     ///     </para>
     /// </remarks>
-    static GraphicsCompositorAsset Document() =>
-        new() {
+    static GraphicsCompositorAsset Document() {
+        var resources = new List<RenderResourceAsset>();
+        var panes = new List<ISceneRendererAsset>();
+
+        for (var pane = 0; pane < MaxPanes; pane++) {
+            resources.Add(new() { Name = HdrTarget(pane), Format = PixelFormat.Rgba16Float });
+
+            resources.Add(
+                new() {
+                    Name = FramePresenter.Depth(pane),
+                    Format = FramePresenter.DepthFormat,
+                    Usage = TextureUsage.DepthStencilTarget
+                }
+            );
+
+            panes.Add(Shaded(pane));
+            panes.Add(Wireframe(pane));
+        }
+
+        return new() {
             Version = CompositorBuilder.SupportedVersion,
 
             // ⚠ Both stages declared by the one document, so both indices exist before anything
             // extracts and `Stages` can be their union. A stage added later is a bit no object in the
             // store carries — see that property's remarks.
+            // ⚠ Two, not two per pane. A stage belongs to the mode: `PipelineKey` is
+            // `(Effect, Stage.Index, VertexLayout, Output)`, so two panes in wireframe share this
+            // index and get the same pipeline, which is the pipeline wireframe wants. The thing that
+            // is per pane is the *view*, and that is what this document has four of.
             Stages = [new() { Name = OpaqueStage }, new() { Name = WireframeStage, Cull = CullMode.None }],
-            Resources = [
-                new() { Name = HdrTarget, Format = PixelFormat.Rgba16Float },
-                new() {
-                    Name = FramePresenter.DepthTarget,
-                    Format = FramePresenter.DepthFormat,
-                    Usage = TextureUsage.DepthStencilTarget
+            Resources = [.. resources],
+
+            // ⚠ One build, eight subtrees, and the ones a frame draws are chosen per frame. Building
+            // a second document on the same builder would work — `AddStage` reuses by name for
+            // exactly that case — but `Build` clears `Nodes`, `Uploads` and `Readbacks` first, so the
+            // tree built before it would be one whose sky node nothing can reach and whose uploads
+            // nothing copies. A node that is in no tree costs nothing: `Build`, `Collect` and
+            // `Degradations` all walk from `Game` down.
+            Game = new SequenceAsset { Name = "Editor frame", Children = [.. panes] }
+        };
+    }
+
+    /// <summary>One pane's shaded frame: a sky, one shading pass, and a curve.</summary>
+    static SequenceAsset Shaded(int pane) =>
+        new() {
+            Name = ShadedTree(pane),
+            Children = [
+                new SkyAsset { Name = Named("Background", pane), Output = HdrTarget(pane), View = ViewName(pane) },
+                new RenderPassAsset {
+                    Name = Named("Main", pane),
+                    ColourTargets = [HdrTarget(pane)],
+                    Load = LoadAction.Load,
+                    DepthTarget = FramePresenter.Depth(pane),
+                    ClearDepth = 0f,
+                    Children = [
+                        new SingleStageAsset {
+                            Name = Named("Opaque draw", pane),
+                            View = ViewName(pane),
+                            Stage = OpaqueStage
+                        }
+                    ]
+                },
+                new TonemapAsset {
+                    Name = Named("Grade", pane),
+                    Source = HdrTarget(pane),
+                    Output = FramePresenter.Colour(pane),
+                    Format = FramePresenter.ColourFormat,
+                    Ev100 = Ev100,
+
+                    // ⚠ Encoded here rather than by the target's format, because the interface
+                    // samples this rather than presenting it — see `EditorHost.Presenter` for the
+                    // same decision on the tool pane. A UNorm-sRGB target would be decoded on the way
+                    // into the interface's shader and encoded again on the way out.
+                    EncodeSrgb = true
                 }
-            ],
+            ]
+        };
 
-            // ⚠ One build, two subtrees, and only one of them is ever `Compositor.Game`. Building a
-            // second document on the same builder would work — `AddStage` reuses by name for exactly
-            // that case — but `Build` clears `Nodes`, `Uploads` and `Readbacks` first, so the tree
-            // built before it would be one whose sky node nothing can reach and whose uploads nothing
-            // copies. A node that is in no tree costs nothing: `Build`, `Collect` and `Degradations`
-            // all walk from `Game` down.
-            Game = new SequenceAsset {
-                Name = "Editor frame",
-                Children = [
-                    new SequenceAsset {
-                        Name = ShadedTree,
-                        Children = [
-                            new SkyAsset { Name = "Background", Output = HdrTarget, View = CameraView },
-                            new RenderPassAsset {
-                                Name = "Main",
-                                ColourTargets = [HdrTarget],
-                                Load = LoadAction.Load,
-                                DepthTarget = FramePresenter.DepthTarget,
-                                ClearDepth = 0f,
-                                Children = [
-                                    new SingleStageAsset {
-                                        Name = "Opaque draw",
-                                        View = CameraView,
-                                        Stage = OpaqueStage
-                                    }
-                                ]
-                            },
-                            new TonemapAsset {
-                                Name = "Grade",
-                                Source = HdrTarget,
-                                Output = FramePresenter.ColourTarget,
-                                Format = FramePresenter.ColourFormat,
-                                Ev100 = Ev100,
-
-                                // ⚠ Encoded here rather than by the target's format, because the
-                                // interface samples this rather than presenting it — see
-                                // `EditorHost.Presenter` for the same decision on the tool pane. A
-                                // UNorm-sRGB target would be decoded on the way into the interface's
-                                // shader and encoded again on the way out.
-                                EncodeSrgb = true
-                            }
-                        ]
-                    },
-
-                    // ⚠ No sky and no grade, and both absences are the mode rather than an economy.
-                    // A wireframe view is asked "where is the geometry", so a background that is a
-                    // gradient is edges lost against it — and a curve that maps an overcast sky onto
-                    // 0.89 would grade a line drawn at a few thousand cd/m² to the same grey as the
-                    // sky it was meant to stand out from. Clipped white on near-black is the picture.
-                    new SequenceAsset {
-                        Name = WireframeTree,
-                        Children = [
-                            new RenderPassAsset {
-                                Name = "Wires",
-                                ColourTargets = [FramePresenter.ColourTarget],
-                                ClearColour = new(0.04f, 0.045f, 0.06f),
-                                DepthTarget = FramePresenter.DepthTarget,
-                                ClearDepth = 0f,
-                                Children = [
-                                    new SingleStageAsset {
-                                        Name = "Wireframe draw",
-                                        View = CameraView,
-                                        Stage = WireframeStage
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            }
+    /// <summary>And its wireframe one.</summary>
+    /// <remarks>
+    ///     ⚠ No sky and no grade, and both absences are the mode rather than an economy. A wireframe
+    ///     view is asked "where is the geometry", so a background that is a gradient is edges lost
+    ///     against it — and a curve that maps an overcast sky onto 0.89 would grade a line drawn at a
+    ///     few thousand cd/m² to the same grey as the sky it was meant to stand out from. Clipped
+    ///     white on near-black is the picture.
+    /// </remarks>
+    static SequenceAsset Wireframe(int pane) =>
+        new() {
+            Name = WireframeTree(pane),
+            Children = [
+                new RenderPassAsset {
+                    Name = Named("Wires", pane),
+                    ColourTargets = [FramePresenter.Colour(pane)],
+                    ClearColour = new(0.04f, 0.045f, 0.06f),
+                    DepthTarget = FramePresenter.Depth(pane),
+                    ClearDepth = 0f,
+                    Children = [
+                        new SingleStageAsset {
+                            Name = Named("Wireframe draw", pane),
+                            View = ViewName(pane),
+                            Stage = WireframeStage
+                        }
+                    ]
+                }
+            ]
         };
 
     /// <summary>The frame the pane draws, built from the document a project with none falls back to.</summary>
@@ -360,13 +437,18 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <summary>The stage a shaded pane's objects are drawn in.</summary>
     public RenderStage Opaque { get; private set; }
 
-    /// <summary>The compositor tree for each view mode this host can honestly draw.</summary>
+    /// <summary>The compositor tree for each view mode a given pane can honestly draw.</summary>
     /// <remarks>
     ///     <para>
     ///         <b>What <see cref="ViewModes.Register" /> is fed, and the whole of "a mode is a
     ///         compositor".</b> Each entry is a subtree of the one built document, and switching mode
-    ///         is <see cref="Compositor" />'s <c>Game</c> being pointed at a different one — no
-    ///         rebuild, no second render system, and no branch inside a renderer.
+    ///         is the pane contributing a different one to the frame — no rebuild, no second render
+    ///         system, and no branch inside a renderer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per pane, because a tree names a view and a target and both are the pane's.</b>
+    ///         Two panes registered against one tree would be two panes drawing one camera into one
+    ///         texture, which is the arrangement this replaced.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A mode is absent rather than present-and-wrong.</b> Wireframe is here only when
@@ -376,10 +458,24 @@ sealed class EditorWorldRenderer : IDisposable {
     ///         pane keeps the tool renderer's wireframe, which is drawn as segments and therefore
     ///         works everywhere. <see cref="ViewModes.Registered" /> is what a host reads to choose.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty for a pane past <see cref="MaxPanes" />, and for every pane but the first
+    ///         when a project's own document is installed.</b> A <c>.vxcompositor</c> declares one
+    ///         frame naming one view and one colour; replicating it per pane would mean rewriting
+    ///         every target name inside a tree of node kinds this assembly does not know. So an
+    ///         authored frame composes the first pane and the rest keep the tool renderer, which
+    ///         draws — see <see cref="Reload" />.
+    ///     </para>
     /// </remarks>
-    public IReadOnlyDictionary<ViewMode, SceneRenderer> Trees => trees;
+    /// <param name="pane">Which pane, in the scene panel's reading order.</param>
+    /// <returns>Its modes, which is empty for a pane no tree was built for.</returns>
+    public IReadOnlyDictionary<ViewMode, SceneRenderer> Trees(int pane) =>
+        pane >= 0 && pane < MaxPanes ? trees[pane] : Empty;
 
-    readonly Dictionary<ViewMode, SceneRenderer> trees = [];
+    static readonly Dictionary<ViewMode, SceneRenderer> Empty = [];
+
+    readonly Dictionary<ViewMode, SceneRenderer>[] trees =
+        [.. Enumerable.Range(0, MaxPanes).Select(_ => new Dictionary<ViewMode, SceneRenderer>())];
 
     /// <summary>The frame, its features, its descriptor pools and its compositor builder.</summary>
     public WorldRenderer Renderer { get; }
@@ -387,13 +483,45 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <summary>What turns the world's drawables into the frame's objects.</summary>
     public MeshExtractionSystem Meshes { get; }
 
-    /// <summary>What the viewport looks through.</summary>
+    /// <summary>What the first pane looks through.</summary>
+    /// <inheritdoc cref="ViewOf" path="/remarks" />
+    public RenderView View => views[0];
+
+    /// <summary>What a given pane looks through.</summary>
+    /// <param name="pane">Which pane.</param>
+    /// <returns>Its view.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such pane.</exception>
     /// <remarks>
-    ///     Held here rather than made per frame because <see cref="RenderView.PreviousViewProjection" />
-    ///     is the one piece of a view that has to outlive a frame — a motion vector is measured against
-    ///     it, and a view rebuilt every frame reports no history for ever.
+    ///     <para>
+    ///         Held here rather than made per frame because
+    ///         <see cref="RenderView.PreviousViewProjection" /> is the one piece of a view that has to
+    ///         outlive a frame — a motion vector is measured against it, and a view rebuilt every
+    ///         frame reports no history for ever.
+    ///     </para>
+    ///     <para>
+    ///         <b>One per pane over one extracted store, and nothing is copied per view.</b>
+    ///         <c>RenderSystem</c> is already an N-view machine: extraction fills one
+    ///         <c>RenderObjectStore</c>, <c>Cull</c> writes a bitset per view index, <c>Sort</c> keys
+    ///         its work lists by <c>(view, stage)</c> and <c>ViewConstants</c> keeps a uniform block
+    ///         per <c>RenderView</c>. What is per view is a frustum, a bitset, a sorted list and 208
+    ///         bytes — everything expensive is shared.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why every pane is composed by one <see cref="Compose" />.</b> A view's
+    ///         <c>Index</c> is assigned by <c>RenderSystem.SetViews</c>, which runs once per
+    ///         <c>GraphicsCompositor.Collect</c> and clears the list — and the node lists a pass draws
+    ///         are looked up by that index at <em>execute</em> time, which is after every pane has
+    ///         built. A build per pane would therefore leave all four panes recording whichever view
+    ///         took index 0 in the last collect: four cameras, one visible set, and every counter in
+    ///         the frame healthy.
+    ///     </para>
     /// </remarks>
-    public RenderView View { get; } = new("Editor");
+    public RenderView ViewOf(int pane) {
+        ArgumentOutOfRangeException.ThrowIfNegative(pane);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pane, MaxPanes);
+
+        return views[pane];
+    }
 
     /// <summary>What a drawable is painted with, or null when nothing would compile one.</summary>
     /// <remarks>
@@ -489,27 +617,40 @@ sealed class EditorWorldRenderer : IDisposable {
             }
         }
 
-        trees.Clear();
-
-        // ⚠ The named subtree when this is the editor's own document, and the whole frame when it is
-        // a project's. A `.vxcompositor` knows nothing about the editor's mode names, and refusing to
-        // register anything for it would be a pane that falls back to the tool renderer the moment
-        // somebody opens the frame they are authoring — which is the one moment they want to see it.
-        if (builder.Nodes.TryGetValue(ShadedTree, out var shaded)) {
-            trees[ViewMode.Shaded] = shaded;
-        } else if (built.Game is { } whole) {
-            trees[ViewMode.Shaded] = whole;
+        foreach (var pane in trees) {
+            pane.Clear();
         }
 
-        // ⚠ Registered only where the device can draw it — see `Trees`. A tree that filled solid
-        // would be a menu line that changes the picture into a worse copy of the one above it.
-        if (device.Features.HasWireframe
-            && builder.Stages.TryGetValue(WireframeStage, out var wires)
-            && builder.Nodes.TryGetValue(WireframeTree, out var wireTree)) {
-            // The one legitimate call: a stage dedicated to the mode, configured before it has drawn.
-            new ViewModes { Current = ViewMode.Wireframe }.ApplyTo(wires);
+        // ⚠ Configured once and not per pane, because a stage belongs to the mode: two panes in
+        // wireframe are two views collecting the same stage index, and `PipelineCache` reads this
+        // state on the first miss and bakes it in. See `WireframeStage`.
+        var wireframe = device.Features.HasWireframe
+            && builder.Stages.TryGetValue(WireframeStage, out var wires);
 
-            trees[ViewMode.Wireframe] = wireTree;
+        if (wireframe) {
+            // The one legitimate call: a stage dedicated to the mode, configured before it has drawn.
+            new ViewModes { Current = ViewMode.Wireframe }.ApplyTo(builder.Stages[WireframeStage]);
+        }
+
+        for (var pane = 0; pane < MaxPanes; pane++) {
+            // ⚠ The named subtree when this is the editor's own document, and the whole frame when it
+            // is a project's. A `.vxcompositor` knows nothing about the editor's mode names, and
+            // refusing to register anything for it would be a pane that falls back to the tool
+            // renderer the moment somebody opens the frame they are authoring — which is the one
+            // moment they want to see it.
+            // ⚠ And the whole frame only for the first pane, because it names one view and one
+            // colour. See `Trees`.
+            if (builder.Nodes.TryGetValue(ShadedTree(pane), out var shaded)) {
+                trees[pane][ViewMode.Shaded] = shaded;
+            } else if (pane == 0 && built.Game is { } whole) {
+                trees[pane][ViewMode.Shaded] = whole;
+            }
+
+            // ⚠ Registered only where the device can draw it — see `Trees`. A tree that filled solid
+            // would be a menu line that changes the picture into a worse copy of the one above it.
+            if (wireframe && builder.Nodes.TryGetValue(WireframeTree(pane), out var wireTree)) {
+                trees[pane][ViewMode.Wireframe] = wireTree;
+            }
         }
 
         return built;
@@ -536,11 +677,22 @@ sealed class EditorWorldRenderer : IDisposable {
     ///         this.
     ///     </para>
     /// </remarks>
-    public void Aim(EditorCamera camera, float aspectRatio) {
+    public void Aim(EditorCamera camera, float aspectRatio) => Aim(0, camera, aspectRatio);
+
+    /// <summary>Points one pane's view where its editor camera is looking.</summary>
+    /// <param name="pane">Which pane.</param>
+    /// <param name="camera">The pane's camera.</param>
+    /// <param name="aspectRatio">Width over height, in the pane's own pixels.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="camera" /> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such pane.</exception>
+    /// <inheritdoc cref="Aim(EditorCamera, float)" path="/remarks" />
+    public void Aim(int pane, EditorCamera camera, float aspectRatio) {
         ArgumentNullException.ThrowIfNull(camera);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        View.Advance();
+        var view = ViewOf(pane);
+
+        view.Advance();
 
         // A pane one pixel wide during a splitter drag, or measured before the layout pass has run.
         // A zero or negative aspect makes a projection full of infinities and a frustum of NaN planes,
@@ -548,14 +700,14 @@ sealed class EditorWorldRenderer : IDisposable {
         var aspect = aspectRatio > 0f && float.IsFinite(aspectRatio) ? aspectRatio : 1f;
 
         if (camera.IsOrthographic) {
-            View.Camera = null;
-            View.Position = camera.Position;
-            View.ViewProjection = camera.ViewProjection(aspect);
+            view.Camera = null;
+            view.Position = camera.Position;
+            view.ViewProjection = camera.ViewProjection(aspect);
 
             return;
         }
 
-        View.Camera = new RenderCamera(
+        view.Camera = new RenderCamera(
             camera.Position,
             camera.Forward,
             Vector3.UnitY,
@@ -685,6 +837,141 @@ sealed class EditorWorldRenderer : IDisposable {
             new([], [new TextureBarrier(shadowStandIn, ResourceState.CopyDestination, ResourceState.ShaderRead)])
         );
     }
+
+    /// <summary>Runs the frame's prologue: the stand-ins, the pools' boundary, the geometry's flush.</summary>
+    /// <param name="commands">The frame's list, open and outside a render pass.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Once a frame, whatever the panes number, and that is a correctness rule rather
+    ///         than an economy.</b> <c>WorldRenderer.Draw</c> opens with
+    ///         <c>MaterialDescriptors.BeginFrame</c>, which is the per-frame descriptor pool's
+    ///         boundary — it recycles every set handed out since the last call. Called again between
+    ///         two panes it would hand the second pane sets the first pane's passes are still going to
+    ///         bind at execute time, which is a frame that draws with another pane's textures rather
+    ///         than a frame that fails.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is what makes the frame's own inputs arrive at all.</b>
+    ///         <c>GeometryResidency.Flush</c> is what copies the vertices and indices themselves, so a
+    ///         frame without it draws the right counts at the right offsets out of memory nothing
+    ///         wrote; <see cref="Upload" /> is the shadow stand-in's one texel.
+    ///     </para>
+    /// </remarks>
+    public void Begin(ICommandList commands) {
+        ArgumentNullException.ThrowIfNull(commands);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        Upload(commands);
+        Renderer.Draw(commands);
+    }
+
+    /// <summary>Tells the frame how large one pane's targets are.</summary>
+    /// <param name="pane">Which pane.</param>
+    /// <param name="size">Its extent in render pixels.</param>
+    /// <remarks>
+    ///     ⚠ <b>Every frame rather than on a change, because a rebuild puts the document's own
+    ///     declarations back.</b> <c>CompositorBuilder.Build</c> refills <c>Compositor.Resources</c>
+    ///     from the asset, whose sizes are zero — meaning "a fraction of the frame" — so a reload
+    ///     between two sizings would leave a pane's linear target at the reference size while its
+    ///     colour and depth are the pane's. Two attachments of different extents in one pass is a
+    ///     framebuffer the driver refuses.
+    /// </remarks>
+    public void Size(int pane, Int2 size) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (size.X <= 0 || size.Y <= 0) {
+            return;
+        }
+
+        var hdr = HdrTarget(pane);
+        var depth = FramePresenter.Depth(pane);
+
+        for (var index = 0; index < Compositor.Resources.Count; index++) {
+            var declared = Compositor.Resources[index];
+
+            if (declared.Name == hdr || declared.Name == depth) {
+                Compositor.Resources[index] = declared with { Width = size.X, Height = size.Y };
+            }
+        }
+    }
+
+    /// <summary>Builds every composed pane's frame into one graph, in one collect.</summary>
+    /// <param name="graph">The window's graph.</param>
+    /// <param name="panes">Each pane's tree, already carrying that pane's tool pass.</param>
+    /// <param name="reference">
+    ///     The frame's reference size, which a resource an authored document declares as a fraction of
+    ///     the frame is sized from. The largest composed pane, because a fraction of the largest is
+    ///     the only choice that is never smaller than what a pane attaches.
+    /// </param>
+    /// <param name="idle">Waits for the device, for the nodes a reference-size change makes re-lay.</param>
+    /// <returns>The built frame, which is what a pane takes its texture out of.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One build for every pane, and the reason is <c>RenderView.Index</c>.</b> See
+    ///         <see cref="ViewOf" />: a build per pane would give each pane's view index 0 in turn,
+    ///         and every pass records at execute time against whichever view held that index last.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One pane is still one tree, not a sequence of one.</b> A wrapper would change what
+    ///         <c>Compositor.Game</c> is for the arrangement the editor is in most of the time, which
+    ///         is a difference in the frame that nothing about the frame asked for.
+    ///     </para>
+    /// </remarks>
+    public CompositorFrame Compose(
+        RenderGraph graph,
+        IReadOnlyList<SceneRenderer> panes,
+        Int2 reference,
+        Action idle
+    ) {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(panes);
+        ArgumentNullException.ThrowIfNull(idle);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (panes.Count == 0) {
+            throw new ArgumentException("A frame with no panes in it is a build nobody would read.", nameof(panes));
+        }
+
+        if (panes.Count == 1) {
+            Compositor.Game = panes[0];
+        } else {
+            composed.Children.Clear();
+
+            foreach (var pane in panes) {
+                composed.Children.Add(pane);
+            }
+
+            Compositor.Game = composed;
+        }
+
+        // ⚠ Between frames by contract and this is the closest thing the editor has to one: it is
+        // called before the graph executes and after the last submission, and it no-ops on an
+        // unchanged size — which is every frame that is not a resize.
+        // ⚠ After the panes are installed and not before, because `Resize` walks `Game` to find the
+        // nodes that had laid device state out against the old size. Run first, it would walk *last*
+        // frame's panes — and the frame a pane joins the composition on is exactly the frame whose
+        // reference size changes, so the one node with state to lay again is the one it would miss.
+        if (reference.X > 0 && reference.Y > 0) {
+            Compositor.Resize(reference, idle);
+        }
+
+        var frame = Compositor.Build(graph, Renderer.Host.Effects, device);
+
+        degradations.Clear();
+        Compositor.Degradations(degradations);
+
+        return frame;
+    }
+
+    /// <summary>What the last <see cref="Compose" /> drew differently than it was asked to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The frame's rather than a pane's, because one build covers every pane.</b> A node that
+    ///     declined names itself, and the pane it belongs to is in that name — which is why the
+    ///     document's node names carry the pane number.
+    /// </remarks>
+    public IReadOnlyList<(string Node, string Reason)> Degradations => degradations;
 
     /// <summary>Whether the frame's set 0 found everything it needed on its last bind.</summary>
     /// <remarks>

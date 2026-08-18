@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
@@ -56,11 +57,24 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed class FramePresenter : IDisposable {
-    /// <summary>What the frame document calls the colour the interface samples.</summary>
+    /// <summary>What the frame document calls the colour the first pane's interface samples.</summary>
     public const string ColourTarget = "SceneColour";
 
-    /// <summary>And what it calls the depth the tools test against.</summary>
+    /// <summary>And what it calls the depth that pane's tools test against.</summary>
     public const string DepthTarget = "SceneDepth";
+
+    /// <summary>What the document calls a given pane's colour.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first pane's name is unsuffixed and that is load-bearing.</b> A project's own
+    ///     <c>.vxcompositor</c> names <c>SceneColour</c> and knows nothing about panes, so the pane an
+    ///     authored frame draws into has to be the one whose target carries that name — see
+    ///     <c>EditorWorldRenderer.Trees</c>.
+    /// </remarks>
+    public static string Colour(int pane) => pane == 0 ? ColourTarget : ColourTarget + pane.ToString();
+
+    /// <summary>And its depth.</summary>
+    /// <inheritdoc cref="Colour" path="/remarks" />
+    public static string Depth(int pane) => pane == 0 ? DepthTarget : DepthTarget + pane.ToString();
 
     /// <summary>The depth format, which is the engine's reversed-Z one.</summary>
     public const PixelFormat DepthFormat = PixelFormat.Depth32Float;
@@ -79,6 +93,20 @@ sealed class FramePresenter : IDisposable {
 
     readonly IGraphicsDevice device;
     readonly EditorWorldRenderer world;
+
+    /// <summary>Which pane this is, which is what every name in the frame is keyed by.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The view, the colour, the depth and the linear target in between are all this pane's,
+    ///     and the number is how the document names them.</b> Two presenters sharing an index would
+    ///     be two panes lending the frame one pair of textures and aiming one view — the arrangement
+    ///     where four panes in one mode look different from each other because only the last one
+    ///     wrote.
+    /// </remarks>
+    readonly int pane;
+
+    /// <summary>The document's names for this pane's two targets, made once.</summary>
+    readonly string colourTarget;
+    readonly string depthTarget;
 
     /// <summary>The depth-tested lines: the grid, the markers, the parent lines.</summary>
     readonly LineRenderer lines;
@@ -135,21 +163,34 @@ sealed class FramePresenter : IDisposable {
     /// <param name="meshShaders">The two mesh stages, for the gizmo's solid handles.</param>
     /// <param name="format">What the target's colour format is.</param>
     /// <param name="image">What the interface calls this presenter's texture. Unique per pane.</param>
+    /// <param name="pane">
+    ///     Which pane this is, in the scene panel's reading order. It selects the view the frame is
+    ///     drawn from and the names the frame's targets are lent under, so two presenters may not
+    ///     share one.
+    /// </param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such pane, or the image id is zero.</exception>
     public FramePresenter(
         IGraphicsDevice device,
         EditorWorldRenderer world,
         LineShaders shaders,
         MeshShaders meshShaders,
         PixelFormat format,
-        ulong image
+        ulong image,
+        int pane = 0
     ) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(world);
         ArgumentOutOfRangeException.ThrowIfZero(image);
+        ArgumentOutOfRangeException.ThrowIfNegative(pane);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pane, EditorWorldRenderer.MaxPanes);
 
         this.device = device;
         this.world = world;
+        this.pane = pane;
+
+        colourTarget = Colour(pane);
+        depthTarget = Depth(pane);
 
         Format = format;
         Image = image;
@@ -188,9 +229,11 @@ sealed class FramePresenter : IDisposable {
         }
 
         var pass = new RenderPassRenderer {
-            Name = OverlayNode,
+            // ⚠ Named per pane, because a degradation report and a profile timeline name a node —
+            // and four passes called "Tools" is a timeline that cannot say which pane stalled.
+            Name = pane == 0 ? OverlayNode : $"{OverlayNode} {pane}",
             Load = LoadAction.Load,
-            DepthTarget = DepthTarget,
+            DepthTarget = depthTarget,
             DepthLoad = LoadAction.Load,
 
             // Tested and never written — every pipeline recorded below is `TestOnly` or untested —
@@ -198,7 +241,7 @@ sealed class FramePresenter : IDisposable {
             ReadOnlyDepth = true
         };
 
-        pass.ColourTargets.Add(ColourTarget);
+        pass.ColourTargets.Add(colourTarget);
 
         pass.Children.Add(
             new DelegateSceneRenderer {
@@ -258,11 +301,13 @@ sealed class FramePresenter : IDisposable {
         renderer.RegisterImage(Image, colourView);
         viewport.Control.RenderTarget = Image;
 
-        // ⚠ And the frame's reference size with it, because a resource a document declares as a
-        // fraction of the frame is sized from this. It is also the walk that lets a node which laid
-        // device state out against the old size lay it again — which is why it takes an idle.
-        world.Compositor.Resize(size, device.WaitIdle);
-
+        // ⚠ The frame's reference size is *not* written here any more, and that is the whole of what
+        // N panes cost the arrangement. A compositor has one reference size and four panes have four
+        // extents, so a presenter writing its own would leave the frame sized by whichever pane
+        // resized last — and the linear target a pane attaches beside its own colour would then be
+        // another pane's size, which is a framebuffer the driver refuses rather than a picture that
+        // is wrong. `EditorWorldRenderer.Size` gives this pane's targets their explicit extent and
+        // `Compose` writes the reference size once, from the largest pane.
         viewport.Picking?.Abandon();
 
         return true;
@@ -307,16 +352,17 @@ sealed class FramePresenter : IDisposable {
 
         var aspect = size.Y <= 0 ? 1f : (float)size.X / size.Y;
 
-        // ⚠ Before the prologue, because the frame's culling is against this view's frustum and the
-        // collect that fills it runs inside `Declare`. `Aim` also advances the view's history, which
-        // is what makes a motion vector measure this frame against last frame.
-        world.Aim(viewport.Camera, aspect);
+        // ⚠ This pane's view and no other's, and before the build: the frame's culling is against
+        // this frustum and the collect that fills it runs inside `Compose`. `Aim` also advances the
+        // view's history, which is what makes a motion vector measure this frame against last frame.
+        world.Aim(pane, viewport.Camera, aspect);
 
         viewProjection = viewport.Camera.ViewProjection(aspect);
 
-        world.Upload(commands);
-        world.Renderer.Draw(commands);
-
+        // ⚠ The prologue is not here any more. `EditorWorldRenderer.Begin` runs it once a frame,
+        // before any pane, because `MaterialDescriptors.BeginFrame` recycles every set handed out
+        // since the last call — a second call between two panes hands pane two the sets pane one's
+        // passes are still going to bind when the graph executes.
         geometry.Build(document, viewport, size.Y);
 
         Write(lines, geometry.World);
@@ -342,6 +388,11 @@ sealed class FramePresenter : IDisposable {
         // than per frame. Read as totals they are a triangle count that climbs for ever — an overlay
         // that says "125 720 tris" over two crates, which reads as a scene far heavier than it is and
         // hides the moment a level actually gets heavy.
+        // ⚠ And the difference is the *frame's* rather than this pane's, which is what one counter
+        // shared by four panes can honestly give: the feature counts when the graph executes, which
+        // is after every pane has read this. So a quad layout reports the same number in all four
+        // overlays and that number is the whole frame's. Per-pane counts want a counter per view,
+        // which the feature does not have.
         var draws = world.Renderer.Meshes.DrawCount;
         var indices = world.Renderer.Meshes.IndexCount;
 
@@ -379,13 +430,48 @@ sealed class FramePresenter : IDisposable {
 
         texture = default;
 
-        if (!IsReady || viewport.Modes.Resolve() is not { } tree) {
+        if (!Prepare(viewport, out var tree)) {
             return false;
         }
 
-        world.Compositor.Game = Tooled(tree);
+        return Take(world.Compose(graph, [tree], new(Width, Height), device.WaitIdle), out texture);
+    }
 
-        world.Compositor.Imports[ColourTarget] = new(
+    /// <summary>Lends the frame this pane's targets and hands back the tree it wants drawn.</summary>
+    /// <param name="viewport">The pane, for the mode whose tree this frame is.</param>
+    /// <param name="tree">The mode's tree with this pane's tool pass after it.</param>
+    /// <returns>Whether this pane has anything to contribute.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="viewport" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half of <see cref="Declare" /> that a quad layout runs four times, before the
+    ///         one build.</b> Every pane has to have lent its imports before <c>Build</c> reads them,
+    ///         because a build is a snapshot: an import written afterwards reaches the next frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The imports are rewritten every frame rather than set once.</b> A
+    ///         <see cref="TextureViewHandle" /> is what a resize replaces, and an import still naming
+    ///         the view a resize destroyed is a frame attaching freed memory — which is undefined
+    ///         behaviour rather than an error.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the tree is chosen every frame, which is the whole of the view-mode switch.</b>
+    ///         <c>Build</c>, <c>Collect</c> and <c>Degradations</c> all walk from <c>Game</c> down, so
+    ///         contributing another subtree is a different frame with no rebuild — and a stage no
+    ///         installed node asked for is a stage nothing collects into.
+    ///     </para>
+    /// </remarks>
+    public bool Prepare(SceneViewport viewport, [NotNullWhen(true)] out SceneRenderer? tree) {
+        ArgumentNullException.ThrowIfNull(viewport);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        tree = null;
+
+        if (!IsReady || viewport.Modes.Resolve() is not { } mode) {
+            return false;
+        }
+
+        world.Compositor.Imports[colourTarget] = new(
             colour,
             colourView,
             Describe(),
@@ -396,7 +482,7 @@ sealed class FramePresenter : IDisposable {
             ResourceState.ShaderRead
         );
 
-        world.Compositor.Imports[DepthTarget] = new(
+        world.Compositor.Imports[depthTarget] = new(
             depth,
             depthView,
             DescribeDepth(),
@@ -404,12 +490,42 @@ sealed class FramePresenter : IDisposable {
             ResourceState.DepthStencilWrite
         );
 
-        var frame = world.Compositor.Build(graph, world.Renderer.Host.Effects, device);
+        // ⚠ The linear target between them is the graph's, so it is sized rather than lent — and it
+        // has to be sized to this pane, not to the frame. See `EditorWorldRenderer.Size`.
+        world.Size(pane, size);
+
+        tree = Tooled(mode);
+
+        return true;
+    }
+
+    /// <summary>Takes this pane's finished colour out of the frame every pane was built into.</summary>
+    /// <param name="frame">What <c>EditorWorldRenderer.Compose</c> returned.</param>
+    /// <param name="texture">What the interface's pass has to declare that it reads.</param>
+    /// <returns>Whether there is one.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="frame" /> is null.</exception>
+    public bool Take(CompositorFrame frame, out GraphTexture texture) {
+        ArgumentNullException.ThrowIfNull(frame);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        texture = default;
+
+        // ⚠ And the frame has to hold this pane's colour. <see cref="Prepare" /> is what lends it and
+        // it declines for a pane whose mode resolves to no tree, so a pane asked for a texture it
+        // never lent comes out of <c>CompositorFrame.Texture</c> as a <c>CompositorBindingException</c>
+        // from the middle of the record loop — which takes the whole window's frame down rather than
+        // this pane's.
+        if (!IsReady || !frame.Has(colourTarget)) {
+            return false;
+        }
 
         degradations.Clear();
-        world.Compositor.Degradations(degradations);
 
-        texture = frame.Texture(nameof(FramePresenter), ColourTarget);
+        foreach (var pair in world.Degradations) {
+            degradations.Add(pair);
+        }
+
+        texture = frame.Texture(nameof(FramePresenter), colourTarget);
 
         return true;
     }
@@ -430,7 +546,7 @@ sealed class FramePresenter : IDisposable {
     /// </remarks>
     public IReadOnlyList<(string Node, string Reason)> Degradations => degradations;
 
-    /// <summary>Records the tools, inside the pass <see cref="Append" /> declared.</summary>
+    /// <summary>Records the tools, inside the pass <see cref="Tooled" /> declared.</summary>
     /// <remarks>
     ///     The order is <see cref="ScenePresenter" />'s and for its reasons: the depth-tested lines
     ///     first, then the gizmo's shafts with no depth test at all — because a handle you cannot
