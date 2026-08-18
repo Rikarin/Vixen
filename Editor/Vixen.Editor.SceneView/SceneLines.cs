@@ -41,14 +41,6 @@ public sealed class SceneLines {
     readonly List<uint> handleIndices = [];
     readonly Dictionary<PrimitiveKind, BoundingBox> extents = [];
 
-    /// <summary>The extent of each mesh asset a selected entity has named, kept for as long as this is.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Keyed by the reference, not by the entity.</b> Ten crates sharing a mesh have one
-    ///     extent between them, and a cache per entity in a scene of ten thousand is a dictionary the
-    ///     size of the scene holding ten thousand copies of a hundred boxes.
-    /// </remarks>
-    readonly Dictionary<AssetReference, BoundingBox> assets = [];
-
     /// <summary>The segments drawn with the depth test on.</summary>
     public IReadOnlyList<LineVertex> World => world;
 
@@ -394,10 +386,11 @@ public sealed class SceneLines {
         }
 
         if (MeshRenderables.TryGet(document.World, entity, out var renderable)) {
-            if (assets.TryGetValue(renderable.Mesh, out bounds)) {
-                return true;
-            }
-
+            // ⚠ Asked every frame rather than remembered, unlike the primitive extents below.
+            // `IMeshSource`'s contract is that *asking is what starts the load*, so a cache is a
+            // collector that stops asking — and a mesh reimported at a different size would keep the
+            // cage it had when the editor opened. There is one of these per selected entity per
+            // frame, against a dictionary, which is not a cost worth a staleness bug.
             if (viewport.Meshes is null
                 || renderable.Mesh.IsNull
                 || !viewport.Meshes.TryGet(renderable.Mesh, out var mesh)) {
@@ -406,7 +399,6 @@ public sealed class SceneLines {
             }
 
             bounds = mesh.Bounds;
-            assets[renderable.Mesh] = bounds;
 
             return true;
         }
