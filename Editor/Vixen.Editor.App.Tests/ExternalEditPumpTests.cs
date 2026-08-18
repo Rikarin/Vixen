@@ -178,6 +178,53 @@ public sealed class ExternalEditPumpTests : IDisposable {
         Assert.False(document.IsDirty.Value);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The gesture that makes the policy an offer rather than a refusal.</b> Declining to
+    ///     reload over unsaved work is only half an answer if the other half is "close the tab and
+    ///     open it again"; <c>file.revert</c> is the same operation with a name, and it asks first
+    ///     because it is the destructive one.
+    /// </summary>
+    [Fact]
+    public void Reverting_a_stale_document_takes_the_version_on_disk_and_asks_first() {
+        var (session, document, path) = Editing();
+
+        document.Settings.Antialiasing = AntialiasingMode.Off;
+
+        Assert.True(document.Apply());
+
+        document.Stack.Execute(new Editor.Core.DelegateCommand("Turn a knob", _ => { }, _ => { }));
+
+        File.WriteAllText(path, Changed);
+
+        Assert.True(Pump(session, () => document.IsStale.Value, Budget), "the file change never arrived");
+
+        session.Run("file.revert");
+
+        Assert.True(session.IsAsking, "reverting a document with unsaved edits did not ask first");
+
+        session.Answer("Revert");
+
+        Assert.Equal(FrameQualityChoice.Low, document.Settings.Quality);
+        Assert.Equal(7f, document.Look.Ev100);
+        Assert.False(document.IsStale.Value);
+        Assert.False(document.IsDirty.Value);
+        Assert.Equal(0, document.Stack.Depth.Value);
+    }
+
+    /// <summary>
+    ///     And it is not offered when there is nothing to revert. A verb that is always enabled is
+    ///     one whose menu line says nothing about the state of the editor.
+    /// </summary>
+    [Fact]
+    public void Reverting_is_not_offered_for_a_document_that_matches_its_file() {
+        var (session, document, _) = Editing();
+
+        Assert.False(document.IsDirty.Value);
+        Assert.False(document.IsStale.Value);
+        Assert.True(session.Shell.Commands.TryGet("file.revert", out var revert));
+        Assert.False(session.Shell.Commands.CanExecute(revert));
+    }
+
     /// <summary>Runs the editor's frame until something is true, or until the budget is gone.</summary>
     static bool Pump(EditorSession session, Func<bool> until, TimeSpan budget) {
         var clock = Stopwatch.StartNew();

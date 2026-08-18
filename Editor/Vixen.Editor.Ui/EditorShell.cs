@@ -682,7 +682,7 @@ public sealed class EditorShell : IDisposable {
         file.AddSubmenu(EditorStrings.MenuRecent).AddDynamic(() => Recent?.Invoke() ?? []);
 
         file.AddSeparator()
-            .Add("file.new-scene", "file.open-scene", "file.save", "file.save-as", "file.save-all")
+            .Add("file.new-scene", "file.open-scene", "file.save", "file.save-as", "file.save-all", "file.revert")
             .AddSeparator()
             .Add("assets.import-files", "file.export-package")
             .AddSeparator()

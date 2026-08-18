@@ -137,6 +137,15 @@ sealed partial class EditorApplication {
         );
 
         Verb(
+            "file.revert",
+            new StringId("editor.command.file.revert", "Revert to Saved"),
+            EditorStrings.CategoryFile,
+            Revert,
+            enabled: () => project.ActiveDocument.Value is { CanReload: true } document
+                && (document.IsDirty.Value || document.IsStale.Value)
+        );
+
+        Verb(
             "assets.import-files",
             new StringId("editor.command.assets.import-files", "Import Assets…"),
             EditorStrings.CategoryFile,
@@ -2121,6 +2130,51 @@ sealed partial class EditorApplication {
                     break;
             }
         }
+    }
+
+    /// <summary>Throws away what the active document holds and reads its file again.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of the stale-document answer, as a gesture.</b>
+    ///         <c>ExternalEdits</c> declines to reload a document with unsaved edits and says so;
+    ///         Ctrl+S is how a person keeps theirs, and this is how they take the file's. Without it
+    ///         the notification's only advice would be to close the tab and open it again, which is
+    ///         the same operation spelled as a workaround.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It asks, and only when there is something to lose.</b> A revert of a document
+    ///         whose file merely moved on discards nothing and is not worth a modal; a revert of one
+    ///         with unsaved edits discards the only copy of them, which is exactly the case
+    ///         <see cref="Confirm" /> exists for. That is also why the command is enabled for a
+    ///         merely-dirty document with no external edit at all: "put it back the way it was
+    ///         saved" is the same operation and has always been a thing people want.
+    ///     </para>
+    /// </remarks>
+    void Revert() {
+        if (project.ActiveDocument.Value is not { CanReload: true } document) {
+            return;
+        }
+
+        var title = document.Title.Peek();
+
+        Confirm(
+            document.IsDirty.Value,
+            $"Revert '{title}'?",
+            "Its unsaved changes and its undo history are discarded, and the file on disk is read "
+            + "again. This cannot be undone.",
+            () => {
+                if (document.Reload()) {
+                    return;
+                }
+
+                Shell.Notifications.Show(
+                    $"'{title}' could not be read again",
+                    NotificationSeverity.Warning,
+                    "What is on screen is what was there before."
+                );
+            },
+            "Revert"
+        );
     }
 
     /// <summary>What has changes in it, named, for the prompt to show.</summary>

@@ -1523,9 +1523,11 @@ sealed partial class EditorApplication : IDisposable {
     ///         not have looked at in an hour.
     ///     </para>
     ///     <para>
-    ///         What is still missing is the affordance that makes the choice one click — a banner
-    ///         across the document with Reload and Keep on it. <c>ExternalEdits</c> says why that is
-    ///         a panel rather than a mechanism, and everything it needs is already public.
+    ///         The two answers are both gestures: Ctrl+S keeps this document's version, and
+    ///         <c>file.revert</c> takes the file's, asking first because it is the destructive one.
+    ///         What is still missing is only the shortcut to them — a banner across the document
+    ///         itself rather than a message in the corner — and that is a panel rather than a
+    ///         mechanism.
     ///     </para>
     /// </remarks>
     void Announce(ExternalEdit edit) {
@@ -1540,8 +1542,8 @@ sealed partial class EditorApplication : IDisposable {
                 Shell.Notifications.Show(
                     $"'{title}' changed on disk",
                     NotificationSeverity.Warning,
-                    "It has unsaved edits, so it was left as it is. Save to keep yours, or close and "
-                    + "reopen it to take the version on disk."
+                    "It has unsaved edits, so it was left as it is. Save to keep yours, or "
+                    + "File ▸ Revert to Saved to take the version on disk."
                 );
 
                 break;

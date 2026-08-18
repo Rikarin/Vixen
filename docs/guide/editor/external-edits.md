@@ -140,9 +140,13 @@ document.Reload();
 document.Save();
 ```
 
-⚠ **What is not built is the affordance that makes that one click** — a banner across the document
-with Reload and Keep on it. The editor's head posts a notification naming the file and nothing more,
-which is the non-destructive half; the banner is a panel, and everything it needs is already public.
+In the editor those are `file.save` and **File ▸ Revert to Saved** (`file.revert`), which is enabled
+for a document that is dirty or stale and asks before it discards anything. The notification the head
+posts when a document is kept names both.
+
+⚠ **What is not built is the banner** — the offer sitting across the document itself rather than in
+the corner of the window, so that the choice is made where the conflict is. That is a panel and not a
+mechanism; everything it would need is already public.
 
 ## See also
 
