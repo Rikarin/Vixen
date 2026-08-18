@@ -156,6 +156,16 @@ marches. Only a ray with an endpoint behind the camera's plane declines to the f
 observably. The kernels carry the same march — the probes' copy and the reflections' copy, each
 refereed against this DDA by a golden test through the same `NearestReduce` chain.
 
+⚠ **An interval-based march stops on the surface the ray was fired from.** A cell crossing is an
+interval, the first one begins standing on the probe's own surface, and the shell test is true
+before the ray has gone anywhere: 59%, 31% and 53% of every hit the pyramid march reported at three
+poses of the arena were the origin's own texel, median reach a hundredth of a metre. The cure is
+`SurfaceBias` — a shell-sized bar in the origin's texel, so that texel stops a ray only where the
+ray began in front of it by more than the shell — and **not** refusing the texel outright, which
+would lose every legitimate near hit. Both marches carry it, and a fixture that referees it has to
+stand a probe on what the depth buffer actually shows; one staged from synthetic planes cannot see
+the defect at all.
+
 ## The resolve is a dispatch, and its weights are the same table
 
 `ScreenProbeResolve.rvn` projects each probe's map into L1 — one workgroup per probe, walking the

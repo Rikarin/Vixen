@@ -719,6 +719,12 @@ landing on it stands up.
 | `SnapBase` | the gizmo's origin, the selection's centre, the active element, **the point you grabbed** |
 | `SnapModifiers` | align rotation to the target, search from the view, ignore what is being dragged |
 
+⚠ **The blocker was never the viewport, and that is the lesson worth keeping.** `SnapToVertex` and
+`SnapToSurface` *were* honoured here, fully tested, and nothing anywhere turned them on:
+`scene.toggle-snap` moves the increment, the angle and the scale and says nothing about the elements
+that need geometry. The feature was complete, tested and unreachable — this repository's commonest
+defect wearing a snapping hat. Grep for who *sets* a flag, not for who reads it.
+
 ⚠ **The four booleans that used to be here are views over `Elements` rather than second state.**
 `SnapPosition`, `AbsoluteGrid`, `SnapToVertex` and `SnapToSurface` get and set bits, so a toolbar
 toggle and a settings panel cannot disagree about whether snapping is on — there is nothing for them

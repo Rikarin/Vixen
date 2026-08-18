@@ -97,6 +97,13 @@ caster list would draw the camera's billboards into every shadow cascade, edge-o
 ⚠ `View` is not optional in a frame with shadows in it. Left unset the feature takes `Views[0]`,
 which is whichever view the `!ShadowMap` node registered first.
 
+⚠ **A particle material goes through `WorldRenderer.ParticleMaterials`, not `Materials`.** A
+sub-feature has exactly one owner — `RootRenderFeature.Add` refuses a second — and
+`ParticleRenderFeature.Draw` asks *its* material sub-feature which variant each object resolves to,
+skipping any object with no answer. A material assigned through the mesh path therefore leaves an
+effect that expands its quads every frame and draws none of them, silently. The two features hold
+separate variant caches and separate uniform blocks, which is the honest consequence.
+
 **Four.** Put the component on an entity — in the editor, or in the scene file:
 
 ```yaml

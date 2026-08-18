@@ -116,6 +116,12 @@ hold. The bytes stay in the profile and it comes back on a build that knows it.
 bitmap read into a grid of a different width is not visibly wrong — it is an explored map that has
 quietly become diagonal stripes.
 
+⚠ **Never read from the stream inside a null-conditional chain**, which cost a debugging pass:
+`entry?.Tracker?.Seat(i, reader.Single(), …)` reads like the same thing as reading into locals first
+and is not — the null-conditional short-circuits the *whole* expression, so for a quest this build
+had lost, the arguments never ran and their bytes were consumed as the next quest's. See
+`QuestSection.cs`.
+
 ## Assets go in the ledger; counters go in the profile
 
 The rule the whole assembly is arranged around, and it decides the storage on its own. An asset can
