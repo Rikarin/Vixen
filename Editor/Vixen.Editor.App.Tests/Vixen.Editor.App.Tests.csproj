@@ -35,6 +35,17 @@
             the whole editor application, which is exactly the isolation those tests exist to keep.
         -->
         <Compile Include="..\Vixen.Editor.Plugin.Tests\PluginFolder.cs" Link="PluginFolder.cs" />
+
+        <!--
+            The editor's own tool modules, which the head embeds and this project cannot reach. The
+            capture builds a real `FramePresenter`, whose line and mesh pipelines a device refuses
+            without valid SPIR-V — and a `UiRenderer`, because `Resize` registers the pane's texture
+            through one. Linked from the head's folder rather than copied, so a shader rebuilt by
+            `CheckShaders` reaches both.
+        -->
+        <None Include="..\Vixen.Editor.Host\Shaders\*.spv"
+              Link="ToolShaders\%(Filename)%(Extension)"
+              CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>
@@ -51,6 +62,18 @@
             test project's dependency rather than the application's.
         -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!--
+            And a real backend, for `ComposedPaneCaptureTests` alone. Everything the recording device
+            can answer about a four-pane frame is a counter, an index or a name, and this tree's
+            commonest defect is a frame in which all three are healthy and no fragment survives — so
+            the composed panes need a picture somebody can look at. The editor's own host cannot take
+            one, because it opens a window.
+
+            ⚠ The capture is off unless `VIXEN_PANE_CAPTURE` names a directory, so a machine with no
+            driver and a CI leg that asked for nothing both run exactly as they did.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
 
         <!--
             The automation harness, which is how these tests drive the head. It came out of the

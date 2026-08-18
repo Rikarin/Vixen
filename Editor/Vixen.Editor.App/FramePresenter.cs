@@ -510,7 +510,12 @@ sealed class FramePresenter : IDisposable {
 
         texture = default;
 
-        if (!IsReady) {
+        // ⚠ And the frame has to hold this pane's colour. <see cref="Prepare" /> is what lends it and
+        // it declines for a pane whose mode resolves to no tree, so a pane asked for a texture it
+        // never lent comes out of <c>CompositorFrame.Texture</c> as a <c>CompositorBindingException</c>
+        // from the middle of the record loop — which takes the whole window's frame down rather than
+        // this pane's.
+        if (!IsReady || !frame.Has(colourTarget)) {
             return false;
         }
 
@@ -541,7 +546,7 @@ sealed class FramePresenter : IDisposable {
     /// </remarks>
     public IReadOnlyList<(string Node, string Reason)> Degradations => degradations;
 
-    /// <summary>Records the tools, inside the pass <see cref="Append" /> declared.</summary>
+    /// <summary>Records the tools, inside the pass <see cref="Tooled" /> declared.</summary>
     /// <remarks>
     ///     The order is <see cref="ScenePresenter" />'s and for its reasons: the depth-tested lines
     ///     first, then the gizmo's shafts with no depth test at all — because a handle you cannot

@@ -934,13 +934,6 @@ sealed class EditorWorldRenderer : IDisposable {
             throw new ArgumentException("A frame with no panes in it is a build nobody would read.", nameof(panes));
         }
 
-        // ⚠ Between frames by contract and this is the closest thing the editor has to one: it is
-        // called before the graph executes and after the last submission, and it no-ops on an
-        // unchanged size — which is every frame that is not a resize.
-        if (reference.X > 0 && reference.Y > 0) {
-            Compositor.Resize(reference, idle);
-        }
-
         if (panes.Count == 1) {
             Compositor.Game = panes[0];
         } else {
@@ -951,6 +944,17 @@ sealed class EditorWorldRenderer : IDisposable {
             }
 
             Compositor.Game = composed;
+        }
+
+        // ⚠ Between frames by contract and this is the closest thing the editor has to one: it is
+        // called before the graph executes and after the last submission, and it no-ops on an
+        // unchanged size — which is every frame that is not a resize.
+        // ⚠ After the panes are installed and not before, because `Resize` walks `Game` to find the
+        // nodes that had laid device state out against the old size. Run first, it would walk *last*
+        // frame's panes — and the frame a pane joins the composition on is exactly the frame whose
+        // reference size changes, so the one node with state to lay again is the one it would miss.
+        if (reference.X > 0 && reference.Y > 0) {
+            Compositor.Resize(reference, idle);
         }
 
         var frame = Compositor.Build(graph, Renderer.Host.Effects, device);
