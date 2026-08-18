@@ -20,6 +20,24 @@ Twenty lines of arithmetic already exist in `Vixen.Water` — the exact spherica
 damping terms, the flow drag, and `RestDisplacement`, all tested against an analytic answer. What is
 here is everything that touches a world.
 
+## The immersion is one number, and four rules about it are load-bearing
+
+⚠ **`CharacterMoveMode.Swimming` was appended and must never be reordered.** The mode is a byte in a
+component, so it is a byte in every saved scene and on the wire — renumbering it is a save-game and a
+protocol break at once.
+
+⚠ **The immersion is *state* rather than an argument to `CharacterMotion.Step`**, which is
+[16](../../docs/plan/16-networking.md)'s requirement rather than a convenience: a predicted step is
+re-simulated whenever a snapshot disagrees, so everything the rules read has to be part of what a
+rollback restores.
+
+⚠ **Water beats the ground.** A character wading out of its depth is still standing on the bed at the
+moment it starts to swim, so the immersion test is asked before the ground test rather than after it.
+
+⚠ **A zeroed component never swims**, which is what makes every scene saved before this load
+unchanged: an immersion of zero is a character on dry land, and the fourth mode is unreachable rather
+than mis-entered.
+
 ## Why it is its own assembly
 
 [§ D1][35]. **The water kernel is what a dedicated server runs**, so nothing in it may open a device
@@ -125,6 +143,13 @@ ends up floating on its bounding box.
 ⚠ **Four and not one**, for anything that should lean. A single pontoon bobs and never rolls, because
 a force at one point cannot produce a torque about it — the corners are what tell the solver about the
 attitude. `BuoyancyBody.Raft` is the shape that matters.
+
+⚠ **And `BuoyancyPontoon` needs its own `[DataContract]`, which it shipped without.** A declared scene
+component is not enough on its own: the pontoon list is `BuoyancyBody`'s only load-bearing field, and
+without a contract on the element type it could not be written in a file at all. A body with no
+pontoons floats nowhere and is *not an error*, so an authored boat loaded, looked complete in the
+inspector, and sank. `WaterSceneRunsTests` — a pond, a `.vxwaves`, a spline resolved by name and a
+dinghy, folded and stepped through Jolt — is the fixture that found it, and the reason it exists.
 
 ## What is not here
 

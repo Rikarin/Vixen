@@ -36,6 +36,15 @@ A mirror ray leaves the very surface the march would first sample, at distance n
 `Bias`, every reflection is the reflector's own colour. The test holds both behaviours, so the
 why survives the parameter.
 
+⚠ **The `Bias` cannot reach the screen march, and that is a second defect wearing the same face.**
+A mirror ray leaves at the angle it arrived at, so on a grazing reflector it hugs the surface it
+left; a cell crossing is an *interval*, and the first one begins standing on the origin's own
+texel, so the shell test is true before the ray has gone anywhere. What has to be cleared is the
+texel's own depth span, not a distance along the ray. Both kernels hold the origin's texel to the
+shell (`ScreenSpaceTrace`'s `SurfaceBias`, shared with the screen probes), and
+`AMirrorDoesNotReflectItselfOnTheDevice` states it over a depth buffer the reflectors are the
+geometry of: a colour that encodes its own pixel, and no texel may come back holding it.
+
 ## The band, so a roughness map does not draw the threshold
 
 `RoughnessBlend` cross-fades the traced answer into the field's over a stated band ending at the

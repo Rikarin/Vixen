@@ -245,6 +245,64 @@ indistinguishable from a build without it. It exists because grouping characters
 reference each other cannot be done in the pose stage: that runs *after* every member has already
 mixed its layers against a stale view of the others.
 
+### Traps
+
+Each of these was a working program with a wrong answer. They are collected here because the
+overview's rows point at this file rather than restating them.
+
+- ⚠ **The default pole is the one that makes every solve silently do nothing.** `TwoBoneIk` takes its
+  bend plane from the pole and refuses the solve when the pole and the chain's own plane are both
+  degenerate — which a straight chain, i.e. most bind poses, makes them. A pole "sensibly"
+  extrapolated along the chain is exactly the useless one. A bent chain keeps its plane; a straight
+  one bends towards the target.
+- ⚠ **A sphere scaled per axis is an ellipsoid and both halves of the pair have to know it.** The
+  parameterisation is on the unit sphere with the extents applied afterwards, and the normal is *not*
+  the direction to the point. Assuming it is puts a hand 2 % off the belly of every non-uniform body
+  — precisely the failure proxy shapes exist to prevent.
+- ⚠ **A surface frame's basis is `along × up`, never `up × along`.** The other order decomposes to a
+  rotation with a negative scale, silently, and surfaces much later as a mirrored contact.
+- ⚠ **A trajectory's `U` is an angle, so it is unwrapped before decimation and re-wrapped after.** A
+  slide across the seam reads 0.98 → 0.02, and a decimator handed that either keeps every key there
+  or averages through it and sends the hand the long way round the limb.
+- ⚠ **The authored origin polyline is not a runtime fallback.** The frame resolves live; a rail that
+  has moved since the capture is the ordinary case.
+- ⚠ **Trajectory phase is carried per goal, not per character**, and it comes off the live tag rather
+  than the goal, whose object is shared by every character playing the clip. A walk at 0.3 under a
+  reach at 0.8 is normal.
+- ⚠ **The LOD governor reserves the floor for everyone still waiting.** Spending the budget on the
+  most important characters in order gives the first thirty-seven everything and strands the rest,
+  reporting a hundred characters as over budget when all hundred would have fitted one-in-four.
+- ⚠ **The overlap audit exempts only *adjacent* joints.** Exempting every ancestor exempts almost
+  everything, because a hand is a descendant of the spine — and a hand buried in the belly is the one
+  thing worth reporting.
+- ⚠ **The joint-limit clamp cuts and does not redistribute.** A solver that knew about limits could
+  bend more at the elbow because the shoulder ran out; this removes the parts of the correction a
+  joint may not do and reports the larger residual. Same limitation the arbiter already states.
+- ⚠ **`Limited` is a flag, and a zero limit is not "free".** Zero swing and zero twist is a welded
+  joint, which is legitimate to author and is also what every rig exported before the fields existed
+  deserialises to.
+- ⚠ **A mirror swaps the side of the *joint* as well as the position.** Keeping the joint puts the
+  left palm on the right wrist, which is right in the bind pose and wrong the moment either arm moves.
+
+**What the editor has to resolve, and why it resolves it that way.** `EditorAnimation` is the one
+place that turns an asset path into a rig, a shape set, a vocabulary, a ladder, a clip or a move set;
+`EditorApplication.Bound` sets its hooks as each document opens, because a resolver subscribed per
+*view* would leave one document carrying four of them.
+
+- ⚠ **A `.vxproxyshapes` names its rig, and the bake deliberately ignores it.** An authoring-time
+  reference only: a set is worn by whichever body loads it, which is the whole reason a shape names
+  its joint instead of indexing it. Likewise a clip's authoring-context reference — `ToContent` drops
+  it and the runtime record has no field for it at all.
+- ⚠ **The rig is read from the model's *source*, not from the built asset**, and with the import
+  settings off the model's own sidecar. The built catalog does not exist until the project has been
+  imported once, and a shape editor that opened only after a successful content build would be
+  unopenable in the exact situation somebody opens it. Reading with default settings would place the
+  shapes on a body a metre tall — scale and axis conversion are settings.
+- ⚠ **Effectors are derived from the body's own proxy shapes**, because nothing declares them; the
+  chain root is two joints up, because wrist–elbow–shoulder is what `ChainSolver` is written for. A
+  shape on the root is excluded — in an augmented set the root carries everything the scene put there.
+- ⚠ **Rigs are cached against the file's write time**, because the panel asks on every keystroke.
+
 ## Retargeting
 
 A clip is baked against one skeleton and may only be sampled onto that one. `SkeletonRetarget` is how

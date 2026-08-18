@@ -49,6 +49,14 @@ has to be one a client can predict and two servers agree on.
 ⚠ **A leader kicking themselves is a leave.** The gesture exists in every client and refusing it
 leaves a leader who cannot get out of their own party.
 
+⚠ **The group oracle's first run tested nothing, and that is what the applied/refused floors are
+for.** Uniform actors spent almost all of their time on an empty group refusing everything: every
+invariant held, every assertion passed, and nothing was exercised. A randomised oracle must assert
+that a useful fraction of its operations both *applied* and were *refused*, or a change that made
+everything fail passes it quietly. The same floors are in
+[`Vixen.Gameplay.Inventory`](../Vixen.Gameplay.Inventory/README.md)'s conservation oracle for the
+same reason.
+
 ### Capacity counts the standing invites
 
 A party of four with three invites out is a party of seven the moment they all accept, and a check

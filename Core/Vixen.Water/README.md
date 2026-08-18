@@ -92,6 +92,11 @@ nicety: a client and a server that disagree about the sea disagree about where a
 goes through an integer hash and every trigonometric call through the polynomial above; the tests
 assert the exact bits so the other CI legs can compare.
 
+⚠ **The seed and the wave index are combined by multiply-and-add, not by XOR.** The mixer has a fixed
+point at zero, so XOR makes every spectrum share one wave with every other along the seed-equals-index
+diagonal. That is harmless in a scatter and is not harmless here: two seas that should differ agree
+about their longest swell.
+
 **Why Gerstner first.** A sum of sixteen waves is a *closed-form function of position and time*, so a
 server can answer "where was the surface six ticks ago" without having simulated the intervening
 frames. An FFT needs a per-frame dispatch chain and a CPU path that either reads back a texture or
@@ -130,6 +135,11 @@ refuses otherwise. The samples include both edges, so the spacing is `Extent / (
 two *plus one*. It shipped as `Extent / Resolution` for a day, with the rasteriser using one spacing
 and the snap using the other; the two beat against each other and produced precisely the crawl the
 snap exists to prevent. The stability sweep is what found it.
+
+⚠ **And the stability sweep could not have failed as first written.** Bilinear interpolation of a
+*linear* field is exact on any grid, so a planar test beach cannot show a sampling crawl however badly
+the window is placed — the test was measuring nothing. The bed needs curvature, and the sweep now
+ships with a negative control: an unsnapped window over the same bed wobbles a hundred times more.
 
 ## The zone
 
@@ -245,6 +255,12 @@ river's own speed and staying there.
 The convergence test ships with its negative control: with the damping removed the same body is still
 moving half a metre a second after five seconds, so the settling is the damping's doing rather than
 the integrator's.
+
+⚠ **And it asserts the *waterline*, not the displaced volume.** At equilibrium the lift equals the
+weight *by definition*, so "displaced volume equals `RestDisplacement`" is true for any coefficient
+and a test asserting only that still passes with the term deleted. The crate carries a coefficient of
+1.6 so that the resting waterline is a number only the right arithmetic produces, and the mutation was
+checked.
 
 **What is not here is the join.** The `BuoyancyBody` component, the Jolt force application, the debug
 draw and the networked predicted body are W7's device- and world-facing half; § D1 puts the physics

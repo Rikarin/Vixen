@@ -116,6 +116,15 @@ operands, so an edit to it is an edit the next re-evaluation would overwrite wit
 `MeshEdit.Demote` collapses the derivation first, which makes the edit stick and makes the operands
 somebody's to delete rather than a graph quietly rebuilding over them.
 
+⚠ **A boolean's operands are the result's hidden children.** They stay in the scene under the result
+rather than being consumed, so deleting the result deletes them, duplicating it duplicates them, and
+a difference takes its operand order from the outliner rather than from a second field that could
+disagree with it.
+
+⚠ **The bake writes an OBJ rather than a format of the editor's own.** The importer machinery already
+reads one, so the file in the level and the file the artist opens are the same bytes — and
+`BlockoutHandoff`'s import-back is the same reader a modelled mesh arrives through.
+
 ⚠ **Assigning a material is the one surface verb that does not demote.** The assignment lives on the
 document beside the mesh rather than inside it, so regenerating a corridor's geometry from its
 parameters leaves it dressed. A UV projection writes into the mesh's own corner layer and therefore

@@ -23,10 +23,10 @@ optimism.
 | 2 | ECS + engine loop + scenes | 3.0 | ✅ |
 | 3 | Asset pipeline + mobile bring-up | 4.0 | ✅ bar CI legs and physical devices |
 | 4 | UI framework | 7.0 | ✅ |
-| 5 | Renderer (forward+, PBR, shadows, post FX) | 4.5 | 🟡 post FX partial; D3D12 postponed |
+| 5 | Renderer (forward+, PBR, shadows, post FX) | 4.5 | 🟡 post FX is most of the way (SMAA, MSAA resolve, full GTAO and SSR are the gaps); D3D12 postponed |
 | 5b | Raven parser migration (ANTLR → hand-written) | 1.5 | ✅ |
-| 6 | Editor shell | 4.5 | 🟡 the exit sentence and the tooling are met; `PublishEditor` and the perf bar are not |
-| 7 | Node graphs + VFX | 3.5 | 🟡 graphs done; the VFX GPU path is too — what is left is the shader-graph preview and GPU sort |
+| 6 | Editor shell | 4.5 | 🟡 the exit sentence and the tooling are met; packaging/signing and the perf bar are not |
+| 7 | Node graphs + VFX | 3.5 | 🟡 graphs done; the VFX GPU path is too — what is left is the shader-graph preview, and dispatching the GPU sort |
 | 8 | Gameplay subsystems (physics, audio, animation, input) | 3.5 | ✅ bar `Samples/05` |
 | 9 | Networking and multiplayer | 5.0 | ✅ all five exit criteria met |
 | 10 | Deferred, advanced rendering, Web | 2.5 | 🟡 WebGPU, video and XR landed early; deferred did not |
@@ -50,8 +50,8 @@ that drifts.
 | [22](22-virtualized-geometry.md) | A Nanite-class geometry pipeline | § Phases |
 | [23](23-bindless-materials.md) | One descriptor array per frame, so a draw is an index | Folded into Phase 5's remainder |
 | [24](24-blockout-tools.md) | In-viewport grey-boxing | § Part 3. 11.0 EM total, of which P0–P4 is 7.0 and is where the value is |
-| [27](27-mmo-framework.md) | An orchestrator, realms, and seamless transfer between them | § Cost. 16.0 EM across L0–L4, each shippable on its own. **L0 has landed** and L1 is in slices — `Live/` exists, a realm is a process with a lifecycle, and the megaserver's placement is a pure function with property tests. § L0, as built and § L1, in progress record what changed |
-| [28](28-gameplay-framework.md) | The gameplay library set on top of it | § Cost. 25.5 EM across G0–G8, taken by genre rather than whole. Its libraries live in `Gameplay/`, a top level whose build plumbing landed with 27's L0. **G0 — the kernel — G1 — items, the container algebra and loot — G2 — combat and shooting — G3 — progression and quests — G4 — social and chat — G5 — the economy — G6 — competing — G7 — the world — and G8 — owning — have all landed**: tags, `DefId`, definitions and their catalog, the attribute algebra, effects, requirements, the RNG, the module seam, the `.vxdef` importer, a sixteen-byte item instance with affixes regenerated from its seed, transactional containers with the conservation oracle in CI, loot tables with durable pity, a drop simulator that runs the shipped evaluator, abilities over a six-stage damage pipeline with threat and taunt, and the weapon model with its hit-claim validator — which also closes doc 16's owed cost budget for rewinds; levels, talents, professions and reputation over one requirement-answering record; and quests whose objectives subscribe to a tag-filtered event bus that turned out to belong in the kernel, with realm-scoped dynamic events, contribution tiers and chains that cycle; parties, guilds, friends and presence beside a chat router whose audience is a seam rather than a reference; and currencies, vendors, a trade escrow, mail and an auction house, every transaction of which is one balanced idempotent intent against a ledger seam; dungeons with fleet-wide lockouts beside battlegrounds whose objectives are four composable types; and matchmaking, which takes Open Match's separation of filtering, proposing, evaluating and allocating without its Kubernetes topology, and ships both an Elo and a TrueSkill-family rating model; and one channelled-interaction system with recipes over it, a fog bitmap per character, and five ways of travelling that all resolve to doc 27's one transfer. Movement's *transform* half waits on doc 16's owed parent-relative replication (item 69), which doc 28 predicted; its seat model is built, as are leashing and spawn tables — all that G7's AI row turned out to still need, since threat went to Combat at G2 and the planners to Core/Vixen.Ai; and housing and collections, whose shared discipline is that *nothing in either takes a clock*, which is what makes doc 28's "ten thousand houses are ten thousand rows, not ten thousand processes" a property of the API rather than an aspiration. **What is left of the document is `Samples/14-Mmo`, which it calls the exit criterion for the whole thing, and the durable bridge into `Live/`.** G0 is the one milestone that document says is not optional; G2–G8 are independent tracks a game takes by genre |
+| [27](27-mmo-framework.md) | An orchestrator, realms, and seamless transfer between them | § Cost. 16.0 EM across L0–L4, each shippable on its own. **All five have landed** — `Live/` as a top level, realms as processes with lifecycles, the megaserver's placement as a pure function, seamless transfer with its oracle, persistence, the gate, and the soak. What is left is editor-side: the `.vxplacement` asset. See [`../overview.md`](../overview.md) § 1.13 |
+| [28](28-gameplay-framework.md) | The gameplay library set on top of it | § Cost. 25.5 EM across G0–G8, taken by genre rather than whole; its libraries live in `Gameplay/`. **G0–G8 have all landed** — the kernel, items and loot, combat and shooting, progression and quests, social, the economy, competing, the world, owning. What each contains is in doc 28's milestone sections and in [`../overview.md`](../overview.md) § 1.10. G0 is the one milestone that document says is not optional; G2–G8 are independent tracks a game takes by genre. `Samples/14-Mmo`, which doc 28 calls the exit criterion for the whole thing, has landed. Owed: movement's *transform* half, which waits on doc 16's parent-relative replication (Part 4 item 69) |
 
 > **27 and 28 together are ≈ 41.5 EM — near enough this table's whole original total.** That is
 > deliberate and it is stated in both documents rather than buried: an MMO framework is the size of
@@ -273,12 +273,15 @@ performance bar on Vulkan *and D3D12* cannot be met while D3D12 is postponed; wh
 numeric tests need a compute readback ([07](07-raven-shader-pipeline.md)); shader hot reload under
 500 ms is unmeasured.
 
-**Owed.** Compacted draws and per-object reflection probes, both behind
-[23 — bindless materials](23-bindless-materials.md). SMAA, MSAA resolve, the full GTAO integral, SSR,
-depth of field, motion blur, the grading LUT as an asset, and `AutoExposure` wiring — each needs a
-shader that does not exist yet, or the compute node. Light probes are **withdrawn rather than owed**:
-tetrahedral interpolation needs exact predicates, it was written, found wrong by its own tests, and
-taken back out — and [19](19-lighting-and-global-illumination.md) retires the whole approach.
+**Owed.** SMAA, MSAA resolve, the full GTAO integral and SSR — each needs a shader that does not exist
+yet, or the compute node. Light probes are **withdrawn rather than owed**: tetrahedral interpolation
+needs exact predicates, it was written, found wrong by its own tests, and taken back out — and
+[19](19-lighting-and-global-illumination.md) retires the whole approach.
+
+*This list used to be longer.* Compacted draws, per-object reflection probes, depth of field, motion
+blur and `AutoExposure` wiring have all since landed; the grading LUT is half-landed — the frame
+consumes one, but `CubeLutImporter` is not registered, so nothing can author one.
+[`../overview.md`](../overview.md) § 1.9 carries the per-feature state and wins on disagreement.
 
 ---
 
@@ -328,18 +331,18 @@ siblings (`Hierarchy.SetParentAfter`).
 
 **What the sentence did not cover has since landed as well:** the asset editors
 (`Vixen.Editor.AssetEditors`), the profiler, the debugger, the plugin host, the automation harness and
-the animation graph are all projects now — so cut-list #7 was built rather than cut. What is left of
-this phase is `PublishEditor` with signing and notarisation, golden screenshots for editor layouts, and
-the editor-shell performance bar, which is **unmeasured** — nothing runs that benchmark yet.
+the animation graph are all projects now — so cut-list #7 was built rather than cut.
 
-✅ **The viewport draws meshes.** This paragraph used to say it drew lines only. `SceneShape` names
-either a built-in primitive or a mesh reference, so a hundred instances of one rock are one instanced
-draw; `ProjectMeshSource` reads the chunks the last import wrote, out of the project's artefact store
-rather than a content build, because waiting for a build to look at a level would make the viewport a
-function of the build rather than of the files. ⚠ What is still owed is a **material**: the surfaces
-are one directional term in the viewport's own shader, not what a game would draw them with. And an
-unloaded mesh draws nothing rather than falling back to its shape — an entity that changed appearance
-while its mesh loaded is a scene that looks different depending on how fast the disk is.
+✅ **The viewport composes a real frame.** It draws the scene through a `GraphicsCompositor` into the
+window's render graph — every pane of a quad layout, each with its own `RenderView` — rather than the
+lines and one-directional-term meshes this paragraph used to describe. `Editor/Vixen.Editor.App`'s
+`FramePresenter` and `EditorWorldRenderer` are the entry points; [20](20-editor-parity.md) and
+[`../overview.md`](../overview.md) § 1.11 carry the per-feature state.
+
+**What is left of this phase**: the *packaging* half of publishing — `build/Build.Publish.cs` has a
+working `PublishEditor` that publishes self-contained per RID, but `.app`/`.dmg`, AppImage and MSI,
+with signing and notarisation, are owed — plus golden screenshots for editor layouts, and the
+editor-shell performance bar, which is **unmeasured**: nothing runs that benchmark yet.
 
 **[20 — Editor Parity](20-editor-parity.md) is the sequel to this phase**, and its framing is the honest
 one: this phase makes the editor work, and that document is what the difference between "the editor
@@ -369,12 +372,11 @@ canvas already culls to the viewport, so the cost is bounded by the screen rathe
 a projection that is rebuilt cannot drift from the document. A drag is the exception and writes
 positions in place, because that is the path that runs every frame.
 
-**Emitting the compute shader found a lowering bug in Raven** worth recording: `MergeInterface` rebuilt
-each `IrBinding` without its writable flag, so an `RWBuffer` inherited from a base shader arrived
-read-only. `spirv-val` accepts a `NonWritable` variable that is then stored into and GLSL's front end
-does not — so the shader ran on Vulkan and would not build for GL, which reads as a backend bug and was
-one argument in the binding merge. Writing the emitter also settled what the language was missing for
-the rest of the GPU path, and it turned out to be one thing: **atomics**, now built.
+**Emitting the compute shader found a lowering bug in Raven**, written up in
+[07](07-raven-shader-pipeline.md) § the binding merge: an inherited `RWBuffer` arrived read-only, and
+only GL objected, because `spirv-val` accepts a `NonWritable` variable that is then stored into. It
+also settled what the language was missing for the rest of the GPU path, and it was one thing:
+**atomics**, now built.
 
 **Exit — one of two met.** ✅ **A VFX graph produces the same particles on both paths**, asserted on a
 real device at stated tolerances and validation-clean: `VfxGpuSimulation` owns the storage, the
@@ -382,21 +384,19 @@ descriptors and both transfers, and `Platform/Vixen.Vfx.Gpu.Tests` puts the runt
 the driver in one process so the question can be asked at all. ⬜ A PBR material authored in the shader
 graph rendering identically to its hand-written Raven equivalent still needs a preview renderer.
 
-**Reaping ran last of the three and is worth the note**, because it is the only part of a particle
-system a dispatch cannot do the obvious way. A survivor claims its destination slot with `atomicAdd`,
-so two invocations can be handed slots in either order and compacting in place would let one overwrite
-a particle the other has not read — which means a reaping effect holds *two* full sets of the attribute
-buffers and the reap swaps which is live. The survivors then come out in an order the two backends do
-not share and neither promises; both are correct only because a particle's randomness follows its
-identifier rather than its slot, which is a decision made in Phase 7's first week and cashed in here.
-The count reaches a `DrawIndexedIndirect` command by a four-byte copy, so a frame never waits to be
-told how many particles it has.
+**Reaping was the part a dispatch cannot do the obvious way** — a compacting reap needs two full sets
+of the attribute buffers, and the survivors come out in an order neither backend promises. Both paths
+are correct only because a particle's randomness follows its *identifier* rather than its slot, which
+is a Phase 7 week-one decision cashed in here. Full account in
+[`Core/Vixen.Vfx/README.md`](../../Core/Vixen.Vfx/README.md).
 
-**Owed.** GPU sort, which is the one link of that chain still blocked — on Raven workgroup-shared
-memory rather than on anything in this phase. Mesh, ribbon and light renderers; the force-field,
-curl-noise, collision, sub-emitter and trail updaters. A shader-graph preview renderer — the
-framework's preview layer already draws a render target, so this is unblocked. Raven-span-to-node
-diagnostic mapping, which needs the emitter to record spans as it writes.
+**Owed.** GPU sort — and **not** for the reason this paragraph used to give. It said the sort was
+blocked on Raven workgroup-shared memory; that is wrong twice over. `groupshared` is built and
+already spent by `Culling.rvn`, `VisibilityTiles.rvn` and `WaterTiles.rvn`, and `ParticleSort.rvn`
+uses none of it. The shader is written; what is owed is the dispatch. Mesh, ribbon and light
+renderers; the force-field, curl-noise, collision, sub-emitter and trail updaters. A shader-graph
+preview renderer — the framework's preview layer already draws a render target, so this is unblocked.
+Raven-span-to-node diagnostic mapping, which needs the emitter to record spans as it writes.
 
 ---
 
@@ -425,11 +425,14 @@ there until a static `libjoltc.a` is pinned the way MoltenVK already is.
 
 **Exit — not met, for one reason.** The fixed-step determinism gate is green and runtime rebinding with
 conflict detection works. `Samples/05-PlatformerGame` **does not exist**, so "playable on five
-platforms" has nothing to play. It needs an authored level, which needs the compiled scene format.
+platforms" has nothing to play. It no longer waits on the compiled scene format, which exists — it
+wants an authored level, and on iOS it also wants the Jolt slice above. The *end-to-end player* proof
+doc 29 called P4 has meanwhile landed elsewhere, as `Samples/13-ThirdPersonShooter`.
 
-**Owed.** Navmesh baking from a compiled scene. Ragdoll integration, which lands with the
-animation/physics join. Sensors, pen, MIDI and HID, which need platform contracts before they can have
-action-side ones. (`Vixen.Editor.AnimationGraph` was cut-list #7 and has since been built.)
+**Owed.** Navmesh baking from a compiled scene — ⚠ blocked on a **decision** rather than on the
+format: `NavMeshImporter` wants `(path, transform)` pairs and a scene gives an `AssetReference` GUID.
+Ragdoll integration, which lands with the animation/physics join. Sensors, pen, MIDI and HID, which
+need platform contracts before they can have action-side ones.
 
 ---
 
@@ -513,43 +516,39 @@ agrees with it on both counts — so the pin carries a refusal and a struct over
 than assumed.
 
 **Not started.** The deferred pipeline — GBuffer layout, shading-model-ID dispatch, automatic forward
-routing for non-representable materials, decals. Volumetric fog, contact shadows, light shafts, motion
-blur, SSS blur, the upscaler interface and FSR1. Mesh shaders and meshlet culling behind capability
-flags, for which [22](22-virtualized-geometry.md) is now the plan.
+routing for non-representable materials, decals. Contact shadows, light shafts, SSS blur, the upscaler
+interface and FSR1. Mesh shaders and meshlet culling behind capability flags, for which
+[22](22-virtualized-geometry.md) is now the plan. (Motion blur has since landed, and volumetric fog is
+partly built — see [`../overview.md`](../overview.md) § 1.9.)
 
 **Exit — not met.** Deferred does not exist, so it cannot pass the golden-image suite. `Samples/02` in
-three browsers needs `Silk.NET.OpenGLES` and an EGL context — the one dependency the GLES and WebGL2
-profiles are modelled against and not yet running on. `Samples/06-CanvasStress` is P2 and uncut; the
-editor became the application-platform proof instead.
+three browsers still needs a GLES context actually stood up: `SilkGlesApi` and `EglContext` are
+written and tested, but every `EglContext` construction in the tree is in that project's own test
+assembly, so nothing outside it has run one. `Samples/06-CanvasStress` is P2 and uncut; the editor
+became the application-platform proof instead.
 
 ---
 
 ## Phase 11 — Polish and 1.0 ⬜ *(2.5 EM)*
 
+The per-item state is [`../overview.md`](../overview.md) § 1.15; this is the checklist.
+
 - Every performance bar in [00](00-vision-and-principles.md) measured and green on real hardware across
   the IHV matrix.
-- `PublicAPI.Shipped.txt` frozen for all packages; the API review pass; obsolete or remove the
-  leftovers. The *gate* exists — `nuke CheckApi` baselines 59 packable assemblies and 22 807 entries and
-  fails on an unapproved addition *and* on a silent removal — so what is left is the reading nobody has
-  done, and folding `Unshipped` into `Shipped` at the release.
-- Documentation: ⚠️ **specified in [25](25-documentation-generator-and-site.md)**, which replaces the
-  DocFX API reference with a generated graph and a site built on xUI — getting started, per-subsystem
-  guides, a UI framework tutorial and a Raven language reference, at ~10 EM, of which the writing is a
-  third and is continuous rather than a phase. Plus 12+ runnable samples. Eleven exist.
-- `dotnet new` templates for game, application, library and editor plugin, verified from a clean machine
-  on all six targets. Three of the four are built and their C# is compiled in CI against the assemblies
-  their package references resolve to; the plugin one is owed rather than blocked. "From a clean
-  machine" additionally wants a feed with the engine packages on it, which is what makes this a Phase 11
-  line rather than a done one.
+- `PublicAPI.Shipped.txt` frozen; the API review pass. The *gate* exists, so what is left is the
+  reading nobody has done and the fold at release.
+- Documentation, specified in [25](25-documentation-generator-and-site.md) at ~10 EM — of which the
+  writing is a third and is continuous rather than a phase. Plus 12+ runnable samples; twelve exist,
+  `05` and `06` being the gaps.
+- `dotnet new` templates verified from a clean machine on all six targets. The plugin template is owed
+  rather than blocked; "from a clean machine" also wants a feed with the engine packages on it, which
+  is what makes this a Phase 11 line rather than a done one.
 - Release automation end to end: tag → signed editor builds for three desktops + NuGet push + GitHub
   Release with a changelog.
-- Fuzzing corpora seeded and running nightly — ✅ `nightly.yml` does this as **a matrix job per
-  target** over all twenty, `fail-fast: false`, each with its own budget and its own
-  `fuzz-findings-<target>` artifact: five minutes for a grammar the mutator exhausts, ten for the
-  decoders, two hours for `raven`, against the second or so each gets in the per-build gate. `raven`
-  was skipped by name until its binder recursion was bounded, and is back in — one job per target is
-  what makes a target that ends its own process cost only its own night's depth. Soak tests (24 h
-  editor session, 24 h game session) clean — the 30-minute network soak is the only one that exists.
+- ✅ **Fuzzing corpora seeded and running nightly** — `nightly.yml` runs a matrix job per target over
+  all twenty, `fail-fast: false`, each with its own budget and artifact. ⚠ One job per target is the
+  point: a target that ends its own process then costs only its own night's depth. Soak tests (24 h
+  editor, 24 h game) are **not** clean — the 30-minute network soak is the only one that exists.
 - A public issue-triage and support process, and a written compatibility policy.
 
 **Exit:** a person who has never seen the repo can install the SDK, create a project, build it for all
@@ -590,7 +589,7 @@ publishable:
 |---|---|---|---|
 | **M1 — "it runs"** | 0–2 | 9.5 | ✅ reached |
 | **M2 — "it is a game engine"** | +3, 5, 8 | +12 | ✅ reached in substance — a programmer can build a real 3D game, code-only |
-| **M3 — "it has an editor"** | +4, 6 | +11.5 | 🟡 the shell is reached; the asset editors and [20](20-editor-parity.md) are not |
+| **M3 — "it has an editor"** | +4, 6 | +11.5 | 🟡 the shell, the asset editors and a composing viewport are reached; [20](20-editor-parity.md)'s surface is not |
 | **M4 — "it is complete"** | +7, 9, 10, 11 | +13.5 | 🟡 Phase 9 is done; 7, 10 and 11 are not |
 
 **M2 was the one that mattered**, and it is passed: if the project stopped here it would still be a real
@@ -631,28 +630,26 @@ thing that works, which is not true of stopping mid-Phase-4.
 
 These constraints mattered more than the phase numbers. Four are spent; four still bind.
 
-1. ~~**Raven gates Phase 5 only, and only loosely.**~~ Spent — Raven's codegen and its parser migration
-   are both done.
-2. **iOS/NativeAOT lands in Phase 3.** Non-negotiable, and it paid on day one of that phase. The general
-   form still binds: the cheapest insurance against reflection debt is a gate that fails before the
+**Still binding:**
+
+1. **iOS/NativeAOT lands in Phase 3.** Non-negotiable, and it paid on day one of that phase. The
+   general form: the cheapest insurance against reflection debt is a gate that fails before the
    codebase is large.
-3. ~~**The Web spike happens before anything is planned around it.**~~ Spent, and it paid — it retired
-   R1, corrected a size estimate that was an order of magnitude wrong, and surfaced a silent WebGL1
-   downgrade that would otherwise have cost days. **The general lesson binds: spike the unknown before
-   planning around it.**
-4. **Port the conformance suite before writing the implementation.** Applied five times — Yoga, UAX#29,
+2. **Port the conformance suite before writing the implementation.** Applied five times — Yoga, UAX#29,
    UAX#14, UAX#9, shaping and variable fonts — and a red suite driving the implementation is a
    completely different experience from writing 3 000 lines and then finding out.
-5. ~~**`TestApp` and `RecordingBackend` are built in Phase 1.**~~ Spent, and the principle held: every
-   later phase's testability rested on them, and they would have cost weeks retrofitted.
-6. **`Vixen.Ui` must never reference `Vixen.Engine`.** Checked by `CheckArchitecture` from Phase 0 and
+3. **`Vixen.Ui` must never reference `Vixen.Engine`.** Checked by `CheckArchitecture` from Phase 0 and
    still checked. The moment it is violated the application-framework claim is dead, and the violation
    is cheap to introduce and expensive to unwind.
-7. ~~**ImGui has a deletion date.**~~ Spent — it was cut in Phase 2 rather than built. The principle
-   binds: scaffolds without demolition dates become load-bearing.
-8. **Every phase ends with a runnable sample, and every sample stays running.** Still binding, and
-   currently **not honoured by CI**: no leg runs a sample, so the `--frames N` proof both sample READMEs
-   describe is not wired to anything.
+4. **Every phase ends with a runnable sample, and every sample stays running.** Currently **not
+   honoured by CI**: no leg runs a sample, so the `--frames N` proof both sample READMEs describe is
+   not wired to anything.
+
+**Spent, with the lesson that outlived each:** Raven gated Phase 5 only, and loosely (codegen and the
+parser migration are both done). Spike the unknown before planning around it — the Web spike retired
+R1 and caught a silent WebGL1 downgrade. Build the test harness in Phase 1; every later phase's
+testability rested on `TestApp` and `RecordingBackend`. Give a scaffold a demolition date — ImGui was
+cut in Phase 2 rather than built.
 
 ---
 
@@ -667,7 +664,7 @@ have since been *built*, so they are no longer available as savings.
 | 2 | **Networking as a whole, slipped to 1.1** | ✅ built. Was the cleanest 5 EM available, and is now spent |
 | 3 | WebGPU backend | ✅ built |
 | 4 | `Samples/06-CanvasStress` | ⬜ still available, still P2 — the editor became the application-platform proof |
-| 5 | CSS Grid | ⬜ still available. Flexbox covers the editor; grid is a convenience |
+| 5 | CSS Grid | 🟡 **no longer a clean lever** — placement and most of track sizing are built, 1 526 of 2 120 Taffy fixtures pass, and it reaches the layout store from a stylesheet. Nothing authored uses it yet, so what remains cuttable is finishing it |
 | 6 | Deferred pipeline | ⬜ still available. Forward+ covers the 1.0 use cases, and the render-feature architecture accommodates deferred later without rework |
 | 7 | `AnimationGraph` node editor | ✅ built rather than cut — `Vixen.Editor.AnimationGraph`. No longer a lever |
 | 8 | Full accessibility bridge | ⬜ still available. Hooks stay, the platform bridges slip |

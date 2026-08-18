@@ -80,6 +80,20 @@ read as clear near the far shore, where the path is longest, which is precisely 
 more depth adds no more scattered light, because what is scattered in at the far end is absorbed again
 on the way out. A model that multiplied by depth looks like fog.
 
+⚠ **A phase function integrates to one over the sphere, so punctual lights alone integrate to black.**
+Measured at ten depths, every channel went to zero: a single directional light contributes almost
+nothing outside its forward peak, and a sea with the sun behind the viewer had no in-scatter at all.
+The arithmetic was right about the term it had and silent about the one it did not have — water is
+blue because of what arrives from the *whole sky*, which is an **isotropic** in-scatter with no phase
+function. `WaterVolume.AmbientInScatter` and `skyColour` are that term, and with it the depth sweep
+saturates where it should: red at 0.03, green at 0.24, blue at 0.51, with forty metres the same
+picture as sixty.
+
+⚠ **`SingleLayerWaterShading` is specular only.** Every photon read as "the colour of the water" was
+scattered by the volume above, so a diffuse lobe on the surface counts the same photons twice — which
+makes the shallows too bright *and* makes water get lighter with depth. Reading the pass's own output
+in `behind:` is refused by name at build time, because that is § B1's undefined case.
+
 ## The reflections are doc 19 § L5's, not SSR's
 
 A routing decision rather than a compromise. Unreal's water pass classifies tiles specifically so it
@@ -164,6 +178,16 @@ dirty every frame, and re-rasterises every frame — the cost § D3's threshold 
 full and invisible in a picture. `RebuiltBodies` and `UploadCount` are the readings that say it is
 working; both should track the *change* count and not the frame count.
 
+⚠ **And the cache must store the success, never the failure.** The first version recorded a body whose
+spline had not loaded as unresolved against a component and a placement that then never changed — so
+it was never asked again for the life of the world. Every asset source a game has answers null for its
+first frames *by construction*, so a lake named in a scene could not appear in a running game at all,
+and the failure was permanent rather than transient. `GatherZones` beside it re-resolved every fold
+with no cache, which is why a late `.vxwaves` worked and the `.vxspline` next to it did not. The test
+counts the *asks* rather than the bodies: a source that answers on the first ask — which is every test
+double in the suite — cannot tell a retry from a cache hit, and that is how a thoroughly covered fold
+shipped this.
+
 Three diagnostics rather than one: `ZonelessBodies` is a body no zone's window reached,
 `UnresolvedBodies` is one whose spline has not loaded, and `UnresolvedWaves` is a *zone* whose sea
 state could not be used. The fixes are different — a zone's extent, an asset name, an asset name
@@ -225,6 +249,27 @@ the node impossible to drive by hand, which is how an image fixture reaches it �
 collapse was found. The plane's own default is a kilometre below the world rather than the origin,
 because a plane at the origin fogs the bottom half of every frame in a project whose ground sits below
 zero, and that reads as the effect working.
+
+## The six `water.show*` draws, and two rules in them
+
+`WaterDebugDraw` draws five of the six into `DebugDraw` — an *accumulator* rather than a renderer,
+which is why this project can draw into it without knowing what a line pass is. The sixth,
+`water.showBuoyancy`, is `BuoyancyDebugDraw`'s in `Vixen.Water.Physics`: the flag stays with the
+console verb and the drawing goes with the data, because a renderer must not reference the assembly
+that links Jolt.
+
+⚠ **`water.showTiles`' colour rule cannot be `WaterBody.Contains`.** That is an even-odd test on a
+*closed* boundary, so it is false for every river — and "coloured by body kind" painted every open
+body as the far skirt, which is exactly the case the verb exists to diagnose. It reads the body's
+*contribution* instead, the same function the field was rasterised from, so the colours agree with the
+water by construction.
+
+⚠ **`water.showLod` draws two rings per level, not one.** A pop at the outer ring is a selection range
+that is too near; a pop inside the band is a morph that never reaches zero. Those have different
+fixes, so one ring cannot tell an author which they are looking at. The patches come from the frame's
+own selection — `WaterSurfacePass.Selected`, published for this — because an overlay that descended
+the quadtree a second time would agree with the frame right up until the moment it stopped, and that
+moment is the bug somebody turned the overlay on to find.
 
 ## Underwater is a shape, not a system
 
