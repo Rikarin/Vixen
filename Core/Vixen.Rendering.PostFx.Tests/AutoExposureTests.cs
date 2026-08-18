@@ -501,4 +501,85 @@ public class AutoExposureTests : IDisposable {
         list.Finish();
         device.GraphicsQueue.Submit([list]);
     }
+
+    // --- What the chain says when nothing metered ---------------------------
+
+    /// <summary>
+    ///     ⚠ <b>The worst-shaped silence in the assembly: a grade taken from a number nobody
+    ///     measured.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A metering chain that declines does not produce a black frame or a missing resource.
+    ///         The exposure buffer keeps whatever it last held — or, on the first frame, its seed —
+    ///         and the tonemap grades against it as if it had been metered. The picture is plausible,
+    ///         stable, and wrong by however far the scene has moved since, which is precisely the
+    ///         failure the terrain README says needs an outside observer rather than a fallback.
+    ///     </para>
+    ///     <para>
+    ///         The three dispatches are <see cref="ComputeRenderer" />s the node owns rather than
+    ///         nodes a document named, so they are not in <see cref="SceneRenderer.Nested" /> and the
+    ///         chain carries the answer out by hand.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_chain_with_no_pipelines_says_the_grade_is_a_number_nobody_measured() {
+        using var h = Build(measured: false);
+
+        h.Exposure.Pipelines = null;
+        Frame(h);
+
+        Assert.Equal(0, h.Exposure.PassCount);
+
+        var (node, reason) = Assert.Single(Degradations(h), pair => pair.Node == "AutoExposure");
+
+        Assert.Equal("AutoExposure", node);
+        Assert.Contains("no Pipelines", reason, StringComparison.Ordinal);
+        Assert.Contains("nobody measured", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>The four wiring inputs are four reasons, because they are four different mistakes.</summary>
+    /// <remarks>
+    ///     A single "not wired up" would send a reader to look at all four. The samplers come from the
+    ///     frame's shared cache, the allocator from the compositor and the device from the window —
+    ///     three different owners, and naming which one is absent is the whole of the actionability.
+    /// </remarks>
+    [Fact]
+    public void Each_missing_input_is_named_by_itself() {
+        using var h = Build(measured: false);
+
+        h.Exposure.Samplers = null;
+        Frame(h);
+        Assert.Contains("no Samplers", Assert.Single(Degradations(h), p => p.Node == "AutoExposure").Reason);
+
+        h.Exposure.Samplers = samplers;
+        h.Exposure.Allocator = null;
+        Frame(h);
+        Assert.Contains("no Allocator", Assert.Single(Degradations(h), p => p.Node == "AutoExposure").Reason);
+    }
+
+    /// <summary>And a chain given everything back meters again, and says nothing.</summary>
+    [Fact]
+    public void A_chain_that_is_wired_back_up_leaves_the_report() {
+        using var h = Build(measured: false);
+
+        h.Exposure.Pipelines = null;
+        Frame(h);
+        Assert.Contains(Degradations(h), pair => pair.Node == "AutoExposure");
+
+        h.Exposure.Pipelines = pipelines;
+        Frame(h);
+
+        Assert.DoesNotContain(Degradations(h), pair => pair.Node == "AutoExposure");
+        Assert.True(h.Exposure.PassCount > 0);
+    }
+
+    /// <summary>The frame's whole list, which is what a host actually reads.</summary>
+    static List<(string Node, string Reason)> Degradations(Harness h) {
+        List<(string, string)> found = [];
+        var reported = h.Compositor.Degradations(found);
+
+        Assert.Equal(found.Count, reported);
+        return found;
+    }
 }
