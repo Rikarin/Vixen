@@ -19,6 +19,12 @@ namespace Vixen.Editor.Core;
 ///         rewrote a reference this document holds — which no amount of undoing inside the document
 ///         can take back, so it is tracked separately and only <see cref="Save" /> clears it.
 ///     </para>
+///     <para>
+///         <b><see cref="IsStale" /> is the opposite question and is deliberately not part of that
+///         answer.</b> Dirty is memory ahead of disk; stale is disk ahead of memory. Folding the two
+///         together would make <see cref="EditorProject.SaveAll" /> write this document over the
+///         edit somebody else made to its file. <see cref="ExternalEdits" /> is what sets it.
+///     </para>
 /// </remarks>
 public abstract class EditorDocument {
     readonly Signal<bool> modifiedExternally = new(false);
@@ -144,7 +150,11 @@ public abstract class EditorDocument {
     public virtual bool CanReload => false;
 
     /// <summary>Reads the file again, discarding what was in memory, and forgets the history over it.</summary>
-    /// <returns>Whether it did, which is <see cref="CanReload" />.</returns>
+    /// <returns>
+    ///     Whether it did. False for a document that <see cref="CanReload" /> says no to, and also
+    ///     for one that tried and declined — a file that will not parse, which an override is
+    ///     encouraged to refuse rather than to blank itself over.
+    /// </returns>
     /// <remarks>
     ///     <para>
     ///         <b>What an edit made outside the editor arrives through.</b> The asset database, the
