@@ -48,6 +48,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
 
+        <!--
+            `IFileWatcher` and the `FileChange` it drains. `ExternalEdits` is the two-way seam between
+            a watcher and the open documents — the editor's own saves out, somebody else's edits in —
+            and it belongs beside the project and the database it resolves paths through rather than
+            in the head, where it would only be testable by launching an editor.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+
         <!-- Settings assets are [DataContract] types read through the generated descriptors, and the
              file a settings type lives in is named after its contract alias rather than its C# name. -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />

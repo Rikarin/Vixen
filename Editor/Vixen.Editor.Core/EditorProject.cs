@@ -59,6 +59,31 @@ public sealed class EditorProject {
     /// <remarks>What the shell asks before it closes the window.</remarks>
     public IReadOnlySignal<bool> HasUnsavedChanges { get; }
 
+    /// <summary>Raised by an open document just before it writes itself back.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Before the write, which is the entire reason it is here rather than on the
+    ///         document.</b> <see cref="EditorDocument.Saved" /> already says "this document has been
+    ///         written" and is the hook a sidecar writes itself from. What this says is "a path is
+    ///         about to change", and the only subscriber that needs it is one holding a file watcher:
+    ///         <c>IFileWatcher.Suppress</c> has to be called before the platform sees the write, or
+    ///         the editor's own save arrives back through the watcher as somebody else's edit and the
+    ///         document offers to reload itself over the work that was just saved.
+    ///     </para>
+    ///     <para>
+    ///         On the project because the watcher is the project's, not the document's — a document
+    ///         raising it would be one that has to be handed a watcher to construct, for a
+    ///         relationship it otherwise has no part in. <see cref="ExternalEdits" /> is what
+    ///         subscribes, and it is the only thing that should.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It throws through</b>, like <see cref="EditorDocument.Saved" />: a subscriber that
+    ///         failed would leave the watcher un-suppressed, and a save that then round-trips is
+    ///         better noticed than swallowed.
+    ///     </para>
+    /// </remarks>
+    public event Action<EditorDocument>? DocumentSaving;
+
     /// <summary>Names a project's directories and builds the empty models over them.</summary>
     /// <param name="paths">Where the project is.</param>
     public EditorProject(ProjectPaths paths) {
@@ -177,6 +202,8 @@ public sealed class EditorProject {
 
         return saved;
     }
+
+    internal void OnDocumentSaving(EditorDocument document) => DocumentSaving?.Invoke(document);
 
     internal void Register(EditorDocument document) {
         documents.Add(document);

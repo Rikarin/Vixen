@@ -22,6 +22,7 @@ namespace Vixen.Editor.Core;
 /// </remarks>
 public abstract class EditorDocument {
     readonly Signal<bool> modifiedExternally = new(false);
+    readonly Signal<bool> stale = new(false);
     readonly Signal<string> title;
 
     /// <summary>The project it belongs to.</summary>
@@ -41,6 +42,28 @@ public abstract class EditorDocument {
 
     /// <summary>Whether it differs from what is on disk.</summary>
     public IReadOnlySignal<bool> IsDirty { get; }
+
+    /// <summary>Whether its file changed underneath it and it has not caught up.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other direction from <see cref="IsDirty" />, and deliberately not folded into
+    ///         it.</b> Dirty means memory is ahead of disk; this means disk is ahead of memory. A
+    ///         clean document that goes stale is reloaded and this never surfaces; a dirty one is
+    ///         left alone, and then both are true at once and mean different things.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why it is a signal of its own rather than a second source of dirty.</b>
+    ///         <see cref="EditorProject.SaveAll" /> writes every dirty document — so a stale document
+    ///         that counted as dirty would have the editor's copy written over the external edit by a
+    ///         Ctrl+Shift+S, which is the destructive outcome the whole policy exists to avoid.
+    ///     </para>
+    ///     <para>
+    ///         Cleared by <see cref="Reload" />, which takes the file's version, and by
+    ///         <see cref="Save" />, which takes the document's. Those are the only two answers, and a
+    ///         person choosing between them is the affordance <see cref="ExternalEdits" /> reports for.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlySignal<bool> IsStale => stale;
 
     /// <summary>Whether it is still open in the project.</summary>
     public bool IsOpen { get; private set; } = true;
@@ -104,6 +127,11 @@ public abstract class EditorDocument {
         Saved?.Invoke(this);
         Stack.MarkClean();
         modifiedExternally.Value = false;
+
+        // The file is now this document's contents, whatever it held a moment ago. A save is the
+        // other half of the answer to a stale document — "keep mine" — and it is the same two lines
+        // as any other save, which is what makes it an answer rather than a mode.
+        stale.Value = false;
     }
 
     /// <summary>Whether this document knows how to read its file again.</summary>
@@ -127,10 +155,17 @@ public abstract class EditorDocument {
     ///     <para>
     ///         ⚠ <b>The undo history goes, and it has to.</b> The entries describe edits to the
     ///         previous contents of the file — undoing into a document that no longer has the members
-    ///         they name is how a reload turns into a corruption. <see cref="CommandStack.Clear" />
-    ///         keeps the dirty flag, which is why the caller's job is to reload only what is clean:
-    ///         see the policy on <c>ExternalEdits</c>, which is the one thing here that is a decision
-    ///         rather than a mechanism.
+    ///         they name is how a reload turns into a corruption.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And then it is clean, which <see cref="CommandStack.Clear" /> alone does not
+    ///         make it.</b> Clearing a dirty stack leaves it dirty for good — correctly, because the
+    ///         undos that would have got back to disk have just been deleted. That is the wrong
+    ///         answer here and only here: what this document holds <i>is</i> the file, so
+    ///         <see cref="CommandStack.MarkClean" /> is what stops a discard-and-reload from leaving
+    ///         a document that claims to differ from a file it is identical to. Deciding
+    ///         <i>whether</i> to discard is not this method's job — see <see cref="ExternalEdits" />,
+    ///         which is the one thing in this seam that is a policy rather than a mechanism.
     ///     </para>
     /// </remarks>
     public bool Reload() {
@@ -139,7 +174,9 @@ public abstract class EditorDocument {
         }
 
         Stack.Clear();
+        Stack.MarkClean();
         modifiedExternally.Value = false;
+        stale.Value = false;
 
         return true;
     }
@@ -178,4 +215,12 @@ public abstract class EditorDocument {
         modifiedExternally.Value = true;
         Stack.ClearRedo();
     }
+
+    /// <summary>
+    ///     Its file changed underneath it and it did not take the change. Nothing in memory moves —
+    ///     the stack, the redo entries and the contents are all still about a document somebody may
+    ///     be mid-edit in — and the flag stands until a <see cref="Reload" /> or a <see cref="Save" />
+    ///     settles which copy wins.
+    /// </summary>
+    internal void MarkStale() => stale.Value = true;
 }
