@@ -64,15 +64,17 @@ public readonly record struct ExternalEdit(EditorDocument Document, ExternalEdit
 ///         expecting.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is deliberately not built here is the prompt.</b> Choosing between the two
-///         copies is a question only a person can answer, and asking it is a shell affordance — a
-///         notification with two buttons, a banner across the document, a diff. This is the
-///         non-destructive half: the flag on the document, the report on the event, and
-///         <see cref="EditorDocument.Reload" /> and <see cref="EditorDocument.Save" /> as the two
-///         answers, both already public and both already correct. The editor's head posts a
-///         notification naming the file; a person who wants the disk version reloads, and a person
-///         who wants theirs saves. What a repository owner may still want is the banner, and that is
-///         a panel rather than a mechanism.
+///         ⚠ <b>What is deliberately not decided here is which copy wins.</b> That is a question
+///         only a person can answer, and this is the non-destructive half of asking it: the flag on
+///         the document, the report on the event, and <see cref="EditorDocument.Reload" /> and
+///         <see cref="EditorDocument.Save" /> as the two answers. The editor's head puts both in
+///         front of somebody — a notification naming the file, Ctrl+S to keep theirs, and
+///         <c>file.revert</c> to take the file's, which asks before it discards anything.
+///     </para>
+///     <para>
+///         What is not built is the <em>banner</em>: the offer across the document itself rather
+///         than in the corner of the window, so that the choice is made where the conflict is. That
+///         is a panel and not a mechanism, and everything it would need is already public.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Deletion is not a reload.</b> A file that has gone would read back as empty — see
