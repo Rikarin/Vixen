@@ -122,11 +122,22 @@ enough:
 ```bash
 docker run --rm -v "$PWD:/src" mcr.microsoft.com/dotnet/sdk:10.0 bash -c '
   apt-get update -qq && apt-get install -y -qq libvulkan1 mesa-vulkan-drivers libassimp5 libsdl2-2.0-0 spirv-tools
-  cd /src && VIXEN_REQUIRE_VULKAN=1 dotnet test Platform/Vixen.Graphics.Golden.Tests -c Release'
+  cd /src && VIXEN_REQUIRE_VULKAN=1 dotnet test Platform/Vixen.Graphics.Golden.Tests -c Release \
+    --filter "FullyQualifiedName~TheFixtureYouAreChasing"'
 ```
 
-Build into a clone rather than the working tree — a Linux build and a macOS build share `obj/` and
-will fight over it.
+That reproduces a named fixture's Linux result exactly: the run which found the
+`viewport-overlay-over-compositor` difference reported the same pixel, `(83, 6)`, and the same worst
+channel, 240/255, as the CI log.
+
+Two things to know before believing a whole-suite run of it:
+
+- **Build into a clone, not the working tree.** A Linux build and a macOS build share `obj/` and will
+  fight over it.
+- **On an Apple-silicon host this is arm64 lavapipe, and CI is x86-64.** Dropping the `--filter` there
+  crashes the test host with SIGSEGV part-way through — an arch artefact, not a CI failure, since the
+  `ubuntu-latest` leg runs the same suite through to the end. Add `--platform linux/amd64` to match CI
+  properly, at emulation's cost.
 
 ### What the two drivers actually disagree about
 
