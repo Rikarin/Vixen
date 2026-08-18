@@ -49,6 +49,7 @@ public sealed partial class TerrainModule : IEditorPlugin {
     SceneDocument document = null!;
     EditorShell shell = null!;
     IEditorRegistry extensions = null!;
+    PluginServices services = null!;
 
     /// <summary>The project the tools read their assets out of and write their files into.</summary>
     EditorProject Project => project;
@@ -101,6 +102,12 @@ public sealed partial class TerrainModule : IEditorPlugin {
         project = context.Services.Require<EditorProject>();
         document = context.Services.Require<SceneDocument>();
         shell = context.Shell;
+
+        // ⚠ Held rather than read once, because the one service this module *asks for and can do
+        // without* may arrive after it. See `BindColliders`: a host publishes an `ITerrainColliders`
+        // when it has a physics world to rebuild in, and whether that is before or after this module
+        // activated is the host's business rather than a rule this module should impose on it.
+        services = context.Services;
 
         // ⚠ Before the panels, because a panel factory closes over `Extensions`. It runs when the
         // panel is opened rather than now, so a null here would be a panel that reads the

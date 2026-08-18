@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Terrain.Physics</RootNamespace>
+        <Description>
+            Feeds the sculpt tools' collision seam. `ITerrainColliders` is what Vixen.Editor.Terrain
+            calls after every stroke and `TerrainColliderSystem` is what rebuilds a tile's Jolt height
+            field; neither may reference the other — docs/plan/31 § D1 keeps a runtime assembly out of
+            Editor/, and the editor toolset out of physics — so this is the assembly between them.
+        </Description>
+        <PackageTags>editor;terrain;sculpt;collision;physics;jolt;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The two halves this assembly exists to join, and nothing else — Vixen.Terrain.Physics'
+            own arrangement, one layer up. The toolset declares the seam and knows nothing about a
+            body; the collider system owns the bodies and knows nothing about a stroke.
+
+            ⚠ Note what this reference direction buys: it is Editor → Core, which the layer rules
+            allow, and it is the only direction available. `Vixen.Terrain.Physics` may not reference
+            `Editor/Vixen.Editor.Terrain` to implement the interface itself — build/Build.ArchitectureRules.cs
+            fails a Core project that references an Editor one — which is why the adapter has to be a
+            third assembly rather than a member of either.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Terrain.Physics\Vixen.Terrain.Physics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Terrain.Physics.Tests" />
+    </ItemGroup>
+
+</Project>

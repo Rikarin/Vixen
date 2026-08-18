@@ -72,6 +72,8 @@ public sealed partial class TerrainModule {
 
         TerrainsInScene = CountTerrains();
 
+        BindColliders();
+
         // ⚠ Bound whether or not there is a terrain, because foliage paints onto *any* surface —
         // which is `TerrainMode`'s own reason for the two modes being two. A volume that only
         // appeared once a heightfield existed would make the tree brush depend on a feature it has
@@ -123,6 +125,41 @@ public sealed partial class TerrainModule {
             || !ReferenceEquals(surface.Terrain, terrain.Editing.Terrain)
             || surface.Origin != origin) {
             foliage.Editing.Surface = terrain.Editing.Terrain is { } ground ? new TerrainSurface(ground, origin) : null;
+        }
+    }
+
+    /// <summary>Points the sculpt tools at whatever rebuilds collision, if the host has one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The thing that was missing, and it was not the adapter.</b>
+    ///         <see cref="ITerrainColliders" /> is called by <c>TerrainEdit.Commit</c> after every
+    ///         stroke that moved a height, and until this line nothing in the tree ever assigned
+    ///         <c>TerrainEdit.Colliders</c> outside a test — so the seam was fed by a double in the
+    ///         suite and by nothing at all in the product. Writing an implementation without writing
+    ///         this would have been the same defect one layer in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asked for rather than required, which is <c>PluginServices.TryGet</c>'s own
+    ///         stated case.</b> A scene being sculpted before anybody has pressed play has no physics
+    ///         world, and <see cref="ITerrainColliders" />' remarks make null "a terrain with no
+    ///         collision, not an error". A module that refused a host without one would be a toolset
+    ///         that cannot be used until the game runs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that is why this module still references no physics.</b> The contract is
+    ///         declared here and the implementation is <c>Vixen.Editor.Terrain.Physics</c>' —
+    ///         a third assembly, because the layer rules forbid <c>Core/Vixen.Terrain.Physics</c>
+    ///         from referencing <c>Editor/</c> and this toolset has no business linking Jolt.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Once, and then never again.</b> Re-reading every frame would overwrite a
+    ///         <c>Colliders</c> a host or a test set directly, which is the assignment
+    ///         <c>TerrainMode.Editing</c> being public exists to allow.
+    ///     </para>
+    /// </remarks>
+    void BindColliders() {
+        if (terrain.Editing.Colliders is null && services.TryGet<ITerrainColliders>(out var colliders)) {
+            terrain.Editing.Colliders = colliders;
         }
     }
 
