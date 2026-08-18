@@ -53,6 +53,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     public const string PanelId = "terrain.panel";
 
     EditorShell? shell;
+    SceneViewport? hovered;
 
     /// <inheritdoc />
     public string Id => ModeId;
@@ -622,8 +623,21 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     ///     brush that were current a moment ago; committing it on the way out would put an entry on
     ///     the stack that the artist did not finish, and keeping it would apply the rest of it to
     ///     whatever is selected when they come back.
+    ///     <para>
+    ///         ⚠ <b>And the cursor comes off the pane with it.</b> <see cref="SceneViewport.Cursor" />
+    ///         is a delegate the pane holds until something replaces it; a mode that left its own
+    ///         behind would draw a brush ring over the blockout tools, in a mode with no brush.
+    ///     </para>
     /// </remarks>
-    public void Deactivated() => Editing.Cancel();
+    public void Deactivated() {
+        if (hovered is { } pane) {
+            pane.Cursor = null;
+            hovered = null;
+        }
+
+        Hover = null;
+        Editing.Cancel();
+    }
 
     /// <inheritdoc />
     /// <remarks>
@@ -663,12 +677,17 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
 
         switch (args.Action) {
             case PointerAction.Pressed when args.Button == PointerButton.Primary:
-                return Ground(pane, args) is { } start
-                    && Editing.Begin(start, (args.Modifiers & ModifierKeys.Shift) != 0);
+                var start = Ground(pane, args);
+                Hovering(pane, start);
+
+                return start is { } begun && Editing.Begin(begun, (args.Modifiers & ModifierKeys.Shift) != 0);
 
             case PointerAction.Moved when Editing.IsStroking:
-                if (Ground(pane, args) is { } over) {
-                    Editing.Extend(over);
+                var over = Ground(pane, args);
+                Hovering(pane, over);
+
+                if (over is { } point) {
+                    Editing.Extend(point);
                 }
 
                 return true;
@@ -677,9 +696,71 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                 Commit();
                 return true;
 
+            // ⚠ A hover is tracked and *not taken* — the `return false` is load-bearing. The pane's
+            // own `Hover` is what highlights whatever is under the pointer for a click, and a mode
+            // that swallowed the move to draw a ring would turn the highlight off for the whole time
+            // the terrain mode is active.
+            case PointerAction.Moved:
+                Hovering(pane, Ground(pane, args));
+
+                return false;
+
+            // ⚠ Leaving the pane clears it. A ring left behind at the last place the pointer was
+            // inside the viewport is a ring saying the next click lands there, which it does not —
+            // and it is the state somebody is in for the whole time they are using the panel.
+            case PointerAction.Exited:
+                Hovering(pane, null);
+
+                return false;
+
             default:
                 return false;
         }
+    }
+
+    /// <summary>Where the brush would land, in the terrain's own XZ, or null if it is not over it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing computed this before, which is why there was no cursor.</b>
+    ///     <see cref="Ground" /> was cast from exactly two places, a press and a move *during a
+    ///     stroke*, so while hovering with the brush armed no ray was cast at all and there was
+    ///     nothing for a ring to be drawn at. Every stroke was discovered by making it.
+    /// </remarks>
+    public Vector2? Hover { get; private set; }
+
+    /// <summary>Records where the pointer is and keeps the pane's cursor pointed at this mode.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The previous pane is cleared when the pointer moves to another one.</b> Two panes are
+    ///     two cameras looking at one terrain, and a ring left in the pane the pointer has left says
+    ///     the brush is in two places. Only the pane the pointer is actually in draws one.
+    /// </remarks>
+    void Hovering(SceneViewport pane, Vector2? ground) {
+        if (!ReferenceEquals(hovered, pane)) {
+            if (hovered is { } previous) {
+                previous.Cursor = null;
+            }
+
+            hovered = pane;
+            pane.Cursor = Cursor;
+        }
+
+        Hover = ground;
+    }
+
+    /// <summary>Draws the brush footprint on the ground, once a frame, from the pane that owns it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The held brush during a stroke and the panel's between them.</b> The brush is
+    ///     snapshotted at <see cref="TerrainEdit.Begin" /> and not read again, so a ring reading the
+    ///     panel mid-drag would grow under a hand on the radius slider while the ground being written
+    ///     did not — see <see cref="TerrainEdit.HeldBrush" />.
+    /// </remarks>
+    void Cursor(GizmoDraw draw) {
+        if (Hover is not { } ground || Editing.Terrain is not { } terrain) {
+            return;
+        }
+
+        var brush = Editing.IsStroking ? Editing.HeldBrush : Editing.Brush.ToBrush();
+
+        TerrainCursor.Draw(draw, terrain, Origin, ground, brush.Radius, brush.Falloff);
     }
 
     /// <inheritdoc />

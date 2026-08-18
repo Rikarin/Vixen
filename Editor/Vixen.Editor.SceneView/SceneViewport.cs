@@ -394,6 +394,36 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public ComponentGizmos? Gizmos { get; set; }
 
+    /// <summary>What the active mode draws under the pointer, or <see langword="null" /> for nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The hover cursor: a brush ring, a placement footprint, whatever the mode wants to
+    ///         promise the next click will do.</b> Without it every stroke is discovered by making it
+    ///         and looking at the result.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Pushed rather than pulled, because the reference only goes one way.</b>
+    ///         <c>Vixen.Editor.Terrain</c> references <c>Vixen.Editor.SceneView</c> and not the
+    ///         reverse, so <see cref="SceneLines" /> cannot ask a terrain what its brush is over. The
+    ///         pane is the one object the mode and the presenter both hold — the same argument
+    ///         <see cref="Gizmos" /> makes one property above.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A delegate rather than an interface, and it draws into <see cref="SceneLines" />'s
+    ///         <i>overlay</i> channel.</b> A cursor conformed to the surface it is lying on is
+    ///         coplanar with it, and coplanar geometry in the depth-tested channel z-fights — the ring
+    ///         would come and go in bands as the camera moved. A hover cursor also has to be visible
+    ///         to be worth having: one hidden by the hill it is behind is one the user cannot aim
+    ///         with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read every frame, so it must be cheap and must not allocate.</b> Set it once when
+    ///         a mode activates and read the mode's own fields inside it; clear it on deactivate, or
+    ///         the ring outlives the tool that owns it.
+    ///     </para>
+    /// </remarks>
+    public Action<GizmoDraw>? Cursor { get; set; }
+
     /// <summary>What gets first refusal on this pane's input, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     ⚠ <b>What an editor mode is attached through, and null is the editor as it was.</b> A pane
@@ -463,6 +493,15 @@ public sealed class SceneViewport : IDisposable {
         // listener AddHandler's own remarks describe: one that needs to know an event happened
         // rather than to compete for it.
         control.AddHandler<PointerEvent>(OnPointer, handledEventsToo: true);
+
+        // ⚠ A second registration for the same event type, and it is not redundant. `Entered` and
+        // `Exited` are never fed in from outside: the document works them out from where the pointer
+        // is and delivers them `RoutingStrategy.Direct` — see `UiDocument.Track` — and `Invoke`
+        // filters handlers by the strategy they registered with, so the bubble listener one line up
+        // never sees one. A mode drawing anything under the pointer needs to be told when the pointer
+        // is no longer under anything; without this it draws a hover cursor that stays behind, at the
+        // last place inside the pane, for the whole time somebody is using a panel.
+        control.AddHandler<PointerEvent>(OnCrossed, RoutingStrategy.Direct, handledEventsToo: true);
 
         // ⚠ Not handledEventsToo, and the other way round from the pointer above: this one competes
         // for the key and wins it, because a W that flies must not also be a W that switches the
@@ -1158,6 +1197,45 @@ public sealed class SceneViewport : IDisposable {
     ///         an arm is to press and see what moves.
     ///     </para>
     /// </remarks>
+    /// <summary>Tells the mode and the tool that the pointer came onto this pane or left it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of <see cref="OnPointer" />, and a separate handler because it has to
+    ///         be.</b> A crossing is delivered <see cref="RoutingStrategy.Direct" /> and
+    ///         <c>UiElement.Invoke</c> matches handlers on the strategy they registered with, so the
+    ///         bubble listener that hears every move cannot hear one of these. What arrives here is
+    ///         only <see cref="PointerAction.Entered" /> and <see cref="PointerAction.Exited" />;
+    ///         nothing else is routed this way.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing on the pane's own state is touched.</b> An <c>Exited</c> carries the
+    ///         position that took the pointer out of the pane, which is a point outside it — writing
+    ///         it to <see cref="PointerPosition" /> would leave the gizmo hover testing against a
+    ///         pixel that is not in the viewport. This forwards and does no more.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Under the same two guards as the move.</b> A mode is not offered the crossing
+    ///         while the gizmo is being dragged or a band is being swept, because the pointer leaving
+    ///         the pane does not end either of those — both are captured — and a mode told that the
+    ///         pointer is gone would put its tools away mid-gesture.
+    ///     </para>
+    /// </remarks>
+    void OnCrossed(UiElement element, PointerEvent args) {
+        if (args.Action is not (PointerAction.Entered or PointerAction.Exited)) {
+            return;
+        }
+
+        if (Control.IsOverlayEvent(args.Source) || Gizmo.IsDragging || Selecting is not null) {
+            return;
+        }
+
+        if (ActiveTool is { } tool && tool.Input.Pointer(this, args)) {
+            return;
+        }
+
+        Input?.Pointer(this, args);
+    }
+
     void OnPointer(UiElement element, PointerEvent args) {
         // ⚠ The chrome drawn over the pane is not the pane, and this handler hears its events
         // because it is registered with `handledEventsToo` — see the constructor. Without the guard,

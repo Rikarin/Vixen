@@ -157,6 +157,17 @@ public sealed class SceneLines {
             Tape(viewport);
         }
 
+        // ⚠ Into `overlay` rather than `world`, which is the opposite of the contributed gizmos six
+        // lines up, and deliberately. A gizmo says where a thing *is* and has to be occluded to say
+        // it; a hover cursor says where the next click will land, is conformed to the surface it sits
+        // on, and so is coplanar with the geometry it would be depth-tested against — it would z-fight
+        // its way in and out of existence as the camera moved. See SceneViewport.Cursor.
+        //
+        // ⚠ Not behind a show flag, for SceneMeasure's reason: it exists only while a mode is armed,
+        // and a second switch hiding it is how somebody picks up the brush, sees nothing and concludes
+        // the tool is broken.
+        viewport.Cursor?.Invoke(new(overlay));
+
         // ⚠ Not behind a show flag either, and for a sharper version of the reason above: the element
         // cage is the only thing on screen that says a mesh is being edited at all. A designer who
         // pressed `2` and saw no change would conclude the mode did not work.
