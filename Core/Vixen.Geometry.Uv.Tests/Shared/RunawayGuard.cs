@@ -182,6 +182,7 @@ static class RunawayGuard {
     public static T Run<T>(string what, Func<T> body, TimeSpan? cap = null, long? ceiling = null) {
         ArgumentNullException.ThrowIfNull(body);
 
+        var ticket = CaseTrace.Enter();
         var result = default(T);
         var failure = default(ExceptionDispatchInfo);
         var finished = new ManualResetEventSlim(false);
@@ -209,7 +210,13 @@ static class RunawayGuard {
         };
 
         worker.Start();
-        Watch(what, finished, cap ?? Cap, ceiling ?? RetentionCeiling);
+
+        try {
+            Watch(what, finished, cap ?? Cap, ceiling ?? RetentionCeiling);
+        } finally {
+            CaseTrace.Leave(ticket, what);
+        }
+
         finished.Dispose();
         failure?.Throw();
 
@@ -293,6 +300,101 @@ static class RunawayGuard {
                     )
                 );
             }
+        }
+    }
+}
+
+/// <summary>Every case's wall clock, its overlap and its share of the process, written to a file.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Off unless <c>VIXEN_CASE_TRACE</c> names a file, and it exists because
+///         <see cref="RunawayGuard.Cap" />'s remarks are a claim about a distribution that nothing was
+///         in a position to measure.</b> The cap fired once on a case that "was never slow; ten cores
+///         were", and the repair for that comment was to widen the ceiling — which is right, and which
+///         leaves the distribution itself unknown. <c>RunawayGuard.Run</c> already brackets every
+///         expensive call in both suites and already has the case's own name in its hand, so the
+///         cheapest honest instrument is the one that writes down what it already knows.
+///     </para>
+///     <para>
+///         ⚠ <b>Wall is not enough on its own, and the other columns are what make a row decide
+///         anything.</b> Wall alone cannot tell a slow case from a starved one — the comment on
+///         <see cref="RunawayGuard.Cap" /> records an in-band lateness meter being built and refuted
+///         for exactly that reason. <c>cpu</c> is the whole process's processor time across the case,
+///         in milliseconds: a case whose wall is 50 s and whose <c>cpu</c> is 400 s did not do fifty
+///         seconds of anything, and one whose <c>cpu</c> is 50 s did. <c>entered</c> and <c>left</c>
+///         count the guarded cases in flight at each end, exactly rather than by inference, because
+///         xunit parallelises test classes and a case sharing the machine with nine others is a case
+///         whose clock is a statement about the runner.
+///     </para>
+///     <para>
+///         ⚠ <b>Buffered in memory and flushed at exit, not appended per case.</b> A file opened and
+///         closed a thousand times inside the thing being timed is an instrument that changes its
+///         reading — and these runs are minutes long, so nothing needs to be readable early.
+///     </para>
+/// </remarks>
+static class CaseTrace {
+    static readonly string? Path = Environment.GetEnvironmentVariable("VIXEN_CASE_TRACE");
+    static readonly Process Self = Process.GetCurrentProcess();
+    static readonly List<string> Rows = [];
+    static readonly Stopwatch Since = Stopwatch.StartNew();
+    static int inFlight;
+
+    static CaseTrace() {
+        if (Path is null) {
+            return;
+        }
+
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Flush();
+    }
+
+    /// <summary>Marks a case as started, and returns what <see cref="Leave" /> needs to close it.</summary>
+    /// <returns>When it started, the processor time then, and how many cases were in flight.</returns>
+    public static (long Started, double Cpu, int Overlap) Enter() =>
+        Path is null
+            ? default
+            : (Since.ElapsedMilliseconds, Self.TotalProcessorTime.TotalMilliseconds,
+                Interlocked.Increment(ref inFlight));
+
+    /// <summary>Writes the row and marks the case as finished.</summary>
+    /// <param name="ticket">What <see cref="Enter" /> returned.</param>
+    /// <param name="what">The case's own name, which is what makes the row worth having.</param>
+    public static void Leave((long Started, double Cpu, int Overlap) ticket, string what) {
+        if (Path is null) {
+            return;
+        }
+
+        var wall = Since.ElapsedMilliseconds - ticket.Started;
+        var cpu = Self.TotalProcessorTime.TotalMilliseconds - ticket.Cpu;
+        var leaving = Interlocked.Decrement(ref inFlight) + 1;
+        var flush = false;
+
+        lock (Rows) {
+            Rows.Add(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{ticket.Started}\t{wall}\t{cpu:F0}\t{ticket.Overlap}\t{leaving}\t{what.Replace('\t', ' ')}"
+                )
+            );
+
+            // ⚠ Every so often rather than every row, and outside any case's own clock: a run that
+            // is killed rather than allowed to exit still leaves most of its readings behind, and a
+            // file rewritten once a case would be an instrument that changed the thing it measures.
+            flush = Rows.Count % 256 == 0;
+        }
+
+        if (flush) {
+            Flush();
+        }
+    }
+
+    /// <summary>Writes everything gathered so far, for a run that will not reach process exit.</summary>
+    public static void Flush() {
+        if (Path is null) {
+            return;
+        }
+
+        lock (Rows) {
+            File.WriteAllLines(Path, Rows.Prepend("started\twall\tcpu\tentered\tleft\twhat"));
         }
     }
 }
