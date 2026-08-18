@@ -5,6 +5,7 @@ using Vixen.Audio.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
@@ -13,8 +14,10 @@ using Vixen.Engine.Scenes;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Terrain;
+using Vixen.Rendering.Water;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Water.Physics;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -37,22 +40,6 @@ public class ComponentTests {
 
         return Descendants(editor.Panel("inspector")).OfType<ComponentsView>().FirstOrDefault()
             ?? throw editor.Fail("the inspector has no components section");
-    }
-
-    /// <summary>Loads the subsystems whose components the add-component menu is expected to offer.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A test that asks <c>ComponentsView.Default()</c> what it offers has to load the
-    ///     subsystems first.</b> Each assembly declares its components from a <c>[ModuleInitializer]</c>,
-    ///     which runs when something first reaches into that assembly, and <c>Default()</c> called with
-    ///     no registry reaches into none of them — so without this the offered set is whatever the rest
-    ///     of the run happened to load, and the same test passes in a full run and fails under a filter.
-    ///     A real editor loads a project's assemblies eagerly for exactly this reason.
-    /// </remarks>
-    static void LoadSubsystems() {
-        _ = Lights.All.Count; // Vixen.Rendering
-        _ = TerrainComponent.Of(string.Empty); // Vixen.Rendering.Terrain
-        _ = VirtualCamera.Default; // Vixen.Engine
-        _ = AudioSource.Default; // Vixen.Audio
     }
 
     static Expander Section(EditorSession editor, string name) =>
@@ -222,6 +209,8 @@ public class ComponentTests {
     /// </summary>
     [Fact]
     public void A_component_is_offered_and_labelled_by_a_name_a_person_would_write() {
+        AuthoringSubsystems.Load();
+
         var bridges = ComponentsView.Default().ToList();
 
         var shape = bridges.Single(bridge => bridge.ComponentType == typeof(PrimitiveShape));
@@ -287,12 +276,27 @@ public class ComponentTests {
     ///     <c>[ModuleInitializer]</c>, and the runtime runs one when the declaring module is first
     ///     touched — so a registry read while the editor was being constructed saw
     ///     <c>Vixen.Engine</c> and whatever else happened to have loaded, which was nothing.
-    ///     <c>ComponentsView.Prime</c> is what makes the answer the same on the first frame as on the
-    ///     thousandth, and this test asks for it with no editor session at all, because a session is
+    ///     <c>ComponentsView.Prime</c> was what made the answer the same on the first frame as on the
+    ///     thousandth, and this test asked for it with no editor session at all, because a session is
     ///     precisely the thing that used to load the subsystems and hide the bug.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>What is asserted here is that the components are registered, and no longer that
+    ///     anything loaded them on time.</b> Doc 36 § D5 retired <c>Prime</c>: the touching is
+    ///     <see cref="AuthoringAssembly" /> now, and <c>ComponentsView.Default</c> does it only for
+    ///     the declarations the registry it is handed holds — which the no-argument overload used
+    ///     here has none of. That left this passing on an accident: every <c>typeof</c> below is in
+    ///     the method's own body, so the JIT resolves the token — and loads the assembly — before the
+    ///     first statement runs, where a <c>typeof</c> inside a lambda is resolved later and does not.
+    ///     <c>A_component_is_offered_and_labelled_by_a_name_a_person_would_write</c> is the same test
+    ///     with its <c>typeof</c>s in lambdas, and it failed every time it was run on its own. So the
+    ///     establishment is written down rather than left to which side of a lambda a token fell, and
+    ///     the on-time claim is <see cref="Every_subsystem_the_editor_draws_for_is_declared_to_it" />'s.
+    /// </remarks>
     [Fact]
     public void The_subsystems_that_declare_components_are_loaded_before_the_list_is_read() {
+        AuthoringSubsystems.Load();
+
         var offered = ComponentsView.Default().Select(bridge => bridge.ComponentType).ToList();
 
         Assert.Contains(typeof(Camera), offered);
@@ -307,6 +311,35 @@ public class ComponentTests {
         Assert.Contains(typeof(AudioSource), offered);
         Assert.Contains(typeof(AudioSpatial), offered);
         Assert.Contains(typeof(AudioListenerComponent), offered);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The claim the test above stopped being able to make: that somebody named each
+    ///     subsystem, so its components are registered before anything asks.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <c>EditorApplication.BuiltInSubsystems</c> is a list of <see cref="AuthoringAssembly" />
+    ///     registered and touched in the constructor, before the scene file is read — and a line
+    ///     deleted from it is a component that vanishes from Add ▸ on a machine where nothing else
+    ///     happened to touch that assembly, which is a failure no test in this process could see,
+    ///     because the test process has touched all of them. So this asserts the <i>declaration</i>
+    ///     rather than the load: what a person wrote down is checkable, and this is where it is
+    ///     checked.
+    /// </remarks>
+    [Fact]
+    public void Every_subsystem_the_editor_draws_for_is_declared_to_it() {
+        using var editor = EditorSession.Start();
+
+        var declared = editor.Extensions.All<AuthoringAssembly>()
+            .Select(entry => entry.Marker.Assembly)
+            .ToHashSet();
+
+        Assert.Contains(typeof(Camera).Assembly, declared); // Vixen.Engine
+        Assert.Contains(typeof(Light).Assembly, declared); // Vixen.Rendering
+        Assert.Contains(typeof(AudioSource).Assembly, declared); // Vixen.Audio
+        Assert.Contains(typeof(TerrainComponent).Assembly, declared); // Vixen.Rendering.Terrain
+        Assert.Contains(typeof(WaterZoneComponent).Assembly, declared); // Vixen.Rendering.Water
+        Assert.Contains(typeof(BuoyancyBody).Assembly, declared); // Vixen.Water.Physics
     }
 
     /// <summary>
@@ -399,7 +432,7 @@ public class ComponentTests {
     [InlineData(typeof(MeshRenderable))]
     [InlineData(typeof(VfxEmitter))]
     public void Every_adopted_component_creates_something_other_than_a_zero(Type component) {
-        LoadSubsystems();
+        AuthoringSubsystems.Load();
 
         var bridge = ComponentsView.Default().Single(candidate => candidate.ComponentType == component);
         var fresh = bridge.Create();
@@ -421,7 +454,7 @@ public class ComponentTests {
     [InlineData(typeof(TerrainGrassComponent))]
     [InlineData(typeof(PrimitiveShape))]
     public void A_component_that_declares_nothing_still_creates_a_zero(Type component) {
-        LoadSubsystems();
+        AuthoringSubsystems.Load();
 
         var bridge = ComponentsView.Default().Single(candidate => candidate.ComponentType == component);
 
