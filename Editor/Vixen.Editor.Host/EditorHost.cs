@@ -12,6 +12,7 @@ using Vixen.Graphics.Vulkan;
 using Vixen.Platform;
 using Vixen.Platform.Ui;
 using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Terrain;
 using Vixen.Shaders.Generated;
 using Vixen.Ui;
@@ -73,17 +74,27 @@ sealed class EditorHost : IDisposable {
     ///         View menu would be a device allocation per menu click.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>At most one of these draws in a frame, and that is the render view rather than a
-    ///         policy.</b> <c>EditorWorldRenderer</c> holds one <see cref="Vixen.Rendering.RenderView" />
-    ///         — <c>Aim</c> points it at a camera — and one <c>GraphicsCompositor</c> with one set of
-    ///         imports and one reference size. Two panes declaring in the same frame would both draw
-    ///         the second one's camera into the second one's target. See <see cref="Compose" />.
+    ///         ✅ <b>Every one of them may draw in a frame, where at most one used to.</b> The limit
+    ///         was that <c>EditorWorldRenderer</c> held one <see cref="Vixen.Rendering.RenderView" />
+    ///         and one <c>GraphicsCompositor</c> with one set of imports; it holds a view, a colour, a
+    ///         depth and a sub-frame per pane now, and they are composed by a single build. See
+    ///         <see cref="Composes" />, and <c>EditorWorldRenderer.ViewOf</c> for why the build is one.
     ///     </para>
     /// </remarks>
     readonly List<FramePresenter?> frames = [];
 
     /// <summary>The panes' targets this frame, for the interface's pass to declare that it reads.</summary>
     readonly List<GraphTexture> sampled = [];
+
+    /// <summary>The panes a compositor draws this frame, in reading order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Gathered before any of them uploads, because the frame is built once for all of
+    ///     them.</b> Reused rather than allocated: this runs once per window per frame.
+    /// </remarks>
+    readonly List<(FramePresenter Presenter, SceneViewport Viewport)> composing = [];
+
+    /// <summary>And the trees they contribute, which is what one build is handed.</summary>
+    readonly List<SceneRenderer> trees = [];
 
     VulkanDevice? device;
     TransientResourcePool? pool;
@@ -594,32 +605,22 @@ sealed class EditorHost : IDisposable {
 
             Ensure(panes.Count);
 
-            // ⚠ Decided before the loop, because "the first pane whose mode is a compositor" is a
-            // fact about the arrangement rather than about a pane — and a test written inside the
-            // loop would compose whichever pane happened to be walked first after a rearrangement.
-            var composed = Compose(panes);
+            // ⚠ Decided before the loop, because "which panes compose" is a fact about the
+            // arrangement rather than about a pane, and because every one of them has to have lent
+            // the frame its imports before the one build reads them.
+            composing.Clear();
 
             for (var index = 0; index < panes.Count && index < scenes.Count; index++) {
                 var viewport = panes[index];
 
-                if (index == composed && Frames(index) is { } composition) {
-                    if (!composition.Resize(viewport, renderer)) {
+                if (Composes(viewport) && Frames(index) is { } composition) {
+                    // ⚠ Resized here rather than in the group below, because a pane whose target
+                    // could not be made — a collapsed dock, the frame before the first layout — is
+                    // not a pane that contributes an import naming a view nothing resized.
+                    if (composition.Resize(viewport, renderer)) {
+                        composing.Add((composition, viewport));
                         continue;
                     }
-
-                    composition.Upload(commands, editor.Scene, viewport);
-
-                    if (composition.Declare(graph, viewport, out var composedTarget)) {
-                        sampled.Add(composedTarget);
-                    }
-
-                    // ⚠ Every frame, because the reasons are per build and a node can start
-                    // declining halfway through a session — a document reload, a device that lost a
-                    // capability. The application is what compares them against last frame's, so
-                    // this is a call rather than three thousand console lines a minute.
-                    editor.ReportDegradations(composition.Degradations);
-
-                    continue;
                 }
 
                 var presenter = scenes[index];
@@ -635,9 +636,54 @@ sealed class EditorHost : IDisposable {
                 }
             }
 
-            // ⚠ Reported as empty when no pane is composed, so the last composed pane's reasons stop
-            // being the console's most recent word on a frame nothing is drawing any more.
-            if (composed < 0) {
+            if (composing.Count > 0 && editor.Frame is { } world) {
+                // ⚠ Once, before any pane, and never per pane. `WorldRenderer.Draw` opens with the
+                // per-frame descriptor pool's boundary, which recycles every set handed out since
+                // the last call — a second call between two panes hands the second pane sets the
+                // first pane's passes are still going to bind when the graph executes.
+                world.Begin(commands);
+
+                trees.Clear();
+
+                var reference = Int2.Zero;
+
+                foreach (var (composition, viewport) in composing) {
+                    composition.Upload(commands, editor.Scene, viewport);
+
+                    if (composition.Prepare(viewport, out var tree)) {
+                        trees.Add(tree);
+                    }
+
+                    // The largest pane, because a resource an authored document declares as a
+                    // fraction of the frame has to be at least as large as what any pane attaches.
+                    reference = new(
+                        Math.Max(reference.X, composition.Width),
+                        Math.Max(reference.Y, composition.Height)
+                    );
+                }
+
+                if (trees.Count > 0) {
+                    // ⚠ One build for every pane, because a view's index is assigned per collect and
+                    // the work lists a pass records are looked up by that index when the graph
+                    // executes — which is after all of them have built. A build per pane is four
+                    // panes drawing whichever view collected last. See `EditorWorldRenderer.ViewOf`.
+                    var composed = world.Compose(graph, trees, reference, device!.WaitIdle);
+
+                    foreach (var (composition, _) in composing) {
+                        if (composition.Take(composed, out var composedTarget)) {
+                            sampled.Add(composedTarget);
+                        }
+                    }
+                }
+
+                // ⚠ Every frame, because the reasons are per build and a node can start declining
+                // halfway through a session — a document reload, a device that lost a capability.
+                // The application is what compares them against last frame's, so this is a call
+                // rather than three thousand console lines a minute.
+                editor.ReportDegradations(world.Degradations);
+            } else {
+                // ⚠ Reported as empty when no pane is composed, so the last composed pane's reasons
+                // stop being the console's most recent word on a frame nothing is drawing any more.
                 editor.ReportDegradations([]);
             }
         }
@@ -792,9 +838,9 @@ sealed class EditorHost : IDisposable {
         }
     }
 
-    /// <summary>Which pane a compositor draws this frame, or −1 for none.</summary>
-    /// <param name="panes">The scene panel's panes, in reading order.</param>
-    /// <returns>An index into <paramref name="panes" />.</returns>
+    /// <summary>Whether a compositor draws this pane, rather than the tool renderer.</summary>
+    /// <param name="viewport">The pane.</param>
+    /// <returns>Whether its current mode has a tree of its own.</returns>
     /// <remarks>
     ///     <para>
     ///         <b><see cref="ViewModes" /> decides, and this is the whole of the decision.</b> A mode
@@ -805,34 +851,27 @@ sealed class EditorHost : IDisposable {
     ///         picking a tree to draw, wrong for asking whether this mode is a compositor's at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One pane, and the limit is the render view rather than a policy.</b>
-    ///         <c>EditorWorldRenderer</c> holds a single <c>RenderView</c>, a single
-    ///         <c>GraphicsCompositor</c> and therefore a single set of imports and one reference size.
-    ///         Two panes composing in one frame would each aim that view at their own camera, and the
-    ///         second would win for both — two panes showing one camera, which reads as a broken split
-    ///         rather than as a missing feature. The rest keep the tool presenter, which draws.
+    ///         ✅ <b>Every pane, where this used to answer with one.</b> The limit was the render
+    ///         view: one <c>RenderView</c>, one <c>GraphicsCompositor</c>, one set of imports and one
+    ///         reference size, so two panes composing in a frame would both draw the second one's
+    ///         camera into the second one's target. <c>EditorWorldRenderer</c> now holds a view and a
+    ///         sub-frame per pane, and the panes are composed by one build — see
+    ///         <c>EditorWorldRenderer.ViewOf</c> for why that build may not be split.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Lifting it is a view <em>and</em> a stage per pane, not a stage per pane.</b> The
-    ///         stages are already per mode and already unioned into the extraction mask — see
-    ///         <c>EditorWorldRenderer.Adopt</c> — so what is missing is N views bound by name before
-    ///         the build and N sub-frames in the document, one per pane, each into its own colour.
+    ///         ⚠ <b>A pane whose modes are empty is still ordinary.</b> A pane past the document's
+    ///         slots and every pane but the first under an authored <c>.vxcompositor</c> have no tree
+    ///         registered, and they keep the tool presenter, which draws.
     ///     </para>
     /// </remarks>
-    int Compose(IReadOnlyList<SceneViewport> panes) {
+    bool Composes(SceneViewport viewport) {
         if (editor.Frame is null) {
-            return -1;
+            return false;
         }
 
-        for (var index = 0; index < panes.Count; index++) {
-            var modes = panes[index].Modes;
+        var modes = viewport.Modes;
 
-            if (modes.Registered.Contains(modes.Current)) {
-                return index;
-            }
-        }
-
-        return -1;
+        return modes.Registered.Contains(modes.Current);
     }
 
     /// <summary>The compositor-driven presenter for a pane, built the first frame it needs one.</summary>
@@ -854,6 +893,12 @@ sealed class EditorHost : IDisposable {
     ///     </para>
     /// </remarks>
     FramePresenter? Frames(int index) {
+        // ⚠ A pane past the document's slots has no view bound by name and no sub-frame, so there is
+        // nothing for a presenter to draw into. It keeps the tool presenter, which draws.
+        if (index >= EditorWorldRenderer.MaxPanes) {
+            return null;
+        }
+
         while (frames.Count <= index) {
             frames.Add(null);
         }
@@ -882,7 +927,8 @@ sealed class EditorHost : IDisposable {
                 Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
             },
             FramePresenter.ColourFormat,
-            FrameImage(index)
+            FrameImage(index),
+            index
         );
 
         frames[index] = presenter;

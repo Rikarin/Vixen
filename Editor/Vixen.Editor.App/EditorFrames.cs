@@ -109,7 +109,9 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     internal void RegisterViewModes() {
-        foreach (var pane in Viewports) {
+        for (var index = 0; index < Viewports.Count; index++) {
+            var pane = Viewports[index];
+
             // ⚠ Cleared first: a rebuild may declare fewer modes than the build before it, and a
             // registration that outlived its tree names a node of a compositor nothing else refers
             // to. See `ViewModes.Clear`.
@@ -119,7 +121,12 @@ sealed partial class EditorApplication {
                 continue;
             }
 
-            foreach (var (mode, tree) in frame.Trees) {
+            // ⚠ By index, because a tree names a view and a pair of targets and both belong to the
+            // pane. Registering one tree against every pane is four panes aiming one view into one
+            // texture — which is what the arrangement before this looked like from the outside: four
+            // panes nominally in the same mode that do not match. A pane past the document's slots
+            // gets nothing here and keeps the tool renderer, which draws.
+            foreach (var (mode, tree) in frame.Trees(index)) {
                 pane.Modes.Register(mode, tree);
             }
         }

@@ -856,11 +856,34 @@ draws nothing — while still reporting its objects, its lights, zero waiting an
 solid. Absent, the pane keeps the tool renderer's wireframe below, which is drawn as segments and
 works everywhere.
 
-⚠ **At most one pane composes per frame**, and that is the render view rather than a policy:
-`EditorWorldRenderer` holds one `RenderView`, one `GraphicsCompositor` and therefore one set of imports
-and one reference size, so two panes declaring in the same frame would both draw the second one's
-camera. The rest keep the tool presenter, which draws. Lifting it is a view *and* a sub-frame per pane;
-the stages are already ready for it.
+✅ **Every pane composes**, where at most one used to. The limit was the render view:
+`EditorWorldRenderer` held one `RenderView`, one `GraphicsCompositor` and therefore one set of imports
+and one reference size, so two panes declaring in the same frame both drew the second one's camera. It
+holds a view, a colour, a depth and a sub-frame **per pane** now — four of each, because
+`ViewportArrangement.Quad` is four and the document is built in a constructor, so the slots have to
+exist before anybody splits the panel.
+
+⚠ **The build may not be split, and the reason is `RenderView.Index`.** `RenderSystem.SetViews` assigns
+it, runs once per `GraphicsCompositor.Collect` and clears the list first — and the work list a pass
+records is looked up by that index at *execute* time, which is after every pane has built. A build per
+pane would therefore leave all four panes recording whichever view took index 0 in the last collect:
+four cameras, one visible set, and every counter in the frame healthy. So `EditorHost.Record` resizes
+every pane, runs the frame's prologue **once** — `WorldRenderer.Draw` opens with the per-frame
+descriptor pool's boundary, and a second call between two panes hands the second pane sets the first
+pane's passes are still going to bind — then uploads and prepares each pane, and composes all of them
+with one `EditorWorldRenderer.Compose`.
+
+⚠ **A reference size is the frame's where an extent is the pane's.** `Compositor.Resize` takes one size
+and four panes have four, so the linear target between the shading pass and the grade is sized
+explicitly per pane by `EditorWorldRenderer.Size`, and the reference size is written once from the
+*largest* pane. A resource declared with no size is `Scale` of `FrameSize`, and a colour of one size
+attached beside a depth of another is a framebuffer the driver refuses rather than a picture that is
+merely wrong.
+
+⚠ **The first pane's names are unsuffixed and that is load-bearing rather than tidy.** A project's own
+`.vxcompositor` names `Camera`, `SceneColour` and `SceneDepth` and knows nothing about panes, so an
+authored frame composes pane 0 and the other three keep the tool presenter — which draws. The same is
+true of a pane past the four slots.
 
 ### …and for the modes no tree is authored for, `ViewShading`
 
