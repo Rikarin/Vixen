@@ -290,6 +290,50 @@ public sealed class TerrainCursorSeamTests : IDisposable {
         Assert.Equal(20f, Reach(Overlay(pane), ground), 2);
     }
 
+    /// <summary>The pointer, through a real document, into and out of a pane that is not the window.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one assertion here that calling <see cref="TerrainMode.Pointer" /> directly cannot
+    ///     make.</b> <see cref="PointerAction.Exited" /> is never fed in from outside — the document
+    ///     works it out from where the pointer is and delivers it
+    ///     <see cref="RoutingStrategy.Direct" />, so whether the mode ever hears one is a fact about
+    ///     <c>Hover</c>, <c>EventRouter</c> and <c>Viewport.IsOverlayEvent</c> rather than about this
+    ///     assembly. A handler for an event that never arrives is the quietest way for this to be
+    ///     wrong.
+    /// </remarks>
+    [Fact]
+    public void The_document_itself_tells_the_mode_when_the_pointer_leaves_the_pane() {
+        using var document = new UiDocument(800f, 600f);
+
+        // A pane that is not the whole window, so there is somewhere for the pointer to go.
+        document.Load("root { width: 800px; height: 600px; } viewport { width: 800px; height: 400px; }");
+
+        var control = document.Root.Add<ViewportControl>();
+
+        document.Update();
+        control.Refresh();
+
+        using var pane = new SceneViewport(control, new Selection<Entity>()) { Show = SceneShow.None };
+
+        pane.Camera.Pivot = Centre;
+        pane.Camera.Distance = 40f;
+        pane.Camera.Pitch = -MathF.PI / 4f;
+
+        var (mode, _) = Armed();
+
+        pane.Input = mode;
+
+        document.Dispatch(new PointerEvent { X = 400f, Y = 200f, Action = PointerAction.Moved });
+
+        Assert.NotNull(mode.Hover);
+        Assert.NotEmpty(Overlay(pane));
+
+        // Out of the pane and into the window behind it. Nobody synthesises this — the document does.
+        document.Dispatch(new PointerEvent { X = 400f, Y = 550f, Action = PointerAction.Moved });
+
+        Assert.Null(mode.Hover);
+        Assert.Empty(Overlay(pane));
+    }
+
     [Fact]
     public void The_ring_is_still_drawn_while_the_stroke_is_being_dragged() {
         var pane = Pane();
