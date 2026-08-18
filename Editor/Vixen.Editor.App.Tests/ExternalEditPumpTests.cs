@@ -91,12 +91,29 @@ public sealed class ExternalEditPumpTests : IDisposable {
         session.Editor.OpenAsset(entry.Guid);
         session.Settle();
 
+        // ⚠ The setup's own write is an external change like any other, and the editor is watching.
+        // Waited out here rather than left to race whatever the test then measures: on a machine
+        // fast enough to finish opening the document inside the watcher's quarter-second debounce it
+        // is still pending when the test begins, and it drains into the assertion. That is exactly
+        // how this suite passed under load — where opening took three seconds — and failed on an idle
+        // machine, which is the inversion that hid a real bug in `FileChangeCoalescer.Suppress`.
+        Quieten(session);
+
         var document = session.Project.Documents.OfType<StandardFrameDocument>().Single();
 
         Assert.Equal(FrameQualityChoice.High, document.Settings.Quality);
 
         return (session, document, path);
     }
+
+    /// <summary>Frames until anything the setup wrote has certainly been drained and acted on.</summary>
+    /// <remarks>
+    ///     A fixed span rather than a wait on a signal, because the signal would be "the setup write
+    ///     arrived" — and on a slow machine it has already arrived and will never fire again, so a
+    ///     wait on it would burn the whole budget every time. Four debounce windows is the number
+    ///     that makes the answer the same on every machine.
+    /// </remarks>
+    static void Quieten(EditorSession session) => Pump(session, () => false, TimeSpan.FromSeconds(1));
 
     /// <summary>
     ///     ⚠ <b>The defect this was filed for.</b> Before it, a <c>.vxcompositor</c> saved by a text
@@ -156,20 +173,6 @@ public sealed class ExternalEditPumpTests : IDisposable {
         );
     }
 
-    /// <summary>TEMPORARY PROBE — no save at all. Does the setup write alone reach the document?</summary>
-    [Fact]
-    public void Probe_setup_write_alone() {
-        var (session, document, _) = Editing();
-
-        var routed = new List<ExternalEditOutcome>();
-
-        session.Editor.External.Applied += edit => routed.Add(edit.Outcome);
-
-        var tripped = Pump(session, () => routed.Count > 0, Quiet);
-
-        Assert.False(tripped, $"PROBE routed=[{string.Join(",", routed)}] — the setup write reached the document");
-    }
-
     /// <summary>
     ///     ⚠ <b>The hard half, and it was the built-but-unwired one.</b> <c>IFileWatcher.Suppress</c>
     ///     has existed since the coalescer was written and had no callers, so without this the
@@ -184,23 +187,15 @@ public sealed class ExternalEditPumpTests : IDisposable {
 
         Assert.True(document.Apply());
 
-        var announced = 0;
         var routed = new List<ExternalEditOutcome>();
 
-        document.Changed += _ => announced++;
         session.Editor.External.Applied += edit => routed.Add(edit.Outcome);
         document.Save();
 
-        var tripped = Pump(session, () => routed.Count > 0 || document.IsStale.Value || announced > 0, Quiet);
-
-        Assert.True(
-            !tripped || routed.Count == 0,
-            $"DIAGNOSTIC routed=[{string.Join(",", routed)}] stale={document.IsStale.Value} announced={announced}"
-        );
-
+        // Given every chance to be wrong: frames for as long as a reload could possibly take.
         Assert.False(
-            tripped,
-            $"DIAGNOSTIC routed=[{string.Join(",", routed)}] stale={document.IsStale.Value} announced={announced}"
+            Pump(session, () => routed.Count > 0, Quiet),
+            $"the editor's own save came back through the watcher as an external edit: [{string.Join(", ", routed)}]"
         );
 
         Assert.Equal(FrameQualityChoice.Low, document.Settings.Quality);
