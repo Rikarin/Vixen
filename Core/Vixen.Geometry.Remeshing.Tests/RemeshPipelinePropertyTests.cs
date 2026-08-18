@@ -102,6 +102,17 @@ public class TimedCases {
 ///         property loosened on its first run is a finding rather than a test, so nothing here is
 ///         scoped around it and the nightly is where it shows.
 ///     </para>
+///     <para>
+///         ⚠ <b>"Currently fails" is dated, and dating it is the point.</b> It has <i>not</i> fired on
+///         a nightly in the six runs to <b>2026-08-18</b> — the three red remeshing legs in that window
+///         were all the refusal coverage assertion, which is now
+///         <see cref="The_inputs_that_refuse_still_name_the_stage_that_refused" />. That is not a claim
+///         the defect is closed: nothing has been changed on either side of it and the reproducer in
+///         <see cref="Divergence" /> is untouched. It is a claim that the sentence above stopped
+///         describing what this leg does, which is exactly how the nightly's own "expected to FAIL"
+///         note rotted until three red nights in six went unread. Re-date it or delete it when
+///         somebody next has the measurement.
+///     </para>
 /// </remarks>
 [Collection(TimedCases.Name)]
 public class RemeshPipelinePropertyTests {
