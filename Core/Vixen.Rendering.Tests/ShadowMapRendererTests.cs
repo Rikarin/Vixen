@@ -404,6 +404,106 @@ public class ShadowMapRendererTests : IDisposable {
         Assert.Equal(without.ViewProjection, Fit(node).ViewProjection);
     }
 
+    /// <summary>
+    ///     The <em>real</em> lighting feature answers at collect time, on the very first frame.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The case every other test on this page was written around.</b> They all hand the
+    ///         node a <see cref="Sunlight" /> stub, which answers whenever it is asked — so the whole
+    ///         file could pass while the one implementation of <see cref="ISunSource" /> the engine
+    ///         ships could not answer at all in the phase this node asks from.
+    ///     </para>
+    ///     <para>
+    ///         It could not. <c>ForwardLightingRenderFeature.Sun</c> was latched by that feature's
+    ///         <c>Prepare</c>, and <see cref="SceneRenderer.Collect" /> runs a phase earlier — so the
+    ///         first frame fitted its cascades along <see cref="ShadowMapRenderer.LightDirection" />
+    ///         while the shading pass, which binds its set at record time, was lit along the real sun.
+    ///         Measured on sample 03: 14.2° apart, reported as one <see cref="SceneRenderer.Degraded" />
+    ///         line about a scene that had a perfectly good sun in it.
+    ///     </para>
+    ///     <para>
+    ///         No <c>Prepare</c> is called here, deliberately, and no device exists to call one with.
+    ///         The list is what extraction fills before anything renders, and that is the whole
+    ///         precondition this asserts.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_lighting_features_sun_is_answered_in_the_collect_phase() {
+        var lighting = new ForwardLightingRenderFeature();
+        var direction = Vector3.Normalize(new Vector3(0.4f, -1f, 0.3f));
+
+        lighting.Lights.Add(RenderLight.Directional(direction, new(1f), 5f));
+
+        var eye = new RenderView("Main") {
+            Camera = new(new(0f, 2f, 0f), new(0f, 0f, 1f), new(0f, 1f, 0f), 1f, 1.777f, 0.1f, 500f)
+        };
+
+        var node = new ShadowMapRenderer {
+            CasterStage = new("Caster"),
+            Atlas = "Atlas",
+            CascadeCount = 1,
+            Camera = eye,
+            Sun = lighting,
+
+            // Deliberately somewhere else, so a cascade fitted to it is one this can tell apart.
+            LightDirection = Vector3.Normalize(new(-0.4f, -1f, -0.3f))
+        };
+
+        var fitted = Fit(node);
+
+        Assert.Null(node.Degraded);
+
+        // Against the same node fitted along the scene's direction by hand, rather than against
+        // "not the fallback" — a projection that matched neither would pass that and be wrong.
+        var expected = Fit(
+            new ShadowMapRenderer {
+                CasterStage = new("Caster"),
+                Atlas = "Atlas",
+                CascadeCount = 1,
+                Camera = eye,
+                LightDirection = direction
+            }
+        );
+
+        Assert.Equal(expected.ViewProjection, fitted.ViewProjection);
+    }
+
+    /// <summary>And the same node with an empty list still says so.</summary>
+    /// <remarks>
+    ///     The other half of the sabotage: the fix above must not have turned the degrade into a line
+    ///     that can never fire. A lighting feature with no directional light in it is a frame drawing
+    ///     cascades for a sun the scene does not have, and that is worth a sentence.
+    /// </remarks>
+    [Fact]
+    public void A_lighting_feature_with_no_directional_light_still_degrades() {
+        var lighting = new ForwardLightingRenderFeature();
+
+        // A point light, so the list is not empty — the question is the *kind*, not the count.
+        lighting.Lights.Add(RenderLight.Point(new(0f, 3f, 0f), 10f, new(1f), 5f));
+
+        var eye = new RenderView("Main") {
+            Camera = new(new(0f, 2f, 0f), new(0f, 0f, 1f), new(0f, 1f, 0f), 1f, 1.777f, 0.1f, 500f)
+        };
+
+        var node = new ShadowMapRenderer {
+            CasterStage = new("Caster"),
+            Atlas = "Atlas",
+            CascadeCount = 1,
+            Camera = eye,
+            Sun = lighting,
+            LightDirection = Vector3.Normalize(new(-0.4f, -1f, -0.3f))
+        };
+
+        Fit(node);
+
+        Assert.NotNull(node.Degraded);
+        Assert.Contains("no Sun", node.Degraded, StringComparison.Ordinal);
+
+        // And it is the sun it names, not the camera — the camera is wired above.
+        Assert.DoesNotContain("no Camera", node.Degraded, StringComparison.Ordinal);
+    }
+
     /// <summary>A camera and a view that describe one volume, because setting one sets the other.</summary>
     [Fact]
     public void Setting_a_views_camera_sets_its_matrix_and_position() {

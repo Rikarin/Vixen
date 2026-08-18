@@ -196,6 +196,45 @@ public class DegradationTests {
         Assert.Contains("fabricated frustum", reason, StringComparison.Ordinal);
     }
 
+    /// <summary>A node with a camera but a source holding no sun names the other input.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The branch that had no test, and it is the one sample 03 fired.</b> A source is wired
+    ///     and answers null, which is not the same shape as no source at all: the host did its half,
+    ///     and the scene is the thing with no directional light in it. The reason has to name the sun
+    ///     rather than the camera, because a reader who checks the camera wiring on this line is
+    ///     reading the wrong half of the frame.
+    /// </remarks>
+    [Fact]
+    public void A_shadow_node_whose_source_holds_no_sun_says_so() {
+        var compositor = Compositor();
+
+        var view = new RenderView("Main") {
+            Camera = new(new(0f, 2f, 0f), new(0f, 0f, 1f), new(0f, 1f, 0f), 1f, 1.777f, 0.1f, 500f)
+        };
+
+        var shadows = Shadows(compositor);
+
+        shadows.Camera = view;
+        shadows.Sun = new Empty();
+
+        compositor.Game = shadows;
+        shadows.Collect(compositor);
+
+        var (node, reason) = Assert.Single(Read(compositor));
+
+        Assert.Equal("Sun", node);
+        Assert.Contains("no Sun", reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("no Camera", reason, StringComparison.Ordinal);
+
+        // Both halves, on Degrade's terms: the input, and what was fitted instead of it.
+        Assert.Contains("authored", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>A source that answers null, which is a scene with no directional light in it.</summary>
+    sealed class Empty : ISunSource {
+        public RenderLight? Sun => null;
+    }
+
     /// <summary>And a node given both of its inputs reports nothing.</summary>
     [Fact]
     public void A_shadow_node_given_a_camera_and_a_sun_reports_nothing() {

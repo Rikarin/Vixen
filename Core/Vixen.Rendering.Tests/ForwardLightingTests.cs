@@ -625,6 +625,86 @@ public class ForwardLightingTests : IDisposable {
         Assert.Equal(9f, h.Lighting.Sun!.Value.Intensity);
     }
 
+    /// <summary>The sun is answerable before this feature has prepared anything.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A phase requirement, not a convenience.</b> The earliest reader of
+    ///         <c>ISunSource.Sun</c> is <c>ShadowMapRenderer.Collect</c>, which runs before the render
+    ///         system runs any phase at all — so a value this feature latched in <see cref="Prepare" />
+    ///         answered with the previous frame's sun, and on the first frame with none.
+    ///     </para>
+    ///     <para>
+    ///         What that cost was a frame of cascades fitted along the shadow node's authored fallback
+    ///         while the shading pass, which binds its set at record time, was lit along the real sun.
+    ///         Sample 03 had it: 14.2° apart on frame zero, and one <c>Degraded</c> line naming a sun
+    ///         the scene had all along.
+    ///     </para>
+    ///     <para>
+    ///         No harness and no device, because that is the point — the answer comes out of the list
+    ///         extraction fills, and needs nothing else.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_sun_is_readable_before_anything_has_prepared() {
+        var lighting = new ForwardLightingRenderFeature();
+
+        lighting.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f), 3f));
+
+        Assert.Equal(3f, lighting.Sun!.Value.Intensity);
+    }
+
+    /// <summary>And a sun that turns is this frame's sun, not last frame's.</summary>
+    /// <remarks>
+    ///     The same defect one day later: a latched field is stale for exactly as long as nothing has
+    ///     re-latched it, so a day-night cycle shadowed the scene from where the sun was a frame ago.
+    ///     Small at sixty hertz and not small in a cutscene that scrubs the sun across the sky.
+    /// </remarks>
+    [Fact]
+    public void A_sun_that_turns_is_answered_from_the_list_it_turned_in() {
+        var lighting = new ForwardLightingRenderFeature();
+
+        lighting.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f), 3f));
+
+        Assert.Equal(new Vector3(0f, -1f, 0f), lighting.Sun!.Value.Direction);
+
+        var turned = lighting.Lights[0];
+        turned.Direction = new(1f, 0f, 0f);
+        lighting.Lights[0] = turned;
+
+        Assert.Equal(new Vector3(1f, 0f, 0f), lighting.Sun!.Value.Direction);
+    }
+
+    /// <summary>A scene whose sun was removed has no sun, rather than the one it used to have.</summary>
+    [Fact]
+    public void A_sun_that_was_removed_stops_being_the_sun() {
+        var lighting = new ForwardLightingRenderFeature();
+
+        lighting.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f), 3f));
+
+        Assert.NotNull(lighting.Sun);
+
+        lighting.Lights.Clear();
+
+        Assert.Null(lighting.Sun);
+    }
+
+    /// <summary>An unlit directional light is still a direction to fit cascades along.</summary>
+    /// <remarks>
+    ///     Zero intensity is how a light says it is off, and a scene lit by nothing still has a sun
+    ///     somewhere. The old latched form named it for the same reason — the brightest-so-far test
+    ///     asked whether one had been chosen before it asked whether this one was brighter — and
+    ///     keeping that is what makes this a refactor of where the answer comes from rather than of
+    ///     what it is.
+    /// </remarks>
+    [Fact]
+    public void A_directional_light_with_no_intensity_is_still_the_sun() {
+        var lighting = new ForwardLightingRenderFeature();
+
+        lighting.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f), 0f));
+
+        Assert.Equal(new Vector3(0f, -1f, 0f), lighting.Sun!.Value.Direction);
+    }
+
     /// <summary>A spot light pointing the other way does not reach an object inside its range.</summary>
     [Fact]
     public void A_spot_pointing_away_does_not_reach() {
