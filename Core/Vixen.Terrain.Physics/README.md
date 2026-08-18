@@ -71,10 +71,13 @@ Jolt resolves as one.
 
 ## What it does not do yet
 
-- **It does not implement `ITerrainColliders`.** That interface lives in `Editor/Vixen.Editor.Terrain`
-  and this assembly may not reference the editor, so an adapter has to live on the editor's side of
-  the line. `Rebuild(Terrain, TerrainRect)` here has that interface's signature so the adapter is
-  three lines; nobody has written it, and the editor's sculpt tools therefore still rebuild nothing.
+- **It does not implement `ITerrainColliders`**, and still may not: that interface lives in
+  `Editor/Vixen.Editor.Terrain`, which this assembly may not reference. The adapter is
+  `Editor/Vixen.Editor.Terrain.Physics.TerrainColliders`, on the editor's side of the line, and the
+  sculpt tools reach it since 2026-08-18. ⚠ **This README used to say the adapter was "three lines"
+  because `Rebuild` here carries that interface's signature. It does not, quite** — both overloads
+  return `bool` where the interface returns `void`, and `false` means *this system has never heard of
+  this terrain*, so a wrapper that discarded it would succeed at rebuilding nothing.
 - **Nothing releases a shape.** `PhysicsShapes` has no release — its table is a level's shapes and a
   level ends with the world — so a rebuilt tile registers a new shape and the old one stays interned.
   `Rebuilds` is the counter that makes a terrain being recomposited every frame visible.

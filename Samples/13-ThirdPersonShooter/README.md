@@ -88,8 +88,9 @@ Every piece existed: `PhysicsShapes.HeightField` registers the Jolt shape and
 `TerrainSamples.FillCollisionSamples` produces exactly the span that shape consumes, in metres, with
 holes as the caller's sentinel; and `Editor/Vixen.Editor.Terrain/ITerrainColliders` is the seam the
 sculpt tools call after every stroke. Nothing joined them. The only implementation of that interface
-anywhere is a test double that records tile indices, and the only callers of `FillCollisionSamples`
-were two assertions. So a terrain in a *game* had no collision, in any project, and the symptom was
+anywhere was a test double that records tile indices — it has one now, in
+`Editor/Vixen.Editor.Terrain.Physics`, which is a separate piece of work from this sample's — and the
+only callers of `FillCollisionSamples` were two assertions. So a terrain in a *game* had no collision, in any project, and the symptom was
 not an error — a character walked off the arena floor, fell through the ground, and
 `RespawnWhenBelow` put them back.
 

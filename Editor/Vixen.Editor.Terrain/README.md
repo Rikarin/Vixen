@@ -140,6 +140,15 @@ physics world turns that into shapes, from `TerrainSamples.FillCollisionSamples`
 A stroke along a tile edge that rebuilt only one side leaves a strip of collision disagreeing with the
 ground beside it — a lip the player trips on, on a seam nothing draws.
 
+✅ **The implementation is `Editor/Vixen.Editor.Terrain.Physics`**, a third assembly that references
+this one and `Core/Vixen.Terrain.Physics` and joins them. This project's reference list is unchanged
+by it, which is the point.
+
+⚠ **And `TerrainEdit.Colliders` is now assigned, which is the half that was missing for longer.** It
+was set in five test files and nowhere else in the tree, so the seam had a double on both ends.
+`TerrainModule` takes an `ITerrainColliders` from `PluginServices` when the host published one —
+optional, because a scene sculpted before anybody pressed play has no physics world.
+
 ## Tests
 
 A real `EditorShell` headless with both modes, asserting the arbitration rather than the picture: that

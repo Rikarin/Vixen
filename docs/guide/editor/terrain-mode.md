@@ -169,6 +169,9 @@ ground beside it — a lip the player trips on, on a seam nothing draws.
 pressed play has no physics world, and a mode that refused to work without one could not be used until
 the game ran.
 
+The implementation is [`TerrainColliders`](terrain-sculpt-collision.md), in its own assembly, and
+`TerrainModule` assigns it from `PluginServices` when the host published one.
+
 ## Examples
 
 A stroke driven from world points, which is what a test does and what the pane does with a ray:
