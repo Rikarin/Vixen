@@ -94,11 +94,64 @@ public abstract class EditorDocument {
 
     /// <summary>Writes it back and records that this is now what is on disk.</summary>
     public void Save() {
+        // ⚠ Announced *before* the write, not after, and that is the whole point of the project
+        // raising it: a file watcher is told to ignore a path it is about to see change, so the
+        // announcement has to beat the write to the disk. `EditorProject.DocumentSaving` says the
+        // rest.
+        Project.OnDocumentSaving(this);
+
         SaveCore();
         Saved?.Invoke(this);
         Stack.MarkClean();
         modifiedExternally.Value = false;
     }
+
+    /// <summary>Whether this document knows how to read its file again.</summary>
+    /// <remarks>
+    ///     False here, and it is a real answer rather than a placeholder. Most documents were written
+    ///     to be read once, in a constructor, and re-reading them means rebuilding whatever the
+    ///     constructor built — so a base class that claimed every document could would be one whose
+    ///     <see cref="Reload" /> silently did nothing for most of them.
+    /// </remarks>
+    public virtual bool CanReload => false;
+
+    /// <summary>Reads the file again, discarding what was in memory, and forgets the history over it.</summary>
+    /// <returns>Whether it did, which is <see cref="CanReload" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What an edit made outside the editor arrives through.</b> The asset database, the
+    ///         project browser and the build panel have always followed the watcher; an open document
+    ///         did not, so a <c>.vxcompositor</c> edited in a text editor beside the running editor
+    ///         changed everything except the thing that was open on it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The undo history goes, and it has to.</b> The entries describe edits to the
+    ///         previous contents of the file — undoing into a document that no longer has the members
+    ///         they name is how a reload turns into a corruption. <see cref="CommandStack.Clear" />
+    ///         keeps the dirty flag, which is why the caller's job is to reload only what is clean:
+    ///         see the policy on <c>ExternalEdits</c>, which is the one thing here that is a decision
+    ///         rather than a mechanism.
+    ///     </para>
+    /// </remarks>
+    public bool Reload() {
+        if (!ReloadCore()) {
+            return false;
+        }
+
+        Stack.Clear();
+        modifiedExternally.Value = false;
+
+        return true;
+    }
+
+    /// <summary>Reads the file again. Overridden by a document that knows how.</summary>
+    /// <returns>Whether it did.</returns>
+    /// <remarks>
+    ///     An override must also say <see cref="CanReload" />, because a caller deciding whether to
+    ///     reload has to be able to ask before it does — a prompt that offers to discard somebody's
+    ///     edits for a document that would then decline is worse than not offering.
+    /// </remarks>
+    protected virtual bool ReloadCore() => false;
 
     /// <summary>Closes it, which is <see cref="EditorProject.Close" /> on this document.</summary>
     /// <returns>Whether it was open.</returns>
