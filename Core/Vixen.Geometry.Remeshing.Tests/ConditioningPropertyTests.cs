@@ -66,6 +66,35 @@ public class ConditioningPropertyTests {
     ///         path safe — <see cref="RemeshSettings.TargetEdgeLength" /> is not, and this test does
     ///         not pass one. <see cref="RunawayGuard" /> is what would catch it if it did.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This property is nearly the whole cost of the remeshing suite, it is concentrated
+    ///         in an eighth of its own draws, and a reader who does not know that will read the
+    ///         concentration as a regression.</b> Split by setting over four traced runs: <b>393 cases
+    ///         with <c>shrinkwrap</c> true cost 108 s and 407 with it false cost 1.0 s</b> — 275 ms
+    ///         against 2.3 ms in the mean. Narrower still, every one of the fifty dearest draws at
+    ///         each of three pinned seeds is <c>rounds 0, shrinkwrap true</c>, which is a quarter of a
+    ///         half of the space.
+    ///     </para>
+    ///     <para>
+    ///         The reason is not the shrinkwrap being dear in itself. <see cref="IsotropicRemesh.Run" />
+    ///         returns the caller's target unchanged when its iteration count is zero, and this test
+    ///         passes no target at all — meaning "the mesh's own mean edge length" — so a draw at zero
+    ///         rounds hands <see cref="VoxelShrinkwrap" /> a zero, which is its documented fallback of
+    ///         <b>sixty-four steps along the longest axis</b>. Measured on
+    ///         <c>new(ShapeKind.Box, 7, 1, [], 3, 0f, 0.001f)</c>: <b>5.9 s and 50 832 triangles at
+    ///         zero rounds, 4.5 ms and 720 at one</b>, because one round supplies a mean edge length
+    ///         that clamps the grid to its eight-step floor instead. Both callers in the tree
+    ///         (<see cref="Remesher" />, <c>RemeshDump</c>) pass a positive length, so this corner is
+    ///         this suite's alone — and it is the only thing here that exercises a full-resolution
+    ///         extraction, which is a reason to keep it rather than to trim it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the slowest case is a different recipe every run and the same <i>shape</i> of
+    ///         recipe every run, and <see cref="RunawayGuard.Cap" />'s remarks carry the
+    ///         distribution.</b> Twelve replicates of this property's own 200 draws give a slowest
+    ///         case of 1.0 s to 5.4 s with a median of 4.9 s; anything above that on a wall clock is
+    ///         the machine and not the draw.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Every_broken_mesh_conditions_to_a_manifold_or_a_report_and_never_to_an_exception() {

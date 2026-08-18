@@ -95,9 +95,56 @@ static class RunawayGuard {
     ///         The slowest single case swung by <b>4.3×</b> across one afternoon on one machine, and
     ///         its worst reading was <b>54.4 s against a cap of 60</b> — <c>new(ShapeKind.Box, 7, 1,
     ///         [], 3, 0f, 0.001f)</c>. Not the six-fold headroom this comment claimed: <b>1.10×</b>.
-    ///         The suite total moved with it, 93 s to 309 s, which is what says the swing is the
-    ///         machine rather than the input. It had not fired in six nights because it had been
-    ///         lucky six times.
+    ///         It had not fired in six nights because it had been lucky six times.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the four seconds was, measured afterwards: a coin flip, and never a property
+    ///         of the code.</b> The paragraph above guessed that the swing was the machine rather than
+    ///         the input, and that guess is half right in a way worth being exact about. Twelve
+    ///         replicates of exactly what the property does — 200 draws of its own generator,
+    ///         single-threaded, off the runner's parallelism, on the same ten-core machine — give a
+    ///         slowest case of <c>1.0 · 2.5 · 3.2 · 3.7 · 3.8 · 3.9 · 4.9 · 4.9 · 5.1 · 5.3 · 5.3 ·
+    ///         5.4 s</c>. <b>Median 4.9 s, and six of the twelve are under four.</b> So "the slowest
+    ///         conditioning case is under four seconds" was a true sentence about one run and a false
+    ///         one about the suite, on the day it was written; nothing regressed. <c>VoxelShrinkwrap</c>
+    ///         and <c>WindingNumberField</c> have not been edited since 2026-08-06 13:48, four hours
+    ///         before that claim, and the sweep's iteration counts and generator are unchanged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the ceiling on the <i>work</i> is 5.4 s, which is what makes the rest of any
+    ///         larger reading attributable.</b> The four dearest draws found, replayed three times
+    ///         each, read <b>3.9–5.6 s of wall against 3.8–5.4 s of processor time</b> — a ratio of
+    ///         0.96, so they are work and not waiting. The same recipes read <b>11.0 s, 12.4 s and
+    ///         36.7 s</b> inside a survey sharing the machine. <b>12.7 s and 54.4 s above are
+    ///         therefore about 5 s of conditioning multiplied by 2.4 and by 11.</b> The input's own
+    ///         spread is real and it is bounded: 1.0 s to 5.4 s, five-fold, where the readings the cap
+    ///         was sized against spread four-fold on top of that.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The whole of it is step seven, and the generator reaches it through a corner the
+    ///         pipeline cannot.</b> Split by setting over four traced suite runs: <b>393 cases with
+    ///         the shrinkwrap on cost 108 s, and 407 with it off cost 1.0 s</b> — a mean of 275 ms
+    ///         against 2.3 ms. Every one of the fifty dearest draws at each of three pinned seeds has
+    ///         it on, and all twelve slowest-of-a-run above are <c>rounds 0, shrinkwrap true</c>,
+    ///         eleven of them a box. The mechanism: <c>IsotropicRemesh.Run</c> returns the caller's
+    ///         target unchanged when its iteration count is zero, and the sweep's caller passes zero
+    ///         to mean "the mesh's own mean" — so a draw with no pre-remesh hands
+    ///         <c>VoxelShrinkwrap</c> a zero, which it reads as its documented fallback of <b>64 steps
+    ///         along the longest axis</b> rather than sizing itself from the mesh. The same recipe
+    ///         costs <b>5.9 s at zero rounds and 4.5 ms at one</b>, because one round supplies a mean
+    ///         edge length that clamps the grid to its eight-step floor: 69³ samples against 13³, and
+    ///         ~51 000 extracted triangles against 720 for the second conditioning pass to chew.
+    ///         Within that corner the cost tracks what came out — 158 ms under ten thousand triangles,
+    ///         641 ms at ten to twenty, 1.3 s at twenty to thirty, 5.4 s at fifty — and 51 000 is
+    ///         where a fixed 64-step grid tops out, which is why the work has a ceiling at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both callers in the tree pass a positive length</b> (<c>Remesher</c> and
+    ///         <c>RemeshDump</c>, from <c>BaseLength</c>), so the zero-target corner is the property
+    ///         suite's alone and nothing here is a defect to fix — it is the sweep exercising the one
+    ///         extraction big enough to be worth exercising. The measurements are reproducible from
+    ///         the harness in commit <c>168c5d7b</c>, and <c>CaseTrace</c> — <c>VIXEN_CASE_TRACE</c>
+    ///         naming a file — writes the per-case distribution on any run without one.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The obvious repair — measure the interference the way the heap half does — was
@@ -125,8 +172,9 @@ static class RunawayGuard {
     ///         is the outcome this exists to prevent. The per-commit gate has no
     ///         <c>timeout-minutes</c> at all, so GitHub's six-hour default is the bound there and
     ///         twenty is nothing against it. Lower: <b>22×</b> the worst healthy reading ever measured
-    ///         (the 54.4 s above, itself taken on a run whose suite total was 3.4× its uncontended
-    ///         one) and <b>13×</b> the worst healthy whole-pipeline case on record (93 s, in
+    ///         (the 54.4 s above — which is now known to be about 5 s of work under an eleven-fold
+    ///         machine, so <b>222×</b> the worst conditioning a draw can actually ask for), and
+    ///         <b>13×</b> the worst healthy whole-pipeline case on record (93 s, in
     ///         <c>RemeshPipelinePropertyTests</c>' own remarks).
     ///     </para>
     ///     <para>
