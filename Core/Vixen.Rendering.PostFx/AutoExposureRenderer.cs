@@ -238,17 +238,45 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     public IReadOnlyList<ComputeRenderer> Steps => steps;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A metering chain that declines is the worst-shaped silence in this assembly.</b> The
+    ///     exposure buffer keeps whatever it last held — or its seeded value — so the frame is graded
+    ///     by a number nobody measured, and every counter, this node's <see cref="PassCount" />
+    ///     included, is a number a host would have to already suspect to go and read. The steps are
+    ///     <see cref="ComputeRenderer" />s the node owns rather than nodes a document named, so they
+    ///     are not in <see cref="SceneRenderer.Nested" /> and their answer is carried out by hand.
+    /// </remarks>
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
+        Degrade(DeclareChain(compositor, frame));
+    }
+
+    string? DeclareChain(GraphicsCompositor compositor, CompositorFrame frame) {
         PassCount = 0;
 
         // ⚠ No effect system here, and that is `ComputeRenderer`'s doing rather than an omission: it
         // resolves its variant through `frame.Effects` and takes its set layout from the effect it
         // got. A property mirroring one would be a second place for the same answer to come from.
-        if (Samplers is null || Pipelines is null || Allocator is null || Device is null) {
-            return;
+        if (Device is null) {
+            return "no Device, so nothing metered this frame and the exposure buffer still holds the "
+                + "value it was last given — the grade is a number nobody measured";
+        }
+
+        if (Samplers is null) {
+            return "no Samplers, so nothing metered this frame and the exposure buffer still holds "
+                + "the value it was last given — the grade is a number nobody measured";
+        }
+
+        if (Pipelines is null) {
+            return "no Pipelines, so nothing metered this frame and the exposure buffer still holds "
+                + "the value it was last given — the grade is a number nobody measured";
+        }
+
+        if (Allocator is null) {
+            return "no Allocator, so nothing metered this frame and the exposure buffer still holds "
+                + "the value it was last given — the grade is a number nobody measured";
         }
 
         var sizes = Chain();
@@ -314,12 +342,17 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         PassCount = index;
 
+        string? reason = null;
+
         for (var step = 0; step < index; step++) {
             BuildChild(steps[step], compositor, frame);
+            reason ??= steps[step].Degraded;
         }
 
         // Whatever this frame metered, the next one has something to ease from — see `Bind`.
         adapted = true;
+
+        return reason;
     }
 
     /// <summary>The sizes of the chain, halving from <see cref="StartSize" /> to 1×1.</summary>

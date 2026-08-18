@@ -135,14 +135,29 @@ public sealed class LensFlareRenderer : SceneRenderer, IDisposable, IPostProcess
         View?.Camera?.Lens is { HasLens: true, BladeCount: >= 3 } lens ? lens.BladeCount : StarburstBlades;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The two passes are not in <see cref="SceneRenderer.Nested" />, so their answer is
+    ///     carried out by hand.</b> See <see cref="BloomRenderer" /> — the same shape, and the same
+    ///     reason: a chain that declines publishes an <see cref="Output" /> nobody wrote.
+    /// </remarks>
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
+        Degrade(DeclareChain(compositor, frame));
+    }
+
+    string? DeclareChain(GraphicsCompositor compositor, CompositorFrame frame) {
         PassCount = 0;
 
-        if (Modules is null || Samplers is null) {
-            return;
+        if (Modules is null) {
+            return "no Modules, so neither flare pass was declared and Output holds whatever the "
+                + "graph last aliased into it";
+        }
+
+        if (Samplers is null) {
+            return "no Samplers, so neither flare pass was declared and Output holds whatever the "
+                + "graph last aliased into it";
         }
 
         var reduced = new Int2(Math.Max(frame.Size.X / 4, 1), Math.Max(frame.Size.Y / 4, 1));
@@ -155,9 +170,14 @@ public sealed class LensFlareRenderer : SceneRenderer, IDisposable, IPostProcess
 
         PassCount = 2;
 
+        string? reason = null;
+
         for (var index = 0; index < PassCount; index++) {
             BuildChild(passes[index], compositor, frame);
+            reason ??= passes[index].Degraded;
         }
+
+        return reason;
     }
 
     void Configure(int index, int mode, string source, string bright, string target) {

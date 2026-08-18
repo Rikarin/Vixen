@@ -148,14 +148,35 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarg
     public IReadOnlyList<FullScreenRenderer> Passes => passes;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The chain's nine passes are not in <see cref="SceneRenderer.Nested" />, so their answer
+    ///     is carried out by hand.</b> A chain that declines leaves <see cref="Output" /> holding
+    ///     whatever the graph last aliased into it and <see cref="PassCount" /> at zero — a number a
+    ///     host would have to know to ask for. The reason is the thing it can be asked.
+    /// </remarks>
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
+        Degrade(DeclareChain(compositor, frame));
+    }
+
+    string? DeclareChain(GraphicsCompositor compositor, CompositorFrame frame) {
         PassCount = 0;
 
-        if (Modules is null || Samplers is null || Levels < 1) {
-            return;
+        if (Modules is null) {
+            return "no Modules, so no pass of the bloom chain was declared and Output holds whatever "
+                + "the graph last aliased into it";
+        }
+
+        if (Samplers is null) {
+            return "no Samplers, so no pass of the bloom chain was declared and Output holds whatever "
+                + "the graph last aliased into it";
+        }
+
+        if (Levels < 1) {
+            return $"Levels is {Levels}, so there is no pyramid to build and no pass was declared — "
+                + "Output holds whatever the graph last aliased into it";
         }
 
         var levels = LevelsFor(frame.Size);
@@ -202,9 +223,18 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarg
 
         PassCount = index;
 
+        string? reason = null;
+
         for (var i = 0; i < index; i++) {
             BuildChild(passes[i], compositor, frame);
+
+            // The first one that declined, not the last: a chain fails at its head — a missing effect
+            // or an invalid pipeline is the same for every level — and reporting the ninth would name
+            // the pass furthest from the cause.
+            reason ??= passes[i].Degraded;
         }
+
+        return reason;
     }
 
     /// <summary>Sets up one pass of the chain, creating its node the first time.</summary>

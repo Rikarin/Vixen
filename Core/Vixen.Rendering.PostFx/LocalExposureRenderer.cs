@@ -183,14 +183,28 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The two passes are not in <see cref="SceneRenderer.Nested" />, so their answer is
+    ///     carried out by hand.</b> See <see cref="BloomRenderer" /> for the shape.
+    /// </remarks>
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
+        Degrade(DeclareChain(compositor, frame));
+    }
+
+    string? DeclareChain(GraphicsCompositor compositor, CompositorFrame frame) {
         PassCount = 0;
 
-        if (Modules is null || Samplers is null) {
-            return;
+        if (Modules is null) {
+            return "no Modules, so neither the blur nor the apply was declared and Output holds "
+                + "whatever the graph last aliased into it — the frame is ungraded, not unlit";
+        }
+
+        if (Samplers is null) {
+            return "no Samplers, so neither the blur nor the apply was declared and Output holds "
+                + "whatever the graph last aliased into it — the frame is ungraded, not unlit";
         }
 
         var reduced = new Int2(Math.Max(frame.Size.X / 4, 1), Math.Max(frame.Size.Y / 4, 1));
@@ -203,9 +217,14 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
 
         PassCount = 2;
 
+        string? reason = null;
+
         for (var index = 0; index < PassCount; index++) {
             BuildChild(passes[index], compositor, frame);
+            reason ??= passes[index].Degraded;
         }
+
+        return reason;
     }
 
     /// <summary>Sets up one pass of the chain, creating its node the first time.</summary>

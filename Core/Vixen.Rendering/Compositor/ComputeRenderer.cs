@@ -223,27 +223,45 @@ public sealed class ComputeRenderer : SceneRenderer, IDisposable {
             : throw new CompositorBindingException(ToString(), "buffer", name);
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The body is <see cref="Declare" /> so that declining has to say why.</b> A dispatch that
+    ///     does not happen leaves its output buffer holding the last value written to it, which for a
+    ///     metering or a clear chain is a plausible number rather than an obviously wrong one — the
+    ///     failure this engine is characteristically bad at seeing.
+    /// </remarks>
     protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
-        if (Pipelines is null || Groups.X <= 0 || Groups.Y <= 0 || Groups.Z <= 0) {
-            return;
+        Degrade(Declare(frame));
+    }
+
+    string? Declare(CompositorFrame frame) {
+        if (Pipelines is null) {
+            return "no Pipelines, so this dispatch was never declared and whatever it writes still "
+                + "holds the last value written to it";
+        }
+
+        if (Groups.X <= 0 || Groups.Y <= 0 || Groups.Z <= 0) {
+            return $"Groups is {Groups.X}×{Groups.Y}×{Groups.Z}, so there is no work to dispatch and "
+                + "whatever this pass writes still holds the last value written to it";
         }
 
         var key = EffectKey.From(ShaderName, Parameters, PermutationKeys, Composition);
 
         if (frame.Effects.Resolve(key) is not { } effect) {
-            // Nothing to dispatch and nothing to guess at. A missing compute variant is reported by
-            // EffectSystem.Misses like every other, which is what makes "no runtime compilation in a
-            // shipping build" a test rather than a hope.
-            return;
+            // Also reported by EffectSystem.Misses, which is what makes "no runtime compilation in a
+            // shipping build" a test rather than a hope. Said here as well because a miss is a list
+            // of keys and this is the node that wanted one.
+            return $"the compute effect '{ShaderName}' did not resolve, so this dispatch was never "
+                + "declared and whatever it writes still holds the last value written to it";
         }
 
         var pipeline = Pipelines.GetOrCreate(effect);
 
         if (!pipeline.IsValid) {
-            return;
+            return $"the compute pipeline for '{ShaderName}' is not valid — the module was missing or "
+                + "the device refused it — so this dispatch was never declared";
         }
 
         buffers.Clear();
@@ -329,6 +347,8 @@ public sealed class ComputeRenderer : SceneRenderer, IDisposable {
                 );
             }
         );
+
+        return null;
     }
 
     /// <inheritdoc />

@@ -208,22 +208,45 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
     public int UploadCount => constants?.UploadCount ?? 0;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The body is <see cref="Declare" /> so that declining has to say why.</b> This node's
+    ///     documented failure was a <c>return;</c> above the resolve when <c>CompositorBuilder</c> had
+    ///     left <see cref="Device" /> and <see cref="Modules" /> unset: the effect system recorded no
+    ///     miss, and the tonemap — the node that writes the swapchain — silently did not run. A helper
+    ///     returning <c>string?</c> cannot leave without producing an answer, and <c>return null</c> is
+    ///     the healthy claim rather than the absence of one.
+    /// </remarks>
     protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
+        Degrade(Declare(frame));
+    }
+
+    string? Declare(CompositorFrame frame) {
         var device = Device ?? frame.Device;
 
-        if (device is null || Modules is null || ColourTargets.Count == 0) {
-            return;
+        if (device is null) {
+            return "no Device and the frame has none, so this pass was never declared and whatever "
+                + "was in its colour target is what the next node reads";
+        }
+
+        if (Modules is null) {
+            return "no Modules, so no pipeline could be built and this pass was never declared — "
+                + "whatever was in its colour target is what the next node reads";
+        }
+
+        if (ColourTargets.Count == 0) {
+            return "no ColourTargets, so there is nowhere to draw and this pass was never declared";
         }
 
         var key = EffectKey.From(ShaderName, Parameters, PermutationKeys, Composition);
 
         if (frame.Effects.Resolve(key) is not { } effect) {
-            // Reported through EffectSystem.Misses like every other, which is what keeps "no runtime
-            // compilation in a shipping build" a test rather than a hope.
-            return;
+            // Also reported through EffectSystem.Misses, which is what keeps "no runtime compilation
+            // in a shipping build" a test rather than a hope. Said here as well because a miss is a
+            // list of keys and this is the node that wanted one.
+            return $"the effect '{ShaderName}' did not resolve, so this pass was never declared";
         }
 
         var colours = new GraphTexture[ColourTargets.Count];
@@ -253,7 +276,8 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
         var pipeline = PipelineFor(device, effect, output);
 
         if (!pipeline.IsValid) {
-            return;
+            return $"the pipeline for '{ShaderName}' is not valid — a stage module was missing or the "
+                + "device refused it — so this pass was never declared";
         }
 
         // Filled here rather than in the pass body, because the values are the host's and the body
@@ -326,6 +350,8 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
                 );
             }
         );
+
+        return null;
     }
 
     PipelineHandle PipelineFor(IGraphicsDevice device, Effect effect, in RenderOutput output) {
