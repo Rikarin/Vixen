@@ -41,6 +41,14 @@ public sealed class SceneLines {
     readonly List<uint> handleIndices = [];
     readonly Dictionary<PrimitiveKind, BoundingBox> extents = [];
 
+    /// <summary>The extent of each mesh asset a selected entity has named, kept for as long as this is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Keyed by the reference, not by the entity.</b> Ten crates sharing a mesh have one
+    ///     extent between them, and a cache per entity in a scene of ten thousand is a dictionary the
+    ///     size of the scene holding ten thousand copies of a hundred boxes.
+    /// </remarks>
+    readonly Dictionary<AssetReference, BoundingBox> assets = [];
+
     /// <summary>The segments drawn with the depth test on.</summary>
     public IReadOnlyList<LineVertex> World => world;
 
@@ -131,6 +139,13 @@ public sealed class SceneLines {
         if ((show & SceneShow.Bounds) != 0) {
             Boxes(document);
         }
+
+        // ⚠ Not behind a show flag, which is the one thing everything above it is. Every flag here
+        // names a class of thing the scene has whether or not anybody asked to see it; a selection is
+        // something the user did a moment ago, and the pane's answer to "did that click land" cannot
+        // be switchable — the same argument the reference volumes, the tape and the element cage make
+        // twenty lines further down, and it is strongest here. See `SelectionCage`.
+        Cage(document, viewport, height);
 
         if ((show & SceneShow.Volumes) != 0) {
             Volumes(document);
@@ -291,6 +306,109 @@ public sealed class SceneLines {
                 }
             }
         }
+    }
+
+    /// <summary>Corner brackets round whatever is selected and has a size.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The affordance a composed pane has, because it is the only one made of lines.</b>
+    ///         The amber tint is <c>SceneMeshes</c>'s and the inverted hull was the tool renderer's
+    ///         instanced mesh shader; neither is in a frame a <c>GraphicsCompositor</c> drew, so
+    ///         before this a composed pane drew a selected object identically to an unselected one
+    ///         while the gizmo sitting on it said it was selected. <see cref="SelectionCage" /> holds
+    ///         the argument for brackets rather than a box, and for the standoff.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Into <see cref="World" />, so the cage is occluded by what occludes the object.</b>
+    ///         The near corners show and the far ones are hidden by the object's own surface, which is
+    ///         what makes it read as a cage in the scene rather than a decal on the glass. The gizmo
+    ///         is the exception and it is the exception for its own reason — a handle you cannot reach
+    ///         through the thing it moves is a handle you cannot use — and it is still there to say
+    ///         where the selection is when the object is behind a wall.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An entity with no extent gets nothing, rather than a cage of some default size.</b>
+    ///         A light, a camera and an empty are already answered: <see cref="Markers" /> draws their
+    ///         cross in <see cref="SelectedColour" /> and at 1.6 times the size. A cage round them
+    ///         would be a box round an arbitrary constant, which is the reason <see cref="Boxes" />
+    ///         gives for skipping them too.
+    ///     </para>
+    /// </remarks>
+    void Cage(SceneDocument document, SceneViewport viewport, int height) {
+        if (document.Selection.IsEmpty) {
+            return;
+        }
+
+        var draw = new GizmoDraw(world);
+
+        foreach (var entity in document.Selection) {
+            if (!document.World.IsAlive(entity)
+                || !document.World.Has<WorldTransform>(entity)
+                || document.IsHidden(entity)
+                || !Extent(document, viewport, entity, out var bounds)) {
+                continue;
+            }
+
+            SelectionCage.Draw(
+                draw,
+                bounds,
+                document.World.Read<WorldTransform>(entity).Value,
+                viewport.Camera,
+                height,
+                SelectedColour
+            );
+        }
+    }
+
+    /// <summary>What an entity's own extent is, whichever of the three ways it has geometry.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The order is <c>SceneMeshes.Drawn</c>'s and it has to be.</b> An edited mesh wins
+    ///         over the asset and the asset wins over the primitive, because that is what the viewport
+    ///         and the extraction both draw — a cage sized from the asset round an entity being drawn
+    ///         as its <c>EditMesh</c> is a cage round geometry that is not on screen, and it would
+    ///         drift away from the object as the mesh was edited.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A mesh that has not loaded yet answers false rather than falling back.</b>
+    ///         <c>IMeshSource</c> is ask-don't-wait, so the miss is the ask and the cage appears on
+    ///         the frame the geometry does — which is the frame the object appears on too. A fallback
+    ///         extent would put a cage of the wrong size round nothing at all for as long as the disk
+    ///         took, and then jump.
+    ///     </para>
+    /// </remarks>
+    bool Extent(SceneDocument document, SceneViewport viewport, Entity entity, out BoundingBox bounds) {
+        if (document.MeshOf(entity) is { } edited) {
+            bounds = edited.Bounds;
+            return true;
+        }
+
+        if (MeshRenderables.TryGet(document.World, entity, out var renderable)) {
+            if (assets.TryGetValue(renderable.Mesh, out bounds)) {
+                return true;
+            }
+
+            if (viewport.Meshes is null
+                || renderable.Mesh.IsNull
+                || !viewport.Meshes.TryGet(renderable.Mesh, out var mesh)) {
+                bounds = default;
+                return false;
+            }
+
+            bounds = mesh.Bounds;
+            assets[renderable.Mesh] = bounds;
+
+            return true;
+        }
+
+        if (PrimitiveShapes.TryGet(document.World, entity, out var kind)) {
+            bounds = Extent(kind);
+            return true;
+        }
+
+        bounds = default;
+
+        return false;
     }
 
     /// <summary>Each post-process volume, as its box and a second one at its blend radius.</summary>

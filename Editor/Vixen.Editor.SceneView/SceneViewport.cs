@@ -6,6 +6,7 @@ using Vixen.Editor.Core;
 using Vixen.Geometry;
 using Vixen.Input;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 
@@ -313,6 +314,27 @@ public sealed class SceneViewport : IDisposable {
     ///     <c>ScenePlacement.Resolve</c>, which takes the narrower interface.
     /// </remarks>
     public ISceneProbe? Surfaces { get; set; }
+
+    /// <summary>Where the geometry a <c>MeshRenderable</c> names comes from, for the lines that need its size.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On the pane rather than on <see cref="SceneLines" />, and the reason is who has to
+    ///         see it.</b> Two presenters draw a pane — <c>ScenePresenter</c> over the editor's own
+    ///         shapes and <c>FramePresenter</c> over a composed frame — and each holds a
+    ///         <see cref="SceneLines" /> of its own. Anything hung on one of those appears in one
+    ///         pane's worth of the editor and silently not in the other, which is the shape of the
+    ///         defect the selection cage exists to close. State the collector reads off the
+    ///         <i>viewport</i> reaches both by construction.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null draws no cage round a mesh entity rather than a cage of a default size.</b>
+    ///         A pane with no mesh source is a pane in which those entities have no extent anybody
+    ///         knows, and half a unit either side of the origin is what <c>EditorApplication.Around</c>
+    ///         uses to place a <i>camera</i> — a number chosen so framing cannot collapse to a point,
+    ///         which is not a claim about how big anything is.
+    ///     </para>
+    /// </remarks>
+    public IMeshSource? Meshes { get; set; }
 
     /// <summary>Where the answers to picks are collected, once a device exists.</summary>
     /// <remarks>

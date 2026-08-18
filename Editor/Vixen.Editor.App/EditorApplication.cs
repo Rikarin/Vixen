@@ -1624,6 +1624,11 @@ sealed partial class EditorApplication : IDisposable {
             pane.Picker = picker;
             pane.Surfaces = probe;
 
+            // ⚠ The same source the scene's mesh components already resolve through, so the selection
+            // cage cannot disagree with the surface it is drawn round about how big that surface is.
+            // Read by `SceneLines` and therefore by both presenters — see `SceneViewport.Meshes`.
+            pane.Meshes = SceneGeometry;
+
             // ⚠ This editor's registry, not the process-wide default the pane falls back to. A pane
             // reading a different registry from the one plugins were handed is a pane whose tool
             // list is empty however many tools were contributed — which is what this line was
