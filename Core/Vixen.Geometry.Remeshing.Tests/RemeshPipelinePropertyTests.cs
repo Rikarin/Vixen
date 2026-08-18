@@ -9,19 +9,25 @@ using Xunit;
 
 namespace Vixen.Geometry.Remeshing.Tests;
 
-/// <summary>The classes that time a case, which therefore may not run while another one is timing.</summary>
+/// <summary>The classes that measure a case, which therefore may not run while another one measures.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="RunawayGuard" />'s clock is wall clock, and wall clock is not a property of
-///         the case.</b> Its allocation half already carries a defence against this — sixteen
-///         consecutive samples, "because <c>GC.GetTotalMemory</c> is process-wide … one sample over
-///         the line could be another class allocating and being charged to whichever case happened to
-///         be in flight". The clock has no equivalent, and it is exposed to the same interference for
-///         the same reason: a case that is merely descheduled reads as a case that is still running.
+///         ⚠ <b>This was bought to protect <see cref="RunawayGuard" />'s clock, and it now earns its
+///         keep on the <i>heap</i> instead — the reason is worth keeping because deleting the
+///         collection is the obvious next move and it would be wrong.</b> The clock no longer needs
+///         defending: <see cref="RunawayGuard.Cap" /> stopped being a threshold sized against a
+///         healthy case and became a liveness backstop sized against the nightly leg's own timeout,
+///         and nothing scheduling can do reaches twenty minutes. What is still exposed is
+///         <see cref="RunawayGuard.RetentionCeiling" />, because <c>GC.GetTotalMemory</c> is
+///         process-wide in a way <see cref="Stopwatch" /> is not: two whole-pipeline cases running
+///         side by side are one heap, and the growth of either is charged to whichever happens to be
+///         in flight. The sixteen-sample grace answers a <i>transient</i> neighbour; it does not
+///         answer a neighbour that allocates for the whole case, and the measured runaways in this
+///         code are 763 MB and 8.7 GB against a one-gigabyte ceiling.
 ///     </para>
 ///     <para>
-///         <b>Measured, and it is what forced this.</b> Adding
-///         <see cref="RemeshPipelinePropertyTests" /> to this assembly failed
+///         <b>The measurement that forced it, kept because it is the worked example of the defect
+///         class.</b> Adding <see cref="RemeshPipelinePropertyTests" /> to this assembly failed
 ///         <see cref="ConditioningPropertyTests" /> on the first full run — seed
 ///         <c>3cgNRbukkll2</c>, <c>new(ShapeKind.Sphere, 6, 5, [], 4, 0.27586207f, 0.01f)</c>, "still
 ///         running after 60.2 s, against a cap of 60.0 s". Re-run with that same seed and that class
@@ -29,17 +35,21 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         never slow; ten cores were.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Serialising the timers rather than raising the cap, and the difference is the whole
-///         point.</b> A larger cap is a weaker guard on every case forever, bought to pay for an
-///         artefact of how the suite happens to be scheduled. These three classes are the only ones in
-///         the assembly that call <see cref="RunawayGuard" />, and a whole-pipeline remesh saturates
-///         every core it is given — so what is removed here is the interference, not the claim.
+///         ⚠ <b>Serialising the timers was the right <i>half</i> of the fix and it was mistaken for
+///         the whole of it.</b> It removes the interference inside this assembly and does nothing
+///         about the machine — a hosted runner with another job on it, or a laptop with three agents
+///         on it, contends just the same. Four runs on 2026-08-18, one ten-core machine, one build,
+///         the build's counts, with this collection already in force: the suite totalled 93 s, 138 s,
+///         187 s and 309 s, and its slowest single case read 12.7 s, 38.1 s, 23.0 s and <b>54.4 s</b>
+///         — against a cap that was then sixty. Serialisation had not made the clock a property of
+///         the case; it had made it a property of a quieter machine. Only retiring the clock as a
+///         threshold did.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is the <i>uv</i> assembly's turn next if anything expensive lands there.</b>
-///         <c>UvUnwrapPipelinePropertyTests</c> is a second of wall clock against
-///         <c>UvPackPropertyTests</c>' fifty, so nothing there is close enough to sixty seconds for
-///         scheduling to decide it, and that assembly is deliberately left parallel.
+///         ⚠ <b>The uv assembly is still deliberately parallel, and now that is a claim about its
+///         heap rather than about its clock.</b> Nothing there conditions or remeshes, so nothing
+///         there approaches a gigabyte of retention; if something does, this collection is the shape
+///         to copy.
 ///     </para>
 /// </remarks>
 [CollectionDefinition(Name, DisableParallelization = true)]
@@ -88,10 +98,39 @@ public class TimedCases {
 ///         ⚠ <b>What a small budget does <i>not</i> buy is a cheap case, and that is a finding rather
 ///         than a mis-estimate.</b> A patch's quad count is a <i>product</i> of two side lengths, so
 ///         the overshoot § D9 already records is quadratic in how snaky the partition is and is not
-///         reduced by asking for less: measured, a 648-face capsule asked for 96 quads produced
-///         <b>339,330</b> of them. <see cref="Cap" /> has the case and the measurement, and
+///         reduced by asking for less. Found by this property and re-measured against the current
+///         base: <c>new(ShapeKind.Capsule, 9, 3, [MeshDefect.TinyComponent], 5, 0.1f, 1f)</c>,
+///         mirrored about <c>(0, 1, 0)</c>, 648 faces in, asked for 96 quads and produced
+///         <b>339,330</b> of them. It terminates, every face is a quad, and the report says so in as
+///         many words: "the budget was not met: 169665 quads against 96 asked for, because the
+///         partition's patches are longer round than they are wide". So it is neither a hang nor an
+///         all-quad failure; it is <see cref="Remesher.BudgetTolerance" /> being 1.35 against a
+///         measured <b>3,534×</b>, and
 ///         <see cref="Every_broken_mesh_remeshes_to_all_quads_or_to_a_report_naming_the_stage_that_refused" />
-///         asserts that a result over <see cref="Remesher.BudgetTolerance" /> says so in the report.
+///         asserts that such a result says so in the report.
+///     </para>
+///     <para>
+///         ⚠ <b>The overshoot is a <i>ratio</i> and not a floor, which means no budget is a safe
+///         one.</b> The same mesh without the mirror, at two budgets: 96 asked for gives 57,100 quads
+///         and 400 gives 233,490 — <b>595×</b> and <b>584×</b>, against the mirror's 3,534×. Asking
+///         for fewer quads buys a proportionally cheaper case and does not bring the factor down at
+///         all, which is what makes 96 the right number here and what makes the factor a defect
+///         rather than a small-budget artefact. Turning both of stage seven's halves on changes
+///         neither the counts nor, measurably, the time.
+///     </para>
+///     <para>
+///         ⚠ <b>The counts above are the finding; the seconds are not, and the two must not be quoted
+///         with the same confidence.</b> Every quad count here reproduces exactly — the same integers
+///         to the digit on a different machine and several commits later — because they are what the
+///         algorithm computes. The wall clock is not: the worst of those four cases runs in
+///         <b>11 s</b> on the machine that paragraph was written on and was recorded at <b>93 s</b>
+///         when the case was first found, and a whole-pipeline remesh takes every core it is given.
+///         ⚠ <b>This class used to carry its own four-minute cap on the strength of that spread, and
+///         it was the tighter of the two wall-clock thresholds in the tree</b> — 240 s against a
+///         worst healthy recording of 93 s is 2.6× of headroom, where the sixty seconds that actually
+///         fired had six. It is gone: <see cref="RunawayGuard.Cap" /> is now a liveness backstop
+///         sized against the nightly leg's own timeout rather than against any case's duration, so
+///         there is nothing left for a per-suite measurement to tune. See its remarks.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>That assertion currently fails at the nightly's counts, and it is left failing on
@@ -118,60 +157,6 @@ public class TimedCases {
 public class RemeshPipelinePropertyTests {
     /// <summary>How many quads a case asks for. Small, for the reason in the class remarks.</summary>
     const int Budget = 96;
-
-    /// <summary>How long one whole-pipeline case may run before that is a finding rather than a slow test.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b><see cref="RunawayGuard.Cap" />'s sixty seconds was measured against the
-    ///         <i>stage-level</i> suites and a seven-stage remesh is a different measurement.</b> Its own
-    ///         remarks say so: "the slowest healthy case in either suite is the packer's sixteen-attempt
-    ///         refusal at just under ten seconds, and the slowest conditioning case is under four". One
-    ///         case here runs all seven stages, and the extraction alone is where the time goes.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The cap is four minutes because of a measured case that is a defect and not a hang,
-    ///         and the defect is recorded rather than tuned around.</b> Found by this property, and
-    ///         re-measured against the current base:
-    ///         <c>new(ShapeKind.Capsule, 9, 3, [MeshDefect.TinyComponent], 5, 0.1f, 1f)</c>, mirrored
-    ///         about <c>(0, 1, 0)</c>, 648 faces in, asked for 96 quads and produced <b>339,330</b> of
-    ///         them. It terminates, every face is a quad, and the report says so in as many words: "the
-    ///         budget was not met: 169665 quads against 96 asked for, because the partition's patches
-    ///         are longer round than they are wide". So it is not a hang and it is not an all-quad
-    ///         failure; it is <see cref="Remesher.BudgetTolerance" /> being 1.35 against a measured
-    ///         <b>3,534×</b>.
-    ///         <see cref="Every_broken_mesh_remeshes_to_all_quads_or_to_a_report_naming_the_stage_that_refused" />
-    ///         asserts that such a result warns, so the overshoot is visible in CI rather than only on a
-    ///         stopwatch.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The overshoot is a <i>ratio</i> and not a floor, which means no budget is a safe
-    ///         one.</b> The same mesh without the mirror, at two budgets: 96 asked for gives 57,100
-    ///         quads and 400 gives 233,490 — <b>595×</b> and <b>584×</b>, against the mirror's 3,534×.
-    ///         Asking for fewer quads buys a proportionally cheaper case and does not bring the factor
-    ///         down at all, which is what makes 96 the right number here and what makes the factor a
-    ///         defect rather than a small-budget artefact. Turning both of stage seven's halves on
-    ///         changes neither the counts nor, measurably, the time.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The counts above are the finding; the seconds are not, and the two must not be
-    ///         quoted with the same confidence.</b> Every quad count here reproduces exactly — the same
-    ///         integers to the digit on a different machine and several commits later — because they
-    ///         are what the algorithm computes. The wall clock is not: the worst of those four cases
-    ///         runs in <b>11 s</b> on the machine this paragraph was written on and was recorded at 93 s
-    ///         when the case was first found, and a whole-pipeline remesh takes every core it is given,
-    ///         so what a case costs depends on what else the suite is running. Four minutes is
-    ///         therefore headroom against a slower runner and against a nightly that will draw worse
-    ///         inputs than these fourteen, and it is not a prediction that any case approaches it.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The allocation ceiling is untouched and it is the one that matters.</b> The clock is
-    ///         raised here; <see cref="RunawayGuard.RetentionCeiling" /> is not, because the measured
-    ///         runaway in this code — a pre-remesh quadrupling its triangle count every round and
-    ///         allocating 763 MB in one — is a growth failure that no timeout catches before the runner
-    ///         dies.
-    ///     </para>
-    /// </remarks>
-    static readonly TimeSpan Cap = TimeSpan.FromMinutes(4);
 
     /// <summary>A recipe and the three settings that change which stages actually run.</summary>
     /// <remarks>
@@ -236,8 +221,7 @@ public class RemeshPipelinePropertyTests {
 
                 var outcome = RunawayGuard.Run(
                     what,
-                    () => Remesher.Remesh(mesh, settings, out var report) is var quads ? (quads, report) : default,
-                    Cap
+                    () => Remesher.Remesh(mesh, settings, out var report) is var quads ? (quads, report) : default
                 );
 
                 if (Verify(what, outcome.quads, outcome.report)) {
@@ -251,7 +235,7 @@ public class RemeshPipelinePropertyTests {
                 // quad count is a product of two side lengths — so a snaky partition overshoots
                 // quadratically. What is asserted is not a ceiling on the overshoot, which would be a
                 // number nobody has: it is that a result over BudgetTolerance says so, because an
-                // unattended content build has nothing else to read. See Cap's remarks for the 3,534×
+                // unattended content build has nothing else to read. See the class remarks for the 3,534×
                 // this property measured, and Divergence for the case where it does not say so.
                 if (outcome.report.QuadCount > Budget * Remesher.BudgetTolerance) {
                     Assert.True(
@@ -333,8 +317,7 @@ public class RemeshPipelinePropertyTests {
 
             var outcome = RunawayGuard.Run(
                 what,
-                () => Remesher.Remesh(mesh, settings, out var report) is var quads ? (quads, report) : default,
-                Cap
+                () => Remesher.Remesh(mesh, settings, out var report) is var quads ? (quads, report) : default
             );
 
             // ⚠ Both, and the second is the one that matters. That the case refuses is the premise;
@@ -521,8 +504,7 @@ public class RemeshPipelinePropertyTests {
 
                     var outcome = RunawayGuard.Run(
                         what,
-                        () => Remesher.Remesh(mesh, settings, out var report) is var quads ? (quads, report) : default,
-                        Cap
+                        () => Remesher.Remesh(mesh, settings, out var report) is var quads ? (quads, report) : default
                     );
 
                     Verify(what, outcome.quads, outcome.report);
@@ -657,7 +639,7 @@ public class RemeshPipelinePropertyTests {
     ///     <para>
     ///         ⚠ <b>The same divergence is visible on the symmetry path at a size nobody could miss,
     ///         which is what says it is one defect rather than a rounding argument.</b>
-    ///         <see cref="Cap" />'s 339,330-quad case reports "the budget was not met: 169665 quads
+    ///         The class remarks' 339,330-quad case reports "the budget was not met: 169665 quads
     ///         against 96 asked for" — exactly half, because the prediction is the half-mesh's and
     ///         <see cref="SymmetryPass" /> recounts after reflecting. A caller reading the sentence
     ///         gets a number that is not the number of quads it was handed.
