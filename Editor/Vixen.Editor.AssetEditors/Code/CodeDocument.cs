@@ -199,6 +199,25 @@ public class CodeDocument : EditorDocument {
         recorded = Buffer.Text;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     A text document is its file, so re-reading it is one assignment. Everything else it has —
+    ///     the highlighting, the diagnostics — is derived from the buffer and follows it.
+    /// </remarks>
+    public override bool CanReload => true;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Through <see cref="Replace" />, which is what an undo goes through</b>, so the
+    ///     buffer's own change event does not record the file's contents as something somebody typed.
+    ///     A reload that pushed an undo entry would put the version it just replaced back one Ctrl+Z
+    ///     later — and the caller has already decided that version is gone.
+    /// </remarks>
+    protected override bool ReloadCore() {
+        Replace(AssetFile.Read(AssetPath));
+        return true;
+    }
+
     /// <summary>Puts a text into the buffer without recording an edit for it.</summary>
     /// <param name="text">The text.</param>
     /// <remarks>
