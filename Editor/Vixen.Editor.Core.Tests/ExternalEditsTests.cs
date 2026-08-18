@@ -280,9 +280,11 @@ public sealed class ExternalEditsTests : IDisposable {
 
     /// <summary>The same claim against the real watcher, which is the thing that has to believe it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Waits on the drain rather than on a clock.</b> A fixed sleep sized to the debounce is
-    ///     the shape of test that passes on a developer's machine and fails on a loaded agent; this
-    ///     polls until the window has certainly closed and then asserts on what came out.
+    ///     ⚠ <b>The window is bounded by <c>FileChangeCoalescer.SuppressionWindow</c>, which is two
+    ///     seconds.</b> Watching for longer would be a test that fails whenever the platform reported
+    ///     a write later than the design promises to ignore it — which is not this seam being wrong,
+    ///     it is the test asserting past the guarantee. A second and a half is six debounce windows
+    ///     and comfortably inside the suppression.
     /// </remarks>
     [Fact]
     public void The_editors_own_save_does_not_come_back_through_a_real_watcher() {
@@ -297,7 +299,7 @@ public sealed class ExternalEditsTests : IDisposable {
         document.Edit("mine");
         document.Save();
 
-        var drained = Settle(watcher, TimeSpan.FromSeconds(3));
+        var drained = Quiet(watcher, TimeSpan.FromSeconds(1.5));
 
         Assert.DoesNotContain(drained, change => change.Path.Value.StartsWith("/Thing.txt", StringComparison.Ordinal));
 
@@ -309,6 +311,11 @@ public sealed class ExternalEditsTests : IDisposable {
     }
 
     /// <summary>And the same watcher does report somebody else's write, so the test above can fail.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument, checked.</b> A suppression test over a watcher that reports nothing
+    ///     at all passes for the wrong reason, and would go on passing after somebody deleted the
+    ///     watcher. This is the same setup with the save taken out.
+    /// </remarks>
     [Fact]
     public void A_write_the_editor_did_not_make_does_come_through_the_real_watcher() {
         var document = Open("Thing.txt");
@@ -321,7 +328,7 @@ public sealed class ExternalEditsTests : IDisposable {
 
         File.WriteAllText(files.Paths.Absolute("Assets/Thing.txt"), "somebody else");
 
-        var drained = Settle(watcher, TimeSpan.FromSeconds(3));
+        var drained = Until(watcher, "/Thing.txt", TimeSpan.FromSeconds(10));
 
         edits.Apply(drained);
 
@@ -524,17 +531,42 @@ public sealed class ExternalEditsTests : IDisposable {
         return edits.Apply(changes);
     }
 
-    /// <summary>Drains a real watcher until its debounce window has certainly closed.</summary>
-    static List<FileChange> Settle(IFileWatcher watcher, TimeSpan budget) {
+    /// <summary>Drains a real watcher for a fixed window, for a claim that nothing arrives.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Fixed rather than "until quiet", which is the difference between a negative claim
+    ///     and a race.</b> Stopping at the first quiet moment would stop before a platform that
+    ///     reports late has reported at all, and the test would pass without the watcher having said
+    ///     anything either way.
+    /// </remarks>
+    static List<FileChange> Quiet(IFileWatcher watcher, TimeSpan window) {
         var drained = new List<FileChange>();
         var clock = Stopwatch.StartNew();
-        var quiet = 0;
 
-        // Three consecutive empty drains after the debounce window, so that a platform which reports
-        // late — FSEvents batches with a latency of its own — is waited for rather than raced.
-        while (clock.Elapsed < budget && quiet < 3) {
+        while (clock.Elapsed < window) {
             Thread.Sleep(40);
-            quiet = watcher.Drain(drained) > 0 ? 0 : quiet + 1;
+            watcher.Drain(drained);
+        }
+
+        return drained;
+    }
+
+    /// <summary>Drains a real watcher until a path arrives, for a claim that something does.</summary>
+    /// <remarks>
+    ///     A budget rather than a sleep, for the reason a settle is not a fixed pause: FSEvents
+    ///     batches with a latency of its own and a loaded agent adds to it, so the number that
+    ///     matters is the one past which waiting longer would mean the seam is broken.
+    /// </remarks>
+    static List<FileChange> Until(IFileWatcher watcher, string path, TimeSpan budget) {
+        var drained = new List<FileChange>();
+        var clock = Stopwatch.StartNew();
+
+        while (clock.Elapsed < budget) {
+            Thread.Sleep(40);
+            watcher.Drain(drained);
+
+            if (drained.Exists(change => change.Path.Value == path)) {
+                break;
+            }
         }
 
         return drained;

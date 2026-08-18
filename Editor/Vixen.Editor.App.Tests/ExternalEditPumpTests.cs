@@ -33,7 +33,13 @@ public sealed class ExternalEditPumpTests : IDisposable {
     static readonly TimeSpan Budget = TimeSpan.FromSeconds(20);
 
     /// <summary>How long a claim that nothing happens is given to be wrong.</summary>
-    static readonly TimeSpan Quiet = TimeSpan.FromSeconds(3);
+    /// <remarks>
+    ///     ⚠ <b>Bounded by <c>FileChangeCoalescer.SuppressionWindow</c>, which is two seconds.</b>
+    ///     Watching for longer would be a test that fails whenever the platform reported a write
+    ///     later than the design promises to ignore it — asserting past the guarantee rather than
+    ///     about it. A second and a half is six of the watcher's debounce windows.
+    /// </remarks>
+    static readonly TimeSpan Quiet = TimeSpan.FromSeconds(1.5);
 
     readonly List<IDisposable> owned = [];
 
