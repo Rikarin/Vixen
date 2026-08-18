@@ -184,12 +184,16 @@ public sealed class ExternalEdits : IDisposable {
     /// </remarks>
     public int Rescan() {
         var reloaded = 0;
-        var documents = project.Documents;
 
-        for (var index = 0; index < documents.Count; index++) {
+        // ⚠ Over a snapshot, which is the argument `EditorProject.SaveAll` already makes: a reload
+        // runs a deriving type's code, and one that opened or closed a document would reorganise the
+        // list underneath this loop — skipping whatever moved into the slot it left.
+        var documents = project.Documents.ToArray();
+
+        for (var index = 0; index < documents.Length; index++) {
             var document = documents[index];
 
-            if (!document.CanReload || document.IsDirty.Value) {
+            if (!document.IsOpen || !document.CanReload || document.IsDirty.Value) {
                 continue;
             }
 
