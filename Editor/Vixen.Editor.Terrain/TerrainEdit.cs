@@ -100,6 +100,17 @@ public sealed class TerrainEdit {
     /// <summary>Which half of the toolset the drag in flight belongs to.</summary>
     public TerrainCategory HeldCategory => category;
 
+    /// <summary>The brush the drag in flight is stamping with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The snapshot, not <see cref="Brush" />, and the difference is the whole point of
+    ///     there being two.</b> The panel can be moved mid-drag; the stroke cannot change size while
+    ///     it runs. Anything showing the user what the brush is doing — the hover cursor above all —
+    ///     has to read this while <see cref="IsStroking" /> or it draws a ring that does not match the
+    ///     ground being written. Meaningless between strokes, where <see cref="Brush" /> is the
+    ///     answer.
+    /// </remarks>
+    public TerrainBrush HeldBrush => held;
+
     /// <summary>Which paint layer the paint tools write, or −1 for none.</summary>
     /// <remarks>
     ///     ⚠ <b>Clamped rather than trusted, because a paint layer is a slot and slots move.</b>
