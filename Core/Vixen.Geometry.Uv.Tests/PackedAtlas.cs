@@ -185,14 +185,65 @@ static class PackedAtlas {
         }
     }
 
+    /// <summary>How far into a texel a triangle has to reach before the texel counts as claimed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero is not a usable threshold here, and the reason is that this rasterizer and the
+    ///         packer's reach the same geometry through different arithmetic.</b> "The triangle meets
+    ///         the square" is a discontinuous predicate: an arbitrarily small perturbation of a
+    ///         coordinate flips a texel in or out. <see cref="IslandMask.Rasterize" /> works in the
+    ///         island's own frame, at <c>(coordinate − minimum) × texels</c>; this works in the atlas,
+    ///         through <see cref="UvPlacement.Apply" /> and a multiply by the resolution. The two are
+    ///         equal in exact arithmetic and differ in the last few bits of a <c>float</c>, so at a
+    ///         penetration of a few parts in a hundred thousand of a texel they disagree — and a texel
+    ///         one of them claims and the other does not is a phantom texel on an island's boundary.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That is not a hypothetical: it is the whole of a nightly failure.</b> CsCheck seed
+    ///         <c>1XF0jvSmVt13</c> — 61 islands at 256² with a one-texel margin — packs so that island
+    ///         32's own geometry enters texel <c>(107, 151)</c> by <b>1.4 × 10⁻⁵ of a texel</b>. The
+    ///         packer's mask does not claim that texel; this rasterizer did. It sits diagonally against
+    ///         a texel of island 26, so <see cref="MinimumGap" /> read <c>0</c> where the two islands
+    ///         are <b>1.967 texels</b> apart — very nearly twice the margin they were asked for. Over
+    ///         the same 61-island atlas that was the <i>only</i> texel of 35,613 on which the two
+    ///         rasterizations disagreed at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A 256th of a texel, which is chosen from both ends rather than picked.</b> Below
+    ///         it: the disagreement measured above is 1.4 × 10⁻⁵, and the float error in an edge
+    ///         function over coordinates as large as a 4096² atlas bounds the two frames' disagreement
+    ///         near 10⁻³ — so a 256th (3.9 × 10⁻³) clears the noise at every resolution these tests
+    ///         sweep. Above it: a genuine margin violation is a texel the neighbour <i>covers</i>, and
+    ///         this admits a corner clip of at most a 256th of a texel across, whose area is under one
+    ///         part in a hundred thousand of the texel. A bleed that small does not exist; a bleed
+    ///         worth a property test is two hundred and fifty times larger.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is a tolerance on the measurement and not a licence for the packer.</b> It moves
+    ///         only texels the island grazes — the ones neither rasterizer can be held to — and every
+    ///         texel an island actually covers still counts. Both directions matter: dropping a grazed
+    ///         texel widens a measured gap, so a tolerance far larger than this one could hide a real
+    ///         shortfall, which is why it is stated in texels and kept three orders of magnitude under
+    ///         one.
+    ///     </para>
+    /// </remarks>
+    const float Grazing = 1f / 256f;
+
     /// <summary>Separating axes: the two box axes, then the triangle's three edge normals.</summary>
+    /// <remarks>
+    ///     ⚠ Every axis is tested against <see cref="Grazing" /> rather than against zero. See its
+    ///     remarks: at zero this predicate is a coin toss between two rasterizers rather than a fact
+    ///     about an atlas.
+    /// </remarks>
     static bool Meets(Vector2 a, Vector2 b, Vector2 c, int x, int y) {
         // ⚠ Strict, so that a triangle whose edge runs exactly along a texel boundary does not claim
         // the texel on the far side of it. An island spanning [0, 16] covers texels 0 to 15; counting
         // texel 16 because the boundary line touches it would put a phantom column on every island and
         // make every measured gap one short.
-        if (MathF.Max(a.X, MathF.Max(b.X, c.X)) <= x || MathF.Min(a.X, MathF.Min(b.X, c.X)) >= x + 1
-            || MathF.Max(a.Y, MathF.Max(b.Y, c.Y)) <= y || MathF.Min(a.Y, MathF.Min(b.Y, c.Y)) >= y + 1) {
+        if (MathF.Max(a.X, MathF.Max(b.X, c.X)) <= x + Grazing
+            || MathF.Min(a.X, MathF.Min(b.X, c.X)) >= x + 1 - Grazing
+            || MathF.Max(a.Y, MathF.Max(b.Y, c.Y)) <= y + Grazing
+            || MathF.Min(a.Y, MathF.Min(b.Y, c.Y)) >= y + 1 - Grazing) {
             return false;
         }
 
@@ -206,14 +257,20 @@ static class PackedAtlas {
         var third = (normal.X * opposite.X) + (normal.Y * opposite.Y);
         var inward = third >= edge ? 1f : -1f;
 
-        // The triangle is on the `inward` side of this edge. The square is separated when all four of
-        // its corners are strictly on the other one.
+        // ⚠ Squared rather than a `Length()`, so the threshold costs a multiply instead of a square
+        // root on a test that runs once per texel per triangle. `projected` is a distance scaled by
+        // the normal's length, so the comparison is `projected / |normal| > Grazing` with both sides
+        // squared — which is only equivalent while `projected` is positive, hence the first test.
+        var floor = Grazing * Grazing * normal.LengthSquared();
+
+        // The triangle is on the `inward` side of this edge. The square is separated when no corner of
+        // it reaches more than `Grazing` texels onto the triangle's side.
         for (var corner = 0; corner < 4; corner++) {
             var px = x + (corner & 1);
             var py = y + ((corner >> 1) & 1);
             var projected = ((normal.X * px) + (normal.Y * py) - edge) * inward;
 
-            if (projected > 0f) {
+            if (projected > 0f && projected * projected > floor) {
                 return false;
             }
         }
