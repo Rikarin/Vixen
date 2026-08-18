@@ -25,6 +25,7 @@ using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 using Vixen.Terrain.Physics;
 using Vixen.Vfx;
+using Vixen.Water.Physics;
 
 namespace Vixen.Samples.ThirdPersonShooter;
 

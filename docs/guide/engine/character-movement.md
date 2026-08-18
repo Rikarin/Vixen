@@ -8,7 +8,7 @@ api: [T:Vixen.Physics.Characters.CharacterMovement, T:Vixen.Physics.Characters.C
 tags: [physics, characters, players, movement]
 since: 0.1
 status: stable
-related: [engine/players-and-possession, engine/networked-players]
+related: [engine/players-and-possession, engine/networked-players, engine/swimming]
 ---
 
 ## What it is
@@ -168,5 +168,7 @@ loss at all.
   and why the two live in different assemblies.
 - [Components](ecs/components) — why `CharacterBody` carries neither `[Component]` nor
   `[DataContract]`, and what that keeps out of a scene file.
+- [Swimming](swimming.md) — the fourth mode, and the one system in the tree that writes
+  `CharacterState.Immersion`. Without it `CharacterMoveMode.Swimming` can never be entered.
 
 The design record is `docs/plan/29-players-and-possession.md`, whose P1 this is.

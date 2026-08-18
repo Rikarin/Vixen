@@ -8,7 +8,7 @@ api: [T:Vixen.Water.Physics.BuoyancyBody, T:Vixen.Water.Physics.BuoyancyState, T
 tags: [water, buoyancy, physics, pontoon, boat, raft]
 since: 0.1
 status: preview
-related: [engine/water-surface, engine/character-movement, engine/splines]
+related: [engine/water-surface, engine/character-movement, engine/swimming, engine/splines]
 ---
 
 ## What it is
@@ -31,8 +31,8 @@ to draw a lake.
 
 A crate in a river, a raft a player stands on, a buoy that bobs. Anything whose interaction with water
 is *displacement* rather than a movement mode — a swimming character is
-[character movement](character-movement.md)'s `CharacterMoveMode.Swimming` and does not come through
-here.
+[swimming](swimming.md)'s `CharacterMoveMode.Swimming` and does not come through here, though it is
+written by the other system in this same assembly and for the same § D1 reason.
 
 ## Using it
 
@@ -151,5 +151,6 @@ is the seam where unset becomes the default.
 ## See also
 
 - [Where the water surface is](water-surface.md) — the kernel this floats things on.
-- [Character movement](character-movement.md) — swimming, which is a movement mode and not this.
+- [Swimming](swimming.md) — the other half of this assembly: immersion as a movement mode, not a lift.
+- [Character movement](character-movement.md) — the three modes swimming is the fourth of.
 - `docs/plan/35-water.md` § D10 — pontoons over Jolt at the fixed step's water time, and why.

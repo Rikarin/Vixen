@@ -1,7 +1,20 @@
 # Vixen.Water.Physics
 
-Floats rigid bodies on the one water surface everything else reads. [docs/plan/35][35] § W7's
-world-facing half: a component, a system, and the fixed step between them.
+Everything that joins the one water surface to a world with bodies in it. [docs/plan/35][35] § W7's
+world-facing half — a component, a system, and the fixed step between them — and § D11's, which is one
+number written onto a character.
+
+Two systems, and they are the same seam with a different force:
+
+| System | Reads | Writes |
+|---|---|---|
+| `BuoyancySystem` | `BuoyancyBody`, the pose out of Jolt | Forces on a rigid body, and `BuoyancyState` |
+| `WaterImmersionSystem` | `CharacterMovement`, `LocalTransform` | `CharacterState.Immersion` — the whole of what `CharacterMoveMode.Swimming` was waiting for |
+
+⚠ **`WaterImmersionSystem` lived in `Samples/13-ThirdPersonShooter` until it was moved here**, which
+meant the fourth move mode was a feature no game could use without copying source. Its requirements
+were always this assembly's exactly: the character components come from `Vixen.Physics` and the query
+from `Vixen.Water`, and those two references are what this project *is*.
 
 Twenty lines of arithmetic already exist in `Vixen.Water` — the exact spherical cap, the physical
 damping terms, the flow drag, and `RestDisplacement`, all tested against an analytic answer. What is
@@ -40,6 +53,12 @@ scene naming `!BuoyancyBody` fails to load with *"This build has no component ca
 'BuoyancyBody'"*. That is loud and it is the right failure; it does not name the package, and this
 paragraph is where it is named.
 
+⚠ **Swimming's version of that cost is quieter, and worth stating separately.**
+`WaterImmersionSystem` declares no component, so a game that never references this package gets no
+error at all: `CharacterState.Immersion` stays at zero, `CharacterMoveMode.Swimming` is never entered,
+and a character walks along the bed of a lake that draws perfectly. Nothing is wrong as far as any
+rule can tell — a character with no immersion writer is a character on dry land.
+
 ⚠ **The editor links it unconditionally, and not because an editor runs physics.** A component whose
 assembly is not loaded is missing from Add ▸ and takes a scene naming it down on load — so a boat
 could not be *authored* before it could be opted into. `EditorApplication.BuiltInSubsystems` is the
@@ -55,6 +74,11 @@ list that touches such an assembly, and it has to run before the scene file is r
   boat, lost.
 
 Neither looks like a bug in the ordering. The attributes are asserted by a test for that reason.
+
+`WaterImmersionSystem` is in the same phase and is ordered **before `CharacterMovementSystem`**, which
+is what reads the number it writes. One system later and the character reads a step-old immersion —
+which at a shoreline is a character that starts swimming a step after it should have and starts wading
+a step after it should have. Nothing fails; it is simply always slightly behind the water it is in.
 
 ## One water clock, and it is why `WaterClockSystem` exists
 
