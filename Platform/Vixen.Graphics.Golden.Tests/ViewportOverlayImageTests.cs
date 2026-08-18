@@ -120,8 +120,8 @@ public sealed class ViewportOverlayImageTests {
     ///     <para>
     ///         The channel bound stays at <see cref="Tolerance.Flat" />'s 2/255: everything here is
     ///         flat colour, and the drivers' worst agreed pixel is one level apart on the cyan
-    ///         segment. Occlusion itself is bit-identical between them — the hidden run starts at
-    ///         column 32 and ends at column 96 on both, which is the quad's extent exactly.
+    ///         segment. Occlusion itself is bit-identical between them — the hidden run is columns 32
+    ///         to 95 on both, and the segment resumes at 96, which is the quad's extent exactly.
     ///     </para>
     /// </remarks>
     static Tolerance LineTerminals => new(Tolerance.Flat.Channel, 4d / (Fixture.Side * Fixture.Side));
