@@ -514,6 +514,8 @@
     <Project Path="Editor/Vixen.Editor.Blockout.Tests/Vixen.Editor.Blockout.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Terrain/Vixen.Editor.Terrain.csproj" />
     <Project Path="Editor/Vixen.Editor.Terrain.Tests/Vixen.Editor.Terrain.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Terrain.Physics/Vixen.Editor.Terrain.Physics.csproj" />
+    <Project Path="Editor/Vixen.Editor.Terrain.Physics.Tests/Vixen.Editor.Terrain.Physics.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Water/Vixen.Editor.Water.csproj" />
     <Project Path="Editor/Vixen.Editor.Water.Tests/Vixen.Editor.Water.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />

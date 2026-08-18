@@ -289,10 +289,17 @@ the thing that turns a terrain into one. Three things came out of it that this d
   which forbids both of the two places it might otherwise have gone: the kernel may not link Jolt and
   the renderer may not link physics. It finds the ground through `ITerrainPlacements`, a **kernel**
   interface that `TerrainSceneSource` implements, so the join costs no reference to the render stack
-  and a dedicated server can run it. ⚠ **`ITerrainColliders` is still unfed**: it lives under
-  `Editor/`, which a runtime assembly may not reference, so the editor's strokes still rebuild
-  nothing until somebody writes the adapter. What the runtime path does instead is poll
-  `Terrain.RevisionOf` per tile, which needs no caller to remember anything.
+  and a dedicated server can run it. ✅ **`ITerrainColliders` is fed since 2026-08-18**, by
+  `Editor/Vixen.Editor.Terrain.Physics` — one type, two references, the same arrangement one layer
+  up, because the interface lives under `Editor/` which a runtime assembly may not reference and the
+  toolset links no physics. **Two things were missing and this document only counted one.** The
+  adapter was owed *and so was the assignment*: nothing in the tree had ever set
+  `TerrainEdit.Colliders` outside a test, so writing an implementation alone would have been the same
+  defect one layer in. `TerrainModule` now takes the interface from `PluginServices` — asked for
+  rather than required, resolved per frame so a host that acquires physics later is not silently
+  missed. What the runtime path does instead is poll `Terrain.RevisionOf` per tile, which needs no
+  caller to remember anything, and the two do not fight: `Build` stamps the revision it built from, so
+  a pushed rebuild is skipped by the next poll.
 - **The sample count must be a power of two**, for the reason in
   [D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s second warning.
 - **Collision is quantised, and by a stated amount.** Jolt compresses eight bits per sample against
@@ -801,9 +808,26 @@ all**, which was the open question: there is no renderer-side terrain type — `
 an asset name into a placed heightfield. That is exactly `IWaterSurface`'s situation, and it is answered
 the same way: `ITerrainPlacements` in the kernel, implemented by `TerrainSceneSource` in one property
 and one method. A tile is rebuilt when `Terrain.RevisionOf` moves, so sculpting keeps its collision
-without a caller remembering to say so; `Rebuild(terrain, rect)` is the synchronous form, and it carries
-`ITerrainColliders`' signature so an editor-side adapter is three lines. ⚠ **Nobody has written that
-adapter**, so the editor's strokes still rebuild nothing.
+without a caller remembering to say so; `Rebuild(terrain, rect)` is the synchronous form, for a tool
+that cannot wait a frame.
+
+✅ **The editor-side adapter is `Editor/Vixen.Editor.Terrain.Physics.TerrainColliders`** (2026-08-18).
+⚠ **"Three lines" was nearly right and the missing line was the one that mattered**: both `Rebuild`
+overloads return `bool` where `ITerrainColliders` returns `void`, and `false` means *this system has
+never heard of this terrain*. A forwarding wrapper that discarded it would report success for every
+stroke while rebuilding nothing — this document's own favourite failure, one layer in. `Missed`
+counts them; `Sync` answers them.
+
+⚠ **And the adapter was never the whole of what was owed.** `TerrainEdit.Colliders` was assigned in
+five test files and nowhere else in the tree, so every existing assertion about a stroke naming the
+right tiles was one double talking to another. `TerrainModule` now takes an `ITerrainColliders` from
+`PluginServices`, resolved in its per-frame follow.
+
+⚠ **The editor Vixen ships still rebuilds no collision, and the reason is not this seam.**
+`EditorApplication` holds no `PhysicsScene` and nothing under `Editor/` does — play mode is a
+`WorldSnapshot` capture and restore, not a system graph — so there is no simulation for a stroke to
+keep in step with. An editor with physics is a separate piece of work; when it exists, it publishes
+the service and the toolset is already wired for it.
 
 Trees are the interesting case, because ten thousand static bodies is not a scene, it is a broadphase
 problem. So: **a foliage type declares a collision shape and an activation radius, and instances

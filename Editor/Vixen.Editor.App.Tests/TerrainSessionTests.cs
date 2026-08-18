@@ -274,6 +274,106 @@ public class TerrainSessionTests {
         Assert.Equal(0.25f, entry.Radius, 5);
     }
 
+    /// <summary>A collider rebuilder that only remembers which tiles it was named for.</summary>
+    /// <remarks>
+    ///     Building a Jolt height field is <c>Vixen.Editor.Terrain.Physics</c>' job and has its own
+    ///     tests, which drop a body onto the result. What is asserted here is the half those cannot
+    ///     see: that a running editor <em>reaches</em> whatever the host published.
+    /// </remarks>
+    sealed class RecordingColliders : ITerrainColliders {
+        public List<(int X, int Z)> Rebuilt { get; } = [];
+
+        public void Rebuild(TerrainMap terrain, int tileX, int tileZ) => Rebuilt.Add((tileX, tileZ));
+    }
+
+    /// <summary>A stroke in a live editor reaches the collision rebuilder the host published.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The defect this test exists for is an interface nothing implements <em>and</em>
+    ///         nothing assigns.</b> <c>TerrainEdit.Colliders</c> was set in five test files and
+    ///         nowhere else in the tree, so every assertion about a stroke naming the right tiles was
+    ///         an assertion about a double talking to another double. This is the same claim made of
+    ///         the editor the product actually starts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Published after the module activated, deliberately.</b> A host acquires a physics
+    ///         world when it has a reason to — not necessarily before the terrain toolset loaded —
+    ///         and a binding that only ran in <c>Activate</c> would silently never happen. That is why
+    ///         <c>TerrainModule.BindColliders</c> resolves in the per-frame follow rather than once.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_stroke_reaches_the_colliders_the_host_published() {
+        using var fixture = EditorSession.Start();
+
+        var colliders = new RecordingColliders();
+
+        fixture.Plugins.Services.Add<ITerrainColliders>(colliders);
+
+        Write(fixture, "Terrain/Hill.vxterrain", Built());
+
+        fixture.Scene.Create(
+            "Hill",
+            LocalTransform.Identity,
+            default,
+            entity => fixture.Scene.World.Add(entity, TerrainComponent.Of("Terrain/Hill.vxterrain"))
+        );
+
+        Assert.True(fixture.Shell.Modes.Activate(TerrainMode.ModeId));
+        fixture.Frames(4);
+
+        var mode = Mode(fixture);
+
+        Assert.True(mode.HasTerrain);
+        Assert.Same(colliders, mode.Editing.Colliders);
+
+        mode.Editing.Brush.Radius = 4f;
+        mode.Editing.Brush.Strength = 1f;
+        mode.Editing.Tools.Metres = 5f;
+
+        // Well inside the low tile, so the brush cannot reach the boundary at sample 31.
+        Assert.True(mode.Editing.Begin(new(12f, 12f)));
+        Assert.NotNull(mode.Editing.Commit());
+
+        Assert.Equal([(0, 0)], colliders.Rebuilt);
+    }
+
+    /// <summary>And a host with no physics world sculpts perfectly well, rebuilding nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The negative control, and it is also the shipped editor.</b>
+    ///     <c>EditorApplication</c> publishes no <c>ITerrainColliders</c> because it holds no
+    ///     <c>PhysicsScene</c> — there is not one anywhere under <c>Editor/</c> — so this is what a
+    ///     sculpt stroke does in the product today: it moves the ground and rebuilds no collision,
+    ///     because there is none to rebuild.
+    /// </remarks>
+    [Fact]
+    public void A_host_that_published_none_sculpts_with_no_colliders_at_all() {
+        using var fixture = EditorSession.Start();
+
+        Write(fixture, "Terrain/Hill.vxterrain", Built());
+
+        fixture.Scene.Create(
+            "Hill",
+            LocalTransform.Identity,
+            default,
+            entity => fixture.Scene.World.Add(entity, TerrainComponent.Of("Terrain/Hill.vxterrain"))
+        );
+
+        Assert.True(fixture.Shell.Modes.Activate(TerrainMode.ModeId));
+        fixture.Frames(4);
+
+        var mode = Mode(fixture);
+
+        Assert.True(mode.HasTerrain);
+        Assert.Null(mode.Editing.Colliders);
+
+        mode.Editing.Brush.Radius = 4f;
+        mode.Editing.Tools.Metres = 5f;
+
+        Assert.True(mode.Editing.Begin(new(12f, 12f)));
+        Assert.NotNull(mode.Editing.Commit());
+    }
+
     static TerrainMode Mode(EditorSession fixture) =>
         (TerrainMode)fixture.Shell.Modes.Modes.Single(mode => mode.Id == TerrainMode.ModeId);
 

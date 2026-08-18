@@ -20,14 +20,24 @@ namespace Vixen.Editor.Terrain;
 ///         written as the caller's sentinel, and <c>PhysicsShapes.HeightField</c> takes exactly that.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing in the tree implements this, and that is still true.</b> The only
-///         implementation is a test double that records tile indices. The runtime half of the job
-///         landed as <c>Vixen.Terrain.Physics.TerrainColliderSystem</c> — one height-field shape per
-///         tile, over an <c>ITerrainPlacements</c> — and its
-///         <c>Rebuild(Terrain, TerrainRect)</c> deliberately carries this interface's signature, so
-///         an adapter is three lines. It has to live on <em>this</em> side of the line, because a
-///         runtime assembly may not reference <c>Editor/</c>; until somebody writes it, a sculpt
-///         stroke in the editor moves the ground and rebuilds no collision.
+///         ✅ <b>Implemented by <c>Vixen.Editor.Terrain.Physics.TerrainColliders</c></b>, over
+///         <c>Vixen.Terrain.Physics.TerrainColliderSystem</c> — one height-field shape per tile, over
+///         an <c>ITerrainPlacements</c>. It is a third assembly because it has to be: a runtime
+///         assembly may not reference <c>Editor/</c>, and this one may not link physics.
+///     </para>
+///     <para>
+///         ⚠ <b>The remark here used to say an adapter was "three lines", and that was nearly true in
+///         the way that costs a day.</b> <c>TerrainColliderSystem</c>'s two <c>Rebuild</c> overloads
+///         return <see langword="bool" /> where these return <see langword="void" />, and
+///         <see langword="false" /> means <em>that system has never heard of that terrain</em> — so a
+///         wrapper that forwarded and discarded would succeed, loudly, at rebuilding nothing.
+///     </para>
+///     <para>
+///         ⚠ <b>Who sets <c>TerrainEdit.Colliders</c> was the other half, and it was the half nobody
+///         had counted.</b> For a year this was assigned in five test files and nowhere else, so
+///         every assertion about a stroke naming the right tiles was one double talking to another.
+///         <c>TerrainModule</c> now takes an implementation from <c>PluginServices</c> when the host
+///         published one.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Per tile, and that is [§ D2]'s whole argument rather than an optimisation.</b> A tile

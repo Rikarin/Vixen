@@ -73,8 +73,14 @@ and then costs one integer compare per tile.
 
 `Terrain.RevisionOf` counts recomposites, and the system compares it per tile. A stroke that ran
 through `Terrain.Resolve` has its collision on the next frame. `Rebuild(terrain, rect)` is the
-synchronous form, for a tool that cannot wait one — it has `ITerrainColliders`' signature so an
-editor-side adapter is three lines.
+synchronous form, for a tool that cannot wait one. The editor-side adapter over it is
+[`TerrainColliders`](../editor/terrain-sculpt-collision.md).
+
+⚠ **This paragraph used to say the adapter was "three lines" because `Rebuild` carries
+`ITerrainColliders`' signature. It does not, quite** — both overloads here return `bool` where the
+interface returns `void`, and `false` means *this system has never heard of this terrain*. A wrapper
+that forwarded and discarded that value would report success for every stroke while rebuilding
+nothing, in no log.
 
 ⚠ **Hole edits are watched by `TerrainHoles.HoleCount`, which is coarse.** The mask carries no
 per-tile version and punching a hole moves no height, so a change to the count rebuilds that terrain's
