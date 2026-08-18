@@ -36,8 +36,10 @@ namespace Vixen.Core.IO.Watch;
 ///         </item>
 ///         <item>
 ///             <b>Our own writes.</b> A path passed to <see cref="Suppress" /> is ignored for the
-///             suppression window. Without it, the asset pipeline writing an artefact wakes the
-///             watcher, which reimports, which writes an artefact.
+///             suppression window, and whatever was already pending for it is dropped. Without the
+///             first, the asset pipeline writing an artefact wakes the watcher, which reimports,
+///             which writes an artefact. Without the second, anything that touches a file and then
+///             saves it inside the debounce gets its own write reported straight back.
 ///         </item>
 ///     </list>
 ///     <para>

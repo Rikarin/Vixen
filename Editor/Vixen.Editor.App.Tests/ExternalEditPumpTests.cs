@@ -203,6 +203,50 @@ public sealed class ExternalEditPumpTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ <b>The bug master went red on, at the level where it does damage.</b> Suppression used
+    ///     to be checked only as an event arrived, so one already waiting out its debounce survived
+    ///     the save that was about to overwrite the file — and the editor read that as somebody
+    ///     else's edit and reloaded, discarding the undo history. Any touch followed by a save inside
+    ///     a quarter of a second hits it: an import writing a sidecar and then the asset, a second
+    ///     Ctrl+S after a first, or a harness whose setup wrote the file it is about to open.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The sleep is the subject, not a settle.</b> The window this is about is bounded below
+    ///     by how long the platform takes to deliver the write and above by the watcher's 250 ms
+    ///     debounce; the test has to place the save inside it, and no signal marks it. Landing in the
+    ///     middle is the best a test can do, and a miss makes this pass rather than flake — which is
+    ///     why the deterministic half of this claim lives in <c>FileChangeCoalescerTests</c>, where
+    ///     the clock is a parameter.
+    /// </remarks>
+    [Fact]
+    public void A_save_while_a_write_to_the_same_file_is_still_settling_keeps_the_history() {
+        var (session, document, path) = Editing();
+
+        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
+
+        Assert.Equal(1, document.Stack.Depth.Value);
+
+        File.WriteAllText(path, Knobs);
+        Thread.Sleep(150);
+        document.Save();
+
+        var routed = new List<ExternalEditOutcome>();
+
+        session.Editor.External.Applied += edit => routed.Add(edit.Outcome);
+
+        Assert.False(
+            Pump(session, () => routed.Count > 0, Quiet),
+            $"a write still settling when the save began came back as an external edit: [{string.Join(", ", routed)}]"
+        );
+
+        // ⚠ The history is the assertion that bites. A reload clears the stack, so a document
+        // reloaded here has lost every undo somebody accumulated — and the damage is invisible in the
+        // contents, because the file holds exactly what the save wrote.
+        Assert.Equal(1, document.Stack.Depth.Value);
+        Assert.False(document.IsStale.Value);
+    }
+
+    /// <summary>
     ///     ⚠ <b>The gesture that makes the policy an offer rather than a refusal.</b> Declining to
     ///     reload over unsaved work is only half an answer if the other half is "close the tab and
     ///     open it again"; <c>file.revert</c> is the same operation with a name, and it asks first
