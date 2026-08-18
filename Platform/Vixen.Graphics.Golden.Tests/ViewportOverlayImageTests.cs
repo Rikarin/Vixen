@@ -133,8 +133,12 @@ public sealed class ViewportOverlayImageTests {
     /// <remarks>
     ///     ⚠ <b>Kept as a rendered frame rather than as a sentence, because it is the only thing that
     ///     makes the fixture above an assertion.</b> Both pictures contain both lines and the same
-    ///     quad; they differ in eight pixels of one row, and a reader who has not seen the second one
-    ///     has no way to know the first was not drawn by an overlay that simply ignores depth.
+    ///     quad; they differ in the 64 pixels of row 79 that the quad covers — columns 32 to 95, its
+    ///     extent exactly — and a reader who has not seen the second one has no way to know the first
+    ///     was not drawn by an overlay that simply ignores depth. That 64 is measured, by comparing
+    ///     this frame against the other's reference; it is also what <see cref="LineTerminals" /> is
+    ///     sized against, since a tolerance as wide as this run would make the fixture above unable
+    ///     to fail.
     /// </remarks>
     [Fact]
     public void The_overlay_without_the_frames_depth_draws_through_the_scene() {
