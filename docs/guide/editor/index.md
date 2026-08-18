@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Ui.EditorShell, T:Vixen.Editor.Ui.EditorCommand, T:Vixen.Ed
 tags: [editor, shell, commands, keybindings]
 since: 0.1
 status: preview
-related: [editor/modes, editor/scene-menus, editor/icons, editor/utility-styles, editor/editing-pipeline, editor/writing-a-plugin, editor/editor-scripts, editor/inspectors-in-markup, editor/frame-panel, editor/sub-object-picking, editor/snapping, editor/precision, editor/mesh-editing, editor/element-selection, editor/shape-tool, editor/face-materials, editor/booleans, editor/retopology-and-uv-surfaces]
+related: [editor/modes, editor/scene-menus, editor/icons, editor/utility-styles, editor/editing-pipeline, editor/writing-a-plugin, editor/editor-scripts, editor/inspectors-in-markup, editor/frame-panel, editor/sub-object-picking, editor/selection-cage, editor/snapping, editor/precision, editor/mesh-editing, editor/element-selection, editor/shape-tool, editor/face-materials, editor/booleans, editor/retopology-and-uv-surfaces]
 ---
 
 ## What it is
@@ -87,6 +87,8 @@ greyed reads as an editor that will.
 - [Editor modes](modes.md) — what the viewport's input means right now.
 - [Sub-object picking](sub-object-picking.md) — which face, edge or vertex of one mesh is under the
   pointer, which is the question a mode's element modes ask.
+- [Showing what is selected](selection-cage.md) — what a viewport draws round the object a click
+  landed on, and why a pane drawn by a compositor cannot say it with colour.
 - [Snapping](snapping.md) — what a transform lands on, and which part of it lands there.
 - [Building to a number](precision.md) — the work plane, typed transforms, the tape measure and the
   scale references.
