@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Buffers;
+using Vixen.Core.Serialization;
+using Vixen.Ecs;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Xunit;
@@ -90,6 +93,52 @@ public sealed class ComponentDefaultReachTests {
 
         Assert.True(fresh.Enabled);
         Assert.NotEqual(0f, fresh.Lens.FarPlane);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A load starts at zero, and a declared default never reaches one.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="ISceneComponentBinder.CreateDefault" />'s remark promises this and nothing
+    ///         asserted it, which made "may I change a component's default?" a question that could only
+    ///         be answered by reading <c>SceneComponentBinder.Read</c> again. The answer is yes, and
+    ///         this is the reason: a saved component carries every field, so
+    ///         <see cref="ISceneComponentBinder.Read" /> begins at <c>default(T)</c>, and a fallback
+    ///         consulted there would make every already-saved scene change meaning the day somebody
+    ///         retuned a factory method.
+    ///     </para>
+    ///     <para>
+    ///         Zero on <em>both</em> fields, and the second is the one that matters:
+    ///         <c>Thruster</c>'s default is 250 and 100, so a load that reached for it would come back
+    ///         with a fuel tank the file never mentioned. Written through the binder's own
+    ///         <see cref="ISceneComponentBinder.WriteValue" /> so the bytes are the ones a compiled
+    ///         scene actually holds rather than a shape this test invented.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_saved_components_zero_survives_the_load_rather_than_becoming_its_default() {
+        var binder = Binder<Thruster>();
+        var buffer = new ArrayBufferWriter<byte>();
+        var writer = new SerializationWriter(buffer);
+
+        binder.WriteValue(ref writer, default(Thruster));
+        writer.Flush();
+
+        using var world = new World("Loaded");
+        var entity = world.Create();
+
+        // Not zero to begin with, so that reading zeroes back is the file's answer rather than the
+        // starting state's — a test on a freshly added component could not tell the two apart.
+        world.Add(entity, new Thruster { Thrust = 999f, Fuel = 999f });
+
+        var reader = new SerializationReader(buffer.WrittenSpan);
+        binder.Read(ref reader, world, entity);
+
+        var loaded = world.Read<Thruster>(entity);
+
+        Assert.Equal(0f, loaded.Thrust);
+        Assert.Equal(0f, loaded.Fuel);
     }
 
     /// <remarks>

@@ -137,6 +137,139 @@ public class PhotometryTests {
     }
 }
 
+/// <summary>What a newly created light is — which is a photometric claim, not a convenience.</summary>
+/// <remarks>
+///     <para>
+///         <c>Lights.Default</c> used to hand back <c>Intensity = 1</c> for all five kinds with the unit
+///         left at <see cref="LightUnit.Native" />. For a point that is a dim candle and for the sun it
+///         is one lux — four to five decimal orders below the sky the sun is standing under, which
+///         renders as a frame with no sun in it at all. Every assertion below is the shape of that
+///         failure: a magnitude against a real lamp, and the exposure the number has to survive.
+///     </para>
+///     <para>
+///         ⚠ <b>Bands rather than equalities.</b> The point is not that the sun is 100 klx; it is that
+///         the sun is daylight and not a rounding error. An equality here would make retuning a default
+///         a test edit, which is how a band this wide stops meaning anything.
+///     </para>
+/// </remarks>
+public class DefaultLightTests {
+    /// <summary>What the editor's viewport grades at — <c>EditorWorldRenderer.Ev100</c>.</summary>
+    /// <remarks>
+    ///     Duplicated rather than referenced, because that constant is the editor's and this assembly
+    ///     sits underneath it. It is here because the pane in which a seeded sun did nothing is graded
+    ///     at exactly this, and an exposure the assertion invented would be an assertion about nothing.
+    /// </remarks>
+    const float ViewportEv100 = 13.5f;
+
+    /// <summary>
+    ///     ⚠ Every default states its unit, and stating it changes no arithmetic.
+    /// </summary>
+    /// <remarks>
+    ///     The kind's own unit and <see cref="LightUnit.Native" /> are the same conversion — only
+    ///     <see cref="LightUnit.Lumen" /> ever divides — so a default may label its number without
+    ///     changing what any shader multiplies. That equality is the second half of this test, and it
+    ///     is what makes the label free rather than a change of meaning.
+    /// </remarks>
+    [Theory]
+    [InlineData(LightKind.Directional, LightUnit.Lux)]
+    [InlineData(LightKind.Point, LightUnit.Candela)]
+    [InlineData(LightKind.Spot, LightUnit.Candela)]
+    [InlineData(LightKind.Rect, LightUnit.Nits)]
+    [InlineData(LightKind.Tube, LightUnit.Nits)]
+    public void Every_default_says_what_its_number_is_measured_in(LightKind kind, LightUnit unit) {
+        var light = Lights.Default(kind);
+
+        Assert.Equal(unit, light.Unit);
+
+        Assert.Equal(Converted(light, LightUnit.Native), Converted(light, light.Unit));
+    }
+
+    static float Converted(Light light, LightUnit unit) =>
+        Photometry.Intensity(light.Kind, unit, light.Intensity, light.OuterAngle, light.Radius, light.HalfLength);
+
+    /// <summary>
+    ///     ⚠ Every default is a lamp somebody could buy, in the unit that kind is measured in.
+    /// </summary>
+    /// <remarks>
+    ///     Lux for the sun, candela for the two punctual kinds, nits for the two area ones — the four
+    ///     that have a position are the same 1600-lumen bulb converted through the geometry each one
+    ///     has, which is why the spot is an order brighter than the point for the same lamp.
+    /// </remarks>
+    [Theory]
+    [InlineData(LightKind.Directional, 10_000f, 150_000f)]
+    [InlineData(LightKind.Point, 60f, 400f)]
+    [InlineData(LightKind.Spot, 600f, 6_000f)]
+    [InlineData(LightKind.Rect, 100f, 1_500f)]
+    [InlineData(LightKind.Tube, 500f, 5_000f)]
+    public void Every_default_is_a_real_lamp_in_its_own_unit(LightKind kind, float least, float most) =>
+        Assert.InRange(Lights.Default(kind).Intensity, least, most);
+
+    /// <summary>A new sun is a clear midday one, which is the number the sky model also produces.</summary>
+    /// <remarks>
+    ///     Checked against <see cref="PhysicalSky.SunIlluminance" /> rather than against itself: the
+    ///     two are the answers to the same question — how much light a surface facing the sun gets —
+    ///     and a default that disagreed with the engine's own atmosphere by an order would make
+    ///     "turn on the sky" a change of exposure.
+    /// </remarks>
+    [Fact]
+    public void A_new_sun_is_the_daylight_the_sky_model_computes() {
+        var overhead = PhysicalSky.SunIlluminance(
+            new SkyParameters(new Vector3(0f, -1f, 0f), 3f)
+        );
+
+        Assert.InRange(Lights.Default(LightKind.Directional).Intensity, overhead * 0.5f, overhead * 2f);
+    }
+
+    /// <summary>
+    ///     ⚠ The assertion this whole file was missing: a default sun survives the frame's exposure.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Photometric scale blindness.</b> A light four decimal orders below the frame it is in
+    ///         is pixel-identical to a light that is not there — so "the sun was extracted", "the sun
+    ///         reached the GPU" and "the shadow map was drawn" all pass while the picture is a picture
+    ///         of the sky alone. Nothing above this line would have caught it.
+    ///     </para>
+    ///     <para>
+    ///         What is computed is a 0.18 grey card facing the sun, graded through
+    ///         <see cref="ViewportEv100" />: <c>E · ρ / π · exposure</c>. At the old default of one lux
+    ///         that is 4·10⁻⁶ — black on any display — and the lower bound below is three orders above
+    ///         it. The upper bound is the other failure: a default that clips the frame to white is
+    ///         also a picture of the exposure rather than of the scene.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_default_sun_lights_a_grey_card_rather_than_vanishing_into_the_exposure() {
+        var sun = LightExtractionSystem.Convert(Lights.Default(LightKind.Directional), Matrix4x4.Identity);
+        var displayed = sun.Radiance.Y * 0.18f / MathF.PI * Photometry.ExposureFromEv100(ViewportEv100);
+
+        Assert.InRange(displayed, 0.05f, 1f);
+    }
+
+    /// <summary>
+    ///     ⚠ A default with the geometry read before it is set would divide by a zero solid angle.
+    /// </summary>
+    /// <remarks>
+    ///     The spot's conversion needs its outer angle and the two area kinds need their extents, all
+    ///     of which the factory sets in a switch. Computing the intensity in the initialiser instead
+    ///     would clamp against <c>Photometry</c>'s 1e-4 floors and produce sixteen million candela,
+    ///     which is a number that renders as pure white rather than as an error.
+    /// </remarks>
+    [Theory]
+    [InlineData(LightKind.Spot)]
+    [InlineData(LightKind.Rect)]
+    [InlineData(LightKind.Tube)]
+    public void A_shaped_default_converts_against_the_shape_it_was_given(LightKind kind) {
+        var light = Lights.Default(kind);
+
+        Assert.Equal(
+            Photometry.Intensity(kind, LightUnit.Lumen, 1600f, light.OuterAngle, light.Radius, light.HalfLength),
+            light.Intensity,
+            2
+        );
+    }
+}
+
 /// <summary>The lens and the sensor, which decide the framing and the exposure together.</summary>
 /// <remarks>
 ///     What makes this worth being one component rather than three sliders is that the numbers are

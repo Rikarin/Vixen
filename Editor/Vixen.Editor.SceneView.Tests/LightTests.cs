@@ -59,6 +59,25 @@ public class LightTests : IDisposable {
         Assert.NotEqual(Color3.Black, light.Colour);
     }
 
+    /// <summary>
+    ///     ⚠ <b>"Greater than zero" is not the claim for a sun, and this is the kind that proved it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     A directional light's intensity is illuminance in lux: daylight is 10 000 to 100 000 of them
+    ///     and an overcast sky is thousands. Created with the one that every kind used to get, the sun
+    ///     the editor seeds into a new scene was five decimal orders under the sky lighting the same
+    ///     pane — an author could turn it up to ten and see no change, which reads as a broken light
+    ///     rather than as a unit. The band is wide on purpose; what it excludes is a bare multiplier.
+    /// </remarks>
+    [Fact]
+    public void A_created_sun_is_daylight_and_says_so_in_lux() {
+        var sun = scene.CreateLight(LightKind.Directional, LocalTransform.Identity);
+
+        Assert.True(Lights.TryGet(world, sun, out var light));
+        Assert.Equal(LightUnit.Lux, light.Unit);
+        Assert.InRange(light.Intensity, 1_000f, 150_000f);
+    }
+
     [Fact]
     public void A_sun_has_no_range_and_a_spot_has_a_cone() {
         var sun = Lights.Default(LightKind.Directional);

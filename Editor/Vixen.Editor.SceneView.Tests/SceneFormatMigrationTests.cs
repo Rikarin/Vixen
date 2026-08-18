@@ -142,6 +142,17 @@ public sealed class SceneFormatMigrationTests : IDisposable {
             Assert.Equal(new Color3(1f, 0.5f, 0.25f), light.Colour);
             Assert.Equal(1.5f, light.Intensity);
 
+            // ⚠ The file's number and not the factory's, which is the assertion that lets
+            // `Lights.Default` be retuned at all. A new directional light is a hundred thousand lux
+            // now and was one lux before; a loader that started from the default rather than from
+            // `new()` would have made this scene five decimal orders brighter on the day that
+            // changed, silently and everywhere.
+            Assert.NotEqual(Lights.Default(LightKind.Directional).Intensity, light.Intensity);
+
+            // And the unit stays unstated. The legacy key has no field for one, so the light means
+            // what it has always meant — `LightUnit.Native`, taken as written.
+            Assert.Equal(LightUnit.Native, light.Unit);
+
             Assert.True(PrimitiveShapes.TryGet(other, loaded, out var kind));
             Assert.Equal(PrimitiveKind.Cube, kind);
         }
