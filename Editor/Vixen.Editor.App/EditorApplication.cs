@@ -166,6 +166,16 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>What the watcher has to say, reused so that a quiet frame allocates nothing.</summary>
     readonly List<FileChange> changes = [];
 
+    /// <summary>What carries a change on disk the last few metres, from the project to the open document.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of the watcher that was never wired.</b> Everything else on this path reads
+    ///     the drained list for its length: the browser rescans, the database rescans, the build panel
+    ///     refreshes. <c>ReloadShaders</c> is the one exception and it filters to <c>.rvn</c> — so a
+    ///     <c>.vxscene</c> or a <c>.vxcompositor</c> saved by another program reached the tree, the
+    ///     index and the build, and did not reach the panel that had it open.
+    /// </remarks>
+    readonly ExternalEdits external;
+
     readonly ContentTasks content;
 
     /// <summary>Where a viewport reads the geometry a scene's mesh references name.</summary>
@@ -565,6 +575,13 @@ sealed partial class EditorApplication : IDisposable {
 
         thumbnails = new ThumbnailCache(project);
         watcher = Watch(project);
+
+        // ⚠ Constructed even when there is no watcher, because the object is what subscribes to
+        // `EditorProject.DocumentSaving`, and a project with no watcher still has documents that
+        // save. What a null watcher costs is the suppression, not the wiring — and a conditional
+        // here would be a second place that has to know that.
+        external = new(project, watcher);
+        external.Applied += Announce;
 
         // ⚠ `BuiltInSubsystems` is registered and touched *above*, before the scene file is read —
         // see there. Doc 36 § D5 retires `ComponentsView.Prime` — three hardcoded
@@ -1191,6 +1208,10 @@ sealed partial class EditorApplication : IDisposable {
         // platform handle and keeps recording changes into a coalescer nobody will drain again.
         watcher?.Dispose();
 
+        // And the subscription on the project's saves with it, so that the documents closing below
+        // do not announce writes to a watcher that has gone.
+        external.Dispose();
+
         // And the dev-mode one, on the same terms — plus one of its own: it is the reason
         // `--hot-reload` cannot make the process outlive its window, since a live
         // `FileSystemWatcher` is a handle the runtime will not shut down over.
@@ -1448,8 +1469,9 @@ sealed partial class EditorApplication : IDisposable {
         changes.Clear();
 
         var drained = watcher.Drain(changes) > 0;
+        var overflowed = watcher.HasOverflowed;
 
-        if (watcher.HasOverflowed) {
+        if (overflowed) {
             watcher.ClearOverflow();
             drained = true;
         }
@@ -1476,6 +1498,73 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         RefreshBuildPanel();
+
+        // ⚠ After the rescan, and this is the one ordering constraint in the seam. A path becomes a
+        // document through the GUID index, and a rename is exactly the change that moves an entry in
+        // it — so routing before the scan would look the new path up in an index that still has the
+        // old one and find nothing open. An overflow has no paths to route, so it does the other
+        // thing: re-read what can be re-read, on `ReloadShaders`' argument two paragraphs up.
+        if (overflowed) {
+            external.Rescan();
+        } else {
+            external.Apply(changes);
+        }
+    }
+
+    /// <summary>Says what a change on disk did to a document that was open on it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A notification and not a dialog, deliberately.</b> The one case that needs a
+    ///         person is a document with unsaved edits whose file changed underneath it, and there is
+    ///         no non-destructive default to pick for them — so nothing is picked. Both copies still
+    ///         exist, the document says <c>IsStale</c>, and the two answers are the two things the
+    ///         person was already going to do: Ctrl+S keeps theirs, reopening takes the file's. A
+    ///         modal here would be one that arrives while somebody is typing, about a file they may
+    ///         not have looked at in an hour.
+    ///     </para>
+    ///     <para>
+    ///         What is still missing is the affordance that makes the choice one click — a banner
+    ///         across the document with Reload and Keep on it. <c>ExternalEdits</c> says why that is
+    ///         a panel rather than a mechanism, and everything it needs is already public.
+    ///     </para>
+    /// </remarks>
+    void Announce(ExternalEdit edit) {
+        var title = edit.Document.Title.Peek();
+
+        switch (edit.Outcome) {
+            case ExternalEditOutcome.Reloaded:
+                log.Write(LogLevel.Information, $"'{title}' changed on disk and was read again.");
+                break;
+
+            case ExternalEditOutcome.Kept:
+                Shell.Notifications.Show(
+                    $"'{title}' changed on disk",
+                    NotificationSeverity.Warning,
+                    "It has unsaved edits, so it was left as it is. Save to keep yours, or close and "
+                    + "reopen it to take the version on disk."
+                );
+
+                break;
+
+            case ExternalEditOutcome.Unsupported:
+                log.Write(
+                    LogLevel.Information,
+                    $"'{title}' changed on disk. This kind of document cannot re-read its file, so it "
+                    + "still shows what was opened."
+                );
+
+                break;
+
+            case ExternalEditOutcome.Failed:
+                Shell.Notifications.Show(
+                    $"'{title}' could not be read again",
+                    NotificationSeverity.Warning,
+                    "Its file changed on disk and reading it back did not work. What is on screen is "
+                    + "what was there before."
+                );
+
+                break;
+        }
     }
 
     /// <summary>Brings the window's title into line with what is open.</summary>
