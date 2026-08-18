@@ -66,6 +66,9 @@ sealed class TextFileDocument : EditorDocument {
     /// <summary>Whether the next read throws, the way a file being written underneath one does.</summary>
     public bool Unreadable { get; set; }
 
+    /// <summary>Whether the next read throws the way a file from another engine version does.</summary>
+    public bool Ancient { get; set; }
+
     public TextFileDocument(EditorProject project, AssetId asset, string path)
         : base(project, asset, Path.GetFileName(path)) {
         this.path = path;
@@ -81,6 +84,10 @@ sealed class TextFileDocument : EditorDocument {
 
         if (Unreadable) {
             throw new IOException("The file is being written.");
+        }
+
+        if (Ancient) {
+            throw new NotSupportedException("Written by another version of the engine.");
         }
 
         if (Refuse) {
@@ -363,10 +370,17 @@ public sealed class ExternalEditsTests : IDisposable {
     }
 
     /// <summary>A read that declines, and one that throws, both leave what was on screen on screen.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>NotSupportedException</c> is in the list because it is what a <em>file</em> causes
+    ///     rather than a bug</b> — a document written by another version of the engine, pulled from a
+    ///     branch while the editor is open. Uncaught, an external program's Ctrl+S takes the editor
+    ///     down, which is <c>EditorFrames.Reframe</c>'s argument exactly.
+    /// </remarks>
     [Theory]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    public void A_reload_that_does_not_work_keeps_what_the_document_had(bool refuse, bool unreadable) {
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    public void A_reload_that_does_not_work_keeps_what_the_document_had(bool refuse, bool unreadable, bool ancient) {
         var document = Open("Thing.txt", "what was opened");
         var watcher = new StubWatcher();
 
@@ -377,6 +391,7 @@ public sealed class ExternalEditsTests : IDisposable {
 
         document.Refuse = refuse;
         document.Unreadable = unreadable;
+        document.Ancient = ancient;
 
         File.WriteAllText(files.Paths.Absolute("Assets/Thing.txt"), "half written");
         watcher.Report("/Thing.txt");

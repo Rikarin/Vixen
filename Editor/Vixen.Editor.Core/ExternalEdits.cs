@@ -191,11 +191,11 @@ public sealed class ExternalEdits : IDisposable {
                 continue;
             }
 
-            var outcome = document.Reload() ? ExternalEditOutcome.Reloaded : ExternalEditOutcome.Failed;
+            var took = TryReload(document);
 
-            Applied?.Invoke(new(document, outcome));
+            Applied?.Invoke(new(document, took ? ExternalEditOutcome.Reloaded : ExternalEditOutcome.Failed));
 
-            if (outcome == ExternalEditOutcome.Reloaded) {
+            if (took) {
                 reloaded++;
             }
         }
@@ -234,18 +234,49 @@ public sealed class ExternalEdits : IDisposable {
         // instead of silent.
         document.MarkStale();
 
-        var reloaded = false;
-
-        try {
-            reloaded = document.Reload();
-        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
-            // ⚠ Kept rather than blanked, which is `Reframe`'s rule in the other half of the editor:
-            // a file being read while something else is still writing it is an ordinary race, and a
-            // document that emptied itself over one would lose the contents to a transient. The
-            // document stays stale, so the next change — or a person — tries again.
-        }
+        // ⚠ In a local, and it has to be. `Applied?.Invoke(…TryReload(document)…)` would be a reload
+        // that only happens when something is subscribed: `?.` short-circuits its whole argument
+        // list, so with no listener the document would silently never be re-read. Written that way
+        // once, and three tests failed on it.
+        var reloaded = TryReload(document);
 
         Applied?.Invoke(new(document, reloaded ? ExternalEditOutcome.Reloaded : ExternalEditOutcome.Failed));
+    }
+
+    /// <summary>Reads a document's file again, and survives it not working.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Four exceptions, and the list is <c>EditorFrames.Reframe</c>'s plus the two a
+    ///         file being written under one causes.</b> This runs from the frame, on a path that
+    ///         begins with somebody else's text editor pressing Ctrl+S — so an exception out of it
+    ///         is an editor taken down by an external program, which is not a failure mode any
+    ///         document should be able to have.
+    ///     </para>
+    ///     <para>
+    ///         <c>IOException</c> and <c>UnauthorizedAccessException</c> are the ordinary races: a
+    ///         file still being written, or one whose permissions moved. <c>InvalidOperationException</c>
+    ///         and <c>NotSupportedException</c> are what a <em>file</em> causes rather than a bug —
+    ///         the second is what <c>CompositorBuilder.Build</c> throws for a document written by
+    ///         another version of the engine, which is exactly the file somebody pulls from a branch
+    ///         while the editor is open.
+    ///     </para>
+    ///     <para>
+    ///         What is kept in every case is the document that is already on screen, which is
+    ///         <c>Reframe</c>'s rule: a document that blanked itself over a transient would lose its
+    ///         contents to something that fixed itself a moment later. It stays stale, so the next
+    ///         change — or a person — tries again.
+    ///     </para>
+    /// </remarks>
+    static bool TryReload(EditorDocument document) {
+        try {
+            return document.Reload();
+        } catch (Exception failure)
+            when (failure is IOException
+                or UnauthorizedAccessException
+                or InvalidOperationException
+                or NotSupportedException) {
+            return false;
+        }
     }
 
     /// <summary>Tells the watcher to ignore the path a document is about to write.</summary>
