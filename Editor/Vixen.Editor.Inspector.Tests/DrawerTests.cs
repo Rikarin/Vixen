@@ -5,6 +5,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Testing;
 using Xunit;
 
 namespace Vixen.Editor.Inspector.Tests;
@@ -121,6 +122,54 @@ public class DrawerTests {
 
         var unbounded = new InspectorField(Water, Member("FoamWidth"), [new WaterMaterial()]);
         Assert.IsType<NumericInput>(drawer.Build(unbounded, host));
+    }
+
+    /// <summary>The gesture, on the control the drawer actually built, against the real object.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A drag rather than an assertion about <c>Step</c>.</b> The drawer assigned exactly the
+    ///     step it meant to; the bug was that a step of one is a thousandth of a percent of a
+    ///     directional light's hundred thousand lux, so the scrub was inert on every large unbounded
+    ///     member the inspector offers. A test that read the property back would have passed
+    ///     throughout, which is why this one goes through <see cref="UiTest.Drag" /> and reads the
+    ///     number off the object at the end.
+    /// </remarks>
+    [Fact]
+    public void Dragging_the_field_the_drawer_built_moves_a_large_member_by_a_useful_amount() {
+        using var test = UiTest.Create(600f, 400f);
+        ControlTheme.Install(test.Document);
+
+        // The row's width, stated rather than inherited from the inspector's own sheet. What this
+        // test is about is the arithmetic behind a gesture, and `ThemeTests` is where "the box ends
+        // up the right size" belongs — but a box of no width cannot be dragged across at all, so the
+        // assertion below keeps the two from being confused for one another.
+        test.Load("host { width: 300px; height: 40px; } numeric-input { width: 200px; height: 24px; }");
+
+        var host = test.Create("host");
+
+        // A hundred thousand of something. The member is unbounded and declares no scale, which is
+        // the case the fix is about — a lux, a centimetre and a byte all arrive here identical.
+        var material = new WaterMaterial { FoamWidth = 100_000f };
+        var field = new InspectorField(Water, Member("FoamWidth"), [material]);
+        var drawer = (IPropertyDrawer) new NumberDrawer();
+        var box = Assert.IsType<NumericInput>(drawer.Build(field, host));
+
+        using (field.Refreshing()) {
+            drawer.Show(field, box);
+        }
+
+        test.Frame();
+
+        var bounds = box.Bounds;
+        Assert.True(bounds.Width > 20f, "the box has no room to be dragged across");
+
+        var x = MathF.Round(bounds.X + (bounds.Width * 0.5f));
+        var y = MathF.Round(bounds.Y + (bounds.Height * 0.5f));
+
+        test.Drag(x, y, x + 10f, y, steps: 10);
+
+        // Ten pixels, ten percent. The old arithmetic moved it by ten out of a hundred thousand, and
+        // reaching daylight's upper end from its lower one took ninety thousand pixels of screen.
+        Assert.Equal(110_000f, material.FoamWidth);
     }
 
     [Fact]

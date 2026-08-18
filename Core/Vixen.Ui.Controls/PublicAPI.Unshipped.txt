@@ -339,6 +339,7 @@ Vixen.Ui.Controls.NumericInput.ClearDecimals() -> void
 Vixen.Ui.Controls.NumericInput.ClearMaximum() -> void
 Vixen.Ui.Controls.NumericInput.ClearMinimum() -> void
 Vixen.Ui.Controls.NumericInput.ClearNumber() -> void
+Vixen.Ui.Controls.NumericInput.ClearRelativeStep() -> void
 Vixen.Ui.Controls.NumericInput.ClearStep() -> void
 Vixen.Ui.Controls.NumericInput.Decimals.get -> int
 Vixen.Ui.Controls.NumericInput.Decimals.set -> int
@@ -351,6 +352,8 @@ Vixen.Ui.Controls.NumericInput.Number.get -> double
 Vixen.Ui.Controls.NumericInput.Number.set -> double
 Vixen.Ui.Controls.NumericInput.NumberChanged -> System.Action<Vixen.Ui.Controls.NumericInput, double>?
 Vixen.Ui.Controls.NumericInput.NumericInput() -> void
+Vixen.Ui.Controls.NumericInput.RelativeStep.get -> double
+Vixen.Ui.Controls.NumericInput.RelativeStep.set -> double
 Vixen.Ui.Controls.NumericInput.Step.get -> double
 Vixen.Ui.Controls.NumericInput.Step.set -> double
 Vixen.Ui.Controls.OpenChangedEvent -> sealed class
@@ -978,6 +981,7 @@ static readonly Vixen.Ui.Controls.NumericInput.DecimalsProperty -> Vixen.Ui.UiPr
 static readonly Vixen.Ui.Controls.NumericInput.MaximumProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.NumericInput.MinimumProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.NumericInput.NumberProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.NumericInput.RelativeStepProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.NumericInput.StepProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Option.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Overlay.CloseOnEscapeProperty -> Vixen.Ui.UiPropertyKey
