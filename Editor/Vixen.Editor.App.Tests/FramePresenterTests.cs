@@ -213,7 +213,7 @@ public sealed class FramePresenterTests : IDisposable {
         }
 
         // The whole frame is the shaded mode, because a project's document knows no mode names.
-        Assert.Same(frame.Compositor.Game, frame.Trees[ViewMode.Shaded]);
+        Assert.Same(frame.Compositor.Game, frame.Trees(0)[ViewMode.Shaded]);
 
         // And a sky node the builder just made has the cube rather than nothing.
         foreach (var node in frame.Renderer.Host.Builder.Nodes.Values) {
