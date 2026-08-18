@@ -16,8 +16,8 @@ using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Terrain;
 using Vixen.Rendering.Water;
 using Vixen.Ui;
-using Vixen.Water.Physics;
 using Vixen.Ui.Controls;
+using Vixen.Water.Physics;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
