@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Imaging;
@@ -415,49 +416,102 @@ public sealed class TextureDemandTests : IDisposable {
     /// </remarks>
     void Resident(EngineLoop loop, WorldRenderer renderer, int level) {
         var streaming = renderer.Painted!.Streaming!;
+        var waited = Stopwatch.StartNew();
 
-        for (var frame = 0; frame < 600; frame++) {
+        while (waited.Elapsed < Patience) {
             Frame(loop, renderer);
 
             if (streaming.Textures > 0 && streaming.ResidentLevel(0) <= level) {
                 // One more, so the swap the arrival caused is recorded before the count is read.
                 Frame(loop, renderer);
+
                 return;
             }
 
             Thread.Sleep(5);
         }
 
-        Assert.Fail($"the texture never became resident down to level {level}");
+        Assert.Fail($"the texture never became resident down to level {level} in {Patience}");
     }
 
-    /// <summary>Runs frames until the demand and the swaps have held still for several of them.</summary>
+    /// <summary>How long a settle waits before the thing it waits for is a defect rather than a queue.</summary>
     /// <remarks>
-    ///     What "settled" has to mean before a churn count is read: a page that arrived is a promotion
-    ///     the next frame and a swap the frame after, so the three numbers stop moving one after the
-    ///     other rather than together. Five quiet frames rather than one, and a cap that fails loudly
-    ///     — a demand that never stops moving with the camera still is the defect this file is about,
-    ///     and it should say so here rather than as a count that is two too high further down.
+    ///     ⚠ <b>Thirty seconds, and it is the same thirty the rest of this assembly already uses</b> —
+    ///     <c>AssetTextureSourceTests</c>, <c>AssetTextureStreamingTests</c>,
+    ///     <c>AssetMaterialSourceTests</c>, <c>AssetTerrainSourceTests</c> and
+    ///     <c>AssetWaterSourceTests</c> all wait exactly this long. This file was the one still
+    ///     counting frames. Nothing here asserts a duration: a deadline that is never approached by
+    ///     working code is the only kind a suite this asynchronous can honestly carry, and the
+    ///     failures it prints name what was still in flight rather than how many frames had gone by.
+    /// </remarks>
+    static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
+
+    /// <summary>Runs frames until the streamer is idle and the counts it moves have held still.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What "settled" has to mean before a churn count is read: a page that arrived is a
+    ///         promotion the next frame and a swap the frame after, so the three numbers stop moving
+    ///         one after the other rather than together.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Five quiet frames is not quiescence, and believing it was is what made this the
+    ///         most-failed test in the assembly.</b> Three counters holding still says only that
+    ///         nothing landed in the last five frames — and a page whose loader task has not been
+    ///         scheduled yet moves no counter at all. It lands later, inside the breathing loop, and
+    ///         is counted as churn the band was supposed to have prevented. Reproduced 2026-08-18, one
+    ///         run in ten with the assembly under load, and the instrument caught the cause in the
+    ///         same run: <see cref="TextureStreamer.Loading" /> read <b>1</b> where the other nine runs
+    ///         read 0, and the failure was
+    ///         <see cref="AWidthDriftingAcrossARungDoesNotOscillate" />'s swap count — <b>2 expected,
+    ///         3 seen</b>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the wait is on the streamer's own idleness, which is a fact rather than an
+    ///         interval, and the counters are only believed once it holds.</b>
+    ///         <c>Loading == 0 &amp;&amp; PendingRequests == 0</c> is the predicate
+    ///         <see cref="PageResidency.Loading" />'s remarks say "every settle loop in the tree waits
+    ///         for" — and it is trustworthy precisely because that counter was taught to include
+    ///         arrived-and-unplaced pages, which its own remarks call "the flakiest thing in this
+    ///         repository's test suite". This loop was the one left not using it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Patience" /> rather than six hundred frames, for the reason the whole
+    ///         file was revisited.</b> Six hundred frames of a millisecond is a wall-clock budget
+    ///         wearing a frame count, and it was measured at five frames used on an idle machine —
+    ///         a number that says nothing about a loaded one. What is asserted is that the streamer
+    ///         goes idle at all, which is a claim about the code; how long that takes is a claim about
+    ///         the machine, and this suite makes none.
+    ///     </para>
     /// </remarks>
     void Quiet(EngineLoop loop, WorldRenderer renderer) {
         var demand = renderer.Demand!;
         var painted = renderer.Painted!;
+        var streaming = painted.Streaming!;
         var quiet = 0;
 
         var last = (demand.Promotions, demand.Demotions, painted.StreamingSwaps);
+        var waited = Stopwatch.StartNew();
 
-        for (var frame = 0; frame < 600 && quiet < 5; frame++) {
+        while (waited.Elapsed < Patience && quiet < 5) {
             Frame(loop, renderer);
 
             var now = (demand.Promotions, demand.Demotions, painted.StreamingSwaps);
+            var idle = streaming.Loading == 0 && streaming.PendingRequests == 0;
 
-            quiet = now == last ? quiet + 1 : 0;
+            // ⚠ Both, and reset on either. A page arriving is not quiet even if the counters have not
+            // caught up with it yet — that gap is the whole failure — and counters that moved are not
+            // quiet even with nothing left in flight.
+            quiet = idle && now == last ? quiet + 1 : 0;
             last = now;
 
             Thread.Sleep(1);
         }
 
-        Assert.True(quiet >= 5, $"the demand never settled: {last}");
+        Assert.True(
+            quiet >= 5,
+            $"the demand never settled in {Patience}: {last}, with {streaming.Loading} loading and "
+            + $"{streaming.PendingRequests} pending"
+        );
     }
 
     /// <summary>Runs one frame of the loop and one of the renderer.</summary>
@@ -476,28 +530,44 @@ public sealed class TextureDemandTests : IDisposable {
     ///     Runs frames until every entity has a render object and every material has its textures.
     /// </summary>
     /// <remarks>
-    ///     A mesh lands one frame after it is asked for, a material the same, and the compiled
-    ///     material's texture list one frame after that — so nothing here can be asserted on the
-    ///     first frame, and a count that has to grow to keep this passing is a load that has stopped
-    ///     being asynchronous.
+    ///     <para>
+    ///         A mesh lands one frame after it is asked for, a material the same, and the compiled
+    ///         material's texture list one frame after that — so nothing here can be asserted on the
+    ///         first frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Thirty-two frames of five milliseconds was the tightest deadline in this file and
+    ///         it is not one this suite has any business making.</b> Measured 2026-08-18 over fifty
+    ///         settles, idle and with the assembly under fortyfold load: <b>two frames used, every
+    ///         time</b>. That is not evidence the budget was right — it is evidence nobody knew what
+    ///         it was, because a hundred and sixty milliseconds is a claim about how fast a thread
+    ///         pool dispatches a decode and the answer on a loaded runner is "later than that". The
+    ///         deadline is <see cref="Patience" /> now, which the rest of this assembly already uses
+    ///         and which is unreachable by anything that works.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The no-pool case is decided inside the loop rather than after it, which is a fix
+    ///         and not a tidy-up.</b> It used to fall through the fallback below, so
+    ///         <see cref="WithNoPoolNothingIsSurveyedAtAll" /> spent the entire budget every run
+    ///         waiting for a survey that by construction never exists — harmless at thirty-two frames
+    ///         and thirty seconds of doing nothing at <see cref="Patience" />.
+    ///     </para>
     /// </remarks>
     void Settle(EngineLoop loop, WorldRenderer renderer) {
-        for (var frame = 0; frame < 32; frame++) {
+        var waited = Stopwatch.StartNew();
+
+        while (waited.Elapsed < Patience) {
             Frame(loop, renderer);
 
-            if (renderer.Extraction!.ObjectCount > 0 && renderer.Demand?.Sized > 0) {
+            // A renderer with no pool has no survey and nothing to wait for beyond the objects.
+            if (renderer.Extraction!.ObjectCount > 0 && (renderer.Demand is null || renderer.Demand.Sized > 0)) {
                 return;
             }
 
             Thread.Sleep(5);
         }
 
-        // A renderer with no pool has no survey and nothing to wait for beyond the objects.
-        if (renderer.Demand is null && renderer.Extraction!.ObjectCount > 0) {
-            return;
-        }
-
-        Assert.Fail("the world never reached a frame with a sized texture in it");
+        Assert.Fail($"the world never reached a frame with a sized texture in it in {Patience}");
     }
 
     /// <summary>A renderer over mounted content, looking down the negative Z axis.</summary>
