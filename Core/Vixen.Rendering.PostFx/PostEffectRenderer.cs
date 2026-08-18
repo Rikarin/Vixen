@@ -228,11 +228,20 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
         pass.BufferReads.Clear();
         pass.Descriptors.Bindings.Clear();
 
+        // ⚠ Cleared first, so that what comes back is this frame's answer and not a scar. The two
+        // effects that already answered — SkyRenderer and AmbientCombineRenderer — do it from inside
+        // Configure, because that is the point at which an effect reads the frame, and a subclass
+        // that only spoke up on the bad path would otherwise leave last frame's reason standing.
+        Degrade(null);
         Configure(frame, pass.Parameters, pass.Descriptors.Bindings);
+        var configured = Degraded;
 
         BuildChild(pass, compositor, frame);
 
-        return pass.Degraded;
+        // The pass's reason first, because it subsumes: an effect complaining that its matrix is the
+        // identity is describing a picture that was drawn, and a pass that was never declared drew
+        // nothing at all.
+        return pass.Degraded ?? configured;
     }
 
     /// <inheritdoc />
