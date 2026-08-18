@@ -126,9 +126,43 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     ///     And a caller that knows how big it needs the texture to be narrows that. Sixty frames of
     ///     asking for 32 texels never brings the 256×256 level in, whatever the pool could hold.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sixty frames used to have to be the decode's deadline as well as the claim,
+    ///         and it failed as one</b> — measured 2026-08-19, one run in six on an <i>idle</i>
+    ///         machine, at the last line: the texture was not viewable because sixty milliseconds is
+    ///         not long enough for a thread pool to be certain to have run
+    ///         <c>AssetTextureSource</c>'s decode task.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And when it failed that way it was failing kindly, because the assertion above it
+    ///         had been passing vacuously.</b> "No copy of a 256-wide level was recorded" is trivially
+    ///         true of a source that has not decoded anything yet, so on any run where the decode
+    ///         landed late the negative claim was made about a handful of frames rather than sixty.
+    ///         Waiting for the texture first fixes both: the wait asks for 32 texels every frame like
+    ///         the loop it precedes, so every frame of it counts towards the negative claim, and the
+    ///         sixty that follow are sixty frames of a texture that is really there.
+    ///     </para>
+    /// </remarks>
     [Fact]
     public void SizingAStreamedTextureKeepsItBelowTheWholeFile() {
         using var source = new AssetTextureSource(device, Content(256, 256), 4 * 1024 * 1024);
+
+        // Not Settle: that one does not narrow the want, and a source left at its default asks to be
+        // complete — which is the one thing this test exists to say does not happen.
+        var waited = Stopwatch.StartNew();
+
+        while (waited.Elapsed < Patience && !(source.TryGet(Bark, out _) && source.StreamingSwaps > 0)) {
+            source.Want(Bark, 32);
+
+            Record(source);
+            Thread.Sleep(1);
+        }
+
+        Assert.True(
+            source.TryGet(Bark, out var view) && view.IsValid,
+            $"the texture was never viewable in {Patience}"
+        );
 
         for (var frame = 0; frame < 60; frame++) {
             source.Want(Bark, 32);
@@ -143,7 +177,7 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             copy => copy.E == 256
         );
 
-        Assert.True(source.TryGet(Bark, out var view) && view.IsValid);
+        Assert.True(source.TryGet(Bark, out view) && view.IsValid);
     }
 
     /// <summary>
