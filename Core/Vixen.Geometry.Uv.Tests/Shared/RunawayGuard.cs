@@ -121,6 +121,21 @@ static class RunawayGuard {
     ///         was sized against spread four-fold on top of that.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And the multiplier is not an inference. The sweep run alone, twice, one after the
+    ///         other, on the same build and the same machine — the second leg with twenty-four
+    ///         spinners on ten cores:</b>
+    ///     </para>
+    ///     <para>
+    ///         <c>as found: slowest case 3.6 s, cpu 3.6 s, 200 cases in 22.1 s · oversubscribed:
+    ///         slowest case 56.2 s, cpu 6.5 s, 200 cases in 191.9 s</c>
+    ///     </para>
+    ///     <para>
+    ///         <b>56.2 s reproduces the 54.4 s above, and its processor time is 6.5.</b> The work is
+    ///         flat — 22.6 s of processor time across the two hundred against 32.9, which is process
+    ///         accounting rather than the case — and the wall is 8.7× on both the slowest case and the
+    ///         total. Nothing about that reading is a statement about conditioning.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>The whole of it is step seven, and the generator reaches it through a corner the
     ///         pipeline cannot.</b> Split by setting over four traced suite runs: <b>393 cases with
     ///         the shrinkwrap on cost 108 s, and 407 with it off cost 1.0 s</b> — a mean of 275 ms
