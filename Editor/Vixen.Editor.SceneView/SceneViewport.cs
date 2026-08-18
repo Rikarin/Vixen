@@ -394,6 +394,36 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public ComponentGizmos? Gizmos { get; set; }
 
+    /// <summary>What the active mode draws under the pointer, or <see langword="null" /> for nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The hover cursor: a brush ring, a placement footprint, whatever the mode wants to
+    ///         promise the next click will do.</b> Without it every stroke is discovered by making it
+    ///         and looking at the result.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Pushed rather than pulled, because the reference only goes one way.</b>
+    ///         <c>Vixen.Editor.Terrain</c> references <c>Vixen.Editor.SceneView</c> and not the
+    ///         reverse, so <see cref="SceneLines" /> cannot ask a terrain what its brush is over. The
+    ///         pane is the one object the mode and the presenter both hold — the same argument
+    ///         <see cref="Gizmos" /> makes one property above.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A delegate rather than an interface, and it draws into <see cref="SceneLines" />'s
+    ///         <i>overlay</i> channel.</b> A cursor conformed to the surface it is lying on is
+    ///         coplanar with it, and coplanar geometry in the depth-tested channel z-fights — the ring
+    ///         would come and go in bands as the camera moved. A hover cursor also has to be visible
+    ///         to be worth having: one hidden by the hill it is behind is one the user cannot aim
+    ///         with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read every frame, so it must be cheap and must not allocate.</b> Set it once when
+    ///         a mode activates and read the mode's own fields inside it; clear it on deactivate, or
+    ///         the ring outlives the tool that owns it.
+    ///     </para>
+    /// </remarks>
+    public Action<GizmoDraw>? Cursor { get; set; }
+
     /// <summary>What gets first refusal on this pane's input, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     ⚠ <b>What an editor mode is attached through, and null is the editor as it was.</b> A pane
