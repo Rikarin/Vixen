@@ -290,10 +290,61 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     public bool ClusteredLights { get; private set; }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The body is <see cref="Draw" /> so that declining has to say why</b> —
+    ///         <see cref="DetectMode" />'s own arrangement, one level up. <see cref="PreviewReason" />
+    ///         has said which input was missing since doc 39, and said it to
+    ///         <see cref="TerrainLog.GroundIsPreviewShaded" /> and to a property; what it did not do
+    ///         was reach <see cref="GraphicsCompositor.Degradations" />, which is the list an editor
+    ///         reads every frame. So the black-ground case — the one this file's README is written
+    ///         about — was still absent from the one place a host asks.
+    ///     </para>
+    ///     <para>
+    ///         The wiring refusals above it were worse than that: they said nothing anywhere.
+    ///     </para>
+    /// </remarks>
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
+        Degrade(Draw(compositor, frame));
+    }
+
+    /// <summary>What this frame's state amounts to, in the words a person can act on.</summary>
+    /// <remarks>
+    ///     Assembled from the properties the node already kept rather than written at each site,
+    ///     because the three of them are not exclusive: a frame can be preview-shaded <em>and</em>
+    ///     waiting for the compiler, and hearing only the first would send somebody to look at the
+    ///     camera when the answer is the bundle.
+    /// </remarks>
+    string? Standing() {
+        List<string> said = [];
+
+        if (PreviewReason is { } preview) {
+            // The consequence spelled out, because it is the half a reader cannot infer: the preview
+            // shaders return a reflectance in [0, 1] where the frame wants cd/m², which against a
+            // daylight sky is about one nit in a picture metered for thousands.
+            said.Add($"the ground is preview-shaded rather than lit — {preview} — so it is drawn in "
+                + "[0,1] reflectance where the frame is metered in cd/m², which is black ground "
+                + "under a correct sky");
+        }
+
+        if (WaitingForShaders) {
+            said.Add("a terrain, grass or foliage shader has not resolved, so what it draws is "
+                + "missing rather than wrong — for the first frames of a development run, or for "
+                + "ever on a bundle without the variants");
+        }
+
+        if (VegetationUnsupported) {
+            said.Add("the device does not report drawIndirectFirstInstance, so grass and foliage are "
+                + "off entirely rather than drawn in the wrong places");
+        }
+
+        return said.Count == 0 ? null : string.Join("; and ", said);
+    }
+
+    string? Draw(GraphicsCompositor compositor, CompositorFrame frame) {
         // The names first and loudly, before any early-out: a document that names a target nothing
         // declared is wrong however empty the world is, and a refusal that only fired once a
         // terrain existed would land a long way from the typo.
@@ -312,14 +363,33 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         VegetationUnsupported = false;
 
         // A node built without a device declines to draw — an editor opening a document before it
-        // has a window, and CompositorBuilder's own contract for every post node.
-        if (Device is null || Modules is null || View is not { } view || Scene is not { } scene) {
-            return;
+        // has a window, and CompositorBuilder's own contract for every post node. Four conditions
+        // and four sentences, because they have four different owners: the device is the window's,
+        // the modules are CompositorBuilder's, the view is the frame's and the scene is the
+        // extraction system's, and "not wired up" would send a reader to look at all four.
+        if (Device is null) {
+            return "no Device, so no ground was drawn at all and the frame's colour target holds "
+                + "whatever was already in it";
+        }
+
+        if (Modules is null) {
+            return "no Modules, so no ground was drawn at all and the frame's colour target holds "
+                + "whatever was already in it";
+        }
+
+        if (View is not { } view) {
+            return "no View, so no ground was drawn at all — nothing said which camera to draw it for";
+        }
+
+        if (Scene is not { } scene) {
+            return "no Scene, so no ground was drawn at all — TerrainExtractionSystem published "
+                + "nothing for this frame";
         }
 
         if (scene.Terrains.Count == 0 && scene.Foliage.Count == 0) {
             // No terrain in the world is the ordinary case for most projects, and it costs nothing.
-            return;
+            // Not a degrade: the node was asked for nothing and drew nothing.
+            return null;
         }
 
         // What the frame provides decides which shaders draw — see Lit's remarks. Decided before
@@ -357,7 +427,8 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
         if (!ResolveTerrainShaders(frame)) {
             WaitingForShaders = true;
-            return;
+
+            return Standing();
         }
 
         // The velocity path rides availability, the lit detection's own idiom: the transformer
@@ -421,7 +492,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         }
 
         if (drawn.Count == 0 && foliageDrawn.Count == 0) {
-            return;
+            return Standing();
         }
 
         // ⚠ The frame's clock, handed over by the extraction system, and never a stopwatch of this
@@ -519,6 +590,11 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                 );
             }
         );
+
+        // ⚠ The frame that *did* draw is where this matters most, and where it was hardest to see:
+        // a preview-shaded ground draws, records, and leaves TerrainsDrawn, GrassFieldsDrawn and
+        // FoliageVolumesDrawn all reporting healthy.
+        return Standing();
     }
 
     /// <summary>The caster over one terrain's draw set, made when the caster node first asks.</summary>
