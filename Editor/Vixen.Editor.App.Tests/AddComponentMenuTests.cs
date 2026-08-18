@@ -217,6 +217,8 @@ public class AddComponentMenuTests {
     /// </remarks>
     [Fact]
     public void A_category_is_the_last_meaningful_part_of_the_namespace() {
+        AuthoringSubsystems.Load();
+
         var bridges = ComponentsView.Default();
 
         var light = bridges.First(bridge => bridge.ComponentType == typeof(Light));
