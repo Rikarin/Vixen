@@ -839,6 +839,41 @@ a width in **pixels**, exactly rather than approximately.
   device and a golden image; that the *numbers* it is made of are the camera's own is asserted, in both
   projections, against `EditorCamera.WorldPerPixel`. That is the half of it that can drift silently.
 
+### ⚠ None of it is in a composed pane, and the tint is not either
+
+Everything above is the **tool renderer's**, and so is `SceneMeshes.SelectedColour`, the amber tint
+that replaced the rim. A pane drawn through a `GraphicsCompositor` binds neither: it is `ForwardPlus`
+over ECS-extracted objects, and the editor's instanced mesh shader is not in that frame. So a composed
+pane drew a selected object pixel-for-pixel like an unselected one while the transform gizmo sat on it
+saying otherwise — with the gizmo off, selecting a crate changed **eleven pixels out of half a
+million**, and all eleven were a parent-link line changing hue behind the cube's edge.
+
+**`SelectionCage` is what says it there**, and it is lines, which is the one thing #151's `Tools` pass
+records over a composition. `SceneLines` emits it, so it reaches both presenters by construction —
+#144's rule about the terrain cursor, applied to the thing it was really needed for.
+
+- ⚠ **An overlay rather than a change to the surface, and in that pane it is not a compromise.** A
+  composed pane exists to show the frame a game would draw; tinting the selected object amber is the
+  one edit that destroys what the pane is for. The tint stays right in the tool pane, which is a
+  diagram. A picture wants its annotation drawn over it.
+- ⚠ **Brackets rather than a box, because `SceneShow.Bounds` is a box.** Drawn together they read as
+  one thick doubled box — this was rendered before it was believed. `SelectionCage.Corner` is a
+  quarter of each edge, so the middle half of every edge is empty and a cage is `2 × Corner` of a wire
+  box's length.
+- ⚠ **And the bounds box no longer turns amber for a selected entity**, which it did from a build in
+  which nothing else round one was. One question, one answer each: the box is what extent a thing has,
+  the cage is which thing is selected.
+- The standoff is the hull's own rule kept — four pixels through `EditorCamera.WorldPerPixel` at the
+  object — divided by each axis's scale on the way into local space, so a crate scaled fourfold on X
+  does not carry four times the gap on X.
+- ⚠ **Not behind a show flag**, unlike everything else `SceneLines` collects. A flag names a class of
+  thing the scene has; whether the click just made landed is not something a pane may be configured to
+  stop reporting.
+- ⚠ **The rim is still owed for the tool pane's own sake**, and this does not close it. What is closed
+  is that a composed pane says nothing at all. A faithful rim — a stencil the target does not have, or
+  a second draw of the extracted mesh where `SceneRenderHost.Load` puts the debug overlay — remains
+  available and does not conflict: the cage is entity-level and a rim is surface-level.
+
 ## View modes are compositors
 
 Doc 06 made the compositor data precisely so that "show me the normals" is a different tree rather than

@@ -56,9 +56,16 @@ public enum SceneShow {
     // ⚠ 1 << 7 was `Outline`, the rim drawn round whatever is selected, and the gap is deliberate.
     // The bit is not reused: a saved pane state from a build that had the flag would otherwise come
     // back with whatever now occupies that bit switched on, which is a viewport that silently changes
-    // what it draws on upgrade. What replaced the rim is that a selected surface is already tinted
-    // amber — see `SceneMeshes.SelectedColour` — so the outline was a second answer to a question that
-    // already had one, drawn in a different colour.
+    // what it draws on upgrade.
+    //
+    // ⚠ The gap survives, but the reason it was left has been overturned once and is worth reading as
+    // history rather than as an argument. It used to say the rim was redundant because a selected
+    // surface is tinted amber. That was true of a pane the editor shaded itself and false of a pane a
+    // `GraphicsCompositor` draws — the tint is `SceneMeshes`', it is not in a composed frame, and for
+    // as long as both were the answer a composed pane showed a selected object exactly like an
+    // unselected one. `SelectionCage` is what says it there, and it is deliberately *not* a flag: a
+    // flag names a class of thing the scene has, and whether the click you just made landed is not
+    // something a viewport may be configured to stop reporting.
 
     /// <summary>Each post-process volume's box, and a second one at its blend radius.</summary>
     /// <remarks>
