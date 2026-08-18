@@ -243,5 +243,57 @@ public class FileChangeCoalescerTests {
         Assert.Equal(0, coalescer.Drain(70 * Millisecond, changes));
     }
 
+    /// <summary>
+    ///     ⚠ <b>Suppression works backwards as well as forwards, and it has to.</b> The window an
+    ///     event has to be recorded in before its path is suppressed is the debounce — a quarter of a
+    ///     second in the editor — so anything that touches a file and then saves it inside that
+    ///     window used to get its own write reported straight back. What the editor does with such a
+    ///     report is reload the document, which discards its undo history.
+    /// </summary>
+    [Fact]
+    public void AnEventAlreadyPendingIsDroppedWhenItsPathIsSuppressed() {
+        var coalescer = Create();
+        var changes = new List<FileChange>();
+
+        // Something touched the file. Nothing has drained it — the debounce window is still open.
+        coalescer.Record(new(new("/a.txt"), FileChangeKind.Changed), 0);
+
+        // And now this program is about to write the same path.
+        coalescer.Suppress(new("/a.txt"), 10 * Millisecond);
+
+        Assert.Equal(0, coalescer.Drain(200 * Millisecond, changes));
+        Assert.Empty(changes);
+    }
+
+    /// <summary>And only that path: a pending move of something else onto it is somebody's real edit.</summary>
+    /// <remarks>
+    ///     ⚠ A pending rename is filed under its <i>destination</i>, so <c>/a.txt → /b.txt</c> lives
+    ///     under <c>/b.txt</c> and names <c>/a.txt</c> only as its source. Dropping it because the
+    ///     source was suppressed would lose a move that really happened.
+    /// </remarks>
+    [Fact]
+    public void SuppressingAPathLeavesAPendingMoveOffItAlone() {
+        var coalescer = Create();
+        var changes = new List<FileChange>();
+
+        coalescer.Record(new(new("/b.txt"), FileChangeKind.Renamed, new("/a.txt")), 0);
+        coalescer.Suppress(new("/a.txt"), 10 * Millisecond);
+
+        Assert.Equal(1, coalescer.Drain(200 * Millisecond, changes));
+        Assert.Equal(new VirtualPath("/b.txt"), changes[0].Path);
+    }
+
+    /// <summary>A path suppressed with nothing pending is the ordinary case and is not disturbed.</summary>
+    [Fact]
+    public void SuppressingAQuietPathStillIgnoresWhatComesNext() {
+        var coalescer = Create();
+        var changes = new List<FileChange>();
+
+        coalescer.Suppress(new("/a.txt"), 0);
+        coalescer.Record(new(new("/a.txt"), FileChangeKind.Changed), 5 * Millisecond);
+
+        Assert.Equal(0, coalescer.Drain(200 * Millisecond, changes));
+    }
+
     static FileChangeCoalescer Create() => new() { Debounce = TimeSpan.FromMilliseconds(50) };
 }

@@ -176,6 +176,18 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly ExternalEdits external;
 
+    /// <summary>What a change on disk did to the open documents, for the suite that asserts about it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and it is the only honest instrument for "did the watcher reach this
+    ///     document".</b> Every other observable is a proxy that something else also moves:
+    ///     <c>StandardFrameDocument.Changed</c> is raised by the inspector's own write-back, and
+    ///     <c>EditorDocument.IsStale</c> is <em>cleared</em> by a successful reload — so a test
+    ///     watching either can be told a reload happened when none did, or told none happened when
+    ///     one did. <see cref="ExternalEdits.Applied" /> fires exactly once per document a change
+    ///     reached, whatever the outcome.
+    /// </remarks>
+    internal ExternalEdits External => external;
+
     readonly ContentTasks content;
 
     /// <summary>Where a viewport reads the geometry a scene's mesh references name.</summary>

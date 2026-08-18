@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Vixen.Editor.AssetEditors.Frame;
+using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
@@ -132,7 +133,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
         Assert.True(document.Apply());
 
         // What an inspector's write leaves behind, which is what makes the document dirty.
-        document.Stack.Execute(new Editor.Core.DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
 
         Assert.True(document.IsDirty.Value);
 
@@ -155,6 +156,20 @@ public sealed class ExternalEditPumpTests : IDisposable {
         );
     }
 
+    /// <summary>TEMPORARY PROBE — no save at all. Does the setup write alone reach the document?</summary>
+    [Fact]
+    public void Probe_setup_write_alone() {
+        var (session, document, _) = Editing();
+
+        var routed = new List<ExternalEditOutcome>();
+
+        session.Editor.External.Applied += edit => routed.Add(edit.Outcome);
+
+        var tripped = Pump(session, () => routed.Count > 0, Quiet);
+
+        Assert.False(tripped, $"PROBE routed=[{string.Join(",", routed)}] — the setup write reached the document");
+    }
+
     /// <summary>
     ///     ⚠ <b>The hard half, and it was the built-but-unwired one.</b> <c>IFileWatcher.Suppress</c>
     ///     has existed since the coalescer was written and had no callers, so without this the
@@ -170,14 +185,22 @@ public sealed class ExternalEditPumpTests : IDisposable {
         Assert.True(document.Apply());
 
         var announced = 0;
+        var routed = new List<ExternalEditOutcome>();
 
         document.Changed += _ => announced++;
+        session.Editor.External.Applied += edit => routed.Add(edit.Outcome);
         document.Save();
 
-        // Given every chance to be wrong: frames for as long as a reload could possibly take.
+        var tripped = Pump(session, () => routed.Count > 0 || document.IsStale.Value || announced > 0, Quiet);
+
+        Assert.True(
+            !tripped || routed.Count == 0,
+            $"DIAGNOSTIC routed=[{string.Join(",", routed)}] stale={document.IsStale.Value} announced={announced}"
+        );
+
         Assert.False(
-            Pump(session, () => document.IsStale.Value || announced > 0, Quiet),
-            "the editor's own save came back through the watcher as an external edit"
+            tripped,
+            $"DIAGNOSTIC routed=[{string.Join(",", routed)}] stale={document.IsStale.Value} announced={announced}"
         );
 
         Assert.Equal(FrameQualityChoice.Low, document.Settings.Quality);
@@ -198,7 +221,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
 
         Assert.True(document.Apply());
 
-        document.Stack.Execute(new Editor.Core.DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
 
         File.WriteAllText(path, Changed);
 
