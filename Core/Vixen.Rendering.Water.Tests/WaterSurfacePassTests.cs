@@ -4,6 +4,10 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
+using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Water;
 using Vixen.Terrain;
 using Vixen.Water;
@@ -130,5 +134,65 @@ public sealed class WaterSurfacePassTests {
         Assert.Equal(0, node.ZonesDrawn);
         Assert.Equal(0, node.PatchesDrawn);
         Assert.Equal(0, node.DroppedPatches);
+    }
+
+    /// <summary>
+    ///     ⚠ And it says <em>which</em> of the four it was not given, where before it said nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The three counters above are the whole of what an unwired node used to leave behind,
+    ///         and zero is also what a correct frame over a world with no lake leaves — so the two
+    ///         states were indistinguishable from outside. The four inputs have four owners, which is
+    ///         why they are four sentences: the device is the window's, the samplers the frame's
+    ///         shared cache, the zones <c>WaterZoneSystem</c>'s and the view the frame's.
+    ///     </para>
+    ///     <para>
+    ///         Read through <see cref="GraphicsCompositor.Degradations" /> rather than off the node,
+    ///         because the walk is what a host reads.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_unwired_node_says_which_of_its_four_inputs_is_missing() {
+        using var device = new NullDevice(new());
+        var graph = new RenderGraph(device);
+        using var system = new RenderSystem();
+
+        using var node = new WaterMeshRenderer {
+            Name = "WaterSurface",
+            Surface = "WaterSurface",
+            Normal = "WaterNormal",
+            SceneDepth = "SceneDepth"
+        };
+
+        var compositor = new GraphicsCompositor(system) { FrameSize = new(64, 64), Game = node };
+
+        compositor.Build(graph, new(), device);
+
+        var (named, reason) = Assert.Single(Read(compositor));
+
+        Assert.Equal("WaterSurface", named);
+        Assert.Contains("no Device", reason, StringComparison.Ordinal);
+        Assert.Contains("missing rather than flat", reason, StringComparison.Ordinal);
+
+        // Then the next one along, so that "it named an input" is not one hard-coded sentence.
+        node.Device = device;
+        node.Samplers = new(device);
+
+        graph.Reset();
+        compositor.Build(graph, new(), device);
+
+        Assert.Contains("no Zones", Assert.Single(Read(compositor)).Reason, StringComparison.Ordinal);
+
+        node.Samplers.Dispose();
+        graph.DisposePool();
+    }
+
+    static List<(string Node, string Reason)> Read(GraphicsCompositor compositor) {
+        List<(string, string)> found = [];
+        var reported = compositor.Degradations(found);
+
+        Assert.Equal(found.Count, reported);
+        return found;
     }
 }

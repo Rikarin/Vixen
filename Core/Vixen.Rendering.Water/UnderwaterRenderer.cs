@@ -260,10 +260,24 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
             );
         }
 
+        Degrade(Declare(compositor, frame));
+    }
+
+    /// <summary>Declares the composite, or says why it did not.</summary>
+    /// <remarks>
+    ///     ⚠ The pass is this node's own rather than a node a document named, so it is not in
+    ///     <see cref="SceneRenderer.Nested" /> and its answer is carried out here — see
+    ///     <see cref="WaterRenderer" /> for the same shape.
+    /// </remarks>
+    string? Declare(GraphicsCompositor compositor, CompositorFrame frame) {
         if (Samplers is null || pass.Device is null) {
             // A document naming !Underwater in a host that has not wired the renderer up should cost
             // a frame with no grade, not an exception — !Water's terms exactly.
-            return;
+            return Samplers is null
+                ? "no Samplers, so the underwater composite was never declared — a submerged camera "
+                + "sees the surface frame ungraded, which reads as being above the water"
+                : "no Device on the composite pass, so it was never declared — a submerged camera "
+                + "sees the surface frame ungraded, which reads as being above the water";
         }
 
         pass.Samplers = Samplers;
@@ -341,6 +355,8 @@ public sealed class UnderwaterRenderer : SceneRenderer, IDisposable {
 
         BuildCount++;
         BuildChild(pass, compositor, frame);
+
+        return pass.Degraded;
     }
 
     /// <summary>Finds the surface plane under the camera, out of the zone the camera is in.</summary>
