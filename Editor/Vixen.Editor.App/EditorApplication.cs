@@ -1517,10 +1517,9 @@ sealed partial class EditorApplication : IDisposable {
     ///         ⚠ <b>A notification and not a dialog, deliberately.</b> The one case that needs a
     ///         person is a document with unsaved edits whose file changed underneath it, and there is
     ///         no non-destructive default to pick for them — so nothing is picked. Both copies still
-    ///         exist, the document says <c>IsStale</c>, and the two answers are the two things the
-    ///         person was already going to do: Ctrl+S keeps theirs, reopening takes the file's. A
-    ///         modal here would be one that arrives while somebody is typing, about a file they may
-    ///         not have looked at in an hour.
+    ///         exist and the document says <c>IsStale</c> until somebody picks one. A modal here
+    ///         would be one that arrives while somebody is typing, about a file they may not have
+    ///         looked at in an hour.
     ///     </para>
     ///     <para>
     ///         The two answers are both gestures: Ctrl+S keeps this document's version, and
