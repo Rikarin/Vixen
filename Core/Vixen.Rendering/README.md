@@ -1300,6 +1300,34 @@ changes.
 The golden fixture fits its cascades from a scene camera now, and produces the same reference image
 it did from the scalars.
 
+#### ⚠ And the interface was wired, and answered null anyway
+
+Having the seam is not having the answer, and the difference is a phase. `ShadowMapRenderer.Collect`
+asks which way the sun points *before the render system runs anything* — that is what collect is for.
+`ForwardLightingRenderFeature.Sun`, the one implementation of `ISunSource` the engine ships, was
+latched by that feature's `Prepare`, a phase later. So the node asked a source that was correctly
+wired, held the scene's light list already filled by extraction, and answered null.
+
+What that cost was one frame of cascades fitted along `ShadowMapRenderer.LightDirection` — the node's
+authored fallback — while the shading pass, which binds its set at record time, was lit along the real
+sun. Precisely the two-derivations-of-one-fact split the paragraph above exists to prevent, arrived at
+from the other end. Measured on `03-PbrShowcase`: at the first collect the list held one directional
+light, the cached field was null, and the fitted direction was **14.2° from the sun the same frame was
+shaded with**. Every frame after it was correct, which is what kept it invisible — and on a moving sun
+every frame was a frame stale, which the picture cannot show at all.
+
+`Sun` is derived from the light list on read now. The list is refilled by `LightExtractionSystem` in
+`SystemPhase.PreRender`, so reading it answers with *this* frame's scene from any phase, which is the
+property a latched field cannot have. A one-frame-early answer is not a smaller version of a wrong
+answer; it is a wrong answer that only one frame can see.
+
+**The general shape, because it is not about the sun.** A value latched in one phase and read in an
+earlier one is stale by a whole frame and null on the first, and neither shows up as a failure — the
+consumer takes its designed-in fallback and draws. `SceneRenderer.Degraded` is what makes it visible:
+this one reported itself as `no Sun, so the cascades are fitted to the node's authored LightDirection`
+on a frame whose scene had a perfectly good sun in it. **A degrade that fires on a shipping sample is
+either a defect or a bad condition, and leaving it to fire is how the channel stops being read.**
+
 ### Caching a cascade
 
 Two things have to be true together, and neither is worth anything alone.
