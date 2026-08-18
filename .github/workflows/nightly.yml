@@ -277,12 +277,23 @@ jobs:
     # takes seconds. Checked directly rather than extrapolated: UvUnwrapPipelinePropertyTests is 15 s
     # at 20x and 1m51s at 150x, so the arithmetic really is linear.
     #
-    # ⚠ The remeshing figure went up by more than the new class costs, and the difference is
-    # deliberate. Its three RunawayGuard classes now share a non-parallel collection, so they no
-    # longer overlap: a whole-pipeline remesh takes every core it is given, and the guard's clock is
-    # wall clock, so a case that was merely descheduled read as a case that was still running. See
-    # TimedCases in RemeshPipelinePropertyTests for the measurement that forced it. The leg pays a
-    # few minutes at 15x for a guard that means what it says.
+    # ⚠ The remeshing figure went up by more than the new class costs: its three RunawayGuard
+    # classes share a non-parallel collection, so they no longer overlap. That was bought to stop a
+    # descheduled case reading as a still-running one, and it did not work — measured on one machine
+    # in one afternoon with the collection in force, the slowest single case read 12.7 s, 23.0 s,
+    # 38.1 s and 54.4 s against a cap that was then sixty. Serialisation removes the interference
+    # inside the assembly and nothing about the machine. The collection stays because the guard's
+    # *allocation* ceiling is still process-wide and still the half that matters; see TimedCases.
+    #
+    # ⚠ THE NINETY BELOW IS WHAT RunawayGuard.Cap IS DERIVED FROM, WHICH MAKES THEM ONE DECISION.
+    # The guard's job is to name a case that will never return before this timeout kills the runner
+    # with nothing on the console, so its twenty minutes is sized to fit twice inside what is left of
+    # ninety after the leg's own work — roughly 48 min, allowing a hosted runner twice the laptop
+    # figures below and six minutes for checkout, restore and build. Cutting this number without
+    # cutting that one leaves a guard that cannot report; raising the guard without raising this one
+    # does the same. Neither is a wall-clock assertion about a case: see RunawayGuard.Cap's remarks
+    # for why the clock cannot be one and what was measured and refuted before settling for a
+    # backstop.
     #
     # ⚠ Not a budget — RunawayGuard bounds a single case on wall clock *and on allocation*, which is
     # the backstop that matters here. Two measured runaways in this code, and neither is a hang: a
