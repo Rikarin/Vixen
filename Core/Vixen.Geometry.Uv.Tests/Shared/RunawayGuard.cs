@@ -95,9 +95,72 @@ static class RunawayGuard {
     ///         The slowest single case swung by <b>4.3×</b> across one afternoon on one machine, and
     ///         its worst reading was <b>54.4 s against a cap of 60</b> — <c>new(ShapeKind.Box, 7, 1,
     ///         [], 3, 0f, 0.001f)</c>. Not the six-fold headroom this comment claimed: <b>1.10×</b>.
-    ///         The suite total moved with it, 93 s to 309 s, which is what says the swing is the
-    ///         machine rather than the input. It had not fired in six nights because it had been
-    ///         lucky six times.
+    ///         It had not fired in six nights because it had been lucky six times.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the four seconds was, measured afterwards: a coin flip, and never a property
+    ///         of the code.</b> The paragraph above guessed that the swing was the machine rather than
+    ///         the input, and that guess is half right in a way worth being exact about. Twelve
+    ///         replicates of exactly what the property does — 200 draws of its own generator,
+    ///         single-threaded, off the runner's parallelism, on the same ten-core machine — give a
+    ///         slowest case of <c>1.0 · 2.5 · 3.2 · 3.7 · 3.8 · 3.9 · 4.9 · 4.9 · 5.1 · 5.3 · 5.3 ·
+    ///         5.4 s</c>. <b>Median 4.9 s, and six of the twelve are under four.</b> So "the slowest
+    ///         conditioning case is under four seconds" was a true sentence about one run and a false
+    ///         one about the suite, on the day it was written; nothing regressed. <c>VoxelShrinkwrap</c>
+    ///         and <c>WindingNumberField</c> have not been edited since 2026-08-06 13:48, four hours
+    ///         before that claim, and the sweep's iteration counts and generator are unchanged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the ceiling on the <i>work</i> is 5.4 s, which is what makes the rest of any
+    ///         larger reading attributable.</b> The four dearest draws found, replayed three times
+    ///         each, read <b>3.9–5.6 s of wall against 3.8–5.4 s of processor time</b> — a ratio of
+    ///         0.96, so they are work and not waiting. The same recipes read <b>11.0 s, 12.4 s and
+    ///         36.7 s</b> inside a survey sharing the machine. <b>12.7 s and 54.4 s above are
+    ///         therefore about 5 s of conditioning multiplied by 2.4 and by 11.</b> The input's own
+    ///         spread is real and it is bounded: 1.0 s to 5.4 s, five-fold, where the readings the cap
+    ///         was sized against spread four-fold on top of that.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the multiplier is not an inference. The sweep run alone, twice, one after the
+    ///         other, on the same build and the same machine — the second leg with twenty-four
+    ///         spinners on ten cores:</b>
+    ///     </para>
+    ///     <para>
+    ///         <c>as found: slowest case 3.6 s, cpu 3.6 s, 200 cases in 22.1 s · oversubscribed:
+    ///         slowest case 56.2 s, cpu 6.5 s, 200 cases in 191.9 s</c>
+    ///     </para>
+    ///     <para>
+    ///         <b>56.2 s reproduces the 54.4 s above, and its processor time is 6.5.</b> The work is
+    ///         flat — 22.6 s of processor time across the two hundred against 32.9, which is process
+    ///         accounting rather than the case — and the wall is 8.7× on both the slowest case and the
+    ///         total. Nothing about that reading is a statement about conditioning.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The whole of it is step seven, and the generator reaches it through a corner the
+    ///         pipeline cannot.</b> Split by setting over four traced suite runs: <b>393 cases with
+    ///         the shrinkwrap on cost 108 s, and 407 with it off cost 1.0 s</b> — a mean of 275 ms
+    ///         against 2.3 ms. Every one of the fifty dearest draws at each of three pinned seeds has
+    ///         it on, and all twelve slowest-of-a-run above are <c>rounds 0, shrinkwrap true</c>,
+    ///         eleven of them a box. The mechanism: <c>IsotropicRemesh.Run</c> returns the caller's
+    ///         target unchanged when its iteration count is zero, and the sweep's caller passes zero
+    ///         to mean "the mesh's own mean" — so a draw with no pre-remesh hands
+    ///         <c>VoxelShrinkwrap</c> a zero, which it reads as its documented fallback of <b>64 steps
+    ///         along the longest axis</b> rather than sizing itself from the mesh. The same recipe
+    ///         costs <b>5.9 s at zero rounds and 4.5 ms at one</b>, because one round supplies a mean
+    ///         edge length that clamps the grid to its eight-step floor: 69³ samples against 13³, and
+    ///         ~51 000 extracted triangles against 720 for the second conditioning pass to chew.
+    ///         Within that corner the cost tracks what came out — 158 ms under ten thousand triangles,
+    ///         641 ms at ten to twenty, 1.3 s at twenty to thirty, 5.4 s at fifty — and 51 000 is
+    ///         where a fixed 64-step grid tops out, which is why the work has a ceiling at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both callers in the tree size that length from the source's own area</b>
+    ///         (<c>Remesher</c> and <c>RemeshDump</c>, through <c>Remesher.BaseLength</c>), which is
+    ///         positive for anything with area — so the zero-target corner is the property suite's in
+    ///         practice, and nothing here is a defect to fix: it is the sweep exercising the one
+    ///         extraction big enough to be worth exercising. The measurements are reproducible from
+    ///         the harness in commit <c>168c5d7b</c>, and <c>CaseTrace</c> — <c>VIXEN_CASE_TRACE</c>
+    ///         naming a file — writes the per-case distribution on any run without one.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The obvious repair — measure the interference the way the heap half does — was
@@ -125,8 +188,9 @@ static class RunawayGuard {
     ///         is the outcome this exists to prevent. The per-commit gate has no
     ///         <c>timeout-minutes</c> at all, so GitHub's six-hour default is the bound there and
     ///         twenty is nothing against it. Lower: <b>22×</b> the worst healthy reading ever measured
-    ///         (the 54.4 s above, itself taken on a run whose suite total was 3.4× its uncontended
-    ///         one) and <b>13×</b> the worst healthy whole-pipeline case on record (93 s, in
+    ///         (the 54.4 s above — which is now known to be about 5 s of work under an eleven-fold
+    ///         machine, so <b>222×</b> the worst conditioning a draw can actually ask for), and
+    ///         <b>13×</b> the worst healthy whole-pipeline case on record (93 s, in
     ///         <c>RemeshPipelinePropertyTests</c>' own remarks).
     ///     </para>
     ///     <para>
@@ -182,6 +246,7 @@ static class RunawayGuard {
     public static T Run<T>(string what, Func<T> body, TimeSpan? cap = null, long? ceiling = null) {
         ArgumentNullException.ThrowIfNull(body);
 
+        var ticket = CaseTrace.Enter();
         var result = default(T);
         var failure = default(ExceptionDispatchInfo);
         var finished = new ManualResetEventSlim(false);
@@ -209,7 +274,13 @@ static class RunawayGuard {
         };
 
         worker.Start();
-        Watch(what, finished, cap ?? Cap, ceiling ?? RetentionCeiling);
+
+        try {
+            Watch(what, finished, cap ?? Cap, ceiling ?? RetentionCeiling);
+        } finally {
+            CaseTrace.Leave(ticket, what);
+        }
+
         finished.Dispose();
         failure?.Throw();
 
@@ -293,6 +364,101 @@ static class RunawayGuard {
                     )
                 );
             }
+        }
+    }
+}
+
+/// <summary>Every case's wall clock, its overlap and its share of the process, written to a file.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Off unless <c>VIXEN_CASE_TRACE</c> names a file, and it exists because
+///         <see cref="RunawayGuard.Cap" />'s remarks are a claim about a distribution that nothing was
+///         in a position to measure.</b> The cap fired once on a case that "was never slow; ten cores
+///         were", and the repair for that comment was to widen the ceiling — which is right, and which
+///         leaves the distribution itself unknown. <c>RunawayGuard.Run</c> already brackets every
+///         expensive call in both suites and already has the case's own name in its hand, so the
+///         cheapest honest instrument is the one that writes down what it already knows.
+///     </para>
+///     <para>
+///         ⚠ <b>Wall is not enough on its own, and the other columns are what make a row decide
+///         anything.</b> Wall alone cannot tell a slow case from a starved one — the comment on
+///         <see cref="RunawayGuard.Cap" /> records an in-band lateness meter being built and refuted
+///         for exactly that reason. <c>cpu</c> is the whole process's processor time across the case,
+///         in milliseconds: a case whose wall is 50 s and whose <c>cpu</c> is 400 s did not do fifty
+///         seconds of anything, and one whose <c>cpu</c> is 50 s did. <c>entered</c> and <c>left</c>
+///         count the guarded cases in flight at each end, exactly rather than by inference, because
+///         xunit parallelises test classes and a case sharing the machine with nine others is a case
+///         whose clock is a statement about the runner.
+///     </para>
+///     <para>
+///         ⚠ <b>Buffered in memory and flushed at exit, not appended per case.</b> A file opened and
+///         closed a thousand times inside the thing being timed is an instrument that changes its
+///         reading — and these runs are minutes long, so nothing needs to be readable early.
+///     </para>
+/// </remarks>
+static class CaseTrace {
+    static readonly string? Path = Environment.GetEnvironmentVariable("VIXEN_CASE_TRACE");
+    static readonly Process Self = Process.GetCurrentProcess();
+    static readonly List<string> Rows = [];
+    static readonly Stopwatch Since = Stopwatch.StartNew();
+    static int inFlight;
+
+    static CaseTrace() {
+        if (Path is null) {
+            return;
+        }
+
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Flush();
+    }
+
+    /// <summary>Marks a case as started, and returns what <see cref="Leave" /> needs to close it.</summary>
+    /// <returns>When it started, the processor time then, and how many cases were in flight.</returns>
+    public static (long Started, double Cpu, int Overlap) Enter() =>
+        Path is null
+            ? default
+            : (Since.ElapsedMilliseconds, Self.TotalProcessorTime.TotalMilliseconds,
+                Interlocked.Increment(ref inFlight));
+
+    /// <summary>Writes the row and marks the case as finished.</summary>
+    /// <param name="ticket">What <see cref="Enter" /> returned.</param>
+    /// <param name="what">The case's own name, which is what makes the row worth having.</param>
+    public static void Leave((long Started, double Cpu, int Overlap) ticket, string what) {
+        if (Path is null) {
+            return;
+        }
+
+        var wall = Since.ElapsedMilliseconds - ticket.Started;
+        var cpu = Self.TotalProcessorTime.TotalMilliseconds - ticket.Cpu;
+        var leaving = Interlocked.Decrement(ref inFlight) + 1;
+        var flush = false;
+
+        lock (Rows) {
+            Rows.Add(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{ticket.Started}\t{wall}\t{cpu:F0}\t{ticket.Overlap}\t{leaving}\t{what.Replace('\t', ' ')}"
+                )
+            );
+
+            // ⚠ Every so often rather than every row, and outside any case's own clock: a run that
+            // is killed rather than allowed to exit still leaves most of its readings behind, and a
+            // file rewritten once a case would be an instrument that changed the thing it measures.
+            flush = Rows.Count % 256 == 0;
+        }
+
+        if (flush) {
+            Flush();
+        }
+    }
+
+    /// <summary>Writes everything gathered so far, for a run that will not reach process exit.</summary>
+    public static void Flush() {
+        if (Path is null) {
+            return;
+        }
+
+        lock (Rows) {
+            File.WriteAllLines(Path, Rows.Prepend("started\twall\tcpu\tentered\tleft\twhat"));
         }
     }
 }
