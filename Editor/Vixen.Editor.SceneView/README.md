@@ -584,6 +584,30 @@ out of a plugin's or a project script's assembly.
   `Vixen.Core.Reflection` names for the inspector. A gizmo that has to be free is a built-in that can
   be generic.
 
+## A mode can draw under the pointer
+
+`SceneViewport.Cursor` is an `Action<GizmoDraw>?` a mode sets while it is armed and clears when it
+leaves. `SceneLines.Build` calls it, which is what makes it appear at all: `Build` is what both
+`ScenePresenter` and the compositor-driven `FramePresenter` call, so a hover cursor cannot vanish
+when the view mode switches. `Vixen.Editor.Terrain`'s `TerrainCursor` is the first one — the brush's
+reach and its plateau, conformed to the ground.
+
+- ⚠ **Pushed rather than pulled, for `ComponentGizmos`' reason one shelf up.** `Vixen.Editor.Terrain`
+  references this assembly and not the reverse, so `SceneLines` cannot ask a terrain what its brush is
+  over. The pane is the one object the mode and the presenter both hold.
+- ⚠ **Into `overlay`, which is the opposite of a contributed gizmo.** A gizmo says where a thing *is*
+  and has to be occluded to say it. A cursor says where the next click will land and is conformed to
+  the surface it is lying on, so it is coplanar with the geometry it would be depth-tested against —
+  in the depth-tested channel it z-fights its way in and out as the camera moves, and against an exact
+  compare it disappears altogether.
+- ⚠ **No show flag**, for `SceneMeasure`'s reason: it exists only while a mode is armed, and a second
+  switch hiding it is how somebody picks up the brush, sees nothing and concludes the tool is broken.
+- ⚠ **`OnCrossed` is why a cursor can be taken away.** `Entered` and `Exited` are never fed in from
+  outside — the document works them out and delivers them `RoutingStrategy.Direct`, and
+  `UiElement.Invoke` matches handlers on the strategy they registered with, so the bubble listener
+  that hears every move never hears a crossing. Without the second registration a mode draws a ring
+  that stays behind, at the last place inside the pane, for the whole time somebody is using a panel.
+
 ## A plugin can float a panel over a pane
 
 `SceneOverlay` is Unity's `[Overlay]`: a title, a corner, and a builder handed a host element and the

@@ -63,6 +63,31 @@ everywhere else; these commands declare `Context = TerrainMode.TerrainContext` a
 declare none, so `KeyMap` files the two under different contexts. A second consumer of the mode seam
 took no new machinery, which is the claim the seam was built to make.
 
+## The brush is drawn where it will land
+
+`TerrainCursor` puts two rings on the ground under the pointer through `SceneViewport.Cursor` — the
+reach, and the plateau at `radius × (1 − falloff)`, which is `TerrainBrush.WeightAt`'s own boundary
+rather than a decorative second circle. Before it, `TerrainMode` cast a ray on a press and on a move
+*during a stroke* and at no other time, so hovering with the brush armed computed nothing and every
+stroke was discovered by making it.
+
+⚠ **Conformed to the ground rather than flat at the hit's height.** A flat disc on a hillside is half
+buried and half in the air, and where it is buried it is invisible — on exactly the terrain somebody
+is most likely to be sculpting. Every vertex is its own `TerrainPick.HeightAt`, the same bilinear
+surface the pick that placed it used.
+
+⚠ **The segment count follows the radius, not the ring.** A fixed thirty-two segments is a smooth
+circle at any size and a liar about the ground at a large one: chords a hundred metres long fly over
+the valleys between their ends. About two samples a quad, clamped at both ends.
+
+⚠ **A live ring reads the panel between strokes and `TerrainEdit.HeldBrush` during one.** The brush is
+snapshotted at `Begin` and not read again, so a ring reading the panel mid-drag would grow under a
+hand on the radius slider while the ground being written did not.
+
+⚠ **The footprint drawn is a circle whatever `BrushShape` says.** An `Alpha` or `Pattern` stamp with a
+mask is a square reaching `radius × √2` into its corners; the cursor does not draw that yet.
+`FoliageMode` has the same hover gap and no cursor at all.
+
 ## The panel is settings objects, not dialog code
 
 [Doc 31 § Part 2](../../docs/plan/31-terrain-grass-and-trees.md)'s bargain, which is
