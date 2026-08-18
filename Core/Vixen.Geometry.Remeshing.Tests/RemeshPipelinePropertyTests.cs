@@ -253,17 +253,119 @@ public class RemeshPipelinePropertyTests {
             threads: 1
         );
 
-        // ⚠ The guard on the guard, and it points both ways. A generator that drifted into producing
-        // only rubble would leave every claim about a quad untested; one that never refused would
-        // leave the refusal half untested, and the refusal half is where the criterion's "naming the
-        // stage" lives. Both are asserted only overnight — eight cases a build cannot support a
-        // statement about a distribution, and a build that failed here would be failing on a coin
-        // toss rather than on the code.
+        // ⚠ The guard on the guard, and only one of its two directions can honestly be sampled for.
+        // A generator that drifted into producing only rubble would leave every claim about a quad
+        // untested, and this catches that: it fails only when every sampled case refuses, which at
+        // the rate below is 10⁻²⁵⁵ and is therefore a statement about the generator rather than a
+        // coin toss.
         if (PropertyBudget.IsNightly) {
             Assert.True(produced > 0, $"None of {produced + refused} sampled meshes produced a single quad.");
-            Assert.True(refused > 0, $"None of {produced + refused} sampled meshes reached a refusal.");
         }
     }
+
+    /// <summary>Two inputs that refuse every time, because the refusal half cannot be sampled for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is what the nightly's <c>refused &gt; 0</c> was trying to buy, bought
+    ///         deterministically.</b> That assertion said "at least one of the sampled meshes reached a
+    ///         refusal", and the refusal half is where the criterion's "naming the stage that refused"
+    ///         lives — so leaving it unexercised would leave half of exit criterion 7 untested. The
+    ///         claim is right; sampling was the wrong way to make it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The arithmetic, because a sampled coverage check is only honest with the arithmetic
+    ///         beside it.</b> Measured over <b>1,200 cases</b> of this property's own generator:
+    ///         <b>9 refusals, a rate of 0.75%</b>. The nightly runs 120 cases, so the chance of seeing
+    ///         no refusal at all is <c>(1 − 0.0075)¹²⁰ = 0.41</c> — the assertion lost a coin toss two
+    ///         nights in five. It duly did, on <b>2026-08-13, 08-16 and 08-18</b>, three red legs in
+    ///         six nights, each reporting "None of 120 sampled meshes reached a refusal" with no seed
+    ///         and no case attached, because there was no case: nothing had gone wrong. Sizing it to a
+    ///         one-in-a-thousand false failure needs <c>ln(10⁻³) / ln(1 − 0.0075) ≈ 918</c> cases
+    ///         against the 120 it runs, on a leg already budgeted at eighteen minutes where one case is
+    ///         a whole seven-stage remesh. That is not a number this leg can afford, so the check is
+    ///         not resized — it is replaced.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A nightly that cries wolf every other night is worse than no nightly.</b> It is
+    ///         most of why three red legs in six nights went unread, alongside the workflow's own
+    ///         standing "expected to FAIL" note, which had gone stale in both halves and is now
+    ///         corrected. Whatever is red here should be the code.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two recipes rather than one, because they refuse at opposite ends of the
+    ///         pipeline.</b> Eight of the nine refusals measured were the same shallow one — conditioning
+    ///         eats a staircase mesh and stops with "Conditioning left no triangles at all", one stage
+    ///         in. The ninth ran the whole way down and refused at the extract stage with a four-part
+    ///         report about arcs collapsing and patches quantizing away, which is the only sampled case
+    ///         in 1,200 that exercised a refusal <i>after</i> the field and the layout had run. Pinning
+    ///         only the cheap one would leave the deep path exactly as untested as sampling did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted through <see cref="Verify" />, the same function the property calls.</b>
+    ///         A parallel assertion here would be a second statement of the criterion that could drift
+    ///         from the first; <c>Verify</c> returning <c>false</c> <i>is</i> the refusal branch, and it
+    ///         is what checks that a warning names a stage.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_inputs_that_refuse_still_name_the_stage_that_refused() {
+        foreach (var (recipe, transfer, uvs, rounds) in Refusals) {
+            var settings = new RemeshSettings {
+                TargetQuads = Budget,
+                TransferAttributes = transfer,
+                GenerateUvs = uvs,
+                Conditioning = new() { PreRemeshIterations = rounds }
+            };
+
+            var what = Describe(recipe, transfer, uvs, rounds);
+            var mesh = RunawayGuard.Run($"building {recipe}", () => BrokenMeshSpace.Build(recipe));
+
+            var outcome = RunawayGuard.Run(
+                what,
+                () => Remesher.Remesh(mesh, settings, out var report) is var quads ? (quads, report) : default,
+                Cap
+            );
+
+            // ⚠ Both, and the second is the one that matters. That the case refuses is the premise;
+            // that Verify agrees is the criterion, because Verify's refusal branch is where "a report
+            // naming the stage that refused" is actually asserted.
+            Assert.True(
+                outcome.quads.FaceCount == 0,
+                $"{what}: pinned as a refusal and came back with {outcome.quads.FaceCount} faces."
+            );
+
+            Assert.False(Verify(what, outcome.quads, outcome.report), what);
+        }
+    }
+
+    /// <summary>The refusing cases, written out so they are inputs rather than a seed.</summary>
+    /// <remarks>
+    ///     ⚠ Found by sampling — see
+    ///     <see cref="The_inputs_that_refuse_still_name_the_stage_that_refused" /> — and then written
+    ///     down, which is the whole point. A seed is a claim about a generator and a library version
+    ///     and both move; a recipe is the mesh.
+    /// </remarks>
+    static readonly (MeshRecipe Recipe, bool Transfer, bool Uvs, int Rounds)[] Refusals = [
+        // Refuses one stage in: "Conditioning left no triangles at all."
+        (
+            new(
+                ShapeKind.Torus,
+                4,
+                2,
+                [MeshDefect.LargeComponent, MeshDefect.Staircase, MeshDefect.Staircase],
+                5,
+                0f,
+                1f
+            ),
+            true,
+            true,
+            0
+        ),
+
+        // Refuses at the far end, after the field and the layout have both run: "The extract stage
+        // produced no faces", behind three warnings about arcs collapsing and patches quantizing away.
+        (new(ShapeKind.Cone, 3, 3, [MeshDefect.DuplicateFaces], 6, 2.0379999E-14f, 1f), false, false, 1)
+    ];
 
     /// <summary>The same criterion through § D11's mirror, which is a second entry point into all seven.</summary>
     /// <remarks>
