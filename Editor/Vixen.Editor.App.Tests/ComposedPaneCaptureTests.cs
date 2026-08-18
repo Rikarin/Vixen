@@ -140,11 +140,17 @@ public sealed class ComposedPaneCaptureTests {
             if (Destination is { Length: > 0 } directory) {
                 Directory.CreateDirectory(directory);
 
+                // ⚠ Three, and the third is the one worth arguing about. `SceneShow.Bounds` already
+                // draws a box round every shaped entity and already turns it amber for a selected
+                // one, so the question a cage round the selection has to answer in a picture rather
+                // than in prose is whether somebody with that flag on now sees two things that mean
+                // different things and look the same.
                 PngCodec.Save(
                     Path.Combine(directory, "selection-composed.png"),
-                    Pair(
+                    Row(
                         Selected(device, select: false, gizmo: true, out _),
-                        Selected(device, select: true, gizmo: true, out _)
+                        Selected(device, select: true, gizmo: true, out _),
+                        Selected(device, select: true, gizmo: true, out _, bounds: true)
                     )
                 );
             }
@@ -241,7 +247,13 @@ public sealed class ComposedPaneCaptureTests {
     }
 
     /// <summary>One composed pane of the seeded scene, framed on the crate, selected or not.</summary>
-    static Bitmap Selected(VulkanDevice device, bool select, bool gizmo, out BoundingBox crateOnScreen) {
+    static Bitmap Selected(
+        VulkanDevice device,
+        bool select,
+        bool gizmo,
+        out BoundingBox crateOnScreen,
+        bool bounds = false
+    ) {
         using var session = EditorSession.Start();
 
         session.Application.GraphicsDevice = device;
@@ -283,6 +295,10 @@ public sealed class ComposedPaneCaptureTests {
 
         if (!gizmo) {
             pane.Show &= ~SceneShow.Gizmos;
+        }
+
+        if (bounds) {
+            pane.Show |= SceneShow.Bounds;
         }
 
         var world = session.Application.Frame!;
@@ -341,12 +357,12 @@ public sealed class ComposedPaneCaptureTests {
         }
     }
 
-    /// <summary>Two panes side by side, with a rule between them.</summary>
-    static Bitmap Pair(Bitmap left, Bitmap right) {
+    /// <summary>Panes side by side, with a rule between them.</summary>
+    static Bitmap Row(params Bitmap[] panes) {
         const int Gap = 4;
 
-        var width = left.Width + Gap + right.Width;
-        var height = Math.Max(left.Height, right.Height);
+        var width = panes.Sum(pane => pane.Width) + (Gap * (panes.Length - 1));
+        var height = panes.Max(pane => pane.Height);
         var pixels = new byte[width * height * 4];
 
         for (var index = 3; index < pixels.Length; index += 4) {
@@ -354,9 +370,12 @@ public sealed class ComposedPaneCaptureTests {
         }
 
         var composite = new Bitmap(width, height, pixels);
+        var x = 0;
 
-        Blit(composite, left, 0, 0);
-        Blit(composite, right, left.Width + Gap, 0);
+        foreach (var pane in panes) {
+            Blit(composite, pane, x, 0);
+            x += pane.Width + Gap;
+        }
 
         return composite;
     }

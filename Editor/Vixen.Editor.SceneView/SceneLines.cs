@@ -260,6 +260,18 @@ public sealed class SceneLines {
     ///         Shaped entities only: an empty has no extent, and a box round a marker cross would be a
     ///         box round an arbitrary constant.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One colour, and it used to be two.</b> A selected entity's box was drawn in
+    ///         <see cref="SelectedColour" />, from a build in which nothing else round a selected
+    ///         object was amber. <see cref="Cage" /> is now, four pixels outside this box and in the
+    ///         same colour — and rendered together they read as one doubled box rather than as a box
+    ///         and a set of brackets, which is the collision a second box round the selection was
+    ///         always going to walk into. So the two questions get one answer each: this one is what
+    ///         extent an object has, in the neutral colour extent is drawn in; the cage is which
+    ///         object is selected. Nothing is lost — every selected entity that can have a bounds box
+    ///         has a cage, because both are drawn from the same
+    ///         <see cref="Extent(SceneDocument, SceneViewport, Entity, out BoundingBox)" />.
+    ///     </para>
     /// </remarks>
     void Boxes(SceneDocument document) {
         // ⚠ Outside the loop. A stack allocation per entity is a stack that grows with the scene and
@@ -277,9 +289,7 @@ public sealed class SceneLines {
             var bounds = Extent(kind);
             var matrix = document.World.Read<WorldTransform>(entity).Value;
 
-            var colour = document.Selection.Contains(entity)
-                ? SelectedColour
-                : new Color4(MarkerColour.R, MarkerColour.G, MarkerColour.B, 0.45f);
+            var colour = new Color4(MarkerColour.R, MarkerColour.G, MarkerColour.B, 0.45f);
 
             var centre = (bounds.Minimum + bounds.Maximum) * 0.5f;
             var extent = (bounds.Maximum - bounds.Minimum) * 0.5f;
