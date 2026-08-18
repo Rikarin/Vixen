@@ -10,9 +10,9 @@ using Vixen.Audio.Devices;
 using Vixen.Audio.Diagnostics;
 using Vixen.Audio.Ecs;
 using Vixen.Audio.Mixing;
+using Vixen.Core;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
-using Vixen.Core;
 
 namespace Vixen.Samples.ThirdPersonShooter;
 
