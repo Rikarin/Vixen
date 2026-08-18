@@ -261,9 +261,21 @@ document; what is left here is rows, selection and when to rebuild. `Ctrl+R` res
 and rebuilds the reverse-reference index with it, and reports what the scan repaired rather than only
 how many assets it found.
 
-⚠ **Not watched.** A file added outside the editor appears on the next refresh. A file-system watcher
-needs debouncing, a rename heuristic and a way not to fight the editor's own writes; one that missed
-half the events while claiming to be live would be worse than a Refresh that says what it does.
+**Watched.** `FollowDisk` drains an `IFileWatcher` over `Assets/` on the frame thread — on the frame
+because a rescan clears and repopulates the database's dictionaries, and doing that from a
+`FileSystemWatcher` callback would race every panel reading it. The three things that used to be the
+argument against having a watcher are all `Vixen.Core.IO`'s: `FileChangeCoalescer` debounces, folds an
+atomic save's temporary-plus-rename into one change, and ignores a path this program is about to
+write. `Ctrl+R` still forces a rescan.
+
+⚠ **And the changes now reach the open documents, not only the tree.** Everything on this path used
+to read the drained list for its *length* — `ReloadShaders` is the one exception and filters to
+`.rvn` — so a `.vxcompositor` saved beside the running editor changed the database, the browser and
+the build panel, and did not change the panel that had it open. `ExternalEdits` is the last few
+metres: it routes a path to the document editing that asset, reloads it when it is clean, and marks
+it stale and says so when it is not. Its other half is the one that makes the first half safe —
+`EditorProject.DocumentSaving` fires *before* a write, so the editor's own saves are suppressed
+rather than round-tripping. See [the guide](../../docs/guide/editor/external-edits.md).
 
 **Single-clicking a row shows the asset in the inspector.** `ProjectAsset` is to a GUID what
 `SceneEntity` is to an entity: the object an inspector can show members of, living here for the same
