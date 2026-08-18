@@ -90,6 +90,14 @@ exactly the change that moves an entry in it — so routing before the scan look
 index that still holds the old one and finds nothing open. It is the only ordering constraint in the
 whole seam.
 
+⚠ **`Suppress` reaches backwards as well as forwards, and a save relies on both.** It ignores what
+comes next for the suppression window *and* drops whatever is already pending for that path. The
+window an event has to arrive in before the save is the debounce — a quarter of a second — so
+anything that touches a file and then saves it inside that window would otherwise get its own write
+reported straight back: an import that rewrites a sidecar and then the asset, a second Ctrl+S
+following a first. What the editor does with such a report is reload the document, and a reload
+discards the undo history. `FileChangeCoalescer` says the rest.
+
 **An overflow calls `Rescan`, not `Apply`.** Lost events mean the drained list cannot describe what
 changed, so every reloadable clean document is re-read — `ReloadShaders` makes the same choice for
 the same reason. What `Rescan` deliberately does *not* do is mark dirty documents stale: an overflow
