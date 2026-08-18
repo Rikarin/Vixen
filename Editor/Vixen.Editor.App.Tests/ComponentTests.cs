@@ -289,9 +289,9 @@ public class ComponentTests {
     ///     the method's own body, so the JIT resolves the token — and loads the assembly — before the
     ///     first statement runs, where a <c>typeof</c> inside a lambda is resolved later and does not.
     ///     <c>A_component_is_offered_and_labelled_by_a_name_a_person_would_write</c> is the same test
-    ///     with its <c>typeof</c>s in lambdas, and it failed alone for years' worth of runs. The
-    ///     establishment is written down rather than left to that, and the on-time claim is
-    ///     <see cref="Every_subsystem_the_editor_draws_for_is_declared_to_it" />'s.
+    ///     with its <c>typeof</c>s in lambdas, and it failed every time it was run on its own. So the
+    ///     establishment is written down rather than left to which side of a lambda a token fell, and
+    ///     the on-time claim is <see cref="Every_subsystem_the_editor_draws_for_is_declared_to_it" />'s.
     /// </remarks>
     [Fact]
     public void The_subsystems_that_declare_components_are_loaded_before_the_list_is_read() {
