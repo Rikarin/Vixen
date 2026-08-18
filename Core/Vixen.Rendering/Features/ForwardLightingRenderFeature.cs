@@ -363,12 +363,59 @@ public sealed class ForwardLightingRenderFeature
 
     /// <summary>The brightest directional light, or null when the scene has none.</summary>
     /// <remarks>
-    ///     One, not all of them: a second sun is a stylistic choice a project can make by putting it
-    ///     in a per-frame block of its own, and giving every fragment two directional lights to
-    ///     evaluate for the sake of the scenes that have two is a cost the ones that have one would
-    ///     pay as well.
+    ///     <para>
+    ///         One, not all of them: a second sun is a stylistic choice a project can make by putting
+    ///         it in a per-frame block of its own, and giving every fragment two directional lights to
+    ///         evaluate for the sake of the scenes that have two is a cost the ones that have one
+    ///         would pay as well.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Derived from <see cref="Lights" /> on every read, and it used to be a field
+    ///         <see cref="Prepare" /> latched.</b> That is a phase later than the earliest reader:
+    ///         <c>ShadowMapRenderer.Collect</c> asks which way the sun points <em>before</em> the
+    ///         render system runs any of its phases, so a latched field answered with the previous
+    ///         frame's sun — and on the first frame, with none at all. What that cost was one frame
+    ///         of cascades fitted along <c>ShadowMapRenderer.LightDirection</c> while the shading pass
+    ///         was lit along the real sun, which is exactly the two-derivations-of-one-fact split
+    ///         <c>CompositorBuilder.Sun</c>'s remarks exist to prevent, and it reported itself as a
+    ///         <see cref="Compositor.SceneRenderer.Degraded" /> on a frame whose scene had a perfectly
+    ///         good sun in it. Measured on sample 03: 14.2° apart.
+    ///     </para>
+    ///     <para>
+    ///         The list is refilled by extraction before anything renders — <c>LightExtractionSystem</c>
+    ///         runs in <c>SystemPhase.PreRender</c> — so reading it here is reading this frame's scene
+    ///         from any phase, which is the property a latched field cannot have. The scan is over the
+    ///         scene's lights and is the same walk extraction already makes once; a scene big enough
+    ///         for that to matter is one whose per-object light selection dwarfs it.
+    ///     </para>
     /// </remarks>
-    public RenderLight? Sun { get; private set; }
+    public RenderLight? Sun {
+        get {
+            RenderLight? found = null;
+            var brightest = 0f;
+
+            for (var i = 0; i < lights.Count; i++) {
+                var light = lights[i];
+
+                if (light.Kind != LightKind.Directional) {
+                    continue;
+                }
+
+                var luminance = light.Colour.Luminance() * light.Intensity;
+
+                // `found is null` first, so a scene whose only directional light is black — an
+                // intensity of zero, which is how a light says it is off — still names a sun rather
+                // than reporting none. That is what the latched form did, and a node that fits
+                // cascades wants a direction even from a sun contributing nothing.
+                if (found is null || luminance > brightest) {
+                    found = light;
+                    brightest = luminance;
+                }
+            }
+
+            return found;
+        }
+    }
 
     /// <summary>The buffer every object's block lives in.</summary>
     public BufferHandle Buffer => buffer;
@@ -539,7 +586,6 @@ public sealed class ForwardLightingRenderFeature
     protected internal override void Prepare(RenderSystem system) {
         ArgumentNullException.ThrowIfNull(system);
 
-        Sun = null;
         used = 0;
 
         if (Device is null || Parent is null) {
@@ -905,22 +951,17 @@ public sealed class ForwardLightingRenderFeature
         parameters.Set(ParameterKeys.New<BufferHandle>($"{ShaderName}.lightBuffer"), scene.Buffer);
     }
 
+    /// <summary>Which of <see cref="Lights" /> go in the per-object and cluster lists.</summary>
+    /// <remarks>
+    ///     Directional lights are left out, and picking the brightest of them is <see cref="Sun" />'s
+    ///     own job rather than a second output of this walk — that split is what lets a node ask which
+    ///     way the sun points from a phase that runs before this one.
+    /// </remarks>
     void SplitByKind() {
         punctual.Clear();
 
-        var brightest = 0f;
-
         for (var i = 0; i < lights.Count; i++) {
-            var light = lights[i];
-
-            if (light.Kind == LightKind.Directional) {
-                var luminance = light.Colour.Luminance() * light.Intensity;
-
-                if (Sun is null || luminance > brightest) {
-                    Sun = light;
-                    brightest = luminance;
-                }
-
+            if (lights[i].Kind == LightKind.Directional) {
                 continue;
             }
 
