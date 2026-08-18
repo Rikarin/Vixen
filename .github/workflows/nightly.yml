@@ -235,12 +235,23 @@ jobs:
             # and 57 s at fifteen times them. Its build counts are single digits for exactly that
             # reason, and the multiplier still fits — see the timeout note below.
             #
-            # ⚠ This leg is expected to FAIL until two defects that property found are fixed, and
-            # that is not a reason to lower the multiplier. An allocation runaway through the mirror
-            # (602 faces to 3,999,656 quads, 8.7 GB) and a budget warning decided from the
-            # quantization's prediction rather than from the mesh. Both are recorded in that file's
-            # remarks with one-line reproducers. Measured at the build's own counts, one run in ten
-            # already fails on one of the two, so the gate sees them too.
+            # ⚠ This comment used to say the leg was EXPECTED TO FAIL on two defects that property
+            # found, and it had gone stale in both halves — which is worth recording, because a
+            # standing "expected to fail" is how a leg stops being read at all. The allocation
+            # runaway through the mirror (602 faces to 3,999,656 quads, 8.7 GB) is CLOSED:
+            # Remesher.RunawayMultiple is the brake and
+            # RemeshPipelinePropertyTests.The_runaway_recipe_stays_within_a_bounded_multiple_of_its_budget
+            # holds the line. The budget warning decided from the quantization's prediction rather
+            # than from the mesh is still open and still deliberately unscoped — that file's remarks
+            # have the reproducer and the mechanism — but it has not fired on a nightly in the six
+            # runs to 2026-08-18.
+            #
+            # ⚠ What actually failed here on 2026-08-13, 08-16 and 08-18 was neither of those: a
+            # nightly-only coverage assertion that at least one of the sampled meshes reached a
+            # refusal. At the measured refusal rate that assertion lost a coin toss about half the
+            # nights, which is a leg that cries wolf rather than a leg that found something. It is
+            # now a pinned refusing input asserted deterministically, so a red here is the code.
+            # See that property's remarks for the rate and the arithmetic.
             iterations: 15
           - name: uv
             project: Core/Vixen.Geometry.Uv.Tests
