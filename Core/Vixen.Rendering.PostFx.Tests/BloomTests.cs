@@ -93,6 +93,81 @@ public class BloomTests : IDisposable {
     ///     The up-chain is one shorter than the down-chain, and that is not an off-by-one: the
     ///     smallest level is already its own upsample source, so there is nothing to add into it.
     /// </remarks>
+    /// <summary>
+    ///     ⚠ A chain that declines publishes an <c>Output</c> nobody wrote, and says so.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The nine passes are the node's own rather than nodes a document named, so they are not
+    ///         in <see cref="SceneRenderer.Nested" /> and <see cref="GraphicsCompositor.Degradations" />
+    ///         cannot reach them — the chain carries the answer out by hand. Without it the only
+    ///         evidence is <see cref="BloomRenderer.PassCount" /> sitting at zero, which is a number a
+    ///         host has to already suspect something to go and read.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through the compositor's walk rather than the node's property, because the
+    ///         walk is what a host reads and the forwarding is the part that could be dropped.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_chain_with_no_modules_says_what_its_output_holds_instead() {
+        using var h = Build(composite: false);
+
+        h.Bloom.Modules = null;
+        Frame(h);
+
+        Assert.Equal(0, h.Bloom.PassCount);
+
+        var (node, reason) = Assert.Single(Degradations(h));
+
+        Assert.Equal("Bloom", node);
+        Assert.Contains("no Modules", reason, StringComparison.Ordinal);
+        Assert.Contains("Output holds whatever the graph last aliased", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>A pyramid of no levels is a legitimate setting and a silent one.</summary>
+    /// <remarks>
+    ///     <see cref="BloomRenderer.Levels" /> comes from a quality tier, so this is a value a
+    ///     document can carry rather than a programming error — and the reason quotes it, because
+    ///     "Levels is 0" is the sentence that sends somebody to the tier table.
+    /// </remarks>
+    [Fact]
+    public void A_chain_of_no_levels_quotes_the_setting() {
+        using var h = Build(composite: false);
+
+        h.Bloom.Levels = 0;
+        Frame(h);
+
+        var (_, reason) = Assert.Single(Degradations(h));
+
+        Assert.Contains("Levels is 0", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a chain handed its modules back leaves the report the same frame.</summary>
+    [Fact]
+    public void A_chain_that_is_handed_its_modules_back_leaves_the_report() {
+        using var h = Build(composite: false);
+        var modules = h.Bloom.Modules;
+
+        h.Bloom.Modules = null;
+        Frame(h);
+        Assert.Single(Degradations(h));
+
+        h.Bloom.Modules = modules;
+        Frame(h);
+
+        Assert.Empty(Degradations(h));
+    }
+
+    /// <summary>The frame's whole list, which is what a host actually reads.</summary>
+    static List<(string Node, string Reason)> Degradations(Harness h) {
+        List<(string, string)> found = [];
+        var reported = h.Compositor.Degradations(found);
+
+        Assert.Equal(found.Count, reported);
+        return found;
+    }
+
     [Fact]
     public void The_chain_is_one_prefilter_and_two_passes_per_level_after_it() {
         using var h = Build();

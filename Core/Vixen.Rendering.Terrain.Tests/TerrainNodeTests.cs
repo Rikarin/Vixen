@@ -1114,6 +1114,109 @@ public sealed class TerrainNodeTests : IDisposable {
         node.Dispose();
     }
 
+    /// <summary>
+    ///     ⚠ <b>And the reason reaches the list a host actually asks, which it never did.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="TerrainSceneRenderer.PreviewReason" /> has named the missing input since doc
+    ///         39, and said it to a log line and to a property — neither of which
+    ///         <see cref="GraphicsCompositor.Degradations" /> walks. So the case this project's README
+    ///         is written about, black ground under a correct sky with every counter healthy, was
+    ///         absent from the one collection point an editor reads every frame.
+    ///     </para>
+    ///     <para>
+    ///         The consequence is spelled out in the reason rather than left to the reader, because
+    ///         it is the half that cannot be inferred: preview shading returns a reflectance in
+    ///         [0, 1] where the frame is metered in cd/m².
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ThePreviewReasonReachesTheCompositorsDegradations() {
+        var (builder, factory) = Builder();
+        var constants = LitFrame(builder);
+
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LitDocument));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        // A lit frame reports nothing, which is what makes the next assertion mean something.
+        Draw(compositor, shadowAtlas: true);
+
+        Assert.True(node.Lit);
+        Assert.Empty(Degradations(compositor));
+
+        // ⚠ The camera alone — the branch every shipped game was on — and the ground still *draws*,
+        // which is where this was hardest to see.
+        constants.Lighting!.Camera = null;
+
+        Draw(compositor, shadowAtlas: true);
+
+        Assert.False(node.Lit);
+        Assert.True(node.TerrainsDrawn > 0);
+
+        var (named, reason) = Assert.Single(Degradations(compositor), pair => pair.Node == node.ToString());
+
+        Assert.Equal(node.ToString(), named);
+        Assert.Contains(node.PreviewReason!, reason, StringComparison.Ordinal);
+        Assert.Contains("preview-shaded", reason, StringComparison.Ordinal);
+        Assert.Contains("cd/m²", reason, StringComparison.Ordinal);
+
+        // And it describes this frame: the camera comes back and the node leaves the report.
+        constants.Lighting.Camera = new RenderCamera(
+            new(16f, 40f, 16f), new(0f, -0.5f, 0.5f), new(0f, 1f, 0f), MathF.PI / 3f, 1f, 0.1f, 1000f);
+
+        Draw(compositor, shadowAtlas: true);
+
+        Assert.Empty(Degradations(compositor));
+
+        node.Dispose();
+    }
+
+    /// <summary>A node with nothing wired says so, where before it declined in silence.</summary>
+    /// <remarks>
+    ///     Four inputs and four sentences, because they have four different owners — the device is
+    ///     the window's, the modules are <c>CompositorBuilder</c>'s, the view is the frame's and the
+    ///     scene is <c>TerrainExtractionSystem</c>'s.
+    /// </remarks>
+    [Fact]
+    public void ANodeWithNoSceneSaysWhichOwnerOwesIt() {
+        var (builder, factory) = Builder();
+
+        _ = LitFrame(builder);
+
+        var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LitDocument));
+
+        factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
+
+        var node = Assert.IsType<TerrainSceneRenderer>(
+            Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
+        );
+
+        node.Scene = null;
+        Draw(compositor, shadowAtlas: true);
+
+        var (_, reason) = Assert.Single(Degradations(compositor), pair => pair.Node == node.ToString());
+
+        Assert.Contains("no Scene", reason, StringComparison.Ordinal);
+        Assert.Contains("TerrainExtractionSystem", reason, StringComparison.Ordinal);
+
+        node.Dispose();
+    }
+
+    /// <summary>The frame's whole list, which is what a host actually reads.</summary>
+    static List<(string Node, string Reason)> Degradations(GraphicsCompositor compositor) {
+        List<(string, string)> found = [];
+        var reported = compositor.Degradations(found);
+
+        Assert.Equal(found.Count, reported);
+        return found;
+    }
+
     /// <summary>Every line a node wrote, with the id it wrote it under.</summary>
     sealed class CaptureLogger : ILogger {
         public List<(int Id, LogLevel Level, string Message)> Lines { get; } = [];

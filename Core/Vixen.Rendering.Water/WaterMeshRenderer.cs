@@ -181,23 +181,51 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The body is <see cref="Declare" /> so that declining has to say why.</b> Every one of
+    ///     these branches leaves <see cref="ZonesDrawn" />, <see cref="PatchesDrawn" /> and
+    ///     <see cref="DrawsRecorded" /> at zero, which is a set of numbers a host has to already
+    ///     suspect something to go and read.
+    /// </remarks>
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(frame);
 
+        Degrade(Declare(compositor, frame));
+    }
+
+    string? Declare(GraphicsCompositor compositor, CompositorFrame frame) {
         ZonesDrawn = 0;
         PatchesDrawn = 0;
         DroppedPatches = 0;
         DrawsRecorded = 0;
 
-        if (Device is null || Samplers is null || Zones is null || View is not { } view) {
-            // A document naming this node in a host that has not wired the renderer up should cost a
-            // frame with no water, not an exception — the terms !ScreenProbeGather and !Water are
-            // both built on.
-            return;
+        // A document naming this node in a host that has not wired the renderer up should cost a
+        // frame with no water, not an exception — the terms !ScreenProbeGather and !Water are both
+        // built on. Four owners, four sentences: the device is the window's, the samplers the
+        // frame's shared cache, the zones WaterZoneSystem's and the view the frame's.
+        if (Device is null) {
+            return "no Device, so no water mesh was drawn — the surface plane is missing rather than "
+                + "flat, and whatever composites it reads an empty target";
+        }
+
+        if (Samplers is null) {
+            return "no Samplers, so no water mesh was drawn — the surface plane is missing rather "
+                + "than flat";
+        }
+
+        if (Zones is null) {
+            return "no Zones, so no water mesh was drawn — WaterZoneSystem published nothing for "
+                + "this frame";
+        }
+
+        if (View is not { } view) {
+            return "no View, so no water mesh was drawn — nothing said which camera to cull the "
+                + "patches against";
         }
 
         if (!Resolve(frame)) {
-            return;
+            return "the water mesh shaders have not resolved, so no surface was drawn — the near and "
+                + "far variants of WaterMesh are missing from this build's bundle";
         }
 
         var surface = frame.Texture(ToString(), Surface);
@@ -227,7 +255,9 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
         if (ready.Count == 0) {
             BuildCount++;
 
-            return;
+            // Not a degrade: a world with no water zone, or one whose fields have not simulated a
+            // step yet, asked this node for nothing and got nothing.
+            return null;
         }
 
         var frustum = new BoundingFrustum(view.ViewProjection);
@@ -291,6 +321,8 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
         );
 
         BuildCount++;
+
+        return null;
     }
 
     /// <summary>Brings one zone's device resources into line with its field, and stages the draw.</summary>

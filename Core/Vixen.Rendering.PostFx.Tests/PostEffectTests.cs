@@ -391,6 +391,112 @@ public class PostEffectTests : IDisposable {
         // the same reason and not what this is about.
         Assert.Contains(empty.Misses, key => key.ShaderName == FxaaKeys.ShaderName);
         Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.Draw));
+
+        // ⚠ And the node itself says so, which the miss list cannot: a frame with nine misses and one
+        // node that cared about one of them is exactly where "what failed to compile" and "which node
+        // in this document therefore drew nothing" are different questions.
+        var (node, reason) = Assert.Single(Degradations(h), pair => pair.Node == effect.ToString());
+
+        Assert.Equal(effect.ToString(), node);
+        Assert.Contains($"'{FxaaKeys.ShaderName}' did not resolve", reason, StringComparison.Ordinal);
+    }
+
+    // --- What a post effect says when it declines ---------------------------
+
+    /// <summary>
+    ///     ⚠ <b>The documented case, at the node that writes the swapchain.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="FullScreenRenderer" /> returned above its resolve when
+    ///         <c>CompositorBuilder</c> had left its device and modules unset, so the effect system
+    ///         recorded no miss and the tonemap silently did not run. A post effect's pass is not in
+    ///         <see cref="SceneRenderer.Nested" /> — it is the effect's own, not a node a document
+    ///         named — so <see cref="GraphicsCompositor.Degradations" /> cannot reach it and
+    ///         <see cref="PostEffectRenderer" /> carries the answer out by hand.
+    ///     </para>
+    ///     <para>
+    ///         The assertion is on the compositor's walk rather than on the node's property, because
+    ///         the walk is what a host reads and the forwarding is the part that could be dropped.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_tonemap_with_no_modules_is_named_by_the_compositors_walk() {
+        using var tonemap = new TonemapRenderer { Source = "SceneColour", Output = "Out" };
+        using var h = Build(tonemap);
+
+        // ⚠ Off, because an effect that declares nothing takes the consumer down with it: "node
+        // 'Present' refers to target 'Out', which nothing bound". That exception is the *lucky* case
+        // — the frame that ends the document is the one whose target is imported, so it binds, and
+        // the frame that silently did not run is the shape this reason exists for.
+        h.Consumer.Enabled = false;
+
+        tonemap.Modules = null;
+        Frame(h);
+
+        var (node, reason) = Assert.Single(Degradations(h), pair => pair.Node == tonemap.ToString());
+
+        Assert.Equal(tonemap.ToString(), node);
+        Assert.Contains("no Modules", reason, StringComparison.Ordinal);
+        Assert.Contains("never declared", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>And the same node, wired, is not in the list.</summary>
+    /// <remarks>
+    ///     The half that separates a report from a scar. A post effect answers from
+    ///     <see cref="PostEffectRenderer.Configure" /> or from its pass, and both are cleared and
+    ///     re-decided every frame — so recovering is as visible as degrading.
+    /// </remarks>
+    [Fact]
+    public void A_tonemap_that_is_handed_its_modules_back_leaves_the_report() {
+        using var tonemap = new TonemapRenderer { Source = "SceneColour", Output = "Out" };
+        using var h = Build(tonemap);
+
+        var modules = tonemap.Modules;
+
+        h.Consumer.Enabled = false;
+        tonemap.Modules = null;
+        Frame(h);
+        Assert.Contains(Degradations(h), pair => pair.Node == tonemap.ToString());
+
+        tonemap.Modules = modules;
+        Frame(h);
+
+        Assert.DoesNotContain(Degradations(h), pair => pair.Node == tonemap.ToString());
+    }
+
+    /// <summary>
+    ///     ⚠ An effect that answers from <c>Configure</c> keeps its own answer through the base.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The regression this exists to prevent has already happened once, in the commit that
+    ///     added the forwarding above.</b> <see cref="SkyRenderer" /> and
+    ///     <see cref="AmbientCombineRenderer" /> both degrade from inside <c>Configure</c> — that is
+    ///     where an effect reads the frame — and a base class that wrote its own conclusion over the
+    ///     top would have replaced "every pixel samples one direction" with silence, in the one node
+    ///     whose wrong picture is stable, plausible and stationary.
+    /// </remarks>
+    [Fact]
+    public void A_sky_with_no_view_keeps_the_reason_it_set_from_configure() {
+        using var sky = new SkyRenderer { Output = "Out" };
+        using var h = Build(sky);
+
+        Assert.Null(sky.View);
+        Frame(h);
+
+        var (_, reason) = Assert.Single(Degradations(h), pair => pair.Node == sky.ToString());
+
+        Assert.Contains("no View", reason, StringComparison.Ordinal);
+        Assert.Contains("same direction", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>The frame's whole list, which is what a host actually reads.</summary>
+    static List<(string Node, string Reason)> Degradations(Harness h) {
+        List<(string, string)> found = [];
+        var reported = h.Compositor.Degradations(found);
+
+        Assert.Equal(found.Count, reported);
+        return found;
     }
 
     // --- Temporal antialiasing ----------------------------------------------

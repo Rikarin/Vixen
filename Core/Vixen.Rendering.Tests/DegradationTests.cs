@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Graphics;
+using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Shaders;
 using Xunit;
 
 namespace Tests;
@@ -217,5 +221,264 @@ public class DegradationTests {
         public Vector3 Direction { get; init; }
 
         public RenderLight? Sun => new() { Kind = LightKind.Directional, Direction = Direction };
+    }
+
+    // --- The two passes every other node is made of -------------------------
+
+    /// <summary>
+    ///     ⚠ <b>The documented case.</b> <see cref="FullScreenRenderer" /> returned above its resolve
+    ///     when <c>CompositorBuilder</c> had left <see cref="FullScreenRenderer.Device" /> and
+    ///     <see cref="FullScreenRenderer.Modules" /> unset — so the effect system recorded no miss,
+    ///     and the tonemap, the node that writes the swapchain, silently did not run.
+    /// </summary>
+    /// <remarks>
+    ///     Both halves are asserted separately, because the half that matters to somebody staring at
+    ///     a black frame is the second one: "no Modules" names an input, and "this pass was never
+    ///     declared" is what tells them the target holds whatever the graph last aliased into it.
+    /// </remarks>
+    [Fact]
+    public void A_full_screen_pass_with_no_modules_says_the_pass_was_never_declared() {
+        using var fixture = new Passes();
+        using var h = fixture.FullScreen(modules: false);
+
+        fixture.Frame(h);
+
+        var (node, reason) = Assert.Single(Read(h.Compositor));
+
+        Assert.Equal("Tonemap", node);
+        Assert.Contains("no Modules", reason, StringComparison.Ordinal);
+        Assert.Contains("never declared", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>And the same node, wired, reports nothing at all.</summary>
+    [Fact]
+    public void A_full_screen_pass_that_was_given_everything_reports_nothing() {
+        using var fixture = new Passes();
+        using var h = fixture.FullScreen();
+
+        fixture.Frame(h);
+
+        Assert.Empty(Read(h.Compositor));
+    }
+
+    /// <summary>
+    ///     A pass whose effect did not resolve names the shader, not just the fact of a miss.
+    /// </summary>
+    /// <remarks>
+    ///     <c>EffectSystem.Misses</c> already collects the keys, and that is a different question: it
+    ///     answers "what failed to compile", and this answers "which node in this document drew
+    ///     nothing because of it". A frame with nine misses and one node that cared is the case where
+    ///     the two differ.
+    /// </remarks>
+    [Fact]
+    public void A_full_screen_pass_whose_effect_did_not_resolve_names_the_shader() {
+        using var fixture = new Passes(compiles: false);
+        using var h = fixture.FullScreen();
+
+        fixture.Frame(h);
+
+        var (_, reason) = Assert.Single(Read(h.Compositor));
+
+        Assert.Contains("'Tonemap' did not resolve", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The property that makes the answer worth reading: the same node, recovering.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is what the helper-returning-<c>string?</c> shape buys.</b> A guard that sets a
+    ///     reason and returns is only half of it — the healthy path has to clear it, every frame, or
+    ///     the report is a scar rather than a description of the frame in front of you. Routing the
+    ///     whole body through one <c>Degrade(Declare(…))</c> makes <c>return null</c> the only way out
+    ///     the bottom.
+    /// </remarks>
+    [Fact]
+    public void A_full_screen_pass_that_is_handed_its_modules_leaves_the_report() {
+        using var fixture = new Passes();
+        using var h = fixture.FullScreen(modules: false);
+
+        fixture.Frame(h);
+        Assert.Single(Read(h.Compositor));
+
+        h.Pass.Modules = fixture.Describer;
+        fixture.Frame(h);
+
+        Assert.Empty(Read(h.Compositor));
+    }
+
+    /// <summary>A dispatch that does not happen leaves its buffer holding the last value written.</summary>
+    /// <remarks>
+    ///     Which for <c>AutoExposureRenderer</c>'s chain is a plausible exposure rather than an
+    ///     obviously wrong one — the shape of failure this engine is characteristically bad at seeing.
+    /// </remarks>
+    [Fact]
+    public void A_compute_dispatch_with_no_pipelines_says_what_keeps_its_last_value() {
+        using var fixture = new Passes();
+        using var h = fixture.Compute(pipelines: false);
+
+        fixture.Frame(h);
+
+        var (node, reason) = Assert.Single(Read(h.Compositor));
+
+        Assert.Equal("Reduce", node);
+        Assert.Contains("no Pipelines", reason, StringComparison.Ordinal);
+        Assert.Contains("last value written to it", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>An empty group count is a dispatch nobody would notice was missing.</summary>
+    /// <remarks>
+    ///     The reason quotes the extents, because a zero in one of three is the case: a chain that
+    ///     halved to 1×1 and then to 0 dispatches nothing, and two of the three numbers look fine.
+    /// </remarks>
+    [Fact]
+    public void A_compute_dispatch_with_an_empty_group_count_quotes_the_extents() {
+        using var fixture = new Passes();
+        using var h = fixture.Compute();
+
+        h.Dispatch.Groups = new(8, 0, 1);
+        fixture.Frame(h);
+
+        var (_, reason) = Assert.Single(Read(h.Compositor));
+
+        Assert.Contains("8×0×1", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a dispatch with a pipeline and real groups reports nothing.</summary>
+    [Fact]
+    public void A_compute_dispatch_that_was_given_everything_reports_nothing() {
+        using var fixture = new Passes();
+        using var h = fixture.Compute();
+
+        fixture.Frame(h);
+
+        Assert.Empty(Read(h.Compositor));
+    }
+
+    // --- The fixture for the two above --------------------------------------
+
+    /// <summary>A device, an effect provider and the two node shapes every post chain is built of.</summary>
+    /// <remarks>
+    ///     Deliberately thinner than <c>PostProcessTests</c>'s: nothing here asserts about what was
+    ///     drawn, only about what was said, so the pass needs to reach its declaration and no further.
+    /// </remarks>
+    sealed class Passes : IDisposable {
+        readonly NullDevice device = new(new() { Record = true, FramesInFlight = 2 });
+        readonly EffectSystem effects = new();
+        readonly DescriptorAllocator allocator;
+
+        public EffectPipelineDescriber Describer { get; }
+
+        public Passes(bool compiles = true) {
+            allocator = new(device);
+            Describer = new(device);
+
+            if (compiles) {
+                effects.AddProvider(new Compiles());
+            }
+        }
+
+        public Frames FullScreen(bool modules = true) {
+            var pass = new FullScreenRenderer {
+                Name = "Tonemap",
+                ShaderName = "Tonemap",
+                Modules = modules ? Describer : null,
+                Device = device
+            };
+
+            pass.ColourTargets.Add("Display");
+            pass.Descriptors.Allocator = allocator;
+
+            var system = new RenderSystem();
+            var compositor = new GraphicsCompositor(system) { FrameSize = new(64, 64), Game = pass };
+
+            compositor.Imports["Display"] = Imported("Display");
+
+            return new() { System = system, Compositor = compositor, Graph = new(device), Node = pass };
+        }
+
+        public Frames Compute(bool pipelines = true) {
+            var dispatch = new ComputeRenderer {
+                Name = "Reduce",
+                ShaderName = "Reduce",
+                Pipelines = pipelines ? new ComputePipelineCache(device) : null,
+                Groups = new(8, 8, 1)
+            };
+
+            // A write, because the graph drops a pass that reads and writes nothing — and this test
+            // is about a pass that reaches its declaration, not one the graph culled.
+            dispatch.Writes.Add("Metered");
+            dispatch.Descriptors.Allocator = allocator;
+
+            var system = new RenderSystem();
+            var compositor = new GraphicsCompositor(system) { FrameSize = new(64, 64), Game = dispatch };
+
+            compositor.Imports["Metered"] = Imported("Metered", storage: true);
+
+            return new() { System = system, Compositor = compositor, Graph = new(device), Node = dispatch };
+        }
+
+        public void Frame(Frames h) {
+            var list = device.BeginCommandList();
+
+            allocator.BeginFrame();
+            h.Graph.Reset();
+            h.Compositor.Build(h.Graph, effects, device);
+            h.Graph.Execute(list);
+
+            list.Finish();
+            device.GraphicsQueue.Submit([list]);
+        }
+
+        ImportedTexture Imported(string name, bool storage = false) {
+            var usage = TextureUsage.ColourTarget | TextureUsage.Sampled;
+
+            var description = new TextureDescription(
+                PixelFormat.Rgba16Float,
+                64,
+                64,
+                storage ? usage | TextureUsage.Storage : usage,
+                Name: name
+            );
+
+            var texture = device.CreateTexture(description);
+            return new(texture, device.CreateTextureView(texture), description);
+        }
+
+        static Effect Compiled(EffectKey key) =>
+            new() {
+                Key = key,
+                Stages = [
+                    new(ShaderStage.Vertex, [1, 2, 3, 4], "main"),
+                    new(ShaderStage.Fragment, [5, 6, 7, 8], "main"),
+                    new(ShaderStage.Compute, [9, 10, 11, 12], "main")
+                ]
+            };
+
+        sealed class Compiles : IEffectProvider {
+            public Effect? TryGet(EffectKey key) => Compiled(key);
+        }
+
+        public void Dispose() {
+            allocator.Dispose();
+            device.Dispose();
+        }
+    }
+
+    /// <summary>One compositor, its graph, and the node under test.</summary>
+    sealed class Frames : IDisposable {
+        public required RenderSystem System { get; init; }
+        public required GraphicsCompositor Compositor { get; init; }
+        public required RenderGraph Graph { get; init; }
+        public required SceneRenderer Node { get; init; }
+
+        public FullScreenRenderer Pass => (FullScreenRenderer)Node;
+
+        public ComputeRenderer Dispatch => (ComputeRenderer)Node;
+
+        public void Dispose() {
+            (Node as IDisposable)?.Dispose();
+            Graph.DisposePool();
+            System.Dispose();
+        }
     }
 }

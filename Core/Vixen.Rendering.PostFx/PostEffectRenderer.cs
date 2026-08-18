@@ -183,12 +183,30 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
         new(1f / Math.Max(size.X, 1), 1f / Math.Max(size.Y, 1));
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The inner pass is not in <see cref="SceneRenderer.Nested" />, so its answer is carried
+    ///     out by hand.</b> A post effect is one <see cref="FullScreenRenderer" /> that the effect owns
+    ///     rather than a node a document named — which is deliberate, and which means
+    ///     <see cref="GraphicsCompositor.Degradations" /> cannot reach it. Every effect deriving from
+    ///     this therefore inherits the pass's reason as its own: <c>TonemapRenderer</c> is the node that
+    ///     writes the swapchain, and its silence was the documented case.
+    /// </remarks>
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
-        if (Modules is null || Samplers is null) {
-            return;
+        Degrade(Declare(compositor, frame));
+    }
+
+    string? Declare(GraphicsCompositor compositor, CompositorFrame frame) {
+        if (Modules is null) {
+            return "no Modules, so the effect's pass was never declared and its Output holds whatever "
+                + "the graph last aliased into it";
+        }
+
+        if (Samplers is null) {
+            return "no Samplers, so the effect's pass was never declared and its Output holds whatever "
+                + "the graph last aliased into it";
         }
 
         DeclareOutput(frame, TargetSize(frame.Size));
@@ -210,9 +228,20 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
         pass.BufferReads.Clear();
         pass.Descriptors.Bindings.Clear();
 
+        // ⚠ Cleared first, so that what comes back is this frame's answer and not a scar. The two
+        // effects that already answered — SkyRenderer and AmbientCombineRenderer — do it from inside
+        // Configure, because that is the point at which an effect reads the frame, and a subclass
+        // that only spoke up on the bad path would otherwise leave last frame's reason standing.
+        Degrade(null);
         Configure(frame, pass.Parameters, pass.Descriptors.Bindings);
+        var configured = Degraded;
 
         BuildChild(pass, compositor, frame);
+
+        // The pass's reason first, because it subsumes: an effect complaining that its matrix is the
+        // identity is describing a picture that was drawn, and a pass that was never declared drew
+        // nothing at all.
+        return pass.Degraded ?? configured;
     }
 
     /// <inheritdoc />

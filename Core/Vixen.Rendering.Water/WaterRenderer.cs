@@ -413,11 +413,25 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
             );
         }
 
+        Degrade(Declare(compositor, frame));
+    }
+
+    /// <summary>Declares the surface pass, or says why it did not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A helper returning <c>string?</c> so that declining has to say why</b> — and because
+    ///     the classify and surface passes are this node's own rather than nodes a document named,
+    ///     they are not in <see cref="SceneRenderer.Nested" /> and their answer is carried out here.
+    /// </remarks>
+    string? Declare(GraphicsCompositor compositor, CompositorFrame frame) {
         if (Samplers is null || pass.Device is null) {
             // Nothing to run against. A document naming !Water in a host that has not wired the
             // renderer up should cost a frame with no water, not an exception — the same terms
             // !ScreenProbeGather and !SurfaceCache are built on.
-            return;
+            return Samplers is null
+                ? "no Samplers, so the surface pass was never declared and the frame has no water at "
+                + "all — a lake that is not there rather than one that looks wrong"
+                : "no Device on the surface pass, so it was never declared and the frame has no "
+                + "water at all — a lake that is not there rather than one that looks wrong";
         }
 
         pass.Samplers = Samplers;
@@ -516,11 +530,16 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
         // The classification first, because the draw reads what it wrote. The graph would order them
         // from the buffer either way; declaring them the other way round would be a reader looking for
         // a producer that has not declared itself yet.
+        string? reason = null;
+
         if (tiles.Tiled) {
             BuildChild(classify, compositor, frame);
+            reason = classify.Degraded;
         }
 
         BuildChild(pass, compositor, frame);
+
+        return reason ?? pass.Degraded;
     }
 
     /// <summary>The three numbers the medium is lit by, from the frame's lighting where it has any.</summary>
