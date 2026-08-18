@@ -113,7 +113,8 @@ The macOS and Windows CI runners have no Vulkan driver, so every fixture here **
 the reference a developer generates on their own Mac is checked in exactly one place: `ubuntu-latest`,
 on lavapipe. A tolerance that is impossible to meet cross-driver therefore looks green to everyone
 working on a Mac and is red on master from the day it lands — which is what happened to
-`viewport-overlay-over-compositor`, red on every push for six days while three legs reported success.
+`viewport-overlay-over-compositor`: red on `ubuntu-latest` on every push for six days, and skipped,
+so silently fine, on the two legs the work was being done against.
 
 Reproduce that leg locally rather than guessing at it. lavapipe needs no GPU, so a container is
 enough:
