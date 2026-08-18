@@ -149,6 +149,22 @@ public sealed class ComposedPaneCaptureTests {
             Assert.True(world.IsComplete, $"set 0 never bound; nothing filled: {world.MissingBinding}");
             Assert.Equal(EditorWorldRenderer.MaxPanes, targets.Count);
 
+            // ⚠ The claim the pixels below cannot make, asserted on the driver that drew them.
+            // Under a one-view arrangement the four panes still come back as four *different*
+            // images — the grid, the axes and the gizmo are drawn from each pane's own camera by the
+            // tool pass whatever the frame did — so "no two panes are the same pixels" is satisfied
+            // by a frame whose geometry is all one camera's. The picture shows it plainly to a
+            // person, because the objects stop standing on the grid; nothing in a byte comparison
+            // does. What does is four views in the frame's list, carrying four indices.
+            var views = world.Compositor.Views;
+
+            Assert.Equal(EditorWorldRenderer.MaxPanes, views.Count);
+            Assert.Equal(views.Count, views.Select(view => view.Index).Distinct().Count());
+
+            for (var index = 0; index < panes.Count; index++) {
+                Assert.Contains(world.ViewOf(index), views);
+            }
+
             var images = targets.Select(target => target.Read(device)).ToList();
 
             for (var index = 0; index < images.Count; index++) {
