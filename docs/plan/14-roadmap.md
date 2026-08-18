@@ -51,7 +51,7 @@ that drifts.
 | [23](23-bindless-materials.md) | One descriptor array per frame, so a draw is an index | Folded into Phase 5's remainder |
 | [24](24-blockout-tools.md) | In-viewport grey-boxing | § Part 3. 11.0 EM total, of which P0–P4 is 7.0 and is where the value is |
 | [27](27-mmo-framework.md) | An orchestrator, realms, and seamless transfer between them | § Cost. 16.0 EM across L0–L4, each shippable on its own. **L0 has landed** and L1 is in slices — `Live/` exists, a realm is a process with a lifecycle, and the megaserver's placement is a pure function with property tests. § L0, as built and § L1, in progress record what changed |
-| [28](28-gameplay-framework.md) | The gameplay library set on top of it | § Cost. 25.5 EM across G0–G8, taken by genre rather than whole. Its libraries live in `Gameplay/`, a top level whose build plumbing landed with 27's L0. **G0 — the kernel — G1 — items, the container algebra and loot — G2 — combat and shooting — G3 — progression and quests — G4 — social and chat — G5 — the economy — G6 — competing — G7 — the world — and G8 — owning — have all landed**: tags, `DefId`, definitions and their catalog, the attribute algebra, effects, requirements, the RNG, the module seam, the `.vxdef` importer, a sixteen-byte item instance with affixes regenerated from its seed, transactional containers with the conservation oracle in CI, loot tables with durable pity, a drop simulator that runs the shipped evaluator, abilities over a six-stage damage pipeline with threat and taunt, and the weapon model with its hit-claim validator — which also closes doc 16's owed cost budget for rewinds; levels, talents, professions and reputation over one requirement-answering record; and quests whose objectives subscribe to a tag-filtered event bus that turned out to belong in the kernel, with realm-scoped dynamic events, contribution tiers and chains that cycle; parties, guilds, friends and presence beside a chat router whose audience is a seam rather than a reference; and currencies, vendors, a trade escrow, mail and an auction house, every transaction of which is one balanced idempotent intent against a ledger seam; dungeons with fleet-wide lockouts beside battlegrounds whose objectives are four composable types; and matchmaking, which takes Open Match's separation of filtering, proposing, evaluating and allocating without its Kubernetes topology, and ships both an Elo and a TrueSkill-family rating model; and one channelled-interaction system with recipes over it, a fog bitmap per character, and five ways of travelling that all resolve to doc 27's one transfer. Movement's *transform* half waits on doc 16's owed parent-relative replication (item 69), which doc 28 predicted; its seat model is built, as are leashing and spawn tables — all that G7's AI row turned out to still need, since threat went to Combat at G2 and the planners to Core/Vixen.Ai; and housing and collections, whose shared discipline is that *nothing in either takes a clock*, which is what makes doc 28's "ten thousand houses are ten thousand rows, not ten thousand processes" a property of the API rather than an aspiration. **What is left of the document is `Samples/14-Mmo`, which it calls the exit criterion for the whole thing, and the durable bridge into `Live/`.** G0 is the one milestone that document says is not optional; G2–G8 are independent tracks a game takes by genre |
+| [28](28-gameplay-framework.md) | The gameplay library set on top of it | § Cost. 25.5 EM across G0–G8, taken by genre rather than whole; its libraries live in `Gameplay/`. **G0–G8 have all landed** — the kernel, items and loot, combat and shooting, progression and quests, social, the economy, competing, the world, owning. What each contains is in doc 28's milestone sections and in [`../overview.md`](../overview.md) § 1.10. G0 is the one milestone that document says is not optional; G2–G8 are independent tracks a game takes by genre. Owed: movement's *transform* half, which waits on doc 16's parent-relative replication, and `Samples/14-Mmo`, which doc 28 calls the exit criterion for the whole thing |
 
 > **27 and 28 together are ≈ 41.5 EM — near enough this table's whole original total.** That is
 > deliberate and it is stated in both documents rather than buried: an MMO framework is the size of
@@ -328,18 +328,18 @@ siblings (`Hierarchy.SetParentAfter`).
 
 **What the sentence did not cover has since landed as well:** the asset editors
 (`Vixen.Editor.AssetEditors`), the profiler, the debugger, the plugin host, the automation harness and
-the animation graph are all projects now — so cut-list #7 was built rather than cut. What is left of
-this phase is `PublishEditor` with signing and notarisation, golden screenshots for editor layouts, and
-the editor-shell performance bar, which is **unmeasured** — nothing runs that benchmark yet.
+the animation graph are all projects now — so cut-list #7 was built rather than cut.
 
-✅ **The viewport draws meshes.** This paragraph used to say it drew lines only. `SceneShape` names
-either a built-in primitive or a mesh reference, so a hundred instances of one rock are one instanced
-draw; `ProjectMeshSource` reads the chunks the last import wrote, out of the project's artefact store
-rather than a content build, because waiting for a build to look at a level would make the viewport a
-function of the build rather than of the files. ⚠ What is still owed is a **material**: the surfaces
-are one directional term in the viewport's own shader, not what a game would draw them with. And an
-unloaded mesh draws nothing rather than falling back to its shape — an entity that changed appearance
-while its mesh loaded is a scene that looks different depending on how fast the disk is.
+✅ **The viewport composes a real frame.** It draws the scene through a `GraphicsCompositor` into the
+window's render graph — every pane of a quad layout, each with its own `RenderView` — rather than the
+lines and one-directional-term meshes this paragraph used to describe. `Editor/Vixen.Editor.App`'s
+`FramePresenter` and `EditorWorldRenderer` are the entry points; [20](20-editor-parity.md) and
+[`../overview.md`](../overview.md) § 1.11 carry the per-feature state.
+
+**What is left of this phase**: the *packaging* half of publishing — `build/Build.Publish.cs` has a
+working `PublishEditor` that publishes self-contained per RID, but `.app`/`.dmg`, AppImage and MSI,
+with signing and notarisation, are owed — plus golden screenshots for editor layouts, and the
+editor-shell performance bar, which is **unmeasured**: nothing runs that benchmark yet.
 
 **[20 — Editor Parity](20-editor-parity.md) is the sequel to this phase**, and its framing is the honest
 one: this phase makes the editor work, and that document is what the difference between "the editor
@@ -535,7 +535,8 @@ editor became the application-platform proof instead.
 - Documentation: ⚠️ **specified in [25](25-documentation-generator-and-site.md)**, which replaces the
   DocFX API reference with a generated graph and a site built on xUI — getting started, per-subsystem
   guides, a UI framework tutorial and a Raven language reference, at ~10 EM, of which the writing is a
-  third and is continuous rather than a phase. Plus 12+ runnable samples. Eleven exist.
+  third and is continuous rather than a phase. Plus 12+ runnable samples. Twelve exist — `05` and `06`
+  are the gaps.
 - `dotnet new` templates for game, application, library and editor plugin, verified from a clean machine
   on all six targets. Three of the four are built and their C# is compiled in CI against the assemblies
   their package references resolve to; the plugin one is owed rather than blocked. "From a clean
