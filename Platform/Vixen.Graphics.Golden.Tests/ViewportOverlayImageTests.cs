@@ -89,8 +89,42 @@ public sealed class ViewportOverlayImageTests {
         Assert.True(IsLine(image, Column(FrontLine), 64), "the front line is missing over the quad");
         Assert.True(IsLine(image, 12, Row(BehindLine)), "the behind line is missing outside the quad");
 
-        GoldenImage.Verify("viewport-overlay-over-compositor", image, Tolerance.Flat);
+        GoldenImage.Verify("viewport-overlay-over-compositor", image, LineTerminals);
     }
+
+    /// <summary>
+    ///     <see cref="Tolerance.Flat" />'s channel bound, with one whole pixel of room per line
+    ///     endpoint and not one more.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because two conformant drivers disagree about the last fragment of a line, and
+    ///         this is measured rather than assumed.</b> The reference was rendered on MoltenVK; on
+    ///         lavapipe — the Linux leg's driver, and the only leg that runs these fixtures, since
+    ///         macOS and Windows CI have no Vulkan and skip them — exactly one pixel of 16 384
+    ///         differs: <c>(83, 6)</c>, amber on lavapipe and background on MoltenVK. That is the
+    ///         top end of the vertical segment. Its <c>y = 0.9</c> lands at framebuffer 6.4 under the
+    ///         backend's negative-height viewport, so lavapipe produces the fragment for row 6 and
+    ///         MoltenVK stops at row 7; both then run to row 121 together. Vulkan's default line
+    ///         rasterisation is Bresenham-style and leaves the terminal fragment to the
+    ///         implementation, so neither is wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Four pixels, because the picture has four line endpoints</b> — one per end of the
+    ///         two segments — and each can differ by at most itself. It is deliberately not
+    ///         <see cref="Tolerance.Edges" />, which the suite's other line fixtures use: that allows
+    ///         32 whole pixels here, and what this fixture exists to see is a 64-pixel run of the
+    ///         cyan segment appearing or disappearing where the quad occludes it. A bound wider than
+    ///         the signal is a bound that cannot fail for the reason the fixture was written.
+    ///     </para>
+    ///     <para>
+    ///         The channel bound stays at <see cref="Tolerance.Flat" />'s 2/255: everything here is
+    ///         flat colour, and the drivers' worst agreed pixel is one level apart on the cyan
+    ///         segment. Occlusion itself is bit-identical between them — the hidden run starts at
+    ///         column 32 and ends at column 96 on both, which is the quad's extent exactly.
+    ///     </para>
+    /// </remarks>
+    static Tolerance LineTerminals => new(Tolerance.Flat.Channel, 4d / (Fixture.Side * Fixture.Side));
 
     /// <summary>
     ///     The same overlay with the frame's depth taken away, which is what a preview that lost the
