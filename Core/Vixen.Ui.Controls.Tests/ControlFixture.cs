@@ -93,7 +93,15 @@ sealed class ControlFixture : IDisposable {
     public void Release(float x, float y, ModifierKeys modifiers = ModifierKeys.None, PointerButton button = PointerButton.Primary) =>
         Send(x, y, PointerAction.Released, button, modifiers);
 
-    public void MovePointer(float x, float y) => Send(x, y, PointerAction.Moved, PointerButton.None, ModifierKeys.None);
+    /// <summary>Moves the pointer, optionally with something held on the keyboard.</summary>
+    /// <remarks>
+    ///     The modifiers are on the move rather than only on the press because a control is allowed
+    ///     to read them mid-gesture — <c>NumericInput</c> changes its scrub rate when Shift goes down
+    ///     part way through a drag — and a fixture that could only state them at the press would make
+    ///     that untestable.
+    /// </remarks>
+    public void MovePointer(float x, float y, ModifierKeys modifiers = ModifierKeys.None) =>
+        Send(x, y, PointerAction.Moved, PointerButton.None, modifiers);
 
     public void MoveOver(UiElement element) {
         var bounds = element.Bounds;
