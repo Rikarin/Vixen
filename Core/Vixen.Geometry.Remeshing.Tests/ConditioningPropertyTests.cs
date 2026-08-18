@@ -84,9 +84,10 @@ public class ConditioningPropertyTests {
     ///         <c>new(ShapeKind.Box, 7, 1, [], 3, 0f, 0.001f)</c>: <b>5.9 s and 50 832 triangles at
     ///         zero rounds, 4.5 ms and 720 at one</b>, because one round supplies a mean edge length
     ///         that clamps the grid to its eight-step floor instead. Both callers in the tree
-    ///         (<see cref="Remesher" />, <c>RemeshDump</c>) pass a positive length, so this corner is
-    ///         this suite's alone — and it is the only thing here that exercises a full-resolution
-    ///         extraction, which is a reason to keep it rather than to trim it.
+    ///         (<see cref="Remesher" />, <c>RemeshDump</c>) size that length from the source's own
+    ///         area, which is positive for anything with area, so this corner is this suite's in
+    ///         practice — and it is the only thing here that exercises a full-resolution extraction,
+    ///         which is a reason to keep it rather than to trim it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>So the slowest case is a different recipe every run and the same <i>shape</i> of

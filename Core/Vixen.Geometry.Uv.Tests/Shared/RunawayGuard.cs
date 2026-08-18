@@ -139,9 +139,10 @@ static class RunawayGuard {
     ///         where a fixed 64-step grid tops out, which is why the work has a ceiling at all.
     ///     </para>
     ///     <para>
-    ///         <b>Both callers in the tree pass a positive length</b> (<c>Remesher</c> and
-    ///         <c>RemeshDump</c>, from <c>BaseLength</c>), so the zero-target corner is the property
-    ///         suite's alone and nothing here is a defect to fix — it is the sweep exercising the one
+    ///         <b>Both callers in the tree size that length from the source's own area</b>
+    ///         (<c>Remesher</c> and <c>RemeshDump</c>, through <c>Remesher.BaseLength</c>), which is
+    ///         positive for anything with area — so the zero-target corner is the property suite's in
+    ///         practice, and nothing here is a defect to fix: it is the sweep exercising the one
     ///         extraction big enough to be worth exercising. The measurements are reproducible from
     ///         the harness in commit <c>168c5d7b</c>, and <c>CaseTrace</c> — <c>VIXEN_CASE_TRACE</c>
     ///         naming a file — writes the per-case distribution on any run without one.
