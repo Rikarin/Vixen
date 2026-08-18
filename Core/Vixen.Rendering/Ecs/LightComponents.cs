@@ -149,20 +149,72 @@ public static class Lights {
         return false;
     }
 
+    /// <summary>A clear midday sun, in lux, which is what a new directional light is.</summary>
+    /// <remarks>
+    ///     <see cref="Lighting.PhysicalSky.SunIlluminance" /> works out about 95 klx overhead on a
+    ///     clear day from a 128 klx solar constant, so this is that number rounded to the one every
+    ///     daylight table quotes. It is deliberately not a sunset value: a sun somebody has to turn
+    ///     <i>down</i> reads as a light that works, and a sun somebody has to turn up four decimal
+    ///     orders reads as a broken renderer.
+    /// </remarks>
+    const float DaylightIlluminance = 100_000f;
+
+    /// <summary>The luminous flux of the lamp every other kind's default is one of, in lumens.</summary>
+    /// <remarks>
+    ///     A 1600-lumen bulb — the 100 W equivalent on a supermarket shelf — because the four kinds
+    ///     that have a position are all lamps and a lamp is sold in lumens. It is converted into each
+    ///     kind's own unit below rather than stored as one, so <see cref="Light.Unit" /> never has to
+    ///     be <see cref="LightUnit.Lumen" /> on a default and <c>Default(kind) with { Intensity = x }</c>
+    ///     keeps meaning what it has always meant.
+    /// </remarks>
+    const float LampFlux = 1600f;
+
     /// <summary>A light of a kind, with values that light something.</summary>
     /// <param name="kind">The kind.</param>
     /// <returns>The light.</returns>
     /// <remarks>
-    ///     ⚠ <b>Not <c>default</c>, and the difference is whether the thing works.</b> A zeroed light
-    ///     has no intensity and no range, so a scene lit by one is a black scene — the same failure
-    ///     <c>Camera.Perspective</c> exists to avoid, where a zeroed camera has a zero far plane and
-    ///     every matrix built from it is degenerate. A new light is a light you can see by.
+    ///     <para>
+    ///         ⚠ <b>Not <c>default</c>, and the difference is whether the thing works.</b> A zeroed
+    ///         light has no intensity and no range, so a scene lit by one is a black scene — the same
+    ///         failure <c>Camera.Perspective</c> exists to avoid, where a zeroed camera has a zero far
+    ///         plane and every matrix built from it is degenerate.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"A light you can see by" is a different number for every kind, and that is the
+    ///         correction this paragraph records.</b> This method used to hand back <c>Intensity = 1</c>
+    ///         for all five with <see cref="Light.Unit" /> left at <see cref="LightUnit.Native" />, and
+    ///         the claim was only true of the punctual ones — one candela is a dim candle, and one
+    ///         <em>lux</em> is a directional light four to five decimal orders below the sky it is
+    ///         standing under. A frame lit by that sun is pixel-identical to a frame with no sun in it,
+    ///         so an author dragging one in saw nothing, turned it up to ten, and still saw nothing.
+    ///         Each kind now gets a real lamp in its own unit:
+    ///         <list type="bullet">
+    ///             <item>Directional — <see cref="DaylightIlluminance" /> lux, a clear midday sun.</item>
+    ///             <item>Point and Spot — <see cref="LampFlux" /> lumens as candela, so the spot is the
+    ///             brighter of the two by exactly what its cone concentrates.</item>
+    ///             <item>Rect and Tube — the same lamp as nits through the surface each one has.</item>
+    ///         </list>
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The unit is stated rather than left at <see cref="LightUnit.Native" />, and it is
+    ///         always the kind's own.</b> Native and the kind's own unit are the same arithmetic —
+    ///         <see cref="Photometry.Intensity" /> only ever divides for <see cref="LightUnit.Lumen" />
+    ///         — so writing it changes no pixel and labels the number, which is the whole difference
+    ///         between an inspector row that reads "100000" and one that reads "100000 lux".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Creation only.</b> Nothing here reaches a load: a compiled scene's component starts
+    ///         at <c>default(T)</c> and is overwritten field by field, and the editor's YAML reader
+    ///         builds its own zeroed <c>Light</c> — see <c>ISceneComponentBinder.CreateDefault</c>, whose
+    ///         remark is the promise this relies on. Changing these numbers changes what an Add
+    ///         Component and a Create Light hand over and changes no saved scene.
+    ///     </para>
     /// </remarks>
     public static Light Default(LightKind kind) {
         var light = new Light {
             Kind = kind,
             Colour = new Color3(1f, 1f, 1f),
-            Intensity = 1f,
+            Unit = NativeUnitOf(kind),
             Range = 10f
         };
 
@@ -193,8 +245,41 @@ public static class Lights {
                 break;
         }
 
+        // ⚠ After the switch, because three of the five conversions read the geometry it just set —
+        // a spot's cone, a rectangle's extent, a tube's capsule. Doing it in the initialiser would
+        // have divided the flux by a zero solid angle and by a zero area.
+        //
+        // Lumens mean nothing for a light with no position, so the sun is the one kind that is not
+        // this lamp: `Photometry.Intensity` would hand a directional light its flux back unchanged
+        // and call it lux, which is a number with a unit and no meaning.
+        light.Intensity = kind is LightKind.Directional
+            ? DaylightIlluminance
+            : Photometry.Intensity(
+                kind,
+                LightUnit.Lumen,
+                LampFlux,
+                light.OuterAngle,
+                light.Radius,
+                light.HalfLength
+            );
+
         return light;
     }
+
+    /// <summary>The unit a kind's own numbers are already in — what <c>Native</c> means for it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named after <see cref="LightUnit.Native" />'s own summary and has to keep agreeing with
+    ///     it.</b> That enum member is documented as "candela for a point or a spot, lux for a
+    ///     directional light, nits for an area one", and <see cref="Photometry.Intensity" /> is written
+    ///     so that both readings coincide. A kind that disagreed here would be a default whose label
+    ///     said one thing and whose arithmetic did another.
+    /// </remarks>
+    static LightUnit NativeUnitOf(LightKind kind) =>
+        kind switch {
+            LightKind.Directional => LightUnit.Lux,
+            LightKind.Rect or LightKind.Tube => LightUnit.Nits,
+            _ => LightUnit.Candela
+        };
 
     /// <summary>Gives an entity a light, or replaces the one it has.</summary>
     /// <param name="world">The world it lives in.</param>
