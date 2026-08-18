@@ -121,17 +121,37 @@ public sealed class StandardFrameDocument : EditorDocument {
         ArgumentException.ThrowIfNullOrEmpty(path);
 
         AssetPath = path;
-        Reload();
+
+        // ⚠ `Read` rather than `Reload`, because the base's `Reload` clears and marks the undo stack
+        // and there is not one yet — a constructor is not a reload, it is the first read.
+        Read(keepOnFailure: false);
     }
 
-    /// <summary>Reads the file again, from disk, and rebuilds everything derived from it.</summary>
+    /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>It does not touch the undo stack, and it is not an undoable edit.</b> What it
-    ///     replaces is the file's own contents; a stack whose entries described the previous file
-    ///     would undo edits into a document that no longer has the members they name.
+    ///     A frame document is read in one call and everything derived from it is rebuilt in the
+    ///     same call, so re-reading it is the same work as opening it. That is what makes this one of
+    ///     the few documents that can honestly say yes.
     /// </remarks>
-    public void Reload() {
+    public override bool CanReload => true;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A file that will not parse leaves the old document standing</b>, which is the
+    ///     opposite of what opening one does. Opening a broken frame has to produce <em>something</em>
+    ///     for the panel to draw and its diagnostics to hang off; reloading over a document that is
+    ///     already on screen does not, and an external tool that writes a file in two passes would
+    ///     otherwise blank the panel on the first of them. <c>EditorFrames.Reframe</c> makes the same
+    ///     trade for the same reason. <see cref="Diagnostics" /> says what was wrong either way.
+    /// </remarks>
+    protected override bool ReloadCore() => Read(keepOnFailure: true);
+
+    /// <summary>Reads the file and rebuilds everything derived from it.</summary>
+    /// <param name="keepOnFailure">Whether a file that will not parse leaves the current document alone.</param>
+    /// <returns>Whether the file was read.</returns>
+    bool Read(bool keepOnFailure) {
         var complaints = new List<string>();
+        var read = true;
 
         try {
             var text = AssetFile.Read(AssetPath);
@@ -140,8 +160,12 @@ public sealed class StandardFrameDocument : EditorDocument {
                 ? new GraphicsCompositorAsset { Version = CompositorBuilder.SupportedVersion }
                 : YamlSerializer.Parse<GraphicsCompositorAsset>(text);
         } catch (Exception failure) when (failure is YamlParseException or YamlBindingException) {
-            Document = new() { Version = CompositorBuilder.SupportedVersion };
+            read = false;
             complaints.Add(failure.Message);
+
+            if (!keepOnFailure) {
+                Document = new() { Version = CompositorBuilder.SupportedVersion };
+            }
         }
 
         if (Node is { } node) {
@@ -152,6 +176,8 @@ public sealed class StandardFrameDocument : EditorDocument {
         Preset = ReadPreset(complaints);
 
         Restate(complaints);
+
+        return read;
     }
 
     /// <summary>Pushes what the inspector wrote back onto the node and re-expands.</summary>
@@ -223,8 +249,12 @@ public sealed class StandardFrameDocument : EditorDocument {
         AssetFile.Write(kept, YamlSerializer.ToYaml(Document));
         AssetFile.Write(AssetPath, CompositorWriter.Write(exploded, notes, ExplodedHeader));
 
+        // ⚠ The base's `Reload`, which clears the history as well as re-reading — and that is the
+        // correction rather than a side effect. Every entry on the stack is a knob turn, and the
+        // file this just wrote has no knobs; undoing into it would have written a `!StandardFrame`
+        // back over the expansion. `Reload` marks it clean too, so the `MarkClean` that used to be
+        // on the next line is now the same call.
         Reload();
-        Stack.MarkClean();
 
         return kept;
     }

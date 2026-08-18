@@ -292,9 +292,19 @@ file. They are there rather than here for the reason `SceneDocument` is: a docum
 its subject, and this project deliberately references neither the interface framework nor the
 importers.
 
-**Watch-driven re-import** belongs to the import pipeline in `Vixen.Editor.Assets` and is not built:
-the shell rescans on `Ctrl+R`. A watcher needs debouncing, a rename heuristic and a way not to fight
-the editor's own writes, and one that missed half the events while claiming to be live would be worse
-than a refresh that says what it does.
+**Following the disk.** The head owns an `IFileWatcher` over `Assets/` and drains it on the frame;
+this project holds the half that knows what a change *means* to something that is open.
+`ExternalEdits` turns a watched path into the document editing that asset — through the GUID index,
+so it has to run after the rescan — and applies the one policy in the seam: a document that can
+re-read its file and has nothing unsaved is reloaded, and one with unsaved edits is left exactly as
+it is, marked `EditorDocument.IsStale`, and reported. Memory is the only copy of itself and a file is
+not, so the reversible choice is to keep both and let a person pick.
+
+It is also what stops the editor arguing with itself. `EditorProject.DocumentSaving` fires *before*
+`SaveCore`, which is the only ordering at which `IFileWatcher.Suppress` can beat the write to the
+disk — that call is what keeps a Ctrl+S from arriving back as somebody else's edit.
+
+**Watch-driven re-import** is still the import pipeline's in `Vixen.Editor.Assets` and is still not
+built: a change rescans the database and reaches the open documents, and does not re-run an importer.
 
 Licensed under Apache-2.0.
