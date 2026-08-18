@@ -107,6 +107,40 @@ produce — with one stated exception: `Tolerance.Shaded`'s mean of 0.35 was mea
 driver's zero and against injected regressions of 0.44 to 1.26, and its cross-driver half does not
 exist yet. See its remarks before raising it.
 
+## ⚠ The Linux leg is the only one that runs these
+
+The macOS and Windows CI runners have no Vulkan driver, so every fixture here **skips** on both and
+the reference a developer generates on their own Mac is checked in exactly one place: `ubuntu-latest`,
+on lavapipe. A tolerance that is impossible to meet cross-driver therefore looks green to everyone
+working on a Mac and is red on master from the day it lands — which is what happened to
+`viewport-overlay-over-compositor`, red on every push for six days while three legs reported success.
+
+Reproduce that leg locally rather than guessing at it. lavapipe needs no GPU, so a container is
+enough:
+
+```bash
+docker run --rm -v "$PWD:/src" mcr.microsoft.com/dotnet/sdk:10.0 bash -c '
+  apt-get update -qq && apt-get install -y -qq libvulkan1 mesa-vulkan-drivers libassimp5 libsdl2-2.0-0 spirv-tools
+  cd /src && VIXEN_REQUIRE_VULKAN=1 dotnet test Platform/Vixen.Graphics.Golden.Tests -c Release'
+```
+
+Build into a clone rather than the working tree — a Linux build and a macOS build share `obj/` and
+will fight over it.
+
+### What the two drivers actually disagree about
+
+**The terminal fragment of a line.** Vulkan's default line rasterisation is Bresenham-style and
+leaves the last fragment to the implementation, so a one-pixel segment can be one pixel longer on one
+driver. `viewport-overlay-over-compositor` differs in exactly that: its vertical segment ends at clip
+`y = 0.9`, which the backend's negative-height viewport puts at framebuffer 6.4, and lavapipe emits
+row 6 where MoltenVK stops at row 7. Nothing else in the picture moves — the depth occlusion the
+fixture exists to prove is bit-identical between them.
+
+A fixture with lines therefore cannot use `Tolerance.Flat`, which allows no whole pixel to differ.
+Size the allowance to the endpoints the picture has and say so, as `ViewportOverlayImageTests`'
+`LineTerminals` does; reach for `Tolerance.Edges` only when its 0.2 % is still narrower than whatever
+the fixture is watching for.
+
 ## The tier goldens
 
 `StandardFrameTierImageTests` is the only fixture here that renders a **whole frame the way a game
