@@ -143,7 +143,10 @@ public sealed class ExternalEditPumpTests : IDisposable {
         Assert.True(document.IsDirty.Value);
 
         // And it is said out loud rather than only flagged.
-        Assert.Contains(session.Shell.Notifications.History, entry => entry.Message.Contains("changed on disk", StringComparison.Ordinal));
+        Assert.Contains(
+            session.Shell.Notifications.History,
+            entry => entry.Message.Contains("changed on disk", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
