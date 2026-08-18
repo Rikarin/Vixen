@@ -104,10 +104,20 @@ public sealed partial class SearchBox : TextField {
 ///         still focuses the field: the two gestures start identically and are told apart by
 ///         whether anything happened next.
 ///     </para>
+///     <para>
+///         ⚠ <b>One pixel is worth a percentage of the number, not a fixed amount of it.</b> A field
+///         that always moved by <see cref="Step" /> was dead on anything large: a directional light
+///         is a hundred thousand lux, and a scrub that shifted it by one moved it by a thousandth of
+///         a percent per pixel. The light was only the messenger — a range in centimetres, a budget
+///         in bytes and a distance in metres all have the same shape — so the cure is in the
+///         arithmetic rather than in a number chosen per member. See <see cref="RelativeStep" />.
+///     </para>
 /// </remarks>
 public sealed partial class NumericInput : TextField {
     bool scrubbing;
     float scrubbed;
+    double offset;
+    double rate;
     double origin;
 
     /// <inheritdoc />
@@ -125,9 +135,40 @@ public sealed partial class NumericInput : TextField {
     [UiProperty(Default = double.PositiveInfinity, Changed = nameof(OnRangeChanged))]
     public partial double Maximum { get; set; }
 
-    /// <summary>How much one arrow press, one spinner click or one pixel of drag is worth.</summary>
+    /// <summary>The smallest one arrow press, one spinner click or one pixel of drag is worth.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A floor rather than the whole answer</b>, since <see cref="RelativeStep" /> exists.
+    ///     It is what the field moves by while it is small enough for a fixed amount to still make
+    ///     sense, and what it moves by at nought.
+    /// </remarks>
     [UiProperty(Default = 1.0)]
     public partial double Step { get; set; }
+
+    /// <summary>How much one step is worth as a fraction of the number's own magnitude.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A percentage per pixel, which is the only rate that works across the range a
+    ///         number can hold.</b> One hundredth is a hundred pixels to double a value or to take it
+    ///         to nothing, whatever the value is: a hundred thousand lux and a roughness of one
+    ///         scrub at the same <i>felt</i> speed, because the thing a person is adjusting is the
+    ///         proportion rather than the absolute amount.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Step" /> is the floor, and that is the deliberate answer to zero.</b>
+    ///         Nought has no magnitude to take a fraction of, so a purely proportional rate would
+    ///         leave a field sitting at zero unscrubbable — and zero is the value a field is most
+    ///         often dragged <i>away</i> from. Taking the larger of the two means the proportional
+    ///         part only takes over once it has outgrown the absolute one, which is exactly where
+    ///         the absolute one had stopped being useful: at a hundred times <see cref="Step" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Set it to zero for a field that genuinely wants a fixed amount per pixel</b> — a
+    ///         grid pitch, a page number — and the arithmetic collapses back to
+    ///         <c>origin + pixels × Step</c> exactly.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Default = 0.01)]
+    public partial double RelativeStep { get; set; }
 
     /// <summary>How many decimal places the text shows.</summary>
     [UiProperty(Changed = nameof(OnDecimalsChanged))]
@@ -154,7 +195,35 @@ public sealed partial class NumericInput : TextField {
 
     /// <summary>Adds a number of steps to the value.</summary>
     /// <param name="steps">How many, positive or negative.</param>
-    public void Nudge(double steps) => Number += steps * Step;
+    /// <remarks>
+    ///     ⚠ <b>The step is worked out from where the number is now, so repeated presses compound.</b>
+    ///     Holding Up on a hundred thousand lux climbs by a percent of whatever it has reached rather
+    ///     than by a percent of where it started — which is the behaviour a person expects from a key
+    ///     they are pressing over and over, and the opposite of what a drag wants. A drag freezes its
+    ///     rate instead; <see cref="Scrub" /> says why.
+    /// </remarks>
+    public void Nudge(double steps) => Number += steps * StepAt(Number);
+
+    /// <summary>What one step is worth at a given value.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The larger of the absolute and the proportional, never their sum.</b> Adding them
+    ///     would make <see cref="Step" /> a permanent tax on the rate — a hundred thousand lux would
+    ///     move by <c>1000 + 1</c>, and the one is noise — whereas taking the maximum makes the two
+    ///     a hand-over: <see cref="Step" /> owns everything below a hundred times itself and the
+    ///     fraction owns everything above.
+    /// </remarks>
+    double StepAt(double value) => Math.Max(Step, Math.Abs(value) * RelativeStep);
+
+    /// <summary>Fine and coarse, read off whatever was held on the keyboard.</summary>
+    /// <remarks>
+    ///     Shift multiplies and Alt divides, which is the convention in every content tool. Neither
+    ///     is a mode this has to remember — they are read off the event that arrived, so a scrub and
+    ///     an arrow key cannot drift apart about what Shift means.
+    /// </remarks>
+    static double Scale(ModifierKeys modifiers) =>
+        modifiers.HasFlag(ModifierKeys.Shift) ? 10d
+        : modifiers.HasFlag(ModifierKeys.Alt) ? 0.1d
+        : 1d;
 
     /// <inheritdoc />
     /// <remarks>
@@ -217,6 +286,30 @@ public sealed partial class NumericInput : TextField {
         }
     }
 
+    /// <summary>Rounds what a drag has added to something the field can actually hold.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A field showing no decimals is a count, and four point one three cascades is a
+    ///         worse bug than the one the proportional step is here to fix.</b> The floor in
+    ///         <see cref="StepAt" /> already keeps a small count moving by whole units — a percent of
+    ///         four is less than one, so <see cref="Step" /> wins — but nothing stops a fractional
+    ///         pixel delta on a scaled display, or a rate of a thousand landing on a half. Rounding
+    ///         is what makes the guarantee unconditional rather than a consequence of the numbers
+    ///         happening to be tidy.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The offset rather than the resulting number</b>, so an origin the field was given
+    ///         is never snapped by the act of touching it, and so a drag back to nought pixels lands
+    ///         on exactly the value the gesture started from.
+    ///     </para>
+    ///     <para>
+    ///         Sub-unit movement is kept in <c>offset</c> rather than thrown away, so a slow drag on
+    ///         a count still arrives at the next whole number instead of being rounded to nothing
+    ///         over and over.
+    ///     </para>
+    /// </remarks>
+    double Quantize(double value) => Decimals == 0 ? Math.Round(value, MidpointRounding.AwayFromZero) : value;
+
     double CoerceNumber(double value) =>
         double.IsNaN(value) ? Number : Math.Clamp(value, Minimum, Maximum);
 
@@ -260,30 +353,50 @@ public sealed partial class NumericInput : TextField {
             return;
         }
 
-        // Shift multiplies and Alt divides, which is the convention in every content tool. Neither
-        // is a coarse and fine mode this has to remember — they are read off the keystroke.
-        var scale = args.Modifiers.HasFlag(ModifierKeys.Shift) ? 10d
-            : args.Modifiers.HasFlag(ModifierKeys.Alt) ? 0.1d
-            : 1d;
-
-        Nudge(steps * scale);
+        Nudge(steps * Scale(args.Modifiers));
         args.Handled = true;
     }
 
+    /// <summary>Turns a press, a drag and a release into a change of value or into a focus.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The rate is frozen at the press, like the origin, and that is what makes the
+    ///         gesture reversible.</b> Reading the magnitude again on every move would compound —
+    ///         each move worth a percent of a number a percent bigger than the last — so the value
+    ///         would run away exponentially, and dragging back the same distance would not return
+    ///         to where it started. It would also make the result depend on how many move events the
+    ///         platform happened to deliver, which is a property no gesture should have. Lifting and
+    ///         pressing again is what re-derives the rate, and it is the same motion a person already
+    ///         makes when they want to keep going.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two accumulators, because they answer different questions.</b> <c>scrubbed</c> is
+    ///         pixels and only the click threshold reads it — a slow drag on a field whose rate is a
+    ///         thousandth would otherwise be indistinguishable from a click. <c>offset</c> is the
+    ///         value the drag has added so far, accumulated rather than recomputed, so that changing
+    ///         Shift or Alt part way through changes the rate from there on instead of jumping
+    ///         everything that came before to the new one.
+    ///     </para>
+    /// </remarks>
     void Scrub(PointerEvent args) {
         switch (args.Action) {
             case PointerAction.Pressed when args.Button == PointerButton.Primary && !IsFocused && !ReadOnly:
                 scrubbing = true;
                 scrubbed = 0f;
+                offset = 0d;
                 origin = Number;
+                rate = StepAt(origin);
 
                 Document.CapturePointer(this);
                 args.Handled = true;
                 break;
 
             case PointerAction.Moved when scrubbing:
-                scrubbed += args.X - LastX;
-                Number = origin + (scrubbed * Step);
+                var delta = args.X - LastX;
+
+                scrubbed += delta;
+                offset += delta * rate * Scale(args.Modifiers);
+                Number = origin + Quantize(offset);
 
                 args.Handled = true;
                 break;

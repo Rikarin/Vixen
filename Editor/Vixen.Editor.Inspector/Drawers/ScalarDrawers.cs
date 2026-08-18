@@ -99,6 +99,14 @@ public sealed class NumberDrawer : IPropertyDrawer {
         var numeric = parent.Add<NumericInput>();
         numeric.ReadOnly = !field.CanWrite;
         numeric.Decimals = IsIntegral(type) ? 0 : 3;
+
+        // ⚠ The floor, not the rate. An unbounded member has no declared scale — a lux, a
+        // centimetre and a byte all arrive here as a number with nothing said about it — so one is
+        // the best absolute guess and it is a bad one on anything large: a directional light is a
+        // hundred thousand lux, and a scrub worth one per pixel moved it by a thousandth of a
+        // percent. `NumericInput.RelativeStep` is what carries the magnitude; this is only what
+        // takes over when the member is small enough for a percentage to be smaller than useful,
+        // and what a member sitting at nought scrubs by.
         numeric.Step = 1d;
         numeric.NumberChanged += (_, value) => field.Write(Convert(value, type));
         numeric.Submitted += _ => field.Seal();
