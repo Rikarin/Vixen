@@ -154,11 +154,19 @@ public class GoapBudgetTests {
         Assert.Equal(Symbol.Intern("impossible"), plan.Goal);
         Assert.Equal(200, plan.Expanded);
 
-        // Bounded time is the claim; the number is recorded rather than asserted, for the reason P3's
-        // cost test gives at length.
+        // ⚠ A hang detector, not a performance bound, and the ceiling is deliberately absurd.
+        // `plan.Expanded == 200` above is what actually proves the search was bounded: it stopped at
+        // the node budget exactly, so the time follows from it on any machine. This only catches the
+        // failure the summary names — a search that never returns at all.
+        //
+        // It used to assert 250 ms, which is a performance claim wearing a hang check's clothes, and
+        // it failed on a loaded `ubuntu-latest` while every deterministic assertion above passed. A
+        // shared CI runner can lose a quarter-second to scheduling alone, so a bound that tight
+        // reports the runner's mood rather than the planner's.
         Assert.True(
-            clock.Elapsed.TotalMilliseconds < 250,
-            $"the search took {clock.Elapsed.TotalMilliseconds:0.000} ms for a {Actions}-action tangle."
+            clock.Elapsed.TotalSeconds < 30,
+            $"the search took {clock.Elapsed.TotalMilliseconds:0.000} ms for a {Actions}-action tangle, "
+            + "which is long enough that it is not returning rather than merely being slow."
         );
     }
 
