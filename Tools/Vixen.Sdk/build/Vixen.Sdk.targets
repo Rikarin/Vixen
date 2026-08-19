@@ -150,9 +150,11 @@
     </PropertyGroup>
 
     <!--
-        Import before the compiler runs, because generated C# — VXML components, shader parameter
-        keys — has to exist before CoreCompile reads the compile items. Nothing generates C# yet;
-        the ordering is what makes that a scheduling detail later rather than a redesign.
+        Import before the compiler runs, because generated C# has to exist before CoreCompile reads
+        the compile items. That is not hypothetical any more: sixty lines below, this same target
+        writes `Addresses.g.cs` and adds it to Compile from inside the target, which only works
+        because of this ordering. VXML components and shader parameter keys are the other generated
+        C# the ordering is there for.
 
         The msbuild diagnostic format is the point of the whole target. What an importer said about
         an asset arrives as an MSBuild diagnostic with a file and a code, so it lands in the IDE's

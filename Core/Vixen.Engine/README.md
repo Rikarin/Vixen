@@ -324,7 +324,14 @@ cannot reference a game's generated accessor. It resolves once at construction a
 map and the missing action rather than reading zero forever, and a shipping game implements the
 interface over its own accessor in about eight lines.
 
-What is not here yet is the predicted and networked half (P3) and `Samples/05-PlatformerGame` (P4).
+The predicted and networked half (P3) is not here because it is elsewhere: `PlayerMoveInput` and the
+predicted step are `Vixen.Net.Engine`'s and `Vixen.Net.Physics`'s `PredictedPlayerMovement`. P4 landed
+as `Samples/13-ThirdPersonShooter` — a project rather than a sample, with a headless run asserting the
+player is `Walking` on collision the level authored. ⚠ `Samples/05-PlatformerGame` still does not
+exist, and what belongs there is the *tuned* rigs rather than the mechanism: doc 29's P-R1 found that
+a first-person camera and a third-person orbit are both steered by `ControlRotation`, so neither can
+be assembled from outside this assembly at all.
+
 The movement `MoveIntent` drives is `Vixen.Physics`'s `CharacterMovement`, which references this
 assembly and cannot be referenced back — the layering that made `MoveIntent` a component rather than
 a method call.
