@@ -36,6 +36,42 @@ public abstract class RootRenderFeature {
     /// <summary>The sub-features contributing data to this one.</summary>
     public IReadOnlyList<SubRenderFeature> SubFeatures => subFeatures;
 
+    /// <summary>
+    ///     Why this feature drew something other than what its objects asked for, this frame — or
+    ///     null, meaning every input it needed was there.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="Compositor.SceneRenderer.Degraded" />, one layer down.</b> A compositor
+    ///         node degrades because a <em>frame</em> input was missing; a feature degrades because an
+    ///         <em>object's</em> was — an effect authored as a light that nothing is collecting lights
+    ///         from, a mesh particle with no mesh attached. Both are silent substitutions that leave
+    ///         every counter healthy, and both are only visible in the picture.
+    ///     </para>
+    ///     <para>
+    ///         Surfaced through the same channel: <see cref="Compositor.SingleStageRenderer" /> reads
+    ///         this off the features that drew into its stage, so
+    ///         <see cref="Compositor.GraphicsCompositor.Degradations" /> collects a feature's reason
+    ///         beside a node's without knowing either type.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This frame, not the worst frame there has ever been.</b> A feature must set it on
+    ///         <em>both</em> paths each time it decides, so recovering is as visible as degrading.
+    ///     </para>
+    /// </remarks>
+    public string? Degraded { get; private set; }
+
+    /// <summary>Records why this feature is drawing something other than what it was asked for.</summary>
+    /// <param name="reason">
+    ///     What was missing and what happened instead, as a sentence a developer who did not write
+    ///     the feature can act on — or null, for "everything I needed was there".
+    /// </param>
+    /// <remarks>
+    ///     Called from <see cref="Prepare" />, which is the phase that reads the frame and runs before
+    ///     any node builds. <see cref="Draw" /> is too late — the compositor has already asked.
+    /// </remarks>
+    protected void Degrade(string? reason) => Degraded = reason;
+
     /// <summary>Adds a sub-feature, which registers its own per-object data.</summary>
     public void Add(SubRenderFeature subFeature) {
         ArgumentNullException.ThrowIfNull(subFeature);

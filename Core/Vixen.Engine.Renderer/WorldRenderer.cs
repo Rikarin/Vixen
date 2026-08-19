@@ -273,7 +273,15 @@ public sealed class WorldRenderer : IDisposable {
         Particles = new() {
             Device = device,
             Pipelines = new(device),
-            Describer = describer
+            Describer = describer,
+
+            // ⚠ The sink an effect authored as `Vfx/Output/Light` needs, and the reason that node
+            // did anything at all. `ParticleLights.Collect` is what fills it, from
+            // `VfxExtractionSystem` after `LightExtractionSystem` has refilled the list — so a
+            // particle light is one more entry in the same list a lamp is, selected against objects
+            // and culled into clusters exactly as one. Unset, a light effect neither draws nor
+            // lights and `ParticleRenderFeature` says so through `Degraded`.
+            Lights = Lighting.Lights
         };
 
         Particles.Add(ParticleMaterials);

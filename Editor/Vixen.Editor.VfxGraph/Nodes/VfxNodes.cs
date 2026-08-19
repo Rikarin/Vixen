@@ -362,11 +362,24 @@ public sealed partial class LightOutputNode : VfxNode {
     [Input(Name = "In")]
     public Flow In;
 
-    /// <summary>How bright a particle at full alpha is.</summary>
+    /// <summary>How bright a particle at full alpha is, in candela.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Candela, like every other punctual light in the engine, not a multiplier.</b> A
+    ///     150 000 lm floodlight is about 12 000 cd, so the default of one is a light that exists and
+    ///     changes no pixel. See <c>Photometry</c>.
+    /// </remarks>
     [Input(Name = "Intensity", Default = [1f])]
     public Scalar Intensity;
 
     /// <summary>How far a particle of unit size reaches.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Of <i>unit</i> size, and this is the number that catches people.</b> The reach a
+    ///     particle gets is this times its own size, so that a size-over-life curve shrinks the pool
+    ///     of light with the spark — which means an effect whose particles are two centimetres across
+    ///     reaches four <em>centimetres</em> at the default, and lights nothing in the level at all.
+    ///     Particles of a few centimetres want a range in the hundreds; see
+    ///     <c>ParticleLights.Collect</c>, which measures what the difference is worth.
+    /// </remarks>
     [Input(Name = "Range", Default = [4f])]
     public Scalar Range;
 

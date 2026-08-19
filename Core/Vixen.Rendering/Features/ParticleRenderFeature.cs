@@ -82,6 +82,8 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     BufferHandle indices;
     int indexCapacity;
     int quads;
+    int lightEffects;
+    bool collected;
     bool disposed;
 
     /// <inheritdoc />
@@ -129,6 +131,129 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
 
     /// <summary>How many particles the last frame expanded, across every effect.</summary>
     public int LastParticleCount { get; private set; }
+
+    /// <summary>
+    ///     Where a <see cref="VfxRendererKind.Light" /> effect's particles go, or null for a host
+    ///     that does not light its scene with particles.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>ForwardLightingRenderFeature.Lights</c> in a hosted game</b>, which is the list
+    ///         <see cref="ParticleLights" />' own remarks name. It is a list this feature is given
+    ///         rather than one it discovers, for the same reason that feature's is: a light is scene
+    ///         state and every phase after extraction reads flat data.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is what an author's light effect fails against, so it is reported rather
+    ///         than assumed.</b> A graph whose output node is <c>Vfx/Output/Light</c> draws no
+    ///         geometry at all — that is the whole of what the renderer is — so a frame with no sink
+    ///         is one where the effect simulates, costs its particles, and neither draws nor lights.
+    ///         <see cref="RootRenderFeature.Degraded" /> carries that; see <see cref="Prepare" />.
+    ///     </para>
+    /// </remarks>
+    public IList<RenderLight>? Lights { get; set; }
+
+    /// <summary>
+    ///     How many lights every light effect in the frame may contribute between them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A scene budget, and it is the only budget particles need.</b>
+    ///         <c>ForwardLightingRenderFeature.MaxLightsPerObject</c> is a different number for a
+    ///         different job — it sizes the per-object block and its selection keeps the brightest
+    ///         eight <em>that reach one object</em>, so a hundred sparks do not overflow it, they
+    ///         make it churn. What a hundred sparks do overflow is the frame: every one of them is
+    ///         scored against every visible object, and both of those numbers are large.
+    ///     </para>
+    ///     <para>
+    ///         Thirty-two by default, which is a shower of sparks rather than a simulation. Raising
+    ///         it costs <c>objects × lights</c> comparisons per frame on the forward path and a
+    ///         longer cluster build on the other, and neither is a cost a shading pass reports.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it refuses is counted, not logged</b> — <c>SceneLighting.Dropped</c>'s
+    ///         terms exactly. A system at its budget is normal for a deliberate effect and a mistake
+    ///         for an accidental one, and only the author can tell which; see
+    ///         <see cref="RefusedLights" />.
+    ///     </para>
+    /// </remarks>
+    public int MaxLights { get; set; } = 32;
+
+    /// <summary>How many particle lights the budget refused, the last time lights were collected.</summary>
+    /// <remarks>
+    ///     Zero for a frame that fitted. A number that stays up is either an effect whose capacity is
+    ///     far larger than its author thinks or a <see cref="MaxLights" /> somebody has to raise on
+    ///     purpose — and the frame is correct either way, which is why this is a counter rather than
+    ///     a throw.
+    /// </remarks>
+    public int RefusedLights { get; private set; }
+
+    /// <summary>How many particle lights the last collection actually contributed.</summary>
+    public int CollectedLights { get; private set; }
+
+    /// <summary>How many light effects the last prepared frame held.</summary>
+    /// <remarks>
+    ///     Counted in <see cref="Prepare" /> rather than in <see cref="CollectLights" />, because it
+    ///     is what makes "nobody is collecting these" answerable: a count that only a collection
+    ///     produced would be zero in exactly the case worth reporting.
+    /// </remarks>
+    public int LightEffects => lightEffects;
+
+    /// <summary>
+    ///     Hands every light effect's particles to <see cref="Lights" />, up to <see cref="MaxLights" />.
+    /// </summary>
+    /// <returns>How many the budget refused.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Called from extraction, not from <see cref="Prepare" />, and the ordering is the
+    ///         reason.</b> A feature's <c>Prepare</c> runs in registration order, and the lighting
+    ///         feature is a sub-feature of the mesh path that is registered first — so a collection
+    ///         made here would be uploaded a frame late, for ever, which looks like latency rather
+    ///         than like a bug. <c>VfxExtractionSystem</c> calls it in <c>PreRender</c> after
+    ///         <c>LightExtractionSystem</c> has cleared and refilled the list.
+    ///     </para>
+    ///     <para>
+    ///         <b>Over the objects rather than over <see cref="Systems" />.</b> The list of systems
+    ///         keeps an effect that has been detached from its object, and an effect nothing draws
+    ///         must not light either.
+    ///     </para>
+    /// </remarks>
+    public int CollectLights() {
+        RefusedLights = 0;
+        CollectedLights = 0;
+        collected = Lights is not null;
+
+        if (Lights is not { } sink || System is null) {
+            return 0;
+        }
+
+        var indicesData = System.Objects.Data.Data(SystemIndices);
+        var budget = Math.Max(MaxLights, 0);
+
+        for (var index = 0; index < System.Objects.Count; index++) {
+            var id = new RenderObjectId(index);
+
+            if (!System.Objects[id].IsAlive || System.Objects[id].FeatureIndex != Index) {
+                continue;
+            }
+
+            var slot = indicesData[index];
+
+            if ((uint)slot >= (uint)systems.Count || systems[slot] is not { Count: > 0 } effect) {
+                continue;
+            }
+
+            var before = sink.Count;
+
+            // The remaining budget rather than the whole of it, so the frame's cap is the frame's and
+            // not each effect's: five systems of ten sparks under a budget of thirty is thirty lights
+            // and twenty refused, which is the number worth reading.
+            RefusedLights += ParticleLights.Collect(effect, sink, Math.Max(budget - CollectedLights, 0));
+            CollectedLights += sink.Count - before;
+        }
+
+        return RefusedLights;
+    }
 
     /// <summary>Attaches an effect to an object.</summary>
     /// <param name="id">The object.</param>
@@ -190,6 +315,7 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     protected internal override void Prepare(RenderSystem system) {
         LastParticleCount = 0;
         quads = 0;
+        lightEffects = 0;
 
         var draws = system.Objects.Data.Data(Draws);
         var indicesData = system.Objects.Data.Data(SystemIndices);
@@ -198,17 +324,21 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
             draws[index] = default;
         }
 
-        if (Camera(system) is not { } camera) {
-            return;
+        // ⚠ The walk happens whether or not there is a camera, where it used to return here. A light
+        // effect needs no camera — it produces no camera-facing anything — so returning early would
+        // make "nobody is collecting these lights" a question this could not answer in exactly the
+        // frame that has the problem. The geometry kinds still skip, below.
+        var facing = Camera(system);
+
+        if (facing is not null) {
+            vertices.Device ??= Device;
+            instances.Device ??= Device;
+            strips.Device ??= Device;
+
+            vertices.Begin();
+            instances.Begin();
+            strips.Begin();
         }
-
-        vertices.Device ??= Device;
-        instances.Device ??= Device;
-        strips.Device ??= Device;
-
-        vertices.Begin();
-        instances.Begin();
-        strips.Begin();
 
         for (var index = 0; index < system.Objects.Count; index++) {
             var id = new RenderObjectId(index);
@@ -224,6 +354,21 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
             }
 
             var kind = effect.Graph.Renderer?.Kind ?? VfxRendererKind.Billboard;
+
+            // ⚠ No geometry, and it used to fall through to Quads. `VfxRendererKind.Light` is the
+            // renderer that submits nothing to draw — its particles went to the light list in
+            // extraction — so expanding them into billboards drew the sparks instead of lighting the
+            // wall, which is the one thing the other three renderers cannot do and the reason this
+            // kind exists. Left as the default draw, which `IsDrawable` rejects.
+            if (kind == VfxRendererKind.Light) {
+                lightEffects++;
+
+                continue;
+            }
+
+            if (facing is not { } camera) {
+                continue;
+            }
 
             draws[index] = kind switch {
                 VfxRendererKind.Mesh => Instanced(effect, camera),
@@ -242,11 +387,62 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
             }
         }
 
+        ReportLights();
+
+        if (facing is null) {
+            return;
+        }
+
         vertices.Upload();
         instances.Upload();
         strips.Upload();
 
         EnsureIndices();
+    }
+
+    /// <summary>Says whether this frame's light effects reached the light list, and what it cost.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The substitution that used to be silent, and the budget that would have been.</b>
+    ///         An author wiring <c>Vfx/Output/Light</c> onto an emitter gets no geometry by design,
+    ///         so a host that never set <see cref="Lights" /> — or never called
+    ///         <see cref="CollectLights" /> — produces an effect that costs a simulation every frame
+    ///         and appears nowhere. That reads as a lighting bug in the author's own scene, which is
+    ///         precisely what <see cref="RootRenderFeature.Degraded" /> exists to stop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Cleared on the healthy path as well as set on the unhealthy one, and
+    ///         <see cref="collected" /> is consumed here so that a host that stops calling
+    ///         <see cref="CollectLights" /> is reported on the very next frame rather than keeping
+    ///         the last good answer.
+    ///     </para>
+    /// </remarks>
+    void ReportLights() {
+        var claimed = collected;
+        collected = false;
+
+        if (lightEffects == 0) {
+            Degrade(null);
+
+            return;
+        }
+
+        if (!claimed) {
+            Degrade(
+                $"{lightEffects} effect(s) are authored as lights and nothing collected them, so they "
+                + "draw nothing and light nothing — set ParticleRenderFeature.Lights and call "
+                + "CollectLights during extraction."
+            );
+
+            return;
+        }
+
+        Degrade(
+            RefusedLights > 0
+                ? $"the particle light budget of {MaxLights} took {CollectedLights} and refused "
+                + $"{RefusedLights} — raise ParticleRenderFeature.MaxLights or lower the effects' capacity."
+                : null
+        );
     }
 
     /// <summary>One effect's particles as camera-facing quads in the shared vertex buffer.</summary>
