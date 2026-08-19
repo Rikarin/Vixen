@@ -4,7 +4,7 @@ slug: engine/buoyancy
 kind: guide
 area: Engine
 summary: Pontoons over Jolt, evaluated at the fixed step's water time — a component, a system, and the three orderings that are silent when they are wrong.
-api: [T:Vixen.Water.Physics.BuoyancyBody, T:Vixen.Water.Physics.BuoyancyState, T:Vixen.Water.Physics.BuoyancySystem, T:Vixen.Rendering.Water.WaterClockSystem, T:Vixen.Water.IWaterSurface, T:Vixen.Water.Physics.BuoyancyDebugDraw]
+api: [T:Vixen.Water.Physics.BuoyancyBody, T:Vixen.Water.Physics.BuoyancyState, T:Vixen.Water.Physics.BuoyancySystem, T:Vixen.Rendering.Water.WaterClockSystem, T:Vixen.Water.IWaterSurface, T:Vixen.Water.Physics.BuoyancyDebugDraw, T:Vixen.Water.Physics.BuoyancyDebugSystem]
 tags: [water, buoyancy, physics, pontoon, boat, raft]
 since: 0.1
 status: preview
@@ -145,7 +145,7 @@ The verb is `Vixen.Rendering.Water`'s and the pontoon spheres, waterlines and fo
 Jolt. `BuoyancyDebugSystem` carries one to the other, and it takes the flag as a delegate rather than
 reading it, which is what keeps this assembly linkable by a dedicated server that has no renderer:
 
-```csharp no-compile="one line at registration, not per frame"
+```csharp no-compile="one line at registration, not per frame; `loop` and `graphics` are the host's"
 var debug = new BuoyancyDebugSystem(buoyancy, graphics.Debug) {
     Show = () => WaterDebug.ShowBuoyancy
 };
@@ -153,9 +153,31 @@ var debug = new BuoyancyDebugSystem(buoyancy, graphics.Debug) {
 loop.Add(debug);
 ```
 
+That is the whole of what a game wires, and `Samples/13-ThirdPersonShooter`'s `Arena.cs` is where to
+see it done — under an `if (graphics.Debug is { } debug)`, because the accumulator, the console and
+the node that drains it are all built by `--vixen-overlays` and a run without it has none of them.
+
+Three things about the delegate are worth knowing before writing one:
+
+| | |
+|---|---|
+| **Read every step, never cached** | The verb is typed while the game is running, so a system that read the flag at registration would draw for ever or never, with nothing on screen saying which |
+| **It switches off as well as on** | `Show`'s value is *assigned* to `Draw.Enabled`, not or-ed into it. A join written as `if (flag()) Enabled = true;` passes the obvious test and latches the verb on for the rest of the session |
+| **Null `Show` honours `Draw.Enabled`** | Which is what a headless build and a test drive it with: there is no `WaterDebug` in a process that never linked the renderer, and defaulting the flag to false would put the drawing out of reach of such a host altogether |
+
+⚠ **`SystemPhase.PreRender`, and both neighbours decide it.** `TransformSystem` writes the
+`WorldTransform` the pontoon spheres are placed from in `LateUpdate`, so anything earlier draws them
+where the body *was*; the accumulator is drained during `Render`, so anything later draws into a frame
+that has already been recorded. Neither failure says anything — the picture is a lag, or an empty
+screen. The attribute is on the class and a test asserts it is, for the same reason `BuoyancySystem`'s
+two ordering attributes are asserted.
+
 Left unwired the toggle sets a bool nothing consumes — which, over a scene with nothing floating in
 it, looks exactly like a verb that works. `BuoyancyDebugSystem.Frames` is the counter that separates
-the two.
+the two: it counts the steps that actually drew, so *verb on, `Frames` at zero* is the join undone and
+*verb on, `Frames` rising, nothing on screen* is a scene with nothing floating in it. `Samples/13`
+prints it at the end of its buoyancy line (log event 14071) precisely so a capture run can tell those
+two apart without a person at the keyboard.
 
 ## Examples
 
@@ -172,6 +194,34 @@ if (!state.IsFloating) {
 
 Console.WriteLine($"{state.Wet}/{state.Total} wet, {state.Submerged:P0} under, {state.Lift:N0} N");
 ```
+
+**Wiring the overlay from a host that may or may not have a renderer.** The delegate is the whole
+seam, so one function covers both: a game passes `() => WaterDebug.ShowBuoyancy`, and a dedicated
+server passes null and drives `Draw.Enabled` itself — or never turns it on at all.
+
+```csharp compile
+using Vixen.Engine.Diagnostics;
+using Vixen.Water.Physics;
+
+public static class BuoyancyOverlay {
+    public static BuoyancyDebugSystem Wire(BuoyancySystem buoyancy, DebugDraw into, Func<bool>? show) =>
+        new(buoyancy, into) {
+            Show = show,
+
+            // Metres per body-weight of force, not per newton: a crate's lift is kilonewtons and a
+            // barge's is meganewtons, and one fixed scale draws one of them as a dot.
+            Draw = { ForceScale = 3f }
+        };
+
+    /// <summary>Whether the verb is reaching the geometry, which is not the same as whether it drew.</summary>
+    public static bool IsJoined(BuoyancyDebugSystem debug) => debug.Frames > 0;
+}
+```
+
+`Step` is public for the same reason `IsJoined` is worth writing: a test drives one step and asserts
+the counter moved, without standing up a runner. `Update` is that call with the dependency completed
+first, because the pontoons are placed from a `WorldTransform` and read a `BuoyancyState` that
+`TransformSystem` and `BuoyancySystem` have both finished writing by then.
 
 **An unset coefficient is one, not zero.** A chunk's column is zeroed memory, so a component added
 from the inspector without the field filled in holds zero — and zero lift is a crate that sinks, which

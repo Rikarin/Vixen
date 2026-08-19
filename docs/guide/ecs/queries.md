@@ -68,6 +68,10 @@ Four forms exist over the same primitive, and they differ in what they cost rath
 can express: chunks give you a `Span` per column, the delegate forms give you one entity at a time,
 and the struct-visitor form inlines the body into the loop.
 
+⚠ **Adding, removing, creating or destroying inside one of these loops moves rows between chunks —
+the storage the spans point at.** Record it instead and let it apply where nothing is iterating; see
+[structural change during iteration](structural-changes.md).
+
 ## Examples
 
 The stress-test sample builds a world and iterates it every frame:
@@ -77,3 +81,5 @@ The stress-test sample builds a world and iterates it every frame:
 ## See also
 
 - [Components](ecs/components) — what a query is a query *of*.
+- [Structural change during iteration](structural-changes.md) — how to spawn or destroy from inside
+  one of these loops without invalidating it.
