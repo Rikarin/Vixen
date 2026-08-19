@@ -168,8 +168,8 @@ shader Ssao {
                 val backward = SearchHorizon(centre, n, -direction, screenRadius)
 
                 // Into signed angles: forward is the `+slice` side by construction.
-                var h2 = acos(clamp(forward.x, -1f, 1f))
-                var h1 = -acos(clamp(backward.x, -1f, 1f))
+                var h2 = acos(forward)
+                var h1 = -acos(backward)
 
                 // Clamped into the hemisphere around the projected normal. A surface cannot see
                 // behind itself, so a horizon found there is a depth sample in front of a *different*
@@ -225,10 +225,9 @@ shader Ssao {
     /// ⚠ Returns a cosine from the *view vector*, not from the tangent plane. `bias` and the falloff
     /// still speak in elevation above the surface, because that is the frame in which "this sample is
     /// not really an occluder" is a sentence — but what the integral is handed is the camera's angle.
-    func SearchHorizon(centre: float3, n: float3, direction: float2, screenRadius: float2): float2 {
+    func SearchHorizon(centre: float3, n: float3, direction: float2, screenRadius: float2): float {
         val toCamera = Math.SafeNormalize(-centre)
         var maxCosine = -1f
-        var weight = 0f
         val stepCount = max(Steps, 1)
 
         // Where the first sample stands. `radius / Steps` out — the even spacing — has a hole in
@@ -269,10 +268,8 @@ shader Ssao {
             if (dot(towards, n) > bias) {
                 maxCosine = max(maxCosine, lerp(-1f, dot(towards, toCamera), attenuation))
             }
-
-            weight += attenuation
         }
 
-        return float2(clamp(maxCosine, -1f, 1f), weight / float(stepCount))
+        return clamp(maxCosine, -1f, 1f)
     }
 }
