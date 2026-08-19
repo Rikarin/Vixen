@@ -32,6 +32,13 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         draw cannot produce even one of.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Run on the leg that will actually judge them.</b> The macOS and Windows runners have
+///         no Vulkan driver, so every fixture here skips on both and a reference generated on a Mac is
+///         checked in exactly one place. These three were run under lavapipe in the container the
+///         suite's README describes, at the commit that added them: three passed, and the reference
+///         below is within its tolerance on both drivers rather than on the one that made it.
+///     </para>
+///     <para>
 ///         ⚠ <b>The A/B is in the fixture rather than in a diff directory.</b>
 ///         <see cref="TheSameEdgeIsHardWithoutMsaaAndSoftWithIt" /> draws the identical triangle both
 ///         ways in one test and compares the two counts, so the claim "MSAA did something" is checked

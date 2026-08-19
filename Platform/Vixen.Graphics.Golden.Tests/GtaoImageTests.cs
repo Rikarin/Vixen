@@ -69,6 +69,13 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         worst single pixel moved forty levels of two hundred and fifty five.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Run on the leg that will actually judge them.</b> The macOS and Windows runners have
+///         no Vulkan driver, so every fixture here skips on both and a reference generated on a Mac is
+///         checked in exactly one place. These five were run under lavapipe in the container the
+///         suite's README describes, at the commit that added them: five passed, and the corner
+///         reference is within its tolerance on both drivers rather than on the one that made it.
+///     </para>
+///     <para>
 ///         The planes are staged as <c>R32Float</c> depth and <c>Rgba32Float</c> normals rather than
 ///         as the eight-bit textures the other fixtures here use, and that is not fastidiousness: two
 ///         hundred and fifty six depth levels across a tilted plane is a staircase, and a screen-space
