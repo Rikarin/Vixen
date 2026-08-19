@@ -26,7 +26,10 @@ namespace Vixen.Editor.App.Tests;
 ///         Four contributions, because four is what P2 promised: a Create ▸ entry, a custom
 ///         inspector, a property drawer and a scene-view tool. Each is asserted by its <i>effect</i>
 ///         — a file on disk, an element in the panel, the drawer the registry resolves, the camera
-///         the tool moved — rather than by the registration having been accepted.
+///         the tool moved — rather than by the registration having been accepted. Doc 36 § D6's icon
+///         is the fifth, and § D5's authoring assembly the sixth: a component in a library the
+///         plugin ships, which is the one contribution the editor has to <i>load</i> rather than
+///         read.
 ///     </para>
 /// </remarks>
 [Collection(SharedDrawerRegistry.Name)]
@@ -38,52 +41,6 @@ public class OutOfTreePluginTests {
     ///     never heard of — which is why the custom inspector below has to work without a descriptor,
     ///     and why the panel asks for one before it asks for the generated rows.
     /// </remarks>
-    /// <summary>A library beside the plugin, holding a component and declaring it the ordinary way.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>A second assembly and not the plugin's own, because the plugin's own proves
-    ///         nothing.</b> The loader instantiates <c>SamplePlugin</c>, so that module's initializer
-    ///         has already run by the time <c>Activate</c> is called and its components would be
-    ///         registered whether anybody declared them or not. <c>AuthoringAssembly</c>'s own remark
-    ///         names the case it is for — "a plugin whose components lived in a runtime assembly of
-    ///         its own" — and this is that assembly.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The registrations are hand-written because a run-time compilation has no
-    ///         generators.</b> What <c>[Component]</c> and <c>[DataContract]</c> would have emitted is
-    ///         a serializer and a <c>[ModuleInitializer]</c> that declares the component; a plugin with
-    ///         a build gets both written for it, and the only thing this fixture can do is write them
-    ///         out. The <i>timing</i> is the same either way, and the timing is what is under test.
-    ///     </para>
-    /// </remarks>
-    const string Runtime = """
-        using System.Runtime.CompilerServices;
-        using Vixen.Core.Serialization;
-        using Vixen.Engine.Scenes;
-
-        namespace Sample.Runtime;
-
-        public struct WidgetCount {
-            public int Value;
-        }
-
-        sealed class WidgetCountSerializer : DataSerializer<WidgetCount> {
-            public override void Serialize(ref SerializationWriter writer, in WidgetCount value) =>
-                writer.WriteInt32(value.Value);
-
-            public override void Deserialize(ref SerializationReader reader, ref WidgetCount value) =>
-                value.Value = reader.ReadInt32();
-        }
-
-        public static class Declarations {
-            [ModuleInitializer]
-            internal static void Run() {
-                SerializerRegistry.Register("SampleWidgetCount", new WidgetCountSerializer());
-                SceneComponentRegistry.Declare<WidgetCount>();
-            }
-        }
-        """;
-
     const string Source = """
         using System;
         using Vixen.Editor.Core;
@@ -138,9 +95,9 @@ public class OutOfTreePluginTests {
                 context.Owns(registry.Add(new CustomInspector(typeof(Widget), Draw)));
                 context.Owns(registry.Add(new SceneTool("sample.paint", "Paint", new SampleTool())));
 
-                // Doc 36 § D5's fourth row. The components are in a library beside this assembly,
-                // and nothing in the editor will ever call into it — declaring it is the whole of
-                // what makes them appear.
+                // Doc 36 § D5's fourth row. The components are in a library beside this assembly and
+                // nothing in the editor will ever call into it, so this line is the only reason
+                // anything in the process ever names a type in it.
                 context.Owns(registry.Add(new AuthoringAssembly(typeof(Sample.Runtime.WidgetCount))));
 
                 var drawer = new SampleDrawer();
@@ -156,6 +113,58 @@ public class OutOfTreePluginTests {
 
                 label.AddClass("sample-inspector");
                 label.Text = "Widget, drawn by the plugin";
+            }
+        }
+        """;
+
+    /// <summary>A library beside the plugin, holding a component and declaring it the ordinary way.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second assembly and not the plugin's own, because the plugin's own proves
+    ///         nothing.</b> The loader instantiates <c>SamplePlugin</c>, so that module's initializer
+    ///         has already run by the time <c>Activate</c> is called and its components would be
+    ///         registered whether anybody declared them or not. <c>AuthoringAssembly</c>'s own remark
+    ///         names the case it is for — "a plugin whose components lived in a runtime assembly of
+    ///         its own" — and this is that assembly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The registrations are hand-written because a run-time compilation has no
+    ///         generators.</b> What <c>[Component]</c> and <c>[DataContract]</c> would have emitted is
+    ///         a serializer and a <c>[ModuleInitializer]</c> that declares the component; a plugin with
+    ///         a build gets both written for it, and the only thing this fixture can do is write them
+    ///         out. The <i>timing</i> is the same either way, and the timing is what is under test.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Delete the <c>AuthoringAssembly</c> line from the plugin and this fails; gut
+    ///         <c>AuthoringAssembly.Touch</c> to an empty body and it does not.</b> Both were run.
+    ///         That is the whole finding: the declaration is load-bearing and the call it exists to
+    ///         make is not, because holding the <c>Type</c> is what runs the module.
+    ///     </para>
+    /// </remarks>
+    const string Runtime = """
+        using System.Runtime.CompilerServices;
+        using Vixen.Core.Serialization;
+        using Vixen.Engine.Scenes;
+
+        namespace Sample.Runtime;
+
+        public struct WidgetCount {
+            public int Value;
+        }
+
+        sealed class WidgetCountSerializer : DataSerializer<WidgetCount> {
+            public override void Serialize(ref SerializationWriter writer, in WidgetCount value) =>
+                writer.WriteInt32(value.Value);
+
+            public override void Deserialize(ref SerializationReader reader, ref WidgetCount value) =>
+                value.Value = reader.ReadInt32();
+        }
+
+        public static class Declarations {
+            [ModuleInitializer]
+            internal static void Run() {
+                SerializerRegistry.Register("SampleWidgetCount", new WidgetCountSerializer());
+                SceneComponentRegistry.Declare<WidgetCount>();
             }
         }
         """;
@@ -285,10 +294,14 @@ public class OutOfTreePluginTests {
             Assert.Equal(0.486f, drawn.Fill.Color.R, 2);
 
             // ── Six: the component, out of a runtime assembly nothing in the editor calls into. ──
-            // Doc 36 § D5's fourth row, and the one contribution whose *effect* is a module
-            // initializer having been run. `AuthoringAssembly` is the declaration; the plugin makes
-            // it from `Activate`, which is after the editor read the registry — so this is an
-            // assertion about when the declaration is acted on and not that it was accepted.
+            // Doc 36 § D5's fourth row, and the only contribution here whose effect is a module
+            // initializer having been run. The plugin declares it from `Activate`, which is ninety
+            // lines after the one place `ComponentsView.Default` touches these — so the reading that
+            // sent me here was that this could not work, and it does. What makes it work is not the
+            // touch: `AuthoringAssembly` takes a `Type`, and by the time the plugin has one to put
+            // in the record the module it came out of has already run. Sabotaging `Touch` to an
+            // empty body leaves this passing; sabotaging the plugin so that it names nothing in the
+            // library at all is what makes it fail, on the line below. See `AuthoringAssembly`.
             var declared = Assert.Single(
                 editor.Extensions.All<AuthoringAssembly>(),
                 entry => entry.Marker.Name == "WidgetCount"
