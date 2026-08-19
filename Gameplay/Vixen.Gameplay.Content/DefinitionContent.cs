@@ -65,11 +65,80 @@ public static class DefinitionContent {
     /// <param name="assets">Where the content is.</param>
     /// <param name="cancellation">Gives up.</param>
     /// <returns>The catalog, and anything that was labelled and is not a definition.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Only correct for a game whose code names no tag no file mentions.</b> Take the
+    ///     <see cref="LoadAsync(AssetManager, GameplayComposition, CancellationToken)" /> overload
+    ///     otherwise — see its remarks, which are about a failure with no error message.
+    /// </remarks>
     public static ValueTask<DefinitionLoad> LoadAsync(
         AssetManager assets,
         CancellationToken cancellation = default
     ) =>
         LoadAsync(assets, [Label], cancellation);
+
+    /// <summary>Loads everything under <see cref="Label" />, with the composition's tags seeded.</summary>
+    /// <param name="assets">Where the content is.</param>
+    /// <param name="composition">What the game composed. Its <see cref="GameplayComposition.Tags" /> go in first.</param>
+    /// <param name="cancellation">Gives up.</param>
+    /// <returns>The catalog, and anything that was labelled and is not a definition.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The overload a game with modules wants, and the one whose absence was the gap.</b>
+    ///         <see cref="GameplayComposition.Tags" /> is documented as <em>"every tag a module's own
+    ///         code needs, for the content build to bake in"</em> — and until this overload existed the
+    ///         runtime load path had nowhere to put them, so the only way to bake them was to read
+    ///         every artefact by hand and drive <see cref="DefinitionCatalogBuilder" /> yourself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it costs to skip is silence.</b> Most tags reach the table because a definition
+    ///         mentions them; a tag only <em>code</em> knows never does. <c>Event.Kill</c> is the one
+    ///         that bites — a quest module declares it, it is the verb a Kill objective counts, and no
+    ///         quest file mentions it anywhere. Absent from the table, every rule naming it resolves to
+    ///         an empty range and quietly matches nothing: a game in which no kill objective can ever
+    ///         advance, with no error anywhere.
+    ///     </para>
+    /// </remarks>
+    public static ValueTask<DefinitionLoad> LoadAsync(
+        AssetManager assets,
+        GameplayComposition composition,
+        CancellationToken cancellation = default
+    ) =>
+        LoadAsync(assets, composition, [Label], cancellation);
+
+    /// <summary>Loads everything under some labels, with the composition's tags seeded.</summary>
+    /// <param name="assets">Where the content is.</param>
+    /// <param name="composition">What the game composed. Its <see cref="GameplayComposition.Tags" /> go in first.</param>
+    /// <param name="labels">Which groups hold definitions. A label nothing carries contributes nothing.</param>
+    /// <param name="cancellation">Gives up.</param>
+    /// <returns>The catalog, and anything that was labelled and is not a definition.</returns>
+    public static ValueTask<DefinitionLoad> LoadAsync(
+        AssetManager assets,
+        GameplayComposition composition,
+        IEnumerable<string> labels,
+        CancellationToken cancellation = default
+    ) {
+        ArgumentNullException.ThrowIfNull(composition);
+
+        return LoadFromAsync(assets, composition, Addresses(assets, labels), cancellation);
+    }
+
+    /// <summary>Loads a named set of addresses, with the composition's tags seeded.</summary>
+    /// <param name="assets">Where the content is.</param>
+    /// <param name="composition">What the game composed. Its <see cref="GameplayComposition.Tags" /> go in first.</param>
+    /// <param name="addresses">What to read. Duplicates are read once.</param>
+    /// <param name="cancellation">Gives up.</param>
+    /// <returns>The catalog, and anything that is not a definition.</returns>
+    /// <exception cref="AddressNotFoundException">An address is not in this build's content catalog.</exception>
+    public static ValueTask<DefinitionLoad> LoadFromAsync(
+        AssetManager assets,
+        GameplayComposition composition,
+        IEnumerable<string> addresses,
+        CancellationToken cancellation = default
+    ) {
+        ArgumentNullException.ThrowIfNull(composition);
+
+        return LoadFromAsync(assets, composition.Tags, addresses, cancellation);
+    }
 
     /// <summary>Loads everything under some labels.</summary>
     /// <param name="assets">Where the content is.</param>
@@ -86,6 +155,10 @@ public static class DefinitionContent {
         IEnumerable<string> labels,
         CancellationToken cancellation = default
     ) {
+        return LoadFromAsync(assets, addresses: Addresses(assets, labels), cancellation);
+    }
+
+    static List<string> Addresses(AssetManager assets, IEnumerable<string> labels) {
         ArgumentNullException.ThrowIfNull(assets);
         ArgumentNullException.ThrowIfNull(labels);
 
@@ -95,7 +168,7 @@ public static class DefinitionContent {
             addresses.AddRange(assets.Catalog.ByLabel(label));
         }
 
-        return LoadFromAsync(assets, addresses, cancellation);
+        return addresses;
     }
 
     /// <summary>Loads a named set of addresses.</summary>
@@ -104,16 +177,35 @@ public static class DefinitionContent {
     /// <param name="cancellation">Gives up.</param>
     /// <returns>The catalog, and anything that is not a definition.</returns>
     /// <exception cref="AddressNotFoundException">An address is not in this build's content catalog.</exception>
-    public static async ValueTask<DefinitionLoad> LoadFromAsync(
+    /// <remarks>
+    ///     ⚠ <b>Seeds no tags.</b> See
+    ///     <see cref="LoadAsync(AssetManager, GameplayComposition, CancellationToken)" /> for why a game
+    ///     with modules wants the overload that takes its composition.
+    /// </remarks>
+    public static ValueTask<DefinitionLoad> LoadFromAsync(
         AssetManager assets,
         IEnumerable<string> addresses,
         CancellationToken cancellation = default
+    ) =>
+        LoadFromAsync(assets, tags: [], addresses, cancellation);
+
+    static async ValueTask<DefinitionLoad> LoadFromAsync(
+        AssetManager assets,
+        IEnumerable<string> tags,
+        IEnumerable<string> addresses,
+        CancellationToken cancellation
     ) {
         ArgumentNullException.ThrowIfNull(assets);
         ArgumentNullException.ThrowIfNull(addresses);
 
         var builder = new DefinitionCatalogBuilder();
         var problems = new List<string>();
+
+        // ⚠ Before the definitions, and it is not an ordering preference — it is the only order in
+        // which a code-only tag can reach the table at all. See the public overload's remarks.
+        foreach (var tag in tags) {
+            builder.AddTag(tag);
+        }
 
         // Address order. The catalog's own hash already sorts, so this changes no artefact — what it
         // makes stable is which of two clashing addresses is reported, and in what order, so a build
