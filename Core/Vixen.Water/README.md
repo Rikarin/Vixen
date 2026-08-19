@@ -262,9 +262,14 @@ and a test asserting only that still passes with the term deleted. The crate car
 1.6 so that the resting waterline is a number only the right arithmetic produces, and the mutation was
 checked.
 
-**What is not here is the join.** The `BuoyancyBody` component, the Jolt force application, the debug
-draw and the networked predicted body are W7's device- and world-facing half; § D1 puts the physics
-join in its own assembly rather than a reference from here to Jolt, and it is not built.
+**The join is not here, and § D1 is why**: it puts the physics half in its own assembly rather than a
+reference from here to Jolt. That assembly is
+[`Vixen.Water.Physics`](../Vixen.Water.Physics/README.md), and it is built —
+`BuoyancyBody`/`BuoyancyState`, `BuoyancySystem` applying the force to Jolt in `FixedUpdate` between
+the physics sync and the step, and `BuoyancyDebugDraw`. ⚠ **What is owed is a host that registers
+it**: every `new BuoyancySystem(…)` in the tree is a test, where the sibling `ImmersionSystem` is
+added to the loop by `Samples/13-ThirdPersonShooter`'s `Arena`. The networked predicted body is owed
+too — neither component is `[Replicated]`.
 
 ## Ripples are a sliding window, and every number in it is a bound
 
