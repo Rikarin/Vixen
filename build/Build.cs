@@ -370,13 +370,19 @@ partial class Build : NukeBuild {
     ///         looking at what was published.
     ///     </para>
     ///     <para>
-    ///         Not a dependency of <see cref="CompileWeb" />, deliberately: the compile is seconds
-    ///         and this is minutes, because it relinks with emcc. They are two gates with two costs
-    ///         and CI should be able to price them separately.
+    ///         It depends on <see cref="CompileWeb" /> and not the other way round, deliberately. The
+    ///         compile is seconds and this is a minute or more, because it relinks with emcc; a
+    ///         developer who wants the cheap gate can still have it on its own, and a broken binding
+    ///         is reported by the target whose subject it is rather than as a link failure later.
     ///     </para>
     /// </remarks>
     Target PublishWeb => definition => definition
         .Description("Publishes a browser head and checks the page it produces is loadable")
+
+        // So that a compile error in a binding is reported as a compile error, in the target whose
+        // subject it is, rather than as an emcc link failure two minutes later. The head references
+        // two of the three browser projects; this puts the third in front of the publish too.
+        .DependsOn(CompileWeb)
         .Produces(WebPublishDirectory / "**")
         .Executes(() => {
                 var head = RootDirectory / "docs" / "plan" / "spikes" / "web-head" / "webhead.csproj";

@@ -245,6 +245,86 @@ jobs:
         run: ./build.sh CheckArchitecture CheckApi CheckFormat CheckDocs --configuration Release
         shell: bash
 
+  # The three net10.0-browser projects, which until this job existed were built by nothing at all.
+  #
+  # They are outside Vixen.slnx — a net10.0-browser project cannot be *evaluated* without the
+  # wasm-tools workload, so its presence there would break `dotnet build` for everyone who has not
+  # installed it — which means `test`, `checks` and `pack` above have never seen a line of them.
+  # `nuke CompileWeb` was the answer to that and it named one of the three, so two of them compiled
+  # on nobody's machine but their author's. docs/plan/10 § Platform CI matrix has had a `web` row
+  # since it was written.
+  #
+  # ⚠ This is a *separate* job rather than a step on `checks` because of the workload. Installing
+  # wasm-tools brings the Emscripten SDK packs with it — this is the slow part, and it is a fixed
+  # cost paid before anything of ours compiles — and a failure to fetch them would otherwise read as
+  # "CheckArchitecture failed", which is the mistake the Assimp comments above record twice.
+  web:
+    name: web
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-web-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-web-
+
+      # Not cached. The workload installs into the SDK's own directory rather than into
+      # NUGET_PACKAGES, so caching it means caching a dotnet root — which is coupled to the SDK
+      # version setup-dotnet resolved, and is a stale-cache bug waiting for the next patch bump.
+      # Measured against what it buys: this is minutes, and the run it protects is the one where
+      # somebody's change to a browser binding does not compile.
+      - name: Install the wasm-tools workload
+        run: dotnet workload install wasm-tools
+
+      # Two targets and two different claims.
+      #
+      # CompileWeb is "the three assemblies compile", which is the floor. PublishWeb is the one that
+      # matters more: a *library* never evaluates build/Vixen.Platform.Web.props, so the emcc relink,
+      # the WebGL2 minimum, the trimming profile and the static-web-asset layout apply only to a head
+      # — and all three defects the web-head spike found live in exactly that gap. It publishes a
+      # head and then asserts that the page it produced has an entry point and its bindings where
+      # they are fetched from.
+      - name: Compile and publish for the browser
+        run: ./build.sh CompileWeb PublishWeb --configuration Release
+        shell: bash
+
+      # The published head, so a failure downstream of here can be loaded in a real browser by hand.
+      # It is a probe and draws nothing; see docs/plan/spikes/web-head/RESULT.md.
+      - name: Upload the published head
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-head
+          path: artifacts/web/wwwroot/
+          if-no-files-found: ignore
+
+      # ⚠ OWED, and deliberately not bolted on here: the Playwright smoke test docs/plan/10 asks for.
+      # It is the only thing that can cover the interop — every [JSImport] in these three projects is
+      # untested by everything above, and BrowserModuleUrlTests covers the constants and not the
+      # calls.
+      #
+      # It is owed rather than absent-by-oversight because there is a specific way to get it wrong
+      # that the spike measured. `chrome-headless-shell --dump-dom` NEVER FIRES
+      # requestAnimationFrame — a pure-JS control page counted zero callbacks in three seconds, with
+      # or without --virtual-time-budget, --screenshot or SwiftShader, while the same page over CDP
+      # counted 120/s. A leg built on --dump-dom would report a live frame loop as dead, which is the
+      # most expensive shape a red build can have. It has to drive a real browser over CDP, as
+      # docs/plan/spikes/web-head/drive.mjs does.
+      #
+      # And it needs a WebGPU adapter to be worth more than a load test, which no headless Chromium
+      # on macOS would give the spike at any flag combination. That is a Linux job with
+      # --enable-features=Vulkan over lavapipe — which this workflow already installs on the test
+      # leg — and nobody has watched it come up.
+
   pack:
     name: pack
     runs-on: ubuntu-latest
