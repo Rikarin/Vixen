@@ -150,6 +150,31 @@ public sealed class MmoLibraries {
     /// <summary>The things that stand in the world and hit back. The game's own, not a library's.</summary>
     public CreatureLibrary Creatures { get; }
 
+    /// <summary>Compiles every library over a catalog somebody else already baked.</summary>
+    /// <param name="composition">What the game composed. The same one the catalog's tags were seeded from.</param>
+    /// <param name="catalog">The definitions, with the tag table already baked.</param>
+    /// <returns>The libraries.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a running shard uses</b>, because a shard does not have the artefacts — it has
+    ///         an <c>AssetManager</c>, and <c>Vixen.Gameplay.Content</c>'s <c>DefinitionContent</c> is
+    ///         the step that turns one into a catalog. <see cref="Load" /> is the other end of the same
+    ///         thing for a caller that holds bytes: a test, or the authoring tool.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The composition passed here must be the one the catalog was baked with.</b> A tag
+    ///         index is a position in a pre-order walk, so a catalog seeded from one composition and
+    ///         read by libraries compiled against another agrees about names and disagrees about every
+    ///         number — which is not a failure anything reports.
+    ///     </para>
+    /// </remarks>
+    public static MmoLibraries From(GameplayComposition composition, DefinitionCatalog catalog) {
+        ArgumentNullException.ThrowIfNull(composition);
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        return new(composition, catalog);
+    }
+
     /// <summary>Composes, seeds the tags, reads the definitions and compiles everything.</summary>
     /// <param name="definitions">The catalog's contents, as <c>(address, artefact bytes)</c>.</param>
     /// <returns>The libraries.</returns>
