@@ -18,6 +18,19 @@ stack — window, device, document, traversal, indirect draw, present — starts
 a validation error or a hang. At shutdown the sample logs how many clusters the last frame's
 traversal accepted; zero after a real run is a frame that drew nothing, whatever else went right.
 
+⚠ **This sample needs a display, and `--vixen-capture` cannot stand in for one.** It owns its device,
+its swapchain and its present — `config.Graphics.Enabled = false` — so there is no `AppGraphics` for
+the capture path to read a frame back out of, and no `frame.png` is written however the run is asked.
+Under `--vixen-headless` the window cannot present, and the sample says *there is no window to present
+to* and draws nothing rather than pretending otherwise. That is not a bug in the flag: samples 03 and
+13 both capture headlessly on the real device, because their frame is the host's. Until this sample
+grows an offscreen path of its own, its CI leg is `--vixen-frames N` on a machine with a display.
+
+Until 2026-08-19 the flag was not honoured here at all: `Program.cs` built a `DesktopPlatform` and
+handed it to `WithPlatform`, which `AppBuilder.Build` takes ahead of the factory — so a
+`--vixen-headless` run logged `on Desktop (macOS)` and opened a window. It now logs `on Headless` and
+opens none.
+
 ## What is on screen
 
 The visibility buffer, phase 4's output, as a debug view: every pixel names the visible cluster and
