@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+using Vixen.Core.IO;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Graphics;
 using Xunit;
@@ -143,6 +146,69 @@ public class CubeLutTests {
     [Fact]
     public void AnAbsurdSizeIsRefusedBeforeItIsAllocated() =>
         Assert.Throws<FormatException>(() => CubeLut.Parse("LUT_3D_SIZE 4096\n"));
+
+    /// <summary>And that the build's own registry hands a <c>.cube</c> to the LUT importer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The gap the rest of this file stepped over, and why the defect survived review.</b>
+    ///         Everything above tests <see cref="CubeLut.Parse" />, which is the importer's logic and
+    ///         is not the importer — so the suite was green while <see cref="CubeLutImporter" /> was
+    ///         absent from <see cref="BuiltInImporters.Create()" /> and no <c>.cube</c> in any project
+    ///         ever reached it. The file fell through to <c>RawImporter</c>, became a blob under the
+    ///         type name <c>"Blob"</c>, and <c>Tonemap</c>'s <c>lut:</c> — which
+    ///         <c>docs/guide/rendering/post-processing.md</c> tells an author to write — resolved to
+    ///         nothing.
+    ///     </para>
+    ///     <para>
+    ///         What is asserted is which importer claimed it, not that an artefact appeared:
+    ///         <c>RawImporter</c> produces one of those too, which is the whole reason the failure was
+    ///         silent.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBuildsOwnRegistryHandsACubeFileToIt() {
+        // ⚠ A contribution set of its own, not ImporterContributions.Default: the default is
+        // process-wide and ImporterContributionTests mutates it, so reading it here would race.
+        var registry = BuiltInImporters.Create(new ImporterContributions());
+
+        Assert.True(registry.TryGetForFile("Assets/Looks/evening.cube", out var importer));
+        Assert.IsType<CubeLutImporter>(importer);
+        Assert.Contains(".cube", importer.Extensions);
+    }
+
+    /// <summary>A <c>.cube</c> driven through the importer is a KTX2 texture, mipless.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The type name is <c>"Texture"</c> — the same one every image ships as</b> — because
+    ///     what the tonemapper binds is a texture. Asserted here so that a later importer writing its
+    ///     own type name breaks a test rather than a frame: the sampler would find nothing and the
+    ///     grade would silently not apply, which looks like a grade somebody authored flat.
+    /// </remarks>
+    [Fact]
+    public async Task ACubeFileImportsToATextureArtefact() {
+        var path = new VirtualPath("/Assets/Looks/evening.cube");
+        var files = new MemoryFileProvider();
+
+        files.Seed(path, Identity(2));
+
+        var importer = new CubeLutImporter();
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
+
+        var result = await importer.ImportAsync(context, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+
+        var artefact = Assert.Single(result.Artifacts);
+
+        Assert.Equal("Texture", artefact.Type);
+        Assert.NotEmpty(artefact.Content.ToArray());
+    }
 
     /// <summary>An identity table of a given edge, with red varying fastest.</summary>
     static string Identity(int size) {
