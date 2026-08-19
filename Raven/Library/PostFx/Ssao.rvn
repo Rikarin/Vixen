@@ -3,16 +3,42 @@ package Vixen.Shaders.PostFx
 import Vixen.Shaders.Core
 import Vixen.Shaders.Geometry
 
-// Ground-truth ambient occlusion from depth: the horizon-based estimator.
+// Ground-truth ambient occlusion from depth: the horizon-slice integral.
 //
 // GTAO rather than the classic hemisphere-sampling SSAO, and the difference is not just quality. Classic
-// SSAO samples points in a hemisphere and counts how many are occluded, which converges slowly. GTAO
-// instead finds the *horizon angle* in each of a few screen-space directions and integrates the visible
-// cone analytically — so a handful of directions gives a smooth result. The one bias it does carry is
-// `bias` below, the price of marching all the way in to the first depth texel; see there.
+// SSAO samples points in a hemisphere and counts how many are occluded, which converges slowly. This
+// finds the *horizon angle* on each side of a few screen-space slices and integrates the visible arc
+// analytically — so a handful of directions gives a smooth result.
+//
+// ⚠ **This file used to say all of the above and do something else.** What it ran was the horizon-*based*
+// estimator: the largest cosine of a sample's elevation above the tangent plane, averaged over the
+// directions and subtracted from one. That is HBAO, and it is not what the comment claimed, not what
+// `docs/plan/06`'s table meant by "the full GTAO horizon integral is still to come", and not within a
+// constant of the right answer — for a single occluder at elevation `e` it gives `1 - sin(e)/2` where the
+// cosine-weighted visibility is `1 - sin²(e)/2`. The two agree at `e = 0` and at `e = 90°` and nowhere
+// between: at 45° they are 0.65 and 0.75.
+//
+// The integral below is the one from Jimenez et al. 2016 § 3.2, and what makes it worth the arithmetic is
+// not the accuracy at a horizon but the *normalisation*. Each slice is weighted by how much of the
+// surface normal lies in it, and the weights sum so that an unoccluded surface reads exactly one
+// whatever direction it faces — at eight directions, to four decimal places, at every tilt. The old
+// estimator got that for free by measuring elevation from the tangent plane, and paid for it with a
+// horizon term that was wrong everywhere else.
+//
+// Three things are measured per slice, all of them from the *view vector* rather than from the normal:
+//
+//   * `h1` and `h2`, the horizon angles either side, as signed angles from the direction of the camera;
+//   * `gamma`, the signed angle of the normal projected into the slice plane, from the same direction;
+//   * the length of that projection, which is the slice's weight.
+//
+// The horizons are then clamped into the hemisphere around the projected normal — a surface cannot see
+// behind itself, and a horizon found there is a depth sample in front of a *different* surface — and the
+// arc between them is integrated in closed form against the cosine lobe.
 //
 // The bent normal falls out of the same search for free, and is what makes indirect specular respond to
-// occlusion rather than only indirect diffuse.
+// occlusion rather than only indirect diffuse. ⚠ It is a **view-space** direction, which is the space
+// the horizons are found in; the old spelling accumulated screen-space xy against a constant z and was
+// not a direction in any space at all.
 
 shader Ssao {
     /// Directions to search. 4 is the mobile setting, 8 the default.
@@ -55,7 +81,13 @@ shader Ssao {
     /// the reconstructed neighbour and the G-buffer's normal disagree by quantisation alone: on a
     /// surface seen at a slant, half a texel of depth rounding reads as a horizon that is not there.
     /// Flooring the elevation is what lets the march sample the near field at all rather than skip
-    /// it; the estimate is renormalised over what is left, so a full wall still reads as one.
+    /// it — a sample that does not clear it is not a horizon and the search moves on.
+    ///
+    /// ⚠ It floors the *sample*, not the estimate. Under the old estimator this number was
+    /// subtracted from the horizon term and the result renormalised, which is why it read as a
+    /// strength knob as much as a guard. The integral below has a normalisation of its own that a
+    /// second one would fight, so the guard is a rejection and nothing else: raising it lightens
+    /// only the contacts, where it used to lighten everything.
     var bias: float = 0.1f
 
     stream var uv: float2
@@ -90,7 +122,12 @@ shader Ssao {
         // sampled from a noise texture: no binding, and stable across frames.
         val jitter = Random.Float01(Random.Hash2(uint(int(uv.x / texelSize.x)), uint(int(uv.y / texelSize.y))))
 
-        var occlusion = 0f
+        // Toward the camera. Every angle below is measured from this rather than from `n`, which is
+        // the whole reason the integral can be written down: a slice's arc is bounded by what the
+        // *camera* can see past, and the surface's own orientation enters as `gamma` instead.
+        val toCamera = Math.SafeNormalize(-centre)
+
+        var visibility = 0f
         var bent = float3(0f)
         val directionCount = max(Directions, 1)
 
@@ -98,19 +135,64 @@ shader Ssao {
             val angle = (float(d) + jitter) * Const.Pi / float(directionCount)
             val direction = float2(cos(angle), sin(angle))
 
-            // Both sides of the line, as the angles spanning only π assumes: the visible cone is
-            // bounded on each side, and marching one side halves the estimate.
-            val forward = SearchHorizon(centre, n, direction, screenRadius)
-            val backward = SearchHorizon(centre, n, -direction, screenRadius)
-            occlusion += (forward.x + backward.x) * 0.5f
+            // The slice plane, as two view-space vectors.
+            //
+            // ⚠ The lift negates y. A UV direction of +y walks *down* the screen and view-space +y
+            // is up — `Transform.UvToNdc` is where that lives — so a lift that copied the sign
+            // mirrors every slice about the horizontal, which flips `gamma` and leaves an image that
+            // is smooth, plausible and lit from the wrong side of every crease.
+            //
+            // Orthogonalised against the view vector rather than assumed perpendicular to it: the
+            // two are only perpendicular at the centre of the frame, and at the edges of a wide
+            // field of view the error is the difference between a slice plane that contains the
+            // camera and one that does not.
+            val lifted = float3(direction.x, -direction.y, 0f)
+            val slice = Math.SafeNormalize(lifted - toCamera * dot(lifted, toCamera))
+            val axis = Math.SafeNormalize(cross(slice, toCamera))
 
-            if (BentNormal) {
-                bent += float3(direction.x, direction.y, 1f) * forward.y
-                bent += float3(-direction.x, -direction.y, 1f) * backward.y
+            // The normal projected into the slice, and how much of it landed there. That length is
+            // the slice's weight, and it is what makes the whole estimator normalise: a slice the
+            // normal barely leans into contributes barely anything, and the weights across the
+            // directions sum so that an unoccluded surface reads exactly one at any tilt.
+            val projected = n - axis * dot(n, axis)
+            val projectedLength = length(projected)
+
+            if (projectedLength > Const.Epsilon) {
+                // `gamma`, signed toward `slice`: which way the surface leans within this plane.
+                val cosGamma = clamp(dot(projected, toCamera) / projectedLength, -1f, 1f)
+                val gamma = Math.SignedOne(dot(projected, slice)) * acos(cosGamma)
+
+                // The horizons, as cosines from the view vector. -1 is "nothing stopped the search",
+                // which is the angle straight back past the camera and therefore no occlusion at all.
+                val forward = SearchHorizon(centre, n, direction, screenRadius)
+                val backward = SearchHorizon(centre, n, -direction, screenRadius)
+
+                // Into signed angles: forward is the `+slice` side by construction.
+                var h2 = acos(clamp(forward.x, -1f, 1f))
+                var h1 = -acos(clamp(backward.x, -1f, 1f))
+
+                // Clamped into the hemisphere around the projected normal. A surface cannot see
+                // behind itself, so a horizon found there is a depth sample in front of a *different*
+                // surface — the classic halo around a foreground object — and taking it at face value
+                // would let one occluder darken past what a full hemisphere of them could.
+                h1 = gamma + max(h1 - gamma, -Const.Pi * 0.5f)
+                h2 = gamma + min(h2 - gamma, Const.Pi * 0.5f)
+
+                visibility += projectedLength * (Arc(h1, gamma) + Arc(h2, gamma))
+
+                if (BentNormal) {
+                    // The middle of what the slice can see, in the slice's own plane. View space,
+                    // and weighted the same way the visibility is so the two agree about which
+                    // slices mattered.
+                    val middle = (h1 + h2) * 0.5f
+                    bent += projectedLength * (toCamera * cos(middle) + slice * sin(middle))
+                }
             }
         }
 
-        occlusion = saturate(1f - occlusion / float(directionCount))
+        // The directions are slices of one hemisphere and each contributes both of its sides, so the
+        // divisor is the direction count and not twice it — `Arc` carries the halving.
+        var occlusion = saturate(visibility / float(directionCount))
         occlusion = pow(occlusion, max(intensity, Const.Epsilon))
 
         if (BentNormal) {
@@ -120,11 +202,31 @@ shader Ssao {
         return float4(occlusion, occlusion, occlusion, 1f)
     }
 
-    /// The occlusion contributed along one screen-space direction, and its visibility weight.
+    /// One side of a slice's visible arc, integrated against the cosine lobe.
     ///
-    /// Marches out, tracking the largest horizon angle seen. Both directions of the line are searched,
-    /// because the visible cone is bounded on each side and using one side halves the estimate.
+    /// Jimenez et al. 2016 § 3.2. The closed form of `∫ cos(θ - γ)·|sin θ| dθ` from the view vector out
+    /// to the horizon at `h`, which is what makes a handful of directions enough: the arc is *solved*
+    /// rather than sampled, so the only thing the march has to find is where it ends.
+    ///
+    /// ⚠ The two sides are separate calls because the `|sin θ|` is what splits them. The absolute value
+    /// has a corner at the view vector, so one antiderivative cannot span an arc that crosses it — which
+    /// it always does, `h1` being negative and `h2` positive by construction.
+    func Arc(h: float, gamma: float): float {
+        return 0.25f * (-cos(2f * h - gamma) + cos(gamma) + 2f * h * sin(gamma))
+    }
+
+    /// How far the horizon is on one side of a slice, as a cosine from the view vector.
+    ///
+    /// Marches out along the screen direction and keeps the *largest* cosine seen, which is the sample
+    /// that stands highest against the camera and therefore hides everything behind it. `-1` is the
+    /// answer when nothing stopped the search: the angle straight back past the camera, which no
+    /// hemisphere reaches and which the integral reads as no occlusion at all.
+    ///
+    /// ⚠ Returns a cosine from the *view vector*, not from the tangent plane. `bias` and the falloff
+    /// still speak in elevation above the surface, because that is the frame in which "this sample is
+    /// not really an occluder" is a sentence — but what the integral is handed is the camera's angle.
     func SearchHorizon(centre: float3, n: float3, direction: float2, screenRadius: float2): float2 {
+        val toCamera = Math.SafeNormalize(-centre)
         var maxCosine = -1f
         var weight = 0f
         val stepCount = max(Steps, 1)
@@ -152,17 +254,25 @@ shader Ssao {
             val toSample = samplePosition - centre
             val distance = length(toSample)
 
-            // Fades a sample out with distance, so a wall behind the pixel does not occlude it.
-            // The elevation is floored by `bias` and renormalised — the guard that pays for the
-            // one-texel first sample above.
-            val attenuation = saturate(1f - distance / max(radius * falloff, Const.Epsilon))
-            val elevation = dot(Math.SafeNormalize(toSample), n)
-            val cosine = (elevation - bias) / max(1f - bias, Const.Epsilon) * attenuation
+            val towards = Math.SafeNormalize(toSample)
 
-            maxCosine = max(maxCosine, cosine)
+            // Fades a sample out with distance, so a wall behind the pixel does not occlude it. The
+            // fade is toward -1 — no horizon — rather than toward zero, because zero is a real angle
+            // here: a cosine of nought from the view vector is an occluder at ninety degrees, which
+            // is most of a hemisphere. Fading toward it would make every distant surface a wall.
+            val attenuation = saturate(1f - distance / max(radius * falloff, Const.Epsilon))
+
+            // The guard, in the frame it makes sense in: a sample lying almost in the tangent plane
+            // is the surface itself under a texel of depth rounding, not something standing on it.
+            // The march's first sample is one depth texel out (see above) and at one texel the
+            // reconstructed neighbour and the G-buffer's normal disagree by quantisation alone.
+            if (dot(towards, n) > bias) {
+                maxCosine = max(maxCosine, lerp(-1f, dot(towards, toCamera), attenuation))
+            }
+
             weight += attenuation
         }
 
-        return float2(saturate(maxCosine), weight / float(stepCount))
+        return float2(clamp(maxCosine, -1f, 1f), weight / float(stepCount))
     }
 }
