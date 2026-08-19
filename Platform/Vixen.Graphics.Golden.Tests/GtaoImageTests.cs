@@ -69,6 +69,22 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         worst single pixel moved forty levels of two hundred and fifty five.
 ///     </para>
 ///     <para>
+///         <b>And what it comes to in a real frame, which is a smaller number than the corner scene
+///         suggests.</b> <c>StandardFrameTierImageTests.ASplitFrameLooksLikeItsReference</c> renders a
+///         whole High-tier frame with the ambient split on, and its committed reference was recorded
+///         under the old estimator — so re-rendering it against the new one is a free A/B over lit
+///         geometry rather than over a fixture. <b>20.7% of the frame moves, by a mean of 0.230 of
+///         255, with not one pixel past 12 levels.</b> <c>Tolerance.Shaded</c> allows a mean of 0.350,
+///         so that reference did not have to be re-recorded and no golden in the suite did.
+///     </para>
+///     <para>
+///         ⚠ That is the honest scale of it, and the reason is structural rather than disappointing:
+///         the pass runs at half resolution, its answer multiplies the ambient term only, and a 128²
+///         frame of boxes has few tight contacts. Where the estimator differs is exactly where
+///         geometry meets geometry, which is what the corner scene isolates and what a wide shot
+///         averages away.
+///     </para>
+///     <para>
 ///         ⚠ <b>Run on the leg that will actually judge them.</b> The macOS and Windows runners have
 ///         no Vulkan driver, so every fixture here skips on both and a reference generated on a Mac is
 ///         checked in exactly one place. These five were run under lavapipe in the container the
