@@ -293,6 +293,21 @@ state never leaves the device. The two transfer paths are there for seeding a sy
 and for reading the result back to compare it — neither belongs in a frame, and the dispatches touch
 neither.
 
+**`Dispatches` is how you tell a device path that ran from one that was merely built.** A host that
+constructs a `VfxGpuSimulation`, records nothing and draws the CPU expansion produces the same frame
+at the same cost as one whose device path works, with no validation error and nothing to grep for.
+The counter rises when a dispatch is *recorded*, so it answers "did this get as far as asking";
+`VfxGpuSort.Dispatches` is its counterpart and one `Record` adds `Passes(Capacity) + 1`.
+`Core/Vixen.Rendering.Tests/VfxGpuDispatchTests` checks both against `NullDevice`'s command stream
+rather than against themselves, which is the only way the number is worth anything.
+
+**And the two backends draw the same picture, not merely the same numbers.**
+`Platform/Vixen.Vfx.Gpu.Tests/VfxBackendPictureTests` simulates one graph twice — `VfxSimulation`
+here, dispatches on a real device there — expands and draws both through *identical* code so the
+renderer cancels, and compares the pixels: **the worst channel differs by 3/255 and 25 pixels of
+65 536 move at all**. ⚠ That is a picture of the *simulation* seam and says so, because there is no
+end-to-end device frame to photograph — see "what is not here yet" for the two structural reasons.
+
 `Platform/Vixen.Vfx.Gpu.Tests` is where the three assemblies that no shipping build links together —
 the runtime, the compiler and the driver — are put in one process so the question can be asked at all.
 It skips where there is no Vulkan, and `VIXEN_REQUIRE_VULKAN=1` turns that skip into a failure on the
@@ -580,6 +595,38 @@ the error bars reach fifty per cent. The *ratios within a population* held acros
 ratios are what the threshold rests on. Absolute throughput from this table would be worth nothing.
 
 ## What is not here yet
+
+- ⚠ **A frame that takes the device path at all.** Everything above is real and device-tested, and
+  nothing outside `Platform/Vixen.Vfx.Gpu.Tests` constructs a `VfxGpuSimulation` or a `VfxGpuSort`:
+  `Vixen.Rendering/Ecs/VfxExtractionSystem.cs` contains no occurrence of "Gpu", so every effect a
+  scene runs is stepped by `VfxSimulation` and expanded by `VfxGeometryBuilder`. **Four things are
+  missing and only the first of them is the dispatch**, which is why this is not a wiring job:
+  - **Nothing supplies the module.** An emitted shader is *per graph*, so it cannot be a
+    pre-compiled library shader. `VfxImporter` emits the Raven and discards it in the same breath —
+    "the shader is compiled and thrown away", in its own remarks — `VfxEffectContent` carries no
+    shader, and `Vixen.Rendering` links no Raven compiler by the design rule stated at the top of
+    `VfxGpuSimulation`. Every entry point here takes a `PipelineHandle` and at run time nobody can
+    produce one.
+  - **Nothing can draw the result.** The attribute buffers are created
+    `Storage | CopySource | CopyDestination`; there is no `BufferUsage.Vertex` on them, so they
+    cannot even be bound as a vertex stream. And no shader in `Raven/Library/Vfx` reads a particle
+    out of a buffer in a vertex stage — `ParticleBillboard` takes per-instance vertex *inputs* and
+    `ParticleSprite` takes this module's CPU expansion. Nothing in the tree calls
+    `DrawIndexedIndirect` on `VfxGpuSimulation.DrawArguments`, and `VfxGpuSort` produces an index
+    buffer nothing draws through.
+  - **Spawning stays on the host**, so a device effect is seeded through `Upload` — which this file
+    says twice over must not happen in a frame.
+  - **The CPU-only features would go quiet.** `VfxSubEmitter`, `RecordDeaths`, `ParticleLights` and
+    the ribbon expansion all read a CPU `ParticleBuffer`. That is what makes the backend an
+    **explicit opt-in with a stated refusal** rather than something a particle count could pick:
+    routing an effect to a backend that silently drops its sub-emitters is worse than not having the
+    backend.
+
+  What is *not* missing, and was claimed to be: the two backends' opcode sets are identical —
+  twenty-five each, force fields, curl noise and both analytic colliders included — and
+  `WriteDrawArguments` leaves `firstInstance` a constant zero, so
+  `GraphicsDeviceFeatures.HasDrawIndirectFirstInstance` does not apply to this path the way it does
+  to terrain's.
 
 - **A second view of the same effect.** `ParticleRenderFeature` expands once, against one view, so a
   reflection or a shadow pass draws quads facing the wrong camera. Expanding per view is the

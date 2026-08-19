@@ -4394,6 +4394,7 @@ Vixen.Rendering.VfxGpuSimulation.Bytes.get -> long
 Vixen.Rendering.VfxGpuSimulation.Capacity.get -> int
 Vixen.Rendering.VfxGpuSimulation.Custom(int slot) -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.VfxGpuSimulation.Descriptors.get -> Vixen.Graphics.DescriptorSetHandle
+Vixen.Rendering.VfxGpuSimulation.Dispatches.get -> int
 Vixen.Rendering.VfxGpuSimulation.Dispose() -> void
 Vixen.Rendering.VfxGpuSimulation.Download(Vixen.Graphics.ICommandList list, int count) -> void
 Vixen.Rendering.VfxGpuSimulation.DrawArguments.get -> Vixen.Graphics.BufferHandle
@@ -4413,6 +4414,7 @@ Vixen.Rendering.VfxGpuSimulation.WriteDrawArguments(Vixen.Graphics.ICommandList 
 Vixen.Rendering.VfxGpuSort -> sealed class
 Vixen.Rendering.VfxGpuSort : System.IDisposable
 Vixen.Rendering.VfxGpuSort.Capacity.get -> int
+Vixen.Rendering.VfxGpuSort.Dispatches.get -> int
 Vixen.Rendering.VfxGpuSort.Dispose() -> void
 Vixen.Rendering.VfxGpuSort.Download(Vixen.Graphics.ICommandList list) -> void
 Vixen.Rendering.VfxGpuSort.Mode.get -> Vixen.Vfx.VfxSortMode

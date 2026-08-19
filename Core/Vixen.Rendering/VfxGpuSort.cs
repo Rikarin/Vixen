@@ -205,6 +205,16 @@ public sealed class VfxGpuSort : IDisposable {
     /// <summary>Which key this sorts on.</summary>
     public VfxSortMode Mode { get; }
 
+    /// <summary>How many compute dispatches this has recorded since it was built.</summary>
+    /// <remarks>
+    ///     <see cref="VfxGpuSimulation.Dispatches" />' counterpart and for the same reason: a sort
+    ///     nothing drove and a sort that ran are indistinguishable from the drawn frame, because the
+    ///     order is only read by a draw that does not exist yet. One <see cref="Record" /> adds
+    ///     <c>Passes(Capacity) + 1</c> — the network's passes and the seed — so a caller can check the
+    ///     count against the number this class already promised rather than against a capture.
+    /// </remarks>
+    public int Dispatches { get; private set; }
+
     /// <summary>The layout the seed kernel's pipeline is created against.</summary>
     public PipelineLayoutHandle SeedLayout { get; }
 
@@ -278,6 +288,7 @@ public sealed class VfxGpuSort : IDisposable {
         list.BindDescriptorSet(DescriptorSetSlot.PerFrame, seedSet);
         list.PushConstants(ShaderStage.Compute, 0, Raw(constants));
         list.Dispatch(Groups(Capacity));
+        Dispatches++;
 
         list.BindPipeline(step);
         list.BindDescriptorSet(DescriptorSetSlot.PerFrame, stepSet);
@@ -287,6 +298,7 @@ public sealed class VfxGpuSort : IDisposable {
                 Transition(list, ResourceState.ShaderWrite);
                 list.PushConstants(ShaderStage.Compute, 0, Raw(new StepConstants { K = k, J = j }));
                 list.Dispatch(Groups(Capacity));
+                Dispatches++;
             }
         }
 

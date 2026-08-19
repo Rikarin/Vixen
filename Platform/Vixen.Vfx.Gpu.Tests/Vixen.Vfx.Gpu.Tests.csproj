@@ -31,5 +31,14 @@
         <ProjectReference Include="..\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
         <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+
+        <!--
+          `PngCodec`, so the A/B comparison of the two backends leaves two files a human can open
+          beside each other. The numeric assertions are the gate; the pictures are what makes a
+          failure diagnosable, and a difference of "0.004 in the mean" is not something anybody can
+          picture from a test log. `Platform/Vixen.Graphics.Golden.Tests` takes the same view of the
+          same library, and says so at more length.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
     </ItemGroup>
 </Project>

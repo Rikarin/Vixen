@@ -26,7 +26,7 @@ optimism.
 | 5 | Renderer (forward+, PBR, shadows, post FX) | 4.5 | 🟡 post FX is most of the way (SMAA, MSAA resolve, full GTAO and SSR are the gaps); D3D12 postponed |
 | 5b | Raven parser migration (ANTLR → hand-written) | 1.5 | ✅ |
 | 6 | Editor shell | 4.5 | 🟡 the exit sentence and the tooling are met; packaging/signing and the perf bar are not |
-| 7 | Node graphs + VFX | 3.5 | 🟡 graphs done; the VFX GPU path is too — what is left is the shader-graph preview, and dispatching the GPU sort |
+| 7 | Node graphs + VFX | 3.5 | 🟡 graphs done; the VFX GPU path is **written and device-tested but never taken by a frame** — nothing supplies its module and nothing can draw its buffers. Also owed: the shader-graph preview |
 | 8 | Gameplay subsystems (physics, audio, animation, input) | 3.5 | ✅ bar `Samples/05` |
 | 9 | Networking and multiplayer | 5.0 | ✅ all five exit criteria met |
 | 10 | Deferred, advanced rendering, Web | 2.5 | 🟡 WebGPU, video and XR landed early; deferred did not |
@@ -390,13 +390,52 @@ are correct only because a particle's randomness follows its *identifier* rather
 is a Phase 7 week-one decision cashed in here. Full account in
 [`Core/Vixen.Vfx/README.md`](../../Core/Vixen.Vfx/README.md).
 
-**Owed.** GPU sort — and **not** for the reason this paragraph used to give. It said the sort was
-blocked on Raven workgroup-shared memory; that is wrong twice over. `groupshared` is built and
-already spent by `Culling.rvn`, `VisibilityTiles.rvn` and `WaterTiles.rvn`, and `ParticleSort.rvn`
-uses none of it. The shader is written; what is owed is the dispatch. Mesh, ribbon and light
-renderers; the force-field, curl-noise, collision, sub-emitter and trail updaters. A shader-graph
-preview renderer — the framework's preview layer already draws a render target, so this is unblocked.
-Raven-span-to-node diagnostic mapping, which needs the emitter to record spans as it writes.
+**Owed — and the shape of it is not what this paragraph used to say.** The stale claim was that the
+GPU sort was blocked on Raven workgroup-shared memory. That is wrong twice over: `groupshared` is
+built and already spent by `Culling.rvn`, `VisibilityTiles.rvn` and `WaterTiles.rvn`, and
+`ParticleSort.rvn` uses none of it — the network was designed around the limitation rather than
+stopped by it. Nothing in the VFX GPU path is blocked on the language.
+
+What is owed is that **no frame ever takes the device path**, and the gap is wider than a missing
+call. `VfxGpuSimulation` and `VfxGpuSort` are constructed only from `Platform/Vixen.Vfx.Gpu.Tests`;
+`Core/Vixen.Rendering/Ecs/VfxExtractionSystem.cs` contains no occurrence of "Gpu", so every effect a
+scene runs steps through `VfxSimulation` and is expanded by `VfxGeometryBuilder`. Four separate
+things are missing, not one:
+
+- **Nothing supplies the module.** An emitted shader is *per graph*, so it cannot be a pre-compiled
+  library shader. `VfxImporter` emits the Raven and discards it in the same breath — "the shader is
+  compiled and thrown away" — `VfxEffectContent` carries no shader, and `Vixen.Rendering` references
+  no Raven compiler, by a design rule its own remarks state. `VfxGpuSimulation.Initialize` takes a
+  `PipelineHandle` and at run time there is nobody to hand it one.
+- **Nothing can draw the result.** The attribute buffers are created
+  `Storage | CopySource | CopyDestination` — no `BufferUsage.Vertex` — and no shader in
+  `Raven/Library/Vfx` reads a particle out of a buffer in a vertex stage: `ParticleBillboard` takes
+  per-instance vertex inputs and `ParticleSprite` takes the CPU expansion's `ParticleVertex`. Nothing
+  in the tree calls `DrawIndexedIndirect` on `VfxGpuSimulation.DrawArguments`, and `VfxGpuSort`'s
+  output is an index buffer nothing draws through — the same gap seen from the sorting end rather
+  than a fifth one.
+- **Spawning is still the host's**, so a device effect has to seed itself through `Upload` — the
+  stall the design says must be rare.
+- **The CPU-only features would go quiet.** Sub-emitters, `RecordDeaths`, the light renderer's
+  `ParticleLights.Collect` and the ribbon expansion all read a CPU `ParticleBuffer`. Routing an
+  effect to the device without them loses them silently, which is why the selection has to be an
+  explicit opt-in with a stated refusal rather than a heuristic on particle count.
+
+⚠ **The indirect-draw capability is not one of the gaps, and it is worth saying so.**
+`WriteDrawArguments` writes its template as `[indexCount, 0, 0, 0, 0]` and overwrites only the
+instance count, so `firstInstance` is a constant zero and
+`GraphicsDeviceFeatures.HasDrawIndirectFirstInstance` — the bit `Vixen.Rendering.Terrain` has to
+check, whose absence is legal to the validation layers and wrong on the device with no message to
+grep for — does not apply here.
+
+What is **not** owed, and what this paragraph used to claim was: the two backends' opcode sets agree
+exactly. `VfxSimulation` and `VfxShaderEmitter` cover the same twenty-five opcodes, force fields,
+curl noise and both analytic colliders included; and the mesh, ribbon and light renderers all ship in
+`ParticleRenderFeature`.
+
+Also owed: a shader-graph preview renderer — the framework's preview layer already draws a render
+target, so this is unblocked. And Raven-span-to-node diagnostic mapping, which needs the emitter to
+record spans as it writes.
 
 ---
 
