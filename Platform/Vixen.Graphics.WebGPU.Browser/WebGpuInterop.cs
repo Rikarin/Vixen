@@ -29,17 +29,6 @@ namespace Vixen.Graphics.WebGPU.Browser;
 /// </remarks>
 [SupportedOSPlatform("browser")]
 internal static partial class WebGpuInterop {
-    /// <summary>What the module is called once imported.</summary>
-    public const string ModuleName = "vixen-webgpu";
-
-    /// <summary>Where it is fetched from when the caller does not say.</summary>
-    /// <remarks>
-    ///     ⚠ <c>../</c>, for the reason set out on <c>WebInterop.DefaultModuleUrl</c>:
-    ///     <see cref="JSHost.ImportAsync" /> resolves against the runtime's module in
-    ///     <c>_framework/</c>, and this file is a content file at the site root.
-    /// </remarks>
-    public const string DefaultModuleUrl = "../vixen-webgpu.js";
-
     /// <summary>Loads the module. Must complete before anything else here is called.</summary>
     /// <param name="url">Where the module is.</param>
     public static Task ImportAsync(string url) => JSHost.ImportAsync(ModuleName, url);

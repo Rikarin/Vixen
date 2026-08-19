@@ -25,30 +25,6 @@ namespace Vixen.Platform.Web;
 /// </remarks>
 [SupportedOSPlatform("browser")]
 internal static partial class WebInterop {
-    /// <summary>What the module is called once imported.</summary>
-    public const string ModuleName = "vixen-platform";
-
-    /// <summary>Where it is fetched from when the caller does not say.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b><c>../</c>, and the two dots are the whole point.</b>
-    ///         <see cref="System.Runtime.InteropServices.JavaScript.JSHost.ImportAsync" /> resolves a
-    ///         relative URL against the <em>runtime's</em> module, which
-    ///         <c>Microsoft.NET.Sdk.WebAssembly</c> publishes into <c>_framework/</c> — not against
-    ///         the page. This file is a content file and lands at the site root. So <c>./</c>, which
-    ///         this was, asked for <c>_framework/vixen-platform.js</c> and got a 404 dressed up as
-    ///         <c>TypeError: Failed to fetch dynamically imported module</c> from inside
-    ///         <c>WebPlatform.CreateAsync</c>, for the layout the SDK produces by default — which is
-    ///         to say for every head that did not already pass
-    ///         <see cref="WebPlatformOptions.ModuleUrl" />. Measured by publishing a head and
-    ///         running it; there is no build-time diagnostic for it.
-    ///     </para>
-    ///     <para>
-    ///         A page that arranges its assets differently still passes its own URL.
-    ///     </para>
-    /// </remarks>
-    public const string DefaultModuleUrl = "../vixen-platform.js";
-
     /// <summary>How many <see cref="double" />s one event occupies in the drained ring.</summary>
     /// <remarks>
     ///     Fixed, and duplicated in <c>vixen-platform.js</c> as <c>RECORD</c>. The two have to agree
