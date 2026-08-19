@@ -82,6 +82,24 @@ changed it. The tag is how game code says it was them; the bridge acts on it and
 A kinematic body needs none of this — its transform is authored by definition and the bridge drives
 the body towards it every step.
 
+**And the tag also collapses the smoothing.** `PhysicsInterpolation` holds the last two simulated
+poses, and a teleport makes those two the two ends of the jump — so a body with both components was
+drawn *crossing the level* over the following fixed step, and on a frame exactly one step long,
+where `alpha` is zero, it was drawn at the position it had just left. `PhysicsScene.Arrive` puts both
+poses on the destination, so the body arrives and then goes on being smoothed from there.
+
+⚠ **Never a distance.** A body genuinely moving at 200 m/s covers the same gap in a step, so any
+threshold big enough to catch a teleport is big enough to un-smooth a projectile — the wall-clock
+threshold in another costume. The tag is the caller saying so, and it is the only thing that actually
+tells the two apart. `NetworkRigidBodyCorrectionSystem`'s hard snap adds it and its *soft* correction
+deliberately does not, so a steered body stays smoothed.
+
+**A character is told by the adopt instead.** It has no tag by design (see below), so
+`StepCharacters` collapses the smoothing on the step where `Adopt` returns true — which is already a
+provenance question rather than a geometric one, because `PhysicsInterpolation.DrawnPosition` is what
+proves the transform was written by somebody other than the smoothing. A walking character is adopted
+zero times, so a walk is never mistaken for a teleport. Position only: rotation is never adopted.
+
 **A character needs no tag, and that is a claim with a scar on it.** Writing a character's
 `LocalTransform` *is* the teleport: `PhysicsScene.Adopt` takes anything disagreeing with the
 controller and snaps the controller to it, which is what makes a respawn, a checkpoint load and a

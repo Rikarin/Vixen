@@ -245,5 +245,17 @@ public struct PhysicsInterpolation {
 ///         A kinematic body does not need this — its transform is authored by definition, and the
 ///         bridge drives it towards <c>LocalTransform</c> every step.
 ///     </para>
+///     <para>
+///         ⚠ <b>It is also what stops the body being drawn sliding there.</b>
+///         <see cref="PhysicsInterpolation" /> holds the last two simulated poses and a teleport makes
+///         those two the two ends of the jump, so <c>PhysicsScene.Arrive</c> puts both of them on the
+///         destination. Without it a teleported body crossed the level over the following step, and on
+///         a frame one fixed step long it was drawn at the position it had just left.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is why this is a tag and not a distance the bridge could measure.</b> A body
+///         genuinely moving at two hundred metres a second covers the same gap in a step; any
+///         threshold that catches one catches the other. Only the caller knows.
+///     </para>
 /// </remarks>
 public struct PhysicsTeleport : ITagComponent;

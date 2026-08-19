@@ -124,6 +124,15 @@ public sealed class PhysicsWritebackSystem(PhysicsScene scene) : SystemBase, IDe
 ///         test — should not have one, because the smoothed pose is deliberately a step behind.
 ///     </para>
 ///     <para>
+///         ⚠ <b>A teleport is excluded, and it is excluded upstream of here.</b> This pass draws
+///         between two poses and has no way to know that the segment between them is a jump rather
+///         than a very fast metre — a distance test here would un-smooth every projectile in the game.
+///         So the bridge collapses both poses onto the destination when it acts on a
+///         <see cref="PhysicsTeleport" />, and when a character's <c>Adopt</c> takes a written
+///         transform; this pass then lerps between two identical poses and draws the body where it
+///         was put.
+///     </para>
+///     <para>
 ///         ⚠ A zeroed <see cref="PhysicsInterpolation" /> holds two poses at the world origin, and
 ///         this lerps between them and writes the result — so an entity handed a <c>default</c> one
 ///         is dragged to <c>(0, 0, 0)</c> until a step has filled both. Seed it with the pose the
