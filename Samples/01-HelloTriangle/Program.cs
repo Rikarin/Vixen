@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.App;
-using Vixen.Platform.Desktop;
 
 namespace Vixen.Samples.HelloTriangle;
 
@@ -33,22 +32,16 @@ namespace Vixen.Samples.HelloTriangle;
 ///     </para>
 /// </remarks>
 static class Program {
-    static int Main(string[] arguments) {
-        // The platform is built here rather than left to the host's default because a Vulkan surface
-        // has to be asked for before the window exists: SDL needs the VULKAN window flag at creation
-        // time, and a window made without it has no surface to present to.
-        var platform = new DesktopPlatform(new() {
-            Organisation = "Vixen",
-            Application = "HelloTriangle",
-            RequestGpuSurface = true
-        });
-
-        // No console provider: the host adds one for every variant except Release, which is where
-        // the thirty lines this sample used to carry now live.
-        using var application = VixenApp.Create(arguments)
-            .WithPlatform(platform)
-            .Build(new TriangleGame());
-
-        return application.Run();
-    }
+    // ⚠ The platform is the host's to choose, and this used to take the choice away. It built a
+    // `DesktopPlatform` and handed it to `WithPlatform`, which `AppBuilder.Build` honours ahead of
+    // the factory — so `--vixen-headless` was parsed into `AppConfig.Headless` and then never asked,
+    // and a run that said it wanted no display server opened an SDL window regardless. The reason
+    // given was that SDL fixes a window's graphics API at creation and the Vulkan flag has to be
+    // requested up front; that is true and already handled, because
+    // `DesktopPlatformOptions.RequestGpuSurface` defaults to true and `PlatformHost.Create` leaves it
+    // at the default. The hand-built platform bought nothing and cost the flag.
+    //
+    // No console provider either: the host adds one for every variant except Release, which is where
+    // the thirty lines this sample used to carry now live.
+    static int Main(string[] arguments) => VixenApp.Run<TriangleGame>(arguments);
 }

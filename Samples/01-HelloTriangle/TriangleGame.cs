@@ -55,8 +55,18 @@ public sealed class TriangleGame : Game {
 
     /// <inheritdoc />
     protected override void OnConfigure(AppConfig config) {
+        ArgumentNullException.ThrowIfNull(config);
+
         config.Name = "Hello Triangle";
-        config.Window = new() { Title = "Vixen — Hello Triangle", Size = new(1280, 720), IsVisible = true };
+
+        // ⚠ `IsVisible` follows `Headless`, because `AppConfig.Apply` has already read the command
+        // line by the time this runs — deliberately, so a game can override an operator, which makes
+        // an unconditional `true` an override nobody meant to write.
+        config.Window = new() {
+            Title = "Vixen — Hello Triangle",
+            Size = new(1280, 720),
+            IsVisible = !config.Headless
+        };
 
         // This sample opens its own device and presents its own swapchain, which is the whole point
         // of it — so the host must not open a second one on the same surface. Off is one line, and

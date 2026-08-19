@@ -73,7 +73,19 @@ public sealed class PbrShowcaseGame : Game {
 
         config.Name = "PbrShowcase";
         config.Organisation = "Vixen";
-        config.Window = new() { Title = "Vixen — PBR Showcase", Size = new(1280, 720), IsVisible = true };
+
+        // ⚠ `IsVisible` follows `Headless`, and the two are read in that order on purpose:
+        // `AppConfig.Apply` takes the command line apart *before* this hook runs, so a game can
+        // override what an operator asked for — and an unconditional `true` here is that override,
+        // silently. It is not what would put a window on the screen under `--vixen-headless`
+        // (`PlatformHost` has already chosen the headless platform by then, and its windows have no
+        // picture), but a sample telling a window nobody can see to show itself is a lie the next
+        // reader has to disprove.
+        config.Window = new() {
+            Title = "Vixen — PBR Showcase",
+            Size = new(1280, 720),
+            IsVisible = !config.Headless
+        };
 
         // The project's own frame — the document's seven knobs stand for everything this sample
         // used to lack. The host halves of those knobs are the lines below and GridMaterials.

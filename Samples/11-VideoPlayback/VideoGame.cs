@@ -78,8 +78,17 @@ public sealed class VideoGame : Game {
 
     /// <inheritdoc />
     protected override void OnConfigure(AppConfig config) {
+        ArgumentNullException.ThrowIfNull(config);
+
         config.Name = "Video Playback";
-        config.Window = new() { Title = "Vixen — Video Playback", Size = new(1280, 720), IsVisible = true };
+
+        // ⚠ `IsVisible` follows `Headless` — see 01 for why an unconditional `true` here is an
+        // assignment over a flag the host has already read.
+        config.Window = new() {
+            Title = "Vixen — Video Playback",
+            Size = new(1280, 720),
+            IsVisible = !config.Headless
+        };
 
         // The sample owns its device and presents the decoded frame itself; the host's renderer would
         // be a second swapchain on the same surface.
