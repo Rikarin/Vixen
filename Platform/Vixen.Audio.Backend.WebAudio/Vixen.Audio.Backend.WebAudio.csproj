@@ -8,8 +8,11 @@
 
           The consequence is that this project needs the `wasm-tools` workload to evaluate, so — like
           Vixen.Platform.Android and Vixen.Platform.iOS, and for the same reason — it is NOT in
-          Vixen.slnx. `nuke Compile` does not build it and neither does CI today; it is built by the
-          web app head, which is Phase 10 work (docs/plan/14). See the README.
+          Vixen.slnx. `nuke Compile` therefore does not build it; `nuke CompileWeb` does, together
+          with the other two browser projects, and so does the `web` leg of ci.yml. See the README.
+
+          ⚠ It was the *only* project CompileWeb named, which is how Vixen.Platform.Web and
+          Vixen.Graphics.WebGPU.Browser came to be built by nothing at all.
         -->
         <TargetFramework>net10.0-browser</TargetFramework>
         <RootNamespace>Vixen.Audio.Backend.WebAudio</RootNamespace>

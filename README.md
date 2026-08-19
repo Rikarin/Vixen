@@ -17,7 +17,7 @@ engine's own UI framework, and is the primary proof that the framework is genera
 The SDK version is pinned in [`global.json`](global.json); nothing else is required to build the
 solution. `./build.sh` is the entry point CI and developers share — `Clean Restore Compile Test Pack
 CheckFormat CheckArchitecture CheckApi Benchmark GoldenImages CheckAot CheckAotIos CompileMobile
-CompileWeb RestoreNativeDeps` are the targets.
+CompileWeb PublishWeb RestoreNativeDeps` are the targets.
 
 Some backends need a native binary that no package ships. `./build.sh RestoreNativeDeps` fetches each
 one pinned and SHA-256-verified from [`build/native-dependencies.json`](build/native-dependencies.json),

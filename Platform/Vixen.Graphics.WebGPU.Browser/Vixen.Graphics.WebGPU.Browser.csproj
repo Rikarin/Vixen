@@ -8,9 +8,12 @@
 
           The consequence is that this project needs the `wasm-tools` workload to evaluate, so — like
           Vixen.Audio.Backend.WebAudio, Vixen.Platform.Android and Vixen.Platform.iOS, and for the
-          same reason — it is NOT in Vixen.slnx. `nuke Compile` does not build it and neither does CI
-          today; it is built by the web app head, which is Phase 10 work (docs/plan/14). See the
-          README.
+          same reason — it is NOT in Vixen.slnx. `nuke Compile` therefore does not build it.
+
+          ⚠ This comment used to end "and neither does CI today", and it was right for longer than
+          anybody noticed: `nuke CompileWeb` named only Vixen.Audio.Backend.WebAudio, and no workflow
+          called even that. It builds under `nuke CompileWeb` and on the `web` leg of ci.yml now, and
+          `nuke PublishWeb` puts it through a published head. See the README.
         -->
         <TargetFramework>net10.0-browser</TargetFramework>
         <RootNamespace>Vixen.Graphics.WebGPU.Browser</RootNamespace>

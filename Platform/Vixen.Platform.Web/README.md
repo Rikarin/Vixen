@@ -38,10 +38,15 @@ sits on disk and out of the solution, exactly as `Vixen.Platform.Android`, `Vixe
 dotnet build Platform/Vixen.Platform.Web
 ```
 
-`Vixen.Platform.Web.Tests` *is* in the solution, and covers two halves without a browser:
+`Vixen.Platform.Web.Tests` *is* in the solution, and covers three things without a browser:
 
 - **The manifest reader**, in C#. The project targets `net10.0` and links the source files that touch
   no interop rather than referencing this one, which is the only way round the TFM.
+- **The module URL**, in C#, for all three browser bindings at once — `BrowserModuleUrlTests`. Each
+  binding's `DefaultModuleUrl` is resolved the way `JSHost.ImportAsync` resolves it, against the
+  runtime's module in `_framework/`, and has to land on a `vixen-*.js` the project actually ships to
+  the site root. All three were `./` and therefore unresolvable; the fix had no test until the
+  constants were moved into `*Interop.Module.cs` files that hold nothing a browser is needed for.
 - **`vixen-platform.js`**, in JavaScript, under Node against a DOM stub — the record layout, the HID
   key table, the wheel-unit conversion, the button-role mapping. Each of those is a translation that
   is wrong in a way no C# test can see. It runs as part of that project's build and fails it; no
@@ -52,7 +57,10 @@ dotnet build Platform/Vixen.Platform.Web
   ```
 
 What genuinely needs a browser — IndexedDB, `fetch`, pointer lock, the IME — is for the Playwright
-smoke test in doc 10's CI matrix, which does not exist yet.
+smoke test in doc 10's CI matrix, which does not exist yet. What needs only the *toolchain* is
+covered: `nuke CompileWeb` builds all three browser projects and `nuke PublishWeb` publishes a head
+and checks the page it produced has its entry point and its bindings where they are fetched from.
+Both run on the `web` leg of `ci.yml`.
 
 ## The application head is `net10.0-browser` too
 
@@ -355,7 +363,10 @@ web build needs its own, and it is a `Vixen.Net.Transport.*` project rather than
 **An `AudioWorklet` path** in `Vixen.Audio.Backend.WebAudio`, taken when the page *is* cross-origin
 isolated. It would cut that backend's 40 ms queue to a couple of milliseconds.
 
-**The Playwright smoke test**, which is what covers everything in this project that touches interop.
-Doc 10's CI matrix has the leg; it does not exist yet.
+**The Playwright smoke test**, which is what would cover the `[JSImport]` calls themselves. Doc 10's
+CI matrix has the leg; it does not exist yet. ⚠ When it is written it must drive a real browser over
+CDP: `chrome-headless-shell --dump-dom` never fires `requestAnimationFrame` — measured, with and
+without `--virtual-time-budget`, `--screenshot` and SwiftShader — so a leg built on it would report a
+live frame loop as dead. `docs/plan/spikes/web-head/drive.mjs` is the shape that works.
 
 Licensed under Apache-2.0.

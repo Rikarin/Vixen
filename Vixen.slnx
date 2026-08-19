@@ -381,13 +381,14 @@
       are deliberately absent, for the same reason Vixen.Platform.Android and
       Vixen.Platform.iOS are: they target net10.0-browser, which needs the wasm-tools
       workload even to evaluate, and a solution that will not restore on a machine
-      without it is a solution nobody can open. They are built by the web app head and
-      by anyone who has the workload.
+      without it is a solution nobody can open. All three are built by `nuke CompileWeb`
+      and by the `web` leg of ci.yml, which also publishes a head (`nuke PublishWeb`).
 
       Vixen.Platform.Web.Tests *is* here, and is not a contradiction: it targets
-      net10.0 and links the platform-neutral half of that project as source rather than
-      referencing it, so the manifest reader — hand-written, and the thing most worth
-      testing — is covered on every push without a browser or a workload. See its csproj.
+      net10.0 and links the platform-neutral half of those projects as source rather than
+      referencing them, so the manifest reader — hand-written, and the thing most worth
+      testing — and the three browser bindings' module-URL constants are covered on every
+      push without a browser or a workload. See its csproj.
     -->
     <Project Path="Platform/Vixen.Platform.Web.Tests/Vixen.Platform.Web.Tests.csproj" />
     <Project Path="Platform/Vixen.Audio.Backend.OpenAL/Vixen.Audio.Backend.OpenAL.csproj" />
