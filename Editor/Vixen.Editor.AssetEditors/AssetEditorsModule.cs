@@ -34,7 +34,7 @@ namespace Vixen.Editor.AssetEditors;
 ///         subscriber a half-built one.
 ///     </para>
 /// </remarks>
-public sealed class AssetEditorsModule : IEditorPlugin {
+public sealed partial class AssetEditorsModule : IEditorPlugin {
     /// <summary>What the host activates it under, and what a plugin depending on it names.</summary>
     public const string ModuleId = "vixen.asset-editors";
 
@@ -55,6 +55,10 @@ public sealed class AssetEditorsModule : IEditorPlugin {
         context.OnUnload(() => editors.Opened -= binder.Bind);
 
         Frames(context, editors);
+
+        // Doc 37 § P7's panel, which was built with tests and never registered — see
+        // Ai/AgentDebuggerPanel.cs for why it is this module's and not the application's.
+        AgentDebuggerPanel(context);
     }
 
     /// <summary>Doc 39's frame panel, bound to the four things it cannot reach for itself.</summary>

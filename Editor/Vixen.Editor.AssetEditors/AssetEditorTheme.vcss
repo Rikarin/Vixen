@@ -824,4 +824,93 @@ font-chain-row.error { color: var(--danger, #f2696e); }
 
 /* ── The sequencer ──────────────────────────────────────────────── */
 
+/* ── The agent debugger ─────────────────────────────────────────── */
+
+/* ⚠ **doc 37 § P7's view had no rules at all, and that is a consequence of it never having been
+   docked.** P7 built the control, tested it under a bare document and never registered a panel, so
+   nothing ever laid it out inside something narrower than itself. The first time it was docked its
+   body measured 740px wide inside a 313px panel and drew its own toolbar over the scene viewport —
+   the same class of defect as P7's own `Button.Text` finding, and found the same way: by
+   constructing the thing for real for the first time.
+
+   `min-width: 0` and `min-height: 0` are the load-bearing halves throughout. A flex item's
+   automatic minimum is its content, so a list of agent rows refuses to shrink below its widest row
+   unless it is told it may — which is what turned overflow into geometry outside the panel rather
+   than into a scrollbar. */
+agent-debugger {
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+agent-debugger-body {
+    flex-direction: row;
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 0;
+    gap: 6px;
+    overflow: hidden;
+}
+
+/* The agent list is a fixed gutter rather than a share: it holds entity ids, which are short and
+   all the same length, and a proportional column would give a wide window a wasteland of them. */
+agent-debugger-agents {
+    flex-direction: column;
+    width: 104px;
+    min-width: 72px;
+    flex-shrink: 0;
+    gap: 1px;
+    overflow-y: auto;
+}
+
+agent-debugger-detail {
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 0;
+    gap: 2px;
+    overflow-y: auto;
+}
+
+agent-list { flex-direction: column; gap: 1px; }
+
+agent-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 2px 4px;
+}
+
+agent-toolbar { flex-direction: row; gap: 4px; min-width: 0; flex-shrink: 0; }
+
+agent-rows, agent-findings, agent-log { flex-direction: column; min-width: 0; gap: 1px; }
+
+agent-row, agent-row-live, agent-finding, agent-log-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    min-height: 18px;
+    min-width: 0;
+    padding: 0px 4px;
+    overflow: hidden;
+}
+
+/* ⚠ The one thing the overlay and the panel agree on: the *live* row is tinted rather than marked,
+   because doc 37 § P7's snapshot carries "whether it is the live one" as a field on every row and a
+   panel that dropped it would be showing a different picture from the overlay beside it. */
+agent-row-live { background-color: var(--surface-sunken); color: var(--accent, #6ba4f2); }
+
+agent-name { flex-grow: 1; min-width: 0; overflow: hidden; }
+agent-value, agent-detail { flex-shrink: 1; min-width: 0; color: var(--text-muted); overflow: hidden; }
+agent-mark { flex-shrink: 0; color: var(--accent, #6ba4f2); }
+agent-tick, agent-status { flex-shrink: 0; color: var(--text-muted); }
+agent-planner, agent-asset, agent-action { flex-shrink: 0; font-weight: 600; }
+agent-origin, agent-reason { flex-shrink: 1; min-width: 0; color: var(--text-muted); overflow: hidden; }
+agent-symptom { flex-shrink: 0; color: var(--danger, #f2696e); font-weight: 600; }
+
+
 }
