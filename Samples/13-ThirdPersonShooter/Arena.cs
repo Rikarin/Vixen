@@ -1467,7 +1467,9 @@ public sealed class Arena : IDisposable {
                 SampleLog.VirtualShadowSummary(
                     logger,
                     vsm.MarkedPages,
+                    vsm.AbsentPages,
                     vsm.DrawnPages,
+                    vsm.InvalidatedPages,
                     gi.VirtualShadows.Residency.ResidentPages,
                     gi.VirtualShadows.Pages.SlotCount,
                     gi.VirtualShadows.Pages.Allocations

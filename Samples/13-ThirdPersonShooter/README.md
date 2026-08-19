@@ -435,6 +435,28 @@ the run above is the worst case that survives: 59 of 59 demanded pages absent fo
 recovered over five. The frame-to-frame delta on that step is 1.449/255 against a 0.94–1.13
 neighbourhood, and the count of 32 × 32 tiles moving by more than 4/255 goes 66 → **184** → 80.
 
+**And it is visible, which is the claim the pictures above could not settle.** The same walk run
+twice, once at the shipped budget and once at one large enough never to starve, differenced frame by
+frame at identical camera poses:
+
+| Frame | Absent, starved | Absent, fed | Mean \|delta\| | p99.9 pixel | Tiles over 4/255 |
+|---|---|---|---|---|---|
+| 2168 | 0 of 59 | 0 | 0.696 | 2.0 | **0** |
+| 2169 | 0 of 59 | 0 | 0.691 | 2.0 | **0** |
+| 2171 | 43 of 59 | 0 | 1.461 | 20.0 | **173** |
+| 2172 | 46 of 59 | 6 | 1.394 | 17.0 | 135 |
+| 2174 | 14 of 59 | 0 | 1.352 | 17.0 | 140 |
+
+⚠ **Read the last column, not the mean.** Two runs that have diverged for two thousand frames still
+put *zero* tiles over 4/255 while their page coverage agrees — and a hundred and seventy-three the
+moment it does not, with the worst pixels ten times further apart. The mean barely doubles because
+the disagreement is confined to the pages that went missing, which is exactly why a whole-frame
+statistic could not find it.
+
+⚠ **A refit costs one frame of absence at any budget.** The table is uploaded before this frame's
+pages are drawn — deliberately, so a slot just handed over is never sampled holding the last page's
+depths — so frame 2170 is absent in both runs. What the budget buys is the four frames after it.
+
 **Owed: toroidal page addressing.** Index a level's pages by their absolute cell modulo
 `PagesPerSide` instead of by their offset from the level's current centre, and a slide invalidates
 only the one column or row that wrapped rather than the whole level. It costs an origin on
