@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Ecs.Systems;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Features;
@@ -238,6 +239,85 @@ public sealed class VfxExtractionTests : IDisposable {
         Assert.Equal(50f, system.Objects[id].Bounds.Center.X, 3);
     }
 
+    // --- Lights -------------------------------------------------------------
+
+    /// <summary>
+    ///     An emitter whose effect is authored as a light lights the scene through the ordinary list.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The call <c>ParticleLights.Collect</c> did not have.</b> The <c>Vfx/Output/Light</c> node
+    ///     has shipped in the editor's library the whole time and nothing collected what it produced,
+    ///     so the effect drew billboards and lit nothing — a failure that presents as a lighting bug in
+    ///     the author's own scene. A particle light is one more entry in the same list a lamp is.
+    /// </remarks>
+    [Fact]
+    public void AnEmitterAuthoredAsALightFillsTheLightList() {
+        using var world = new World();
+        List<RenderLight> lights = [];
+
+        particles.Lights = lights;
+        extraction.Effects = new Source { Lighting = true };
+
+        Emitting(world, new(4f, 1f, -2f));
+        extraction.Extract(world, 1f / 60f);
+
+        Assert.NotEmpty(lights);
+        Assert.Equal(lights.Count, particles.CollectedLights);
+        Assert.All(lights, light => Assert.Equal(LightKind.Point, light.Kind));
+
+        // Where the emitter is, not where the graph's author typed. The same origin the quads use.
+        Assert.All(lights, light => Assert.True((light.Position - new Vector3(4f, 1f, -2f)).Length() < 2f));
+    }
+
+    /// <summary>The list is refilled each step rather than accumulated.</summary>
+    /// <remarks>
+    ///     <c>LightExtractionSystem</c> clears it and this appends to it, so a bridge that did not
+    ///     re-collect from scratch would grow the scene's light list without bound — and the frame
+    ///     would get slower every second with nothing to blame.
+    /// </remarks>
+    [Fact]
+    public void TheParticleLightsAreRebuiltEveryStep() {
+        using var world = new World();
+        List<RenderLight> lights = [];
+
+        particles.Lights = lights;
+        extraction.Effects = new Source { Lighting = true };
+
+        Emitting(world, Vector3.Zero);
+        extraction.Extract(world, 1f / 60f);
+
+        var first = lights.Count;
+
+        Assert.True(first > 0);
+
+        // What a frame does between the two: the scene's own lights are re-extracted over the top.
+        lights.Clear();
+        extraction.Extract(world, 1f / 60f);
+
+        Assert.Equal(first, lights.Count);
+    }
+
+    /// <summary>
+    ///     The bridge runs after <see cref="LightExtractionSystem" />, whichever order they were added.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing but the declared order keeps this right.</b> The two systems share a phase and
+    ///     conflict on no component — one reads <c>Light</c> and the other <c>VfxEmitter</c> — so the
+    ///     data-dependency pass has nothing to say about them, and the one that clears the list would
+    ///     wipe the sparks every frame if it happened to run second. Registered here in the wrong
+    ///     order on purpose.
+    /// </remarks>
+    [Fact]
+    public void TheBridgeRunsAfterTheSceneLightsAreExtracted() {
+        using var lighting = new ForwardLightingRenderFeature();
+        var lights = new LightExtractionSystem(lighting);
+
+        var graph = SystemGraph.Build([extraction, lights]);
+        var order = graph.InPhase(SystemPhase.PreRender).Select(node => node.System).ToList();
+
+        Assert.Equal([lights, extraction], order);
+    }
+
     // --- The fixture --------------------------------------------------------
 
     /// <summary>Every running system, in no particular order.</summary>
@@ -269,23 +349,24 @@ public sealed class VfxExtractionTests : IDisposable {
     ///     spawns nothing — and every assertion here is about particles that exist.
     /// </remarks>
     sealed class Source : IVfxEffectSource {
-        readonly VfxCompiledGraph graph = VfxCompiledGraph.Compile(
-            [VfxSpawner.Burst(16)],
-            [
-                new(VfxOpcode.PositionInSphere, new Vector4(0f, 0f, 0f, 1f)),
-                new(VfxOpcode.SetSize, new Vector4(0.1f, 0.2f, 0f, 0f)),
-                new(VfxOpcode.SetColour, Vector4.One),
-                new(VfxOpcode.SetLifetime, new Vector4(100f, 100f, 0f, 0f))
-            ],
-            [],
-            256,
-            VfxRenderer.Billboard
-        );
-
         public bool Ready { get; init; } = true;
 
+        /// <summary>Whether the graph's output node is a light rather than a billboard.</summary>
+        public bool Lighting { get; init; }
+
         public bool TryGet(AssetReference reference, out VfxCompiledGraph effect) {
-            effect = graph;
+            effect = VfxCompiledGraph.Compile(
+                [VfxSpawner.Burst(16)],
+                [
+                    new(VfxOpcode.PositionInSphere, new Vector4(0f, 0f, 0f, 1f)),
+                    new(VfxOpcode.SetSize, new Vector4(0.1f, 0.2f, 0f, 0f)),
+                    new(VfxOpcode.SetColour, Vector4.One),
+                    new(VfxOpcode.SetLifetime, new Vector4(100f, 100f, 0f, 0f))
+                ],
+                [],
+                256,
+                Lighting ? VfxRenderer.Light(2f, 5f) : VfxRenderer.Billboard
+            );
 
             return Ready;
         }
