@@ -213,12 +213,18 @@ public sealed class ThirdPersonShooterGame : Game {
     ///         <b>⚠ A temporal artefact is a difference between two <em>consecutive</em> frames, and
     ///         until this there was no way to hold two.</b> <c>--vixen-capture</c> writes the last
     ///         frame only, so frame <i>N</i> and frame <i>N</i> + 1 were two whole runs — and two runs
-    ///         differ by the renderer's own scheduling as well as by the thing being looked for. Over
-    ///         grass and screen-probe GI that scheduling residue reaches a mean absolute channel
-    ///         around 1/255 and a band statistic spreads ±5 %, so a cross-run pair cannot answer "did
-    ///         this pixel change between frames" at all. Two frames of <em>one</em> run share the
+    ///         differ by <em>when their textures finished loading</em> as well as by the thing being
+    ///         looked for. Material loads and the streamer's mip swaps land on a wall-clock schedule,
+    ///         so at a fixed frame index two runs of one binary hold different content: at frame 4
+    ///         both runs have 15 of 17 textures and the pictures are byte-identical, at frame 5 one
+    ///         has 16 and the other 17 and the foliage still waiting for its map draws as untextured
+    ///         boxes. Streaming settles by about frame 64, but the difference it injected is carried
+    ///         on by TAA, the probe history and the exposure meter — over grass a cross-run pair is
+    ///         still a worst-case 0.071/255 mean absolute channel at 256 frames, which cannot answer
+    ///         "did this pixel change between frames" at all. Two frames of <em>one</em> run share the
     ///         schedule, the streaming state and the probe history, and their difference is the frame
-    ///         step and nothing else.
+    ///         step and nothing else. See <c>docs/guide/rendering/capturing-a-frame.md</c> for the
+    ///         measured floor and what it does and does not permit.
     ///     </para>
     ///     <para>
     ///         <c>VIXEN_STRIP=first-last</c>, inclusive, written as <c>frame-0512.png</c> beside the

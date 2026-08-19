@@ -106,30 +106,71 @@ across two runs, where before they were about four pixels apart at frame 511 —
 saturated any per-pixel diff taken across the pair.
 
 ⚠ **The picture is not settled everywhere, and where it is not is worth knowing before you measure
-anything.** Two independent runs, same build, 256 frames, 1600×900:
+anything.** Six independent runs, same build, 256 frames, 1600×900, on the grass field
+(`VIXEN_SPAWN=45,3,0,0`) — the worst viewpoint this repository has found:
 
-| Viewpoint | Flipped pixels | Mean channel gap | Mean \|delta\| |
-|---|---|---|---|
-| The spawn corner (no `VIXEN_SPAWN`) | 36 of 1 440 000 | 0.0000 | 0.000009/255 |
-| The grass field (`VIXEN_SPAWN=45,3,0,0`) | 640 000 – 880 000 | 0.13 – 0.42 | 0.97 – 1.18/255 |
+| Statistic | Over six runs of one build |
+|---|---|
+| Flipped pixels, worst pair | 238 012 of 1 440 000 (16.5 %) |
+| Flipped pixels, best pair | 4 932 of 1 440 000 (0.34 %) |
+| Mean \|delta\|, worst pair | **0.071/255** |
+| Whole-frame mean channel | spread **0.047 %** about the mean |
+| Grass band — green above both red and blue by four | spread **0.25 %** about the mean |
 
-The first is reproducible enough for a per-pixel diff. The second is not reproducible at all, and the
-residue is not spread evenly — it sits on the GI-lit hillside, where a 200 × 150 block reaches a mean
-absolute channel of **15/255** while the sky beside it stays at 0.3. `--vixen-workers 0` roughly
-halves it; `--vixen-frame-limit 25` does not touch it, so it is not the host simply running ahead of
-the device. The counters move with it: screen probes placed varies over 3788–3795 and virtual-shadow
-resident pages over 247–254 between runs whose camera matrices are bit-identical.
+The lake view (`VIXEN_SPAWN=0,0.2,-48,0`) came back **byte-identical** over the pair measured, and on
+the viewpoint swept frame by frame every capture at 1, 2, 3 and 4 frames was byte-identical too.
 
-**So: over ground with grass and screen-probe GI on it, quote a band statistic and give it a floor of
-about half a percent of the mean channel. A per-pixel diff there is measuring the renderer's own
-scheduling.** Over walls and sky, a per-pixel diff is sound.
+⚠ **The cause is asynchronous asset loading, not the renderer's scheduling**, and that matters
+because it says which frames are affected and which statistics survive. The material textures finish
+loading and the streamer's mip swaps land on a *wall-clock* schedule, so at a fixed frame index two
+runs of one binary hold different content. Sample 13 at frame 4 has 15 of 17 textures loaded and 15
+swaps in **both** runs and the two PNGs are byte-identical; at frame 5 one run has 16 loaded and 16
+swaps and the other has 17 and 17, and the foliage cards that are still waiting for their map draw as
+untextured boxes, which is a structural difference in the picture and not a rounding one. Streaming
+settles by about frame 64 (32 swaps, 0
+in flight, identical in every run), but the difference injected between frames 5 and about 20 is then
+carried indefinitely by the temporal chain: TAA history, the screen-probe and surface-cache
+accumulators, and the exposure meter. Frame 8 is the proof of both halves — the streaming counters
+already agree there and the pictures still differ by 21.9 % of pixels.
 
-⚠ **A thresholded count is far noisier than a mean, and it is the statistic people reach for.** Six
-runs of one build at the same frame count and viewpoint, counting pixels that read as grass — green
-above both red and blue by four — spread over 620 633 to 654 954: **±5 % about the mean**, against
-±0.5 % for the mean channel of the same six frames. Anything smaller than that measured by counting
-pixels in a band is not a measurement. If a hypothesis is about a one-percent effect, it needs a
-region mean, a still camera, and the frame count held fixed.
+**It is discrete, not noise.** Four runs at frame 8 produced exactly *two* distinct pictures: three
+were byte-identical to each other and the fourth differed from all three by the same 315 509 pixels.
+The output takes one of a few values, decided by which frame a load happened to land on.
+
+**Giving each frame more wall time narrows it, which is the test the diagnosis has to pass.** Three
+runs at 64 frames throttled to 4 fps — a quarter-second a frame, so every pending load has time to
+land — put two of the three **5 pixels apart out of 1 440 000**, against a best pair of 13 350 for the
+same three runs at 60 fps. The third throttled run still landed in the other cluster, which is what
+"discrete" means: throttling changes the odds, not the mechanism. ⚠ Five is not zero, so a second and
+far smaller source is still unaccounted for — but it is four orders of magnitude below the one named
+here, and nothing measured so far separates it from rounding.
+
+The screen-probe gather is **not** implicated, despite being the obvious suspect: probes placed is
+3 801 in all six runs above, and its readback is structurally safe — `Device.BeginFrame` waits on the
+fence of frame *N* − `FramesInFlight` before the compositor builds, which is exactly the ring slot
+`ScreenProbeGatherRenderer` reads. Virtual-shadow residency moves by at most one page (98–99 marked,
+164–165 resident), downstream of the same content difference. `--vixen-workers 0` does not halve it,
+and neither does running the job scheduler with a single worker.
+
+**So: over ground with grass and screen-probe GI on it, quote the whole-frame mean channel or a band
+count and give them a floor of about 0.05 % and 0.25 % respectively. A per-pixel diff or a per-pixel
+maximum there is measuring the asset loader.** Over walls and sky, and on any frame before the
+fifth, a per-pixel diff is sound.
+
+⚠ **A thresholded count is noisier than a mean, and it is the statistic people reach for.** Of the
+six runs above, the grass band spread 0.25 % against 0.047 % for the mean channel of the same six
+frames — a factor of five, so a band count needs an effect five times larger to say the same thing.
+Both are small enough that an ordinary content change is far above them: what is *not* measurable
+this way is an effect under a quarter of a percent. If a hypothesis is about something smaller, it
+needs a region mean, a still camera, and the frame count held fixed.
+
+⚠ **Earlier editions of this page quoted 640 000 – 880 000 flipped pixels, a mean \|delta\| near
+1/255, and a ±5 % band spread here.** Those were taken before samples 03/12/13 stopped defeating
+`--vixen-headless` with `WithPlatform(new DesktopPlatform(…))`, so they were measured through a
+windowed process contending for the display. The numbers above replace them and are between 3× and
+20× tighter. **Re-measure the floor on the view you intend to use, on the build you intend to use it
+on** — that is the standing instruction, and it is why this paragraph exists rather than a silent
+edit.
 
 Convergence is the slow one. Sample 13's frame carries a GPU cull, a surface cache, a screen-probe
 gather and an exposure meter, and several of them keep device state across frames, so the picture
