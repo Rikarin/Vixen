@@ -8,7 +8,7 @@ api: [T:Vixen.Input.InputService, T:Vixen.Input.InputActions, T:Vixen.Input.Inpu
 tags: [input, actions, keyboard, gamepad, mouse, bindings]
 since: 0.1
 status: preview
-related: [engine/players-and-possession, engine/character-movement]
+related: [engine/binding-controls, engine/players-and-possession, engine/character-movement]
 ---
 
 ## What it is
@@ -259,6 +259,8 @@ half-finished, which is the point: a jump held across the pause does not fire wh
 
 ## See also
 
+- [Binding controls, and rebinding them](binding-controls.md) — the layer below: what a path names,
+  what a composite does with its parts, and the rebinding operation nothing drives yet.
 - [Players and possession](players-and-possession.md) — `ActionPlayerInput`, the adapter from an
   action map to a pawn's `MoveIntent`, and the Y flip between the two conventions.
 - [Character movement](character-movement.md) — what that intent drives.
