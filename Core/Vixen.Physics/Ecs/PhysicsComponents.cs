@@ -257,5 +257,12 @@ public struct PhysicsInterpolation {
 ///         genuinely moving at two hundred metres a second covers the same gap in a step; any
 ///         threshold that catches one catches the other. Only the caller knows.
 ///     </para>
+///     <para>
+///         ⚠ <b>Inert on a character, and it stays on.</b> The bridge acts on this while walking the
+///         entities that have a <see cref="PhysicsBody" />, and a character has a
+///         <c>CharacterBody</c> instead — so a tag put on one is neither read nor taken off again.
+///         A character needs none of it: writing its <c>LocalTransform</c> <i>is</i> the teleport,
+///         and <c>PhysicsScene.Adopt</c> is what makes that true.
+///     </para>
 /// </remarks>
 public struct PhysicsTeleport : ITagComponent;
