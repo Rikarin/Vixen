@@ -25,7 +25,7 @@ game: !StandardFrame
   shadows: Cascades      # Off | Cascades | Virtual
   gi: Probes             # Off | Ambient | Probes
   reflections: Screen    # Off | Probe | Screen
-  antialiasing: Taa      # Off | Fxaa | Taa | TaaFxaa
+  antialiasing: Taa      # Off | Fxaa | Taa | TaaFxaa | Smaa | TaaSmaa
   exposure: Automatic    # Fixed | Automatic
   output: SceneColour
 ```
@@ -67,7 +67,7 @@ builder.Factories.Add(new PostEffectFactory());
 
 One fact stays the host's, exactly as it does for a hand-authored frame: **caster stages are
 extraction's.** With `shadows:` on, add `"Shadow"` to `GraphicsOptions.CasterStages`; with
-`antialiasing: Taa` or `TaaFxaa`, add `"Motion"` too. A frame document cannot decide what an object
+`antialiasing: Taa`, `TaaFxaa` or `TaaSmaa`, add `"Motion"` too. A frame document cannot decide what an object
 is extracted as.
 
 The ambient split used to be a second such fact and is not any more. `gi:` above `Off` emits the
