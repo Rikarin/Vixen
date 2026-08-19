@@ -30,12 +30,22 @@ namespace Vixen.Editor.App;
 ///         checked is a pane whose first failure is attributed to the pane.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Mount</c> is not called, and the mesh source is set by hand instead.</b> Mounting
-///         wants an <c>AssetManager</c>, which resolves addresses through a catalog a *content build*
-///         wrote — and <c>ProjectMeshSource</c>'s own remarks give the argument against making the
-///         viewport wait for one: "waiting for a build to look at a level would make the viewport a
-///         function of the build rather than of the files". So geometry comes from the same import
-///         cache the tool renderer already reads, and the two cannot disagree about what a mesh is.
+///         ⚠ <b><c>Mount</c> is not called, and the mesh source is set by hand instead.</b> This
+///         paragraph used to say mounting means a catalog "a *content build* wrote" and cited
+///         <c>ProjectMeshSource</c>'s "waiting for a build" line. Both are wrong: <c>EditorContent</c>
+///         mounts a <c>LooseContent</c> catalog, which needs no build and reads the same import cache.
+///         The argument that survives is narrower and is about what a catalog omits — an excluded
+///         asset gets no address, so the catalog silently resolves less than the import cache does.
+///         So geometry comes from the same import cache the tool renderer already reads, the two
+///         cannot disagree about what a mesh is, and nothing in a project stops being drawn because
+///         it is not shipped.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is an argument about geometry only, and the paragraph below is the cost of
+///         over-reading it.</b> <c>Mount</c> is also the only thing that builds an
+///         <c>IMaterialSource</c>, a texture source, a vfx source and the terrain seams, and
+///         <c>Source</c> and <c>Painter</c> are both settable — so mounting and then restoring
+///         <c>ProjectMeshSource</c> as the geometry is what would close this without reopening that.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Which leaves <see cref="Engine.Renderer.WorldRenderer.Painter" /> null, and that is a
