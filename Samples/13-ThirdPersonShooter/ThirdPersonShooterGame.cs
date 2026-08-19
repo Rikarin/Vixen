@@ -91,7 +91,19 @@ public sealed class ThirdPersonShooterGame : Game {
 
         config.Name = "ThirdPersonShooter";
         config.Organisation = "Vixen";
-        config.Window = new() { Title = "Vixen — Third-Person Shooter", Size = new(1600, 900), IsVisible = true };
+
+        // ⚠ `IsVisible` follows `Headless`. `AppConfig.Apply` reads the command line *before* this
+        // hook, deliberately, so that a game can override an operator — which makes an unconditional
+        // `true` here exactly that override, made without meaning to. It is not what would open a
+        // window on a `--vixen-headless` run: `PlatformHost` has already chosen the headless platform
+        // from the same flag, and a `HeadlessWindow` has no picture whatever this says. What it costs
+        // is truthfulness — the sample this repository photographs most would be recorded as showing
+        // a window on every capture run.
+        config.Window = new() {
+            Title = "Vixen — Third-Person Shooter",
+            Size = new(1600, 900),
+            IsVisible = !config.Headless
+        };
 
         // The project's own frame: doc 22's virtualized path and doc 19's global illumination, both
         // named in a file rather than assembled here. That is the whole point of the compositor being

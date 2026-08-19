@@ -241,6 +241,27 @@ protected override void OnConfigure(AppConfig config) {
 `AppConfig.Apply` runs before `OnConfigure`, so an operator's `--vixen-capture` is what a game sees
 here and a game that hard-codes a directory wins — the order every other setting takes.
 
+### ⚠ Two ways a head takes `--vixen-headless` away, and only one of them shows
+
+The ordering above cuts both ways, and both mistakes were in this repository's own samples until
+2026-08-19.
+
+The visible one is `AppBuilder.WithPlatform`. A platform handed to the builder is used *ahead* of the
+`IPlatformFactory`, deliberately — an Android activity, a UIKit view controller and the editor's play
+mode all own a platform the host cannot make — so a head that supplies one never reaches
+`PlatformHost.Create`, and `AppConfig.Headless` is parsed, stored and never read. Four desktop
+samples did this to request a Vulkan surface at window creation, which
+`DesktopPlatformOptions.RequestGpuSurface` has defaulted to for as long as the option has existed. A
+`--vixen-headless` run logged `on Desktop (macOS)` and opened a window.
+
+The quiet one is `config.Window = new() { …, IsVisible = true }`. It reads like the same bug and is
+not: by the time those options are used the platform has already been chosen from the same flag, and
+a `HeadlessWindow` has no picture whatever `IsVisible` says — the only effect is a synthetic
+`WindowShown` nothing consumes. It is still worth writing `IsVisible = !config.Headless`, because a
+line that silently overrides an operator is one the next reader has to disprove.
+
+`Tools/Vixen.App.Tests/HeadlessFlagTests` gates both, by scanning `Samples/` for either shape.
+
 ### Encoding a picture directly
 
 ```csharp no-compile="PngCodec.Save writes to the host filesystem, which a doc example should not do"

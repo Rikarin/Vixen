@@ -153,8 +153,22 @@ public sealed class VirtualGeometryGame : Game {
 
     /// <inheritdoc />
     protected override void OnConfigure(AppConfig config) {
+        ArgumentNullException.ThrowIfNull(config);
+
         config.Name = "Virtual Geometry";
-        config.Window = new() { Title = "Vixen — Virtual Geometry", Size = new(1280, 720), IsVisible = true };
+
+        // ⚠ `IsVisible` follows `Headless`. `AppConfig.Apply` reads the command line *before* this
+        // hook — deliberately, so a game can override what an operator asked for — which makes an
+        // unconditional `true` here an assignment over `--vixen-headless`. It is not what opened a
+        // window on a headless run (see `Program`), because the headless platform's windows have no
+        // picture whatever this says; it is that the sample would otherwise be telling a window
+        // nobody can see to show itself, and `HeadlessPlatform.CreateWindow` posts a `WindowShown`
+        // for it.
+        config.Window = new() {
+            Title = "Vixen — Virtual Geometry",
+            Size = new(1280, 720),
+            IsVisible = !config.Headless
+        };
 
         // The division of labour this sample is about is between a document and a host it builds
         // itself — the VirtualGeometrySystem, its page pool and the visibility buffer are all lent to

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.App;
-using Vixen.Platform.Desktop;
 
 namespace Vixen.Samples.VideoPlayback;
 
@@ -24,19 +23,10 @@ namespace Vixen.Samples.VideoPlayback;
 ///     </para>
 /// </remarks>
 static class Program {
-    static int Main(string[] arguments) {
-        // As in 01: a Vulkan surface has to be asked for before the window exists, because SDL needs
-        // the flag at creation time and a window made without it has nothing to present to.
-        var platform = new DesktopPlatform(new() {
-            Organisation = "Vixen",
-            Application = "VideoPlayback",
-            RequestGpuSurface = true
-        });
-
-        using var application = VixenApp.Create(arguments)
-            .WithPlatform(platform)
-            .Build(new VideoGame());
-
-        return application.Run();
-    }
+    // ⚠ As in 01, and for the reason 01 now spells out: this used to hand `WithPlatform` a
+    // `DesktopPlatform` of its own, which `AppBuilder.Build` takes ahead of the factory and which
+    // therefore made `--vixen-headless` a flag the run parsed and ignored. The Vulkan surface it was
+    // built for is already the default — `DesktopPlatformOptions.RequestGpuSurface` is true and
+    // `PlatformHost.Create` does not change it.
+    static int Main(string[] arguments) => VixenApp.Run<VideoGame>(arguments);
 }

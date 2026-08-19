@@ -222,7 +222,7 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | Id | Level | Message | Since |
 |---|---|---|---|
 | 14001 | Information | `Running on {Adapter} ({Kind}), presenting {Format} at {Width}×{Height} with {Images} images.` | 0.1.0 |
-| 14002 | Error | `There is no window to present to.` — `Samples/01` needs a real display | 0.1.0 |
+| 14002 | Error | `There is no window to present to.` — `Samples/01` owns its device and present, so it needs a real display and `--vixen-capture` writes nothing for it | 0.1.0 |
 | 14003 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
 | 14004 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
 | 14005 | Information | `Generated {Width}×{Height} at {Rate} Hz, {Duration} s, {Megabytes} MB uncompressed.` — `Samples/11` writes its own WebM rather than carrying one | 0.1.0 |
@@ -295,6 +295,13 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14086 | Warning | `There is no DebugDraw, so the overlay is not registered.` — `Graphics.Overlays` is what builds one, and it is off by default | 0.1.0 |
 | 14087 | Information | `The overlay drew {Agents} agent(s) and {Rows} row(s) on the last frame.` — ⚠ zero agents with a village that decided things means the style culled them: `Range` and `Viewpoint`, in that order | 0.1.0 |
 | 14088 | Warning | `There is no engine loop, so there is no world and nothing to decide.` — what `--vixen-frames 1` on a machine with no GPU looks like, and not an error | 0.1.0 |
+| 14072 | Information | `Buoyancy: {Floating} bod(ies) floating, {Pontoons} pontoon(s), {Wet} of them wet…` — the raft's own numbers, which is how a body resting at the wrong height is told from one that never floated | 0.1.0 |
+| 14073 | Information | `Console: typed '{Line}'; claimed = {Claimed}.` — what `VIXEN_CONSOLE` ran, so a capture run's debug verbs are evidence rather than assumption | 0.1.0 |
+| 14074 | Warning | `VIXEN_CONSOLE said '{Script}' and this run has no console…` — the verbs were asked for without `--vixen-overlays`, which is what builds the console and the node that draws it | 0.1.0 |
+| 14140 | Information | `Composed {Modules} module(s) over {Definitions} definition(s)…` — the shard's libraries composed over real content, which is what says the gameplay stack is running in a process rather than a fixture | 0.1.0 |
+| 14141 | Warning | `This build shipped no content mount…` — the shard started with no definitions; every gameplay module is inert rather than absent | 0.1.0 |
+| 14142 | Warning | `Nothing in this build carries the '{Label}' label…` — the content build ran and produced nothing the shard asked for, which reads as an empty world | 0.1.0 |
+| 14143 | Information | `Spawned {Issued} order(s) across {Camps} camp(s)…` — the world spawns actually issued, so an empty world is distinguishable from an unspawned one | 0.1.0 |
 
 The 14 000 range is subdivided a sample at a time: `Samples/01` at 14001, `Samples/03` at 14011,
 `Samples/12` at 14021, `Samples/13` at 14031, `Samples/15` at 14081, and `Samples/11` at 14005

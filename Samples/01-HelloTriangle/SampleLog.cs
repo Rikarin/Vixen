@@ -33,8 +33,10 @@ static partial class SampleLog {
     [LoggerMessage(
         EventId = 14002,
         Level = LogLevel.Error,
-        Message = "There is no window to present to. This sample needs a real display — it is the "
-            + "one thing in the repository that does."
+        Message = "There is no window to present to. This sample needs a real display, because it "
+            + "owns its device and its present rather than the host's — so --vixen-capture has no "
+            + "frame of the host's to read back, and writes nothing. Samples 03 and 13 are the ones "
+            + "whose picture is a file."
     )]
     public static partial void NoWindow(ILogger logger);
 

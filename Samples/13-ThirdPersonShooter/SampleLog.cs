@@ -531,7 +531,7 @@ static partial class SampleLog {
     ///     with <c>water.showBuoyancy</c> on is the join undone again.
     /// </summary>
     [LoggerMessage(
-        EventId = 14067,
+        EventId = 14072,
         Level = LogLevel.Information,
         Message = "Buoyancy: {Floating} bod(ies) floating, {Pontoons} pontoon(s), {Wet} of them wet, "
             + "{Submerged:0.000} of each under on average; the deck is at {Deck:0.000} over a surface "
@@ -557,7 +557,7 @@ static partial class SampleLog {
     ///     is why the line it was given is echoed rather than summarised.
     /// </remarks>
     [LoggerMessage(
-        EventId = 14068,
+        EventId = 14073,
         Level = LogLevel.Information,
         Message = "Console: typed '{Line}'; claimed = {Claimed}."
     )]
@@ -570,7 +570,7 @@ static partial class SampleLog {
     ///     — and a picture with no lines in it is exactly what the wiring being broken looks like.
     /// </summary>
     [LoggerMessage(
-        EventId = 14069,
+        EventId = 14074,
         Level = LogLevel.Warning,
         Message = "VIXEN_CONSOLE said '{Script}' and this run has no console: pass --vixen-overlays, "
             + "which is what builds the console, the debug accumulator and the node that draws it."
