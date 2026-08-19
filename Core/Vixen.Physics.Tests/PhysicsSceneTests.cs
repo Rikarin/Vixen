@@ -218,6 +218,75 @@ public sealed class PhysicsSceneTests {
         Assert.Equal(100f, entities.Read<LocalTransform>(crate).Position.X, 2);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A teleport is not motion, and the smoothing must not draw it as motion.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>PhysicsInterpolationSystem</c> draws between the last two simulated poses, and a
+    ///         teleport makes those two poses the two ends of the jump. So the body was drawn
+    ///         <i>crossing the level</i> for a whole fixed step — and on a frame exactly one step long,
+    ///         where <c>alpha</c> is zero, it was drawn at the position it had left, which is a
+    ///         teleport that has visibly not happened yet.
+    ///     </para>
+    ///     <para>
+    ///         The signal is <see cref="PhysicsTeleport" /> and not a distance: a body genuinely moving
+    ///         at 200 m/s covers the same gap in a step and must still be smoothed, so any threshold
+    ///         that catches this catches that. <c>NetworkRigidBodyCorrectionSystem</c>'s hard snap
+    ///         already adds the tag and its comment already says "so nothing draws the body sliding to
+    ///         where it was teleported" — this is that sentence being made true.
+    ///     </para>
+    ///     <para>
+    ///         Both alphas, because they fail differently. At zero the drawn pose is the pre-teleport
+    ///         one exactly; at one half it is the midpoint of the jump, which is the frame you would
+    ///         actually catch in a capture.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ATeleportedBodyIsDrawnWhereItWasPutRatherThanSlidingToIt() {
+        using var loop = new EngineLoop();
+        using var scene = new PhysicsScene(loop.World, new PhysicsWorldSettings { Gravity = Vector3.Zero });
+
+        loop.AddPhysics(scene);
+
+        // Moving, not parked: the body has real motion to smooth on either side of the jump, so this
+        // asserts the teleport is excluded rather than that the smoothing is switched off.
+        var crate = Crate(scene, Vector3.Zero);
+        loop.World.Add(crate, new LinearVelocity { Value = new(2f, 0f, 0f) });
+        loop.World.Add<PhysicsInterpolation>(crate);
+
+        for (var frame = 0; frame < 10; frame++) {
+            loop.Frame(TimeSpan.FromSeconds(Step));
+        }
+
+        var left = loop.World.Read<LocalTransform>(crate).Position.X;
+        Assert.InRange(left, 0.1f, 1f);
+
+        loop.World.Get<LocalTransform>(crate).Position = new(100f, 0f, 0f);
+        loop.World.Add<PhysicsTeleport>(crate);
+
+        // One whole step, which leaves alpha at zero — every machine holding its refresh rate.
+        loop.Frame(TimeSpan.FromSeconds(Step));
+
+        var state = loop.World.Read<PhysicsInterpolation>(crate);
+
+        Assert.Equal(0f, loop.FixedStep.Alpha, 3);
+
+        Assert.True(
+            state.PreviousPosition.X > 99f,
+            $"The interpolation still holds {state.PreviousPosition.X} as the previous pose, so the "
+            + "smoothing has a 100 m segment to slide the body along after a teleport."
+        );
+
+        Assert.Equal(100f, loop.World.Read<LocalTransform>(crate).Position.X, 1);
+
+        // And half a step, which runs no simulation and puts alpha in the middle of the segment.
+        loop.Frame(TimeSpan.FromSeconds(Step / 2f));
+
+        Assert.InRange(loop.FixedStep.Alpha, 0.4f, 0.6f);
+        Assert.Equal(100f, loop.World.Read<LocalTransform>(crate).Position.X, 1);
+    }
+
     [Fact]
     public void ContactsAndTriggersArriveNamingEntities() {
         using var entities = new EcsWorld("Test");

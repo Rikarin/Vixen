@@ -488,6 +488,71 @@ public sealed class CharacterSceneTests {
         Assert.Equal(before + 1, scene.CharacterAdoptionCount);
     }
 
+    /// <summary>
+    ///     ⚠ <b>And the teleport has to be where it was put on the frame it was drawn, not on the one
+    ///     after.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The sibling above asserts the <i>controller</i> moved, which is the simulation's half.
+    ///         This asserts the half a player sees: <c>PhysicsInterpolationSystem</c> draws between the
+    ///         last two poses, and an adopted transform makes those two the two ends of the jump — so a
+    ///         respawning character was drawn sliding back across the level it had just left, and on a
+    ///         frame one fixed step long it was drawn at the old spot outright.
+    ///     </para>
+    ///     <para>
+    ///         The signal here is not a tag but the adopt itself, which is already provenance rather
+    ///         than geometry: <see cref="PhysicsInterpolation.DrawnPosition" /> is what proves the
+    ///         transform was written by somebody other than the smoothing, and that is exactly the
+    ///         question "was this a teleport" asks. A walking character is adopted zero times, which
+    ///         <see cref="SmoothingACharacterDoesNotChangeHowFarItWalks" /> pins.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ATeleportedCharacterIsDrawnWhereItWasPutRatherThanSlidingToIt() {
+        using var loop = new EngineLoop();
+        using var scene = new PhysicsScene(loop.World);
+
+        loop.AddPhysics(scene);
+        Ground(scene);
+
+        var walker = Walker(scene, Vector3.Zero);
+
+        loop.World.Set(walker, new MoveIntent { Move = new(0f, 1f) });
+        loop.World.Add(walker, new PhysicsInterpolation { DrawnPosition = Vector3.Zero });
+
+        for (var frame = 0; frame < 30; frame++) {
+            loop.Frame(TimeSpan.FromSeconds(Step));
+        }
+
+        // Walked somewhere first, so the pose it would slide back to is a real one.
+        var walked = loop.World.Read<LocalTransform>(walker).Position;
+        Assert.True(MathF.Abs(walked.Z) > 1f, $"The walker only reached {walked}, so there is nothing to slide back to.");
+
+        // The stick released and the velocity cleared by hand, exactly as the sibling test does and
+        // for the same reason: otherwise this measures one more step of walking.
+        loop.World.Set(walker, default(MoveIntent));
+        loop.World.Get<CharacterState>(walker).Velocity = Vector3.Zero;
+        loop.World.Get<LocalTransform>(walker).Position = new(12f, 0.1f, -8f);
+
+        loop.Frame(TimeSpan.FromSeconds(Step));
+
+        var drawn = loop.World.Read<LocalTransform>(walker).Position;
+
+        Assert.Equal(0f, loop.FixedStep.Alpha, 3);
+        Assert.Equal(12f, drawn.X, 1);
+        Assert.Equal(-8f, drawn.Z, 1);
+
+        // Half a step: no simulation, alpha in the middle of whatever segment is left.
+        loop.Frame(TimeSpan.FromSeconds(Step / 2f));
+
+        var midway = loop.World.Read<LocalTransform>(walker).Position;
+
+        Assert.InRange(loop.FixedStep.Alpha, 0.4f, 0.6f);
+        Assert.Equal(12f, midway.X, 1);
+        Assert.Equal(-8f, midway.Z, 1);
+    }
+
     [Fact]
     public void DisposingTheSceneDisposesEveryCharacter() {
         using var entities = new EcsWorld("Test");
