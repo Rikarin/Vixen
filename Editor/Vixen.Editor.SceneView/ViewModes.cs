@@ -48,12 +48,20 @@ public enum ViewMode {
 ///     <para>
 ///         <b>Two answers to "show me the normals" and this is the near one.</b>
 ///         <see cref="ViewModes" /> is the real one — a mode is a compositor tree, which is what doc
-///         06 made the compositor data for — and it needs the viewport to be driven by
-///         <c>RenderSystem</c> through a <c>GraphicsCompositor</c>, which is Phase 7's material-system
-///         wiring rather than this document's. What the editor draws today is
-///         <c>SceneMeshes</c> through <c>MeshInstanceRenderer</c>: device-resident shapes, one instance
-///         per entity, one colour and one directional term, and no material anywhere. This table is
-///         what that path can honestly express.
+///         06 made the compositor data for — and it is fed now: <c>EditorWorldRenderer</c> holds a
+///         <c>GraphicsCompositor</c> and a view per pane, <c>EditorFrames.RegisterViewModes</c> hands
+///         each pane the subtrees for its own view, and <c>EditorHost.Composes</c> draws through
+///         <c>FramePresenter</c> for any mode that has one.
+///     </para>
+///     <para>
+///         ⚠ <b>What it registers is shaded, and wireframe on a device that reports
+///         <c>HasWireframe</c> — no more.</b> Albedo, unlit, normals and roughness have no tree, and
+///         nor does any pane past <c>EditorWorldRenderer.MaxPanes</c> or any pane but the first under
+///         an authored <c>.vxcompositor</c>. All of those keep the editor's own tool renderer, which
+///         is <c>SceneMeshes</c> through <c>MeshInstanceRenderer</c>: device-resident shapes, one
+///         instance per entity, one colour and one directional term, and no material anywhere. This
+///         table is what <i>that</i> path can honestly express, and it is a live fallback rather than
+///         a stage the editor has left behind.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The three it cannot express say so rather than falling back.</b>
