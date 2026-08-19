@@ -61,11 +61,16 @@ public sealed class AiVillageGame : Game {
 
         config.Name = "AI Village";
 
-        // ⚠ `IsVisible` follows `Headless`, which the other samples do not do and should.
-        // `AppConfig.Apply` reads the command line *before* this hook — deliberately, so that a game
-        // can override it — so a sample that assigns `IsVisible = true` unconditionally shows a
-        // window on a run that asked for none. Every sample in this tree does exactly that, which is
-        // why `--vixen-headless` still puts a window on the screen.
+        // ⚠ `IsVisible` follows `Headless`. `AppConfig.Apply` reads the command line *before* this
+        // hook — deliberately, so that a game can override it — so an unconditional `true` here is an
+        // assignment over a flag the host has already honoured.
+        //
+        // ⚠ This comment used to end "which is why `--vixen-headless` still puts a window on the
+        // screen", and that was wrong. Under the flag `PlatformHost` has already returned the
+        // headless platform, and a `HeadlessWindow` has no picture whatever this line says — the only
+        // effect is a `WindowShown` event nothing consumes. What actually put a window on the screen
+        // was this sample's own `Program.cs`, which handed `WithPlatform` a `DesktopPlatform` and so
+        // never let the flag be asked at all. Both are fixed; only one of them was the bug.
         config.Window = new() {
             Title = "Vixen — AI Village",
             Size = new(1280, 720),
