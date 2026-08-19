@@ -518,4 +518,32 @@ static partial class SampleLog {
         int composites,
         int swimming
     );
+
+    /// <summary>
+    ///     ⚠ Said once the raft has been stepped. Pontoons above zero with none of them wet is a body
+    ///     outside every zone's window — it is falling, and nothing about the falling says why; zero
+    ///     pontoons altogether is an authored <c>!BuoyancyBody</c> whose list did not survive the
+    ///     file, which is not an error and floats nowhere. The offset is the one number that says the
+    ///     answer is right rather than merely happening: a deck at its waterline sits about 0.15 m
+    ///     under the surface the fold reports beneath it, and zero is a body placed rather than
+    ///     floated. Debug frames at zero with <c>water.showBuoyancy</c> on is the join undone again.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14067,
+        Level = LogLevel.Information,
+        Message = "Buoyancy: {Floating} bod(ies) floating, {Pontoons} pontoon(s), {Wet} of them wet; "
+            + "the deck is at {Deck:0.000} over a surface at {Surface:0.000}, an offset of "
+            + "{Offset:0.000} m. The overlay has drawn {DebugFrames} frame(s); −1 is no debug "
+            + "accumulator to draw into."
+    )]
+    public static partial void RaftFloated(
+        ILogger logger,
+        int floating,
+        int pontoons,
+        int wet,
+        float deck,
+        float surface,
+        float offset,
+        int debugFrames
+    );
 }

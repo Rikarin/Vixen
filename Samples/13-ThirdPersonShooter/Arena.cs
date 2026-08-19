@@ -194,6 +194,18 @@ public sealed class Arena : IDisposable {
     /// <summary>What tells a character how deep in the lake it is, or null headless.</summary>
     public WaterImmersionSystem? Immersion { get; private set; }
 
+    /// <summary>What floats the raft, or null if there is no renderer to fold the lake.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Floating</c> at zero with <c>Pontoons</c> above it is the reading that says the
+    ///     water is somewhere else.</b> It is buoyancy's version of <c>ZonelessBodies</c>: a body
+    ///     outside every zone's window simply falls, and nothing about the falling says why. See
+    ///     <c>SampleLog.RaftFloated</c>, which is where the three numbers are printed.
+    /// </remarks>
+    public BuoyancySystem? Buoyancy { get; private set; }
+
+    /// <summary>What draws <c>water.showBuoyancy</c>, or null headless of a renderer.</summary>
+    public BuoyancyDebugSystem? BuoyancyDebug { get; private set; }
+
     /// <summary>The water's bed, or null if there is no terrain source.</summary>
     public TerrainGroundSystem? Ground => ground;
 
@@ -266,6 +278,15 @@ public sealed class Arena : IDisposable {
         var logger = services.LoggerFactory.CreateLogger("ThirdPersonShooter.Arena");
         var physics = new PhysicsScene(loop.World);
         var handle = SceneHandle.None;
+
+        // ⚠ **Before the scene is read, and it is not a no-op.** `BuoyancyBody` and `BuoyancyState`
+        // are declared to `SceneComponentRegistry` by a `[ModuleInitializer]` in
+        // `Vixen.Water.Physics`, and the CLR runs one at the first *touch* of a type in that module
+        // — which, for a game that only constructs its systems in `Register`, is after the level has
+        // already been deserialized. A scene naming `!BuoyancyBody` would then fail to load with
+        // "this build has no component called 'BuoyancyBody'", about a component in an assembly this
+        // project references. `WaterSceneRunsTests` does exactly this line for exactly this reason.
+        _ = BuoyancyBody.Default;
 
         if (services.Assets is { } assets) {
             // Blocking, and deliberately: there is nothing to show until the level is there, and a
@@ -369,6 +390,28 @@ public sealed class Arena : IDisposable {
             // CharacterMoveMode.Swimming was waiting for.
             Immersion = new(graphics.Water);
             loop.Add(Immersion);
+
+            // ⚠ **The line that makes a boat float, and until it existed no game in this tree had
+            // one.** Doc 35 § D1 makes the Jolt join opt-in exactly as doc 31 does for the terrain's
+            // colliders two blocks up, so `BuoyancySystem` is a game's to add — and every
+            // construction of it in the repository was a test. Its phase is its own: the attributes
+            // put it in FixedUpdate between `PhysicsSyncSystem` and `PhysicsStepSystem`, and both
+            // halves of that fail silently, so nothing here orders it by hand.
+            //
+            // ⚠ **`graphics.Water` and not a lake of its own.** The fold is the one definition of
+            // where the surface is — the same object the vertex stage rasterises and `Immersion`
+            // above reads — and a second one is a raft riding water that is not the water on screen.
+            Buoyancy = new(Physics, graphics.Water);
+            loop.Add(Buoyancy);
+
+            // And the sixth `water.show*` verb, which is a flag in `Vixen.Rendering.Water` and a
+            // drawing in `Vixen.Water.Physics` with nothing joining them — see `BuoyancyDebugSystem`
+            // for why the two cannot reference each other and why a host is where the copy belongs.
+            // `graphics.Debug` is the accumulator the frame's debug node already drains.
+            if (graphics.Debug is { } debug) {
+                BuoyancyDebug = new(Buoyancy, debug) { Show = () => Rendering.Water.WaterDebug.ShowBuoyancy };
+                loop.Add(BuoyancyDebug);
+            }
         }
 
         LightTheLamps(loop);
@@ -1242,6 +1285,15 @@ public sealed class Arena : IDisposable {
             Immersion?.Swimming ?? 0
         );
 
+        // ⚠ And the raft's four, which are a fourth silent failure with a fourth picture. A body no
+        // zone reaches falls out of the world — pontoons counted, none of them wet — and a body
+        // whose pontoon list is empty is counted nowhere at all, which is what an authored boat that
+        // lost its `[DataContract]` looked like. The height beside them is the only one of the four
+        // that says the answer is *right* rather than merely happening: it is where the deck ended
+        // up against where the fold puts the surface under it, and a raft that hovers, sinks or
+        // rests a metre high is a run in which every other number here is perfect.
+        ReportRaft();
+
         ReportGpuFrame(graphics.GpuFrame);
 
         // ⚠ The third thing a black frame can be, after "no variant" and "no set 0": a camera that
@@ -1453,6 +1505,58 @@ public sealed class Arena : IDisposable {
     ///         means the timeline is not describing the whole frame.
     ///     </para>
     /// </remarks>
+    /// <summary>Where the raft ended up, against where the fold says the water is under it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The surface is asked for at the raft's own position rather than read off
+    ///         <c>WaterBodyComponent.surfaceHeight</c>.</b> The authored number is the still height;
+    ///         what the deck is actually riding is that plus the swell and minus the shore
+    ///         attenuation, and comparing against the authored constant would report a correct raft
+    ///         on a moving lake as wrong by the wave height. Asking the fold is the same question the
+    ///         solver asked, which is what makes the difference between the two meaningful.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the offset is expected to be <em>negative</em>, by about 0.15 m.</b> The deck
+    ///         base sits under the water and the deck stands out of it — see the arithmetic beside
+    ///         the entity in <c>Arena.vxscene</c>. A number near zero is a deck resting exactly on
+    ///         the surface, which is what a body being placed rather than floated looks like.
+    ///     </para>
+    /// </remarks>
+    void ReportRaft() {
+        if (Buoyancy is not { } buoyancy
+            || services?.Graphics is not { } graphics
+            || services.Engine is not { } loop) {
+            return;
+        }
+
+        var query = new QueryDescription().WithAll<BuoyancyBody, BuoyancyState, WorldTransform>();
+        var deck = float.NaN;
+        var surface = float.NaN;
+
+        foreach (var chunk in loop.World.Chunks(query)) {
+            var placements = chunk.ReadValues<WorldTransform>();
+
+            for (var index = 0; index < chunk.Count; index++) {
+                var at = placements[index].Value.Translation;
+                var ground = new Vector2(at.X, at.Z);
+
+                deck = at.Y;
+                surface = graphics.Water.QueryAt(ground)?.Height(ground, graphics.Water.WaterTime) ?? float.NaN;
+            }
+        }
+
+        SampleLog.RaftFloated(
+            logger,
+            buoyancy.Floating,
+            buoyancy.Pontoons,
+            buoyancy.WetPontoons,
+            deck,
+            surface,
+            deck - surface,
+            BuoyancyDebug?.Frames ?? -1
+        );
+    }
+
     void ReportGpuFrame(GpuFrame frame) {
         if (frame.Scopes.Count == 0) {
             return;

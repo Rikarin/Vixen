@@ -37,9 +37,22 @@
           Named here because analyzers do not flow through a ProjectReference, and the serializer for
           a component has to be generated in the assembly that declares it. Same reasoning as
           Vixen.Audio, at more length there. The engine generator is here for the other half of the
-          same job: it declares Collider and RigidBody to SceneComponentRegistry, which is what lets
-          a .vxscene place a body.
+          same job: it declares Collider and RigidBody to SceneComponentRegistry.
+
+          ⚠ **And that on its own does not let a .vxscene place a body, which is what this line used
+          to claim.** Two registries have to know about a component before a file may name one, and
+          they are fed by two different generators: SceneComponentRegistry decides whether a *world*
+          can hold the column, and TypeRegistry — the reflection generator's — is what resolves the
+          YAML tag `!RigidBody` to a type in the first place. With only the first, `Collider` and
+          `RigidBody` were declared scene components that no scene file could name: `roots[N]: nothing
+          in this build claims the name 'RigidBody'`, about a component in the assembly the project
+          is referencing on purpose. Nothing noticed for as long as it did because no scene in this
+          repository had ever authored either one — Samples/13's raft is the first.
         -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
         <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
