@@ -1758,7 +1758,6 @@ T:Vixen.Engine.Frames.EngineLoop sweep-pending
 T:Vixen.Engine.Frames.FixedStepAccumulator sweep-pending
 T:Vixen.Engine.Generators.BehaviorRegistrationGenerator sweep-pending
 T:Vixen.Engine.Generators.ComponentRegistrationGenerator sweep-pending
-T:Vixen.Engine.Input.InputUpdateSystem sweep-pending
 T:Vixen.Engine.Renderer.AssetTextureSource sweep-pending
 T:Vixen.Engine.Renderer.AssetVirtualGeometrySource sweep-pending
 T:Vixen.Engine.Renderer.DebugDrawRenderer sweep-pending
@@ -2014,17 +2013,11 @@ T:Vixen.Input.HoldInteraction sweep-pending
 T:Vixen.Input.IInputDevice sweep-pending
 T:Vixen.Input.IInputInteraction sweep-pending
 T:Vixen.Input.IInputProcessor sweep-pending
-T:Vixen.Input.InputAction sweep-pending
 T:Vixen.Input.InputActionAssetData sweep-pending
 T:Vixen.Input.InputActionAssetReader sweep-pending
 T:Vixen.Input.InputActionAssetWriter sweep-pending
-T:Vixen.Input.InputActionContext sweep-pending
 T:Vixen.Input.InputActionData sweep-pending
-T:Vixen.Input.InputActionMap sweep-pending
 T:Vixen.Input.InputActionMapData sweep-pending
-T:Vixen.Input.InputActionPhase sweep-pending
-T:Vixen.Input.InputActionType sweep-pending
-T:Vixen.Input.InputActions sweep-pending
 T:Vixen.Input.InputAssetDiagnostic sweep-pending
 T:Vixen.Input.InputAssetException sweep-pending
 T:Vixen.Input.InputAssetReadResult sweep-pending
@@ -2038,7 +2031,6 @@ T:Vixen.Input.InputControl sweep-pending
 T:Vixen.Input.InputControlPath sweep-pending
 T:Vixen.Input.InputControlScheme sweep-pending
 T:Vixen.Input.InputControlSchemeData sweep-pending
-T:Vixen.Input.InputControlType sweep-pending
 T:Vixen.Input.InputDeviceKind sweep-pending
 T:Vixen.Input.InputDeviceRequirementData sweep-pending
 T:Vixen.Input.InputDeviceSet sweep-pending
@@ -2049,8 +2041,6 @@ T:Vixen.Input.InputKey sweep-pending
 T:Vixen.Input.InputProcessorFactory sweep-pending
 T:Vixen.Input.InputRebindingOperation sweep-pending
 T:Vixen.Input.InputRebindingState sweep-pending
-T:Vixen.Input.InputService sweep-pending
-T:Vixen.Input.InputSettings sweep-pending
 T:Vixen.Input.InvertProcessor sweep-pending
 T:Vixen.Input.KeyboardDevice sweep-pending
 T:Vixen.Input.MouseControl sweep-pending

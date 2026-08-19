@@ -93,7 +93,8 @@ public sealed class WalkForward : IPlayerInputSource {
 }
 ```
 
-`ActionPlayerInput` is the one the engine ships, over a `Vixen.Input` action map. It wants a `Move`
+`ActionPlayerInput` is the one the engine ships, over a [`Vixen.Input` action map](input-actions.md).
+It wants a `Move`
 and a `Look` value action and binds any of `Jump`, `Crouch`, `Sprint`, `Fire`, `AltFire`, `Aim`,
 `Interact` and `Reload` that the map happens to have. A missing `Move` or `Look` throws at
 construction naming the map and the action, rather than reading zero on the frame the player presses
