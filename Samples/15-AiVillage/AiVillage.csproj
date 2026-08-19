@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.AiVillage</RootNamespace>
+        <AssemblyName>AiVillage</AssemblyName>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!--
+        ⚠ No `Vixen.Sdk` import and no `Assets/` folder, which is a deliberate difference from
+        `Samples/13`. This sample ships no content at all: the level is a navmesh baked from four
+        vertices at start-up, and the frame is the host's built-in default document. What it
+        demonstrates is a decision, and a content build would be four hundred lines of scaffolding
+        between the reader and it.
+    -->
+    <ItemGroup>
+        <Compile Remove="AiVillage.Agent.Tests/**" />
+        <None Remove="AiVillage.Agent.Tests/**" />
+        <Content Remove="AiVillage.Agent.Tests/**" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+
+        <!--
+            The four AI assemblies, and the split between them is doc 37's argument made buildable:
+            `Vixen.Ai` is the three planners over one blackboard and knows nothing of an engine;
+            `.Perception` needs `Vixen.Engine` for a transform; `.Nodes` needs navigation to walk
+            anywhere; `.Diagnostics` needs `DebugDraw`. A game that wanted a shopkeeper's behaviour
+            tree and nothing else would name the first line and stop.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ai\Vixen.Ai.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ai.Perception\Vixen.Ai.Perception.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ai.Nodes\Vixen.Ai.Nodes.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ai.Diagnostics\Vixen.Ai.Diagnostics.csproj" />
+
+        <!-- The ground the agents walk on, and the crowd that moves them along it. -->
+        <ProjectReference Include="..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />
+
+        <!--
+            The generators, named explicitly because analyzers do not flow through a
+            ProjectReference. This sample declares one component of its own — `Scrap`, the only game
+            rule in it — and without these it would compile and be invisible to everything that
+            matters.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>

@@ -287,8 +287,18 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14069 | Information | `The player is driven by the script '{Script}', which lasts {Seconds} simulated second(s) — {Frames} frame(s) at the sixtieth a capture is fixed to.` — `VIXEN_WALK`; a capture shorter than the script is a picture of a moment part-way through the walk | 0.1.0 |
 | 14070 | Information | `The script ran {Elapsed} of {Duration} simulated second(s) and the player covered {Distance} m of ground.` — zero metres with a script that has time on it is a walk nothing acted on, and it captures as a still frame with every other counter reporting success | 0.1.0 |
 
+| 14081 | Information | `The village is up: {Agents} agents choosing from {Actions} registered actions, over a {Seconds} s intrusion. One AiSystem, one registry, one blackboard layout, one perception config, one sensor set and one navmesh.` — `Samples/15`; logged after the first frame, because `AiSystem.Population` is written by `Join` and a line logged at initialise time reports an empty village | 0.1.0 |
+| 14082 | Information | `frame {Frame} · {Seconds}s · {Agent} ({Planner}) {From} → {To}, intruder {Distance} m` — one agent changing its mind, with where the intruder was when it did. A transition and not a state: "the guard is patrolling" is true of a guard that has never done anything else | 0.1.0 |
+| 14083 | Information | `{Changes} change(s) of mind in {Seconds} s — guard {Guard}, villager {Villager}, scavenger {Scavenger} — and {Symptoms} diagnosed symptom(s).` — ⚠ zero changes after a full script is the failure to expect: the stack ran and decided nothing. One symptom is expected and is the scavenger's — `AiDiagnosis` counts switches over the ring against an absolute threshold rather than a rate | 0.1.0 |
+| 14084 | Information | `Guard {Guard}, villager {Villager}, scavenger {Scavenger}, intruder {Intruder}.` — where everybody ended up | 0.1.0 |
+| 14085 | Information | `The AI overlay is registered on the frame loop — doc 37 § P7's debugger, in an application rather than in a test.` | 0.1.0 |
+| 14086 | Warning | `There is no DebugDraw, so the overlay is not registered.` — `Graphics.Overlays` is what builds one, and it is off by default | 0.1.0 |
+| 14087 | Information | `The overlay drew {Agents} agent(s) and {Rows} row(s) on the last frame.` — ⚠ zero agents with a village that decided things means the style culled them: `Range` and `Viewpoint`, in that order | 0.1.0 |
+| 14088 | Warning | `There is no engine loop, so there is no world and nothing to decide.` — what `--vixen-frames 1` on a machine with no GPU looks like, and not an error | 0.1.0 |
+
 The 14 000 range is subdivided a sample at a time: `Samples/01` at 14001, `Samples/03` at 14011,
-`Samples/12` at 14021, `Samples/13` at 14031, and `Samples/11` at 14005 **and** 14026 — two runs,
+`Samples/12` at 14021, `Samples/13` at 14031, `Samples/15` at 14081, and `Samples/11` at 14005
+**and** 14026 — two runs,
 because for a while it logged its first three lines under 14001–14003, which are `Samples/01`'s.
 
 That is what all of 14022, 14023, 14026, 14027 and 14028 are about. Five of the rows above read the
