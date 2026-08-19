@@ -163,8 +163,12 @@ public class BrowserModuleUrlTests {
             + declaration
         );
 
+        // The value and not merely the attribute: CopyToOutputDirectory="Never" is spelled the same
+        // as not asking for a copy at all, and produces the same published page — one that 404s on
+        // its own binding. Anything that is not "Never" copies.
         Assert.True(
-            declaration.Contains("CopyToOutputDirectory", StringComparison.Ordinal),
+            declaration.Contains("CopyToOutputDirectory", StringComparison.Ordinal)
+            && !declaration.Contains("CopyToOutputDirectory=\"Never\"", StringComparison.Ordinal),
             $"{project}.csproj does not copy wwwroot\\{fileName} to its output, so a project "
             + $"reference — which is how the samples and the spike head consume it — gets no "
             + $"{fileName} at all. The declaration reads:{Environment.NewLine}{declaration}"
