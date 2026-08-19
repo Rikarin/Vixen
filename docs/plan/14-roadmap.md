@@ -491,7 +491,7 @@ unshippable, so whether one is hosted, in-box or an addon wants an answer before
 
 ---
 
-## Phase 10 — Deferred, advanced rendering, Web 🟡 *(2.5 EM + 4.5 EM lighting)*
+## Phase 10 — Deferred, advanced rendering, Web 🟡 *(deferred pipeline postponed past 1.0)* *(2.5 EM + 4.5 EM lighting)*
 
 **Landed, ahead of schedule and partly outside the original scope.** `Vixen.Graphics.WebGPU` on both
 surfaces — native Dawn/wgpu and `navigator.gpu` — over one `IWebGpuBinding`, with **the web path
@@ -521,7 +521,11 @@ interface and FSR1. Mesh shaders and meshlet culling behind capability flags, fo
 [22](22-virtualized-geometry.md) is now the plan. (Motion blur has since landed, and volumetric fog is
 partly built — see [`../overview.md`](../overview.md) § 1.9.)
 
-**Exit — not met.** Deferred does not exist, so it cannot pass the golden-image suite. `Samples/02` in
+**Exit — deliberately not met.** Deferred does not exist, so it cannot pass the golden-image suite —
+and as of 2026-08-19 it is **postponed past 1.0**, on `Vixen.Graphics.Direct3D12`'s precedent above:
+the forward+ path meets the engine's needs today, and a deferred path is a second renderer to keep
+correct rather than a gap in the first. The shaders stay in the library, gated by `LibraryTreeTests`,
+so the decision is reversible without rebuilding them. `Samples/02` in
 three browsers still needs a GLES context actually stood up: `SilkGlesApi` and `EglContext` are
 written and tested, but every `EglContext` construction in the tree is in that project's own test
 assembly, so nothing outside it has run one. `Samples/06-CanvasStress` is P2 and uncut; the editor
