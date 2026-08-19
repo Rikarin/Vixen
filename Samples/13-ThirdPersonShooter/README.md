@@ -203,9 +203,10 @@ this game builds its systems after loading its level — so without that line th
 *"this build has no component called 'BuoyancyBody'"* about an assembly in its own output directory.
 Removing it is a one-line A/B that reproduces exactly that.
 
-The A/B for the whole thing is one line in `Arena.Register`: with `loop.Add(Buoyancy)` the deck rests
-at y ≈ 1.07 on a surface at 1.28 with four wet pontoons; without it the raft is on the bed at
-y = −0.66 with `0 bod(ies) floating, 0 pontoon(s)`, and every other counter in the run is unchanged.
+The A/B for the whole thing is one line in `Arena.Register`: with `loop.Add(Buoyancy)` the deck rides
+about 0.15 m under a surface near y = 1.2 with four wet pontoons — both numbers move with the swell,
+which is why the submerged fraction beside them is the one to read; without it the raft is on the bed
+at y = −0.66 with `0 bod(ies) floating, 0 pontoon(s)`, and every other counter in the run is unchanged.
 
 ⚠ **A fourth was a defect rather than a gap, and this sample used to work around it.**
 `WaterZoneSystem.GatherBodies` keyed a body's cache on its component and its placement and stored the
