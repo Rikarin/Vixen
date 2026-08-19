@@ -171,6 +171,42 @@ be filled to get a body as far as the fold, and all three are the same shape as 
   feature no game can use without copying source, and its two dependencies were always that
   assembly's exactly. This sample is now a *consumer* of it, which is the only thing in the tree
   that exercises it end to end.
+- **And nothing floated on it.** `BuoyancySystem` is opted into by a game on doc 35 § D1's terms, the
+  same way the terrain's colliders are, and every `new BuoyancySystem(…)` in the repository was a
+  test — the solver was correct against an analytic waterline and had never once been asked to hold
+  something up that a person could look at. `Arena.Register` adds it and `Arena.vxscene` carries the
+  raft it works on.
+
+### The raft, and why every number on it is in the file
+
+`Arena.vxscene`'s `Raft` is a 2.4 × 0.4 × 4 m deck on four pontoons of 0.45 m, at 640 kg with a
+coefficient of one. **The mass was solved and not tuned**: four spheres of that radius hold 1.527 m³,
+Archimedes puts 640 kg on 0.640 m³ of it, which is 0.419 of each sphere, which by the exact spherical
+cap is a cap 0.401 m deep — so the centres rest 0.049 m above the surface and the deck's base, 0.2 m
+below them, rests 0.151 m under it. A headless run reports `0.417 of each under on average`.
+`RaftFloatsTests` is that arithmetic as an assertion over the file, asking the shipped
+`Buoyancy.SubmergedFraction` rather than restating it.
+
+⚠ **The pontoons are authored in the scene, and that is the point of them being there.**
+`BuoyancyPontoon` shipped without its own `[DataContract]`, and a body with no pontoons floats nowhere
+and is *not an error* — so an authored boat loaded, looked complete in the inspector, and sank. This
+is the first shipped scene that walks that path.
+
+⚠ **Authoring it found a defect one registry over.** `Vixen.Physics` named the engine's component
+generator and not the reflection one, so `Collider` and `RigidBody` were declared to
+`SceneComponentRegistry` and absent from `TypeRegistry` — scene components no scene file could ever
+name, because no scene in the repository had ever named one. `!RigidBody` in this file is the first.
+
+⚠ **And `Arena.Load` touches `BuoyancyBody.Default` before it reads the scene.** Referencing the
+package is not enough: a module initializer runs at the first *touch* of a type in the module, and
+this game builds its systems after loading its level — so without that line the scene fails with
+*"this build has no component called 'BuoyancyBody'"* about an assembly in its own output directory.
+Removing it is a one-line A/B that reproduces exactly that.
+
+The A/B for the whole thing is one line in `Arena.Register`: with `loop.Add(Buoyancy)` the deck rides
+about 0.15 m under a surface near y = 1.2 with four wet pontoons — both numbers move with the swell,
+which is why the submerged fraction beside them is the one to read; without it the raft is on the bed
+at y = −0.66 with `0 bod(ies) floating, 0 pontoon(s)`, and every other counter in the run is unchanged.
 
 ⚠ **A fourth was a defect rather than a gap, and this sample used to work around it.**
 `WaterZoneSystem.GatherBodies` keyed a body's cache on its component and its placement and stored the
@@ -224,6 +260,31 @@ VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK=20 \
 dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
     --vixen-headless --vixen-frames 512 --vixen-variant Development --vixen-capture ./shots
 ```
+
+### Typing, because a headless run has nobody at the console
+
+Every debug draw in this engine is reached by typing a verb, and a capture run has no keyboard — so
+`water.showBuoyancy` and its five siblings were, in a picture, *unreachable* rather than merely off.
+`VIXEN_CONSOLE` is verbs separated by `;`, run through `ConsoleCommands.Execute` at start-up:
+
+```
+VIXEN_SPAWN=4,1.5,-45,2 VIXEN_CONSOLE="water.showBuoyancy 1" \
+dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+    --vixen-headless --vixen-overlays --vixen-frames 400 --vixen-variant Development --vixen-capture ./shots
+```
+
+That spawn stands in the shallows off the lake's near bank with the raft to the right of frame; the
+overlay draws its four pontoon spheres, the white waterline circle across each, the yellow force
+arrows and a `4/4 0.42` label.
+
+⚠ **It types rather than setting the flags.** A helper that assigned `WaterDebug.ShowBuoyancy`
+directly would be a second way of saying the same thing, and the run would stop being evidence about
+the verb — which is the thing under suspicion.
+
+⚠ **`--vixen-overlays` is not optional here.** The console, the `DebugDraw` accumulator and the node
+that drains it are built together, so a run without it has nothing to draw into and says so rather
+than accepting the line and losing it. `SampleLog.RaftFloated`'s frame count is the other end of that:
+zero with the verb on is the join undone.
 
 A script is legs separated by `;`, each `seconds:forward:strafe:yawRate:pitchRate` with everything
 after the duration optional — so `20` is "walk straight ahead for twenty seconds", `2:0:0:90` is

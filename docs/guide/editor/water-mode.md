@@ -187,7 +187,13 @@ without knowing what a line pass is.
 ⚠ **Five of the six are `WaterDebugDraw`'s and the sixth is `BuoyancyDebugDraw`'s.** The pontoons and
 the forces belong to `Vixen.Water.Physics`, which the renderer must not reference — § D1 puts the
 physics join in its own assembly precisely so that nothing linking Jolt is linked by a renderer. The
-flag is with the console verb; the drawing is with the data, and a host copies one across.
+flag is with the console verb; the drawing is with the data, and `BuoyancyDebugSystem` is what carries
+one to the other.
+
+⚠ **The sixth needs a running game, and in this pane it draws nothing.** It reads what the *last fixed
+step* did to a floating body, and an editor viewport runs no physics — so `Show Buoyancy` here is a
+checkbox whose state travels into play mode, exactly as `Show Water Tiles` and `Show Water Ripples`
+are. A game that has added `BuoyancySystem` to its loop is where the pontoons appear.
 
 ⚠ **`showTiles` colours a patch by what is under it, using the contribution and not the containment
 test.** `WaterBody.Contains` is an even-odd test on a closed boundary and answers *false* for every

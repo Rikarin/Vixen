@@ -37,6 +37,17 @@
         <ProjectReference Include="..\..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
 
         <!--
+          The buoyancy kernel, for RaftFloatsTests: the raft's waterline is asserted by asking the
+          shipped spherical cap and the shipped rest displacement, because inverting the cap is a
+          cubic and a second copy of it here would be a test that agrees with itself.
+
+          ⚠ Named although it already arrives through Vixen.Rendering.Water. A reference a project
+          depends on and does not name is one that disappears the day the transitive path changes,
+          and the sample's own csproj says the same thing two lines apart for the same reason.
+        -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Water\Vixen.Water.csproj" />
+
+        <!--
           The Null backend, so a YAML or wiring mistake in the document fails a test on any machine
           rather than a launch on one with a GPU. Vixen.Rendering.Tests' CompositorAssetTests is the
           pattern this follows.

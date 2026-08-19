@@ -359,6 +359,81 @@ roots:
         bedRamp: 6
         depth: 4.2
 
+  # A raft on it, and it is the first floating body in any game in this tree.
+  #
+  # ⚠ **`BuoyancySystem` is opted into by a game — doc 35 § D1 — and until this entity existed
+  # nothing opted in.** Every `new BuoyancySystem(…)` in the repository was a test, so the solver
+  # was correct against an analytic waterline and had never once been asked to float anything a
+  # person could look at. `Arena.Register` is the opt-in; this is what it has to work on.
+  #
+  # ⚠ **The pontoons are a displacement volume and not the deck.** Four spheres of 0.45 m at the
+  # corners of a 2.4 × 4 m deck, written *into the file* because that is the half that had no
+  # coverage in a shipped scene: `BuoyancyPontoon` needed its own `[DataContract]` and shipped
+  # without one, and a body with no pontoons floats nowhere and is *not an error* — so an authored
+  # boat loaded, looked complete in the inspector, and sank.
+  #
+  # ⚠ **The mass is what puts the waterline where it is, and it was solved rather than tuned.**
+  # Four spheres of r = 0.45 hold 4 × 4/3πr³ = 1.527 m³. At Archimedes exactly — `coefficient: 1`,
+  # so nothing here is a fudge — a mass of 640 kg displaces 0.640 m³, which is 0.419 of the
+  # spheres, which by the spherical cap is a cap 0.401 m deep. The centres therefore rest 0.049 m
+  # *above* the surface and the deck's base, 0.2 m below them, rests 0.151 m under it: a 0.4 m deck
+  # cut roughly in half by the water. Against `surfaceHeight: 1.2` that is a deck base at y ≈ 1.05.
+  # 640 kg for a 2.4 × 4 m hollow pontoon deck is a real number, not one chosen to make a picture.
+  #
+  # ⚠ **`scale` moves the mesh and does not move the collider**, the same hand-kept pair every
+  # other entity here has: the crate mesh is a 1.6 m cube with its origin at its *base*, so the
+  # scale is the wanted size over 1.6 and `!BoxCollision` says the same box in metres — with
+  # `centre` lifting it half a deck, because the mesh's origin is at the base and the shape's is at
+  # its middle. The pontoons are in that same base-origin frame, which is why their y is 0.2.
+  - name: Raft
+    # Inside `TerrainSeed.LakeRadius` and towards the near bank, so that it is in shot from ground a
+    # character can stand on: 12.2 m from `LakeCentre` is 1.9 m of water, which is deep enough for
+    # the swell to be half its open-water height and shallow enough that the shore is a short swim.
+    #
+    # ⚠ **0.95 m above where it will end up, and dropped rather than placed.** A body *arriving* at
+    # its waterline is evidence the solver did it; a body authored already at rest is evidence of
+    # nothing at all, and is exactly what a run with the system unregistered would also look like.
+    position: 7 2 -52
+    scale: 1.5 0.25 2.5
+    components:
+      - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, material: vx:ce6f44a9d82149d3bf50c6d30381b440, castsShadows: true }
+      - !BoxCollision { halfExtents: 1.2 0.2 2, centre: 0 0.2 0, friction: 0.4 }
+      # ⚠ Every field written out, and none of them is decoration. `RigidBody` has no default
+      # component value, so a zeroed one is `Motion: Static` (0), `gravityFactor: 0` and
+      # `degreesOfFreedom: None` (0) — three separate ways to author a raft that hangs in the air
+      # over a lake with the whole buoyancy path running and every counter non-zero.
+      - !RigidBody
+        motion: Dynamic
+        motionQuality: Discrete
+        mass: 640
+        gravityFactor: 1
+        linearDamping: 0
+        angularDamping: 0
+        degreesOfFreedom: All
+        # ⚠ Not allowed to sleep. A hull that settles is a hull Jolt deactivates, and a deactivated
+        # body stops integrating the forces this system is still applying — so the raft would stop
+        # riding the swell a couple of seconds in and sit at a fixed height on moving water.
+        allowSleeping: false
+      - !BuoyancyBody
+        pontoons:
+          - offset: -0.9 0.2 -1.5
+            radius: 0.45
+          - offset: 0.9 0.2 -1.5
+            radius: 0.45
+          - offset: 0.9 0.2 1.5
+            radius: 0.45
+          - offset: -0.9 0.2 1.5
+            radius: 0.45
+        coefficient: 1
+        # ⚠ Not zero, and it is the one zero `BuoyancyBody.Settings` does not rescue. An unset
+        # coefficient becomes one there; unset damping stays zero and is a hull that oscillates on
+        # the surface for ever, which reads as the solver being wrong rather than as a blank field.
+        damping: 3
+        quadraticDamping: 0.4
+        flowDrag: 2
+      - !BuoyancyState
+        wet: 0
+
   # Where players come in. Found by component, because a compiled scene carries no name table
   # a running game can query — see SpawnPoint.
   - name: Spawn0

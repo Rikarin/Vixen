@@ -518,4 +518,62 @@ static partial class SampleLog {
         int composites,
         int swimming
     );
+
+    /// <summary>
+    ///     ⚠ Said once the raft has been stepped. Pontoons above zero with none of them wet is a body
+    ///     outside every zone's window — it is falling, and nothing about the falling says why; zero
+    ///     pontoons altogether is an authored <c>!BuoyancyBody</c> whose list did not survive the
+    ///     file, which is not an error and floats nowhere. The submerged fraction is the one number
+    ///     that says the waterline is <em>right</em> rather than merely plausible — it is what the
+    ///     authored mass, coefficient and pontoon volumes predict, and nothing else here is. The
+    ///     offset is a height on a lake with waves on it and moves with them; near zero is a deck
+    ///     resting on the surface, which is a body placed rather than floated. Debug frames at zero
+    ///     with <c>water.showBuoyancy</c> on is the join undone again.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14067,
+        Level = LogLevel.Information,
+        Message = "Buoyancy: {Floating} bod(ies) floating, {Pontoons} pontoon(s), {Wet} of them wet, "
+            + "{Submerged:0.000} of each under on average; the deck is at {Deck:0.000} over a surface "
+            + "at {Surface:0.000}, an offset of {Offset:0.000} m. The overlay has drawn "
+            + "{DebugFrames} frame(s); −1 is no debug accumulator to draw into."
+    )]
+    public static partial void RaftFloated(
+        ILogger logger,
+        int floating,
+        int pontoons,
+        int wet,
+        float submerged,
+        float deck,
+        float surface,
+        float offset,
+        int debugFrames
+    );
+
+    /// <summary>Said for each <c>VIXEN_CONSOLE</c> verb, with whether anything claimed the name.</summary>
+    /// <remarks>
+    ///     ⚠ False is a verb nothing registered, which for the <c>water.show*</c> six is a build whose
+    ///     <c>Vixen.Rendering.Water</c> never contributed them — and a typo is the same answer, which
+    ///     is why the line it was given is echoed rather than summarised.
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 14068,
+        Level = LogLevel.Information,
+        Message = "Console: typed '{Line}'; claimed = {Claimed}."
+    )]
+    public static partial void ConsoleTyped(ILogger logger, string line, bool claimed);
+
+    /// <summary>
+    ///     ⚠ Said when <c>VIXEN_CONSOLE</c> was given and there is no console to type into, which is a
+    ///     run without <c>--vixen-overlays</c>. The console, the <c>DebugDraw</c> and the node that
+    ///     drains it are built together, so a debug verb accepted here would have drawn nothing anyway
+    ///     — and a picture with no lines in it is exactly what the wiring being broken looks like.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 14069,
+        Level = LogLevel.Warning,
+        Message = "VIXEN_CONSOLE said '{Script}' and this run has no console: pass --vixen-overlays, "
+            + "which is what builds the console, the debug accumulator and the node that draws it."
+    )]
+    public static partial void NoConsole(ILogger logger, string script);
 }

@@ -58,6 +58,17 @@ package:
 <ProjectReference Include="…/Vixen.Water.Physics/Vixen.Water.Physics.csproj" />
 ```
 
+⚠ **And referencing it is not on its own enough, which is a second failure with the identical
+message.** The CLR runs a module initializer at the first *touch* of a type in that module — so a
+game that references the package but only constructs its systems after loading its level has not
+touched it yet when the scene is deserialized, and gets the same "this build has no component called
+'BuoyancyBody'" about an assembly that is right there in its output directory. One statement before
+the load fixes it, and `Samples/13-ThirdPersonShooter`'s `Arena.Load` is where to see it:
+
+```csharp no-compile="one line, before the scene is read"
+_ = BuoyancyBody.Default;
+```
+
 ⚠ **The editor is the exception and links it unconditionally**, for a reason that has nothing to do
 with running physics: a component whose assembly is not loaded is missing from Add ▸ and takes a scene
 naming it down on load, so a boat could not be *authored* before it could be opted into. See
@@ -126,6 +137,25 @@ time (one clock, derived from the tick).
 `TransformSystem` runs in `LateUpdate`, so in the fixed step that component holds *last frame's* pose
 and a boat floated from it is floated where it was. `BuoyancySystem` therefore declares no transform
 access at all.
+
+### ⚠ `water.showBuoyancy` needs a system, because the flag and the drawing are in two assemblies
+
+The verb is `Vixen.Rendering.Water`'s and the pontoon spheres, waterlines and force arrows are
+`BuoyancyDebugDraw`'s here — § D1 again, since a renderer must not reference the assembly that links
+Jolt. `BuoyancyDebugSystem` carries one to the other, and it takes the flag as a delegate rather than
+reading it, which is what keeps this assembly linkable by a dedicated server that has no renderer:
+
+```csharp no-compile="one line at registration, not per frame"
+var debug = new BuoyancyDebugSystem(buoyancy, graphics.Debug) {
+    Show = () => WaterDebug.ShowBuoyancy
+};
+
+loop.Add(debug);
+```
+
+Left unwired the toggle sets a bool nothing consumes — which, over a scene with nothing floating in
+it, looks exactly like a verb that works. `BuoyancyDebugSystem.Frames` is the counter that separates
+the two.
 
 ## Examples
 
