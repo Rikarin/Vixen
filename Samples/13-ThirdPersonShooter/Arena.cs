@@ -412,9 +412,54 @@ public sealed class Arena : IDisposable {
                 BuoyancyDebug = new(Buoyancy, debug) { Show = () => Rendering.Water.WaterDebug.ShowBuoyancy };
                 loop.Add(BuoyancyDebug);
             }
+
+            TypeTheConsole(graphics);
         }
 
         LightTheLamps(loop);
+    }
+
+    /// <summary>Runs the console verbs in <c>VIXEN_CONSOLE</c>, so a headless run can type.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="ScriptedWalk" />'s argument, one input device along.</b> Every debug draw
+    ///         this engine has is reached by typing a verb at a console, and a capture run has nobody
+    ///         at a keyboard — so <c>water.showBuoyancy</c> and its five siblings were, in a headless
+    ///         picture, unreachable rather than merely off. One environment variable of verbs
+    ///         separated by <c>;</c> is the whole of what a script needs, and it costs the game
+    ///         nothing when it is unset.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Executed through <c>ConsoleCommands</c> rather than by setting the flags.</b> A
+    ///         helper that assigned <c>WaterDebug.ShowBuoyancy</c> directly would be a second way of
+    ///         saying the same thing, and the run it is used on would stop being evidence about the
+    ///         verb — which is the thing under suspicion. This types what a person would type.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null without <c>--vixen-overlays</c>, and that is not a hole to paper over.</b>
+    ///         The console, the <c>DebugDraw</c> and the node that drains it are built together — a
+    ///         run that has no accumulator to draw into cannot honour a draw verb whatever it was
+    ///         told, so it says so rather than accepting the line and losing it.
+    ///     </para>
+    /// </remarks>
+    void TypeTheConsole(AppGraphics graphics) {
+        if (Environment.GetEnvironmentVariable("VIXEN_CONSOLE") is not { Length: > 0 } script) {
+            return;
+        }
+
+        if (graphics.Console is not { } console) {
+            SampleLog.NoConsole(logger, script);
+            return;
+        }
+
+        foreach (var line in script.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+            // ⚠ Outside the log call, because it is the *typing*. Passed as an argument it would be
+            // an expensive-and-side-effecting expression the logger is entitled to skip — so a build
+            // with information logging off would silently run none of the verbs.
+            var claimed = console.Execute(line);
+
+            SampleLog.ConsoleTyped(logger, line, claimed);
+        }
     }
 
     /// <summary>Puts a <see cref="LampFlicker" /> on every point light the level placed.</summary>
@@ -1505,43 +1550,49 @@ public sealed class Arena : IDisposable {
     ///         means the timeline is not describing the whole frame.
     ///     </para>
     /// </remarks>
-    /// <summary>Where the raft ended up, against where the fold says the water is under it.</summary>
+    /// <summary>Where the raft ended up, against where the solver said the water was under it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The surface is asked for at the raft's own position rather than read off
-    ///         <c>WaterBodyComponent.surfaceHeight</c>.</b> The authored number is the still height;
-    ///         what the deck is actually riding is that plus the swell and minus the shore
-    ///         attenuation, and comparing against the authored constant would report a correct raft
-    ///         on a moving lake as wrong by the wave height. Asking the fold is the same question the
-    ///         solver asked, which is what makes the difference between the two meaningful.
+    ///         ⚠ <b>The surface comes off <c>BuoyancyState</c> and is not asked for again here, and
+    ///         the first version of this got that wrong.</b> Two heights only subtract to something
+    ///         meaningful if they are the same instant: the pose is the last <em>fixed</em> step's and
+    ///         the water is a moving swell, so re-querying the fold at render time compares a raft at
+    ///         tick N with a surface at frame N and reports the difference — a few centimetres of
+    ///         wave — as a raft floating at the wrong height. <c>SurfaceHeight</c> is the number the
+    ///         solver itself used, at the body's origin, on the step that produced this pose.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the offset is expected to be <em>negative</em>, by about 0.15 m.</b> The deck
-    ///         base sits under the water and the deck stands out of it — see the arithmetic beside
-    ///         the entity in <c>Arena.vxscene</c>. A number near zero is a deck resting exactly on
-    ///         the surface, which is what a body being placed rather than floated looks like.
+    ///         ⚠ <b>And the submerged fraction beside it is the one that is comparable to arithmetic
+    ///         somebody can do on paper.</b> The offset is a height on a lake with waves on it and
+    ///         moves with them; the mean fraction is what the authored mass, coefficient and pontoon
+    ///         volumes predict — 0.42 for this raft, worked out beside the entity in
+    ///         <c>Arena.vxscene</c> — and it is the number that says the waterline is <em>right</em>
+    ///         rather than merely somewhere plausible.
+    ///     </para>
+    ///     <para>
+    ///         The offset is expected to be negative by about 0.15 m: the deck's base sits under the
+    ///         water and the deck stands out of it. Zero is a deck resting exactly on the surface,
+    ///         which is what a body placed rather than floated looks like.
     ///     </para>
     /// </remarks>
     void ReportRaft() {
-        if (Buoyancy is not { } buoyancy
-            || services?.Graphics is not { } graphics
-            || services.Engine is not { } loop) {
+        if (Buoyancy is not { } buoyancy || services?.Engine is not { } loop) {
             return;
         }
 
         var query = new QueryDescription().WithAll<BuoyancyBody, BuoyancyState, WorldTransform>();
         var deck = float.NaN;
         var surface = float.NaN;
+        var submerged = float.NaN;
 
         foreach (var chunk in loop.World.Chunks(query)) {
             var placements = chunk.ReadValues<WorldTransform>();
+            var states = chunk.ReadValues<BuoyancyState>();
 
             for (var index = 0; index < chunk.Count; index++) {
-                var at = placements[index].Value.Translation;
-                var ground = new Vector2(at.X, at.Z);
-
-                deck = at.Y;
-                surface = graphics.Water.QueryAt(ground)?.Height(ground, graphics.Water.WaterTime) ?? float.NaN;
+                deck = placements[index].Value.Translation.Y;
+                surface = states[index].SurfaceHeight;
+                submerged = states[index].Submerged;
             }
         }
 
@@ -1550,6 +1601,7 @@ public sealed class Arena : IDisposable {
             buoyancy.Floating,
             buoyancy.Pontoons,
             buoyancy.WetPontoons,
+            submerged,
             deck,
             surface,
             deck - surface,

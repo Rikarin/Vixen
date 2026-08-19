@@ -386,10 +386,14 @@ roots:
   # `centre` lifting it half a deck, because the mesh's origin is at the base and the shape's is at
   # its middle. The pontoons are in that same base-origin frame, which is why their y is 0.2.
   - name: Raft
-    # Over `TerrainSeed.LakeCentre`, and 0.95 m above where it will end up: it is dropped rather
-    # than placed at rest, because a body *arriving* at its waterline is evidence the solver did it
-    # and a body already there is evidence of nothing at all.
-    position: 0 2 -62
+    # Inside `TerrainSeed.LakeRadius` and towards the near bank, so that it is in shot from ground a
+    # character can stand on: 12.2 m from `LakeCentre` is 1.9 m of water, which is deep enough for
+    # the swell to be half its open-water height and shallow enough that the shore is a short swim.
+    #
+    # ⚠ **0.95 m above where it will end up, and dropped rather than placed.** A body *arriving* at
+    # its waterline is evidence the solver did it; a body authored already at rest is evidence of
+    # nothing at all, and is exactly what a run with the system unregistered would also look like.
+    position: 7 2 -52
     scale: 1.5 0.25 2.5
     components:
       - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, material: vx:ce6f44a9d82149d3bf50c6d30381b440, castsShadows: true }
