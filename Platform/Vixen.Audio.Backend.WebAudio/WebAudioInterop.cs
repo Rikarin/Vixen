@@ -33,10 +33,12 @@ internal static partial class WebAudioInterop {
 
     /// <summary>Where it is fetched from when the caller does not say.</summary>
     /// <remarks>
-    ///     The file ships beside the assembly, so an application that copied its output to the site
-    ///     root needs no configuration. One that arranges its assets differently passes its own URL.
+    ///     ⚠ <c>../</c>, for the reason set out on <c>WebInterop.DefaultModuleUrl</c>:
+    ///     <see cref="JSHost.ImportAsync" /> resolves against the runtime's module in
+    ///     <c>_framework/</c>, and this file is a content file at the site root. A page that
+    ///     arranges its assets differently passes its own URL.
     /// </remarks>
-    public const string DefaultModuleUrl = "./vixen-audio.js";
+    public const string DefaultModuleUrl = "../vixen-audio.js";
 
     /// <summary>Loads the module. Must complete before anything else here is called.</summary>
     /// <param name="url">Where the module is.</param>
