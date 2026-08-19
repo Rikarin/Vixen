@@ -94,8 +94,9 @@ public sealed class EveryAttributedImporterTests {
             missing.Count == 0,
             $"{string.Join(", ", missing.Select(type => type.Name))} "
             + $"{(missing.Count == 1 ? "carries [Importer] and is" : "carry [Importer] and are")} absent from "
-            + "BuiltInImporters.Create(), so the extensions they claim fall through to RawImporter and become byte "
-            + "blobs no runtime reader resolves — with no error anywhere. Add them to the list."
+            + $"BuiltInImporters.Create(), so the extensions {(missing.Count == 1 ? "it claims" : "they claim")} fall "
+            + "through to RawImporter and become byte blobs no runtime reader resolves — with no error anywhere. Add "
+            + $"{(missing.Count == 1 ? "it" : "them")} to the list."
         );
     }
 
