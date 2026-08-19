@@ -58,6 +58,7 @@ namespace Vixen.Rendering.PostFx;
 public sealed class SmaaRenderer : SceneRenderer, IDisposable {
     readonly FullScreenRenderer[] passes;
 
+    IGraphicsDevice? owner;
     TextureHandle areaTexture;
     TextureViewHandle areaView;
     BufferHandle areaStaging;
@@ -345,6 +346,12 @@ public sealed class SmaaRenderer : SceneRenderer, IDisposable {
             Name: AreaName
         );
 
+        // ⚠ Kept, rather than reading `Device` back at teardown. A node whose host left `Device`
+        // null builds against the frame's, and a Dispose that looked at the property would then free
+        // nothing at all — a texture and a staging buffer leaked per node per resize, reported by
+        // nobody until the device's own leak tracker at shutdown.
+        owner = device;
+
         areaTexture = device.CreateTexture(areaDescription);
         areaView = device.CreateTextureView(areaTexture);
 
@@ -378,7 +385,7 @@ public sealed class SmaaRenderer : SceneRenderer, IDisposable {
             pass.Dispose();
         }
 
-        if (Device is not { } device) {
+        if (owner is not { } device) {
             return;
         }
 
