@@ -729,6 +729,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             ReflectionsAsset reflections => Reflections(reflections, builder),
             AmbientCombineAsset combine => Combine(combine, builder),
             FxaaAsset fxaa => Fxaa(fxaa, builder),
+            SmaaAsset smaa => Smaa(smaa, builder),
             TemporalAntialiasingAsset taa => Taa(taa, builder),
             SharpenAsset sharpen => Sharpen(sharpen, builder),
             VignetteAsset lens => Lens(lens, builder),
@@ -991,6 +992,22 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static SmaaRenderer Smaa(SmaaAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Output = declared.Output,
+            Format = declared.Format,
+            EdgeThreshold = declared.EdgeThreshold,
+            ContrastAdaptation = declared.ContrastAdaptation,
+            LumaFloor = declared.LumaFloor,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Descriptors = builder.Descriptors,
             Samplers = builder.Samplers
         };
 
