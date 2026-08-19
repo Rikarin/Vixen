@@ -550,10 +550,13 @@ warning would toast, log, toast, log.
 - ~~**Clicking in the viewport does not select.**~~ It does, and dragging a box round several does
   too, through `ScenePicker` and `IScenePicker.Within` — a ray test and a screen-space region query,
   both exact against the geometry the viewport actually draws. ⚠ **The id readback is still not
-  driven**, and the reason has moved rather than gone away: `PickingRenderer` is a `SceneRenderer`
-  over a `RenderStage`, which needs the viewport driven by `RenderSystem` through a
-  `GraphicsCompositor`. This application has neither, so the stage is blocked on the same material
-  wiring the view modes are — and it is what will be right the day a shader moves a vertex.
+  driven**, and the reason has moved again: it used to be that `PickingRenderer` is a `SceneRenderer`
+  over a `RenderStage` and this application had neither a `RenderSystem`-driven viewport nor a
+  `GraphicsCompositor`. It has both — `EditorWorldRenderer` holds the compositor and a view per pane,
+  and `FramePresenter` draws through it. What is missing now is one assignment: nothing in the tree
+  constructs a `PickingBuffer` or sets `SceneViewport.Picking`, so `Pick` falls to the `ScenePicker`
+  ray test every time. That is the whole gap, and closing it is what will be right the day a shader
+  moves a vertex.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.
