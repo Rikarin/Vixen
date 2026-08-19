@@ -114,9 +114,14 @@ public interface ISubObjectPicker {
 ///     <para>
 ///         ⚠ <b>This is not what <see cref="PickingBuffer" /> is, and it is not meant to replace
 ///         it.</b> Drawing object ids with the same vertex path as the picture is the only way to be
-///         right for a skinned mesh, an instanced forest or anything whose shader moved its vertices,
-///         and that stage is written and tested. What it needs is a host that owns a render target for
-///         it, and until there is one <c>SceneViewport.Picking</c> is null and every click in the
+///         right for a skinned mesh, an instanced forest or anything whose shader moved its vertices.
+///         ⚠ That stage is <em>written</em> and, contrary to what this paragraph used to say, it is
+///         not tested: nothing constructs a <see cref="PickingRenderer" /> anywhere in the tree. What
+///         it needs is not a render target — the editor's panes have had a real
+///         <c>GraphicsCompositor</c> since #145–#151 and could declare one — but a shader that writes
+///         an object id, which no <c>.rvn</c> in the library does, and a map from that id back to an
+///         entity, which is the delegate <c>SceneViewport.Resolve</c> takes and nobody supplies.
+///         Until then <c>SceneViewport.Picking</c> is null and every click in the
 ///         viewport selects nothing at all — which is what this is for. A scene of primitives and
 ///         markers is a scene a ray can be tested against exactly, and the arithmetic is the same
 ///         arithmetic whether or not a GPU is involved.

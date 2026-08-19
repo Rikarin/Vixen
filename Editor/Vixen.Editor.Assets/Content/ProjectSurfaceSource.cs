@@ -13,11 +13,20 @@ namespace Vixen.Editor.Assets.Content;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ProjectMeshSource" />'s twin, down to the reason it exists.</b> A game resolves
-///         a material through a catalog and a bundle; the editor has neither and does not want them —
-///         it has the chunks the last import wrote, in a store on disk beside the project. Waiting for
-///         a content build to see what colour a wall is would make the viewport a function of the build
-///         rather than of the files.
+///         <b><see cref="ProjectMeshSource" />'s twin, down to the reason it exists.</b> A game
+///         resolves a material through a catalog and a bundle; this reads the chunks the last import
+///         wrote, from a store on disk beside the project. ⚠ This paragraph used to add that the
+///         alternative was "waiting for a content build", and see
+///         <see cref="ProjectMeshSource" /> for why that was wrong and what the actual argument is:
+///         a catalog is what ships, and it silently omits what a project excludes from shipping.
+///     </para>
+///     <para>
+///         ⚠ <b>Unlike the mesh source, this one is not the whole story and should not be read as
+///         it.</b> <see cref="ISurfaceSource" /> is the <em>tool</em> renderer's seam and reduces a
+///         material to four numbers; it is not <c>IMaterialSource</c>, which is what the composed
+///         pane's <c>WorldRenderer</c> wants and what only <c>WorldRenderer.Mount</c> builds. So the
+///         argument above settles where geometry comes from and settles nothing about textured
+///         materials, which the editor cannot draw at all yet — see <c>EditorContent</c>.
 ///     </para>
 ///     <para>
 ///         <b>It reads the compiled chunk and not the <c>.vxmat</c>.</b> <c>MaterialImporter</c> already

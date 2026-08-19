@@ -173,10 +173,14 @@ public sealed class EditorWorldRendererTests : IDisposable {
 
     /// <summary>The geometry comes from the import cache, which is where the tool renderer reads it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not from an <c>AssetManager</c> over a content build's catalog.</b> The editor has one
-    ///     of those — <c>EditorContent</c> — and using it would make the viewport a function of the
-    ///     last content build rather than of the files, which is the argument <c>ProjectMeshSource</c>
-    ///     makes in its own remarks. Two sources would be two opinions about what a mesh is.
+    ///     ⚠ <b>Not from an <c>AssetManager</c> over a catalog.</b> This used to say "a content
+    ///     build's catalog" and that using <c>EditorContent</c> would make the viewport a function of
+    ///     the last content build — which is wrong, because <c>LooseContent</c> is not a build and
+    ///     reads this same import cache. The reason that holds is that the catalog resolves
+    ///     <em>less</em>: an excluded asset gets no address and so no entry, silently, which
+    ///     <c>EditorContentTests.An_excluded_asset_is_absent_from_the_catalog_and_still_in_the_import_cache</c>
+    ///     demonstrates. Two sources would be two opinions about what a mesh is, and the catalog's
+    ///     opinion is the one that omits what a project chose not to ship.
     /// </remarks>
     [Fact]
     public void The_mesh_source_is_the_one_the_tool_renderer_already_reads() {

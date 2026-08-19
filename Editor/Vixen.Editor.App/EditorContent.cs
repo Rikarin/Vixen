@@ -22,8 +22,35 @@ namespace Vixen.Editor.App;
 ///         ⚠ <b>The same addresses a shipped build resolves, which is the property that makes any of
 ///         this worth testing against.</b> The catalog comes from the same <c>BuildPlanner</c> reading
 ///         the same sidecars; what differs is that an entry names no bundle and the chunks stay where
-///         the import wrote them. A viewport drawing from a second, editor-shaped path would be a
-///         viewport that agrees with the game by coincidence.
+///         the import wrote them.
+///     </para>
+///     <para>
+///         ⚠ <b>This paragraph used to end "a viewport drawing from a second, editor-shaped path
+///         would be a viewport that agrees with the game by coincidence", and as an argument about
+///         <em>geometry</em> that is wrong.</b> It is wrong because a catalog is what <em>ships</em>
+///         and the editor has to draw what is in the project, which is a larger set.
+///         <c>BuildPlanner.AddressOf</c> gives an excluded asset no address, so it gets no entry here
+///         and an <c>AssetMeshSource</c> over this manager cannot resolve it — while
+///         <c>ProjectMeshSource</c>, matching on the id in the import record, reads it perfectly well.
+///         A sub-asset whose <c>.meta</c> does not name it, and two sub-assets whose names collide,
+///         refuse the <em>whole</em> asset for the same reason. All of it is silent:
+///         <see cref="Rebuild" /> succeeds and the asset is simply absent. So the viewport's geometry
+///         stays on the import cache, deliberately, and
+///         <c>EditorContentTests.An_excluded_asset_is_absent_from_the_catalog_and_still_in_the_import_cache</c>
+///         is what holds that decision in place.
+///     </para>
+///     <para>
+///         <b>What is still owed here is the other half of a frame, and it is the reason this type
+///         is worth keeping.</b> <c>WorldRenderer.Mount</c> is the only thing in the engine that
+///         builds an <c>IMaterialSource</c>, an <c>AssetTextureSource</c>, a vfx source and the two
+///         terrain seams, and it takes exactly one argument: an <see cref="AssetManager" />. The
+///         editor has no editor-shaped equivalent for any of them — <c>ProjectSurfaceSource</c> is
+///         four numbers for the tool renderer and does not satisfy <c>IMaterialSource</c> — which is
+///         why <c>EditorWorldRenderer.Degraded</c> says every drawable is painted with the fallback.
+///         <c>WorldRenderer.Source</c> and <c>Painter</c> are both settable, so the arrangement that
+///         reconciles the two halves is to mount this and then put <c>ProjectMeshSource</c> back as
+///         the geometry: the game's answer where the editor has none, the project's answer where the
+///         catalog would silently narrow it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Reopened after an import rather than kept live.</b> A catalog is a snapshot of what

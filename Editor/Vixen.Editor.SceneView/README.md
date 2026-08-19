@@ -1255,14 +1255,21 @@ primitives is a scene the processor can answer about exactly.
 `IScenePicker.Within`, over the same projected bounds a click tests against.
 
 **The picking *stage*.** ~~Clicking to select in the viewport.~~ That works, through a ray test.
-`PickingRenderer` is written and tested and nothing drives it, and the reason has moved rather than
-gone away: it is a `SceneRenderer` over a `RenderStage`, which needs the viewport driven by
-`RenderSystem` through a `GraphicsCompositor`. The editor's viewport is `SceneMeshes` through
-`MeshInstanceRenderer`, which has device-resident geometry and a per-entity transform but neither a
-compositor nor a material system. So this is blocked on the same material-system wiring the view modes
-are — doc 20's Risks table says that work should be scheduled *before* the viewport milestone, and it
-was not — and it stays blocked until it is, at which point the stage connects to a real target and
-`ScenePicker` becomes the fallback rather than the answer.
+`PickingRenderer` is written and nothing drives it. ⚠ **This entry used to claim it was "written and
+tested" and blocked on a compositor, and both halves are now wrong.** Nothing anywhere constructs a
+`PickingRenderer`, so it has no test at all; and the compositor arrived with #145–#151 —
+`FramePresenter` draws every pane through a real `GraphicsCompositor` and `EditorWorldRenderer` owns a
+`RenderView` per pane, so a pane could declare `IdResource` and `DepthResource` today.
+
+What actually blocks it is a **shader**. `PickingRenderer.Stage` is a `RenderStage` whose `ShaderName`
+has to name something that writes an object id into an `R32UInt` target, and no `.rvn` in
+`Raven/Library` writes one — the only `ShaderName` overrides in the tree are post-effects, water and
+`DepthOnly`. Behind it sit two more pieces: nothing maps an id back to an entity, which is the
+`Func<uint, Entity>` `SceneViewport.Resolve` takes and no host supplies, and nothing yet carries a
+*global* object id into a fragment stage — `ForwardPlus`'s `objectIndex` is `SV_InstanceID`, an index
+within one draw, which only becomes an object id once `transformBase` is added the way that shader
+adds it for its transform records. It is a shader-and-mapping job, not a compositor one, and until it
+is done `ScenePicker` is the answer rather than the fallback.
 
 **Auto-depth.** `EditorCamera.OnPivotPlane` is the depth a zoom-at-the-pointer assumes when it has not
 been told one, and it is right when the grid is what you are looking at. Blender samples the depth

@@ -20,10 +20,24 @@ namespace Vixen.Editor.Assets.Content;
 ///         identical.
 ///     </para>
 ///     <para>
-///         <b>Why the editor cannot simply use the game's.</b> A <c>ContentCatalog</c> is built by a
-///         content build, which is something an author runs when they ship rather than every time they
-///         open a scene. Waiting for one to look at a level would make the viewport a function of the
-///         build rather than of the files.
+///         ⚠ <b>Why the editor cannot simply use the game's, and it is not the reason this paragraph
+///         used to give.</b> It said a <c>ContentCatalog</c> is built by a content build and that
+///         waiting for one would make the viewport a function of the build rather than of the files.
+///         That is not true of the catalog the editor would actually use: <c>LooseContent.Write</c>
+///         needs no build — no packing, no copying — and it reads this very import cache. It is
+///         sub-asset granular too, because <c>BuildPlanner</c> emits one entry per sub-asset.
+///     </para>
+///     <para>
+///         ⚠ <b>The real reason is that a catalog is what <em>ships</em> and a viewport has to draw
+///         what is in the project.</b> <c>BuildPlanner.AddressOf</c> gives an excluded asset no
+///         address — <c>AddressableInfo.Excluded</c> being the designed way to keep "a reference FBX
+///         kept beside the one that ships" out of a build — so the catalog has no entry for it and
+///         <c>AssetMeshSource</c> throws <c>ReferenceNotFoundException</c>, while the lookup below
+///         finds it by id and reads it. The same goes for a sub-asset the <c>.meta</c> does not name
+///         and for two sub-assets whose names collide, both of which refuse the whole asset. Every
+///         one of those is silent — the catalog is written successfully and the asset is simply not
+///         in it — so a viewport moved onto that path would stop drawing part of a project with
+///         nothing anywhere saying which part.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Synchronous, unlike every other source.</b> The chunk is on local disk and already

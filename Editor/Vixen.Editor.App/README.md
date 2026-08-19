@@ -550,13 +550,40 @@ warning would toast, log, toast, log.
 - ~~**Clicking in the viewport does not select.**~~ It does, and dragging a box round several does
   too, through `ScenePicker` and `IScenePicker.Within` — a ray test and a screen-space region query,
   both exact against the geometry the viewport actually draws. ⚠ **The id readback is still not
-  driven**, and the reason has moved again: it used to be that `PickingRenderer` is a `SceneRenderer`
-  over a `RenderStage` and this application had neither a `RenderSystem`-driven viewport nor a
-  `GraphicsCompositor`. It has both — `EditorWorldRenderer` holds the compositor and a view per pane,
-  and `FramePresenter` draws through it. What is missing now is one assignment: nothing in the tree
-  constructs a `PickingBuffer` or sets `SceneViewport.Picking`, so `Pick` falls to the `ScenePicker`
-  ray test every time. That is the whole gap, and closing it is what will be right the day a shader
-  moves a vertex.
+  driven, and the reason this note used to give is no longer the reason.** It said
+  `PickingRenderer` "needs the viewport driven by `RenderSystem` through a `GraphicsCompositor`.
+  This application has neither" — it has both, since #145–#151: `FramePresenter` draws every pane
+  through a real `GraphicsCompositor` into the window's graph and `EditorWorldRenderer` owns a
+  `RenderView` per pane. What actually blocks it is one level down and is a *shader*:
+  `PickingRenderer.Stage` is a `RenderStage` whose `ShaderName` must name something that writes an
+  object id into an `R32UInt` target, and **no such `.rvn` exists** — nothing in `Raven/Library`
+  writes an id, and the only `ShaderName` overrides in the tree are post-effects, water and
+  `DepthOnly`. Behind that shader sit three more missing pieces: nothing carries a *global* object id
+  into a fragment stage (`ForwardPlus`'s `objectIndex` is `SV_InstanceID`, an index within one draw);
+  nothing maps an id back to an entity, which is the `Func<uint, Entity>` `SceneViewport.Resolve`
+  takes and nobody supplies; and the pane's compositor would have to carry
+  `PickingRenderer.IdResource` and `DepthResource` per pane. ⚠ **`PickingRenderer` also has no test
+  and no caller** — `ScenePicker`'s own remarks call the stage "written and tested", and only the
+  first half is true. It is still what will be right the day a shader moves a vertex; it is a
+  shader-and-mapping job, not a compositor one.
+- **The composed pane paints every drawable with the fallback material, and `EditorContent` is why
+  it does not have to.** `WorldRenderer.Mount` is the only thing in the engine that builds an
+  `IMaterialSource` — and with it a texture source, a vfx source and the two terrain seams — and it
+  takes exactly one argument, an `AssetManager`. `EditorContent` is that `AssetManager`, and it is
+  still constructed only in `EditorContentTests`. So `EditorWorldRenderer.Painter` is null and
+  `Degraded` says so, which is the honest sentence over a viewport where assigning a material appears
+  to do nothing.
+  ⚠ **What must not come with it is the geometry.** The loose catalog resolves strictly *less* than
+  the import cache: `BuildPlanner.AddressOf` gives an excluded asset no address, so it has no entry,
+  and a sub-asset the `.meta` does not name or two whose names collide refuse the whole asset — all
+  silently, with `Rebuild` returning true.
+  `EditorContentTests.An_excluded_asset_is_absent_from_the_catalog_and_still_in_the_import_cache`
+  pins that. `WorldRenderer.Source` and `Painter` are both settable, so the shape that closes this is
+  to mount and then put `ProjectMeshSource` back as the geometry: the game's answer where the editor
+  has none, the project's answer where the catalog would narrow it. Two further costs to price in
+  first — `LooseContent.Write` runs `BuildPlanner`, which reads every `.meta` off disk and so belongs
+  on `ContentTasks`' background task rather than in `Pump`; and `AssetMeshSource`/`AssetMaterialSource`
+  have no `Invalidate`, so a re-import means re-`Mount`, which is a content teardown.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.

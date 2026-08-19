@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Xunit;
@@ -92,6 +93,92 @@ public sealed class EditorContentTests : IDisposable {
         Assert.Null(content.Assets);
         Assert.NotNull(content.Refusal);
         Assert.Contains("Import", content.Refusal, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The catalog resolves less than the import cache does, and says nothing about it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Why the viewport's geometry does not come through here, and the reason is not the
+    ///         one three other files give.</b> They say the alternative is "waiting for a content
+    ///         build" — <c>ProjectMeshSource</c>, <c>ProjectSurfaceSource</c> and
+    ///         <c>EditorWorldRenderer</c> all say some form of it — and that is simply not true of
+    ///         <c>LooseContent</c>, which is what this class writes: no build, no packing, no copying,
+    ///         and it reads the very same import cache <c>ProjectMeshSource</c> reads. It is also
+    ///         sub-asset granular, so "the catalog cannot name one mesh inside a model" is not the
+    ///         reason either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The real reason is that a catalog is what <em>ships</em>, and the editor has to
+    ///         draw what is in the project.</b> <c>BuildPlanner.AddressOf</c> gives an excluded asset
+    ///         no address, so it gets no catalog entry and an <c>AssetMeshSource</c> over that catalog
+    ///         throws <c>ReferenceNotFoundException</c> for it — while <c>ProjectMeshSource</c>, which
+    ///         matches on the id in the import record, reads it perfectly well. Exclusion is the
+    ///         designed case and not an edge one: <c>AddressableInfo.Excluded</c>'s own remarks call it
+    ///         "a reference FBX kept beside the one that ships", and somebody who marked a file that
+    ///         way still expects to see it when they open it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is silent, which is what makes it a defect rather than a trade.</b>
+    ///         <see cref="EditorContent.Rebuild" /> returns true and reports nothing above
+    ///         informational — the asset is simply not in the catalog. A viewport switched to this
+    ///         path would stop drawing a subset of the project with nothing anywhere saying which
+    ///         subset or why. The same refusal applies to a sub-asset whose <c>.meta</c> does not name
+    ///         it and to two sub-assets whose names collide, both of which refuse the <em>whole</em>
+    ///         asset — see <c>BuildPlanner.Chunks</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task An_excluded_asset_is_absent_from_the_catalog_and_still_in_the_import_cache() {
+        var project = Project();
+
+        await Import(project, "Textures/crate.txt", "the crate");
+        await Import(project, "Reference/backplate.txt", "the backplate");
+
+        Exclude(project, "Reference/backplate.txt");
+
+        using var content = new EditorContent(project);
+        var problems = new List<string>();
+
+        var rebuilt = content.Rebuild(diagnostic => {
+            if (diagnostic.Severity >= Vixen.Editor.Assets.ImportSeverity.Warning) {
+                problems.Add(diagnostic.Message);
+            }
+        });
+
+        // ⚠ Asserted first and it is the point. A refusal would be a viewport that could say why a
+        // mesh had vanished; this succeeds, so it could not.
+        Assert.True(rebuilt, content.Refusal);
+        Assert.Empty(problems);
+
+        // The address path — what `AssetMeshSource` would take. One of the two assets is reachable.
+        Assert.NotNull(content.Assets);
+        Assert.True(content.Assets.CanOpen("Assets/Textures/crate.txt"));
+        Assert.False(content.Assets.CanOpen("Assets/Reference/backplate.txt"));
+
+        // The import-cache path — what `ProjectMeshSource` takes. Both are there, chunk and all.
+        var workspace = new ProjectWorkspace(project.Paths);
+
+        workspace.Cache.TryLoad(workspace.CacheFile);
+        workspace.Database.Scan();
+
+        var excluded = Assert.Single(
+            workspace.Database.Entries,
+            entry => entry.Path.EndsWith("backplate.txt", StringComparison.Ordinal)
+        );
+
+        Assert.True(workspace.Cache.TryGet(excluded.Guid, out var record));
+
+        var artifact = Assert.Single(record!.Artifacts);
+
+        Assert.True(workspace.Artifacts.Exists(artifact.Id));
+    }
+
+    /// <summary>Marks an already-imported asset as one that does not ship.</summary>
+    static void Exclude(EditorProject project, string relative) {
+        var absolute = Path.Combine(project.Paths.Assets, relative.Replace('/', Path.DirectorySeparatorChar));
+        var meta = AssetMetaFile.PathFor(absolute);
+
+        AssetMetaFile.WriteFile(meta, AssetMetaFile.ReadFile(meta) with { Addressable = new() { Excluded = true } });
     }
 
     static async Task Import(EditorProject project, string relative, string contents) {
