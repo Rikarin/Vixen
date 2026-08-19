@@ -298,10 +298,6 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14086 | Warning | `There is no DebugDraw, so the overlay is not registered.` — `Graphics.Overlays` is what builds one, and it is off by default | 0.1.0 |
 | 14087 | Information | `The overlay drew {Agents} agent(s) and {Rows} row(s) on the last frame.` — ⚠ zero agents with a village that decided things means the style culled them: `Range` and `Viewpoint`, in that order | 0.1.0 |
 | 14088 | Warning | `There is no engine loop, so there is no world and nothing to decide.` — what `--vixen-frames 1` on a machine with no GPU looks like, and not an error | 0.1.0 |
-| 14140 | Information | `Composed {Modules} module(s) over {Definitions} definition(s)…` — the shard's libraries composed over real content, which is what says the gameplay stack is running in a process rather than a fixture | 0.1.0 |
-| 14141 | Warning | `This build shipped no content mount…` — the shard started with no definitions; every gameplay module is inert rather than absent | 0.1.0 |
-| 14142 | Warning | `Nothing in this build carries the '{Label}' label…` — the content build ran and produced nothing the shard asked for, which reads as an empty world | 0.1.0 |
-| 14143 | Information | `Spawned {Issued} order(s) across {Camps} camp(s)…` — the world spawns actually issued, so an empty world is distinguishable from an unspawned one | 0.1.0 |
 
 | 14140 | Information | `Composed {Modules} module(s) over {Definitions} definition(s) from {Addresses} address(es); {Camps} camp(s) standing.` — `Samples/14`, once per shard start; zero camps with definitions above zero is a realm whose spawner found nothing to place | 0.1.0 |
 | 14141 | Warning | `This build shipped no content mount, so the shard has no definitions and every gameplay library is empty. Run the content build.` — the shard still starts, which is why this is said out loud | 0.1.0 |
