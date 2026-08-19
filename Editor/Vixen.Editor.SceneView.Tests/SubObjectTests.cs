@@ -342,6 +342,16 @@ public class SubObjectTests {
         Assert.False(picker.Under(elements, Matrix4x4.Identity, camera, 0, 0, Vector2.Zero).IsHit);
     }
 
+    /// <summary>How many separate windows of queries are measured before the bar is called missed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because <see cref="GC.GetAllocatedBytesForCurrentThread" /> measures the thread, not
+    ///     the call.</b> Anything the runtime does while this thread happens to be the one running —
+    ///     preparing a method reached for the first time, warming a pool behind a helper — is charged
+    ///     here, and one window cannot tell that apart from a query that allocates. Eight can: a
+    ///     per-query allocation is in every window, and a one-off is in at most one.
+    /// </remarks>
+    const int Windows = 8;
+
     [Fact]
     public void Nothing_is_allocated_once_the_buffers_have_grown() {
         var camera = Camera();
@@ -350,19 +360,34 @@ public class SubObjectTests {
 
         var at = new Vector2(Width * 0.5f, Height * 0.5f);
 
+        // Allocated before the measuring starts, so that recording a window costs nothing.
+        var measured = new long[Windows];
+
         // The first query sizes the projection buffers.
         picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, at);
 
         // ⚠ The bar doc 24's B4 sets is "hover feedback fast enough to survive a mouse move", which
         // is one query per move for as long as the pointer is over the pane. A per-query allocation
-        // of a torus' worth of screen positions is what that cannot afford.
-        var before = GC.GetAllocatedBytesForCurrentThread();
+        // of a torus' worth of screen positions is what that cannot afford. The bar is still zero:
+        // one clean window is the proof, and `Windows` above says why one window is not asked for.
+        for (var window = 0; window < measured.Length; window++) {
+            var before = GC.GetAllocatedBytesForCurrentThread();
 
-        for (var index = 0; index < 32; index++) {
-            picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, at + new Vector2(index, 0f));
+            for (var index = 0; index < 32; index++) {
+                picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, at + new Vector2(index, 0f));
+            }
+
+            measured[window] = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            if (measured[window] == 0) {
+                return;
+            }
         }
 
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        // Every window allocated, so it is the query doing it. The whole run is reported rather than
+        // the last one: a constant per window is a per-query cost, and a total that grows window over
+        // window is a buffer being resized, which are two different bugs in `SubObjectPicker`.
+        Assert.Fail($"every one of {Windows} windows of 32 queries allocated: {string.Join(", ", measured)} bytes");
     }
 
     // ── The band ────────────────────────────────────────────────────────────────────────────────
