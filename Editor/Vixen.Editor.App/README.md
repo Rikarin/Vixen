@@ -550,10 +550,20 @@ warning would toast, log, toast, log.
 - ~~**Clicking in the viewport does not select.**~~ It does, and dragging a box round several does
   too, through `ScenePicker` and `IScenePicker.Within` — a ray test and a screen-space region query,
   both exact against the geometry the viewport actually draws. ⚠ **The id readback is still not
-  driven**, and the reason has moved rather than gone away: `PickingRenderer` is a `SceneRenderer`
-  over a `RenderStage`, which needs the viewport driven by `RenderSystem` through a
-  `GraphicsCompositor`. This application has neither, so the stage is blocked on the same material
-  wiring the view modes are — and it is what will be right the day a shader moves a vertex.
+  driven, and the reason this note used to give is no longer the reason.** It said
+  `PickingRenderer` "needs the viewport driven by `RenderSystem` through a `GraphicsCompositor`.
+  This application has neither" — it has both, since #145–#151: `FramePresenter` draws every pane
+  through a real `GraphicsCompositor` into the window's graph and `EditorWorldRenderer` owns a
+  `RenderView` per pane. What actually blocks it is one level down and is a *shader*:
+  `PickingRenderer.Stage` is a `RenderStage` whose `ShaderName` must name something that writes an
+  object id into an `R32UInt` target, and **no such `.rvn` exists** — nothing in `Raven/Library`
+  writes an id, and the only `ShaderName` overrides in the tree are post-effects, water and
+  `DepthOnly`. Behind that shader sit two more missing pieces: nothing maps the id back to an
+  entity, which is the `Func<uint, Entity>` `SceneViewport.Resolve` takes and nobody supplies; and
+  the pane's compositor would have to carry `PickingRenderer.IdResource` and `DepthResource` per
+  pane. ⚠ **`PickingRenderer` also has no test and no caller** — `ScenePicker`'s own remarks call
+  the stage "written and tested", and only the first half is true. It is still what will be right
+  the day a shader moves a vertex; it is a shader-and-mapping job, not a compositor one.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.
