@@ -346,7 +346,13 @@ Both series are **smooth**: the walking one's frame-to-frame delta never departs
 by more than 12 %, and the single largest regional event in thirty frames — a tile at 11.2 — is a
 lamp's ember particles against the sky, not a shadow.
 
-### ⚠ Walking does not reproduce the reported shadow blink
+### ⚠ Walking does not reproduce the reported shadow blink *in a picture*
+
+⚠ **Superseded by the counter in the next section, which reproduces it and names the cause.** What
+stands is the narrower claim these captures actually support: a picture cannot answer this question,
+because the cascade fallback renders. Kept because the routes and the noise floors below are still
+the right ones to walk, and because the reasoning that led here — inferring a shadow from a
+whole-frame delta — is the mistake the counter exists to retire.
 
 Four walking routes, all captured as within-run strips so the comparison is free of cross-run noise:
 out of the south gate onto the terrain, across the gate itself, the same at three times the throttle
@@ -373,6 +379,67 @@ strip does swing — the whole-frame mean channel runs 83.9 → 102.4 → 87.7 �
 at half-second sampling that is auto-exposure and the camera's own occlusion, both of which change
 what is on screen, and it cannot separate a shadow from a view. Closing the question wants a
 per-frame counter of pages absent at the shading pass, not another picture.
+
+### ✅ The counter, and the blink it found
+
+`VIXEN_VSMTRACE=<file>` writes one row a frame: the pages the marking pass asked for, how many of
+them the page table that frame's shading actually reads answers, how many it does not, how many were
+drawn, how many the clipmap's refit threw away, and the residency behind all of it.
+
+```
+VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK="40:1:0:9" VIXEN_VSMTRACE=./vsm.csv \
+dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
+    --vixen-headless --vixen-frames 2400 --vixen-variant Development --vixen-capture ./shots
+```
+
+⚠ **The column that matters is `absent`, and no picture contains it.** A page the table does not
+answer falls through to `ClusteredShading`'s cascades, which render — so a frame whose map answered
+nothing is a frame that looks fine, and every other counter reports success while it happens.
+
+**Standing still, there is no blink and there never was.** 41 pages demanded at frame 2, all 41
+answered by frame 16, and `absent` is zero for every one of the next 1 184 frames. The still-camera
+captures above were measuring a settled map, which is why two investigations found nothing.
+
+**Walking reproduces it, and it settles on the reported timescale.** The route above is a closed
+circle, so scene complexity does not drift with the camera. Frames whose map failed on more than a
+tenth of what it was asked for, per five seconds of walking:
+
+| | 0–5 s | 5–10 s | 10–15 s | 15–20 s | 20–25 s | 25–30 s | 30–35 s | 35–40 s |
+|---|---|---|---|---|---|---|---|---|
+| Before | 90 | 38 | 30 | 13 | 24 | 30 | 32 | 44 |
+| After | 63 | 35 | 23 | 9 | 18 | 27 | 16 | 20 |
+
+Ninety blinking frames in the first five seconds against a teens-to-forties plateau after fifteen —
+which is *"the shadows are blinking at start but it settles after 10-20 seconds"*, in a counter. The
+settle is the residency pool filling: it climbs 258 → 400 → 560 over the run, and a page that has
+ever been resident keeps its slot through an invalidation, so it costs a redraw rather than a redraw
+*and* an allocation.
+
+**The cause is the clipmap's third axis.** A level snapped its centre along all three axes of the
+light's basis at the *lateral page size*. Two of those axes are what the page grid is made of and
+want exactly that. The third is the depth the level's box spans — 400 m for every level alike — and
+quantising it at the lateral page made level zero's near plane step every 0.31 m of walking against
+level seven's 40 m, on an axis the two share. A near plane that steps shifts every stored depth in
+the level, so `VirtualShadowRenderer.Fit` threw the level away: **23.2 pages invalidated a frame
+against a budget that redraws sixteen.** A map cannot converge under that while the camera moves.
+
+`VirtualShadowMap.DepthStep` is the fix — the depth range over the page count, the same for every
+level because the box is. On the identical route it takes refits from 0.57 to 0.34 a frame,
+invalidations from 23.2 to 13.6, and blinking frames from 12.6 % to 8.8 %. The two runs' residency
+curves match to a page at every checkpoint, which is what makes it an A/B rather than two walks.
+
+⚠ **The residual is real and is the lateral half of the same mechanism.** A level that recentres
+sideways by one page still invalidates all 1 024 of its pages, and 1 023 of them are about exactly
+the world they were about before — the slide *renames* pages rather than moving them. Frame 2170 of
+the run above is the worst case that survives: 59 of 59 demanded pages absent for one frame,
+recovered over five. The frame-to-frame delta on that step is 1.449/255 against a 0.94–1.13
+neighbourhood, and the count of 32 × 32 tiles moving by more than 4/255 goes 66 → **184** → 80.
+
+**Owed: toroidal page addressing.** Index a level's pages by their absolute cell modulo
+`PagesPerSide` instead of by their offset from the level's current centre, and a slide invalidates
+only the one column or row that wrapped rather than the whole level. It costs an origin on
+`VirtualShadowLevel`, which is a GPU struct — so it wants the device goldens, which do not run on
+macOS.
 
 ## The picture, and what is in the way
 
