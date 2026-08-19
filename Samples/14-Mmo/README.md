@@ -26,7 +26,7 @@ machine with no GPU.
 | `Mmo.Contracts` | everybody | `[Replicated]` components, broadcasts, the gate's DTOs, the map names. No Orleans, no engine, AOT-clean. |
 | `Mmo.Shared` | client, realm | The composition, the compiled libraries, and the rules both ends run. |
 | `Mmo.Cluster` | realm, orchestrator, gate | One grain the sample adds: `IWorldEventGrain`. |
-| `Mmo.Realm` | — | Composes all twenty libraries, holds the four bridges, runs `RealmApp.Run<MmoRealm>`. |
+| `Mmo.Realm` | — | Composes all twenty libraries **at boot, in the process**, holds the four bridges, drives the world's camps every tick, runs `RealmApp.Run<MmoRealm>`. |
 | `Mmo.Gate` | — | Region, maps, version. Forty lines, and that is the point. |
 | `Mmo.Orchestrator` | — | A silo. The game's grains need no registration beyond being referenced. |
 | `Mmo.Client` | — | Headless: sign in, pick a character, get a ticket, connect. |
@@ -251,6 +251,74 @@ somebody updates without reading.
 It also asserts the coverage claim above: a sample that says it exercises twenty libraries and
 exercises seventeen is worse than one that says seventeen, because somebody reads the list, does not
 find the example they came for, and concludes the library does not work.
+
+## The content build
+
+**Not wired, and what stops it is a decision about addresses rather than an MSBuild import.** No
+project here imports `Vixen.Sdk.targets` or sets `VixenProjectDirectory`, so `Mmo.vxproj`'s 987
+definitions are never imported by the pipeline and `MmoAddresses.cs` is hand-written. Its own remarks
+say a real game generates that file. Running the real pipeline over this tree is what showed why
+nobody had.
+
+**The addresses the pipeline produces are not the addresses this content is authored against.**
+`BuildPlanner.AddressOf` returns the project-relative path verbatim — `Assets/Items/rarities/fine.vxitem`
+— and every cross-reference in the tree is written the other way (`rarity: items/rarities/fine`),
+because `Mmo.Content.Authoring` invented that scheme and only `Mmo.Content.Tests`' own helper
+implements it. A `DefId` is a hash of the address string, so the two schemes agree about nothing:
+
+```
+generated       Assets/Maps/greenmarch.vxdef      Assets/Currencies/gold.vxdef
+hand-written    maps/greenmarch                   currencies/gold
+```
+
+All fourteen constants in `MmoAddresses` differ, and so does every reference inside every file. It is
+not a formatting difference and it cannot be papered over: the generated file is nested classes
+(`Addresses.Maps.Greenmarch.Address`) where `MmoAddresses` is flat, so "swapping them is deleting a
+file" is not true either.
+
+⚠ **And one address names two assets.** `MmoMaps.Greenmarch` is `maps/greenmarch`, which is both the
+`MapDefinition` the exploration library compiles *and* the startup scene `Realm.OnConfigure` hands the
+engine as `Spec.Key.Map`. A content catalog holds one asset per address, so whichever the sample keeps,
+the other needs a different one.
+
+### The three options
+
+| | What it costs | What it buys |
+|---|---|---|
+| **A sidecar per definition** — `addressable.address` in each of the 987 `.meta`, written by `Mmo.Content.Authoring` | 987 sidecars restating the path; a new file that forgets one lands at the wrong address silently | Nothing else changes. It is the documented mechanism — *"worth doing where the address is a contract"* — and this address is a contract. **Verified working**: a scratch build of the whole tree with these sidecars produces exactly the authored addresses |
+| **Re-author the tree against pipeline addresses** — regenerate all 987 files with `Assets/…​.vxdef` references, delete `MmoAddresses` for the generated file | A very large diff; every address then embeds the file extension, which contradicts doc 28 G-Q1's *"the extension is cosmetic and the type tag decides"* — renaming `.vxdef` to `.vxitem` would change a `DefId` and therefore durable state | The sample stops carrying a second address convention, and the generated constants become the only ones |
+| **A group-level address convention** — `.vxgroup` gains something like an Assets-relative, extension-stripped style, applied to the definitions group | An engine change with an owner and a design argument | Solves it for every game, not just this sample, and is the only option that removes the extension from a definition's identity |
+
+The first is the one that unblocks the sample today; the third is the one worth arguing about.
+
+### What a real build of this tree already proves
+
+With the sidecars applied in a scratch copy, `vixen content build` produces 1 000 addresses in two
+bundles, and the real `Mmo.Realm` process — `RealmApp.Run<MmoRealm>` with a `--realm-spec` — starts:
+
+```
+info Vixen.App                Content mounted from /app/Content: 1000 addresses.
+info Vixen.Samples.Mmo.Realm  Composed 22 module(s) over 987 definition(s) from 1000 address(es); 28 camp(s) standing.
+info Vixen.Samples.Mmo.Realm  Spawned 168 order(s) across 28 camp(s); 168 alive at t=0.0s.
+```
+
+Identical on a second run, because `WorldSpawns` is seeded from the shard's identity.
+
+⚠ **`Mmo.Content.Authoring` writes lowercase paths and the committed tree is mixed-case** —
+`Assets/Items`, `Assets/Maps`, `Assets/Pvp` beside `Assets/abilities`, `Assets/instances`. The tool
+emits `maps/…​`, and it only ever ran on a case-insensitive filesystem. Re-running it on Linux would
+create a second, lowercase copy of six directories rather than overwrite the first.
+
+⚠ **Nothing joins a camp to a map.** A `SpawnTableDefinition` names its entries, its cap and its
+leash; no map definition lists its camps and no table names a map. So `MmoRealm` drives every table in
+the build, which is right for a sample with one shard and wrong for a fleet. The fix is a field, and
+it is content work.
+
+⚠ **`VixenVariant=Server` does nothing to the content.** `Vixen.Sdk.targets` emits a
+`Vixen.App.BuildVariant` assembly attribute and nothing in the content build reads the property, so
+the `vixen-mmo` Dockerfile's claim that a server publish strips textures, audio and shader
+permutations is false and a shard image ships full client content. Already recorded as 🟡 in
+[`docs/overview.md`](../../docs/overview.md); wiring the content build here does not change it.
 
 ## See also
 
