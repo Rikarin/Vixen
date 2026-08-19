@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.AiVillage.Tests</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Rendering.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Core\Vixen.Ai\Vixen.Ai.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Ai.Perception\Vixen.Ai.Perception.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Ai.Nodes\Vixen.Ai.Nodes.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Ai.Diagnostics\Vixen.Ai.Diagnostics.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <!--
+      The sample's own source, linked rather than referenced. Referencing the game project would
+      drag in `Vixen.App`, a desktop platform and a Vulkan backend for a suite that stands up no
+      window and no device — and a copy of these files in the test tree would be the copy that
+      drifts. Sample 13's Frame.Tests links `ScriptedWalk.cs` for the same reason.
+    -->
+    <ItemGroup>
+        <Compile Include="..\Village.cs" Link="Village.cs" />
+        <Compile Include="..\Intrusion.cs" Link="Intrusion.cs" />
+        <Compile Include="..\DecisionLog.cs" Link="DecisionLog.cs" />
+    </ItemGroup>
+</Project>

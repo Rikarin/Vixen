@@ -313,6 +313,54 @@ public class AiSnapshotTests {
         Assert.Contains(snapshot.Section(AiDebugSection.Data), row => row is { Name: "alarmed", Value: "true" });
     }
 
+    /// <summary>
+    ///     ⚠ <b>A tree agent's headline action is the live leaf's, not <c>AiAgent.Action</c>'s.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>AiSystem.Advance</c> hands a behaviour-tree agent to
+    ///         <c>BehaviorTreeInstance.Step</c> and returns before the <c>Action</c> field the other
+    ///         two planners maintain — correctly, because the tree owns which task is running. But
+    ///         <c>AiSnapshots.Take</c> filled <c>Snapshot.Action</c> from that field for every
+    ///         planner, so the overlay's and the panel's "what is it doing" reported
+    ///         <c>NameOf(0)</c> for every tree agent alive: whichever action happened to be
+    ///         registered first, presented as a fact.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The decoy is the whole test.</b>
+    ///         <see cref="ATreeAgentReportsItsActivePathAndItsDecoratorsLastAnswer" /> registers one
+    ///         action, so index zero <i>is</i> the right answer there and the defect is invisible;
+    ///         P7's overlay test reads its readout off a <i>utility</i> agent. Registering something
+    ///         else first is what makes a wrong answer look wrong. Found by putting the stack in
+    ///         <c>Samples/15-AiVillage</c>, where a guard that was visibly chasing an intruder
+    ///         reported that it was waiting.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ATreeAgentReportsTheTaskItIsRunningAndNotWhateverWasRegisteredFirst() {
+        var registry = new AgentActionRegistry();
+        var layout = new BlackboardLayoutBuilder().Add("alarmed", BlackboardValueType.Bool).Build();
+
+        // The decoy, registered first so that index zero is an answer nobody should ever get.
+        registry.Register("idle-decoy", new Standing(), 0);
+        registry.Register("stand", new Standing(), 0);
+
+        var system = new AiSystem(registry, layout);
+        var asset = BehaviorTree.Asset("guard", BehaviorTree.Task("stand-guard", "stand"));
+        var index = system.Trees.Add(BehaviorTreeCompiler.Compile(asset, registry, layout));
+
+        using var world = new World("snapshot-tree-action");
+        var entity = world.Create(AiAgent.Thinking(index));
+
+        system.Step(world, GameTime.Zero);
+
+        var snapshot = new AiAgentSnapshot();
+
+        Assert.True(AiSnapshots.Take(system, world, entity, snapshot));
+        Assert.Equal(Symbol.Intern("stand"), snapshot.Action);
+        Assert.NotEqual(Symbol.Intern("idle-decoy"), snapshot.Action);
+    }
+
     [Fact]
     public void AUtilityAgentReportsEveryCandidateAndTheChosenOnesFactors() {
         var registry = new AgentActionRegistry();

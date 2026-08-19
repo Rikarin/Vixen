@@ -123,6 +123,12 @@ public static class AiSnapshots {
 
         into.Asset = template.Name;
 
+        // ⚠ Cleared first, because `Take` filled it from `AiAgent.Action` and a tree agent's copy of
+        // that field is never written. Between two tasks — the moment a leaf succeeds and before the
+        // root has chosen the next — there is genuinely no running action, and saying so is the
+        // point: the alternative is a header that reads `NameOf(0)`, which is an answer.
+        into.Action = Symbol.None;
+
         Span<int> path = stackalloc int[MaximumRowsPerSection];
         var depth = instance.ActivePath(path);
 
@@ -135,6 +141,22 @@ public static class AiSnapshots {
         for (var index = 0; index < depth; index++) {
             var node = path[index];
             ref readonly var record = ref template[node];
+
+            // ⚠ **The headline action comes from the live leaf, because a tree agent's
+            // `AiAgent.Action` is never written.** `Advance` hands a behaviour-tree agent to
+            // `BehaviorTreeInstance.Step` and returns before the field the other two planners
+            // maintain — quite correctly, since the tree owns which task is running. But `Take`
+            // sets `into.Action` from that field for every planner, so the overlay's and the
+            // panel's "what is it doing" read `NameOf(0)` for *every* tree agent in the world:
+            // whichever action happens to be registered first, presented as a fact.
+            //
+            // That is doc 37 § P6's trap — a planner that has chosen nothing must run nothing —
+            // in its reporting form, and it survived because zero is a valid registry index and
+            // the answer therefore always looked like an answer. P7's overlay test asserts a
+            // readout for a *utility* agent, so no test had ever read this field off a tree.
+            if (index == depth - 1 && record.Kind == BehaviorNodeKind.Task) {
+                into.Action = system.Actions.NameOf(record.Action);
+            }
 
             into.Add(
                 new(
