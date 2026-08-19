@@ -286,6 +286,9 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14068 | Information | `{Effects} lamp(s) are drifting embers and {Waiting} are waiting for one; {Particles} particle(s) were expanded last frame, through {Sets} particle material set(s).` | 0.1.0 |
 | 14069 | Information | `The player is driven by the script '{Script}', which lasts {Seconds} simulated second(s) — {Frames} frame(s) at the sixtieth a capture is fixed to.` — `VIXEN_WALK`; a capture shorter than the script is a picture of a moment part-way through the walk | 0.1.0 |
 | 14070 | Information | `The script ran {Elapsed} of {Duration} simulated second(s) and the player covered {Distance} m of ground.` — zero metres with a script that has time on it is a walk nothing acted on, and it captures as a still frame with every other counter reporting success | 0.1.0 |
+| 14071 | Information | `Buoyancy: {Floating} bod(ies) floating, {Pontoons} pontoon(s), {Wet} of them wet, {Submerged} of each under on average; the deck is at {Deck} over a surface at {Surface}, an offset of {Offset} m. The overlay has drawn {DebugFrames} frame(s).` — pontoons above zero with none of them wet is a body outside every zone's window; debug frames at zero with `water.showBuoyancy` on is `BuoyancyDebugSystem` unwired | 0.1.0 |
+| 14072 | Information | `Console: typed '{Line}'; claimed = {Claimed}.` — `VIXEN_CONSOLE`; false is a verb nothing registered, and a typo reads the same, which is why the line is echoed rather than summarised | 0.1.0 |
+| 14073 | Warning | `VIXEN_CONSOLE said '{Script}' and this run has no console: pass --vixen-overlays, which is what builds the console, the debug accumulator and the node that draws it.` | 0.1.0 |
 
 | 14081 | Information | `The village is up: {Agents} agents choosing from {Actions} registered actions, over a {Seconds} s intrusion. One AiSystem, one registry, one blackboard layout, one perception config, one sensor set and one navmesh.` — `Samples/15`; logged after the first frame, because `AiSystem.Population` is written by `Join` and a line logged at initialise time reports an empty village | 0.1.0 |
 | 14082 | Information | `frame {Frame} · {Seconds}s · {Agent} ({Planner}) {From} → {To}, intruder {Distance} m` — one agent changing its mind, with where the intruder was when it did. A transition and not a state: "the guard is patrolling" is true of a guard that has never done anything else | 0.1.0 |
@@ -296,8 +299,14 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14087 | Information | `The overlay drew {Agents} agent(s) and {Rows} row(s) on the last frame.` — ⚠ zero agents with a village that decided things means the style culled them: `Range` and `Viewpoint`, in that order | 0.1.0 |
 | 14088 | Warning | `There is no engine loop, so there is no world and nothing to decide.` — what `--vixen-frames 1` on a machine with no GPU looks like, and not an error | 0.1.0 |
 
+| 14140 | Information | `Composed {Modules} module(s) over {Definitions} definition(s) from {Addresses} address(es); {Camps} camp(s) standing.` — `Samples/14`, once per shard start; zero camps with definitions above zero is a realm whose spawner found nothing to place | 0.1.0 |
+| 14141 | Warning | `This build shipped no content mount, so the shard has no definitions and every gameplay library is empty. Run the content build.` — the shard still starts, which is why this is said out loud | 0.1.0 |
+| 14142 | Warning | `Nothing in this build carries the '{Label}' label, so no definition was found. The content build ran and the .vxgroup does not label its definitions.` — the other half of 14141: content that exists and is not labelled reads identically to content that is missing | 0.1.0 |
+| 14143 | Information | `Spawned {Issued} order(s) across {Camps} camp(s); {Alive} alive at t={Seconds}s.` — orders issued with nothing alive is a spawner whose placements are all being rejected | 0.1.0 |
+
 The 14 000 range is subdivided a sample at a time: `Samples/01` at 14001, `Samples/03` at 14011,
-`Samples/12` at 14021, `Samples/13` at 14031, `Samples/15` at 14081, and `Samples/11` at 14005
+`Samples/12` at 14021, `Samples/13` at 14031, `Samples/15` at 14081, `Samples/14` at 14140, and
+`Samples/11` at 14005
 **and** 14026 — two runs,
 because for a while it logged its first three lines under 14001–14003, which are `Samples/01`'s.
 
