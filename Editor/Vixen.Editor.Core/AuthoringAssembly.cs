@@ -44,10 +44,10 @@ namespace Vixen.Editor.Core;
 ///         and loads it beside an out-of-tree plugin. Naming <i>any</i> type in it from that plugin's
 ///         <c>Activate</c> — a bare <c>typeof</c>, on a type that is not the component and is not the
 ///         marker — registers the component; naming none of them registers nothing. And gutting
-///         <see cref="Touch" /> to an empty body leaves every test in <c>Vixen.Editor.App.Tests</c>
-///         passing, this suite's two on-time assertions included. So on this runtime a module's
-///         initializers have run by the time anybody is holding a <c>Type</c> out of it — and nobody
-///         can build one of these without holding one.
+///         <see cref="Touch" /> to an empty body leaves all 527 tests in <c>Vixen.Editor.App.Tests</c>
+///         passing, <c>ComponentTests.The_subsystems_that_declare_components_are_loaded_before_the_list_is_read</c>
+///         included. So on this runtime a module's initializers have run by the time anybody is
+///         holding a <c>Type</c> out of it — and nobody can build one of these without holding one.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Which is why the declaration is still worth writing and the call is still worth
@@ -73,10 +73,10 @@ public sealed record AuthoringAssembly(Type Marker) {
     ///         constructor once however many times it is asked.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"Entitled to" and "does" are not the same word, and on this runtime it does
-    ///         not.</b> See the type's remarks: every attempt to catch this method doing work found
-    ///         the work already done by the <c>typeof</c> in its own caller's argument. Do not write
-    ///         a test that turns on this method having been called — there is nothing to observe.
+    ///         ⚠ <b>"Entitled to" is not "observed to", and what was observed is the initializer
+    ///         running anyway.</b> See the type's remarks: every attempt to catch this method doing
+    ///         work found the work already done by the <c>typeof</c> in its own caller's argument.
+    ///         Do not write a test that turns on this having been called — there is nothing to see.
     ///     </para>
     /// </remarks>
     public void Touch() => RuntimeHelpers.RunModuleConstructor(Marker.Module.ModuleHandle);
