@@ -35,6 +35,35 @@
         <Compile Include="..\Vixen.Platform.Web\IO\WebContentManifest.cs" Link="Linked\WebContentManifest.cs" />
     </ItemGroup>
 
+    <!--
+        The module-name and module-URL constants of all three browser bindings, from all three
+        browser projects — which is why this project reaches outside its own subsystem, and the only
+        place it does.
+
+        BrowserModuleUrlTests asserts one invariant that spans them: a default module URL is resolved
+        by JSHost.ImportAsync against the *runtime's* module in _framework/, while the vixen-*.js it
+        names is a content file at the site root. The three were all "./" and all therefore
+        unresolvable — one defect, three times, found by publishing a head and loading it, and
+        invisible to every gate in the repository (docs/plan/spikes/web-head/RESULT.md § 1).
+
+        Each of those files is a second `partial` part holding constants and nothing else: no
+        [JSImport], no browser runtime pack, so it compiles here unchanged. That is the same trick,
+        and the same justification, as the WebContentManifest.cs link above — and the repository
+        links source across project boundaries elsewhere for the same reason (Testing/Vixen.Testing.props).
+
+        The alternative was to reflect over the built browser assemblies, which would make this suite
+        depend on `nuke CompileWeb` having run — so it would either fail on a machine without
+        wasm-tools or skip on every CI leg, and a guard that always skips is not a guard.
+    -->
+    <ItemGroup>
+        <Compile Include="..\Vixen.Platform.Web\WebInterop.Module.cs"
+                 Link="Linked\WebInterop.Module.cs" />
+        <Compile Include="..\Vixen.Audio.Backend.WebAudio\WebAudioInterop.Module.cs"
+                 Link="Linked\WebAudioInterop.Module.cs" />
+        <Compile Include="..\Vixen.Graphics.WebGPU.Browser\WebGpuInterop.Module.cs"
+                 Link="Linked\WebGpuInterop.Module.cs" />
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
     </ItemGroup>
