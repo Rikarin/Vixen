@@ -350,14 +350,23 @@ public class ComponentTests {
     ///     the editor is up — a plugin's, a project's own — could be drawn in the inspector and still
     ///     be missing from the menu that adds it.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The list is asked what it holds and not how much, because the registry is
+    ///     process-wide and this suite is parallel.</b> <c>SceneComponentRegistry</c> is static —
+    ///     <c>SceneComponentBinder</c> says why — so a count taken here and compared after is a
+    ///     count another collection can move between the two reads: <c>OutOfTreePluginTests</c>
+    ///     registers a plugin's component and <c>ProjectAssemblyTests</c> a project's behaviour, and
+    ///     both land in the same list this one is built from. What the test is about survives the
+    ///     change: the bridge for a late component is in a list that was built before it existed.
+    /// </remarks>
     [Fact]
     public void A_component_registered_after_the_list_was_built_is_still_offered() {
         var bridges = ComponentsView.Default();
-        var before = bridges.Count;
+
+        Assert.DoesNotContain(bridges, bridge => bridge.ComponentType == typeof(LateComponent));
 
         SceneComponentRegistry.Register<LateComponent>();
 
-        Assert.Equal(before + 1, bridges.Count);
         Assert.Contains(bridges, bridge => bridge.ComponentType == typeof(LateComponent));
     }
 
