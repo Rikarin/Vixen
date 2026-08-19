@@ -577,6 +577,66 @@ public class CompositorAssetTests : IDisposable {
         Assert.True(declared.Usage.HasFlag(TextureUsage.CopySource));
     }
 
+    /// <summary>
+    ///     A document can declare a multisampled pass and say where its samples go.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of MSAA that did not exist.</b> <c>sampleCount</c> on a resource and on a
+    ///         pass have always parsed and always reached the texture and the pipeline, and both
+    ///         backends have always honoured <c>ColourAttachment.ResolveView</c> — with nothing in
+    ///         between naming a pair, so a document could declare a 4× target, draw into it correctly,
+    ///         and end the pass with the result in memory no later pass can read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The two resources' usages are the assertion's other half. The multisampled one is a
+    ///         colour target and <em>not</em> sampled — a multisampled image is not readable through
+    ///         an ordinary sampler — and the resolve is what carries <c>Sampled</c> and what the rest
+    ///         of the frame reads by name.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_document_can_resolve_a_multisampled_pass() {
+        using var h = Build();
+
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            stages:
+              - name: Opaque
+            resources:
+              - name: SceneSamples
+                format: Rgba16Float
+                usage: ColourTarget
+                sampleCount: 4
+              - name: SceneColour
+                format: Rgba16Float
+                usage: ColourTarget, Sampled
+            game: !RenderPass
+              name: Main
+              colourTargets: [SceneSamples]
+              sampleCount: 4
+              resolveTargets:
+                - target: SceneSamples
+                  into: SceneColour
+            """
+        );
+
+        var compositor = h.Builder.Build(asset);
+        var pass = Assert.IsType<RenderPassRenderer>(compositor.Game);
+
+        Assert.Equal(4, pass.SampleCount);
+        Assert.Equal("SceneColour", Assert.Contains("SceneSamples", pass.ResolveTargets));
+
+        var samples = compositor.Resources.Single(resource => resource.Name == "SceneSamples");
+        var resolved = compositor.Resources.Single(resource => resource.Name == "SceneColour");
+
+        Assert.Equal(4, samples.SampleCount);
+        Assert.Equal(1, resolved.SampleCount);
+        Assert.False(samples.Usage.HasFlag(TextureUsage.Sampled));
+        Assert.True(resolved.Usage.HasFlag(TextureUsage.Sampled));
+    }
+
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required CompositorBuilder Builder { get; init; }
