@@ -184,6 +184,34 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// <summary>How many pages the last frame drew.</summary>
     public int DrawnPages { get; private set; }
 
+    /// <summary>
+    ///     How many of <see cref="MarkedPages" /> this frame's table answers, and how many it does not.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="VirtualShadowAtlas.AnsweredPages" />, which is where the argument for measuring it
+    ///     at the table upload is made. <see cref="AbsentPages" /> is the count of pages this frame
+    ///     shades from the cascades instead, and it is the only counter here that is about coverage
+    ///     rather than about effort.
+    /// </remarks>
+    public int AnsweredPages => Atlas?.AnsweredPages ?? 0;
+
+    /// <inheritdoc cref="AnsweredPages" />
+    public int AbsentPages => Atlas?.AbsentPages ?? 0;
+
+    /// <summary>How many pages <see cref="Fit" /> invalidated this frame, and over how many levels.</summary>
+    /// <remarks>
+    ///     <b>What a refit costs, stated rather than inferred.</b> A level whose projection moved has
+    ///     every one of its resident pages unpublished at once, and the budget redraws
+    ///     <see cref="DrawsPerFrame" /> of them a frame — so a scene where this is non-zero on most
+    ///     frames is a scene whose map is structurally unable to answer, however healthy
+    ///     <see cref="DrawnPages" /> looks. <see cref="LightSnapDegrees" /> and the clipmap's page snap
+    ///     exist to keep it at zero, and whether they do is a question about the scene's own rates.
+    /// </remarks>
+    public int InvalidatedPages { get; private set; }
+
+    /// <inheritdoc cref="InvalidatedPages" />
+    public int RefitLevels { get; private set; }
+
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
@@ -329,20 +357,28 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
         // still for tens of metres. Under that test a moving player invalidated all eight levels'
         // pages near-continuously, the sixteen-a-frame budget never caught up, and the map was
         // perpetually absent exactly when it was being looked at.
+        InvalidatedPages = 0;
+        RefitLevels = 0;
+
         if (previous != records.Count) {
             // The structure changed — levels appeared, vanished, or spots shifted the mapping from
             // page range to record — and a page range that changed meaning is stale wholesale.
-            atlas.Pages.InvalidateAll();
+            InvalidatedPages = atlas.Pages.InvalidateAll();
+            RefitLevels = records.Count;
         } else {
             for (var level = 0; level < records.Count; level++) {
                 if (fitted[level] == records[level].ViewProjection) {
                     continue;
                 }
 
+                RefitLevels++;
+
                 var first = level * VirtualShadowMap.PagesPerMap;
 
                 for (var page = first; page < first + VirtualShadowMap.PagesPerMap; page++) {
-                    atlas.Pages.Invalidate(page);
+                    if (atlas.Pages.Invalidate(page)) {
+                        InvalidatedPages++;
+                    }
                 }
             }
         }

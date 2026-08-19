@@ -124,6 +124,35 @@ public sealed class VirtualShadowAtlas : IDisposable {
     /// <summary>How many pages the last <see cref="ServiceMarks" /> saw asked for.</summary>
     public int MarkedPages { get; private set; }
 
+    /// <summary>
+    ///     How many of <see cref="MarkedPages" /> the table this frame published actually answers.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one number that says whether the map is working, and the only one that does.</b>
+    ///         Every other counter here is about what the host attempted — pages marked is the lookup
+    ///         asking, pages drawn is the caster stage answering, residency is the pool holding. None
+    ///         of them is <em>coverage</em>: a frame can mark a hundred pages, draw its full budget and
+    ///         hold a full pool while the shading pass still finds nothing at the address it looks up,
+    ///         because a page allocated and not yet drawn is deliberately absent from
+    ///         <see cref="VirtualShadowPages.Table" /> and an invalidated one is unpublished outright.
+    ///         What the pixel gets then is <c>ClusteredShading.Shadow</c>'s cascade fallback, which
+    ///         renders — so the failure is invisible in a picture and legible only here.
+    ///     </para>
+    ///     <para>
+    ///         Measured at <see cref="UploadTable" />, which is the moment the table becomes the one
+    ///         this frame's shading reads, against the marks <see cref="ServiceMarks" /> read at the
+    ///         head of the same frame. Those marks are a frame late by construction — see the class
+    ///         remarks — so this is "what the previous frame's pixels asked for, against what this
+    ///         frame can answer", which is as close as a CPU counter gets to what the shading pass
+    ///         sees without a second readback.
+    ///     </para>
+    /// </remarks>
+    public int AnsweredPages { get; private set; }
+
+    /// <summary>How many it does not — the pages this frame shades from the cascades instead.</summary>
+    public int AbsentPages => MarkedPages - AnsweredPages;
+
     /// <summary>The atlas, for a pass that draws into it.</summary>
     public TextureHandle Texture => atlas;
 
@@ -159,11 +188,35 @@ public sealed class VirtualShadowAtlas : IDisposable {
     }
 
     /// <summary>Hands the page table to the device, as the shading pass will read it.</summary>
+    /// <remarks>
+    ///     Also where <see cref="AnsweredPages" /> is counted, and it has to be here: this is the
+    ///     instant the table stops changing and becomes the one the frame's shading reads, so the
+    ///     intersection of it with the marks is what the lookup will find and not an estimate of it.
+    /// </remarks>
     public void UploadTable() {
         ObjectDisposedException.ThrowIf(disposed, this);
 
+        var table = Pages.Table;
+
+        AnsweredPages = 0;
+
+        for (var word = 0; word < marks.Length; word++) {
+            var bits = marks[word];
+
+            while (bits != 0) {
+                var bit = System.Numerics.BitOperations.TrailingZeroCount(bits);
+                var page = (word * 32) + bit;
+
+                bits &= bits - 1;
+
+                if (page < table.Length && table[page] != VirtualShadowMap.PageAbsent) {
+                    AnsweredPages++;
+                }
+            }
+        }
+
         pageTable.Begin();
-        pageTable.Add(Pages.Table);
+        pageTable.Add(table);
         pageTable.Upload();
     }
 

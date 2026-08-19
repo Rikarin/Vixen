@@ -913,6 +913,15 @@ public sealed class Arena : IDisposable {
     /// <summary>How many boxes the clipmap is composited from.</summary>
     public int DistanceFieldInstances { get; private set; }
 
+    /// <summary>The frame's virtual shadow node, or null if the document has none.</summary>
+    /// <remarks>
+    ///     Looked up rather than held, on <c>ReportFrame</c>'s terms: the compositor document reloads
+    ///     and replaces its nodes, so a handle taken once is a handle to the node the frame used to
+    ///     have. The dictionary lookup is a handful of references per frame.
+    /// </remarks>
+    public VirtualShadowRenderer? VirtualShadowNode =>
+        services?.Graphics?.Renderer.Host.Builder.Nodes.Values.OfType<VirtualShadowRenderer>().FirstOrDefault();
+
     /// <summary>An exact signed-distance field for an axis-aligned box, in the box's own space.</summary>
     /// <remarks>
     ///     <para>
