@@ -289,6 +289,11 @@ rest height the boundary would sit at mean sea level, and a camera in a swell wo
 second before and after the water actually reached it.
 
 ⚠ **It does not answer the waterline, and that separation is § D9's whole point.** A fold produces one
-weight for the frame; a camera straddling the surface needs two treatments divided by a curve. That
-curve is the mask `!Water` already writes in alpha. **The node that reads it is not built** — what
-exists is the mask and the volume, and the composite between them is owed.
+weight for the frame; a camera straddling the surface needs two treatments divided by a curve. The
+node that draws that curve is `UnderwaterRenderer`, and it is built: `!Underwater` is an
+`UnderwaterAsset` that `WaterRendererFactory` constructs, over `Raven/Library/Water/Underwater.rvn`,
+with an image golden. ⚠ **The curve is not the alpha mask, though this paragraph used to say it would
+be.** `Underwater.rvn` is explicit that the mask does one job and it is not the waterline; the
+waterline is solved per pixel against the local surface plane, which is what survives a camera pushed
+through a wave. **What is owed is a frame that names it** — no shipped `.vxcompositor` carries
+`!Underwater`, so the node is reachable only by a document somebody authors.

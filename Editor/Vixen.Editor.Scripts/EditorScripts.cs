@@ -124,16 +124,15 @@ public sealed class EditorScripts {
 
 /// <summary>One project's script assembly, as the thing the plugin host activates.</summary>
 /// <remarks>
-///     ⚠ <b>The one place in the editor that enumerates an assembly's types, and the reason is
-///     bounded.</b> ADR-002 forbids assembly scanning as a way of building the editor, for two
-///     reasons that both hold: a scan reads metadata a trimmed publish has deleted, and start-up cost
-///     grows with what is installed. Neither applies to an assembly the editor compiled from source
-///     seconds ago, in a folder it is watching, in a process that has no publish. What a project's
-///     script author cannot do is run a source generator over a loose <c>.cs</c> file, and that is the
-///     whole of why this tier is different from the other two.
-/// </remarks>
-/// <summary>One project's script assembly, as the thing the plugin host activates.</summary>
-/// <remarks>
+///     <para>
+///         ⚠ <b>The one place in the editor that enumerates an assembly's types, and the reason is
+///         bounded.</b> ADR-002 forbids assembly scanning as a way of building the editor, for two
+///         reasons that both hold: a scan reads metadata a trimmed publish has deleted, and start-up
+///         cost grows with what is installed. Neither applies to an assembly the editor compiled from
+///         source seconds ago, in a folder it is watching, in a process that has no publish. What a
+///         project's script author cannot do is run a source generator over a loose <c>.cs</c> file,
+///         and that is the whole of why this tier is different from the other two.
+///     </para>
 ///     <para>
 ///         ⚠ <b>The declarations are read by the host's scanners, not by this class.</b> Doc 36 § D3:
 ///         <c>[EditorMenu]</c>, <c>[CustomInspector]</c>, <c>[CustomDrawer]</c> and

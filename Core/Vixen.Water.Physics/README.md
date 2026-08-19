@@ -153,8 +153,14 @@ dinghy, folded and stepped through Jolt — is the fixture that found it, and th
 
 ## What is not here
 
-The debug draw (`water.showBuoyancy` — the flag is in `Vixen.Rendering.Water`, the lines are owed),
-and the boat that *steers* with these forces, which is
+⚠ **The `water.showBuoyancy` wiring, which is not the same as the lines.** The lines are written and
+tested — `BuoyancyDebugDraw` draws the pontoon spheres, the submerged fractions and the force arrows —
+and the verb is registered in `Vixen.Rendering.Water`. What nothing does is join them: the draw reads
+its own `Enabled` deliberately, no host copies `WaterDebug.ShowBuoyancy` into it, and no host calls
+`Draw`. So the toggle sets a bool that nothing consumes, in the editor's Water menu as well as the
+console — where the other five water verbs are driven per frame by `WaterPresenter`.
+
+And the boat that *steers* with these forces, which is
 [28 § Vixen.Gameplay.Movement](../../docs/plan/28-gameplay-framework.md)'s.
 
 [35]: ../../docs/plan/35-water.md

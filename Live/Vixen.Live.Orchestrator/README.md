@@ -73,11 +73,15 @@ every cycle and merges once every two minutes grows a shard per cycle and never 
 
 ## What is deliberately not here yet
 
-**The grains.** Doc 27 lists this project as "grain implementations, placement director, heuristics,
-upgrades", and what exists is the middle two. They exist first because they are a pure function and a
-small state machine — testable on a laptop in milliseconds — and the grains that will host them are a
-scheduling decision on top rather than a rewrite. There is no Orleans reference in this project and
-there will be exactly one when `Vixen.Live.Cluster` lands.
+⚠ **This section used to open with "the grains", and that has not been true since
+`Vixen.Live.Cluster` landed.** Doc 27 lists this project as "grain implementations, placement
+director, heuristics, upgrades" and all four are here: eight grains — `MapGrain`, `ShardGrain`,
+`PlayerGrain`, `FleetGrain`, `AccountGrain`, `GuildGrain`, `InstanceGrain`, `QueueGrain` — over
+`PlacementDirector`, the heuristics in `MapFleet`, and `Rollout`. The order still shows in the shape:
+the director and the heuristics are a pure function and a small state machine, testable on a laptop in
+milliseconds, and the grains that host them were a scheduling decision on top rather than a rewrite.
+The project references `Microsoft.Orleans.Server` directly, and `Vixen.Live.Cluster` for the
+interfaces.
 
 **The `.vxplacement` importer.** `PlacementWeights.Parse` reads one at boot; turning it into an
 addressable asset with an inspector is editor-side work.

@@ -426,7 +426,13 @@ of a string.
 
 ## What is owed
 
-- **Incremental reparse.** The shared `Blender` exists and Raven uses it, but node reuse needs a
+- ~~**Incremental reparse.**~~ Landed, and this bullet used to break off mid-sentence saying it had
+  not. `VxmlParser` takes the shared `Blender` and `TryReuseContent` reuses a previous tree's green
+  node at a content boundary when the blender has one whose new position and width line up with the
+  token stream. ⚠ **The unit of reuse is a content node whose subtree reported no diagnostic**, which
+  is what makes it sound: `openElements` is the only enclosing state a content node's parse reads,
+  and every branch that reads it reports. `IncrementalTests` pins that an incremental reparse equals a
+  full one, including over a run of edits.
 - **`bind:` update events** (`bind:value:oninput`).
 - **A generic base.** `@inherits` takes a `NameToken`, which carries dots and not angle brackets, so
   `@inherits Row<T>` does not lex. Same limit `@using` has, and nothing has needed it.

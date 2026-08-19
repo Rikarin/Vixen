@@ -44,10 +44,16 @@ namespace Vixen.Editor.App;
 ///         there is one of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is still missing is materials, not geometry.</b> There is one key direction, one
-///         ambient term and a colour per instance here; a per-face material, a texture or the blockout
-///         checker needs the viewport driven by <c>RenderSystem</c> through a
-///         <c>GraphicsCompositor</c>, which is Phase 7's material-system wiring.
+///         ⚠ <b>What is missing <em>here</em> is materials, not geometry — and the pane that wants
+///         them uses the other presenter.</b> There is one key direction, one ambient term and a
+///         colour per instance in this path; a per-face material, a texture or the blockout checker
+///         needs the viewport driven by <c>RenderSystem</c> through a <c>GraphicsCompositor</c>, and
+///         that is <see cref="FramePresenter" /> over <c>EditorWorldRenderer</c>'s compositor, which
+///         exists. <c>EditorHost.Composes</c> chooses between the two per pane per frame: a mode with
+///         a tree registered draws through the frame, and everything else — albedo, unlit, normals,
+///         roughness, a device with no <c>fillModeNonSolid</c>, a pane past the document's slots —
+///         draws through this. So this is the fallback the editor still ships and still needs, not a
+///         stage it is waiting to leave.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The target is recreated when the viewport resizes, and the registration is redone

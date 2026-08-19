@@ -35,7 +35,7 @@ a real Orleans serializer for that reason — and it is what caught `default(Rea
 `new RealmEndpoint("", 0)` comparing unequal, which was a latent bug anywhere either was a dictionary
 key.
 
-## The four grains
+## The eight grains
 
 | | |
 |---|---|
@@ -48,10 +48,14 @@ key.
 | `IQueueGrain` | one queue's tickets and the matches it has formed — doc 28's "grain-held record" |
 | `IFleetGrain` | a region's register, the rollout target, and where a stuck drain escalates to |
 
-Doc 27 § Grains lists eight. `IPartyGrain`, `IGuildGrain`, `IQueueGrain` and `IInstanceGrain` are not
-here: the first is not needed for placement (the map keeps its occupants' party ids, so counting is
-local), and the other three belong to features in [doc 28](../../docs/plan/28-gameplay-framework.md)
-rather than to the substrate. Declaring an interface nobody implements is a promise, not a contract.
+Doc 27 § Grains lists eight, and the one that is still not here is `IPartyGrain`: it is not needed for
+placement, because the map keeps its occupants' party ids and counting is therefore local.
+`IGuildGrain`, `IQueueGrain` and `IInstanceGrain` were absent for the same reason for a while — they
+belong to features in [doc 28](../../docs/plan/28-gameplay-framework.md) rather than to the substrate,
+and declaring an interface nobody implements is a promise rather than a contract — so each was
+declared here only once doc 28 had built the feature behind it. All three are implemented in
+[`Vixen.Live.Orchestrator`](../Vixen.Live.Orchestrator/README.md) now, and read by
+`Vixen.Live.Gameplay`'s `SocialBridge` and `LockoutBridge`.
 
 ## Two shapes worth knowing about
 
