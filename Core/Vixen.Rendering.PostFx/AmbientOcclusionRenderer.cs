@@ -56,9 +56,17 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
 
     /// <summary>Whether it also writes the average unoccluded direction.</summary>
     /// <remarks>
-    ///     A bent normal is what turns occlusion from a multiplier into a direction to sample the
-    ///     environment along, which is the difference between a crease that is uniformly darker and
-    ///     one that reflects the wall beside it. Off by default: nothing consumes it yet.
+    ///     <para>
+    ///         A bent normal is what turns occlusion from a multiplier into a direction to sample the
+    ///         environment along, which is the difference between a crease that is uniformly darker
+    ///         and one that reflects the wall beside it. Off by default: nothing consumes it yet.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A view-space direction</b>, encoded unsigned into rgb. Whatever eventually consumes
+    ///         it needs the inverse of the same view matrix this pass is given. The spelling before the
+    ///         arc integral accumulated screen-space xy against a constant z, which was not a direction
+    ///         in any space — so there is nothing to be compatible with.
+    ///     </para>
     /// </remarks>
     public bool BentNormal { get; set; }
 
@@ -80,20 +88,46 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
     /// <summary>How dark the occlusion goes.</summary>
     public float Intensity { get; set; } = 1f;
 
-    /// <summary>How quickly a distant occluder stops counting.</summary>
+    /// <summary>How quickly a distant occluder stops counting, as a multiple of the radius.</summary>
     /// <remarks>
-    ///     Without it, a wall across the room occludes a pixel as much as a fold in its own surface —
-    ///     which is the halo of darkness around every foreground object that gives screen-space
-    ///     occlusion its reputation.
+    ///     <para>
+    ///         Without it, a wall across the room occludes a pixel as much as a fold in its own surface
+    ///         — which is the halo of darkness around every foreground object that gives screen-space
+    ///         occlusion its reputation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The fade is toward no horizon at all, not toward a horizon of nought.</b> Under the
+    ///         arc integral, angles are measured from the view vector, and a cosine of nought there is
+    ///         an occluder at ninety degrees — most of a hemisphere. Fading toward it rather than
+    ///         toward −1 would make every distant surface a wall, which is the halo this exists to
+    ///         prevent, arriving through the knob that prevents it.
+    ///     </para>
+    ///     <para>
+    ///         It fades linearly from the pixel outward, so an occluder halfway to the radius already
+    ///         counts half. A scene whose real occluders sit well out along the march — a floor
+    ///         receding steeply toward a wall is the usual one — wants this above one, at the cost of
+    ///         reaching further for a halo.
+    ///     </para>
     /// </remarks>
     public float Falloff { get; set; } = 1f;
 
     /// <summary>The elevation below which a horizon does not count, as a sine.</summary>
     /// <remarks>
-    ///     The self-occlusion guard that pays for the march's first sample standing at one depth
-    ///     texel — the shell that catches the wall a pixel actually touches. At one texel, depth
-    ///     quantisation alone reads as a horizon on any surface seen at a slant; flooring the
-    ///     elevation is what lets the march sample the near field rather than skip it.
+    ///     <para>
+    ///         The self-occlusion guard that pays for the march's first sample standing at one depth
+    ///         texel — the shell that catches the wall a pixel actually touches. At one texel, depth
+    ///         quantisation alone reads as a horizon on any surface seen at a slant; rejecting the
+    ///         samples that lie almost in the tangent plane is what lets the march sample the near
+    ///         field rather than skip it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It floors the sample, not the estimate.</b> Under the estimator this replaced, the
+    ///         number was subtracted from the horizon term and the result renormalised, which is why
+    ///         it read as a strength knob as much as a guard — a project that had dialled it for
+    ///         overall darkness will find it does not do that any more. The arc integral has a
+    ///         normalisation of its own that a second one fights, so this is a rejection and nothing
+    ///         else: raising it lightens the contacts and leaves everything else alone.
+    ///     </para>
     /// </remarks>
     public float Bias { get; set; } = 0.1f;
 

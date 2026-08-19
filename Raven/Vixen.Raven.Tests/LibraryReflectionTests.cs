@@ -58,6 +58,7 @@ public class LibraryReflectionTests {
         ("PostFx", "Sky"),
         ("PostFx", "Tonemap"),
         ("PostFx", "Fxaa"),
+        ("PostFx", "Smaa"),
         ("PostFx", "Sharpen"),
         ("PostFx", "Vignette"),
         ("PostFx", "Fog"),

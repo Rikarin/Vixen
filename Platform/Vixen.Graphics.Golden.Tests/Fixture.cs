@@ -108,7 +108,8 @@ sealed class Fixture : IDisposable {
         PrimitiveTopology topology = PrimitiveTopology.TriangleList,
         DescriptorSetLayoutHandle[]? sets = null,
         ColourTargetState[]? targets = null,
-        PixelFormat depthFormat = PixelFormat.Depth32Float
+        PixelFormat depthFormat = PixelFormat.Depth32Float,
+        int sampleCount = 1
     ) {
         var layout = device.CreatePipelineLayout(new(
             sets ?? [],
@@ -126,7 +127,8 @@ sealed class Fixture : IDisposable {
             rasterizer ?? RasterizerState.TwoSided,
             depth,
             depth.DepthTest || depth.StencilTest ? depthFormat : PixelFormat.Undefined,
-            Name: "fixture"
+            sampleCount,
+            "fixture"
         ));
 
         cleanup.Add(() => {
@@ -167,7 +169,14 @@ sealed class Fixture : IDisposable {
     /// </summary>
     /// <param name="name">A name for the debugger.</param>
     /// <param name="side">Its width and height in texels.</param>
-    /// <param name="texels">The contents, RGBA8, row-major from the top.</param>
+    /// <param name="texels">The contents, row-major from the top, in <paramref name="format" />.</param>
+    /// <param name="format">
+    ///     What the texels are. Eight bits a channel by default, which is what a fixture staging a
+    ///     colour wants — and not what one staging a <em>depth</em> wants. Two hundred and fifty six
+    ///     levels across a plane is a staircase, and a screen-space effect that reconstructs positions
+    ///     from it finds a horizon at every step: a fixture meant to hold a flat surface hands the
+    ///     shader a flight of stairs and then asserts about the answer.
+    /// </param>
     /// <remarks>
     ///     The staging buffer is returned rather than copied here, because a copy into a texture
     ///     cannot be recorded inside a render pass and everything a graph pass executes is inside
@@ -176,12 +185,13 @@ sealed class Fixture : IDisposable {
     public (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) Sampled(
         string name,
         int side,
-        ReadOnlySpan<byte> texels
+        ReadOnlySpan<byte> texels,
+        PixelFormat format = PixelFormat.Rgba8UNorm
     ) {
         var owned = Owned(
             name,
             TextureUsage.Sampled | TextureUsage.CopyDestination,
-            PixelFormat.Rgba8UNorm,
+            format,
             side,
             side
         );

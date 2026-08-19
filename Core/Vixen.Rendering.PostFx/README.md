@@ -24,6 +24,7 @@ should not link one.
 | Effect | Reads | Notes |
 |---|---|---|
 | `FxaaRenderer` | colour | The fallback antialiasing: needs no history, no motion vectors, no depth. Softens texture detail along with geometry, which is the trade |
+| `SmaaRenderer` | colour | The same inputs and a better answer, for three passes instead of one: it walks the whole edge and looks the coverage up rather than guessing a direction, so it leaves the texture beside an edge alone. Owns a generated coverage table, and is the only node here that uploads one |
 | `TemporalAntialiasingRenderer` | colour, history, motion, depth | The default where it can run. Owns its history and alternates it, because a pass cannot read the target it writes. Its sub-pixel offset is applied by `CameraExtractionSystem`, not here: what it offsets is the projection |
 | `SharpenRenderer` | colour | Contrast-adaptive, to put back what antialiasing and upscaling took out |
 | `AmbientOcclusionRenderer` | depth, normals | Half resolution by default, which is the standard trade for an effect that is low frequency by nature |
@@ -99,14 +100,49 @@ or a race, and neither shows up as anything but an intermittently wrong frame.
 
 ## What is not here yet
 
-SMAA and MSAA resolve. Each needs a shader that does not exist yet rather than a pass over one that
-does — which is the difference between this list and the one above it.
+The MSAA **depth** resolve, and SMAA's diagonal detection. Each needs a shader that does not exist
+yet rather than a pass over one that does — which is the difference between this list and the one
+above it. The depth one is a shader rather than a store action because averaging depth is
+meaningless: a resolved depth is a min or a max, and that is a pass.
 
-⚠ **This list used to be four items longer, and the four went different ways.** GTAO, screen-space
-reflections and depth of field all shipped: `Ssao.rvn` *is* GTAO rather than the classic hemisphere
-walk, `ReflectionRenderer` is the reflections node, `DepthOfFieldRenderer` the defocus one, and all
-three are arms of `PostEffectAssets`' asset-to-node switch that `StandardFrame` emits on the tier
-flags — so a project gets them by asking for a quality tier rather than by authoring a document.
+⚠ **SMAA was on that list and is now on the one above it, with one part of it still owed.** Diagonal
+pattern detection — the reference's second, optional detector for silhouettes near 45°, with a
+coverage table of its own — is not implemented, so those edges fall through to the orthogonal path.
+That is `SMAA_DISABLE_DIAG_DETECTION`, a build the reference itself ships, rather than an
+approximation of the detector; and the edge search is a per-texel loop rather than the reference's
+`SearchTex`-accelerated two-texel walk, which is the same answer at twice the iterations and one
+fewer generated table.
+
+⚠ **This list used to be longer, and its entries went different ways — one of them because this
+file was wrong about itself.**
+
+- **Depth of field and screen-space reflections shipped, and were correctly struck off.**
+  `DepthOfFieldRenderer` is the defocus node; `ReflectionRenderer` is the reflections one, and
+  standalone SSR is its *default* rather than a mode — the field march's source defaults to the empty
+  field and the miss to sky, so a project with neither a distance field nor a surface cache gets the
+  screen march and nothing else. Both are arms of `PostEffectAssets`' asset-to-node switch that
+  `StandardFrame` emits on the tier flags, so a project gets them by asking for a quality tier.
+- ⚠ **GTAO was struck off here and was not built.** This file said "`Ssao.rvn` *is* GTAO rather than
+  the classic hemisphere walk", and the shader's own header said the same — and what it ran was the
+  horizon-*based* estimator, the largest cosine of a sample's elevation above the tangent plane. That
+  is HBAO. For a single occluder at elevation `e` it gives `1 − sin(e)/2` where the cosine-weighted
+  visibility is `1 − sin²(e)/2`: equal at 0° and at 90° and nowhere between. `docs/plan/06`'s
+  "the full GTAO horizon integral is still to come" was right and this was wrong. The arc integral
+  (Jimenez et al. 2016 § 3.2) is what runs now, and `GtaoImageTests` holds it to the property that
+  makes it worth the arithmetic: **an unoccluded surface reads exactly one at any tilt**, because
+  each slice is weighted by how much of the normal lies in it.
+- **SMAA was owed and was a shader**, which is what the roadmap said about all four of them and
+  what was true of exactly one. See the paragraph above for the part of it still outstanding.
+- ⚠ **MSAA resolve was owed and was not a shader.** `ColourAttachment.ResolveView` and
+  `StoreAction.Resolve` were honoured by both backends, a texture's sample count reached
+  `vkCreateImage` and a pipeline's reached `RasterizationSamples` — the entire RHI half was finished
+  and nothing above it could name a resolve *pair*. `RenderGraphPassBuilder.ColourAttachment` takes
+  one now and `RenderPass.resolveTargets` carries it from a document. Colour only.
+
+**The lesson worth keeping is which direction each error went.** A feature can be missing because
+nobody wrote it, or missing because the consumer exists and nothing calls it, or *present* in a file
+that says the wrong thing about itself. The third is the one a list like this cannot catch, because
+the list is written from the same file.
 
 ⚠ **Colour grading as an asset is the interesting one, because exactly one half of it is reachable.**
 The consuming half is finished and reached: `TonemapAsset.Lut` names a 3D table, `TonemapRenderer`

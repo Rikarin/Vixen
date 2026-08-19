@@ -65,7 +65,22 @@ public enum AntialiasingMode {
     Taa,
 
     /// <summary>Both: TAA converges the still frame, FXAA catches what its history clipped.</summary>
-    TaaFxaa
+    TaaFxaa,
+
+    /// <summary>
+    ///     SMAA alone, after the tonemap. Three passes and two intermediates rather than FXAA's one
+    ///     and none, and it keeps the texture detail FXAA softens along with the edges.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Appended, not inserted beside <see cref="Fxaa" /> where it belongs.</b> A
+    ///     <c>[DataContract]</c> enum's values are a saved document's vocabulary: inserting one
+    ///     between existing members renumbers what documents already say, so a frame authored as
+    ///     <c>Taa</c> would load as something else. Same rule as <see cref="ReflectionsMode.Probe" />.
+    /// </remarks>
+    Smaa,
+
+    /// <summary>Both: TAA converges the still frame, SMAA catches what its history clipped.</summary>
+    TaaSmaa
 }
 
 /// <summary>Whether the frame meters itself.</summary>
@@ -509,8 +524,11 @@ static class StandardFrame {
         var split = frame.Gi != GiMode.Off || mirrors;
 
         // TAA is what pays for the velocity pass; motion blur rides it rather than justifying one.
-        var motion = frame.Antialiasing is AntialiasingMode.Taa or AntialiasingMode.TaaFxaa;
+        var motion = frame.Antialiasing
+            is AntialiasingMode.Taa or AntialiasingMode.TaaFxaa or AntialiasingMode.TaaSmaa;
+
         var fxaa = frame.Antialiasing is AntialiasingMode.Fxaa or AntialiasingMode.TaaFxaa;
+        var smaa = frame.Antialiasing is AntialiasingMode.Smaa or AntialiasingMode.TaaSmaa;
         var metered = frame.Exposure == ExposureMode.Automatic;
 
         var stages = new List<RenderStageAsset> { new() { Name = "Opaque" } };
@@ -1119,7 +1137,7 @@ static class StandardFrame {
 
         // Everything after the tonemap is display-referred, so the last of these writes the
         // output resource and the ones before it hand eight-bit intermediates along.
-        var afterTonemap = (fxaa ? 1 : 0) + (motion ? 1 : 0) + (tier.Vignette ? 1 : 0);
+        var afterTonemap = (fxaa ? 1 : 0) + (smaa ? 1 : 0) + (motion ? 1 : 0) + (tier.Vignette ? 1 : 0);
 
         nodes.Add(
             new TonemapAsset {
@@ -1160,6 +1178,27 @@ static class StandardFrame {
                         EdgeThreshold = 0.063f, EdgeThresholdMinimum = 0.0312f, SubpixelQuality = 1f
                     },
                     _ => edges
+                }
+            );
+
+            colour = afterTonemap > 0 ? "SceneAntialiased" : frame.Output;
+        }
+
+        if (smaa) {
+            // After the curve, for the reason FXAA is: the thresholds are relative, so this one
+            // would work in scene-referred light too — but the edges a viewer sees are the ones the
+            // curve made, and those are here.
+            //
+            // No preset arm, unlike FXAA above. SMAA's numbers are not a quality trade the way
+            // FXAA's three thresholds are: the tier that cannot afford it asks for FXAA instead,
+            // which is the knob rather than a threshold set inside this one.
+            afterTonemap--;
+
+            nodes.Add(
+                new SmaaAsset {
+                    Name = "Edges",
+                    Source = colour,
+                    Output = afterTonemap > 0 ? "SceneAntialiased" : frame.Output
                 }
             );
 

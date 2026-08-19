@@ -230,6 +230,7 @@ public sealed class RenderGraph {
         }
 
         ValidateReads();
+        ValidateSampleCounts();
         Cull();
         Lint();
         ComputeLifetimes();
@@ -530,6 +531,98 @@ public sealed class RenderGraph {
 
         if (resources[buffer.Index - 1].IsTexture) {
             throw new RenderGraphException("A texture was used where a buffer was expected.");
+        }
+    }
+
+    /// <summary>Refuses a pass whose attachments disagree about how many samples they have.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The mistake the resolve pair makes easy.</b> A frame turning MSAA on has to raise the
+    ///         sample count on the pass <em>and</em> on every texture it attaches, and the depth one is
+    ///         the easy one to forget: a document says <c>sampleCount: 4</c> on its colour target,
+    ///         leaves its depth target at one, and gets a validation-layer message about a framebuffer
+    ///         rather than about the line it left out.
+    ///     </para>
+    ///     <para>
+    ///         An exception rather than a warning, on <see cref="ValidateReads" />'s terms and not
+    ///         <see cref="Lint" />'s: this is not a frame that draws something imperfect, it is a frame
+    ///         no backend will begin.
+    ///     </para>
+    /// </remarks>
+    void ValidateSampleCounts() {
+        foreach (var pass in passes) {
+            if (pass.Attachments.Count < 2) {
+                continue;
+            }
+
+            var first = resources[pass.Attachments[0].Texture.Index - 1];
+
+            foreach (var attachment in pass.Attachments) {
+                var resource = resources[attachment.Texture.Index - 1];
+
+                if (resource.TextureDescription.SampleCount == first.TextureDescription.SampleCount) {
+                    continue;
+                }
+
+                throw new RenderGraphException(
+                    $"Pass '{pass.Name}' attaches '{first.Name}' at "
+                    + $"{first.TextureDescription.SampleCount}× and '{resource.Name}' at "
+                    + $"{resource.TextureDescription.SampleCount}×. Every attachment of one pass has "
+                    + "the same sample count — raising it on the colour targets and leaving the depth "
+                    + "target behind is the usual way here."
+                );
+            }
+        }
+    }
+
+    /// <summary>Refuses a resolve pair a backend would reject or silently mis-resolve.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         All three conditions are ones a validation layer will report and a release driver will
+    ///         not, and the third is the one worth the check: a resolve between two <em>differently
+    ///         sized</em> attachments is undefined rather than a scale, so it reads as a picture that
+    ///         is subtly cropped rather than as an error.
+    ///     </para>
+    ///     <para>
+    ///         Checked here, at declaration, rather than at execution — the caller who named the pair
+    ///         is on the stack, and by execution the only thing left to say is which pass it was.
+    ///     </para>
+    /// </remarks>
+    internal void ValidateResolve(GraphTexture texture, GraphTexture resolve) {
+        var source = resources[texture.Index - 1];
+        var destination = resources[resolve.Index - 1];
+
+        if (source.TextureDescription.SampleCount <= 1) {
+            throw new RenderGraphException(
+                $"'{source.Name}' has one sample and was given '{destination.Name}' to resolve into. "
+                + "Only a multisampled attachment resolves; a single-sampled one is already its own "
+                + "answer."
+            );
+        }
+
+        if (destination.TextureDescription.SampleCount != 1) {
+            throw new RenderGraphException(
+                $"'{destination.Name}' has {destination.TextureDescription.SampleCount} samples and is "
+                + $"the resolve target of '{source.Name}'. A resolve target is where the samples stop."
+            );
+        }
+
+        if (destination.TextureDescription.Format != source.TextureDescription.Format) {
+            throw new RenderGraphException(
+                $"'{source.Name}' is {source.TextureDescription.Format} and resolves into "
+                + $"'{destination.Name}', which is {destination.TextureDescription.Format}. A resolve "
+                + "averages samples; it does not convert."
+            );
+        }
+
+        if (destination.TextureDescription.Width != source.TextureDescription.Width
+            || destination.TextureDescription.Height != source.TextureDescription.Height) {
+            throw new RenderGraphException(
+                $"'{source.Name}' is {source.TextureDescription.Width}×{source.TextureDescription.Height} "
+                + $"and resolves into '{destination.Name}', which is "
+                + $"{destination.TextureDescription.Width}×{destination.TextureDescription.Height}. A "
+                + "resolve is per texel, not a blit."
+            );
         }
     }
 
@@ -849,6 +942,21 @@ public sealed class RenderGraph {
                     store,
                     attachment.ClearStencil,
                     attachment.ReadOnly
+                );
+            } else if (attachment.Resolve.IsValid) {
+                // The store is the resolve, whatever the derivation said. `DeriveStore` answers "does
+                // anything read this later", and for a multisampled attachment the answer is almost
+                // always no — what the next pass reads is the resolve target beside it. Letting that
+                // derivation win would store `DontCare` and resolve nothing, which is the one failure
+                // shape MSAA has: a correctly multisampled pass whose result never leaves the tile.
+                colour.Add(
+                    new(
+                        resource.View,
+                        attachment.Load,
+                        StoreAction.Resolve,
+                        attachment.ClearColour,
+                        resources[attachment.Resolve.Index - 1].View
+                    )
                 );
             } else {
                 colour.Add(new(resource.View, attachment.Load, store, attachment.ClearColour));

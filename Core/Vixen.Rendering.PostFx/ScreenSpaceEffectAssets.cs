@@ -45,6 +45,48 @@ public sealed record FxaaAsset : ISceneRendererAsset {
     public float SubpixelQuality { get; init; } = 0.75f;
 }
 
+/// <summary>Subpixel morphological antialiasing, on the graded image.</summary>
+/// <remarks>
+///     <para>
+///         What <see cref="FxaaAsset" /> is for the frames that can afford three passes. FXAA guesses
+///         an edge's direction from one neighbourhood; this walks the whole edge, reads what crosses
+///         it at both ends, and looks the coverage up — so it softens silhouettes without softening
+///         the texture beside them.
+///     </para>
+///     <para>
+///         ⚠ <b>Also after the tonemap</b>, and for FXAA's reason above. Its thresholds are relative
+///         rather than absolute, so a document that puts it earlier gets a working filter rather than
+///         a no-op — but the edges it finds are then the ones in scene-referred light, which is not
+///         where the ones a viewer sees are.
+///     </para>
+/// </remarks>
+[DataContract("Smaa")]
+public sealed record SmaaAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The image it antialiases.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>The name the result is published under.</summary>
+    public string Output { get; init; } = "Antialiased";
+
+    /// <summary>The format of the target it declares.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba8UNormSrgb;
+
+    /// <summary>The relative local contrast a boundary needs before it is an edge.</summary>
+    public float EdgeThreshold { get; init; } = 0.1f;
+
+    /// <summary>How much steeper a nearby contrast may be before this edge is discarded.</summary>
+    public float ContrastAdaptation { get; init; } = 2f;
+
+    /// <summary>The luminance below which the frame is treated as flat, in its own units.</summary>
+    public float LumaFloor { get; init; } = 0.0001f;
+}
+
 /// <summary>Temporal antialiasing, against a reprojected history.</summary>
 /// <remarks>
 ///     ⚠ <b>Before the tonemap, unlike <see cref="FxaaAsset" />.</b> TAA blends this frame with the
