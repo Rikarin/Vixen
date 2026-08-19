@@ -1,0 +1,19 @@
+name: Default
+loadPath: Local
+packing: PackTogether
+bundleNaming: FilenameHash
+
+# Everything in this group is a gameplay definition, said once rather than in every sidecar.
+# Vixen.Gameplay.Content's DefinitionContent.LoadAsync looks for exactly this label at boot, and a
+# build without it succeeds and hands a running shard an empty catalog — which is what a shard with
+# no loot, no quests and no camps looks like from the outside.
+#
+# ⚠ It is not enough on its own, and running the shard against a real build of this tree is what
+# showed why. A group is inherited from the nearest ancestor *folder*, and Assets/Maps holds both a
+# zone's MapDefinition and the .vxscene it is a chart of — so this label sweeps the thirteen scenes
+# in with the definitions and the realm refuses to start with thirteen "labelled a definition and did
+# not read as one" problems. Splitting them needs `addressable.group` on each scene's sidecar and a
+# second .vxgroup for them to name, which is part of the address decision this sample still owes:
+# see Samples/14-Mmo/README.md § The content build.
+labels:
+  - definitions

@@ -29,6 +29,16 @@
         <!-- Where doc 28's rules meet doc 27's storage. -->
         <ProjectReference Include="..\..\..\Live\Vixen.Live.Gameplay\Vixen.Live.Gameplay.csproj" />
 
+        <!--
+            How a shard finds its definitions: addresses out of the content catalog, bytes out of
+            Vixen.Assets, one DefinitionCatalog with the composition's tags baked in.
+
+            ⚠ Named here and not in Mmo.Shared, which is deliberate. The kernel deliberately links no
+            asset system, and the client and the authoring tool have their own ways to a catalog —
+            what is specific to a *shard* is that it reads the build it was published with.
+        -->
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Content\Vixen.Gameplay.Content.csproj" />
+
         <ProjectReference Include="..\Mmo.Contracts\Mmo.Contracts.csproj" />
         <ProjectReference Include="..\Mmo.Shared\Mmo.Shared.csproj" />
         <ProjectReference Include="..\Mmo.Cluster\Mmo.Cluster.csproj" />

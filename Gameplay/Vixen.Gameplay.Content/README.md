@@ -8,11 +8,12 @@ owed from **G0**.
 
 ## State
 
-**Built: load by label, load by address, and a problem list for a group that is too broad. 12 tests.**
+**Built: load by label, load by address, the composition's tags seeded, and a problem list for a group
+that is too broad. 18 tests.**
 
 | | |
 |---|---|
-| `DefinitionContent` | `LoadAsync` by label, `LoadFromAsync` by address. |
+| `DefinitionContent` | `LoadAsync` by label, `LoadFromAsync` by address, both with and without a `GameplayComposition`. |
 | `DefinitionLoad` | The catalog, and what was labelled a definition and is not. |
 
 ## Why this is not in the kernel
@@ -74,10 +75,37 @@ before a tag index means the same thing at both ends. `ContentCatalog.BuildHash`
 build shipped, and is what [doc 27](../../docs/plan/27-mmo-framework.md)'s placement filters on
 (ADR-022).
 
+### A game with modules must hand over its composition
+
+⚠ **`LoadAsync(assets)` seeds no tags, and for most games that is wrong.**
+`GameplayComposition.Tags` is documented as *"every tag a module's own code needs, for the content
+build to bake in"* — and until the composition overloads existed, this load path had nowhere to put
+them. The only way to bake a code-only tag was to read every artefact by hand and drive
+`DefinitionCatalogBuilder` yourself, which is what `Samples/14-Mmo`'s `MmoLibraries.Load` does and why
+nothing else could use the shipped path.
+
+What it costs to skip is silence. `Event.Kill` is declared by `QuestModule`, is the verb a Kill
+objective counts, and is mentioned by no quest file anywhere. Absent from the table it resolves to
+`GameplayTag.None`, every rule naming it matches nothing for ever, and no error is raised.
+
+```csharp
+var composition = MyModules.Compose();
+var load = await DefinitionContent.LoadAsync(assets, composition, cancellation);
+```
+
+⚠ **Seeding changes `BuildHash`, and that is correct.** Two peers that disagree about the tag table
+cannot exchange a tag index, so a realm that seeded and a client that did not must not compare equal —
+the difference has to be a refused connection rather than a silent desync.
+
 ## What is owed
 
-- **The `.vxgroup` the template ships carries no label**, so a game currently writes one itself. The
-  `vixen-mmo` template should put `definitions` on its group.
 - **`CatalogEntry.Shape` is not populated by the definition importer.** The field exists and doc 27
   § Upgrades depends on it — until an importer records a definition's field list there, no content
   update can be applied live, which is the correct-but-blocking state that section already describes.
+- **A definition's address embeds its file extension**, because `BuildPlanner.AddressOf` returns the
+  project-relative path verbatim. Doc 28 G-Q1 says the extension is cosmetic and the `!Tag` decides —
+  but a `DefId` is a hash of the address, so renaming `.vxdef` to `.vxitem` changes the identity of a
+  sword sitting in somebody's bag. `Samples/14-Mmo` § The content build lays out the three options; a
+  group-level address convention is the only one that fixes it for every game.
+- **`addressable.address` has no users in this repository.** It is the documented escape hatch for an
+  address that is a contract, and nothing exercises it, which is how the gap above stayed invisible.

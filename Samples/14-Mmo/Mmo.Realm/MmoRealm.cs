@@ -1,8 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Vixen.Core;
 using Vixen.Gameplay;
+using Vixen.Gameplay.Content;
 using Vixen.Gameplay.Social;
 using Vixen.Live;
 using Vixen.Live.Gameplay;
@@ -44,8 +48,18 @@ public sealed class MmoRealm : Vixen.Live.Realms.Realm {
     LockoutBridge? lockouts;
     SocialBridge? social;
 
+    /// <summary>Made once, because a logger created inside a log call is an allocation per tick.</summary>
+    ILogger log = NullLogger.Instance;
+
     /// <summary>Everything the content compiled to. Null until the realm has loaded its content.</summary>
     public MmoLibraries? Libraries { get; private set; }
+
+    /// <summary>The camps this shard keeps populated. Null until it has composed.</summary>
+    /// <remarks>
+    ///     <b>The one gameplay library this realm drives every tick</b>, and therefore the evidence
+    ///     that the composition is not decoration. See <see cref="WorldSpawns" />.
+    /// </remarks>
+    public WorldSpawns? Spawns { get; private set; }
 
     /// <summary>Who a gameplay rule's player is, durably.</summary>
     public IGameplayIdentity Identity => identity;
@@ -73,41 +87,133 @@ public sealed class MmoRealm : Vixen.Live.Realms.Realm {
     ///     </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">The content did not compile clean.</exception>
-    public void Compose(MmoLibraries libraries) {
+    public void Compose(MmoLibraries libraries) => Compose(libraries, [], seed: 0);
+
+    /// <summary>Composes, compiles and builds the bridges, over content that was read from a build.</summary>
+    /// <param name="libraries">The compiled content, from wherever the realm read it.</param>
+    /// <param name="loading">
+    ///     What went wrong reading it — an address labelled a definition that is not one. Refused on
+    ///     the same terms as a library's own problems, because from a player's side there is no
+    ///     difference between a loot table that would not parse and one that would not resolve.
+    /// </param>
+    /// <param name="seed">What the world's spawn streams start from.</param>
+    /// <remarks>
+    ///     ⚠ <b>The seed is a parameter and not read from <see cref="Realm.Spec" />, and that is not a
+    ///     style choice.</b> The whole argument for this method being public is that everything below
+    ///     it is ordinary objects — a realm that could only be composed inside a running shard is a
+    ///     realm nobody tests — and <c>Spec</c> throws until the host has bound one. Reaching for it
+    ///     here made exactly that promise false, and the existing test caught it.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The content did not compile clean.</exception>
+    public void Compose(MmoLibraries libraries, ImmutableArray<string> loading, ulong seed) {
         ArgumentNullException.ThrowIfNull(libraries);
 
-        if (libraries.Problems.Length > 0) {
+        var problems = loading.IsDefaultOrEmpty
+            ? libraries.Problems
+            : [.. loading.Select(problem => "Content: " + problem), .. libraries.Problems];
+
+        if (problems.Length > 0) {
             throw new InvalidOperationException(
-                $"This build's content has {libraries.Problems.Length} problems and a shard will not "
-                + "start on it:" + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", libraries.Problems)
+                $"This build's content has {problems.Length} problems and a shard will not "
+                + "start on it:" + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", problems)
             );
         }
 
         Libraries = libraries;
         lockouts = new(identity);
         social = new(identity, libraries.Social);
+
+        Spawns = new(libraries.Spawns, seed);
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         Host.Session is the server from doc 16 — replication, RPC and interest are wired by the
+    ///         host exactly as they would be in a listen server. A realm is not a different kind of
+    ///         server; it is one that can be told what to be and asked to stop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The content arrives here, synchronously, and the blocking read is the right
+    ///         trade.</b> Nothing in the realm lifecycle is async — every hook returns void — and this
+    ///         runs after the startup scene and before the first frame, which is the only window in
+    ///         which "composed before anybody plays" is a fact rather than a hope. The alternative,
+    ///         asking off-thread and applying on a later tick through <c>Host.Directory</c>, buys
+    ///         nothing here: the shard may admit nobody until it is composed anyway, so the wait would
+    ///         simply move.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A build with no content mount composes nothing and says so.</b> That is not a
+    ///         crash: a shard is often run from a source tree before anybody has built the content, and
+    ///         a null <c>Services.Assets</c> with a warning is far easier to act on than a
+    ///         <c>NullReferenceException</c> in a lifecycle hook. What it must not do is start
+    ///         <em>quietly</em> with empty libraries, which is the state this whole class was in.
+    ///     </para>
+    /// </remarks>
     protected override void OnRealmInitialise() {
-        // Host.Session is the server from doc 16 — replication, RPC and interest are wired here
-        // exactly as they would be in a listen server. A realm is not a different kind of server; it
-        // is one that can be told what to be and asked to stop.
+        log = Services.LoggerFactory.CreateLogger("Vixen.Samples.Mmo.Realm");
+
+        if (Services.Assets is not { } assets) {
+            MmoLog.NoContent(log);
+
+            return;
+        }
+
+        // ⚠ The composition first and once, and it is handed to both halves. DefinitionContent needs
+        // it to seed the tags only code knows — Event.Kill is the one that bites, and a catalog
+        // without it compiles every Kill objective into something nothing can advance — and
+        // MmoLibraries needs the same instance, because a tag index is a position in a pre-order walk
+        // and two compositions agree about names while disagreeing about every number.
+        var composition = MmoModules.Compose();
+
+        var load = DefinitionContent
+            .LoadAsync(assets, composition)
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
+
+        if (load.Catalog.Count == 0) {
+            MmoLog.NoDefinitions(log, DefinitionContent.Label);
+        }
+
+        // A definition that is labelled and did not read is a content mistake and belongs in the same
+        // list as every library's, so Compose refuses on one rather than logging it and carrying on.
         //
-        // The content itself arrives through Vixen.Gameplay.Content over the AssetManager, which the
-        // soak (#37) is what wires: a realm that read 112 files off disk at boot would take longer to
-        // start than the fleet's placement timeout allows.
+        // ⚠ Seeded from the shard's identity rather than from the clock, and that is what makes a
+        // failure reportable: a shard restarted on the same spec repopulates identically, and two
+        // shards of one map are two worlds rather than one world twice. A wall clock would make every
+        // run a different world and every spawn bug an anecdote.
+        Compose(MmoLibraries.From(composition, load.Catalog), load.Problems, Seed(Spec.Shard));
+
+        MmoLog.Composed(log, composition.Modules.Count, load.Catalog.Count, assets.Catalog.Count, Spawns!.Camps);
     }
 
-    /// <inheritdoc />
-    protected override void OnRealmUpdate(GameTime time) {
-        // Host.Update has already run: control-plane answers applied, launcher signals read, the map
-        // checked, the session polled.
-        //
+    /// <summary>Everything this realm does with a tick that is not the host's.</summary>
+    /// <param name="seconds">The realm's clock, in seconds since it started.</param>
+    /// <remarks>
+    ///     Separate from <see cref="OnRealmUpdate" /> and public for the same reason
+    ///     <see cref="Compose(MmoLibraries)" /> is: it is ordinary objects and a clock, so a test can
+    ///     drive a shard's world without standing a shard up.
+    /// </remarks>
+    public void Tick(double seconds) {
         // ⚠ Purging is the realm's own housekeeping and is not a write. Dropping a lifted lockout
         // from memory is not releasing it — what decides it lifted is the reset the cluster holds.
-        lockouts?.Purge(time.Total.TotalSeconds);
+        lockouts?.Purge(seconds);
+
+        // ⚠ And this is the world itself, which is the half that was missing. A shard with nobody on
+        // it still owes its camps: something died, its table's timer ran out, and it is due back. The
+        // orders say what to make and never where — see WorldSpawns.
+        if (Spawns?.Tick((float)seconds) > 0) {
+            MmoLog.Spawned(log, Spawns.Issued, Spawns.Camps, Spawns.Alive, seconds);
+        }
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Host.Update has already run: control-plane answers applied, launcher signals read, the map
+    ///     checked, the session polled.
+    /// </remarks>
+    protected override void OnRealmUpdate(GameTime time) => Tick(time.Total.TotalSeconds);
 
     /// <inheritdoc />
     /// <remarks>
@@ -159,6 +265,27 @@ public sealed class MmoRealm : Vixen.Live.Realms.Realm {
         // hook exists to prevent. Everybody else is, and a battleground is deliberately *not* in this
         // list: a match is short enough to wait out and long enough to block a rollout for an hour.
         return Spec.Key.Map == MmoAddresses.BarrowdeepAddress ? TransferReadiness.Blocked : TransferReadiness.Ready;
+    }
+
+    /// <summary>Turns a shard's identity into a spawn seed.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Guid.GetHashCode</c> would not do</b>: it is randomised per process, so a shard
+    ///     restarted on the same spec would come back as a different world. Folding the sixteen bytes
+    ///     is the whole of it, and it only has to be stable — not uniform.
+    /// </remarks>
+    static ulong Seed(ShardId shard) {
+        Span<byte> bytes = stackalloc byte[16];
+
+        shard.Value.TryWriteBytes(bytes);
+
+        var seed = 14695981039346656037UL;
+
+        foreach (var value in bytes) {
+            seed ^= value;
+            seed *= 1099511628211UL;
+        }
+
+        return seed;
     }
 
     static InvalidOperationException NotYet() =>
