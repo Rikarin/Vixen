@@ -15,7 +15,7 @@ namespace Vixen.Samples.AiVillage;
 /// </remarks>
 static partial class SampleLog {
     [LoggerMessage(
-        EventId = 14070,
+        EventId = 14081,
         Level = LogLevel.Information,
         Message = "The village is up: {Agents} agents choosing from {Actions} registered actions, "
             + "over a {Seconds:0.0} s intrusion. One AiSystem, one registry, one blackboard layout, "
@@ -30,7 +30,7 @@ static partial class SampleLog {
     ///     structured record is what a support log can be filtered on.
     /// </remarks>
     [LoggerMessage(
-        EventId = 14071,
+        EventId = 14082,
         Level = LogLevel.Information,
         Message = "frame {Frame} · {Seconds:0.00}s · {Agent} ({Planner}) {From} → {To}, "
             + "intruder {Distance:0.0} m"
@@ -47,13 +47,15 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
-        EventId = 14072,
+        EventId = 14083,
         Level = LogLevel.Information,
         Message = "{Changes} change(s) of mind in {Seconds:0.0} s — guard {Guard}, villager "
             + "{Villager}, scavenger {Scavenger} — and {Symptoms} diagnosed symptom(s). ⚠ Zero "
             + "changes after a full script is the failure to expect: the stack ran and decided "
-            + "nothing. A symptom count above zero on this village is a defect, because nothing "
-            + "here is misbehaving."
+            + "nothing. ⚠ One symptom is expected and is the scavenger's: AiDiagnosis counts action "
+            + "changes over the whole ring rather than per unit time, so an agent that alternates "
+            + "two actions correctly crosses the shipped threshold of four on any long run. A "
+            + "symptom against the guard or the villager would be a real one."
     )]
     public static partial void RunSummary(
         ILogger logger,
@@ -66,7 +68,7 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
-        EventId = 14073,
+        EventId = 14084,
         Level = LogLevel.Information,
         Message = "Guard {Guard}, villager {Villager}, scavenger {Scavenger}, intruder {Intruder}."
     )]
@@ -79,7 +81,7 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
-        EventId = 14074,
+        EventId = 14085,
         Level = LogLevel.Information,
         Message = "The AI overlay is registered on the frame loop — doc 37 § P7's debugger, in an "
             + "application rather than in a test."
@@ -87,7 +89,7 @@ static partial class SampleLog {
     public static partial void OverlayRegistered(ILogger logger);
 
     [LoggerMessage(
-        EventId = 14075,
+        EventId = 14086,
         Level = LogLevel.Warning,
         Message = "There is no DebugDraw, so the overlay is not registered. Graphics.Overlays is "
             + "what builds one; a headless run with no capture path has no device to draw through."
@@ -95,7 +97,7 @@ static partial class SampleLog {
     public static partial void NoOverlay(ILogger logger);
 
     [LoggerMessage(
-        EventId = 14076,
+        EventId = 14087,
         Level = LogLevel.Information,
         Message = "The overlay drew {Agents} agent(s) and {Rows} row(s) on the last frame. ⚠ Zero "
             + "agents with a village that decided things means the style culled them — Range and "
@@ -104,7 +106,7 @@ static partial class SampleLog {
     public static partial void OverlayDrew(ILogger logger, int agents, int rows);
 
     [LoggerMessage(
-        EventId = 14077,
+        EventId = 14088,
         Level = LogLevel.Warning,
         Message = "There is no engine loop, so there is no world and nothing to decide. This is "
             + "what --vixen-frames 1 on a machine with no GPU looks like, and it is not an error."

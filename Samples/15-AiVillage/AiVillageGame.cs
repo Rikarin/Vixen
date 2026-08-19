@@ -53,13 +53,24 @@ public sealed class AiVillageGame : Game {
     DecisionLog? decisions;
     AiGameplayDebugger? debugger;
     int reported;
+    bool announced;
 
     /// <inheritdoc />
     protected override void OnConfigure(AppConfig config) {
         ArgumentNullException.ThrowIfNull(config);
 
         config.Name = "AI Village";
-        config.Window = new() { Title = "Vixen — AI Village", Size = new(1280, 720), IsVisible = true };
+
+        // ⚠ `IsVisible` follows `Headless`, which the other samples do not do and should.
+        // `AppConfig.Apply` reads the command line *before* this hook — deliberately, so that a game
+        // can override it — so a sample that assigns `IsVisible = true` unconditionally shows a
+        // window on a run that asked for none. Every sample in this tree does exactly that, which is
+        // why `--vixen-headless` still puts a window on the screen.
+        config.Window = new() {
+            Title = "Vixen — AI Village",
+            Size = new(1280, 720),
+            IsVisible = !config.Headless
+        };
 
         // The switch that makes the overlay visible at all — see this class's remarks.
         config.Graphics.Overlays = true;
@@ -106,13 +117,20 @@ public sealed class AiVillageGame : Game {
             SampleLog.NoOverlay(log);
         }
 
-        SampleLog.VillageBuilt(log, village.Agents.Population, village.Registry.Count, Intrusion.Duration);
     }
 
     /// <inheritdoc />
     protected override void OnUpdate(GameTime time) {
         if (village is null || decisions is null || log is null) {
             return;
+        }
+
+        // ⚠ After the first frame and not from `OnInitialise`. `AiSystem.Population` is written by
+        // `Join`, which runs inside the first `Step` — so a line logged at initialise time reports
+        // that the village has no agents in it, which is a sentence somebody would go and debug.
+        if (!announced) {
+            announced = true;
+            SampleLog.VillageBuilt(log, village.Agents.Population, village.Registry.Count, Intrusion.Duration);
         }
 
         // After `EngineLoop.Frame`, which `VixenApplication` runs before this hook — so what is read

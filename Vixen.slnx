@@ -713,6 +713,7 @@
   <Project Path="Samples/13-ThirdPersonShooter/ThirdPersonShooter.csproj" />
   <Project Path="Samples/13-ThirdPersonShooter/ThirdPersonShooter.Frame.Tests/ThirdPersonShooter.Frame.Tests.csproj" />
   <Project Path="Samples/15-AiVillage/AiVillage.csproj" />
+  <Project Path="Samples/15-AiVillage/AiVillage.Agent.Tests/AiVillage.Agent.Tests.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Contracts/Mmo.Contracts.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Shared/Mmo.Shared.csproj" />
   <Project Path="Samples/14-Mmo/Mmo.Cluster/Mmo.Cluster.csproj" />
