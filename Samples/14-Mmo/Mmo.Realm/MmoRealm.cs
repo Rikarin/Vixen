@@ -188,22 +188,32 @@ public sealed class MmoRealm : Vixen.Live.Realms.Realm {
         MmoLog.Composed(log, composition.Modules.Count, load.Catalog.Count, assets.Catalog.Count, Spawns!.Camps);
     }
 
-    /// <inheritdoc />
-    protected override void OnRealmUpdate(GameTime time) {
-        // Host.Update has already run: control-plane answers applied, launcher signals read, the map
-        // checked, the session polled.
-        //
+    /// <summary>Everything this realm does with a tick that is not the host's.</summary>
+    /// <param name="seconds">The realm's clock, in seconds since it started.</param>
+    /// <remarks>
+    ///     Separate from <see cref="OnRealmUpdate" /> and public for the same reason
+    ///     <see cref="Compose(MmoLibraries)" /> is: it is ordinary objects and a clock, so a test can
+    ///     drive a shard's world without standing a shard up.
+    /// </remarks>
+    public void Tick(double seconds) {
         // ⚠ Purging is the realm's own housekeeping and is not a write. Dropping a lifted lockout
         // from memory is not releasing it — what decides it lifted is the reset the cluster holds.
-        lockouts?.Purge(time.Total.TotalSeconds);
+        lockouts?.Purge(seconds);
 
         // ⚠ And this is the world itself, which is the half that was missing. A shard with nobody on
         // it still owes its camps: something died, its table's timer ran out, and it is due back. The
         // orders say what to make and never where — see WorldSpawns.
-        if (Spawns?.Tick((float)time.Total.TotalSeconds) > 0) {
-            MmoLog.Spawned(log, Spawns.Issued, Spawns.Camps, Spawns.Alive, time.Total.TotalSeconds);
+        if (Spawns?.Tick((float)seconds) > 0) {
+            MmoLog.Spawned(log, Spawns.Issued, Spawns.Camps, Spawns.Alive, seconds);
         }
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Host.Update has already run: control-plane answers applied, launcher signals read, the map
+    ///     checked, the session polled.
+    /// </remarks>
+    protected override void OnRealmUpdate(GameTime time) => Tick(time.Total.TotalSeconds);
 
     /// <inheritdoc />
     /// <remarks>
