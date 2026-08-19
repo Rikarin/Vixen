@@ -100,6 +100,12 @@ public sealed class RenderGraphPassBuilder {
     ///     What to do at the end, or <see langword="null" /> to let the graph decide from whether
     ///     anything reads it later.
     /// </param>
+    /// <param name="resolve">
+    ///     Where to resolve a multisampled attachment at the end of the pass, or
+    ///     <see cref="GraphTexture.None" /> not to resolve it. Naming one makes the store a
+    ///     <see cref="StoreAction.Resolve" /> whatever <paramref name="store" /> says, because a
+    ///     resolve target that is not resolved into is a texture the pass silently left empty.
+    /// </param>
     /// <remarks>
     ///     <para>
     ///         An attachment is a write, and is declared as one — so culling, lifetimes and barriers all
@@ -124,12 +130,6 @@ public sealed class RenderGraphPassBuilder {
     ///         is culled for writing something nobody wanted.
     ///     </para>
     /// </remarks>
-    /// <param name="resolve">
-    ///     Where to resolve a multisampled attachment at the end of the pass, or
-    ///     <see cref="GraphTexture.None" /> not to resolve it. Naming one makes the store a
-    ///     <see cref="StoreAction.Resolve" /> whatever <paramref name="store" /> says, because a
-    ///     resolve target that is not resolved into is a texture the pass silently left empty.
-    /// </param>
     public void ColourAttachment(
         GraphTexture texture,
         LoadAction load = LoadAction.Clear,
