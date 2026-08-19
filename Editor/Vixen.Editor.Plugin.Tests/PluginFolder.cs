@@ -62,8 +62,12 @@ sealed class PluginFolder : IDisposable {
     /// <param name="id">The plugin's id, which is also its folder and its assembly name.</param>
     /// <param name="source">The C#, or <c>null</c> for a manifest with no assembly beside it.</param>
     /// <param name="manifest">Extra manifest lines, or <c>null</c> for the ordinary ones.</param>
+    /// <param name="references">
+    ///     Assemblies of the plugin's own beside the platform ones — what <see cref="WriteLibrary" />
+    ///     returned, for a plugin whose types live in a library it ships.
+    /// </param>
     /// <returns>The plugin's directory.</returns>
-    public string Write(string id, string? source = null, string? manifest = null) {
+    public string Write(string id, string? source = null, string? manifest = null, params string[] references) {
         var directory = Path.Combine(Root, id);
         Directory.CreateDirectory(directory);
 
@@ -80,17 +84,48 @@ sealed class PluginFolder : IDisposable {
         );
 
         if (source is not null) {
-            Compile(id, source, Path.Combine(directory, id + ".dll"));
+            Compile(id, source, Path.Combine(directory, id + ".dll"), references);
         }
 
         return directory;
+    }
+
+    /// <summary>Compiles a second assembly of the plugin's own, beside its entry assembly.</summary>
+    /// <param name="id">The plugin whose folder it goes in.</param>
+    /// <param name="assemblyName">Its name, which must not begin with <c>Vixen.</c>.</param>
+    /// <param name="source">The C#.</param>
+    /// <returns>The compiled assembly's path, to be passed back as a reference.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A plugin's runtime assembly, which is the case <c>AuthoringAssembly</c> exists
+    ///         for.</b> A component in the plugin's <i>entry</i> assembly is registered whatever
+    ///         anybody declares — the loader instantiates a type there, so that module's initializer
+    ///         has run before <c>Activate</c> returns. A library beside it is only loaded, and a
+    ///         loaded module is not a run one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No <c>.deps.json</c>, which is what makes this resolve at all.</b>
+    ///         <c>PluginLoadContext</c> asks an <see cref="System.Runtime.Loader.AssemblyDependencyResolver" />,
+    ///         and a component directory with no dependency file is one whose own directory is the
+    ///         probing path — which is exactly what a hand-assembled plugin folder is.
+    ///     </para>
+    /// </remarks>
+    public string WriteLibrary(string id, string assemblyName, string source) {
+        var directory = Path.Combine(Root, id);
+        Directory.CreateDirectory(directory);
+
+        var path = Path.Combine(directory, assemblyName + ".dll");
+
+        Compile(assemblyName, source, path, []);
+
+        return path;
     }
 
     /// <summary>Rewrites a plugin's assembly in place, which is what a rebuild does.</summary>
     /// <param name="id">The plugin.</param>
     /// <param name="source">The new C#.</param>
     public void Rebuild(string id, string source) =>
-        Compile(id, source, Path.Combine(Root, id, id + ".dll"));
+        Compile(id, source, Path.Combine(Root, id, id + ".dll"), []);
 
     /// <inheritdoc />
     public void Dispose() {
@@ -112,11 +147,16 @@ sealed class PluginFolder : IDisposable {
     ///     that calls `element.Add&lt;TextBlock&gt;()` has to spell the two optional arguments out.
     ///     That is a limit of the test's own compiler and not of what a plugin may write.
     /// </remarks>
-    static void Compile(string assemblyName, string source, string path) {
+    static void Compile(string assemblyName, string source, string path, string[] references) {
+        List<MetadataReference> visible = [
+            .. References,
+            .. references.Select(reference => (MetadataReference) MetadataReference.CreateFromFile(reference))
+        ];
+
         var compilation = CSharpCompilation.Create(
             assemblyName,
             [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest))],
-            References,
+            visible,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );
 
