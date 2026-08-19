@@ -396,6 +396,7 @@ public sealed partial class PhysicsScene : IDisposable {
                     World.MoveKinematic(body.Handle, transform.Position, transform.Rotation, deltaTime);
                 } else if (Entities.Has<PhysicsTeleport>(entity)) {
                     World.SetTransform(body.Handle, transform.Position, transform.Rotation);
+                    Arrive(entity, in transform);
 
                     // Taking the tag off moves the entity to a different archetype, which invalidates
                     // the very spans this loop is walking. Recorded and done after, which is the same
@@ -422,6 +423,49 @@ public sealed partial class PhysicsScene : IDisposable {
         foreach (var entity in pendingUntag) {
             Entities.Remove<PhysicsTeleport>(entity);
         }
+    }
+
+    /// <summary>Collapses a body's smoothing onto the pose it was just teleported to.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A teleport is not motion, and <c>PhysicsInterpolationSystem</c> draws motion.</b>
+    ///         Without this the two poses it draws between are the two ends of the jump, so the body
+    ///         is drawn crossing the level over the following fixed step — and on a frame exactly one
+    ///         step long, where <c>alpha</c> is zero, it is drawn at the position it has just left, so
+    ///         the teleport appears not to have happened at all.
+    ///     </para>
+    ///     <para>
+    ///         Both poses and not only the previous one, because <see cref="Writeback" /> rolls
+    ///         <c>Previous ← Current</c> immediately after the step: what is left is a segment from the
+    ///         destination to one step of real motion past it, which is a body that arrives and then
+    ///         goes on being smoothed. Setting only <c>Previous</c> would be undone by that roll.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed on <see cref="PhysicsTeleport" /> and never on a distance.</b> A body
+    ///         genuinely moving at two hundred metres a second covers the same gap in a step and must
+    ///         still be smoothed, so any threshold large enough to catch a teleport is large enough to
+    ///         un-smooth a projectile — the wall-clock-threshold mistake in another costume. The tag is
+    ///         the caller saying so, which is the only thing that actually distinguishes the two.
+    ///         <c>NetworkRigidBodyCorrectionSystem</c>'s hard snap already adds it, and its comment
+    ///         already says "so nothing draws the body sliding to where it was teleported"; a
+    ///         <i>soft</i> correction deliberately does not, and so is still smoothed.
+    ///     </para>
+    /// </remarks>
+    void Arrive(Entity entity, in LocalTransform transform) {
+        if (!Entities.Has<PhysicsInterpolation>(entity)) {
+            return;
+        }
+
+        ref var interpolation = ref Entities.Get<PhysicsInterpolation>(entity);
+
+        interpolation.PreviousPosition = transform.Position;
+        interpolation.PreviousRotation = transform.Rotation;
+        interpolation.CurrentPosition = transform.Position;
+        interpolation.CurrentRotation = transform.Rotation;
+
+        // The receipt, kept honest: nothing on a rigid body reads it, but a character bridged through
+        // the same component would otherwise hold a pose the engine never wrote.
+        interpolation.DrawnPosition = transform.Position;
     }
 
     Entity EntityOf(BodyHandle body) {

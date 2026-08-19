@@ -245,5 +245,24 @@ public struct PhysicsInterpolation {
 ///         A kinematic body does not need this — its transform is authored by definition, and the
 ///         bridge drives it towards <c>LocalTransform</c> every step.
 ///     </para>
+///     <para>
+///         ⚠ <b>It is also what stops the body being drawn sliding there.</b>
+///         <see cref="PhysicsInterpolation" /> holds the last two simulated poses and a teleport makes
+///         those two the two ends of the jump, so <c>PhysicsScene.Arrive</c> puts both of them on the
+///         destination. Without it a teleported body crossed the level over the following step, and on
+///         a frame one fixed step long it was drawn at the position it had just left.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is why this is a tag and not a distance the bridge could measure.</b> A body
+///         genuinely moving at two hundred metres a second covers the same gap in a step; any
+///         threshold that catches one catches the other. Only the caller knows.
+///     </para>
+///     <para>
+///         ⚠ <b>Inert on a character, and it stays on.</b> The bridge acts on this while walking the
+///         entities that have a <see cref="PhysicsBody" />, and a character has a
+///         <c>CharacterBody</c> instead — so a tag put on one is neither read nor taken off again.
+///         A character needs none of it: writing its <c>LocalTransform</c> <i>is</i> the teleport,
+///         and <c>PhysicsScene.Adopt</c> is what makes that true.
+///     </para>
 /// </remarks>
 public struct PhysicsTeleport : ITagComponent;

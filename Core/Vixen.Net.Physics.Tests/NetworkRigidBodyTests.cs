@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Engine.Frames;
 using Vixen.Engine.Transforms;
 using Vixen.Net.Messaging;
 using Vixen.Net.Motion;
@@ -11,6 +12,8 @@ using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
 using Vixen.Net.Rules;
 using Vixen.Net.Sessions;
+using Vixen.Physics;
+using Vixen.Physics.Ecs;
 using Xunit;
 using PhysicsAngularVelocity = global::Vixen.Physics.Ecs.AngularVelocity;
 using PhysicsLinearVelocity = global::Vixen.Physics.Ecs.LinearVelocity;
@@ -173,6 +176,79 @@ public sealed class NetworkRigidBodyTests {
 
         // The velocity is the authority's, not a correction toward a target it has already reached.
         Assert.Equal(new Vector3(1f, 0f, 0f), world.Read<PhysicsLinearVelocity>(entity).Value);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the sentence above — "so nothing draws it sliding five hundred metres" — held only
+    ///     as far as the tag.</b> This is the rest of the sentence, against a real simulation.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The tag was added and read: <c>PhysicsScene</c> pushed the transform into the body and
+    ///         took the tag off. What nothing did was tell <c>PhysicsInterpolation</c>, whose two poses
+    ///         then straddled the jump — so a snapped proxy was drawn crossing the level over the next
+    ///         fixed step, and on a frame exactly one step long it was drawn at the position it had
+    ///         been snapped away from.
+    ///     </para>
+    ///     <para>
+    ///         A whole <c>EngineLoop</c> and not <c>Correct</c> alone, for the reason
+    ///         <c>CharacterSceneTests</c> gives about the half-speed walk: the smoothing runs in
+    ///         <c>LateUpdate</c>, so a test that drives the fixed passes by hand cannot see it.
+    ///     </para>
+    ///     <para>
+    ///         The complement is <see cref="AMisplacedBodyIsSteeredBackWithoutOvershooting" />, which
+    ///         is inside <c>HardSnapDistance</c> and therefore adds no tag: a soft correction is
+    ///         steered through the velocity and stays smoothed, which is the half this could break.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ASnappedBodyIsDrawnWhereItWasSnappedRatherThanSlidingToIt() {
+        using var loop = new EngineLoop();
+        using var scene = new PhysicsScene(loop.World, new PhysicsWorldSettings { Gravity = Vector3.Zero });
+
+        loop.AddPhysics(scene);
+
+        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+
+        var entity = loop.World.Create(LocalTransform.At(Vector3.Zero));
+        loop.World.Add(entity, new NetworkId(1));
+        loop.World.Add(entity, Collider.Of(scene.Shapes.Box(0.5f)));
+        loop.World.Add(entity, RigidBody.Dynamic());
+        loop.World.Add(entity, NetworkRigidBodyCorrection.Default);
+        loop.World.Add(entity, new NetworkRigidBody { LinearVelocity = new(1f, 0f, 0f) });
+        loop.World.Add(entity, new PhysicsLinearVelocity { Value = new(1f, 0f, 0f) });
+        loop.World.Add(entity, default(PhysicsAngularVelocity));
+        loop.World.Add(entity, default(PhysicsInterpolation));
+
+        // Where the proxy already is, so the first frames are the ordinary smoothed case.
+        loop.World.Add(entity, new NetworkTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity });
+
+        // The loop's own fixed step, not this file's 30 Hz tick rate: a frame exactly one fixed step
+        // long is what leaves alpha at zero, and the two are not the same number here.
+        var frameTime = loop.FixedStep.Step;
+
+        for (var frame = 0; frame < 10; frame++) {
+            loop.Frame(frameTime);
+        }
+
+        var left = loop.World.Read<LocalTransform>(entity).Position.X;
+        Assert.InRange(left, 0.1f, 1f);
+
+        // The authority now says it is five hundred metres away — a respawn, or a second of silence.
+        loop.World.Get<NetworkTransform>(entity).Position = new(500f, 0f, 0f);
+        correction.Correct(loop.World, Step);
+
+        Assert.Equal(1, correction.SnappedCount);
+
+        loop.Frame(frameTime);
+
+        Assert.Equal(0f, loop.FixedStep.Alpha, 3);
+        Assert.Equal(500f, loop.World.Read<LocalTransform>(entity).Position.X, 1);
+
+        loop.Frame(frameTime / 2);
+
+        Assert.InRange(loop.FixedStep.Alpha, 0.4f, 0.6f);
+        Assert.Equal(500f, loop.World.Read<LocalTransform>(entity).Position.X, 1);
     }
 
     /// <summary>A body already where it should be is left alone.</summary>
