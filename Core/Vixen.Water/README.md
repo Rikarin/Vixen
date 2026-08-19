@@ -266,10 +266,22 @@ checked.
 reference from here to Jolt. That assembly is
 [`Vixen.Water.Physics`](../Vixen.Water.Physics/README.md), and it is built —
 `BuoyancyBody`/`BuoyancyState`, `BuoyancySystem` applying the force to Jolt in `FixedUpdate` between
-the physics sync and the step, and `BuoyancyDebugDraw`. ⚠ **What is owed is a host that registers
-it**: every `new BuoyancySystem(…)` in the tree is a test, where the sibling `ImmersionSystem` is
-added to the loop by `Samples/13-ThirdPersonShooter`'s `Arena`. The networked predicted body is owed
-too — neither component is `[Replicated]`.
+the physics sync and the step, `BuoyancyDebugDraw`, and `BuoyancyDebugSystem` joining that draw to
+`water.showBuoyancy`.
+
+**A host registers it now**, which for a long time nothing did: every `new BuoyancySystem(…)` in the
+tree was a test. `Samples/13-ThirdPersonShooter`'s `Arena` adds it beside the sibling
+`WaterImmersionSystem` it already added, and `Arena.vxscene` carries the raft it works on — four
+pontoons authored *in the file*, so the path that once lost `BuoyancyPontoon`'s `[DataContract]` is
+the path a shipped scene walks.
+
+⚠ **Authoring that raft found the other half of the same class of defect, one registry over.**
+`Collider` and `RigidBody` were declared to `SceneComponentRegistry` by `Vixen.Physics` and absent
+from `TypeRegistry`, because that project named the engine's component generator and not the
+reflection one — so they were scene components no scene file could ever name. Nothing had noticed
+because no scene in the repository had authored either.
+
+The networked predicted body is still owed — neither component is `[Replicated]`.
 
 ## Ripples are a sliding window, and every number in it is a bound
 

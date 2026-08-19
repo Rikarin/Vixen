@@ -258,6 +258,12 @@ which is why this project can draw into it without knowing what a line pass is. 
 console verb and the drawing goes with the data, because a renderer must not reference the assembly
 that links Jolt.
 
+⚠ **What carries the sixth across is `BuoyancyDebugSystem`, and it takes the flag as a delegate.** For
+a long time nothing carried it at all and the toggle set a bool nobody read. A host that has both
+assemblies writes `Show = () => WaterDebug.ShowBuoyancy` once — `Samples/13-ThirdPersonShooter`'s
+`Arena` is the one that does — and the direction of that line is the whole point: the flag is pulled
+from over here, never pushed from over there.
+
 ⚠ **`water.showTiles`' colour rule cannot be `WaterBody.Contains`.** That is an even-odd test on a
 *closed* boundary, so it is false for every river — and "coloured by body kind" painted every open
 body as the far skirt, which is exactly the case the verb exists to diagnose. It reads the body's

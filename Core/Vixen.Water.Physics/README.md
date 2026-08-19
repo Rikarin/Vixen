@@ -151,16 +151,37 @@ pontoons floats nowhere and is *not an error*, so an authored boat loaded, looke
 inspector, and sank. `WaterSceneRunsTests` — a pond, a `.vxwaves`, a spline resolved by name and a
 dinghy, folded and stepped through Jolt — is the fixture that found it, and the reason it exists.
 
+## `water.showBuoyancy` is joined by a system, and the delegate is the assembly split
+
+`BuoyancyDebugDraw` draws the pontoon spheres, the submerged fractions and the force arrows, and the
+verb is registered in `Vixen.Rendering.Water`. Nothing joined the two: the draw reads its own
+`Enabled` deliberately, no host copied `WaterDebug.ShowBuoyancy` into it, and no host called `Draw` —
+so the toggle set a bool nothing consumed, in the editor's Water menu as well as the console.
+
+`BuoyancyDebugSystem` is the join, and it is on this side of the split because the drawing is.
+
+⚠ **Its `Show` is a `Func<bool>` and not a reference to the flag**, for the reason the section above
+gives: the flag is in `Vixen.Rendering.Water`, which this assembly must not reference. A host that has
+both writes one line at registration — `Show = () => WaterDebug.ShowBuoyancy` — and a headless build
+with no renderer at all drives `Draw.Enabled` directly instead, which is why a null `Show` leaves it
+alone rather than clearing it.
+
+⚠ **`PreRender`, and both neighbours decide it.** `TransformSystem` writes the `WorldTransform` the
+pontoons are placed from in `LateUpdate`, so anything earlier draws the spheres where the body was;
+the accumulator is drained during `Render`, so anything later draws into a frame already recorded.
+
+⚠ **The flag is read every step rather than cached**, and the test that says so is the one that would
+otherwise rot: a copy written as `if (flag()) Enabled = true;` passes the positive case and never
+switches off again, which is a verb that latches on for the rest of the session.
+
 ## What is not here
 
-⚠ **The `water.showBuoyancy` wiring, which is not the same as the lines.** The lines are written and
-tested — `BuoyancyDebugDraw` draws the pontoon spheres, the submerged fractions and the force arrows —
-and the verb is registered in `Vixen.Rendering.Water`. What nothing does is join them: the draw reads
-its own `Enabled` deliberately, no host copies `WaterDebug.ShowBuoyancy` into it, and no host calls
-`Draw`. So the toggle sets a bool that nothing consumes, in the editor's Water menu as well as the
-console — where the other five water verbs are driven per frame by `WaterPresenter`.
+⚠ **A game that steers with these forces**, which is
+[28 § Vixen.Gameplay.Movement](../../docs/plan/28-gameplay-framework.md)'s — `Samples/13`'s raft
+floats, pitches and rides the swell, and nobody can get on it.
 
-And the boat that *steers* with these forces, which is
-[28 § Vixen.Gameplay.Movement](../../docs/plan/28-gameplay-framework.md)'s.
+⚠ **The networked predicted body.** Neither component is `[Replicated]`. The class remarks on
+`BuoyancySystem` explain why it needs no replication of its own — the force is a pure function of
+things both peers already have — but the *components* still have to travel for a late joiner.
 
 [35]: ../../docs/plan/35-water.md
