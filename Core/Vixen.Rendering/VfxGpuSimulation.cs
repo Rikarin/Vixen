@@ -253,6 +253,29 @@ public sealed class VfxGpuSimulation : IDisposable {
     /// <summary>Whether the shader has a reap kernel, and so whether this has the storage for one.</summary>
     public bool HasReap { get; }
 
+    /// <summary>How many compute dispatches this has recorded since it was built.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Counted because "the GPU path ran" and "the GPU path was constructed" look identical
+    ///         from everywhere else.</b> A host that builds one of these, never records a dispatch and
+    ///         draws the CPU expansion produces exactly the frame a working device path produces, at
+    ///         exactly the cost — and there is no validation error, no log line and no counter to tell
+    ///         the two apart. This is that counter.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Recorded, not executed.</b> It rises when a dispatch is written into a command
+    ///         list, which is before the list is submitted and long before the device has run it — so
+    ///         it answers "did this path get as far as asking" rather than "did the device finish".
+    ///         The honest reading is the one this class can actually make: a zero here is proof of a
+    ///         backend nothing drove.
+    ///     </para>
+    ///     <para>
+    ///         A dispatch over no particles is not recorded and does not count, which is
+    ///         <see cref="Dispatch" />'s own early return rather than a special case here.
+    ///     </para>
+    /// </remarks>
+    public int Dispatches { get; private set; }
+
     /// <summary>The buffers, in the order the shader declares them.</summary>
     public IReadOnlyList<VfxShaderBinding> Bindings => bindings;
 
@@ -560,6 +583,7 @@ public sealed class VfxGpuSimulation : IDisposable {
         );
 
         list.Dispatch(Groups(count));
+        Dispatches++;
 
         state = ResourceState.ShaderWrite;
 
@@ -683,6 +707,7 @@ public sealed class VfxGpuSimulation : IDisposable {
         list.BindDescriptorSet(DescriptorSetSlot.PerFrame, descriptorSets[current]);
         list.PushConstants(ShaderStage.Compute, 0, Raw(constants));
         list.Dispatch(Groups(constants.ParticleCount));
+        Dispatches++;
 
         // Left in ShaderWrite, so a second dispatch — an initialize followed by an update, the usual
         // pair — gets a barrier between them rather than reading what the first had not finished
