@@ -41,8 +41,16 @@ namespace Vixen.Rendering.Ecs;
 ///         <see cref="Stages" /> is a single mask a host sets from the one transparent stage its
 ///         document declares rather than something derived from what a mesh is extracted into.
 ///     </para>
+///     <para>
+///         ⚠ <b>After <see cref="LightExtractionSystem" />, and that is not an aesthetic ordering.</b>
+///         An effect whose output is <c>Vfx/Output/Light</c> contributes to the very list that system
+///         <em>clears</em> and refills, and the two touch no component in common — so nothing but the
+///         declared order keeps a shower of sparks from being wiped by the scene's own lamps every
+///         frame. See <see cref="ParticleRenderFeature.CollectLights" />.
+///     </para>
 /// </remarks>
 [UpdateInGroup(SystemPhase.PreRender)]
+[UpdateAfter(typeof(LightExtractionSystem))]
 public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
     readonly RenderSystem system;
     readonly ParticleRenderFeature particles;
@@ -163,6 +171,11 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
         Retire(world);
         Appear(world);
         Advance(world, deltaSeconds);
+
+        // ⚠ Last, and after the step. A light is where its particle is *now*, and collecting before
+        // Advance would light the scene from where the sparks were last frame — which on a fast
+        // emitter is a pool of light trailing the effect that made it.
+        particles.CollectLights();
     }
 
     /// <summary>Drops an entity's effect without needing the entity to be alive.</summary>

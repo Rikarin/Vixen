@@ -44,6 +44,53 @@ public sealed class SingleStageRenderer : SceneRenderer {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>Declares no pass — it is here to carry the features' degrades into the frame's
+    ///         list.</b> <see cref="RootRenderFeature.Degraded" /> is a feature's answer to the same
+    ///         question <see cref="SceneRenderer.Degraded" /> is a node's, and a feature is not in the
+    ///         compositor tree, so nothing could ever collect one. This node is the smallest thing
+    ///         that knows both which features exist and which stage they drew into.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The node walk is only paid for when there is something to report.</b> The normal
+    ///         answer is that no feature has a reason at all, which costs one null test per root
+    ///         feature; only a feature that <em>has</em> degraded makes this ask whether it drew
+    ///         anything into this stage, which is what stops the same reason appearing under every
+    ///         stage node in the tree.
+    ///     </para>
+    /// </remarks>
+    protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
+        ArgumentNullException.ThrowIfNull(compositor);
+
+        var reasons = default(List<string>);
+
+        foreach (var feature in compositor.System.Features) {
+            if (feature.Degraded is not { } reason || !Draws(compositor, feature)) {
+                continue;
+            }
+
+            reasons ??= [];
+            reasons.Add($"{feature.Name}: {reason}");
+        }
+
+        Degrade(reasons is null ? null : string.Join(" ", reasons));
+    }
+
+    /// <summary>Whether any of this stage's sorted work belongs to that feature.</summary>
+    bool Draws(GraphicsCompositor compositor, RootRenderFeature feature) {
+        var objects = compositor.System.Objects;
+
+        foreach (var node in compositor.System.Nodes(View, Stage)) {
+            if (objects[node.Object].FeatureIndex == feature.Index) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc />
     protected internal override void Record(GraphicsCompositor compositor, RenderDrawContext context) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(context);
