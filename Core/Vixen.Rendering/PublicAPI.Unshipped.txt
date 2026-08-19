@@ -1865,6 +1865,8 @@ Vixen.Rendering.Features.ParticleDraw.ParticleDraw() -> void
 Vixen.Rendering.Features.ParticleRenderFeature -> sealed class
 Vixen.Rendering.Features.ParticleRenderFeature : System.IDisposable
 Vixen.Rendering.Features.ParticleRenderFeature : Vixen.Rendering.RootRenderFeature
+Vixen.Rendering.Features.ParticleRenderFeature.CollectLights() -> int
+Vixen.Rendering.Features.ParticleRenderFeature.CollectedLights.get -> int
 Vixen.Rendering.Features.ParticleRenderFeature.Describer.get -> Vixen.Rendering.IPipelineDescriber?
 Vixen.Rendering.Features.ParticleRenderFeature.Describer.set -> Vixen.Rendering.IPipelineDescriber?
 Vixen.Rendering.Features.ParticleRenderFeature.Device.get -> Vixen.Graphics.IGraphicsDevice?
@@ -1872,10 +1874,16 @@ Vixen.Rendering.Features.ParticleRenderFeature.Device.set -> Vixen.Graphics.IGra
 Vixen.Rendering.Features.ParticleRenderFeature.Dispose() -> void
 Vixen.Rendering.Features.ParticleRenderFeature.Draws.get -> Vixen.Rendering.RenderDataKey<Vixen.Rendering.Features.ParticleDraw>
 Vixen.Rendering.Features.ParticleRenderFeature.LastParticleCount.get -> int
+Vixen.Rendering.Features.ParticleRenderFeature.LightEffects.get -> int
+Vixen.Rendering.Features.ParticleRenderFeature.Lights.get -> System.Collections.Generic.IList<Vixen.Rendering.RenderLight>?
+Vixen.Rendering.Features.ParticleRenderFeature.Lights.set -> System.Collections.Generic.IList<Vixen.Rendering.RenderLight>?
+Vixen.Rendering.Features.ParticleRenderFeature.MaxLights.get -> int
+Vixen.Rendering.Features.ParticleRenderFeature.MaxLights.set -> int
 Vixen.Rendering.Features.ParticleRenderFeature.Meshes.get -> Vixen.Rendering.RenderDataKey<Vixen.Rendering.MeshDraw>
 Vixen.Rendering.Features.ParticleRenderFeature.ParticleRenderFeature() -> void
 Vixen.Rendering.Features.ParticleRenderFeature.Pipelines.get -> Vixen.Rendering.PipelineCache?
 Vixen.Rendering.Features.ParticleRenderFeature.Pipelines.set -> Vixen.Rendering.PipelineCache?
+Vixen.Rendering.Features.ParticleRenderFeature.RefusedLights.get -> int
 Vixen.Rendering.Features.ParticleRenderFeature.SetMesh(Vixen.Rendering.RenderObjectId id, Vixen.Rendering.MeshDraw mesh) -> void
 Vixen.Rendering.Features.ParticleRenderFeature.SetSystem(Vixen.Rendering.RenderObjectId id, Vixen.Vfx.VfxSystem? system) -> void
 Vixen.Rendering.Features.ParticleRenderFeature.SystemIndices.get -> Vixen.Rendering.RenderDataKey<int>
@@ -4054,6 +4062,8 @@ Vixen.Rendering.ResolveMaterial.ResolveMaterial() -> void
 Vixen.Rendering.ResolveMaterial.ResolveMaterial(Vixen.Rendering.Material Material, int Index) -> void
 Vixen.Rendering.RootRenderFeature -> abstract class
 Vixen.Rendering.RootRenderFeature.Add(Vixen.Rendering.SubRenderFeature subFeature) -> void
+Vixen.Rendering.RootRenderFeature.Degrade(string? reason) -> void
+Vixen.Rendering.RootRenderFeature.Degraded.get -> string?
 Vixen.Rendering.RootRenderFeature.Index.get -> int
 Vixen.Rendering.RootRenderFeature.RootRenderFeature() -> void
 Vixen.Rendering.RootRenderFeature.SubFeatures.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.SubRenderFeature>
@@ -5961,6 +5971,7 @@ override Vixen.Rendering.Compositor.SceneRendererSequence.Record(Vixen.Rendering
 override Vixen.Rendering.Compositor.ShadowMapRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.ShadowMapRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 override Vixen.Rendering.Compositor.ShadowMapRenderer.ToString() -> string
+override Vixen.Rendering.Compositor.SingleStageRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.SingleStageRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 override Vixen.Rendering.Compositor.SingleStageRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 override Vixen.Rendering.Compositor.SingleStageRenderer.ToString() -> string
