@@ -119,6 +119,23 @@ public sealed partial class PhysicsScene {
 
                 if (Adopt(controller, in bodies[index], in transforms[index], in drawn)) {
                     CharacterAdoptionCount++;
+
+                    // ⚠ The adopt *is* the teleport, so the smoothing has to be told about it here —
+                    // a rigid body is told by PhysicsTeleport and a character has no such tag by
+                    // design. Without this the pass draws between the pose the character left and the
+                    // pose it was put at, so a respawn slides back across the level it just left and
+                    // on a frame one fixed step long is drawn at the old spot outright.
+                    //
+                    // Position only: rotation is never adopted — the controller owns it, which is why
+                    // Adopt does not read it — so its two poses are already continuous and collapsing
+                    // them would snap a turn that never jumped.
+                    //
+                    // Current and not Previous, because WriteCharacterBack rolls Previous ← Current a
+                    // few lines below: what is left is the destination, then one step of real walking
+                    // out of it. Exactly the shape PhysicsScene.Arrive leaves a rigid body in.
+                    if (drawn is not null) {
+                        Entities.Get<PhysicsInterpolation>(entity).CurrentPosition = transforms[index].Position;
+                    }
                 }
 
                 Drive(controller, in settings[index], ref states[index], ref bodies[index], in intent, deltaTime);
