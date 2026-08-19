@@ -82,6 +82,15 @@ there will be exactly one when `Vixen.Live.Cluster` lands.
 **The `.vxplacement` importer.** `PlacementWeights.Parse` reads one at boot; turning it into an
 addressable asset with an inspector is editor-side work.
 
+⚠ **It is blocked on a layer decision rather than on somebody writing the class.** The obvious home
+is `Vixen.Editor.Assets`, beside every other `[Importer]` — and an importer there cannot name
+`PlacementWeights`, because `CheckArchitecture` refuses `Editor/` → `Live/` (docs/plan/27 §
+Repository layout: `Live/` is shipped and operated, `Editor/` is a developer tool). Either the
+weights record moves down to a layer both tiers can reference, or the importer re-declares the
+schema and it lives in two places that can drift. Worth noting because the neighbouring gap — the
+`.cube` importer, task #167 — looked identical from the outside and was one missing line in
+`BuiltInImporters.Create()`. This one is not that.
+
 ## See also
 
 - [`Vixen.Live.Abstractions`](../Vixen.Live.Abstractions/README.md) — `ShardKey`, `ShardCapacity`.
