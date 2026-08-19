@@ -55,6 +55,7 @@ public static class BuiltInImporters {
         (contributed ?? throw new ArgumentNullException(nameof(contributed))).ApplyTo(
             new ImporterRegistry()
                 .Add(new TextureImporter())
+                .Add(new CubeLutImporter())
                 .Add(new ModelImporter())
                 .Add(new AudioImporter())
                 .Add(new NavMeshImporter())
@@ -71,7 +72,18 @@ public static class BuiltInImporters {
                 // byte blob under a type name no runtime reader resolves. The zone naming it then
                 // fell back to its inline spectrum and counted into WaterZoneSystem.UnresolvedWaves,
                 // which is water that draws and is not the sea anybody authored.
+                //
+                // ⚠ That comment was written after .vxwaves and did not prevent the next five: .cube,
+                // .vxbt, .vxgoap, .vxquery and .vxutility were all attributed and all absent, so the
+                // grading pipeline and the whole of the AI authoring pipeline were unreachable through
+                // the registry. A warning is not a gate; the gate is
+                // EveryAttributedImporterTests.EveryImporterInThisAssemblyIsRegistered, which walks
+                // this assembly's [Importer] types and fails on the one that is not here.
                 .Add(new Water.WaterWavesImporter())
+                .Add(new Ai.BehaviorTreeImporter())
+                .Add(new Ai.UtilitySetImporter())
+                .Add(new Ai.QueryImporter())
+                .Add(new Ai.GoapDomainImporter())
                 .Add(new Animation.AnimationClipImporter())
                 .Add(new Animation.ShapeVocabularyImporter())
                 .Add(new Animation.ProxyShapeSetImporter())
