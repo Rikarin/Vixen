@@ -57,6 +57,13 @@ namespace Vixen.Editor.Core;
 ///         not a guarantee of the language — <see cref="Touch" /> costs one call that the runtime
 ///         answers by doing nothing.
 ///     </para>
+///     <para>
+///         ⚠ <b>The contrast that makes it clear which of the two an explicit run is needed for:
+///         <c>ProjectAssemblies.Load</c> holds an <c>Assembly</c> and nothing else.</b> It calls
+///         <c>RunModuleConstructor</c> on the manifest module because nothing in that path ever
+///         names a type in it — "loading is not touching", as it says. Here the caller has named a
+///         type by the time there is a record to add, so the touching has already happened.
+///     </para>
 /// </remarks>
 /// <param name="Marker">
 ///     Any type in the assembly. A type rather than an <c>Assembly</c> because the caller has one to
