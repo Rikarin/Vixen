@@ -4,11 +4,11 @@ slug: rendering/smaa
 kind: guide
 area: Rendering
 summary: Subpixel morphological antialiasing — three passes that find the whole edge, walk it to both ends and look the coverage up, rather than guessing a direction from one neighbourhood.
-api: [T:Vixen.Rendering.PostFx.SmaaAsset, T:Vixen.Rendering.PostFx.SmaaRenderer, T:Vixen.Rendering.PostFx.SmaaAreaTexture, R:PostFx/Smaa]
+api: [T:Vixen.Rendering.PostFx.SmaaAsset, T:Vixen.Rendering.PostFx.SmaaRenderer, T:Vixen.Rendering.PostFx.SmaaAreaTexture, R:PostFx/Smaa, T:Vixen.Shaders.Generated.SmaaKeys, T:Vixen.Shaders.Generated.SmaaConstants]
 tags: [rendering, post-processing, antialiasing, compositor]
 since: 0.1
 status: preview
-related: [rendering/post-processing, rendering/standard-frame, rendering/choosing-a-frame]
+related: [rendering/post-processing, rendering/standard-frame, rendering/choosing-a-frame, rendering/msaa]
 ---
 
 ## What it is
@@ -115,3 +115,5 @@ thing it exists for.
   order they have to run in.
 - [The standard frame](standard-frame.md) — `antialiasing:` and the rest of the seven knobs.
 - [Choosing a frame](choosing-a-frame.md) — which antialiasing a project should be asking for.
+- [Multisampling](msaa.md) — the other kind: more rasteriser samples rather than a filter over a
+  finished image.

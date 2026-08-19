@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.Bloom
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
-related: [rendering/physical-lighting, rendering/post-process-volumes, rendering/reading-the-frame, rendering/volumetric-fog, rendering/smaa]
+related: [rendering/physical-lighting, rendering/post-process-volumes, rendering/reading-the-frame, rendering/volumetric-fog, rendering/smaa, rendering/msaa]
 ---
 
 ## What it is
@@ -483,5 +483,7 @@ and back on afterwards would otherwise refuse the first build that reached it.
 - [Making a room look different](post-process-volumes.md) — where a look applies, rather than which
   effects exist.
 - [Lighting a scene in lux and lumens](physical-lighting.md) — what `ev100` and the grade are in.
+- [Multisampling](msaa.md) — the antialiasing that is not a node here: more rasteriser samples, and
+  the resolve that ends the pass.
 - `docs/plan/30-post-processing-parity.md` — the audit against Unreal and HDRP, and what is
   deliberately not here.
