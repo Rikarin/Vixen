@@ -15,6 +15,16 @@ Vixen.Water.Physics.BuoyancyDebugDraw.Enabled.get -> bool
 Vixen.Water.Physics.BuoyancyDebugDraw.Enabled.set -> bool
 Vixen.Water.Physics.BuoyancyDebugDraw.ForceScale.get -> float
 Vixen.Water.Physics.BuoyancyDebugDraw.ForceScale.set -> float
+Vixen.Water.Physics.BuoyancyDebugSystem -> sealed class
+Vixen.Water.Physics.BuoyancyDebugSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Water.Physics.BuoyancyDebugSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Water.Physics.BuoyancyDebugSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Water.Physics.BuoyancyDebugSystem.BuoyancyDebugSystem(Vixen.Water.Physics.BuoyancySystem buoyancy, Vixen.Engine.Diagnostics.DebugDraw into) -> void
+Vixen.Water.Physics.BuoyancyDebugSystem.Draw.get -> Vixen.Water.Physics.BuoyancyDebugDraw
+Vixen.Water.Physics.BuoyancyDebugSystem.Frames.get -> int
+Vixen.Water.Physics.BuoyancyDebugSystem.Show.get -> System.Func<bool>?
+Vixen.Water.Physics.BuoyancyDebugSystem.Show.set -> System.Func<bool>?
+Vixen.Water.Physics.BuoyancyDebugSystem.Step(Vixen.Ecs.World world) -> void
 Vixen.Water.Physics.BuoyancyState -> struct
 Vixen.Water.Physics.BuoyancyState.BuoyancyState() -> void
 Vixen.Water.Physics.BuoyancyState.Lift -> float
@@ -50,6 +60,7 @@ Vixen.Water.Physics.WaterImmersionSystem.Surface.get -> Vixen.Water.IWaterSurfac
 Vixen.Water.Physics.WaterImmersionSystem.Surface.set -> Vixen.Water.IWaterSurface
 Vixen.Water.Physics.WaterImmersionSystem.Swimming.get -> int
 Vixen.Water.Physics.WaterImmersionSystem.WaterImmersionSystem(Vixen.Water.IWaterSurface surface) -> void
+override Vixen.Water.Physics.BuoyancyDebugSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Water.Physics.BuoyancySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Water.Physics.WaterImmersionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 readonly Vixen.Water.Physics.BuoyancyBody.Settings.get -> Vixen.Water.BuoyancySettings
