@@ -65,6 +65,7 @@
     -->
     <ItemGroup>
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Fxaa.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Smaa.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Sharpen.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Vignette.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Fog.reflect.json" />
