@@ -80,6 +80,16 @@ public static class ParticleLights {
 
                 // Range from size for the same reason: the two curves an author already writes are
                 // the two an author expects the light to follow.
+                //
+                // ⚠ **A metre of size, and a spark is two centimetres of it.** `Range` is "how far a
+                // particle of *unit* size reaches", so an ember of 0.03 m under the node's default
+                // range of 4 lights a sphere twelve centimetres across — which
+                // `ForwardLightingRenderFeature.Score` then rejects for every object in the level,
+                // because nothing is inside it. Measured on sample 13: at `Range: 10` the collected
+                // lights moved 2 935 pixels of 1 440 000, and at `Range: 400` they moved 394 015.
+                // Every counter reads the same in both — the lights are in the list either way. So
+                // an effect whose particles are centimetres wants a range in the hundreds, and the
+                // number is not a distance in metres however much it looks like one.
                 Range = renderer.Range * sizes[index]
             });
         }
