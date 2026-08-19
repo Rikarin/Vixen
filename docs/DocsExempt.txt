@@ -885,9 +885,6 @@ T:Vixen.Core.Yaml.YamlWriter sweep-pending
 T:Vixen.Ecs.Archetype sweep-pending
 T:Vixen.Ecs.ChunkSequence sweep-pending
 T:Vixen.Ecs.ChunkSequence.Enumerator sweep-pending
-T:Vixen.Ecs.CommandBuffer sweep-pending
-T:Vixen.Ecs.CommandBuffer.ParallelWriter sweep-pending
-T:Vixen.Ecs.CommandKind sweep-pending
 T:Vixen.Ecs.ComponentNotFoundException sweep-pending
 T:Vixen.Ecs.ComponentRegistry sweep-pending
 T:Vixen.Ecs.ComponentSignature sweep-pending
