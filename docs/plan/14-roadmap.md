@@ -23,7 +23,7 @@ optimism.
 | 2 | ECS + engine loop + scenes | 3.0 | ✅ |
 | 3 | Asset pipeline + mobile bring-up | 4.0 | ✅ bar CI legs and physical devices |
 | 4 | UI framework | 7.0 | ✅ |
-| 5 | Renderer (forward+, PBR, shadows, post FX) | 4.5 | 🟡 post FX is most of the way (SMAA, MSAA resolve, full GTAO and SSR are the gaps); D3D12 postponed |
+| 5 | Renderer (forward+, PBR, shadows, post FX) | 4.5 | 🟡 post FX is all but done — **SMAA and the MSAA *depth* resolve are what is left**; D3D12 postponed |
 | 5b | Raven parser migration (ANTLR → hand-written) | 1.5 | ✅ |
 | 6 | Editor shell | 4.5 | 🟡 the exit sentence and the tooling are met; packaging/signing and the perf bar are not |
 | 7 | Node graphs + VFX | 3.5 | 🟡 graphs done; the VFX GPU path is **written and device-tested but never taken by a frame** — nothing supplies its module and nothing can draw its buffers. Also owed: the shader-graph preview |
@@ -273,8 +273,20 @@ performance bar on Vulkan *and D3D12* cannot be met while D3D12 is postponed; wh
 numeric tests need a compute readback ([07](07-raven-shader-pipeline.md)); shader hot reload under
 500 ms is unmeasured.
 
-**Owed.** SMAA, MSAA resolve, the full GTAO integral and SSR — each needs a shader that does not exist
-yet, or the compute node. Light probes are **withdrawn rather than owed**: tetrahedral interpolation
+**Owed.** **SMAA**, which is the one of the four that was what this list said it was: no `Smaa` file
+exists anywhere, and it needs a shader plus the two lookup tables the blending-weight pass reads.
+And the MSAA **depth** resolve, which needs a shader of its own because averaging depth is
+meaningless — it is a min or a max, not a resolve.
+
+⚠ *The other three were not what this list said.* **SSR was already built** and reachable as
+`!Reflections`, standalone by default — the field march's source defaults to the empty field, so a
+project with no distance field gets screen reflections and nothing else. **MSAA resolve** was
+plumbed to the RHI and unreachable above it; what was missing was not a shader but a way for a
+frame to name the pair, which `RenderPass.resolveTargets` now is. And **the full GTAO integral** was
+genuinely owed, against an audit that had struck it off: `Ssao.rvn` claimed GTAO in its own header
+and ran HBAO. See [06](06-rendering-pipeline.md) § post FX for all three.
+
+Light probes are **withdrawn rather than owed**: tetrahedral interpolation
 needs exact predicates, it was written, found wrong by its own tests, and taken back out — and
 [19](19-lighting-and-global-illumination.md) retires the whole approach.
 
