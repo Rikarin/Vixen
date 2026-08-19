@@ -829,6 +829,8 @@ Vixen.Rendering.Compositor.RenderPassAsset.ReadOnlyDepth.init -> bool
 Vixen.Rendering.Compositor.RenderPassAsset.Reads.get -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.Reads.init -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.RenderPassAsset() -> void
+Vixen.Rendering.Compositor.RenderPassAsset.ResolveTargets.get -> Vixen.Rendering.Compositor.ResolveTargetAsset[]
+Vixen.Rendering.Compositor.RenderPassAsset.ResolveTargets.init -> Vixen.Rendering.Compositor.ResolveTargetAsset[]
 Vixen.Rendering.Compositor.RenderPassAsset.SampleCount.get -> int
 Vixen.Rendering.Compositor.RenderPassAsset.SampleCount.init -> int
 Vixen.Rendering.Compositor.RenderPassAsset.SceneBuffers.get -> Vixen.Rendering.Compositor.ScenePublishAsset[]
@@ -860,6 +862,7 @@ Vixen.Rendering.Compositor.RenderPassRenderer.ReadOnlyDepth.get -> bool
 Vixen.Rendering.Compositor.RenderPassRenderer.ReadOnlyDepth.set -> bool
 Vixen.Rendering.Compositor.RenderPassRenderer.Reads.get -> System.Collections.Generic.IList<string>
 Vixen.Rendering.Compositor.RenderPassRenderer.RenderPassRenderer() -> void
+Vixen.Rendering.Compositor.RenderPassRenderer.ResolveTargets.get -> System.Collections.Generic.IDictionary<string, string>
 Vixen.Rendering.Compositor.RenderPassRenderer.SampleCount.get -> int
 Vixen.Rendering.Compositor.RenderPassRenderer.SampleCount.set -> int
 Vixen.Rendering.Compositor.RenderPassRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
@@ -917,6 +920,13 @@ Vixen.Rendering.Compositor.RenderStageAsset.Shader.get -> string
 Vixen.Rendering.Compositor.RenderStageAsset.Shader.init -> string
 Vixen.Rendering.Compositor.RenderStageAsset.SortMode.get -> Vixen.Rendering.RenderSortMode
 Vixen.Rendering.Compositor.RenderStageAsset.SortMode.init -> Vixen.Rendering.RenderSortMode
+Vixen.Rendering.Compositor.ResolveTargetAsset -> sealed record
+Vixen.Rendering.Compositor.ResolveTargetAsset : System.IEquatable<Vixen.Rendering.Compositor.ResolveTargetAsset>
+Vixen.Rendering.Compositor.ResolveTargetAsset.Into.get -> string
+Vixen.Rendering.Compositor.ResolveTargetAsset.Into.init -> string
+Vixen.Rendering.Compositor.ResolveTargetAsset.ResolveTargetAsset() -> void
+Vixen.Rendering.Compositor.ResolveTargetAsset.Target.get -> string
+Vixen.Rendering.Compositor.ResolveTargetAsset.Target.init -> string
 Vixen.Rendering.Compositor.ResourceBinding -> sealed class
 Vixen.Rendering.Compositor.ResourceBinding.Binding.get -> uint
 Vixen.Rendering.Compositor.ResourceBinding.Binding.init -> uint
