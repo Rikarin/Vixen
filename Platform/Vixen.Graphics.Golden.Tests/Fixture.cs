@@ -108,7 +108,8 @@ sealed class Fixture : IDisposable {
         PrimitiveTopology topology = PrimitiveTopology.TriangleList,
         DescriptorSetLayoutHandle[]? sets = null,
         ColourTargetState[]? targets = null,
-        PixelFormat depthFormat = PixelFormat.Depth32Float
+        PixelFormat depthFormat = PixelFormat.Depth32Float,
+        int sampleCount = 1
     ) {
         var layout = device.CreatePipelineLayout(new(
             sets ?? [],
@@ -126,7 +127,8 @@ sealed class Fixture : IDisposable {
             rasterizer ?? RasterizerState.TwoSided,
             depth,
             depth.DepthTest || depth.StencilTest ? depthFormat : PixelFormat.Undefined,
-            Name: "fixture"
+            sampleCount,
+            "fixture"
         ));
 
         cleanup.Add(() => {
