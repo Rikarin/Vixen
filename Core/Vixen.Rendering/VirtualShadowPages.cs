@@ -271,10 +271,17 @@ public sealed class VirtualShadowPages : IPageStore {
     ///     alternative is a per-page test against a matrix that changed, and a matrix that changed
     ///     moved every page of that level by construction.
     /// </remarks>
-    public void InvalidateAll() {
+    /// <returns>How many resident pages there were to invalidate.</returns>
+    public int InvalidateAll() {
+        var count = 0;
+
         for (var page = 0; page < slots.Length; page++) {
-            Invalidate(page);
+            if (Invalidate(page)) {
+                count++;
+            }
         }
+
+        return count;
     }
 
     /// <inheritdoc />

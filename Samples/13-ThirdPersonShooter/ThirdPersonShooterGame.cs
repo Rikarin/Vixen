@@ -38,6 +38,7 @@ public sealed class ThirdPersonShooterGame : Game {
 
     Arena? arena;
     PlayerRig? player;
+    StreamWriter? shadowTrace;
 
     /// <summary>Reads <c>VIXEN_STRIP=first-last[/stride]</c>, or <see langword="null" /> if unset.</summary>
     /// <remarks>
@@ -185,6 +186,14 @@ public sealed class ThirdPersonShooterGame : Game {
         // this project rather than the host — `IDiagnosticOverlay`'s whole seam. Null when the run
         // did not ask for panels, which the rig treats as "do not register one".
         player.Register(loop, services.Graphics?.Overlays);
+
+        if (Environment.GetEnvironmentVariable("VIXEN_VSMTRACE") is { Length: > 0 } path) {
+            shadowTrace = new(path, append: false);
+
+            shadowTrace.WriteLine(
+                "frame,marked,answered,absent,drawn,invalidated,refit,pending,resident,allocations,evictions"
+            );
+        }
     }
 
     /// <inheritdoc />
@@ -205,6 +214,53 @@ public sealed class ThirdPersonShooterGame : Game {
         // fix for task #119 was in the tree while every other host's lake stayed black.
 
         CaptureStrip();
+        TraceShadows();
+    }
+
+    /// <summary>Writes one row per frame of what the virtual shadow map answered.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>⚠ A picture cannot answer this question and no number of pictures can.</b> Every way
+    ///         the virtual map fails is a pixel the cascades shade instead — <c>ClusteredShading</c>
+    ///         falls through when the page table has nothing at the address — so a frame whose map
+    ///         answered nothing at all renders, and renders plausibly. A strip of forty pictures over
+    ///         twenty seconds therefore measures the camera, the exposure and the sun, and cannot
+    ///         separate any of them from the shadow term. <c>VIXEN_VSMTRACE=&lt;file&gt;</c> writes the
+    ///         counters instead, one row a frame, which is the measurement task #124 has wanted since
+    ///         it was opened.
+    ///     </para>
+    ///     <para>
+    ///         The column that matters is <c>absent</c> — marked pages the frame's own page table does
+    ///         not answer, counted at the upload in <c>VirtualShadowAtlas.UploadTable</c>. The rest are
+    ///         there to say <em>why</em>: <c>invalidated</c> and <c>refit</c> are the clipmap throwing
+    ///         its own pages away, <c>pending</c> is the draw backlog the budget has not reached, and
+    ///         <c>drawn</c> against <c>PagesPerFrame</c> says whether the budget is the binding
+    ///         constraint.
+    ///     </para>
+    ///     <para>
+    ///         Flushed every row rather than buffered: a run ended by <c>--vixen-frames</c> disposes
+    ///         cleanly, but one killed mid-measurement should still leave the frames it reached.
+    ///     </para>
+    /// </remarks>
+    void TraceShadows() {
+        if (shadowTrace is not { } writer || Services.Graphics is not { } graphics) {
+            return;
+        }
+
+        if (arena?.VirtualShadowNode is not { } node) {
+            return;
+        }
+
+        var pages = arena.Illumination?.VirtualShadows;
+
+        writer.WriteLine(
+            $"{graphics.FrameCount},{node.MarkedPages},{node.AnsweredPages},{node.AbsentPages},"
+            + $"{node.DrawnPages},{node.InvalidatedPages},{node.RefitLevels},"
+            + $"{pages?.Pages.Pending.Count ?? 0},{pages?.Residency.ResidentPages ?? 0},"
+            + $"{pages?.Pages.Allocations ?? 0},{pages?.Residency.Evictions ?? 0}"
+        );
+
+        writer.Flush();
     }
 
     /// <summary>Asks for a picture of every frame in <c>VIXEN_STRIP</c>'s range.</summary>
@@ -258,6 +314,9 @@ public sealed class ThirdPersonShooterGame : Game {
 
         player?.Dispose();
         arena?.Dispose();
+
+        shadowTrace?.Dispose();
+        shadowTrace = null;
     }
 
     /// <summary>The spawn point with a given index, or the origin if the level has none.</summary>

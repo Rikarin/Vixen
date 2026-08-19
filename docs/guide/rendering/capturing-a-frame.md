@@ -203,8 +203,9 @@ Everything above is about a camera that does not move, and **the renderer's temp
 exercised by one**. Reprojection is antialiasing's entire job; motion vectors are a target of zeroes;
 motion blur is a copy; the fog's history has nothing to reproject; and the virtual shadow map refits
 its finest level every 0.31 m of walking and never refits at all when nobody walks. Two
-investigations into a reported shadow blink have now ended at "the mechanism most likely to produce
-this lives under motion, and I could not measure it".
+investigations into a reported shadow blink ended at "the mechanism most likely to produce this lives
+under motion, and I could not measure it"; a third walked the same routes with a counter instead of a
+camera and found it in the first five seconds — see below, and the sample's README.
 
 Nothing in the host drives a camera, and that is deliberate — a scripted camera in `Vixen.App` is the
 first half of a cutscene or a replay system. What the engine gives instead is
@@ -244,6 +245,26 @@ their difference is the frame step and nothing else. `VIXEN_STRIP=first-last[/st
 thirty lines of exactly that, and the stride is what reaches a multi-second timescale — a strip of
 thirty consecutive frames is half a second, and a defect somebody describes in seconds will not be in
 it.
+
+### ⚠ When the picture is the wrong instrument entirely
+
+**A renderer that degrades gracefully cannot be measured by looking at it.** The virtual shadow map is
+the sharpest case in this repository: a page the table does not answer falls through to
+`ClusteredShading`'s cascades, which render, and render plausibly. So a frame whose shadow map
+answered *nothing* is a frame that looks fine, every counter the host reports — pages marked, pages
+drawn, pages resident — reports success while it happens, and a whole-frame delta between two walking
+frames is dominated by the camera step. Two investigations into a reported shadow blink measured
+pictures and found health; the defect was there the whole time.
+
+What settles it is a counter of what the pass *could not answer*, taken at the moment the data it
+reads stops changing — `VirtualShadowAtlas.AnsweredPages` and `AbsentPages`, counted at the page
+table's upload, and `VIXEN_VSMTRACE=<file>` in sample 13 to write them a row a frame. The blink came
+straight out of that as ninety frames in the first five seconds of walking against a dozen after
+fifteen, and the cause out of the invalidation counter beside it. See the sample's README.
+
+The generalisation is worth stating: **before capturing a picture of a subsystem, ask what its
+failure looks like.** If the answer is "like a slightly different correct picture", no number of
+captures will separate the two, and the thing to build is the counter.
 
 ### Where the picture comes from
 

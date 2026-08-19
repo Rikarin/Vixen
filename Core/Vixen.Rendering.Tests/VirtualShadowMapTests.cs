@@ -127,6 +127,70 @@ public class VirtualShadowMapTests {
     }
 
     /// <summary>
+    ///     Walking along the light does not refit a level once per lateral page — task #124's blink.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The third axis is not a page axis.</b> A level's page grid quantises the two axes it
+    ///         is made of, and the test above is about those. The third is the depth the level's box
+    ///         spans — <see cref="Depth" /> for every level alike, with no page structure in it — and
+    ///         it used to be snapped to the <em>lateral page size</em> as well. That made level zero's
+    ///         near plane step every 0.3 m of walking and level seven's every 40 m, a hundred and
+    ///         twenty-eight to one on an axis the two share, and a near plane that steps shifts every
+    ///         stored depth in the level, so <c>VirtualShadowRenderer.Fit</c> threw the level away.
+    ///     </para>
+    ///     <para>
+    ///         Measured in sample 13 on a forty-second circular walk before the fix: 23.2 pages
+    ///         invalidated per frame against a budget that redraws sixteen, so the map could not
+    ///         converge while the camera moved — a page absent at shading falls through to the
+    ///         cascades, and the two disagree, which is the blink a person sees.
+    ///     </para>
+    ///     <para>
+    ///         Sabotage: return the lateral page from <see cref="VirtualShadowMap.DepthStep" /> and
+    ///         this fails at level zero on the first metre — which is exactly the shipped behaviour it
+    ///         replaced, and a defect no picture of a settled frame can show.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Walking_along_the_light_refits_on_the_depth_ranges_scale_not_the_pages() {
+        // A metre along the light is three pages of level zero and a fortieth of level seven's, so
+        // under the old rule this walk refitted the finest level three times and the coarsest never.
+        var start = (Sun * 100f) + new Vector3(3f, 1.5f, -7f);
+        var metre = Sun;
+
+        for (var level = 0; level < 8; level++) {
+            var step = VirtualShadowMap.DepthStep(level, FirstExtent, Depth);
+
+            Assert.True(
+                step >= Depth / VirtualShadowMap.PagesPerSide,
+                $"level {level} steps its near plane every {step} m, finer than the depth range's own {Depth / VirtualShadowMap.PagesPerSide} m"
+            );
+
+            // The projection is a function of the cell, so counting distinct cells over the walk
+            // counts refits without comparing matrices for equality across a basis change.
+            var cells = new HashSet<(int, int, int)>();
+
+            for (var centimetre = 0; centimetre <= 100; centimetre++) {
+                cells.Add(
+                    VirtualShadowMap.ClipmapCell(level, FirstExtent, start + (metre * (centimetre * 0.01f)), Sun, Depth)
+                );
+            }
+
+            // One metre of walking crosses at most one boundary of a step that is 12.5 m or coarser.
+            Assert.True(cells.Count <= 2, $"level {level} refitted {cells.Count} times over one metre along the light");
+        }
+
+        // And it still follows the camera, or the box would drift off the world: half the coarsest
+        // step of walking is enough to move the finest level's near plane.
+        var far = start + (metre * VirtualShadowMap.DepthStep(0, FirstExtent, Depth) * 2f);
+
+        Assert.NotEqual(
+            VirtualShadowMap.ClipmapCell(0, FirstExtent, start, Sun, Depth),
+            VirtualShadowMap.ClipmapCell(0, FirstExtent, far, Sun, Depth)
+        );
+    }
+
+    /// <summary>
     ///     A page lies wholly inside one page of the next level out, whatever the camera is doing.
     /// </summary>
     /// <remarks>

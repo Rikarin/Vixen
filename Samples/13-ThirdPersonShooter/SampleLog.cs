@@ -360,18 +360,24 @@ static partial class SampleLog {
     [LoggerMessage(
         EventId = 14056,
         Level = LogLevel.Information,
-        Message = "VSM: {Marked} page(s) marked by the last serviced frame, {Drawn} drawn this frame, "
-            + "{Resident} resident in {Slots} slot(s) after {Allocations} allocation(s). Marked stuck at "
-            + "zero is a marking pass that never dispatched — no effects, no pipelines, or a depth the "
-            + "node could not read — and the picture it leaves is the cascades' own, with every other "
-            + "counter reporting success; resident climbing while drawn stays zero is pages allocated "
-            + "that no caster view ever filled, which shades as \"absent\" and falls through exactly "
-            + "like a frame with no map at all."
+        Message = "VSM: {Marked} page(s) marked by the last serviced frame, {Absent} of them absent "
+            + "from the table this frame publishes, {Drawn} drawn this frame, {Invalidated} thrown "
+            + "away by the refit, {Resident} resident in {Slots} slot(s) after {Allocations} "
+            + "allocation(s). ⚠ Absent is the only number here that is about coverage rather than "
+            + "effort, and it is the one no picture contains: what an absent page shades as is the "
+            + "cascade fallback, which renders, so a map answering nothing looks like a map working "
+            + "while every counter beside this one reports success. Absent above zero on most frames "
+            + "while the camera moves is the clipmap invalidating faster than the budget redraws — "
+            + "compare Invalidated against the node's DrawsPerFrame — and VIXEN_VSMTRACE writes all "
+            + "of it a row a frame. Marked stuck at zero is the other failure: a marking pass that "
+            + "never dispatched, for want of effects, pipelines, or a depth the node could read."
     )]
     public static partial void VirtualShadowSummary(
         ILogger logger,
         int marked,
+        int absent,
         int drawn,
+        int invalidated,
         int resident,
         int slots,
         long allocations

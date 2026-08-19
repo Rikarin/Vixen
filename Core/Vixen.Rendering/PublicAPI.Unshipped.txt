@@ -1215,6 +1215,8 @@ Vixen.Rendering.Compositor.VirtualShadowAsset.View.init -> string
 Vixen.Rendering.Compositor.VirtualShadowAsset.VirtualShadowAsset() -> void
 Vixen.Rendering.Compositor.VirtualShadowRenderer -> sealed class
 Vixen.Rendering.Compositor.VirtualShadowRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.Compositor.VirtualShadowRenderer.AbsentPages.get -> int
+Vixen.Rendering.Compositor.VirtualShadowRenderer.AnsweredPages.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.Atlas.get -> Vixen.Rendering.VirtualShadowAtlas?
 Vixen.Rendering.Compositor.VirtualShadowRenderer.Atlas.set -> Vixen.Rendering.VirtualShadowAtlas?
 Vixen.Rendering.Compositor.VirtualShadowRenderer.Camera.get -> Vixen.Rendering.RenderView?
@@ -1234,6 +1236,7 @@ Vixen.Rendering.Compositor.VirtualShadowRenderer.DrawsPerFrame.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.DrawsPerFrame.set -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.FirstExtent.get -> float
 Vixen.Rendering.Compositor.VirtualShadowRenderer.FirstExtent.set -> float
+Vixen.Rendering.Compositor.VirtualShadowRenderer.InvalidatedPages.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.LightDirection.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Compositor.VirtualShadowRenderer.LightDirection.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Compositor.VirtualShadowRenderer.LightSnapDegrees.get -> float
@@ -1242,6 +1245,7 @@ Vixen.Rendering.Compositor.VirtualShadowRenderer.MarkedPages.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.PagesPerFrame.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.PagesPerFrame.set -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.Passes.get -> System.Collections.Generic.IList<string>
+Vixen.Rendering.Compositor.VirtualShadowRenderer.RefitLevels.get -> int
 Vixen.Rendering.Compositor.VirtualShadowRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.Compositor.VirtualShadowRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.Compositor.VirtualShadowRenderer.Scene.get -> Vixen.Shaders.ParameterCollection?
@@ -4489,6 +4493,8 @@ Vixen.Rendering.VirtualGeometrySystem.VirtualGeometrySystem(Vixen.Graphics.IGrap
 Vixen.Rendering.VirtualGeometrySystem.Visibility.get -> Vixen.Rendering.GpuClusterVisibility
 Vixen.Rendering.VirtualShadowAtlas -> sealed class
 Vixen.Rendering.VirtualShadowAtlas : System.IDisposable
+Vixen.Rendering.VirtualShadowAtlas.AbsentPages.get -> int
+Vixen.Rendering.VirtualShadowAtlas.AnsweredPages.get -> int
 Vixen.Rendering.VirtualShadowAtlas.Begin(System.ReadOnlySpan<Vixen.Rendering.VirtualShadowLevel> records, int clipmap, float firstTexel) -> void
 Vixen.Rendering.VirtualShadowAtlas.ClipmapLevels.get -> int
 Vixen.Rendering.VirtualShadowAtlas.Dispose() -> void
@@ -4530,7 +4536,7 @@ Vixen.Rendering.VirtualShadowPages.AtlasTexels.get -> int
 Vixen.Rendering.VirtualShadowPages.Drawn(int page) -> bool
 Vixen.Rendering.VirtualShadowPages.Evict(Vixen.Rendering.PageKey key, int slot) -> void
 Vixen.Rendering.VirtualShadowPages.Invalidate(int page) -> bool
-Vixen.Rendering.VirtualShadowPages.InvalidateAll() -> void
+Vixen.Rendering.VirtualShadowPages.InvalidateAll() -> int
 Vixen.Rendering.VirtualShadowPages.LoadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.VirtualShadowPages.Owe(int page) -> bool
 Vixen.Rendering.VirtualShadowPages.PageSize.get -> int
@@ -6382,8 +6388,10 @@ static Vixen.Rendering.VirtualGeometryContent.Read(System.ReadOnlySpan<byte> hie
 static Vixen.Rendering.VirtualShadowAtlas.Key.get -> Vixen.Shaders.EffectKey
 static Vixen.Rendering.VirtualShadowMap.AtlasOrigin(int slot, int pagesPerSide) -> Vixen.Core.Mathematics.Int2
 static Vixen.Rendering.VirtualShadowMap.Basis(Vixen.Core.Mathematics.Vector3 lightDirection) -> (Vixen.Core.Mathematics.Vector3 Right, Vixen.Core.Mathematics.Vector3 Up, Vixen.Core.Mathematics.Vector3 Reference)
+static Vixen.Rendering.VirtualShadowMap.ClipmapCell(int level, float firstExtent, Vixen.Core.Mathematics.Vector3 camera, Vixen.Core.Mathematics.Vector3 lightDirection, float depthRange) -> (int Right, int Up, int Light)
 static Vixen.Rendering.VirtualShadowMap.ClipmapProjection(int level, float firstExtent, Vixen.Core.Mathematics.Vector3 camera, Vixen.Core.Mathematics.Vector3 lightDirection, float depth) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.VirtualShadowMap.DepthScale(float depthRange) -> float
+static Vixen.Rendering.VirtualShadowMap.DepthStep(int level, float firstExtent, float depthRange) -> float
 static Vixen.Rendering.VirtualShadowMap.ExtentOf(int level, float firstExtent) -> float
 static Vixen.Rendering.VirtualShadowMap.IndexOf(uint first, Vixen.Core.Mathematics.Int2 page) -> int
 static Vixen.Rendering.VirtualShadowMap.LevelFor(float worldTexelSize, float firstExtent, int levels) -> int
