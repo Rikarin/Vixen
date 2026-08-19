@@ -558,12 +558,14 @@ warning would toast, log, toast, log.
   `PickingRenderer.Stage` is a `RenderStage` whose `ShaderName` must name something that writes an
   object id into an `R32UInt` target, and **no such `.rvn` exists** — nothing in `Raven/Library`
   writes an id, and the only `ShaderName` overrides in the tree are post-effects, water and
-  `DepthOnly`. Behind that shader sit two more missing pieces: nothing maps the id back to an
-  entity, which is the `Func<uint, Entity>` `SceneViewport.Resolve` takes and nobody supplies; and
-  the pane's compositor would have to carry `PickingRenderer.IdResource` and `DepthResource` per
-  pane. ⚠ **`PickingRenderer` also has no test and no caller** — `ScenePicker`'s own remarks call
-  the stage "written and tested", and only the first half is true. It is still what will be right
-  the day a shader moves a vertex; it is a shader-and-mapping job, not a compositor one.
+  `DepthOnly`. Behind that shader sit three more missing pieces: nothing carries a *global* object id
+  into a fragment stage (`ForwardPlus`'s `objectIndex` is `SV_InstanceID`, an index within one draw);
+  nothing maps an id back to an entity, which is the `Func<uint, Entity>` `SceneViewport.Resolve`
+  takes and nobody supplies; and the pane's compositor would have to carry
+  `PickingRenderer.IdResource` and `DepthResource` per pane. ⚠ **`PickingRenderer` also has no test
+  and no caller** — `ScenePicker`'s own remarks call the stage "written and tested", and only the
+  first half is true. It is still what will be right the day a shader moves a vertex; it is a
+  shader-and-mapping job, not a compositor one.
 - **The composed pane paints every drawable with the fallback material, and `EditorContent` is why
   it does not have to.** `WorldRenderer.Mount` is the only thing in the engine that builds an
   `IMaterialSource` — and with it a texture source, a vfx source and the two terrain seams — and it

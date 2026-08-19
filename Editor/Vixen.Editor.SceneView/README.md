@@ -1265,10 +1265,11 @@ What actually blocks it is a **shader**. `PickingRenderer.Stage` is a `RenderSta
 has to name something that writes an object id into an `R32UInt` target, and no `.rvn` in
 `Raven/Library` writes one — the only `ShaderName` overrides in the tree are post-effects, water and
 `DepthOnly`. Behind it sit two more pieces: nothing maps an id back to an entity, which is the
-`Func<uint, Entity>` `SceneViewport.Resolve` takes and no host supplies, and `ForwardPlus`'s
-`objectIndex` stream is the nearest thing to a per-object id that could feed such a shader. It is a
-shader-and-mapping job, not a compositor one, and until it is done `ScenePicker` is the answer rather
-than the fallback.
+`Func<uint, Entity>` `SceneViewport.Resolve` takes and no host supplies, and nothing yet carries a
+*global* object id into a fragment stage — `ForwardPlus`'s `objectIndex` is `SV_InstanceID`, an index
+within one draw, which only becomes an object id once `transformBase` is added the way that shader
+adds it for its transform records. It is a shader-and-mapping job, not a compositor one, and until it
+is done `ScenePicker` is the answer rather than the fallback.
 
 **Auto-depth.** `EditorCamera.OnPivotPlane` is the depth a zoom-at-the-pointer assumes when it has not
 been told one, and it is right when the grid is what you are looking at. Blender samples the depth
