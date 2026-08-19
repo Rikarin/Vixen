@@ -293,6 +293,21 @@ state never leaves the device. The two transfer paths are there for seeding a sy
 and for reading the result back to compare it — neither belongs in a frame, and the dispatches touch
 neither.
 
+**`Dispatches` is how you tell a device path that ran from one that was merely built.** A host that
+constructs a `VfxGpuSimulation`, records nothing and draws the CPU expansion produces the same frame
+at the same cost as one whose device path works, with no validation error and nothing to grep for.
+The counter rises when a dispatch is *recorded*, so it answers "did this get as far as asking";
+`VfxGpuSort.Dispatches` is its counterpart and one `Record` adds `Passes(Capacity) + 1`.
+`Core/Vixen.Rendering.Tests/VfxGpuDispatchTests` checks both against `NullDevice`'s command stream
+rather than against themselves, which is the only way the number is worth anything.
+
+**And the two backends draw the same picture, not merely the same numbers.**
+`Platform/Vixen.Vfx.Gpu.Tests/VfxBackendPictureTests` simulates one graph twice — `VfxSimulation`
+here, dispatches on a real device there — expands and draws both through *identical* code so the
+renderer cancels, and compares the pixels: **the worst channel differs by 3/255 and 25 pixels of
+65 536 move at all**. ⚠ That is a picture of the *simulation* seam and says so, because there is no
+end-to-end device frame to photograph — see "what is not here yet" for the two structural reasons.
+
 `Platform/Vixen.Vfx.Gpu.Tests` is where the three assemblies that no shipping build links together —
 the runtime, the compiler and the driver — are put in one process so the question can be asked at all.
 It skips where there is no Vulkan, and `VIXEN_REQUIRE_VULKAN=1` turns that skip into a failure on the
