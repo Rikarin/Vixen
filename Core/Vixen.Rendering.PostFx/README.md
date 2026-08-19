@@ -24,6 +24,7 @@ should not link one.
 | Effect | Reads | Notes |
 |---|---|---|
 | `FxaaRenderer` | colour | The fallback antialiasing: needs no history, no motion vectors, no depth. Softens texture detail along with geometry, which is the trade |
+| `SmaaRenderer` | colour | The same inputs and a better answer, for three passes instead of one: it walks the whole edge and looks the coverage up rather than guessing a direction, so it leaves the texture beside an edge alone. Owns a generated coverage table, and is the only node here that uploads one |
 | `TemporalAntialiasingRenderer` | colour, history, motion, depth | The default where it can run. Owns its history and alternates it, because a pass cannot read the target it writes. Its sub-pixel offset is applied by `CameraExtractionSystem`, not here: what it offsets is the projection |
 | `SharpenRenderer` | colour | Contrast-adaptive, to put back what antialiasing and upscaling took out |
 | `AmbientOcclusionRenderer` | depth, normals | Half resolution by default, which is the standard trade for an effect that is low frequency by nature |
@@ -99,8 +100,16 @@ or a race, and neither shows up as anything but an intermittently wrong frame.
 
 ## What is not here yet
 
-SMAA and MSAA resolve. Each needs a shader that does not exist yet rather than a pass over one that
-does — which is the difference between this list and the one above it.
+MSAA resolve. It needs a shader that does not exist yet rather than a pass over one that does —
+which is the difference between this list and the one above it.
+
+⚠ **SMAA was on that list and is now on the one above it, with one part of it still owed.** Diagonal
+pattern detection — the reference's second, optional detector for silhouettes near 45°, with a
+coverage table of its own — is not implemented, so those edges fall through to the orthogonal path.
+That is `SMAA_DISABLE_DIAG_DETECTION`, a build the reference itself ships, rather than an
+approximation of the detector; and the edge search is a per-texel loop rather than the reference's
+`SearchTex`-accelerated two-texel walk, which is the same answer at twice the iterations and one
+fewer generated table.
 
 ⚠ **This list used to be four items longer, and the four went different ways.** GTAO, screen-space
 reflections and depth of field all shipped: `Ssao.rvn` *is* GTAO rather than the classic hemisphere
