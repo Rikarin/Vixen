@@ -99,9 +99,22 @@ or a race, and neither shows up as anything but an intermittently wrong frame.
 
 ## What is not here yet
 
-SMAA, MSAA resolve, GTAO, screen-space reflections, depth of field and colour grading as an asset.
-Each needs a shader that does not exist yet rather than a pass over one that does — which is the
-difference between this list and the one above it.
+SMAA and MSAA resolve. Each needs a shader that does not exist yet rather than a pass over one that
+does — which is the difference between this list and the one above it.
+
+⚠ **This list used to be four items longer, and the four went different ways.** GTAO, screen-space
+reflections and depth of field all shipped: `Ssao.rvn` *is* GTAO rather than the classic hemisphere
+walk, `ReflectionRenderer` is the reflections node, `DepthOfFieldRenderer` the defocus one, and all
+three are arms of `PostEffectAssets`' asset-to-node switch that `StandardFrame` emits on the tier
+flags — so a project gets them by asking for a quality tier rather than by authoring a document.
+
+⚠ **Colour grading as an asset is the interesting one, because exactly one half of it is reachable.**
+The consuming half is finished and reached: `TonemapAsset.Lut` names a 3D table, `TonemapRenderer`
+binds it and flips `Tonemap.rvn`'s `UseLut` permutation, and `AssetTextureSource` makes a `Texture3D`
+for it. The authoring half is not. `CubeLutImporter` exists and parses `.cube`, and `[Importer]` is a
+declaration nothing scans for — so until it is added to `BuiltInImporters` by hand, a `.cube` dropped
+into a project falls through to `RawImporter` and the finished consumer has nothing to load. That
+registration is task #167; the sentence above it is the one to change when it lands.
 
 ## Auto-exposure is the one effect here that is not a full-screen pass
 

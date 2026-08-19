@@ -584,12 +584,14 @@ ratios are what the threshold rests on. Absolute throughput from this table woul
 - **A second view of the same effect.** `ParticleRenderFeature` expands once, against one view, so a
   reflection or a shadow pass draws quads facing the wrong camera. Expanding per view is the
   workaround; the GPU path is the fix, which is why the workaround is not in.
-- **The node graph and its editor.** `Vixen.Editor.VfxGraph` authors what `Compile` consumes. A graph is
-  written in code today.
+- ~~**The node graph and its editor.**~~ Both shipped. `Vixen.Editor.VfxGraph` is the UI-free half —
+  `VfxNodeLibrary` and `VfxGraphCompiler`, which lowers a graph to what `Compile` consumes — and
+  `VfxEditorFactory` is the editor half, registered in `StandardEditors` and therefore reached by
+  double-clicking a `.vxvfx`. `VfxImporter` is what turns the authored document into the asset.
 - **Arbitrary expressions over custom attributes.** The storage and its three operations are here; what
-  is not is a node reading two attributes and writing a third. That is the node graph, and a lowering
-  to add/multiply/select over a register file — a different design, and the one the closed opcode set
-  exists to postpone.
+  is not is a node reading two attributes and writing a third — a lowering to add/multiply/select over
+  a register file, which is a different design from the graph that now exists, and the one the closed
+  opcode set exists to postpone.
 - **Screen-space collision.** The analytic colliders are in; colliding against a depth buffer needs one,
   and that is a renderer's resource rather than a simulation's.
 - **Sub-emitters on the GPU.** `VfxSubEmitter` is a CPU object walking CPU particles. The device form

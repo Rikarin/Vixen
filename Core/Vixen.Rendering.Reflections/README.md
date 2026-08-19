@@ -79,11 +79,21 @@ sample, compared at 1e-4 against this reference.
 
 ## Not yet, and named so the absence is a decision
 
-- **The HZB screen march.** Three documented copies of the naive walk now exist — the probes',
-  this reference's, the kernel's — and the hierarchical traversal replaces all of them at once.
-- **The compositor node.** Wiring the kernel over a real frame — positions and normals
-  reconstructed from depth rather than handed in as planes — is production plumbing with this
-  package as its referee.
+⚠ **Both entries this section used to hold have landed, and one of them landed everywhere except
+here.**
+
+- **The HZB screen march** is built. `ScreenSpaceTrace.Pyramid` switches the reference march to a
+  hierarchical DDA over `ScreenDepthPyramid`, and the device kernels take a real Hi-Z chain —
+  `ReflectionTraceFill` and `ScreenProbeTraceFill` both set `PyramidLevels`, fed from
+  `CompositorBuilder.TakeTracePyramid`. ⚠ **Nothing in *this* package sets it**: `TracedReflections`
+  never mentions `Pyramid`, so the reference this package exists to be still walks the naive march.
+  That is fine as long as it is deliberate — a reference that took the same shortcut as the kernel
+  would stop being able to catch the shortcut — but it is a choice nobody has written down, and it is
+  the reason the two agree at 1e-4 on a march that is not the one shipping.
+- **The compositor node** is `ReflectionRenderer`, in `Vixen.Rendering.PostFx`. It reconstructs
+  positions and normals from depth rather than taking planes, `PostEffectAssets` builds it from a
+  `!Reflections` asset, `StandardFrame` emits one whenever the frame's reflections mode is `Screen`,
+  and `Samples/13-ThirdPersonShooter` draws through it.
 
 **Nothing in this package creates or calls a graphics device** — the kernel's driver lives in
 `Vixen.Rendering.Lighting`, where the devices are.
