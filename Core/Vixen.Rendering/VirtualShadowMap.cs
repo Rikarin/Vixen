@@ -267,6 +267,79 @@ public static class VirtualShadowMap {
         return Math.Min(level, Math.Max(levels, 1) - 1);
     }
 
+    /// <summary>How far a level's centre moves along the light between refits, in world units.</summary>
+    /// <param name="level">Which level.</param>
+    /// <param name="firstExtent">How wide level zero is.</param>
+    /// <param name="depthRange">How deep the level's box is along the light.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The third axis is not a page axis, and giving it the page's step was task #124's
+    ///         blink.</b> A level's page grid quantises the two axes it is <em>made</em> of; the third
+    ///         is the depth the level's box spans, which is <paramref name="depthRange" /> for every
+    ///         level alike and has no page structure at all. Stepping it at the lateral page size made
+    ///         level zero's near plane move every 0.3 m of walking and level seven's every 40 m — a
+    ///         hundred and twenty-eight to one on an axis the two levels share — and every one of those
+    ///         steps shifts every stored depth in the level, so <c>VirtualShadowRenderer.Fit</c>
+    ///         invalidated the level wholesale. Measured in sample 13 while walking: the clipmap threw
+    ///         away twenty-nine pages a frame against a budget that redraws sixteen, so the map could
+    ///         not converge while the camera moved.
+    ///     </para>
+    ///     <para>
+    ///         <paramref name="depthRange" /> over <see cref="PagesPerSide" /> is the step, which is
+    ///         the same statement the lateral axes make — the box is divided as many ways along the
+    ///         light as across it — and it is the same for every level because the box is. What it
+    ///         costs is the near plane trailing the camera by up to half a step, which the box's
+    ///         remaining depth absorbs: at the defaults that is 6.25 m of slack in a 400 m range.
+    ///     </para>
+    ///     <para>
+    ///         <paramref name="level" /> and <paramref name="firstExtent" /> are taken and deliberately
+    ///         unused: a step finer than the level's own page would quantise the depth more finely than
+    ///         the geometry it contains, so the clamp below is what keeps a caller who shrinks the
+    ///         depth range from reintroducing the defect at a different scale.
+    ///     </para>
+    /// </remarks>
+    public static float DepthStep(int level, float firstExtent, float depthRange) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(firstExtent);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(depthRange);
+
+        return MathF.Max(depthRange / PagesPerSide, ExtentOf(level, firstExtent) / PagesPerSide);
+    }
+
+    /// <summary>Which cell of its own snap grid a level's centre lands in, along the light's basis.</summary>
+    /// <param name="level">Which level.</param>
+    /// <param name="firstExtent">How wide level zero is.</param>
+    /// <param name="camera">Where the camera is.</param>
+    /// <param name="lightDirection">The direction light travels, toward the scene.</param>
+    /// <param name="depthRange">How deep the level's box is along the light.</param>
+    /// <remarks>
+    ///     <b>What <see cref="ClipmapProjection" /> is a function of, exposed so a caller can ask what
+    ///     changed rather than only whether something did.</b> Two fits with the same cell have
+    ///     bit-identical projections; two that differ only in <c>Right</c> or <c>Up</c> differ by a
+    ///     whole number of pages laterally, which is a level that <em>slid</em>; one that differs in
+    ///     <c>Light</c> has moved its near plane, which is the only kind of move that changes what a
+    ///     page's stored depths mean. <c>VirtualShadowRenderer.Fit</c> tells the two apart with this.
+    /// </remarks>
+    public static (int Right, int Up, int Light) ClipmapCell(
+        int level,
+        float firstExtent,
+        Vector3 camera,
+        Vector3 lightDirection,
+        float depthRange
+    ) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(firstExtent);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(depthRange);
+
+        var light = Vector3.Normalize(lightDirection);
+        var (right, up, _) = Basis(light);
+        var page = ExtentOf(level, firstExtent) / PagesPerSide;
+
+        return (
+            (int)MathF.Floor(Vector3.Dot(camera, right) / page),
+            (int)MathF.Floor(Vector3.Dot(camera, up) / page),
+            (int)MathF.Floor(Vector3.Dot(camera, light) / DepthStep(level, firstExtent, depthRange))
+        );
+    }
+
     /// <summary>
     ///     One clipmap level's orthographic projection, snapped to its own page grid.
     /// </summary>
@@ -304,15 +377,16 @@ public static class VirtualShadowMap {
 
         var extent = ExtentOf(level, firstExtent);
         var page = extent / PagesPerSide;
+        var cell = ClipmapCell(level, firstExtent, camera, lightDirection, depth);
 
         // Snapped along the light's own axes, all three — the two the page grid is made of because a
         // page must not slide, and the third because an unsnapped near plane changes the matrix when
         // nothing visible does, which stops "the projection is identical" being something a test can
         // state. ShadowCascades.Fit makes the same argument about the same third axis.
         var centre =
-            (right * Snap(Vector3.Dot(camera, right), page))
-            + (up * Snap(Vector3.Dot(camera, up), page))
-            + (light * Snap(Vector3.Dot(camera, light), page));
+            (right * (cell.Right * page))
+            + (up * (cell.Up * page))
+            + (light * (cell.Light * DepthStep(level, firstExtent, depth)));
 
         var origin = centre - (light * (depth * 0.5f));
         var view = Matrix4x4.LookAt(origin, centre, reference);
@@ -468,7 +542,4 @@ public static class VirtualShadowMap {
 
         return viewProjection * window;
     }
-
-    /// <summary>The last whole multiple of a grid step at or below a value.</summary>
-    static float Snap(float value, float step) => step <= 0f ? value : MathF.Floor(value / step) * step;
 }

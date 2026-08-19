@@ -6388,8 +6388,10 @@ static Vixen.Rendering.VirtualGeometryContent.Read(System.ReadOnlySpan<byte> hie
 static Vixen.Rendering.VirtualShadowAtlas.Key.get -> Vixen.Shaders.EffectKey
 static Vixen.Rendering.VirtualShadowMap.AtlasOrigin(int slot, int pagesPerSide) -> Vixen.Core.Mathematics.Int2
 static Vixen.Rendering.VirtualShadowMap.Basis(Vixen.Core.Mathematics.Vector3 lightDirection) -> (Vixen.Core.Mathematics.Vector3 Right, Vixen.Core.Mathematics.Vector3 Up, Vixen.Core.Mathematics.Vector3 Reference)
+static Vixen.Rendering.VirtualShadowMap.ClipmapCell(int level, float firstExtent, Vixen.Core.Mathematics.Vector3 camera, Vixen.Core.Mathematics.Vector3 lightDirection, float depthRange) -> (int Right, int Up, int Light)
 static Vixen.Rendering.VirtualShadowMap.ClipmapProjection(int level, float firstExtent, Vixen.Core.Mathematics.Vector3 camera, Vixen.Core.Mathematics.Vector3 lightDirection, float depth) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.VirtualShadowMap.DepthScale(float depthRange) -> float
+static Vixen.Rendering.VirtualShadowMap.DepthStep(int level, float firstExtent, float depthRange) -> float
 static Vixen.Rendering.VirtualShadowMap.ExtentOf(int level, float firstExtent) -> float
 static Vixen.Rendering.VirtualShadowMap.IndexOf(uint first, Vixen.Core.Mathematics.Int2 page) -> int
 static Vixen.Rendering.VirtualShadowMap.LevelFor(float worldTexelSize, float firstExtent, int levels) -> int
