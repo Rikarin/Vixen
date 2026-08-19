@@ -277,34 +277,158 @@ partial class Build : NukeBuild {
         );
 
     /// <summary>
+    ///     Every project in the tree that targets <c>net10.0-browser</c>. Three, and the list is the
+    ///     answer to a <c>grep</c> rather than to a memory — see <see cref="CompileWeb" />.
+    /// </summary>
+    IEnumerable<AbsolutePath> BrowserProjects => [
+        RootDirectory / "Platform" / "Vixen.Platform.Web" / "Vixen.Platform.Web.csproj",
+        RootDirectory / "Platform" / "Vixen.Graphics.WebGPU.Browser" / "Vixen.Graphics.WebGPU.Browser.csproj",
+        RootDirectory / "Platform" / "Vixen.Audio.Backend.WebAudio" / "Vixen.Audio.Backend.WebAudio.csproj"
+    ];
+
+    /// <summary>
     ///     Builds the browser-targeted assemblies, which the solution cannot contain either.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <c>Vixen.Audio.Backend.WebAudio</c> targets <c>net10.0-browser</c>, and — exactly as
-    ///         with the two mobile targets above — a project with that target cannot be
-    ///         <em>evaluated</em> without the <c>wasm-tools</c> workload. Its presence in
+    ///         Three projects target <c>net10.0-browser</c>: <c>Vixen.Platform.Web</c>,
+    ///         <c>Vixen.Graphics.WebGPU.Browser</c> and <c>Vixen.Audio.Backend.WebAudio</c>. Exactly
+    ///         as with the two mobile targets above, a project with that target cannot be
+    ///         <em>evaluated</em> without the <c>wasm-tools</c> workload, so their presence in
     ///         <c>Vixen.slnx</c> would break <c>dotnet build</c> for anyone who has not installed it.
+    ///         That is the whole reason this target exists.
     ///     </para>
     ///     <para>
-    ///         The cost is the same one <see cref="CompileMobile" /> names: the assembly is not seen
-    ///         by <see cref="Test" />, <see cref="CheckFormat" /> or <see cref="Pack" />. That is why
-    ///         everything about audio that can be asserted without a browser — which is all of the
-    ///         mixing, the spatialisation and the effects — lives in <c>Vixen.Audio</c>, where the
-    ///         solution does see it. What is left here is the twenty lines that talk to an
-    ///         <c>AudioContext</c>.
+    ///         ⚠ <b>It built one of the three, and its own description said "the browser
+    ///         assemblies".</b> Only <c>Vixen.Audio.Backend.WebAudio</c> was named here, which is why
+    ///         it finished in six seconds; <c>Vixen.Graphics.WebGPU.Browser.csproj</c> even carried a
+    ///         comment saying <em>"nuke Compile does not build it and neither does CI today"</em>,
+    ///         and nothing contradicted it. A gate that covers a quarter of its subject and reports
+    ///         green is worse than no gate, because the green is read as coverage.
+    ///     </para>
+    ///     <para>
+    ///         <c>Vixen.Platform.Web.Tests</c> is deliberately <em>not</em> in this list and is not
+    ///         an omission: it targets plain <c>net10.0</c> and lives in <c>Vixen.slnx</c>, so
+    ///         <see cref="Compile" /> and <see cref="Test" /> already see it. What it can assert is
+    ///         limited by that TFM — see <c>BrowserModuleUrlTests</c>, which reaches the browser-only
+    ///         constants by linking their source rather than by referencing the assembly.
+    ///     </para>
+    ///     <para>
+    ///         <b>The cost is the same one <see cref="CompileMobile" /> names, and compiling is the
+    ///         floor rather than the ceiling.</b> None of the three is seen by <see cref="Test" />,
+    ///         <see cref="CheckFormat" />, <see cref="CheckArchitecture" /> or <see cref="Pack" />,
+    ///         and a compiler cannot see a URL that will not resolve at run time, an emcc flag that
+    ///         was never applied, or a file that is not published where it is fetched from. Two
+    ///         further gates cover those: <c>BrowserModuleUrlTests</c> under <see cref="Test" />, and
+    ///         <see cref="PublishWeb" />, which puts a real head through the SDK.
     ///     </para>
     /// </remarks>
     Target CompileWeb => definition => definition
-        .Description("Builds the browser assemblies, which cannot live in the solution")
-        .Executes(() =>
-            DotNetBuild(settings => settings
-                .SetProjectFile(
-                    RootDirectory / "Platform" / "Vixen.Audio.Backend.WebAudio"
-                    / "Vixen.Audio.Backend.WebAudio.csproj"
-                )
-                .SetConfiguration(Configuration)
-            )
+        .Description("Builds the three browser assemblies, which cannot live in the solution")
+        .Executes(() => {
+                foreach (var project in BrowserProjects) {
+                    Log.Information("Building {Project}", project.Name);
+
+                    DotNetBuild(settings => settings
+                        .SetProjectFile(project)
+                        .SetConfiguration(Configuration)
+                    );
+                }
+            }
+        );
+
+    AbsolutePath WebPublishDirectory => ArtifactsDirectory / "web";
+
+    /// <summary>
+    ///     Publishes a browser head and checks that the page it produces is loadable — which is a
+    ///     different claim from "the assemblies compile", and the one three shipped defects broke.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="CompileWeb" /> builds three <em>libraries</em>, and a library never
+    ///         evaluates <c>build/Vixen.Platform.Web.props</c> or <c>.targets</c> — those apply to
+    ///         the head that consumes them, so the emcc relink, the WebGL2 assertion, the trimming
+    ///         profile and the static-web-asset layout are all untouched by a compile. Every one of
+    ///         the three defects the web-head spike found lives in exactly that gap:
+    ///         <c>WasmMainJSPath</c> at the project root is not published at all, the
+    ///         <c>vixen-*.js</c> content files have to arrive at the <em>site root</em> for the
+    ///         default module URL to resolve, and <c>dotnet.run()</c> tears the runtime down.
+    ///     </para>
+    ///     <para>
+    ///         The subject is <c>docs/plan/spikes/web-head</c>, because it is the only head in the
+    ///         repository. ⚠ <b>That makes a spike load-bearing, and it should not stay that way.</b>
+    ///         When a real web head lands — doc 14 Phase 10, doc 17 § heads — point this at it and
+    ///         let the spike go back to being a document. The failure mode of the interim is loud
+    ///         (the project file is gone, the target says so), which is why it is acceptable and a
+    ///         silent gap is not.
+    ///     </para>
+    ///     <para>
+    ///         The assertions after the publish are the *other half* of the invariant
+    ///         <c>BrowserModuleUrlTests</c> checks. That test knows the constants — it links their
+    ///         source — and asserts each resolves out of <c>_framework/</c> to the site root. It
+    ///         cannot know whether the SDK actually puts the file there. This can, and does, by
+    ///         looking at what was published.
+    ///     </para>
+    ///     <para>
+    ///         Not a dependency of <see cref="CompileWeb" />, deliberately: the compile is seconds
+    ///         and this is minutes, because it relinks with emcc. They are two gates with two costs
+    ///         and CI should be able to price them separately.
+    ///     </para>
+    /// </remarks>
+    Target PublishWeb => definition => definition
+        .Description("Publishes a browser head and checks the page it produces is loadable")
+        .Produces(WebPublishDirectory / "**")
+        .Executes(() => {
+                var head = RootDirectory / "docs" / "plan" / "spikes" / "web-head" / "webhead.csproj";
+
+                if (!head.FileExists()) {
+                    Assert.Fail(
+                        $"the web head this target publishes is not at '{head}'. If it moved, point "
+                        + "PublishWeb at wherever it went; if it was deleted, this gate went with it "
+                        + "and the three defects in docs/plan/spikes/web-head/RESULT.md are "
+                        + "uncovered again."
+                    );
+                }
+
+                WebPublishDirectory.CreateOrCleanDirectory();
+
+                DotNetPublish(settings => settings
+                    .SetProject(head)
+                    .SetConfiguration(Configuration.Release)
+                    .SetOutput(WebPublishDirectory)
+                );
+
+                // The site root, which is not the output root: Microsoft.NET.Sdk.WebAssembly puts
+                // the page and everything fetched by URL under wwwroot/, and the runtime under
+                // wwwroot/_framework/. Both halves of the module-URL invariant are about that
+                // relationship, so both are read from here rather than assumed.
+                var siteRoot = WebPublishDirectory / "wwwroot";
+
+                // index.html and main.js: defect 3. A WasmMainJSPath outside wwwroot/ is not a
+                // static web asset, so the page 404s on its own entry point and nothing happens —
+                // with no build error, because nothing was wrong with the build.
+                //
+                // vixen-platform.js and vixen-webgpu.js: defect 1's second half. The default module
+                // URL is "../", resolved against the runtime's module in _framework/, and that is
+                // only correct while these land *here*. If a future SDK or a packaging change moves
+                // them, the constant becomes wrong and this is what says so.
+                foreach (var required in new[] { "index.html", "main.js", "vixen-platform.js", "vixen-webgpu.js" }) {
+                    Assert.FileExists(
+                        siteRoot / required,
+                        $"the published head has no '{required}' at its site root. See "
+                        + "docs/plan/spikes/web-head/RESULT.md; a page missing any of these loads "
+                        + "and then does nothing, which is the failure this target exists to catch."
+                    );
+                }
+
+                Assert.DirectoryExists(
+                    siteRoot / "_framework",
+                    "the published head has no _framework/ directory, so there is no runtime and "
+                    + "nothing for the browser bindings' relative module URLs to resolve against."
+                );
+
+                Log.Information("Published a loadable head to {Directory}", WebPublishDirectory);
+            }
         );
 
     Target Pack => definition => definition
