@@ -93,6 +93,32 @@ public sealed class RenderPassRenderer : SceneRenderer {
     /// <summary>How many samples its attachments have.</summary>
     public int SampleCount { get; set; } = 1;
 
+    /// <summary>
+    ///     Where each multisampled colour attachment's samples are resolved to, as the target's name
+    ///     against the single-sampled resource that receives them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The end of MSAA's plumbing, and the one link that was missing.</b>
+    ///         <see cref="SampleCount" /> already reached the pipeline through
+    ///         <see cref="RenderOutput" /> and <c>RenderResourceAsset.SampleCount</c> already reached
+    ///         the texture, and <c>ColourAttachment.ResolveView</c> is honoured by both backends — but
+    ///         nothing between the two ever named a pair, so a frame could draw 4× correctly and end
+    ///         with the samples in a texture no later pass can read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A multisampled texture is not sampleable and its resolve is not an attachment.</b>
+    ///         The target keeps <c>ColourTarget</c> usage; the resolve is what carries <c>Sampled</c>
+    ///         and what the rest of the frame reads by name. Pointing a post chain at the target
+    ///         instead is a validation error, and forgetting this map entirely is no error at all.
+    ///     </para>
+    ///     <para>
+    ///         By name rather than by index, on <see cref="Loaded" />'s terms: a target added above
+    ///         one of these must not move somebody else's resolve onto its neighbour.
+    ///     </para>
+    /// </remarks>
+    public IDictionary<string, string> ResolveTargets { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
     /// <summary>The viewport to set, or null for the whole target.</summary>
     public Viewport? Viewport { get; set; }
 
@@ -234,10 +260,15 @@ public sealed class RenderPassRenderer : SceneRenderer {
 
         var colours = new GraphTexture[ColourTargets.Count];
         var formats = new PixelFormat[ColourTargets.Count];
+        var resolves = new GraphTexture[ColourTargets.Count];
 
         for (var i = 0; i < ColourTargets.Count; i++) {
             colours[i] = frame.Texture(ToString(), ColourTargets[i]);
             formats[i] = frame.FormatOf(ToString(), ColourTargets[i]);
+
+            resolves[i] = ResolveTargets.TryGetValue(ColourTargets[i], out var into)
+                ? frame.Texture(ToString(), into)
+                : GraphTexture.None;
         }
 
         var depth = DepthTarget is { Length: > 0 } name ? frame.Texture(ToString(), name) : GraphTexture.None;
@@ -272,7 +303,8 @@ public sealed class RenderPassRenderer : SceneRenderer {
                     pass.ColourAttachment(
                         colours[i],
                         Loaded.Contains(ColourTargets[i]) ? LoadAction.Load : Load,
-                        ClearColour
+                        ClearColour,
+                        resolve: resolves[i]
                     );
                 }
 

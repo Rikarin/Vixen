@@ -376,6 +376,44 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
 
     /// <summary>What draws into it.</summary>
     public ISceneRendererAsset[] Children { get; init; } = [];
+
+    /// <summary>
+    ///     Which colour attachments are multisampled, and the single-sampled resource each is
+    ///     resolved into at the end of the pass.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ Appended, on <c>SceneTextures</c>' terms — a <c>[DataContract]</c> is serialised in
+    ///         declaration order, so this goes last or every saved document reads its own fields back
+    ///         shifted.
+    ///     </para>
+    ///     <para>
+    ///         <b>This is the whole of MSAA above the RHI.</b> The samples themselves are already
+    ///         expressible: <see cref="SampleCount" /> here and on <see cref="RenderResourceAsset" />
+    ///         reach the pipeline and the texture, and both backends honour a resolve. What did not
+    ///         exist was any way for a frame to say <em>where the samples go</em> — so a document could
+    ///         declare a 4× target, draw into it correctly, and end the pass with the result still in
+    ///         the tile and nothing single-sampled to read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A multisampled texture is not sampleable.</b> The target named here wants
+    ///         <c>ColourTarget</c> usage and nothing else; it is the resolve that carries
+    ///         <c>Sampled</c> and that every later pass reads by name. A frame that points its post
+    ///         chain at the multisampled name gets a validation error, and one that leaves this empty
+    ///         gets no error at all — just a target nobody can read.
+    ///     </para>
+    /// </remarks>
+    public ResolveTargetAsset[] ResolveTargets { get; init; } = [];
+}
+
+/// <summary>One multisampled attachment and where its samples are resolved to.</summary>
+[DataContract("Resolve")]
+public sealed record ResolveTargetAsset {
+    /// <summary>The colour attachment being resolved — a name from <c>ColourTargets</c>.</summary>
+    public string Target { get; init; } = string.Empty;
+
+    /// <summary>The single-sampled resource it resolves into.</summary>
+    public string Into { get; init; } = string.Empty;
 }
 
 /// <summary>One frame resource a pass hands to the scene's set.</summary>

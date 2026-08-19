@@ -713,6 +713,12 @@ public sealed class CompositorBuilder(RenderSystem system) {
             node.BufferReads.Add(read);
         }
 
+        // The resolve map, which is what makes SampleCount above mean anything: a 4× target the
+        // frame never resolves is a pass that draws correctly into memory nothing can read.
+        foreach (var resolve in declared.ResolveTargets) {
+            node.ResolveTargets[resolve.Target] = resolve.Into;
+        }
+
         node.Descriptors.Slot = declared.Slot;
         node.Descriptors.Allocator = Descriptors;
         node.Samplers = Samplers;

@@ -72,6 +72,10 @@ readonly record struct ResourceUse(
 /// <param name="ClearStencil">What to clear stencil to.</param>
 /// <param name="IsDepth">Whether it is the depth-stencil attachment.</param>
 /// <param name="ReadOnly">Whether a depth attachment is only tested, not written.</param>
+/// <param name="Resolve">
+///     Where a multisampled attachment is resolved to at the end of the pass, or
+///     <see cref="GraphTexture.None" /> for an attachment that is not resolved.
+/// </param>
 readonly record struct GraphAttachment(
     GraphTexture Texture,
     LoadAction Load,
@@ -80,7 +84,8 @@ readonly record struct GraphAttachment(
     float ClearDepth,
     byte ClearStencil,
     bool IsDepth,
-    bool ReadOnly
+    bool ReadOnly,
+    GraphTexture Resolve = default
 );
 
 /// <summary>What the graph knows about one virtual resource.</summary>

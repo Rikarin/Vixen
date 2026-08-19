@@ -114,12 +114,28 @@ public sealed class RenderGraphPassBuilder {
     ///         visibility buffer's depth arrived as NaNs and every fragment quietly failed the depth
     ///         test.
     ///     </para>
+    ///     <para>
+    ///         <b>A resolve target is a write of its own</b>, and the multisampled attachment above it
+    ///         usually is not read at all. That is the whole shape of MSAA in a graph: the samples exist
+    ///         for the duration of one pass and what survives is the resolve — so the resolve is the
+    ///         write the next pass reads, and the multisampled texture is free to be aliased and
+    ///         discarded. Declaring the resolve as a write is what makes both true; without it the
+    ///         resolve has no producer, every reader of it fails validation, and the pass that filled it
+    ///         is culled for writing something nobody wanted.
+    ///     </para>
     /// </remarks>
+    /// <param name="resolve">
+    ///     Where to resolve a multisampled attachment at the end of the pass, or
+    ///     <see cref="GraphTexture.None" /> not to resolve it. Naming one makes the store a
+    ///     <see cref="StoreAction.Resolve" /> whatever <paramref name="store" /> says, because a
+    ///     resolve target that is not resolved into is a texture the pass silently left empty.
+    /// </param>
     public void ColourAttachment(
         GraphTexture texture,
         LoadAction load = LoadAction.Clear,
         Color4 clear = default,
-        StoreAction? store = null
+        StoreAction? store = null,
+        GraphTexture resolve = default
     ) {
         graph.Validate(texture);
 
@@ -128,7 +144,17 @@ public sealed class RenderGraphPassBuilder {
         }
 
         pass.Uses.Add(new(texture, GraphBuffer.None, ResourceState.ColourTarget, true));
-        pass.Attachments.Add(new(texture, load, store, clear, 0f, 0, false, false));
+
+        if (resolve.IsValid) {
+            graph.Validate(resolve);
+            graph.ValidateResolve(texture, resolve);
+
+            // The layout Vulkan puts a resolve destination in is the colour-attachment one, not the
+            // copy-destination one: it is written by the render pass, not by a transfer.
+            pass.Uses.Add(new(resolve, GraphBuffer.None, ResourceState.ColourTarget, true));
+        }
+
+        pass.Attachments.Add(new(texture, load, store, clear, 0f, 0, false, false, resolve));
     }
 
     /// <summary>Renders into a texture as the depth-stencil attachment.</summary>
