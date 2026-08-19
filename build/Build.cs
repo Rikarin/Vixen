@@ -355,6 +355,15 @@ partial class Build : NukeBuild {
     ///         default module URL to resolve, and <c>dotnet.run()</c> tears the runtime down.
     ///     </para>
     ///     <para>
+    ///         <b>It catches the first two of those and not the third, and the difference is the
+    ///         shape of the whole problem.</b> The first two are questions about a directory, so a
+    ///         publish can answer them. The third is a question about what happens after the page
+    ///         loads, and only something that loads the page can answer it — which is the Playwright
+    ///         leg doc 10 asks for, still owed, and which must drive a real browser over CDP rather
+    ///         than <c>--dump-dom</c>: that mode never fires <c>requestAnimationFrame</c>, so a leg
+    ///         built on it would report a live frame loop as dead.
+    ///     </para>
+    ///     <para>
     ///         The subject is <c>docs/plan/spikes/web-head</c>, because it is the only head in the
     ///         repository. ⚠ <b>That makes a spike load-bearing, and it should not stay that way.</b>
     ///         When a real web head lands — doc 14 Phase 10, doc 17 § heads — point this at it and
@@ -363,7 +372,7 @@ partial class Build : NukeBuild {
     ///         silent gap is not.
     ///     </para>
     ///     <para>
-    ///         The assertions after the publish are the *other half* of the invariant
+    ///         The assertions after the publish are the <em>other half</em> of the invariant
     ///         <c>BrowserModuleUrlTests</c> checks. That test knows the constants — it links their
     ///         source — and asserts each resolves out of <c>_framework/</c> to the site root. It
     ///         cannot know whether the SDK actually puts the file there. This can, and does, by
