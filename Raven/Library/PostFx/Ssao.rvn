@@ -164,8 +164,8 @@ shader Ssao {
 
                 // The horizons, as cosines from the view vector. -1 is "nothing stopped the search",
                 // which is the angle straight back past the camera and therefore no occlusion at all.
-                val forward = SearchHorizon(centre, n, direction, screenRadius)
-                val backward = SearchHorizon(centre, n, -direction, screenRadius)
+                val forward = SearchHorizon(centre, toCamera, n, direction, screenRadius)
+                val backward = SearchHorizon(centre, toCamera, n, -direction, screenRadius)
 
                 // Into signed angles: forward is the `+slice` side by construction.
                 var h2 = acos(forward)
@@ -225,8 +225,16 @@ shader Ssao {
     /// ⚠ Returns a cosine from the *view vector*, not from the tangent plane. `bias` and the falloff
     /// still speak in elevation above the surface, because that is the frame in which "this sample is
     /// not really an occluder" is a sentence — but what the integral is handed is the camera's angle.
-    func SearchHorizon(centre: float3, n: float3, direction: float2, screenRadius: float2): float {
-        val toCamera = Math.SafeNormalize(-centre)
+    ///
+    /// `toCamera` is passed rather than derived, because this is called twice per direction and a
+    /// normalise per call is sixteen of them per pixel for one value that does not change.
+    func SearchHorizon(
+        centre: float3,
+        toCamera: float3,
+        n: float3,
+        direction: float2,
+        screenRadius: float2
+    ): float {
         var maxCosine = -1f
         val stepCount = max(Steps, 1)
 
