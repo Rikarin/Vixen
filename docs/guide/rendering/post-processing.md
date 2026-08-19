@@ -8,12 +8,12 @@ api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.Bloom
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
-related: [rendering/physical-lighting, rendering/post-process-volumes, rendering/reading-the-frame, rendering/volumetric-fog]
+related: [rendering/physical-lighting, rendering/post-process-volumes, rendering/reading-the-frame, rendering/volumetric-fog, rendering/smaa]
 ---
 
 ## What it is
 
-Seventeen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
+Eighteen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
 factory once and a document can say `!Bloom`:
 
 ```csharp no-compile="the builder is the host's; see SceneRenderHost"
@@ -38,6 +38,7 @@ builder.Factories.Add(new PostEffectFactory());
 | `!Outline` | colour, depth, normals, a mask | colour with edges drawn |
 | `!Vignette` | colour | colour, with the lens's imperfections |
 | `!Fxaa` | colour | an antialiased image |
+| `!Smaa` | colour | the same, from the whole edge rather than one neighbourhood — see [SMAA](smaa.md) |
 | `!Sharpen` | colour | a sharpened image |
 
 ## What it is for

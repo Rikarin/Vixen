@@ -85,8 +85,10 @@ Vixen.Rendering.PostFx.AntialiasingMode -> enum : int
 Vixen.Rendering.PostFx.AntialiasingMode.AntialiasingMode() -> void
 Vixen.Rendering.PostFx.AntialiasingMode.Fxaa = 1 -> Vixen.Rendering.PostFx.AntialiasingMode
 Vixen.Rendering.PostFx.AntialiasingMode.Off = 0 -> Vixen.Rendering.PostFx.AntialiasingMode
+Vixen.Rendering.PostFx.AntialiasingMode.Smaa = 4 -> Vixen.Rendering.PostFx.AntialiasingMode
 Vixen.Rendering.PostFx.AntialiasingMode.Taa = 2 -> Vixen.Rendering.PostFx.AntialiasingMode
 Vixen.Rendering.PostFx.AntialiasingMode.TaaFxaa = 3 -> Vixen.Rendering.PostFx.AntialiasingMode
+Vixen.Rendering.PostFx.AntialiasingMode.TaaSmaa = 5 -> Vixen.Rendering.PostFx.AntialiasingMode
 Vixen.Rendering.PostFx.AutoExposureAsset -> sealed record
 Vixen.Rendering.PostFx.AutoExposureAsset : System.IEquatable<Vixen.Rendering.PostFx.AutoExposureAsset>
 Vixen.Rendering.PostFx.AutoExposureAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -1205,6 +1207,57 @@ Vixen.Rendering.PostFx.SkyRenderer.Soften.get -> bool
 Vixen.Rendering.PostFx.SkyRenderer.Soften.set -> bool
 Vixen.Rendering.PostFx.SkyRenderer.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.SkyRenderer.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.SmaaAreaTexture -> static class
+Vixen.Rendering.PostFx.SmaaAsset -> sealed record
+Vixen.Rendering.PostFx.SmaaAsset : System.IEquatable<Vixen.Rendering.PostFx.SmaaAsset>
+Vixen.Rendering.PostFx.SmaaAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.SmaaAsset.ContrastAdaptation.get -> float
+Vixen.Rendering.PostFx.SmaaAsset.ContrastAdaptation.init -> float
+Vixen.Rendering.PostFx.SmaaAsset.EdgeThreshold.get -> float
+Vixen.Rendering.PostFx.SmaaAsset.EdgeThreshold.init -> float
+Vixen.Rendering.PostFx.SmaaAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.SmaaAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.SmaaAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.SmaaAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.SmaaAsset.LumaFloor.get -> float
+Vixen.Rendering.PostFx.SmaaAsset.LumaFloor.init -> float
+Vixen.Rendering.PostFx.SmaaAsset.Name.get -> string
+Vixen.Rendering.PostFx.SmaaAsset.Name.init -> string
+Vixen.Rendering.PostFx.SmaaAsset.Output.get -> string
+Vixen.Rendering.PostFx.SmaaAsset.Output.init -> string
+Vixen.Rendering.PostFx.SmaaAsset.SmaaAsset() -> void
+Vixen.Rendering.PostFx.SmaaAsset.Source.get -> string
+Vixen.Rendering.PostFx.SmaaAsset.Source.init -> string
+Vixen.Rendering.PostFx.SmaaRenderer -> sealed class
+Vixen.Rendering.PostFx.SmaaRenderer : System.IDisposable
+Vixen.Rendering.PostFx.SmaaRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.SmaaRenderer.AreaName.get -> string
+Vixen.Rendering.PostFx.SmaaRenderer.ContrastAdaptation.get -> float
+Vixen.Rendering.PostFx.SmaaRenderer.ContrastAdaptation.set -> float
+Vixen.Rendering.PostFx.SmaaRenderer.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.SmaaRenderer.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.SmaaRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.SmaaRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.SmaaRenderer.Dispose() -> void
+Vixen.Rendering.PostFx.SmaaRenderer.EdgeThreshold.get -> float
+Vixen.Rendering.PostFx.SmaaRenderer.EdgeThreshold.set -> float
+Vixen.Rendering.PostFx.SmaaRenderer.EdgesName.get -> string
+Vixen.Rendering.PostFx.SmaaRenderer.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.SmaaRenderer.Format.set -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.SmaaRenderer.LumaFloor.get -> float
+Vixen.Rendering.PostFx.SmaaRenderer.LumaFloor.set -> float
+Vixen.Rendering.PostFx.SmaaRenderer.MaskFormat.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.SmaaRenderer.MaskFormat.set -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.SmaaRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.SmaaRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.SmaaRenderer.Output.get -> string
+Vixen.Rendering.PostFx.SmaaRenderer.Output.init -> string
+Vixen.Rendering.PostFx.SmaaRenderer.Passes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.FullScreenRenderer>
+Vixen.Rendering.PostFx.SmaaRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.SmaaRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.SmaaRenderer.SmaaRenderer() -> void
+Vixen.Rendering.PostFx.SmaaRenderer.Uploaded.get -> bool
+Vixen.Rendering.PostFx.SmaaRenderer.WeightsName.get -> string
 Vixen.Rendering.PostFx.SsaoAsset -> sealed record
 Vixen.Rendering.PostFx.SsaoAsset : System.IEquatable<Vixen.Rendering.PostFx.SsaoAsset>
 Vixen.Rendering.PostFx.SsaoAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -1811,6 +1864,15 @@ Vixen.Shaders.Generated.SkyConstants.Intensity -> float
 Vixen.Shaders.Generated.SkyConstants.InverseViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.SkyConstants.SkyConstants() -> void
 Vixen.Shaders.Generated.SkyKeys -> static class
+Vixen.Shaders.Generated.SmaaConstants -> struct
+Vixen.Shaders.Generated.SmaaConstants.AreaMaxDistance -> float
+Vixen.Shaders.Generated.SmaaConstants.AreaTexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.SmaaConstants.ContrastAdaptation -> float
+Vixen.Shaders.Generated.SmaaConstants.EdgeThreshold -> float
+Vixen.Shaders.Generated.SmaaConstants.LumaFloor -> float
+Vixen.Shaders.Generated.SmaaConstants.SmaaConstants() -> void
+Vixen.Shaders.Generated.SmaaConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.SmaaKeys -> static class
 Vixen.Shaders.Generated.SsaoConstants -> struct
 Vixen.Shaders.Generated.SsaoConstants.Bias -> float
 Vixen.Shaders.Generated.SsaoConstants.Falloff -> float
@@ -1888,6 +1950,12 @@ const Vixen.Rendering.PostFx.AutoExposureRenderer.BinCount = 64 -> int
 const Vixen.Rendering.PostFx.AutoExposureRenderer.ExposureSize = 4 -> int
 const Vixen.Rendering.PostFx.AutoExposureRenderer.HistogramSize = 256 -> int
 const Vixen.Rendering.PostFx.MotionBlurRenderer.DefaultShutterFraction = 0.5 -> float
+const Vixen.Rendering.PostFx.SmaaAreaTexture.ByteCount = 12800 -> int
+const Vixen.Rendering.PostFx.SmaaAreaTexture.BytesPerTexel = 2 -> int
+const Vixen.Rendering.PostFx.SmaaAreaTexture.MaxDistance = 16 -> int
+const Vixen.Rendering.PostFx.SmaaAreaTexture.Patterns = 5 -> int
+const Vixen.Rendering.PostFx.SmaaAreaTexture.Side = 80 -> int
+const Vixen.Rendering.PostFx.SmaaAreaTexture.SmoothingMaxDistance = 32 -> double
 const Vixen.Shaders.Generated.AmbientCombineConstants.Size = 288 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.AlbedoBinding = 2 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.AlbedoSet = 2 -> int
@@ -2050,6 +2118,23 @@ const Vixen.Shaders.Generated.SkyKeys.EnvironmentSamplerBinding = 2 -> uint
 const Vixen.Shaders.Generated.SkyKeys.EnvironmentSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.SkyKeys.EnvironmentSet = 2 -> int
 const Vixen.Shaders.Generated.SkyKeys.ShaderName = "Sky" -> string
+const Vixen.Shaders.Generated.SmaaConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.SmaaKeys.AreaBinding = 4 -> uint
+const Vixen.Shaders.Generated.SmaaKeys.AreaSet = 2 -> int
+const Vixen.Shaders.Generated.SmaaKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.SmaaKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.SmaaKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.SmaaKeys.EdgesBinding = 2 -> uint
+const Vixen.Shaders.Generated.SmaaKeys.EdgesSet = 2 -> int
+const Vixen.Shaders.Generated.SmaaKeys.LinearSamplerBinding = 5 -> uint
+const Vixen.Shaders.Generated.SmaaKeys.LinearSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.SmaaKeys.PointSamplerBinding = 6 -> uint
+const Vixen.Shaders.Generated.SmaaKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.SmaaKeys.ShaderName = "Smaa" -> string
+const Vixen.Shaders.Generated.SmaaKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.SmaaKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.SmaaKeys.WeightsBinding = 3 -> uint
+const Vixen.Shaders.Generated.SmaaKeys.WeightsSet = 2 -> int
 const Vixen.Shaders.Generated.SsaoConstants.Size = 160 -> int
 const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSet = 2 -> int
@@ -2141,6 +2226,7 @@ override Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Configure(Vixen.Rend
 override Vixen.Rendering.PostFx.SharpenRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.SkyRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.SkyRenderer.DeclareOutput(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Core.Mathematics.Int2 size) -> void
+override Vixen.Rendering.PostFx.SmaaRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.DeclareOutput(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Core.Mathematics.Int2 size) -> void
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Dispose(bool disposing) -> void
@@ -2160,6 +2246,7 @@ readonly Vixen.Shaders.Generated.OutlineConstants.Write(System.Span<byte> buffer
 readonly Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.SharpenConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.SkyConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.SmaaConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.SsaoConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TaaConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.VignetteConstants.Write(System.Span<byte> buffer) -> void
@@ -2344,6 +2431,8 @@ required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Probes.get -> Vixen.
 required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Probes.init -> Vixen.Rendering.Lighting.ScreenProbeTexture
 required Vixen.Rendering.PostFx.SharpenRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.SharpenRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.SmaaRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.SmaaRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.MotionVectors.get -> string
@@ -2360,6 +2449,9 @@ static Vixen.Rendering.PostFx.PostEffectRenderer.Sample(System.Collections.Gener
 static Vixen.Rendering.PostFx.PostEffectRenderer.TexelSize(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Rendering.PostFx.RenderQuality.EngineDefaults.get -> Vixen.Rendering.PostFx.RenderQualityAsset
 static Vixen.Rendering.PostFx.RenderQuality.Resolve(Vixen.Rendering.Compositor.QualityTier tier, Vixen.Rendering.PostFx.RenderQualityAsset? project = null, Vixen.Rendering.PostFx.RenderQualityAsset? overlay = null) -> Vixen.Rendering.PostFx.ResolvedQuality
+static Vixen.Rendering.PostFx.SmaaAreaTexture.Block(int pattern) -> (int X, int Y)
+static Vixen.Rendering.PostFx.SmaaAreaTexture.Coverage(int pattern, double left, double right) -> (double Below, double Above)
+static Vixen.Rendering.PostFx.SmaaAreaTexture.Generate() -> byte[]
 static Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Jitter(int frameIndex) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Rendering.PostFx.VolumetricFogRenderer.Jitter(int frameIndex) -> Vixen.Core.Mathematics.Vector3
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Albedo -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
@@ -2510,6 +2602,20 @@ static readonly Vixen.Shaders.Generated.SkyKeys.Intensity -> Vixen.Shaders.Param
 static readonly Vixen.Shaders.Generated.SkyKeys.InverseViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.SkyKeys.Soften -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.SkyKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.SmaaKeys.Area -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.SmaaKeys.AreaMaxDistance -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SmaaKeys.AreaTexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.SmaaKeys.ContrastAdaptation -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SmaaKeys.EdgeThreshold -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SmaaKeys.Edges -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.SmaaKeys.LinearSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.SmaaKeys.LumaFloor -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SmaaKeys.Mode -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.SmaaKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.SmaaKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.SmaaKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.SmaaKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.SmaaKeys.Weights -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.SsaoKeys.BentNormal -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.SsaoKeys.Bias -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SsaoKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
