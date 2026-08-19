@@ -230,6 +230,7 @@ public sealed class RenderGraph {
         }
 
         ValidateReads();
+        ValidateSampleCounts();
         Cull();
         Lint();
         ComputeLifetimes();
@@ -530,6 +531,47 @@ public sealed class RenderGraph {
 
         if (resources[buffer.Index - 1].IsTexture) {
             throw new RenderGraphException("A texture was used where a buffer was expected.");
+        }
+    }
+
+    /// <summary>Refuses a pass whose attachments disagree about how many samples they have.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The mistake the resolve pair makes easy.</b> A frame turning MSAA on has to raise the
+    ///         sample count on the pass <em>and</em> on every texture it attaches, and the depth one is
+    ///         the easy one to forget: a document says <c>sampleCount: 4</c> on its colour target,
+    ///         leaves its depth target at one, and gets a validation-layer message about a framebuffer
+    ///         rather than about the line it left out.
+    ///     </para>
+    ///     <para>
+    ///         An exception rather than a warning, on <see cref="ValidateReads" />'s terms and not
+    ///         <see cref="Lint" />'s: this is not a frame that draws something imperfect, it is a frame
+    ///         no backend will begin.
+    ///     </para>
+    /// </remarks>
+    void ValidateSampleCounts() {
+        foreach (var pass in passes) {
+            if (pass.Attachments.Count < 2) {
+                continue;
+            }
+
+            var first = resources[pass.Attachments[0].Texture.Index - 1];
+
+            foreach (var attachment in pass.Attachments) {
+                var resource = resources[attachment.Texture.Index - 1];
+
+                if (resource.TextureDescription.SampleCount == first.TextureDescription.SampleCount) {
+                    continue;
+                }
+
+                throw new RenderGraphException(
+                    $"Pass '{pass.Name}' attaches '{first.Name}' at "
+                    + $"{first.TextureDescription.SampleCount}× and '{resource.Name}' at "
+                    + $"{resource.TextureDescription.SampleCount}×. Every attachment of one pass has "
+                    + "the same sample count — raising it on the colour targets and leaving the depth "
+                    + "target behind is the usual way here."
+                );
+            }
         }
     }
 

@@ -262,6 +262,73 @@ public sealed class ResolveAttachmentTests : IDisposable {
     }
 
     /// <summary>
+    ///     A pass whose depth target was left behind at one sample is refused by name.
+    /// </summary>
+    /// <remarks>
+    ///     The mistake the resolve pair makes easy: turning MSAA on means raising the sample count on
+    ///     the pass and on <em>every</em> texture it attaches, and the depth one is the easy one to
+    ///     forget. Without this the frame gets a validation-layer message about a framebuffer rather
+    ///     than about the line the document left out.
+    /// </remarks>
+    [Fact]
+    public void APassWhoseAttachmentsDisagreeAboutSamplesIsRefused() {
+        var samples = graph.CreateTexture(Multisampled("samples"));
+
+        var depth = graph.CreateTexture(
+            new TextureDescription(
+                PixelFormat.Depth32Float,
+                64,
+                64,
+                TextureUsage.DepthStencilTarget,
+                Name: "depth"
+            )
+        );
+
+        var resolved = graph.CreateTexture(Single("resolved"));
+
+        graph.AddPass("draw", pass => {
+            pass.ColourAttachment(samples, resolve: resolved);
+            pass.DepthAttachment(depth);
+            pass.SideEffect();
+            pass.Execute(_ => { });
+        });
+
+        var thrown = Assert.Throws<RenderGraphException>(() => graph.Execute(new TrackingCommandList()));
+
+        Assert.Contains("'depth' at 1×", thrown.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a pass whose attachments agree is not.</summary>
+    [Fact]
+    public void APassWhoseAttachmentsAgreeAboutSamplesIsNot() {
+        var samples = graph.CreateTexture(Multisampled("samples"));
+
+        var depth = graph.CreateTexture(
+            new TextureDescription(
+                PixelFormat.Depth32Float,
+                64,
+                64,
+                TextureUsage.DepthStencilTarget,
+                SampleCount: 4,
+                Name: "depth"
+            )
+        );
+
+        var resolved = graph.CreateTexture(Single("resolved"));
+
+        graph.AddPass("draw", pass => {
+            pass.ColourAttachment(samples, resolve: resolved);
+            pass.DepthAttachment(depth);
+            pass.SideEffect();
+            pass.Execute(_ => { });
+        });
+
+        graph.Execute(new TrackingCommandList());
+
+        Assert.Equal(1, graph.SurvivingPassCount);
+    }
+
+    /// <summary>
     ///     An attachment with no resolve named is untouched — the store is still the graph's to derive.
     /// </summary>
     /// <remarks>
