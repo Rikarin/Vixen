@@ -34,13 +34,39 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         answer a picture can be held to, and it is what the two flat-plane fixtures below are.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The tilted plane is the discriminating one and the facing plane is not.</b> A plane
-///         square to the camera reads one under almost any estimator, correct or not, because every
-///         sample lies in the tangent plane and nothing is a horizon. A plane at forty-five degrees
-///         reads one only if the slice weighting and the sign of <c>gamma</c> are both right: an
-///         implementation that dropped the projected normal's length reads 1.26 at the extremes, and
-///         one that lifted the screen direction into view space without negating y reads the frame
-///         mirrored and lands somewhere else again.
+///         ⚠ <b>Neither flat-plane fixture tells the two estimators apart, and saying so is the
+///         point.</b> On any flat surface every sample lies in the tangent plane, so the old
+///         estimator's elevation term is nought and it reads one as well — both of these were run
+///         against the previous shader and both passed. What they discriminate against is a
+///         <em>wrong integral</em>, and both sabotages were run. Lifting the screen direction into
+///         view space without negating y mirrors every slice: the y-tilted plane drops to 0.745 and
+///         four of the five fixtures here go red. Removing the hemisphere clamp turns every one of
+///         them red, with the corner scene's open floor reading 0.245 — the halo, arriving exactly
+///         where the fixture says to look for it.
+///     </para>
+///     <para>
+///         ⚠ One sabotage they do <em>not</em> catch, and it is worth writing down: dropping the
+///         projected normal's length from the accumulation leaves an unoccluded plane reading 1.26,
+///         which <c>saturate</c> clips back to one. The flat fixtures see nothing. What catches it is
+///         the corner, where the same over-weighting saturates the occlusion away and the contact
+///         reads 1.000 — so the occluded fixture is load-bearing for the unoccluded claim.
+///     </para>
+///     <para>
+///         <b>What separates the two estimators is measured rather than asserted.</b> The corner
+///         scene below, rendered through both on MoltenVK:
+///     </para>
+///     <para>
+///         <c>row 90 (wall, 7 cm up): 0.676 → 0.781 · row 92 (the corner): 0.754 → 0.713 ·
+///         row 96 (floor, 59 cm out): 0.842 → 0.884 · row 100 (96 cm): 0.880 → 0.925 ·
+///         row 126 (2.2 m): 0.950 → 0.944 · whole frame: 0.9441 → 0.9653</c>
+///     </para>
+///     <para>
+///         Which is the predicted signature and not a wash: <c>1 − sin(e)/2</c> against
+///         <c>1 − sin²(e)/2</c> over-darkens everywhere the elevation is moderate — the wall face and
+///         the floor either side — and <em>under</em>-darkens at the one place the elevation is near
+///         ninety degrees, which is the contact itself. So the corner got darker by four points while
+///         everything around it got lighter by two to eleven, and the far field did not move. The
+///         worst single pixel moved forty levels of two hundred and fifty five.
 ///     </para>
 ///     <para>
 ///         The planes are staged as <c>R32Float</c> depth and <c>Rgba32Float</c> normals rather than
@@ -120,7 +146,9 @@ public sealed class GtaoImageTests {
     ///         An unoccluded surface has to read exactly one at every tilt, and that only falls out if
     ///         each slice is weighted by how much of the normal lies in it. The weights are what turn
     ///         a per-slice arc that is <em>larger</em> than one at a tilt — <c>cos γ + γ sin γ</c>, so
-    ///         1.26 at forty-five degrees — back into a whole that is exactly one.
+    ///         1.26 at forty-five degrees — back into a whole that is exactly one. ⚠ It is the
+    ///         <em>integral</em> this discriminates against getting wrong, not the estimator it
+    ///         replaced; see the class remarks.
     ///     </para>
     ///     <para>
     ///         ⚠ A steeper plane than this would be a fixture about the depth buffer rather than about
