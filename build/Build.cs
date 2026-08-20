@@ -6,6 +6,7 @@ using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tools.DotNet;
+using Nuke.Common.Tools.Git;
 using Serilog;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
@@ -246,8 +247,19 @@ partial class Build : NukeBuild {
             .SelectMany(root => LicenceHeaderExtensions.Select(extension => $"{root}/**/*.{extension}"))
             .ToArray();
 
+        // ⚠ Tracked files only, and this is not a refinement of the glob — it is what makes the
+        // gate mean the same thing twice. The glob walks the working tree, so it sees whatever
+        // build output happens to be lying beside the source: `nuke Docs` writes five .ts files
+        // into www/src/generated, which .gitignore covers and no author has ever opened. The gate
+        // therefore passed on a clean checkout and failed on any machine that had built the docs,
+        // which is the worst failure a gate can have — green in CI, red for whoever runs it next.
+        // `git ls-files` is the definition of "authored source" the doc comment above already
+        // claims, so ask git rather than adding a path to the exclusions each time one appears.
+        var tracked = TrackedFiles();
+
         var files = RootDirectory
             .GlobFiles(patterns)
+            .Where(path => tracked.Contains(path))
             .Where(path => !IsExcludedFromLicenceHeaders(path))
             .ToList();
 
@@ -301,6 +313,19 @@ partial class Build : NukeBuild {
     ///         generated inside a third party's build would be the same false claim as above.
     ///     </para>
     /// </remarks>
+    /// <summary>Every file git tracks, as absolute paths.</summary>
+    /// <returns>The set, for membership tests.</returns>
+    /// <remarks>
+    ///     Untracked and ignored files are both absent, which is the point: an ignored file is
+    ///     build output and an untracked one is not yet anybody's source. A header is a claim about
+    ///     a file somebody may vendor, and neither kind is a file anybody can vendor from here.
+    /// </remarks>
+    HashSet<AbsolutePath> TrackedFiles() {
+        var output = GitTasks.Git("ls-files", RootDirectory, logOutput: false, logInvocation: false);
+
+        return [.. output.Select(line => RootDirectory / line.Text.Trim()).Where(path => path.FileExists())];
+    }
+
     static bool IsExcludedFromLicenceHeaders(AbsolutePath path) {
         var text = path.ToString();
 
