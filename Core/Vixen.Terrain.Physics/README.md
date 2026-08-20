@@ -69,6 +69,18 @@ arithmetic — `TileQuads` is `TileSamples − 1` — and it is right. A gap of 
 fields is a seam a character falls through; an overlap is two surfaces at identical heights, which
 Jolt resolves as one.
 
+⚠ **A tile index that is not a tile throws, and until 2026-08-20 it aliased a neighbour in silence.**
+Everything below `Rebuild(terrain, tileX, tileZ)` indexes flat — `tileZ * TilesX + tileX` for the
+entity slot, the same arithmetic inside `Terrain.RevisionOf` — and `TerrainSamples`' indexer *clamps*
+rather than throwing, deliberately, because every sculpt kernel reads its neighbours. So on a 2 × 2
+terrain `Rebuild(terrain, 2, 0)` **was** `Rebuild(terrain, 0, 1)`: a height field of the edge row
+repeated, placed at a corner 28 m out, written into a different tile's slot, returning `true`. That
+tile became a hole a ray falls through, and it stayed one — the slot was stamped with the *aliased*
+tile's revision, which is the number the poll compares, so no recomposite ever repaired it. The `rect`
+overload cannot reach this because `TerrainDescription.TilesOf` clamps; the per-tile overload is the
+one `ITerrainColliders` hands to any tool. A throw rather than a clamp, because a rect of samples is
+data and a tile index is not: clamping it would rebuild a tile nobody asked for.
+
 ## What it does not do yet
 
 - **It does not implement `ITerrainColliders`**, and still may not: that interface lives in

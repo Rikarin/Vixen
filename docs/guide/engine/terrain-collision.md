@@ -82,6 +82,25 @@ interface returns `void`, and `false` means *this system has never heard of this
 that forwarded and discarded that value would report success for every stroke while rebuilding
 nothing, in no log.
 
+### ⚠ A tile index that is not a tile is refused, and it used to alias a neighbour
+
+`Rebuild(terrain, tileX, tileZ)` validates the index and throws `ArgumentOutOfRangeException`. Before
+2026-08-20 it did not, and everything below it indexes flat: `tileZ * TilesX + tileX` for the entity
+slot, the same arithmetic inside `Terrain.RevisionOf`, and `TerrainSamples`' indexer **clamps** rather
+than throwing — deliberately, because every sculpt kernel reads its neighbours. So on a 2 × 2 terrain
+`Rebuild(terrain, 2, 0)` *was* `Rebuild(terrain, 0, 1)`: a height field built from the edge row
+repeated, placed at a corner 28 m away, written into tile `(0, 1)`'s slot, returning `true`. The tile
+it landed on became a hole a ray falls through.
+
+What made it permanent is the last line of the build: the slot was stamped with the revision of the
+*aliased* tile, which is the number the per-frame poll compares — so the poll skipped that tile for
+the life of the world and no recomposite ever repaired it.
+
+The `rect` overload cannot reach this, because `TerrainDescription.TilesOf` clamps. A caller naming a
+tile by hand can, and `ITerrainColliders` hands that overload to any tool. A throw rather than a
+clamp, because a rect of samples is data and a tile index is not: clamping it would rebuild a tile the
+caller did not ask for.
+
 ⚠ **Hole edits are watched by `TerrainHoles.HoleCount`, which is coarse.** The mask carries no
 per-tile version and punching a hole moves no height, so a change to the count rebuilds that terrain's
 tiles and a punch-and-fill that nets to zero within one frame is missed. A tool that does that should

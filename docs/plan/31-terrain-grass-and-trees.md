@@ -829,6 +829,39 @@ right tiles was one double talking to another. `TerrainModule` now takes an `ITe
 keep in step with. An editor with physics is a separate piece of work; when it exists, it publishes
 the service and the toolset is already wired for it.
 
+⚠ **And the gap is a tier deeper than "no physics scene" (2026-08-20).** The question was put as a
+choice — either the editor gains a physics scene for this, or terrain colliders reach it some other
+way — and the audit answers it a level down: **the editor runs no systems at all.**
+`PlayModeController.ShouldTick`, the method that decides whether the game loop advances this frame,
+has **no caller outside its own tests**. `EditorWorldRenderer` says it plainly — *"the editor runs no
+system graph at all"* — and `TransformSystem` is resolved by hand because of it. Pressing Play
+snapshots the world, maximises the viewport and shows a notification; nothing steps. So a
+`PhysicsScene` published into `PluginServices` here would be a physics world nothing calls
+`Synchronize` on: shapes registered, bodies created, never simulated — a `TileCount` that reads
+correct beside ground that does nothing, which is this document's own favourite failure wearing the
+opposite mask. **Neither branch of the question is takeable, and the reason is a missing prerequisite
+rather than a design preference.** What is owed is a play-mode system graph, and it belongs to
+[20](20-editor-parity.md) and [11](11-editor.md) rather than here; when it lands, the
+physics scene is one of the systems it schedules and `plugins.Add<ITerrainColliders>(new
+TerrainColliders(system))` is one line beside it, which is what `BindColliders` resolving per frame
+was built to accept. The precedent for the shape already exists: `Vixen.Editor.App` references
+`Core/Vixen.Water.Physics` for `BuoyancyBody`'s icon and its Add Component entry — the editor knowing
+a physics component type, not the editor running physics.
+
+⚠ **One real bug was found under the seam and fixed (2026-08-20), and it was not the discarded
+`bool`.** That one was already answered by `TerrainColliders.Missed`. What was not: `Rebuild(terrain,
+tileX, tileZ)` never validated the tile index, and everything below it indexes flat — `tileZ * TilesX
++ tileX` for the entity slot, the same arithmetic in `Terrain.RevisionOf`, and `TerrainSamples`'
+indexer *clamps* rather than throwing because every sculpt kernel reads its neighbours. On a 2 × 2
+terrain `Rebuild(terrain, 2, 0)` was therefore `Rebuild(terrain, 0, 1)`: a height field of the edge
+row repeated, at a corner 28 m out, written into a **different tile's** slot, returning `true`. The
+aliased tile became a hole a ray falls through — and it stayed one, because the slot was stamped with
+the aliased tile's own revision, which is the number the poll compares. The `rect` overload cannot
+reach it (`TilesOf` clamps); the per-tile overload is the one `ITerrainColliders` hands to any tool.
+It throws now, rather than clamping: a rect of samples is data and the edge of a terrain is a
+legitimate place for a brush, but a tile index names one of sixteen things and clamping it would
+rebuild a tile nobody asked for.
+
 Trees are the interesting case, because ten thousand static bodies is not a scene, it is a broadphase
 problem. So: **a foliage type declares a collision shape and an activation radius, and instances
 within that radius of a physics-relevant entity get a body.** The set is maintained incrementally by

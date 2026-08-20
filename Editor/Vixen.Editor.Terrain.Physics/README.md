@@ -49,6 +49,16 @@ editor rebuilds no collision **because there is none to rebuild**, which is a di
 from the seam being unfed. A host that has a physics world publishes the service and the toolset
 picks it up.
 
+⚠ **And the missing piece is a tier below a physics scene: the editor runs no systems at all.**
+`PlayModeController.ShouldTick` — the method that decides whether the game loop advances this frame —
+has no caller in the product; its only callers are its own tests. `EditorWorldRenderer` says it
+outright, and `TransformSystem` is resolved by hand for that reason. Pressing Play snapshots the
+world, maximises the viewport and shows a notification; nothing then steps. A `PhysicsScene` published
+here would be a physics world nothing calls `Synchronize` on — colliders built, bodies created, never
+simulated. The prerequisite is a play-mode system graph, which is docs/plan/20 and /11's work; when it
+lands, the physics scene is one of the systems it schedules and publishing this adapter is one line
+beside it.
+
 ## Tests
 
 `Editor/Vixen.Editor.Terrain.Physics.Tests` asserts against a **dropped rigid body**, not a call

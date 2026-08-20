@@ -61,6 +61,24 @@ stroke to keep in step with. A sculpt stroke in the shipped editor therefore reb
 **because there is none to rebuild** — not because the seam is unfed. Publishing the service is what
 an embedding host does when that changes.
 
+⚠ **And the missing piece is a whole tier below a `PhysicsScene`.** The editor does not merely lack a
+physics world — it runs **no systems at all**. `PlayModeController.ShouldTick`, the method that
+decides whether the game loop advances this frame, has no caller in the product; its only callers are
+its own tests. `EditorWorldRenderer` says so in as many words, and `TransformSystem` is resolved by
+hand for exactly that reason. Pressing Play snapshots the world, maximises the viewport and shows a
+notification; nothing then steps.
+
+So a `PhysicsScene` published here would be a physics world nothing calls `Synchronize` on: colliders
+built, bodies created, and not one of them ever simulated. **The prerequisite is a play-mode system
+graph, which is doc 20 / doc 11's work and not this subsystem's.** When it exists, the physics scene
+is one of the systems it schedules and `plugins.Add<ITerrainColliders>(…)` is one line beside it —
+which is what the per-frame `BindColliders` resolution above was built to accept.
+
+⚠ **Note what `Vixen.Editor.App` already references and what it does not.** It references
+`Core/Vixen.Water.Physics` — for `BuoyancyBody`'s icon and its Add Component entry, so the *type* can
+be placed on an entity. That is the editor knowing a physics component exists, not the editor running
+physics, and it is the shape the terrain case would take too.
+
 ### ⚠ `Missed` is the number that says the wiring is wrong
 
 ```csharp no-compile="a fragment; `colliders` is the adapter above"

@@ -174,13 +174,39 @@ public sealed class TerrainColliderSystem(PhysicsScene scene, ITerrainPlacements
     /// <param name="tileX">The tile's X index.</param>
     /// <param name="tileZ">Its Z index.</param>
     /// <returns>Whether the terrain had colliders to rebuild.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The tile is not one of the terrain's.</exception>
     /// <remarks>
-    ///     ⚠ <b>Call it after <see cref="TerrainMap.Resolve" />, never before.</b> A collider built
-    ///     from a stale composite is ground the player falls through in exactly the places that were
-    ///     most recently edited.
+    ///     <para>
+    ///         ⚠ <b>Call it after <see cref="TerrainMap.Resolve" />, never before.</b> A collider built
+    ///         from a stale composite is ground the player falls through in exactly the places that were
+    ///         most recently edited.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An out-of-range tile throws, and it used to corrupt a different tile in silence.</b>
+    ///         Everything downstream of here indexes flat — <c>tileZ * TilesX + tileX</c> for the
+    ///         entity, the same arithmetic in <see cref="TerrainMap.RevisionOf" />, and
+    ///         <c>TerrainSamples</c>' indexer <em>clamps</em> rather than throwing because every kernel
+    ///         reads its neighbours. So <c>Rebuild(terrain, TilesX, 0)</c> was tile <c>(0, 1)</c>: it
+    ///         overwrote that tile's shape with the edge row repeated, placed at an off-grid corner, and
+    ///         then stamped <c>Revisions</c> with the aliased tile's real revision — which is what made
+    ///         it permanent, because <see cref="Sync" />'s poll compares that stamp and never looks
+    ///         again. The rect overload cannot reach this: <see cref="TerrainDescription.TilesOf" />
+    ///         clamps. A caller naming a tile by hand can, and this is the seam
+    ///         <c>ITerrainColliders</c> hands to any tool.
+    ///     </para>
     /// </remarks>
     public bool Rebuild(TerrainMap terrain, int tileX, int tileZ) {
         ArgumentNullException.ThrowIfNull(terrain);
+
+        // ⚠ Before the lookup, not after. The index is the caller's own error whether or not this
+        // system has ever heard of the terrain, and validating only on the path that would corrupt
+        // something hides the bug in exactly the hosts that have not wired physics up yet.
+        var description = terrain.Description;
+
+        ArgumentOutOfRangeException.ThrowIfNegative(tileX);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(tileX, description.TilesX);
+        ArgumentOutOfRangeException.ThrowIfNegative(tileZ);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(tileZ, description.TilesZ);
 
         if (!built.TryGetValue(terrain, out var tiles)) {
             return false;
