@@ -1131,7 +1131,7 @@ sealed partial class EditorApplication {
         // profiler rather than as an untimeable GPU.
         Shell.Menus.InsertMenu(++after, EditorStrings.MenuTools)
             .Add("tools.profiler", "tools.gpu", "tools.frame-debugger", "tools.memory", "tools.statistics")
-            .Add("tools.remote-inspector")
+            .Add("tools.network", "tools.remote-inspector")
             .AddSeparator()
             .Add("tools.plugins", "plugins.reload")
             .AddSeparator()

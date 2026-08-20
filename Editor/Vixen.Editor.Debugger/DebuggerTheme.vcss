@@ -21,7 +21,7 @@
 
 @layer components {
 
-debugger-status, remote-status {
+debugger-status, remote-status, network-status {
     padding: 3px 8px;
     color: var(--text-muted);
     font-size: 0.85em;
@@ -91,5 +91,66 @@ remote-write > text-box { flex-grow: 1; min-width: 60px; }
 
 /* ── The device manager ─────────────────────────────────────────────── */
 device-manager > data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+/* ── The network panel ──────────────────────────────────────────────────
+   Five columns of the same shape, and a packet pane under them. Every row
+   is a name, a cost, a bar and a mean — four fixed columns rather than a
+   `KeyValueList`, which is deliberately two and whose own remarks argue
+   that a generic third slot is a slot with no meaning. The summary above
+   them *is* two columns and is a `KeyValueList`. */
+network-heading {
+    padding: 8px 8px 2px 8px;
+    color: var(--text-muted);
+    font-size: 0.85em;
+    letter-spacing: 0.04em;
+}
+
+network-table, network-packet { flex-direction: column; gap: 0px; }
+
+network-row, network-record {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 8px;
+    min-height: 20px;
+}
+
+/* The name grows and clips; every column beside it is fixed, because a
+   column of magnitudes is read by comparing digit positions and a ragged
+   one cannot be. `NetworkTable.Prefix` is what keeps the shared namespace
+   out of the width this leaves. */
+network-name { flex-grow: 1; min-width: 60px; overflow: hidden; }
+network-cost { width: 130px; flex-shrink: 0; text-align: right; }
+network-mean { width: 110px; flex-shrink: 0; text-align: right; color: var(--text-muted); font-size: 0.85em; }
+
+/* `min-width` is overridden because the control library floors a progress
+   bar at 80px for a dialog, and this is a column. The same three lines the
+   statistics panel needed, for the same reason. */
+network-row progress-bar {
+    width: 90px;
+    min-width: 0px;
+    flex-shrink: 0;
+    --track-color: var(--surface-sunken);
+    --fill-color: var(--accent);
+}
+
+key-value-row progress-bar { --track-color: var(--surface-sunken); --fill-color: var(--accent); }
+
+/* ── The packet pane ─────────────────────────────────────────────────── */
+network-packet { border-top-width: 1px; border-color: var(--border); margin-top: 6px; }
+
+network-slot { width: 28px; flex-shrink: 0; text-align: right; color: var(--text-muted); font-size: 0.85em; }
+network-object { width: 90px; flex-shrink: 0; color: var(--text-muted); }
+network-baseline { width: 90px; flex-shrink: 0; font-size: 0.85em; }
+
+/* A difference is the ordinary case and a whole record is the one worth
+   noticing: a snapshot full of whole records is a snapshot whose baselines
+   are being lost, which is the bandwidth bug this pane exists to show. */
+network-baseline.whole { color: var(--warning); }
+
+/* Truncated is not a detail. What was decoded before the reader stopped is
+   still shown, so the line saying the rest was unread is the only thing
+   between that and a pane that under-reports the packet. */
+network-status.truncated { color: var(--danger); }
 
 }

@@ -2,7 +2,7 @@
 
 The module that points doc 20's E4 panels at a project, a scene and a graphics device: the profiler,
 the GPU timeline, memory, statistics, the frame debugger, the remote inspector and the device
-manager.
+manager — and doc 16's network panel at whatever session is running.
 
 Spec: [docs/plan/20](../../docs/plan/20-editor-parity.md) § E4,
 [docs/plan/36](../../docs/plan/36-an-extensible-editor.md) § P3.
@@ -24,8 +24,8 @@ and spent the testability. A module is what a feature looks like when its parts 
 ignorant of each other.
 
 What this assembly decides: that the statistics panel counts *this* world, that the GPU timeline
-reads *this* device, that the frame debugger captures *this* frame, and that the remote inspector
-talks over loopback.
+reads *this* device, that the frame debugger captures *this* frame, that the remote inspector talks
+over loopback, and that the network panel reads *this* session's ledger.
 
 ## What it asks the host for
 
@@ -37,6 +37,17 @@ talks over loopback.
 
 The graphics device, the resolved GPU frame and the frame-capture source arrive later still — only a
 host with a window and a device can supply them, and they are settable properties for that reason.
+
+So are `NetworkLedger`, `NetworkRegistry` and `NetworkSnapshot`, and their absence is the ordinary
+case rather than a degraded one: a `BandwidthLedger` belongs to whatever built the `ReplicationServer`
+and the `RpcRouter`, and an editor that has not started a session has none. The panel says so rather
+than drawing zeroes — a table of zeroes reads as a game sending nothing, which is the bug somebody
+would have opened it to find.
+
+⚠ **The last snapshot's bytes are the host's too, because `ReplicationServer` does not keep them.** It
+writes each connection's into a caller's buffer and forgets it; which connection is worth inspecting
+is a question only a game can answer. `GameServer.LastSnapshot` in `Samples/08` is a game holding on
+to one for exactly this purpose.
 
 ## What stayed in the application
 

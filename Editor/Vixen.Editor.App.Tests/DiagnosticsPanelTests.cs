@@ -20,7 +20,7 @@ namespace Vixen.Editor.App.Tests;
 ///     opened once.
 /// </remarks>
 public class DiagnosticsPanelTests {
-    /// <summary>The six panels E4 registers.</summary>
+    /// <summary>The panels E4 registers, and the one doc 16's diagnostics section asked for.</summary>
     public static TheoryData<string> Panels => [
         "profiler",
         "gpu",
@@ -28,7 +28,8 @@ public class DiagnosticsPanelTests {
         "statistics",
         "frame-debugger",
         "remote-inspector",
-        "devices"
+        "devices",
+        "network"
     ];
 
     /// <summary>The verbs that were declared-and-disabled until E4 built the panels behind them.</summary>
@@ -39,6 +40,7 @@ public class DiagnosticsPanelTests {
         "tools.memory",
         "tools.statistics",
         "tools.remote-inspector",
+        "tools.network",
         "build.deploy"
     ];
 
@@ -167,6 +169,21 @@ public class DiagnosticsPanelTests {
         Assert.Null(view.Source);
         Assert.True(view.CaptureButton.Disabled);
         Assert.NotNull(view.Unavailable);
+    }
+
+    /// <summary>
+    ///     ⚠ And so does the network panel. A bare editor is running no session, so there is no
+    ///     <c>BandwidthLedger</c> to read — and a table of zeroes would read as a game sending
+    ///     nothing, which is the bug somebody would have opened the panel to find.
+    /// </summary>
+    [Fact]
+    public void The_network_panel_says_there_is_no_ledger_rather_than_showing_zeroes() {
+        using var session = EditorSession.Start();
+
+        var view = Built<NetworkView>(session, "network");
+
+        Assert.Contains(Descendants(view.Root), element => element.Tag == "empty-state");
+        Assert.DoesNotContain(Descendants(view.Root), element => element.Tag == "network-row");
     }
 
     [Fact]

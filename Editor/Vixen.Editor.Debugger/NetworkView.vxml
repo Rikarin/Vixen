@@ -1,0 +1,444 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 16's "editor panel", over the two types doc 13 already built for it: `BandwidthLedger`
+    answers *where the bandwidth went*, and `SnapshotInspector` takes one packet apart. Nothing new
+    is measured here and nothing new is exposed on `Vixen.Net` — every number below is a property
+    those two already have, which is what `Samples/08`'s `Attribution` prints to a console.
+
+    ⚠ **A live panel, which is a different design from a snapshot panel and not a translation of
+    one.** `StatisticsView` is a count somebody presses a button for; this is five dictionaries a
+    server writes into sixty times a second. Three things follow, and all three are why this file
+    looks the way it does:
+
+    1. **The clock is the document's.** `Document.Ticked` is the framework's own time, arriving from
+       outside — a panel that read a clock would be a panel no test could hold still — and a reading
+       is taken at most every `Interval`. A bandwidth table that reshuffled every frame would be
+       unreadable even if it were free.
+    2. **A reading is only taken when one would differ.** `NetworkReport.Fingerprint` is four field
+       reads; taking a reading is five dictionary walks and five sorts. The guard is exact rather
+       than approximate — see its own remarks.
+    3. **No revision counter anywhere.** The scalars are a record of numbers whose signal genuinely
+       refuses an equal value, and the five tables are *objects* that hold signals, so their `@for`
+       keys survive for the life of the panel and each row keeps or loses its region on its own
+       value. A counter every binding read would undo both halves of that.
+
+    ⚠ **Keys, both kinds, in one file.** `@for (var table in Tables)` keys on the object because a
+    `NetworkTable` holds a signal; `@for (var entry in table.Entries)` keys on the value because a
+    `BandwidthEntry` is immutable data and its value *is* its identity — change what a component
+    cost and the key changes, the old region goes, and a new row is built with the new number in it.
+    Keying the entries on `entry.Name` would compile, draw the right rows in the right order, and
+    show the first reading for ever.
+-->
+@component NetworkView
+@namespace Vixen.Editor.Debugger
+@tag network-view
+@using System.Globalization
+@using Vixen.Net.Diagnostics
+@using Vixen.Net.Replication
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<network-toolbar>
+    <Button Size="Small" Label="Refresh" on:click="@Take" />
+    <Button Size="Small" Variant="Subtle" Label="Reset" Disabled="@(!Summary.Attached)" on:click="@Clear" />
+
+    <!--
+        ⚠ **`on:click` and not `on:change`, and that is the framework rather than a preference.** The
+        markup event table has ten names in it and none of them is a value change; `on:change` binds
+        and then throws when the element is built. A `CheckBox` is a `Control`, so `click` means
+        `ClickEvent` — raised by the pointer *and* by the keyboard — and `ToggleBase.Activate` flips
+        `IsChecked` before it raises, so the handler reads the state the user just asked for.
+
+        And `IsChecked` is bound back to the ledger's own flag rather than left to the control. If
+        the flip cannot be applied — no ledger — the binding puts the tick back, which is the honest
+        answer: the box shows what the ledger says, not what was clicked.
+    -->
+    <CheckBox ref="@Objects"
+              Size="Small"
+              Label="Per object"
+              Disabled="@(!Summary.Attached)"
+              IsChecked="@Summary.TracksObjects"
+              on:click="@TrackObjects" />
+</network-toolbar>
+
+@if (!Summary.Attached) {
+    <!--
+        ⚠ Absent rather than empty. A panel of zeroes reads as a game sending nothing, which is the
+        bug somebody would have opened this to find — and is the one state it must never invent.
+    -->
+    <EmptyState Title="No bandwidth ledger"
+                Description="A ledger belongs to whatever is running the session. Attach one to a ReplicationServer and an RpcRouter, and point this panel at it." />
+} else {
+    <network-status>@Sentence()</network-status>
+
+    <KeyValueList>
+        <KeyValueRow Key="Rate" Value="@Rate()" />
+        <KeyValueRow Key="Accounted for" Value="@Accounted()" />
+        <KeyValueRow Key="Replicated values" Value="@Records()" />
+
+        <KeyValueRow Key="Sent as a difference">
+            <ProgressBar Value="@Summary.DeltaShare" />
+        </KeyValueRow>
+
+        <KeyValueRow Key="Remote calls" Value="@Calls()" />
+    </KeyValueList>
+
+    @for (var table in Tables) {
+        <!--
+            ⚠ Hidden rather than absent, which is the opposite of the choice above and is the same
+            argument read the other way. An empty column here is not a claim about the game — the
+            object table is empty because per-object attribution is off, and the call table is empty
+            because nothing called anything — so the heading is worth nothing and the element is
+            worth keeping. `.parked` is `ProfilerTheme`'s, which this panel's sheet leans on.
+        -->
+        <network-table key="@table" class="@Parked(table)">
+            <network-heading>@table.Heading</network-heading>
+
+            @for (var entry in table.Entries) {
+                <network-row key="@entry">
+                    <network-name>@table.Short(entry.Name)</network-name>
+                    <network-cost>@Cost(entry)</network-cost>
+                    <ProgressBar Value="@Share(entry, table)" />
+                    <network-mean>@Mean(entry)</network-mean>
+                </network-row>
+            }
+        </network-table>
+    }
+}
+
+<!--
+    The packet inspector. Separate from everything above because it has a different source and a
+    different clock: the ledger is a running total and this is one snapshot, decoded and applied to
+    nothing.
+-->
+<network-packet>
+    <network-heading>last snapshot</network-heading>
+
+    @if (!Snapshot.Present) {
+        <network-status>@Nothing()</network-status>
+    } else {
+        <network-status class='@(Snapshot.Contents.Complete ? "" : "truncated")'>@Packet()</network-status>
+
+        @for (var row in Snapshot.Rows) {
+            <network-record key="@row">
+                <network-slot>@row.Slot</network-slot>
+                <network-name>@row.Record.TypeName</network-name>
+                <network-object>@row.Record.Object</network-object>
+                <network-baseline class='@(row.Record.IsDelta ? "delta" : "whole")'>@Baseline(row.Record)</network-baseline>
+                <network-cost>@Bits(row.Record.Bits)</network-cost>
+            </network-record>
+        }
+    }
+</network-packet>
+
+@code {
+    /// <summary>How often a reading is taken, however often the document ticks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A quarter of a second, which is slower than the eye and far slower than the frame.</b>
+    ///     Everything in the tables is a running total over <c>Elapsed</c>, so a faster refresh does
+    ///     not show more — it shows the same numbers moving in their last digit, on a table that
+    ///     re-sorts underneath the cursor. The refresh button is there for the moment somebody wants
+    ///     the reading *now*.
+    /// </remarks>
+    public static readonly TimeSpan Interval = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>How many rows each column keeps.</summary>
+    /// <remarks>
+    ///     The ledger sorts and truncates, so this is what is asked for rather than what is drawn and
+    ///     then hidden. Eight because the question is which two or three things are expensive, and a
+    ///     column long enough to scroll is one where the answer is off the bottom.
+    /// </remarks>
+    public const int Rows = 8;
+
+    /// <summary>The scalars, which is the only part of the model with real value equality.</summary>
+    readonly Signal<NetworkReport> summary = new(NetworkReport.Empty);
+
+    /// <summary>The decoded packet, on its own signal because it has its own source.</summary>
+    readonly Signal<NetworkPacket> snapshot = new(NetworkPacket.None);
+
+    /// <summary>
+    ///     The ledger's five answers, as five objects that outlive every reading — which is what
+    ///     makes the outer <c>@for</c> key survive and the rows keep their regions.
+    /// </summary>
+    readonly NetworkTable[] tables = [
+        new("by component"),
+        new("by field"),
+        new("by remote call"),
+        new("by object"),
+        new("by connection")
+    ];
+
+    /// <summary>What the last reading was taken at, so an unchanged ledger costs four field reads.</summary>
+    (long Bits, long Count, TimeSpan Elapsed, bool Objects) taken = (-1, -1, TimeSpan.MinValue, false);
+
+    /// <summary>The bytes the last packet was decoded from, so an unchanged one is not decoded again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A copy, and comparing it is cheaper than the alternative it replaces.</b> A host hands
+    ///     the same reused buffer back every time, so neither the reference nor the length says
+    ///     whether anything changed; the tick stamp nearly does, and "nearly" in a packet inspector is
+    ///     the case somebody opened it for — two different truncations of the same tick. A few
+    ///     kilobytes compared four times a second is nothing beside decoding them.
+    /// </remarks>
+    byte[] decoded = [];
+    int decodedLength;
+
+    /// <summary>
+    ///     ⚠ <b>The document is held rather than reached for through <c>Root</c>, and that is what
+    ///     makes letting go safe.</b> <c>UiElement.Document</c> throws once the element is removed —
+    ///     deliberately, because a removed element's node ids address slots the trees have handed to
+    ///     somebody else — and unmounting is exactly the moment that is true. The subscription was
+    ///     made against this object, so it is the object to take it off.
+    /// </summary>
+    UiDocument? clocked;
+    Action<UiDocument, TimeSpan>? clock;
+    TimeSpan last = TimeSpan.MinValue;
+
+    /// <summary>
+    ///     The box that turns per-object attribution on. Private, because the panel has no public
+    ///     parts — a caller wires the three delegates below and the panel draws itself.
+    /// </summary>
+    CheckBox Objects { get; set; } = null!;
+
+    /// <summary>Where the ledger comes from, or <see langword="null" /> when nothing is attached.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pulled rather than pushed, and every diagnostics panel here follows the same rule.</b>
+    ///     A panel factory runs again on every reopen, so a host holding a reference to the panel is
+    ///     a host pushing readings into an element that has been removed from the document. Pulling
+    ///     means the panel is driven only while it is in the tree, because the only thing driving it
+    ///     is its own clock subscription.
+    ///     <para>
+    ///         A delegate rather than a <c>BandwidthLedger</c> because which ledger is the host's
+    ///         arbitration — a play-mode session, an attached build, a server the editor launched —
+    ///         and a panel holding one would show whichever was assigned last, for ever.
+    ///     </para>
+    /// </remarks>
+    public Func<BandwidthLedger?>? Source { get; set; }
+
+    /// <summary>What names the component types in a packet, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     The inspector needs it and degrades without it — a record's own length is only knowable
+    ///     through the replicator, so an unknown type ends the read rather than desynchronising
+    ///     everything after it. Which is why an absent registry shows no packet at all rather than a
+    ///     packet with no records in it.
+    /// </remarks>
+    public Func<ReplicationRegistry?>? Registry { get; set; }
+
+    /// <summary>The newest snapshot's bytes, exactly as they went on the wire.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Whoever is sending or receiving keeps the bytes; <c>ReplicationServer</c> does not.</b>
+    ///     It writes each connection's snapshot into a caller's buffer and forgets it — see
+    ///     <c>GameServer.LastSnapshot</c> in <c>Samples/08</c>, which is a game holding on to one
+    ///     because a game is what knows which connection is worth looking at. So this is the host's
+    ///     to supply, and a host that supplies none gets a pane that says so.
+    /// </remarks>
+    public Func<ReadOnlyMemory<byte>>? Capture { get; set; }
+
+    /// <summary>What the ledger currently adds up to.</summary>
+    NetworkReport Summary => summary.Value;
+
+    /// <summary>The packet on screen.</summary>
+    NetworkPacket Snapshot => snapshot.Value;
+
+    /// <summary>The five columns, in the order the ledger's own remarks ask the question in.</summary>
+    IReadOnlyList<NetworkTable> Tables => tables;
+
+    /// <summary>Takes a reading now, whether or not the interval has passed.</summary>
+    /// <remarks>
+    ///     Public because the toolbar's button is not the only caller: a host that has just stopped a
+    ///     session wants the last numbers on screen without waiting a quarter of a second for a clock
+    ///     that may not tick again.
+    /// </remarks>
+    public void Take() {
+        var ledger = Source?.Invoke();
+        var print = Fingerprint(ledger);
+
+        if (print != taken) {
+            taken = print;
+            summary.Value = NetworkReport.Of(ledger);
+
+            tables[0].Show(ledger?.TopComponents(Rows) ?? []);
+            tables[1].Show(ledger?.TopFields(Rows) ?? []);
+            tables[2].Show(ledger?.TopCalls(Rows) ?? []);
+            tables[3].Show(ledger?.TopObjects(Rows) ?? []);
+            tables[4].Show(ledger?.TopConnections(Rows) ?? []);
+        }
+
+        Inspect();
+    }
+
+    /// <summary>Forgets everything the ledger has counted, so the next reading is of what follows.</summary>
+    /// <remarks>
+    ///     The ledger's own <c>Reset</c>, which is what makes a report about the last ten seconds
+    ///     possible at all — <c>KilobitsPerSecond</c> is over <c>Elapsed</c>, and a rate averaged
+    ///     across an hour of idling hides the thirty seconds that matter.
+    /// </remarks>
+    public void Clear() {
+        Source?.Invoke()?.Reset();
+        Take();
+    }
+
+    /// <summary>Turns per-object attribution on or off, from the box.</summary>
+    void TrackObjects() {
+        if (Source?.Invoke() is { } ledger) {
+            ledger.TrackObjects = Objects.IsChecked;
+        }
+
+        Take();
+    }
+
+    /// <summary>Decodes the newest packet, if it is not the one already on screen.</summary>
+    void Inspect() {
+        if (Registry?.Invoke() is not { } registry || Capture is null) {
+            snapshot.Value = NetworkPacket.None;
+            decodedLength = 0;
+
+            return;
+        }
+
+        var bytes = Capture().Span;
+
+        if (bytes.Length == decodedLength && bytes.SequenceEqual(decoded.AsSpan(0, decodedLength))) {
+            return;
+        }
+
+        if (decoded.Length < bytes.Length) {
+            decoded = new byte[bytes.Length];
+        }
+
+        bytes.CopyTo(decoded);
+        decodedLength = bytes.Length;
+
+        snapshot.Value = bytes.IsEmpty
+            ? NetworkPacket.None
+            : NetworkPacket.Of(SnapshotInspector.Inspect(registry, bytes));
+    }
+
+    /// <summary>What is cheap to read and changes whenever a reading would differ.</summary>
+    static (long Bits, long Count, TimeSpan Elapsed, bool Objects) Fingerprint(BandwidthLedger? ledger) =>
+        ledger is null
+            ? (-1, -1, TimeSpan.MinValue, false)
+            : (ledger.TotalBits, ledger.TotalCount, ledger.Elapsed, ledger.TrackObjects);
+
+    /// <summary>Whether a column has nothing in it, as a class.</summary>
+    static string Parked(NetworkTable table) => table.Entries.Count == 0 ? "parked" : string.Empty;
+
+    /// <summary>How much of the dearest row's cost this row is, from zero to one.</summary>
+    /// <remarks>
+    ///     Against the column's own largest rather than against its total, because what a bar in a
+    ///     top-eight is for is comparing the rows to each other — scaled to the total, a column of
+    ///     eight roughly equal things is eight bars at one eighth and says nothing.
+    /// </remarks>
+    static float Share(BandwidthEntry entry, NetworkTable table) =>
+        table.Largest <= 0 ? 0f : (float) (entry.Bits / (double) table.Largest);
+
+    /// <summary>The line above the summary: how much, over how long.</summary>
+    string Sentence() =>
+        Summary.Elapsed <= TimeSpan.Zero
+            ? "No time accounted for yet. The ledger is told how long a tick was; nothing has told it."
+            : string.Create(
+                CultureInfo.InvariantCulture,
+                $"{NetworkReport.Size(Summary.Bytes)} over {Summary.Elapsed.TotalSeconds:N1} s, "
+                + $"across {Summary.TotalCount:N0} records and calls"
+            );
+
+    string Rate() => string.Create(CultureInfo.InvariantCulture, $"{Summary.KilobitsPerSecond:N1} kbit/s");
+
+    string Accounted() => NetworkReport.Size(Summary.Bytes);
+
+    string Records() =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"{Summary.DeltaCount:N0} as a difference, {Summary.WholeCount:N0} whole"
+        );
+
+    /// <summary>
+    ///     ⚠ <b>Derived rather than counted, and it is exact.</b> <c>Record</c> raises the total and
+    ///     one of the two record counters; <c>RecordCall</c> raises only the total. So what is in the
+    ///     total and not in either record counter is the calls, and the ledger does not need a sixth
+    ///     property to say so.
+    /// </summary>
+    string Calls() =>
+        string.Create(CultureInfo.InvariantCulture, $"{Summary.TotalCount - Summary.RecordCount:N0}");
+
+    static string Cost(BandwidthEntry entry) =>
+        string.Create(CultureInfo.InvariantCulture, $"{NetworkReport.Size(entry.Bytes)} × {entry.Count:N0}");
+
+    static string Mean(BandwidthEntry entry) =>
+        string.Create(CultureInfo.InvariantCulture, $"{entry.MeanBits:N1} bits each");
+
+    string Nothing() =>
+        Registry is null || Capture is null
+            ? "No capture. A snapshot's bytes belong to whoever sent or received them, and the "
+            + "registry is what names the types in it — this host supplies neither."
+            : "Nothing captured yet.";
+
+    string Packet() {
+        var contents = Snapshot.Contents;
+
+        var line = string.Create(
+            CultureInfo.InvariantCulture,
+            $"tick {contents.Tick.Value} — {NetworkReport.Size(contents.Bits / 8d)}, "
+            + $"{contents.Records.Count:N0} record(s), {contents.Removals.Count:N0} removal(s)"
+        );
+
+        // ⚠ Said rather than hidden. A truncated decode still returns what it found before it
+        // stopped, and a pane that showed those records without saying the rest was unread would be
+        // a pane that under-reports the packet it was opened to explain.
+        return contents.Complete ? line : line + " — TRUNCATED";
+    }
+
+    /// <summary>Whether a record went whole, or what it was measured from.</summary>
+    static string Baseline(SnapshotRecord record) =>
+        record.IsDelta
+            ? string.Create(CultureInfo.InvariantCulture, $"Δ from {record.BaselineAt.Value}")
+            : "whole";
+
+    static string Bits(int bits) => string.Create(CultureInfo.InvariantCulture, $"{bits:N0} bits");
+
+    /// <summary>
+    ///     ⚠ <b>Subscribes here and unsubscribes below, and the pair has to be idempotent.</b>
+    ///     <c>OnComposed</c> is emitted inside the build, so a hot reload runs it again over the new
+    ///     elements — a handler added without letting go of the previous one would be a panel that
+    ///     took two readings a tick after one edit and four after two.
+    /// </summary>
+    partial void OnComposed() {
+        Release();
+
+        clocked = Root.Document;
+        clock = (_, now) => Advance(now);
+        clocked.Ticked += clock;
+
+        // ⚠ And a reading straight away, which is *not* redundant with the tick. A host assigns
+        // `Source` after `Build` returns — that is when parameters are set — so this first one draws
+        // the empty state and the tick a moment later draws the numbers. What it buys is that a
+        // document nothing ticks still shows the panel rather than nothing at all.
+        Take();
+    }
+
+    /// <inheritdoc />
+    protected override void OnUnmounted() {
+        Release();
+        base.OnUnmounted();
+    }
+
+    void Advance(TimeSpan now) {
+        if (last != TimeSpan.MinValue && now - last < Interval) {
+            return;
+        }
+
+        last = now;
+        Take();
+    }
+
+    void Release() {
+        if (clocked is not null && clock is not null) {
+            clocked.Ticked -= clock;
+        }
+
+        clocked = null;
+        clock = null;
+    }
+}

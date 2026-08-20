@@ -26,7 +26,7 @@
    strips are the console's, deliberately: three diagnostics panels whose
    toolbars were three different heights would look like three plugins. */
 profiler-view, memory-view, statistics-view, gpu-timeline, frame-debugger,
-remote-inspector, device-manager {
+remote-inspector, device-manager, network-view {
     flex-direction: column;
     flex-grow: 1;
     flex-basis: 0px;
@@ -34,7 +34,8 @@ remote-inspector, device-manager {
     gap: 0px;
 }
 
-profiler-toolbar, memory-toolbar, statistics-toolbar, debugger-toolbar, remote-toolbar {
+profiler-toolbar, memory-toolbar, statistics-toolbar, debugger-toolbar, remote-toolbar,
+network-toolbar {
     flex-direction: row;
     align-items: center;
     gap: 6px;

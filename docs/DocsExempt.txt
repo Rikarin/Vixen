@@ -2117,12 +2117,7 @@ T:Vixen.Net.Audio.NetworkAudioTrigger sweep-pending
 T:Vixen.Net.Channel sweep-pending
 T:Vixen.Net.ChannelExtensions sweep-pending
 T:Vixen.Net.ConnectionId sweep-pending
-T:Vixen.Net.Diagnostics.BandwidthEntry sweep-pending
-T:Vixen.Net.Diagnostics.BandwidthLedger sweep-pending
 T:Vixen.Net.Diagnostics.NetworkMetrics sweep-pending
-T:Vixen.Net.Diagnostics.SnapshotContents sweep-pending
-T:Vixen.Net.Diagnostics.SnapshotInspector sweep-pending
-T:Vixen.Net.Diagnostics.SnapshotRecord sweep-pending
 T:Vixen.Net.DisconnectReason sweep-pending
 T:Vixen.Net.Engine.ISyncCodec`1 sweep-pending
 T:Vixen.Net.Engine.ISyncField sweep-pending
