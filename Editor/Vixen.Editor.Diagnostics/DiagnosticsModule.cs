@@ -12,6 +12,8 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Graphics;
+using Vixen.Net.Diagnostics;
+using Vixen.Net.Replication;
 using Vixen.Net.Transport.Local;
 using Vixen.Ui;
 using Vixen.Ui.Composition;
@@ -113,6 +115,42 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
     /// <summary>Where a standalone play-mode process would listen for an inspector.</summary>
     public string? InspectorEndpoint { get; set; }
+
+    /// <summary>The bandwidth ledger of whatever session is running, when the host has one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Null on a bare editor, and that is the honest state.</b> A
+    ///         <c>BandwidthLedger</c> is attached to a <c>ReplicationServer</c> and an
+    ///         <c>RpcRouter</c> by whoever built them — a game, a play-mode process, a dedicated
+    ///         server — and there is no session in an editor that has not started one. The panel says
+    ///         so rather than drawing a table of zeroes, which would read as a game sending nothing.
+    ///     </para>
+    ///     <para>
+    ///         A property rather than a ledger this class owns, for the same reason
+    ///         <see cref="GpuFrame" /> is one: the object that records the numbers has to be the
+    ///         object doing the thing being recorded.
+    ///     </para>
+    /// </remarks>
+    public BandwidthLedger? NetworkLedger { get; set; }
+
+    /// <summary>The replication registry that names the component types inside a packet.</summary>
+    /// <remarks>
+    ///     Separate from the ledger because it is a different kind of fact — the ledger is a running
+    ///     total and this is the manifest a decode is read against — and because the two can
+    ///     legitimately arrive from different places: a client has a registry and receives snapshots,
+    ///     and has no ledger at all.
+    /// </remarks>
+    public ReplicationRegistry? NetworkRegistry { get; set; }
+
+    /// <summary>The newest snapshot's bytes, exactly as they went on the wire.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>ReplicationServer</c> does not keep them and this does not ask it to.</b> It writes
+    ///     each connection's snapshot into a caller's buffer and forgets it; which connection's bytes
+    ///     are worth looking at is a question only the host can answer — see
+    ///     <c>GameServer.LastSnapshot</c> in <c>Samples/08</c>, a game holding on to one for exactly
+    ///     this purpose.
+    /// </remarks>
+    public ReadOnlyMemory<byte> NetworkSnapshot { get; set; }
 
     /// <summary>The profiler's model, for a test and for the host's own frame samples.</summary>
     public ProfilerModel Profiling => profiler;
@@ -260,6 +298,33 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         );
 
         context.AddPanel(
+            "network",
+            new StringId("editor.panel.network", "Network"),
+            panel => {
+                Contextual(panel);
+
+                // ⚠ Built rather than added, because the panel is a `.vxml` and a markup component
+                // is a `Component` — it *builds* elements and is not one. The host element it
+                // creates carries the `network-view` tag, so `ProfilerTheme`'s shared strip rule and
+                // `DebuggerTheme`'s own rules both land.
+                var network = BuildContext.Build<NetworkView>(panel.Document, panel);
+
+                // ⚠ Three delegates and no ledger, for the reason every panel here is pulled rather
+                // than pushed: this factory runs again on every reopen, so anything the module held
+                // a reference to would outlive the panel it was pointing at.
+                network.Source = () => NetworkLedger;
+                network.Registry = () => NetworkRegistry;
+                network.Capture = () => NetworkSnapshot;
+
+                // ⚠ After the delegates, and that is the whole of why it is here. A component's
+                // `OnComposed` runs *inside* the build, before `Build` has returned and therefore
+                // before the three lines above — so the panel's own first reading is of nothing.
+                // This is the one that sees whatever is attached.
+                network.Take();
+            }
+        );
+
+        context.AddPanel(
             "frame-debugger",
             new StringId("editor.panel.frame-debugger", "Frame Debugger"),
             panel => {
@@ -324,6 +389,13 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         Panel(context, "tools.frame-debugger", "editor.command.tools.frame-debugger", "Frame Debugger", "frame-debugger");
         Panel(context, "tools.memory", "editor.command.tools.memory", "Memory", "memory");
         Panel(context, "tools.statistics", "editor.command.tools.statistics", "Statistics", "statistics");
+
+        // Doc 16's diagnostics section asks for an editor panel over the bandwidth attribution the
+        // same section specifies. It is its own line rather than a tab inside the profiler for the
+        // reason the GPU timeline is: a different measurement of a different thing, absent on every
+        // editor that is not running a session, and a tab that was empty there would read as a
+        // broken profiler rather than as a game nobody has started.
+        Panel(context, "tools.network", "editor.command.tools.network", "Network", "network");
 
         Panel(
             context,

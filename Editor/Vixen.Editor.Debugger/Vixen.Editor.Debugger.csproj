@@ -52,6 +52,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            The VXML compiler, by the same route and for the same reason: a PackageReference to
+            Vixen.Ui would bring it and a ProjectReference does not. `NetworkView.vxml` is what needs
+            it — and it is what the `.vxml` half of the `Vixen.Ui.targets` import at the bottom of
+            this file has been waiting for since that import was added.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
@@ -75,7 +85,7 @@
         failing to compile — the error message names this import for that reason.
 
         At the bottom of the file, because the glob has to run after DefaultItemExcludes is final.
-        There is no `.vxml` in this project, so the other half of the .targets is inert here.
+        Both halves are live now: `NetworkView.vxml` is compiled by the glob's other half.
     -->
     <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 

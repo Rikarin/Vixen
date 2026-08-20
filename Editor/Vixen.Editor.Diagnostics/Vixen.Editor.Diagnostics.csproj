@@ -46,6 +46,15 @@
             only attach to that one. It takes an ITransport and this hands it whichever.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+
+        <!--
+            ⚠ Named rather than left to arrive through the transport above, because this assembly now
+            says `BandwidthLedger` and `ReplicationRegistry` out loud. Both were already reachable —
+            the transport references `Vixen.Net`, and so does `Vixen.Editor.Debugger` — so this line
+            changes no binary. What it changes is that removing either of those references would
+            break the build here rather than silently taking the network panel's plumbing with it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net\Vixen.Net.csproj" />
     </ItemGroup>
 
 </Project>

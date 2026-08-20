@@ -2,7 +2,8 @@
 
 The stepping half of [doc 20's B4](../../docs/plan/20-editor-parity.md#b4--diagnostics): a frame
 debugger over a captured command stream, a remote inspector that attaches to a running build, and a
-device manager over whatever can be deployed to.
+device manager over whatever can be deployed to — plus [doc 16's](../../docs/plan/16-networking.md#diagnostics)
+network panel, which is a reader for two diagnostics models `Vixen.Net` already had.
 
 ## What is here
 
@@ -15,7 +16,8 @@ device manager over whatever can be deployed to.
 | `InspectorProtocol` | Doc 13's remote-inspector wire format: a kind byte, then fields. |
 | `RemoteInspectorClient` | The editor's half of the conversation, over any `ITransport`. |
 | `DeviceManager`, `IDeviceProvider` | What a build can be deployed to. |
-| `FrameDebuggerView`, `RemoteInspectorView`, `DeviceManagerView` | The panels. |
+| `NetworkTable`, `NetworkReport` | The panel-side model over `BandwidthLedger` — internal: scalars in one, columns in five. |
+| `FrameDebuggerView`, `RemoteInspectorView`, `DeviceManagerView`, `NetworkView` | The panels. |
 
 ## Stepping
 
@@ -106,11 +108,41 @@ say them. Discovery answers "is it there"; whether a build is on its way to it i
 the editor is doing. Without it the two would be enum members no code could ever produce, and a row
 would read Available while a publish was running.
 
+## The network panel
+
+[Doc 16](../../docs/plan/16-networking.md#diagnostics) asks for a bandwidth panel and a packet
+inspector. Both already existed as *models* — `BandwidthLedger` answers "what is eating my thirty
+kilobits" four ways and `SnapshotInspector` takes a packet apart without applying any of it — and
+neither had a reader outside a console dump in `Samples/08`. `NetworkView.vxml` is that reader.
+
+⚠ **Nothing on `Vixen.Net` was widened to build it, and that was the thing to check first.** Every
+number the panel draws is a property those two types already expose. What the panel needed from
+outside was not data but *pointers* at it: a ledger, a registry and the newest snapshot's bytes, all
+three pulled through delegates the host sets — because a panel factory runs again on every reopen,
+so anything pushed into a panel outlives the panel it was pushed into.
+
+⚠ **`ReplicationServer` does not keep the last snapshot and the panel does not ask it to.** It writes
+each connection's into a caller's buffer and forgets it; which connection's bytes are worth looking at
+is a question only a game can answer. `GameServer.LastSnapshot` in `Samples/08` is a game holding on
+to one for exactly this purpose.
+
+⚠ **It is the first *live* panel in the editor written in markup, and the shape is deliberate.** A
+snapshot panel takes a `Signal<T>` and is done; a live one has to answer what drives it and what stops
+it doing that work sixty times a second. Here: `UiDocument.Ticked` drives it — time from outside, so a
+test holds it still with `UiTest.Advance` — throttled to four hertz; a four-field fingerprint decides
+whether a reading would differ before five dictionaries are walked and sorted; and there is no
+revision counter, because the summary is a record of *scalars* whose signal genuinely refuses an equal
+value and the five tables are objects that hold signals, so their `@for` keys survive for the life of
+the panel and each row keeps or loses its region on its own value.
+
+This is also the first `.vxml` in this project, which is why the `.csproj` gained the markup
+generator: the `Vixen.Ui.targets` import that compiles it has been here since the sheet was moved out
+of a `const string`, with only its `.vcss` half doing anything.
+
 ## The theme
 
 **The sheet is `DebuggerTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob in
-`Vixen.Ui.targets` and read back by `DebuggerTheme.Css`. At 70 lines it is the smallest in the
-editor — most of what it used to say became a control's job when the state pane became a
+`Vixen.Ui.targets` and read back by `DebuggerTheme.Css`. It was the smallest in the editor — most of what it used to say became a control's job when the state pane became a
 `KeyValueList`. It was a `const string` until it was moved out byte for byte, and
 `DebuggerTheme.Utilities` stays a constant because a build step generates it.
 
