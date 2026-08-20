@@ -247,6 +247,60 @@ public sealed class TerrainColliderSystemTests {
         Assert.Equal(0, entities.EntityCount);
     }
 
+    /// <summary>A tile index that is not a tile is refused, instead of overwriting a different one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The failure this guards was silent, permanent, and reached a neighbour.</b>
+    ///         Everything below <c>Rebuild</c> indexes flat — <c>tileZ * TilesX + tileX</c> for the
+    ///         entity slot and the same arithmetic inside <c>Terrain.RevisionOf</c> — and
+    ///         <c>TerrainSamples</c>' indexer clamps rather than throwing, deliberately, because every
+    ///         sculpt kernel reads its neighbours. So on this 2 × 2 terrain <c>Rebuild(terrain, 2, 0)</c>
+    ///         was <c>Rebuild(terrain, 0, 1)</c>: a shape built from the edge row repeated, placed at a
+    ///         corner 28 m out, written into tile <c>(0, 1)</c>'s slot — and then stamped with tile
+    ///         <c>(0, 1)</c>'s own revision, which is what made it stick, because <c>Sync</c>'s poll
+    ///         compares that stamp and skips the tile forever after.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A throw rather than a clamp, and the difference matters here.</b>
+    ///         <c>TerrainDescription.TilesOf</c> clamps because a <em>rect</em> of samples is data and
+    ///         the edge of a terrain is a legitimate place for a brush to be. A tile index is not data;
+    ///         it names one of sixteen things, and clamping it would rebuild a tile the caller did not
+    ///         ask for — the same silent wrong answer one step quieter.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ATileThatIsNotOnTheTerrainIsRefusedRatherThanAliased() {
+        using var entities = new EcsWorld();
+        using var scene = new PhysicsScene(entities);
+
+        // Two tiles of 7 quads at 2 m, so each spans 14 m and tile (0, 1) covers z 14…28.
+        var terrain = Flat(5f, 2);
+        var colliders = new TerrainColliderSystem(scene, new Placed(new TerrainPlacement(terrain, Vector3.Zero)));
+
+        colliders.Sync();
+        scene.Synchronize(Step);
+
+        Assert.Equal(4, colliders.TileCount);
+        Assert.Equal(5f, GroundUnder(scene, 4f, 18f)!.Value, 3);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => colliders.Rebuild(terrain, 2, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => colliders.Rebuild(terrain, 0, 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => colliders.Rebuild(terrain, -1, 0));
+
+        scene.Synchronize(Step);
+
+        // The tile the flat index would have landed on is still the tile it was.
+        Assert.Equal(5f, GroundUnder(scene, 4f, 18f)!.Value, 3);
+        Assert.Equal(4, colliders.TileCount);
+
+        // ⚠ And refused before the terrain is looked up, so a host that has not wired physics up yet
+        // still finds the caller's bug rather than discovering it the day it does.
+        var unknown = new TerrainColliderSystem(scene, new Placed());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => unknown.Rebuild(terrain, 2, 0));
+        Assert.False(unknown.Rebuild(terrain, 1, 1));
+    }
+
     /// <summary>A terrain that has not loaded yet is nothing, and asking again is what fixes it.</summary>
     /// <remarks>
     ///     ⚠ <b>The trap this system exists in the shape it does to avoid.</b> A <c>.vxterrain</c>
