@@ -134,9 +134,13 @@ partial class Build : NukeBuild {
         );
 
     Target CheckFormat => definition => definition
-        .Description("Fails if any file deviates from .editorconfig")
+        .Description("Fails if any file deviates from .editorconfig or is missing its SPDX header")
         .DependsOn(Restore)
         .Executes(() => {
+                // First, because it takes milliseconds and the two passes below take minutes. A
+                // developer who forgot a header finds out before the format run, not after it.
+                CheckLicenceHeaders();
+
                 // Invoked raw rather than through Nuke's typed settings, whose shape has moved
                 // between versions; the CLI's has not.
                 //
@@ -153,6 +157,171 @@ partial class Build : NukeBuild {
                 DotNet($"format analyzers \"{Solution.Path}\" --verify-no-changes --severity warn --no-restore");
             }
         );
+
+    /// <summary>
+    ///     The two tags every authored source file has to carry, in the first
+    ///     <see cref="LicenceHeaderLines" /> lines.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Presence, not spelling, and the comment syntax is not looked at. The header is
+    ///         <c>//</c> in C#, TypeScript and ANTLR, <c>/* … */</c> in VCSS and
+    ///         <c>&lt;!-- … --&gt;</c> in VXML — three shapes for one obligation, so matching the tag
+    ///         rather than the line is what lets one rule cover all five file types. It is also what
+    ///         SPDX itself specifies: the tag is the contract, the comment around it is the host
+    ///         language's business.
+    ///     </para>
+    ///     <para>
+    ///         Both tags, not just the licence. <c>SPDX-License-Identifier</c> says what may be done
+    ///         with the file and <c>SPDX-FileCopyrightText</c> says whose it is; ADR-015 lists them
+    ///         together because Apache-2.0 §4(c) is about attribution, and a licence with no
+    ///         copyright holder attributes nothing. As of this commit the tree carries exactly one
+    ///         spelling of each across all 4 510 files in scope — <c>Copyright (c) Rikarin</c> and
+    ///         <c>Apache-2.0</c> — but the values are deliberately not asserted: a vendored file
+    ///         that legitimately carries someone else's copyright, or a differently licensed one,
+    ///         should be readable here rather than forced into a lie or into an exclusion list.
+    ///     </para>
+    /// </remarks>
+    static readonly string[] LicenceHeaderTags = ["SPDX-FileCopyrightText:", "SPDX-License-Identifier:"];
+
+    /// <summary>
+    ///     How far into a file the header may be. Ten lines, so that a generated file's
+    ///     <c>&lt;auto-generated&gt;</c> banner, a VXML comment block or a shebang can precede it.
+    /// </summary>
+    const int LicenceHeaderLines = 10;
+
+    /// <summary>
+    ///     The file types the header is enforced on, and the top-level directories searched for
+    ///     them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Five extensions, chosen from what the tree already does rather than from what
+    ///         would be nice.</b> <c>.cs</c>, <c>.g4</c>, <c>.vxml</c>, <c>.vcss</c> and <c>.ts</c>
+    ///         are the authored source languages here, and every one of them was already at or
+    ///         within a rounding error of complete coverage when this gate was written — 4 476 of
+    ///         4 493 C# files, and 100% of the other four types. A gate written to match an existing
+    ///         convention costs nothing to turn on; a gate that first requires a thousand-file
+    ///         rewrite gets turned off instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is deliberately out of scope, and why each is not an oversight.</b>
+    ///         <c>.rvn</c> shaders carry the header in one file of 125 — Raven's library predates the
+    ///         relicence and heading it is a separate change with its own diff to read, not something
+    ///         to smuggle in behind a build target. Project files (<c>.csproj</c>, <c>.props</c>,
+    ///         <c>.targets</c>: 3 of 421) and Markdown (34 of 453) are the same story with weaker
+    ///         motivation — nobody vendors a single <c>.csproj</c>. <c>.frag</c> and <c>.vert</c> are
+    ///         GLSL fixtures, none headed. Binary and asset formats are excluded by not being listed:
+    ///         a header cannot go in a <c>.png</c> or a <c>.spv</c>, which is what <c>NOTICE</c> and
+    ///         the third-party manifest are for.
+    ///     </para>
+    /// </remarks>
+    static readonly string[] LicenceHeaderRoots = [
+        "Benchmarks", "Core", "Editor", "Gameplay", "Live", "Platform",
+        "Raven", "Samples", "Testing", "Tools", "build", "docs", "www"
+    ];
+
+    /// <inheritdoc cref="LicenceHeaderRoots" />
+    static readonly string[] LicenceHeaderExtensions = ["cs", "g4", "vxml", "vcss", "ts"];
+
+    /// <summary>
+    ///     Fails <see cref="CheckFormat" /> if an authored source file is missing its SPDX header,
+    ///     naming every file that is.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ADR-015 assigns this to <see cref="CheckFormat" /> and docs/plan/01 § Licence says
+    ///         why the header is worth having at all: Apache-2.0 does not require a per-file header,
+    ///         but it "removes all ambiguity for anyone vendoring a single file". Which is precisely
+    ///         the case a <c>LICENSE</c> at the repository root cannot serve, because the file
+    ///         arrives in somebody else's tree without it.
+    ///     </para>
+    ///     <para>
+    ///         Every file is reported, not the first one. A gate that stops at the failure it found
+    ///         turns a five-file omission into five runs of a target that takes minutes.
+    ///     </para>
+    /// </remarks>
+    void CheckLicenceHeaders() {
+        var patterns = LicenceHeaderRoots
+            .SelectMany(root => LicenceHeaderExtensions.Select(extension => $"{root}/**/*.{extension}"))
+            .ToArray();
+
+        var files = RootDirectory
+            .GlobFiles(patterns)
+            .Where(path => !IsExcludedFromLicenceHeaders(path))
+            .ToList();
+
+        // The glob is the part of this that can rot silently: rename a top-level directory and the
+        // gate goes on reporting green over a smaller and smaller tree. The floor is deliberately a
+        // real number rather than one — four thousand files were in scope when it was written, and
+        // a run that finds four hundred has lost something rather than deleted it.
+        Assert.True(
+            files.Count > 3000,
+            $"found only {files.Count} files to check for an SPDX header, which is too few to be "
+            + "the whole tree — LicenceHeaderRoots or the exclusions below are wrong."
+        );
+
+        var missing = files.Where(path => !HasLicenceHeader(path)).ToList();
+
+        foreach (var path in missing) {
+            Log.Error("{File} has no SPDX header.", RootDirectory.GetRelativePathTo(path));
+        }
+
+        Assert.True(
+            missing.Count == 0,
+            $"{missing.Count} file(s) are missing the SPDX header. Add these two lines at the top, "
+            + "in the file's own comment syntax:\n"
+            + "  SPDX-FileCopyrightText: Copyright (c) Rikarin\n"
+            + "  SPDX-License-Identifier: Apache-2.0"
+        );
+
+        Log.Information("Checked {Count} files for an SPDX header; none missing.", files.Count);
+    }
+
+    /// <summary>Whether a globbed path is one this repository is entitled to put its name on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>bin/</c>, <c>obj/</c>, <c>artifacts/</c> and <c>node_modules/</c> are build output
+    ///         and restored dependencies — git ignores all four, and so does this.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Tools/Vixen.Templates/templates/</c> is the load-bearing exclusion, and it is
+    ///         the same one <see cref="CheckArchitecture" /> makes.</b> Those files are not this
+    ///         repository's source: they are what <c>dotnet new</c> writes into somebody else's
+    ///         directory, and stamping <c>Copyright (c) Rikarin</c> on the first file of a third
+    ///         party's game would be a false claim about their code. None of the four shipped
+    ///         templates carries the header today, deliberately; a fifth must not either.
+    ///     </para>
+    ///     <para>
+    ///         <c>*.g.cs</c> is excluded because a generated file's header belongs to whatever
+    ///         emitted it, and the emitter's own source is checked here like anything else. Most of
+    ///         them do carry it — the offline generators under <c>Tools/</c> write it — but
+    ///         <c>Vixen.Shaders.Generators</c> is a Roslyn source generator whose output lands in the
+    ///         <em>consumer's</em> compilation, and a header claiming Rikarin's copyright over a file
+    ///         generated inside a third party's build would be the same false claim as above.
+    ///     </para>
+    /// </remarks>
+    static bool IsExcludedFromLicenceHeaders(AbsolutePath path) {
+        var text = path.ToString();
+
+        return text.Contains("/bin/", StringComparison.Ordinal)
+            || text.Contains("/obj/", StringComparison.Ordinal)
+            || text.Contains("/artifacts/", StringComparison.Ordinal)
+            || text.Contains("/node_modules/", StringComparison.Ordinal)
+            || text.Contains("/Vixen.Templates/templates/", StringComparison.Ordinal)
+            || text.EndsWith(".g.cs", StringComparison.Ordinal);
+    }
+
+    /// <summary>Whether both SPDX tags appear near the top of a file.</summary>
+    /// <remarks>
+    ///     Reads lines lazily and stops after <see cref="LicenceHeaderLines" />, so this costs a
+    ///     couple of hundred bytes per file rather than the size of the tree.
+    /// </remarks>
+    static bool HasLicenceHeader(AbsolutePath path) {
+        var header = string.Join('\n', File.ReadLines(path).Take(LicenceHeaderLines));
+
+        return LicenceHeaderTags.All(tag => header.Contains(tag, StringComparison.Ordinal));
+    }
 
     /// <summary>
     ///     Publishes every runtime assembly ahead of time, with all of them rooted, and fails on any

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Graphics;
 using Vixen.Graphics.WebGPU;
 using Vixen.Graphics.WebGPU.Browser;
