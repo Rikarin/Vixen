@@ -1353,6 +1353,60 @@ nothing can check.
 without saying so gets a shadow where the object used to be, which is the bargain the word already
 implied.
 
+### The lamps cache differently, and the geometry is the reason
+
+`PunctualShadowRenderer.Cached` keeps a lamp's tile whole rather than keeping its static half.
+Everything above exists because a cascade is *fitted to the camera* — the projection moves when the
+player does, so it has to be stabilised before anything is worth keeping, and the moving casters have
+to be separated out because the rest of the tile is being reused. A punctual light carries its own
+frustum and does not know the camera exists. Nothing has to be stabilised, so there is no `Slack`; the
+whole tile is cacheable, so there is no static stage; and nothing has to be recombined, so there is no
+copy. A lamp that has not moved over casters that have not moved simply keeps its texels.
+
+**The invalidation rule, whole.** A tile is kept when the slot has been drawn at least once, holds
+this lamp's projection inputs compared bit for bit — kind, position, direction, range, outer angle,
+near plane — was drawn from the same casters in the same places, and was drawn at the current
+`CasterVersion`. The caster half is *detected* rather than claimed: the node hashes the ids, bounds
+and world matrices of the objects whose bounds meet the tile's frustum, so a caster that moved,
+appeared, vanished, left the lamp's reach or turned on the spot invalidates the tile it is in and only
+that one. `CasterVersion` covers what bounds and transforms cannot show — a skinned mesh animating
+inside a fixed sphere, an alpha cutout edited, a mesh swapped under a render object.
+
+**A lamp keeps its slot.** Packing densely in list order would move every lamp behind the first new
+one, which invalidates the whole atlas for a reason that has nothing to do with the scene. Slots are
+retained by the lamp's own key; only when retention would fragment the atlas badly enough to drop a
+lamp that fits is the whole frame repacked densely, which costs one full redraw and then holds.
+
+⚠ **One render pass per redrawn tile.** A `LoadAction.Clear` is confined by the pass's *render area*
+and never by the scissor, and a render area is a per-pass fact — so a single pass over the atlas would
+wipe every kept tile the moment it began. `VirtualShadowRenderer.Record` is the same arrangement for
+the same reason, and it got there by losing every page but the last drawn.
+
+⚠ **The node owns its atlas when the cache is on**, and publishes it into the frame under the name the
+document declared. Depth that survives a frame cannot live in the graph's pool. The declaration is
+still read and its extent still checked, because a document and a node that disagree about the atlas's
+shape disagree about something.
+
+### ⚠ A conservative cull makes a per-tile cache save nothing
+
+The first working build of the above saved *zero* tiles in `Samples/13` and reported 108 of 108
+disturbed every frame. The cause was not in the cache. A frame that culls on the device **without a
+readback** hands the host the conservative set — everything that *could* be visible — because the real
+answer never leaves the GPU and `GpuDrawArguments` turns the bits into indirect draws there. Sample 13
+runs that way, so every one of its 108 lamp tiles had the whole level in its CPU work list, and a hash
+taken over that list made each lamp's cache depend on a caster sixty metres away. A walking player
+invalidated everything, and every counter said the cache was working.
+
+The node therefore re-tests each entry against the tile's own frustum: one sphere against six planes
+per entry of a list the loop already walks. `TilesMoved` against `TilesDisturbed` is what separates
+the two ways a cache refuses to save anything — a lamp whose position is recomputed to a different
+float every frame, or a caster set that churns.
+
+Measured on `Samples/13` under `VIXEN_WALK`, 512 frames: 8 306 draws recorded a frame uncached against
+1 297 cached, 4–8 tiles redrawn of 108. Standing still, 7 647 against 436. `VIXEN_LAMPTRACE=<file>`
+writes the counters a row a frame, because a correct cache renders identically to no cache and no
+picture can tell them apart.
+
 ## Level of detail
 
 A LOD group is **several render objects**, not one object that swaps its mesh — the same argument that

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Features;
@@ -948,7 +949,15 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Samplers = Samplers,
             Device = Device,
             ConstantBias = declared.ConstantBias,
-            SlopeBias = declared.SlopeBias
+            SlopeBias = declared.SlopeBias,
+            Cached = declared.Cached,
+
+            // ⚠ The key rather than the feature, and found by walking the system the way
+            // `EnableGpuDriven` does, because a `RenderDataKey` is registered against the object
+            // store and there is no other route to one from here. Without it the tile cache reads
+            // bounds alone, and a caster that turns on the spot keeps the shadow it was first drawn
+            // with — the node reports that through `Degraded` rather than quietly.
+            CasterTransforms = declared.Cached ? WorldTransforms() : null
         };
 
         foreach (var pass in declared.Passes) {
@@ -956,6 +965,23 @@ public sealed class CompositorBuilder(RenderSystem system) {
         }
 
         return node;
+    }
+
+    /// <summary>Where per-object world matrices live, when a transform feature registered them.</summary>
+    RenderDataKey<Matrix4x4>? WorldTransforms() {
+        foreach (var feature in system.Features) {
+            if (feature is not RootRenderFeature root) {
+                continue;
+            }
+
+            foreach (var subFeature in root.SubFeatures) {
+                if (subFeature is TransformRenderFeature transform) {
+                    return transform.World;
+                }
+            }
+        }
+
+        return null;
     }
 
     FullScreenRenderer FullScreen(FullScreenAsset declared) {

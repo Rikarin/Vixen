@@ -39,6 +39,7 @@ public sealed class ThirdPersonShooterGame : Game {
     Arena? arena;
     PlayerRig? player;
     StreamWriter? shadowTrace;
+    StreamWriter? lampTrace;
 
     /// <summary>Reads <c>VIXEN_STRIP=first-last[/stride]</c>, or <see langword="null" /> if unset.</summary>
     /// <remarks>
@@ -194,6 +195,11 @@ public sealed class ThirdPersonShooterGame : Game {
                 "frame,marked,answered,absent,drawn,invalidated,refit,pending,resident,allocations,evictions"
             );
         }
+
+        if (Environment.GetEnvironmentVariable("VIXEN_LAMPTRACE") is { Length: > 0 } lamps) {
+            lampTrace = new(lamps, append: false);
+            lampTrace.WriteLine("frame,tiles,drawn,kept,moved,disturbed,dropped");
+        }
     }
 
     /// <inheritdoc />
@@ -215,6 +221,40 @@ public sealed class ThirdPersonShooterGame : Game {
 
         CaptureStrip();
         TraceShadows();
+        TraceLamps();
+    }
+
+    /// <summary>Writes one row per frame of how many lamp tiles the atlas had to redraw.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>⚠ The same argument <c>TraceShadows</c> makes, one atlas along: a correct cache
+    ///         renders identically to no cache.</b> Every picture this run can take is the same
+    ///         picture whether a tile was kept or redrawn, so a strip of frames cannot say whether
+    ///         the cache did anything — only the counters can, and the number that matters is
+    ///         <c>drawn</c> settling near zero while <c>kept</c> holds at the tile count.
+    ///     </para>
+    ///     <para>
+    ///         This level is eighteen point lights, so 108 of the atlas's 121 tiles: <c>drawn</c> is
+    ///         108 on the frame the lamps first pack, and thereafter is however many tiles the
+    ///         player, the props and the streamer disturbed. A run whose camera never moves settles
+    ///         at zero and is measuring a frame no game has; drive it with <c>VIXEN_WALK</c>.
+    ///     </para>
+    /// </remarks>
+    void TraceLamps() {
+        if (lampTrace is not { } writer || Services.Graphics is not { } graphics) {
+            return;
+        }
+
+        if (arena?.PunctualShadowNode is not { } node) {
+            return;
+        }
+
+        writer.WriteLine(
+            $"{graphics.FrameCount},{node.Tiles.Count},{node.TilesDrawn},{node.TilesKept},"
+            + $"{node.TilesMoved},{node.TilesDisturbed},{node.DroppedLights}"
+        );
+
+        writer.Flush();
     }
 
     /// <summary>Writes one row per frame of what the virtual shadow map answered.</summary>
@@ -317,6 +357,8 @@ public sealed class ThirdPersonShooterGame : Game {
 
         shadowTrace?.Dispose();
         shadowTrace = null;
+        lampTrace?.Dispose();
+        lampTrace = null;
     }
 
     /// <summary>The spawn point with a given index, or the origin if the level has none.</summary>

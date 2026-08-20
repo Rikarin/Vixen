@@ -922,6 +922,16 @@ public sealed class Arena : IDisposable {
     public VirtualShadowRenderer? VirtualShadowNode =>
         services?.Graphics?.Renderer.Host.Builder.Nodes.Values.OfType<VirtualShadowRenderer>().FirstOrDefault();
 
+    /// <summary>The frame's punctual shadow node, or null if the document has none.</summary>
+    /// <remarks>
+    ///     Looked up rather than held, for the reason above. This is the eighteen floodlights' atlas
+    ///     — 108 tiles of it, a point light being six — and what a measurement wants from it is
+    ///     <c>TilesDrawn</c> against <c>TilesKept</c>: a picture cannot separate a tile that was
+    ///     redrawn from one that was kept, because a correct cache renders identically to no cache.
+    /// </remarks>
+    public PunctualShadowRenderer? PunctualShadowNode =>
+        services?.Graphics?.Renderer.Host.Builder.Nodes.Values.OfType<PunctualShadowRenderer>().FirstOrDefault();
+
     /// <summary>An exact signed-distance field for an axis-aligned box, in the box's own space.</summary>
     /// <remarks>
     ///     <para>

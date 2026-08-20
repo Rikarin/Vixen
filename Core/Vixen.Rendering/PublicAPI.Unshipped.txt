@@ -723,6 +723,8 @@ Vixen.Rendering.Compositor.PunctualShadowAsset : System.IEquatable<Vixen.Renderi
 Vixen.Rendering.Compositor.PunctualShadowAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
 Vixen.Rendering.Compositor.PunctualShadowAsset.Atlas.get -> string
 Vixen.Rendering.Compositor.PunctualShadowAsset.Atlas.init -> string
+Vixen.Rendering.Compositor.PunctualShadowAsset.Cached.get -> bool
+Vixen.Rendering.Compositor.PunctualShadowAsset.Cached.init -> bool
 Vixen.Rendering.Compositor.PunctualShadowAsset.ConstantBias.get -> float
 Vixen.Rendering.Compositor.PunctualShadowAsset.ConstantBias.init -> float
 Vixen.Rendering.Compositor.PunctualShadowAsset.Enabled.get -> bool
@@ -746,7 +748,13 @@ Vixen.Rendering.Compositor.PunctualShadowRenderer : Vixen.Rendering.Compositor.S
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Atlas.get -> string
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Atlas.set -> string
 Vixen.Rendering.Compositor.PunctualShadowRenderer.AtlasSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Cached.get -> bool
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Cached.set -> bool
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Capacity.get -> int
+Vixen.Rendering.Compositor.PunctualShadowRenderer.CasterTransforms.get -> Vixen.Rendering.RenderDataKey<Vixen.Core.Mathematics.Matrix4x4>?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.CasterTransforms.set -> Vixen.Rendering.RenderDataKey<Vixen.Core.Mathematics.Matrix4x4>?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.CasterVersion.get -> int
+Vixen.Rendering.Compositor.PunctualShadowRenderer.CasterVersion.set -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.ConstantBias.get -> float
 Vixen.Rendering.Compositor.PunctualShadowRenderer.ConstantBias.set -> float
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Constants.get -> Vixen.Rendering.ViewConstants?
@@ -772,7 +780,12 @@ Vixen.Rendering.Compositor.PunctualShadowRenderer.ShaderName.set -> string
 Vixen.Rendering.Compositor.PunctualShadowRenderer.SlopeBias.get -> float
 Vixen.Rendering.Compositor.PunctualShadowRenderer.SlopeBias.set -> float
 Vixen.Rendering.Compositor.PunctualShadowRenderer.TileBase.get -> int
+Vixen.Rendering.Compositor.PunctualShadowRenderer.TileRedraws.get -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Tiles.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.ShadowTile>
+Vixen.Rendering.Compositor.PunctualShadowRenderer.TilesDisturbed.get -> int
+Vixen.Rendering.Compositor.PunctualShadowRenderer.TilesDrawn.get -> int
+Vixen.Rendering.Compositor.PunctualShadowRenderer.TilesKept.get -> int
+Vixen.Rendering.Compositor.PunctualShadowRenderer.TilesMoved.get -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.TilesPerSide.get -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.TilesPerSide.set -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Views.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.RenderView>
@@ -1097,7 +1110,9 @@ Vixen.Rendering.Compositor.ShadowTile.Offset.init -> Vixen.Core.Mathematics.Vect
 Vixen.Rendering.Compositor.ShadowTile.Scale.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Rendering.Compositor.ShadowTile.Scale.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Rendering.Compositor.ShadowTile.ShadowTile() -> void
-Vixen.Rendering.Compositor.ShadowTile.ShadowTile(int Light, Vixen.Rendering.CubeFace? Face, Vixen.Core.Mathematics.Matrix4x4 ViewProjection, Vixen.Core.Mathematics.Vector2 Scale, Vixen.Core.Mathematics.Vector2 Offset) -> void
+Vixen.Rendering.Compositor.ShadowTile.ShadowTile(int Light, Vixen.Rendering.CubeFace? Face, Vixen.Core.Mathematics.Matrix4x4 ViewProjection, Vixen.Core.Mathematics.Vector2 Scale, Vixen.Core.Mathematics.Vector2 Offset, int Slot = 0) -> void
+Vixen.Rendering.Compositor.ShadowTile.Slot.get -> int
+Vixen.Rendering.Compositor.ShadowTile.Slot.init -> int
 Vixen.Rendering.Compositor.ShadowTile.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Compositor.ShadowTile.ViewProjection.init -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Compositor.SingleStageAsset -> sealed record

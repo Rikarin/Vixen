@@ -1128,6 +1128,23 @@ public sealed record PunctualShadowAsset : ISceneRendererAsset {
 
     /// <summary>How much more of that a surface gets as it turns away from the light.</summary>
     public float SlopeBias { get; init; } = 0.004f;
+
+    /// <summary>
+    ///     Whether a lamp whose light and whose casters have not moved keeps its tile.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ Appended, on <c>RenderResourceAsset.Dimension</c>'s terms — a <c>[DataContract]</c>
+    ///         is serialised in declaration order, so a new field goes at the end.
+    ///     </para>
+    ///     <para>
+    ///         Off by default, which is the frame every existing document already describes. On, the
+    ///         node owns the atlas named by <see cref="Atlas" /> and redraws only the tiles that went
+    ///         stale — see <see cref="Compositor.PunctualShadowRenderer.Cached" /> for what "stale"
+    ///         means and for why the declaration's extent is still checked.
+    ///     </para>
+    /// </remarks>
+    public bool Cached { get; init; }
 }
 
 /// <summary>
