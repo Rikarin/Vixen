@@ -1,0 +1,91 @@
+package Vixen.Shaders.Vfx
+
+import Vixen.Shaders.Core
+
+// The shader a `VfxRendererKind.Mesh` effect is drawn with — `ParticleSprite`'s counterpart for the
+// renderer that draws geometry instead of expanding quads.
+//
+// `ParticleSprite` exists because `VfxGeometryBuilder` expands billboards on the CPU into
+// `ParticleVertex`, and no shader in the library took those three attributes. The mesh renderer had
+// the same hole one step further along: `VfxGeometryBuilder.BuildInstances` produces
+// `ParticleInstance` — three rows of an affine transform and a colour, one per live particle — and
+// `ParticleRenderFeature` binds it as a second vertex buffer at the instance rate, and *nothing in
+// the library declared those four inputs*. So an effect authored as a mesh renderer had a feature
+// that expanded its instances, uploaded them, bound two vertex buffers and drew, against a pipeline
+// whose vertex layout described the mesh alone.
+//
+// **Three rows, reassembled here.** The fourth row of an affine transform is always (0, 0, 0, 1),
+// so `ParticleInstance` uploads three and the translation rides in the `w` lanes — which is what
+// makes one `dot` per axis the whole of the transform. The convention is `ParticleInstance`'s own
+// and is written down there; this is the other end of it.
+//
+// **Unlit, and that is a decision rather than a gap.** A mesh particle is a spark, an ember, a shard
+// or a chunk of debris: things that are bright rather than shaded, drawn additively into a linear
+// HDR target that a tonemap and a bloom chain read. Shading one properly means the surface material
+// path — a normal, a tangent, a cluster list, a shadow lookup — which is `ForwardPlus`'s job and
+// would make a particle mesh an ordinary drawable that happened to be instanced. A *lit* mesh
+// particle is owed and belongs there, not here.
+//
+// **Set 1 and set 2, and no set 0 at all** — `ParticleSprite`'s arrangement, for its reason:
+// `ParticleRenderFeature.Draw` binds the view block and the material's set and nothing else, so a
+// per-frame binding here would be a set the pass never fills and a driver refusing every draw.
+
+shader ParticleMesh {
+    /// The camera's, arriving as the *view's* — see `ParticleSprite`'s note on the same parameter.
+    [PerView] var viewProjection: mat4
+
+    /// Multiplied into every particle's own colour, so one effect can be tinted without respawning it.
+    var tint: float4 = float4(1f, 1f, 1f, 1f)
+
+    /// How much light the mesh emits, in the scene's own photometric units.
+    ///
+    /// ⚠ **Not a 0..1 opacity dial**, for `ParticleSprite.emissive`'s reason: a scene lit in cd/m²
+    /// needs hundreds or thousands here for a shard to read as hot rather than as a grey smudge.
+    var emissive: float = 1f
+
+    stream var meshColor: float4
+
+    /// The mesh's position and the particle's transform, under the names their schemas give them.
+    ///
+    /// ⚠ The names are the contract. `VertexSchema` matches a buffer's attributes to a stage's inputs
+    /// by name rather than by location — `position` comes from `SurfaceVertex.Schema` at the vertex
+    /// rate, and the four `instance…` inputs come from `ParticleInstances.Schema` at the *instance*
+    /// rate. The two rates are the whole mechanism: a transform read per vertex would hand every
+    /// vertex of one mesh a different particle's placement, which draws the effect as one exploded
+    /// object.
+    ///
+    /// ⚠ Only `position` is read of the mesh, deliberately. A schema resolves the layout from what the
+    /// stage declares, so asking for a normal here would make every mesh drawn as a particle need one
+    /// — and this shader has nothing to do with it.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        position: float3,
+        instanceRow0: float4,
+        instanceRow1: float4,
+        instanceRow2: float4,
+        instanceColor: float4
+    ): float4 {
+        meshColor = instanceColor
+
+        // The translation is in the `w` lanes, so the local position goes in homogeneous and one
+        // `dot` per row is an axis of the world position. Three rows, no fourth.
+        val local = float4(position, 1f)
+
+        val world = float3(
+            dot(instanceRow0, local),
+            dot(instanceRow1, local),
+            dot(instanceRow2, local)
+        )
+
+        return viewProjection * float4(world, 1f)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // ⚠ Not premultiplied, on `ParticleSprite.Fragment`'s terms: `BlendState.Additive` is
+        // `src × srcAlpha + dst`, so multiplying the alpha in here as well would square it.
+        return float4(meshColor.rgb * tint.rgb * emissive, meshColor.a * tint.a)
+    }
+}

@@ -168,6 +168,7 @@
           invisible. See the entry in LibraryReflectionTests.Published.
         -->
         <AdditionalFiles Include="..\..\Raven\Library\Vfx\ParticleSprite.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Vfx\ParticleMesh.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\AutoExposure.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\DepthOfField.reflect.json" />

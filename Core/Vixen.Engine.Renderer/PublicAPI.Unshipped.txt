@@ -251,6 +251,8 @@ Vixen.Engine.Renderer.WorldRenderer.Logger.get -> Microsoft.Extensions.Logging.I
 Vixen.Engine.Renderer.WorldRenderer.Logger.set -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Engine.Renderer.WorldRenderer.MaterialDescriptors.get -> Vixen.Graphics.DescriptorAllocator
 Vixen.Engine.Renderer.WorldRenderer.Materials.get -> Vixen.Rendering.Features.MaterialRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.MeshParticleMaterial.get -> Vixen.Rendering.Material
+Vixen.Engine.Renderer.WorldRenderer.MeshParticleMaterial.set -> Vixen.Rendering.Material
 Vixen.Engine.Renderer.WorldRenderer.Meshes.get -> Vixen.Rendering.Features.MeshRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.Motion.get -> Vixen.Rendering.Features.MotionVectorRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.Mount(Vixen.Assets.AssetManager assets) -> void
@@ -282,6 +284,7 @@ Vixen.Engine.Renderer.WorldRenderer.ViewBlock.get -> Vixen.Rendering.ViewConstan
 Vixen.Engine.Renderer.WorldRenderer.WorldRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects, int vertexCapacity = 1048576, int indexCapacity = 2097152) -> void
 const Vixen.Engine.Renderer.GpuOverlay.MaxRows = 12 -> int
 const Vixen.Engine.Renderer.GpuOverlay.PeakSeconds = 3 -> float
+const Vixen.Engine.Renderer.WorldRenderer.MeshParticleLayout = 2 -> int
 override Vixen.Engine.Renderer.DebugOverlayRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView
 static Vixen.Engine.Renderer.TextureStreamer.WantedWidth(float radius, float distance, float viewportHeight, float verticalFieldOfView) -> int

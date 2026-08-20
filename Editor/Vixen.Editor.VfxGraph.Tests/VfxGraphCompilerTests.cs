@@ -251,6 +251,121 @@ public class VfxGraphCompilerTests {
         Assert.Throws<ArgumentException>(() => graph.Connect(new(two.Id, "Out"), new(one.Id, "In")));
     }
 
+    /// <summary>The mesh output makes an instanced renderer, turned the way its ports say.</summary>
+    /// <remarks>
+    ///     <b>The node the library did not have.</b> <c>VfxRendererKind.Mesh</c>, the expansion that
+    ///     builds its instances and the feature that draws them all shipped, and the only way to reach
+    ///     any of it was a graph built in code — so an author could not make one at all.
+    /// </remarks>
+    [Fact]
+    public void The_mesh_output_makes_an_instanced_renderer() {
+        Assert.Equal(VfxBillboardAlignment.Camera, Rendered(_ => { }).Alignment);
+        Assert.Equal(VfxRendererKind.Mesh, Rendered(_ => { }).Kind);
+
+        // Velocity wins over an axis, which is what the node's remarks promise.
+        var both = Rendered(node => {
+            node.SetValue("Align to Velocity", 1f);
+            node.SetValue("Axis", 1f, 0f, 0f);
+        });
+
+        Assert.Equal(VfxBillboardAlignment.Velocity, both.Alignment);
+
+        var axis = Rendered(node => node.SetValue("Axis", 0f, 0f, 1f));
+
+        Assert.Equal(VfxBillboardAlignment.FixedAxis, axis.Alignment);
+        Assert.Equal(new(0f, 0f, 1f), axis.Axis);
+
+        VfxRenderer Rendered(Action<GraphNode> configure) {
+            var graph = new NodeGraphModel { Name = "Debris" };
+
+            graph.Add("Vfx/Spawn/Burst");
+
+            var velocity = graph.Add("Vfx/Initialize/Set Velocity");
+
+            velocity.SetValue("Velocity", 0f, 3f, 0f);
+            configure(graph.Add("Vfx/Output/Mesh"));
+
+            var result = new VfxGraphCompiler(Library()).Compile(graph);
+
+            Assert.True(result.Succeeded, string.Join("\n", result.Diagnostics));
+            Assert.NotNull(result.Value.Graph.Renderer);
+
+            return result.Value.Graph.Renderer.Value;
+        }
+    }
+
+    /// <summary>The ribbon output carries the custom slot its strips are keyed on.</summary>
+    /// <remarks>
+    ///     ⚠ And is sorted by age whatever anything else says, because that is the ribbon's own order
+    ///     rather than a drawing preference.
+    /// </remarks>
+    [Fact]
+    public void The_ribbon_output_carries_its_slot() {
+        var graph = new NodeGraphModel { Name = "Trail" };
+
+        graph.Add("Vfx/Spawn/Burst");
+        graph.Add("Vfx/Output/Ribbon").SetValue("Slot", 2f);
+
+        var compiled = new VfxGraphCompiler(Library()).Compile(graph).Value.Graph;
+
+        Assert.NotNull(compiled.Renderer);
+        Assert.Equal(VfxRendererKind.Ribbon, compiled.Renderer.Value.Kind);
+        Assert.Equal(2, compiled.Renderer.Value.RibbonSlot);
+
+        // A ribbon is ordered by its particles' ages, so drawing one is what makes the graph keep
+        // them — the renderer declaring its reads, arriving through the node.
+        Assert.True(compiled.Attributes.HasFlag(VfxAttribute.Age));
+    }
+
+    /// <summary>The two field and collider nodes the library was missing reach their opcodes.</summary>
+    /// <remarks>
+    ///     Both opcodes shipped with the field set and neither had a node, so an author could reach
+    ///     <c>Attract</c> and <c>CollidePlane</c> and not their siblings — which is the difference
+    ///     between a whirl and a pile, and between a ball and a floor.
+    /// </remarks>
+    [Fact]
+    public void The_vortex_and_the_sphere_reach_their_opcodes() {
+        var graph = new NodeGraphModel { Name = "Whirl" };
+
+        graph.Add("Vfx/Spawn/Burst");
+        graph.Add("Vfx/Initialize/Position in Box");
+        graph.Add("Vfx/Initialize/Set Velocity").SetValue("Velocity", 0f, 1f, 0f);
+
+        var vortex = graph.Add("Vfx/Update/Vortex");
+
+        vortex.SetValue("Centre", 1f, 2f, 3f);
+        vortex.SetValue("Axis", 0f, 0f, 1f);
+        vortex.SetValue("Strength", 7f);
+        vortex.SetValue("Radius", 9f);
+
+        var sphere = graph.Add("Vfx/Update/Collide Sphere");
+
+        sphere.SetValue("Centre", 4f, 5f, 6f);
+        sphere.SetValue("Radius", 2f);
+        sphere.SetValue("Bounce", 0.25f);
+        sphere.SetValue("Friction", 0.75f);
+
+        var result = new VfxGraphCompiler(Library()).Compile(graph);
+
+        Assert.True(result.Succeeded, string.Join("\n", result.Diagnostics));
+
+        var turning = Assert.Single(result.Value.Graph.Updaters, entry => entry.Opcode == VfxOpcode.Vortex);
+
+        // A.xyz is a point on the axis and A.w the acceleration; B.xyz is the axis and B.w the reach.
+        Assert.Equal(new(1f, 2f, 3f, 7f), turning.A);
+        Assert.Equal(new(0f, 0f, 1f, 9f), turning.B);
+
+        var ball = Assert.Single(result.Value.Graph.Updaters, entry => entry.Opcode == VfxOpcode.CollideSphere);
+
+        Assert.Equal(new(4f, 5f, 6f, 2f), ball.A);
+        Assert.Equal(0.25f, ball.B.X);
+        Assert.Equal(0.75f, ball.B.Y);
+
+        // And the emitted Raven still compiles with both in it, which is the half a runtime assertion
+        // cannot see.
+        Compiles(result.Value.Shader.Source);
+    }
+
     /// <summary>Every block in the library, in one graph, through both halves.</summary>
     [Fact]
     public void Every_block_in_the_library_compiles_both_ways() {

@@ -234,7 +234,15 @@ public class LibraryReflectionTests {
         // that stopped working rather than as a parameter nobody set. Reported as "the lamps are no
         // longer emitting", and every counter said eighteen effects running and ninety particles
         // expanded through one bound material set.
-        ("Vfx", "ParticleSprite")
+        ("Vfx", "ParticleSprite"),
+
+        // The mesh renderer's draw, on the sprite's terms and for one more reason. `VertexSchema`
+        // matches a buffer's attributes to a stage's inputs *by name*, so the four `instance…` inputs
+        // this shader declares are the contract `ParticleInstances.Schema` is written against — and a
+        // rename on either side is a pipeline the driver refuses with "the layout is incomplete"
+        // rather than an error naming the attribute. Published so `ParticleMeshMaterial` sets `tint`
+        // and `emissive` by generated key, whose declared defaults are the reason above.
+        ("Vfx", "ParticleMesh")
     ];
 
     /// <summary>
