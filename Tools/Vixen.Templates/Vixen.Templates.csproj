@@ -41,7 +41,8 @@
         <PackageId>Vixen.Templates</PackageId>
         <PackageType>Template</PackageType>
         <Description>
-            `dotnet new` templates for Vixen: vixen-game, vixen-app, vixen-lib and vixen-mmo.
+            `dotnet new` templates for Vixen: vixen-game, vixen-app, vixen-lib, vixen-mmo and
+            vixen-plugin.
         </Description>
         <PackageTags>dotnet-new;templates;scaffolding;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>

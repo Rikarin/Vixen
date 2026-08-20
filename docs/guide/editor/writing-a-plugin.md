@@ -48,6 +48,17 @@ plugin is what you write when the thing is shared between projects or shipped to
 
 ## Using it
 
+There is a template for the starting point, so the manifest, the project file and the one type below
+do not have to be typed from memory:
+
+```bash
+dotnet new vixen-plugin -n Kestrel      # or: vixen new plugin -n Kestrel
+```
+
+What it writes is a `plugin.yaml`, a class library with `EnableDynamicLoading` set, and one
+`IEditorPlugin` that adds a command, a menu entry and a panel — all three through `PluginContext`,
+which is the habit the rest of this page is about.
+
 `Activate` runs on the frame thread, after everything the plugin declared a dependency on. Throwing is
 how a plugin refuses a host it cannot work with: what was registered before the throw is rolled back,
 the assembly is unloaded, and the failure is reported against the plugin by name.

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <!--
+            A plugin is loaded into a collectible AssemblyLoadContext, and what tells that context
+            where a dependency is, is the .deps.json beside the assembly. This property is what
+            makes a class library write one and copy its packages next to it, so the output
+            directory is a folder that works on somebody else's machine and not only on the one
+            with your NuGet cache on it.
+
+            The Vixen.* assemblies copied beside it are harmless: the loader answers every Vixen.*
+            request from the editor's own copy, deliberately, because a plugin holding a second
+            IEditorPlugin type with the same name would fail its cast with a message that reads
+            like a lie.
+        -->
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            The contract, and the only assembly a plugin needs to reference to add commands, menus,
+            panels, layouts, keybindings and modes. Inspectors, importers and scene tools are
+            reached through PluginContext.Services instead, so that a plugin adding a menu item does
+            not pay for a two-dozen-format model importer it never calls.
+        -->
+        <PackageReference Include="Vixen.Editor.Plugin" Version="VIXEN_PACKAGE_VERSION" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The manifest travels with the assembly: the editor looks for plugin.yaml in the folder
+            and reads the assembly name out of it. Copying it to the output is what makes
+            bin/Debug/net10.0 a plugin folder you can point the editor at.
+        -->
+        <None Update="plugin.yaml" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+</Project>

@@ -99,6 +99,16 @@ public static class ScaffoldRunner {
             output.WriteLine("  vixen build    — publish it for a target");
         }
 
+        // A plugin is the one scaffold that is not run — it is loaded by something else, from a
+        // folder it has to be put in first. Neither of those two facts is in any file the template
+        // wrote, so they are said here.
+        if (chosen.Id is "vixen-plugin") {
+            output.WriteLine();
+            output.WriteLine("  Change 'id' in plugin.yaml: it is a reverse-domain name and nobody can guess yours.");
+            output.WriteLine("  dotnet build   — the output directory is a plugin folder, manifest included");
+            output.WriteLine($"  Copy it to <project>/Plugins/{name}/, then Reload Plugins in the editor.");
+        }
+
         // Five directories and no idea which one to open is a worse first minute than one project
         // and no advice at all, so the multi-project scaffold says where to start and what the one
         // thing it cannot do for you is.

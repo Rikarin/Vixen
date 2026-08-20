@@ -3,7 +3,9 @@
 
 using System.Text;
 using Vixen.Cli;
+using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
+using Vixen.Editor.Plugin;
 using Xunit;
 
 namespace Vixen.Templates.Tests;
@@ -26,15 +28,16 @@ public class TemplateTests {
     // ── Every template ──────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    ///     The three that are written. `vixen-plugin` and `vixen-tool` are named in doc 17 too and
-    ///     are not here — the first was left out while `Vixen.Editor.Plugin` did not exist, because a
-    ///     template pinning a package nobody publishes is worse than no template at all, and that
-    ///     assembly has since landed. Both are owed rather than blocked, and this list is what has to
-    ///     be edited when one arrives.
+    ///     The five that are written. `vixen-tool` — doc 17 § Q5d's headless batch head — is named
+    ///     in doc 17 too and is not here; it is owed rather than blocked, because
+    ///     `Vixen.Platform.Headless` exists and nobody has written the template. `vixen-plugin` was
+    ///     in that sentence until `Vixen.Editor.Plugin` landed in wave W0-12, which is what a
+    ///     template pinning a package nobody publishes was waiting on. This list is what has to be
+    ///     edited when the last one arrives.
     /// </summary>
     [Fact]
     public void TheTemplatesAreTheOnesThatCanBeWrittenToday() {
-        string[] expected = ["vixen-app", "vixen-game", "vixen-lib", "vixen-mmo"];
+        string[] expected = ["vixen-app", "vixen-game", "vixen-lib", "vixen-mmo", "vixen-plugin"];
 
         Assert.Equal(expected, TemplateCatalog.All.Select(template => template.Id).ToArray());
     }
@@ -425,5 +428,102 @@ public class TemplateTests {
             ["Kestrel.Client", "Kestrel.Content", "Kestrel.Contracts", "Kestrel.Realm", "Kestrel.Shared"],
             directories
         );
+    }
+
+    // ── vixen-plugin ────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     ⚠ <b>The manifest is read by the loader before any of this project's code runs, so a
+    ///     scaffold that writes an invalid one fails at the only moment its author has no context to
+    ///     debug it.</b> Parsed here by the same <c>YamlSerializer</c> the editor uses, and put
+    ///     through <see cref="PluginManifest.Problems" />, which is the check the editor performs —
+    ///     rather than a second opinion about YAML written in a test.
+    /// </summary>
+    [Fact]
+    public void TheEditorPluginTemplateWritesAManifestTheLoaderAccepts() {
+        var manifest = YamlSerializer.Parse<PluginManifest>(
+            TextOf(Template("vixen-plugin"), "Kestrel", PluginManifest.FileName)
+        );
+
+        Assert.Empty(manifest.Problems());
+
+        // The name and the assembly are the project's; the id is not, because a reverse-domain name
+        // cannot be derived from one and lower-casing the project name would produce a plugin id
+        // every scaffold on earth shares.
+        Assert.Equal("Kestrel", manifest.Name);
+        Assert.Equal("Kestrel.dll", manifest.AssemblyFileName);
+        Assert.NotEqual("kestrel", manifest.Id);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The one thing about this template that goes stale silently.</b> Before 1.0 the
+    ///     editor refuses a plugin whose <c>api</c> minor differs from its own, so the day
+    ///     <see cref="EditorApi.Version" /> moves, every project scaffolded from this template
+    ///     produces a plugin the editor will not load — with nothing in the build to say so, because
+    ///     the manifest is data and compiles fine. This is what says so.
+    /// </summary>
+    [Fact]
+    public void TheEditorPluginTemplateDeclaresTheApiThisEditorImplements() {
+        var manifest = YamlSerializer.Parse<PluginManifest>(
+            TextOf(Template("vixen-plugin"), "Kestrel", PluginManifest.FileName)
+        );
+
+        Assert.Equal(EditorApi.Version, manifest.Api);
+        Assert.True(EditorApi.IsCompatible(manifest.Api));
+    }
+
+    /// <summary>
+    ///     A plugin is a class library that is loaded rather than launched, and both halves of that
+    ///     sentence are a line in the project file: no <c>OutputType</c>, and
+    ///     <c>EnableDynamicLoading</c> — which is what writes the <c>.deps.json</c> the plugin's
+    ///     <c>AssemblyLoadContext</c> resolves everything else through. Without it a plugin runs on
+    ///     the machine that built it and on no other, which is the worst of the two failures to have.
+    /// </summary>
+    /// <remarks>
+    ///     No <c>Vixen.Sdk</c>, for the reason <c>vixen-app</c> and <c>vixen-lib</c> do without it:
+    ///     a plugin has no assets to import and no content to build.
+    /// </remarks>
+    [Fact]
+    public void TheEditorPluginTemplateIsALibraryTheEditorCanLoad() {
+        var project = TextOf(Template("vixen-plugin"), "Kestrel", "Kestrel.csproj");
+
+        Assert.Contains("Sdk=\"Microsoft.NET.Sdk\"", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("<OutputType>", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("Vixen.Sdk", project, StringComparison.Ordinal);
+        Assert.Contains("<EnableDynamicLoading>true</EnableDynamicLoading>", project, StringComparison.Ordinal);
+
+        // One package reference, deliberately: the contract names Vixen.Editor.Ui and reaches
+        // everything else through PluginContext.Services, so a plugin that adds a menu item does not
+        // pay for an importer it never calls.
+        Assert.Contains("Include=\"Vixen.Editor.Plugin\"", project, StringComparison.Ordinal);
+
+        // The manifest travels with the assembly, so the build output is a plugin folder.
+        Assert.Contains($"Update=\"{PluginManifest.FileName}\"", project, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The point of shipping this template at all: it demonstrates the door a third party
+    ///     uses, not a shortcut past it.</b> Everything registered on the
+    ///     <see cref="PluginContext" /> is recorded and undone on unload; the same registration made
+    ///     against <c>context.Shell</c> directly works, and leaks the whole assembly for the rest of
+    ///     the session. A scaffold that taught the second habit would be teaching it to everybody who
+    ///     ever runs <c>dotnet new vixen-plugin</c>.
+    /// </summary>
+    [Fact]
+    public void TheEditorPluginTemplateRegistersThroughTheContext() {
+        var source = TextOf(Template("vixen-plugin"), "Kestrel", "KestrelPlugin.cs");
+
+        Assert.Contains("public sealed class KestrelPlugin : IEditorPlugin", source, StringComparison.Ordinal);
+        Assert.Contains("public void Activate(PluginContext context)", source, StringComparison.Ordinal);
+
+        // A command, a menu entry and a panel — the three registrations doc 11's extension points
+        // start with, and the three a plugin author is most likely to want on day one.
+        Assert.Contains("context.AddCommand(", source, StringComparison.Ordinal);
+        Assert.Contains("context.AddMenuItem(", source, StringComparison.Ordinal);
+        Assert.Contains("context.AddPanel(", source, StringComparison.Ordinal);
+
+        // And nothing that goes round it. `Shell.Commands.Add` is allowed and is occasionally right,
+        // but it is not what a first example should show.
+        Assert.DoesNotContain("Shell.Commands.Add", source, StringComparison.Ordinal);
     }
 }

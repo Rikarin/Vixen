@@ -957,9 +957,15 @@ public sealed class VixenCommandTests : IDisposable {
     ///     A template that does not exist is answered with the ones that do, because the next thing
     ///     the person is going to do is guess again.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The name here was <c>plugin</c> until <c>vixen-plugin</c> was written</b>, at which
+    ///     point this test scaffolded a real project into a temporary directory and asserted a usage
+    ///     error it no longer got. A test whose subject is "not a template" has to name something
+    ///     that will not become one.
+    /// </remarks>
     [Fact]
     public async Task AnUnknownTemplateListsTheOnesThatExist() {
-        var (code, output, _) = await RunFull("new", "plugin", "Extension", "-o", Path.Combine(root, "None"));
+        var (code, output, _) = await RunFull("new", "nonsense", "Extension", "-o", Path.Combine(root, "None"));
 
         Assert.Equal(ExitCode.UsageError, code);
         Assert.Contains("is not a template", output, StringComparison.Ordinal);

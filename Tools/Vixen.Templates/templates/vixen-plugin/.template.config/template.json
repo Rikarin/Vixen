@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json.schemastore.org/template",
+    "author": "Rikarin",
+    "classifications": [ "Vixen", "Editor", "Plugin" ],
+    "identity": "Vixen.Templates.Plugin",
+    "groupIdentity": "Vixen.Templates.Plugin",
+    "name": "Vixen Editor Plugin",
+    "description": "An editor plugin: a plugin.yaml beside a class library, one IEditorPlugin, and a command, a menu item and a panel added through the door a third party uses.",
+    "shortName": [ "vixen-plugin" ],
+    "tags": {
+        "language": "C#",
+        "type": "project"
+    },
+    "sourceName": "VixenPlugin1",
+    "defaultName": "VixenPlugin1",
+    "preferNameDirectory": true,
+    "sources": [
+        {
+            "modifiers": [
+                {
+                    "exclude": [ "**/[Bb]in/**", "**/[Oo]bj/**" ]
+                }
+            ]
+        }
+    ]
+}

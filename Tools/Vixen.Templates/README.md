@@ -9,6 +9,7 @@ dotnet new vixen-game -n Asteroids      # a game: a Game subclass, a host, Asset
 dotnet new vixen-app  -n Painter        # an application: Vixen.Ui, a window, and no engine
 dotnet new vixen-lib  -n Physics        # a library either of them can reference
 dotnet new vixen-mmo  -n Kestrel        # a dedicated-server game: contracts, rules, realm, client
+dotnet new vixen-plugin -n Kestrel      # an editor plugin: a manifest, an IEditorPlugin, a panel
 ```
 
 Spec: [docs/plan/17 § Project templates](../../docs/plan/17-app-heads-and-shipping.md),
@@ -146,19 +147,48 @@ need a package that does not exist yet (milestones L1 and L3), and a template pi
 nobody publishes is worse than no template at all — the same judgement `vixen-plugin` waited on. The
 template grows when they land.
 
+## `vixen-plugin`
+
+[Doc 11 § `Vixen.Editor.Plugin`](../../docs/plan/11-editor.md)'s shape, scaffolded: a
+`plugin.yaml` beside a class library, one `IEditorPlugin`, and a command, a menu entry and a panel
+added through [`PluginContext`](../../Editor/Vixen.Editor.Plugin/README.md).
+
+```
+Kestrel.csproj       a class library, EnableDynamicLoading, one PackageReference
+KestrelPlugin.cs     the one public IEditorPlugin the loader looks for
+plugin.yaml          what the editor reads before it loads any of the above
+```
+
+⚠ **It registers through the context and not through the shell, and that is the whole lesson.**
+`context.AddCommand` and `context.Shell.Commands.Add` both work; the second leaves a lambda over the
+plugin's own state in a registry the editor holds, which is a reference into the plugin's assembly
+and therefore the whole assembly leaked for the session, silently. A first example is what most
+people copy, so this one copies correctly. A test asserts the absence.
+
+⚠ **The `id` in `plugin.yaml` is the one field the template cannot fill in.** It must be lower-case
+letters, digits, dots and dashes — a reverse-domain name by convention — and a project name
+lower-cased would give every scaffold on earth the same id. It ships as `com.example.plugin` with a
+comment saying to change it, and the `name` and `assembly` beside it are substituted normally.
+
+⚠ **`api: 0.1` is a literal and goes stale silently.** Before 1.0 the editor refuses a plugin whose
+`api` minor differs from `EditorApi.Version`, so the day that moves, every project scaffolded from
+this template produces a plugin the editor will not load — and nothing in a build would say so,
+because a manifest is data. `TheEditorPluginTemplateDeclaresTheApiThisEditorImplements` compares
+the two, which is what turns that into a red test in this repository instead of a bug report.
+
+`EnableDynamicLoading` is in the project file rather than left out: it is what makes a class library
+write the `.deps.json` that the plugin's `AssemblyLoadContext` resolves dependencies through, and
+copy them beside the assembly. Without it a plugin runs on the machine that built it and nowhere
+else. The `Vixen.*` assemblies it copies are harmless — the loader answers every one of them from
+the editor's own copy, deliberately.
+
+No `Vixen.Sdk`, for the reason `vixen-app` and `vixen-lib` do without it: a plugin has no assets to
+import and no content to build.
+
 ## Still to come
 
-**`vixen-plugin` is owed, and it is no longer blocked.** It was left out because there was nothing
-to scaffold against: a template pinning a `PackageReference` nobody publishes produces a project
-that will not restore, which is worse than no template — it fails at the one moment a person has no
-context to debug it. `Vixen.Editor.Plugin` then landed in the same wave (W0-12), so the package
-exists and the only thing missing is the template. What it scaffolds is
-[doc 11 § `Vixen.Editor.Plugin`](../../docs/plan/11-editor.md)'s shape: a manifest beside an
-assembly, and a registration against the extension points for commands, panels, inspectors and
-importers.
-
-**`vixen-tool`** — doc 17 § Q5d's headless batch head — is likewise unblocked
-(`Vixen.Platform.Headless` is built) and simply not written yet.
+**`vixen-tool`** — doc 17 § Q5d's headless batch head — is the last one doc 17 names and is not
+blocked either: `Vixen.Platform.Headless` is built, and nobody has written the template.
 
 **Platform heads.** Doc 17 describes `vixen-game` as producing "platform heads" as well; today it
 produces one project and `vixen build --target Android` publishes it. The per-platform sibling

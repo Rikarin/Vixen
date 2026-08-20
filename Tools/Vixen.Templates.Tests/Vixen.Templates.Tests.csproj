@@ -70,5 +70,13 @@
             projects reference that the list above does not already cover.
         -->
         <ProjectReference Include="..\..\Live\Vixen.Live.Realm\Vixen.Live.Realm.csproj" />
+
+        <!--
+            And what `vixen-plugin` names. One package reference in the scaffolded project, because
+            the contract deliberately reaches the rest through PluginContext.Services — but it does
+            bring Vixen.Editor.Ui, which is where StringId, EditorCommand and the panel and menu
+            vocabulary the template's C# uses are declared.
+        -->
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
     </ItemGroup>
 </Project>

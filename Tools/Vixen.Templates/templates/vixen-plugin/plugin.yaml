@@ -1,0 +1,22 @@
+# What the editor reads before it loads anything — a folder either declares itself or is not a
+# plugin. The csproj copies this file into the build output, so bin/Debug/net10.0 is already a
+# plugin folder: copy it to <project>/Plugins/<id>/ and the editor picks it up on the next start,
+# or on Reload Plugins.
+
+# ⚠ Change this one. An id is lower-case letters, digits, dots and dashes — a reverse-domain name
+# by convention — and it is what everything refers to the plugin by: the folder it lives in,
+# another plugin's dependencies list, and the record of whether the user switched it off. No
+# template can guess your domain, and two plugins claiming one id means the second is not loaded.
+id: com.example.plugin
+
+name: VixenPlugin1
+version: 0.1.0
+
+# The editor API this was built against. Before 1.0 the minor has to match exactly, so an editor
+# that moved on refuses the plugin with a sentence rather than loading it and failing on a method
+# that is no longer there.
+api: 0.1
+
+assembly: VixenPlugin1.dll
+description: A command, a menu item and a panel, added the way a third party adds them.
+author: Your Name
