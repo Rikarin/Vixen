@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Engine.Content</RootNamespace>
+        <Description>
+            The step that finds a build's networked prefabs: addresses out of a content catalog,
+            PrefabAssets out of Vixen.Assets, and one NetworkPrefabRegistry filled. Separate from
+            Vixen.Net.Engine because that assembly deliberately links no asset system.
+        </Description>
+        <PackageTags>networking;multiplayer;prefabs;content;addressables;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ This project exists for the reason Vixen.Gameplay.Content exists, and the argument is
+            the same one Vixen.Net.Engine.csproj already makes about itself: it is "the only package
+            that references both, and the only direction that works". A game that spawns from
+            templates it built in code — a test, a soak, a sample with no content build — links
+            Vixen.Net.Engine and should not thereby link the addressables runtime.
+
+            The split is Vixen.Net.Telemetry's: the assembly that needs the heavy dependency is the
+            one that carries it, and a game composes it or does not.
+        -->
+        <ProjectReference Include="..\Vixen.Net.Engine\Vixen.Net.Engine.csproj" />
+        <ProjectReference Include="..\Vixen.Assets\Vixen.Assets.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+</Project>

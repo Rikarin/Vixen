@@ -2129,8 +2129,6 @@ T:Vixen.Net.Engine.ISyncField sweep-pending
 T:Vixen.Net.Engine.ISyncList sweep-pending
 T:Vixen.Net.Engine.NetworkBehaviour sweep-pending
 T:Vixen.Net.Engine.NetworkModule sweep-pending
-T:Vixen.Net.Engine.NetworkPrefab sweep-pending
-T:Vixen.Net.Engine.NetworkPrefabRegistry sweep-pending
 T:Vixen.Net.Engine.NetworkSceneId sweep-pending
 T:Vixen.Net.Engine.NetworkSceneMap sweep-pending
 T:Vixen.Net.Engine.NetworkSpawnSystem sweep-pending
