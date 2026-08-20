@@ -407,12 +407,24 @@ game: !Sequence
     # The stage is the sun's: a caster is a caster, and an object drawn depth-only for a cascade is
     # the same object drawn depth-only for a lamp. What differs is the view, and a view is what this
     # node makes sixteen of.
+    # ⚠ `cached: true`, and it is the difference between 108 tile rasterisations a frame and the
+    # handful the player actually disturbs. A lamp on a post does not move and neither do the houses
+    # around it, so its six faces are the same depth every frame — the node keeps them and redraws a
+    # tile only when the lamp's own projection changed, when the casters in that tile moved, appeared
+    # or vanished, or when `CasterVersion` is bumped for a change bounds and transforms cannot show.
+    #
+    # ⚠ **On, the node owns this atlas rather than drawing into the transient declared above.** Depth
+    # that survives a frame cannot live in the graph's pool, which exists precisely to recycle memory
+    # whose lifetime ends inside one. The declaration stays because that is where an extent is
+    # written down and the node still checks it — see the resource's own note — but what a shading
+    # pass resolves under this name is the node's texture.
     - !PunctualShadows
       name: Lamps
       stage: Shadow
       atlas: PunctualShadowAtlas
       resolution: 256
       tilesPerSide: 11
+      cached: true
       passes:
         - ForwardPlus.PunctualShadowAtlas
 

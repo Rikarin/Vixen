@@ -86,13 +86,22 @@ sealed class NullCommandList(
 
         passDepth++;
 
+        // ⚠ The render area is recorded, and it is not decoration. It is what a `LoadAction.Clear`
+        // is confined by — a scissor confines draws, and the load op runs before any draw — so a
+        // pass that owns one tile of a cached atlas and forgets to say so wipes every other tile in
+        // the texture. That failure produces no error and no missing draw: it produces an atlas in
+        // which only the last tile drawn holds real depth. Without the rectangle in the stream there
+        // is nothing a test can hold the claim against.
         Add(
             new(
                 RecordedCommandKind.BeginRenderPass,
                 0,
                 description.ColourAttachments.Length,
                 description.DepthStencil is null ? 0 : 1,
-                Text: description.Name
+                description.RenderArea?.X ?? 0,
+                description.RenderArea?.Y ?? 0,
+                description.RenderArea is { } area ? ((long)area.Width << 32) | (uint)area.Height : 0,
+                description.Name
             )
         );
     }

@@ -230,6 +230,60 @@ post physically is, are eighteen tiles and can afford 1024 each in a quarter of 
 for a point light where a spot would do is a six-fold cost taken without being told, which is why
 `ShadowProjections.TileCount` is a number in the API rather than an implementation detail.
 
+### Keeping the lamps' tiles between frames
+
+Add `cached: true` and a lamp that has not moved, over casters that have not moved, keeps the texels
+it already has:
+
+```yaml
+    - !PunctualShadows
+      name: Lamps
+      stage: Shadow
+      atlas: PunctualShadowAtlas
+      resolution: 256
+      tilesPerSide: 11
+      cached: true
+      passes:
+        - ForwardPlus.PunctualShadowAtlas
+```
+
+**A tile is kept when four things hold, and redrawn otherwise.** The slot has been drawn at least
+once; it holds this lamp's projection inputs — kind, position, direction, range, outer angle, near
+plane — compared *bit for bit*; the casters whose bounds meet the tile's frustum are the same
+objects in the same places, world matrices included; and `CasterVersion` has not been bumped since.
+Nothing else is a claim the host has to make: a lamp that moves, a caster that moves, one that
+appears or vanishes, and one that turns on the spot all invalidate the tile they are in, and only
+that tile.
+
+`CasterVersion` is the escape hatch for changes with no effect on bounds or transform — a skinned
+mesh animating inside a fixed sphere, an alpha cutout edited, a mesh swapped underneath a render
+object. Bumping it redraws everything once.
+
+⚠ **The node owns the atlas when this is on.** Depth that survives a frame cannot live in the render
+graph's pool, which exists to recycle memory whose lifetime ends inside one — so the node creates the
+texture, publishes it under the name the document declared, and only the tiles that went stale get a
+pass. The declaration stays, and its extent is still checked against `tilesPerSide × resolution`,
+because that disagreement is worth reporting whichever texture is drawn into.
+
+⚠ **Where this differs from `ShadowMapRenderer`'s static cache, and why.** A cascade is fitted to the
+camera, so its projection moves whenever the player does; only its static half is worth keeping, and
+putting the two halves back together costs a whole-atlas copy every frame. A punctual light carries
+its own frustum and does not know the camera exists, so there is no static/dynamic split here, no
+second stage to fill, and no copy.
+
+**What it is worth.** Sample 13's eighteen point lights are 108 tiles. Walking its level, the frame
+recorded 8 306 draws a frame uncached and 1 297 cached — 4 to 8 tiles redrawn instead of 108. Standing
+still it is 7 647 against 436. What the cache removes is the command recording; the GPU cost of 256²
+tiles of boxes was already below what a timestamp on this machine can resolve.
+
+⚠ **And one trap that made the whole thing worthless until it was found.** A frame that culls on the
+device without a readback hands the host the *conservative* set — every object that could be visible,
+because the real answer never leaves the GPU. Sample 13 runs that way, so each of its 108 tiles has
+the whole level in its CPU work list, and a cache that trusted the list redrew every tile whenever
+anything anywhere moved. The node re-tests each entry against the tile's own frustum for exactly this
+reason; `TilesDisturbed` against `TilesMoved` is what tells the two failures apart when a cache
+refuses to save anything.
+
 ## See also
 
 - [Turning on dynamic global illumination](lit-path.md) — the indirect half of the same frame.

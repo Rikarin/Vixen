@@ -161,7 +161,8 @@ public readonly record struct RecordedCommand(
             RecordedCommandKind.BindVertexBuffer => $"slot={A} buffer={B} offset={C}",
             RecordedCommandKind.BindIndexBuffer => $"buffer={A} format={(IndexFormat)B} offset={C}",
             RecordedCommandKind.BindDescriptorSet => $"slot={(DescriptorSetSlot)A} set={B} offsets={C}",
-            RecordedCommandKind.BeginRenderPass => $"colour={A} depth={(B != 0 ? "yes" : "no")} '{Text}'",
+            RecordedCommandKind.BeginRenderPass => $"colour={A} depth={(B != 0 ? "yes" : "no")} "
+                + $"area={(E != 0 ? $"{E >> 32}×{(uint)E} at {C},{D}" : "whole")} '{Text}'",
             RecordedCommandKind.Barrier => $"buffers={A} textures={B}",
             RecordedCommandKind.CopyBuffer => $"from={A}+{B} to={C}+{D} size={E}",
             RecordedCommandKind.SetViewport => $"{A}×{B} at {C},{D}",
