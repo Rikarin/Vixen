@@ -138,9 +138,16 @@ the join between the two on each peer.
   scheduler, which is where it will go — `SyncList.HasPending` is already the question it would ask.
 - **Codecs beyond the built-in set.** `SyncCodecs.Register` is the door; only the types the generator
   already understands are through it.
-- **Registering prefabs from the catalog.** `NetworkPrefabRegistry.Register(address, prefab)` is called
-  by hand today. It should be filled from the content catalog by label, so "networked prefab" is
-  something an asset *is* rather than something a start-up path remembers to say.
+- ~~**Registering prefabs from the catalog.**~~ **Built, in
+  [`Vixen.Net.Engine.Content`](../Vixen.Net.Engine.Content/README.md)** — `NetworkPrefabContent.LoadAsync`
+  fills a registry from the `networked-prefabs` label, so "networked prefab" is something an asset
+  *is* rather than something a start-up path remembers to say. It is a separate assembly for the
+  reason the comment in this one's `.csproj` gives: a game that spawns from templates it built in
+  code should not link the addressables runtime for a path it does not take.
+  ⚠ **What is still owed with it** is the marker: a prefab that arrives through a content build has
+  exactly one networked node whatever its author marked, because `NetworkId` is `[Component]` and not
+  `[DataContract]` and so cannot appear in a compiled scene at all. That README's § What is owed
+  carries the argument.
 - **A scene format to derive indices from.** `NetworkSceneId.BakedId(index)` is the rule, and the index
   is whatever the game passes because scenes are built in code and not yet serialised. The moment a
   scene is an asset, the index is its position in that asset's list of networked objects and nobody

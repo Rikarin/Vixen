@@ -81,8 +81,14 @@ build shipped, and is what [doc 27](../../docs/plan/27-mmo-framework.md)'s place
 `GameplayComposition.Tags` is documented as *"every tag a module's own code needs, for the content
 build to bake in"* — and until the composition overloads existed, this load path had nowhere to put
 them. The only way to bake a code-only tag was to read every artefact by hand and drive
-`DefinitionCatalogBuilder` yourself, which is what `Samples/14-Mmo`'s `MmoLibraries.Load` does and why
-nothing else could use the shipped path.
+`DefinitionCatalogBuilder` yourself, which is what `Samples/14-Mmo`'s `MmoLibraries.Load` still does
+for a caller that already holds bytes — a test, or the authoring tool — and why nothing else could
+use the shipped path.
+
+**A running shard takes the shipped path now.** `MmoRealm.OnRealmInitialise` composes once, calls
+`LoadAsync(assets, composition)` over `Services.Assets`, and hands the catalog to
+`MmoLibraries.From`; content problems join every library's in one list and `Compose` refuses on the
+lot. That is the caller this assembly was owed.
 
 What it costs to skip is silence. `Event.Kill` is declared by `QuestModule`, is the verb a Kill
 objective counts, and is mentioned by no quest file anywhere. Absent from the table it resolves to

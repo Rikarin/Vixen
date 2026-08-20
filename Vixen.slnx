@@ -309,6 +309,8 @@
     <Project Path="Core/Vixen.Net.Transport.Composite.Tests/Vixen.Net.Transport.Composite.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Engine/Vixen.Net.Engine.csproj" />
     <Project Path="Core/Vixen.Net.Engine.Tests/Vixen.Net.Engine.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Engine.Content/Vixen.Net.Engine.Content.csproj" />
+    <Project Path="Core/Vixen.Net.Engine.Content.Tests/Vixen.Net.Engine.Content.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Animation/Vixen.Net.Animation.csproj" />
     <Project Path="Core/Vixen.Net.Animation.Tests/Vixen.Net.Animation.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Audio/Vixen.Net.Audio.csproj" />
