@@ -44,6 +44,17 @@ namespace Vixen.Engine.Renderer;
 ///     </para>
 /// </remarks>
 public sealed class WorldRenderer : IDisposable {
+    /// <summary>
+    ///     Which entry of this renderer's vertex layout table describes a mesh drawn as particles.
+    /// </summary>
+    /// <remarks>
+    ///     Two: after <c>SurfaceVertex.Schema</c> at zero and <c>ParticleVertices.Schema</c> at one, in
+    ///     the order the constructor registers them. A constant rather than a literal in two places,
+    ///     because the index is an agreement between the table and <c>VfxExtractionSystem</c> and a
+    ///     silent disagreement is a pipeline built from the wrong vertex format.
+    /// </remarks>
+    public const int MeshParticleLayout = 2;
+
     /// <summary>The source <see cref="Mount" /> built, for the frame work only it can do.</summary>
     /// <remarks>
     ///     Separate from <see cref="Painter" /> because that one is the interface an extraction asks
@@ -195,6 +206,17 @@ public sealed class WorldRenderer : IDisposable {
         // schema it sits next to, rather than by whoever happens to create the feature — the table is
         // this renderer's and an index into it means nothing away from it.
         describer.VertexSchemas.Add(ParticleVertices.Schema);
+
+        // ⚠ Entry two, and it is a *pair* rather than a format: the mesh's own vertices at the vertex
+        // rate, and `ParticleInstance` beside them at the instance rate. `ParticleRenderFeature.Draw`
+        // has always bound two vertex buffers for a `VfxRendererKind.Mesh` effect and no entry in this
+        // table could describe the second one — a schema resolved to one buffer layout — so a mesh
+        // effect's pipeline declared the shape alone and the instance stream went to a binding the
+        // pipeline had never heard of.
+        //
+        // Registered here beside the other two, and named by `MeshParticleLayout` below, because the
+        // index is the whole of the agreement between this table and `VfxExtractionSystem`.
+        describer.VertexSchemas.Add(MeshParticleVertices.Schema);
 
         Meshes = new() {
             Pipelines = new(device),
@@ -635,6 +657,22 @@ public sealed class WorldRenderer : IDisposable {
     /// </remarks>
     public Material ParticleMaterial { get; set; } = ParticleSpriteMaterial.Default();
 
+    /// <summary>What an effect authored as a mesh renderer is drawn with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="ParticleMaterial" />'s counterpart, and a second material rather than a
+    ///         setting on the first.</b> <c>ParticleSprite</c> reads the frame's expanded quads and
+    ///         <c>ParticleMesh</c> reads a mesh's own vertices with a per-instance transform beside
+    ///         them, so the two are different vertex layouts and therefore different pipelines. An
+    ///         effect drawn with the wrong one has nothing to bind its instance stream to.
+    ///     </para>
+    ///     <para>
+    ///         A project wanting debris in cd/m² sets <c>emissive</c> on this, exactly as it would on
+    ///         the sprite one.
+    ///     </para>
+    /// </remarks>
+    public Material MeshParticleMaterial { get; set; } = Vixen.Rendering.Vfx.ParticleMeshMaterial.Default();
+
     /// <summary>Points the renderer at a content manager, so mesh references resolve.</summary>
     /// <param name="assets">Where the meshes come from.</param>
     /// <exception cref="ArgumentNullException"><paramref name="assets" /> is null.</exception>
@@ -746,7 +784,26 @@ public sealed class WorldRenderer : IDisposable {
         Emitters = new(Host.System, Particles, ParticleMaterials) {
             Stages = particleStages,
             Effects = VfxEffects,
-            Material = ParticleMaterial
+            Material = ParticleMaterial,
+
+            // ⚠ The four an effect authored as a mesh renderer needs, and nothing was passing any of
+            // them. `ParticleRenderFeature.SetMesh` had no caller at all: the feature expanded a mesh
+            // effect's instances every frame, uploaded them and then skipped the draw, because a
+            // `MeshDraw` nobody set is not drawable. So a `Vfx/Output/Mesh` graph was a simulation
+            // that cost its particles and appeared nowhere — the same shape as the light output
+            // before `CollectLights` was called, and just as quiet.
+            //
+            // The geometry comes through the same source and the same residency the scene's meshes
+            // do, so a rock drawn as scenery and the same rock drawn as debris are one upload and two
+            // claims.
+            MeshMaterial = MeshParticleMaterial,
+            Meshes = Source,
+            Residency = Residency,
+
+            // Entry two of the describer's table — see the registration above. Stated rather than
+            // left at the property's default for the reason the default exists: the index means
+            // nothing away from the table it indexes.
+            MeshVertexLayout = MeshParticleLayout
         };
 
         // The ground's bridge, on the lights' terms: PreRender, after the transforms are written,

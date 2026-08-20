@@ -387,3 +387,158 @@ public sealed partial class LightOutputNode : VfxNode {
     protected internal override void Contribute(VfxGraphBuilder builder) =>
         builder.Renderer = VfxRenderer.Light(Number("Intensity"), Number("Range"));
 }
+
+/// <summary>Velocity turned about an axis, which is what makes a whirl rather than a pile.</summary>
+/// <remarks>
+///     <b><see cref="AttractNode" />'s sibling and its opposite failure.</b> A pull towards a point
+///     ends with every particle at the point; a turn about an axis never converges, which is what a
+///     tornado, a whirlpool or a portal wants. The opcode has shipped since the field set was written
+///     and had no node, so the only way to reach it was to build the graph in code.
+/// </remarks>
+[Node("Vfx/Update/Vortex", Summary = "Velocity turned about an axis. A whirl rather than a pile.")]
+public sealed partial class VortexNode : VfxBlockNode {
+    /// <summary>A point the axis passes through.</summary>
+    [Input(Name = "Centre", Default = [0f, 0f, 0f])]
+    public Float3 Centre;
+
+    /// <summary>Which way the axis points.</summary>
+    [Input(Name = "Axis", Default = [0f, 1f, 0f])]
+    public Float3 Axis;
+
+    /// <summary>How hard the turn is. Negative turns the other way.</summary>
+    [Input(Name = "Strength", Default = [5f])]
+    public Scalar Strength;
+
+    /// <summary>How far it reaches. Zero reaches everywhere.</summary>
+    [Input(Name = "Radius", Default = [0f])]
+    public Scalar Radius;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) {
+        var centre = Vector("Centre");
+        var axis = Vector("Axis");
+
+        builder.Updaters.Add(
+            new(VfxOpcode.Vortex, new Vector4(centre.X, centre.Y, centre.Z, Number("Strength"))) {
+                B = new(axis.X, axis.Y, axis.Z, Number("Radius"))
+            }
+        );
+    }
+}
+
+/// <summary>A ball particles bounce off, seen from outside.</summary>
+/// <remarks>
+///     ⚠ <b>Solid and outward-facing.</b> Keeping particles <i>inside</i> a sphere is a different
+///     operation rather than a flag on this one, and the opcode set does not have it — see
+///     <see cref="VfxOpcode.CollideSphere" />.
+/// </remarks>
+[Node("Vfx/Update/Collide Sphere", Summary = "Keeps particles outside a sphere.")]
+public sealed partial class CollideSphereNode : VfxBlockNode {
+    /// <summary>Where the sphere is.</summary>
+    [Input(Name = "Centre", Default = [0f, 0f, 0f])]
+    public Float3 Centre;
+
+    /// <summary>How big it is.</summary>
+    [Input(Name = "Radius", Default = [1f])]
+    public Scalar Radius;
+
+    /// <summary>How much of the approach comes back.</summary>
+    [Input(Name = "Bounce", Default = [0.5f])]
+    public Scalar Bounce;
+
+    /// <summary>How much of the slide is lost.</summary>
+    [Input(Name = "Friction", Default = [0.2f])]
+    public Scalar Friction;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) {
+        var centre = Vector("Centre");
+
+        builder.Updaters.Add(
+            new(VfxOpcode.CollideSphere, new Vector4(centre.X, centre.Y, centre.Z, Number("Radius"))) {
+                B = new(Number("Bounce"), Number("Friction"), 0f, 0f)
+            }
+        );
+    }
+}
+
+/// <summary>Particles drawn as instances of a mesh.</summary>
+/// <remarks>
+///     <para>
+///         <b>Which mesh is the emitter's, not this node's.</b> A <c>.vxvfx</c> says how particles
+///         move; the same debris effect is worn by the rock, the crate and the glass, so the asset
+///         sits on <c>VfxEmitter.Mesh</c> beside the effect reference. This node says only that the
+///         particles are geometry rather than quads, and which way that geometry is turned.
+///     </para>
+///     <para>
+///         ⚠ <b>The mesh's local +Y is the axis that gets aligned</b>, which is the same axis a
+///         velocity-aligned billboard stretches along. A model built the other way up is a rotation
+///         in the asset rather than a flag here.
+///     </para>
+/// </remarks>
+[Node("Vfx/Output/Mesh", Summary = "An instance of a mesh per particle. The emitter says which mesh.")]
+public sealed partial class MeshOutputNode : VfxNode {
+    /// <summary>Where the blocks connect.</summary>
+    [Input(Name = "In")]
+    public Flow In;
+
+    /// <summary>Whether each instance's +Y follows its own velocity.</summary>
+    /// <remarks>What a shard thrown from an explosion wants, and it wins over <see cref="Axis" />.</remarks>
+    [Input(Name = "Align to Velocity", Default = [0f])]
+    public Bool AlignToVelocity;
+
+    /// <summary>A fixed world axis to align +Y to, or zero for none.</summary>
+    /// <remarks>
+    ///     Zero — the default — leaves the instances turned to face the camera about their own +Y,
+    ///     which is what an unremarkable chunk of debris wants. A three-way choice expressed as two
+    ///     ports because a node port is lanes of float and has no room for a name.
+    /// </remarks>
+    [Input(Name = "Axis", Default = [0f, 0f, 0f])]
+    public Float3 Axis;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) {
+        var lanes = Vector("Axis");
+        var axis = new Vector3(lanes.X, lanes.Y, lanes.Z);
+
+        builder.Renderer = Number("Align to Velocity") != 0f
+            ? VfxRenderer.Instanced(VfxBillboardAlignment.Velocity)
+            : axis.LengthSquared() > 0f
+                ? VfxRenderer.Instanced(VfxBillboardAlignment.FixedAxis, axis)
+                : VfxRenderer.Instanced();
+    }
+}
+
+/// <summary>Particles joined into strips, oldest first.</summary>
+/// <remarks>
+///     <para>
+///         <b>The one renderer that needs particles to know about each other.</b> Which strip a
+///         particle belongs to is a custom attribute — <see cref="Slot" /> names it — and where it
+///         sits within one is its age, which the runtime already keeps. Particles sharing a value are
+///         one ribbon.
+///     </para>
+///     <para>
+///         ⚠ <b>Always sorted by age, whatever a billboard node's sort port would have said.</b> That
+///         is the ribbon's own order rather than a drawing preference: a strip drawn in the order the
+///         particles happen to sit in the buffer is a tangle.
+///     </para>
+///     <para>
+///         ⚠ <b>A slot nothing writes is a graph that draws one ribbon.</b> Until the library has a
+///         node that writes a custom attribute, the slot's value is reachable only from a graph built
+///         in code — which is a real gap and not this node's to close.
+///     </para>
+/// </remarks>
+[Node("Vfx/Output/Ribbon", Summary = "A strip through the particles that share a custom attribute.")]
+public sealed partial class RibbonOutputNode : VfxNode {
+    /// <summary>Where the blocks connect.</summary>
+    [Input(Name = "In")]
+    public Flow In;
+
+    /// <summary>Which custom attribute holds the strip identifier.</summary>
+    [Input(Name = "Slot", Default = [0f])]
+    public Scalar Slot;
+
+    /// <inheritdoc />
+    protected internal override void Contribute(VfxGraphBuilder builder) =>
+        builder.Renderer = VfxRenderer.Ribbon((int)Number("Slot"));
+}

@@ -69,6 +69,11 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
     readonly List<Entity> pending = [];
     readonly Dictionary<Entity, VfxSystem> running = [];
 
+    // What each mesh emitter is holding in the geometry buffer, so retiring one can give it back. A
+    // parallel map rather than a field on `VfxHandle` for `running`'s reason: a destroyed entity's
+    // component is already gone when somebody notices, and `Forget` has to work from the entity alone.
+    readonly Dictionary<Entity, GeometryKey> claimed = [];
+
     bool disposed;
 
     /// <summary>Builds the bridge.</summary>
@@ -122,8 +127,80 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public Material? Material { get; set; }
 
+    /// <summary>What an effect authored as a mesh renderer is drawn with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A second material, and not by preference.</b> <c>ParticleSprite</c> and
+    ///         <c>ParticleMesh</c> read different vertex inputs — one takes a position, a texture
+    ///         coordinate and a colour out of the frame's expanded quads, the other takes a position
+    ///         out of the mesh's own buffer and a transform out of an instance stream — so a mesh
+    ///         effect drawn with <see cref="Material" /> is a pipeline with nothing to bind the
+    ///         instances to. <c>ParticleMeshMaterial.Default()</c> is the shipped one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null makes a mesh effect wait rather than draw wrong.</b> It is the same answer
+    ///         <see cref="Material" /> being null gives a billboard: an emitter with no material to be
+    ///         drawn in is left unextracted and asked about again, which shows up in
+    ///         <see cref="Waiting" /> rather than as a frame of nothing.
+    ///     </para>
+    /// </remarks>
+    public Material? MeshMaterial { get; set; }
+
+    /// <summary>Where the geometry a <see cref="VfxEmitter.Mesh" /> names comes from.</summary>
+    /// <remarks>
+    ///     <b><see cref="MeshExtractionSystem.Meshes" />' counterpart, and asked on the same terms</b>
+    ///     — a miss starts the load and answers false, so a mesh emitter is left unextracted and asked
+    ///     about again next frame. Null, together with <see cref="Residency" />, is a host that draws
+    ///     no mesh effects: they still simulate, and <see cref="Meshless" /> counts them.
+    /// </remarks>
+    public IMeshSource? Meshes { get; set; }
+
+    /// <summary>The shared geometry a mesh effect's instances are drawn out of.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same residency the mesh path uses, deliberately.</b> A rock drawn as scenery and
+    ///     the same rock drawn as debris are one upload and two claims — the claim count is what makes
+    ///     that safe — and two buffers would mean the same asset resident twice and a rebind between
+    ///     the two draws.
+    /// </remarks>
+    public GeometryResidency? Residency { get; set; }
+
+    /// <summary>Which entry of the describer's layout table a mesh effect's pipeline is built from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not entry zero, and the difference is a second vertex buffer.</b> Entry zero is the
+    ///     surface format in every host that draws meshes — one buffer at the vertex rate — and a mesh
+    ///     particle needs the shape <em>and</em> the per-instance stream beside it, which is
+    ///     <c>MeshParticleVertices.Schema</c>. Two by default because that is where <c>WorldRenderer</c>
+    ///     registers it, after the surface schema and the particle one; a host that arranges its table
+    ///     differently says so here.
+    /// </remarks>
+    public int MeshVertexLayout { get; set; } = 2;
+
     /// <summary>How many emitters are running.</summary>
     public int Running => running.Count;
+
+    /// <summary>How many extracted mesh effects have no mesh to instance, and so draw nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The number that tells an author which of two things is wrong.</b> A mesh effect draws
+    ///         nothing when its emitter named no mesh, and it also draws nothing when the host never
+    ///         set <see cref="Meshes" /> or <see cref="Residency" /> — the frame looks identical, and
+    ///         only one of those is the author's to fix. This counts both; <c>Running</c> minus this is
+    ///         what is actually drawing.
+    ///     </para>
+    ///     <para>
+    ///         Accumulated over extractions rather than measured per frame, because an emitter is
+    ///         extracted once: a per-frame count would be zero from the second frame onwards, which is
+    ///         exactly when somebody goes looking.
+    ///     </para>
+    /// </remarks>
+    public int Meshless { get; private set; }
+
+    /// <summary>How many mesh effects wanted geometry that did not fit in the buffer.</summary>
+    /// <remarks>
+    ///     <see cref="MeshExtractionSystem.Dropped" />'s counterpart, and counted rather than thrown
+    ///     for on its terms. They are extracted and simulate; they draw nothing.
+    /// </remarks>
+    public int Dropped { get; private set; }
 
     /// <summary>How many emitters are waiting for an effect that has not arrived.</summary>
     /// <remarks>
@@ -188,6 +265,13 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
     ///     capacity whether or not anything is alive in it.
     /// </remarks>
     public bool Forget(Entity entity) {
+        // The claim first and unconditionally, because a mesh emitter holds one whether or not its
+        // system is still in the map — and a claim leaked here is a slice of the geometry buffer that
+        // no level unload gets back.
+        if (claimed.Remove(entity, out var claim)) {
+            Residency?.Release(claim);
+        }
+
         if (!running.Remove(entity, out var effect)) {
             return false;
         }
@@ -203,7 +287,12 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
             effect.Dispose();
         }
 
+        foreach (var claim in claimed.Values) {
+            Residency?.Release(claim);
+        }
+
         running.Clear();
+        claimed.Clear();
     }
 
     void Retire(World world) {
@@ -237,10 +326,37 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
             // Asked rather than waited for, on the mesh bridge's terms: an effect that has not arrived
             // leaves the entity without a VfxHandle, so it matches `appeared` again next frame and is
             // asked about again. That is the whole of the asynchronous story.
-            if (Effects is null || Material is null || !Effects.TryGet(emitter.Effect, out var graph)) {
+            if (Effects is null || !Effects.TryGet(emitter.Effect, out var graph)) {
                 Waiting++;
 
                 continue;
+            }
+
+            // ⚠ Which material an emitter takes is the *effect's* decision, not the host's, because it
+            // follows from the renderer the graph declared — and the two shaders read different vertex
+            // inputs. Drawing a mesh effect in the sprite material is a pipeline with nothing to bind
+            // the instance stream to.
+            var instanced = (graph.Renderer?.Kind ?? VfxRendererKind.Billboard) == VfxRendererKind.Mesh;
+
+            if ((instanced ? MeshMaterial : Material) is not { } material) {
+                Waiting++;
+
+                continue;
+            }
+
+            var geometry = default(MeshDraw);
+            var claim = default(GeometryKey);
+            var drawable = false;
+
+            // Before the render object is made, so an emitter whose mesh is still in flight leaves no
+            // trace to undo — the same ordering `MeshExtractionSystem.Appear` uses, and for the same
+            // reason.
+            if (instanced) {
+                if (!Instance(emitter.Mesh, out geometry, out claim, out drawable)) {
+                    Waiting++;
+
+                    continue;
+                }
             }
 
             var placement = world.Read<WorldTransform>(entity).Value;
@@ -263,11 +379,64 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
             );
 
             particles.SetSystem(id, effect);
-            materials.Assign(system, id, Material);
+            materials.Assign(system, id, material);
+
+            if (drawable) {
+                particles.SetMesh(id, geometry);
+                claimed[entity] = claim;
+            }
 
             running[entity] = effect;
             world.Add(entity, new VfxHandle { Object = id });
         }
+    }
+
+    /// <summary>The mesh a mesh effect instances, taking a claim on it.</summary>
+    /// <param name="reference">What the emitter named, or <see cref="AssetReference.Null" /> for none.</param>
+    /// <param name="geometry">Where the mesh is, when <paramref name="drawable" /> says there is one.</param>
+    /// <param name="claim">The claim to give back when the emitter goes.</param>
+    /// <param name="drawable">Whether there is a mesh to draw.</param>
+    /// <returns>Whether the answer is final, as opposed to a load still in flight.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Four outcomes and two return values, which is
+    ///     <see cref="MeshExtractionSystem" />'s <c>Painted</c> shape applied to geometry.</b> "It named
+    ///     none", "the host wired no source" and "it did not fit" all come back true with nothing to
+    ///     draw, because all three are states an effect should still simulate in — the first two are
+    ///     counted by <see cref="Meshless" /> and the third by <see cref="Dropped" />. Only "it named
+    ///     one and the source has not got it yet" is false, because a settled emitter is never
+    ///     re-extracted and drawing nothing now would draw nothing for ever.
+    /// </remarks>
+    bool Instance(AssetReference reference, out MeshDraw geometry, out GeometryKey claim, out bool drawable) {
+        geometry = default;
+        claim = default;
+        drawable = false;
+
+        if (reference.IsNull || Meshes is null || Residency is null) {
+            Meshless++;
+
+            return true;
+        }
+
+        if (!Meshes.TryGet(reference, out var mesh)) {
+            return false;
+        }
+
+        var key = GeometryKey.Of(reference);
+
+        if (!Residency.Acquire(key, () => mesh, out var slice, out _)) {
+            Dropped++;
+
+            return true;
+        }
+
+        // InstanceCount is left alone — `ParticleRenderFeature.SetMesh` ignores it and the particles
+        // say, which is the whole difference between a mesh drawn as scenery and one drawn as debris.
+        Residency.Buffer.Apply(ref geometry, slice, MeshVertexLayout);
+
+        claim = key;
+        drawable = true;
+
+        return true;
     }
 
     void Advance(World world, float deltaSeconds) {

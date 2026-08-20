@@ -412,6 +412,18 @@ the velocity, which is the axis a velocity-aligned billboard stretches along. On
 more than each being locally reasonable: a model authored for a streak works for an instanced spark,
 and a model built the other way up is a rotation in the asset rather than a flag here.
 
+**The mesh renderer's other end took three pieces, not one.** This module produces `ParticleInstance`
+and stops there — it has no idea what a vertex buffer is — and for a long time the half on the other
+side of that line was `ParticleRenderFeature.Draw` binding an instance stream at binding 1 that no
+pipeline had a description for. `SetMesh` having no caller was the visible part; underneath it,
+`VertexSchema.Layout` resolved to exactly one `VertexBufferLayout` and nothing in `Raven/Library`
+declared the four instance inputs. Closing it needed `VertexSchema.Instances` (a second buffer at the
+instance rate), `ParticleInstances.Schema` (these four rows, by the names the shader asks for them
+by), `ParticleMesh.rvn`, `ParticleMeshMaterial`, and `VfxEmitter.Mesh` resolving through the same
+`GeometryResidency` a scene's meshes use. The row convention here — translation in the `w` lanes — is
+the thing both ends have to agree about, and `ParticleMeshDeviceTests` is where they are held against
+each other.
+
 **Aligned billboards turn to face the particle-to-camera vector, not the camera's forward.** Under
 perspective those differ by more than a little at the edges of the view, and using forward makes a wide
 effect visibly lean. When the fixed axis points straight at the camera the cross product vanishes and
@@ -435,6 +447,13 @@ order, and recomputing it would be a second sort that could disagree with the fi
 appends them to whatever is gathering lights this frame, and that lives in `Vixen.Rendering` because
 `RenderLight` does — the runtime knows what a light-emitting particle *is* and nothing about how the
 renderer represents one, which is the same split `VfxGpuSimulation` makes.
+
+**It is wired, and the record said otherwise for a while.** `VfxExtractionSystem.Extract` calls
+`ParticleRenderFeature.CollectLights` after the step — after, because a light is where its particle is
+*now* — and `WorldRenderer` hands the feature `ForwardLightingRenderFeature`'s own list, so a particle
+light is one more entry in the list a lamp is and is selected and clustered exactly as one. A host
+that does neither is reported through `RootRenderFeature.Degraded` rather than drawing billboards
+instead, which is what it used to do.
 
 It is the one renderer an additive quad cannot fake: the quad brightens the sparks, not the wall behind
 them. **Colour's alpha is the intensity and size is the range**, so a colour-over-life fade dims the
@@ -610,8 +629,9 @@ ratios are what the threshold rests on. Absolute throughput from this table woul
   - **Nothing can draw the result.** The attribute buffers are created
     `Storage | CopySource | CopyDestination`; there is no `BufferUsage.Vertex` on them, so they
     cannot even be bound as a vertex stream. And no shader in `Raven/Library/Vfx` reads a particle
-    out of a buffer in a vertex stage — `ParticleBillboard` takes per-instance vertex *inputs* and
-    `ParticleSprite` takes this module's CPU expansion. Nothing in the tree calls
+    out of a buffer in a vertex stage — `ParticleBillboard` takes per-instance vertex *inputs*, and
+    `ParticleSprite` and `ParticleMesh` both take this module's CPU expansion (quads and instance
+    rows respectively, out of host-written vertex buffers). Nothing in the tree calls
     `DrawIndexedIndirect` on `VfxGpuSimulation.DrawArguments`, and `VfxGpuSort` produces an index
     buffer nothing draws through.
   - **Spawning stays on the host**, so a device effect is seeded through `Upload` — which this file

@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Ecs;
 using Vixen.Rendering.Vfx;
+using Vixen.Vfx;
 
 namespace Vixen.Rendering.Ecs;
 
@@ -46,6 +47,28 @@ public struct VfxEmitter : IDefaultComponent<VfxEmitter> {
     /// </remarks>
     [AssetType(typeof(VfxEffectContent))]
     public AssetReference Effect;
+
+    /// <summary>What each particle is an instance of, for an effect authored as a mesh renderer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The emitter's rather than the effect's, and that is the same split
+    ///         <see cref="VfxExtractionSystem.Material" /> makes.</b> A <c>.vxvfx</c> says how particles
+    ///         <em>move</em> and that they are drawn as meshes; it says nothing about <em>which</em>
+    ///         mesh, because the node library has no asset picker in it and an effect that named one
+    ///         could not be reused for two kinds of debris. So the choice sits on the entity, beside
+    ///         the effect it goes with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read only when the effect's renderer is <see cref="VfxRendererKind.Mesh" />.</b> A
+    ///         billboard, ribbon or light effect ignores it entirely, and a mesh effect that names none
+    ///         simulates and draws nothing — which is counted by
+    ///         <see cref="VfxExtractionSystem.Meshless" /> rather than thrown for, because an emitter
+    ///         dropped onto an entity before anybody has chosen a mesh is a real state on
+    ///         <see cref="Effect" />'s terms.
+    ///     </para>
+    /// </remarks>
+    [AssetType(typeof(MeshData))]
+    public AssetReference Mesh;
 
     /// <summary>Whether the spawners are running.</summary>
     /// <remarks>

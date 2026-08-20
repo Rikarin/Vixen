@@ -65,9 +65,34 @@ public sealed class VertexSchema {
     /// <summary>What one vertex holds.</summary>
     public IReadOnlyList<VertexChannel> Attributes => attributes;
 
+    /// <summary>A second buffer, advanced once per <em>instance</em> rather than per vertex.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What makes one layout index describe an instanced draw.</b> An instanced renderer
+    ///         binds two buffers — the shape, once per vertex, and the per-instance record beside it —
+    ///         and the difference between them is a step mode the pipeline declares, not anything
+    ///         either buffer knows. So the join is here, where both halves are named: an attribute the
+    ///         stage declares is looked for in this format first and in the instance stream second,
+    ///         and lands in whichever buffer holds it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The step mode is the whole mechanism, and getting it wrong draws.</b> A per-instance
+    ///         record read at the vertex rate hands every vertex of one shape a different instance's
+    ///         transform, which is a picture — one exploded object — rather than an error.
+    ///     </para>
+    ///     <para>
+    ///         Null for the ordinary case, which is every mesh in a scene: one buffer, one rate, and
+    ///         <see cref="Layout" /> returns the single element it always did.
+    ///     </para>
+    /// </remarks>
+    public VertexSchema? Instances { get; init; }
+
     /// <summary>The vertex layout for drawing this format with one effect.</summary>
     /// <param name="effect">The effect whose vertex stage is about to read it.</param>
-    /// <returns>One buffer layout, holding an element per input the stage declares.</returns>
+    /// <returns>
+    ///     One buffer layout holding an element per input the stage declares, or two when
+    ///     <see cref="Instances" /> is set — the shape first, the per-instance stream second.
+    /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="effect" /> is null.</exception>
     /// <exception cref="InvalidOperationException">
     ///     The stage declares an attribute this format has no data for.
@@ -90,25 +115,48 @@ public sealed class VertexSchema {
     public VertexBufferLayout[] Layout(Effect effect) {
         ArgumentNullException.ThrowIfNull(effect);
 
-        var elements = new VertexElement[effect.VertexInputs.Length];
+        var perVertex = new List<VertexElement>(effect.VertexInputs.Length);
+        var perInstance = Instances is null ? null : new List<VertexElement>(effect.VertexInputs.Length);
 
-        for (var i = 0; i < effect.VertexInputs.Length; i++) {
-            var input = effect.VertexInputs[i];
-            var attribute = Find(input.Name);
+        foreach (var input in effect.VertexInputs) {
+            if (Find(input.Name) is { } source) {
+                perVertex.Add(new((uint)input.Location, source.Format, source.Offset));
 
-            if (attribute is not { } source) {
-                throw new InvalidOperationException(
-                    $"'{effect.Key.ShaderName}' reads a vertex attribute called '{input.Name}' at location "
-                    + $"{input.Location}, and this vertex format holds "
-                    + $"{string.Join(", ", attributes.Select(a => a.Name))}. A pipeline that described no "
-                    + "attribute there would be refused, and one that described the wrong bytes would draw."
-                );
+                continue;
             }
 
-            elements[i] = new((uint)input.Location, source.Format, source.Offset);
+            // The instance stream second, so a name held by both is the vertex one. Nothing in the
+            // engine spells a channel both ways, and the order has to be decided rather than left to
+            // whichever list is searched first.
+            if (Instances?.Find(input.Name) is { } instanced) {
+                perInstance!.Add(new((uint)input.Location, instanced.Format, instanced.Offset));
+
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                $"'{effect.Key.ShaderName}' reads a vertex attribute called '{input.Name}' at location "
+                + $"{input.Location}, and this vertex format holds "
+                + $"{string.Join(", ", attributes.Select(a => a.Name))}"
+                + (Instances is null
+                    ? string.Empty
+                    : $" with an instance stream holding {string.Join(", ", Instances.attributes.Select(a => a.Name))}")
+                + ". A pipeline that described no attribute there would be refused, and one that "
+                + "described the wrong bytes would draw."
+            );
         }
 
-        return [new VertexBufferLayout(Stride, elements)];
+        if (Instances is not { } stream) {
+            return [new VertexBufferLayout(Stride, perVertex.ToArray())];
+        }
+
+        // Both buffers, always, even where the stage read nothing from one of them: the feature binds
+        // two and a description that named one would leave the other bound to a layout with no
+        // binding at that index.
+        return [
+            new VertexBufferLayout(Stride, perVertex.ToArray()),
+            new VertexBufferLayout(stream.Stride, perInstance!.ToArray(), VertexStepMode.Instance)
+        ];
     }
 
     VertexChannel? Find(string name) {

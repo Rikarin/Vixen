@@ -1600,6 +1600,7 @@ Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape(in Vixen.Core.
 Vixen.Rendering.Ecs.VfxEmitter -> struct
 Vixen.Rendering.Ecs.VfxEmitter : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Ecs.VfxEmitter>
 Vixen.Rendering.Ecs.VfxEmitter.Effect -> Vixen.Core.AssetReference
+Vixen.Rendering.Ecs.VfxEmitter.Mesh -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.VfxEmitter.Playing -> bool
 Vixen.Rendering.Ecs.VfxEmitter.Reach -> float
 Vixen.Rendering.Ecs.VfxEmitter.Rise -> float
@@ -1611,13 +1612,23 @@ Vixen.Rendering.Ecs.VfxExtractionSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Ecs.VfxExtractionSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Rendering.Ecs.VfxExtractionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Rendering.Ecs.VfxExtractionSystem.Clear() -> void
+Vixen.Rendering.Ecs.VfxExtractionSystem.Dropped.get -> int
 Vixen.Rendering.Ecs.VfxExtractionSystem.Effects.get -> Vixen.Rendering.Ecs.IVfxEffectSource?
 Vixen.Rendering.Ecs.VfxExtractionSystem.Effects.set -> Vixen.Rendering.Ecs.IVfxEffectSource?
 Vixen.Rendering.Ecs.VfxExtractionSystem.Extract(Vixen.Ecs.World world, float deltaSeconds) -> void
 Vixen.Rendering.Ecs.VfxExtractionSystem.Forget(Vixen.Core.Entity entity) -> bool
 Vixen.Rendering.Ecs.VfxExtractionSystem.Material.get -> Vixen.Rendering.Material?
 Vixen.Rendering.Ecs.VfxExtractionSystem.Material.set -> Vixen.Rendering.Material?
+Vixen.Rendering.Ecs.VfxExtractionSystem.MeshMaterial.get -> Vixen.Rendering.Material?
+Vixen.Rendering.Ecs.VfxExtractionSystem.MeshMaterial.set -> Vixen.Rendering.Material?
+Vixen.Rendering.Ecs.VfxExtractionSystem.MeshVertexLayout.get -> int
+Vixen.Rendering.Ecs.VfxExtractionSystem.MeshVertexLayout.set -> int
+Vixen.Rendering.Ecs.VfxExtractionSystem.Meshes.get -> Vixen.Rendering.Ecs.IMeshSource?
+Vixen.Rendering.Ecs.VfxExtractionSystem.Meshes.set -> Vixen.Rendering.Ecs.IMeshSource?
+Vixen.Rendering.Ecs.VfxExtractionSystem.Meshless.get -> int
 Vixen.Rendering.Ecs.VfxExtractionSystem.ParticleCount.get -> int
+Vixen.Rendering.Ecs.VfxExtractionSystem.Residency.get -> Vixen.Rendering.Ecs.GeometryResidency?
+Vixen.Rendering.Ecs.VfxExtractionSystem.Residency.set -> Vixen.Rendering.Ecs.GeometryResidency?
 Vixen.Rendering.Ecs.VfxExtractionSystem.Running.get -> int
 Vixen.Rendering.Ecs.VfxExtractionSystem.Stages.get -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.Ecs.VfxExtractionSystem.Stages.set -> Vixen.Rendering.RenderStageMask
@@ -3558,6 +3569,7 @@ Vixen.Rendering.MeshInstanceView.Position.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshInstanceView.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstanceView.ViewProjection.init -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstanceView.WorldPerPixel(Vixen.Core.Mathematics.Vector3 at) -> float
+Vixen.Rendering.MeshParticleVertices -> static class
 Vixen.Rendering.MeshPrimitives -> static class
 Vixen.Rendering.MeshRenderer -> sealed class
 Vixen.Rendering.MeshRenderer : System.IDisposable
@@ -3730,6 +3742,7 @@ Vixen.Rendering.PageResidency.StaleRequests.get -> long
 Vixen.Rendering.PageResidency.Touch(Vixen.Rendering.PageKey key) -> void
 Vixen.Rendering.PageResidency.TryGetPlacement(Vixen.Rendering.PageKey key, out Vixen.Rendering.PagePlacement placement) -> bool
 Vixen.Rendering.PageResidency.Unpin(Vixen.Rendering.PageKey key) -> void
+Vixen.Rendering.ParticleInstances -> static class
 Vixen.Rendering.ParticleLights -> static class
 Vixen.Rendering.ParticleVertices -> static class
 Vixen.Rendering.PersistentUploadBuffer<T> -> sealed class
@@ -4321,9 +4334,12 @@ Vixen.Rendering.VertexLocations.VertexLocations(params System.ReadOnlySpan<uint>
 Vixen.Rendering.VertexLocations.this[int index].get -> uint
 Vixen.Rendering.VertexSchema -> sealed class
 Vixen.Rendering.VertexSchema.Attributes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.VertexChannel>
+Vixen.Rendering.VertexSchema.Instances.get -> Vixen.Rendering.VertexSchema?
+Vixen.Rendering.VertexSchema.Instances.init -> Vixen.Rendering.VertexSchema?
 Vixen.Rendering.VertexSchema.Layout(Vixen.Shaders.Effect effect) -> Vixen.Graphics.VertexBufferLayout[]
 Vixen.Rendering.VertexSchema.Stride.get -> int
 Vixen.Rendering.VertexSchema.VertexSchema(int stride, params Vixen.Rendering.VertexChannel[] attributes) -> void
+Vixen.Rendering.Vfx.ParticleMeshMaterial -> static class
 Vixen.Rendering.Vfx.ParticleSpriteMaterial -> static class
 Vixen.Rendering.Vfx.VfxCustomAttributeRow -> readonly struct
 Vixen.Rendering.Vfx.VfxCustomAttributeRow : System.IEquatable<Vixen.Rendering.Vfx.VfxCustomAttributeRow>
@@ -4788,6 +4804,14 @@ Vixen.Shaders.Generated.MotionVectorsPerViewConstants.View -> Vixen.Core.Mathema
 Vixen.Shaders.Generated.MotionVectorsPerViewConstants.ViewPosition -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.MotionVectorsPerViewConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.NearestReduceKeys -> static class
+Vixen.Shaders.Generated.ParticleMeshKeys -> static class
+Vixen.Shaders.Generated.ParticleMeshPerMaterialConstants -> struct
+Vixen.Shaders.Generated.ParticleMeshPerMaterialConstants.Emissive -> float
+Vixen.Shaders.Generated.ParticleMeshPerMaterialConstants.ParticleMeshPerMaterialConstants() -> void
+Vixen.Shaders.Generated.ParticleMeshPerMaterialConstants.Tint -> Vixen.Core.Mathematics.Vector4
+Vixen.Shaders.Generated.ParticleMeshPerViewConstants -> struct
+Vixen.Shaders.Generated.ParticleMeshPerViewConstants.ParticleMeshPerViewConstants() -> void
+Vixen.Shaders.Generated.ParticleMeshPerViewConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.ParticleSpriteKeys -> static class
 Vixen.Shaders.Generated.ParticleSpritePerMaterialConstants -> struct
 Vixen.Shaders.Generated.ParticleSpritePerMaterialConstants.EdgeSharpness -> float
@@ -5534,6 +5558,24 @@ const Vixen.Shaders.Generated.NearestReduceKeys.SourceBinding = 0 -> uint
 const Vixen.Shaders.Generated.NearestReduceKeys.SourceSet = 2 -> int
 const Vixen.Shaders.Generated.NearestReduceKeys.TargetBinding = 1 -> uint
 const Vixen.Shaders.Generated.NearestReduceKeys.TargetSet = 2 -> int
+const Vixen.Shaders.Generated.ParticleMeshKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.ParticleMeshKeys.ConstantBufferSet = 1 -> int
+const Vixen.Shaders.Generated.ParticleMeshKeys.ConstantBufferSize = 64 -> int
+const Vixen.Shaders.Generated.ParticleMeshKeys.InstanceColorLocation = 5 -> uint
+const Vixen.Shaders.Generated.ParticleMeshKeys.InstanceRow0Location = 2 -> uint
+const Vixen.Shaders.Generated.ParticleMeshKeys.InstanceRow1Location = 3 -> uint
+const Vixen.Shaders.Generated.ParticleMeshKeys.InstanceRow2Location = 4 -> uint
+const Vixen.Shaders.Generated.ParticleMeshKeys.PerMaterialBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.ParticleMeshKeys.PerMaterialBlockSet = 2 -> int
+const Vixen.Shaders.Generated.ParticleMeshKeys.PerMaterialBlockSize = 32 -> int
+const Vixen.Shaders.Generated.ParticleMeshKeys.PerViewBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.ParticleMeshKeys.PerViewBlockSet = 1 -> int
+const Vixen.Shaders.Generated.ParticleMeshKeys.PerViewBlockSize = 64 -> int
+const Vixen.Shaders.Generated.ParticleMeshKeys.PositionLocation = 1 -> uint
+const Vixen.Shaders.Generated.ParticleMeshKeys.ShaderName = "ParticleMesh" -> string
+const Vixen.Shaders.Generated.ParticleMeshKeys.VertexAttributeCount = 5 -> int
+const Vixen.Shaders.Generated.ParticleMeshPerMaterialConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.ParticleMeshPerViewConstants.Size = 64 -> int
 const Vixen.Shaders.Generated.ParticleSpriteKeys.ColorLocation = 4 -> uint
 const Vixen.Shaders.Generated.ParticleSpriteKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.ParticleSpriteKeys.ConstantBufferSet = 1 -> int
@@ -6090,6 +6132,8 @@ readonly Vixen.Shaders.Generated.LocalExposureConstants.Write(System.Span<byte> 
 readonly Vixen.Shaders.Generated.MotionBlurConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.MotionVectorsPerViewConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.ParticleMeshPerMaterialConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.ParticleMeshPerViewConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ParticleSpritePerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ParticleSpritePerViewConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.PlaceholderConstants.Write(System.Span<byte> buffer) -> void
@@ -6310,6 +6354,7 @@ static Vixen.Rendering.Materials.TexturedOrmFeature.OrmIndexParameter(string pat
 static Vixen.Rendering.MeshInstance.NormalMatrix(in Vixen.Core.Mathematics.Matrix4x4 transform) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4), Vixen.Rendering.Materials.MaterialSurface? surface = null, float checker = 0, float tint = 0) -> Vixen.Rendering.MeshInstance
 static Vixen.Rendering.MeshInstance.Packed(Vixen.Rendering.Materials.MaterialSurface surface, float checker = 0, float tint = 0) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Rendering.MeshParticleVertices.Schema.get -> Vixen.Rendering.VertexSchema
 static Vixen.Rendering.MeshPrimitives.Capsule(float radius = 0.25, float height = 1, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Cone(float radius = 0.5, float height = 1, int segments = 32) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Create(Vixen.Rendering.PrimitiveKind kind, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
@@ -6319,6 +6364,8 @@ static Vixen.Rendering.MeshPrimitives.Plane(float size = 1, int divisions = 4) -
 static Vixen.Rendering.MeshPrimitives.Quad(float size = 1) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Sphere(float radius = 0.5, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Torus(float radius = 0.35, float tube = 0.15, int segments = 32, int sides = 16) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.ParticleInstances.Schema.get -> Vixen.Rendering.VertexSchema
+static Vixen.Rendering.ParticleInstances.SizeInBytes.get -> int
 static Vixen.Rendering.ParticleLights.Collect(Vixen.Vfx.VfxSystem system, System.Collections.Generic.IList<Vixen.Rendering.RenderLight> lights, int maximum = 2147483647) -> int
 static Vixen.Rendering.ParticleVertices.Schema.get -> Vixen.Rendering.VertexSchema
 static Vixen.Rendering.ParticleVertices.SizeInBytes.get -> int
@@ -6383,6 +6430,8 @@ static Vixen.Rendering.SurfaceGeometry.VertexCount(Vixen.Rendering.MeshData mesh
 static Vixen.Rendering.SurfaceVertex.Locations.get -> Vixen.Rendering.VertexLocations
 static Vixen.Rendering.SurfaceVertex.Schema.get -> Vixen.Rendering.VertexSchema
 static Vixen.Rendering.SurfaceVertex.SizeInBytes.get -> int
+static Vixen.Rendering.Vfx.ParticleMeshMaterial.Default() -> Vixen.Rendering.Material
+static Vixen.Rendering.Vfx.ParticleMeshMaterial.NeutralTint.get -> Vixen.Core.Mathematics.Vector4
 static Vixen.Rendering.Vfx.ParticleSpriteMaterial.Default() -> Vixen.Rendering.Material
 static Vixen.Rendering.Vfx.ParticleSpriteMaterial.NeutralTint.get -> Vixen.Core.Mathematics.Vector4
 static Vixen.Rendering.Vfx.VfxCustomAttributeRow.From(in Vixen.Vfx.VfxCustomAttribute attribute) -> Vixen.Rendering.Vfx.VfxCustomAttributeRow
@@ -6694,6 +6743,9 @@ static readonly Vixen.Shaders.Generated.MotionVectorsKeys.ViewPosition -> Vixen.
 static readonly Vixen.Shaders.Generated.MotionVectorsKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.NearestReduceKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.NearestReduceKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ParticleMeshKeys.Emissive -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ParticleMeshKeys.Tint -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector4>
+static readonly Vixen.Shaders.Generated.ParticleMeshKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.ParticleSpriteKeys.EdgeSharpness -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ParticleSpriteKeys.Emissive -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ParticleSpriteKeys.SoftEdge -> Vixen.Shaders.PermutationKey<bool>

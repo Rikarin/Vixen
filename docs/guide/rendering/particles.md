@@ -4,11 +4,11 @@ slug: rendering/particles
 kind: guide
 area: Rendering
 summary: Dropping a .vxvfx onto an entity — the component, the importer that compiles the graph, the bridge that runs it, and the feature that draws it.
-api: [R:Vfx/ParticleSprite, T:Vixen.Shaders.Generated.ParticleSpriteKeys, T:Vixen.Shaders.Generated.ParticleSpritePerMaterialConstants, T:Vixen.Shaders.Generated.ParticleSpritePerViewConstants, T:Vixen.Rendering.Vfx.ParticleSpriteMaterial, T:Vixen.Rendering.Ecs.VfxEmitter, T:Vixen.Rendering.Ecs.VfxEmitters, T:Vixen.Rendering.Ecs.VfxHandle, T:Vixen.Rendering.Ecs.VfxExtractionSystem, T:Vixen.Rendering.Ecs.IVfxEffectSource, T:Vixen.Engine.Renderer.AssetVfxEffectSource, T:Vixen.Editor.Assets.Vfx.VfxImporter, T:Vixen.Editor.Assets.Vfx.VfxImportSettings, T:Vixen.Rendering.Vfx.VfxEffectContent, T:Vixen.Rendering.Vfx.VfxSpawnerRow, T:Vixen.Rendering.Vfx.VfxOperationRow, T:Vixen.Rendering.Vfx.VfxRendererRow, T:Vixen.Rendering.Vfx.VfxCustomAttributeRow, T:Vixen.Rendering.Features.ParticleRenderFeature, T:Vixen.Rendering.ParticleVertices, T:Vixen.Vfx.VfxSystem, T:Vixen.Vfx.VfxCompiledGraph, T:Vixen.Vfx.VfxSpawner, T:Vixen.Vfx.VfxOperation, T:Vixen.Vfx.VfxRenderer, T:Vixen.Vfx.ParticleVertex]
+api: [R:Vfx/ParticleSprite, T:Vixen.Shaders.Generated.ParticleSpriteKeys, T:Vixen.Shaders.Generated.ParticleSpritePerMaterialConstants, T:Vixen.Shaders.Generated.ParticleSpritePerViewConstants, T:Vixen.Rendering.Vfx.ParticleSpriteMaterial, T:Vixen.Rendering.Ecs.VfxEmitter, T:Vixen.Rendering.Ecs.VfxEmitters, T:Vixen.Rendering.Ecs.VfxHandle, T:Vixen.Rendering.Ecs.VfxExtractionSystem, T:Vixen.Rendering.Ecs.IVfxEffectSource, T:Vixen.Engine.Renderer.AssetVfxEffectSource, T:Vixen.Editor.Assets.Vfx.VfxImporter, T:Vixen.Editor.Assets.Vfx.VfxImportSettings, T:Vixen.Rendering.Vfx.VfxEffectContent, T:Vixen.Rendering.Vfx.VfxSpawnerRow, T:Vixen.Rendering.Vfx.VfxOperationRow, T:Vixen.Rendering.Vfx.VfxRendererRow, T:Vixen.Rendering.Vfx.VfxCustomAttributeRow, T:Vixen.Rendering.Features.ParticleRenderFeature, T:Vixen.Rendering.ParticleVertices, T:Vixen.Rendering.ParticleInstances, T:Vixen.Rendering.MeshParticleVertices, T:Vixen.Rendering.Vfx.ParticleMeshMaterial, R:Vfx/ParticleMesh, T:Vixen.Shaders.Generated.ParticleMeshKeys, T:Vixen.Shaders.Generated.ParticleMeshPerMaterialConstants, T:Vixen.Shaders.Generated.ParticleMeshPerViewConstants, T:Vixen.Vfx.ParticleInstance, T:Vixen.Vfx.VfxSystem, T:Vixen.Vfx.VfxCompiledGraph, T:Vixen.Vfx.VfxSpawner, T:Vixen.Vfx.VfxOperation, T:Vixen.Vfx.VfxRenderer, T:Vixen.Vfx.ParticleVertex]
 tags: [rendering, vfx, particles, compositor]
 since: 0.1
 status: stable
-related: [rendering/lit-path, rendering/shadows]
+related: [rendering/lit-path, rendering/shadows, editor/vfx-graph]
 ---
 
 ## What it is
@@ -126,6 +126,48 @@ to cover where the drift can get to rather than where the particles are now.
 ⚠ **Leave `seed` at zero unless the frames have to be reproducible.** The bridge derives one from the
 entity, so two lamps of one effect are two different fires rather than one repeated twice. Writing a
 seed down is what a test that renders N frames twice wants.
+
+### Drawing a mesh per particle
+
+An effect whose output is `Vfx/Output/Mesh` draws an instance of a mesh per live particle instead of
+a quad — debris, shards, chunks of rock. It takes one extra field on the emitter and nothing else:
+
+```yaml
+      - !VfxEmitter { effect: vx:611abda7…, mesh: vx:9c4f21e0…, playing: true, reach: 6.0 }
+```
+
+`VfxEmitter.Mesh` is the emitter's rather than the effect's, for the reason the material is the
+host's: a `.vxvfx` says how particles *move*, and the same debris effect is reused for the rock, the
+crate and the glass. It is read only where the graph's renderer is a mesh one, so setting it on a
+billboard effect costs nothing and claims nothing.
+
+Three things happen behind it, and each is a place a mesh effect used to go quiet:
+
+| Piece | Says |
+|---|---|
+| `MeshParticleVertices.Schema` | the *pair* of vertex buffers — the mesh's own format, and `ParticleInstance` beside it at the **instance** rate |
+| `ParticleMesh.rvn` | reassembles the three transform rows and returns the particle's colour |
+| `ParticleMeshMaterial` | the material that shader is drawn with, with both its parameters set |
+
+⚠ **A mesh effect needs its own material, not the sprite one.** `ParticleSprite` reads a position, a
+texture coordinate and a colour out of one buffer; `ParticleMesh` reads a position out of the mesh's
+buffer and a transform out of an instance stream. `WorldRenderer.MeshParticleMaterial` is the shipped
+one and is what `VfxExtractionSystem.MeshMaterial` is set from — a mesh effect drawn with the sprite
+material is a pipeline with nothing to bind the instance stream to.
+
+⚠ **The geometry goes through the same `GeometryResidency` the scene's meshes do.** A rock drawn as
+scenery and the same rock drawn as debris are one upload and two claims. What that costs is that a
+mesh effect *waits* for its geometry exactly as a `MeshRenderable` does — it shows up in
+`VfxExtractionSystem.Waiting` until the load lands.
+
+⚠ **`Meshless` is the counter to read when nothing appears.** A mesh effect draws nothing when its
+emitter named no mesh *and* when the host never set `Meshes` or `Residency`, and the two frames look
+identical. `Running` minus `Meshless` is what is actually drawing; `Dropped` is the third case, a
+mesh that did not fit in the buffer.
+
+⚠ **Unlit, deliberately.** `ParticleMesh` returns colour × tint × emissive and nothing else. A
+*shaded* mesh particle means a normal, a cluster list and a shadow lookup — which is the surface
+material path's job — and is owed rather than approximated here.
 
 ## Examples
 
