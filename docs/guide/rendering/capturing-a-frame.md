@@ -94,6 +94,37 @@ info  Captured the frame to ./shots/frame.png.
 If that middle line names a software device instead, the picture is black and the run will still
 exit zero.
 
+⚠ **The black picture is the *loud* half of that failure, and it is not the half that costs you a
+day.** A headless run without `--vixen-capture` runs no compute, so every counter that reads a result
+back *off the device* — virtual shadow pages marked and drawn, screen probes placed, whatever a trace
+file collects a row a frame of — comes back **zero**, for as many frames as you asked for, on every
+branch alike, and exits zero.
+
+⚠ **And the counters that do *not* read back off the device keep reporting a healthy frame**, which is
+what makes it survive a glance. Objects drawn, shader variants, misses, material sets bound, draws
+recorded: all of them count what the CPU submitted, and the CPU submits the same work to a device that
+throws it away. So the run looks right in exactly the places an agent checks first. A branch that fixed
+the thing and a branch that broke it measure identically. The flag is therefore not only for runs that
+want a picture — it is what a *measurement* run asks for too, and the PNG is a receipt rather than the
+point. Sample 13's toroidal shadow work was reported as unmeasurable-headless on exactly this evidence,
+and the recipe had been right all along: the run had dropped the flag.
+
+⚠ **`--vixen-gpu-profile` is the exception, and it is the dangerous one: it does not read zero.**
+`NullDevice` reports `HasTimestampQueries = true` and `TryResolveQueries` answers with the pool's own
+counter times a synthetic tick — deliberately, because resolving to zero would make every duration
+zero and no test could tell that from a bug. The device's own remark says it: *"It is a shape, not a
+measurement, and nothing should read a number out of this device and call it a frame time."* On a run
+that meant to profile a real GPU, that is a pass timeline of **plausible, monotonic, entirely
+invented milliseconds** — which will not look wrong, will not read as zero, and will survive being
+pasted into a table. Check the device line before the timings, never the other way round.
+
+⚠ **There is no capture-free way to ask for it today.** `--vixen-backend vulkan` under
+`--vixen-headless` does not lift the refusal; it throws, because the list it was given has no Null in
+it to fall through to. Whether a run should be able to say "a real device, no window, no picture" in
+as many words is an open question — the answer is a second statement of intent as explicit as this
+one, not a relaxation of the refusal, because the refusal is what keeps a dedicated server off a
+driver. Until there is one, a measurement run pays for a PNG it does not read.
+
 ### How many frames — many more than you would guess
 
 **A capture reproduces at any frame count. It has not *converged* at most of them, and those are two
