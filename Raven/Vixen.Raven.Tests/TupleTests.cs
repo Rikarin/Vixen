@@ -158,9 +158,7 @@ public class TupleTests {
     public void Both_backends_emit_a_tuple() {
         Assert.NotEmpty(SpirvTestBase.One(Split).Code);
 
-        if (ReferenceCompiler.Glslc is null) {
-            return;
-        }
+        Assert.SkipUnless(ReferenceCompiler.Glslc is not null, ReferenceCompiler.HowToInstall);
 
         var unit = Assert.Single(GenerateClean(Split));
         Assert.NotEmpty(ReferenceCompiler.GlslToSpirv(unit.Code, unit.Stage));

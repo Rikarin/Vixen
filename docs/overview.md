@@ -690,7 +690,7 @@ Re-checked against `Directory.Packages.props`: all nine are still absent from it
 | Package | Planned for | Status | Blocks |
 |---|---|---|---|
 | `Silk.NET.SPIRV.Cross.Native` | `Vixen.Raven.Transpile` | ⬜ | HLSL/MSL/WGSL output (ADR-012) |
-| `Silk.NET.Shaderc` / `.Native` | Raven's differential oracle | ⬜ | The `glslc`-vs-SPIR-V oracle is described as running; the package is not in the register |
+| `Silk.NET.Shaderc` / `.Native` | Raven's differential oracle | ✂️ | **Declined, and the oracle runs without it.** `SpirvDifferentialTests` compares Raven's SPIR-V against `glslc`(Raven's GLSL) over 13 fixtures; `ReferenceCompiler` finds `glslc` and `spirv-dis` on PATH, because a native NuGet asset would put shaderc's binaries in the restore graph of a project that must never ship them (doc 07 § C, doc 12 § optional tools). `ci.yml` installs them on all three legs |
 | `Silk.NET.Direct3D.Compilers` | D3D12 backend | ✂️ | Postponed with the backend |
 | `Silk.NET.Maths` | interop shim | ⬜ | Never needed — ADR-003 types carry their own conversions |
 | `NSubstitute` 6.0.0, `Shouldly` 4.3.0 | test stack | ⬜ | Listed in doc 12; the props file deliberately omits unused versions |
