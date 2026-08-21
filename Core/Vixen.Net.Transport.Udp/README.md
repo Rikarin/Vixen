@@ -50,6 +50,24 @@ that this plan does not claim a bespoke crypto layer, and DTLS is where confiden
 
 - **Adaptive congestion control.** There is a cap on unacknowledged datagrams, which bounds memory;
   a window that responds to loss is a different thing and is not built.
+
+**It counts what it lost, in both directions, and the two counts are not the same kind of number.**
+`ITransport.Loss` comes back as four cumulative totals. Outbound: `Sent`, reliable datagrams handed
+to the socket for the first time — the denominator `RetransmitCount` never had — and `Retransmitted`,
+which is a *consequence* of loss and reads high, because one lost datagram resent three times counts
+three and a lost acknowledgement resends one that arrived. Inbound: `Expected`, the sequences that
+have fallen out of the thirty-two-deep acknowledgement window and so can no longer arrive, and
+`Missing`, how many of them never did — which is loss that was **observed**, on every channel
+including the unreliable ones.
+
+⚠ **A sequence is judged when it leaves the window, not when the gap appears.** A gap a moment old
+may be a datagram in flight; counting it immediately would report every reordering as a loss and
+never take it back. What that costs on the hot path is one increment per reliable datagram sent and a
+handful of integer operations plus a `PopCount` per datagram received, inside the bookkeeping that
+already runs to de-duplicate the sequence. Nothing allocates and nothing locks; the walk over
+connections happens only when somebody reads `Loss`. A closed connection's counters are folded into
+the transport's totals rather than dropped, because a cumulative counter that falls is one a
+collector reads as a restart. See [measuring packet loss](../../docs/guide/engine/measuring-loss.md).
 - **Acknowledgements ride their own datagram.** Piggybacking them onto outgoing messages would save a
   packet each way on a busy connection.
 - **Path MTU discovery.** 1200 bytes is the safe assumption rather than the measured answer.

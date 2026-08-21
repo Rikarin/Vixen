@@ -5,6 +5,7 @@ using System.Diagnostics.Metrics;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
 using Vixen.Net.Sessions;
+using Vixen.Net.Transport;
 
 namespace Vixen.Net.Diagnostics;
 
@@ -139,6 +140,36 @@ public sealed class NetworkMetrics : IDisposable {
             Calls,
             description: "Inbound remote calls, by what happened to them."
         );
+
+        // Four counters and no ratio, for this file's own reason: a share is a difference of two of
+        // these and a collector can take it, while a share published here could not be re-aggregated
+        // across three servers. They are also four counters rather than one instrument tagged by
+        // direction, because the two directions do not share a population — the outbound pair counts
+        // reliable datagrams this server sent and the inbound pair counts sequences its peers sent
+        // it, and a chart that summed them would be adding up two different things.
+        meter.CreateObservableCounter(
+            "vixen.net.datagrams.sent",
+            () => reading.Sent,
+            description: "Reliable datagrams sent for the first time — the denominator the retransmit count needs."
+        );
+
+        meter.CreateObservableCounter(
+            "vixen.net.datagrams.retransmitted",
+            () => reading.Retransmitted,
+            description: "Datagrams sent again because no acknowledgement came — a consequence of loss, not a count of it."
+        );
+
+        meter.CreateObservableCounter(
+            "vixen.net.datagrams.expected",
+            () => reading.Expected,
+            description: "Inbound sequences past the acknowledgement window, which either arrived or never will."
+        );
+
+        meter.CreateObservableCounter(
+            "vixen.net.datagrams.lost",
+            () => reading.Missing,
+            description: "How many of those never arrived. Over the expected count, this is observed inbound loss."
+        );
     }
 
     /// <summary>The session to read players and the tick from.</summary>
@@ -152,6 +183,25 @@ public sealed class NetworkMetrics : IDisposable {
 
     /// <summary>The ledger to read bandwidth from.</summary>
     public BandwidthLedger? Ledger { get; set; }
+
+    /// <summary>The transport to read loss counters from, when it counts any.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Absent leaves the instruments at zero, and that is a real limitation of a
+    ///         cumulative counter rather than a claim about the link.</b> There is no way for an
+    ///         <c>ObservableCounter</c> to say "not measured" — the closest thing is not to register
+    ///         it, and registering conditionally would mean a fleet whose scrape schema depended on
+    ///         which transport each server happened to be running. So a dashboard built on these
+    ///         must read them beside <c>vixen.net.datagrams.sent</c>: all four flat at zero on a
+    ///         server that is plainly sending is a transport that does not count, not a clean link.
+    ///         The editor's network panel does not have this problem and draws no lane at all.
+    ///     </para>
+    ///     <para>
+    ///         The transport rather than four delegates, because <see cref="ITransport.Loss" /> is
+    ///         one read that already adds up both halves and every channel.
+    ///     </para>
+    /// </remarks>
+    public ITransport? Transport { get; set; }
 
     /// <summary>Reads everything attached, once, from the thread that owns it.</summary>
     /// <remarks>
@@ -206,6 +256,13 @@ public sealed class NetworkMetrics : IDisposable {
 
         if (Ledger is not null) {
             next.Bytes = Ledger.TotalBits / 8;
+        }
+
+        if (Transport?.Loss is { } loss) {
+            next.Sent = loss.Sent;
+            next.Retransmitted = loss.Retransmitted;
+            next.Expected = loss.Expected;
+            next.Missing = loss.Missing;
         }
 
         // One assignment of one struct, so a collection that lands mid-Sample sees the whole of the
@@ -268,5 +325,9 @@ public sealed class NetworkMetrics : IDisposable {
         public long RefusedByOwnership;
         public long RefusedByRateLimit;
         public long RefusedByArguments;
+        public long Sent;
+        public long Retransmitted;
+        public long Expected;
+        public long Missing;
     }
 }

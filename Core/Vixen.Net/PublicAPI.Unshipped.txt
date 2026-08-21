@@ -60,6 +60,8 @@ Vixen.Net.Diagnostics.NetworkMetrics.Rpc.set -> Vixen.Net.Rpc.RpcRouter?
 Vixen.Net.Diagnostics.NetworkMetrics.Sample() -> void
 Vixen.Net.Diagnostics.NetworkMetrics.Session.get -> Vixen.Net.Sessions.NetworkSession?
 Vixen.Net.Diagnostics.NetworkMetrics.Session.set -> Vixen.Net.Sessions.NetworkSession?
+Vixen.Net.Diagnostics.NetworkMetrics.Transport.get -> Vixen.Net.Transport.ITransport?
+Vixen.Net.Diagnostics.NetworkMetrics.Transport.set -> Vixen.Net.Transport.ITransport?
 Vixen.Net.Diagnostics.SnapshotContents -> readonly struct
 Vixen.Net.Diagnostics.SnapshotContents : System.IEquatable<Vixen.Net.Diagnostics.SnapshotContents>
 Vixen.Net.Diagnostics.SnapshotContents.Bits.get -> int
@@ -1025,6 +1027,7 @@ Vixen.Net.Transport.ITransport : System.IDisposable
 Vixen.Net.Transport.ITransport.Capabilities.get -> Vixen.Net.Transport.TransportCapabilities
 Vixen.Net.Transport.ITransport.ClientState.get -> Vixen.Net.Transport.TransportState
 Vixen.Net.Transport.ITransport.Disconnect(Vixen.Net.ConnectionId connection) -> void
+Vixen.Net.Transport.ITransport.Loss.get -> Vixen.Net.Transport.TransportLoss?
 Vixen.Net.Transport.ITransport.Poll(System.TimeSpan elapsed, Vixen.Net.Transport.ITransportEvents events) -> void
 Vixen.Net.Transport.ITransport.SendToClient(Vixen.Net.ConnectionId connection, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
 Vixen.Net.Transport.ITransport.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
@@ -1047,6 +1050,7 @@ Vixen.Net.Transport.NetworkSimulation.Dispose() -> void
 Vixen.Net.Transport.NetworkSimulation.DroppedPayloadCount.get -> long
 Vixen.Net.Transport.NetworkSimulation.DuplicatedPayloadCount.get -> long
 Vixen.Net.Transport.NetworkSimulation.Inner.get -> Vixen.Net.Transport.ITransport
+Vixen.Net.Transport.NetworkSimulation.Loss.get -> Vixen.Net.Transport.TransportLoss?
 Vixen.Net.Transport.NetworkSimulation.NetworkSimulation(Vixen.Net.Transport.ITransport inner, Vixen.Net.Transport.NetworkSimulationProfile profile, ulong seed, bool ownsInner = true) -> void
 Vixen.Net.Transport.NetworkSimulation.PendingPayloadCount.get -> int
 Vixen.Net.Transport.NetworkSimulation.Poll(System.TimeSpan elapsed, Vixen.Net.Transport.ITransportEvents events) -> void
@@ -1086,6 +1090,18 @@ Vixen.Net.Transport.TransportException : System.InvalidOperationException
 Vixen.Net.Transport.TransportException.TransportException() -> void
 Vixen.Net.Transport.TransportException.TransportException(string message) -> void
 Vixen.Net.Transport.TransportException.TransportException(string message, System.Exception innerException) -> void
+Vixen.Net.Transport.TransportLoss -> readonly struct
+Vixen.Net.Transport.TransportLoss : System.IEquatable<Vixen.Net.Transport.TransportLoss>
+Vixen.Net.Transport.TransportLoss.Expected.get -> long
+Vixen.Net.Transport.TransportLoss.Expected.init -> long
+Vixen.Net.Transport.TransportLoss.Missing.get -> long
+Vixen.Net.Transport.TransportLoss.Missing.init -> long
+Vixen.Net.Transport.TransportLoss.Retransmitted.get -> long
+Vixen.Net.Transport.TransportLoss.Retransmitted.init -> long
+Vixen.Net.Transport.TransportLoss.Sent.get -> long
+Vixen.Net.Transport.TransportLoss.Sent.init -> long
+Vixen.Net.Transport.TransportLoss.TransportLoss() -> void
+Vixen.Net.Transport.TransportLoss.TransportLoss(long Sent, long Retransmitted, long Expected, long Missing) -> void
 Vixen.Net.Transport.TransportRole -> enum : byte
 Vixen.Net.Transport.TransportRole.Client = 1 -> Vixen.Net.Transport.TransportRole
 Vixen.Net.Transport.TransportRole.Server = 0 -> Vixen.Net.Transport.TransportRole

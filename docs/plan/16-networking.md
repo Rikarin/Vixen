@@ -374,6 +374,29 @@ Folds into [13](13-diagnostics.md) rather than being a parallel system:
   question, answered. PurrNet ships equivalents (`ProfileBandwidth`, `DeltaPackerAnalysis`) and they are
   clearly load-bearing in practice.
 - Packet inspector with tick timeline; RTT/jitter/loss graphs; per-connection state.
+- **Loss is measured by the transport, in two pairs of counters that are not the same kind of
+  number.** `ITransport.Loss` is a `TransportLoss` or nothing — `null` from a transport that cannot
+  count datagrams, because zero would be a claim that a link nobody measured is clean.
+
+  > **Decided: what the ratio is *of*.** Datagrams, not messages and not bytes — a router discards a
+  > packet, so a payload split into eight fragments is eight trials and one message is not one. The
+  > outbound denominator is *reliable* datagrams sent for the first time, because nothing retransmits
+  > an unreliable one and a denominator drawn from a different population than the numerator moves
+  > whenever a game changes how many snapshots it sends, with the link unchanged. The inbound pair
+  > covers every channel, which is where the unreliable traffic finally gets a loss figure.
+  >
+  > **Decided: what each direction may claim.** Inbound is an *observation* — the peer's sequences
+  > are consecutive, so a gap that has fallen out of the 32-deep acknowledgement window is a datagram
+  > that was sent and never came, and judging it at the window rather than at the gap is what stops a
+  > reordering being reported as a loss. Outbound is an *upper bound*: a retransmission is a
+  > consequence of loss, one loss can produce three, and a lost acknowledgement produces one for a
+  > datagram that arrived. The panel and the meter therefore name them separately and never add them
+  > up.
+  >
+  > ⚠ **Outbound loss proper is not observable from here, and no counter fixes that.** The far end
+  > acknowledges what it received and says nothing about what it did not; its *inbound* counters are
+  > the measurement of this end's outbound loss. Carrying them back is a protocol change — a field on
+  > the acknowledgement, or a periodic report packet — and is not in this document yet.
 - **`NetworkSimulation` transport decorator** — inject latency, jitter, loss, duplication, reordering.
   On by default in dev builds with a modest profile, because netcode developed on localhost is netcode
   that breaks on release.

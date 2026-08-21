@@ -3,12 +3,12 @@ title: The network panel
 slug: editor/network-panel
 kind: guide
 area: Editor
-summary: Where a session's bandwidth is going, how the link is behaving over time, and what is inside one snapshot — an editor panel over the BandwidthLedger, SnapshotInspector and RoundTripEstimator a game already has, with nothing new measured.
+summary: Where a session's bandwidth is going, how the link is behaving over time, and what is inside one snapshot — an editor panel over the BandwidthLedger, SnapshotInspector, RoundTripEstimator and transport loss counters a game already has.
 api: [T:Vixen.Editor.Debugger.NetworkView, T:Vixen.Net.Diagnostics.BandwidthLedger, T:Vixen.Net.Diagnostics.BandwidthEntry, T:Vixen.Net.Diagnostics.SnapshotInspector, T:Vixen.Net.Diagnostics.SnapshotContents, T:Vixen.Net.Diagnostics.SnapshotRecord]
 tags: [editor, diagnostics, networking, bandwidth, latency, vxml]
 since: 0.2
 status: preview
-related: [editor/index, editor/writing-a-plugin, ui/markup-panels]
+related: [editor/index, editor/writing-a-plugin, ui/markup-panels, engine/measuring-loss]
 ---
 
 ## What it is
@@ -24,7 +24,8 @@ related: [editor/index, editor/writing-a-plugin, ui/markup-panels]
 * **The link, over the last thirty seconds** — round trip and jitter as
   [`RoundTripEstimator`](/docs/api/vixen.net.time/roundtripestimator) smooths them, one strip of bars
   per measurement, sampled from every player in a
-  [`NetworkSession`](/docs/api/vixen.net.sessions/networksession). Above each strip is the newest
+  [`NetworkSession`](/docs/api/vixen.net.sessions/networksession) — and, when the session's transport
+  counts datagrams, what was resent and what was lost coming in. Above each strip is the newest
   reading and the scale it is drawn against; above them all is the worst round trip and the worst
   jitter anybody in the session has.
 * **The last snapshot** — one packet run through
@@ -32,8 +33,8 @@ related: [editor/index, editor/writing-a-plugin, ui/markup-panels]
   tick, the size, the removals, and one line per record saying which object, which component, whether
   it was a difference and from which baseline, and how many bits it took.
 
-`NetworkView` is the panel. It measures nothing: every number on it is a property those three types
-expose, and nothing in `Vixen.Net` was widened to build it. The one thing it *keeps* is history — a
+`NetworkView` is the panel. It measures nothing: every number on it is a property the ledger, the
+inspector, the estimator or the transport already exposes. The one thing it *keeps* is history — a
 ring of samples for the graph, because a filter and a running total are both "now" and a graph is a
 claim about the past. That ring lives in the editor, for the reasons under
 [Where the history lives](#where-the-history-lives).
@@ -77,11 +78,11 @@ pulls them.
 diagnostics.NetworkLedger = server.Ledger;        // BandwidthLedger, attached to the replication server
 diagnostics.NetworkRegistry = server.Registry;    // names the component types inside a packet
 diagnostics.NetworkSnapshot = server.LastBytes;   // the newest snapshot, as it went on the wire
-diagnostics.NetworkSession = server.Session;      // NetworkSession — where round trip and jitter live
-
-// Optional, and only a UDP host has one. See "There is no loss lane" below.
-diagnostics.NetworkRetransmits = () => server.Udp.RetransmitCount;
+diagnostics.NetworkSession = server.Session;      // NetworkSession — round trip, jitter, and loss
 ```
+
+The loss lanes take no fourth line: a session holds the transport it runs on, and a transport that
+counts datagrams is asked. See [The two loss lanes](#the-two-loss-lanes).
 
 All of them are independent. A ledger with no registry shows the breakdowns and says the packet pane
 has no capture; a registry with no ledger shows a decoded packet over an empty summary; a *client*
@@ -141,21 +142,27 @@ nothing — so a panel that read its own `Session` property to tell them apart w
 once, against a property that was still null, and would never be told the host had arrived. Whether a
 source was supplied is therefore part of the reading, not read off the panel.
 
-### There is no loss lane
+### The two loss lanes
 
-**Nothing in this engine measures packet loss.** `ITransport` reports none, no session or replication
-counter derives one, and `NetworkMetrics` publishes no loss instrument. The only loss figure in the
-tree is `NetworkSimulation.LossChance`, which is loss you *asked for* in order to test against it.
+A session whose transport counts datagrams gets two more lanes, and they are two rather than one
+because the two directions are known by different evidence — the whole of that argument is in
+[measuring packet loss](../engine/measuring-loss.md), and the short form is:
 
-What a lossy link does produce is retransmissions, and `UdpTransport.RetransmitCount` exists and says
-of itself that it is "the number a diagnostics panel draws". So that is what the third lane is, under
-its own name: give the module a delegate reading a cumulative retransmit counter and the panel
-differences it into a rate per second — which is the thing a running total can never be turned into
-without two readings and the time between them, and therefore the second reason the ring is here.
+| Lane | What it is | What it means |
+|---|---|---|
+| **resent** | `Retransmitted` over `Sent`, for the interval | An **upper bound** on outbound loss. One lost datagram resent three times counts three, and a lost *acknowledgement* resends one that arrived. |
+| **lost inbound** | `Missing` over `Expected`, for the interval | Loss that **happened**: sequences the far end numbered that never reached this process, on every channel including the unreliable ones. |
 
-Give it nothing and there is no third lane, plus a line saying why. A lane flat along the bottom
-would claim a clean link, and a transport that cannot count retransmissions has not told anybody
-there are none.
+Both are **shares of one interval's traffic** and neither is a running total. The transport publishes
+four cumulative counters on purpose — a total that has already been divided cannot be re-aggregated
+across a fleet, which is `NetworkMetrics`'s rule — so the division belongs to whoever has two
+readings, and on this pane that is the ring. A lane that divided the *totals* would still be reading
+five per cent long after the link went clean.
+
+Give it a session on a transport that counts nothing — an in-process one, which is what a session
+with no socket in it is — and there are two lanes and a line saying why. A pair of lanes flat along
+the bottom would claim a clean link, and a transport that cannot count datagrams has not told anybody
+it lost none.
 
 ### An empty column is parked, an absent ledger is not
 
@@ -245,8 +252,10 @@ estimator. Three reasons, in the order they decided it:
    the collector's job and are "deliberately not computed here", because a metric that has already
    been differenced cannot be re-aggregated across three servers. An in-process time series is
    exactly that differencing, done in the place that said it would not.
-3. **The row's whole claim is that `Vixen.Net` gained nothing.** It still has not: the panel took two
-   more delegates and `Vixen.Net`'s public surface is byte for byte what it was.
+3. **A ring is not a measurement.** `Vixen.Net` gained a vocabulary for loss — `TransportLoss` and
+   `ITransport.Loss`, which is a *measurement* every server benefits from and a meter publishes — and
+   it still has no time series in it. The distinction is the one the first two points are about: what
+   belongs down there is what is true whether or not anybody is looking.
 
 The type is `NetworkTrend`, internal, in `NetworkReport.cs` with the rest of the panel's model.
 
@@ -272,9 +281,9 @@ for (var slot = 0; slot < before.Length - 1; slot++) {
 }
 ```
 
-⚠ **And the key rule read at the loop rather than at the row.** `Lanes` is two lanes or three,
-depending on whether the host can count retransmissions — so the `@for`'s own *source* changes, and a
-source read off a plain field is a loop that reconciles once and never again. It reads `Link`, which
+⚠ **And the key rule read at the loop rather than at the row.** `Lanes` is two lanes or four,
+depending on whether the session's transport counts datagrams — so the `@for`'s own *source* changes,
+and a source read off a plain field is a loop that reconciles once and never again. It reads `Link`, which
 is a signal, for that reason. The first two rounds of these tests did not catch that, because every
 one of them held its source still for its whole length; a live panel never does, and three tests now
 move it while the panel is open.
@@ -285,4 +294,5 @@ move it while the panel is open.
 * [`BandwidthLedger`](/docs/api/vixen.net.diagnostics/bandwidthledger) — the five tables and why they are counted in bits
 * [`SnapshotInspector`](/docs/api/vixen.net.diagnostics/snapshotinspector) — reading a packet without applying it
 * [`RoundTripEstimator`](/docs/api/vixen.net.time/roundtripestimator) — the RFC 6298 filter behind both time lanes, and why the variance is the number that matters
+* [Measuring packet loss](../engine/measuring-loss.md) — the four counters the loss lanes are differenced from, and what each direction can honestly claim
 * [Writing a plugin](writing-a-plugin.md) — `AddPanel`, `AddCommand`, and what a module joins together

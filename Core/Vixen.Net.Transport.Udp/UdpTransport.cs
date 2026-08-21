@@ -61,6 +61,9 @@ public sealed class UdpTransport : ITransport {
     double nextConnectRetry;
     bool disposed;
 
+    // What connections that have gone counted before they went. See `Loss`.
+    TransportLoss retired;
+
     /// <inheritdoc />
     public TransportCapabilities Capabilities { get; } = new(UdpProtocol.MaxPayloadBytes, IsInProcess: false, IsLossy: true);
 
@@ -82,19 +85,35 @@ public sealed class UdpTransport : ITransport {
     /// <summary>Datagrams sent again because no acknowledgement came for them.</summary>
     /// <remarks>
     ///     The number a diagnostics panel draws, and the one that says whether a connection is
-    ///     struggling. Zero on a good link; a rising fraction of the send count is loss.
+    ///     struggling. Zero on a good link; a rising fraction of <see cref="TransportLoss.Sent" /> is
+    ///     what a lossy one produces — see <see cref="Loss" />, which carries this and the three
+    ///     other totals together.
     /// </remarks>
-    public long RetransmitCount {
-        get {
-            var total = 0L;
+    public long RetransmitCount => Total().Retransmitted;
 
-            foreach (var connection in byId.Values) {
-                total += connection.RetransmitCount;
-            }
-
-            return total + (upstream?.RetransmitCount ?? 0);
-        }
-    }
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>Both halves and every channel, added up.</b> A listen server is one transport with
+    ///         a server half and a client half, so this is what this <i>process</i> has sent and not
+    ///         got — which is the granularity a panel and a meter both ask at. Per-connection
+    ///         attribution would be a different question and would need a different shape to answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A closed connection's counters are folded in rather than dropped, so the totals
+    ///         only ever rise.</b> Summing live connections alone — which is what
+    ///         <see cref="RetransmitCount" /> used to do — means a player leaving takes their
+    ///         retransmissions with them, and a cumulative counter that falls is a counter a
+    ///         collector reads as a process restart.
+    ///     </para>
+    ///     <para>
+    ///         The walk is over connections, not datagrams: this is read when somebody samples,
+    ///         which is a few times a second. What the hot path pays is one increment per reliable
+    ///         datagram sent, and a handful of integer operations plus a population count per
+    ///         datagram received — inside the bookkeeping that already runs to spot a duplicate.
+    ///     </para>
+    /// </remarks>
+    public TransportLoss? Loss => Total();
 
     /// <summary>Creates a transport.</summary>
     /// <param name="factory">Where its sockets come from.</param>
@@ -167,7 +186,7 @@ public sealed class UdpTransport : ITransport {
 
         if (upstream is not null) {
             Send(upstream.EndPoint, UdpProtocol.WriteDisconnect(sendBuffer, id.Value, UdpDenyReason.Shutdown), clientSocket);
-            upstream.Clear();
+            Forget(upstream);
             upstream = null;
         }
 
@@ -650,7 +669,7 @@ public sealed class UdpTransport : ITransport {
 
         if (upstream is not null && now - upstream.LastHeard > limit) {
             var id = upstream.Id;
-            upstream.Clear();
+            Forget(upstream);
             upstream = null;
             ClientState = TransportState.Stopped;
             clientSocket?.Dispose();
@@ -663,14 +682,14 @@ public sealed class UdpTransport : ITransport {
         if (role == TransportRole.Server) {
             byEndPoint.Remove(connection.EndPoint);
             byId.Remove(connection.Id.Value);
-            connection.Clear();
+            Forget(connection);
             inbox.Enqueue(Queued.Disconnected(TransportRole.Server, connection.Id, reason));
 
             return;
         }
 
         var id = connection.Id;
-        connection.Clear();
+        Forget(connection);
         upstream = null;
         ClientState = TransportState.Stopped;
         clientSocket?.Dispose();
@@ -751,6 +770,31 @@ public sealed class UdpTransport : ITransport {
         }
     }
 
+    /// <summary>What every connection this transport has ever had adds up to.</summary>
+    TransportLoss Total() {
+        var total = retired;
+
+        foreach (var connection in byId.Values) {
+            total = Add(total, connection.Loss);
+        }
+
+        return upstream is null ? total : Add(total, upstream.Loss);
+    }
+
+    /// <summary>Drops a connection's state, keeping what it counted.</summary>
+    void Forget(UdpConnection connection) {
+        retired = Add(retired, connection.Loss);
+        connection.Clear();
+    }
+
+    static TransportLoss Add(in TransportLoss total, in TransportLoss connection) =>
+        new(
+            total.Sent + connection.Sent,
+            total.Retransmitted + connection.Retransmitted,
+            total.Expected + connection.Expected,
+            total.Missing + connection.Missing
+        );
+
     void Send(EndPoint to, int length, IDatagramSocket? socket) => Send(to, sendBuffer.AsSpan(0, length), socket);
 
     static void Send(EndPoint to, ReadOnlySpan<byte> datagram, IDatagramSocket? socket) => socket?.SendTo(datagram, to);
@@ -819,15 +863,30 @@ sealed class UdpConnection {
         ];
     }
 
-    public long RetransmitCount {
+    /// <summary>What this connection has sent, sent again, expected and not received.</summary>
+    /// <remarks>
+    ///     One walk of the four senders and the four receivers, because the four counters come from
+    ///     the same eight objects and a caller that wanted them one at a time would walk them four
+    ///     times to get the same answer.
+    /// </remarks>
+    public TransportLoss Loss {
         get {
-            var total = 0L;
+            var sent = 0L;
+            var retransmitted = 0L;
+            var expected = 0L;
+            var missing = 0L;
 
             foreach (var sender in senders) {
-                total += sender.RetransmitCount;
+                sent += sender.SentCount;
+                retransmitted += sender.RetransmitCount;
             }
 
-            return total;
+            foreach (var receiver in receivers) {
+                expected += receiver.ExpectedCount;
+                missing += receiver.MissingCount;
+            }
+
+            return new(sent, retransmitted, expected, missing);
         }
     }
 

@@ -40,6 +40,30 @@ public interface ITransport : IDisposable {
     /// <summary>What this transport can carry, and what it will not promise.</summary>
     TransportCapabilities Capabilities { get; }
 
+    /// <summary>
+    ///     What this transport has counted about datagrams that did not arrive, or
+    ///     <see langword="null" /> from one that counts nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Defaulted to <see langword="null" /> rather than required, because most transports
+    ///         genuinely cannot answer.</b> An in-process one never loses anything and has no
+    ///         sequence numbers to notice a gap in; one over a stream has a stack underneath it that
+    ///         hides the packets entirely. Only a transport that numbers its own datagrams knows,
+    ///         and <c>UdpTransport</c> is that transport.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is the honest answer and zero is not.</b> A transport that cannot count
+    ///         losses has not told anybody there are none — see <see cref="TransportLoss" />, whose
+    ///         own remarks say what each of its four totals may and may not be read as.
+    ///     </para>
+    ///     <para>
+    ///         Read on whatever thread <see cref="Poll" /> is called on, and on no other: an
+    ///         implementation is free to add these up out of per-connection state that the frame owns.
+    ///     </para>
+    /// </remarks>
+    TransportLoss? Loss => null;
+
     /// <summary>Whether the server half is listening.</summary>
     TransportState ServerState { get; }
 

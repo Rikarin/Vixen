@@ -9,6 +9,7 @@ using Vixen.Net.Diagnostics;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
 using Vixen.Net.Sessions;
+using Vixen.Net.Transport;
 using Vixen.Net.Transport.Local;
 using Vixen.Ui;
 using Vixen.Ui.Composition;
@@ -367,40 +368,71 @@ public sealed class NetworkViewTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ Nothing in the engine measures packet loss — no transport reports it, no meter publishes
-    ///     it — so the lane is absent and says so rather than being drawn flat, which would read as a
-    ///     clean link.
+    ///     ⚠ A transport that cannot count datagrams has not said it lost none, so the two loss lanes
+    ///     are absent and a line says why. Drawn flat along the bottom they would read as a clean
+    ///     link, which is the one state this must never invent.
     /// </summary>
     [Fact]
-    public void Nothing_measures_loss_so_the_third_lane_is_absent_and_says_why() {
+    public void A_transport_that_counts_nothing_draws_no_loss_lane_and_says_why() {
         var view = Graphed();
         test.Advance(NetworkView.Interval * 2);
 
         Assert.Equal(2, Tagged(view.Root, "network-lane").Length);
-        Assert.Contains(Statuses(view), line => line.Contains("No loss lane", StringComparison.Ordinal));
+        Assert.Contains(Statuses(view), line => line.Contains("No loss lanes", StringComparison.Ordinal));
     }
 
     /// <summary>
-    ///     A host that can count retransmissions gets the third lane — as a rate, which is the thing
-    ///     a running total cannot be turned into without a second reading and the time between them.
+    ///     A session whose transport counts gets both loss lanes, each as a share of the traffic that
+    ///     produced it — which is the thing a pair of running totals cannot be turned into without a
+    ///     second reading.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The trouble stops half way through, which is the assertion that a lifetime ratio
+    ///         would fail.</b> The counters are cumulative and keep every loss for ever; a lane that
+    ///         divided the totals would still read five per cent long after the link went clean, and
+    ///         so would a lane that charted the totals themselves. Only a lane that divides one
+    ///         interval's losses by the same interval's traffic goes back to zero — and the ring
+    ///         still holds the spike, which is what the scale says.
+    ///     </para>
+    ///     <para>
+    ///         The two lanes are given different numbers on purpose: twenty per cent resent and ten
+    ///         per cent lost, so a panel that had wired both lanes to one source would be caught.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void A_retransmit_counter_is_charted_as_a_rate() {
-        var sent = 0L;
-        var view = Graphed(() => sent += 10);
+    public void Loss_is_charted_as_a_share_of_the_traffic_that_produced_it() {
+        var counted = default(TransportLoss);
+        var lossy = true;
+
+        var view = Graphed(
+            () => counted = new(
+                counted.Sent + 100,
+                counted.Retransmitted + (lossy ? 20 : 0),
+                counted.Expected + 200,
+                counted.Missing + (lossy ? 20 : 0)
+            )
+        );
 
         test.Advance(NetworkView.Interval * 4);
 
-        Assert.Equal(3, Tagged(view.Root, "network-lane").Length);
-        Assert.NotEmpty(Samples(view, "retransmits"));
-        Assert.DoesNotContain(Statuses(view), line => line.Contains("No loss lane", StringComparison.Ordinal));
+        Assert.Equal(4, Tagged(view.Root, "network-lane").Length);
+        Assert.NotEmpty(Samples(view, "resent"));
+        Assert.NotEmpty(Samples(view, "lost inbound"));
+        Assert.DoesNotContain(Statuses(view), line => line.Contains("No loss lanes", StringComparison.Ordinal));
 
-        // Ten more every reading and a reading every quarter second is about forty a second. The
-        // counter is a total and never says that; the ring is what makes the division possible.
-        var reading = Reading(view, "retransmits");
+        Assert.Equal("20.0 %", Reading(view, "resent"));
+        Assert.Equal("10.0 %", Reading(view, "lost inbound"));
 
-        Assert.EndsWith("/s", reading, StringComparison.Ordinal);
-        Assert.NotEqual("0.0/s", reading);
+        lossy = false;
+        test.Advance(NetworkView.Interval * 4);
+
+        Assert.Equal("0.0 %", Reading(view, "resent"));
+        Assert.Equal("0.0 %", Reading(view, "lost inbound"));
+
+        // And the half minute the ring holds still says it happened.
+        Assert.Equal("0–20.0 %", Ceiling(view, "resent"));
+        Assert.Equal("0–10.0 %", Ceiling(view, "lost inbound"));
     }
 
     /// <summary>
@@ -508,24 +540,29 @@ public sealed class NetworkViewTests : IDisposable {
 
     /// <summary>
     ///     ⚠ The <c>@for</c> source itself changes, which is the key rule read at the loop rather than
-    ///     at the row: <c>Lanes</c> is two lanes or three depending on what the host can count, so it
+    ///     at the row: <c>Lanes</c> is two lanes or four depending on what the transport counts, so it
     ///     has to read a signal or the loop reconciles once and never again.
     /// </summary>
     [Fact]
-    public void A_retransmit_counter_that_arrives_brings_its_lane_with_it() {
+    public void A_transport_that_starts_counting_brings_its_lanes_with_it() {
         var counting = false;
-        var sent = 0L;
-        var view = Graphed(() => counting ? sent += 10 : (long?) null);
+        var counted = default(TransportLoss);
+
+        var view = Graphed(
+            () => counting
+                ? counted = new(counted.Sent + 100, counted.Retransmitted + 3, counted.Expected + 200, counted.Missing + 10)
+                : null
+        );
 
         test.Advance(NetworkView.Interval * 2);
 
         Assert.Equal(2, Tagged(view.Root, "network-lane").Length);
 
         counting = true;
-        test.Advance(NetworkView.Interval * 3);
+        test.Advance(NetworkView.Interval * 4);
 
-        Assert.Equal(3, Tagged(view.Root, "network-lane").Length);
-        Assert.NotEmpty(Samples(view, "retransmits"));
+        Assert.Equal(4, Tagged(view.Root, "network-lane").Length);
+        Assert.NotEmpty(Samples(view, "lost inbound"));
     }
 
     // ============================================================ Harness
@@ -555,15 +592,15 @@ public sealed class NetworkViewTests : IDisposable {
         return built;
     }
 
-    /// <summary>A panel pointed at a running host session, and optionally at a retransmit counter.</summary>
+    /// <summary>A panel pointed at a running host session, optionally on a transport that counts.</summary>
     /// <remarks>
     ///     ⚠ <b>The session delegate feeds the estimator, which is a test double doing what a real
     ///     session's ping loop does.</b> <c>NetworkView.Sample</c> pulls its source exactly once per
     ///     reading, so one ping comes back per reading — and it is a <i>rising</i> one, because a
     ///     lane whose numbers never moved would be a lane that could freeze without a test noticing.
     /// </remarks>
-    NetworkView Graphed(Func<long?>? retransmits = null) {
-        var host = Host();
+    NetworkView Graphed(Func<TransportLoss?>? counted = null) {
+        var host = Host(counted);
         var built = BuildContext.Build<NetworkView>(test.Document, test.Document.Root);
 
         built.Session = () => {
@@ -571,8 +608,6 @@ public sealed class NetworkViewTests : IDisposable {
 
             return host;
         };
-
-        built.Retransmits = retransmits;
 
         // One reading: the panel's clock has never ticked, so the first tick takes one whatever the
         // interval says, and the second frame is inside it.
@@ -582,8 +617,21 @@ public sealed class NetworkViewTests : IDisposable {
     }
 
     /// <summary>A host session — one process, both halves — with its own player connected.</summary>
-    NetworkSession Host() {
-        var made = new NetworkSession(new LocalTransport(network), ownsTransport: true);
+    /// <remarks>
+    ///     ⚠ <b>The loss counters are the session's transport's, so a test of the loss lanes is a test
+    ///     of a session running on a transport that counts.</b> The in-process one does not — it never
+    ///     loses anything and has no sequence numbers to notice a gap in — so this wraps it in a
+    ///     decorator that answers <c>Loss</c> and forwards everything else, which is what a
+    ///     <c>UdpTransport</c> is to this panel and nothing more.
+    /// </remarks>
+    NetworkSession Host(Func<TransportLoss?>? counted = null) {
+        ITransport carrier = new LocalTransport(network);
+
+        if (counted is not null) {
+            carrier = new CountingTransport(carrier, counted);
+        }
+
+        var made = new NetworkSession(carrier, ownsTransport: true);
         made.StartHost();
 
         for (var round = 0; round < 32 && made.Players.Count == 0; round++) {
@@ -643,6 +691,36 @@ public sealed class NetworkViewTests : IDisposable {
     /// <summary>What the dearest row of a column costs, which is what a second reading moves.</summary>
     static string Cost(NetworkView view, string heading) => TextOf(Tagged(Rows(view, heading)[0], "network-cost").Single());
 
+    /// <summary>A transport that counts, wrapped round one that does not.</summary>
+    sealed class CountingTransport(ITransport inner, Func<TransportLoss?> counted) : ITransport {
+        public TransportCapabilities Capabilities => inner.Capabilities;
+
+        public TransportLoss? Loss => counted();
+
+        public TransportState ServerState => inner.ServerState;
+
+        public TransportState ClientState => inner.ClientState;
+
+        public void StartServer() => inner.StartServer();
+
+        public void StopServer() => inner.StopServer();
+
+        public void StartClient() => inner.StartClient();
+
+        public void StopClient() => inner.StopClient();
+
+        public void Disconnect(ConnectionId connection) => inner.Disconnect(connection);
+
+        public void SendToClient(ConnectionId connection, ReadOnlySpan<byte> payload, Channel channel) =>
+            inner.SendToClient(connection, payload, channel);
+
+        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => inner.SendToServer(payload, channel);
+
+        public void Poll(TimeSpan elapsed, ITransportEvents events) => inner.Poll(elapsed, events);
+
+        public void Dispose() => inner.Dispose();
+    }
+
     /// <summary>One lane of the graph, by what it is a measurement of.</summary>
     static UiElement Lane(NetworkView view, string heading) =>
         Assert.Single(
@@ -652,6 +730,10 @@ public sealed class NetworkViewTests : IDisposable {
 
     /// <summary>A lane's bars, left to right — which is slot order, not time order.</summary>
     static UiElement[] Samples(NetworkView view, string heading) => Tagged(Lane(view, heading), "network-sample");
+
+    /// <summary>What a lane's bars are drawn against, as it is written above them.</summary>
+    static string Ceiling(NetworkView view, string heading) =>
+        TextOf(Tagged(Lane(view, heading), "network-mean").Single());
 
     /// <summary>The number written above a lane.</summary>
     static string Reading(NetworkView view, string heading) =>

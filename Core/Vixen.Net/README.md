@@ -76,6 +76,27 @@ fifth channel would be one enum member and one line.
 | `Unreliable` | no | no | State that supersedes itself: transforms, animation. |
 | `Sequenced` | no | yes | Unreliable, but an old one is discarded rather than applied. |
 
+## What a transport lost
+
+`ITransport.Loss` is `TransportLoss` or nothing: four cumulative totals — `Sent` and
+`Retransmitted` going out, `Expected` and `Missing` coming in — and `null` from a transport that
+counts none, which is most of them. An in-process transport never loses anything and has no sequence
+numbers to notice a gap in; `UdpTransport` numbers its own datagrams, so `UdpTransport` is the one
+that can answer.
+
+The two pairs are not the same kind of number, which is why there are four counters and no ratio.
+`Missing / Expected` is loss that was **observed** — the far end's sequences are consecutive, so a
+gap that has left the acknowledgement window is a datagram that was sent and never came.
+`Retransmitted / Sent` is an **upper bound**: a resend is a consequence of loss, and one lost
+datagram can produce three of them while a lost *acknowledgement* produces one for a datagram that
+arrived. Outbound loss proper is not observable from here at all — the far end acknowledges what it
+received and says nothing about what it did not.
+
+⚠ **Null is the honest answer and zero is not**, which is also why nothing here divides: a total that
+has already been divided cannot be re-aggregated across three servers, so `NetworkMetrics` publishes
+the four counters and whoever has two readings takes the share. The full argument, including what the
+inbound pair cannot see, is in [measuring packet loss](../../docs/guide/engine/measuring-loss.md).
+
 ## NetworkSimulation
 
 Netcode developed on localhost is netcode that has never been tested. This wraps any transport and
@@ -99,6 +120,11 @@ Two things make it worth trusting:
 
 Profiles: `Perfect`, `Lan`, `Broadband`, `Mobile`, `Awful`. `Latency` is one way, so wrapping both
 ends gives a round trip of twice it.
+
+⚠ **It forwards `Loss` from the transport it wraps and never reports what it threw away.**
+`DroppedPayloadCount` is loss somebody asked for; publishing it as a measurement would make a
+profile's `LossChance` come back as an observation, which is the one thing those counters must not
+be.
 
 ## The tick
 

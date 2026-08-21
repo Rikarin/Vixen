@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers;
+using System.Numerics;
 
 namespace Vixen.Net.Transport.Udp;
 
@@ -35,6 +36,17 @@ sealed class ChannelSender {
     /// <summary>Datagrams sent again because no acknowledgement came.</summary>
     public long RetransmitCount { get; private set; }
 
+    /// <summary>Datagrams sent on this channel for the first time.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The denominator <see cref="RetransmitCount" /> never had, and it is counted here
+    ///     rather than at the socket on purpose.</b> Only a reliable channel remembers a datagram,
+    ///     so only a reliable channel can send one again — and a share whose numerator is drawn from
+    ///     reliable traffic and whose denominator counted acknowledgements, keep-alives and
+    ///     unreliable snapshots would fall whenever a game sent more of those, with the link
+    ///     unchanged. See <c>TransportLoss.Sent</c>.
+    /// </remarks>
+    public long SentCount { get; private set; }
+
     /// <summary>Takes the next sequence number.</summary>
     public ushort NextSequence() => next++;
 
@@ -47,6 +59,7 @@ sealed class ChannelSender {
         datagram.CopyTo(buffer);
 
         pending[sequence] = new() { Datagram = buffer, Length = datagram.Length, SentAt = now };
+        SentCount++;
     }
 
     /// <summary>
@@ -167,6 +180,12 @@ sealed class ChannelReceiver {
     ushort latest;
     bool hasLatest;
 
+    // How many of History's thirty-two slots stand for a sequence that really was in this channel's
+    // stream. Below this, a zero bit is a datagram that has not come; at or above it, a zero bit is
+    // a sequence from before the first one that ever arrived — which is not a loss, it is a channel
+    // that had not started. Without it every connection would open by reporting thirty-two losses.
+    int tracked;
+
     // Zero, and not the first sequence that turns up. A sender starts at zero, so a channel whose
     // first datagram was lost has to wait for it rather than adopt the second one as the beginning —
     // which is the difference between "in order" and "in the order they happened to arrive".
@@ -191,6 +210,23 @@ sealed class ChannelReceiver {
 
     /// <summary>Messages dropped because something newer had already been delivered.</summary>
     public long StaleCount { get; private set; }
+
+    /// <summary>
+    ///     Sequences that have passed out of the acknowledgement window, and so can no longer
+    ///     arrive: the denominator of this channel's observed inbound loss.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The window is what makes this an observation rather than a guess.</b> A sender's
+    ///     sequences are consecutive, so the gaps in what arrives are exactly what did not — but a
+    ///     gap that is a second old may still be a datagram in flight, and counting it the moment it
+    ///     appeared would report every reordering as a loss and then never take it back. A sequence
+    ///     is judged when the thirty-second one after it arrives, at which point it is out of the
+    ///     window, out of <see cref="History" />, and out of the reckoning either way.
+    /// </remarks>
+    public long ExpectedCount { get; private set; }
+
+    /// <summary>How many of <see cref="ExpectedCount" /> never arrived.</summary>
+    public long MissingCount { get; private set; }
 
     public ChannelReceiver(Channel channel) => this.channel = channel;
 
@@ -272,7 +308,18 @@ sealed class ChannelReceiver {
         var distance = UdpProtocol.Distance(sequence, latest);
 
         if (distance > 0) {
-            History = distance >= 32 ? 0 : (History << distance) | (1u << (distance - 1));
+            // Before the shift, because the shift is what throws the evidence away.
+            Retire(distance);
+
+            // ⚠ A shift of thirty-two is a shift of zero on this machine, so the exactly-32 case is
+            // written rather than shifted: everything History held leaves, and the sequence that was
+            // newest — which arrived — takes the top slot. Folded in with the wider jumps it would
+            // lose that bit, which is a duplicate this could no longer recognise and, since the
+            // counters read the same bits, one arrival reported as a loss.
+            History = distance > 32
+                ? 0
+                : (distance == 32 ? 0u : History << distance) | (1u << (distance - 1));
+
             latest = sequence;
 
             return;
@@ -282,8 +329,60 @@ sealed class ChannelReceiver {
 
         if (back <= 32) {
             History |= 1u << (back - 1);
+
+            // A straggler older than anything seen so far proves its own gap was real: the sequences
+            // between it and the newest are a stream this channel was in the middle of, not the
+            // silence before it started.
+            tracked = Math.Max(tracked, back);
         }
     }
+
+    /// <summary>Judges the sequences that this advance pushes out of the window.</summary>
+    /// <param name="distance">How far the newest sequence moves forward.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Sliding by <paramref name="distance" /> puts that many more sequences under judgement:
+    ///         the one that was newest, and the gaps between it and the one that has just arrived.
+    ///         Whatever no longer fits in the thirty-two is final — a bit set is a datagram that came,
+    ///         a bit clear is one that never will.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A jump wider than the window is taken at face value, and that is the one thing
+    ///         here that is arithmetic rather than observation.</b> Sequences that never got to be in
+    ///         the window are counted missing because the sender's numbering says they existed. It is
+    ///         the right answer for a burst that outran the window; it is the wrong answer for a
+    ///         corrupt sequence field, which shows up once as a spike and then stops.
+    ///     </para>
+    /// </remarks>
+    void Retire(int distance) {
+        var held = tracked;
+        var slots = held + distance;
+        tracked = Math.Min(32, slots);
+
+        var falling = slots - 32;
+
+        if (falling <= 0) {
+            return;
+        }
+
+        ExpectedCount += falling;
+
+        if (falling <= held) {
+            // The oldest of the slots that were real: History's top bits, counted in one instruction.
+            var leaving = (History >> (held - falling)) & Mask(falling);
+            MissingCount += falling - BitOperations.PopCount(leaving);
+
+            return;
+        }
+
+        // Wider than the window: everything History held, then the sequence that was newest — which
+        // arrived, so it is expected and not missing — and then the gaps below the new window's floor.
+        MissingCount += held - BitOperations.PopCount(History & Mask(held)) + (falling - held - 1);
+    }
+
+    /// <summary>The low <paramref name="bits" /> of a word, for a count that may be the whole word.</summary>
+    /// <remarks>A shift of thirty-two is a shift of zero on this machine, which would mask off everything.</remarks>
+    static uint Mask(int bits) => bits >= 32 ? uint.MaxValue : (1u << bits) - 1;
 
     void DeliverInOrder(List<(byte[] Buffer, int Length)> delivered) {
         while (received.ContainsKey(nextExpected)) {
