@@ -21,6 +21,8 @@ Vixen.Ui.Renderer.UiRenderFeature.UiRenderFeature() -> void
 Vixen.Ui.Renderer.UiRenderer -> sealed class
 Vixen.Ui.Renderer.UiRenderer : System.IDisposable
 Vixen.Ui.Renderer.UiRenderer.AtlasUploads.get -> int
+Vixen.Ui.Renderer.UiRenderer.Compose(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Core.Mathematics.Int2 surface, float scale = 1) -> void
+Vixen.Ui.Renderer.UiRenderer.Composited.get -> int
 Vixen.Ui.Renderer.UiRenderer.Dispose() -> void
 Vixen.Ui.Renderer.UiRenderer.Draws.get -> int
 Vixen.Ui.Renderer.UiRenderer.ImageSets.get -> int

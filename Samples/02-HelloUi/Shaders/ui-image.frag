@@ -19,10 +19,20 @@ layout(location = 0) out vec4 target;
 void main() {
     vec4 source_colour = texture(sampler2D(source, source_sampler), varying_texcoord);
 
-    // ⚠ The sampled texture is straight alpha and the target is premultiplied, which is what the
-    // other three pipelines write and therefore what the blend state expects. Multiplying the tint's
-    // alpha in as well is what makes a faded-out image fade rather than turn into a dark rectangle.
+    // ⚠ The target is premultiplied — that is what the other three pipelines write and what the
+    // blend state expects — and the *source* is premultiplied on exactly one of the two paths
+    // through here. A texture a host uploaded holds straight alpha, so its colour has to be
+    // multiplied by its own coverage on the way out; a composited group's surface was written by
+    // these same pipelines and already has been. Doing it twice darkens every partly covered texel,
+    // which reads as a dark fringe around everything inside the group.
     float alpha = source_colour.a * varying_colour.a;
 
-    target = vec4(source_colour.rgb * varying_colour.rgb * alpha, alpha);
+    // ⚠ `varying_shape.x` is what says which, and zero is the straight-alpha case every image quad
+    // already carries — see `UiGeometryBuilder.Layer`, which is the only thing that emits a one. The
+    // out alpha is the same either way: premultiplied is `source_colour.a * varying_colour.a` too,
+    // because `source_colour.a` *is* the coverage in both encodings. Only the colour's factor
+    // differs, so this is one interpolation rather than two branches.
+    float scale = mix(alpha, varying_colour.a, varying_shape.x);
+
+    target = vec4(source_colour.rgb * varying_colour.rgb * scale, alpha);
 }
