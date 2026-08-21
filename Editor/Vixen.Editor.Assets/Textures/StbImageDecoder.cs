@@ -25,9 +25,18 @@ namespace Vixen.Editor.Assets.Textures;
 ///         times the sky is the whole content of the image.
 ///     </para>
 ///     <para>
-///         <b>Not read here:</b> <c>.exr</c>, <c>.tif</c>, <c>.webp</c> and <c>.dds</c>, all of which
-///         doc 08's table asks for. Doc 01 names Pfim (MIT) for DDS; OpenEXR and TIFF have no
-///         licence-clean managed reader worth adding on spec.
+///         <b>TGA's origin bit is honoured, and that is not a detail.</b> Bit 5 of a TGA's image
+///         descriptor says whether row zero is the top or the bottom, both are legal, and a decoder
+///         that ignores it reads half the world's TGAs upside down — where a flipped albedo and a
+///         flipped normal map both render <i>plausibly</i>. StbImageSharp gets it right; nothing
+///         asserted that until <c>TgaOrientationTests</c>, which builds the same picture both ways
+///         up from the format and requires the same pixels back.
+///     </para>
+///     <para>
+///         <b>Not read here:</b> <c>.exr</c>, <c>.tif</c> and <c>.webp</c>, which doc 08's table
+///         asks for and which have no licence-clean managed reader worth adding on spec.
+///         <c>.dds</c> is read, by <see cref="DdsDecoder" /> — doc 01 named Pfim for it, and it
+///         turned out to need a header parser rather than a codec.
 ///     </para>
 /// </remarks>
 public sealed class StbImageDecoder : IImageDecoder {
