@@ -1029,7 +1029,10 @@ Measured against the tree, not against the phase list. Ordered by what a person 
 
 **Transforms.** `EntityGizmoTarget.Record` still builds a `TransformTargetsCommand` and pushes it
 onto `Document.Stack` rather than writing through an `EditProperty`. That is the last of the four
-this section used to list, and the audit that closed the other three is worth keeping:
+this section used to list — ⚠ **and it is blocked on a decision this document has not taken, not on
+somebody doing the migration.** See [what routing the gizmo through the pipeline
+costs](#what-routing-the-gizmo-through-the-pipeline-costs), below. The audit that closed the other
+three is worth keeping:
 
 * **Terrain and foliage** never needed one. Their settings are `[Inspector]` classes,
   `InspectorEditProvider` describes them, `InspectorView` draws them, and
@@ -1039,9 +1042,22 @@ this section used to list, and the audit that closed the other three is worth ke
 * **Node graphs** did need one, and it is `NodePortEditProvider`. A port's value lives on the graph
   keyed by name, so it is a member of nothing; describing it as an `InspectorMember` is what put the
   ordinary inspector panel behind the shader and VFX graphs' side panels.
-* **Blockout** needs a panel rather than a provider. `UvSettings`, `PackSettings` and
-  `RemeshSettings` are unannotated records in `Core/Vixen.Geometry.*` and nothing in the editor
-  draws them at all; annotating them is what would put them on the pipeline, in one line each.
+* **Blockout** needed a panel rather than a provider, and now has one — ✅ `BlockoutMode.Panel` names
+  a **Blockout** panel of three `InspectorView`s over `BlockoutRetopologySettings`,
+  `BlockoutChartSettings` and `BlockoutPackSettings`, drawn by `InspectorEditProvider` like every
+  other settings object in the editor. `BlockoutSettingsTests` asserts it by asking
+  `ReflectedDescriptor` about *whatever the mode holds*, so a regression to the records fails it.
+
+  ⚠ **"Annotating them, in one line each" was wrong three times over, and the correction is the
+  point.** `UvSettings`, `PackSettings` and `RemeshSettings` are `init`-only records in
+  `Core/Vixen.Geometry.*`, and each of these alone rules the one-liner out: the inspector's generator
+  treats `init` as writable and emits `owner.Property = value`, which is a compiler error in
+  generated code nobody sees; a `Core/` assembly cannot reference an editor one, which
+  `ReflectedDescriptor`'s own remarks state as *"no runtime type carries `[Inspector]`, and none
+  should"*; and a panel binds to an object that survives being edited, which a record replaced
+  wholesale by every `with` expression is not. What the annotation goes on is the editable class
+  beside each record — the arrangement `ModelImportEdits` already used, and the one a parity test
+  keeps honest.
 
 ⚠ **This was recorded as done once, and then over-counted when the correction was written.** Both
 mistakes have the same shape — the section was measured against the phase list rather than the tree.
@@ -1050,6 +1066,49 @@ mistakes have the same shape — the section was measured against the phase list
 `NodeGraphView` are built by hand and are now the only place in that assembly that constructs an
 editor for a port. They are a different surface with a different constraint — a row has to fit inside
 a node that clips its own contents — so they are their own task rather than an oversight.
+
+#### What routing the gizmo through the pipeline costs
+
+Measured against the tree with a throwaway `IEditProvider` over `IGizmoTarget` and the real
+`EditTarget`/`EditProperty`, driven against a real `SceneDocument`. **Two of the three things this
+row assumed turned out not to be true, and the third is a design decision.**
+
+⚠ **There is no coalescing to preserve, and the fear that there was is the wrong worry.** A drag does
+not produce a stream of edits: `SceneViewport.EndManipulate` builds the `GizmoDrag` and asks the first
+target for one entry, once, on mouse-up, then `Execute`s it and `Seal`s — `SceneViewport.cs:1135-1156`.
+`TransformTargetsCommand.TryMergeWith` returns false on purpose. The gizmo owns the live manipulation
+and the command owns the history, which is the division `CommandTransaction` makes for every drag.
+
+⚠ **Multi-select is already the shape the pipeline would have to be bent into.** One command, N
+targets, each with its own before *and* after triple, named `"Move (3)"` —
+`TransformTargetsCommand.cs:59-72`. Through the pipeline a drag gives each target a *different*
+value, so `EditProperty.Write` (one command, N objects, one value) does not apply and `WriteEach`
+does; `WriteEach` executes one command **per target** (`EditProperty.cs:171`), and position, rotation
+and scale are three members, so one entry becomes a `CompositeCommand` of 3N.
+
+⚠ **And the blocker: the pipeline has no way to record a change that has already been applied.**
+`IEditMember.CreateSetCommand(targets, value, document)` takes no before-state — every implementation
+reads it at construction (`ReflectedDescriptor.cs:96`), and after a drag what it reads *is* the after
+state, so the entry undoes to where the drag ended. Restoring the captured pose first does not defeat
+that either, because `EditProperty.Write` and `WriteEach` both skip a target whose current value
+already equals the one being written (`EditProperty.cs:115`, `:167`) — and
+`IGizmoTarget.Position`/`Rotation` read `WorldTransform` while their setters write `LocalTransform`
+(`Core/Vixen.Engine/Transforms/Transform.cs:68-69`, `:86-94`), so a read taken immediately after a
+restoring write still returns the value the drag left. Measured: the first shape records **nothing**
+(stack depth 0), and the second leaves the entity back where the drag started **with nothing on the
+stack** — a silently discarded drag, and every existing test still green.
+
+**So the phase needs one of two decisions, and neither is a migration.**
+
+| | What it is | What it costs |
+|---|---|---|
+| A recording entry point | An `IEditMember.CreateSetCommand` overload — or an `EditProperty.Record(before, after)` — that is *handed* the before state rather than reading it | Public API on `Vixen.Editor.Core` that every provider inherits and every implementation has to mean something by. It is also the honest fix: "the surface applied it and is telling you" is a real case the seam does not have |
+| Write per frame | Drop `TransformTargetsCommand`, have the gizmo's per-frame writes go through `EditProperty`, and let `SetValuesCommand.TryMergeWith` collapse them (`SetValuesCommand.cs:103-115`) | The design `TransformTargetsCommand`'s own remarks reject on cost: three hundred commands allocated and executed to move one crate, each re-applying a transform the gizmo already applied |
+
+⚠ **What this row must not become is "it was migrated".** The gizmo is on one *stack* and always has
+been — `OneEditPathTests` proves a drag and a field edit interleave correctly — and that is the
+invariant § D1 actually asked for. What it is not on is `EditProperty`, and the distance between
+those two is the table above rather than an afternoon.
 
 ### P3's three exit criteria, none met
 

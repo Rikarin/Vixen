@@ -65,6 +65,24 @@
             itself.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Geometry.Remeshing\Vixen.Geometry.Remeshing.csproj" />
+
+        <!--
+            The inspector, for the settings panel doc 36 § P1's last blockout row asks for. The three
+            settings objects the remesher and the unwrapper take are `Core/` records with `init`
+            members, so what is annotated is the editable class beside each one — see
+            `BlockoutSettings.cs`, which states the three reasons — and `InspectorView` is what draws
+            the rows off it.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
+
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            `[Inspector]` members has to name the generator itself or it gets no descriptor and no
+            rows — silently, because the attribute still compiles.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
