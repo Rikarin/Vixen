@@ -583,18 +583,22 @@ Vixen.Rendering.Compositor.GpuDrivenResult.ObjectRecords.init -> bool
 Vixen.Rendering.Compositor.GpuDrivenResult.TransformRecords.get -> bool
 Vixen.Rendering.Compositor.GpuDrivenResult.TransformRecords.init -> bool
 Vixen.Rendering.Compositor.GraphicsCompositor -> sealed class
+Vixen.Rendering.Compositor.GraphicsCompositor : System.IDisposable
 Vixen.Rendering.Compositor.GraphicsCompositor.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> int
 Vixen.Rendering.Compositor.GraphicsCompositor.BufferImports.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.ImportedBuffer>
 Vixen.Rendering.Compositor.GraphicsCompositor.BufferResources.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.RenderBufferAsset>
 Vixen.Rendering.Compositor.GraphicsCompositor.Build(Vixen.Graphics.RenderGraph.RenderGraph graph, Vixen.Shaders.EffectSystem effects, Vixen.Graphics.IGraphicsDevice? device = null) -> Vixen.Rendering.Compositor.CompositorFrame
 Vixen.Rendering.Compositor.GraphicsCompositor.Collect() -> void
 Vixen.Rendering.Compositor.GraphicsCompositor.Degradations(System.Collections.Generic.ICollection<(string Node, string Reason)> into) -> int
+Vixen.Rendering.Compositor.GraphicsCompositor.Dispose() -> void
 Vixen.Rendering.Compositor.GraphicsCompositor.FrameSize.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Compositor.GraphicsCompositor.FrameSize.set -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Compositor.GraphicsCompositor.Game.get -> Vixen.Rendering.Compositor.SceneRenderer?
 Vixen.Rendering.Compositor.GraphicsCompositor.Game.set -> Vixen.Rendering.Compositor.SceneRenderer?
 Vixen.Rendering.Compositor.GraphicsCompositor.GraphicsCompositor(Vixen.Rendering.RenderSystem system) -> void
 Vixen.Rendering.Compositor.GraphicsCompositor.Imports.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.ImportedTexture>
+Vixen.Rendering.Compositor.GraphicsCompositor.Own(System.IDisposable resource) -> void
+Vixen.Rendering.Compositor.GraphicsCompositor.OwnedCount.get -> int
 Vixen.Rendering.Compositor.GraphicsCompositor.Resize(Vixen.Core.Mathematics.Int2 size, System.Action idle) -> int
 Vixen.Rendering.Compositor.GraphicsCompositor.Resources.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.RenderResourceAsset>
 Vixen.Rendering.Compositor.GraphicsCompositor.System.get -> Vixen.Rendering.RenderSystem

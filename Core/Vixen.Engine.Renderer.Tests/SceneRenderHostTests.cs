@@ -298,6 +298,108 @@ public sealed class SceneRenderHostTests : IDisposable {
         Assert.Equal(default, host.FrameSize);
     }
 
+    /// <summary>
+    ///     Loading a second document releases the first one's tree, and loading again does not leak it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="SceneRenderHost.Load" /> is callable again by design — a project that
+    ///         swaps its quality preset swaps its compositor, and sample 13 reloads its own document
+    ///         once the shader library is attached — and until now the replaced tree was dropped on
+    ///         the floor.</b> A compositor node may own device memory a frame cannot: a cached shadow
+    ///         atlas has to outlive the frame, so it cannot come from the graph's pool. In sample 13
+    ///         those two atlases are 94 MiB, per reload, for the life of the process.
+    ///     </para>
+    ///     <para>
+    ///         The probe counts rather than the device, because what is being asserted is the
+    ///         <em>call</em> — the device-side proof that the call frees what it should is
+    ///         <c>CompositorLifetimeTests</c>, against a document whose nodes really do own textures.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Loading_a_second_document_disposes_the_first_ones_tree() {
+        var host = new SceneRenderHost(device, effects);
+        var factory = new ProbeFactory();
+
+        host.Builder.Factories.Add(factory);
+
+        var first = factory.Next = new();
+
+        host.Load(new() { Game = new ProbeAsset { Name = "Probe" } });
+
+        Assert.Equal(0, first.Disposals);
+
+        var second = factory.Next = new();
+
+        host.Load(new() { Game = new ProbeAsset { Name = "Probe" } });
+
+        // The replaced tree, and only it.
+        Assert.Equal(1, first.Disposals);
+        Assert.Equal(0, second.Disposals);
+
+        // And the other end of a compositor's life. A game builds once and shuts down once, which is
+        // the whole of its exposure — which is why this was found in the editor and not in a sample.
+        host.Dispose();
+
+        Assert.Equal(1, second.Disposals);
+    }
+
+    /// <summary>The debug node the host owns survives a reload that replaces everything else.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The reason ownership is claimed where a node is built rather than by walking the
+    ///         tree.</b> <see cref="SceneRenderHost.Debug" /> is appended to every tree this builds
+    ///         and belongs to whoever set it — <c>AppGraphics</c> constructs it once and disposes it
+    ///         once — so a compositor that freed everything reachable through
+    ///         <c>SceneRenderer.Nested</c> would put a disposed node into the next frame. That failure
+    ///         is a diagnostic overlay that quietly stops drawing, which is close to unnoticeable.
+    ///     </para>
+    ///     <para>
+    ///         Asserted with a stand-in rather than a real <c>DebugOverlayRenderer</c>, which wants a
+    ///         device, line shaders and an accumulator to exist at all; what is under test is the
+    ///         ownership rule, and the rule does not read the node's type.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_node_the_host_appended_survives_the_reload() {
+        using var host = Build();
+
+        var appended = new DisposeProbe();
+
+        // Appended the way `Load` appends `Debug` — into the root sequence of the built tree.
+        ((SceneRendererSequence)host.Compositor!.Game!).Children.Add(appended);
+
+        host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+
+        Assert.Equal(0, appended.Disposals);
+    }
+
+    /// <summary>A node that counts how many times it was told to release.</summary>
+    sealed class DisposeProbe : SceneRenderer, IDisposable {
+        public int Disposals { get; private set; }
+
+        /// <inheritdoc />
+        public void Dispose() => Disposals++;
+    }
+
+    /// <summary>A node kind of no interest to this assembly, so the extension arm is what builds it.</summary>
+    sealed record ProbeAsset : ISceneRendererAsset {
+        /// <inheritdoc />
+        public string Name { get; init; } = string.Empty;
+
+        /// <inheritdoc />
+        public bool Enabled { get; init; } = true;
+    }
+
+    /// <summary>Hands out the next probe, so a test can name the node each build produced.</summary>
+    sealed class ProbeFactory : ISceneRendererFactory {
+        public DisposeProbe? Next { get; set; }
+
+        /// <inheritdoc />
+        public SceneRenderer? Create(ISceneRendererAsset declared, CompositorBuilder builder) =>
+            declared is ProbeAsset ? Next : null;
+    }
+
     /// <summary>A node that counts the resets the seam delivers.</summary>
     sealed class ResizeProbe : SceneRenderer, IResizeTarget {
         public int Resets { get; set; }
