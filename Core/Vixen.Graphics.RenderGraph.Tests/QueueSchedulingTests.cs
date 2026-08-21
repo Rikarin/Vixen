@@ -166,7 +166,19 @@ public sealed class QueueSchedulingTests : IDisposable {
         Assert.False(graph.Schedule.IsMultiQueue);
     }
 
-    /// <summary>A transfer pass stays on graphics until its body has been audited against a DMA queue.</summary>
+    /// <summary>A transfer pass stays on graphics, and the reason is no longer that nobody has looked.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The audit finished and the switch stays off deliberately</b>, which is a different
+    ///         thing from "not done yet". Six passes in this tree declare
+    ///         <see cref="PassKind.Transfer" /> over a body that really is a copy, and the blocker the
+    ///         audit named — the graph's own acquire in front of a transfer pass naming a stage no DMA
+    ///         family has — was solved by the queue clamp in <c>VulkanBarriers.SupportedStages</c>.
+    ///         What stops it is what the clamp does not touch. See
+    ///         <see cref="ACopyDoesNotCostTheFrameItsTransientAliasing" /> and
+    ///         <c>docs/guide/rendering/async-compute.md</c>.
+    ///     </para>
+    /// </remarks>
     [Fact]
     public void ATransferPassIsNotHoisted() {
         var graph = Graph();
@@ -183,6 +195,92 @@ public sealed class QueueSchedulingTests : IDisposable {
         graph.Compile();
 
         Assert.Equal(QueueKind.Graphics, graph.Schedule!.QueueOf(0));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>What hoisting a copy would cost, and why the switch stays off: the frame's transient
+    ///     aliasing, all of it, for a copy of four kilobytes.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="RenderGraph.Realise" /> aliases transients only while the schedule is
+    ///         <em>not</em> multi-queue — see <see cref="AMultiQueueFrameDoesNotAliasTransients" />
+    ///         for why, which is a good reason and is not in question here. The consequence is what
+    ///         is: hoisting one copy makes the whole frame multi-queue, and a frame is not multi-queue
+    ///         by degrees. Every large target in it stops sharing memory, including the ones the copy
+    ///         never touches.
+    ///     </para>
+    ///     <para>
+    ///         Measured on the shape below — a six-step post-FX chain at 1920×1080 whose links do not
+    ///         coexist, plus one <see cref="PassKind.Transfer" /> pass of exactly
+    ///         <c>BufferUploadRenderer</c>'s declaration. Single-queue, the six targets alias down to
+    ///         two physical textures. With the copy hoisted onto a transfer queue they cost six —
+    ///         four extra 1920×1080 RGBA8 targets, about 31 MiB, held for the life of the pool.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the row it is measured against is not "async is expensive", it is "async was
+    ///         free here".</b> A frame with no hoistable compute pass compiles identically under
+    ///         <see cref="QueueScheduling.Async" /> and <see cref="QueueScheduling.Single" />: one
+    ///         segment, two physical textures. Hoisting copies is what would turn every such frame
+    ///         into a multi-queue one, on the strength of a buffer upload — and buy nothing back,
+    ///         since no device this engine runs on reports a transfer family of its own.
+    ///     </para>
+    ///     <para>
+    ///         This test pins the property the refusal protects, so it fails the moment somebody
+    ///         throws the switch rather than after somebody profiles a memory graph.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ACopyDoesNotCostTheFrameItsTransientAliasing() {
+        int Physical(QueueScheduling scheduling) {
+            var graph = Graph();
+            graph.Scheduling = scheduling;
+
+            var uniforms = graph.CreateBuffer(
+                new(4096, BufferUsage.Uniform | BufferUsage.CopyDestination, Name: "uniforms")
+            );
+
+            graph.AddPass("upload", pass => {
+                pass.Kind = PassKind.Transfer;
+                pass.Writes(uniforms, ResourceState.CopyDestination);
+                pass.Execute(_ => { });
+            });
+
+            var previous = graph.CreateTexture(Storage("step 0", 256));
+
+            graph.AddPass("step 0", pass => {
+                pass.Reads(uniforms, ResourceState.UniformRead);
+                pass.Writes(previous);
+                pass.Execute(_ => { });
+            });
+
+            for (var index = 1; index < 6; index++) {
+                var next = graph.CreateTexture(Storage($"step {index}", 256));
+                var source = previous;
+
+                graph.AddPass($"step {index}", pass => {
+                    pass.Reads(source);
+                    pass.Writes(next);
+                    pass.SideEffect();
+                    pass.Execute(_ => { });
+                });
+
+                previous = next;
+            }
+
+            graph.Execute(new TrackingCommandList());
+
+            // Single-queue, so one list is enough — which is itself the assertion. A hoisted copy
+            // would make this throw before it reached the count.
+            Assert.False(graph.Schedule!.IsMultiQueue);
+            Assert.Equal(QueueKind.Graphics, graph.Schedule.QueueOf(0));
+
+            return graph.Pool.Count;
+        }
+
+        // Two textures for the six links of the chain, plus the uniform buffer.
+        Assert.Equal(3, Physical(QueueScheduling.Single));
+        Assert.Equal(3, Physical(QueueScheduling.Async));
     }
 
     /// <summary>
