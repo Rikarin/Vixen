@@ -358,8 +358,21 @@ public sealed class PbrShowcaseGame : Game {
         // After the reload, because a stage is one of the things the document builds — the object
         // this held before the reload is not the one the frame is drawing with. Same for the sky
         // node, whose cube no document can name.
-        if (builder.Stages.TryGetValue("Shadow", out var caster)) {
-            frame.ApplyCaster(caster);
+        //
+        // ⚠ **Every stage that imposes the caster shader, asked of the document rather than named
+        // here.** This asked for `Shadow` by name, which is right only for as long as there is
+        // exactly one such stage — `!StandardFrame` emits one today, and `Merge` lets a document add
+        // its own beside the expansion's. A stage whose parameters nobody fills writes no
+        // per-material set at all, because a set is written wholly or not at all, so its draws go
+        // out with set 2 empty: `uses set 2 but that set is not bound` with the validation layers
+        // on, and on macOS, where Homebrew's layer manifest does not load without
+        // `DYLD_LIBRARY_PATH`, a segfault inside `vkQueueSubmit` with nothing in the log. That is
+        // what splitting sample 13's cascades into a cached half and a moving half cost there.
+        // `MaterialRenderFeature.Unbound` names the shader and the stage if it happens anyway.
+        foreach (var stage in builder.Stages.Values) {
+            if (string.Equals(stage.ShaderName, ShowcaseFrame.CasterShader, StringComparison.Ordinal)) {
+                frame.ApplyCaster(stage);
+            }
         }
 
         frame.ApplySky(graphics.Renderer.Host);
