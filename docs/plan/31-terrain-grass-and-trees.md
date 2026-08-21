@@ -824,27 +824,26 @@ right tiles was one double talking to another. `TerrainModule` now takes an `ITe
 `PluginServices`, resolved in its per-frame follow.
 
 ⚠ **The editor Vixen ships still rebuilds no collision, and the reason is not this seam.**
-`EditorApplication` holds no `PhysicsScene` and nothing under `Editor/` does — play mode is a
-`WorldSnapshot` capture and restore, not a system graph — so there is no simulation for a stroke to
-keep in step with. An editor with physics is a separate piece of work; when it exists, it publishes
+`EditorApplication` holds no `PhysicsScene` and nothing under `Editor/` even references
+`Vixen.Physics` — play mode steps a system graph, but not one with physics in it — so there is no
+simulation for a stroke to keep in step with. An editor with physics is a separate piece of work; when it exists, it publishes
 the service and the toolset is already wired for it.
 
-⚠ **And the gap is a tier deeper than "no physics scene" (2026-08-20).** The question was put as a
-choice — either the editor gains a physics scene for this, or terrain colliders reach it some other
-way — and the audit answers it a level down: **the editor runs no systems at all.**
-`PlayModeController.ShouldTick`, the method that decides whether the game loop advances this frame,
-has **no caller outside its own tests**. `EditorWorldRenderer` says it plainly — *"the editor runs no
-system graph at all"* — and `TransformSystem` is resolved by hand because of it. Pressing Play
-snapshots the world, maximises the viewport and shows a notification; nothing steps. So a
-`PhysicsScene` published into `PluginServices` here would be a physics world nothing calls
-`Synchronize` on: shapes registered, bodies created, never simulated — a `TileCount` that reads
-correct beside ground that does nothing, which is this document's own favourite failure wearing the
-opposite mask. **Neither branch of the question is takeable, and the reason is a missing prerequisite
-rather than a design preference.** What is owed is a play-mode system graph, and it belongs to
-[20](20-editor-parity.md) and [11](11-editor.md) rather than here; when it lands, the
-physics scene is one of the systems it schedules and `plugins.Add<ITerrainColliders>(new
-TerrainColliders(system))` is one line beside it, which is what `BindColliders` resolving per frame
-was built to accept. The precedent for the shape already exists: `Vixen.Editor.App` references
+⚠ **And the gap was a tier deeper than "no physics scene" (2026-08-20), which is now closed
+(2026-08-21).** The question was put as a choice — either the editor gains a physics scene for this,
+or terrain colliders reach it some other way — and the audit answered it a level down: *the editor
+ran no systems at all.* `PlayModeController.ShouldTick`, the method that decides whether the game
+loop advances this frame, had **no caller outside its own tests**, so a `PhysicsScene` published into
+`PluginServices` would have been a physics world nothing calls `Synchronize` on: shapes registered,
+bodies created, never simulated — a `TileCount` that reads correct beside ground that does nothing,
+which is this document's own favourite failure wearing the opposite mask. Play mode now steps a real
+`EngineLoop` and `PlayModeController.Loop` is the seam a physics system is added to —
+[11 § Play mode runs a system graph](11-editor.md#play-mode-runs-a-system-graph). **What is left is
+the original choice, narrowed rather than blocked**: nothing under `Editor/` references
+`Vixen.Physics`, and no project can *declare* which systems its scene wants, so the shipped editor
+still constructs no scene and an embedding host is what adds the four systems and calls
+`plugins.Add<ITerrainColliders>(new TerrainColliders(system))` beside them — which is what
+`BindColliders` resolving per frame was built to accept. The precedent for the shape already exists: `Vixen.Editor.App` references
 `Core/Vixen.Water.Physics` for `BuoyancyBody`'s icon and its Add Component entry — the editor knowing
 a physics component type, not the editor running physics.
 

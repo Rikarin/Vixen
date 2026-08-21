@@ -152,9 +152,13 @@ sealed class EditorWorldRenderer : IDisposable {
         Fallback = CompileFallback();
 
         // ⚠ Assembled here rather than through `WorldRenderer.Register`, which takes an `EngineLoop`.
-        // The editor runs no system graph at all — `TransformSystem` is resolved by hand for the same
+        // An editing frame runs no system graph — `TransformSystem` is resolved by hand for the same
         // reason, and that decision is `EditorApplication.ResolveTransforms`' own remarks — so what a
         // loop would give is a scheduler for two calls whose order is already decided by this file.
+        // ⚠ And a *play* session's loop, which does exist now, deliberately does not get them either:
+        // `Register` would schedule this extraction beside the out-of-band `Extract` the editor
+        // already calls every frame, and it writes `RenderHandle` structurally and claims residency
+        // per entity — so it would be run twice over one world. See `EditorFrames`.
         Meshes = new(Renderer.Host.System, Renderer.Meshes, Renderer.Transforms, Renderer.Materials, Renderer.Residency) {
             Meshes = meshes,
 

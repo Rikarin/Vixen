@@ -1130,6 +1130,43 @@ Doc 11 asks that a play-stop which leaks *fail* rather than degrade silently, so
 count is compared across the session and `Leaks` is what grew. Only growth counts: a session that
 disposed something the editor had before it started is a different bug.
 
+### And a session steps a real graph, which until 2026-08-21 it did not
+
+⚠ **`ShouldTick` — the method that decides whether the game loop advances — had no caller outside its
+own tests.** Everything above was built and correct, and pressing Play snapshotted the world,
+maximised the viewport, said so in a notification, and stepped nothing. `Tick(delta)` is the frame
+now: it owns an `EngineLoop` over the world being edited and is the only caller `ShouldTick` needs, so
+"paused" cannot mean one thing in the viewport and another in the profiler.
+
+Three things that are easy to get wrong and are not:
+
+- ⚠ **The behaviours come off the world before the snapshot is taken.** `BehaviorRef` is a managed
+  component holding an array of live objects, so a snapshot with it in place copies the *reference* —
+  and the restore hands the scene back the very instances the session woke and mutated, on a handle
+  that no longer exists. An alias and bytes cross instead (`ISceneBehaviorBinder.Save`/`Restore`), the
+  session runs *copies* in the loop's own store, and what comes back is built from the values somebody
+  typed.
+- ⚠ **The session's behaviours are destroyed before the restore clears the world.** A teardown after
+  `World.Clear` has no entity to walk, so nothing gets `OnDisable`/`OnDestroy` — and `Leaks` would then
+  report every handle they held as a leak this controller caused.
+- ⚠ **A behaviour the session could not take over is left alone and *named* in `Unsupported`.**
+  `AllOn` reads the entity's link, which is one component however many stores share the world, so a
+  teardown that destroyed everything it found would queue a behaviour belonging to the document's
+  store — and `BehaviorStore.Destroy`, unlike `Remove`, does not check: the drain then indexes a
+  bucket this store has never had.
+
+⚠ **A caller that ticks must not also run its own `TransformSystem` that frame.** The graph runs one
+in `PreRender`, and two instances over one world keep separate "what have I already seen" versions, so
+each answers the other's writes with "nothing changed". `EditorApplication` skips `ResolveTransforms`
+on a frame that ticked for exactly this reason.
+
+⚠ **What a session runs is small, and is stated rather than implied.** An `EngineLoop`'s default graph
+is behaviours, coroutines and transforms. Physics, audio, input, navigation and the render extractions
+are registered by a game's own `Game.OnInitialise` against host services an editor does not have —
+there is no `AddStandardSystems` and no way for a project to declare its frame — so the editor names
+what it is not running, including the project's own `ISystem` types, on the way in. See
+[docs/plan/11 § Play mode runs a system graph](../../docs/plan/11-editor.md#play-mode-runs-a-system-graph).
+
 **Out-of-process** is `PlayerSessions`. Networking is what requires it — testing a server-authoritative
 game needs a server and several clients — and it doubles as the way to check release-configuration
 behaviour and to isolate a game that hangs, which is why a hung player is killed rather than waited for.

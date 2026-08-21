@@ -55,24 +55,28 @@ activated.
 
 ### ⚠ The editor Vixen ships publishes none, and that is not an oversight
 
-`EditorApplication` holds no `PhysicsScene`; nothing under `Editor/` does. Its play mode is a
-`WorldSnapshot` capture and restore, not a system graph, so there is no simulation running for a
-stroke to keep in step with. A sculpt stroke in the shipped editor therefore rebuilds no collision
-**because there is none to rebuild** — not because the seam is unfed. Publishing the service is what
-an embedding host does when that changes.
+`EditorApplication` holds no `PhysicsScene`; nothing under `Editor/` does, and no assembly under
+`Editor/` even references `Vixen.Physics`. Play mode steps a system graph, but not one with physics
+in it, so there is still no simulation for a stroke to keep in step with. A sculpt stroke in the
+shipped editor therefore rebuilds no collision **because there is none to rebuild** — not because the
+seam is unfed. Publishing the service is what an embedding host does when that changes.
 
-⚠ **And the missing piece is a whole tier below a `PhysicsScene`.** The editor does not merely lack a
-physics world — it runs **no systems at all**. `PlayModeController.ShouldTick`, the method that
-decides whether the game loop advances this frame, has no caller in the product; its only callers are
-its own tests. `EditorWorldRenderer` says so in as many words, and `TransformSystem` is resolved by
-hand for exactly that reason. Pressing Play snapshots the world, maximises the viewport and shows a
-notification; nothing then steps.
+⚠ **What was missing was a whole tier below a `PhysicsScene`, and that tier now exists.** Until
+2026-08-21 the editor did not merely lack a physics world — it ran **no systems at all**.
+`PlayModeController.ShouldTick`, the method that decides whether the game loop advances this frame,
+had no caller in the product; its only callers were its own tests. Pressing Play snapshotted the
+world, maximised the viewport and showed a notification, and nothing then stepped, so a
+`PhysicsScene` published here would have been a physics world nothing ever called `Synchronize` on.
 
-So a `PhysicsScene` published here would be a physics world nothing calls `Synchronize` on: colliders
-built, bodies created, and not one of them ever simulated. **The prerequisite is a play-mode system
-graph, which is doc 20 / doc 11's work and not this subsystem's.** When it exists, the physics scene
-is one of the systems it schedules and `plugins.Add<ITerrainColliders>(…)` is one line beside it —
-which is what the per-frame `BindColliders` resolution above was built to accept.
+Play mode now steps a real `EngineLoop` over the world being edited, and `PlayModeController.Loop`
+is the seam a host adds to. What is still missing is narrower and is not this subsystem's either:
+`Vixen.Editor.App` does not reference `Vixen.Physics`, so the shipped editor still constructs no
+`PhysicsScene` — and nothing in a project *declares* which systems its scene wants, so a session runs
+the engine's default graph (behaviours, coroutines, transforms) and says on entry what it is not
+running. An embedding host that owns a physics world can add its four systems to `Loop` and publish
+`ITerrainColliders` beside them, which is what the per-frame `BindColliders` resolution above was
+built to accept. See [docs/plan/11 § Play mode runs a system
+graph](https://github.com/Rikarin/Vixen/blob/master/docs/plan/11-editor.md#play-mode-runs-a-system-graph).
 
 ⚠ **Note what `Vixen.Editor.App` already references and what it does not.** It references
 `Core/Vixen.Water.Physics` — for `BuoyancyBody`'s icon and its Add Component entry, so the *type* can

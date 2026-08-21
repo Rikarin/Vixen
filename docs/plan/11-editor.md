@@ -231,6 +231,128 @@ public sealed partial class WaterMaterial : Behavior
 > `void`, because a selection that was not translated names whatever landed in those slots, which
 > presents as a rendering fault.
 
+### Play mode runs a system graph
+
+⚠ **Until 2026-08-21 it ran none, and the bullet above was describing a button that did nothing.**
+This section is the correction, and it is here rather than in [20](20-editor-parity.md) because the
+question is architectural: which loop drives the editor's frame, what a restore has to undo, and what
+the editor's own per-frame work must be outside. Doc 20 enumerates the *surface* and says in its own
+opening that it changes no architecture; this changes some.
+
+#### What Play did, verified rather than inherited
+
+`PlayModeController` had the whole state machine — play, pause, resume, step, stop, a `PendingSteps`
+count, a leak comparison — and `ShouldTick`, *the method that decides whether the game loop advances
+this frame*, **had no caller outside its own tests**. `EditorApplication.Update` never asked. Pressing
+Play snapshotted the world, maximised the viewport, cleared the console and posted a notification;
+nothing stepped. `EditorWorldRenderer` said so in as many words — "the editor runs no system graph at
+all" — and `EditorApplication.ResolveTransforms` existed for exactly that reason, calling
+`TransformSystem.Resolve` by hand because there was no scheduler to place it.
+
+⚠ **`ShouldTick` was well tested, and that is the finding.** Five assertions covered pausing,
+stepping, stepping-from-stopped and resuming, and every one of them passed for as long as the method
+had no caller. A state machine tested in isolation proves the state machine. What was missing was a
+test that asserts a *frame happened*, which is why `PlayGraphTests` is written the way it is.
+
+#### What running one actually needs
+
+There is no scheduler to build. `EngineLoop` (`Vixen.Engine.Frames`) is the loop a game head, a
+determinism test and — the class's own remarks already said so — an editor's play mode are all
+supposed to drive, and it takes a world rather than making one. It owns a `SystemRunner`, whose
+`RunPhase` brackets each of the nine `SystemPhase`s with a version advance, the systems, a job
+completion and a command-buffer playback. `Frame(elapsed, timeScale)` runs the nine in order with
+`FixedUpdate` repeated by the accumulator.
+
+So the four real questions are what it is given, what a restore must undo, what must not be inside
+it, and what it does not contain.
+
+**What a restore has to undo, beyond the world.** `WorldSnapshot` copies components and rewires the
+hierarchy. Three things live beside the world and none of them were in it:
+
+| Outside the world | What a restore must do | Why the obvious thing is wrong |
+|---|---|---|
+| **Behaviours** | Save each authored one as an alias and bytes, take it off *before* the capture, run the session over fresh copies in the loop's own store, and rebuild the authored ones on the restored handles | `BehaviorRef` is a managed component holding an array of live objects. A snapshot taken with it in place copies the *reference*, so the restore hands the scene back the very instances the session woke, started and mutated — on an `Entity` handle that no longer exists. `ISceneBehaviorBinder.Save`/`Restore` is the same gap-crossing `ProjectAssemblies` already does for a code reload |
+| **The session's own lifecycle** | Destroy the session's behaviours and drain the callbacks *before* `Restore` clears the world | A teardown after `World.Clear` has no entity to walk, so nothing gets `OnDisable`/`OnDestroy` — and the leak comparison then reports every handle they were holding as a leak the controller itself caused |
+| **The selection, names and ids** | Already handled — `Restore` returns the translation table and `SceneDocument.Remap` consumes it | See the correction above |
+
+⚠ **`BehaviorStore.Destroy` does not check that the behaviour is its own, and `Remove` does.** A
+teardown that walked the entity link and destroyed everything it found would queue a behaviour
+belonging to the *document's* store, and the drain then indexes a bucket the session's store has
+never had — a `KeyNotFoundException` out of the middle of Stop. `AllOn` reads the entity's link,
+which is one component however many stores share the world, so "which store owns this" is not a
+question the public API answers. The controller keeps the set it could *not* take over instead, and
+everything else on the world is the session's by construction.
+
+**What must not be inside the graph.** Three things in `EditorApplication.Update` would collide, and
+one of them collides invisibly:
+
+- ⚠ **`ResolveTransforms()`** — it *is* `TransformSystem`, and the graph runs one in `PreRender`. Two
+  instances over one world keep separate "what have I already seen" versions, so each answers the
+  other's writes with "nothing changed". The failure is not a doubled cost; it is a moved object that
+  stops following its parent, on alternate frames, only while playing. The editor's pass is therefore
+  **replaced** by the tick rather than run beside it.
+- **`ExtractFrame()`** — `MeshExtractionSystem.Extract` and `LightExtractionSystem.Extract`, called
+  out of band. Registering those two into the loop would run them twice a frame, and the mesh side
+  writes `RenderHandle` structurally and claims geometry residency per entity. It stays where it is,
+  after the tick.
+- **The pane's `RenderView` write** — `SceneViewport.Update` aims the view from the `EditorCamera`,
+  which is `CameraExtractionSystem`'s job in a game. You look through the editor's camera in the
+  editor's viewport; "play through the game camera" is a separate decision and is not taken here.
+
+Everything else in that method — the content and dialog pumps, the thumbnail uploads, the console
+pull, the history poll, the outliner and inspector syncs, the file and stylesheet watchers, the
+plugin modules' per-frame follow, the gizmo attach — is editor chrome and belongs exactly where it
+is.
+
+#### What it does not run, which is the part that must be loud
+
+⚠ **A game's system set is imperative code in that game's own `Game.OnInitialise`, and there is no
+declarative form of it.** `EngineLoop`'s constructor registers a fixed default — the behaviour
+lifecycle, `Update` and `LateUpdate` passes, the four coroutine drains, and `TransformSystem` — and
+every other system in the tree is added by hand against a host service:
+
+| Registered by | Systems | Service it needs |
+|---|---|---|
+| `AppBuilder` | `InputUpdateSystem` | `InputService` |
+| `AppGraphics` | `CameraExtractionSystem`, `WaterZoneSystem`, `WaterClockSystem`, `PostProcessVolumeSystem`, and `WorldRenderer.Register`'s four extractions | a `RenderView`, a device-backed `WorldRenderer`, stage masks that only exist after a compositor document is loaded |
+| the game | `AddPhysics`'s five, `AudioSystem`, `TerrainColliderSystem`, `WaterImmersionSystem`, `BuoyancySystem`, `NavigationSystem`, the AI and virtual-camera sets | a `PhysicsScene`, an `AudioEngine`, a navmesh `Crowd`, a `DebugDraw` |
+
+There is **no** `AddStandardSystems` and nothing in a project says which of its systems a scene wants.
+So an in-editor session cannot reproduce a game's frame by scheduling harder; it would have to run the
+game's boot path, which is what the out-of-process topology already is.
+
+⚠ **Which makes the rule for this feature: run a whole graph of a named set, and name what is
+missing.** A Play button that runs most of a frame and says nothing makes the missing part read as a
+gameplay bug, and that is worse than a button that does nothing — the failure has moved from the
+editor, where it is, into the user's game, where it is not. So entering play states the set it runs,
+and lists by name both the `ISystem` types the project's own assembly declares (found by reflection
+over the assembly `ProjectAssemblies` already builds and loads) and any behaviour the session could
+not take over.
+
+#### As built
+
+Built: `PlayModeController` owns an `EngineLoop` over the world being edited, `Tick(delta)` is the
+frame and the only caller `ShouldTick` needs, `EditorApplication.Update` calls it and skips its own
+transform pass on a frame that ticked, the authored behaviours cross the snapshot as bytes and come
+back untouched, the session's behaviours are destroyed before the restore clears the world, and
+`EnterPlay` reports the gap. `PlayGraphTests` asserts a frame happened.
+
+Owed, in the order that unblocks the most:
+
+1. **A project declares its frame.** The one thing that would turn this from "behaviours run" into
+   "the game runs". Some form a project can carry — a systems manifest, or an attribute a generator
+   collects the way `[Component]` and `[Node]` already are — plus a way for a system to name the
+   service it needs so a host can refuse rather than crash. Until it exists, every row of the table
+   above is a hand-registration an editor cannot repeat.
+2. **A `PhysicsScene` in the editor**, which is [31 § D10](31-terrain-grass-and-trees.md)'s blocker
+   and now has somewhere to be stepped. `Vixen.Editor.App` does not reference `Vixen.Physics`;
+   `PlayModeController.Loop` is the seam that makes referencing it worth something.
+3. **Play through the game camera**, and with it the question of whether a session drives the
+   viewport's `RenderView` or its own.
+4. **Additive scenes.** The controller is given one `BehaviorStore` — the first document's — and a
+   behaviour authored into a second, additively opened scene is named in `Unsupported` rather than
+   run. Correct and visible, and not yet whole.
+
 ### `Vixen.Editor.NodeGraph` — one framework, three graphs
 
 Building three node editors is three times the work of building one well-factored one. So:
