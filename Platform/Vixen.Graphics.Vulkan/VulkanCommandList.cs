@@ -449,21 +449,34 @@ sealed unsafe class VulkanCommandList : ICommandList {
         var bufferBarriers = stackalloc BufferMemoryBarrier[Math.Max(1, bufferCount)];
         var imageBarriers = stackalloc ImageMemoryBarrier[Math.Max(1, textureCount)];
 
+        var stages = VulkanBarriers.SupportedStages(Kind);
+        var accesses = VulkanBarriers.SupportedAccess(Kind);
+
         var source = PipelineStageFlags.None;
         var destination = PipelineStageFlags.None;
 
         for (var index = 0; index < bufferCount; index++) {
             var barrier = barriers.Buffers[index];
             var buffer = device.Resolve(barrier.Buffer);
-            source |= VulkanBarriers.ToStage(barrier.Before);
-            destination |= VulkanBarriers.ToStage(barrier.After);
-
             var families = Ownership(barrier.SourceQueue, barrier.DestinationQueue, buffer.Description.Name);
+            var half = HalfOf(families, barrier.SourceQueue);
+
+            if (half != Handover.Acquire) {
+                source |= VulkanBarriers.ToStage(barrier.Before) & stages;
+            }
+
+            if (half != Handover.Release) {
+                destination |= VulkanBarriers.ToStage(barrier.After) & stages;
+            }
 
             bufferBarriers[index] = new() {
                 SType = StructureType.BufferMemoryBarrier,
-                SrcAccessMask = VulkanBarriers.ToAccess(barrier.Before),
-                DstAccessMask = VulkanBarriers.ToAccess(barrier.After),
+                SrcAccessMask = half == Handover.Acquire
+                    ? AccessFlags.None
+                    : VulkanBarriers.ToAccess(barrier.Before) & accesses,
+                DstAccessMask = half == Handover.Release
+                    ? AccessFlags.None
+                    : VulkanBarriers.ToAccess(barrier.After) & accesses,
                 SrcQueueFamilyIndex = families.Source,
                 DstQueueFamilyIndex = families.Destination,
                 Buffer = buffer.Handle,
@@ -475,8 +488,16 @@ sealed unsafe class VulkanCommandList : ICommandList {
         for (var index = 0; index < textureCount; index++) {
             var barrier = barriers.Textures[index];
             var texture = device.Resolve(barrier.Texture);
-            source |= VulkanBarriers.ToStage(barrier.Before);
-            destination |= VulkanBarriers.ToStage(barrier.After);
+            var families = Ownership(barrier.SourceQueue, barrier.DestinationQueue, texture.Description.Name);
+            var half = HalfOf(families, barrier.SourceQueue);
+
+            if (half != Handover.Acquire) {
+                source |= VulkanBarriers.ToStage(barrier.Before) & stages;
+            }
+
+            if (half != Handover.Release) {
+                destination |= VulkanBarriers.ToStage(barrier.After) & stages;
+            }
 
             var levels = barrier.MipLevelCount > 0
                 ? (uint)barrier.MipLevelCount
@@ -486,12 +507,19 @@ sealed unsafe class VulkanCommandList : ICommandList {
                 ? (uint)barrier.ArrayLayerCount
                 : Vk.RemainingArrayLayers;
 
-            var families = Ownership(barrier.SourceQueue, barrier.DestinationQueue, texture.Description.Name);
-
             imageBarriers[index] = new() {
                 SType = StructureType.ImageMemoryBarrier,
-                SrcAccessMask = VulkanBarriers.ToAccess(barrier.Before),
-                DstAccessMask = VulkanBarriers.ToAccess(barrier.After),
+                SrcAccessMask = half == Handover.Acquire
+                    ? AccessFlags.None
+                    : VulkanBarriers.ToAccess(barrier.Before) & accesses,
+                DstAccessMask = half == Handover.Release
+                    ? AccessFlags.None
+                    : VulkanBarriers.ToAccess(barrier.After) & accesses,
+
+                // ⚠ Never clamped, unlike the stages and the accesses. The two halves of a handover
+                // must name identical layouts, and they are recorded on two queues with different
+                // capabilities — so a layout narrowed to what one of them can execute would be a
+                // release and an acquire that disagree, which is undefined rather than an error.
                 OldLayout = VulkanBarriers.ToLayout(barrier.Before),
                 NewLayout = VulkanBarriers.ToLayout(barrier.After),
                 SrcQueueFamilyIndex = families.Source,
@@ -507,10 +535,13 @@ sealed unsafe class VulkanCommandList : ICommandList {
             };
         }
 
+        // Neither mask may be empty, and both ends have a stage that is always supported and always
+        // means "nothing to wait for" — which is exactly what a mask that clamped away to nothing is
+        // saying.
         api.CmdPipelineBarrier(
             Buffer,
-            source,
-            destination,
+            source == PipelineStageFlags.None ? PipelineStageFlags.TopOfPipeBit : source,
+            destination == PipelineStageFlags.None ? PipelineStageFlags.BottomOfPipeBit : destination,
             0,
             0,
             null,
@@ -519,6 +550,47 @@ sealed unsafe class VulkanCommandList : ICommandList {
             (uint)textureCount,
             textureCount > 0 ? imageBarriers : null
         );
+    }
+
+    /// <summary>Which half of a queue handover this list is recording, if either.</summary>
+    enum Handover {
+        /// <summary>Not a handover at all: both stage masks describe work on this queue.</summary>
+        None,
+
+        /// <summary>The half on the queue giving the resource up.</summary>
+        Release,
+
+        /// <summary>The half on the queue taking it.</summary>
+        Acquire
+    }
+
+    /// <summary>Which half of a handover the list is recording.</summary>
+    /// <param name="families">What <see cref="Ownership" /> resolved the two queues to.</param>
+    /// <param name="from">The queue the barrier says currently owns the resource.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two halves are not symmetric, and recording them as if they were is invalid
+    ///         usage on any queue that can do less than the graphics queue.</b> A release is recorded
+    ///         on the queue giving the resource up, so its <em>destination</em> stages describe work
+    ///         on the other queue; an acquire is recorded on the queue taking it, so its
+    ///         <em>source</em> stages do. Vulkan ignores the far half of each — but a stage mask is
+    ///         still checked against the recording queue's capabilities before it is ignored, so a
+    ///         release from compute to graphics naming <c>ColorAttachmentOutput</c> is an error on
+    ///         the compute list that records it.
+    ///     </para>
+    ///     <para>
+    ///         Decided from the resolved families rather than from the two <see cref="QueueKind" />s,
+    ///         so that two kinds landing on one family are not a handover at all — the collapse is
+    ///         what keeps a scheduled frame identical to an unscheduled one on a device with a single
+    ///         universal family, which is every device this engine has been developed on.
+    ///     </para>
+    /// </remarks>
+    Handover HalfOf((uint Source, uint Destination) families, QueueKind from) {
+        if (families.Source == Vk.QueueFamilyIgnored) {
+            return Handover.None;
+        }
+
+        return Kind == from ? Handover.Release : Handover.Acquire;
     }
 
     /// <summary>The family pair a barrier's two queues resolve to, refusing a list at neither end.</summary>

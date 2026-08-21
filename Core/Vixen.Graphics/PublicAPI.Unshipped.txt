@@ -184,9 +184,11 @@ Vixen.Graphics.BufferDescription : System.IEquatable<Vixen.Graphics.BufferDescri
 Vixen.Graphics.BufferDescription.Access.get -> Vixen.Graphics.MemoryAccess
 Vixen.Graphics.BufferDescription.Access.init -> Vixen.Graphics.MemoryAccess
 Vixen.Graphics.BufferDescription.BufferDescription() -> void
-Vixen.Graphics.BufferDescription.BufferDescription(long Size, Vixen.Graphics.BufferUsage Usage, Vixen.Graphics.MemoryAccess Access = Vixen.Graphics.MemoryAccess.DeviceLocal, string Name = "") -> void
+Vixen.Graphics.BufferDescription.BufferDescription(long Size, Vixen.Graphics.BufferUsage Usage, Vixen.Graphics.MemoryAccess Access = Vixen.Graphics.MemoryAccess.DeviceLocal, string Name = "", Vixen.Graphics.ResourceSharing Sharing = Vixen.Graphics.ResourceSharing.Exclusive) -> void
 Vixen.Graphics.BufferDescription.Name.get -> string
 Vixen.Graphics.BufferDescription.Name.init -> string
+Vixen.Graphics.BufferDescription.Sharing.get -> Vixen.Graphics.ResourceSharing
+Vixen.Graphics.BufferDescription.Sharing.init -> Vixen.Graphics.ResourceSharing
 Vixen.Graphics.BufferDescription.Size.get -> long
 Vixen.Graphics.BufferDescription.Size.init -> long
 Vixen.Graphics.BufferDescription.Usage.get -> Vixen.Graphics.BufferUsage
@@ -845,6 +847,10 @@ Vixen.Graphics.RenderPassDescription.Name.get -> string
 Vixen.Graphics.RenderPassDescription.RenderArea.get -> Vixen.Graphics.ScissorRect?
 Vixen.Graphics.RenderPassDescription.RenderPassDescription() -> void
 Vixen.Graphics.RenderPassDescription.RenderPassDescription(System.ReadOnlySpan<Vixen.Graphics.ColourAttachment> colourAttachments, Vixen.Graphics.DepthStencilAttachment? depthStencil = null, string name = "", Vixen.Graphics.ScissorRect? renderArea = null) -> void
+Vixen.Graphics.ResourceSharing -> enum : byte
+Vixen.Graphics.ResourceSharing.Concurrent = 1 -> Vixen.Graphics.ResourceSharing
+Vixen.Graphics.ResourceSharing.Exclusive = 0 -> Vixen.Graphics.ResourceSharing
+Vixen.Graphics.ResourceSharing.ResourceSharing() -> void
 Vixen.Graphics.ResourceState -> enum : int
 Vixen.Graphics.ResourceState.ColourTarget = 32 -> Vixen.Graphics.ResourceState
 Vixen.Graphics.ResourceState.CopyDestination = 512 -> Vixen.Graphics.ResourceState
@@ -1020,8 +1026,10 @@ Vixen.Graphics.TextureDescription.Name.get -> string
 Vixen.Graphics.TextureDescription.Name.init -> string
 Vixen.Graphics.TextureDescription.SampleCount.get -> int
 Vixen.Graphics.TextureDescription.SampleCount.init -> int
+Vixen.Graphics.TextureDescription.Sharing.get -> Vixen.Graphics.ResourceSharing
+Vixen.Graphics.TextureDescription.Sharing.init -> Vixen.Graphics.ResourceSharing
 Vixen.Graphics.TextureDescription.TextureDescription() -> void
-Vixen.Graphics.TextureDescription.TextureDescription(Vixen.Graphics.PixelFormat Format, int Width, int Height, Vixen.Graphics.TextureUsage Usage, int Depth = 1, int MipLevels = 1, int ArrayLayers = 1, int SampleCount = 1, Vixen.Graphics.TextureDimension Dimension = Vixen.Graphics.TextureDimension.Texture2D, string Name = "") -> void
+Vixen.Graphics.TextureDescription.TextureDescription(Vixen.Graphics.PixelFormat Format, int Width, int Height, Vixen.Graphics.TextureUsage Usage, int Depth = 1, int MipLevels = 1, int ArrayLayers = 1, int SampleCount = 1, Vixen.Graphics.TextureDimension Dimension = Vixen.Graphics.TextureDimension.Texture2D, string Name = "", Vixen.Graphics.ResourceSharing Sharing = Vixen.Graphics.ResourceSharing.Exclusive) -> void
 Vixen.Graphics.TextureDescription.TotalSize.get -> long
 Vixen.Graphics.TextureDescription.Usage.get -> Vixen.Graphics.TextureUsage
 Vixen.Graphics.TextureDescription.Usage.init -> Vixen.Graphics.TextureUsage

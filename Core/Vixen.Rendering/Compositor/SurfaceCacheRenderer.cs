@@ -128,13 +128,18 @@ public sealed class SurfaceCacheRenderer : SceneRenderer, IDisposable {
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                // A capture records render passes, a dispatch dispatches, and a bare upload copies —
-                // the pass is whichever of the three it turns out to be doing most of.
-                pass.Kind = Capture is not null && Draw is not null
-                    ? PassKind.Graphics
-                    : LightFill is not null || GatherFill is not null
-                        ? PassKind.Compute
-                        : PassKind.Transfer;
+                // ⚠ **Graphics in all three shapes, and it used to pick between the three kinds.**
+                // The kind is read by the scheduler now, and it decided nothing about the body:
+                //
+                //  - the capture shape really does record render passes, so that one was right;
+                //  - the dispatch shape and the bare-upload shape both run
+                //    SurfaceCacheTexture.Upload, which brackets its copies with barriers into
+                //    ResourceState.ShaderRead — vertex, fragment and compute stages, none of which a
+                //    Vulkan transfer family supports;
+                //  - and none of the three declares a single graph resource. The planes belong to the
+                //    mirror and reach a shader by name, so no wait edge could be derived in either
+                //    direction and a hoisted pass would be one nothing waits for.
+                pass.Kind = PassKind.Graphics;
 
                 pass.SideEffect();
                 pass.Execute(context => Keep(store, device, context.CommandList));

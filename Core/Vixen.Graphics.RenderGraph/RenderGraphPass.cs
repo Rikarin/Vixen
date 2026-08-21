@@ -44,6 +44,33 @@ sealed class GraphPass {
     public int Consumers { get; set; }
 
     public bool HasAttachments => Attachments.Count > 0;
+
+    /// <summary>Whether it declares producing anything the graph can see.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What decides whether a pass may leave the graphics queue.</b> A wait edge is derived
+    ///     from a declared write: <c>PlanBarriers</c> makes a later reader wait on the segment that
+    ///     last wrote a resource, and a pass that declares no write is never that segment. So a
+    ///     compute pass with no declared write is one <em>nothing in the frame can be made to wait
+    ///     for</em> — hoisting it puts it in a segment with no outgoing edge, and whatever it really
+    ///     produced becomes a race the moment the two queues are genuinely concurrent.
+    ///     <para>
+    ///         It is a necessary condition and not a sufficient one — a pass may declare one write
+    ///         and quietly touch five other things — which is why the renderers were audited by hand
+    ///         as well. It is the half the graph can check, and it makes under-declaration fail the
+    ///         safe way: an unhoisted pass is exactly the frame the engine already draws.
+    ///     </para>
+    /// </remarks>
+    public bool DeclaresProduction {
+        get {
+            foreach (var use in Uses) {
+                if (use.IsWrite) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
 }
 
 /// <summary>What a pass declares about itself, before it runs.</summary>

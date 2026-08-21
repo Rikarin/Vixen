@@ -185,6 +185,86 @@ public sealed class QueueSchedulingTests : IDisposable {
         Assert.Equal(QueueKind.Graphics, graph.Schedule!.QueueOf(0));
     }
 
+    /// <summary>
+    ///     ⚠ A compute pass that declares no write is not hoisted, however honest the rest of it is.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The shape of four of this tree's nine compute passes before the audit, and the reason
+    ///         the rule is in the scheduler rather than in a guide. A wait edge comes from a declared
+    ///         write and from nothing else, so a pass declaring none is a pass no later segment can be
+    ///         made to wait for — and hoisting it produces a compute segment with an edge going in and
+    ///         none coming out. What it really wrote — a HiZ pyramid, a shadow page table, a
+    ///         draw-argument buffer — is then read by the graphics queue while the dispatch is still
+    ///         running, which on one queue family is invisible and on a discrete card is corruption.
+    ///     </para>
+    ///     <para>
+    ///         Read carefully, this is a claim about <em>declarations</em> and not about honesty: a
+    ///         pass may declare one write and quietly touch five other things, and the graph cannot
+    ///         tell. It is the half the graph can check, and it makes under-declaration fail towards
+    ///         the frame the engine already draws.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AComputePassThatDeclaresNoWriteIsNotHoisted() {
+        var graph = Graph();
+        graph.Scheduling = QueueScheduling.Async;
+        var depth = graph.CreateTexture(Target("depth"));
+
+        graph.AddPass("prepass", pass => {
+            pass.ColourAttachment(depth);
+            pass.Execute(_ => { });
+        });
+
+        // A reduction into something the graph cannot see: it reads a graph resource and honestly
+        // says its product is not one. HiZRenderer, exactly.
+        graph.AddPass("reduce", pass => {
+            pass.Kind = PassKind.Compute;
+            pass.Reads(depth);
+            pass.SideEffect();
+            pass.Execute(_ => { });
+        });
+
+        graph.Compile();
+
+        Assert.Equal(QueueKind.Graphics, graph.Schedule!.QueueOf(1));
+        Assert.False(graph.Schedule.IsMultiQueue);
+        Assert.Single(graph.Schedule.Segments);
+    }
+
+    /// <summary>
+    ///     And the same pass with its production declared is hoisted, so the rule above is the write
+    ///     and not the side effect, the read, or the pass's position.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The other arm, because a scheduler that hoisted nothing would pass the test above too.
+    /// </remarks>
+    [Fact]
+    public void TheSamePassWithItsProductionDeclaredIsHoisted() {
+        var graph = Graph();
+        graph.Scheduling = QueueScheduling.Async;
+        var depth = graph.CreateTexture(Target("depth"));
+        var pyramid = graph.CreateTexture(Storage("pyramid"));
+
+        graph.AddPass("prepass", pass => {
+            pass.ColourAttachment(depth);
+            pass.Execute(_ => { });
+        });
+
+        graph.AddPass("reduce", pass => {
+            pass.Kind = PassKind.Compute;
+            pass.Reads(depth);
+            pass.Writes(pyramid);
+            pass.SideEffect();
+            pass.Execute(_ => { });
+        });
+
+        graph.Compile();
+
+        Assert.Equal(QueueKind.Compute, graph.Schedule!.QueueOf(1));
+        Assert.True(graph.Schedule.IsMultiQueue);
+    }
+
     /// <summary>A culled pass takes its queue with it — scheduling runs after culling, not before.</summary>
     [Fact]
     public void ACulledComputePassCreatesNoSegment() {
@@ -241,6 +321,120 @@ public sealed class QueueSchedulingTests : IDisposable {
                 + $"only on {string.Join(", ", sides)}."
             );
         }
+    }
+
+    // ── The sharing mode ────────────────────────────────────────────────────────────────────
+
+    /// <summary>Builds a frame in which two queues want to read one texture and neither writes it.</summary>
+    /// <remarks>
+    ///     Draw depth, then read it from a compute pass and from a later graphics pass. That is a
+    ///     light-clustering frame, and under exclusive sharing it is also the frame in which the two
+    ///     readers take turns over a texture neither of them changes.
+    /// </remarks>
+    /// <param name="bothRead">
+    ///     Whether the later graphics pass reads the depth too. False leaves one reader on each
+    ///     queue, which is the arrangement a handover exists for.
+    /// </param>
+    RenderGraph TwoReaders(bool bothRead) {
+        var graph = Graph();
+        graph.Scheduling = QueueScheduling.Async;
+        var depth = graph.CreateTexture(Target("depth"));
+
+        // A buffer rather than a texture, so a recorded barrier says which resource it named without
+        // a handle-to-name map the graph does not expose.
+        var clusters = graph.CreateBuffer(new(4096, BufferUsage.Storage, Name: "clusters"));
+        var output = graph.CreateTexture(Target("output"));
+
+        graph.AddPass("prepass", pass => {
+            pass.ColourAttachment(depth);
+            pass.Execute(_ => { });
+        });
+
+        graph.AddPass("cluster", pass => {
+            pass.Kind = PassKind.Compute;
+            pass.Reads(depth);
+            pass.Writes(clusters);
+            pass.Execute(_ => { });
+        });
+
+        graph.AddPass("shade", pass => {
+            if (bothRead) {
+                pass.Reads(depth);
+            }
+
+            pass.Reads(clusters);
+            pass.ColourAttachment(output);
+            pass.SideEffect();
+            pass.Execute(_ => { });
+        });
+
+        return graph;
+    }
+
+    /// <summary>
+    ///     ⚠ Two queues that both only read one resource do not hand it to each other.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The gap this closes. Under exclusive sharing ownership follows <em>use</em>, so the
+    ///         second reader has to acquire from the first — and an acquire cannot begin until the
+    ///         release has finished, which is two queues taking turns over a texture neither of them
+    ///         is changing. Concurrent sharing is the only thing that removes it: it is not an
+    ///         optimisation of the barrier, it is the absence of an owner.
+    ///     </para>
+    ///     <para>
+    ///         Asserted as "no handover for this resource" rather than as a count over the frame,
+    ///         because the frame still has a real one — the clusters buffer the compute pass writes
+    ///         and the shade pass reads — and a count would pass for the wrong reason if that
+    ///         disappeared.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TwoQueuesReadingOneResourceDoNotHandItOver() {
+        var graph = TwoReaders(bothRead: true);
+        var queues = new RecordingQueues();
+        graph.Execute(queues);
+
+        // The depth is the only texture that crosses; the clusters buffer is the frame's one real
+        // handover and is asserted separately below.
+        Assert.DoesNotContain(queues.Barriers, barrier => barrier.TransfersOwnership && barrier.Texture.IsValid);
+        Assert.Equal(1, graph.Schedule!.OwnershipTransferCount);
+    }
+
+    /// <summary>
+    ///     ⚠ And with only one reader on each queue the very same texture <em>is</em> handed over.
+    /// </summary>
+    /// <remarks>
+    ///     The mutation guard for the test above, which a graph that had stopped transferring
+    ///     anything at all would also pass. One declaration differs between the two frames — whether
+    ///     the shade pass reads the depth — and that one declaration is the whole rule.
+    /// </remarks>
+    [Fact]
+    public void OneReaderPerQueueStillHandsTheTextureOver() {
+        var graph = TwoReaders(bothRead: false);
+        var queues = new RecordingQueues();
+        graph.Execute(queues);
+
+        Assert.Contains(queues.Barriers, barrier => barrier.TransfersOwnership && barrier.Texture.IsValid);
+        Assert.Equal(2, graph.Schedule!.OwnershipTransferCount);
+    }
+
+    /// <summary>
+    ///     And the read-only sharing does not spread: a resource one queue writes is still owned.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The other arm, and the one that keeps the trade honest. Concurrent sharing costs
+    ///     bandwidth on hardware that answers it by not compressing, so a rule that quietly applied
+    ///     to everything two queues touched would be a slower frame everywhere in exchange for a
+    ///     handover that was doing real work.
+    /// </remarks>
+    [Fact]
+    public void AResourceOneQueueWritesIsStillHandedOver() {
+        var graph = TwoReaders(bothRead: true);
+        var queues = new RecordingQueues();
+        graph.Execute(queues);
+
+        Assert.Contains(queues.Barriers, barrier => barrier.TransfersOwnership && barrier.Buffer.IsValid);
     }
 
     /// <summary>A transfer is only ever recorded on a list at one of its two ends.</summary>

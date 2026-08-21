@@ -143,10 +143,17 @@ public sealed class RenderGraphSchedule {
 
     /// <summary>How many resources change hands between queues over the frame.</summary>
     /// <remarks>
-    ///     <b>Worth watching for the same reason <see cref="RenderGraph.BarrierCount" /> is.</b> Every
-    ///     handover is a release, an acquire and an edge that stops two segments overlapping, so a
-    ///     schedule whose transfer count is close to its resource count has bought a second queue and
-    ///     spent the whole of it on synchronisation.
+    ///     <para>
+    ///         <b>Worth watching for the same reason <see cref="RenderGraph.BarrierCount" /> is.</b>
+    ///         Every handover is a release, an acquire and an edge that stops two segments
+    ///         overlapping, so a schedule whose transfer count is close to its resource count has
+    ///         bought a second queue and spent the whole of it on synchronisation.
+    ///     </para>
+    ///     <para>
+    ///         A resource that two queues only <em>read</em> is not counted here, because it is not
+    ///         handed over at all: the graph creates those <see cref="ResourceSharing.Concurrent" />,
+    ///         which has no owner to transfer. See <c>docs/guide/rendering/async-compute.md</c>.
+    ///     </para>
     /// </remarks>
     public int OwnershipTransferCount { get; }
 

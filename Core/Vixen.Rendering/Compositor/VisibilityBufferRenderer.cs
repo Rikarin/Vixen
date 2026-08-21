@@ -283,7 +283,13 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
             frame.Graph.AddPass(
                 $"{this}.Software",
                 pass => {
-                    pass.Kind = PassKind.Compute;
+                    // ⚠ **A dispatch declared Graphics, because two of its three inputs are
+                    // invisible here.** The depth and the identity buffer are declared and would
+                    // carry their own edges, but the dispatch's extents come from the argument
+                    // buffer `ClusterCullingRenderer` filled with `software.Prepare` — a buffer the
+                    // graph never sees, in a pass that is not this one. Hoisting this onto a compute
+                    // queue would put a wait edge on the depth and none at all on the extents.
+                    pass.Kind = PassKind.Graphics;
                     pass.Reads(depth);
                     pass.Writes(identity);
                     pass.SideEffect();
@@ -336,7 +342,12 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
         frame.Graph.AddPass(
             $"{this}.Tiles",
             pass => {
-                pass.Kind = PassKind.Compute;
+                // ⚠ **Graphics, for the reason the software pass above is.** The binning's own
+                // inputs are declared, but `GpuClusterResolve` binds `pages.Pages` and
+                // `visibility.Instances` — the two buffers `ClusterCullingRenderer` fills, which are
+                // the residency service's and the traversal's rather than the graph's. A pass that
+                // reads them without being able to say so is a pass the scheduler must not move.
+                pass.Kind = PassKind.Graphics;
                 pass.Reads(identity);
 
                 if (resolve is not null) {

@@ -147,7 +147,20 @@ public sealed class GpuCullingRenderer : SceneRenderer {
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                pass.Kind = PassKind.Compute;
+                // ⚠ **A dispatch that declares itself a graphics pass, deliberately.** What it
+                // writes are the visibility bits and the draw-argument buffer, and what reads them
+                // are the *draw calls* of later passes — bound into a pipeline rather than declared
+                // to the graph, because a graph resource would be aliased out from under a buffer
+                // that has to outlive the frame. So there is nothing here for the scheduler to
+                // derive a wait edge from, in either direction, and a pass marked Compute would be
+                // hoisted into a segment nothing waits for: the rasteriser would read arguments the
+                // cull had not finished writing, on hardware with a compute family of its own.
+                //
+                // Marking it Graphics is the honest declaration, not a workaround. On one queue,
+                // declaration order *is* execution order and a barrier orders the dispatch against
+                // the draws — which is the ordering this node was built around and says so above.
+                // See docs/guide/rendering/async-compute.md for the audit this came out of.
+                pass.Kind = PassKind.Graphics;
                 pass.SideEffect();
 
                 pass.Execute(

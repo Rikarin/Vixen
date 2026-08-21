@@ -443,7 +443,12 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
         frame.Graph.AddPass(
             $"{this}.Mark",
             pass => {
-                pass.Kind = PassKind.Compute;
+                // ⚠ **Graphics, though the body is a dispatch.** What it marks are the atlas's page
+                // tables, which outlive the frame and are never graph resources — see Record's
+                // remarks — so no wait edge can be derived from what this produces, and a hoisted
+                // pass would be one the next frame's page service races. The declared read of depth
+                // is real and is what orders this after the draw either way.
+                pass.Kind = PassKind.Graphics;
                 pass.Reads(depth);
                 pass.SideEffect();
 

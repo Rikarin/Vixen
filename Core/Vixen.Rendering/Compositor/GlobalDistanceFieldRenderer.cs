@@ -139,12 +139,13 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     /// <exception cref="ArgumentNullException">There is no frame.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>A transfer pass, and it has to be one.</b> Uploading a clipmap is a buffer-to-texture
-    ///         copy, and a copy cannot be recorded inside a render pass — which is what
-    ///         <see cref="SceneRenderer.Record" /> runs inside, because the only thing that calls it is
-    ///         a <see cref="RenderPassRenderer" /> that has already opened one. This node spent its
-    ///         whole life so far unable to run in a real frame for that reason, and nothing noticed
-    ///         until a frame tried.
+    ///         <b>A pass of its own, and it has to be one.</b> Uploading a clipmap is a
+    ///         buffer-to-texture copy, and a copy cannot be recorded inside a render pass — which is
+    ///         what <see cref="SceneRenderer.Record" /> runs inside, because the only thing that calls
+    ///         it is a <see cref="RenderPassRenderer" /> that has already opened one. This node spent
+    ///         its whole life so far unable to run in a real frame for that reason, and nothing
+    ///         noticed until a frame tried. What buys the copy its place outside a render pass is
+    ///         declaring no attachments; the <see cref="PassKind" /> has nothing to do with it.
     ///     </para>
     ///     <para>
     ///         <b>Marked as having a side effect, because the graph cannot see what it produces.</b> The
@@ -152,6 +153,17 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     ///         <see cref="GlobalDistanceFieldTexture" /> and are named into a descriptor set rather than
     ///         read through the graph — so a pass that writes no graph resource reads as a pass nothing
     ///         needs, and would be culled.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <see cref="PassKind.Graphics" /> rather than <see cref="PassKind.Transfer" />,
+    ///         which it used to say.</b> Two reasons, either of which is enough. The body is not a
+    ///         copy: <see cref="GlobalDistanceFieldTexture.Upload" /> brackets its copies with
+    ///         barriers into <see cref="ResourceState.ShaderRead" />, and that state names the vertex,
+    ///         fragment and compute stages — none of which a Vulkan transfer family supports, so the
+    ///         barrier is invalid usage on a transfer queue rather than merely slow. And the volumes
+    ///         being invisible to the graph means no wait edge could be derived either way, so a
+    ///         hoisted pass would be one nothing waits for. See
+    ///         <c>docs/guide/rendering/async-compute.md</c>.
     ///     </para>
     /// </remarks>
     protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
@@ -165,7 +177,7 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                pass.Kind = PassKind.Transfer;
+                pass.Kind = PassKind.Graphics;
                 pass.SideEffect();
 
                 pass.Execute(

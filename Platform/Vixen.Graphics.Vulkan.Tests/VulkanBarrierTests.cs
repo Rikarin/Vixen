@@ -149,4 +149,97 @@ public sealed class VulkanBarrierTests {
         Assert.True((access & AccessFlags.ShaderReadBit) != 0);
         Assert.True((access & AccessFlags.TransferWriteBit) != 0);
     }
+
+    /// <summary>
+    ///     ⚠ The bug the async scheduler could not have run without. A compute pass reading a texture
+    ///     produces a barrier whose state is <see cref="ResourceState.ShaderRead" />, which names the
+    ///     vertex and fragment stages as well as the compute one — and a compute-only queue family
+    ///     has neither, so the barrier is invalid usage rather than merely wide.
+    /// </summary>
+    [Fact]
+    public void AComputeQueueMayNotNameTheVertexOrFragmentStage() {
+        var stages = VulkanBarriers.ToStage(ResourceState.ShaderRead)
+            & VulkanBarriers.SupportedStages(QueueKind.Compute);
+
+        Assert.Equal(PipelineStageFlags.ComputeShaderBit, stages);
+    }
+
+    /// <summary>
+    ///     The other half of the same fix. Dropping the attachment stage without dropping the
+    ///     attachment access trades one validation error for another, because an access flag has to
+    ///     be one the stages in the mask can perform.
+    /// </summary>
+    [Fact]
+    public void AComputeQueueMayNotNameAttachmentStagesOrAccesses() {
+        var supported = VulkanBarriers.SupportedStages(QueueKind.Compute);
+
+        Assert.Equal(
+            PipelineStageFlags.None,
+            VulkanBarriers.ToStage(ResourceState.ColourTarget) & supported
+        );
+
+        Assert.Equal(
+            PipelineStageFlags.None,
+            VulkanBarriers.ToStage(ResourceState.DepthStencilWrite) & supported
+        );
+
+        Assert.Equal(
+            AccessFlags.None,
+            VulkanBarriers.ToAccess(ResourceState.ColourTarget) & VulkanBarriers.SupportedAccess(QueueKind.Compute)
+        );
+    }
+
+    /// <summary>
+    ///     A transfer family accepts copies and nothing else, which is what makes
+    ///     <see cref="PassKind.Transfer" /> the one kind whose queue can do <em>less</em> than the
+    ///     graphics queue rather than differently.
+    /// </summary>
+    [Fact]
+    public void ATransferQueueMayNameNoShaderStageAtAll() {
+        var supported = VulkanBarriers.SupportedStages(QueueKind.Transfer);
+
+        Assert.Equal(PipelineStageFlags.None, VulkanBarriers.ToStage(ResourceState.ShaderRead) & supported);
+        Assert.Equal(PipelineStageFlags.None, VulkanBarriers.ToStage(ResourceState.ShaderWrite) & supported);
+        Assert.Equal(PipelineStageFlags.TransferBit, VulkanBarriers.ToStage(ResourceState.CopySource) & supported);
+    }
+
+    /// <summary>
+    ///     ⚠ Nothing is dropped on the graphics queue, and that is the property that keeps a scheduled
+    ///     frame identical to an unscheduled one on a device with one universal family — which is
+    ///     every device this engine has been developed on, so it is also the only leg CI can check.
+    /// </summary>
+    [Fact]
+    public void TheGraphicsQueueClampsNothing() {
+        foreach (var state in Enum.GetValues<ResourceState>()) {
+            Assert.Equal(
+                VulkanBarriers.ToStage(state),
+                VulkanBarriers.ToStage(state) & VulkanBarriers.SupportedStages(QueueKind.Graphics)
+            );
+
+            Assert.Equal(
+                VulkanBarriers.ToAccess(state),
+                VulkanBarriers.ToAccess(state) & VulkanBarriers.SupportedAccess(QueueKind.Graphics)
+            );
+        }
+    }
+
+    /// <summary>
+    ///     Every state a queue can genuinely take part in still names a stage after the clamp. A state
+    ///     that clamped away to nothing is one the caller has to substitute a top- or bottom-of-pipe
+    ///     for, and the set that needs substituting should be exactly the set that queue cannot do.
+    /// </summary>
+    [Theory]
+    [InlineData(QueueKind.Compute, ResourceState.ShaderWrite)]
+    [InlineData(QueueKind.Compute, ResourceState.UniformRead)]
+    [InlineData(QueueKind.Compute, ResourceState.IndirectArgument)]
+    [InlineData(QueueKind.Compute, ResourceState.CopyDestination)]
+    [InlineData(QueueKind.Compute, ResourceState.HostAccess)]
+    [InlineData(QueueKind.Transfer, ResourceState.CopyDestination)]
+    [InlineData(QueueKind.Transfer, ResourceState.HostAccess)]
+    public void AStateTheQueueCanDoSurvivesItsClamp(QueueKind kind, ResourceState state) {
+        Assert.NotEqual(
+            PipelineStageFlags.None,
+            VulkanBarriers.ToStage(state) & VulkanBarriers.SupportedStages(kind)
+        );
+    }
 }

@@ -181,9 +181,20 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                // A dispatch belongs on the compute queue and a copy on the transfer one, and this
-                // pass is whichever of the two it turns out to be doing.
-                pass.Kind = DeviceFiller is null ? PassKind.Transfer : PassKind.Compute;
+                // ⚠ **Graphics either way, and it used to say Transfer or Compute.** The kind is read
+                // by the scheduler now, and neither of those would have been true of this body.
+                //
+                // Not Transfer: IrradianceFieldTexture.Upload brackets its copies with barriers into
+                // ResourceState.ShaderRead, which names the vertex, fragment and compute stages —
+                // none of them supported by a Vulkan transfer family, so that is invalid usage on a
+                // transfer queue rather than a slow one.
+                //
+                // Not Compute either, dispatch or no dispatch: the pool, the indirection and the
+                // planes are the mirror's own textures, named into a descriptor set rather than
+                // declared to the graph, so this pass declares no use at all. Nothing can be made to
+                // wait for it and it can be made to wait for nothing — which on one queue is exactly
+                // right, because declaration order is execution order there.
+                pass.Kind = PassKind.Graphics;
                 pass.SideEffect();
 
                 pass.Execute(context => Refill(field, device, context.CommandList));

@@ -434,7 +434,10 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
     /// <remarks>
     ///     Declared with a side effect because everything it writes — the atlas, the planes — is
     ///     named into descriptor sets rather than declared to the graph, exactly as the irradiance
-    ///     field's refill pass argues.
+    ///     field's refill pass argues. That same fact is why it declares
+    ///     <see cref="PassKind.Graphics" /> rather than <see cref="PassKind.Compute" />: a pass whose
+    ///     production the graph cannot see is a pass nothing can be made to wait for, and hoisting
+    ///     one onto a second queue is a race rather than an overlap.
     /// </remarks>
     void DeclareCompute(CompositorFrame frame, IGraphicsDevice device, GraphTexture depth) {
         var screen = ScreenTraces && Tracer is not null;
@@ -442,7 +445,13 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                pass.Kind = PassKind.Compute;
+                // ⚠ **Graphics, and the remark above is the reason.** Everything this writes — the
+                // atlas, the planes, and whatever HiZ chain a host shared with the reflection node —
+                // is named into a descriptor set rather than declared, so the graph can derive no
+                // wait edge from what it produces and would hoist it into a compute segment nothing
+                // waits for. On one queue the declaration order is the ordering, which is what the
+                // five dispatches below have always relied on.
+                pass.Kind = PassKind.Graphics;
                 pass.SideEffect();
 
                 // The screen trace samples this frame's depth, so the graph must order this pass

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Numerics;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Graphics.RenderGraph;
@@ -238,6 +239,7 @@ public sealed class RenderGraph {
         Lint();
         ComputeLifetimes();
         BuildSegments();
+        PlanSharing();
         PlanBarriers();
         Schedule = new([.. segments], QueuesOfPasses(), handovers);
         compiled = true;
@@ -253,12 +255,18 @@ public sealed class RenderGraph {
     ///         correctness coverage rather than frame time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Turning it on is a claim every pass in the frame has to be able to keep.</b>
-    ///         <see cref="PassKind" /> was carried and never read, which means no renderer's
-    ///         declaration of it has ever been checked against what its body records. A pass that says
-    ///         <see cref="PassKind.Compute" /> and draws is a frame that stops working; a pass that
-    ///         says it and dispatches is fine. That is why this is opt-in per graph rather than a
-    ///         default that arrives with an upgrade.
+    ///         ⚠ <b>Turning it on is a claim every pass in the frame has to be able to keep</b>, and
+    ///         the claim is about <em>declarations</em> rather than about bodies. A wait edge comes
+    ///         from a declared read or write and from nothing else, so a dispatch that writes
+    ///         something the graph was never told about is a dispatch nothing can be made to wait
+    ///         for — harmless on one queue, where declaration order is execution order, and a race on
+    ///         two. Every renderer in this tree has now been audited against that and the ones that
+    ///         cannot declare honestly say <see cref="PassKind.Graphics" />; see
+    ///         <c>docs/guide/rendering/async-compute.md</c> for the table.
+    ///     </para>
+    ///     <para>
+    ///         It stays opt-in per graph all the same, because the audit is a statement about the
+    ///         passes in <em>this</em> tree and a host may declare its own.
     ///     </para>
     ///     <para>
     ///         Read by <see cref="Compile" />. Changing it after the graph has compiled changes
@@ -995,12 +1003,28 @@ public sealed class RenderGraph {
                 continue;
             }
 
-            // ⚠ No aliasing once the frame is on two queues. "Their lifetimes do not overlap" means
-            // "no pass between them touches either", and that is a statement about pass order — which
-            // stops being a statement about *time* the moment two queues run at once. Two transients
-            // sharing memory across a queue boundary is a corruption bug that needs the two queues to
-            // be genuinely concurrent to show up, which is to say it appears on the user's discrete
-            // card and never in CI. Memory is the cheaper thing to spend.
+            // ⚠ No aliasing once the frame is on two queues, and this is a decision rather than an
+            // omission. "Their lifetimes do not overlap" means "no pass between them touches
+            // either", and that is a statement about pass order — which stops being a statement
+            // about *time* the moment two queues run at once.
+            //
+            // The condition that would make it safe is not weaker, it is different: the segment
+            // taking the memory must be guaranteed to *start* after the segment giving it up has
+            // *finished*. There are only two ways to know that, and neither is common:
+            //
+            //  - an explicit wait edge between the two segments. But a schedule is transitively
+            //    reduced precisely to have as few of those as possible, so aliasing under this rule
+            //    would only ever reuse memory between segments that were already forced to take
+            //    turns — which is to say, exactly where the second queue bought nothing. The saving
+            //    lands where it is worth least, by construction.
+            //  - two segments on one queue, one submitted after the other. This does *not* qualify:
+            //    Vulkan orders when batches begin, not when they end, so two submissions on one
+            //    queue may overlap unless something makes them not.
+            //
+            // And the failure is a silent one that needs genuine concurrency to appear — so it
+            // reproduces on the user's discrete card and never on any hardware here or in CI. The
+            // pool reports what the decision costs (Count, InUse, Reuses), which is the right way
+            // round: a measurable amount of memory, rather than an unmeasurable class of bug.
             if (!aliasing) {
                 resource.PoolSlot = Acquire(resource);
                 continue;
@@ -1084,6 +1108,16 @@ public sealed class RenderGraph {
     ///         Hoisting those is a separate piece of work with an audit in it.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And only a compute pass that declares producing something.</b> See
+    ///         <see cref="GraphPass.DeclaresProduction" />: every wait edge in the schedule comes from
+    ///         a declared write, so a pass that declares none is one nothing can be made to wait for.
+    ///         Hoisting it would put it in a segment with no outgoing edge and let whatever it really
+    ///         wrote — a pyramid, an atlas, a page table, a draw-argument buffer — be read by the
+    ///         graphics queue while the dispatch was still running. Nine renderers in this tree
+    ///         declare a compute pass and four of them are exactly that shape, which is why this is a
+    ///         rule in the scheduler rather than a note in a guide.
+    ///     </para>
+    ///     <para>
     ///         Segments are cut where the queue changes and nowhere else. Passes are never reordered:
     ///         a schedule is a partition of the declaration order, which is what lets the two ways of
     ///         running one frame be compared call for call.
@@ -1096,9 +1130,13 @@ public sealed class RenderGraph {
         GraphPass? first = null;
 
         foreach (var pass in passes) {
-            pass.Queue = hoisting && pass.Survives && pass.Kind == PassKind.Compute && !pass.HasAttachments
-                ? QueueKind.Compute
-                : QueueKind.Graphics;
+            pass.Queue = hoisting
+                && pass.Survives
+                && pass.Kind == PassKind.Compute
+                && !pass.HasAttachments
+                && pass.DeclaresProduction
+                    ? QueueKind.Compute
+                    : QueueKind.Graphics;
 
             first ??= pass.Survives ? pass : null;
         }
@@ -1152,6 +1190,117 @@ public sealed class RenderGraph {
         if (imported && open!.Queue != QueueKind.Graphics) {
             segments.Add(new(segments.Count, QueueKind.Graphics, passes.Count, passes.Count - 1));
         }
+    }
+
+    /// <summary>Decides which transients are worth sharing between queue families outright.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The thing exclusive sharing costs is not the barrier — it is the turn-taking.</b>
+    ///         Under exclusive sharing a queue family <em>owns</em> a resource, and owning follows
+    ///         use: the moment a second queue reads it, the first has to release it and the second to
+    ///         acquire it, and the acquire cannot start until the release has finished. So a depth
+    ///         buffer that the graphics queue drew and that two compute passes then both merely
+    ///         <em>read</em> makes those two compute passes take turns — over a resource neither of
+    ///         them is changing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why the rule is exactly "read by more than one queue, written by at most
+    ///         one".</b> That is the case where ownership is buying nothing: nobody is racing to
+    ///         change the contents, so there is nothing for a handover to make visible that the
+    ///         read-after-write edge does not already. Two <em>writers</em> on two queues is the
+    ///         opposite case — there the handover is the whole point, and this leaves it alone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Transients only.</b> Sharing is a property of the created resource, not of the
+    ///         frame, so it can only be asked for by whatever calls the create — which for an import
+    ///         is somebody else. An import's own description is read and believed instead: an
+    ///         importer that made its texture <see cref="ResourceSharing.Concurrent" /> gets the
+    ///         handover-free read, and one that did not keeps the handover it needs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not free, and deliberately narrow because of it.</b> Some hardware answers a
+    ///         concurrently-shared image by declining to compress it, which is a bandwidth cost paid
+    ///         on every access for a synchronisation saving taken twice a frame. Asking for it only
+    ///         where two queues would otherwise take turns is what keeps that trade the right way up
+    ///         — and on a single-family device nothing is asked for at all, because there is no
+    ///         second queue for the schedule to have put a reader on.
+    ///     </para>
+    /// </remarks>
+    void PlanSharing() {
+        foreach (var resource in resources) {
+            resource.ReaderQueues = 0;
+            resource.WriterQueues = 0;
+
+            // An import was made by somebody else, so what it was made as is the only answer
+            // available. A transient starts from what the caller described and may be upgraded.
+            resource.Sharing = resource.IsTexture
+                ? resource.TextureDescription.Sharing
+                : resource.BufferDescription.Sharing;
+        }
+
+        if (!AnySegmentLeavesGraphics()) {
+            return;
+        }
+
+        foreach (var pass in passes) {
+            if (!pass.Survives) {
+                continue;
+            }
+
+            var bit = 1 << (int)pass.Queue;
+
+            foreach (var use in pass.Uses) {
+                var resource = resources[(use.IsTexture ? use.Texture.Index : use.Buffer.Index) - 1];
+
+                if (use.IsWrite) {
+                    resource.WriterQueues |= bit;
+                } else {
+                    resource.ReaderQueues |= bit;
+                }
+            }
+        }
+
+        foreach (var resource in resources) {
+            if (resource.IsImported || resource.Sharing == ResourceSharing.Concurrent) {
+                continue;
+            }
+
+            // ⚠ Two *readers*, not two users. A resource written on one queue and read on another is
+            // one handover for a dependency that genuinely exists — the reader has to wait for the
+            // write whatever the sharing mode says — so making it concurrent would trade the
+            // driver's compression away for nothing. It is two queues that both only want to look at
+            // it that ownership makes take turns for no reason.
+            if (BitOperations.PopCount((uint)resource.ReaderQueues) > 1
+                && BitOperations.PopCount((uint)resource.WriterQueues) <= 1) {
+                resource.Sharing = ResourceSharing.Concurrent;
+
+                if (resource.IsTexture) {
+                    resource.TextureDescription = resource.TextureDescription with {
+                        Sharing = ResourceSharing.Concurrent
+                    };
+                } else {
+                    resource.BufferDescription = resource.BufferDescription with {
+                        Sharing = ResourceSharing.Concurrent
+                    };
+                }
+            }
+        }
+    }
+
+    /// <summary>Whether the segments just built put anything on a queue other than graphics.</summary>
+    /// <remarks>
+    ///     Asked of the segments rather than of <see cref="Schedule" />, which does not exist yet
+    ///     when <see cref="PlanSharing" /> runs — the schedule is what all of this is being built to
+    ///     produce.
+    /// </remarks>
+    bool AnySegmentLeavesGraphics() {
+        foreach (var segment in segments) {
+            if (segment.Queue != QueueKind.Graphics) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1219,7 +1368,12 @@ public sealed class RenderGraph {
                     }
                 }
 
-                var crosses = resource.CurrentQueue != pass.Queue;
+                // ⚠ A concurrently-shared resource never crosses, because it is never owned. That is
+                // the whole of what concurrent sharing buys: the two reads below no longer take
+                // turns, and each waits on the write that produced the contents instead of on
+                // whichever queue happened to read it last. See PlanSharing.
+                var crosses = resource.Sharing == ResourceSharing.Exclusive
+                    && resource.CurrentQueue != pass.Queue;
 
                 // A write to a resource already in the same state still needs a barrier: two passes
                 // writing the same target back to back is a write-after-write hazard, and nothing
@@ -1275,7 +1429,11 @@ public sealed class RenderGraph {
             var wantsState = resource.ExitState != ResourceState.Undefined
                 && resource.CurrentState != resource.ExitState;
 
-            var wantsQueue = resource.CurrentQueue != QueueKind.Graphics;
+            // Nothing to hand back where nothing was ever taken: a concurrent resource has no owner
+            // to restore. (Imports are never upgraded to concurrent by the graph, so this is only
+            // ever true of one its importer created that way and knows about.)
+            var wantsQueue = resource.Sharing == ResourceSharing.Exclusive
+                && resource.CurrentQueue != QueueKind.Graphics;
 
             if (!wantsState && !wantsQueue) {
                 continue;
