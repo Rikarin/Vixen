@@ -222,15 +222,26 @@ function of how fast the machine rendered, which is exactly the wall-clock non-r
 
 ⚠ **Measure the walking floor before concluding anything from a walking diff.** It is not the still
 floor, and neither is a constant — see the table above and the sample's README for the numbers this
-repository has measured. On this repository's arena the walking floor came out about **six times
-tighter** than the still floor from the same start pose, which is the opposite of what was expected:
-the floor turns out to be a property of what is on screen rather than of whether the camera moved.
+repository has measured. On this repository's arena the walking floor is the **tighter** of the two,
+which is the opposite of what was expected: the floor turns out to be a property of what is on screen
+rather than of whether the camera moved, and the walking route ends in grass while the still pose looks
+at built surfaces.
 
-⚠ Those walking numbers were measured while a character carrying `PhysicsInterpolation` walked at half
-the speed its `CharacterMovement` asked for — an engine defect the same harness found and which is now
-fixed. A script's durations are against the level's own walk speed again, so the same script covers
-twice the ground and sees twice as much of the level: **re-measure the floor rather than quoting these
-numbers.** The sample's README says what the mechanism was.
+⚠ **How much tighter depends on the statistic, so a single ratio is not a thing to carry around.**
+Ten headless runs of one build from one start pose — four walking, six still — put the walking view at
+0.117 % spread on the whole-frame mean channel against the still view's 0.487 %, and at 0.077 % on a
+band count against 4.95 %. That is a factor of four and a factor of sixty out of the same ten runs.
+An earlier edition of this paragraph said "about six times", from one pair of runs each, through the
+windowed process, and while a character carrying `PhysicsInterpolation` walked at half the speed its
+`CharacterMovement` asked for — an engine defect the same harness found and which is now fixed. **Take
+the numbers from `Samples/13-ThirdPersonShooter/README.md`, and re-measure on the view you intend to
+use.**
+
+⚠ **The still floor on built surfaces is well outside the floors this page quotes above.** Those were
+measured on the grass field; the arena's still view came back ten times looser on the mean channel and
+twenty times looser on the band, over six runs whose every reported counter — probes placed, pages
+marked and resident, textures loaded, mip swaps — was identical. The counters agreeing is not evidence
+the pictures do.
 
 ### Two frames of one run, rather than two runs
 
