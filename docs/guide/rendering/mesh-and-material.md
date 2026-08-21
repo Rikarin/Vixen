@@ -258,6 +258,13 @@ public static class Crates {
 }
 ```
 
+⚠ **`CastsShadows` is spelled out because a zeroed struct says `false`.** `MeshRenderables.Default`
+sets it for the same reason, and the editor's Add Component goes through that — but a renderable built
+field-by-field, as above, casts nothing unless the line is there. What it costs when it is *not* set is
+a stage bit, so it only bites in a project that has named its caster stages; see
+[shadows](shadows.md) for that wiring and for why toggling the flag on a live scene needs
+`MeshExtractionSystem.Resettle`.
+
 ⚠ **A null material reference is a usable value, not a mistake.** A block-out mesh dropped into a level
 before anybody has made a material for it draws with `MeshExtractionSystem.Material`, the renderer's
 neutral default. A null *mesh* reference is different: nothing is drawn, because an entity whose shape

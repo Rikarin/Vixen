@@ -136,6 +136,46 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public RenderStageMask StaticStages { get; set; }
 
+    /// <summary>
+    ///     Which of the stages in <see cref="Stages" /> and <see cref="StaticStages" /> draw shadows,
+    ///     or none to draw every mesh into all of them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What makes <see cref="MeshRenderable.CastsShadows" /> mean something.</b> That flag
+    ///         is authored, inspected and saved, and until this was settable nothing read it: an
+    ///         object that says it casts no shadow was stamped with the same mask as one that does,
+    ///         so it cast one anyway. The flag names a property of the <em>object</em> and a stage is
+    ///         the only thing a render object carries, so the two meet here — a drawable with the
+    ///         flag clear is stamped with its mask minus these bits.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both caster sets, not just the movers'.</b> An entity is stamped from
+    ///         <see cref="Stages" /> or from <see cref="StaticStages" /> and either may be the one a
+    ///         non-caster has to be taken out of — a level wall carrying
+    ///         <see cref="StaticShadowCaster" /> with the flag clear would otherwise be drawn into the
+    ///         cached atlas, where its shadow then survives every frame that does not bump
+    ///         <c>ShadowMapRenderer.StaticVersion</c>. A host naming its stages by hand unions both
+    ///         lists; <c>GraphicsOptions.CasterStages</c> and <c>StaticCasterStages</c> are what
+    ///         <c>AppGraphics</c> unions to get here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Default is none, which ignores the flag rather than obeying it</b> — the same
+    ///         trade <see cref="StaticStages" /> makes, and for a sharper reason. A zeroed
+    ///         <see cref="MeshRenderable" /> has <see cref="MeshRenderable.CastsShadows" /> clear, and
+    ///         a scene file that predates the field or simply omits it deserialises to exactly that.
+    ///         A host that has not named its caster stages would otherwise lose every shadow in such a
+    ///         scene at once, silently, which is a worse failure than the one this fixes.
+    ///     </para>
+    ///     <para>
+    ///         <b><see cref="PrimitiveShape" /> has no such flag and is always drawn into all of
+    ///         them.</b> Adding one would change a component's layout, which every saved scene is a
+    ///         copy of; a block-out cube that must not cast a shadow is a mesh entity, not a
+    ///         primitive.
+    ///     </para>
+    /// </remarks>
+    public RenderStageMask CasterStages { get; set; }
+
     /// <summary>What a drawable that names no material of its own is drawn with.</summary>
     /// <inheritdoc cref="MeshExtractionSystem" path="/remarks/para[3]" />
     public Material? Material { get; set; }
@@ -263,6 +303,60 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         return true;
     }
 
+    /// <summary>Unsettles every extracted entity, so the next <see cref="Extract" /> stamps them
+    /// afresh.</summary>
+    /// <param name="world">The world.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a change this system reads only at creation takes effect through.</b> An
+    ///         entity is "settled" precisely by carrying a <see cref="RenderHandle" /> — the appeared
+    ///         queries are <c>.WithNone&lt;RenderHandle&gt;()</c> — so a stage mask, a material or a
+    ///         mesh reference edited afterwards reaches nothing until the handle goes. Toggling
+    ///         <see cref="MeshRenderable.CastsShadows" /> or adding <see cref="StaticShadowCaster" />
+    ///         on a live scene is the case this exists for, and assigning <see cref="Stages" /> after
+    ///         a frame document is swapped is the one the editor already used a private copy of this
+    ///         for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The render object and the residency claim go with the handle, not after it.</b>
+    ///         Removing the component alone would leave the entity matching the appeared query while
+    ///         still holding a slot in the store and a claim on its geometry — a leak per entity per
+    ///         call, and a handle pointing at a slot something else has since taken.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Re-stamping a mask is not re-drawing an atlas.</b> A static caster taken out of
+    ///         the caster stages by this stops being drawn into the cache; the shadow already in the
+    ///         cache stays until <c>ShadowMapRenderer.StaticVersion</c> is bumped, which is the same
+    ///         bargain <see cref="StaticShadowCaster" /> describes and the same escape hatch.
+    ///     </para>
+    /// </remarks>
+    public void Resettle(World world) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        pending.Clear();
+
+        // ⚠ Collected before anything is removed. Removing a component moves the entity to another
+        // archetype, which is a structural change under the chunk being walked.
+        foreach (var chunk in world.Chunks(new QueryDescription().WithAll<RenderHandle>())) {
+            pending.AddRange(chunk.Entities[..chunk.Count]);
+        }
+
+        foreach (var entity in pending) {
+            var handle = world.Read<RenderHandle>(entity);
+
+            system.Objects.Remove(handle.Object);
+
+            // Under the entity's name, which is the same claim the handle records — one release, not
+            // two.
+            Forget(entity);
+
+            world.Remove<RenderHandle>(entity);
+        }
+
+        pending.Clear();
+    }
+
     /// <summary>Drops everything, for a world being torn down.</summary>
     public void Clear() {
         foreach (var key in claimed.Values) {
@@ -329,7 +423,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
                 continue;
             }
 
-            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => mesh, material);
+            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => mesh, material, renderable.CastsShadows);
         }
 
         pending.Clear();
@@ -347,7 +441,9 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
                 continue;
             }
 
-            Add(world, entity, GeometryKey.Of(kind), () => MeshPrimitives.Create(kind), material);
+            // Always a caster: a primitive carries no flag to say otherwise, and `CasterStages`
+            // explains why it does not get one.
+            Add(world, entity, GeometryKey.Of(kind), () => MeshPrimitives.Create(kind), material, casts: true);
         }
     }
 
@@ -388,7 +484,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         var id = system.Objects.Add(
             new() {
                 Bounds = bounds,
-                Stages = Staged(world, entity),
+                Stages = Staged(world, entity, renderable.CastsShadows),
                 FeatureIndex = Virtualized.Index
             }
         );
@@ -417,15 +513,35 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         return true;
     }
 
-    /// <summary>Which stages this entity is drawn in — the movers' set, or the level's.</summary>
+    /// <summary>Which stages this entity is drawn in — the movers' set, or the level's, less the
+    /// shadow ones when it casts none.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <param name="casts">Whether it is drawn into the shadow stages at all.</param>
+    /// <returns>The mask to stamp on its object.</returns>
     /// <remarks>
-    ///     ⚠ <b>Asked once, when the object is created, because that is when a mask is stamped.</b> A
-    ///     settled entity is never re-extracted, so an entity that gains or loses
-    ///     <see cref="StaticShadowCaster" /> after it first drew keeps the mask it already has. See
-    ///     <see cref="StaticStages" /> for why an unset one is ignored rather than obeyed.
+    ///     <para>
+    ///         <b>Two independent questions, in this order.</b> <see cref="StaticShadowCaster" />
+    ///         chooses <em>which</em> caster stages an entity would be in, and
+    ///         <see cref="MeshRenderable.CastsShadows" /> chooses whether it is in any of them —
+    ///         which is why the flag is applied to whichever set the first question picked rather
+    ///         than to <see cref="Stages" /> alone. Clearing the flag on a static caster has to leave
+    ///         it in neither set, and testing it before the split would leave it in the cached one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asked once, when the object is created, because that is when a mask is stamped.</b>
+    ///         A settled entity is never re-extracted, so an entity that gains or loses
+    ///         <see cref="StaticShadowCaster" />, or whose flag is toggled, after it first drew keeps
+    ///         the mask it already has — <see cref="Resettle" /> is what makes such a change take
+    ///         effect. See <see cref="StaticStages" /> and <see cref="CasterStages" /> for why an
+    ///         unset mask is ignored rather than obeyed.
+    ///     </para>
     /// </remarks>
-    RenderStageMask Staged(World world, Entity entity) =>
-        !StaticStages.IsEmpty && world.Has<StaticShadowCaster>(entity) ? StaticStages : Stages;
+    RenderStageMask Staged(World world, Entity entity, bool casts) {
+        var mask = !StaticStages.IsEmpty && world.Has<StaticShadowCaster>(entity) ? StaticStages : Stages;
+
+        return casts ? mask : mask.Except(CasterStages);
+    }
 
     /// <summary>Records a material the resolve pass will have to dispatch for.</summary>
     /// <remarks>
@@ -468,7 +584,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         return true;
     }
 
-    void Add(World world, Entity entity, GeometryKey key, Func<MeshData> build, Material? material) {
+    void Add(World world, Entity entity, GeometryKey key, Func<MeshData> build, Material? material, bool casts) {
         if (!residency.Acquire(key, build, out var slice, out var local)) {
             Dropped++;
             return;
@@ -480,7 +596,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         var id = system.Objects.Add(
             new() {
                 Bounds = Transformed(local, world.Read<WorldTransform>(entity).Value),
-                Stages = Staged(world, entity),
+                Stages = Staged(world, entity, casts),
                 FeatureIndex = meshes.Index
             }
         );

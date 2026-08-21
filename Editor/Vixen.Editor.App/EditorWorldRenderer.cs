@@ -772,35 +772,12 @@ sealed class EditorWorldRenderer : IDisposable {
 
     /// <summary>Drops every extracted object, so the next <see cref="Extract" /> makes them again.</summary>
     /// <remarks>
-    ///     ⚠ <b>The <c>RenderHandle</c> is what has to go, not the object.</b> An entity is "settled"
-    ///     precisely by carrying one — <c>MeshExtractionSystem</c>'s appeared query is
-    ///     <c>.WithNone&lt;RenderHandle&gt;()</c> — so removing the object alone would leave the entity
-    ///     matching nothing, holding a handle to a slot that has been reused.
+    ///     ⚠ <b>The <c>RenderHandle</c> is what has to go, not the object</b> — an entity is "settled"
+    ///     precisely by carrying one. That is <c>MeshExtractionSystem.Resettle</c>'s whole job, and it
+    ///     owns the store and the residency claim this would otherwise have to reach through, so this
+    ///     is a forward rather than a copy.
     /// </remarks>
-    void Resettle(World world) {
-        var settled = new QueryDescription().WithAll<RenderHandle>();
-        var pending = new List<Vixen.Core.Entity>();
-
-        // ⚠ Collected before anything is removed. Removing a component moves the entity to another
-        // archetype, which is a structural change under the chunk being walked.
-        foreach (var chunk in world.Chunks(settled)) {
-            foreach (var entity in chunk.Entities[..chunk.Count]) {
-                pending.Add(entity);
-            }
-        }
-
-        foreach (var entity in pending) {
-            var handle = world.Read<RenderHandle>(entity);
-
-            Renderer.Host.System.Objects.Remove(handle.Object);
-
-            // Releases the residency claim under the entity's name, which is the same claim the
-            // handle records — one release, not two.
-            Meshes.Forget(entity);
-
-            world.Remove<RenderHandle>(entity);
-        }
-    }
+    void Resettle(World world) => Meshes.Resettle(world);
 
     /// <summary>Brings the frame's objects and lights up to date with a world.</summary>
     /// <param name="world">The scene document's world.</param>

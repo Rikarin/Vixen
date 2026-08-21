@@ -81,6 +81,7 @@ Vixen.App.AppGraphics.AdvanceDebug(float seconds) -> void
 Vixen.App.AppGraphics.AppGraphics(Vixen.Graphics.IGraphicsDevice device, Vixen.App.GraphicsOptions options, Vixen.Platform.IWindow? window, Vixen.Assets.AssetManager? assets, Vixen.Shaders.EffectStore? shaders, Vixen.Engine.Frames.EngineLoop? engine, Microsoft.Extensions.Logging.ILoggerFactory logs, bool ownsDevice = true) -> void
 Vixen.App.AppGraphics.Begin() -> bool
 Vixen.App.AppGraphics.Camera.get -> Vixen.Rendering.Ecs.CameraExtractionSystem
+Vixen.App.AppGraphics.CasterStages.get -> Vixen.Rendering.RenderStageMask
 Vixen.App.AppGraphics.Commands.get -> Vixen.Graphics.ICommandList?
 Vixen.App.AppGraphics.Console.get -> Vixen.Engine.Diagnostics.Overlays.ConsoleCommands?
 Vixen.App.AppGraphics.Debug.get -> Vixen.Engine.Diagnostics.DebugDraw?
