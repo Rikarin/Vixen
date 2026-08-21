@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Terrain.Physics.TerrainColliders]
 tags: [editor, terrain, sculpt, collision, physics]
 since: 0.1
 status: preview
-related: [editor/terrain-mode, engine/terrain-collision, engine/terrain-sculpting, engine/terrain-heightfield]
+related: [editor/terrain-mode, editor/play-mode-systems, engine/terrain-collision, engine/terrain-sculpting, engine/terrain-heightfield]
 ---
 
 ## What it is
@@ -53,35 +53,33 @@ The module reads it in its per-frame follow, so publishing it after the toolset 
 host acquires a physics world when it has a reason to, which is not necessarily before its plugins
 activated.
 
-### ⚠ The editor Vixen ships publishes none, and that is not an oversight
+### The editor Vixen ships publishes one, and it is a switch over a session
 
-`EditorApplication` holds no `PhysicsScene`; nothing under `Editor/` does, and no assembly under
-`Editor/` even references `Vixen.Physics`. Play mode steps a system graph, but not one with physics
-in it, so there is still no simulation for a stroke to keep in step with. A sculpt stroke in the
-shipped editor therefore rebuilds no collision **because there is none to rebuild** — not because the
-seam is unfed. Publishing the service is what an embedding host does when that changes.
+⚠ **This section used to say the opposite, and the change is worth reading rather than skipping.**
+Until 2026-08-21 the editor did not merely lack a physics world — it ran **no systems at all**:
+`PlayModeController.ShouldTick` had no caller in the product, so pressing Play snapshotted the world,
+maximised the viewport and stepped nothing. A `PhysicsScene` published then would have been a world
+nothing called `Synchronize` on.
 
-⚠ **What was missing was a whole tier below a `PhysicsScene`, and that tier now exists.** Until
-2026-08-21 the editor did not merely lack a physics world — it ran **no systems at all**.
-`PlayModeController.ShouldTick`, the method that decides whether the game loop advances this frame,
-had no caller in the product; its only callers were its own tests. Pressing Play snapshotted the
-world, maximised the viewport and showed a notification, and nothing then stepped, so a
-`PhysicsScene` published here would have been a physics world nothing ever called `Synchronize` on.
+Both halves are closed now. `PlayModeController` steps a real `EngineLoop`, and `IPlaySystems` is how
+something that owns a service adds the systems that need it — see
+[what a play session runs](play-mode-systems.md). `Vixen.Editor.App` contributes a `PhysicsScene` over
+the world being edited; `TerrainPhysicsModule`, named in `EditorModules.Standard`, publishes the
+`ITerrainColliders` the toolset resolves and runs a `TerrainColliderSystem` over that scene.
 
-Play mode now steps a real `EngineLoop` over the world being edited, and `PlayModeController.Loop`
-is the seam a host adds to. What is still missing is narrower and is not this subsystem's either:
-`Vixen.Editor.App` does not reference `Vixen.Physics`, so the shipped editor still constructs no
-`PhysicsScene` — and nothing in a project *declares* which systems its scene wants, so a session runs
-the engine's default graph (behaviours, coroutines, transforms) and says on entry what it is not
-running. An embedding host that owns a physics world can add its four systems to `Loop` and publish
-`ITerrainColliders` beside them, which is what the per-frame `BindColliders` resolution above was
-built to accept. See [docs/plan/11 § Play mode runs a system
-graph](https://github.com/Rikarin/Vixen/blob/master/docs/plan/11-editor.md#play-mode-runs-a-system-graph).
+⚠ **The published service is not a `TerrainColliders`, and that is the design.** `BindColliders`
+resolves once and keeps the answer, and `PluginServices` has no removal — so the object published has
+to outlive every session, while the collider system behind it exists only while one runs. What is
+published is a switch: it forwards to the session's adapter, and when nothing is playing it counts
+the stroke and rebuilds nothing, which is this page's own "null is a terrain with no collision, not
+an error" wearing a counter.
 
-⚠ **Note what `Vixen.Editor.App` already references and what it does not.** It references
-`Core/Vixen.Water.Physics` — for `BuoyancyBody`'s icon and its Add Component entry, so the *type* can
-be placed on an entity. That is the editor knowing a physics component exists, not the editor running
-physics, and it is the shape the terrain case would take too.
+⚠ **Physics belongs to play, not to editing.** Nothing simulates while the editor is editing — a body
+falling under a gizmo drag is a scene that edits itself — and the session lifetime is also what keeps
+the collider system's tile entities inside what a stop restores, rather than in somebody's scene file.
+
+An embedding host that is *not* the editor still does what this page's first example does: construct
+the adapter over its own system and publish it.
 
 ### ⚠ `Missed` is the number that says the wiring is wrong
 

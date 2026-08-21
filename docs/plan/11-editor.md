@@ -321,6 +321,14 @@ There is **no** `AddStandardSystems` and nothing in a project says which of its 
 So an in-editor session cannot reproduce a game's frame by scheduling harder; it would have to run the
 game's boot path, which is what the out-of-process topology already is.
 
+⚠ **Half of that table has since been reached, and it is worth being exact about which half.** A
+system whose service the *editor* can own — a `PhysicsScene`, and on the same terms an `AudioEngine`
+or a navmesh `Crowd` — is added by an `IPlaySystems` contribution, which is how the shipped editor now
+runs physics and terrain collision. A system whose service is the *project's* is still out of reach,
+because constructing it means running the project's `OnInitialise`. The row that moved is the game's,
+for the entries an editor can honestly supply; the rows that did not are `AppBuilder`'s and
+`AppGraphics`', where the editor already has a second, differently-aimed one of each.
+
 ⚠ **Which makes the rule for this feature: run a whole graph of a named set, and name what is
 missing.** A Play button that runs most of a frame and says nothing makes the missing part read as a
 gameplay bug, and that is worse than a button that does nothing — the failure has moved from the
@@ -337,6 +345,13 @@ transform pass on a frame that ticked, the authored behaviours cross the snapsho
 back untouched, the session's behaviours are destroyed before the restore clears the world, and
 `EnterPlay` reports the gap. `PlayGraphTests` asserts a frame happened.
 
+Built since (2026-08-21): `IPlaySystems` and `PlaySession`, so a module can add systems to a session
+and have them taken away again; `EnterPlay`'s report reads the set out of `PlaySession.Running`
+instead of a fixed sentence that would now be false; a contribution whose `Attach` throws is named in
+`PlayModeController.Refused` rather than failing the session. `PlaySystemsTests` asserts the lifetime
+— a system that runs inside a session and not before it, an owned resource disposed while the world
+is still there, a second Play that attaches again.
+
 Owed, in the order that unblocks the most:
 
 1. **A project declares its frame.** The one thing that would turn this from "behaviours run" into
@@ -344,9 +359,25 @@ Owed, in the order that unblocks the most:
    collects the way `[Component]` and `[Node]` already are — plus a way for a system to name the
    service it needs so a host can refuse rather than crash. Until it exists, every row of the table
    above is a hand-registration an editor cannot repeat.
-2. **A `PhysicsScene` in the editor**, which is [31 § D10](31-terrain-grass-and-trees.md)'s blocker
-   and now has somewhere to be stepped. `Vixen.Editor.App` does not reference `Vixen.Physics`;
-   `PlayModeController.Loop` is the seam that makes referencing it worth something.
+2. ✅ **A `PhysicsScene` in the editor** — [31 § D10](31-terrain-grass-and-trees.md)'s blocker,
+   closed 2026-08-21. `Vixen.Editor.App` references `Vixen.Physics` and contributes a `PlayPhysics`
+   that builds a scene over the world being edited on Play and disposes it on Stop; `AddPhysics` puts
+   the four fixed-step passes and the interpolation into the session's loop.
+   `Editor/Vixen.Editor.Terrain.Physics` is now a *module* as well as an adapter, publishing the
+   `ITerrainColliders` the sculpt tools resolve and running `TerrainColliderSystem` over that scene.
+
+   ⚠ **It went in as a general mechanism rather than as four lines in `EnterPlay`, and the reason is
+   the layering rather than taste.** `Vixen.Editor.App` may not reference `Editor/Vixen.Editor.Terrain`,
+   so it cannot publish an `ITerrainColliders`; the terrain toolset may not link physics. The join has
+   to be a module, and a module can only reach a session's frame if there is a seam for it — which is
+   `IPlaySystems`, an `IEditorRegistry` contribution read at every `Play`, and `PlaySession`, which
+   owns the lifetime, carries the teardown, passes one contribution's service to the next and collects
+   the names the entry report reads out. See `docs/guide/editor/play-mode-systems.md`.
+
+   ⚠ **Physics belongs to play, not to editing**, and the session lifetime is what makes that true:
+   the snapshot is captured before any contribution attaches, so the entities a collider system creates
+   are inside what the restore clears rather than something that lands in a person's scene file. Pause
+   and Step need nothing from a contribution — `Tick` is what decides whether `Frame` is called at all.
 3. **Play through the game camera**, and with it the question of whether a session drives the
    viewport's `RenderView` or its own.
 4. **Additive scenes.** The controller is given one `BehaviorStore` — the first document's — and a

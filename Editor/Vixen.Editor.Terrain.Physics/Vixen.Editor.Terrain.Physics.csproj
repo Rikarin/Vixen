@@ -31,10 +31,34 @@
         -->
         <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Terrain.Physics\Vixen.Terrain.Physics.csproj" />
+
+        <!--
+            ⚠ And the three the *module* needs, which is the half that turns the adapter above into
+            something the shipped editor runs. `Vixen.Editor.Plugin` is the door — this registers in
+            `EditorModules.Standard` beside Terrain — `Vixen.Editor.SceneView` is where `IPlaySystems`
+            and `PlaySession` live, and `Vixen.Rendering.Terrain` is where `ITerrainScene` does: the
+            editor's answer to "what ground is placed and where", which is what an `ITerrainPlacements`
+            is over.
+
+            All three arrive transitively through Vixen.Editor.Terrain already; they are named because
+            this assembly compiles against them, and a reference nobody wrote down is one the next
+            person removes.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Editor.Terrain.Physics.Tests" />
+
+        <!--
+            ⚠ And the application's suite, which is where the end-to-end claim is made: a stroke in a
+            *live editor* reaching a real Jolt height field. `PlayColliders` is the switch that claim
+            is read off — its two counters are the only symptom the wiring has — and publishing it
+            just so a test can see it would be a public type nobody outside this assembly constructs.
+        -->
+        <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
     </ItemGroup>
 
 </Project>

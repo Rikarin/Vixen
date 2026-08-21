@@ -8,8 +8,14 @@ Feeds the sculpt tools' collision seam.
 - Neither may reference the other. `build/Build.ArchitectureRules.cs` fails a `Core/` project that
   references an `Editor/` one, and the toolset deliberately links no physics.
 
-So this is the assembly between them: **one type, two references**, which is
-`Vixen.Terrain.Physics`' own arrangement one layer up, and `Vixen.Water.Physics`' before that.
+So this is the assembly between them: `Vixen.Terrain.Physics`' own arrangement one layer up, and
+`Vixen.Water.Physics`' before that.
+
+It is now two things rather than one. `TerrainColliders` is the adapter — the seam's implementation,
+for any host that has a physics world. `TerrainPhysicsModule` is what makes the **shipped editor** one
+of those hosts: it is named in `EditorModules.Standard`, publishes the `ITerrainColliders` the sculpt
+tools resolve, and contributes an `IPlaySystems` that runs a `TerrainColliderSystem` over the
+`PhysicsScene` the editor application stands up when Play is pressed.
 
 ```csharp
 var system = new TerrainColliderSystem(physics, placements);
@@ -41,24 +47,33 @@ pass skips a tile whose stamp still matches. A stroke pushed through here is the
 again on the next frame — which matters, because `PhysicsShapes` never releases a shape. What the
 push adds over the poll is only *when*: the frame the artist let go of the mouse.
 
-## ⚠ The editor Vixen ships publishes no `ITerrainColliders`
+## The editor Vixen ships now publishes one, and it is a switch
 
-`EditorApplication` holds no `PhysicsScene` and nothing under `Editor/` even references
-`Vixen.Physics` — its play mode steps a system graph, but not one with physics in it. So a sculpt
-stroke in the shipped editor rebuilds no collision **because there is none to rebuild**, which is a different statement
-from the seam being unfed. A host that has a physics world publishes the service and the toolset
-picks it up.
+`TerrainModule.BindColliders` resolves `ITerrainColliders` in its per-frame follow and **keeps the
+first answer**, and `PluginServices` has no removal. The physics world, meanwhile, exists only while a
+play session does — physics belongs to play, not to editing, because a body that falls while somebody
+drags a gizmo is a scene that edits itself, and because the tile entities a collider system creates
+have to be *inside* what a stop restores rather than something that lands in a person's scene file.
 
-⚠ **The missing piece used to be a tier below a physics scene — the editor ran no systems at
-all — and that tier landed on 2026-08-21.** `PlayModeController.ShouldTick`, the method that decides
-whether the game loop advances this frame, had no caller in the product; its only callers were its
-own tests, so a `PhysicsScene` published here would have been a physics world nothing calls
-`Synchronize` on. Play mode now steps a real `EngineLoop` over the world being edited and
-`PlayModeController.Loop` is the seam physics attaches to — see docs/plan/11 § *Play mode runs a
-system graph*. What remains is narrower: no assembly under `Editor/` references `Vixen.Physics`, and
-nothing in a project declares which systems its scene wants, so the shipped editor still constructs
-no scene. A host that has one adds the physics systems to `Loop` and publishes this adapter beside
-them.
+Two lifetimes, so two objects:
+
+| Lives for | What it is |
+|---|---|
+| the editor | `PlayColliders`, published once — forwards to whatever is simulating, counts strokes that had nothing to rebuild in |
+| one session | `TerrainColliderSystem` and a `TerrainColliders` over it, created on Play, dropped on Stop |
+
+⚠ **`Idle` is the editing-half counter and `Missed` is the wiring one.** A stroke while nothing plays
+increments `Idle`, which is `ITerrainColliders`' own "a terrain with no collision, not an error". A
+stroke *while a session runs* that increments `Missed` is an `ITerrainPlacements` that does not list
+the ground being sculpted — which has no other symptom.
+
+⚠ **This module builds no simulation of its own.** The `PhysicsScene` comes from
+`PlaySession.TryGet`; a session without one runs no collider system at all. A second physics world
+over one scene is a state in which nothing collides with anything and nothing is raised.
+
+⚠ **And nothing here catches what `TerrainColliderSystem.Rebuild(terrain, tileX, tileZ)` throws.** An
+out-of-range tile index used to corrupt a *different* tile in silence; it throws now, and a wrapper
+that swallowed it would put the silence back with an extra step in front of it.
 
 ## Tests
 

@@ -32,6 +32,14 @@
         <ProjectReference Include="..\Vixen.Editor.Blockout\Vixen.Editor.Blockout.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
 
+        <!--
+            ⚠ And its collision half, which is a separate module for the reason it is a separate
+            assembly: `Vixen.Editor.Terrain` links no physics and `Core/Vixen.Terrain.Physics` may not
+            link the editor, so the thing that joins them is a third project — and until it was named
+            here it was referenced by nothing but its own tests. docs/plan/31 § D10.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Terrain.Physics\Vixen.Editor.Terrain.Physics.csproj" />
+
         <!-- Doc 35 § W9's toolset, on exactly the terrain module's terms. -->
         <ProjectReference Include="..\Vixen.Editor.Water\Vixen.Editor.Water.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Diagnostics\Vixen.Editor.Diagnostics.csproj" />

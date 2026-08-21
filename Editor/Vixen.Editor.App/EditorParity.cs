@@ -2091,17 +2091,26 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     void ReportPlayGaps() {
+        // ⚠ Read off the session rather than written out here, and that is the point of the list
+        // existing. This sentence used to name physics as a thing an in-editor session does not run,
+        // and an `IPlaySystems` contribution has since made that false for the editor Vixen ships —
+        // a fixed sentence would now be a report that lies in the safe direction, which is the one
+        // that costs somebody a day.
+        var added = play.Session?.Running ?? [];
+
         log.Write(
             LogLevel.Information,
-            "Play mode runs behaviours, coroutines and transforms. Physics, audio, input, navigation "
-            + "and the render extractions are a game's own registrations against host services the "
-            + "editor does not have, so an in-editor session does not run them."
+            $"Play mode runs behaviours, coroutines and transforms{Also(added)}. Everything else a "
+            + "game registers in its own OnInitialise — audio, input, navigation, the render "
+            + "extractions — takes a host service the editor does not have, so an in-editor session "
+            + "does not run it."
         );
 
         var systems = ProjectSystems();
         var behaviors = play.Unsupported;
+        var refused = play.Refused;
 
-        if (systems.Count == 0 && behaviors.Count == 0) {
+        if (systems.Count == 0 && behaviors.Count == 0 && refused.Count == 0) {
             return;
         }
 
@@ -2115,12 +2124,29 @@ sealed partial class EditorApplication {
             lines.Add($"{behaviors.Count} behaviour(s) the session could not take over: {string.Join(", ", behaviors)}.");
         }
 
+        // ⚠ A contribution that threw is the loudest of the three, because it is the editor's own
+        // wiring failing rather than a gap the editor never claimed to fill. A session with no
+        // physics after this editor started publishing one is a difference somebody will otherwise
+        // spend the afternoon looking for in their game.
+        if (refused.Count > 0) {
+            lines.Add($"{refused.Count} contribution(s) that failed to start: {string.Join(", ", refused)}.");
+        }
+
         var said = "Not running — " + string.Join(" ", lines);
 
         log.Write(LogLevel.Warning, said);
 
         Shell.Notifications.Show("Play mode is not running everything", NotificationSeverity.Warning, said);
     }
+
+    /// <summary>", plus physics and terrain collision" — or nothing, for a session with no additions.</summary>
+    static string Also(IReadOnlyList<string> added) => added.Count == 0 ? string.Empty : $", plus {Join(added)}";
+
+    /// <summary>A list a person reads: "a", "a and b", "a, b and c".</summary>
+    static string Join(IReadOnlyList<string> parts) =>
+        parts.Count == 1
+            ? parts[0]
+            : string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1];
 
     /// <summary>The <c>ISystem</c> types the project's own assembly declares.</summary>
     /// <remarks>
