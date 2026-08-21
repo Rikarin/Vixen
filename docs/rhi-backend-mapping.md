@@ -47,6 +47,8 @@ cost · **✗** absent, and the RHI must gate on a capability.
 | `ICommandList` | = `VkCommandBuffer` | = `ID3D12GraphicsCommandList` | ⚠ replayed managed buffer | ⚠ same | = `GPUCommandEncoder` | = |
 | Recording on worker threads | = | = | ⚠ **records without a context, replays on the GL thread** | ⚠ same | = | = |
 | `WaitIdle` | = `vkDeviceWaitIdle` | ≈ fence wait | ≈ `glFinish` (heavier) | ≈ | ≈ `onSubmittedWorkDone` | = |
+| `TimelinePoint` + `Submit(lists, waitFor)` | = timeline `VkSemaphore` per queue, `VkTimelineSemaphoreSubmitInfo` | = `ID3D12Fence` is already a timeline | ✗ `HasTimeline` false | ✗ | ✗ one queue, nothing to order against | = via MoltenVK, which reports the feature |
+| …where it is absent | drain the producing queue (`SerialisedQueues`) | — | drain | drain | drain | — |
 
 **The finding.** GL has exactly one command stream and no way to record into it off-thread. The RHI's
 "recording is safe on any thread" contract survives because `GlCommandList` writes into managed memory

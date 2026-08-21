@@ -97,9 +97,14 @@ and the backends refuse a list at neither end.
 ⚠ **Async frames do not alias transients.** "Their lifetimes do not overlap" is a statement about pass
 order, and pass order stops being a statement about time once two queues run at once.
 
-**What it does not buy yet is frame time.** `SerialisedQueues` enforces each wait edge by draining the
-producing queue, because that is the only cross-queue primitive the RHI has; the fast path wants
-timeline semaphores, which `GraphicsDeviceFeatures.HasTimelineSemaphores` already detects and nothing
-consumes. See [the guide page](../../docs/guide/rendering/async-compute.md).
+**A wait edge is enforced by value where the device can.** `DeviceQueues` submits each segment with
+the `TimelinePoint`s its producers reached, so the device waits and the calling thread does not;
+`SerialisedQueues` is the same frame with each edge enforced by draining the producing queue, and is
+what `DeviceQueues` becomes where `HasTimelineSemaphores` is false.
+
+**What it still does not buy is frame time**, and that is now a hardware fact rather than a missing
+primitive: `Async` hoists a pass only where `HasAsyncCompute` is true, which means a queue *family* of
+its own, and neither MoltenVK on Apple silicon nor lavapipe has one. See
+[the guide page](../../docs/guide/rendering/async-compute.md).
 
 Specified in [`docs/plan/05-graphics-rhi.md`](../../docs/plan/05-graphics-rhi.md) § Render graph.

@@ -3,8 +3,8 @@ title: Scheduling a frame onto two queues
 slug: rendering/async-compute
 kind: guide
 area: Rendering
-summary: What `PassKind` means now that something reads it — how the render graph cuts a frame into per-queue segments, why a resource has to be handed between queues rather than merely barriered, and why the switch is off by default.
-api: [T:Vixen.Graphics.RenderGraph.PassKind, T:Vixen.Graphics.RenderGraph.QueueScheduling, T:Vixen.Graphics.RenderGraph.RenderGraphSchedule, T:Vixen.Graphics.RenderGraph.RenderGraphSegment, T:Vixen.Graphics.RenderGraph.IRenderGraphQueues, T:Vixen.Graphics.RenderGraph.SerialisedQueues]
+summary: What `PassKind` means now that something reads it — how the render graph cuts a frame into per-queue segments, why a resource has to be handed between queues rather than merely barriered, how a submission waits for another queue by value rather than by draining it, and why the switch is off by default.
+api: [T:Vixen.Graphics.RenderGraph.PassKind, T:Vixen.Graphics.RenderGraph.QueueScheduling, T:Vixen.Graphics.RenderGraph.RenderGraphSchedule, T:Vixen.Graphics.RenderGraph.RenderGraphSegment, T:Vixen.Graphics.RenderGraph.IRenderGraphQueues, T:Vixen.Graphics.RenderGraph.DeviceQueues, T:Vixen.Graphics.RenderGraph.SerialisedQueues, T:Vixen.Graphics.TimelinePoint]
 tags: [rendering, render-graph, graphics, synchronisation]
 since: 0.1
 status: preview
@@ -23,7 +23,8 @@ decides whether the graph acts on that:
 
 `Compile` produces a `RenderGraphSchedule`: a list of `RenderGraphSegment`s in declaration order,
 each naming its queue, the passes it covers and the earlier segments its work must not start before.
-`Execute(IRenderGraphQueues)` runs it, asking for one list per segment.
+`Execute(IRenderGraphQueues)` runs it, asking for one list per segment — `DeviceQueues` is the
+implementation to hand it.
 
 ⚠ **Passes are never reordered.** A schedule is a *partition* of the declaration order, not a
 rearrangement of it, and that is what makes the two ways of running one frame comparable call for
@@ -50,6 +51,13 @@ something the existing barrier machinery was saying:
 1. **An execution edge.** `RenderGraphSegment.WaitsOn` names the earlier segments whose work must
    have finished — every read-after-write, write-after-read and write-after-write that crosses a
    queue.
+   How that edge is *enforced* is the device's business, and there are two ways. Where the device has
+   timeline semaphores, each queue keeps a counter: a submission signals the next value and hands
+   back a `TimelinePoint`, and a dependent submission is given that point and waits for it **on the
+   device**, with the calling thread going straight on to record the next segment. Where it does not,
+   the only cross-queue primitive left is draining the producing queue from the host, which is
+   correct and costs the whole benefit.
+
 2. **An ownership transfer.** Under Vulkan's exclusive sharing mode a resource belongs to one queue
    family, and moving it takes *two* barriers naming the same states: a **release** at the end of
    the owning segment's list and an **acquire** in front of the pass that wants it. Record only one
@@ -90,7 +98,7 @@ public static class Clustering {
         });
 
         // One command list per segment, submitted by the graph rather than by the caller.
-        graph.Execute(new SerialisedQueues(device));
+        graph.Execute(new DeviceQueues(device));
         graph.DisposePool();
     }
 }
@@ -124,6 +132,15 @@ other — obvious in a drawing and invisible in a list.
 - **`PassKind.Transfer`.** A Vulkan transfer family accepts copies and *nothing else*, and until now
   nothing read `PassKind` at all — so no pass in the tree has ever had its body checked against
   that. Hoisting those wants an audit, not a switch.
+- **Nothing sets `Scheduling` to `Async` in the engine**, and the audit that would change that is
+  about *declarations*, not about `PassKind`. A wait edge is derived from declared reads and writes,
+  so a compute pass that writes something the graph cannot see gets **no edge** — harmless on one
+  queue, where declaration order is execution order, and a race on two. Nine renderers declare a
+  compute pass today and most pair it with `SideEffect()`; `GpuCullingRenderer`'s declares
+  `SideEffect()` and *no resource uses at all*, and `HiZRenderer`'s says in its own comment that
+  what it writes is not a graph resource. Both would be hoisted into a segment nothing waits for.
+  **That is the audit — every hoistable pass declaring what it touches — and it is owed before any
+  renderer turns this on.**
 - **Transient aliasing, once the frame is on two queues.** "Their lifetimes do not overlap" is a
   statement about pass order, and pass order stops being a statement about *time* the moment two
   queues run at once. Async frames give every transient its own memory.
@@ -157,22 +174,47 @@ sealed class MyQueues : IRenderGraphQueues {
 }
 ```
 
-### Why `SerialisedQueues` is slower than one queue
+### Waiting by value, and waiting by drain
 
-It enforces every wait edge by draining the producing queue, because that is the only cross-queue
-primitive the RHI currently has. The frame therefore does the same work in the same order as a
-single-queue frame and pays for the extra submissions on top.
+`DeviceQueues` picks per device and says which it picked:
 
-⚠ **That is the state of the feature, not a detail of one class.** The primitive the fast path wants
-is a timeline semaphore — one counter per frame, each submission signalling a value and each
-dependent submission waiting on the value its producer signalled.
-`GraphicsDeviceFeatures.HasTimelineSemaphores` already says which devices have them and is read by
-nothing; that flag and this class are two halves of the same unfinished sentence, and the RHI needs a
-way to submit with a wait value before they can be joined.
+```csharp no-compile="a fragment — the device is the one above"
+var queues = new DeviceQueues(device);
 
-So what `QueueScheduling.Async` buys today is **correctness coverage** — the segmentation, the
-ownership transfers and the wait edges, exercised on a device — and not frame time. A golden image
-taken through it stays valid, because the frame is the same frame.
+// True where every queue has a counter; false on OpenGL, on WebGPU, and on a
+// Vulkan 1.1 driver that declines the feature bit.
+Console.WriteLine(queues.UsesWaitValues);
+```
+
+| | Wait by value | Drain |
+|---|---|---|
+| Needs | `HasTimelineSemaphores` | nothing |
+| Who waits | the device | the calling thread |
+| What else stops | nothing | every other submission on that queue |
+| Spelled | `Submit(lists, waitFor)` → `TimelinePoint` | `WaitIdle()` |
+
+`SerialisedQueues` is the drain path on its own, and it stays public for two jobs: it is what
+`DeviceQueues` becomes where there are no timeline semaphores, and it is the other arm of the A/B
+that proves the two paths draw the same frame.
+
+⚠ **A `TimelinePoint` may only be one a submitter handed back.** Values belong to the queue that
+issues them. One built by hand that is beyond what will ever be signalled is a device-side hang with
+no validation message and no stack; one below it is a wait that returns before the work it named
+finished. The Null backend refuses a point that was never issued, which is the only place that
+mistake is cheap to catch.
+
+### What it still does not buy
+
+**Frame time, on any hardware in this tree.** `QueueScheduling.Async` hoists a pass only where
+`HasAsyncCompute` is true, and that means a queue *family* of its own — which MoltenVK on Apple
+silicon does not have, and lavapipe does not have. On a device with one universal family the
+schedule collapses to a single segment before any of this is reached, and the frame is the frame it
+always was.
+
+So the wait-value path is built, exercised and validation-clean, and what it is waiting for is
+hardware with a second queue family. What `Async` buys meanwhile is **correctness coverage** — the
+segmentation, the ownership transfers and the wait edges. A golden image taken through either path
+stays valid, because the frame is the same frame.
 
 ## See also
 

@@ -621,8 +621,10 @@ Vixen.Graphics.ICommandList.SetStencilReference(uint reference) -> void
 Vixen.Graphics.ICommandList.SetViewport(in Vixen.Core.Mathematics.Viewport viewport) -> void
 Vixen.Graphics.ICommandList.WriteTimestamp(Vixen.Graphics.QueryPoolHandle pool, int index) -> void
 Vixen.Graphics.ICommandSubmitter -> interface
+Vixen.Graphics.ICommandSubmitter.HasTimeline.get -> bool
 Vixen.Graphics.ICommandSubmitter.Kind.get -> Vixen.Graphics.QueueKind
 Vixen.Graphics.ICommandSubmitter.Submit(System.ReadOnlySpan<Vixen.Graphics.ICommandList> lists) -> void
+Vixen.Graphics.ICommandSubmitter.Submit(System.ReadOnlySpan<Vixen.Graphics.ICommandList> lists, System.ReadOnlySpan<Vixen.Graphics.TimelinePoint> waitFor) -> Vixen.Graphics.TimelinePoint
 Vixen.Graphics.ICommandSubmitter.WaitIdle() -> void
 Vixen.Graphics.IGpuScopeSink -> interface
 Vixen.Graphics.IGpuScopeSink.Begin(Vixen.Graphics.ICommandList commands, string name) -> int?
@@ -1067,6 +1069,15 @@ Vixen.Graphics.TextureViewHandle.TextureViewHandle() -> void
 Vixen.Graphics.TextureViewHandle.TextureViewHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuTextureView> Value) -> void
 Vixen.Graphics.TextureViewHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuTextureView>
 Vixen.Graphics.TextureViewHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuTextureView>
+Vixen.Graphics.TimelinePoint -> readonly struct
+Vixen.Graphics.TimelinePoint : System.IEquatable<Vixen.Graphics.TimelinePoint>
+Vixen.Graphics.TimelinePoint.IsNone.get -> bool
+Vixen.Graphics.TimelinePoint.Queue.get -> Vixen.Graphics.QueueKind
+Vixen.Graphics.TimelinePoint.Queue.init -> Vixen.Graphics.QueueKind
+Vixen.Graphics.TimelinePoint.TimelinePoint() -> void
+Vixen.Graphics.TimelinePoint.TimelinePoint(Vixen.Graphics.QueueKind Queue, ulong Value) -> void
+Vixen.Graphics.TimelinePoint.Value.get -> ulong
+Vixen.Graphics.TimelinePoint.Value.init -> ulong
 Vixen.Graphics.VertexBufferLayout -> readonly struct
 Vixen.Graphics.VertexBufferLayout : System.IEquatable<Vixen.Graphics.VertexBufferLayout>
 Vixen.Graphics.VertexBufferLayout.Attributes.get -> Vixen.Graphics.VertexElement[]
@@ -1160,3 +1171,4 @@ static Vixen.Graphics.ScissorRect.Full(Vixen.Core.Mathematics.Int2 size) -> Vixe
 static Vixen.Graphics.ShaderHandle.Null.get -> Vixen.Graphics.ShaderHandle
 static Vixen.Graphics.TextureHandle.Null.get -> Vixen.Graphics.TextureHandle
 static Vixen.Graphics.TextureViewHandle.Null.get -> Vixen.Graphics.TextureViewHandle
+static Vixen.Graphics.TimelinePoint.None.get -> Vixen.Graphics.TimelinePoint

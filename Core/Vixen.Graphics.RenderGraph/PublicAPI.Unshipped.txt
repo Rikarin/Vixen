@@ -1,4 +1,11 @@
 #nullable enable
+Vixen.Graphics.RenderGraph.DeviceQueues -> sealed class
+Vixen.Graphics.RenderGraph.DeviceQueues : Vixen.Graphics.RenderGraph.IRenderGraphQueues
+Vixen.Graphics.RenderGraph.DeviceQueues.Begin(Vixen.Graphics.RenderGraph.RenderGraphSegment segment) -> Vixen.Graphics.ICommandList
+Vixen.Graphics.RenderGraph.DeviceQueues.DeviceQueues(Vixen.Graphics.IGraphicsDevice device) -> void
+Vixen.Graphics.RenderGraph.DeviceQueues.Reset() -> void
+Vixen.Graphics.RenderGraph.DeviceQueues.Submit(Vixen.Graphics.RenderGraph.RenderGraphSegment segment, Vixen.Graphics.ICommandList list) -> void
+Vixen.Graphics.RenderGraph.DeviceQueues.UsesWaitValues.get -> bool
 Vixen.Graphics.RenderGraph.GraphBuffer -> readonly struct
 Vixen.Graphics.RenderGraph.GraphBuffer : System.IEquatable<Vixen.Graphics.RenderGraph.GraphBuffer>
 Vixen.Graphics.RenderGraph.GraphBuffer.Generation.get -> int

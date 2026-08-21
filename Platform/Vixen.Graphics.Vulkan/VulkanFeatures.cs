@@ -41,7 +41,15 @@ static class VulkanFeatures {
     public const string DepthStencilResolve = "VK_KHR_depth_stencil_resolve";
 
     const string DynamicRendering = "VK_KHR_dynamic_rendering";
-    const string TimelineSemaphore = "VK_KHR_timeline_semaphore";
+
+    /// <summary>Timeline semaphores, core in 1.2 and an extension below it.</summary>
+    /// <remarks>
+    ///     Internal rather than private for the <see cref="DescriptorIndexing" /> reason: device
+    ///     creation has to name it in the enabled extension list on a 1.1 device, and two spellings
+    ///     is one typo away from a capability that reports present and a device that was never asked
+    ///     for it.
+    /// </remarks>
+    internal const string TimelineSemaphore = "VK_KHR_timeline_semaphore";
     const string MeshShaderExt = "VK_EXT_mesh_shader";
     const string MeshShaderNv = "VK_NV_mesh_shader";
 
@@ -130,6 +138,11 @@ static class VulkanFeatures {
     ///     What <c>VkPhysicalDeviceShaderAtomicInt64Features</c> said, or all-false where the device was
     ///     never asked — which is the right answer for a device with no 64-bit atomics to ask about.
     /// </param>
+    /// <param name="timeline">
+    ///     What <c>VkPhysicalDeviceTimelineSemaphoreFeatures</c> said, likewise. ⚠ Defaulted, and the
+    ///     default is <em>false</em> — so a caller that forgets it reports a device with no timeline
+    ///     semaphores, which costs a queue drain per cross-queue edge and never costs a hang.
+    /// </param>
     public static GraphicsDeviceFeatures Translate(
         in PhysicalDeviceFeatures features,
         in PhysicalDeviceLimits limits,
@@ -143,7 +156,8 @@ static class VulkanFeatures {
         in PhysicalDeviceAccelerationStructureFeaturesKHR acceleration = default,
         in PhysicalDeviceRayQueryFeaturesKHR rayQuery = default,
         in PhysicalDeviceBufferDeviceAddressFeatures addressing = default,
-        in PhysicalDeviceShaderAtomicInt64Features atomics = default
+        in PhysicalDeviceShaderAtomicInt64Features atomics = default,
+        in PhysicalDeviceTimelineSemaphoreFeatures timeline = default
     ) {
         // ⚠ And a fifth bindable set, which is not part of descriptor indexing and is checked here
         // because nothing else would check it. The engine's table is its own descriptor set — see
@@ -186,7 +200,15 @@ static class VulkanFeatures {
             // — and every driver that promoted it still advertises it, so asking for the extension
             // is both sufficient and the same question device creation enables.
             HasDrawIndirectCount = extensions.Contains(DrawIndirectCount),
-            HasTimelineSemaphores = apiVersion >= Version12 || extensions.Contains(TimelineSemaphore),
+            // The extension or 1.2 says a timeline semaphore is *reachable*; the bit below says the
+            // device will actually create one. Both, the HasBindless stance, and here the two came
+            // apart in the worst possible way: this used to be the version test alone, which is a
+            // claim no device had ever been asked to keep. 1.2 makes
+            // VkPhysicalDeviceTimelineSemaphoreFeatures::timelineSemaphore *exist* and leaves it
+            // optional, and a semaphore created without the feature enabled is invalid usage —
+            // VUID-VkSemaphoreTypeCreateInfo-timelineSemaphore-03252 — which the validation layers
+            // report and MoltenVK would not.
+            HasTimelineSemaphores = HasTimelineSemaphores(extensions, apiVersion) && timeline.TimelineSemaphore,
             HasAsyncCompute = queues.HasAsyncCompute,
             HasAsyncTransfer = queues.HasAsyncTransfer,
             HasSparseResources = features.SparseBinding,
@@ -290,6 +312,21 @@ static class VulkanFeatures {
     public static bool HasDescriptorIndexing(IReadOnlySet<string> extensions, uint apiVersion) {
         ArgumentNullException.ThrowIfNull(extensions);
         return apiVersion >= Version12 || extensions.Contains(DescriptorIndexing);
+    }
+
+    /// <summary>Whether the timeline-semaphore feature structure is worth asking the device about.</summary>
+    /// <param name="extensions">The device extensions it offers.</param>
+    /// <param name="apiVersion">The version it supports.</param>
+    /// <returns>Whether the structure exists here. <b>Not</b> whether the feature is granted.</returns>
+    /// <remarks>
+    ///     The <see cref="HasDescriptorIndexing" /> question for the third family of structures, and
+    ///     asked for the same reason: an all-zero structure back from a device without the extension
+    ///     and an all-zero structure that was never written are the same bytes, and telling them
+    ///     apart afterwards is impossible.
+    /// </remarks>
+    public static bool HasTimelineSemaphores(IReadOnlySet<string> extensions, uint apiVersion) {
+        ArgumentNullException.ThrowIfNull(extensions);
+        return apiVersion >= Version12 || extensions.Contains(TimelineSemaphore);
     }
 
     /// <summary>Whether the ray-tracing feature structures are worth asking the device about.</summary>

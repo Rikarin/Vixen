@@ -48,8 +48,65 @@ sealed class NullAdapter(GraphicsDeviceFeatures features) : IGraphicsAdapter {
 }
 
 /// <summary>A queue that finishes everything the moment it is given it.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The only multi-queue device the engine can test against.</b> Every real device the
+///         tree runs on has one universal family, so this is where a schedule with two queues, a
+///         cross-queue wait and an ownership handover is actually executed. It reports
+///         <c>HasAsyncCompute</c> and <c>HasTimelineSemaphores</c> for that reason.
+///     </para>
+///     <para>
+///         Its timeline is honest about the one thing a timeline is for and about nothing else. Work
+///         completes on submission, so every point is reached the moment it exists and no wait ever
+///         blocks — but a wait for a point this device never <em>issued</em> is refused, because
+///         that is the mistake with no other detector: on hardware it is a device-side hang, with no
+///         validation message and no stack.
+///     </para>
+/// </remarks>
 sealed class NullSubmitter(QueueKind kind, CommandRecorder? recorder) : ICommandSubmitter {
+    /// <summary>How to find the queue a point belongs to. Set by the device once all three exist.</summary>
+    internal Func<QueueKind, NullSubmitter>? Resolve { get; set; }
+
+    /// <summary>How many points this queue has handed out.</summary>
+    internal ulong Issued { get; private set; }
+
     public QueueKind Kind => kind;
+
+    public bool HasTimeline => true;
+
+    public TimelinePoint Submit(ReadOnlySpan<ICommandList> lists, ReadOnlySpan<TimelinePoint> waitFor) {
+        foreach (var point in waitFor) {
+            if (point.IsNone) {
+                continue;
+            }
+
+            var producer = Resolve?.Invoke(point.Queue);
+
+            if (producer is not null && point.Value > producer.Issued) {
+                throw new InvalidOperationException(
+                    $"A submission to the {kind} queue waited for value {point.Value} on the "
+                    + $"{point.Queue} queue, which has only issued {producer.Issued}. Nothing will "
+                    + "ever signal it, so on a real device this is a hang with no message at all. A "
+                    + "TimelinePoint may only be one a submitter handed back."
+                );
+            }
+
+            recorder?.Record(new(RecordedCommandKind.WaitForPoint, 0, (long)point.Queue, (long)point.Value));
+        }
+
+        Submit(lists);
+
+        // Advanced even for an empty submission, so that the value a caller is handed always names
+        // *this* call. Handing back the previous value would be a point that is reached before the
+        // work the caller thinks it named.
+        Issued++;
+
+        recorder?.Record(
+            new(RecordedCommandKind.Submit, 0, (long)kind, lists.Length, (long)Issued, waitFor.Length)
+        );
+
+        return new(kind, Issued);
+    }
 
     public void Submit(ReadOnlySpan<ICommandList> lists) {
         foreach (var list in lists) {
@@ -74,7 +131,7 @@ sealed class NullSubmitter(QueueKind kind, CommandRecorder? recorder) : ICommand
         }
     }
 
-    public void WaitIdle() { }
+    public void WaitIdle() => recorder?.Record(new(RecordedCommandKind.QueueWaitIdle, 0, (long)kind));
 }
 
 /// <summary>A swapchain that presents to nothing.</summary>
@@ -236,9 +293,26 @@ public sealed class NullDevice : IGraphicsDevice {
         recordedWrites = options.Record ? [] : null;
         Adapter = new NullAdapter(Features);
 
-        GraphicsQueue = new NullSubmitter(QueueKind.Graphics, Recorder);
-        ComputeQueue = new NullSubmitter(QueueKind.Compute, Recorder);
-        TransferQueue = new NullSubmitter(QueueKind.Transfer, Recorder);
+        var graphics = new NullSubmitter(QueueKind.Graphics, Recorder);
+        var compute = new NullSubmitter(QueueKind.Compute, Recorder);
+        var transfer = new NullSubmitter(QueueKind.Transfer, Recorder);
+
+        // Three distinct submitters, unlike every real device the tree runs on — so a point names a
+        // counter of its own and "waited for a value nothing will signal" is a question with an
+        // answer here. Wired after construction because each has to be able to find the other two.
+        NullSubmitter Find(QueueKind wanted) => wanted switch {
+            QueueKind.Compute => compute,
+            QueueKind.Transfer => transfer,
+            _ => graphics
+        };
+
+        graphics.Resolve = Find;
+        compute.Resolve = Find;
+        transfer.Resolve = Find;
+
+        GraphicsQueue = graphics;
+        ComputeQueue = compute;
+        TransferQueue = transfer;
     }
 
     /// <summary>The recorded command stream, or <see langword="null" /> if recording is off.</summary>

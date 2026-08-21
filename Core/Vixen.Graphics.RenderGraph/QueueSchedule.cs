@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
+
 namespace Vixen.Graphics.RenderGraph;
 
 /// <summary>Whether the graph puts the whole frame on one queue or spreads it over the device's.</summary>
@@ -166,9 +168,9 @@ public sealed class RenderGraphSchedule {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The implementation owns the waiting.</b> <see cref="RenderGraphSegment.WaitsOn" />
-///         says what must have finished; how that is enforced is a property of the device, and the
-///         RHI has no cross-queue primitive to express it with yet. <see cref="SerialisedQueues" />
-///         is the implementation that is correct today.
+///         says what must have finished; how that is enforced is a property of the device.
+///         <see cref="DeviceQueues" /> is the one to use — it waits by value where the device has
+///         timeline semaphores and drains the producing queue where it does not.
 ///     </para>
 /// </remarks>
 public interface IRenderGraphQueues {
@@ -187,6 +189,126 @@ public interface IRenderGraphQueues {
     void Submit(RenderGraphSegment segment, ICommandList list);
 }
 
+/// <summary>The queues of a real device, synchronised the best way that device offers.</summary>
+/// <remarks>
+///     <para>
+///         <b>What a frame on two queues should use.</b> Where the device has timeline semaphores
+///         each segment is submitted with the points of the segments it waits on, and the waiting is
+///         the device's: the calling thread hands the work over and goes on recording. Where it does
+///         not, this is <see cref="SerialisedQueues" /> — the producing queue is drained, which is
+///         correct and slow.
+///     </para>
+///     <para>
+///         ⚠ <b>The frame is the same frame either way, and that is a property to be tested rather
+///         than believed.</b> Which path was taken changes what goes *between* the submissions and
+///         nothing that is in them: the same passes, in declaration order, recorded into the same
+///         segments, with the same barriers. <see cref="UsesWaitValues" /> says which path a given
+///         device took, so a test can run both against one graph and compare the recordings.
+///     </para>
+///     <para>
+///         ⚠ <b>Neither path overlaps anything on a device with one queue family</b>, which is every
+///         device this engine has been developed on. There the schedule is a single segment before
+///         any of this is reached — see <see cref="QueueScheduling.Async" />.
+///     </para>
+/// </remarks>
+public sealed class DeviceQueues : IRenderGraphQueues {
+    readonly IGraphicsDevice device;
+    readonly SerialisedQueues? draining;
+    readonly Dictionary<int, TimelinePoint> reached = [];
+    readonly List<TimelinePoint> waits = [];
+
+    /// <summary>Creates one over a device's queues.</summary>
+    /// <param name="device">The device whose queues the segments are submitted to.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
+    public DeviceQueues(IGraphicsDevice device) {
+        ArgumentNullException.ThrowIfNull(device);
+        this.device = device;
+
+        // Asked of the queue rather than of the feature flag. They agree on every backend here, and
+        // the queue is the object that has to act on the answer — a device that reported the
+        // capability and handed back a submitter that could not do it would fail at the submission
+        // rather than at the check.
+        UsesWaitValues = device.Features.HasTimelineSemaphores
+            && device.GraphicsQueue.HasTimeline
+            && device.ComputeQueue.HasTimeline
+            && device.TransferQueue.HasTimeline;
+
+        draining = UsesWaitValues ? null : new(device);
+    }
+
+    /// <summary>Whether waits are enforced by value rather than by draining a queue.</summary>
+    public bool UsesWaitValues { get; }
+
+    /// <inheritdoc />
+    public ICommandList Begin(RenderGraphSegment segment) {
+        ArgumentNullException.ThrowIfNull(segment);
+        return device.BeginCommandList(segment.Queue, segment.Name);
+    }
+
+    /// <inheritdoc />
+    public void Submit(RenderGraphSegment segment, ICommandList list) {
+        ArgumentNullException.ThrowIfNull(segment);
+        ArgumentNullException.ThrowIfNull(list);
+
+        if (draining is not null) {
+            draining.Submit(segment, list);
+            return;
+        }
+
+        // The frame boundary, taken from the schedule rather than from a caller remembering to say
+        // so: every schedule starts at segment 0.
+        //
+        // ⚠ Belt and braces, and honestly labelled as such — a stale point is not reachable through
+        // this class today. A segment only ever waits on producers with lower indices, and those are
+        // submitted earlier in the same frame, so every entry a consumer reads has already been
+        // overwritten by this frame's value. Removing this line breaks no test, and that was checked
+        // rather than assumed. It stays because it is free, because it stops the map growing when
+        // one frame's schedule is shorter than the last's, and because the failure it would guard
+        // against is a wait that is silently already satisfied — a missing edge, not a hang.
+        if (segment.Index == 0) {
+            reached.Clear();
+        }
+
+        waits.Clear();
+
+        foreach (var producer in segment.WaitsOn) {
+            // A producer with no point is one that was submitted empty, which a schedule's leading
+            // graphics segment routinely is. Nothing ran, so there is nothing to wait for — and
+            // waiting on a value that queue never issued is the one way to hang a device here.
+            if (reached.TryGetValue(producer.Index, out var point) && !point.IsNone) {
+                waits.Add(point);
+            }
+        }
+
+        list.Finish();
+
+        // AsSpan over the reused list rather than ToArray: this runs once per segment per frame, and
+        // a frame that allocated to describe its own synchronisation would be a strange thing.
+        ReadOnlySpan<ICommandList> one = [list];
+        reached[segment.Index] = SubmitterFor(segment.Queue).Submit(one, CollectionsMarshal.AsSpan(waits));
+        list.Dispose();
+    }
+
+    /// <summary>Forgets what the last frame did.</summary>
+    /// <remarks>
+    ///     <b>Not needed for correctness on the wait-value path</b>, which clears its points when it
+    ///     submits segment 0 — a frame boundary it can see, rather than one it has to be told about.
+    ///     It still matters on the draining path, where the set of queues submitted to only ever
+    ///     suppresses a wait, so a long-lived instance holding three entries forever waits three
+    ///     times where it could wait none.
+    /// </remarks>
+    public void Reset() {
+        reached.Clear();
+        draining?.Reset();
+    }
+
+    ICommandSubmitter SubmitterFor(QueueKind kind) => kind switch {
+        QueueKind.Compute => device.ComputeQueue,
+        QueueKind.Transfer => device.TransferQueue,
+        _ => device.GraphicsQueue
+    };
+}
+
 /// <summary>
 ///     The queues of a real device, with each segment's dependencies enforced by waiting for the
 ///     queue it depends on to go idle.
@@ -197,20 +319,22 @@ public interface IRenderGraphQueues {
 ///         hammer the RHI owns, and using one per cross-queue edge means the second queue never
 ///         overlaps the first — the frame does the same work in the same order and pays for the
 ///         submissions on top. Nothing about the picture changes, which is the point: this is what
-///         makes the segmentation, the ownership transfers and the barriers testable on hardware
-///         before there is a primitive that would make them fast.
+///         makes the segmentation, the ownership transfers and the barriers reachable on a device
+///         that cannot express anything cheaper.
 ///     </para>
 ///     <para>
-///         <b>The primitive it is waiting for is a timeline semaphore</b> — one counter per frame,
+///         <b>The primitive it does without is a timeline semaphore</b> — one counter per queue,
 ///         each submission signalling a value and each dependent submission waiting on the value its
-///         producer signalled. <c>GraphicsDeviceFeatures.HasTimelineSemaphores</c> already says which
-///         devices have them and is read by nothing; that flag and this class are the two halves of
-///         the same unfinished sentence, and the RHI needs a way to submit with a wait value before
-///         they can be joined (overview § 1.4, task 208).
+///         producer signalled. That exists now: <see cref="TimelinePoint" /> and
+///         <see cref="ICommandSubmitter.Submit(ReadOnlySpan{ICommandList}, ReadOnlySpan{TimelinePoint})" />,
+///         used by <see cref="DeviceQueues" />, which is what a frame should be given.
 ///     </para>
 ///     <para>
-///         Perfectly reasonable to use meanwhile. A frame scheduled this way is the frame the fast
-///         path will produce, so a golden image taken through it stays valid.
+///         <b>Still here, and still correct, for the two jobs it is better at.</b> It is what
+///         <see cref="DeviceQueues" /> becomes on a device with no timeline semaphores — OpenGL,
+///         WebGPU, a Vulkan 1.1 driver that declines the feature — and it is the other arm of the
+///         A/B that proves the two paths draw the same frame. A golden image taken through it stays
+///         valid either way, because the frame is the same frame.
 ///     </para>
 /// </remarks>
 public sealed class SerialisedQueues : IRenderGraphQueues {

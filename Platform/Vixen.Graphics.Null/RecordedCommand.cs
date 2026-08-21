@@ -95,7 +95,32 @@ public enum RecordedCommandKind : byte {
     WriteTimestamp,
 
     /// <summary>An acceleration structure was built.</summary>
-    BuildAccelerationStructure
+    BuildAccelerationStructure,
+
+    /// <summary>Command lists were submitted to a queue.</summary>
+    /// <remarks>
+    ///     Not an <see cref="ICommandList" /> call at all, and in the stream anyway. A frame on two
+    ///     queues is interesting precisely <em>between</em> the lists — which queue got what, in
+    ///     what order, and what each submission was made to wait for — and a recorder that held only
+    ///     the calls inside the lists could not see any of it.
+    /// </remarks>
+    Submit,
+
+    /// <summary>A submission was made to wait for a point on another queue.</summary>
+    /// <remarks>
+    ///     One per point, recorded immediately before the <see cref="Submit" /> it belongs to. This
+    ///     is the cheap half of a cross-queue edge: the device waits, the calling thread does not.
+    /// </remarks>
+    WaitForPoint,
+
+    /// <summary>A queue was drained from the calling thread.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The expensive half, and what a test asserting overlap asserts the absence of.</b> A
+    ///     drain blocks the host and finishes work that had nothing to do with the dependency, so a
+    ///     schedule that produces one of these per cross-queue edge has bought a second queue and
+    ///     spent all of it on synchronisation.
+    /// </remarks>
+    QueueWaitIdle
 }
 
 /// <summary>One RHI call, as it was made.</summary>
@@ -172,6 +197,10 @@ public readonly record struct RecordedCommand(
             RecordedCommandKind.WriteTimestamp => $"pool={A} query={B}",
             RecordedCommandKind.BuildAccelerationStructure =>
                 $"target={A} kind={(AccelerationStructureKind)B} primitives={C} scratch={D}+{E}",
+            RecordedCommandKind.Submit =>
+                $"queue={(QueueKind)A} lists={B} reached={C} waits={D}",
+            RecordedCommandKind.WaitForPoint => $"queue={(QueueKind)A} value={B}",
+            RecordedCommandKind.QueueWaitIdle => $"queue={(QueueKind)A}",
             RecordedCommandKind.PushDebugGroup or RecordedCommandKind.InsertDebugMarker => $"'{Text}'",
             _ => string.Empty
         };

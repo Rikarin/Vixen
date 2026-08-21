@@ -291,6 +291,19 @@ public sealed class SceneRenderHost : IDisposable {
     ///         Valid whatever the scheduling says — a single-queue frame is one segment — so a host
     ///         that always draws this way is not choosing async compute by doing so.
     ///     </para>
+    ///     <para>
+    ///         <c>DeviceQueues</c> is what to pass: it waits by value where the device has timeline
+    ///         semaphores and drains the producing queue where it does not, and either way the frame
+    ///         is the same frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing in the tree calls this yet</b>, and that is deliberate rather than
+    ///         pending. No device the engine runs on has a compute queue family of its own, so every
+    ///         schedule here is a single segment and this would differ from
+    ///         <see cref="Draw(ICommandList)" /> only in who submits — while moving the submission
+    ///         into the graph on the path that also presents. The host stays on the list overload
+    ///         until there is hardware that makes the difference measurable.
+    ///     </para>
     /// </remarks>
     public bool Draw(IRenderGraphQueues queues) {
         ArgumentNullException.ThrowIfNull(queues);
