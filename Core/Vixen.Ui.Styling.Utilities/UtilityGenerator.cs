@@ -90,6 +90,15 @@ public sealed class UtilityGenerator {
                 continue;
             }
 
+            // ⚠ <b>After the variants, and it is the only order that means what the class says.</b>
+            // A scoped family's rule is about the *children* of whatever the variants selected, so
+            // `hover:space-x-4` is `.hover\:space-x-4:hover > :not(:last-child)` — space the children
+            // while the container is hovered. Appending the scope first would give
+            // `.hover\:space-x-4 > :not(:last-child):hover`, which compiles, matches, and is a
+            // different rule: space whichever child the pointer happens to be over. Null for every
+            // family but the `space-*` and `divide-*` set, and `+= null` is the empty string.
+            selector += UtilityFamilies.ScopeOf(parsed.Name);
+
             var group = root;
             foreach (var atRule in atRuleScratch) {
                 group = group.Enter(atRule);

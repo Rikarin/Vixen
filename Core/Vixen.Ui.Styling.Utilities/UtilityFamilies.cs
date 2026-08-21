@@ -119,6 +119,33 @@ public static class UtilityFamilies {
     ///     The value a <see cref="ValueKind.CountTemplate" /> family emits, with <c>{0}</c> where the
     ///     count goes. Null on every other kind.
     /// </param>
+    /// <param name="Scope">
+    ///     What the family's rule is <i>about</i>, appended to the selector the class name would
+    ///     otherwise produce. Null — the overwhelming default — means the rule is about the element
+    ///     carrying the class.
+    ///     <para>
+    ///         ⚠ <b>Two of Tailwind's families are not property families at all, and this is the
+    ///         whole of what they need.</b> <c>space-x-4</c> and <c>divide-y</c> put a margin or a
+    ///         border on <i>every child but the last</i>: they are a rule over a relationship, not a
+    ///         declaration on a box, and no amount of value-table work reaches them. With
+    ///         <c>" &gt; :not(:last-child)"</c> here the generator writes
+    ///         <c>.space-x-4 &gt; :not(:last-child)</c>, which the selector engine compiles and
+    ///         matches — <see cref="SimpleSelectorKind.Not" />, <see cref="PositionTest.Last" /> and
+    ///         <see cref="Combinator.Child" /> have all been there the whole time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is appended <i>after</i> the variants, which is the only order that is
+    ///         right.</b> <c>hover:space-x-4</c> means "when the container is hovered, space its
+    ///         children" — <c>.hover\:space-x-4:hover &gt; :not(:last-child)</c> — and a suffix
+    ///         written before the variant would say "when a spaced child is hovered", which is a
+    ///         different rule that happens to compile.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A scoped family cannot be <c>@apply</c>-ed</b>, for the same reason a variant
+    ///         cannot: it is a rule with a selector of its own rather than a set of declarations to
+    ///         drop into the block. <see cref="ApplyExpander" /> refuses it by name.
+    ///     </para>
+    /// </param>
     sealed record Family(
         string Name,
         ValueKind Kind,
@@ -127,7 +154,8 @@ public static class UtilityFamilies {
         string[]? ColorProperties = null,
         string? Position = null,
         UtilityDeclaration[]? Alongside = null,
-        string? Template = null
+        string? Template = null,
+        string? Scope = null
     );
 
     static readonly Dictionary<string, Family> Registry = new(StringComparer.Ordinal);
@@ -320,6 +348,27 @@ public static class UtilityFamilies {
         Spacing("ms", "margin-inline-start");
         Spacing("me", "margin-inline-end");
 
+        // ── The two families that are a rule over children ──────────────────────────────────
+        //
+        // ⚠ <b>`space-x-4` is not a property on the element that carries it.</b> It is
+        // `& > :not(:last-child) { margin-inline-end: … }` — a margin on every child but the last —
+        // and the reason it never got written here is that the family table had no way to say so.
+        // `Family.Scope` is that way, and the selector engine needed nothing: a child combinator, a
+        // `:not()` and `:last-child` all compile and match today.
+        //
+        // ⚠ <b>`space-y-*` emits the physical `margin-bottom` where v4 emits `margin-block-end`, and
+        // the difference is measured rather than assumed.</b> `margin-block-start`/`-end` are interned
+        // by nobody — `LayoutStyleBuilder.EdgeNames` reads `-left`, `-top`, `-right`, `-bottom`,
+        // `-inline-start` and `-inline-end` and no block pair — so v4's spelling resolves, computes,
+        // and moves nothing, which is exactly the inert family this table is not allowed to add. The
+        // physical pair is not an approximation of it either: `Vixen.Ui.Layout` has no writing mode,
+        // so the block axis *is* top-to-bottom in every configuration the engine can be in, and
+        // `margin-block-end` would mean `margin-bottom` on every element that ever resolved it.
+        // `space-x-*` keeps v4's logical spelling because `margin-inline-end` is read and mirrors
+        // under `direction: rtl`, which is the whole point of it.
+        Between("space-x", ValueKind.Spacing, ["margin-inline-end"]);
+        Between("space-y", ValueKind.Spacing, ["margin-bottom"]);
+
         // ── Sizing ──────────────────────────────────────────────────────────────────────────
         Size("w", "width");
         Size("h", "height");
@@ -462,6 +511,36 @@ public static class UtilityFamilies {
         BorderEdge("border-l", ["border-left-width"], ["border-left-color"]);
         BorderEdge("border-s", ["border-inline-start-width"], ["border-inline-start-color"]);
         BorderEdge("border-e", ["border-inline-end-width"], ["border-inline-end-color"]);
+
+        // ⚠ <b>`divide-*` is `border-*` written on the gaps rather than on the boxes</b>, so it is
+        // the same three kinds of value — a width, a bare form meaning one pixel, and a colour —
+        // scoped to `> :not(:last-child)`. One rule per class still, and the rule is what puts a
+        // single hairline between two rows instead of two touching ones.
+        //
+        // ⚠ <b>`divide-x` is the *end* edge and `divide-y` the *bottom* one, which is v4's choice and
+        // not an arbitrary half of the pair.</b> Tailwind emits both edges of each axis — a zero on
+        // one and the width on the other — so that `divide-x-reverse` can swap them by flipping a
+        // custom property. The zero is what this cannot follow: `StyleValueParser` has no `calc()`,
+        // so the reverse fragment has nothing to multiply by and `divide-x-reverse` is not
+        // registered. Emitting the leading `0` anyway would buy nothing and cost something real — it
+        // would out-specify a child's own `border-s-2` and silently erase it — so the family writes
+        // the one edge it means. Same argument for `space-x-*`, which is why it writes no leading
+        // margin either.
+        //
+        // ⚠ <b>No colour longhands, and that is what `ColorProperties: null` says.</b> `divide-x-2`
+        // is a width and `divide-x-accent` is not a class Tailwind has; the colour is written
+        // `divide-accent`, on the family below, and reaches all four physical `border-color`
+        // longhands through ExCSS's expansion. `TryBorderEdge` reports the unregistered spelling as
+        // unknown rather than inventing an edge colour for it.
+        //
+        // ⚠ <b>`divide-solid` and the rest of the style keywords are deliberately absent.</b>
+        // `border-style` is emitted by nothing here and read by nothing either — measured, not
+        // assumed: it resolves into four longhands and moves no channel in any scene. A
+        // `divide-dashed` that computed a value and drew a solid line is precisely the inert family
+        // `UtilityConsumptionGateTests` exists to keep out.
+        Between("divide-x", ValueKind.BorderEdge, ["border-inline-end-width"]);
+        Between("divide-y", ValueKind.BorderEdge, ["border-bottom-width"]);
+        Between("divide", ValueKind.Color, ["border-color"]);
 
         // ⚠ <b>Four of these names are prefixes of others — <c>rounded</c> of <c>rounded-t</c>, and
         // <c>rounded-t</c> of <c>rounded-tl</c> — and it is `SplitName`'s longest-first sort that
@@ -607,6 +686,26 @@ public static class UtilityFamilies {
         }
 
         return (whole, string.Empty);
+    }
+
+    /// <summary>What a family's rule is about, when it is not the element carrying the class.</summary>
+    /// <param name="name">The family name, as <see cref="SplitName" /> returns it.</param>
+    /// <returns>
+    ///     The selector text to append — <c>" &gt; :not(:last-child)"</c> — or <c>null</c> for the
+    ///     overwhelming majority of families, whose rule is about the element itself.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>Public because two callers outside this file have to know, and both of them are
+    ///     wrong without it.</b> <see cref="UtilityGenerator" /> has to append it to the selector, or
+    ///     <c>space-x-4</c> emits a margin on the container and silently does the opposite of what it
+    ///     says. <see cref="ApplyExpander" /> has to refuse it, or <c>@apply space-x-4</c> quietly
+    ///     drops the same declarations into whichever block it was written in. A family registered
+    ///     here and unknown to either of those is the "registered in one table and not another"
+    ///     failure, so this is the one table both of them read.
+    /// </remarks>
+    public static string? ScopeOf(string name) {
+        ArgumentNullException.ThrowIfNull(name);
+        return Registry.TryGetValue(name, out var family) ? family.Scope : null;
     }
 
     /// <summary>Every class name that reaches a distinct part of what the families can emit.</summary>
@@ -819,9 +918,14 @@ public static class UtilityFamilies {
                 return false;
             }
 
-            return family.Kind == ValueKind.BorderEdge
-                ? EmitInto(LooksLikeColor(arbitrary) ? family.ColorProperties! : family.Properties, arbitrary, declarations)
-                : Emit(family, arbitrary, declarations);
+            // ⚠ A widths-only border family — `divide-x`, `divide-y` — has nowhere to put an
+            // arbitrary colour, so `divide-x-[red]` is refused rather than emitted as a width.
+            if (family.Kind == ValueKind.BorderEdge && LooksLikeColor(arbitrary)) {
+                return family.ColorProperties is not null
+                    && EmitInto(family.ColorProperties, arbitrary, declarations);
+            }
+
+            return Emit(family, arbitrary, declarations);
         }
 
         // Keywords first, because `text-center` has to beat any colour or size named `center`.
@@ -920,8 +1024,17 @@ public static class UtilityFamilies {
 
     /// <summary>A border edge, which is a width or a colour depending on how the value reads.</summary>
     /// <remarks>
-    ///     The same ambiguity <c>text-</c> has, and unlike <c>text-</c> this one costs nothing: no
-    ///     colour is plausibly named <c>2</c>, so the number-first order shadows nothing reachable.
+    ///     <para>
+    ///         The same ambiguity <c>text-</c> has, and unlike <c>text-</c> this one costs nothing: no
+    ///         colour is plausibly named <c>2</c>, so the number-first order shadows nothing reachable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A null <see cref="Family.ColorProperties" /> means the family is widths only</b>,
+    ///         which <c>divide-x</c> and <c>divide-y</c> are: Tailwind writes the divider's colour
+    ///         <c>divide-accent</c>, never <c>divide-x-accent</c>. Refusing the spelling reports it as
+    ///         unknown, which is what it is; the alternative reading — dereference and emit — is an
+    ///         invented class and, before this line, a null reference.
+    ///     </para>
     /// </remarks>
     static bool TryBorderEdge(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
         // `border` and `border-t` on their own are a one-pixel edge — CSS's own default, and the
@@ -934,8 +1047,9 @@ public static class UtilityFamilies {
             return EmitInto(family.Properties, width + "px", declarations);
         }
 
-        return TryColor(candidate, tokens, out var colour)
-            && EmitInto(family.ColorProperties!, colour, declarations);
+        return family.ColorProperties is not null
+            && TryColor(candidate, tokens, out var colour)
+            && EmitInto(family.ColorProperties, colour, declarations);
     }
 
     /// <summary>A named shadow, or the theme's default one for a bare <c>shadow</c>.</summary>
@@ -1396,6 +1510,28 @@ public static class UtilityFamilies {
 
     static void Spacing(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Spacing, properties));
+
+    /// <summary>Registers a family whose rule is about the element's children rather than the element.</summary>
+    /// <param name="name">The utility prefix.</param>
+    /// <param name="kind">How its value turns into declarations — the same kinds as anything else.</param>
+    /// <param name="properties">What it sets, on each child but the last.</param>
+    /// <remarks>
+    ///     ⚠ <b><c>:not(:last-child)</c> and not v4's <c>:where(&amp; &gt; :not(:last-child))</c>,
+    ///     and the difference is one Vixen cannot currently paper over.</b> The <c>&amp;</c> is CSS
+    ///     nesting, which the loader does not do, so the emitted form is the flattened one — proved
+    ///     rather than assumed, in <c>ChildScopedFamilyTests</c>. The <c>:where()</c> is v4's way of
+    ///     keeping the rule at one class of specificity so that a child's own <c>me-0</c> still
+    ///     wins; here <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and adds a
+    ///     class either way, so the rule lands at <c>(0,2,0)</c> and beats a child's own single-class
+    ///     utility. That is exactly what Tailwind v3 did for four major versions, it is written down
+    ///     in the guide rather than left to be discovered, and the fix is three lines in a file this
+    ///     project does not own.
+    /// </remarks>
+    static void Between(string name, ValueKind kind, string[] properties) =>
+        Register(new Family(name, kind, properties, Scope: BetweenChildren));
+
+    /// <summary>Every child but the last, which is what <c>space-*</c> and <c>divide-*</c> are about.</summary>
+    const string BetweenChildren = " > :not(:last-child)";
 
     static void Size(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Size, properties));

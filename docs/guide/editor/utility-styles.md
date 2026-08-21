@@ -95,28 +95,52 @@ resolved against real elements by `UtilityFamilySupportTests`; anything in the s
 property no consumer in the engine looks at, so the class name is correct, the rule is generated, the
 cascade computes it, and nothing happens.
 
-⚠ **`block` moved columns**, and it is the first family here to do so because an *algorithm* arrived
+⚠ **`block` moved columns**, and it was the first family here to do so because an *algorithm* arrived
 rather than because a property found a reader. It really is block layout — children stack down the
 page, fill the line across it, and their vertical margins **collapse** into each other per CSS 2.1
 §8.3.1, which is the one thing a flex column will never do for you. Two cards with `mb-4` and `mt-4`
-between them are 16 points apart, not 32. `inline-block` and `inline-flex` stay inert on purpose:
-they differ from their block-level twins only inside an inline formatting context, and there is not
-one yet.
+between them are 16 points apart, not 32. `inline`, `inline-block` and `inline-flex` followed it when
+the inline formatting context landed, and so did `vertical-align`.
+
+⚠ **The Inert column is short now, and every line in it is measured rather than argued.**
+`UtilityConsumptionGateTests` runs the whole family surface past a real document and compares four
+observables either side of each declaration; the six properties it currently reports unread —
+`--blur`, the two logical border colours, `rotate`, `scale` and `user-select` — are the whole of what
+is left, each with a line in `InertProperties.txt` naming the task that closes it. A row here that
+disagrees with that ledger is this page being stale, not the ledger being wrong.
 
 | Read | Inert |
 |---|---|
-| `flex` / `hidden` / **`block`** / **`grid`**, `flex-row`/`-col`/`-wrap`/`-1`, `items-`, `self-`, `justify-`, `content-` | `inline`, `inline-block`, `inline-flex` |
-| `grow`, `shrink`, `basis-`, `order-`, **`grid-cols-`**, **`col-span-`** | `grid-rows-`, `row-span-`, `col-start-`/`-end-`, `row-start-`/`-end-`, `auto-cols-`, `auto-rows-`, `grid-flow-` — the engine reads all of these properties; the families are not registered |
-| `gap-`, `gap-x-`, `gap-y-`, `p*`, `m*` including the logical `ps`/`pe`/`ms`/`me` | |
+| `flex` / `hidden` / `block` / `grid`, **`inline`**, **`inline-block`**, **`inline-flex`**, `flex-row`/`-col`/`-wrap`/`-1`, `items-`, `self-`, `justify-`, `content-` | |
+| `grow`, `shrink`, `basis-`, `order-`, `grid-cols-`, `col-span-`, **`grid-rows-`**, **`row-span-`**, **`col-start-`/`-end-`**, **`row-start-`/`-end-`**, **`auto-cols-`**, **`auto-rows-`**, **`grid-flow-`**, **`justify-items-`**, **`justify-self-`** | |
+| `gap-`, `gap-x-`, `gap-y-`, `p*`, `m*` including the logical `ps`/`pe`/`ms`/`me`, **`space-x-`**, **`space-y-`** | `space-x-reverse`, `space-y-reverse` — not registered; they need `calc()`, which `StyleValueParser` has not got |
 | `w-`, `h-`, `size-`, `min-w-`, `min-h-`, `max-w-`, `max-h-` | |
 | `static`/`relative`/`absolute`, `inset*`, `top`/`right`/`bottom`/`left`, `start`/`end`, `z-`, `box-border`/`box-content` | |
-| `text-<align>`, `text-<size>`, `text-<colour>`, `font-`, `leading-`, `tracking-`, `whitespace-` | `align-` (`vertical-align`) |
-| `bg-`, `opacity-`, `shadow-`, **`ring-`**, **`fill-`**, **`stroke-`** | `blur-`, `translate-x/y-`, `scale-`, `rotate-` |
+| `text-<align>`, `text-<size>`, `text-<colour>`, `font-`, `leading-`, `tracking-`, `whitespace-`, **`align-`** | `align-middle`/`-text-top`/`-text-bottom`/`-sub`/`-super` — the property is read, those five values are refused at the bridge for want of a font strut |
+| `bg-`, `opacity-`, `shadow-`, `ring-`, `fill-`, `stroke-`, **`translate-x/y-`** | `blur-`, `scale-`, `rotate-` |
 | `rounded-`, and the per-corner `rounded-t`/`-r`/`-b`/`-l`/`-tl`/`-tr`/`-br`/`-bl` | |
-| `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`/`-s`/`-e`, both **widths** and **colours** | |
-| `overflow-hidden`, `overflow-scroll`, `truncate` | **`overflow-x-*` and `overflow-y-*`** — nothing interns either property |
+| `border`/`border-t`/`-r`/`-b`/`-l`/`-x`/`-y`, both widths and colours; `border-s`/`-e` widths | `border-s-<colour>` and `border-e-<colour>` — the logical pair never reached the draw list |
+| **`divide-x-`**, **`divide-y-`**, **`divide-<colour>`** | `divide-solid`/`-dashed`/`-dotted`/`-double`, `divide-x-reverse`, `divide-y-reverse` — not registered; nothing reads `border-style`, and the reverse pair needs `calc()` |
+| `overflow-hidden`, `overflow-scroll`, `overflow-auto`, **`overflow-x-*`**, **`overflow-y-*`**, `truncate` | |
 | `cursor-`, `pointer-events-`, `transition`, `duration-`, `ease-`, `aspect-` | `select-` (`user-select`) |
-| | `bg-linear-*` with `from-`/`via-`/`to-` — the gradient assembles correctly and the draw list has no `background-image` channel to paint it |
+| **`bg-linear-*`**, **`bg-radial`**, **`bg-conic`** with `from-`/`via-`/`to-` and stop positions | |
+
+⚠ **`space-*` and `divide-*` are the only families whose rule is about the children**, and the two
+things worth knowing before reaching for them are both divergences from Tailwind v4. The rule is
+`.space-y-4 > :not(:last-child)`, emitted without v4's `:where()` wrapper because Vixen's selector
+compiler charges a class for `:where()` as it does for `:is()` — so the rule is two classes of
+specificity and beats a child's own `mb-0`, exactly as Tailwind v3 did. And `space-y-*` writes
+`margin-bottom` where v4 writes `margin-block-end`, because the block longhands are interned by
+nobody here and there is no writing mode for the two to differ in. `@apply space-x-4` is refused, for
+the same reason `@apply hover:bg-accent` is: it is a rule with a selector of its own.
+
+⚠ **`mix-blend-*`, `origin-*` and the `scroll-*` set are deliberately not families**, and each is a
+measured verdict rather than an omission. Nothing in the engine reads `mix-blend-mode` (there is no
+blend channel on a `DrawCommand` and no offscreen target to blend into) or `transform-origin` (which
+needs a transform whose fixed point matters, and `translate` — the only one implemented — is
+origin-independent). `scroll-m-*`, `scroll-p-*` and `scroll-behavior` are deferred rather than
+refused: scrolling here is `ScrollView`, a control, so the behaviour lands first and the utilities
+become properties it reads. See `docs/plan/43-web-styling-parity.md` § F9.
 
 ⚠ **`ring-*` is a `box-shadow`, not an outline, and it used to emit `outline-color` — a property no
 version of Tailwind has ever emitted for it.** `ring-2` is `box-shadow: 0 0 0 2px currentcolor`: a
