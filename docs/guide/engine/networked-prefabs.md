@@ -112,6 +112,8 @@ costs one id and one record. Asking is a `NetworkObject` on the node, authored o
 
 ```yaml
 # Assets/Prefabs/Turret.vxprefab — the barrel replicates, the sight is scenery.
+version: 1
+name: Turret
 roots:
   - name: Turret
     children:

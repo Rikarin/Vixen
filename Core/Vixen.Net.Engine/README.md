@@ -158,6 +158,11 @@ the join between the two on each peer.
   it is not `[DataContract]`, and `SceneContent.Capture` dropped it without a word, so a prefab out
   of a content build had exactly one networked node whatever its author said. The registry still
   counts a `NetworkId` on a node, because `Prefab.CaptureFrom` takes live subtrees that carry them.
+  ⚠ **`Vixen.Editor.Assets` links this assembly for it**, the way it links `Vixen.Water` and
+  `Vixen.Navigation`: a component is declared by a `[ModuleInitializer]` in the assembly that owns it,
+  so an assembly the scene compiler does not load is one whose components a `.vxprefab` cannot name.
+  `SceneNetworkComponentTests` compiles `!NetworkObject {}` and `!PlayerPawn {}` out of YAML and onto
+  entities, which is the other end of the same path.
 - **A scene format to derive indices from.** `NetworkSceneId.BakedId(index)` is the rule, and the index
   is whatever the game passes because scenes are built in code and not yet serialised. The moment a
   scene is an asset, the index is its position in that asset's list of networked objects and nobody
