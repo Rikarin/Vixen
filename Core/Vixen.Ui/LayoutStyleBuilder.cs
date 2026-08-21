@@ -431,14 +431,30 @@ public sealed class LayoutStyleBuilder {
         }
     }
 
-    /// <summary>Applies the six placement properties, shorthands before longhands.</summary>
+    /// <summary>Applies the six placement properties, the cascade having already ordered them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Ordered like <c>overflow</c> above and for the same reason.</b> Nothing expands
-    ///         <c>grid-column</c> into its two longhands on the way in — ExCSS has never heard of the
-    ///         property and hands it through verbatim — so by the time a computed style exists,
-    ///         "which was written last" has no answer. The shorthand goes first and a named edge wins,
-    ///         which is what CSS agrees with whenever the longhand really did come last.
+    ///         ⚠ <b>This no longer decides the precedence, and the fact that it once did was a
+    ///         defect.</b> <see cref="Vixen.Ui.Styling.ShorthandExpansion" /> now splits
+    ///         <c>grid-column</c> and <c>grid-row</c> into their two longhands at load, so both halves
+    ///         of the question reach the cascade as comparable declarations and the one written last
+    ///         wins — which is the answer CSS gives and the one this method had no way to compute.
+    ///         Applying the shorthand first and each longhand over it made a longhand beat a shorthand
+    ///         <i>whatever order they were declared in</i>: <c>row-span-full</c> emits
+    ///         <c>grid-row: 1 / -1</c>, and on any element whose theme sheet also set
+    ///         <c>grid-row-start</c> it was discarded in silence and the item auto-placed into a real
+    ///         cell — the exact failure the paragraph below says this bridge exists to stop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two shorthand branches stay, and they are now a fallback rather than a
+    ///         rule.</b> A shorthand only reaches here when the expander refused it — <c>grid-column:
+    ///         var(--place)</c>, whose <c>var()</c> may itself hold the slash, and the two-slash
+    ///         <c>grid-area</c> form written under the wrong name. The loader has already reported
+    ///         that refusal, so reading what can be read beats dropping it. Their order against the
+    ///         longhands is unchanged and is still <c>overflow</c>'s above: the cascade could not
+    ///         order a declaration it never took apart, so somebody has to choose, and choosing the
+    ///         same way twice in one file is worth more than choosing differently for a case that
+    ///         needs a <c>var()</c> holding a slash to arise at all.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A refused placement is reported and then left at <c>auto</c>.</b> Leaving it

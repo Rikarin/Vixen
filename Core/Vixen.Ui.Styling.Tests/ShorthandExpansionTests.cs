@@ -122,7 +122,112 @@ public class ShorthandExpansionTests {
     [InlineData("color")]
     [InlineData("background-color")]
     [InlineData("transition")]
+    [InlineData("grid-area")]
+    [InlineData("place-self")]
+    [InlineData("place-items")]
+    [InlineData("place-content")]
     public void What_this_deliberately_leaves_alone(string property) => Assert.False(ShorthandExpansion.IsShorthand(property));
+
+    // ── The two ExCSS has never heard of ────────────────────────────────────────────────────────
+
+    /// <summary>ExCSS really does hand these two back whole, which is the premise of the rest.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted rather than assumed, for the same reason the tests above are.</b> Everything
+    ///     below only makes sense if the parser leaves <c>grid-row</c> alone; if a later ExCSS learns
+    ///     the property, this file would go on expanding it a second time and this is the row that
+    ///     would say so. Note that it holds for the literal form and not only the <c>var()</c> one —
+    ///     that difference is exactly what <see cref="ShorthandExpansion.NeedsExpanding" /> is for.
+    /// </remarks>
+    [Theory]
+    [InlineData("grid-column", "1 / 3")]
+    [InlineData("grid-row", "span 2 / span 2")]
+    public void ExCSS_leaves_a_placement_shorthand_whole(string property, string literal) =>
+        Assert.Equal([property], ExpandedBy(Parser, property, literal));
+
+    /// <summary>So a literal one needs expanding here, where a literal <c>margin</c> does not.</summary>
+    [Theory]
+    [InlineData("grid-row", "1 / -1", true)]
+    [InlineData("grid-column", "span 2", true)]
+    [InlineData("grid-column", "var(--place)", true)]
+    [InlineData("margin", "4px", false)]
+    [InlineData("border-color", "#111", false)]
+    [InlineData("margin", "var(--m)", true)]
+    [InlineData("inset", "0", false)]
+    [InlineData("grid-template-columns", "1fr 1fr", false)]
+    public void Whether_it_needs_expanding_is_the_property_and_the_value(string property, string value, bool expected) =>
+        Assert.Equal(expected, ShorthandExpansion.NeedsExpanding(property, value));
+
+    /// <summary>The two edges, and an omitted one written out as <c>auto</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>auto</c> is emitted rather than left off, and that is the half that fixes the
+    ///     bug.</b> A shorthand resets every longhand it covers; if the end edge were simply omitted,
+    ///     a <c>grid-column-end: 4</c> from an earlier rule would survive a later
+    ///     <c>grid-column: 1</c> — which is the silent precedence failure this expansion exists to
+    ///     remove, reintroduced one edge at a time.
+    /// </remarks>
+    [Theory]
+    [InlineData("grid-column", "1 / 3", "1", "3")]
+    [InlineData("grid-row", "1 / -1", "1", "-1")]
+    [InlineData("grid-row", "span 2 / span 2", "span 2", "span 2")]
+    [InlineData("grid-column", "span 2", "span 2", "auto")]
+    [InlineData("grid-row", "auto", "auto", "auto")]
+    [InlineData("grid-column", "  2  /  4  ", "2", "4")]
+    [InlineData("grid-row", "var(--a) / var(--b)", "var(--a)", "var(--b)")]
+    public void A_placement_divides_into_a_start_and_an_end(string property, string value, string start, string end) {
+        List<KeyValuePair<string, string>> expanded = [];
+        Assert.True(ShorthandExpansion.TryExpand(property, value, expanded));
+
+        Assert.Equal([$"{property}-start", $"{property}-end"], expanded.Select(pair => pair.Key).ToArray());
+        Assert.Equal([start, end], expanded.Select(pair => pair.Value).ToArray());
+    }
+
+    /// <summary>What it will not divide, and why each one would be a wrong answer rather than none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A bare <c>var()</c> is refused because the slash may be inside it.</b>
+    ///         <c>--place: 1 / 3</c> is a start edge and an end edge, and calling the whole reference
+    ///         a start edge would turn a declaration the bridge reads today into one it refuses. Left
+    ///         whole, it reaches the bridge's own shorthand reading after substitution.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two slashes are <c>grid-area</c> under the wrong name</b>, and taking the first
+    ///         two of its four edges puts the item in a real but wrong cell — the same judgement, and
+    ///         for the same stated reason, that <c>GridPlacement.TryParseShorthand</c> makes.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("grid-column", "var(--place)")]
+    [InlineData("grid-row", "var(--a, 1 / 2)")]
+    [InlineData("grid-column", "1 / 2 / 3")]
+    [InlineData("grid-row", "1 /")]
+    [InlineData("grid-row", "/ 3")]
+    [InlineData("grid-column", "   ")]
+    public void An_undividable_placement_is_refused_rather_than_guessed(string property, string value) {
+        List<KeyValuePair<string, string>> expanded = [];
+        Assert.False(ShorthandExpansion.TryExpand(property, value, expanded));
+    }
+
+    /// <summary>End to end: the later declaration wins, and it wins in both directions.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The shorthand-last row is the assertion; the longhand-last row is the control.</b>
+    ///     Before the expansion, the layout bridge applied the shorthand and then overwrote each half
+    ///     from the longhands in an order fixed in code — so the longhand-last case was already right
+    ///     and a test that checked only that direction would have passed against the bug. Asserted on
+    ///     the cascade rather than on geometry here because that is where the ordering now happens;
+    ///     <c>Vixen.Ui.Tests.GridFromCssTests</c> measures the boxes.
+    /// </remarks>
+    [Theory]
+    [InlineData("grid-row-start: 3; grid-row: 1 / -1;", "grid-row-start", "1")]
+    [InlineData("grid-row-start: 3; grid-row: 1 / -1;", "grid-row-end", "-1")]
+    [InlineData("grid-row: 1 / -1; grid-row-start: 3;", "grid-row-start", "3")]
+    [InlineData("grid-row: 1 / -1; grid-row-start: 3;", "grid-row-end", "-1")]
+    [InlineData("grid-column-end: 4; grid-column: 1;", "grid-column-end", "auto")]
+    public void The_placement_written_last_wins(string declarations, string property, string expected) {
+        var fixture = new CascadeFixture();
+        fixture.Load($"item {{ {declarations} }}");
+
+        Assert.Equal(expected, fixture.Value(fixture.Tree.CreateElement("item"), property));
+    }
 
     /// <summary>End to end: the sheet the controls ship with now reaches the property the paint reads.</summary>
     [Fact]

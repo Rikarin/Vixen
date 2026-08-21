@@ -570,6 +570,7 @@ static Vixen.Ui.Styling.LayerRuleParser.TryParse(string? text, out Vixen.Ui.Styl
 static Vixen.Ui.Styling.MediaQuery.TryEvaluate(string? condition, Vixen.Ui.Styling.MediaContext context, out bool matches, out string? reason) -> bool
 static Vixen.Ui.Styling.NamedColors.TryGet(System.ReadOnlySpan<char> name, out Vixen.Core.Mathematics.Color colour) -> bool
 static Vixen.Ui.Styling.ShorthandExpansion.IsShorthand(string property) -> bool
+static Vixen.Ui.Styling.ShorthandExpansion.NeedsExpanding(string property, string value) -> bool
 static Vixen.Ui.Styling.ShorthandExpansion.TryExpand(string property, string value, System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>> into) -> bool
 static Vixen.Ui.Styling.Specificity.operator <(Vixen.Ui.Styling.Specificity left, Vixen.Ui.Styling.Specificity right) -> bool
 static Vixen.Ui.Styling.Specificity.operator <=(Vixen.Ui.Styling.Specificity left, Vixen.Ui.Styling.Specificity right) -> bool

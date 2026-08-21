@@ -34,12 +34,40 @@ namespace Vixen.Ui.Styling;
 ///         output rather than against a table written here.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>inset</c> is deliberately not here.</b> ExCSS does not know the property and
-///         passes it through whole <i>whether or not</i> it holds a <c>var()</c> — so the layout
-///         bridge reads the shorthand itself, and expanding it would be this file inventing a
-///         difference rather than removing one. Neither is <c>flex</c>: its one-value form means
-///         <c>flex-grow</c> for a number and <c>flex-basis</c> for a length, and which of those a
-///         <c>var()</c> holds is exactly what is not known yet.
+///         ⚠ <b><c>grid-column</c> and <c>grid-row</c> are here for the opposite reason, and it is
+///         the reason <see cref="NeedsExpanding" /> exists.</b> ExCSS has never heard of either
+///         property, so it hands them back whole <i>whether or not</i> they hold a <c>var()</c> — the
+///         var-only rule above would never fire and the shorthand would reach a computed style
+///         intact. That was not merely a missing expansion: it forced the layout bridge to apply the
+///         shorthand and then each longhand over it in an order fixed in code, so a
+///         <c>grid-row-start</c> from a theme sheet silently discarded a later
+///         <c>grid-row: 1 / -1</c> from a utility class and the item was auto-placed into a real
+///         cell — the grid looked built rather than broken. Expanding at load gives the cascade two
+///         comparable declarations, and the later one wins, which is all "declaration order decides"
+///         ever needed.
+///     </para>
+///     <para>
+///         ⚠ <b><c>inset</c> is deliberately not here.</b> ExCSS does not know that property either
+///         and passes it through whole <i>whether or not</i> it holds a <c>var()</c> — but the layout
+///         bridge reads the shorthand itself and no longhand overlaps it, so expanding it would be
+///         this file inventing a difference rather than removing one. Neither is <c>flex</c>: ExCSS
+///         <i>does</i> expand that one, and its one-value form means <c>flex-grow</c> for a number
+///         and <c>flex-basis</c> for a length, so which of those a <c>var()</c> holds is exactly what
+///         is not known yet.
+///     </para>
+///     <para>
+///         ⚠ <b><c>grid-area</c>, <c>place-self</c>, <c>place-items</c> and <c>place-content</c> have
+///         the same hole and are deliberately still in it.</b> ExCSS leaves all four whole, and every
+///         longhand they cover <i>is</i> read — <c>LayoutStyleBuilder</c> reads all four grid edges
+///         and all six of <c>align-</c>/<c>justify-items</c>, <c>-self</c> and <c>-content</c> — so
+///         each of the four is a declaration that parses, cascades, resolves, and then does nothing
+///         whatever. That is the border-colour silence one more time. It is <i>not</i> the bug this
+///         file was changed for, though: nothing overwrites them, because the bridge has no branch
+///         for any of the four, so there is no precedence to get wrong. No utility family and no
+///         sheet in the repository emits one either. Adding them is a feature with a test surface of
+///         its own — four grammars, <c>place-*</c>'s one-value form meaning both axes — and doing it
+///         quietly alongside a precedence fix is how a table entry lands without the tests that make
+///         it true. Recorded here so the next reader finds the list rather than the gap.
 ///     </para>
 /// </remarks>
 public static class ShorthandExpansion {
@@ -71,9 +99,37 @@ public static class ShorthandExpansion {
             "border-radius" => true,
             "gap" => true,
             "border" or "border-top" or "border-right" or "border-bottom" or "border-left" => true,
+            "grid-column" or "grid-row" => true,
             _ => false
         };
     }
+
+    /// <summary>Whether this declaration has to be taken apart before the cascade sees it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <c>var()</c> test is not the whole rule, and reading it as one is what left
+    ///     <c>grid-row</c> unexpanded.</b> For everything ExCSS understands, a <c>var()</c> is the
+    ///     only thing that stops the parser expanding a shorthand itself, so re-expanding a var-free
+    ///     one would be second-guessing it. For a property ExCSS does not know — <c>grid-column</c>
+    ///     and <c>grid-row</c> — nothing expanded it in the first place, so the condition is simply
+    ///     that it arrived. Asking here rather than at the call sites keeps the two rules in the file
+    ///     that can explain the difference.
+    /// </remarks>
+    /// <param name="property">The property name, as a stylesheet writes it.</param>
+    /// <param name="value">Its value, with any <c>var()</c> still in it.</param>
+    /// <returns>Whether the caller should try <see cref="TryExpand" /> on it.</returns>
+    public static bool NeedsExpanding(string property, string value) {
+        ArgumentNullException.ThrowIfNull(property);
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (!IsShorthand(property)) {
+            return false;
+        }
+
+        return IsPlacement(property) || VarSubstitution.NeedsSubstitution(value);
+    }
+
+    /// <summary>The two shorthands ExCSS hands back whole however they are written.</summary>
+    static bool IsPlacement(string property) => property is "grid-column" or "grid-row";
 
     /// <summary>Takes a shorthand apart into the longhands its consumers read.</summary>
     /// <param name="property">The property name. <see cref="IsShorthand" /> must hold.</param>
@@ -87,6 +143,12 @@ public static class ShorthandExpansion {
         ArgumentNullException.ThrowIfNull(property);
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(into);
+
+        // Before the split, because a placement's two edges are whole values rather than components:
+        // `span 2 / span 2` is two of them and five of what `Split` returns.
+        if (IsPlacement(property)) {
+            return Placement(property, value, into);
+        }
 
         var parts = Split(value);
 
@@ -209,6 +271,86 @@ public static class ShorthandExpansion {
         }
 
         return true;
+    }
+
+    /// <summary>
+    ///     <c>grid-column</c> and <c>grid-row</c>, split on their one slash into the two edges the
+    ///     bridge reads.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An omitted end edge is written out as <c>auto</c> rather than left off</b>, which
+    ///         is the one place this differs from <see cref="Border" /> above and the difference is
+    ///         not a preference. A shorthand resets every longhand it covers, and here that reset is
+    ///         expressible: <c>auto</c> is the initial value, <c>GridPlacement.TryParse</c> reads the
+    ///         word, and CSS Grid §8.4 says in as many words that a missing second value is
+    ///         <c>auto</c>. Omitting it would let a <c>grid-column-end: 4</c> from a weaker rule
+    ///         survive a later <c>grid-column: 1</c> — the same silent-precedence bug one property
+    ///         over. <c>border</c> leaves its missing components off only because <c>medium</c> and
+    ///         <c>currentcolor</c> are words this framework's value parsers cannot read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <c>var()</c> with no slash beside it is refused</b>, because the slash may be
+    ///         inside it: <c>grid-column: var(--place)</c> where <c>--place</c> is <c>1 / 3</c> is a
+    ///         start edge and an end edge, and calling the whole thing the start would turn a working
+    ///         declaration into a refused one. Left whole, it reaches the bridge's own shorthand
+    ///         reading after substitution, exactly as before — which is why those two branches stay.
+    ///         A <c>var()</c> on either side of a slash that <i>is</i> written is fine, because then
+    ///         each edge is already its own value.
+    ///     </para>
+    /// </remarks>
+    static bool Placement(string property, string value, List<KeyValuePair<string, string>> into) {
+        var slash = TopLevelSlash(value);
+
+        if (slash < 0) {
+            var only = value.Trim();
+
+            if (only.Length == 0 || VarSubstitution.NeedsSubstitution(only)) {
+                return false;
+            }
+
+            into.Add(new($"{property}-start", only));
+            into.Add(new($"{property}-end", "auto"));
+
+            return true;
+        }
+
+        var start = value[..slash].Trim();
+        var end = value[(slash + 1)..].Trim();
+
+        // A second slash is `grid-area`'s four-edge form written under the wrong name, and taking its
+        // first two edges would place the item in a real but wrong cell. Refused, and the loader says
+        // so — the same judgement `GridPlacement.TryParseShorthand` makes on the value it is handed.
+        if (start.Length == 0 || end.Length == 0 || TopLevelSlash(end) >= 0) {
+            return false;
+        }
+
+        into.Add(new($"{property}-start", start));
+        into.Add(new($"{property}-end", end));
+
+        return true;
+    }
+
+    /// <summary>The first slash that is not inside a function, or −1.</summary>
+    static int TopLevelSlash(string value) {
+        var depth = 0;
+
+        for (var index = 0; index < value.Length; index++) {
+            switch (value[index]) {
+                case '(':
+                    depth++;
+                    break;
+
+                case ')':
+                    depth--;
+                    break;
+
+                case '/' when depth == 0:
+                    return index;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Row then column, which is the order the shorthand names them and not the enum's.</summary>

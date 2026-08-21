@@ -270,23 +270,89 @@ public class GridFromCssTests {
         Assert.Equal(200f, placed.Width, Tolerance);
     }
 
-    [Fact]
-    public void A_longhand_beats_the_shorthand_it_overlaps() {
+    /// <summary>Whichever of the shorthand and the longhand was written last wins — both ways round.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both orders, or this guard does not exist.</b> The bug it was written for was
+    ///         <c>ApplyPlacements</c> applying the shorthand and then overwriting each half from the
+    ///         longhands, in an order fixed in code — so the longhand-last case passed while the
+    ///         engine was at its most broken, and a test that checked only that direction would have
+    ///         been green throughout. The shorthand-last row is the whole assertion; the other row is
+    ///         there so that a future fix cannot buy it by inverting the hard-coded order.
+    ///     </para>
+    ///     <para>
+    ///         The real shape is a utility class losing to a theme rule: <c>row-span-full</c> emits
+    ///         <c>grid-row: 1 / -1</c>, and on any element whose sheet also set <c>grid-row-start</c>
+    ///         it was discarded in silence — no diagnostic, and the item auto-placed into a real cell,
+    ///         so the grid looked built rather than broken. What fixed it is
+    ///         <c>ShorthandExpansion</c> splitting the shorthand at load, which is why the assertion
+    ///         is here and the cascade does the ordering.
+    ///     </para>
+    /// </remarks>
+    /// <param name="declarations">The two declarations, in the order they are written.</param>
+    /// <param name="left">Where the item should start.</param>
+    /// <param name="width">How wide it should be.</param>
+    [Theory]
+    [InlineData("grid-column: 1 / 2; grid-column-end: 4;", 0f, 300f)]
+    [InlineData("grid-column-end: 4; grid-column: 1 / 2;", 0f, 100f)]
+    [InlineData("grid-column: 2 / 4; grid-column-start: 1;", 0f, 300f)]
+    [InlineData("grid-column-start: 1; grid-column: 2 / 4;", 100f, 200f)]
+    public void The_placement_written_last_wins_whichever_kind_it_is(string declarations, float left, float width) {
         using var document = Laid(
-            """
-            root { width: 400px; height: 300px; }
-            .grid { display: grid; width: 300px; height: 60px; grid-template-columns: repeat(3, 100px); }
-            .placed { grid-column: 1 / 2; grid-column-end: 4; height: 10px; }
-            """,
+            $$"""
+              root { width: 400px; height: 300px; }
+              .grid { display: grid; width: 300px; height: 60px; grid-template-columns: repeat(3, 100px); }
+              .placed { {{declarations}} height: 10px; }
+              """,
             document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
         );
 
         var placed = document.Root.ChildList[0].ChildList[0];
 
-        Assert.Equal(0f, placed.AbsoluteLeft, Tolerance);
-        Assert.Equal(300f, placed.Width, Tolerance);
+        Assert.Empty(document.Builder.Diagnostics);
+        Assert.Equal(left, placed.AbsoluteLeft, Tolerance);
+        Assert.Equal(width, placed.Width, Tolerance);
     }
 
+    /// <summary>The same, across two rules, which is where it actually bit.</summary>
+    /// <remarks>
+    ///     ⚠ Two rules of equal specificity rather than one declaration list, because that is the
+    ///     arrangement the failure has in a real document: a theme sheet names <c>grid-row-start</c>
+    ///     and a utility class emitted later names <c>grid-row</c>. Equal specificity so that document
+    ///     order is the only thing deciding, which is the property being asserted.
+    /// </remarks>
+    [Theory]
+    [InlineData(".placed { grid-row-start: 2; } .placed { grid-row: 1 / -1; }", 0f, 60f)]
+    [InlineData(".placed { grid-row: 1 / -1; } .placed { grid-row-start: 2; }", 20f, 40f)]
+    public void A_utility_shorthand_beats_a_theme_longhand_declared_before_it(string rules, float top, float height) {
+        using var document = Laid(
+            $$"""
+              root { width: 400px; height: 300px; }
+              .grid { display: grid; width: 300px; height: 60px;
+                      grid-template-columns: 100px; grid-template-rows: repeat(3, 20px); }
+              {{rules}}
+              """,
+            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
+        );
+
+        var placed = document.Root.ChildList[0].ChildList[0];
+
+        Assert.Empty(document.Builder.Diagnostics);
+        Assert.Equal(top, placed.AbsoluteTop, Tolerance);
+        Assert.Equal(height, placed.Height, Tolerance);
+    }
+
+    /// <summary>A named line is refused rather than auto-placed in silence.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The diagnostic names <c>grid-column-start</c> and not <c>grid-column</c>, which is a
+    ///     real cost of expanding at load and is worth stating rather than leaving to be
+    ///     discovered.</b> <c>ShorthandExpansion</c> divides the shorthand before anything can judge
+    ///     its halves — it lives in <c>Vixen.Ui.Styling</c>, which has no <c>GridPlacement</c> to ask
+    ///     — so by the time the bridge finds <c>sidebar</c> unreadable, the name it has to report is
+    ///     the longhand's. What the test is for survives that intact: the declaration is refused out
+    ///     loud, the item is not quietly auto-placed, and the reported name still carries the value
+    ///     the author wrote.
+    /// </remarks>
     [Fact]
     public void A_named_line_is_refused_rather_than_auto_placed_in_silence() {
         using var document = Laid(
@@ -299,7 +365,34 @@ public class GridFromCssTests {
         );
 
         var refusal = Assert.Single(document.Builder.Diagnostics);
-        Assert.StartsWith("grid-column:", refusal.Text, StringComparison.Ordinal);
+        Assert.StartsWith("grid-column-start: sidebar", refusal.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>A shorthand the expander will not divide is still read, by the bridge, as before.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The residue, asserted so that it stays this small.</b> A <c>var()</c> with no slash
+    ///     beside it may be holding the slash, so <c>ShorthandExpansion</c> refuses it rather than
+    ///     calling the whole value a start edge and turning a working declaration into a refused one.
+    ///     The bridge's own shorthand branches then read the substituted value exactly as they did
+    ///     before anything was expanded. This is the only shape in which those branches still fire,
+    ///     and so the only shape in which precedence against a longhand is decided in code rather
+    ///     than by the cascade.
+    /// </remarks>
+    [Fact]
+    public void A_var_holding_a_whole_placement_is_still_read_by_the_bridge() {
+        using var document = Laid(
+            """
+            root { width: 400px; height: 300px; }
+            .grid { display: grid; width: 300px; height: 60px; grid-template-columns: repeat(3, 100px); }
+            .placed { --place: 2 / 4; grid-column: var(--place); height: 10px; }
+            """,
+            document => document.Root.Add("div", classNames: "grid").Add("div", classNames: "placed")
+        );
+
+        var placed = document.Root.ChildList[0].ChildList[0];
+
+        Assert.Equal(100f, placed.AbsoluteLeft, Tolerance);
+        Assert.Equal(200f, placed.Width, Tolerance);
     }
 
     // ── Auto flow ───────────────────────────────────────────────────────────────────────────────
