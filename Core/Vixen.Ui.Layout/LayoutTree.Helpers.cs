@@ -462,6 +462,7 @@ public sealed partial class LayoutTree {
         results[index] = default;
         results[index].ComputedFlexBasis = float.NaN;
         results[index].ComputedAutoMinMainSize = float.NaN;
+        results[index].GridAreaWidth = float.NaN;
         results[index].CachedLayout = cached;
         flags[index] |= LayoutNodeState.HasNewLayout;
         flags[index] &= ~LayoutNodeState.Dirty;
