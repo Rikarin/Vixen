@@ -177,10 +177,11 @@ other — obvious in a drawing and invisible in a list.
 
 - **A pass with attachments.** Attachments are a draw, whatever the pass says its kind is.
 - **`PassKind.Transfer`.** A Vulkan transfer family accepts copies and *nothing else*. The bodies
-  have now been audited (below) and six of them really are copies — but the graph's own barriers are
-  not: the acquire in front of a transfer pass names the state the resource was in, which for a
-  colour target is a stage no transfer family has. The clamp above handles that, and hoisting
-  transfers is still a separate switch nobody has thrown.
+  have been audited (below) and six of them really are copies, and the barrier problem the audit
+  named is solved: the acquire in front of a transfer pass names the state the resource was in,
+  which for a colour target is a stage no transfer family has, and the clamp above drops it. **The
+  switch stays off anyway, and now for a measured reason rather than for want of an audit** — see
+  *What hoisting a copy would cost*.
 - **A compute pass that declares no write.** Every wait edge in a schedule comes from a declared
   write, so a pass that declares none is a pass nothing can be made to wait for. Hoisting it puts it
   in a segment with an edge going in and none coming out, and whatever it really produced — a HiZ
@@ -247,6 +248,46 @@ nothing here claims a speed-up.
 The honest reading is that the audit's value was the four passes it stopped: `GpuCullingRenderer`,
 `ClusterCullingRenderer`, `HiZRenderer` and `ScreenProbeGatherRenderer` would each have been hoisted
 into a segment nothing waits for the first time somebody set `Scheduling` on a discrete card.
+
+### What hoisting a copy would cost
+
+The audit left `PassKind.Transfer` as "a separate switch nobody has thrown", and named the barrier
+stages as the thing in the way. That part is settled — the queue clamp drops the shader stages a
+`CopySource` acquire inherits from a colour target, and a transfer list records a validation-clean
+acquire. **The switch still stays off, because the cost is somewhere the audit was not looking.**
+
+`Realise` aliases transients only while the schedule is *not* multi-queue, and a frame is not
+multi-queue by degrees. One hoisted copy makes the whole frame multi-queue, and every large target
+in it stops sharing memory — including the ones the copy never touches.
+
+Measured on a six-step post-FX chain at 1920×1080 whose links do not coexist, plus one
+`PassKind.Transfer` pass of exactly `BufferUploadRenderer`'s declaration:
+
+| | physical textures | segments | handovers |
+|---|---|---|---|
+| `Single` | 2 | 1 | 0 |
+| `Async`, no copy in the frame | 2 | 1 | 0 |
+| `Async`, copy hoisted | 6 | 2 | 1 |
+
+Four extra 1920×1080 RGBA8 targets — about **31 MiB**, held for the life of the pool — bought by
+moving a four-kilobyte upload onto a DMA queue.
+
+⚠ **The row that matters is the middle one.** A frame with no hoistable compute pass compiles
+*identically* under `Async` and `Single` today: one segment, two physical textures. `Async` is free
+on such a frame. Hoisting copies is what would turn every frame containing a buffer upload, a
+readback or a picking query into a multi-queue one — and buy nothing back, because
+`HasAsyncTransfer` is false wherever `HasAsyncCompute` is (both mean *a queue family of its own*,
+and MoltenVK and lavapipe each expose one universal family).
+
+Three of the six would also be excluded on the rule that already governs compute:
+`BufferReadbackRenderer`, `PickingRenderer.Readback` and `ScreenProbeGatherRenderer.Readback`
+declare reads and `SideEffect()` and no write at all. Their product genuinely is outside the graph
+and genuinely is safe — `EndFrame` signals a fence on *every* queue and `BeginFrame` waits on all of
+them, so a readback on a transfer queue is still covered by the host's frame loop — but it means at
+most three passes in the tree could be hoisted for the price above.
+
+`QueueSchedulingTests.ACopyDoesNotCostTheFrameItsTransientAliasing` pins this, so throwing the
+switch fails a test rather than a memory graph nobody is watching.
 
 ### Transient aliasing under async
 

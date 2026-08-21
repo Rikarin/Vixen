@@ -97,6 +97,14 @@ and the backends refuse a list at neither end.
 ⚠ **Async frames do not alias transients.** "Their lifetimes do not overlap" is a statement about pass
 order, and pass order stops being a statement about time once two queues run at once.
 
+⚠ **An aliased take-over transitions from `Undefined`, and that is a claim about the contents only.**
+State is tracked per virtual resource, so the second tenant of a pool slot honestly says its previous
+state was `Undefined` — the contents may be discarded, which is what avoids a decompress for garbage.
+What the barrier must still wait for is the *previous* tenant's last write to that same physical
+resource. A backend that reads `Undefined` as "there is nothing to wait for" and names a top-of-pipe
+source orders against nothing at all, on the single-queue path, which is the one every real device
+here runs. `VulkanBarriers.SourceStage` is where that distinction lives.
+
 **A wait edge is enforced by value where the device can.** `DeviceQueues` submits each segment with
 the `TimelinePoint`s its producers reached, so the device waits and the calling thread does not;
 `SerialisedQueues` is the same frame with each edge enforced by draining the producing queue, and is
