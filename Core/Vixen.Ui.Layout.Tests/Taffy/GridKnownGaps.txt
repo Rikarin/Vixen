@@ -15,7 +15,7 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 1542 of the 2 120 grid, blockgrid and gridflex fixtures pass, 446 fail and 132 are refused.
+# 1552 of the 2 120 grid, blockgrid and gridflex fixtures pass, 436 fail and 132 are refused.
 #
 # ⚠ THE SHAPE OF THIS FILE IS THE RESULT, and it is a different shape from block's. Block landed
 # with every one of its 42 failures outside block formatting. Grid has not: the buckets below are
@@ -53,18 +53,25 @@
 # What is NOT here: only items with a row span of exactly 1 join a baseline-sharing group, per
 # §11.8. A spanning item is aligned as though it said `start`, and no corpus fixture disagrees.
 
-# ── AN ITEM'S PERCENTAGE MARGINS DURING TRACK SIZING ──
+# ── AN ITEM'S PERCENTAGE MARGINS DURING TRACK SIZING ── CLOSED, and one RTL remainder ──
 #
 # ⚠ Filed under baseline alignment until the baseline work closed the other four families and left
-# this one standing, which is what made it legible: it is not a baseline bug. The two items are in
+# this one standing, which is what made it legible: it was never a baseline bug. The two items are in
 # one column, so each is alone in its baseline-sharing group and every shim is zero; the disagreement
-# is that the first row comes out 65 rather than 70.
+# was that the first row came out 65 rather than 70.
 #
 # CSS Grid §9 makes an item's grid area its containing block, so a percentage margin on the item is a
-# fraction of the AREA's inline size. `PlaceGridItemBoxes` gets that right and says so; MeasureGridItem
-# resolves the same margins against the grid's own owner width, which for a max-content viewport is
-# NaN — so a `margin: 5%` item contributes its border box alone to the row and the row is short by
-# both margins.
+# fraction of the AREA's inline size. `PlaceGridItemBoxes` got that right and said so; MeasureGridItem
+# resolved the same margins against the grid's own owner width, which for a max-content container is
+# NaN — so a `margin: 5%` item contributed its border box alone to the row and the row was short by
+# both margins. Ten fixtures, three lines: this family's LTR pair, and both
+# `grid_percent_items_width_and_margin` families, which were sitting in the cyclic-percentage bucket
+# below and are not cyclic — they are this. 446 → 436.
+#
+# ⚠ The line stays because its two RTL variants do not. Those disagree about the *inner* child
+# (`root.1.0.x`: Chrome 0, this −1), which is a half-point margin mirrored against a box that
+# overflows its area and then rounded — a rounding question in `PlaceGridItemBoxes`' RTL mirror
+# rather than a margin-resolution one, and nothing else in the corpus exercises it.
 grid_align_items_baseline_child_margin_percent
 
 # ── AN ABSOLUTELY POSITIONED CHILD'S CONTAINING BLOCK IS NOT ITS GRID AREA (§9) ──
@@ -195,11 +202,13 @@ grid_minmax_auto_fixed_10px
 # re-resolves the percentage against it. `grid_percent_items_nested_moderate` is the clean case, and
 # the numbers are close rather than wild (42.15625 against 51.44), which is what a missing second
 # pass looks like rather than a missing rule.
+#
+# ⚠ Two families left this bucket without a second pass being written, so the bucket was wider than
+# the rule it names: `grid_percent_items_width_and_margin` and its `_2_col` twin were a percentage
+# resolved against the wrong box rather than against an unknown one. See the closed heading above.
 grid_percent_items_nested_moderate
 grid_percent_items_nested_with_margin
 grid_percent_items_nested_with_padding_margin
-grid_percent_items_width_and_margin
-grid_percent_items_width_and_margin_2_col
 grid_percent_tracks_indefinite_with_content_overflow
 grid_percent_tracks_indefinite_with_content_underflow
 grid_margins_percent_center

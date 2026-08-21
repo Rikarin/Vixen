@@ -173,7 +173,7 @@ cascade would keep its old tracks for the rest of its life unless absence is its
 than in the bridge because it is the inverse of `GridTrackSize.ToString` — and because the layout
 conformance corpus has to be able to call it.
 
-That last part is the point rather than a convenience. All 1 526 passing grid fixtures reach the
+That last part is the point rather than a convenience. All 1 552 passing grid fixtures reach the
 store through `TaffyStyleMap` and never touch CSS, so a second grammar written for stylesheets would
 have had no adversarial coverage at all — no `repeat(40000, 10px 10px)`, no 84 KB attribute of
 longhand tracks. Both callers now parse with the same lines, so a track list that would break a

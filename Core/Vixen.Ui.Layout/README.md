@@ -21,8 +21,8 @@ and 42 fail — every one of them in the *absolute* path, in two buckets that pr
 that a flex parent hits identically. See [the block section](#block-layout-and-what-a-second-algorithm-cost)
 below and `Taffy/BlockKnownGaps.txt`.
 
-**Grid landed with doc 43 § B2 and is the third.** 1 542 of the 2 120 `grid`, `blockgrid` and
-`gridflex` fixtures pass, 132 are refused, and 446 fail in the buckets `Taffy/GridKnownGaps.txt`
+**Grid landed with doc 43 § B2 and is the third.** 1 552 of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, 132 are refused, and 436 fail in the buckets `Taffy/GridKnownGaps.txt`
 names one at a time. It is **partial and says which part**: placement (§8), the bulk of track
 sizing (§12) and §11.8's baseline alignment are done, CSS Grid §9's containing block for an
 out-of-flow child is not, and `grid-template-areas` is **not implemented at all** — see
@@ -264,7 +264,7 @@ declaration and the corpus contains it, so fixed repetitions are expanded once o
 only text parsing here, and the exception is argued rather than accidental. It is the inverse of
 `GridTrackSize.ToString`, which already emits `minmax(0,1fr)`; and it is what lets the conformance
 corpus and the CSS bridge read a track list with the same lines. That matters more than the layering
-does: every one of the 1 526 passing grid fixtures arrives through `TaffyStyleMap` and never touches
+does: every one of the 1 552 passing grid fixtures arrives through `TaffyStyleMap` and never touches
 CSS, so a grammar written only for stylesheets would have had no adversarial coverage at all.
 `TaffyTrackListParser` is now an adapter between its returned refusal and the corpus's thrown one.
 

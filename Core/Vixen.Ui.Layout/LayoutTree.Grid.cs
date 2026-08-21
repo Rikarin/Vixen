@@ -829,8 +829,18 @@ public sealed partial class LayoutTree {
         var child = item.Node;
 
         if (!axis.Inline) {
-            var marginColumn = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, ownerWidth);
-            var marginRow = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, ownerWidth);
+            // ⚠ <b>A percentage margin on the item is a fraction of its GRID AREA, and by the row
+            // pass the area's inline size is known.</b> CSS Grid §9 makes the area the item's
+            // containing block, which is the rule `PlaceGridItemBoxes` already states for the
+            // margins it positions with — but the row pass resolved the same margins against the
+            // grid's own owner width, which for a max-content container is NaN. So a `margin: 5%`
+            // item contributed its border box alone and its row came out short by both margins.
+            // ⚠ The inline pass deliberately does NOT do this: there the area's size is the thing
+            // being computed, and CSS Sizing §5.2.1 makes a percentage against an unknown
+            // containing block behave as `auto` while an intrinsic contribution is calculated.
+            var marginReference = float.IsNaN(item.ResolvedInlineSize) ? ownerWidth : item.ResolvedInlineSize;
+            var marginColumn = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, marginReference);
+            var marginRow = StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, marginReference);
             var borderBoxInline = MathF.Max(0f, item.ResolvedInlineSize - marginRow);
 
             // ⚠ <b>An item's own stated height has to be resolved here, because the callee will not
