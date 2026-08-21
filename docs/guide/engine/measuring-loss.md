@@ -8,7 +8,7 @@ api: [T:Vixen.Net.Transport.TransportLoss]
 tags: [networking, transport, diagnostics, loss, metrics]
 since: 0.2
 status: preview
-related: [editor/network-panel, engine/networked-players, live/writing-a-realm]
+related: [editor/network-panel, engine/networked-players, engine/network-sessions, engine/round-trip-and-jitter, live/writing-a-realm]
 ---
 
 ## What it is
@@ -102,8 +102,9 @@ if (transport.Loss is { } loss) {
 }
 ```
 
-`NetworkSession.Transport` is the transport a session is running on, so anything holding a session
-already has this — which is how the editor panel draws its lanes without the host wiring anything.
+[`NetworkSession.Transport`](network-sessions.md) is the transport a session is running on, so
+anything holding a session already has this — which is how the editor panel draws its lanes without
+the host wiring anything.
 
 To publish them, hand the meter the transport beside everything else it samples:
 
@@ -156,8 +157,8 @@ that never carried the payload at all.
 **Where the two directions disagree.** On a symmetric link, `Retransmitted / Sent` runs above
 `Missing / Expected` — that is the expected shape rather than a defect, for the three reasons in
 [What it is](#what-it-is). A resend share far above the inbound loss share on a link whose inbound
-loss is near zero is worth reading as a round-trip estimate that has fallen behind, not as an
-asymmetric network.
+loss is near zero is worth reading as a [round-trip estimate](round-trip-and-jitter.md) that has
+fallen behind, not as an asymmetric network.
 
 ## See also
 

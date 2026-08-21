@@ -2213,7 +2213,6 @@ T:Vixen.Net.Sessions.ISessionAuthenticator sweep-pending
 T:Vixen.Net.Sessions.ISessionMessageHandler sweep-pending
 T:Vixen.Net.Sessions.NetworkPayload sweep-pending
 T:Vixen.Net.Sessions.NetworkPlayer sweep-pending
-T:Vixen.Net.Sessions.NetworkSession sweep-pending
 T:Vixen.Net.Sessions.PayloadKind sweep-pending
 T:Vixen.Net.Sessions.PlayerId sweep-pending
 T:Vixen.Net.Sessions.PlayerLeaveReason sweep-pending
@@ -2224,7 +2223,6 @@ T:Vixen.Net.Sessions.SessionTopology sweep-pending
 T:Vixen.Net.Telemetry.NetworkTelemetry sweep-pending
 T:Vixen.Net.Telemetry.TelemetryOptions sweep-pending
 T:Vixen.Net.Tick sweep-pending
-T:Vixen.Net.Time.RoundTripEstimator sweep-pending
 T:Vixen.Net.Time.TickManager sweep-pending
 T:Vixen.Net.Time.TickRate sweep-pending
 T:Vixen.Net.Transport.Composite.CompositeTransport sweep-pending

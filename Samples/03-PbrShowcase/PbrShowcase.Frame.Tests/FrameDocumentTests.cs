@@ -94,6 +94,47 @@ public sealed class FrameDocumentTests {
         Assert.Same(built.Scene, ground.Scene);
     }
 
+    /// <summary>Every stage the host owes stand-ins to, found by the shader it imposes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>PbrShowcaseGame.SupplyFrame</c> used to ask the builder for the stage called
+    ///         <c>Shadow</c>. That is right only for as long as there is exactly one caster stage, and
+    ///         it is what sample 13 was doing when splitting its cascades into a cached half and a
+    ///         moving half gave it a second: a stage whose <see cref="RenderStage.Parameters" /> nobody
+    ///         fills writes no per-material set at all — a set is written wholly or not at all — so its
+    ///         draws go out with set 2 empty, which is a validation error with the layers on and a
+    ///         segfault inside <c>vkQueueSubmit</c> without them.
+    ///     </para>
+    ///     <para>
+    ///         So this asserts the two halves of the shape the host now has: matching on the shader
+    ///         finds every stage that imposes it, and <b>it finds at least one</b> — a loop that
+    ///         matches nothing is the silent failure the name lookup could not have, and the reason
+    ///         the count is asserted rather than the loop merely running.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Matching_on_the_shader_finds_every_caster_stage_and_at_least_one() {
+        using var built = Build();
+
+        // Spelled out rather than taken from `ShowcaseFrame.CasterShader`: this project deliberately
+        // does not reference the game — it reads the authored document and builds it against the Null
+        // backend, which is what lets it run on a machine with no GPU. The const and this literal are
+        // the same string, and a change to one that misses the other fails here.
+        var byShader = built.Builder.Stages.Values
+            .Where(stage => string.Equals(stage.ShaderName, "ShadowCaster", StringComparison.Ordinal))
+            .Select(stage => stage.Name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        // At least one, because a loop that matches nothing leaves the caster shader's set unwritten
+        // just as surely as a stage the host skipped, and reports nothing at all while doing it.
+        Assert.NotEmpty(byShader);
+
+        // And the stage the name lookup used to reach is among them, which is what says the const is
+        // spelled the way the expansion spells it. `!StandardFrame` emits exactly this one today.
+        Assert.Contains("Shadow", byShader);
+    }
+
     static Built Build() {
         // Constructing the factories is also what first touches their assemblies, whose module
         // initializers register the !StandardFrame and !Terrain YAML tags — parse before that and

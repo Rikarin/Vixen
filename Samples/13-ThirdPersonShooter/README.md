@@ -319,20 +319,63 @@ the timescale a person reporting "it blinks for ten or twenty seconds" is descri
 
 ### What a walking capture measures, and what it does not
 
-Measured on this level at 1600 × 900, 512 frames, from `-3,0.2,24,180` walking out of the south gate:
+Measured on this level at 1600 × 900, 512 frames, from `-3,0.2,24,180` — ten headless runs of one
+build on one machine, run one at a time, four walking out of the south gate and six standing still at
+the same start pose. The statistics are the two
+[the capture guide](../../docs/guide/rendering/capturing-a-frame.md) says survive on a view with grass
+in it: the whole-frame mean channel, and a band count — pixels whose green is above both red and blue
+by four, which is 56 % of the walking frame and 7 % of the still one.
 
-| | Mean channel gap | Mean \|delta\| | Flipped pixels |
-|---|---|---|---|
-| Two identical **walking** runs | 0.0040 | 0.0085/255 | 32 157 of 1 440 000 |
-| Two identical **still** runs, same start pose | 0.0197 | 0.0492/255 | 170 194 of 1 440 000 |
+| | Runs | Whole-frame mean channel | Spread | Grass band | Spread |
+|---|---|---|---|---|---|
+| **Walking** — `VIXEN_WALK=20` | 4 | 88.88 | **0.117 %** | 812 320 | **0.077 %** |
+| **Still**, same start pose, no `VIXEN_WALK` | 6 | 103.06 | **0.487 %** | 103 141 | **4.95 %** |
 
-⚠ **The walking floor is about six times *tighter* than the still floor at the same viewpoint**, which
-is the opposite of what was expected. Two walking runs land on bit-identical player positions —
-`(-3.0024705, 0.69134784, 42.6403)` both times — so nothing in the walk itself contributes, and what
-is left is the renderer's own scheduling residue over whatever is on screen. The still view here looks
-at the arena floor and the walls, and the walking one ends up in deep grass; screen-probe GI over
-built surfaces is apparently noisier run-to-run than grass is. **The floor is a property of the
-viewpoint, not of whether the camera moved** — measure it where you intend to measure, every time.
+The walking runs were driven by the one-leg script in the block above — `VIXEN_WALK=20`, straight
+ahead. 512 frames at the implied 1/60 step is 8.53 s of it, which is 36.71 m out of the south gate and
+ends chest-deep in the terrain's grass; the remaining 11.5 s of the leg never runs.
+
+⚠ **The walking floor is still the tighter of the two, and "about six times" is not a number that
+survives** — the ratio is four on the mean channel and sixty on the band, so it is a property of the
+statistic and not of the pair of views. The direction the old table claimed was right and the size was
+not, because the numbers it was made of came from one pair of runs each. All four walking runs
+land on bit-identical player positions — `(-3.1821833, 5.1810503, 60.36656)` every time, 36.71 m
+covered every time — so nothing in the walk itself contributes, and what is left is the renderer's own
+scheduling residue over whatever is on screen. The still view looks at the arena floor and the walls
+and the walking one ends up in deep grass, so **the floor is a property of the viewpoint rather than of
+whether the camera moved**: measure it where you intend to measure, every time.
+
+⚠ **The output is clustered, and that is why a single pair is not a floor.** Three of the four walking
+runs are within 0.0005/255 of each other and the fourth is 0.1479/255 from all three — a factor of
+three hundred, out of runs of one binary. The six still runs are worse behaved: two are
+*byte-identical* to each other, a third is 0.0093/255 from that pair, a fourth 0.24/255, and the last
+two 1.39 and 1.48/255 — with those two 0.69/255 from each other rather than together. So the same
+statistic over the same build spans four orders of magnitude depending on which pair you happen to
+take, which is exactly what the earlier edition of this table did:
+
+| Statistic | Walking, over 4 runs | Still, over 6 runs |
+|---|---|---|
+| Flipped pixels, best pair | 42 of 1 440 000 | 0 of 1 440 000 |
+| Flipped pixels, worst pair | 493 579 | 1 399 290 |
+| Mean \|delta\|, best pair | 0.0000/255 | 0.0000/255 |
+| Mean \|delta\|, worst pair | 0.1479/255 | 1.4761/255 |
+
+**Quote the mean channel or the band and give them a floor. Do not quote a per-pixel diff here** — the
+rows above are what one looks like, and the old table's 32 157 and 170 194 flipped pixels both sit
+inside them.
+
+⚠ **The guide's floors do not transfer to the still view.** It gives 0.05 % for the mean channel and
+0.25 % for a band, measured on the grass field at `VIXEN_SPAWN=45,3,0,0`. The walking view above is also
+grass and lands in the same neighbourhood; **the built-arena still view is ten times looser on the mean
+channel and twenty times looser on the band**, and its band is only 7 % of the frame, which is a small
+population being asked to behave like a large one. On the arena, an effect under about half a percent of
+the mean channel is not measurable by capturing pictures of it.
+
+⚠ **Every counter this sample prints agrees across the clusters.** Walking runs 1 and 4 are 493 579
+pixels apart and report the same 3 100 screen probes, the same 51 pages marked / 8 drawn / 356 resident,
+the same 17 of 17 textures and 32 swaps, and the same finishing position to the last digit. Whatever
+separates the clusters is upstream of everything the run is able to say about itself, which is the
+guide's own finding about asynchronous loading and the temporal chain that carries it.
 
 A *within-run* frame-to-frame delta is a different and much better instrument, because the two frames
 share one schedule. Walking, mid-arena, facing down-sun, thirty-one consecutive frames:
@@ -345,6 +388,16 @@ share one schedule. Walking, mid-arena, facing down-sun, thirty-one consecutive 
 Both series are **smooth**: the walking one's frame-to-frame delta never departs from its own median
 by more than 12 %, and the single largest regional event in thirty frames — a tile at 11.2 — is a
 lamp's ember particles against the sky, not a shadow.
+
+⚠ **Those two rows are indicative rather than measured on this substrate**, and what they are indicative
+*of* is the shape rather than the size: that a walking strip's frame-to-frame delta is a few times a
+still one's, that both are smooth, and that the largest regional event in it is a particle rather than a
+shadow — which is the reasoning the shadow-blink section below rests on and which does not turn on the
+numbers. They were taken through a windowed process, before samples 03/12/13 stopped defeating
+`--vixen-headless`, and from a start pose recorded only as "mid-arena, facing down-sun". Being
+within-run, they are free of the cross-run clustering above, so they are not wrong in the way the first
+table was — but they have not been reproduced on the canonical headless view, and the number of legs a
+`VIXEN_STRIP` run covers doubled with the walk-speed fix. Re-measure before quoting either row.
 
 ### ⚠ Walking does not reproduce the reported shadow blink *in a picture*
 

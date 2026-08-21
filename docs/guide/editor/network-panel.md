@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Debugger.NetworkView, T:Vixen.Net.Diagnostics.BandwidthLedg
 tags: [editor, diagnostics, networking, bandwidth, latency, vxml]
 since: 0.2
 status: preview
-related: [editor/index, editor/writing-a-plugin, ui/markup-panels, engine/measuring-loss]
+related: [editor/index, editor/writing-a-plugin, ui/markup-panels, engine/measuring-loss, engine/round-trip-and-jitter, engine/network-sessions]
 ---
 
 ## What it is
@@ -22,9 +22,9 @@ related: [editor/index, editor/writing-a-plugin, ui/markup-panels, engine/measur
   totals — the rate in kbit/s, what has been accounted for, how many records went as a difference
   rather than whole, and how many remote calls there were.
 * **The link, over the last thirty seconds** — round trip and jitter as
-  [`RoundTripEstimator`](/docs/api/vixen.net.time/roundtripestimator) smooths them, one strip of bars
+  [`RoundTripEstimator`](../engine/round-trip-and-jitter.md) smooths them, one strip of bars
   per measurement, sampled from every player in a
-  [`NetworkSession`](/docs/api/vixen.net.sessions/networksession) — and, when the session's transport
+  [`NetworkSession`](../engine/network-sessions.md) — and, when the session's transport
   counts datagrams, what was resent and what was lost coming in. Above each strip is the newest
   reading and the scale it is drawn against; above them all is the worst round trip and the worst
   jitter anybody in the session has.
@@ -293,6 +293,7 @@ move it while the panel is open.
 * [Panels in markup](../ui/markup-panels.md) — `@inherits`, `ref`, and the `@for` key rule in full
 * [`BandwidthLedger`](/docs/api/vixen.net.diagnostics/bandwidthledger) — the five tables and why they are counted in bits
 * [`SnapshotInspector`](/docs/api/vixen.net.diagnostics/snapshotinspector) — reading a packet without applying it
-* [`RoundTripEstimator`](/docs/api/vixen.net.time/roundtripestimator) — the RFC 6298 filter behind both time lanes, and why the variance is the number that matters
+* [Round trip and jitter](../engine/round-trip-and-jitter.md) — the RFC 6298 filter behind both time lanes, and why the deviation is the number that matters
+* [Network sessions](../engine/network-sessions.md) — where the panel's players, ticks and transport come from
 * [Measuring packet loss](../engine/measuring-loss.md) — the four counters the loss lanes are differenced from, and what each direction can honestly claim
 * [Writing a plugin](writing-a-plugin.md) — `AddPanel`, `AddCommand`, and what a module joins together
