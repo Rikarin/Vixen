@@ -123,7 +123,7 @@ public sealed class BlockoutChartSettings {
     /// <summary>The distortion a chart must come in under, or it is split and tried again.</summary>
     [Inspector]
     [Range(1f, 3f)]
-    [Tooltip("One is a perfectly isometric map. Tighten this and charts multiply; loosen it and the texture stretches.")]
+    [Tooltip("One is a perfectly isometric map. Tighten it and charts multiply; loosen it and the texture stretches.")]
     public float DistortionThreshold { get; set; } = 1.15f;
 
     /// <summary>How deep the split-and-retry recursion may go.</summary>
