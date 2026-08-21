@@ -549,21 +549,34 @@ partial class Build : NukeBuild {
     ///         default module URL to resolve, and <c>dotnet.run()</c> tears the runtime down.
     ///     </para>
     ///     <para>
-    ///         <b>It catches the first two of those and not the third, and the difference is the
-    ///         shape of the whole problem.</b> The first two are questions about a directory, so a
-    ///         publish can answer them. The third is a question about what happens after the page
-    ///         loads, and only something that loads the page can answer it — which is the Playwright
+    ///         <b>It answers the first two as questions about a directory, and the third only as far
+    ///         as a file's shape — which is the difference that shapes the whole problem.</b> Where
+    ///         a file landed is something a publish can see. Whether the runtime is still alive after
+    ///         <c>Main</c> returns is not: it is a question about what happens once the page loads,
+    ///         and only something that loads the page can answer it. So the third check reads the
+    ///         published <c>main.js</c> and requires <c>runMain(</c> rather than <c>.run(</c> — the
+    ///         exact line the defect was — and is honest that this is a regression guard on the
+    ///         boot script and not a live-frame-loop assertion. The real one is still the Playwright
     ///         leg doc 10 asks for, still owed, and which must drive a real browser over CDP rather
     ///         than <c>--dump-dom</c>: that mode never fires <c>requestAnimationFrame</c>, so a leg
     ///         built on it would report a live frame loop as dead.
     ///     </para>
     ///     <para>
-    ///         The subject is <c>docs/plan/spikes/web-head</c>, because it is the only head in the
-    ///         repository. ⚠ <b>That makes a spike load-bearing, and it should not stay that way.</b>
-    ///         When a real web head lands — doc 14 Phase 10, doc 17 § heads — point this at it and
-    ///         let the spike go back to being a document. The failure mode of the interim is loud
-    ///         (the project file is gone, the target says so), which is why it is acceptable and a
-    ///         silent gap is not.
+    ///         The subject is <c>Tools/Vixen.WebProbe</c>, the browser head this repository owns. It
+    ///         was <c>docs/plan/spikes/web-head</c> until that spike's head was promoted — a build
+    ///         target depending on a spike is not something to carry to a release — and the spike is
+    ///         a document again, keeping the findings this target's messages cite. The probe draws
+    ///         nothing and says so; a first web <em>sample</em> is a larger, separate thing that
+    ///         doc 14 Phase 10 still owes, and is not what this gate needs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The head is outside <c>Vixen.slnx</c> and cannot be otherwise</b>, for the same
+    ///         reason as the three libraries above and as <c>Tools/Vixen.AotProbe.iOS</c>:
+    ///         <c>net10.0-browser</c> needs the <c>wasm-tools</c> workload to be evaluated at all.
+    ///         So promotion buys a first-class project with a README and a name, and it does not buy
+    ///         coverage from <see cref="Test" />, <see cref="CheckFormat" />, <see cref="CheckApi" />
+    ///         or <see cref="Pack" />. <see cref="CheckArchitecture" /> does see it, because that
+    ///         gate globs <c>Tools/**/*.csproj</c> rather than reading the solution.
     ///     </para>
     ///     <para>
     ///         The assertions after the publish are the <em>other half</em> of the invariant
@@ -588,7 +601,7 @@ partial class Build : NukeBuild {
         .DependsOn(CompileWeb)
         .Produces(WebPublishDirectory / "**")
         .Executes(() => {
-                var head = RootDirectory / "docs" / "plan" / "spikes" / "web-head" / "webhead.csproj";
+                var head = RootDirectory / "Tools" / "Vixen.WebProbe" / "Vixen.WebProbe.csproj";
 
                 if (!head.FileExists()) {
                     Assert.Fail(
@@ -634,6 +647,35 @@ partial class Build : NukeBuild {
                     siteRoot / "_framework",
                     "the published head has no _framework/ directory, so there is no runtime and "
                     + "nothing for the browser bindings' relative module URLs to resolve against."
+                );
+
+                // Defect 2, as far as a published file can show it. `dotnet.run()` tears the runtime down
+                // the moment Main returns and every requestAnimationFrame callback WebFrameLoop
+                // registered dies with it, which the page reports as "Assert failed: .NET runtime
+                // already exited with 0". A head must call `runtime.runMain()`.
+                //
+                // ⚠ This is a regression guard on the boot script's shape and NOT an assertion that
+                // the frame loop lives. Only a loaded page can make that one — the Playwright leg
+                // above. It is here because the check is free and the defect is a single call.
+                //
+                // ⚠ Comment lines are dropped first, and that is not tidiness. The head's own
+                // main.js explains the rule in a comment that says `dotnet.run()`, so the first
+                // version of this check failed on the correct file — which is at least a gate that
+                // reported the truth about itself the first time it ran.
+                var bootScript = (siteRoot / "main.js")
+                    .ReadAllLines()
+                    .Select(line => line.TrimStart())
+                    .Where(line => !line.StartsWith("//", StringComparison.Ordinal))
+                    .Where(line => !line.StartsWith('*'))
+                    .ToList();
+
+                Assert.True(
+                    bootScript.Any(line => line.Contains("runMain(", StringComparison.Ordinal))
+                    && !bootScript.Any(line => line.Contains(".run(", StringComparison.Ordinal)),
+                    "the published head's main.js does not boot with runtime.runMain(). dotnet.run() "
+                    + "exits the runtime when Main returns, killing the frame loop — see defect 2 in "
+                    + "docs/plan/spikes/web-head/RESULT.md. This checks the call and not the loop; "
+                    + "only a browser can check the loop."
                 );
 
                 Log.Information("Published a loadable head to {Directory}", WebPublishDirectory);

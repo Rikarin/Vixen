@@ -43,7 +43,7 @@ Versions verified against `api.nuget.org` at plan time. These go verbatim into
 |---|---|---|
 | `Nuke.Common` | 10.1.0 | `build/_build.csproj` |
 | `YamlDotNet` | 18.1.0 | `Vixen.Core.Yaml`, `Vixen.Editor.Core` (`.meta` + `.vxasset` I/O) |
-| `Silk.NET.Shaderc` / `.Native` | 2.23.0 | Raven test-oracle only (validate our SPIR-V against a reference compiler) |
+| ~~`Silk.NET.Shaderc` / `.Native`~~ → the `glslc` CLI | — | **Changed when it was built.** The oracle is real and runs — `Raven/Vixen.Raven.Tests/SpirvDifferentialTests.cs` diffs Raven's SPIR-V against `glslc`(Raven's GLSL) over thirteen fixtures — but it reaches shaderc through the command-line tool found on `PATH`, never through the package. A native NuGet asset would put shaderc's binaries in the restore graph of a test project that must not ship them, and an oracle is a test-time thing. `brew install shaderc` / `apt-get install glslc`, installed by `ci.yml` on all three legs. See [07 § C](07-raven-shader-pipeline.md) and [12](12-build-ci-and-testing.md). |
 | `Silk.NET.SPIRV.Cross.Native` | 2.23.0 | `Vixen.Shaders.Transpile` — SPIR-V → GLSL/ESSL/HLSL/MSL/WGSL |
 | `Silk.NET.Direct3D.Compilers` | 2.23.0 | HLSL → DXIL for the D3D12 backend |
 | `Antlr4.Runtime` / `Antlr4.CodeGenerator` | 4.6.6 | Raven only (already in use). **Not** used for VXML or VCSS. |

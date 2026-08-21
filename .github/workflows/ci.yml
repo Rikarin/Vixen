@@ -86,8 +86,16 @@ jobs:
         run: |
           # spirv-tools carries spirv-val, which Raven's golden SPIR-V tests require and which
           # they fail rather than skip without — the same guard as VIXEN_REQUIRE_VULKAN below.
-          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools spirv-tools
+          #
+          # glslc is the differential oracle's other half (docs/plan/07 § C, docs/plan/12): it
+          # compiles Raven's GLSL back to SPIR-V so the two emitters' interfaces can be diffed.
+          # Ubuntu ships it in universe as `glslc`, out of the shaderc source package — the CLI
+          # tool rather than `Silk.NET.Shaderc`, so shaderc's binaries never enter the restore
+          # graph. Without it SpirvDifferentialTests has nothing to compare against, and doc 12
+          # has required this install since it was written.
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools spirv-tools glslc
           vulkaninfo --summary | grep -E 'deviceName|apiVersion|driverName'
+          glslc --version
 
       # spirv-tools for the same reason the Linux step above gives, and it belongs on both legs
       # rather than one: `SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something`
@@ -95,9 +103,15 @@ jobs:
       # quietly missing makes every other SPIR-V assertion in that file check the listing and not the
       # module. Installing it only on Linux meant the macOS leg failed that test on every run and the
       # rest of the file proved less than it looked like it did.
-      - name: Install SDL2 and spirv-tools (macOS)
+      #
+      # shaderc for glslc, the differential oracle's other half — see the Linux step's note. This
+      # leg had never installed it, so SpirvDifferentialTests reported thirteen silent passes here
+      # on every run.
+      - name: Install SDL2, spirv-tools and shaderc (macOS)
         if: matrix.os == 'macos-14'
-        run: brew install sdl2 spirv-tools
+        run: |
+          brew install sdl2 spirv-tools shaderc
+          glslc --version
 
       # The third leg, for the third time, and the argument does not change with the operating
       # system: three tests fail rather than skip when spirv-val is absent, and the Windows leg has
@@ -144,6 +158,20 @@ jobs:
           if (-not $sdk) { throw "The Vulkan SDK installed nothing under C:\VulkanSDK." }
           "$($sdk.FullName)\Bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & "$($sdk.FullName)\Bin\spirv-val.exe" --version
+
+          # The SDK carries glslc.exe as well, which is why this leg is the only one where the
+          # differential oracle has ever run — by accident rather than by decision. Reported here so
+          # that stays a fact rather than an assumption; the other two legs now install shaderc
+          # deliberately.
+          #
+          # Reported and not asserted: a missing glslc must not take the whole leg down before a
+          # single test runs. SpirvDifferentialTests.The_oracle_is_installed_so_this_file_means_something
+          # is the hard failure, and it says which tool and what to install.
+          if (Test-Path "$($sdk.FullName)\Bin\glslc.exe") {
+            & "$($sdk.FullName)\Bin\glslc.exe" --version
+          } else {
+            Write-Host "::warning::The Vulkan SDK did not ship glslc.exe; Raven's differential oracle will fail on this leg."
+          }
 
       # Keyed on the manifest, because that is the only thing that changes what would be downloaded.
       # A version bump is a new key and a fresh fetch; anything else is a hit.
@@ -298,7 +326,8 @@ jobs:
         shell: bash
 
       # The published head, so a failure downstream of here can be loaded in a real browser by hand.
-      # It is a probe and draws nothing; see docs/plan/spikes/web-head/RESULT.md.
+      # It is Tools/Vixen.WebProbe, which draws nothing and says so; the findings it was promoted
+      # out of are docs/plan/spikes/web-head/RESULT.md.
       - name: Upload the published head
         if: always()
         uses: actions/upload-artifact@v4
@@ -318,7 +347,7 @@ jobs:
       # or without --virtual-time-budget, --screenshot or SwiftShader, while the same page over CDP
       # counted 120/s. A leg built on --dump-dom would report a live frame loop as dead, which is the
       # most expensive shape a red build can have. It has to drive a real browser over CDP, as
-      # docs/plan/spikes/web-head/drive.mjs does.
+      # Tools/Vixen.WebProbe/drive.mjs does.
       #
       # And it needs a WebGPU adapter to be worth more than a load test, which no headless Chromium
       # on macOS would give the spike at any flag combination. That is a Linux job with

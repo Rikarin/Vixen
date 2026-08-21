@@ -32,6 +32,26 @@ sealed class FrameLimiter {
 
     long deadline;
 
+    /// <summary>How many times a wait has slept, and how many times it has spun.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ These exist so that a test can state this class's properties without a wall-clock
+    ///         threshold. "Ten thousand unlimited frames are free", "the first wait after a reset does
+    ///         not stall the caller" and "the limiter sleeps rather than burning a core" are all claims
+    ///         about <em>what the limiter did</em>; asserting them as an upper bound in milliseconds
+    ///         turns each one into a reading of how much CPU the test host was given, which is a
+    ///         different quantity that happens to correlate on an idle machine.
+    ///     </para>
+    ///     <para>
+    ///         Cumulative and never reset — <see cref="Reset" /> forgets the deadline, not the tally —
+    ///         so a caller that wants a delta takes one.
+    ///     </para>
+    /// </remarks>
+    public long Sleeps { get; private set; }
+
+    /// <inheritdoc cref="Sleeps" />
+    public long Spins { get; private set; }
+
     /// <summary>Waits until the next frame is due.</summary>
     /// <param name="framesPerSecond">The rate to hold, or <c>0</c> to return immediately.</param>
     public void Wait(int framesPerSecond) {
@@ -56,8 +76,10 @@ sealed class FrameLimiter {
             }
 
             if (remaining > SpinThreshold) {
+                Sleeps++;
                 Thread.Sleep(1);
             } else {
+                Spins++;
                 Thread.SpinWait(64);
             }
         }

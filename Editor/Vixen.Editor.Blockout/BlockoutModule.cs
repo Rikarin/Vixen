@@ -33,7 +33,7 @@ namespace Vixen.Editor.Blockout;
 ///         nobody manages to describe.
 ///     </para>
 /// </remarks>
-public sealed class BlockoutModule : IEditorPlugin {
+public sealed partial class BlockoutModule : IEditorPlugin {
     /// <summary>What the host activates it under, and what a plugin depending on it names.</summary>
     public const string ModuleId = "vixen.blockout";
 
@@ -57,15 +57,20 @@ public sealed class BlockoutModule : IEditorPlugin {
 
         var baker = context.Services.Require<IMeshBaker>();
 
-        context.AddMode(
-            new BlockoutMode {
-                Editing = context.Services.Require<MeshEdit>(),
-                Plane = context.Services.Require<WorkPlane>(),
-                Baker = baker,
-                Meshes = context.Services.Require<IMeshSource>(),
-                Export = (text, extension) => baker.Bake("Export", extension, text)
-            }
-        );
+        shell = context.Shell;
+
+        mode.Editing = context.Services.Require<MeshEdit>();
+        mode.Plane = context.Services.Require<WorkPlane>();
+        mode.Baker = baker;
+        mode.Meshes = context.Services.Require<IMeshSource>();
+        mode.Export = (text, extension) => baker.Bake("Export", extension, text);
+
+        // ⚠ Before the mode, because `IEditorMode.Panel` names a panel the shell has to have heard
+        // of — a mode that opens a panel nobody registered opens nothing, silently. The same
+        // ordering the terrain module uses, and for the same reason.
+        SettingsPanels();
+
+        context.AddMode(mode);
 
         Menus(context);
     }
