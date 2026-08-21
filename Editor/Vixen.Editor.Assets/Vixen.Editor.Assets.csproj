@@ -123,6 +123,20 @@
              says what a scene may carry has to be the one the game reads it with. -->
         <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
 
+        <!--
+            ⚠ Referenced for its two scene components and nothing else. `NetworkObject` is how a
+            designer marks a prefab node as one the network addresses, and `PlayerPawn` is how they
+            mark a body a player may be given — and a component is declared by a [ModuleInitializer]
+            in the assembly that owns it, so an assembly the compiler does not link is one whose
+            components a .vxprefab cannot name. The message without this is "nothing in this build
+            claims the name 'NetworkObject'", which sends somebody looking at the asset.
+
+            No transport, no session and no packet is involved: this is the same relationship the
+            compiler has with Vixen.Water and Vixen.Navigation, where the type the importer writes
+            has to be the type the game reads.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net.Engine\Vixen.Net.Engine.csproj" />
+
         <!-- The content build emits a catalog, which is a runtime type: the builder and the loader
              have to be talking about the same one. -->
         <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />

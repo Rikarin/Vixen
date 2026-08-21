@@ -33,9 +33,19 @@ public sealed record NetworkPrefab(string Address, NetworkPrefabId Id, Prefab Pr
 ///         <b>Which nodes get ids is decided here, once.</b> A prefab is a subtree and most of it is
 ///         scenery: a hundred-entity set piece where one turret rotates should cost one id and one
 ///         record, not a hundred of each. The rule is that a template node carrying a
-///         <see cref="NetworkId" /> wants one — so a designer opts an entity into being addressable by
-///         putting the component on it — plus the root, which needs one whether or not anybody
-///         remembered, because the root is what the spawn itself is addressed to.
+///         <see cref="NetworkObject" /> wants one — so a designer opts an entity into being
+///         addressable by putting the component on it — plus the root, which needs one whether or not
+///         anybody remembered, because the root is what the spawn itself is addressed to.
+///     </para>
+///     <para>
+///         ⚠ <b>A node already carrying a <see cref="NetworkId" /> counts too, and that is not the
+///         authoring path.</b> A template captured from a live world with <c>Prefab.CaptureFrom</c>
+///         has whatever the world had on it, and a world that has been in a session has ids; a
+///         template out of a content build has only what the asset could carry, which is
+///         <see cref="NetworkObject" /> and never <see cref="NetworkId" />. Reading both means the
+///         same subtree registers the same way whichever door it came through — which is the property
+///         <c>ANetworkedMarkerSurvivesTheContentBuild</c> exists to hold, and which was false while
+///         the marker was the handle.
 ///     </para>
 /// </remarks>
 public sealed class NetworkPrefabRegistry {
@@ -90,7 +100,7 @@ public sealed class NetworkPrefabRegistry {
         var networked = new List<int> { 0 };
 
         for (var node = 1; node < prefab.EntityCount; node++) {
-            if (prefab.NodeHas<NetworkId>(node)) {
+            if (prefab.NodeHas<NetworkObject>(node) || prefab.NodeHas<NetworkId>(node)) {
                 networked.Add(node);
             }
         }

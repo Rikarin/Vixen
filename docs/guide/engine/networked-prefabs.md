@@ -4,7 +4,7 @@ slug: engine/networked-prefabs
 kind: guide
 area: Networking
 summary: What may be spawned, on both ends of the wire — and filling that list from the content build rather than from a start-up path.
-api: [T:Vixen.Net.Engine.NetworkPrefab, T:Vixen.Net.Engine.NetworkPrefabRegistry, T:Vixen.Net.Engine.Content.NetworkPrefabContent, T:Vixen.Net.Engine.Content.NetworkPrefabLoad]
+api: [T:Vixen.Net.Engine.NetworkPrefab, T:Vixen.Net.Engine.NetworkPrefabRegistry, T:Vixen.Net.Engine.NetworkObject, T:Vixen.Net.Engine.Content.NetworkPrefabContent, T:Vixen.Net.Engine.Content.NetworkPrefabLoad]
 tags: [networking, prefabs, spawning, addressables, content]
 since: 0.1
 status: preview
@@ -16,6 +16,8 @@ related: [engine/networked-players, gameplay/definitions, assets/content-in-a-ga
 A **`NetworkPrefabRegistry`** is what may be spawned, on both ends of the wire: an address, the id
 the wire uses for it, the template, and which of its nodes get a `NetworkId`. A **`NetworkPrefab`** is
 one entry.
+
+A **`NetworkObject`** is the tag a designer puts on the nodes that should get one.
 
 **`NetworkPrefabContent`** fills a registry out of a build's content catalog, by label, and gives
 back a **`NetworkPrefabLoad`** — what went in, and anything that was labelled a networked prefab and
@@ -106,23 +108,49 @@ replicates, and there is no reason to pay for the rest.
 ## Examples
 
 Only the nodes that asked for an id get one — a hundred-entity set piece where one turret rotates
-costs one id and one record:
+costs one id and one record. Asking is a `NetworkObject` on the node, authored on the prefab:
+
+```yaml
+# Assets/Prefabs/Turret.vxprefab — the barrel replicates, the sight is scenery.
+version: 1
+name: Turret
+roots:
+  - name: Turret
+    children:
+      - name: Barrel
+        components:
+          - !NetworkObject {}
+      - name: Sight
+```
+
+The `{}` is not decoration: a tag component has no members, and a node that is only a type tag binds
+as a scalar rather than as a mapping.
 
 ```csharp no-compile="a fragment; `prefabs` is the caller's registry"
 var entry = prefabs.Require("prefabs/turret");
 
-// The root, plus every template node carrying a NetworkId, in capture order.
+// The root, plus every template node carrying a NetworkObject, in capture order.
 Console.WriteLine($"{entry.Prefab.EntityCount} entities, {entry.IdCount} ids");
 ```
 
-⚠ **Through a content build that number is 1 today, whatever the author marked.** A compiled scene
-may only name a component that is `[Component]` **and** `[DataContract]`; `NetworkId` is only the
-first, so the marker does not survive compilation and is dropped without a word. A prefab captured
-from a live world keeps it. `ANetworkIdMarkerCannotSurviveTheContentBuildYet` in
-`Vixen.Net.Engine.Content.Tests` asserts both halves so the gap cannot close by accident or widen
-unnoticed, and
-`Core/Vixen.Net.Engine.Content/README.md` § What is
-owed carries the argument about how to fix it.
+### Why the marker is not `NetworkId`
+
+A `NetworkId` is a **number the server allocated**, and a `NetworkObject` is a **designer's claim
+about content**. Only the second is something an asset can hold: what a compiled scene may name is a
+component that is `[Component]` **and** `[DataContract]`, and a handle that only exists once a session
+does has no business being in a file — a play-mode save would write live ids into content, and a
+designer could type in one no server ever handed out.
+
+⚠ **Until `NetworkObject` existed, the marker was the handle, and through a content build every
+prefab had exactly one networked node whatever its author said** — `SceneContent.Capture` drops a
+component the scene registry does not know, silently, so the prefab loaded, spawned, and the barrel
+simply never replicated. `ANetworkedMarkerSurvivesTheContentBuild` in `Vixen.Net.Engine.Content.Tests`
+is the A/B that holds it shut: the same three entities registered twice, once out of a live world and
+once through a chunk, a bundle, a catalog and an `AssetManager`, agreeing about which two want ids.
+
+`NetworkPrefabRegistry` still counts a node carrying a `NetworkId` as marked, and that is the
+`Prefab.CaptureFrom` path rather than the authoring one: a live subtree that has been in a session
+carries allocated ids, and capturing it as a template should not quietly drop every node in it.
 
 Two addresses that hash alike are refused where both names are still in hand:
 

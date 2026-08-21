@@ -103,8 +103,10 @@ public class NetworkPrefabContentTests : IDisposable {
         var sight = Hierarchy.CreateTransform(world, LocalTransform.At(new(0f, 1f, 0.5f)));
 
         // The opt-in NetworkPrefabRegistry documents: "a designer opts an entity into being
-        // addressable by putting the component on it".
-        world.Add(barrel, NetworkId.None);
+        // addressable by putting the component on it". NetworkObject and not NetworkId, because a
+        // designer marks content and only a server allocates a handle — and because the handle is
+        // the one of the two a compiled scene cannot carry.
+        world.Add<NetworkObject>(barrel);
 
         Hierarchy.SetParent(world, sight, root);
         Hierarchy.SetParent(world, barrel, root);
@@ -379,24 +381,30 @@ public class NetworkPrefabContentTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A prefab out of a content build can only ever have one networked node, and that is a
-    ///     gap rather than a property of this loader.</b>
+    ///     ⚠ <b>What the designer marked survives the content build, so a compiled prefab has as many
+    ///     networked nodes as the one it was compiled from.</b>
     /// </summary>
     /// <remarks>
-    ///     <c>NetworkPrefabRegistry</c> decides which nodes get an id by asking whether the template
-    ///     node carries <see cref="NetworkId" /> — <em>"so a designer opts an entity into being
-    ///     addressable by putting the component on it"</em>. A designer cannot: what a compiled scene
-    ///     may name is a component that is <c>[Component]</c> <b>and</b> <c>[DataContract]</c>, and
-    ///     <see cref="NetworkId" /> is only the first. <c>SceneContent.Capture</c> drops what the scene
-    ///     component registry does not know, silently, so the marker cannot survive the content build
-    ///     and every prefab loaded this way costs exactly one id.
     ///     <para>
-    ///         Asserted rather than left to be discovered, because the failure is invisible: the
-    ///         prefab loads, spawns, and the turret's barrel simply never replicates.
+    ///         The A/B is the whole assertion: the same three entities registered twice, once captured
+    ///         straight out of a live world and once through an <c>ObjectDatabase</c> chunk, a bundle,
+    ///         a catalog and <c>AssetManager</c>. Both have to agree about which of them wants an id,
+    ///         because a server and a client routinely take different doors to the same prefab and a
+    ///         spawn's ids are a run counted off the root — two peers that disagree about the count do
+    ///         not merely lose a component, they apply the rest to the wrong entities.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This asserted the opposite until <see cref="NetworkObject" /> existed</b>, as
+    ///         <c>ANetworkIdMarkerCannotSurviveTheContentBuildYet</c>. The marker was
+    ///         <see cref="NetworkId" />, which is <c>[Component]</c> and not <c>[DataContract]</c>, so
+    ///         <c>SceneContent.Capture</c> dropped it silently and every prefab out of a build had
+    ///         exactly one networked node whatever its author said. Kept as a test rather than
+    ///         deleted, because the failure it names is invisible without one: the prefab loads, it
+    ///         spawns, and the turret's barrel simply never replicates.
     ///     </para>
     /// </remarks>
     [Fact]
-    public async Task ANetworkIdMarkerCannotSurviveTheContentBuildYet() {
+    public async Task ANetworkedMarkerSurvivesTheContentBuild() {
         using var world = new World("authoring:direct");
 
         // The same three entities, captured without going through an asset. Not disposed here — the
@@ -412,12 +420,41 @@ public class NetworkPrefabContentTests : IDisposable {
         var direct = registry.Require("prefabs/turret-in-code");
         var loaded = registry.Require("prefabs/turret");
 
-        // Both have the same three entities. Only the one that never met the content build knows
-        // which of them the designer marked.
+        // Three entities either way, and the same two of them addressed: the root, which is what the
+        // spawn is sent to, and the barrel the designer marked. The sight is scenery and stays free.
         Assert.Equal(3, direct.Prefab.EntityCount);
         Assert.Equal(3, loaded.Prefab.EntityCount);
-        Assert.Equal(2, direct.IdCount);
-        Assert.Equal(1, loaded.IdCount);
-        Assert.Equal([0], loaded.Networked);
+        Assert.Equal(direct.Networked, loaded.Networked);
+        Assert.Equal([0, 1], loaded.Networked);
+        Assert.Equal(2, loaded.IdCount);
+    }
+
+    /// <summary>
+    ///     A template captured out of a world that has been in a session is marked by what that world
+    ///     had on it, which is a <see cref="NetworkId" /> and not a <see cref="NetworkObject" />.
+    /// </summary>
+    /// <remarks>
+    ///     The reason <c>NetworkPrefabRegistry</c> reads both. <c>Prefab.CaptureFrom</c> takes a live
+    ///     subtree, and a live networked subtree carries allocated ids; refusing to count those would
+    ///     make "capture this thing I am looking at as a prefab" quietly drop every node in it. Nothing
+    ///     writes a <see cref="NetworkId" /> into an asset — only this direction exists.
+    /// </remarks>
+    [Fact]
+    public void AnAllocatedIdOnALiveWorldAlsoMarksANode() {
+        using var world = new World("authoring:live");
+
+        var root = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        var turret = Hierarchy.CreateTransform(world, LocalTransform.At(new(0f, 1f, 0f)));
+
+        Hierarchy.SetParent(world, turret, root);
+
+        var ids = new NetworkIdAllocator();
+
+        world.Add(root, ids.Next());
+        world.Add(turret, ids.Next());
+
+        registry.Register("prefabs/live", Prefab.CaptureFrom(world, root, "live"));
+
+        Assert.Equal([0, 1], registry.Require("prefabs/live").Networked);
     }
 }

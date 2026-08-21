@@ -232,6 +232,19 @@ The backbone. One fixed-tick clock shared with the ECS scheduler's `FixedUpdate`
 
 - `NetworkId` = `readonly record struct(uint Value)` component on replicated entities; server allocates,
   clients never invent.
+- **`NetworkObject` is the authored half**, and it is a different component on purpose. A `NetworkId`
+  is a handle that exists only once a session does, so it is `[Component]` and not `[DataContract]`
+  and a compiled scene cannot name it — which is right, because a scene file holding a live id is a
+  peer inventing one. What a designer marks is `NetworkObject`, a tag carrying both attributes, and
+  what reads it is `NetworkPrefabRegistry` (and, when scenes are assets, whatever counts off
+  `BakedId`).
+
+  > **Corrected.** The marker was `NetworkId` until the content-build path was built, and a prefab
+  > that arrived through a build therefore had exactly one networked node whatever its author marked —
+  > `SceneContent.Capture` drops what the scene component registry does not know, silently. It could
+  > not be fixed where it stood: `Vixen.Net` runs neither the serialization nor the engine's component
+  > generator and may not reference `Vixen.Engine`, which is this document's own rule. The marker
+  > lives in `Vixen.Net.Engine`, which references both.
 - **Prefab IDs come from the asset pipeline**: a networked prefab's id is the stable hash of its
   **address** ([08](08-asset-pipeline-and-addressables.md)). No hand-maintained "network prefab list" to
   desync — this is a direct win from the deterministic content build, and it is where our design is
