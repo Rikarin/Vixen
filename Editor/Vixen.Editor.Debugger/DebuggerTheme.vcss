@@ -136,6 +136,44 @@ network-row progress-bar {
 
 key-value-row progress-bar { --track-color: var(--surface-sunken); --fill-color: var(--accent); }
 
+/* ── The link graph ──────────────────────────────────────────────────────
+   Three lanes of the same shape, each a head and a strip. The head reuses
+   the row's own three columns — name, cost, mean — so a lane's numbers line
+   up with the tables above it rather than starting a fourth alignment. */
+network-graph { flex-direction: column; gap: 0px; border-top-width: 1px; border-color: var(--border); margin-top: 6px; }
+
+network-lane { flex-direction: column; gap: 0px; padding: 0px 8px 6px 8px; }
+network-lane-head { flex-direction: row; align-items: center; gap: 8px; min-height: 20px; }
+
+/* Two things this rule deliberately does not say.
+
+   Its **height** is an inline style instead: it is `NetworkTrend.PlotHeight`,
+   and a bar's height is a fraction of that same constant. Two places saying
+   32px is one of them being wrong later.
+
+   And there is **no gap**, which at this density is the readable choice
+   rather than the lazy one — a hundred and nineteen one-pixel gaps in a
+   docked panel is most of the width. Touching bars read as a silhouette,
+   which is what a strip of a hundred and twenty samples is for, and the
+   sweep is still a coloured sliver in it. */
+network-plot {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 0px;
+    overflow: hidden;
+    background-color: var(--surface-sunken);
+}
+
+/* Every bar the same width, whatever the dock is: the strip is a hundred
+   and twenty slots and the reader is comparing heights, so a fixed width
+   would either clip the past or leave the lane half empty. */
+network-sample { flex-grow: 1; flex-basis: 0px; min-width: 0px; background-color: var(--accent); }
+
+/* The sweep. The ring does not scroll, so without this there is nothing on
+   the strip that says which bar is now — and a monitor trace with no write
+   head is a chart whose left edge means nothing. */
+network-sample.newest { background-color: var(--warning); }
+
 /* ── The packet pane ─────────────────────────────────────────────────── */
 network-packet { border-top-width: 1px; border-color: var(--border); margin-top: 6px; }
 

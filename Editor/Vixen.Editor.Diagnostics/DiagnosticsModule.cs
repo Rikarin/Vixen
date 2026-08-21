@@ -14,6 +14,7 @@ using Vixen.Engine.Transforms;
 using Vixen.Graphics;
 using Vixen.Net.Diagnostics;
 using Vixen.Net.Replication;
+using Vixen.Net.Sessions;
 using Vixen.Net.Transport.Local;
 using Vixen.Ui;
 using Vixen.Ui.Composition;
@@ -151,6 +152,30 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///     this purpose.
     /// </remarks>
     public ReadOnlyMemory<byte> NetworkSnapshot { get; set; }
+
+    /// <summary>The session whose round trip and jitter the panel graphs, when the host has one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Independent of <see cref="NetworkLedger" />, and the split is not tidiness.</b> A
+    ///     client has a session and no ledger — the ledger is attached to a replication server, and a
+    ///     client is not one — so "how is the link" and "where is the bandwidth going" are two
+    ///     questions with two sources, and the panel draws whichever of them it was given.
+    /// </remarks>
+    public NetworkSession? NetworkSession { get; set; }
+
+    /// <summary>A cumulative count of datagrams sent again, when the transport counts them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Retransmits and not loss, because the engine measures no loss.</b> Nothing on
+    ///     <c>ITransport</c> reports it and no meter publishes it; what a lossy link produces is
+    ///     retransmissions, and <c>UdpTransport.RetransmitCount</c> is the counter for them — so a
+    ///     host on UDP wires <c>() =&gt; transport.RetransmitCount</c> here and one on a loopback
+    ///     leaves it null. Null draws no lane rather than a flat one, because a flat lane would say
+    ///     the link is clean.
+    ///     <para>
+    ///         A delegate rather than a number because the module is not ticked by the thing that
+    ///         owns the transport, and the panel reads on its own clock.
+    ///     </para>
+    /// </remarks>
+    public Func<long>? NetworkRetransmits { get; set; }
 
     /// <summary>The profiler's model, for a test and for the host's own frame samples.</summary>
     public ProfilerModel Profiling => profiler;
@@ -315,6 +340,13 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
                 network.Source = () => NetworkLedger;
                 network.Registry = () => NetworkRegistry;
                 network.Capture = () => NetworkSnapshot;
+                network.Session = () => NetworkSession;
+
+                // ⚠ Wrapped rather than handed over. Assigning `NetworkRetransmits` straight across
+                // would capture whatever was in the property when the panel was opened, and the
+                // whole reason every line above is a lambda is that the module's values arrive and
+                // change while the panel is up. The null flows through: no counter, no lane.
+                network.Retransmits = () => NetworkRetransmits?.Invoke();
 
                 // ⚠ After the delegates, and that is the whole of why it is here. A component's
                 // `OnComposed` runs *inside* the build, before `Build` has returned and therefore
