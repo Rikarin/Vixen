@@ -48,9 +48,11 @@ namespace Vixen.Editor.App;
 ///     <para>
 ///         <b>It owns a world, and that is not the contradiction it looks like.</b>
 ///         <c>Program</c>'s remarks say the editor's loop is an interface and has no world. It still
-///         does: nothing here ticks systems, runs a fixed step or updates behaviours. The world is a
-///         <i>document</i> — the thing the hierarchy lists, the inspector edits and the gizmo drags —
-///         and it starts being a running game only when play mode says so.
+///         does: while the editor is editing, nothing here ticks systems, runs a fixed step or
+///         updates behaviours. The world is a <i>document</i> — the thing the hierarchy lists, the
+///         inspector edits and the gizmo drags — and it starts being a running game only when play
+///         mode says so, which since 2026-08-21 it can: <c>PlayModeController.Tick</c> steps an
+///         <c>EngineLoop</c> over this world and <see cref="Update" /> is where it is called.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every selection is polled once a frame rather than subscribed to.</b>
@@ -485,7 +487,13 @@ sealed partial class EditorApplication : IDisposable {
         // perspective view and seeing it highlighted in the top view is what every reference toolset
         // does, and four of these would be four selections of one mesh with nothing reconciling them.
         editing = new MeshEdit(scene);
-        play = new PlayModeController(world);
+
+        // ⚠ Handed the document's behaviour store, and a `PlayModeController(world)` would be a Play
+        // button that steps the graph and runs none of the scripts — the failure this whole wiring
+        // exists to remove, in its quietest form. The store is the first document's: the controller
+        // names anything it cannot take over, which is how a behaviour authored into an additively
+        // opened scene stops being a script that silently does not run.
+        play = new PlayModeController(world, scene.Behaviors);
 
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
         // document's name and stable-id tables — both keyed by handle — name nothing at all
@@ -952,7 +960,15 @@ sealed partial class EditorApplication : IDisposable {
         // panel is the one that would otherwise rewrite its whole list during a gizmo drag.
         historyView?.Tick();
 
-        ResolveTransforms();
+        // ⚠ **The game's frame, and it replaces the editor's transform pass rather than joining
+        // it.** `PlayModeController.Tick` steps an `EngineLoop`, whose `PreRender` already runs a
+        // `TransformSystem` over this world — and two instances of that system keep separate
+        // "what have I seen" versions, so each would answer the other's writes with "nothing
+        // changed". The failure is not a double cost; it is a moved object that stops following
+        // its parent, on alternate frames, only while playing.
+        if (!play.Tick(delta)) {
+            ResolveTransforms();
+        }
 
         // ⚠ Immediately after them and not later in this method. Both extraction queries want
         // `WorldTransform` and neither writes one — in a game the phase and the declared access are
@@ -1145,7 +1161,7 @@ sealed partial class EditorApplication : IDisposable {
     ///         ⚠ <b>Without this nothing an edit does is visible.</b> <c>Transform</c> reads the
     ///         world matrix and writes the local one — deliberately, so that "position" means the
     ///         same thing to a gizmo drag and a typed number — and <c>TransformSystem</c> is what
-    ///         joins the two. The editor runs no system graph, so a position typed into the
+    ///         joins the two. An editing frame runs no system graph, so a position typed into the
     ///         inspector landed in <c>LocalTransform</c> and was never turned into the matrix the
     ///         viewport draws from and the inspector reads back: the number reverted and the object
     ///         did not move. The same held for a gizmo drag, for the hierarchy's parent lines, and
@@ -1156,6 +1172,13 @@ sealed partial class EditorApplication : IDisposable {
     ///         <c>TransformSystem.Resolve</c> is public for. The world is a document until play mode
     ///         says otherwise — <see cref="EditorApplication" />'s own remarks — and one pass whose
     ///         cost is bounded by what moved is not a frame loop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is skipped entirely on a frame play mode ticked</b>, because that frame's
+    ///         graph ran a <c>TransformSystem</c> of its own. Two instances over one world keep
+    ///         separate "what have I already seen" versions, so each answers the other's writes with
+    ///         "nothing changed" — a moved object that stops following its parent on alternate
+    ///         frames, only while playing. See <see cref="Update" />.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The version is advanced <i>after</i> the pass, not before.</b> The pass answers

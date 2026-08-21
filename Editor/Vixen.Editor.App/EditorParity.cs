@@ -1,9 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
+using Microsoft.Extensions.Logging;
 using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs.Systems;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -793,13 +796,21 @@ sealed partial class EditorApplication {
 
     /// <summary>The four transport verbs, over the controller that already exists.</summary>
     /// <remarks>
-    ///     ⚠ <b>Entering play mode snapshots the world and leaving it restores the snapshot, and
-    ///     that is <i>all</i> it does today.</b> The editor runs no system graph — see
-    ///     <c>EditorApplication</c>'s own remarks about the world being a document — so nothing moves
-    ///     while it is playing. What is real is the part doc 20 calls out as better than Unity's: the
-    ///     restore is honest, it says so before entering, and a selection made in play mode is
-    ///     translated back through <c>WorldSnapshot.Restore</c>'s handle map rather than being lost.
-    ///     Ticking the simulation is Phase 6's, and it attaches here.
+    ///     <para>
+    ///         ⚠ <b>This used to read "entering play mode snapshots the world and leaving it restores
+    ///         the snapshot, and that is <i>all</i> it does today" — and it was accurate.</b> Nothing
+    ///         moved while it was playing, because <c>ShouldTick</c> had no caller outside its own
+    ///         tests. Since 2026-08-21 <c>PlayModeController.Tick</c> steps an <c>EngineLoop</c> and
+    ///         <c>EditorApplication.Update</c> calls it. What is still real from before is the part
+    ///         doc 20 calls out as better than Unity's: the restore is honest, it says so before
+    ///         entering, and a selection made in play mode is translated back through
+    ///         <c>WorldSnapshot.Restore</c>'s handle map rather than being lost.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <see cref="ReportPlayGaps" /> is not decoration on that.</b> The graph is
+    ///         the engine's default set and a game's own is not declarable anywhere, so a session
+    ///         that said nothing would make the systems it is not running read as the user's bug.
+    ///     </para>
     /// </remarks>
     void PlayCommands() {
         // ⚠ The four carry an icon and a colour class, and the transport is the one strip where that
@@ -2054,6 +2065,96 @@ sealed partial class EditorApplication {
             NotificationSeverity.Info,
             "Changes made while playing are discarded when you stop."
         );
+
+        ReportPlayGaps();
+    }
+
+    /// <summary>Says what this session runs, and names anything it is not running.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20's first bar applied to a frame rather than to a menu line: a thing that
+    ///         does not happen must be <i>visibly</i> not happening.</b> An in-editor session steps
+    ///         an <c>EngineLoop</c>'s default graph — behaviours, coroutines, transforms — and
+    ///         nothing else, because every other system a game runs is registered by that game's own
+    ///         <c>OnInitialise</c> against a <c>PhysicsScene</c>, an <c>AudioEngine</c>, an
+    ///         <c>InputService</c> or a <c>RenderView</c> that an editor either does not have or
+    ///         already has a second, differently-aimed one of. A Play button that ran most of a frame
+    ///         and said nothing would make the missing part read as a gameplay bug, which is the one
+    ///         outcome worse than not stepping at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The project's own systems are named, not counted.</b> "Some systems did not run"
+    ///         sends somebody looking through their whole game; a list of three type names sends them
+    ///         to the three files. They are found by reflection over the assembly
+    ///         <c>ProjectAssemblies</c> already built and loaded, so the list is what this project
+    ///         declares rather than what the engine ships.
+    ///     </para>
+    /// </remarks>
+    void ReportPlayGaps() {
+        log.Write(
+            LogLevel.Information,
+            "Play mode runs behaviours, coroutines and transforms. Physics, audio, input, navigation "
+            + "and the render extractions are a game's own registrations against host services the "
+            + "editor does not have, so an in-editor session does not run them."
+        );
+
+        var systems = ProjectSystems();
+        var behaviors = play.Unsupported;
+
+        if (systems.Count == 0 && behaviors.Count == 0) {
+            return;
+        }
+
+        List<string> lines = [];
+
+        if (systems.Count > 0) {
+            lines.Add($"{systems.Count} system(s) this project declares: {string.Join(", ", systems)}.");
+        }
+
+        if (behaviors.Count > 0) {
+            lines.Add($"{behaviors.Count} behaviour(s) the session could not take over: {string.Join(", ", behaviors)}.");
+        }
+
+        var said = "Not running — " + string.Join(" ", lines);
+
+        log.Write(LogLevel.Warning, said);
+
+        Shell.Notifications.Show("Play mode is not running everything", NotificationSeverity.Warning, said);
+    }
+
+    /// <summary>The <c>ISystem</c> types the project's own assembly declares.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Declared, not registered — and that is the honest reading.</b> Nothing in a project
+    ///     says which of its systems a scene wants; a game registers them imperatively in its
+    ///     <c>Game.OnInitialise</c>, which is code no editor runs. So every one of them is a system
+    ///     an in-editor session is not running, and listing the declarations is the closest true
+    ///     statement available until a project can declare its frame.
+    /// </remarks>
+    IReadOnlyList<string> ProjectSystems() {
+        List<string> found = [];
+
+        if (code.Loaded is not { } assembly) {
+            return found;
+        }
+
+        Type?[] declared;
+
+        try {
+            declared = assembly.GetTypes();
+        } catch (ReflectionTypeLoadException partial) {
+            // A project referencing something that did not load still has the types that did, and a
+            // partial list is a better answer here than none: this is a report, not a gate.
+            declared = partial.Types;
+        }
+
+        foreach (var type in declared) {
+            if (type is { IsClass: true, IsAbstract: false } && typeof(ISystem).IsAssignableFrom(type)) {
+                found.Add(type.Name);
+            }
+        }
+
+        found.Sort(StringComparer.Ordinal);
+        return found;
     }
 
     void LeavePlay() {

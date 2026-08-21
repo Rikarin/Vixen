@@ -618,6 +618,16 @@ different from Unity is *better*: a snapshot restore that translates selection h
 mode are discarded, and the editor says so before entering" is honest where Unity's silent loss is
 the single most complained-about behaviour in that editor.
 
+⚠ **"Play/pause/step/stop ✅ in the model" was true and was being read as more than it said.** Until
+2026-08-21 the model was *all* there was: `PlayModeController.ShouldTick` had no caller outside its
+own tests, so pressing Play snapshotted the world and nothing stepped. It now drives a real
+`EngineLoop` — behaviours, coroutines and transforms — and **says on entry what it is not running**,
+naming the `ISystem` types the project declares. Physics, audio, input and navigation are not among
+them and cannot be until a project can *declare* its frame rather than registering it in its own
+`Game.OnInitialise`. That design, and what is owed, is [11 § Play mode runs a system
+graph](11-editor.md#play-mode-runs-a-system-graph) — architecture, so it is doc 11's and not this
+document's.
+
 ### Prefabs
 
 Create from selection, open in isolation ✅, apply/revert per-override ✅ in the inspector,

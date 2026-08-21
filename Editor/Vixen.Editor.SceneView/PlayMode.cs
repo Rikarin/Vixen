@@ -3,6 +3,8 @@
 
 using Vixen.Core;
 using Vixen.Ecs;
+using Vixen.Engine.Behaviors;
+using Vixen.Engine.Frames;
 
 namespace Vixen.Editor.SceneView;
 
@@ -46,11 +48,51 @@ public readonly record struct PlayLeak(string Category, int Count);
 ///         forgot would have a selection naming whatever landed in those slots — which looks like a
 ///         rendering fault and is not one.
 ///     </para>
+///     <para>
+///         <b>And it steps a real <see cref="EngineLoop" />, which until 2026-08-21 it did not.</b>
+///         <see cref="ShouldTick" /> had no caller outside its own tests: Play snapshotted the world,
+///         maximised the viewport, said so in a notification, and nothing advanced. <see cref="Tick" />
+///         is the frame, and it is deliberately the *engine's* loop rather than a schedule written
+///         here — see <see cref="Loop" /> for what that runs and, more importantly, for what it does
+///         not.
+///     </para>
+///     <para>
+///         ⚠ <b>What a session runs is stated rather than assumed, because the honest set is
+///         small.</b> An <see cref="EngineLoop" />'s default graph is behaviours, coroutines and
+///         transforms, and every other system a game runs — physics, audio, input, navigation, the
+///         render extractions — is registered by that game's own <c>OnInitialise</c> against host
+///         services an editor does not have. So this runs a *whole* graph of a *named* set, and
+///         <see cref="Unsupported" /> plus the caller's own inventory are what stop the difference
+///         being mistaken for a gameplay bug. [11](../../../docs/plan/11-editor.md) § "Play mode runs
+///         a system graph" is the reasoning.
+///     </para>
 /// </remarks>
 public sealed class PlayModeController : IDisposable {
+    /// <summary>One authored behaviour, as bytes that outlive the copy a session runs.</summary>
+    /// <param name="Entity">Which entity carried it, in pre-snapshot handles.</param>
+    /// <param name="Alias">Its name, which is what survives the round trip.</param>
+    /// <param name="State">Its values.</param>
+    readonly record struct Authored(Entity Entity, string Alias, byte[] State);
+
     readonly World world;
+    readonly BehaviorStore? authored;
+
     WorldSnapshot? snapshot;
     Dictionary<string, int> before = [];
+    List<Authored> saved = [];
+
+    /// <summary>The behaviours the session did not take over, so the teardown can leave them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>By reference, and it is the exact answer rather than a heuristic.</b> Everything on
+    ///     the world at <see cref="Play" /> was either detached into <see cref="saved" /> or left
+    ///     here; everything attached afterwards is therefore the session's, including whatever a
+    ///     script spawned. There is no public way to ask a <see cref="BehaviorStore" /> which
+    ///     behaviours are its own — <c>AllOn</c> reads the entity's link, which is one component
+    ///     however many stores share the world — so the set that was not taken is what identifies
+    ///     the set that was.
+    /// </remarks>
+    readonly HashSet<Behavior> stranded = [];
+
     bool disposed;
 
     /// <summary>What the editor is doing.</summary>
@@ -69,6 +111,37 @@ public sealed class PlayModeController : IDisposable {
     /// <summary>What was still live after the last session that was not live before it.</summary>
     public IReadOnlyList<PlayLeak> Leaks { get; private set; } = [];
 
+    /// <summary>The graph this session steps, or <see langword="null" /> when nothing is running.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>An <see cref="EngineLoop" /> over the world being edited, which does not own it.</b>
+    ///         Its default registration is the whole of what a session runs: the behaviour lifecycle
+    ///         and its <c>Update</c>/<c>LateUpdate</c> passes, the four coroutine drains, and
+    ///         <c>TransformSystem</c>. That is the same object a game head and a determinism test
+    ///         drive, which is the point — a schedule written here would be a second opinion about
+    ///         the order a frame happens in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exposed so a caller can add to it, and every addition is that caller's
+    ///         claim.</b> Nothing is added here, because everything a game adds takes a host service
+    ///         — a <c>PhysicsScene</c>, an <c>AudioEngine</c>, an <c>InputService</c>, a
+    ///         <c>RenderView</c> — and a controller that invented one would be running a frame
+    ///         nothing else in the process agrees with.
+    ///     </para>
+    /// </remarks>
+    public EngineLoop? Loop { get; private set; }
+
+    /// <summary>Behaviours on the world that this session could not take over, by type name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty is the normal answer, and a non-empty one must be shown rather than
+    ///     logged.</b> A behaviour lands here when nothing registered its type — so there is no
+    ///     binder to copy its values through — or when it belongs to a <see cref="BehaviorStore" />
+    ///     other than the one this controller was given, which is what a second additively-opened
+    ///     scene produces. Either way the behaviour does not run, and a play session that silently
+    ///     skipped one would present as that script being broken.
+    /// </remarks>
+    public IReadOnlyList<string> Unsupported { get; private set; } = [];
+
     /// <summary>Raised when the state changes.</summary>
     public event Action<PlayModeController, PlayState>? StateChanged;
 
@@ -77,14 +150,38 @@ public sealed class PlayModeController : IDisposable {
 
     /// <summary>Drives play mode over a world.</summary>
     /// <param name="world">The world being edited.</param>
-    public PlayModeController(World world) {
+    /// <param name="authored">
+    ///     Where the scene's authored behaviours live, or <see langword="null" /> for a session that
+    ///     runs none. Null is not a degrade for a caller that has no store — a world with no
+    ///     behaviours on it plays identically either way — but an editor that has one and does not
+    ///     pass it gets a Play button that runs the graph and none of the scripts.
+    /// </param>
+    public PlayModeController(World world, BehaviorStore? authored = null) {
         ArgumentNullException.ThrowIfNull(world);
 
         this.world = world;
+        this.authored = authored;
     }
 
     /// <summary>Enters play mode, taking a snapshot first.</summary>
     /// <returns>Whether it entered.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The behaviours come off the world before the snapshot is taken, and that ordering
+    ///         is the whole of why leaving play mode is clean.</b> <c>BehaviorRef</c> is a managed
+    ///         component holding an array of live objects, so a snapshot taken with it in place would
+    ///         copy the <i>reference</i> — and the restore would hand the scene back the very
+    ///         instances a session had woken, started and mutated, with their <c>Entity</c> naming a
+    ///         handle that no longer exists. Bytes and an alias are what crosses instead, which is
+    ///         the same gap <c>ProjectAssemblies</c> crosses for a code reload and for the same
+    ///         reason.
+    ///     </para>
+    ///     <para>
+    ///         So the session's behaviours are <i>copies</i>, in the loop's own store — which is
+    ///         what <c>SceneDocument.Behaviors</c> already says happens: "the behaviours it runs are
+    ///         the ones a load builds into <i>its</i> store rather than these".
+    ///     </para>
+    /// </remarks>
     public bool Play() {
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -95,10 +192,59 @@ public sealed class PlayModeController : IDisposable {
         }
 
         before = TrackedByCategory();
+        saved = Detach(out var unsupported);
+        Unsupported = unsupported;
+
         snapshot = WorldSnapshot.Capture(world);
+
+        // ⚠ Handed the world rather than making one, which is also what stops the loop disposing it:
+        // `EngineLoop` owns a world only when it had to create one.
+        Loop = new EngineLoop(world);
+
+        foreach (var (entity, alias, state) in saved) {
+            if (SceneBehaviorRegistry.TryGet(alias, out var binder)) {
+                binder.AttachTo(Loop.Behaviors, entity, binder.Restore(state));
+            }
+        }
+
         Leaks = [];
 
         Move(PlayState.Playing);
+        return true;
+    }
+
+    /// <summary>Runs one frame of the game, if this is a frame the game should have.</summary>
+    /// <param name="delta">How much unscaled time has passed since the last one.</param>
+    /// <returns>Whether the graph advanced.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What the editor calls once a frame, and the only caller <see cref="ShouldTick" />
+    ///         needs.</b> The decision and the step are together here so that "paused" cannot mean
+    ///         one thing in the viewport and another in the profiler, and so that a step is consumed
+    ///         exactly when a frame is run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The loop is checked before the state is, because <see cref="ShouldTick" />
+    ///         consumes.</b> Asking first and finding no loop would spend a
+    ///         <see cref="PendingSteps" /> on a frame that never happened, so Step Frame would need
+    ///         pressing twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A caller that ticks must not also run its own <c>TransformSystem</c> that
+    ///         frame.</b> The graph's runs in <c>PreRender</c>, and two instances over one world keep
+    ///         separate "what have I already seen" versions — so each would tell the other that
+    ///         nothing had changed, and the failure is a moved object that stops following its
+    ///         parent rather than an error.
+    ///     </para>
+    /// </remarks>
+    public bool Tick(TimeSpan delta) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (Loop is not { } running || !ShouldTick()) {
+            return false;
+        }
+
+        running.Frame(delta);
         return true;
     }
 
@@ -112,11 +258,23 @@ public sealed class PlayModeController : IDisposable {
             return [];
         }
 
+        // ⚠ Before the restore, and it is not tidying: a behaviour that never had `OnDestroy` is one
+        // whose native handles and subscriptions are still live, which is precisely what `Leaks`
+        // below is measuring. Tearing down after `World.Clear` would find no entities to walk and
+        // would report every one of them as a leak of this session's own making.
+        if (Loop is { } running) {
+            Teardown(running.Behaviors);
+            running.Dispose();
+            Loop = null;
+        }
+
         var translation = captured.Restore(world);
 
         captured.Dispose();
         snapshot = null;
         PendingSteps = 0;
+
+        Reattach(translation);
 
         Leaks = Compare(before, TrackedByCategory());
 
@@ -194,8 +352,118 @@ public sealed class PlayModeController : IDisposable {
         }
 
         disposed = true;
+
+        Loop?.Dispose();
+        Loop = null;
+
         snapshot?.Dispose();
         snapshot = null;
+    }
+
+    /// <summary>Takes every authored behaviour off the world, keeping what was in it.</summary>
+    /// <param name="unsupported">The type names of the ones that could not be taken off.</param>
+    /// <remarks>
+    ///     ⚠ <b>A behaviour that could not be detached is <i>left where it is</i> and named.</b> The
+    ///     alternative — carrying on and letting the snapshot copy its <c>BehaviorRef</c> — is the
+    ///     silent version of the same failure, and it corrupts the scene rather than only failing to
+    ///     run the script. See <see cref="Unsupported" /> for the two ways it happens.
+    /// </remarks>
+    List<Authored> Detach(out IReadOnlyList<string> unsupported) {
+        List<Authored> taken = [];
+        List<string> refused = [];
+
+        stranded.Clear();
+
+        if (authored is not { } store) {
+            unsupported = refused;
+            return taken;
+        }
+
+        foreach (var entity in Carriers()) {
+            // A copy, because detaching rewrites the very array `AllOn` hands back.
+            foreach (var behavior in store.AllOn(entity).ToArray()) {
+                if (SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)
+                    && binder.Save(behavior) is { } state
+                    && binder.RemoveFrom(store, entity)) {
+                    taken.Add(new(entity, binder.Name, state));
+                    continue;
+                }
+
+                stranded.Add(behavior);
+                refused.Add(behavior.GetType().Name);
+            }
+        }
+
+        refused.Sort(StringComparer.Ordinal);
+
+        unsupported = refused;
+        return taken;
+    }
+
+    /// <summary>Puts the authored behaviours back, on the handles the restore issued.</summary>
+    /// <remarks>
+    ///     ⚠ <b>New instances, not the ones that were taken off.</b> Nothing was kept but bytes —
+    ///     see <see cref="Play" /> — so what comes back is an object built from the values somebody
+    ///     typed rather than one a session had a chance to change. That is the rule play mode
+    ///     exists to enforce, applied to the half of the scene that is not in the world.
+    /// </remarks>
+    void Reattach(IReadOnlyDictionary<Entity, Entity> translation) {
+        if (authored is { } store) {
+            foreach (var (entity, alias, state) in saved) {
+                if (translation.TryGetValue(entity, out var now)
+                    && world.IsAlive(now)
+                    && SceneBehaviorRegistry.TryGet(alias, out var binder)) {
+                    binder.AttachTo(store, now, binder.Restore(state));
+                }
+            }
+        }
+
+        saved = [];
+        stranded.Clear();
+    }
+
+    /// <summary>Destroys the session's behaviours and drains the callbacks that go with it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the session's, and <c>BehaviorStore.Destroy</c> will not stop you getting that
+    ///     wrong.</b> <c>Remove</c> checks that the behaviour is this store's and answers false;
+    ///     <c>Destroy</c> queues whatever it is handed, and the drain then indexes a bucket this
+    ///     store has never had — a <c>KeyNotFoundException</c> out of the middle of Stop, for a
+    ///     behaviour that belonged to the document all along. <see cref="stranded" /> is what makes
+    ///     the distinction available.
+    /// </remarks>
+    void Teardown(BehaviorStore store) {
+        foreach (var entity in Carriers(store.World)) {
+            foreach (var behavior in store.AllOn(entity).ToArray()) {
+                if (!stranded.Contains(behavior)) {
+                    store.Destroy(behavior);
+                }
+            }
+        }
+
+        // The queue is what `Destroy` fills; this is the drain that runs `OnDisable` and
+        // `OnDestroy` — the same one a game's `BehaviorLifecycleSystem` runs every frame.
+        store.RunLifecycle();
+    }
+
+    /// <summary>Every entity carrying behaviours, collected before anything is changed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Collected first.</b> Detaching removes <c>BehaviorRef</c>, which moves the entity to
+    ///     another archetype — so a walk that acted as it went would be rewriting the chunk list it
+    ///     was iterating.
+    /// </remarks>
+    List<Entity> Carriers() => Carriers(world);
+
+    static List<Entity> Carriers(World world) {
+        List<Entity> carriers = [];
+        var query = new QueryDescription().WithAll<BehaviorRef>();
+
+        foreach (var chunk in world.Chunks(query)) {
+            foreach (var entity in chunk.Entities[..chunk.Count]) {
+                carriers.Add(entity);
+            }
+        }
+
+        return carriers;
     }
 
     void Move(PlayState state) {

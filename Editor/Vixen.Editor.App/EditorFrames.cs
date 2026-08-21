@@ -20,10 +20,14 @@ namespace Vixen.Editor.App;
 ///         This file is the calling.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No <c>EngineLoop</c>, and that is not a gap.</b> The editor runs no system graph — a
-///         world is a document until play mode says otherwise, and <see cref="ResolveTransforms" />
-///         already resolves the one system it needs by hand for exactly that reason. What a loop would
-///         add here is a scheduler for two calls whose order is one line of this file.
+///         ⚠ <b>No <c>EngineLoop</c> <i>here</i>, and that is still not a gap.</b> A world is a
+///         document until play mode says otherwise, and <see cref="ResolveTransforms" /> resolves the
+///         one system an editing frame needs by hand for exactly that reason. Play mode does own a
+///         loop now — <c>PlayModeController.Loop</c> — and these two extractions are deliberately
+///         <i>not</i> in it: <c>MeshExtractionSystem</c> writes <c>RenderHandle</c> structurally and
+///         claims geometry residency per entity, so registering it would run both twice a frame. What
+///         a loop would add on this side is a scheduler for two calls whose order is one line of this
+///         file.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Nothing here draws.</b> A frame document, a render target and a pane to present it are
