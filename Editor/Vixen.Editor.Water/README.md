@@ -44,6 +44,55 @@ nowhere to put the sidecar, so no entity is made and the panel says why. An enti
 nothing can supply loads, resolves to nothing, counts into `WaterZoneSystem.UnresolvedBodies` and
 draws no water — a diagnostic an author would have to go looking for.
 
+## The handles were arithmetic with no caller, and the preview was a flag nobody read
+
+`WaterEdit.Grab`, `Drag` and `HandlesOf` had tests and no user; `WaterMode.Pointer` answered `false`
+for every tool but Draw; and `CarvePreview` was set by a command, ticked by a menu and read by nothing.
+Two of doc 35's three verbs were names in a tool strip.
+
+**Profile** is now the whole route. `WaterProfileHandles` draws the three crosses per control point
+into the pane's overlay channel — `SceneViewport.Cursor`, which is the door `TerrainMode` hangs its
+brush ring on — and hit-tests them in *render pixels*, because the same half-width is forty pixels
+across on a canal and one on an ocean. A press within `WaterMode.HandlePixels` grabs; moves slide the
+handle along its own axis and write the component as they go, so the surface follows the pointer; the
+release pushes one `WaterProfileCommand`.
+
+⚠ **Each tool is asked what it wants, and one of the three wants nothing.** Draw takes a press on the
+ground. Profile takes a press *on a handle* and the moves and release that follow it — a press
+anywhere else is a selection and is left alone, because a Profile tool that swallowed it would be one
+you have to leave in order to choose what it works on. Preview takes nothing at all: it is a state,
+and looking at what the water did to the ground means being able to fly around while the ground is
+there.
+
+⚠ **The mode needs an `IWaterScene` to find a single handle**, and the module hands it its own — the
+same object the viewport draws the water from, so the crosses are on the surface the author is looking
+at rather than on a second reading of the same file.
+
+## Preview needs something to preview, so the carve had to be reachable first
+
+`WaterCarve` was written and tested in the kernel; `WaterCarveCommand` wrapped it for undo; nothing
+constructed either. So "toggle the reserved layer's contribution" was a toggle over an empty layer.
+
+`WaterModuleCarve` is the other half: `water.carve` regenerates the reserved **Water** layer from every
+body in the scene, over every terrain in it, as one undo entry — and `CarvePreview` now raises a change
+that sets `TerrainEditLayer.IsVisible` and re-resolves.
+
+⚠ **The terrain arrives through `ITerrainScene` and not through `Vixen.Editor.Terrain`.** The two
+toolsets are independent plugins and either may be absent — the same reason `GroundAt` is a flat plane
+— so what is referenced is the *contract* in `Core/Vixen.Rendering.Terrain`. A project with no terrain
+plugin loaded gets an empty list, a greyed-out verb and a panel row saying so.
+
+⚠ **`Resolve` as well as `Regenerate`.** The kernel invalidates the tiles it touched and stops there,
+because dirtiness is a flag rather than a recompute — so a carve without a resolve is deltas in a layer
+and a viewport still drawing the old ground.
+
+⚠ **Leaving the mode puts the preview back on.** `IsVisible` is saved with the terrain, so a session
+that ended with the carve hidden would leave a project whose riverbeds are on disk and invisible.
+
+⚠ **Every body carves at the same strength**, the draw settings' `Carve`. `WaterBodyComponent` has no
+carve fields on it and adding them is a component *layout* change — a scene-compatibility decision
+rather than a wiring one, and so not this one.
+
 ## There is no CreateWaterBodyCommand
 
 `SceneDocument.Create(name, local, parent, initialise)` already makes an entity undoably, with the

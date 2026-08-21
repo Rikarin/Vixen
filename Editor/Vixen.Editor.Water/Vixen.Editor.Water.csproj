@@ -60,6 +60,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
 
         <!--
+            ITerrainScene, and *only* that: the contract a terrain toolset contributes its
+            heightfields through. Doc 35 § D5's carve writes the terrain's reserved water layer, so
+            the third verb cannot exist without a terrain to write — but the two toolsets are
+            independent plugins and either may be absent, which is why this is the contract in Core
+            rather than a reference to Editor/Vixen.Editor.Terrain. A project with no terrain plugin
+            loaded gets an empty list and a greyed-out verb.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
             [Inspector] members of its own — which both settings types here do — has to name the
             generator.

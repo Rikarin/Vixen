@@ -52,6 +52,9 @@ public sealed partial class WaterModule : IEditorPlugin {
     SceneDocument document = null!;
     EditorShell shell = null!;
 
+    /// <summary>Where contributed toolsets are looked for — the terrain the carve cuts, ordinarily.</summary>
+    IEditorRegistry? registry;
+
     /// <summary>The project the curves are written into.</summary>
     EditorProject Project => project;
 
@@ -79,9 +82,16 @@ public sealed partial class WaterModule : IEditorPlugin {
         project = context.Services.Require<EditorProject>();
         document = context.Services.Require<SceneDocument>();
         shell = context.Shell;
+        registry = context.Services.Require<IEditorRegistry>();
 
         water.Document = Scene;
         water.Drawn += Placed;
+
+        // ⚠ The Profile tool cannot find a single handle without this. A handle sits on a body's
+        // curve, a body names its curve by *name*, and the thing that turns one into the other is the
+        // same source the viewport draws the water from — so the crosses an author aims at are on the
+        // surface they are looking at rather than on a second reading of the same file.
+        water.Curves = WaterScene;
 
         context.OnUnload(() => water.Drawn -= Placed);
 
@@ -94,7 +104,7 @@ public sealed partial class WaterModule : IEditorPlugin {
         // than the one it held when the module loaded — see `NewAssetKind.Build`. An author who has
         // spent a minute finding a sea they like and then presses this means that sea.
         context.Owns(
-            context.Services.Require<IEditorRegistry>().Add(
+            registry.Add(
                 new NewAssetKind(
                     CreateWavesCommand,
                     "Sea state",
@@ -111,10 +121,11 @@ public sealed partial class WaterModule : IEditorPlugin {
         // the gesture wrote a curve, the body named it, and nothing turned that name back into
         // geometry for a pane to draw. `TerrainModule` contributes an `ITerrainScene` through this
         // same door for the same reason — see `WaterModuleScene`.
-        context.Owns(context.Services.Require<IEditorRegistry>().Add(WaterScene));
+        context.Owns(registry.Add(WaterScene));
 
         WaterPanels();
         WaterDebugCommands(context);
+        WaterCarveCommands(context);
 
         Shell.Modes.Add(water);
     }

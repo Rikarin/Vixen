@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Transforms;
 using Vixen.Input;
+using Vixen.Rendering.Water;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Water;
@@ -47,6 +50,28 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     public const string PanelId = "water.panel";
 
     EditorShell? shell;
+
+    /// <summary>The pane the handles are currently drawn in, or null for none.</summary>
+    SceneViewport? hovered;
+
+    /// <summary>The body the Profile tool is aimed at, refreshed as the pointer moves.</summary>
+    /// <remarks>
+    ///     Cached rather than recomputed inside <see cref="SceneViewport.Cursor" />, which is read
+    ///     every frame and must not allocate — see that property's remarks.
+    /// </remarks>
+    (Vixen.Core.Entity Entity, WaterBodyComponent Component, Spline Curve)? aimed;
+
+    /// <summary>What the held handle's body looked like before the drag began.</summary>
+    WaterBodyComponent profiledBefore;
+
+    /// <summary>And its profile, which is what <see cref="WaterEdit.Drag" /> is measured against.</summary>
+    WaterProfilePoint grabbedProfile;
+
+    /// <summary>Where the held handle was when it was grabbed, in world space.</summary>
+    Vector3 grabbedAt;
+
+    /// <summary>And which way it may slide.</summary>
+    Vector3 grabbedAxis;
 
     /// <inheritdoc />
     public string Id => ModeId;
@@ -107,6 +132,25 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     /// </remarks>
     public float GroundHeight { get; set; }
 
+    /// <summary>What a body's spline name means, or null while nothing can say.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The Profile tool cannot work without it, and it is a seam rather than a reference to
+    ///     the asset database</b> — <c>IWaterScene</c>'s own argument. A handle sits on the curve, the
+    ///     curve is a name in a component, and turning a name into geometry means reading a file. What
+    ///     supplies one here is <c>WaterModule.WaterScene</c>, which is the same object the viewport
+    ///     draws the water from — so the handles are on the surface the author is looking at rather
+    ///     than on a second reading of the same file.
+    /// </remarks>
+    public IWaterScene? Curves { get; set; }
+
+    /// <summary>How near a profile handle a click has to be to grab it, in render pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pixels rather than metres</b>, on <c>TransformGizmo.GrabRadius</c>'s terms: the same
+    ///     half-width is forty pixels across on a canal and one on an ocean, so a tolerance in metres
+    ///     is a handle that cannot be missed at one scale and cannot be hit at another.
+    /// </remarks>
+    public float HandlePixels { get; set; } = 14f;
+
     /// <summary>Raised when a curve has been laid, with the curve and the kind it was drawn as.</summary>
     /// <remarks>
     ///     An event rather than a call into the module, so the gesture is testable with no project,
@@ -125,6 +169,13 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
             Editing.Cancel();
             Editing.Tool = value;
+
+            // ⚠ The handles come off with the tool that owns them. A cursor left pointed at this mode
+            // draws three crosses on a body in a pane whose next click lays a draw point, and nothing
+            // on screen would say which tool it is in — SceneViewport.Cursor's "clear it on
+            // deactivate" rule, applied to a tool change as well.
+            Unaim();
+
             ToolChanged?.Invoke(value);
         }
     }
@@ -297,6 +348,11 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
             shell.Commands.Remove(command);
         }
 
+        // ⚠ And the handles, which are a delegate a pane calls every frame. A mode taken out of the
+        // shell with one still installed is a pane drawing crosses for a toolset that is gone, and
+        // holding it alive to do it.
+        Unaim();
+
         this.shell = null;
     }
 
@@ -306,11 +362,25 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The draw goes.</b> A half-laid curve belongs to a gesture that is over, and one that
-    ///     survived a trip to the outliner would be finished by the next click in a mode that has no
-    ///     idea a curve was in flight.
+    ///     <para>
+    ///         ⚠ <b>The draw goes.</b> A half-laid curve belongs to a gesture that is over, and one that
+    ///         survived a trip to the outliner would be finished by the next click in a mode that has no
+    ///         idea a curve was in flight.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the carve preview goes back on, which is the one thing here that touches a
+    ///         document.</b> <see cref="WaterEdit.CarvePreview" /> hides the terrain's reserved water
+    ///         layer, and <c>TerrainEditLayer.IsVisible</c> is <em>saved</em> — so an author who left
+    ///         the mode with the preview off would reopen the project to ground with no riverbeds in
+    ///         it and nothing anywhere saying why. A view state that outlives the view it belongs to
+    ///         is indistinguishable from data loss.
+    ///     </para>
     /// </remarks>
-    public void Deactivated() => Editing.Cancel();
+    public void Deactivated() {
+        Editing.Cancel();
+        Editing.CarvePreview = true;
+        Unaim();
+    }
 
     /// <inheritdoc />
     public bool Pointer(PointerEvent args) => false;
@@ -320,19 +390,36 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The press is taken when it lands on the ground, so it does not also start the pane's
-    ///     rubber-band.</b> What is <em>not</em> taken is a press that misses everything, because
-    ///     aiming at the sky is how somebody frames a shot.
+    ///     <para>
+    ///         ⚠ <b>Each tool is asked for what it actually wants, and one of the three wants
+    ///         nothing.</b> A mode that returned true for every event in every tool would swallow the
+    ///         pane's navigation, its marquee and its gizmo for the whole time it is active — which is
+    ///         why this reads as three cases rather than as one guard being widened.
+    ///     </para>
+    ///     <para>
+    ///         <b>Draw</b> wants a press on the ground, and takes it so the press does not also start
+    ///         the pane's rubber-band. <b>Profile</b> wants a press <em>on a handle</em> and then the
+    ///         moves and the release that follow it — a press anywhere else is a selection and is left
+    ///         alone. <b>Preview</b> wants none of it: it is a state and not a gesture, and looking at
+    ///         what the water did to the ground means flying around while the ground is there. What is
+    ///         <em>not</em> taken by any of them is a press that misses everything, because aiming at
+    ///         the sky is how somebody frames a shot.
+    ///     </para>
     /// </remarks>
     public bool Pointer(SceneViewport pane, PointerEvent args) {
         ArgumentNullException.ThrowIfNull(pane);
         ArgumentNullException.ThrowIfNull(args);
 
-        if (Tool != WaterTool.Draw) {
-            return false;
-        }
+        return Tool switch {
+            WaterTool.Draw => Drawing(pane, args),
+            WaterTool.Profile => Profiling(pane, args),
+            _ => false
+        };
+    }
 
-        return args.Action switch {
+    /// <summary>The draw gesture: a press on the ground lays a point or closes the curve.</summary>
+    bool Drawing(SceneViewport pane, PointerEvent args) =>
+        args.Action switch {
             PointerAction.Pressed when args.Button == PointerButton.Primary && Ground(pane, args) is { } point =>
                 // ⚠ Taken whether or not a point was laid. A click too close to the last one lays
                 // nothing — see WaterEdit.MinimumSpacing — but it was still aimed at the ground, and
@@ -341,13 +428,70 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
             _ => false
         };
+
+    /// <summary>The profile gesture: grab a handle, drag it, and commit one undo entry on release.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The hover is tracked and <em>not</em> taken — the <c>return false</c> is
+    ///     load-bearing.</b> <c>TerrainMode.Pointer</c>'s rule: the pane's own hover is what highlights
+    ///     whatever a click would select, and a mode that swallowed every move to draw three crosses
+    ///     would turn that highlight off for the whole time the tool is armed.
+    /// </remarks>
+    bool Profiling(SceneViewport pane, PointerEvent args) {
+        var pointer = pane.Control.ToRender(args.X, args.Y);
+
+        switch (args.Action) {
+            case PointerAction.Pressed when args.Button == PointerButton.Primary:
+                return Grab(pane, pointer);
+
+            case PointerAction.Moved when Editing.Holding != WaterHandle.None:
+                Slide(pane, pointer);
+
+                return true;
+
+            case PointerAction.Released when Editing.Holding != WaterHandle.None:
+                Drop();
+
+                return true;
+
+            case PointerAction.Moved:
+                Aiming(pane);
+
+                return false;
+
+            // Leaving the pane takes the handles with it, for TerrainMode.Hovering's reason: a
+            // cursor left in the pane the pointer has left says the tool is aimed where it is not.
+            case PointerAction.Exited:
+                Unaim();
+
+                return false;
+
+            default:
+                return false;
+        }
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Escape abandons a handle drag as well as a draw, and it puts the profile back.</b> A
+    ///     drag is applied to the component as it happens so the surface follows the pointer — see
+    ///     <see cref="Slide" /> — so a cancel that only let go of the handle would leave the body at
+    ///     whatever half-width the pointer happened to be over, with no undo entry naming it.
+    /// </remarks>
     public bool Key(SceneViewport pane, KeyEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
-        if (args.Key != InputKey.Escape || !Editing.IsDrawing) {
+        if (args.Key != InputKey.Escape) {
+            return false;
+        }
+
+        if (Editing.Holding != WaterHandle.None) {
+            Restore();
+            Editing.Release();
+
+            return true;
+        }
+
+        if (!Editing.IsDrawing) {
             return false;
         }
 
@@ -408,6 +552,181 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
         }
 
         return true;
+    }
+
+    // --- The profile gesture ------------------------------------------------
+
+    /// <summary>The selected body the handles belong to, or null when there is not one.</summary>
+    /// <returns>Whether one was found.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The selection rather than a pick, because a body <em>is</em> an entity.</b> Doc 35
+    ///         § One mode, not two: placing a lake is placing an entity and the editor already selects
+    ///         entities, so a second picking path here would be a second answer to "which body am I
+    ///         editing" — and the two would disagree the first time somebody used the outliner.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Liveness first, and <c>World.Has</c> throws rather than answering false for a
+    ///         destroyed entity.</b> A selection outlives the thing it names for one frame after an
+    ///         undo that removed it, which is <c>TerrainModuleSession.Bound</c>'s note and the same
+    ///         crash on Ctrl-Z.
+    ///     </para>
+    /// </remarks>
+    bool Aim() {
+        aimed = null;
+
+        if (Document is not { } document || Curves is not { } curves) {
+            return false;
+        }
+
+        foreach (var entity in document.Selection) {
+            if (!document.World.IsAlive(entity) || !document.World.Has<WaterBodyComponent>(entity)) {
+                continue;
+            }
+
+            var component = document.World.Read<WaterBodyComponent>(entity);
+
+            if (component.Spline is not { Length: > 0 } name) {
+                continue;
+            }
+
+            var placement = document.World.Has<WorldTransform>(entity)
+                ? document.World.Read<WorldTransform>(entity).Value
+                : Matrix4x4.Identity;
+
+            if (curves.SplineFor(name, placement) is not { } curve) {
+                continue;
+            }
+
+            aimed = (entity, component, curve);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Refreshes what the handles are drawn on, and keeps the pane's cursor pointed here.</summary>
+    void Aiming(SceneViewport pane) {
+        if (!ReferenceEquals(hovered, pane)) {
+            if (hovered is { } previous) {
+                previous.Cursor = null;
+            }
+
+            hovered = pane;
+        }
+
+        Aim();
+        pane.Cursor = Handles;
+    }
+
+    /// <summary>Takes the handles off whichever pane is drawing them.</summary>
+    void Unaim() {
+        if (hovered is { } pane) {
+            pane.Cursor = null;
+        }
+
+        hovered = null;
+        aimed = null;
+    }
+
+    /// <summary>Draws the handles. Read every frame, so it reads fields and allocates nothing.</summary>
+    void Handles(GizmoDraw draw) {
+        if (Tool != WaterTool.Profile || hovered is not { } pane || aimed is not { } body) {
+            return;
+        }
+
+        WaterProfileHandles.Draw(draw, pane, body.Curve, body.Component.Profile, Editing.Holding, Editing.HoldingPoint);
+    }
+
+    /// <summary>Takes hold of whichever handle the press landed on.</summary>
+    /// <returns>Whether one was grabbed, which is whether the press is this mode's.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A press that is not on a handle is <em>not</em> taken.</b> It is how somebody selects
+    ///     the body they are about to edit, and a Profile tool that swallowed it would be a tool you
+    ///     have to leave in order to choose what it works on.
+    /// </remarks>
+    bool Grab(SceneViewport pane, Vector2 pointer) {
+        if (!Aim() || aimed is not { } body) {
+            return false;
+        }
+
+        var profile = body.Component.Profile;
+        var (handle, point) = WaterProfileHandles.Under(pane, pointer, body.Curve, profile, HandlePixels);
+
+        if (handle == WaterHandle.None) {
+            return false;
+        }
+
+        var handles = WaterEdit.HandlesOf(body.Curve, profile, point);
+
+        grabbedAt = handle switch {
+            WaterHandle.WidthLeft => handles.Left,
+            WaterHandle.WidthRight => handles.Right,
+            _ => handles.Depth
+        };
+
+        grabbedAxis = WaterEdit.AxisOf(handle, WaterEdit.SideAt(body.Curve, point));
+        grabbedProfile = profile;
+        profiledBefore = body.Component;
+
+        Editing.Grab(handle, point);
+        Aiming(pane);
+
+        return true;
+    }
+
+    /// <summary>Moves the held handle along its own axis and applies the profile as it goes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Applied to the component on every move rather than only on release.</b> The whole
+    ///     argument for a viewport handle over a number field is that the surface follows the pointer
+    ///     — doc 35 § Part 2's "a width somebody types is a width somebody gets wrong twice before
+    ///     looking at it". What is <em>not</em> done per move is pushing an undo entry; that is
+    ///     <see cref="Drop" />, on <c>TerrainStrokeCommand</c>'s terms.
+    /// </remarks>
+    void Slide(SceneViewport pane, Vector2 pointer) {
+        if (aimed is not { } body || Document is not { } document || !document.World.IsAlive(body.Entity)) {
+            return;
+        }
+
+        var moved = WaterEdit.OnAxis(pane.Ray(pointer), grabbedAt, grabbedAxis);
+        var metres = Vector3.Dot(moved - grabbedAt, grabbedAxis);
+        var profile = Editing.Drag(grabbedProfile, metres);
+
+        var after = profiledBefore;
+
+        after.HalfWidth = profile.HalfWidth;
+        after.Depth = profile.Depth;
+
+        document.World.Set(body.Entity, after);
+
+        // The handles follow the drag, because they are drawn from the component this just wrote.
+        aimed = (body.Entity, after, body.Curve);
+    }
+
+    /// <summary>Lets go, and makes the whole drag one undo entry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Executed rather than merely pushed</b>, for <c>TerrainMode.Commit</c>'s reason: the
+    ///     command is a redo of something already applied, and <c>Do</c> reapplies exactly what is
+    ///     already there. That is the price of one vocabulary for undo.
+    /// </remarks>
+    void Drop() {
+        if (aimed is { } body
+            && Document is { } document
+            && document.World.IsAlive(body.Entity)
+            && (body.Component.HalfWidth != profiledBefore.HalfWidth || body.Component.Depth != profiledBefore.Depth)) {
+            document.Stack.Execute(new WaterProfileCommand(document.World, body.Entity, profiledBefore, body.Component));
+        }
+
+        Editing.Release();
+    }
+
+    /// <summary>Puts the body back to what it was before the drag started.</summary>
+    void Restore() {
+        if (aimed is { } body && Document is { } document && document.World.IsAlive(body.Entity)) {
+            document.World.Set(body.Entity, profiledBefore);
+            aimed = (body.Entity, profiledBefore, body.Curve);
+        }
     }
 
     /// <summary>Where a pointer meets a surface, in world space, or null if it misses.</summary>
