@@ -84,6 +84,17 @@ diagnostics.NetworkSession = server.Session;      // NetworkSession — round tr
 The loss lanes take no fourth line: a session holds the transport it runs on, and a transport that
 counts datagrams is asked. See [The two loss lanes](#the-two-loss-lanes).
 
+⚠ **Nothing in the engine's own tree writes those four lines, and that is a gap rather than a
+style.** They are settable properties with no assignment anywhere in the repository — the editor runs
+no session, and the only process that holds a `DiagnosticsModule` is the editor — so on a checkout of
+Vixen the panel is empty in every pane whatever a game is doing on the machine beside it. It is
+reachable today only from a host that embeds the editor and has a session of its own. Which head
+should close that (a networked play mode,
+[doc 21](https://github.com/Rikarin/Vixen/blob/master/docs/plan/21-realtime-collaboration.md)'s
+collaboration sessions, or the remote inspector carrying an attached build's link stats back) is an
+open decision, not an oversight in this panel: everything below this line works the moment something
+assigns them.
+
 All of them are independent. A ledger with no registry shows the breakdowns and says the packet pane
 has no capture; a registry with no ledger shows a decoded packet over an empty summary; a *client*
 has a session and no ledger at all — the ledger is attached to a replication server and a client is

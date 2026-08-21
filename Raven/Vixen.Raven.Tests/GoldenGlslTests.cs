@@ -56,8 +56,10 @@ public class GoldenGlslTests(ITestOutputHelper output) {
 
     /// <summary>
     ///     The exit criterion for this phase: real GLSL that a real compiler accepts.
-    ///     Runs only when <c>glslc</c> is on PATH — it is not a build dependency, and its
-    ///     absence is reported rather than silently ignored.
+    ///     Runs only when <c>glslc</c> is on PATH — it is not a build dependency, so its absence
+    ///     <em>skips</em> this. It used to return quietly and report a pass, which is the same
+    ///     thing as not having the check at all; <c>ci.yml</c> installs shaderc on all three legs
+    ///     now.
     /// </summary>
     /// <remarks>
     ///     Compiling rather than only validating, because the target is Vulkan GLSL and a
@@ -69,10 +71,7 @@ public class GoldenGlslTests(ITestOutputHelper output) {
     [Theory]
     [InlineData("lambert")]
     public void A_reference_compiler_accepts_the_golden_glsl(string name) {
-        if (ReferenceCompiler.Glslc is null) {
-            output.WriteLine(ReferenceCompiler.HowToInstall);
-            return;
-        }
+        Assert.SkipUnless(ReferenceCompiler.Glslc is not null, ReferenceCompiler.HowToInstall);
 
         foreach (var unit in Compile(name)) {
             var module = ReferenceCompiler.GlslToSpirv(unit.Code, unit.Stage);

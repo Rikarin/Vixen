@@ -6,7 +6,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Geometry;
-using Vixen.Geometry.Remeshing;
 using Vixen.Input;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui;
@@ -52,6 +51,9 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// </remarks>
     public const string BlockoutContext = "blockout";
 
+    /// <summary>What the settings panel is registered under, which <see cref="Panel" /> names.</summary>
+    public const string PanelId = "blockout.panel";
+
     EditorShell? shell;
 
     /// <summary>The element mode <c>Tab</c> goes back into, which is the last one that was not Object.</summary>
@@ -77,8 +79,11 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public string? Context => BlockoutContext;
 
     /// <inheritdoc />
-    /// <remarks>None yet. The tool settings panel arrives with the tools, in doc 24's P3.</remarks>
-    public string? Panel => null;
+    /// <remarks>
+    ///     Doc 24 § P3's tool settings panel, which is also doc 36 § P1's last blockout row: the
+    ///     retopology and UV dials this mode's verbs read. It opens with the mode and closes with it.
+    /// </remarks>
+    public string? Panel => PanelId;
 
     /// <inheritdoc />
     /// <remarks>
@@ -630,7 +635,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // retopology replaces every face of a solid, so which faces are selected has nothing to say
         // about it. No chord, deliberately — it is seconds of work and is run once a shape is
         // settled, which is a menu verb by the same rule the plan's own tables use.
-        Make(RetopologizeCommand, "Retopologize", () => BlockoutRetopology.Run(Scene!, Retopology));
+        Make(RetopologizeCommand, "Retopologize", () => BlockoutRetopology.Run(Scene!, Retopology.ToRemeshSettings()));
 
         Make(BakeCommand, "Bake To Mesh Asset", () => {
             if (Baker is { } baker) {
@@ -762,12 +767,26 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>What <see cref="RetopologizeCommand" /> asks for, which the settings panel edits.</summary>
     /// <remarks>
-    ///     ⚠ <b>State on the mode rather than a dialog, which is what every other dial here is.</b>
-    ///     <see cref="Step" />, <see cref="UvScale" /> and <see cref="Copies" /> are all settings a verb
-    ///     reads at the moment it runs; a retopology that opened a modal would be the one verb in this
-    ///     mode that stops a designer mid-gesture to ask a question.
+    ///     <para>
+    ///         ⚠ <b>State on the mode rather than a dialog, which is what every other dial here is.</b>
+    ///         <see cref="Step" />, <see cref="UvScale" /> and <see cref="Copies" /> are all settings a
+    ///         verb reads at the moment it runs; a retopology that opened a modal would be the one verb
+    ///         in this mode that stops a designer mid-gesture to ask a question.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The editable class rather than <c>RemeshSettings</c> itself, and the sentence above
+    ///         is why.</b> "Which the settings panel edits" was not true of a <c>Core/</c> record with
+    ///         <c>init</c> members — nothing could bind to one, so nothing drew it. See
+    ///         <see cref="BlockoutRetopologySettings" />.
+    ///     </para>
     /// </remarks>
-    public RemeshSettings Retopology { get; set; } = new() { TargetQuads = 2000 };
+    public BlockoutRetopologySettings Retopology { get; } = new();
+
+    /// <summary>Where to cut and how flat to make it, for the UV verbs.</summary>
+    public BlockoutChartSettings Charting { get; } = new();
+
+    /// <summary>And where the islands go.</summary>
+    public BlockoutPackSettings Packing { get; } = new();
 
     /// <summary>What puts a baked mesh into the project, or null while nothing can.</summary>
     /// <remarks>The application's, because importing an asset is the asset database's job and this

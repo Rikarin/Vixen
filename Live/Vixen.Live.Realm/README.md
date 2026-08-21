@@ -40,6 +40,7 @@ from a crash and not worth a launcher retrying.
 | `PlayerAdmission` | the door — a ticket, a capacity check, and the two identities joined |
 | `MapLifetime` | is the map up, and taking it down again |
 | `RealmHeartbeat` | the two-second sample, and the p99 the fleet is watched by |
+| `RealmHost.Metrics` | the `NetworkMetrics` a shard publishes into, sampled once per `Update` |
 
 ## Four decisions worth knowing about
 
@@ -68,6 +69,47 @@ already on it leave at moments `ReadinessOf` approved of, and the shard stops on
 for the idle grace. The grace is not zero: a player who was moved out may have a reconnect in flight,
 and a shard that vanished the instant its population hit zero would turn a lost packet into a lost
 session.
+
+## The meter a shard publishes into
+
+`RealmHeartbeat`'s remarks have always said that none of a health sample's numbers is a second
+measurement system — that every one of them "is already an instrument in `Vixen.Net.Telemetry`", so a
+shard's health and its traces cannot disagree about what its tick cost. That was not true until the
+realm started feeding one. `NetworkMetrics` registered fourteen instruments and had no production
+caller anywhere in the tree: `Session`, `Transport`, `Ledger` and `Rpc` were set by tests only, and
+every gauge on every shard read zero — which is exactly what a healthy link reads.
+
+`RealmHost` owns one now. It attaches the two things a realm genuinely owns and samples the whole of
+it once per `Update`, next to `Heartbeat.Observe` and over the same elapsed time:
+
+```csharp
+Metrics.Session = Session;
+Metrics.Transport = Session.Transport;   // ITransport.Loss, when the transport counts datagrams
+```
+
+**Replication, RPC and the bandwidth ledger stay the game's**, because a realm does not own the game —
+the same line this class's remarks already draw. A game attaches them and the realm samples them:
+
+```csharp
+host.Metrics.Replication = replication;
+host.Metrics.Rpc = router;
+host.Metrics.Ledger = ledger;
+```
+
+⚠ **A shard with an exporter passes its meter in rather than getting a second one.**
+`NetworkTelemetry.Start` has to build its `NetworkMetrics` before the provider — an observable
+instrument registered afterwards is one the provider never collects — so a realm that made its own
+would leave the exporter scraping a meter nobody samples while the samples went to a meter with no
+exporter on it, under the same meter name. `RealmHostOptions.Metrics` is that seam:
+
+```csharp
+using var telemetry = NetworkTelemetry.Start();
+var host = new RealmHost(spec, session, signer, new() { Metrics = telemetry.Metrics });
+```
+
+Sampled every tick rather than on the heartbeat's interval: the heartbeat is a decision the fleet acts
+on and is deliberately slow, and a meter read every two seconds would be up to two seconds stale on
+every scrape.
 
 ## The stdio lifecycle, and what replaces it
 

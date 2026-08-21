@@ -1,0 +1,88 @@
+package Vixen.Shaders.VirtualShadows
+
+import Vixen.Shaders.Core
+
+// One invocation, one lookup, one sample out.
+//
+// This shader exists for `VirtualShadowLookupDeviceTests` and for nothing else. It is
+// `WaterSurfaceProbe`'s arrangement applied to phase 7's lookup, and it exists because
+// `VirtualShadowLookup` had no device leg at all: the only thing in the tree that composed it was
+// sample 13's frame, which no gate runs, so `VirtualShadowLevel`'s ninety-six bytes — and the
+// shader's reading of them — were asserted by nothing that a merge has to pass.
+//
+// ⚠ **Composing is the whole point, and a copy of the lookup here would prove nothing.** The record
+// this reads is bound by `VirtualShadowLookup`'s own `[PerFrame]` declarations, so what the host
+// writes into `shadowLevels` is decoded by the shipped shader against the shipped struct at the
+// shipped stride. Nothing in this file does any addressing of its own — it reads a query, calls the
+// library, and writes what came back — because anything it computed would be a second implementation
+// agreeing with the test rather than with the engine.
+
+/// One question: a point, and what a shading pass would have known about it.
+///
+/// Thirty-two bytes, sixteen-aligned, which is what two `float4`s would be — so the host uploads an
+/// array of these without a padding rule written down twice.
+struct VirtualShadowProbeQuery {
+    /// The point being shaded, in world space.
+    var position: float3
+
+    /// How far it is from the camera — which is what chooses the clipmap level, and deliberately not
+    /// a view-space depth. See `VirtualShadowLookup.Sample`.
+    var viewDistance: float
+
+    /// The surface normal, for the normal offset.
+    var normal: float3
+
+    /// The cosine between the normal and the light, for the bias and the offset.
+    var NdotL: float
+}
+
+/// What came back: `DirectionalShadowSample`, padded to sixteen bytes.
+struct VirtualShadowProbeResult {
+    /// How much of the light reaches the point, where `found` is one.
+    var visibility: float
+
+    /// One when the map had a drawn page for the point, zero otherwise.
+    var found: float
+
+    /// Padding, so the readback is one stride nobody has to compute.
+    var pad0: float
+
+    var pad1: float
+}
+
+shader VirtualShadowProbe {
+    /// The thing under test. Bound rather than defaulted, unlike every other filler of this slot:
+    /// `NoDirectionalShadows` is what the slot means when a project renders no map, and a probe that
+    /// took the default would dispatch a shader that declares nothing and answers `found = 0`
+    /// everywhere — which is a green test over an empty measurement.
+    compose val shadows: IDirectionalShadowSource = VirtualShadowLookup
+
+    /// One question per invocation.
+    [PerDraw] var queries: Buffer<VirtualShadowProbeQuery>
+
+    /// One answer per invocation.
+    [PerDraw] var results: RWBuffer<VirtualShadowProbeResult>
+
+    /// How many questions there are, since the dispatch is rounded up to whole groups.
+    [PerDraw] var queryCount: int
+
+    [ComputeShader(64, 1, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+
+        if (index >= queryCount) {
+            return
+        }
+
+        val query = queries[index]
+        val answer = shadows.Sample(query.position, query.normal, query.NdotL, query.viewDistance)
+
+        var result: VirtualShadowProbeResult
+        result.visibility = answer.visibility
+        result.found = answer.found
+        result.pad0 = 0f
+        result.pad1 = 0f
+
+        results[index] = result
+    }
+}
