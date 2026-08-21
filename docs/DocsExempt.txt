@@ -1418,7 +1418,6 @@ T:Vixen.Editor.NodeGraph.NodeGraphModel sweep-pending
 T:Vixen.Editor.NodeGraph.NodeGraphTheme sweep-pending
 T:Vixen.Editor.NodeGraph.NodeGraphView sweep-pending
 T:Vixen.Editor.NodeGraph.NodeId sweep-pending
-T:Vixen.Editor.NodeGraph.NodeInspector sweep-pending
 T:Vixen.Editor.NodeGraph.NodeLayoutOptions sweep-pending
 T:Vixen.Editor.NodeGraph.NodePreview sweep-pending
 T:Vixen.Editor.NodeGraph.NodePreviewLayer sweep-pending

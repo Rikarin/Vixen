@@ -78,6 +78,14 @@ public sealed class InspectorView : Control {
     /// <summary>The row a secondary click landed on, which is what the context menu acts upon.</summary>
     InspectorRow? aimed;
 
+    /// <summary>How the members are reached, or null for the described-type one.</summary>
+    /// <remarks>
+    ///     Set by the <see cref="Inspect(InspectorDescriptor, Core.IEditProvider, ReadOnlySpan{object})" />
+    ///     overload and cleared by the other, so a panel that showed a graph node and is then handed
+    ///     an entity does not keep reaching for ports.
+    /// </remarks>
+    Core.IEditProvider? provider;
+
     ContextMenu? menu;
     MenuItem copy = null!;
     MenuItem paste = null!;
@@ -260,15 +268,59 @@ public sealed class InspectorView : Control {
             return;
         }
 
+        provider = null;
+
+        Take(objects);
+
+        Descriptor = InspectorRegistry.CommonType(targets) is { } type ? InspectorRegistry.Find(type) : null;
+        Rebuild();
+    }
+
+    /// <summary>Shows members the registry does not describe, through a description and a provider of the caller's own.</summary>
+    /// <param name="descriptor">What the rows are built from.</param>
+    /// <param name="provider">How the members are reached.</param>
+    /// <param name="objects">What to inspect.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="descriptor" /> or <paramref name="provider" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 36 § P1's seam, from this end.</b> The panel is generic over what a member
+    ///         <i>is</i>: it lays out rows, resolves drawers, filters, copies, pastes and resets
+    ///         without knowing whether it is looking at a component, an asset or something a plugin
+    ///         invented. What tied it to one kind of thing was where it got the description from, and
+    ///         this is the parameter that unties it. <c>NodePortEditProvider</c> is the first caller
+    ///         — a graph node's ports are not members of any CLR type, so no registry can hold them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The caller owns the claim that the objects match the description.</b>
+    ///         <c>EditTarget</c> checks that they are all one CLR type and can check no more; a
+    ///         description that says otherwise — every graph node is a <c>GraphNode</c> and they do
+    ///         not all have the same ports — is the caller's to guard, and every one of them has
+    ///         something better to check with.
+    ///     </para>
+    /// </remarks>
+    public void Inspect(InspectorDescriptor descriptor, IEditProvider provider, params ReadOnlySpan<object> objects) {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(provider);
+
+        if (IsLocked) {
+            return;
+        }
+
+        this.provider = provider;
+
+        Take(objects);
+
+        Descriptor = descriptor;
+        Rebuild();
+    }
+
+    void Take(ReadOnlySpan<object> objects) {
         targets.Clear();
 
         foreach (var target in objects) {
             ArgumentNullException.ThrowIfNull(target);
             targets.Add(target);
         }
-
-        Descriptor = InspectorRegistry.CommonType(targets) is { } type ? InspectorRegistry.Find(type) : null;
-        Rebuild();
     }
 
     /// <summary>Shows nothing.</summary>
@@ -370,7 +422,7 @@ public sealed class InspectorView : Control {
         // override and the visibility on it. A plain `EditTarget` made a hand-written inspector's
         // rows quietly poorer than the ones it replaced, which is the opposite of what an author
         // writes one for. See `InspectorTarget`.
-        Edited = targets.Count > 0 ? new InspectorTarget(targets, EditedDocument, Prefab) : null;
+        Edited = targets.Count > 0 ? new InspectorTarget(targets, EditedDocument, Prefab, provider, Descriptor) : null;
 
         // ⚠ Here rather than inside the custom branch below, and before anything has had a chance to
         // bind: a binding made while a custom inspector is being built is one whose first write can
