@@ -114,9 +114,7 @@ public class SampleGradTests {
 
     [Fact]
     public void Gradients_reach_SPIR_V_as_the_Grad_image_operand() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(SpirvTestBase.One(Resolve).Binary!);
 
@@ -134,9 +132,7 @@ public class SampleGradTests {
     /// </summary>
     [Fact]
     public void A_compute_stage_may_sample_with_stated_gradients() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(SpirvTestBase.One(Compute).Binary!);
 

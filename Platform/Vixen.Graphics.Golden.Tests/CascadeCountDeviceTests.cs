@@ -486,11 +486,13 @@ public sealed class CascadeCountDeviceTests {
             + (0.0722 * image.Pixels[offset + 2])) / 255.0;
     }
 
-    /// <summary>Passes when there is no device, unless the environment insists on one.</summary>
+    /// <summary>Skips when there is no device, unless the environment insists on one.</summary>
     static void Skip(string? reason) {
         if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
             Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
         }
+
+        Assert.Skip(reason ?? "no Vulkan");
     }
 
     /// <summary>The material whose composition the pass is compiled against.</summary>

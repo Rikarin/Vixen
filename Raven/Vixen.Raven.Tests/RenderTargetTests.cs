@@ -78,9 +78,7 @@ public class RenderTargetTests {
 
     [Fact]
     public void SPIR_V_extracts_each_member_from_one_call() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(SpirvTestBase.One(GBuffer).Binary!);
 

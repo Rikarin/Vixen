@@ -179,6 +179,30 @@ public sealed class HeadlessFlagTests {
         );
     }
 
+    /// <summary>The sample corpus is really there, so the two scans above mean something.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both scans assert an <em>absence</em>.</b> They collect offenders and require the
+    ///     list to be empty, which is exactly what an empty corpus produces: a corpus that stopped
+    ///     arriving, or a <c>VixenApp.</c> spelling that drifted, would leave both of them green
+    ///     having read nothing at all. The floor is deliberately loose — this pins that samples are
+    ///     found and that some of them really do go through <see cref="VixenApp" />, not how many
+    ///     there happen to be today.
+    /// </remarks>
+    [Fact]
+    public void TheSamplesBeingScannedAreActuallyThere() {
+        var sources = SampleSources().ToList();
+
+        Assert.True(sources.Count >= 10, $"Only {sources.Count} sample .cs files were found under Samples/.");
+
+        var throughVixenApp = sources.Count(source => source.Code.Contains("VixenApp.", StringComparison.Ordinal));
+
+        Assert.True(
+            throughVixenApp > 0,
+            "No sample mentions VixenApp., so NoSampleTakesThePlatformChoiceAwayFromTheHost scanned "
+            + "a corpus in which its subject cannot appear."
+        );
+    }
+
     /// <summary>And no sample assigns over the flag in <c>OnConfigure</c> either.</summary>
     /// <remarks>
     ///     The lesser half, and worth a gate of its own because it is the half that <em>looks</em>

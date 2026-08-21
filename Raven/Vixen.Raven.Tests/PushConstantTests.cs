@@ -79,9 +79,7 @@ public class PushConstantTests {
 
     [Fact]
     public void SPIR_V_uses_the_push_constant_storage_class_and_no_descriptor_decorations() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(
             Assert.Single(GenerateClean(Sprite, "spirv"), u => u.Name.EndsWith(".vert", StringComparison.Ordinal))

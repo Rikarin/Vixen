@@ -81,10 +81,13 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
     [Theory]
     [InlineData("lambert")]
     public async Task The_listing_agrees_with_a_real_disassembler(string name) {
-        if (SpirvTestBase.FindTool("spirv-dis") is not { } disassembler) {
-            output.WriteLine("spirv-dis was not found, so the listing was not cross-checked.");
-            return;
-        }
+        var disassembler = SpirvTestBase.FindTool("spirv-dis");
+
+        Assert.SkipUnless(
+            disassembler is not null,
+            "spirv-dis is not on PATH (brew install spirv-tools, apt-get install spirv-tools), so the "
+            + "listing was not cross-checked against a real disassembler."
+        );
 
         foreach (var unit in Compile(name)) {
             // The guid is not decoration. Without it the name is a pure function of the theory's
@@ -97,7 +100,7 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
 
             try {
                 var process = Process.Start(
-                    new ProcessStartInfo(disassembler, ["--no-color", "--raw-id", path]) {
+                    new ProcessStartInfo(disassembler!, ["--no-color", "--raw-id", path]) {
                         RedirectStandardOutput = true, RedirectStandardError = true
                     }
                 )!;
