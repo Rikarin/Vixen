@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Net.Diagnostics;
+using Vixen.Net.Sessions;
 using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Debugger;
@@ -241,4 +242,317 @@ readonly record struct NetworkPacket(bool Present, SnapshotContents Contents, IR
 
         return new(Present: true, contents, rows);
     }
+}
+
+/// <summary>What the link is doing, at one instant, across everyone in a session.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The same walk <see cref="NetworkMetrics" /> makes, and deliberately not a second
+///         way of making it.</b> <c>NetworkMetrics.Sample</c> takes the mean round trip across
+///         connected players, the worst of them, and the worst jitter — because those are the three
+///         questions a link is asked — and it is called once a tick from the loop that owns the
+///         session. This is the panel's copy of that reading, taken from the document's clock
+///         instead, and every number in it is a property <c>NetworkPlayer.RoundTrip</c> already has.
+///     </para>
+///     <para>
+///         ⚠ <b>Milliseconds here, seconds there, and that is not an inconsistency.</b> The meter
+///         publishes seconds because OpenTelemetry's unit for a duration is the second and a
+///         collector aggregating three servers must not have to know which one used which. A panel
+///         has one reader and they think in milliseconds.
+///     </para>
+///     <para>
+///         ⚠ <b>A record of scalars, for the reason <see cref="NetworkReport" />'s own remarks
+///         give.</b> Value equality means the signal holding one refuses an equal reading, so a
+///         still link notifies nothing.
+///     </para>
+/// </remarks>
+/// <param name="Pointed">
+///     Whether the host pointed the panel at anything. ⚠ <b>In the record rather than read off the
+///     panel's own property, and the difference is a wrong sentence.</b> "This host supplies no
+///     session" and "the session is not running" are two different answers, and the line that says
+///     which lives in a region whose bindings re-run only when what they read changes. Read off a
+///     plain property it would keep saying the first one after the host had supplied one, because a
+///     delegate that returns null produces a reading equal to <see cref="None" /> — and an equal
+///     value is a value the signal refuses.
+/// </param>
+/// <param name="Attached">Whether there is a session at all.</param>
+/// <param name="Sampled">
+///     Whether any connected player has a round-trip sample. False is not zero: an estimator with no
+///     samples has a <c>RoundTrip</c> of zero, and drawing that would be a claim of a perfect link.
+/// </param>
+/// <param name="Players">Connected players.</param>
+/// <param name="Awaiting">Players inside their reconnect window, holding a seat but not connected.</param>
+/// <param name="MeanMilliseconds">The mean round trip across connected players who have samples.</param>
+/// <param name="WorstMilliseconds">The worst round trip anybody has — the one being complained about.</param>
+/// <param name="JitterMilliseconds">The worst jitter anybody has, which is what sizes their buffer.</param>
+/// <param name="Retransmitting">Whether the host supplied a retransmit counter to chart.</param>
+readonly record struct NetworkLink(
+    bool Pointed,
+    bool Attached,
+    bool Sampled,
+    int Players,
+    int Awaiting,
+    double MeanMilliseconds,
+    double WorstMilliseconds,
+    double JitterMilliseconds,
+    bool Retransmitting
+) {
+    /// <summary>Nothing pointed at anything, which is what a bare editor shows.</summary>
+    public static NetworkLink None { get; }
+
+    /// <summary>Takes a reading.</summary>
+    /// <param name="source">Where the session comes from, or null when the host supplied none.</param>
+    /// <param name="retransmitting">Whether a retransmit counter was supplied.</param>
+    /// <returns>The reading.</returns>
+    /// <remarks>
+    ///     The delegate rather than the session, because whether there <i>is</i> one is half of what
+    ///     the reading has to say — see <see cref="Pointed" />.
+    /// </remarks>
+    public static NetworkLink Of(Func<NetworkSession?>? source, bool retransmitting) {
+        if (source is null) {
+            return None;
+        }
+
+        if (source.Invoke() is not { } session) {
+            return new(Pointed: true, Attached: false, Sampled: false, 0, 0, 0, 0, 0, retransmitting);
+        }
+
+        var connected = 0;
+        var awaiting = 0;
+        var sampled = 0;
+        var total = 0d;
+        var worst = 0d;
+        var jitter = 0d;
+
+        foreach (var player in session.Players) {
+            if (!player.IsConnected) {
+                awaiting++;
+
+                continue;
+            }
+
+            connected++;
+
+            if (!player.RoundTrip.HasSamples) {
+                continue;
+            }
+
+            sampled++;
+
+            var trip = player.RoundTrip.RoundTrip.TotalMilliseconds;
+            total += trip;
+            worst = Math.Max(worst, trip);
+            jitter = Math.Max(jitter, player.RoundTrip.Jitter.TotalMilliseconds);
+        }
+
+        return new(
+            Pointed: true,
+            Attached: true,
+            sampled > 0,
+            connected,
+            awaiting,
+            // Over the players who have samples rather than over the connected ones: a player who
+            // joined this frame has no estimate, and averaging their zero in halves the mean of a
+            // two-player game for as long as it takes the first ping to come back.
+            sampled == 0 ? 0 : total / sampled,
+            worst,
+            jitter,
+            retransmitting
+        );
+    }
+}
+
+/// <summary>One bar of a lane: where it is, how tall it is, and whether it is the newest.</summary>
+/// <remarks>
+///     ⚠ <b>The height is in the key, and that is what makes the lane cost what it does.</b> A
+///     <c>@for</c> key that survives keeps its region and does not re-run the body, so a bar whose
+///     value is unchanged is an element nothing touches. <see cref="Slot" /> is in the record for
+///     <see cref="PacketRow" />'s reason — two bars of the same height are otherwise two equal keys
+///     in one loop, which is not something <c>BuildContext.For</c> can be asked to reconcile.
+/// </remarks>
+/// <param name="Slot">Where in the ring it is, which is a fixed position on screen.</param>
+/// <param name="Class">Empty, or <c>newest</c> for the one the sweep just wrote.</param>
+/// <param name="Geometry">Its height, as a declaration list.</param>
+readonly record struct TrendBar(int Slot, string Class, string Geometry);
+
+/// <summary>What a lane shows: its bars, and the three numbers written above them.</summary>
+/// <remarks>
+///     ⚠ <b>One signal holding all of it, per <c>GpuTimelineView</c>'s argument.</b> The bars, the
+///     latest reading and the scale all come out of one walk of the ring, and separate signals would
+///     mean either walking it three times or writing them in an order the reader has to know about.
+/// </remarks>
+/// <param name="Latest">The newest sample.</param>
+/// <param name="Peak">The largest sample in the ring.</param>
+/// <param name="Ceiling">What the bars are drawn against.</param>
+/// <param name="Bars">Them.</param>
+readonly record struct TrendFace(double Latest, double Peak, double Ceiling, IReadOnlyList<TrendBar> Bars) {
+    /// <summary>A lane with nothing in it yet.</summary>
+    /// <remarks>Spelled out rather than <c>default</c>, for <see cref="NetworkPacket.None" />'s reason.</remarks>
+    public static TrendFace Empty { get; } = new(0, 0, 0, []);
+}
+
+/// <summary>One measurement over time, as a fixed ring of samples drawn as a strip of bars.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The history is here and not in <c>Vixen.Net</c>, and that is the whole design
+///         decision.</b> <c>RoundTripEstimator</c> is a running filter and <c>NetworkMetrics</c>
+///         publishes gauges, both by intent: the meter's own remarks say rates are the collector's
+///         job and are "deliberately not computed here", because a metric that has already been
+///         differenced cannot be re-aggregated across three servers. A ring beside the estimator
+///         would be a second, in-process time series competing with that pipeline, paid for by every
+///         dedicated server whether or not anybody is looking. Nothing but this panel wants the
+///         history, so the panel keeps it — and <c>Vixen.Net</c> gains not one line of public
+///         surface, which is the claim the rest of this file already rests on.
+///     </para>
+///     <para>
+///         ⚠ <b>A ring that is drawn as a ring, and the alternative is what makes it worth it.</b>
+///         A scrolling chart shifts every sample one place left on every reading, so all
+///         <see cref="Capacity" /> keys change and all <see cref="Capacity" /> regions are rebuilt,
+///         four times a second, for ever. Here the slot a sample is written to is where it stays: a
+///         push changes the value at exactly one slot and moves the <c>newest</c> class off one bar
+///         and onto another, so three elements are rebuilt instead of a hundred and twenty. What is
+///         bought with that is the sweep — the newest bar is coloured, and the chart reads like a
+///         monitor trace rather than like a graph whose left edge is the past.
+///     </para>
+///     <para>
+///         ⚠ <b>The ceiling is snapped to a 1–2–5 ladder rather than taken from the peak.</b> Two
+///         reasons and the second is the one that matters: a scale that follows the peak exactly
+///         changes on nearly every reading, and every bar's height is a fraction of it — so the one
+///         cheap push above would become a full rebuild most of the time. It is also the difference
+///         between a chart that can be read and one whose axis never holds still long enough to
+///         compare a bar with the bar beside it.
+///     </para>
+/// </remarks>
+/// <param name="heading">What is being measured.</param>
+/// <param name="suffix">What its unit is, appended to the number exactly as written.</param>
+sealed class NetworkTrend(string heading, string suffix) {
+    /// <summary>How many samples the ring holds.</summary>
+    /// <remarks>
+    ///     A hundred and twenty, which at <c>NetworkView.Interval</c> is half a minute. Long enough
+    ///     that a spike is still on screen when somebody looks up, short enough that the thing they
+    ///     are looking at is the link as it is now.
+    /// </remarks>
+    public const int Capacity = 120;
+
+    /// <summary>How tall a lane's plot is, in pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A constant here rather than a rule in the sheet, and it is written as an inline
+    ///     style.</b> A bar's height is a fraction of a scale times this, which is a length no
+    ///     stylesheet can be given — the same argument <c>GpuTimelineView</c> makes, and the reason
+    ///     the plot's own height is set from code too. It also means the lane draws in a test that
+    ///     has loaded no stylesheet at all.
+    /// </remarks>
+    public const float PlotHeight = 32f;
+
+    /// <summary>The height a zero gets, so a flat lane is a line rather than nothing.</summary>
+    public const float Floor = 1f;
+
+    readonly double[] samples = new double[Capacity];
+    readonly Signal<TrendFace> face = new(TrendFace.Empty);
+
+    int count;
+    int cursor;
+
+    /// <summary>What is being measured.</summary>
+    public string Heading { get; } = heading;
+
+    /// <summary>The bars, in slot order — which is not time order once the ring has wrapped.</summary>
+    public IReadOnlyList<TrendBar> Bars => face.Value.Bars;
+
+    /// <summary>Whether anything has been sampled yet.</summary>
+    public bool Blank => face.Value.Bars.Count == 0;
+
+    /// <summary>The newest sample, as text.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the signal, and a plain field here would be the bug the <c>@for</c> key rule
+    ///     warns about one step past where it is usually read.</b> A lane is keyed on the object, so
+    ///     its region survives for the life of the panel and the effect writing this line runs again
+    ///     only when something it <i>read</i> changes. Backed by a field it would read nothing that
+    ///     ever changes, and the head of a lane whose bars were moving would show the first reading
+    ///     for ever — beside a chart proving it wrong.
+    /// </remarks>
+    public string Reading => Text(face.Value.Latest);
+
+    /// <summary>What the bars are drawn against, as text.</summary>
+    public string Scale => "0–" + Text(face.Value.Ceiling);
+
+    /// <summary>How tall the plot is, as a declaration list.</summary>
+    public static string Plot { get; } = "height: " + Length(PlotHeight);
+
+    /// <summary>Takes a sample.</summary>
+    /// <param name="value">It, in whatever unit <see cref="Heading" /> is in.</param>
+    public void Push(double value) {
+        samples[cursor] = value;
+        cursor = (cursor + 1) % Capacity;
+
+        if (count < Capacity) {
+            count++;
+        }
+
+        Realise();
+    }
+
+    /// <summary>Forgets everything sampled, for a link that is no longer there.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Emptied rather than frozen, which is the same choice the panel makes about an absent
+    ///     ledger.</b> A session that has stopped leaves a chart that is a picture of a link that no
+    ///     longer exists, and there is nothing on it that says so. An empty lane is parked and the
+    ///     line above the graph says why.
+    /// </remarks>
+    public void Clear() {
+        if (count == 0 && cursor == 0) {
+            return;
+        }
+
+        Array.Clear(samples);
+        count = 0;
+        cursor = 0;
+
+        Realise();
+    }
+
+    /// <summary>The smallest 1–2–5 round number at or above <paramref name="peak" />.</summary>
+    /// <param name="peak">The largest sample.</param>
+    /// <returns>The scale.</returns>
+    public static double Ladder(double peak) {
+        if (peak <= 0) {
+            return 1;
+        }
+
+        var power = Math.Pow(10, Math.Floor(Math.Log10(peak)));
+        var steps = peak / power;
+
+        return power * (steps <= 1 ? 1 : steps <= 2 ? 2 : steps <= 5 ? 5 : 10);
+    }
+
+    /// <summary>Rebuilds every bar, which is what the keys then compare against the ones on screen.</summary>
+    void Realise() {
+        if (count == 0) {
+            face.Value = TrendFace.Empty;
+
+            return;
+        }
+
+        var peak = 0d;
+
+        for (var slot = 0; slot < count; slot++) {
+            peak = Math.Max(peak, samples[slot]);
+        }
+
+        var ceiling = Ladder(peak);
+        var newest = (cursor - 1 + Capacity) % Capacity;
+        var bars = new TrendBar[count];
+
+        for (var slot = 0; slot < count; slot++) {
+            var height = Math.Max(Floor, (float) (samples[slot] / ceiling) * PlotHeight);
+
+            bars[slot] = new(slot, slot == newest ? "newest" : string.Empty, "height: " + Length(height));
+        }
+
+        face.Value = new(samples[newest], peak, ceiling, bars);
+    }
+
+    string Text(double value) => value.ToString("N1", CultureInfo.InvariantCulture) + suffix;
+
+    static string Length(float value) => value.ToString("0.##", CultureInfo.InvariantCulture) + "px";
 }

@@ -17,6 +17,7 @@ network panel, which is a reader for two diagnostics models `Vixen.Net` already 
 | `RemoteInspectorClient` | The editor's half of the conversation, over any `ITransport`. |
 | `DeviceManager`, `IDeviceProvider` | What a build can be deployed to. |
 | `NetworkTable`, `NetworkReport` | The panel-side model over `BandwidthLedger` — internal: scalars in one, columns in five. |
+| `NetworkTrend`, `NetworkLink` | The panel-side model of the link — internal: a ring of samples in one, the reading of a session in the other. |
 | `FrameDebuggerView`, `RemoteInspectorView`, `DeviceManagerView`, `NetworkView` | The panels. |
 
 ## Stepping
@@ -138,6 +139,35 @@ the panel and each row keeps or loses its region on its own value.
 This is also the first `.vxml` in this project, which is why the `.csproj` gained the markup
 generator: the `Vixen.Ui.targets` import that compiles it has been here since the sheet was moved out
 of a `const string`, with only its `.vcss` half doing anything.
+
+### The link graph
+
+A third pane, over a third source: round trip and jitter over the last thirty seconds, drawn as a
+strip of bars per measurement.
+
+⚠ **The measurement already existed; the history did not.** `RoundTripEstimator` is an RFC 6298
+filter and `NetworkMetrics` publishes both of its numbers as gauges — but a filter and a gauge are
+both *now*, and a graph is a claim about the past. So the panel keeps a ring, `NetworkTrend`, in this
+assembly. It is not beside the estimator because nothing else wants it: the meter's own remarks say
+rates are the collector's job and are "deliberately not computed here", and a ring in `Vixen.Net`
+would be a second in-process time series paid for by every dedicated server whether or not anybody is
+looking. `Vixen.Net` still gains not one line of public surface, which is the claim above.
+
+⚠ **The ring is drawn as a ring, and that is what makes it cheap.** A scrolling chart shifts every
+sample one place left on every reading, so all hundred and twenty `@for` keys change and all hundred
+and twenty regions are rebuilt, four times a second. Here a sample stays in the slot it was written
+to: a reading changes one slot's value and moves the `newest` class from one bar to the next, so
+three elements are rebuilt. The scale is snapped to a 1–2–5 ladder for the same reason and for a
+better one — a chart whose axis moves on every reading cannot be read at all.
+
+⚠ **There is no loss lane unless the host can count retransmissions, and there is no loss number
+anywhere.** Nothing in the engine measures packet loss: `ITransport` reports none, no session or
+replication counter derives one, and `NetworkMetrics` publishes no loss instrument. The only loss
+figure in the tree is `NetworkSimulation.LossChance`, which is loss somebody *asked for*. What a
+lossy link does produce is retransmissions, and `UdpTransport.RetransmitCount` says of itself that it
+is "the number a diagnostics panel draws" — so a host that has one wires it and the panel differences
+it into a rate. A host that has none gets no lane, because a lane flat along the bottom would say the
+link is clean.
 
 ## The theme
 

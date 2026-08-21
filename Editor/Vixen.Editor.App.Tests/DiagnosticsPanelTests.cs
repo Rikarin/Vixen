@@ -186,6 +186,29 @@ public class DiagnosticsPanelTests {
         Assert.DoesNotContain(Descendants(view.Root), element => element.Tag == "network-row");
     }
 
+    /// <summary>
+    ///     ⚠ And the graph says the session is not running rather than that nobody wired one — which
+    ///     is the assertion that the module wired the delegate at all. The two states produce the
+    ///     same numbers, so the sentence is the only thing that tells them apart, and a panel opened
+    ///     with the line missing is a panel the module forgot.
+    /// </summary>
+    [Fact]
+    public void The_network_panel_is_pointed_at_a_session_even_when_there_is_none() {
+        using var session = EditorSession.Start();
+
+        var view = Built<NetworkView>(session, "network");
+
+        session.Frames(2);
+
+        var lines = Descendants(view.Root)
+            .Where(element => element.Tag == "network-status")
+            .Select(element => string.Concat(Descendants(element).Select(part => part.Text ?? string.Empty)))
+            .ToArray();
+
+        Assert.Contains(lines, line => line.Contains("No session running", StringComparison.Ordinal));
+        Assert.DoesNotContain(Descendants(view.Root), element => element.Tag == "network-lane");
+    }
+
     [Fact]
     public void The_statistics_panel_counts_the_scene_it_is_pointed_at() {
         using var session = EditorSession.Start();
