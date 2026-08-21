@@ -13,7 +13,9 @@ window.addEventListener('unhandledrejection', e => { record('REJECT')(e.reason &
 try {
     const { dotnet } = await import('./_framework/dotnet.js');
     // ⚠ runMain, not run. dotnet.run() exits the runtime when Main returns, which kills every
-    // requestAnimationFrame callback WebFrameLoop registered. See the report.
+    // requestAnimationFrame callback WebFrameLoop registered — the page then reports
+    // "Assert failed: .NET runtime already exited with 0". Defect 2 in
+    // docs/plan/spikes/web-head/RESULT.md; `nuke PublishWeb` asserts the shape of this line.
     const runtime = await dotnet.create();
     await runtime.runMain();
     out.push('BOOT ok, runtime still alive');

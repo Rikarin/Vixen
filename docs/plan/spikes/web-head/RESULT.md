@@ -8,6 +8,12 @@ page.**
 retires a different one: *is there a path from this repository to a running browser page at all?*
 It is a probe, not a sample — it draws nothing, and says so.
 
+> **The head has been promoted; this directory is a document again.** The spike's head became
+> [`Tools/Vixen.WebProbe`](../../../../Tools/Vixen.WebProbe/README.md), which is what `nuke
+> PublishWeb` publishes and asserts about. It was load-bearing from here for a while — a build
+> target depending on a spike — and that is what the move ends. Everything below is the record of
+> what running it established; the commands under *Running it* are the promoted paths.
+
 ## What it establishes
 
 | | |
@@ -46,10 +52,10 @@ to live under `wwwroot/`.
 ## Running it
 
 ```bash
-dotnet publish docs/plan/spikes/web-head/webhead.csproj -c Release
+dotnet publish Tools/Vixen.WebProbe/Vixen.WebProbe.csproj -c Release
 
-node docs/plan/spikes/web-head/serve.mjs \
-    docs/plan/spikes/web-head/bin/Release/net10.0-browser/publish/wwwroot 8099
+node Tools/Vixen.WebProbe/serve.mjs \
+    Tools/Vixen.WebProbe/bin/Release/net10.0-browser/publish/wwwroot 8099
 ```
 
 The server sets `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy`; drop them to see
@@ -58,12 +64,12 @@ The server sets `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy`; dro
 Then, in another shell — **the full browser over CDP, not `--dump-dom`**:
 
 ```bash
-npm install --prefix docs/plan/spikes/web-head playwright-core
+npm install --prefix Tools/Vixen.WebProbe playwright-core
 
 chrome-headless-shell --headless --no-sandbox --enable-unsafe-swiftshader \
     --remote-debugging-port=9223 --user-data-dir=/tmp/vixen-cdp about:blank &
 
-node docs/plan/spikes/web-head/drive.mjs http://localhost:8099/index.html 6000
+node Tools/Vixen.WebProbe/drive.mjs http://localhost:8099/index.html 6000
 ```
 
 ⚠ **`chrome-headless-shell --dump-dom` never fires `requestAnimationFrame`** — with or without

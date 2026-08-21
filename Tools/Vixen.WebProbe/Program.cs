@@ -7,6 +7,8 @@ using Vixen.Graphics.WebGPU.Browser;
 using Vixen.Platform;
 using Vixen.Platform.Web;
 
+// The browser head `nuke PublishWeb` publishes. It draws nothing and says so — see README.md.
+//
 // ModuleUrl is left at its default, which is the point of this probe: it was "./vixen-platform.js"
 // and could never resolve, because JSHost.ImportAsync resolves against _framework/ and the file is
 // published to the site root. MountContent is false because nothing in this repository produces the
