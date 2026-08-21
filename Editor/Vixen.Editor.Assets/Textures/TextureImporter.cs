@@ -32,7 +32,7 @@ namespace Vixen.Editor.Assets.Textures;
 ///         round of lossy compression only ever loses.
 ///     </para>
 /// </remarks>
-[Importer(".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".gif", ".hdr", ".ktx2")]
+[Importer(".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".gif", ".hdr", ".ktx2", ".dds")]
 public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
     readonly IReadOnlyList<IImageDecoder> decoders;
 
@@ -59,8 +59,8 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
         var decoder = ImageDecoders.For(decoders, extension)
             ?? throw new NotSupportedException(
                 $"Nothing here decodes {extension}. StbImageDecoder reads the common authoring formats and "
-                + "Radiance HDR, and Ktx2Decoder reads what the engine already ships; .exr, .tif, .webp and "
-                + ".dds are owed."
+                + "Radiance HDR, Ktx2Decoder reads what the engine already ships and DdsDecoder reads a 2D "
+                + "DDS; .exr, .tif and .webp are owed."
             );
 
         TextureData decoded;
@@ -75,6 +75,23 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
                 $"{extension} is already {decoded.Format}, so it ships as it arrived. Re-encoding a compressed "
                 + "texture only loses."
             );
+
+            // ⚠ The one decision the settings lose on this path, so it is the one worth saying out
+            // loud. A compressed file carries its own transfer function — BC7_UNORM and
+            // BC7_UNORM_SRGB are different formats and the file picked one — and passing it through
+            // means the sRGB flag comes from the exporter rather than from Content. When the two
+            // disagree the texture is not wrong in a way anything downstream can see: it is an albedo
+            // the hardware never converts, or a mask it converts twice, and the symptom is a scene
+            // that looks washed out or crushed with nothing in the log. Saying so costs a line.
+            if (decoded.Format.IsSrgb() != (settings.Content == TextureContent.Colour)) {
+                context.Report(
+                    ImportSeverity.Warning,
+                    $"The file is {decoded.Format} and its usage is {settings.Content}, so the sampler will "
+                    + (decoded.Format.IsSrgb() ? "convert bytes that are not colour. " : "not convert colour. ")
+                    + "A compressed source ships with the transfer function its exporter chose; either the "
+                    + "usage or the export is wrong."
+                );
+            }
 
             context.Write(SubAssetId.Main, "Texture", Ktx2.Write(decoded));
             WriteSprites(context, settings, decoded.Width, decoded.Height);

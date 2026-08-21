@@ -694,7 +694,7 @@ Re-checked against `Directory.Packages.props`: all nine are still absent from it
 | `Silk.NET.Direct3D.Compilers` | D3D12 backend | ✂️ | Postponed with the backend |
 | `Silk.NET.Maths` | interop shim | ⬜ | Never needed — ADR-003 types carry their own conversions |
 | `NSubstitute` 6.0.0, `Shouldly` 4.3.0 | test stack | ⬜ | Listed in doc 12; the props file deliberately omits unused versions |
-| `Pfim` | DDS/TGA decode | ⬜ | `.dds` import |
+| ~~`Pfim`~~ | DDS/TGA decode | ✂️ | **Not needed.** TGA is read by `StbImageDecoder`; DDS is a container over BCn, which `Vixen.Core.Imaging` already speaks, so `DdsDecoder` is a header parser and a format table rather than a codec |
 | `SharpFuzz` | `Vixen.Fuzz` | ⬜ | Instrumented fuzzing alongside the build-time harness |
 | `astcenc` (native) | `Vixen.Core.Imaging` | ⬜ | ASTC encoding — mobile texture budgets |
 | `ispc_texcomp` (native) | `Vixen.Core.Imaging` | ⬜ | Full-quality BC7/BC6H |

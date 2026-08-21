@@ -34,7 +34,8 @@ public interface IImageDecoder {
 /// <summary>The decoders an importer uses when nobody hands it a different set.</summary>
 public static class ImageDecoders {
     /// <summary>Every decoder that ships.</summary>
-    public static IReadOnlyList<IImageDecoder> BuiltIn { get; } = [new StbImageDecoder(), new Ktx2Decoder()];
+    public static IReadOnlyList<IImageDecoder> BuiltIn { get; } =
+        [new StbImageDecoder(), new Ktx2Decoder(), new DdsDecoder()];
 
     /// <summary>Finds the decoder for an extension.</summary>
     /// <param name="decoders">The set to look in.</param>

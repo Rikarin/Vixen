@@ -20,7 +20,7 @@ public sealed class TextureEditorFactory : IAssetEditorFactory {
 
     /// <inheritdoc />
     public IReadOnlyList<string> Extensions { get; } =
-        [".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".gif", ".hdr", ".ktx2"];
+        [".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".gif", ".hdr", ".ktx2", ".dds"];
 
     /// <inheritdoc />
     public EditorDocument Open(AssetEditorRequest request) {

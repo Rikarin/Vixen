@@ -109,6 +109,7 @@ static class StandardIcons {
         new(".jpg", Texture),
         new(".tga", Texture),
         new(".ktx2", Texture),
+        new(".dds", Texture),
         new(".wav", Audio),
         new(".ogg", Audio)
     ];

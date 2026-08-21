@@ -552,8 +552,15 @@ rather than emitting a half-resolved binary.
 differs from its template in three fields, and a prefab that contains another, are the risk register's
 R7 and are the next thing the scene format has to grow.
 
-**The importers that need a decoder nobody has chosen.** Ogg, MP3 and FLAC for audio; `.exr`, `.tif`,
-`.webp` and `.dds` for textures. Fonts, shaders, VXML, VCSS and video have their own phases.
+**The importers that need a decoder nobody has chosen.** Ogg, MP3 and FLAC for audio; `.exr`, `.tif`
+and `.webp` for textures. Fonts, shaders, VXML, VCSS and video have their own phases.
+
+`.dds` came off that list without a decoder being chosen, because it did not need one: DDS is a
+container over BCn, and `Vixen.Core.Imaging` has understood BC1 through BC7 and BC6H since it was
+written. `DdsDecoder` is a header parser and a format table. It claims a plain 2D texture and refuses
+cube maps, arrays, volumes and uncompressed high-range surfaces **by name** — `VideoImporter`'s
+precedent — because DDS stores a cube map element-major and KTX2 stores it level-major, and
+half-reading one gives six faces interleaved into the wrong mip levels rather than an error.
 
 **The out-of-process, crash-isolated worker** doc 08 specifies. `ImportPipeline` already survives an
 importer that *throws*; surviving one that takes the process with it — a malformed FBX inside a C++
