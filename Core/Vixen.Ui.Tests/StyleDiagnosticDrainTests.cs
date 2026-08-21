@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.Logging;
 using Vixen.Core.Diagnostics;
+using Vixen.Core.Mathematics;
 using Vixen.Ui.Styling;
 using Xunit;
 
@@ -184,5 +185,54 @@ public class StyleDiagnosticDrainTests {
         document.Update();
 
         Assert.Equal(16f, document.LengthOf(element.Style, document.PropertyId("padding-left")));
+    }
+
+    /// <summary>A <c>::before</c> does not colour the element it was written against.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 43's F6, and the assertion is the colour rather than the diagnostic.</b>
+    ///         <c>SelectorCompiler</c> used to intern <c>before</c> onto <c>Selector.PseudoElement</c>
+    ///         and then compile the rest of the compound as though the <c>::before</c> were not
+    ///         there. Nothing read the field, so <c>p::before { color: red }</c> was, observably and
+    ///         only, <c>p { color: red }</c> — a rule that appeared to work and did something else.
+    ///         A test asserting the compiler produced the right object is exactly the test that
+    ///         passed all along; this one reads the paragraph.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both halves, because either alone is a state doc 43 refuses.</b> Silence with no
+    ///         colour is a rule the author cannot debug; a colour with a warning is the bug plus a
+    ///         message. The honest end state is neither: the declaration does not reach the element
+    ///         and the log says why.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The green rule beside it is not decoration.</b> Refusing a selector happens after
+    ///         parts of it may already have been written into the shared <c>SelectorTable</c>, and
+    ///         every offset in that table is absolute. If a refusal renumbered anything, the rule
+    ///         after it is what would break, so it is asserted here and not assumed.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_pseudo_element_rule_does_not_colour_the_element_it_was_written_against() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load("p::before { content: '>'; color: rgb(255, 0, 0) } p { color: rgb(0, 255, 0) }");
+
+        var paragraph = document.Root.Add("p");
+        document.Update();
+
+        // The paragraph is green. Before F6 was closed it was red, and nothing said so. Channel
+        // endpoints, because a colour is decoded to linear on the way in and 128 is not one there.
+        Assert.Equal(new Color4(0f, 1f, 0f, 1f), document.ColorOf(paragraph.Style, document.PropertyId("color")));
+
+        // `content` is not a Vixen property, and the refused rule is the only thing that set one.
+        Assert.False(paragraph.Style.TryGet(document.PropertyId("content"), out _));
+
+        var warning = Assert.Single(Warnings(sink));
+
+        Assert.Equal(7004, warning.EventId.Id);
+        Assert.Contains("The selector compiler", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("::before", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("no box without an element behind it", warning.Message, StringComparison.Ordinal);
     }
 }

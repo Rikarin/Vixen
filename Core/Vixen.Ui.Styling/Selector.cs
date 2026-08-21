@@ -176,7 +176,14 @@ public readonly record struct Specificity(int Ids, int Classes, int Types) : ICo
 /// <param name="Start">Where its compounds begin.</param>
 /// <param name="Count">How many compounds it has.</param>
 /// <param name="Specificity">How specific it is.</param>
-/// <param name="PseudoElement">
-///     The interned name of the <c>::pseudo-element</c> it targets, or <see cref="NameTable.None" />.
-/// </param>
-public readonly record struct Selector(int Start, int Count, Specificity Specificity, int PseudoElement);
+/// <remarks>
+///     ⚠ <b>There is no pseudo-element here, and there used to be.</b> A fourth field held the
+///     interned name of a <c>::before</c> or <c>::after</c>, and nothing in the matcher, the rule set
+///     or the resolver ever read it — so the rule matched the originating element and coloured
+///     <i>it</i>. A field written and never read is not a partial feature; it is a rule that means
+///     something else. <see cref="SelectorCompiler" /> now refuses the selector with a diagnostic,
+///     and the field is gone so that nothing can be built on top of a value that is always absent.
+///     Doc 43's A12 is where generated boxes are planned, and it is blocked on the same
+///     one-node-one-box invariant as anonymous boxes.
+/// </remarks>
+public readonly record struct Selector(int Start, int Count, Specificity Specificity);

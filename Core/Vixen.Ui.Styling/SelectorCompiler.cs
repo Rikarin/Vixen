@@ -62,7 +62,6 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         // disagreed about that before the buffering was here.
         var buffered = new List<CompoundSelector>();
         var specificity = new Specificity();
-        var pseudoElement = NameTable.None;
         var count = 0;
 
         // ExCSS records a combinator alongside the compound it *follows*, and the last one carries
@@ -71,7 +70,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         var pending = Combinator.None;
 
         foreach (var (part, delimiter) in Parts(selector)) {
-            if (!TryCompileCompound(part, pending, ref specificity, ref pseudoElement, out var compound)) {
+            if (!TryCompileCompound(part, pending, ref specificity, out var compound)) {
                 compiled = default;
                 return false;
             }
@@ -111,7 +110,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             table.AddCompound(compound);
         }
 
-        compiled = new Selector(start, count, specificity, pseudoElement);
+        compiled = new Selector(start, count, specificity);
         return true;
     }
 
@@ -127,7 +126,6 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         ISelector part,
         Combinator combinator,
         ref Specificity specificity,
-        ref int pseudoElement,
         out CompoundSelector compound
     ) {
         compound = default;
@@ -137,15 +135,11 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         var buffered = new List<SimpleSelector>();
 
         foreach (var simple in Flatten(part)) {
-            if (!TryCompileSimple(simple, ref specificity, ref pseudoElement, out var compiled)) {
+            if (!TryCompileSimple(simple, ref specificity, out var compiled)) {
                 return false;
             }
 
-            // A pseudo-element is not a test on the element; it says which box the rule targets, and
-            // it has already been recorded on the way past.
-            if (compiled is not null) {
-                buffered.Add(compiled.Value);
-            }
+            buffered.Add(compiled);
         }
 
         if (buffered.Count == 0) {
@@ -170,8 +164,8 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
     static List<ISelector> Flatten(ISelector selector) =>
         selector is ExCSS.CompoundSelector compound ? [.. compound] : [selector];
 
-    bool TryCompileSimple(ISelector selector, ref Specificity specificity, ref int pseudoElement, out SimpleSelector? compiled) {
-        compiled = null;
+    bool TryCompileSimple(ISelector selector, ref Specificity specificity, out SimpleSelector compiled) {
+        compiled = default;
 
         switch (selector) {
             case AllSelector:
@@ -258,10 +252,24 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                 specificity = specificity with { Classes = specificity.Classes + 1 };
                 return TryCompileNested(matches.Inner, SimpleSelectorKind.Is, matches.Text, out compiled);
 
-            case PseudoElementSelector element:
-                specificity = specificity with { Types = specificity.Types + 1 };
-                pseudoElement = names.Intern(element.Name);
-                return true;
+            // ⚠ Refused, and the refusal is the whole of doc 43's F6. `::before` used to compile:
+            // the name was interned onto `Selector.PseudoElement`, the compound carried on without
+            // it, and the rule then matched — and applied — to the ORIGINATING element. So
+            // `p::before { color: red }` turned the paragraph red. Nothing anywhere read the field,
+            // so that was not a partial implementation; it was the rule quietly meaning something
+            // else. Generating the box it asks for needs a box with no node behind it, which is the
+            // one-node-one-box invariant `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` records as
+            // the thing blocking anonymous boxes and inline fragmentation. Until that moves (doc 43
+            // A12), the author gets a message instead of a surprise.
+            case PseudoElementSelector:
+                diagnostics.Add(
+                    new SelectorDiagnostic(
+                        selector.Text,
+                        "a pseudo-element generates a box of its own, and Vixen has no box without an element behind it"
+                    )
+                );
+
+                return false;
 
             case PseudoClassSelector pseudo:
                 return TryCompilePseudoClass(pseudo, ref specificity, out compiled);
@@ -275,8 +283,8 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             new(SimpleSelectorKind.Attribute, names.Intern(attribute), names.Intern(value), op);
     }
 
-    bool TryCompilePseudoClass(PseudoClassSelector pseudo, ref Specificity specificity, out SimpleSelector? compiled) {
-        compiled = null;
+    bool TryCompilePseudoClass(PseudoClassSelector pseudo, ref Specificity specificity, out SimpleSelector compiled) {
+        compiled = default;
         var name = Trim(pseudo.Text, ':');
 
         var state = name switch {
@@ -332,11 +340,11 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         table.AddSimple(new SimpleSelector(SimpleSelectorKind.State, State: state));
         var compoundStart = table.CompoundCount;
         table.AddCompound(new CompoundSelector(Combinator.None, simpleStart, 1));
-        return new Selector(compoundStart, 1, new Specificity(0, 1, 0), NameTable.None);
+        return new Selector(compoundStart, 1, new Specificity(0, 1, 0));
     }
 
-    bool TryCompileNested(ISelector inner, SimpleSelectorKind kind, string text, out SimpleSelector? compiled) {
-        compiled = null;
+    bool TryCompileNested(ISelector inner, SimpleSelectorKind kind, string text, out SimpleSelector compiled) {
+        compiled = default;
 
         var parts = new List<Selector>();
         var before = diagnostics.Count;

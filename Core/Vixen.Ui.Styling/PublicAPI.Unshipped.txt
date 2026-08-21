@@ -230,10 +230,8 @@ Vixen.Ui.Styling.Selector -> readonly struct
 Vixen.Ui.Styling.Selector : System.IEquatable<Vixen.Ui.Styling.Selector>
 Vixen.Ui.Styling.Selector.Count.get -> int
 Vixen.Ui.Styling.Selector.Count.init -> int
-Vixen.Ui.Styling.Selector.PseudoElement.get -> int
-Vixen.Ui.Styling.Selector.PseudoElement.init -> int
 Vixen.Ui.Styling.Selector.Selector() -> void
-Vixen.Ui.Styling.Selector.Selector(int Start, int Count, Vixen.Ui.Styling.Specificity Specificity, int PseudoElement) -> void
+Vixen.Ui.Styling.Selector.Selector(int Start, int Count, Vixen.Ui.Styling.Specificity Specificity) -> void
 Vixen.Ui.Styling.Selector.Specificity.get -> Vixen.Ui.Styling.Specificity
 Vixen.Ui.Styling.Selector.Specificity.init -> Vixen.Ui.Styling.Specificity
 Vixen.Ui.Styling.Selector.Start.get -> int
