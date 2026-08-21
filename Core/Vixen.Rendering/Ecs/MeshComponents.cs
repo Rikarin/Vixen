@@ -111,6 +111,42 @@ public struct PrimitiveShape {
     public AssetReference Material;
 }
 
+/// <summary>
+///     Claims that an entity's geometry never moves, so its shadow can be cached across frames.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>The scene's half of <c>ShadowMapRenderer.StaticCasterStage</c>.</b> That node draws one
+///         stage into a cache only when something invalidates it and copies the cache into the working
+///         atlas every frame, which needs the casters split into "level" and "everything that moves" —
+///         and a stage is exactly the shape of that split, because "which objects, in what order" is
+///         what a stage means. This is how an entity says which side it is on:
+///         <see cref="MeshExtractionSystem.StaticStages" /> is the mask an entity carrying this is
+///         stamped with instead of <see cref="MeshExtractionSystem.Stages" />.
+///     </para>
+///     <para>
+///         ⚠ <b>A claim, not a detection, and the renderer cannot check it.</b> An entity that carries
+///         this and then moves keeps the shadow it was first drawn with — the shadow stays where the
+///         object used to be, in a frame where the object is visibly elsewhere. That is the bargain
+///         the word "static" already implied; the escape hatch for a level that genuinely changes is
+///         <c>ShadowMapRenderer.StaticVersion</c>, which redraws the cache once.
+///     </para>
+///     <para>
+///         ⚠ <b>Read when the entity is extracted, and extraction happens once.</b> A settled entity
+///         is never re-extracted, so adding or removing this afterwards does not restamp the mask it
+///         already has. An entity whose staticness is decided at all should be decided before it first
+///         draws.
+///     </para>
+///     <para>
+///         <b><c>[Component]</c> and <c>[DataContract]</c>, deliberately both</b>, on
+///         <c>PlayerPawn</c>'s terms: it carries no handle and no derived state, so it is an authored
+///         fact a scene and a prefab must both be able to say.
+///     </para>
+/// </remarks>
+[Component]
+[DataContract]
+public struct StaticShadowCaster : ITagComponent;
+
 /// <summary>Reading and writing an entity's mesh.</summary>
 public static class MeshRenderables {
     /// <summary>A renderable pointing at a mesh, with the values a new one should have.</summary>

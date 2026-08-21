@@ -927,7 +927,25 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Resolution = declared.Resolution,
             ShadowDistance = declared.ShadowDistance,
             SplitLambda = declared.SplitLambda,
-            Extrusion = declared.Extrusion
+            Extrusion = declared.Extrusion,
+
+            // ⚠ The static cache, which the node has had in full since doc 06 and which nothing but a
+            // test ever reached: `StaticCasterStage` had no arm here and no field on the asset, so a
+            // `.vxcompositor` could not turn it on at all. Empty leaves it null, which is the uncached
+            // path exactly as it was.
+            StaticCasterStage = declared.StaticStage is { Length: > 0 } statics
+                ? Stage(declared.Name, statics)
+                : null,
+
+            // And the half without which the other half is a slowdown: a tight cascade re-fits the
+            // frame the camera moves, and a re-fit invalidates the cache. See ShadowMapAsset.Slack.
+            Slack = declared.Slack,
+
+            // The device, so the node can own the cache's texture. A document has no way to declare
+            // one — every `!Resource` is transient, and the graph's pool exists to recycle precisely
+            // the memory a cache has to keep — so the alternative is a host that remembers to import
+            // a texture under a name the document also has to spell.
+            Device = Device
         };
 
     PunctualShadowRenderer Punctual(PunctualShadowAsset declared) {

@@ -113,6 +113,29 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public RenderStageMask Stages { get; set; }
 
+    /// <summary>
+    ///     The mask an entity carrying <see cref="StaticShadowCaster" /> gets instead, or none to
+    ///     ignore the claim.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What lets a frame cache the half of its shadows that never changes.</b>
+    ///         <c>ShadowMapRenderer.StaticCasterStage</c> draws one stage into a cache and copies it
+    ///         into the working atlas every frame, and the only thing that arrangement needs from the
+    ///         world is the level's casters in one stage and the movers in another. A stage is exactly
+    ///         that split, so this is the whole mechanism: the camera's stage stays in both masks and
+    ///         the caster stage differs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Default is none, which means the claim is ignored</b> — not "static objects are
+    ///         drawn in no stage at all". A host that has not opted in has one caster stage and every
+    ///         entity in it, which is the frame every project already has; a mask of none stamped on
+    ///         the level's geometry would be a level that casts no shadows, silently, on every project
+    ///         whose scene happens to carry the tag.
+    ///     </para>
+    /// </remarks>
+    public RenderStageMask StaticStages { get; set; }
+
     /// <summary>What a drawable that names no material of its own is drawn with.</summary>
     /// <inheritdoc cref="MeshExtractionSystem" path="/remarks/para[3]" />
     public Material? Material { get; set; }
@@ -365,7 +388,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         var id = system.Objects.Add(
             new() {
                 Bounds = bounds,
-                Stages = Stages,
+                Stages = Staged(world, entity),
                 FeatureIndex = Virtualized.Index
             }
         );
@@ -393,6 +416,16 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
         return true;
     }
+
+    /// <summary>Which stages this entity is drawn in — the movers' set, or the level's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked once, when the object is created, because that is when a mask is stamped.</b> A
+    ///     settled entity is never re-extracted, so an entity that gains or loses
+    ///     <see cref="StaticShadowCaster" /> after it first drew keeps the mask it already has. See
+    ///     <see cref="StaticStages" /> for why an unset one is ignored rather than obeyed.
+    /// </remarks>
+    RenderStageMask Staged(World world, Entity entity) =>
+        !StaticStages.IsEmpty && world.Has<StaticShadowCaster>(entity) ? StaticStages : Stages;
 
     /// <summary>Records a material the resolve pass will have to dispatch for.</summary>
     /// <remarks>
@@ -447,7 +480,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         var id = system.Objects.Add(
             new() {
                 Bounds = Transformed(local, world.Read<WorldTransform>(entity).Value),
-                Stages = Stages,
+                Stages = Staged(world, entity),
                 FeatureIndex = meshes.Index
             }
         );

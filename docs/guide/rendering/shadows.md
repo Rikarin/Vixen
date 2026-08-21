@@ -4,7 +4,7 @@ slug: rendering/shadows
 kind: guide
 area: Rendering
 summary: The caster stage, the atlas a shading pass reads it from, and the two joins that make one mesh drawable by two shaders.
-api: [T:Vixen.Rendering.Compositor.ShadowMapAsset, T:Vixen.Rendering.Compositor.ScenePublishAsset, T:Vixen.Rendering.VertexSchema, T:Vixen.Rendering.VertexChannel, T:Vixen.Rendering.Compositor.PunctualShadowAsset, T:Vixen.Rendering.Compositor.PunctualShadowTileData, T:Vixen.Rendering.IPunctualLightSource]
+api: [T:Vixen.Rendering.Compositor.ShadowMapAsset, T:Vixen.Rendering.Compositor.ScenePublishAsset, T:Vixen.Rendering.VertexSchema, T:Vixen.Rendering.VertexChannel, T:Vixen.Rendering.Compositor.PunctualShadowAsset, T:Vixen.Rendering.Compositor.PunctualShadowTileData, T:Vixen.Rendering.IPunctualLightSource, T:Vixen.Rendering.Ecs.StaticShadowCaster]
 tags: [rendering, compositor, lighting, shadows]
 since: 0.1
 status: stable
@@ -283,6 +283,79 @@ the whole level in its CPU work list, and a cache that trusted the list redrew e
 anything anywhere moved. The node re-tests each entry against the tile's own frustum for exactly this
 reason; `TilesDisturbed` against `TilesMoved` is what tells the two failures apart when a cache
 refuses to save anything.
+
+### Keeping the sun's level geometry between frames
+
+The cascades have a cache too, and it is a different arrangement for a reason worth reading before
+turning it on. A cascade is *fitted to the camera*, so its projection moves whenever the player does
+and only the half of its content that never moves is worth keeping. Three things have to agree, and
+any one of them alone makes the frame slower rather than faster:
+
+```yaml
+    - !ShadowMap
+      name: Sun
+      stage: Shadow          # the movers
+      staticStage: ShadowStatic   # the level
+      slack: 0.25
+      atlas: ShadowAtlas
+      view: Camera
+      cascadeCount: 4
+      resolution: 2048
+```
+
+```csharp no-compile="two lines of a Game.OnConfigure, which owns the AppConfig"
+// The host: which stages a static entity is extracted into *instead* of the ordinary caster ones.
+config.Graphics.CasterStages.Add("Shadow");
+config.Graphics.StaticCasterStages.Add("ShadowStatic");
+```
+
+```csharp no-compile="a fragment against a world the level was loaded into"
+// The scene: which entities are making the claim.
+world.Add<StaticShadowCaster>(entity);
+```
+
+**The invalidation rule.** The cached half is redrawn when it has never been drawn, when any cascade
+re-fitted this frame, or when the host bumped `StaticVersion` since it was last drawn. Everything else
+keeps it: the frame copies the cache into the working atlas and draws only `stage:` on top.
+`TilesDrawn` is `cascadeCount` on a kept frame and twice that on a rebuilt one, `StaticRebuilds` is
+the cumulative count, and `StaticRefits` against `StaticInvalidations` says which of the two causes a
+rebuild had — they have opposite fixes.
+
+⚠ **`slack:` is not optional, whatever the default says.** A cascade cut exactly to its slice re-fits
+the moment the camera moves a texel, and a re-fit invalidates the whole cache — so a static stage with
+no slack is every frame the uncached one drew *plus* a whole-atlas copy, with every counter reading
+healthy. Cutting 25% wider keeps a cascade while it still covers its slice, and costs resolution: the
+same texels over `(1 + slack)²` of the area, 1.5625× at 0.25. The node reports the mistake through
+`Degraded`.
+
+⚠ **`StaticShadowCaster` is a claim, and nothing checks it.** An entity that carries it and then moves
+keeps the shadow it was first drawn with — the shadow stays where the object used to be. It is also
+read *once*, when the entity is first extracted, because that is when a stage mask is stamped; adding
+or removing it afterwards does not restamp what already drew.
+
+⚠ **An object belongs in one caster stage or the other, never both.** In both, the level is rasterised
+into the cache *and* over it every frame. That is why `StaticCasterStages` replaces `CasterStages` for
+a tagged entity rather than adding to it.
+
+⚠ **Everything else that draws casters needs a stage of its own with all of them in it.** A punctual
+tile is cached whole and a virtual shadow page is a page of the *world*, so neither has a static and a
+dynamic half — and giving either of them one half is a picture rather than an error. `!PunctualShadows`
+drawing half the level lights the other half through its own walls. `!VirtualShadow` is worse and much
+quieter: it *outranks* the cascades wherever it has a drawn page, so a level missing from its pages
+stops casting a sun shadow over most of the screen while the cascades behind it stay perfectly correct
+and every counter reads healthy. Sample 13 declares one `ShadowAll` stage and points both nodes at it.
+
+⚠ **A stage that imposes a shader owes that shader's bindings, and every such stage owes them.** A
+caster's opacity map, its sampler and its bone palette come from `RenderStage.Parameters`, and a stage
+whose collection nobody filled writes no per-material set at all — the pipeline is still bound and the
+draw still recorded, with the set empty. That is a validation message with the layers on and a fault
+inside `vkQueueSubmit` without them; `MaterialRenderFeature.UnboundCount` and `Unbound` name the
+shader and the stage. Splitting one caster stage into three means filling three.
+
+⚠ **The cache's texture is the node's, not the document's.** Every `!Resource` a document declares is
+transient, and the graph's pool exists to recycle exactly the memory a cache must keep — so the node
+creates it from `CompositorBuilder`'s device. What the document must remember is `CopyDestination` in
+the *working* atlas's `usage:`, because the cache is copied into it every frame.
 
 ## See also
 

@@ -143,6 +143,9 @@ static class MaterialIcons {
     /// <summary>An isometric box. Geometry.</summary>
     const string Cube = "M12 2.2 21 7v10l-9 4.8L3 17V7zM12 4.6 5.4 8.2 12 11.8l6.6-3.6z";
 
+    /// <summary>The line a thing is nailed to. Under a box: it does not move.</summary>
+    const string Ground = "M3.4 22.2h17.2";
+
     /// <summary>A four-pointed star and two smaller ones. Effects.</summary>
     const string Sparkle = "M9.4 3 11.4 8 16.4 10 11.4 12 9.4 17 7.4 12 2.4 10 7.4 8z"
         + "M17.6 12.6 18.7 15.3 21.4 16.4 18.7 17.5 17.6 20.2 16.5 17.5 13.8 16.4 16.5 15.3z"
@@ -370,6 +373,10 @@ static class MaterialIcons {
         new(typeof(VfxEmitter), Filled(Sparkle, Render)),
         new(typeof(MeshRenderable), Filled(Cube, Geometry)),
         new(typeof(PrimitiveShape), Filled(Cube, Geometry)),
+
+        // A box on a line: the whole content of the claim is that this one does not move, which is
+        // what lets the sun's cascades keep its shadow between frames.
+        new(typeof(StaticShadowCaster), Struck(Cube, Ground, Geometry)),
 
         // Terrain and what grows on it.
         new(typeof(TerrainComponent), Filled(Mountains, Terrain)),

@@ -98,6 +98,7 @@ Vixen.App.AppGraphics.Recreate(bool force = false) -> void
 Vixen.App.AppGraphics.Renderer.get -> Vixen.Engine.Renderer.WorldRenderer
 Vixen.App.AppGraphics.RequestCapture(string name) -> bool
 Vixen.App.AppGraphics.Stages.get -> Vixen.Rendering.RenderStageMask
+Vixen.App.AppGraphics.StaticStages.get -> Vixen.Rendering.RenderStageMask
 Vixen.App.AppGraphics.Suspend() -> void
 Vixen.App.AppGraphics.SwapChain.get -> Vixen.Graphics.ISwapChain?
 Vixen.App.AppGraphics.View.get -> Vixen.Rendering.RenderView
@@ -193,6 +194,7 @@ Vixen.App.GraphicsOptions.Quality.get -> Vixen.Rendering.Compositor.QualityTier
 Vixen.App.GraphicsOptions.Quality.set -> Vixen.Rendering.Compositor.QualityTier
 Vixen.App.GraphicsOptions.Stage.get -> string
 Vixen.App.GraphicsOptions.Stage.set -> string
+Vixen.App.GraphicsOptions.StaticCasterStages.get -> System.Collections.Generic.IList<string>
 Vixen.App.GraphicsOptions.VertexCapacity.get -> int
 Vixen.App.GraphicsOptions.VertexCapacity.set -> int
 Vixen.App.GraphicsOptions.View.get -> string

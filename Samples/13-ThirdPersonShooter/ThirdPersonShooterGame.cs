@@ -40,6 +40,7 @@ public sealed class ThirdPersonShooterGame : Game {
     PlayerRig? player;
     StreamWriter? shadowTrace;
     StreamWriter? lampTrace;
+    StreamWriter? sunTrace;
 
     /// <summary>Reads <c>VIXEN_STRIP=first-last[/stride]</c>, or <see langword="null" /> if unset.</summary>
     /// <remarks>
@@ -126,6 +127,29 @@ public sealed class ThirdPersonShooterGame : Game {
         // frame where every counter says the pass ran.
         config.Graphics.CasterStages.Add("Motion");
 
+        // Every caster, for the two shadow consumers that are not split in two: the lamps' atlas and
+        // the virtual shadow map. A lamp's tile is cached whole and a page is a page of the world, so
+        // neither has a static and a dynamic half — and the virtual map outranks the cascades wherever
+        // it has a drawn page, so a level missing from it stops casting a sun shadow over most of the
+        // screen with the cascades behind it perfectly correct. See the stage's note in the document.
+        config.Graphics.CasterStages.Add("ShadowAll");
+
+        // ── the sun's cache ────────────────────────────────────────────────────────────────────
+        // ⚠ **These three lines replace the three above for an entity carrying `!StaticShadowCaster`,
+        // and "replace" is the load-bearing word.** The !ShadowMap node draws `ShadowStatic` into a
+        // cache of its own and copies it into the working atlas every frame, then draws `Shadow` on
+        // top; an object in both is rasterised into the cache *and* over it, which is the uncached
+        // frame plus a 64 MB copy — the cache costing rather than paying, with every counter reading
+        // healthy. `Motion` and `ShadowAll` are named again because they are wanted either way: the
+        // velocity pass draws the level whether or not it moves, and so does every lamp.
+        //
+        // Nothing here decides *which* entities are static. That is the scene's claim, and
+        // Arena.MarkTheLevel is where this sample makes it — see `MeshExtractionSystem.StaticStages`
+        // for why an empty list ignores the claim rather than obeying it with a mask of none.
+        config.Graphics.StaticCasterStages.Add("ShadowStatic");
+        config.Graphics.StaticCasterStages.Add("Motion");
+        config.Graphics.StaticCasterStages.Add("ShadowAll");
+
         // ⚠ Not a caster stage, and that is the whole distinction. The two above are stages every
         // *mesh* is extracted into as well as Opaque; this one is where the scene's `!VfxEmitter`s are
         // drawn and no mesh ever is. It is also why it must not be in that list: a billboard is
@@ -200,6 +224,11 @@ public sealed class ThirdPersonShooterGame : Game {
             lampTrace = new(lamps, append: false);
             lampTrace.WriteLine("frame,tiles,drawn,kept,moved,disturbed,dropped");
         }
+
+        if (Environment.GetEnvironmentVariable("VIXEN_SUNTRACE") is { Length: > 0 } sun) {
+            sunTrace = new(sun, append: false);
+            sunTrace.WriteLine("frame,tiles,rebuilds,refits,invalidations");
+        }
     }
 
     /// <inheritdoc />
@@ -222,6 +251,47 @@ public sealed class ThirdPersonShooterGame : Game {
         CaptureStrip();
         TraceShadows();
         TraceLamps();
+        TraceSun();
+    }
+
+    /// <summary>Writes one row per frame of what the sun's cascades had to rasterise.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>⚠ <c>TraceLamps</c>' argument, one atlas along: a correct cache renders identically
+    ///         to no cache.</b> No picture this run can take says whether the level's geometry was
+    ///         redrawn into the cascades or copied out of a cache, so the counters are the only
+    ///         measurement there is.
+    ///     </para>
+    ///     <para>
+    ///         <c>tiles</c> is what the node rasterised this frame — four on a kept frame, eight on a
+    ///         rebuilt one, and four on every frame with the cache off, which is the honest way to
+    ///         read the trade. <c>rebuilds</c> is cumulative and is the number the cache is judged by:
+    ///         against the frame count it is the rate at which the whole level went back through the
+    ///         caster pass. <c>refits</c> and <c>invalidations</c> say which of the two causes it was
+    ///         — the cascade's own fit moving, or the host claiming the static content changed — and
+    ///         they have opposite fixes, <c>slack:</c> for the first and the scene for the second.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A run whose camera never moves settles at zero rebuilds and is measuring a frame no
+    ///         game has: a cascade is fitted to the camera, so standing still is the one case where
+    ///         its projection is trivially stable. Drive it with <c>VIXEN_WALK</c>.
+    ///     </para>
+    /// </remarks>
+    void TraceSun() {
+        if (sunTrace is not { } writer || Services.Graphics is not { } graphics) {
+            return;
+        }
+
+        if (arena?.SunShadowNode is not { } node) {
+            return;
+        }
+
+        writer.WriteLine(
+            $"{graphics.FrameCount},{node.TilesDrawn},{node.StaticRebuilds},"
+            + $"{node.StaticRefits},{node.StaticInvalidations}"
+        );
+
+        writer.Flush();
     }
 
     /// <summary>Writes one row per frame of how many lamp tiles the atlas had to redraw.</summary>
@@ -359,6 +429,8 @@ public sealed class ThirdPersonShooterGame : Game {
         shadowTrace = null;
         lampTrace?.Dispose();
         lampTrace = null;
+        sunTrace?.Dispose();
+        sunTrace = null;
     }
 
     /// <summary>The spawn point with a given index, or the origin if the level has none.</summary>

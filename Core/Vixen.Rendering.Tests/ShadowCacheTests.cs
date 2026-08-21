@@ -44,6 +44,11 @@ public class ShadowCacheTests : IDisposable {
         public Effect? TryGet(EffectKey key) => Compiled(key);
     }
 
+    /// <summary>A sun the node can be pointed at, for the tests that need it not to be missing.</summary>
+    sealed class FixedSun(RenderLight light) : ISunSource {
+        public RenderLight? Sun => light;
+    }
+
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required GraphicsCompositor Compositor { get; init; }
@@ -331,13 +336,172 @@ public class ShadowCacheTests : IDisposable {
         Assert.Equal("target", thrown.Kind);
     }
 
-    /// <summary>A static stage with no atlas at all is refused for the same reason.</summary>
+    /// <summary>A static stage with no atlas and no device is refused for the same reason.</summary>
+    /// <remarks>
+    ///     The two are one condition. A named atlas has to resolve; an unnamed one means the node makes
+    ///     its own, which needs a <see cref="ShadowMapRenderer.Device" />. Neither is a cache, and a
+    ///     node with neither would put every static caster in a stage nothing draws.
+    /// </remarks>
     [Fact]
-    public void A_static_stage_with_no_atlas_is_refused() {
+    public void A_static_stage_with_no_atlas_and_no_device_is_refused() {
         using var h = Build();
         h.Shadows.StaticAtlas = string.Empty;
         AddCaster(h, h.Statics, new(0f, 0f, -10f));
 
         Assert.Throws<CompositorBindingException>(() => Frame(h));
+    }
+
+    // --- The node's own atlas -----------------------------------------------
+
+    /// <summary>
+    ///     With a device and no name, the node makes the cache itself and the frame is unchanged.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The only shape a document can ask for.</strong> Every <c>!Resource</c> a
+    ///         <c>.vxcompositor</c> declares is transient — the graph's pool may hand its memory to
+    ///         something else the moment the last pass reading it ends — and a cache is by definition
+    ///         the opposite. Worse, on a frame in which every cascade was kept nothing writes the
+    ///         cache at all, so a declared resource would additionally be a read with no producer and
+    ///         refused at compile.
+    ///     </para>
+    ///     <para>
+    ///         So the node owns it, on <c>PunctualShadowRenderer</c>'s exact terms, and a host that
+    ///         wants to lend one still may by naming it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void With_a_device_and_no_name_the_node_owns_the_cache() {
+        using var h = Build();
+
+        h.Shadows.StaticAtlas = string.Empty;
+        h.Shadows.Device = device;
+        AddCaster(h, h.Statics, new(0f, 0f, -10f));
+        AddCaster(h, h.Movers, new(0f, 0f, -12f));
+
+        Frame(h);
+        Frame(h);
+        Frame(h);
+
+        Assert.Equal(1, h.Shadows.StaticRebuilds);
+        Assert.Equal(1, PassesNamed("Shadows.Static"));
+        Assert.Equal(3, device.Recorder!.CountOf(RecordedCommandKind.CopyTexture));
+
+        // The same arithmetic as the lent atlas: two cascades of static geometry once, two cascades
+        // of the mover three times.
+        Assert.Equal(2 + (2 * 3), device.Recorder!.CountOf(RecordedCommandKind.Draw));
+    }
+
+    /// <summary>Disposing gives the cache's texture back.</summary>
+    /// <remarks>
+    ///     A 4096² <c>Depth32Float</c> atlas is 64 MB, and a compositor document reloads — which is
+    ///     what a project does every time somebody edits the frame. Nothing in the engine disposes a
+    ///     node today, so this is the hook rather than the habit; see the note in the report.
+    /// </remarks>
+    [Fact]
+    public void Disposing_releases_the_nodes_own_cache() {
+        using var h = Build();
+
+        h.Shadows.StaticAtlas = string.Empty;
+        h.Shadows.Device = device;
+        AddCaster(h, h.Statics, new(0f, 0f, -10f));
+
+        Frame(h);
+
+        var before = device.LiveResourceCount;
+
+        h.Shadows.Dispose();
+
+        // The texture and its view, which is what the node took.
+        Assert.Equal(before - 2, device.LiveResourceCount);
+    }
+
+    // --- What the counters say ----------------------------------------------
+
+    /// <summary>
+    ///     A kept frame rasterises the cascades once and a rebuilt one twice.
+    /// </summary>
+    /// <remarks>
+    ///     The number this node is judged by frame to frame, and the honest way to read the trade: the
+    ///     uncached path draws <c>CascadeCount</c> tiles every frame, so a cache that rebuilds every
+    ///     frame is double that plus a whole-atlas copy. <see cref="ShadowMapRenderer.StaticRefits" />
+    ///     and <see cref="ShadowMapRenderer.StaticInvalidations" /> are what say which of the two
+    ///     reasons a rebuild had, because they have opposite fixes.
+    /// </remarks>
+    [Fact]
+    public void Tiles_drawn_doubles_on_a_rebuilt_frame_and_the_reason_is_attributed() {
+        using var h = Build();
+        AddCaster(h, h.Statics, new(0f, 0f, -10f));
+
+        Frame(h);
+
+        Assert.Equal(4, h.Shadows.TilesDrawn);
+
+        Frame(h);
+
+        Assert.Equal(2, h.Shadows.TilesDrawn);
+
+        // The camera leaves the slack, so the cascade re-fits and the cache is meaningless.
+        h.Shadows.Eye = new(0f, 0f, -60f);
+        Frame(h);
+
+        Assert.Equal(4, h.Shadows.TilesDrawn);
+        Assert.Equal(2, h.Shadows.StaticRefits);
+        Assert.Equal(0, h.Shadows.StaticInvalidations);
+
+        // And the host's own claim, which is the other reason and lands in the other counter.
+        h.Shadows.StaticVersion++;
+        Frame(h);
+
+        Assert.Equal(2, h.Shadows.StaticRefits);
+        Assert.Equal(1, h.Shadows.StaticInvalidations);
+    }
+
+    /// <summary>The uncached path draws the cascades once a frame, and says so in the same number.</summary>
+    [Fact]
+    public void Without_a_cache_every_frame_rasterises_the_cascades_once() {
+        using var h = Build(cached: false);
+        AddCaster(h, h.Movers, new(0f, 0f, -10f));
+
+        Frame(h);
+        Frame(h);
+
+        Assert.Equal(2, h.Shadows.TilesDrawn);
+    }
+
+    // --- The trap the switch has ---------------------------------------------
+
+    /// <summary>
+    ///     A static stage with no slack is reported, because it is a cost with no saving.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The one mistake this feature has that looks exactly like it working. A tightly fitted
+    ///     cascade re-fits the frame the camera moves a texel, a re-fit invalidates the cache, and the
+    ///     frame is then everything the uncached one drew <em>plus</em> a whole-atlas copy — with
+    ///     <see cref="ShadowMapRenderer.StaticRebuilds" /> climbing once per frame and nothing else
+    ///     saying why.
+    /// </remarks>
+    [Fact]
+    public void A_static_stage_with_no_slack_is_reported_as_degraded() {
+        using var h = Build();
+
+        // Both, because a node missing either reports *that* instead — they are wrong pictures and
+        // this is only a wasted frame, so they come first in the same switch.
+        h.Shadows.Camera = new("camera") {
+            Camera = new(Vector3.Zero, new(0f, 0f, -1f), new(0f, 1f, 0f), MathF.PI / 3f, 1f, 0.1f, 500f)
+        };
+
+        h.Shadows.Sun = new FixedSun(new() { Kind = LightKind.Directional, Direction = new(0f, -1f, 0f) });
+        h.Shadows.Slack = 0f;
+        AddCaster(h, h.Statics, new(0f, 0f, -10f));
+
+        Frame(h);
+
+        Assert.Contains("Slack", h.Shadows.Degraded, StringComparison.Ordinal);
+
+        h.Shadows.Slack = 0.25f;
+        Frame(h);
+
+        Assert.Null(h.Shadows.Degraded);
     }
 }

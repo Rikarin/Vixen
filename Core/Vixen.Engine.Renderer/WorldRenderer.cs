@@ -757,18 +757,30 @@ public sealed class WorldRenderer : IDisposable {
     ///     Which stage the emitters are drawn in — a transparent one, separate from
     ///     <paramref name="stages" /> and never a shadow one. None leaves them simulating and undrawn.
     /// </param>
+    /// <param name="staticStages">
+    ///     Which stages an entity carrying <see cref="Rendering.Ecs.StaticShadowCaster" /> is drawn in
+    ///     instead, or none to ignore the claim — see
+    ///     <see cref="MeshExtractionSystem.StaticStages" />. What a frame caching its sun shadow needs,
+    ///     and nothing else reads it.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="loop" /> is null.</exception>
     /// <remarks>
     ///     The stage mask is the caller's because a stage's index is assigned by the render system when
     ///     the compositor's document declares it — so this is called after
     ///     <see cref="SceneRenderHost.Load" />, and a mask of none draws nothing at all.
     /// </remarks>
-    public void Register(EngineLoop loop, RenderStageMask stages, RenderStageMask particleStages = default) {
+    public void Register(
+        EngineLoop loop,
+        RenderStageMask stages,
+        RenderStageMask particleStages = default,
+        RenderStageMask staticStages = default
+    ) {
         ArgumentNullException.ThrowIfNull(loop);
         ObjectDisposedException.ThrowIf(disposed, this);
 
         Extraction = new(Host.System, Meshes, Transforms, Materials, Residency) {
             Stages = stages,
+            StaticStages = staticStages,
             Meshes = Source,
             Materials = Painter,
             Virtualized = Clusters?.Feature,

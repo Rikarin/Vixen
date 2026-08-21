@@ -188,6 +188,14 @@ public sealed class Arena : IDisposable {
     /// <summary>How many entities got a collider out of their authored box.</summary>
     public int ColliderCount { get; private set; }
 
+    /// <summary>How many of the level's drawables were claimed to never move.</summary>
+    /// <remarks>
+    ///     The number the sun's cache is worth anything in proportion to: it is how much geometry
+    ///     leaves the per-frame caster pass. Zero with <c>staticStage:</c> set in the document is the
+    ///     failure that costs a copy and saves nothing — see <c>MarkTheLevel</c>.
+    /// </remarks>
+    public int StaticCasterCount { get; private set; }
+
     /// <summary>How many point lights the level placed, each now breathing.</summary>
     public int LampCount { get; private set; }
 
@@ -306,6 +314,13 @@ public sealed class Arena : IDisposable {
         arena.services = services;
 
         arena.BuildCollision(loop.World);
+
+        // ⚠ **Before anything is extracted, and before the player is spawned.** A mask is stamped on
+        // a render object when it is created and a settled entity is never re-extracted, so an entity
+        // tagged after its first frame keeps the stage it already had. `PlayerRig.Spawn` runs after
+        // this returns, which is exactly what makes "everything the level file placed" the right rule
+        // here — see MarkTheLevel.
+        arena.MarkTheLevel(loop.World);
         arena.SupplyFrame(services);
         SpawnGround(loop.World);
 
@@ -557,6 +572,53 @@ public sealed class Arena : IDisposable {
     }
 
     /// <summary>
+    ///     Claims that everything the level file placed never moves, so the sun's cache can keep it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The scene's half of the sun's static cache</b>, whose other two halves are
+    ///         <c>staticStage: ShadowStatic</c> on the document's <c>!ShadowMap</c> node and
+    ///         <c>StaticCasterStages</c> in <c>ThirdPersonShooterGame.OnConfigure</c>. Without this
+    ///         the stage is declared, named and empty: the cache is drawn once with nothing in it, the
+    ///         copy runs every frame, and the whole level goes on being rasterised into four cascades
+    ///         a frame — a feature that is on, costs a copy, and saves exactly nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"Everything the level file placed" is a claim about <em>this</em> level, not a
+    ///         rule.</b> It is true here because the arena is walls, crates, lamp posts and houses,
+    ///         and every single thing that moves — the player, its weapon, its parts — is spawned by
+    ///         <c>PlayerRig.Spawn</c> after this runs. A level with a lift, a door or a drifting prop
+    ///         in the scene file would need those excluded, and getting it wrong is not a crash: the
+    ///         object's shadow stays where it was first drawn while the object walks away from it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Collected and then applied</b>, on <c>BuildCollision</c>'s exact terms: adding a
+    ///         component is a structural change, and a structural change during a chunk walk moves
+    ///         entities between archetypes underneath the walk.
+    ///     </para>
+    /// </remarks>
+    void MarkTheLevel(World world) {
+        var meshes = new QueryDescription().WithAll<MeshRenderable>().WithNone<StaticShadowCaster>();
+        var shapes = new QueryDescription().WithAll<PrimitiveShape>().WithNone<StaticShadowCaster>();
+        var pending = new List<Entity>();
+
+        foreach (var chunk in world.Chunks(meshes)) {
+            pending.AddRange(chunk.Entities[..chunk.Count]);
+        }
+
+        foreach (var chunk in world.Chunks(shapes)) {
+            pending.AddRange(chunk.Entities[..chunk.Count]);
+        }
+
+        foreach (var entity in pending) {
+            world.Add<StaticShadowCaster>(entity);
+        }
+
+        StaticCasterCount = pending.Count;
+        SampleLog.LevelMarkedStatic(logger, StaticCasterCount);
+    }
+
+    /// <summary>
     ///     Hands the frame the objects a document cannot create, then rebuilds it against them.
     /// </summary>
     /// <remarks>
@@ -675,8 +737,21 @@ public sealed class Arena : IDisposable {
         // this held before it is not the one the frame is drawing with. ShadowCaster's opacity map,
         // its sampler and its bone palette live here rather than on a material because no material
         // has a name for any of them: see ArenaFrame.ApplyCaster.
-        if (builder.Stages.TryGetValue("Shadow", out var caster)) {
-            Frame.ApplyCaster(caster);
+        //
+        // ⚠ **Every stage that imposes the caster shader, asked of the document rather than listed
+        // here.** This named `Shadow` alone for its whole life, which was right while `Shadow` was the
+        // only such stage. The sun's cache split the cascades' casters in two and `ShadowAll` made a
+        // third, and a stage whose parameters nobody fills writes no per-material set at all — a set
+        // is written wholly or not at all — so its draws are recorded with set 2 empty. That is
+        // `uses set 2 but that set is not bound` with the validation layers on, and on macOS, where
+        // Homebrew's layer manifest does not load without `DYLD_LIBRARY_PATH`, a segfault inside
+        // `vkQueueSubmit` with nothing in the log. A list of names here would have to be kept in step
+        // with the document by hand, and the failure for getting it wrong is that one;
+        // `MaterialRenderFeature.Unbound` names the shader and the stage if it ever happens anyway.
+        foreach (var stage in builder.Stages.Values) {
+            if (string.Equals(stage.ShaderName, ArenaFrame.CasterShader, StringComparison.Ordinal)) {
+                Frame.ApplyCaster(stage);
+            }
         }
 
         // And the sky node, for the same reason and on the same terms: the cube is baked before the
@@ -931,6 +1006,16 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     public PunctualShadowRenderer? PunctualShadowNode =>
         services?.Graphics?.Renderer.Host.Builder.Nodes.Values.OfType<PunctualShadowRenderer>().FirstOrDefault();
+
+    /// <summary>The frame's cascaded sun node, or null if the document has none.</summary>
+    /// <remarks>
+    ///     Looked up rather than held, for the reason above. What a measurement wants from this one is
+    ///     <c>StaticRebuilds</c> against the frame count, and <c>StaticRefits</c> beside it: a cache
+    ///     rebuilt every frame is a cache that costs a whole-atlas copy and saves nothing, and the
+    ///     split says whether the cause is the fit moving or the host claiming a change.
+    /// </remarks>
+    public ShadowMapRenderer? SunShadowNode =>
+        services?.Graphics?.Renderer.Host.Builder.Nodes.Values.OfType<ShadowMapRenderer>().FirstOrDefault();
 
     /// <summary>An exact signed-distance field for an axis-aligned box, in the box's own space.</summary>
     /// <remarks>

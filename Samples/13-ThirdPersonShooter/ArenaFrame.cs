@@ -173,8 +173,17 @@ public sealed class ArenaFrame : IDisposable {
         parameters.Set(ForwardPlusKeys.Clusters, clusterStandIn);
     }
 
+    /// <summary>The shader a caster stage imposes, which is what says a stage is one.</summary>
+    /// <remarks>
+    ///     ⚠ Here rather than spelled in the caller, because the caller now asks the *document* which
+    ///     of its stages are caster stages instead of listing their names — this level has three, and
+    ///     a stage that imposes this shader and is not given the values below draws with an empty
+    ///     per-material set. See <c>Arena.SupplyFrame</c>.
+    /// </remarks>
+    public const string CasterShader = "ShadowCaster";
+
     /// <summary>Fills what a caster stage owes the shader it imposes.</summary>
-    /// <param name="stage">The stage whose <c>shader:</c> is <c>ShadowCaster</c>.</param>
+    /// <param name="stage">The stage whose <c>shader:</c> is <see cref="CasterShader" />.</param>
     /// <exception cref="ArgumentNullException"><paramref name="stage" /> is null.</exception>
     /// <remarks>
     ///     <para>

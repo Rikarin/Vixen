@@ -82,7 +82,18 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     readonly Dictionary<Material, int> indices = [];
     readonly Dictionary<EffectKey, uint> groups = new();
     readonly List<Variant> variants = [];
-    readonly Dictionary<(int Material, uint Flags, string Shader), int> variantIndices = [];
+    // ⚠ **The imposing stage is part of the key, and leaving it out was a GPU fault.** A variant
+    // carries the stage whose `Parameters` supply the bindings a material has no name for — see
+    // `Variant.Stage` — and two stages imposing one shader used to collapse to a single variant, so
+    // the *first* stage to reach a material decided which stand-ins every stage got. That was invisible
+    // while a frame had one caster stage. Split the casters into a cached half and a moving half and
+    // the level's variant is created by whichever stage sorts first, and a stage whose `Parameters`
+    // nobody filled writes no per-material set at all — `EffectSetWriter` writes a set wholly or not
+    // at all — so the caster pipeline draws with set 2 empty and MoltenVK faults inside the submit.
+    // Keyed here, each stage writes its own set; the *effect* is still shared through `EffectSystem`'s
+    // own cache and two stages with identical parameters land on one descriptor set through the
+    // allocator's content addressing, so the economy the remarks below describe is unchanged.
+    readonly Dictionary<(int Material, uint Flags, string Shader, int Imposing), int> variantIndices = [];
     readonly List<IPermutationSubFeature> contributors = [];
     readonly ParameterCollection scratch = new();
     readonly List<EffectConstants?> blocks = [];
@@ -430,6 +441,33 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// <summary>How many variants have a set this feature wrote, or a record it filled.</summary>
     public int BoundCount { get; private set; }
 
+    /// <summary>How many variants this frame wanted a per-material set and got none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The number that would have turned a day into a minute.</b> A set is written wholly
+    ///         or not at all, and a variant that fails to write one is still resolved, still bound to a
+    ///         pipeline and still drawn — with set 2 empty. With the validation layers on that is
+    ///         <c>uses set 2 but that set is not bound</c>; without them it is a GPU fault inside
+    ///         <c>vkQueueSubmit</c>, several frames of code away from the cause.
+    ///     </para>
+    ///     <para>
+    ///         Nonzero always means the same thing: some binding the variant's shader declares has no
+    ///         value in the material and none in <see cref="Unbound" />'s stage either. For a stage
+    ///         that overrides a shader — a depth prepass, a shadow caster — that is
+    ///         <see cref="RenderStage.Parameters" /> not being filled, which is a host's job because
+    ///         the bindings belong to a pass no material has heard of.
+    ///     </para>
+    /// </remarks>
+    public int UnboundCount { get; private set; }
+
+    /// <summary>The last variant that wanted a set and got none: its shader, and the stage that imposed it.</summary>
+    /// <remarks>
+    ///     Beside <see cref="UnboundCount" /> because a count says a frame is broken and this says
+    ///     which line of which file to go and look at. The stage is the half worth naming — a shader
+    ///     that draws in one stage and not another is a stage whose parameters were never filled.
+    /// </remarks>
+    public (string Shader, string? Stage)? Unbound { get; private set; }
+
     /// <summary>How many record buffers went to the device this frame.</summary>
     /// <remarks>
     ///     Zero for a settled scene, which is the assertion worth having: the bytes are what costs,
@@ -598,6 +636,8 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         }
 
         BoundCount = 0;
+        UnboundCount = 0;
+        Unbound = null;
 
         for (var index = 1; index < variants.Count; index++) {
             var variant = variants[index];
@@ -642,6 +682,12 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
                     writes,
                     out _
                 )) {
+                // Counted rather than passed over. See UnboundCount: this is a draw that will be
+                // recorded with an empty set 2, which is a validation error at best and a fault in
+                // the submit at worst, and nothing downstream of here can tell that it happened.
+                UnboundCount++;
+                Unbound = (variant.Key.ShaderName, variant.Stage?.Name);
+
                 continue;
             }
 
@@ -1001,7 +1047,10 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ) {
         var flags = FlagsOf(system, id);
 
-        if (variantIndices.TryGetValue((material, flags, shaderName), out var existing)) {
+        // −1 for the material's own shader, which is a stage index no stage has.
+        var stageKey = imposing?.Index ?? -1;
+
+        if (variantIndices.TryGetValue((material, flags, shaderName, stageKey), out var existing)) {
             // A variant resolved while its shader was still being compiled holds a placeholder, and
             // the real one arrives some frames later with nothing to announce it. Asking again is how
             // that is noticed. It costs one dictionary lookup, and only for the variants still
@@ -1050,7 +1099,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         var index = variants.Count;
         variants.Add(new(Effects!.Resolve(key), group, key, material, Stage: imposing));
         blocks.Add(null);
-        variantIndices[(material, flags, shaderName)] = index;
+        variantIndices[(material, flags, shaderName, stageKey)] = index;
         return index;
     }
 
@@ -1192,9 +1241,16 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </param>
     /// <remarks>
     ///     <see cref="Stage" /> is carried so that <see cref="Bind" /> can ask it for the bindings a
-    ///     material has no name for — see <see cref="RenderStage.Parameters" />. It is not part of
-    ///     the variant's identity: two stages naming one shader resolve to one variant, which is the
-    ///     whole economy of not composing, so the first one to reach it is the one recorded.
+    ///     material has no name for — see <see cref="RenderStage.Parameters" />, which is where a
+    ///     caster's opacity map, its sampler and its bone palette come from.
+    ///
+    ///     ⚠ <b>It is part of the variant's identity, and it used not to be.</b> Two stages imposing
+    ///     one shader collapsed to a single variant, so whichever stage reached a material first
+    ///     decided which stand-ins <em>every</em> stage drew with — and a stage whose
+    ///     <see cref="RenderStage.Parameters" /> nobody filled writes no per-material set at all,
+    ///     because a set is written wholly or not at all. The pipeline is still bound and the draw
+    ///     still recorded, with set 2 empty: a validation error with the layers on and a GPU fault
+    ///     inside the submit without them. Nothing had two caster stages until the sun's cache did.
     /// </remarks>
     readonly record struct Variant(
         Effect? Effect,

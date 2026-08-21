@@ -31,8 +31,16 @@ namespace Vixen.Rendering.Compositor;
 ///         position — because a view is not a camera. Fitting a cascade needs the field of view and
 ///         the aspect ratio, which are the camera's, so the node that fits them is where they belong.
 ///     </para>
+///     <para>
+///         <strong>And a cache, when the level's casters are put in a stage of their own.</strong>
+///         <see cref="StaticCasterStage" /> plus <see cref="Slack" /> is the whole of it, and the two
+///         are one switch: a cascade that re-fits every frame is a cache that is invalidated every
+///         frame, which costs a whole-atlas copy and saves nothing. See <see cref="Slack" /> for what
+///         stability is paid for in, and <see cref="StaticAtlas" /> for why the cache's texture is
+///         this node's rather than the document's.
+///     </para>
 /// </remarks>
-public sealed class ShadowMapRenderer : SceneRenderer {
+public sealed class ShadowMapRenderer : SceneRenderer, IDisposable {
     readonly List<RenderView> views = [];
     readonly ShadowCascade[] cascades = new ShadowCascade[ShadowCascades.MaxCascades];
     readonly float[] splits = new float[ShadowCascades.MaxCascades];
@@ -40,6 +48,16 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     int count;
     int fittedCount;
     int cachedStaticVersion = -1;
+
+    // The cache's own atlas, when no host lends one under `StaticAtlas`. On
+    // `PunctualShadowRenderer`'s terms and for its reason: depth that survives a frame cannot live in
+    // the graph's pool, which exists precisely to recycle memory whose lifetime ends inside one.
+    TextureHandle staticTexture;
+    TextureViewHandle staticView;
+    TextureDescription staticDescription;
+    Int2 staticSize;
+    bool staticBuilt;
+    bool disposed;
 
     /// <summary>The stage that draws depth-only casters.</summary>
     public required RenderStage CasterStage { get; init; }
@@ -154,22 +172,51 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     public RenderStage? StaticCasterStage { get; set; }
 
     /// <summary>
-    ///     The name of the texture the cached static content lives in, or empty for no cache.
+    ///     The name of a texture a host lends the cache, or empty for the node to own one.
     /// </summary>
     /// <remarks>
-    ///     This one has to be an <see cref="ImportedTexture" /> rather than a declared resource, and
-    ///     the reason is the definition of both: a cache outlives its frame, and the graph's pool
-    ///     exists precisely to recycle memory whose lifetime ends inside one.
+    ///     <para>
+    ///         Whichever it is, it has to be an <see cref="ImportedTexture" /> rather than a declared
+    ///         resource, and the reason is the definition of both: a cache outlives its frame, and the
+    ///         graph's pool exists precisely to recycle memory whose lifetime ends inside one. A
+    ///         document therefore <em>cannot</em> declare one — every <c>!Resource</c> is transient —
+    ///         which is why empty means "the node makes its own" rather than "no cache". A frame that
+    ///         kept every cascade would otherwise be a frame in which nothing writes the name the copy
+    ///         reads, and a read with no producer is refused at compile.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A name that is given is resolved rather than probed.</b> Falling back to a texture
+    ///         of this node's own when a host's name does not resolve would silently ignore the
+    ///         binding the host asked for, which is the one thing a document can be wrong about.
+    ///         Naming nothing needs a <see cref="Device" />; naming nothing with no device is refused
+    ///         for the reason a static stage with no cache at all is.
+    ///     </para>
     /// </remarks>
     public string StaticAtlas { get; set; } = string.Empty;
+
+    /// <summary>Where the node's own cache texture comes from, when it owns one.</summary>
+    /// <remarks>
+    ///     Read only while <see cref="StaticCasterStage" /> is set and <see cref="StaticAtlas" /> names
+    ///     nothing. <c>CompositorBuilder</c> passes the frame's device, so a document that turns
+    ///     caching on gets a cache without having to describe a resource the graph has no way to keep.
+    /// </remarks>
+    public IGraphicsDevice? Device { get; set; }
 
     /// <summary>
     ///     How much larger than each slice to cut its cascade, as a fraction.
     /// </summary>
     /// <remarks>
-    ///     Zero by default, which is the tightest fit and the one that re-fits whenever the camera
-    ///     moves a texel. Caching wants slack — see <see cref="ShadowCascades.Fit" /> for what it
-    ///     costs — and twenty per cent is the usual starting point.
+    ///     <para>
+    ///         Zero by default, which is the tightest fit and the one that re-fits whenever the camera
+    ///         moves a texel. Caching wants slack — see <see cref="ShadowCascades.Fit" /> for what it
+    ///         costs — and twenty per cent is the usual starting point.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero with a static stage set is a cache that costs and never pays.</b> A tight fit
+    ///         re-fits the frame the camera moves, a re-fit invalidates the cache, and the frame is
+    ///         then the uncached one plus a whole-atlas copy. The node says so through
+    ///         <see cref="SceneRenderer.Degraded" /> rather than quietly.
+    ///     </para>
     /// </remarks>
     public float Slack { get; set; }
 
@@ -189,6 +236,33 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     ///     this moves — "it caches" is otherwise a claim nothing can check.
     /// </remarks>
     public int StaticRebuilds { get; private set; }
+
+    /// <summary>How many of those rebuilds were a cascade re-fitting.</summary>
+    /// <remarks>
+    ///     <see cref="PunctualShadowRenderer.TilesMoved" />'s counterpart, and beside
+    ///     <see cref="StaticInvalidations" /> for its reason: a cache that saves nothing saves nothing
+    ///     for one of two reasons and they have opposite fixes. Re-fits dominating means
+    ///     <see cref="Slack" /> is too small for how fast the camera moves — the projection itself will
+    ///     not stand still — and no amount of care about what the scene claims is static will help.
+    /// </remarks>
+    public int StaticRefits { get; private set; }
+
+    /// <summary>How many were the host saying the static content changed.</summary>
+    /// <remarks>
+    ///     The other half. These dominating means <see cref="StaticVersion" /> is being bumped by
+    ///     something that is not actually static, which is a scene problem rather than a fitting one.
+    /// </remarks>
+    public int StaticInvalidations { get; private set; }
+
+    /// <summary>How many cascade tiles were rasterised this frame.</summary>
+    /// <remarks>
+    ///     <see cref="PunctualShadowRenderer.TilesDrawn" />'s counterpart and the number this node is
+    ///     judged by frame to frame: <see cref="CascadeCount" /> on a kept frame, twice that on a
+    ///     rebuilt one, and exactly <see cref="CascadeCount" /> on every frame of the uncached path —
+    ///     which is the honest way to read the trade, because a cache that rebuilds every frame costs
+    ///     double and a copy.
+    /// </remarks>
+    public int TilesDrawn { get; private set; }
 
     /// <summary>How many cascades to fit, up to <see cref="ShadowCascades.MaxCascades" />.</summary>
     /// <remarks>
@@ -353,6 +427,14 @@ public sealed class ShadowMapRenderer : SceneRenderer {
                     + "node's authored Eye rather than to the view being shaded",
                 (_, null) => "no Sun, so the cascades are fitted to the node's authored "
                     + "LightDirection rather than to the scene's sun",
+
+                // Last, because the three above are wrong pictures and this one is only a wasted
+                // frame — but it is a whole frame, and it is invisible: the cache rebuilds, the copy
+                // runs, every counter says the feature is on and the total work is strictly greater
+                // than leaving it off. See Slack.
+                _ when StaticCasterStage is not null && Slack <= 0f =>
+                    "a static caster stage with no Slack, so every cascade re-fits the moment the "
+                    + "camera moves and the cache is rebuilt and copied every frame",
                 _ => null
             }
         );
@@ -516,34 +598,50 @@ public sealed class ShadowMapRenderer : SceneRenderer {
         }
 
         if (StaticCasterStage is null) {
+            TilesDrawn = count;
             Pass(compositor, frame, ToString(), atlas, format, LoadAction.Clear, CasterStage);
+
             return;
         }
 
-        if (StaticAtlas.Length == 0) {
-            // Half a cache is worse than none: the static casters would be in a stage nothing draws,
-            // so a level's shadows would simply not appear, and nothing would say why. The name is
-            // missing rather than the texture, which is a thing a document can be wrong about.
-            throw new CompositorBindingException(
-                $"'{ToString()}' has a static caster stage and no static atlas to cache it in, so "
-                + "every static caster would be dropped rather than drawn."
-            );
+        var statics = Cache(frame, format, required);
+
+        // ⚠ **The invalidation rule, in one place and stated whole.** The cached half is kept when it
+        // has been drawn at least once, when no cascade was re-fitted this frame, and when the host
+        // has not bumped `StaticVersion` since it was drawn. Anything else redraws all of it.
+        //
+        // A re-fit is the load-bearing half and it is not a caster fact at all: the depth in the cache
+        // was rasterised through one projection, and a cascade that moved is a cascade whose tile now
+        // means something else. That is also why this cache does *not* hash its caster list the way
+        // `PunctualShadowRenderer` has to — a cascade's content is separated by **stage** rather than
+        // detected, so the conservative work list a GPU-culled frame hands the host cannot mislead it.
+        // The price of that is the bargain the word "static" already implied: a host that moves an
+        // object in the static stage without saying so gets a shadow where the object used to be.
+        var refit = false;
+
+        for (var i = 0; i < count; i++) {
+            refit |= refitted[i];
         }
 
-        // Resolved rather than probed. A cache whose name is bound to nothing is a configuration
-        // mistake, and falling back to the uncached path would draw the moving casters and silently
-        // lose every static one.
-        var statics = frame.Texture(ToString(), StaticAtlas);
-        var stale = cachedStaticVersion != StaticVersion;
+        var bumped = cachedStaticVersion != StaticVersion;
+        var stale = !staticBuilt || refit || bumped;
 
-        for (var i = 0; i < count && !stale; i++) {
-            stale = refitted[i];
-        }
+        TilesDrawn = stale ? 2 * count : count;
 
         if (stale) {
             Pass(compositor, frame, $"{Name}.Static", statics, format, LoadAction.Clear, StaticCasterStage!);
             cachedStaticVersion = StaticVersion;
+            staticBuilt = true;
             StaticRebuilds++;
+
+            // Attributed rather than split in two, because the first frame is neither: nothing has
+            // been drawn yet, and counting that as a re-fit or as the host's doing would put a one in
+            // a number a profiler reads as a rate.
+            if (refit) {
+                StaticRefits++;
+            } else if (bumped) {
+                StaticInvalidations++;
+            }
         }
 
         // Declared as a copy, so the graph is the one that knows the cache has to be a copy source and
@@ -570,6 +668,104 @@ public sealed class ShadowMapRenderer : SceneRenderer {
 
         // Loaded, not cleared: what the copy just put there is the point.
         Pass(compositor, frame, ToString(), atlas, format, LoadAction.Load, CasterStage);
+    }
+
+    /// <summary>The texture the cached half lives in — the host's when it lends one, else this node's.</summary>
+    /// <remarks>
+    ///     Both are imports. A declared resource is one the graph's pool may hand to something else the
+    ///     moment the last pass reading it ends, which is the definition of the wrong memory for a
+    ///     cache; and on a frame where every cascade was kept, nothing writes it at all, so a declared
+    ///     one would additionally be a read with no producer and refused at compile.
+    /// </remarks>
+    GraphTexture Cache(CompositorFrame frame, PixelFormat format, Int2 required) {
+        if (StaticAtlas.Length > 0) {
+            // Resolved rather than probed. A cache whose name is bound to nothing is a configuration
+            // mistake, and quietly substituting a texture of this node's own would ignore the binding
+            // the document asked for.
+            return frame.Texture(ToString(), StaticAtlas);
+        }
+
+        if (Device is not { } device) {
+            // Half a cache is worse than none: the static casters would be in a stage nothing draws,
+            // so a level's shadows would simply not appear, and nothing would say why.
+            throw new CompositorBindingException(
+                $"'{ToString()}' has a static caster stage, names no static atlas and has no Device "
+                + "to make one with, so every static caster would be dropped rather than drawn."
+            );
+        }
+
+        Allocate(device, required, format);
+
+        // The entry state is the whole difference between the first frame and the rest: nothing has
+        // been written yet, so the contents are `Undefined` and a backend may discard them. Claiming
+        // `CopySource` on frame one is a transition from a layout the texture is not in, which is a
+        // validation error on Vulkan and undefined behaviour without the layer.
+        return frame.Graph.ImportTexture(
+            staticTexture,
+            staticView,
+            staticDescription,
+            staticBuilt ? ResourceState.CopySource : ResourceState.Undefined,
+            ResourceState.CopySource
+        );
+    }
+
+    /// <summary>Creates the node's own cache texture, or recreates it when its shape changed.</summary>
+    /// <remarks>
+    ///     A resolution or a cascade count that moved makes every cached texel meaningless — a tile is
+    ///     a different rectangle of a different texture — so the content is forgotten with the memory.
+    ///     It costs one frame of full redraw on a knob nothing turns per frame.
+    /// </remarks>
+    void Allocate(IGraphicsDevice device, Int2 size, PixelFormat format) {
+        if (staticSize == size && staticTexture.IsValid && staticDescription.Format == format) {
+            return;
+        }
+
+        Release(device);
+
+        staticDescription = new(
+            format,
+            Math.Max(size.X, 1),
+            Math.Max(size.Y, 1),
+
+            // No `Sampled`: nothing reads this texture through a shader. What reads it is the copy
+            // into the working atlas, and that is the only thing a cascade cache's texture is for —
+            // unlike `PunctualShadowRenderer`'s, which *is* the atlas a shading pass resolves.
+            TextureUsage.DepthStencilTarget | TextureUsage.CopySource,
+            Name: $"{this}.StaticCache"
+        );
+
+        staticTexture = device.CreateTexture(staticDescription);
+        staticView = device.CreateTextureView(staticTexture);
+        staticSize = size;
+        staticBuilt = false;
+    }
+
+    void Release(IGraphicsDevice device) {
+        if (staticView.IsValid) {
+            device.Destroy(staticView);
+        }
+
+        if (staticTexture.IsValid) {
+            device.Destroy(staticTexture);
+        }
+
+        staticView = default;
+        staticTexture = default;
+        staticSize = default;
+        staticBuilt = false;
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+
+        if (Device is { } device) {
+            Release(device);
+        }
     }
 
     /// <summary>Declares one pass that draws a stage into every cascade's tile.</summary>
