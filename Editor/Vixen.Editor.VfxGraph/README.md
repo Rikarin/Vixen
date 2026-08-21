@@ -62,13 +62,30 @@ it is caught and reported against the graph rather than let out as an exception 
 whole job is to report problems. A graph with no spawner is refused here for the same reason: it
 would produce no particles at all, and saying so is more useful than compiling silence.
 
+## An attribute a graph keeps for itself
+
+`Set Custom`, `Random Custom` and `Custom over Life` each hold an `Attribute` **setting** — a
+`[Setting]`-declared `string`, edited in the panel beside the canvas — and a `Lanes` port. There is no
+declaration node: the first block to name an attribute declares it, and its slot is where it landed,
+which is the rule the built-in attributes already follow. `VfxGraphBuilder.Custom` is the find-or-add,
+and it leaves a problem rather than throwing, because `Contribute` is handed a builder and not a
+diagnostic sink.
+
+⚠ **`Vfx/Output/Ribbon` names its attribute rather than numbering it**, and the name is resolved to a
+slot in `Finish` — after every block has contributed, because a block nobody wired contributes in
+insertion order and an output may sit above its writer. A name nothing writes is refused: unwritten
+storage is zero for every particle, so every particle would be in one strip and there would be
+nothing to search for.
+
 ## What is not here yet
 
 - **Operator nodes.** A `Sine` feeding a gravity's strength, as a shader graph's operators feed a
   master. The compiled form's parameters are constants, so an operator would have to be constant
   folded — which is a real feature and a different one.
-- **Blocks for the opcodes that are not here.** `Vortex`, `CollideSphere`, `Rotate` and the custom
-  attribute set exist in the runtime and have no node yet. Each is a class of about twenty lines.
+- ~~**Blocks for the opcodes that are not here.**~~ `Vortex` and `CollideSphere` landed with the mesh
+  output; `SetCustom`, `RandomCustom` and `CustomOverLife` landed once a node could hold a **name** —
+  see `[Setting]` in `Vixen.Editor.NodeGraph`. `Rotate` is what is left, and it is the one whose
+  parameter is a port like any other.
 - **Sub-emitters and trails.** `VfxSubEmitter` connects two systems, so authoring one is authoring a
   relationship between two graphs — which the model can hold and the compiler has nothing to say
   about yet.

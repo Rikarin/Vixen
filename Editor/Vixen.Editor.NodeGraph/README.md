@@ -25,17 +25,17 @@ graph.Connect(new(uv.Id, "UV"), new(sample.Id, "UV"));
 |---|---|
 | `NodeGraphModel` | Nodes, edges, groups, comments and a sub-graph interface. Refuses cycles, topologically orders. |
 | `NodeGraphAsset`, `NodeGraphDocument` | The file shape, and the checked conversion between it and the model. |
-| `NodeAttribute`, `InputAttribute`, `OutputAttribute` | What a node type declaration looks like. |
+| `NodeAttribute`, `InputAttribute`, `OutputAttribute`, `SettingAttribute` | What a node type declaration looks like. |
 | `PortKind`, `PortKinds` | What a port carries, and the rules — including `DynamicVector`'s. |
 | `Scalar`, `Float2`…`Float4`, `DynamicVector`, `Bool`, `Int`, `Texture`, `Sampler`, `Flow` | Port field types. The declared type *is* the port's kind. |
-| `NodeTypeRegistry`, `NodeTypeDefinition` | The node library, filled by generated code. |
+| `NodeTypeRegistry`, `NodeTypeDefinition`, `SettingDefinition` | The node library, filled by generated code. |
 | `Node`, `NodeBinding` | The base a node derives from, and what its ports carry this time round. |
 | `NodeGraphCompiler<T>` | Graph to artefact: ordering, typing, binding, diagnostics. |
 | `NodeDiagnostic` | Something to say, about a node and a port an author can see. |
 | `SubGraphs`, `SubGraphLibrary` | A graph inside a graph: the boundary nodes, inlining, and extraction. |
 | `NodeGraphView`, `NodeCommentView` | The model on a `NodeCanvas`, with every gesture arriving as a command. |
 | `NodeInspector` | The selected nodes' values as rows beside the canvas, for what will not fit on it. A host around `InspectorView`, not a panel of its own. |
-| `NodePortEditProvider`, `NodePortMember` | A node type's inline port values, described for the editing pipeline. See below. |
+| `NodePortEditProvider`, `NodePortMember`, `NodeSettingMember` | A node type's inline port values and its settings, described for the editing pipeline. See below. |
 | `NodeSearchPopup`, `NodeSearch`, `PortFilter` | Search-to-create, and the ranking behind it. |
 | `NodePreviewLayer`, `INodePreviewSource` | The swatch under a node that asked for one. |
 | `NodeGraphLayout`, `NodeLayoutOptions` | Laying a graph out left to right, in columns. |
@@ -130,11 +130,19 @@ there is no float encoding of a name that is not an index into a table somebody 
 `SetPortTextCommand` is `SetPortValueCommand`'s twin, down to keeping whether there *was* a text and
 merging so that typing a resource name is one undo entry.
 
-⚠ **A key no port claimed still reaches the binding.** A node type may hold a setting keyed like a
-port and declared as none — nothing connects to it, and giving it a socket would put a wire nobody
-can attach on the canvas. Those keys are added to `NodeBinding` *after* the ports are bound and only
-where nothing claimed them, so a **connected** port still answers "no inline value" — otherwise a
-VFX node would start reading the number an author typed before wiring something up.
+**A name is declared with `[Setting]`, and it is not a port.** The field is a `string`, its
+initializer is the default, and `NodeTypeDefinition.Settings` is where it lands — *beside* the port
+list rather than in it, so a consumer that walks `Ports` never has to remember which kinds cannot be
+wired. Deliberately not a tenth `PortKind`: a kind that cannot be connected would put a socket on the
+canvas that refuses every wire dropped on it. `NodeSettingMember` gives it a row in the ordinary
+inspector, and `SetPortTextCommand` makes the write undoable across a whole selection.
+
+⚠ **A key no setting claimed still reaches the binding.** The graphics compositor predates
+`[Setting]` and keys its settings by hand off `CompositorField`, so whatever a node carries in
+`Values` or `Texts` is readable through `NodeBinding` whether or not its type declares it. Those keys
+are added *after* the ports are bound and only where nothing claimed them, so a **connected** port
+still answers "no inline value" — otherwise a VFX node would start reading the number an author typed
+before wiring something up.
 
 **No file format is chosen here.** The document types are `[DataContract]` records described by the
 reflection generator; a caller writes them as YAML or bakes them with the binary serializer. Nothing

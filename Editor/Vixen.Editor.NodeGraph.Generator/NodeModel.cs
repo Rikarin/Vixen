@@ -41,6 +41,13 @@ sealed record PortModel(
     }
 }
 
+/// <summary>One setting, as the generator read it off a <see langword="string" /> field.</summary>
+/// <remarks>
+///     A setting has no kind and no direction — see <c>SettingAttribute</c> — so it is a name, a
+///     default and a sentence, and nothing else.
+/// </remarks>
+sealed record SettingModel(string Field, string Name, string Default, string Summary);
+
 /// <summary>One node type, as the generator read it off a class.</summary>
 sealed record NodeModel(
     string Namespace,
@@ -50,6 +57,7 @@ sealed record NodeModel(
     string Summary,
     bool Preview,
     ImmutableArray<PortModel> Ports,
+    ImmutableArray<SettingModel> Settings,
     ImmutableArray<DiagnosticModel> Problems
 ) {
     /// <summary>Its fully qualified name, for the registration list.</summary>
@@ -64,6 +72,7 @@ sealed record NodeModel(
         && Summary == other.Summary
         && Preview == other.Preview
         && Ports.SequenceEqual(other.Ports)
+        && Settings.SequenceEqual(other.Settings)
         && Problems.SequenceEqual(other.Problems);
 
     public override int GetHashCode() {

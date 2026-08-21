@@ -1099,6 +1099,39 @@ public static class VfxShaderEmitter {
         _ => "float"
     };
 
+    /// <summary>Every name the emitted shader already declares in the scope a custom attribute lands in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A custom attribute's name becomes an identifier in the emitted source</b> — it is
+    ///         a buffer the host binds by that name — so one that collides with something this emitter
+    ///         writes produces a shader that does not parse, a long way from the node it was typed
+    ///         into. <c>VfxCompiledGraph.Compile</c> refuses those, and this is the list it asks.
+    ///     </para>
+    ///     <para>
+    ///         <b>Here rather than in <c>VfxCompiledGraph</c>, because they are this file's names.</b>
+    ///         Adding a push constant or a helper without adding it here is the way the two come
+    ///         apart, and the two are next to each other for exactly that reason.
+    ///     </para>
+    /// </remarks>
+    static readonly HashSet<string> ReservedNames = new(StringComparer.Ordinal) {
+        // The push constants.
+        "deltaTime", "seed", "first", "particleCount", "time", "originX", "originY", "originZ",
+
+        // The built-in buffers, their compaction twins, and the survivor counter.
+        "position", "velocity", "size", "colour", "lifetime", "age", "rotation", "angularVelocity", "identifier",
+        "positionOut", "velocityOut", "sizeOut", "colourOut", "lifetimeOut", "ageOut", "rotationOut",
+        "angularVelocityOut", "identifierOut", "survivors",
+
+        // The helpers, and the entry point.
+        "Origin", "Falloff", "Bounce", "Corner", "Smooth", "Noise", "Mix", "Slope", "Curl", "Turbulence",
+        "Hash", "Draw", "Value", "Range", "Direction", "Cone", "Fraction", "Main"
+    };
+
+    /// <summary>Whether a name is one the emitted shader already uses for something of its own.</summary>
+    /// <param name="name">The name.</param>
+    /// <returns><see langword="true" /> if a custom attribute may not have it.</returns>
+    public static bool IsReserved(string name) => ReservedNames.Contains(name);
+
     /// <summary>What an attribute's buffer is called.</summary>
     static string Name(VfxAttribute attribute) => attribute switch {
         VfxAttribute.Position => "position",

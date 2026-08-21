@@ -316,6 +316,90 @@ public class NodePortProviderTests : IDisposable {
         Assert.Equal([0.5f], second.Values["A"]);
     }
 
+    // ── Settings: the things made of names ───────────────────────────────────
+
+    /// <remarks>
+    ///     ⚠ <b>The gap this closes.</b> A port is one to four floats, so a node had nowhere to put a
+    ///     <i>name</i> — and the things that are made of names, a VFX custom attribute among them,
+    ///     were reachable only from a graph built in code. A setting is described by the node type
+    ///     the same way a port is, so the same generic panel draws it.
+    /// </remarks>
+    [Fact]
+    public void A_setting_is_reached_by_the_name_a_saved_graph_uses() {
+        var (node, target) = Bound("Test/Named Thing");
+
+        Assert.NotNull(target.Find("Label"));
+        Assert.NotNull(target.Find("Target Name"));
+        Assert.Null(target.Find("Target"));
+
+        // The initializer is the default, and a node that has never been typed into holds nothing.
+        Assert.Equal("unnamed", target.Find("Label")!.Read().Value);
+        Assert.Equal("", target.Find("Target Name")!.Read().Value);
+        Assert.Empty(node.Texts);
+    }
+
+    /// <remarks>
+    ///     A setting is a <c>string</c> to the pipeline, which is what gets it the ordinary
+    ///     <c>StringDrawer</c> and a text box in a panel that has never heard of a graph.
+    /// </remarks>
+    [Fact]
+    public void A_setting_is_a_string_to_the_pipeline() {
+        var members = Provider("Test/Named Thing", NodeId.None).Descriptor.Members;
+        var member = Assert.IsType<NodeSettingMember>(members.Single(entry => entry.Name == "Label"));
+
+        Assert.Equal(typeof(string), member.MemberType);
+        Assert.Equal("What the thing is called.", member.Tooltip);
+
+        // Ports first, settings after: a port may lose its row to a wire and a setting never can.
+        Assert.Equal(["Weight", "Label", "Target Name"], members.Select(entry => entry.Name));
+    }
+
+    /// <remarks>
+    ///     ⚠ The command is <c>SetPortTextCommand</c> — the graph's own — so an undo restores the
+    ///     <i>absence</i> of a text, which is what a setting that was never typed into had. Writing
+    ///     the default back instead would pin the node to a string its type is free to change.
+    /// </remarks>
+    [Fact]
+    public void A_setting_write_undoes_to_nothing() {
+        var (node, target) = Bound("Test/Named Thing");
+
+        Assert.True(target.Find("Label")!.Write("glow"));
+        Assert.Equal("glow", node.Texts["Label"]);
+        Assert.Equal("Set Label", fixture.Stack.History[^1].Name);
+
+        fixture.Stack.Undo();
+
+        Assert.False(node.Texts.ContainsKey("Label"));
+        Assert.Equal("unnamed", target.Find("Label")!.Read().Value);
+    }
+
+    /// <remarks>
+    ///     One entry and one "before" per node, exactly as a port's write is — see
+    ///     <see cref="One_write_reaches_a_whole_selection_as_one_undo_entry" />.
+    /// </remarks>
+    [Fact]
+    public void One_setting_write_reaches_a_whole_selection_as_one_undo_entry() {
+        var first = graph.Add("Test/Named Thing", new(40f, 40f));
+        var second = graph.Add("Test/Named Thing", new(240f, 40f));
+
+        second.SetText("Label", "kept");
+
+        var target = Target([first, second]);
+        var depth = fixture.Stack.History.Count;
+
+        Assert.True(target.Find("Label")!.Write("shared"));
+
+        Assert.Equal("shared", first.Texts["Label"]);
+        Assert.Equal("shared", second.Texts["Label"]);
+        Assert.Equal(depth + 1, fixture.Stack.History.Count);
+        Assert.Equal("Set Label (2)", fixture.Stack.History[^1].Name);
+
+        fixture.Stack.Undo();
+
+        Assert.False(first.Texts.ContainsKey("Label"));
+        Assert.Equal("kept", second.Texts["Label"]);
+    }
+
     // ── Fixture ──────────────────────────────────────────────────────────────
 
     NodePortEditProvider Provider(string type, NodeId node) =>

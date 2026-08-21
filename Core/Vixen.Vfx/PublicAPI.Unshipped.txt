@@ -329,6 +329,7 @@ static Vixen.Vfx.VfxRenderer.Ribbon(int slot) -> Vixen.Vfx.VfxRenderer
 static Vixen.Vfx.VfxRenderer.SortedBillboard.get -> Vixen.Vfx.VfxRenderer
 static Vixen.Vfx.VfxRenderer.Streak(float stretch = 0.1) -> Vixen.Vfx.VfxRenderer
 static Vixen.Vfx.VfxShaderEmitter.Emit(Vixen.Vfx.VfxCompiledGraph graph, string name = "Effect") -> Vixen.Vfx.VfxShader
+static Vixen.Vfx.VfxShaderEmitter.IsReserved(string name) -> bool
 static Vixen.Vfx.VfxShaderPacking.Pack(Vixen.Vfx.ParticleBuffer particles, in Vixen.Vfx.VfxShaderBinding binding, int count, System.Span<byte> destination) -> void
 static Vixen.Vfx.VfxShaderPacking.Size(in Vixen.Vfx.VfxShaderBinding binding, int count) -> int
 static Vixen.Vfx.VfxShaderPacking.Unpack(System.ReadOnlySpan<byte> source, in Vixen.Vfx.VfxShaderBinding binding, int count, Vixen.Vfx.ParticleBuffer particles) -> void

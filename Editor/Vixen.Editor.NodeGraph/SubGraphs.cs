@@ -317,6 +317,12 @@ public static class SubGraphs {
                 copy.SetValue(port, [.. value]);
             }
 
+            // ⚠ And the names. A node extracted into a sub-graph without them is the same node with
+            // every setting blanked, which is a silent change to what the graph renders.
+            foreach (var (port, text) in node.Texts) {
+                copy.SetText(port, text);
+            }
+
             var box = new Rectangle(node.Position.X, node.Position.Y, 1f, 1f);
             bounds = bounds is { } union ? Rectangle.Union(union, box) : box;
         }
@@ -510,6 +516,10 @@ public static class SubGraphs {
 
                 foreach (var (port, value) in node.Values) {
                     copy.SetValue(port, [.. value]);
+                }
+
+                foreach (var (port, text) in node.Texts) {
+                    copy.SetText(port, text);
                 }
             }
 

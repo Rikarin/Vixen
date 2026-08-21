@@ -66,6 +66,58 @@ public sealed class InputAttribute : Attribute {
     public float[] Default { get; init; } = [];
 }
 
+/// <summary>Marks a <see langword="string" /> field as one of a node's settings.</summary>
+/// <remarks>
+///     <para>
+///         <b>A setting is not a port, and that is the whole distinction.</b> A port's value is one to
+///         four floats, it has a socket, and an edge may arrive at it and replace what was typed. A
+///         setting is a <i>name</i> the node was given: a custom attribute, a render target, a stage.
+///         Nothing connects to one, nothing computes one, and there is no float encoding of a name
+///         that is not an index into a table somebody has to keep.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is why it is a third attribute rather than a tenth <see cref="PortKind" />.</b>
+///         A port kind that cannot be wired would put a socket on the canvas that refuses every wire
+///         dropped on it, and <c>CompositorNode</c> declined to teach the generator one for exactly
+///         that reason. What was missing was not the storage — <see cref="GraphNode.Texts" /> and
+///         <see cref="NodeBinding.Text" /> have held names since the compositor needed them — but a
+///         <i>declaration</i>, so that a node's names are described by its type the way its ports are
+///         and every graph does not have to invent a settings list of its own.
+///     </para>
+///     <para>
+///         <b>The field's type has to be <see langword="string" />.</b> Not a port value type: a
+///         setting holds what the author typed rather than an expression to interpolate, so wrapping
+///         it would be a struct whose only member is the string it already is.
+///     </para>
+///     <para>
+///         Settings are edited in the panel beside the canvas — see <c>NodePortEditProvider</c> — and
+///         not on the node. A node clips its own contents, so a row on one has a width a name does
+///         not fit in; the compositor's settings have always been drawn in a side panel for the same
+///         reason.
+///     </para>
+/// </remarks>
+[AttributeUsage(AttributeTargets.Field)]
+public sealed class SettingAttribute : Attribute {
+    /// <summary>What the setting is called, if not the field's own name.</summary>
+    /// <remarks>
+    ///     The key it is stored under in <see cref="GraphNode.Texts" />, so renaming it orphans what a
+    ///     saved graph already holds — the same bargain a port's name makes.
+    /// </remarks>
+    public string Name { get; init; } = "";
+
+    /// <summary>One line saying what it means.</summary>
+    public string Summary { get; init; } = "";
+
+    /// <summary>What it says when the author has not said anything.</summary>
+    /// <remarks>
+    ///     Here as well as in the field initializer, so that a setting on a node declared across two
+    ///     files still has one — the generator can only read an initializer from the tree the
+    ///     attribute was found in. The initializer is the ordinary way to write it and this wins when
+    ///     both are given.
+    /// </remarks>
+    public string Default { get; init; } = "";
+}
+
 /// <summary>Marks a field as an output port.</summary>
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class OutputAttribute : Attribute {

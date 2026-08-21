@@ -214,6 +214,16 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
         Dictionary<string, string> texts = new(node.Texts, StringComparer.Ordinal);
         HashSet<string> connected = new(StringComparer.Ordinal);
 
+        // A setting the author never typed into carries its type's declared default, which is the same
+        // bargain a port's default makes: a node type that changes one changes it for every saved
+        // graph that never overrode it. ⚠ TryAdd rather than an assignment — a node that *has* been
+        // given a name must keep it, and a compositor node's settings are not declared here at all.
+        foreach (var setting in definition.Settings) {
+            if (setting.Default.Length > 0) {
+                texts.TryAdd(setting.Name, setting.Default);
+            }
+        }
+
         foreach (var port in definition.Ports) {
             var kind = port.Kind == PortKind.Dynamic ? resolved : port.Kind;
 

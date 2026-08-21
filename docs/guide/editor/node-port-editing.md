@@ -3,8 +3,8 @@ title: Editing a node's ports
 slug: editor/node-port-editing
 kind: guide
 area: Editor
-summary: The editing pipeline's second IEditProvider — a graph node's inline port values described as inspector members, so the ordinary inspector panel and a .vxml tree edit them by name instead of a hand-written panel per graph.
-api: [T:Vixen.Editor.NodeGraph.NodePortEditProvider, T:Vixen.Editor.NodeGraph.NodePortMember, T:Vixen.Editor.NodeGraph.NodeInspector]
+summary: The editing pipeline's second IEditProvider — a graph node's inline port values and its string-valued settings described as inspector members, so the ordinary inspector panel and a .vxml tree edit them by name instead of a hand-written panel per graph.
+api: [T:Vixen.Editor.NodeGraph.NodePortEditProvider, T:Vixen.Editor.NodeGraph.NodePortMember, T:Vixen.Editor.NodeGraph.NodeSettingMember, T:Vixen.Editor.NodeGraph.NodeInspector, T:Vixen.Editor.NodeGraph.SettingAttribute, T:Vixen.Editor.NodeGraph.SettingDefinition]
 tags: [editor, node-graph, inspector, undo, multi-object-editing]
 since: 0.2
 status: preview
@@ -101,6 +101,45 @@ var target = new EditTarget(selected, provider, document);
 
 target.Find("A")?.Write(0.5f);   // "Set A (2)", one Ctrl+Z
 ```
+
+## Settings: the things made of names
+
+A port is one to four floats. Some of what a node holds is a **name** — a custom attribute in a VFX
+graph, a render target in a compositor — and there is no float encoding of a name that is not an
+index into a table somebody has to keep. `[Setting]` is how a node type declares one:
+
+```csharp no-compile="a node class, which the generator completes"
+[Node("Vfx/Initialize/Set Custom")]
+public sealed partial class SetCustomNode : VfxBlockNode {
+    [Setting(Summary = "The attribute's name. An identifier — the emitted shader binds by it.")]
+    public string Attribute = "";
+
+    [Input(Name = "Lanes", Default = [1f])]
+    public Int Lanes;
+}
+```
+
+The field has to be a `string`; anything else is `VXN0104`. Its initializer is the default, read the
+same way a port's is — and, like a port's, it is the *type's* default, so changing it changes it for
+every saved graph that never overrode it. A node reads it back through `NodeBinding.Text`, which the
+generated `Bind` fills.
+
+⚠ **A setting is not a port, and that is the whole distinction.** It has no direction, no socket and
+no edge; nothing connects to one and nothing computes one. It is therefore declared beside the port
+list rather than in it — `NodeTypeDefinition.Settings` — so a consumer that walks `Ports` never has
+to remember which kinds cannot be wired. That is also why it is not a tenth `PortKind`: a kind that
+cannot be wired would put a socket on the canvas that refuses every wire dropped on it.
+
+⚠ **Its value lives in `GraphNode.Texts`, not `Values`,** and is written by a `SetPortTextCommand`.
+The two tables have always been there — the graphics compositor is a graph made of names and has
+keyed them by hand since it shipped. What was missing was the *declaration*, so a node's names could
+be described by its type the way its ports are.
+
+⚠ **Settings are edited in the panel, not on the node.** A node clips its own contents, so a row on
+one has a width a name does not fit in; the compositor has drawn its settings in a side panel for
+that reason since it shipped, and `NodeSettingMember` puts them in the ordinary inspector instead.
+`NodePortEditProvider.For` appends them after the ports, and they are always rows — a setting has no
+socket, so no wiring can take one away.
 
 ## See also
 

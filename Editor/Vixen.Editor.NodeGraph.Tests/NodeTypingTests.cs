@@ -223,4 +223,64 @@ public class NodeTypingTests {
 
         Assert.Equal(before, registry.Count);
     }
+
+    /// <summary>A <c>[Setting]</c> becomes a declaration of its own, beside the ports and not in them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a tenth <c>PortKind</c>.</b> A setting has no direction and no socket, so a
+    ///     consumer that walks <c>Ports</c> must not find one — otherwise every such consumer has to
+    ///     remember which kinds cannot be wired.
+    /// </remarks>
+    [Fact]
+    public void A_setting_is_declared_beside_the_ports_rather_than_among_them() {
+        var definition = Library().Get("Test/Named Thing");
+
+        Assert.Equal(["Weight", "Out"], definition.Ports.Select(port => port.Name));
+        Assert.Equal(["Label", "Target Name"], definition.Settings.Select(setting => setting.Name));
+
+        // The initializer is read, not evaluated — the same rule a port's default follows.
+        Assert.Equal("unnamed", definition.Setting("Label")!.Default);
+        Assert.Equal("What the thing is called.", definition.Setting("Label")!.Summary);
+
+        // A renamed setting is stored under the name, and its field's name means nothing.
+        Assert.Equal("", definition.Setting("Target Name")!.Default);
+        Assert.Null(definition.Setting("Target"));
+    }
+
+    /// <summary>A setting reaches the node it was typed on, and its default reaches one that was not.</summary>
+    [Fact]
+    public void A_setting_reaches_the_bound_node() {
+        var graph = new NodeGraphModel();
+        var typed = graph.Add("Test/Named Thing");
+        var untouched = graph.Add("Test/Named Thing");
+
+        typed.SetText("Label", "glow");
+
+        Dictionary<NodeId, TestSettingNode> bound = [];
+        var compiler = new Binding(Library(), bound);
+
+        compiler.Compile(graph);
+
+        Assert.Equal("glow", bound[typed.Id].Label);
+        Assert.Equal("", bound[typed.Id].Target);
+
+        // ⚠ The declared default, not an empty string: the compiler seeds it, so a node an author
+        // never opened compiles to what its type says rather than to nothing.
+        Assert.Equal("unnamed", bound[untouched.Id].Label);
+    }
+
+    /// <summary>A compiler that keeps the instances it bound, so a test can read their fields.</summary>
+    sealed class Binding(NodeTypeRegistry registry, Dictionary<NodeId, TestSettingNode> bound)
+        : NodeGraphCompiler<List<string>>(registry) {
+        protected override void Visit(GraphNode node, NodeTypeDefinition definition, Node instance, NodeBinding binding) {
+            if (instance is TestSettingNode setting) {
+                bound[node.Id] = setting;
+            }
+        }
+
+        protected override List<string> Finish(NodeGraphModel graph) => [];
+
+        protected override string Constant(ReadOnlySpan<float> value, PortKind kind) => "";
+
+        protected override string Convert(string expression, PortKind from, PortKind target) => expression;
+    }
 }

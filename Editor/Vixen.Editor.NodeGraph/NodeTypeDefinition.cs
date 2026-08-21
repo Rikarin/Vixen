@@ -40,19 +40,51 @@ public sealed record PortDefinition(
     public ImmutableArray<float> Default { get; } = Default.IsDefault ? [] : Default;
 }
 
+/// <summary>One of a node type's settings: a name it was given rather than a value it was wired.</summary>
+/// <param name="Name">What it is called, and the key it is stored under in <see cref="GraphNode.Texts" />.</param>
+/// <param name="Default">What it says when the author has not said anything.</param>
+/// <param name="Summary">One line saying what it means.</param>
+/// <remarks>
+///     ⚠ <b>Deliberately not a <see cref="PortDefinition" /> with a tenth <see cref="PortKind" />.</b>
+///     A setting has no direction, no socket and no edge — see <see cref="SettingAttribute" /> — and
+///     folding it into the port list would mean every consumer that walks ports had to remember which
+///     of them could not be connected to.
+/// </remarks>
+public sealed record SettingDefinition(string Name, string Default = "", string Summary = "");
+
 /// <summary>One node type: what a graph can contain an instance of.</summary>
 /// <param name="Path">The menu path, and the key a saved graph stores.</param>
 /// <param name="Ports">Its ports, inputs first, in declaration order.</param>
 /// <param name="Create">Makes an instance. Generated, so there is no reflection anywhere in this.</param>
 /// <param name="Summary">One line saying what the node is for.</param>
 /// <param name="Preview">Whether a view should draw a preview thumbnail for it.</param>
+/// <param name="Settings">
+///     The names it holds, in declaration order. Empty for the many node types that hold none.
+/// </param>
 public sealed record NodeTypeDefinition(
     string Path,
     ImmutableArray<PortDefinition> Ports,
     Func<Node> Create,
     string Summary = "",
-    bool Preview = false
+    bool Preview = false,
+    ImmutableArray<SettingDefinition> Settings = default
 ) {
+    /// <summary>The settings, or an empty array for a type with none.</summary>
+    public ImmutableArray<SettingDefinition> Settings { get; } = Settings.IsDefault ? [] : Settings;
+
+    /// <summary>One setting by name.</summary>
+    /// <param name="name">Its name.</param>
+    /// <returns>The setting, or null when the type has no such setting.</returns>
+    public SettingDefinition? Setting(string name) {
+        foreach (var setting in Settings) {
+            if (string.Equals(setting.Name, name, StringComparison.Ordinal)) {
+                return setting;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>The last segment of <see cref="Path" />: what the node is called.</summary>
     public string Title => Path[(Path.LastIndexOf('/') + 1)..];
 
@@ -156,14 +188,22 @@ public sealed class NodeBinding {
     /// </remarks>
     public ReadOnlySpan<float> Value(string name) => values.TryGetValue(name, out var lanes) ? lanes : [];
 
-    /// <summary>The text an input was given on this node, or an empty string.</summary>
-    /// <param name="name">The port's name.</param>
+    /// <summary>The text a setting was given on this node, or its declared default.</summary>
+    /// <param name="name">The setting's name.</param>
     /// <returns>What the author typed.</returns>
     /// <remarks>
-    ///     The other half of <see cref="Value" />, for the ports made of names — see
-    ///     <see cref="GraphNode.Texts" /> for why a graphics compositor needs them and the other two
-    ///     graphs do not. It is taken straight off the node rather than resolved through an edge: a
-    ///     name is authored on the node that uses it, and there is no expression to interpolate.
+    ///     <para>
+    ///         The other half of <see cref="Value" />, for the things made of names — see
+    ///         <see cref="SettingAttribute" />. It is taken straight off the node rather than resolved
+    ///         through an edge: a name is authored on the node that uses it, and there is no
+    ///         expression to interpolate.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Also answers for a key that is not declared at all.</b> The graphics compositor
+    ///         predates <c>[Setting]</c> and keys its settings by hand off <c>CompositorField</c>, so
+    ///         whatever a node carries in <see cref="GraphNode.Texts" /> is readable here whether or
+    ///         not its type declares it.
+    ///     </para>
     /// </remarks>
     public string Text(string name) => texts.TryGetValue(name, out var value) ? value : string.Empty;
 

@@ -66,7 +66,12 @@ public sealed class NodeGraphClipboard {
                 Type = node.Type,
                 X = node.Position.X,
                 Y = node.Position.Y,
-                Values = new(node.Values)
+                Values = new(node.Values),
+
+                // ⚠ The names as well as the numbers. Without this a copied compositor pass pasted
+                // back with no targets, no depth attachment and no name — a node that looks like the
+                // one that was copied and renders nothing.
+                Texts = new(node.Texts)
             });
         }
 
