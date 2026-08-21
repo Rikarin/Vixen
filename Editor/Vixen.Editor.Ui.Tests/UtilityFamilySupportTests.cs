@@ -100,7 +100,16 @@ public class UtilityFamilySupportTests {
         { "align-bottom", "vertical-align", "bottom" },
         { "align-baseline", "vertical-align", "baseline" },
         { "grid-cols-3", "grid-template-columns", "repeat(3, minmax(0, 1fr))" },
-        { "col-span-2", "grid-column", "span 2/span 2" },
+
+        // ⚠ <b>`col-span-2` emits `grid-column` and the cascade never holds it</b>, which is the
+        // `flex-1` note below arriving for a second family and for a nearly opposite reason. ExCSS
+        // has never heard of `grid-column`, so it hands the shorthand back whole — and a shorthand
+        // that reaches a computed style intact is what let a `grid-column-start` from any other rule
+        // beat a later `grid-column` outright, silently, whatever order they were written in.
+        // `ShorthandExpansion` now splits it at load, so the row names the longhand for the same
+        // reason `flex-1` does: it is what the cascade ends up holding and what the bridge reads.
+        { "col-span-2", "grid-column-start", "span 2" },
+        { "col-span-2", "grid-column-end", "span 2" },
         { "flex-col", "flex-direction", "column" },
         { "flex-wrap", "flex-wrap", "wrap" },
         { "items-center", "align-items", "center" },
@@ -713,11 +722,21 @@ public class UtilityFamilySupportTests {
 
     /// <summary><c>col-span-2</c> makes an item cover two of those tracks.</summary>
     /// <remarks>
-    ///     ⚠ <b>The width is the assertion, and the sibling's position is what makes it mean
-    ///     something.</b> An item that spans two 64-point tracks is 128 wide and the next item starts
-    ///     at 128 — whereas the old emission, <c>grid-column: 2</c>, is a perfectly valid line number
-    ///     that would have placed it in the second track at 64 wide. Both are grids, both lay out,
-    ///     and only the measurement distinguishes them.
+    ///     <para>
+    ///         ⚠ <b>The width is the assertion, and the sibling's position is what makes it mean
+    ///         something.</b> An item that spans two 64-point tracks is 128 wide and the next item
+    ///         starts at 128 — whereas the old emission, <c>grid-column: 2</c>, is a perfectly valid
+    ///         line number that would have placed it in the second track at 64 wide. Both are grids,
+    ///         both lay out, and only the measurement distinguishes them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both edges are named because the shorthand is gone by the time the cascade is
+    ///         asked.</b> <c>ShorthandExpansion</c> splits <c>grid-column</c> at load — that is what
+    ///         stopped a <c>grid-column-start</c> from another rule silently discarding a later
+    ///         <c>grid-column</c> — so <c>StyleOf(wide, "grid-column")</c> is now null for a reason
+    ///         that is the fix rather than a regression, and asserting the two halves is what keeps
+    ///         the emission checked at all.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Col_span_covers_the_tracks_it_names() {
@@ -729,7 +748,8 @@ public class UtilityFamilySupportTests {
 
         ui.Frame();
 
-        Assert.Equal("span 2/span 2", ui.StyleOf(wide, "grid-column"));
+        Assert.Equal("span 2", ui.StyleOf(wide, "grid-column-start"));
+        Assert.Equal("span 2", ui.StyleOf(wide, "grid-column-end"));
         Assert.Equal(128f, wide.Width);
         Assert.Equal(wide.AbsoluteLeft + 128f, next.AbsoluteLeft);
     }

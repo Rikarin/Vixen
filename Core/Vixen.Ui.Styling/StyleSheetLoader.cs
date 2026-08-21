@@ -278,7 +278,7 @@ public sealed class StyleSheetLoader {
 
     /// <summary>The <see cref="Collect" /> of the inline path: same shorthand hole, same patch.</summary>
     void ReadDeclaration(string name, string value, bool important, List<InlineDeclaration> into) {
-        if (ShorthandExpansion.IsShorthand(name) && VarSubstitution.NeedsSubstitution(value)) {
+        if (ShorthandExpansion.NeedsExpanding(name, value)) {
             expansionScratch.Clear();
 
             if (ShorthandExpansion.TryExpand(name, value, expansionScratch)) {
@@ -292,8 +292,8 @@ public sealed class StyleSheetLoader {
             diagnostics.Add(
                 new SelectorDiagnostic(
                     $"{name}: {value}",
-                    "this shorthand holds a var() and could not be taken apart, so the longhands it "
-                    + "would have set are not set"
+                    "this shorthand could not be taken apart, so the longhands it would have set "
+                    + "are not set"
                 )
             );
         }
@@ -303,13 +303,15 @@ public sealed class StyleSheetLoader {
 
     /// <summary>Interns one declaration, taking a shorthand apart first when ExCSS could not.</summary>
     /// <remarks>
-    ///     ⚠ <b>Only when the value holds a <c>var()</c>.</b> Everything else ExCSS has already
-    ///     expanded, and running over its output would be this file second-guessing the parser
-    ///     rather than filling the one hole it leaves — see <see cref="ShorthandExpansion" /> for
-    ///     what that hole is and why it is silent.
+    ///     ⚠ <b>Which shorthands and when is <see cref="ShorthandExpansion.NeedsExpanding" />'s
+    ///     question, not this file's.</b> There are two holes and they have different conditions —
+    ///     a shorthand ExCSS knows arrives unexpanded only when it holds a <c>var()</c>, and one
+    ///     ExCSS has never heard of arrives unexpanded always — so a condition written here would be
+    ///     half of the rule with nothing to say why. Running over ExCSS's own output remains out of
+    ///     the question; see <see cref="ShorthandExpansion" /> for both holes and why each is silent.
     /// </remarks>
     void Collect(string name, string value, bool important) {
-        if (ShorthandExpansion.IsShorthand(name) && VarSubstitution.NeedsSubstitution(value)) {
+        if (ShorthandExpansion.NeedsExpanding(name, value)) {
             expansionScratch.Clear();
 
             if (ShorthandExpansion.TryExpand(name, value, expansionScratch)) {
@@ -326,8 +328,8 @@ public sealed class StyleSheetLoader {
             diagnostics.Add(
                 new SelectorDiagnostic(
                     $"{name}: {value}",
-                    "this shorthand holds a var() and could not be taken apart, so the longhands it "
-                    + "would have set are not set"
+                    "this shorthand could not be taken apart, so the longhands it would have set "
+                    + "are not set"
                 )
             );
         }

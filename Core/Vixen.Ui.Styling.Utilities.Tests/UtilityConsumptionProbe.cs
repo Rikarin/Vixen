@@ -340,16 +340,23 @@ static class UtilityConsumptionProbe {
         // `justify-self` on.
         //
         // ⚠ <b>The row position is written as the `grid-row` shorthand and the column position as a
-        // longhand, and that asymmetry is load-bearing — do not tidy it.</b> `ApplyPlacements` applies
-        // the shorthand first and then overwrites it from the longhands whenever they are present, so
-        // a longhand beats a shorthand *whatever order they were declared in*. With `grid-row-start: 3`
-        // here, every `grid-row` this gate injected was silently discarded and the property measured
-        // inert while the engine read it perfectly. Declaring the row through the shorthand is what
-        // leaves the injected shorthand something to replace.
+        // longhand. That asymmetry WAS load-bearing and is no longer — the defect it worked around is
+        // fixed, and the asymmetry is kept only because it costs nothing and this scene is expensive
+        // to get wrong.</b> `ApplyPlacements` used to apply the shorthand first and then overwrite it
+        // from the longhands whenever they were present, so a longhand beat a shorthand *whatever
+        // order they were declared in*. With `grid-row-start: 3` here, every `grid-row` this gate
+        // injected was silently discarded and the property measured inert while the engine read it
+        // perfectly; declaring the row through the shorthand left the injected shorthand something to
+        // replace.
         //
-        // That ordering is a real defect and not only a fact about this scene — `grid-row: 1 / -1` is
-        // dropped on any element some other rule gave a `grid-row-start` — but it is filed rather than
-        // fixed here, because changing the bridge's precedence is not a change to a test fixture.
+        // That was a real defect and not only a fact about this scene — `grid-row: 1 / -1` from a
+        // `row-span-full` was dropped on any element some other rule had given a `grid-row-start`, no
+        // diagnostic, item auto-placed into a real cell. It is fixed in the cascade rather than in the
+        // bridge: `ShorthandExpansion` now splits `grid-column` and `grid-row` into their two
+        // longhands at load, so the two forms are comparable declarations and the later one wins. The
+        // longhand form of the row position was tried here and all five properties still measure live,
+        // so the workaround is genuinely spent — but a scene rewrite buys nothing and this file's own
+        // history is that the five are easy to make inert again by accident.
         //
         // ⚠ <b>The probe flows in columns, where every other scene flows in rows.</b>
         // `grid-auto-columns` sizes implicit *columns*, and a container with explicit columns and
