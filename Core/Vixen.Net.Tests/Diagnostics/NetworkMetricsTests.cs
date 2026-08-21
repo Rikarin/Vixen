@@ -4,6 +4,8 @@
 using System.Diagnostics.Metrics;
 using Vixen.Net.Diagnostics;
 using Vixen.Net.Tests.Sessions;
+using Vixen.Net.Transport;
+using Vixen.Net.Transport.Local;
 using Xunit;
 
 namespace Vixen.Net.Tests.Diagnostics;
@@ -30,6 +32,58 @@ public sealed class NetworkMetricsTests {
         Assert.Contains("vixen.net.bandwidth", collector.Names);
         Assert.Contains("vixen.net.snapshot.records", collector.Names);
         Assert.Contains("vixen.net.rpc.calls", collector.Names);
+        Assert.Contains("vixen.net.datagrams.sent", collector.Names);
+        Assert.Contains("vixen.net.datagrams.retransmitted", collector.Names);
+        Assert.Contains("vixen.net.datagrams.expected", collector.Names);
+        Assert.Contains("vixen.net.datagrams.lost", collector.Names);
+    }
+
+    /// <summary>The four loss totals are the transport's, unchanged and undivided.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Four counters and no share, which is this file's own rule rather than an omission.</b>
+    ///     Three per cent of what went out was resent and one per cent of what was sent to this
+    ///     server never arrived; both of those are a division the collector does, and a ratio
+    ///     published here could not be re-aggregated across a fleet.
+    /// </remarks>
+    [Fact]
+    public void TheLossTotalsAreWhateverTheTransportCounted() {
+        using var metrics = new NetworkMetrics {
+            Transport = new CountingTransport(new(Sent: 400, Retransmitted: 12, Expected: 900, Missing: 9))
+        };
+
+        using var collector = new Collector();
+
+        metrics.Sample();
+        collector.Collect();
+
+        Assert.Equal(400, collector.Value("vixen.net.datagrams.sent"));
+        Assert.Equal(12, collector.Value("vixen.net.datagrams.retransmitted"));
+        Assert.Equal(900, collector.Value("vixen.net.datagrams.expected"));
+        Assert.Equal(9, collector.Value("vixen.net.datagrams.lost"));
+    }
+
+    /// <summary>
+    ///     ⚠ A transport that measures nothing leaves the counters at zero, and a dashboard has to
+    ///     read them beside the send count to tell that apart from a clean link. It is the one place
+    ///     the meter cannot say "not measured" — an instrument registered conditionally would make
+    ///     the scrape schema depend on which transport a server happened to be running.
+    /// </summary>
+    [Fact]
+    public void ATransportThatCountsNothingLeavesTheLossTotalsAtZero() {
+        // Typed as the interface, because the default member is on the interface: a transport that
+        // has nothing to say about loss does not restate the property, and that is the point of it.
+        using ITransport transport = new LocalTransport(new());
+
+        Assert.Null(transport.Loss);
+
+        using var metrics = new NetworkMetrics { Transport = transport };
+        using var collector = new Collector();
+
+        metrics.Sample();
+        collector.Collect();
+
+        Assert.Equal(0, collector.Value("vixen.net.datagrams.sent"));
+        Assert.Equal(0, collector.Value("vixen.net.datagrams.lost"));
     }
 
     /// <summary>What the meter reports is what the last sample found.</summary>
@@ -146,6 +200,35 @@ public sealed class NetworkMetricsTests {
 
         Assert.Equal(0.0025, collector.Value("vixen.net.tick.duration"), 6);
         Assert.Equal(480, collector.Value("vixen.net.snapshot.size"));
+    }
+
+    /// <summary>A transport that does nothing but count, which is all the meter asks of one.</summary>
+    sealed class CountingTransport(TransportLoss counted) : ITransport {
+        public TransportCapabilities Capabilities { get; } = new(1200, IsInProcess: false, IsLossy: true);
+
+        public TransportLoss? Loss => counted;
+
+        public TransportState ServerState => TransportState.Stopped;
+
+        public TransportState ClientState => TransportState.Stopped;
+
+        public void StartServer() { }
+
+        public void StopServer() { }
+
+        public void StartClient() { }
+
+        public void StopClient() { }
+
+        public void Disconnect(ConnectionId connection) { }
+
+        public void SendToClient(ConnectionId connection, ReadOnlySpan<byte> payload, Channel channel) { }
+
+        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) { }
+
+        public void Poll(TimeSpan elapsed, ITransportEvents events) { }
+
+        public void Dispose() { }
     }
 
     /// <summary>Reads Vixen.Net's meter the way a collector does.</summary>

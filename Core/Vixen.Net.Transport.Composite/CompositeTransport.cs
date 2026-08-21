@@ -53,6 +53,45 @@ public sealed class CompositeTransport : ITransport {
     public TransportCapabilities Capabilities { get; }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sum of the ones that count, and absent when none of them does.</b> A
+    ///         composite is typically a UDP transport for desktop players and a WebSocket one for
+    ///         browsers, and only the first of those can see a datagram go missing. Reporting all
+    ///         zeroes for the second would be this transport saying the browsers have a perfect
+    ///         link; leaving it out says nothing about them, which is what is true.
+    ///     </para>
+    ///     <para>
+    ///         So what comes back covers the players on the transports that count and not the rest,
+    ///         and both halves of each ratio are drawn from the same population — which is the
+    ///         property that makes the number mean anything at all.
+    ///     </para>
+    /// </remarks>
+    public TransportLoss? Loss {
+        get {
+            var total = default(TransportLoss);
+            var measured = false;
+
+            foreach (var transport in inner) {
+                if (transport.Loss is not { } loss) {
+                    continue;
+                }
+
+                measured = true;
+
+                total = new(
+                    total.Sent + loss.Sent,
+                    total.Retransmitted + loss.Retransmitted,
+                    total.Expected + loss.Expected,
+                    total.Missing + loss.Missing
+                );
+            }
+
+            return measured ? total : null;
+        }
+    }
+
+    /// <inheritdoc />
     public TransportState ServerState { get; private set; }
 
     /// <inheritdoc />

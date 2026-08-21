@@ -162,21 +162,6 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public NetworkSession? NetworkSession { get; set; }
 
-    /// <summary>A cumulative count of datagrams sent again, when the transport counts them.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Retransmits and not loss, because the engine measures no loss.</b> Nothing on
-    ///     <c>ITransport</c> reports it and no meter publishes it; what a lossy link produces is
-    ///     retransmissions, and <c>UdpTransport.RetransmitCount</c> is the counter for them — so a
-    ///     host on UDP wires <c>() =&gt; transport.RetransmitCount</c> here and one on a loopback
-    ///     leaves it null. Null draws no lane rather than a flat one, because a flat lane would say
-    ///     the link is clean.
-    ///     <para>
-    ///         A delegate rather than a number because the module is not ticked by the thing that
-    ///         owns the transport, and the panel reads on its own clock.
-    ///     </para>
-    /// </remarks>
-    public Func<long>? NetworkRetransmits { get; set; }
-
     /// <summary>The profiler's model, for a test and for the host's own frame samples.</summary>
     public ProfilerModel Profiling => profiler;
 
@@ -334,23 +319,24 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
                 // `DebuggerTheme`'s own rules both land.
                 var network = BuildContext.Build<NetworkView>(panel.Document, panel);
 
-                // ⚠ Three delegates and no ledger, for the reason every panel here is pulled rather
+                // ⚠ Four delegates and no ledger, for the reason every panel here is pulled rather
                 // than pushed: this factory runs again on every reopen, so anything the module held
                 // a reference to would outlive the panel it was pointing at.
                 network.Source = () => NetworkLedger;
                 network.Registry = () => NetworkRegistry;
                 network.Capture = () => NetworkSnapshot;
-                network.Session = () => NetworkSession;
 
-                // ⚠ Wrapped rather than handed over. Assigning `NetworkRetransmits` straight across
-                // would capture whatever was in the property when the panel was opened, and the
-                // whole reason every line above is a lambda is that the module's values arrive and
-                // change while the panel is up. The null flows through: no counter, no lane.
-                network.Retransmits = () => NetworkRetransmits?.Invoke();
+                // ⚠ And the loss lanes come with it, wired by nobody. A session holds the transport
+                // it runs on and `ITransport.Loss` is null on one that cannot count datagrams, so a
+                // host that has pointed the panel at a session on UDP gets the two loss lanes for
+                // free — and one on a loopback gets a sentence saying why it does not. A separate
+                // property for the transport would be a fifth thing to wire, and the reason most
+                // hosts would not wire it is that nothing tells them there is anything to wire.
+                network.Session = () => NetworkSession;
 
                 // ⚠ After the delegates, and that is the whole of why it is here. A component's
                 // `OnComposed` runs *inside* the build, before `Build` has returned and therefore
-                // before the three lines above — so the panel's own first reading is of nothing.
+                // before the four lines above — so the panel's own first reading is of nothing.
                 // This is the one that sees whatever is attached.
                 network.Take();
             }

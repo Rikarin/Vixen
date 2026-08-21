@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Net.Diagnostics;
 using Vixen.Net.Sessions;
+using Vixen.Net.Transport;
 using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Debugger;
@@ -263,7 +264,8 @@ readonly record struct NetworkPacket(bool Present, SnapshotContents Contents, IR
 ///     <para>
 ///         ⚠ <b>A record of scalars, for the reason <see cref="NetworkReport" />'s own remarks
 ///         give.</b> Value equality means the signal holding one refuses an equal reading, so a
-///         still link notifies nothing.
+///         still link notifies nothing — and <c>TransportLoss</c> is four <c>long</c>s in a record
+///         struct, so carrying it here keeps that true where a list or a class would not.
 ///     </para>
 /// </remarks>
 /// <param name="Pointed">
@@ -285,7 +287,21 @@ readonly record struct NetworkPacket(bool Present, SnapshotContents Contents, IR
 /// <param name="MeanMilliseconds">The mean round trip across connected players who have samples.</param>
 /// <param name="WorstMilliseconds">The worst round trip anybody has — the one being complained about.</param>
 /// <param name="JitterMilliseconds">The worst jitter anybody has, which is what sizes their buffer.</param>
-/// <param name="Retransmitting">Whether the host supplied a retransmit counter to chart.</param>
+/// <param name="Counting">
+///     Whether the session's transport counts what it lost. ⚠ <b>Absent is not zero.</b> A transport
+///     that cannot count losses has not said there are none, so the two loss lanes are not drawn at
+///     all rather than drawn flat along the bottom.
+/// </param>
+/// <param name="Counted">
+///     The transport's four running totals, or all zeroes when it keeps none.
+///     <para>
+///         ⚠ <b>Totals here and shares on the graph, which is the split <c>TransportLoss</c> asks
+///         for.</b> The counters are cumulative, so their ratio is a lifetime average — the number
+///         that hides the thirty seconds somebody opened this panel about. The ring differences two
+///         readings and divides one difference by the other, which is what makes the lane a picture
+///         of the link now.
+///     </para>
+/// </param>
 readonly record struct NetworkLink(
     bool Pointed,
     bool Attached,
@@ -295,27 +311,40 @@ readonly record struct NetworkLink(
     double MeanMilliseconds,
     double WorstMilliseconds,
     double JitterMilliseconds,
-    bool Retransmitting
+    bool Counting,
+    TransportLoss Counted
 ) {
     /// <summary>Nothing pointed at anything, which is what a bare editor shows.</summary>
     public static NetworkLink None { get; }
 
     /// <summary>Takes a reading.</summary>
     /// <param name="source">Where the session comes from, or null when the host supplied none.</param>
-    /// <param name="retransmitting">Whether a retransmit counter was supplied.</param>
     /// <returns>The reading.</returns>
     /// <remarks>
-    ///     The delegate rather than the session, because whether there <i>is</i> one is half of what
-    ///     the reading has to say — see <see cref="Pointed" />.
+    ///     <para>
+    ///         The delegate rather than the session, because whether there <i>is</i> one is half of
+    ///         what the reading has to say — see <see cref="Pointed" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The loss counters come off the session's own transport, and the panel asks the
+    ///         host for nothing extra.</b> <c>NetworkSession.Transport</c> is the transport the
+    ///         session is running on, and <c>ITransport.Loss</c> is null on one that cannot count —
+    ///         so a game already pointing this panel at a session on UDP gets the lanes, and one on
+    ///         a loopback gets a sentence saying why it does not. A second delegate for the same
+    ///         object would be a second thing for every host to remember to wire, and the reason
+    ///         most of them would not is that it is not obvious there is anything to wire.
+    ///     </para>
     /// </remarks>
-    public static NetworkLink Of(Func<NetworkSession?>? source, bool retransmitting) {
+    public static NetworkLink Of(Func<NetworkSession?>? source) {
         if (source is null) {
             return None;
         }
 
         if (source.Invoke() is not { } session) {
-            return new(Pointed: true, Attached: false, Sampled: false, 0, 0, 0, 0, 0, retransmitting);
+            return new(Pointed: true, Attached: false, Sampled: false, 0, 0, 0, 0, 0, Counting: false, default);
         }
+
+        var counted = session.Transport.Loss;
 
         var connected = 0;
         var awaiting = 0;
@@ -357,7 +386,8 @@ readonly record struct NetworkLink(
             sampled == 0 ? 0 : total / sampled,
             worst,
             jitter,
-            retransmitting
+            counted.HasValue,
+            counted ?? default
         );
     }
 }

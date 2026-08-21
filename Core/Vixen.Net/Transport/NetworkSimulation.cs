@@ -87,6 +87,25 @@ public sealed class NetworkSimulation : ITransport {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The inner transport's, unchanged, and emphatically not a report of what this
+    ///         threw away.</b> <see cref="DroppedPayloadCount" /> is loss somebody asked for — a
+    ///         number this decorator knows because it invented it — and publishing it as
+    ///         <see cref="TransportLoss" /> would make a profile's <c>LossChance</c> come back as an
+    ///         observation, which is the one thing the loss counters must never be. What comes back
+    ///         here is what the transport underneath actually failed to receive.
+    ///     </para>
+    ///     <para>
+    ///         Which is also why the two rarely agree: a payload dropped here never reaches the
+    ///         transport below, so no sequence is spent on it and no gap appears downstream. This
+    ///         simulates a link that never carried the payload, and the inner transport's counters
+    ///         are a measurement of the medium <i>it</i> is on.
+    ///     </para>
+    /// </remarks>
+    public TransportLoss? Loss => inner.Loss;
+
+    /// <inheritdoc />
     public TransportState ServerState => inner.ServerState;
 
     /// <inheritdoc />

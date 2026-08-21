@@ -44,8 +44,9 @@ telemetry.Metrics.Session = session;
 telemetry.Metrics.Replication = replication;
 telemetry.Metrics.Rpc = router;
 telemetry.Metrics.Ledger = ledger;
+telemetry.Metrics.Transport = session.Transport;   // the loss counters, when the transport keeps any
 
-// …and once a tick, from the loop that owns those four:
+// …and once a tick, from the loop that owns those five:
 telemetry.Metrics.Sample();
 telemetry.Metrics.RecordTick(tookThisTick);
 ```
@@ -80,6 +81,18 @@ dozen bytes of copying a tick and one line in the loop.
 | `vixen.net.snapshot.suppressed` | counter | what retransmission backoff is saving |
 | `vixen.net.snapshot.size` | histogram, By | whether the budget is clipping snapshots |
 | `vixen.net.rpc.calls` | counter, tagged `outcome` | accepted, and each of the six refusals |
+| `vixen.net.datagrams.sent` | counter | reliable datagrams sent once — the denominator the next row needs |
+| `vixen.net.datagrams.retransmitted` | counter | what went again: an **upper bound** on outbound loss, not a count of it |
+| `vixen.net.datagrams.expected` | counter | inbound sequences past the ack window, which either came or did not |
+| `vixen.net.datagrams.lost` | counter | how many did not — **observed** inbound loss, over the row above |
+
+⚠ **The last four are four counters and not two ratios**, for the reason every counter here is
+cumulative: a number that has already been divided cannot be re-aggregated across a fleet. And
+⚠ **a transport that counts nothing leaves them at zero**, because a cumulative counter has no way to
+say "not measured" and registering them conditionally would make the scrape schema depend on which
+transport a server happened to run. All four flat at zero on a server that is plainly sending is a
+transport that does not count — not a clean link. See
+[measuring packet loss](../../docs/guide/engine/measuring-loss.md).
 
 Three decisions in that table are worth stating.
 

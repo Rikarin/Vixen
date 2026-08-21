@@ -38,6 +38,7 @@
 @using Vixen.Net.Diagnostics
 @using Vixen.Net.Replication
 @using Vixen.Net.Sessions
+@using Vixen.Net.Transport
 @using Vixen.Ui
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Reactive
@@ -121,10 +122,10 @@
     Its own remarks argue why the ring is not beside the estimator, why the chart is drawn as a
     sweep rather than scrolled, and why the scale is snapped to a ladder.
 
-    ⚠ **`Lanes` reads `Link`, and it has to.** The retransmit lane is only there when the host
-    supplied a counter, so the loop's own source changes — and a `@for` whose source is read off a
-    plain field is a loop that reconciles once and never again. `Link` is a signal, so reading it
-    here is what puts this loop in the dependency graph.
+    ⚠ **`Lanes` reads `Link`, and it has to.** The two loss lanes are only there when the session's
+    transport counts what it lost, so the loop's own source changes — and a `@for` whose source is
+    read off a plain field is a loop that reconciles once and never again. `Link` is a signal, so
+    reading it here is what puts this loop in the dependency graph.
 -->
 <network-graph>
     <network-heading>the link, over the last @Window()</network-heading>
@@ -162,7 +163,7 @@
             </network-lane>
         }
 
-        @if (!Link.Retransmitting) {
+        @if (!Link.Counting) {
             <network-status>@Unmeasured()</network-status>
         }
     }
@@ -231,13 +232,23 @@
     ///     The three lanes, made once and never replaced — which is what makes the graph's outer
     ///     <c>@for</c> key survive, exactly as the five tables above do.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The last two are shares of one interval's traffic and not running totals, which is
+    ///     the whole reason the transport publishes four counters instead of two ratios.</b> Resent
+    ///     is what went again as a fraction of what went — an <i>upper bound</i> on outbound loss,
+    ///     because one lost datagram can be resent three times and a lost acknowledgement resends a
+    ///     datagram that arrived. Lost is the honest one: a fraction of the sequences the far end
+    ///     numbered that never reached this process. Two lanes and not one for exactly that reason,
+    ///     and named for what they are rather than both called loss.
+    /// </remarks>
     readonly NetworkTrend[] lanes = [
         new("round trip", " ms"),
         new("jitter", " ms"),
-        new("retransmits", "/s")
+        new("resent", " %"),
+        new("lost inbound", " %")
     ];
 
-    /// <summary>The first two of them, for a host that supplied no retransmit counter.</summary>
+    /// <summary>The first two of them, for a session whose transport counts nothing.</summary>
     /// <remarks>
     ///     Built on first use rather than beside <c>lanes</c> because a field initialiser cannot read
     ///     another field, and made once rather than per read because it is a <c>@for</c> source: a
@@ -245,14 +256,15 @@
     /// </remarks>
     NetworkTrend[]? timing;
 
-    /// <summary>The last retransmit count and when it was read, which is what makes it a rate.</summary>
+    /// <summary>The counters as they were one reading ago, which is what makes a share a share.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one number on the panel that is differenced, and the ring is what makes that
-    ///     possible.</b> A cumulative counter drawn straight is a line that only goes up and says
-    ///     nothing about now; what a link being in trouble looks like is the <i>rate</i> climbing,
-    ///     and a rate needs two readings and the time between them.
+    ///     ⚠ <b>The only numbers on the panel that are differenced, and the ring is what makes
+    ///     that possible.</b> The transport publishes cumulative totals on purpose — a total that
+    ///     has already been divided cannot be re-aggregated across three servers, which is the
+    ///     argument <c>NetworkMetrics</c> makes at length — so the division belongs to whoever has
+    ///     two readings, and on this pane that is this.
     /// </remarks>
-    (TimeSpan At, long Count) retransmitted = (TimeSpan.MinValue, 0);
+    (bool Any, TransportLoss Counted) counted;
 
     /// <summary>
     ///     The ledger's five answers, as five objects that outlive every reading — which is what
@@ -331,7 +343,7 @@
     /// </remarks>
     public Func<ReadOnlyMemory<byte>>? Capture { get; set; }
 
-    /// <summary>Where round trip and jitter come from, or <see langword="null" />.</summary>
+    /// <summary>Where round trip, jitter and the loss counters come from, or <see langword="null" />.</summary>
     /// <remarks>
     ///     ⚠ <b>A session rather than an estimator, because a round trip belongs to a
     ///     <i>player</i>.</b> <c>RoundTripEstimator</c> is per connection — a server has one for
@@ -340,35 +352,18 @@
     ///     <c>NetworkMetrics.Sample</c> does: the mean across everybody, the worst anybody has, and
     ///     the worst jitter anybody has.
     ///     <para>
+    ///         ⚠ <b>And the two loss lanes come off the same delegate, which is why there is no fifth
+    ///         one.</b> A session holds the transport it is running on and <c>ITransport.Loss</c> is
+    ///         null on a transport that cannot count datagrams, so this is already everything the
+    ///         graph needs. A separate source for the transport would be a second thing for every
+    ///         host to wire, and the reason most of them would not is that nothing would tell them
+    ///         there was anything to wire.
+    ///     </para>
+    ///     <para>
     ///         Pulled rather than pushed, for the reason <see cref="Source" /> gives at length.
     ///     </para>
     /// </remarks>
     public Func<NetworkSession?>? Session { get; set; }
-
-    /// <summary>A cumulative count of datagrams sent again, or <see langword="null" />.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Retransmits, and not loss, because loss is not a thing this engine
-    ///         measures.</b> Nothing on <c>ITransport</c> reports it, no session or replication
-    ///         counter derives it, and <c>NetworkMetrics</c> publishes no loss instrument — the only
-    ///         loss figure in the tree is <c>NetworkSimulation.LossChance</c>, which is loss somebody
-    ///         asked for rather than loss that happened. What a lossy link does produce is
-    ///         retransmissions, and <c>UdpTransport.RetransmitCount</c> exists and says of itself
-    ///         that it is "the number a diagnostics panel draws". So that is the number drawn, under
-    ///         its own name.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Absent when there is none, rather than zero.</b> A lane flat along the bottom
-    ///         reads as a clean link, which is the state this must never invent — a transport that
-    ///         cannot count retransmits has not told anybody there are none. The lane is not drawn
-    ///         and a line under the graph says why.
-    ///     </para>
-    ///     <para>
-    ///         A count rather than a rate, because a rate needs two readings and the panel is the
-    ///         thing with two readings. The host supplies the counter and this differences it.
-    ///     </para>
-    /// </remarks>
-    public Func<long?>? Retransmits { get; set; }
 
     /// <summary>What the ledger currently adds up to.</summary>
     NetworkReport Summary => summary.Value;
@@ -379,9 +374,9 @@
     /// <summary>What the link is doing.</summary>
     NetworkLink Link => link.Value;
 
-    /// <summary>The lanes on screen, which is two or three of them.</summary>
+    /// <summary>The lanes on screen, which is two of them or four.</summary>
     IReadOnlyList<NetworkTrend> Lanes =>
-        Link.Retransmitting ? lanes : timing ??= [lanes[0], lanes[1]];
+        Link.Counting ? lanes : timing ??= [lanes[0], lanes[1]];
 
     /// <summary>The five columns, in the order the ledger's own remarks ask the question in.</summary>
     IReadOnlyList<NetworkTable> Tables => tables;
@@ -458,16 +453,24 @@
     }
 
     /// <summary>Puts one point on each lane of the graph.</summary>
-    /// <param name="now">The document's clock, which is what makes the retransmit rate a rate.</param>
     /// <remarks>
-    ///     ⚠ <b>Driven by the clock alone, and deliberately not by <see cref="Take" />.</b> Refresh
-    ///     is somebody asking for the numbers now; it is not time passing, and a graph that grew a
-    ///     sample every time a button was pressed would have an x-axis that means whatever the mouse
-    ///     did. It also makes <c>UiTest.Advance</c> the entire harness for this pane.
+    ///     <para>
+    ///         ⚠ <b>Driven by the clock alone, and deliberately not by <see cref="Take" />.</b>
+    ///         Refresh is somebody asking for the numbers now; it is not time passing, and a graph
+    ///         that grew a sample every time a button was pressed would have an x-axis that means
+    ///         whatever the mouse did. It also makes <c>UiTest.Advance</c> the entire harness for
+    ///         this pane.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No clock is needed for the last two lanes, which is what tells a share from a
+    ///         rate.</b> A share is one interval's losses over the same interval's traffic, and how
+    ///         long the interval was cancels out. It is also why a quarter of a second is honest
+    ///         here: a rate over a short window is noise, and a share over a short window is a small
+    ///         sample of exactly the right quantity.
+    ///     </para>
     /// </remarks>
-    void Sample(TimeSpan now) {
-        var counter = Retransmits?.Invoke();
-        var reading = NetworkLink.Of(Session, counter.HasValue);
+    void Sample() {
+        var reading = NetworkLink.Of(Session);
 
         link.Value = reading;
 
@@ -476,7 +479,7 @@
                 lane.Clear();
             }
 
-            retransmitted = (TimeSpan.MinValue, 0);
+            counted = default;
 
             return;
         }
@@ -484,20 +487,40 @@
         lanes[0].Push(reading.MeanMilliseconds);
         lanes[1].Push(reading.JitterMilliseconds);
 
-        if (counter is not { } total) {
+        if (!reading.Counting) {
             lanes[2].Clear();
-            retransmitted = (TimeSpan.MinValue, 0);
+            lanes[3].Clear();
+            counted = default;
 
             return;
         }
 
-        var seconds = retransmitted.At == TimeSpan.MinValue ? 0d : (now - retransmitted.At).TotalSeconds;
-        var moved = total - retransmitted.Count;
+        var previous = counted;
+        counted = (Any: true, reading.Counted);
 
-        // A counter that went backwards is a transport that was replaced, not a negative rate.
-        lanes[2].Push(seconds > 0 && moved > 0 ? moved / seconds : 0);
-        retransmitted = (now, total);
+        if (!previous.Any) {
+            // One reading is not two, and a share needs two. Drawing the lifetime ratio here instead
+            // would put one bar on the chart that means something different from every bar after it.
+            return;
+        }
+
+        var now = reading.Counted;
+        var was = previous.Counted;
+
+        lanes[2].Push(Share(now.Retransmitted - was.Retransmitted, now.Sent - was.Sent));
+        lanes[3].Push(Share(now.Missing - was.Missing, now.Expected - was.Expected));
     }
+
+    /// <summary>One interval's losses over the same interval's traffic, as a percentage.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing sent is nothing lost, and it is drawn as zero rather than left out.</b> A
+    ///     quarter of a second in which no reliable datagram went out has no share to report, and the
+    ///     ring has no way to say "no sample" — while a gap in a strip of bars would read as a lane
+    ///     that had stopped. Zero is the reading that matches "none of what went had to go again",
+    ///     which is true of an interval in which nothing went. A counter that went backwards is a
+    ///     transport that was replaced rather than a negative share.
+    /// </remarks>
+    static double Share(long part, long whole) => whole <= 0 || part <= 0 ? 0 : 100d * part / whole;
 
     /// <summary>What is cheap to read and changes whenever a reading would differ.</summary>
     static (long Bits, long Count, TimeSpan Elapsed, bool Objects) Fingerprint(BandwidthLedger? ledger) =>
@@ -561,11 +584,17 @@
             : string.Create(CultureInfo.InvariantCulture, $"{line}, {reading.Awaiting:N0} awaiting reconnect");
     }
 
-    /// <summary>Why there is no third lane.</summary>
+    /// <summary>Why there are two lanes rather than four.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Absent rather than flat, and the sentence is about this transport rather than about
+    ///     the engine.</b> Loss is measured now — a transport that numbers its own datagrams sees
+    ///     the gaps — but only a transport that numbers them can, and two lanes along the bottom
+    ///     would say the link is clean, which is a claim nothing here has made.
+    /// </remarks>
     static string Unmeasured() =>
-        "No loss lane. Nothing in the engine measures packet loss — no transport reports it and no "
-        + "meter publishes it — so the closest honest number is retransmissions, and this host "
-        + "supplied no counter to read them from. UdpTransport.RetransmitCount is one.";
+        "No loss lanes. This session's transport does not count datagrams: an in-process one has "
+        + "none to count, and one over a stream has a stack underneath it hiding them. UdpTransport "
+        + "counts both directions, and a session running on one draws them here.";
 
     /// <summary>How much of the dearest row's cost this row is, from zero to one.</summary>
     /// <remarks>
@@ -673,7 +702,7 @@
 
         last = now;
         Take();
-        Sample(now);
+        Sample();
     }
 
     void Release() {

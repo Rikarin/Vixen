@@ -8,6 +8,7 @@ Vixen.Net.Transport.Composite.CompositeTransport.ClientTransport.get -> Vixen.Ne
 Vixen.Net.Transport.Composite.CompositeTransport.CompositeTransport(System.Collections.Generic.IReadOnlyList<Vixen.Net.Transport.ITransport> transports, int clientTransport = 0) -> void
 Vixen.Net.Transport.Composite.CompositeTransport.Disconnect(Vixen.Net.ConnectionId connection) -> void
 Vixen.Net.Transport.Composite.CompositeTransport.Dispose() -> void
+Vixen.Net.Transport.Composite.CompositeTransport.Loss.get -> Vixen.Net.Transport.TransportLoss?
 Vixen.Net.Transport.Composite.CompositeTransport.Poll(System.TimeSpan elapsed, Vixen.Net.Transport.ITransportEvents events) -> void
 Vixen.Net.Transport.Composite.CompositeTransport.SendToClient(Vixen.Net.ConnectionId connection, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
 Vixen.Net.Transport.Composite.CompositeTransport.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void

@@ -151,7 +151,9 @@ both *now*, and a graph is a claim about the past. So the panel keeps a ring, `N
 assembly. It is not beside the estimator because nothing else wants it: the meter's own remarks say
 rates are the collector's job and are "deliberately not computed here", and a ring in `Vixen.Net`
 would be a second in-process time series paid for by every dedicated server whether or not anybody is
-looking. `Vixen.Net` still gains not one line of public surface, which is the claim above.
+looking. What `Vixen.Net` gained instead is a *measurement* — `TransportLoss`, four counters every
+server benefits from and a meter publishes — and still no time series, which is the line the two
+sides of this are drawn along.
 
 ⚠ **The ring is drawn as a ring, and that is what makes it cheap.** A scrolling chart shifts every
 sample one place left on every reading, so all hundred and twenty `@for` keys change and all hundred
@@ -160,14 +162,19 @@ to: a reading changes one slot's value and moves the `newest` class from one bar
 three elements are rebuilt. The scale is snapped to a 1–2–5 ladder for the same reason and for a
 better one — a chart whose axis moves on every reading cannot be read at all.
 
-⚠ **There is no loss lane unless the host can count retransmissions, and there is no loss number
-anywhere.** Nothing in the engine measures packet loss: `ITransport` reports none, no session or
-replication counter derives one, and `NetworkMetrics` publishes no loss instrument. The only loss
-figure in the tree is `NetworkSimulation.LossChance`, which is loss somebody *asked for*. What a
-lossy link does produce is retransmissions, and `UdpTransport.RetransmitCount` says of itself that it
-is "the number a diagnostics panel draws" — so a host that has one wires it and the panel differences
-it into a rate. A host that has none gets no lane, because a lane flat along the bottom would say the
-link is clean.
+⚠ **The two loss lanes are two, because the two directions are known by different evidence.**
+`ITransport.Loss` is four cumulative totals from the session's own transport, and the panel
+differences them into shares of one interval's traffic: **resent** is `Retransmitted` over `Sent`,
+which is an *upper bound* on outbound loss — one lost datagram resent three times counts three, and a
+lost acknowledgement resends one that arrived — and **lost inbound** is `Missing` over `Expected`,
+which is loss that happened, because the far end's sequence numbers are consecutive and a gap that
+has left the acknowledgement window is a datagram that never came. Naming both of them "loss" would
+be the panel claiming the first one is the second.
+
+⚠ **And a transport that counts nothing gets two lanes and a sentence.** `ITransport.Loss` is null on
+one that cannot count datagrams — an in-process transport has none to count — and a pair of lanes
+flat along the bottom would say the link is clean, which is the state this must never invent. Nothing
+is wired for any of it: a `NetworkSession` holds the transport it runs on, so the panel asks it.
 
 ## The theme
 

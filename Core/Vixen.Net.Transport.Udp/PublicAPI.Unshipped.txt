@@ -27,6 +27,7 @@ Vixen.Net.Transport.Udp.UdpTransport.ConnectionCount.get -> int
 Vixen.Net.Transport.Udp.UdpTransport.Disconnect(Vixen.Net.ConnectionId connection) -> void
 Vixen.Net.Transport.Udp.UdpTransport.Dispose() -> void
 Vixen.Net.Transport.Udp.UdpTransport.ListeningOn.get -> System.Net.EndPoint?
+Vixen.Net.Transport.Udp.UdpTransport.Loss.get -> Vixen.Net.Transport.TransportLoss?
 Vixen.Net.Transport.Udp.UdpTransport.Poll(System.TimeSpan elapsed, Vixen.Net.Transport.ITransportEvents events) -> void
 Vixen.Net.Transport.Udp.UdpTransport.RejectedDatagramCount.get -> long
 Vixen.Net.Transport.Udp.UdpTransport.RetransmitCount.get -> long
