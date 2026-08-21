@@ -289,10 +289,12 @@ public class ParticleSpriteDeviceTests {
         return new(image.Pixels[offset] / 255f, image.Pixels[offset + 1] / 255f, image.Pixels[offset + 2] / 255f);
     }
 
-    /// <summary>Passes when there is no device, unless the environment insists on one.</summary>
+    /// <summary>Skips when there is no device, unless the environment insists on one.</summary>
     static void Skip(string? reason) {
         if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
             Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
         }
+
+        Assert.Skip(reason ?? "no Vulkan");
     }
 }

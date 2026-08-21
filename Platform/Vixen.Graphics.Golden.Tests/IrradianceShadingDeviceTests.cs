@@ -589,5 +589,7 @@ public class IrradianceShadingDeviceTests {
         if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
             Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
         }
+
+        Assert.Skip(reason ?? "no Vulkan");
     }
 }

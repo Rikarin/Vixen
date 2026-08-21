@@ -322,6 +322,7 @@ public sealed class WaterRippleSeamTests {
             Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
         }
 
+        Assert.Skip(reason ?? "no Vulkan");
         return false;
     }
 }
