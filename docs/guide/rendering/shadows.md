@@ -20,6 +20,7 @@ each owned by whoever knows the fact it carries:
 |---|---|
 | a stage with `shader: ShadowCaster` | how casters are drawn — depth only, front faces, biased |
 | `GraphicsOptions.CasterStages` | which objects are *in* that stage |
+| `MeshRenderable.CastsShadows` | which of those objects opt back out of it |
 | `!ShadowMap` | where the cascades are fitted and what they are drawn into |
 | `sceneTextures:` on the shading pass | how the atlas reaches set 0 |
 
@@ -111,6 +112,31 @@ config.Graphics.CasterStages.Add("Shadow");
 The camera's own view keeps the `Opaque` mask alone — the shadow node makes its own views, one per
 cascade, and adding the caster stage to the camera would draw the level twice into the frame the
 player sees.
+
+That line is also what makes the per-object opt-out mean anything. `MeshRenderable.CastsShadows` is
+authored on the entity, and a render object carries a stage mask and nothing else a shadow pass
+consults — so "casts no shadow" can only be spelled as "not in the caster stages", and extraction has
+to be told which stages those are. Naming them here does both: `AppGraphics` unions `CasterStages`
+and `StaticCasterStages` into `MeshExtractionSystem.CasterStages`, and a drawable with the flag clear
+is stamped with its mask less those bits.
+
+```csharp no-compile="a fragment of scene set-up, against a world"
+// Glass, foliage cards, a skybox shell: drawn, and never in a cascade.
+world.Add(entity, MeshRenderables.Default(mesh) with { CastsShadows = false });
+```
+
+⚠ **A host that names no caster stage ignores the flag rather than obeying it.** A zeroed
+`MeshRenderable` reads `false`, and so does a scene file that omits the field — so the opt-in is what
+keeps an unwired project drawing the shadows it drew yesterday instead of losing all of them at once.
+`PrimitiveShape` carries no such field and is always a caster; giving it one would change a
+component's layout, which every saved scene is a copy of.
+
+⚠ **The flag is read once, when the entity is first extracted**, exactly as `StaticShadowCaster` is,
+and for a sharper reason than symmetry: a static caster's shadow is already in the cached atlas, so
+re-stamping its mask on a live scene would stop it being *drawn* without removing what is already
+*there*. Toggling it on a settled entity takes effect through `MeshExtractionSystem.Resettle`, which
+drops every render object and residency claim so the next extraction stamps them afresh — and for a
+static caster, a bump of `StaticVersion` beside it to redraw the cache.
 
 Terrain is the one caster that does not go through the stage. The ground is not an extracted
 object — its patches live in a node's own buffers — so `TerrainComponent.CastShadows` is consumed

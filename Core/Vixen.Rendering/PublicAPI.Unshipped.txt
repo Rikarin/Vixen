@@ -1517,6 +1517,8 @@ Vixen.Rendering.Ecs.MeshExtractionSystem -> sealed class
 Vixen.Rendering.Ecs.MeshExtractionSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Ecs.MeshExtractionSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Rendering.Ecs.MeshExtractionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Rendering.Ecs.MeshExtractionSystem.CasterStages.get -> Vixen.Rendering.RenderStageMask
+Vixen.Rendering.Ecs.MeshExtractionSystem.CasterStages.set -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.Ecs.MeshExtractionSystem.Clear() -> void
 Vixen.Rendering.Ecs.MeshExtractionSystem.Clusters.get -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
 Vixen.Rendering.Ecs.MeshExtractionSystem.Clusters.set -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
@@ -1531,6 +1533,7 @@ Vixen.Rendering.Ecs.MeshExtractionSystem.MeshExtractionSystem(Vixen.Rendering.Re
 Vixen.Rendering.Ecs.MeshExtractionSystem.Meshes.get -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Rendering.Ecs.MeshExtractionSystem.Meshes.set -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Rendering.Ecs.MeshExtractionSystem.ObjectCount.get -> int
+Vixen.Rendering.Ecs.MeshExtractionSystem.Resettle(Vixen.Ecs.World world) -> void
 Vixen.Rendering.Ecs.MeshExtractionSystem.ResolveMaterials.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.ResolveMaterial>
 Vixen.Rendering.Ecs.MeshExtractionSystem.Stages.get -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.Ecs.MeshExtractionSystem.Stages.set -> Vixen.Rendering.RenderStageMask
@@ -4061,6 +4064,7 @@ Vixen.Rendering.RenderStageMask : System.IEquatable<Vixen.Rendering.RenderStageM
 Vixen.Rendering.RenderStageMask.Bits.get -> ulong
 Vixen.Rendering.RenderStageMask.Bits.init -> ulong
 Vixen.Rendering.RenderStageMask.Contains(int stageIndex) -> bool
+Vixen.Rendering.RenderStageMask.Except(Vixen.Rendering.RenderStageMask other) -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.RenderStageMask.Indices() -> System.Collections.Generic.IEnumerable<int>
 Vixen.Rendering.RenderStageMask.Intersect(Vixen.Rendering.RenderStageMask other) -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.RenderStageMask.Intersects(Vixen.Rendering.RenderStageMask other) -> bool

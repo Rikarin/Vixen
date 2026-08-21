@@ -763,6 +763,12 @@ public sealed class WorldRenderer : IDisposable {
     ///     <see cref="MeshExtractionSystem.StaticStages" />. What a frame caching its sun shadow needs,
     ///     and nothing else reads it.
     /// </param>
+    /// <param name="casterStages">
+    ///     Which of the above draw shadows — both caster sets — so that a drawable whose
+    ///     <see cref="Rendering.Ecs.MeshRenderable.CastsShadows" /> is clear can be left out of them.
+    ///     None ignores the flag; see <see cref="MeshExtractionSystem.CasterStages" /> for why that is
+    ///     the default rather than the other way round.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="loop" /> is null.</exception>
     /// <remarks>
     ///     The stage mask is the caller's because a stage's index is assigned by the render system when
@@ -773,7 +779,8 @@ public sealed class WorldRenderer : IDisposable {
         EngineLoop loop,
         RenderStageMask stages,
         RenderStageMask particleStages = default,
-        RenderStageMask staticStages = default
+        RenderStageMask staticStages = default,
+        RenderStageMask casterStages = default
     ) {
         ArgumentNullException.ThrowIfNull(loop);
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -781,6 +788,7 @@ public sealed class WorldRenderer : IDisposable {
         Extraction = new(Host.System, Meshes, Transforms, Materials, Residency) {
             Stages = stages,
             StaticStages = staticStages,
+            CasterStages = casterStages,
             Meshes = Source,
             Materials = Painter,
             Virtualized = Clusters?.Feature,

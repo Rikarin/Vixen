@@ -215,6 +215,19 @@ public readonly record struct RenderStageMask(ulong Bits) {
     /// <summary>The stages both sets hold, for callers that cannot use the operator.</summary>
     public RenderStageMask Intersect(RenderStageMask other) => this & other;
 
+    /// <summary>This set without the stages the other holds.</summary>
+    /// <param name="other">The stages to take out.</param>
+    /// <returns>The remainder.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A subtraction rather than a complement, because a complement of a mask is every bit
+    ///     with no stage behind it as well.</b> <see cref="All" /> is deliberately every
+    ///     <em>representable</em> stage and not every declared one, so <c>All.Except(x)</c> is a set
+    ///     holding 63 stages that do not exist — harmless where it is intersected against an object's
+    ///     mask, and a surprise anywhere it is read as a list. Taking one set out of another never
+    ///     invents a bit.
+    /// </remarks>
+    public RenderStageMask Except(RenderStageMask other) => new(Bits & ~other.Bits);
+
     /// <summary>The stages in the set, ascending.</summary>
     public IEnumerable<int> Indices() {
         for (var i = 0; i < Capacity; i++) {

@@ -283,9 +283,15 @@ public sealed class AppGraphics : IDisposable {
             // stage beside it. See GraphicsOptions.CasterStages for why the two masks differ.
             var extracted = stage.Mask;
 
+            // ⚠ Accumulated across *both* caster lists below, because it is what a drawable saying it
+            // casts no shadow is taken out of and either list may be the one it would have been
+            // stamped from — see MeshExtractionSystem.CasterStages.
+            var casters = RenderStageMask.None;
+
             foreach (var caster in options.CasterStages) {
                 if (Renderer.Host.Builder.Stages.TryGetValue(caster, out var casting)) {
                     extracted |= casting.Mask;
+                    casters |= casting.Mask;
                 } else {
                     HostLog.NoStage(logger, caster);
                 }
@@ -306,6 +312,7 @@ public sealed class AppGraphics : IDisposable {
                 foreach (var caster in options.StaticCasterStages) {
                     if (Renderer.Host.Builder.Stages.TryGetValue(caster, out var casting)) {
                         still |= casting.Mask;
+                        casters |= casting.Mask;
                     } else {
                         HostLog.NoStage(logger, caster);
                     }
@@ -313,6 +320,8 @@ public sealed class AppGraphics : IDisposable {
 
                 StaticStages = still;
             }
+
+            CasterStages = casters;
         } else {
             HostLog.NoStage(logger, options.Stage);
         }
@@ -382,7 +391,7 @@ public sealed class AppGraphics : IDisposable {
             engine.Add(WaterClock);
 
             engine.Add(Volumes);
-            Renderer.Register(engine, Stages, ParticleStages, StaticStages);
+            Renderer.Register(engine, Stages, ParticleStages, StaticStages, CasterStages);
 
             // ⚠ The overlay system and *not* DebugDrawSystem beside it. This one is a PreRender
             // reader that draws panels into the accumulator, which is exactly where doc 13 puts it:
@@ -507,6 +516,16 @@ public sealed class AppGraphics : IDisposable {
     ///     every project that has not opted into a cached sun shadow already has.
     /// </remarks>
     public RenderStageMask StaticStages { get; }
+
+    /// <summary>Which of the extracted stages draw shadows, or none.</summary>
+    /// <remarks>
+    ///     Both of <c>GraphicsOptions.CasterStages</c> and <c>StaticCasterStages</c> resolved and
+    ///     unioned, which is what <c>MeshExtractionSystem.CasterStages</c> takes out of a drawable
+    ///     whose <c>MeshRenderable.CastsShadows</c> is clear. Both lists, because either may be the
+    ///     set the drawable was going to be stamped from. None is a project that named no caster
+    ///     stage, and leaves the flag ignored.
+    /// </remarks>
+    public RenderStageMask CasterStages { get; }
 
     /// <summary>Which stage the scene's particle emitters are drawn in, or none.</summary>
     /// <remarks>

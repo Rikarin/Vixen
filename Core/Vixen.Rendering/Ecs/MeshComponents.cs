@@ -66,9 +66,26 @@ public struct MeshRenderable : IDefaultComponent<MeshRenderable> {
 
     /// <summary>Whether it is drawn into the shadow stages as well as the shading ones.</summary>
     /// <remarks>
-    ///     Zero is <see langword="false" /> and a chunk's column is zeroed memory, which nothing can
-    ///     change — so <see cref="MeshRenderables.Default" /> is what an editor and a script build one
-    ///     with, exactly as <c>Lights.Default</c> exists for the same reason.
+    ///     <para>
+    ///         Zero is <see langword="false" /> and a chunk's column is zeroed memory, which nothing
+    ///         can change — so <see cref="MeshRenderables.Default" /> is what an editor and a script
+    ///         build one with, exactly as <c>Lights.Default</c> exists for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         <b>Read by <see cref="MeshExtractionSystem" />, and only where
+    ///         <see cref="MeshExtractionSystem.CasterStages" /> says which stages are the shadow
+    ///         ones.</b> A render object carries a stage mask and nothing else a shadow pass could
+    ///         consult, so "casts no shadow" is spelled as "not in those stages" — which means a host
+    ///         that has not named them cannot honour the flag, and ignores it rather than dropping
+    ///         every shadow in a scene whose zeroed columns all read <see langword="false" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read once, when the entity is first extracted.</b> A settled entity is never
+    ///         re-extracted, so ticking this on a live scene reaches nothing already drawn until
+    ///         <see cref="MeshExtractionSystem.Resettle" /> unsettles it — the same bargain
+    ///         <see cref="StaticShadowCaster" /> makes, for the same reason, and it is why the flag is
+    ///         a property of the level rather than a switch to animate.
+    ///     </para>
     /// </remarks>
     public bool CastsShadows;
 

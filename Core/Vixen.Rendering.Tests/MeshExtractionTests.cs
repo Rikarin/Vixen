@@ -590,4 +590,189 @@ public sealed class MeshExtractionTests : IDisposable {
 
         Assert.Equal(opaque.Mask, system.Objects[world.Read<RenderHandle>(level).Object].Stages);
     }
+
+    // ------------------------------------------------------ the shadow-casting flag
+
+    /// <summary>Puts a mesh entity in the world, casting or not.</summary>
+    static Entity Meshed(World world, bool casts, Vector3 position) {
+        var entity = world.Create();
+        var reference = new AssetReference(new AssetId(Guid.NewGuid()));
+
+        world.Add(entity, MeshRenderables.Default(reference) with { CastsShadows = casts });
+        world.Add(entity, new WorldTransform { Value = Matrix4x4.FromTranslation(position) });
+
+        return entity;
+    }
+
+    /// <summary>The flag decides whether the object is in the caster stage at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The assertion that was impossible until <c>CasterStages</c> existed.</b> A render object
+    ///     carries a stage mask and nothing else a shadow pass consults, so an entity saying it casts no
+    ///     shadow could only ever be honoured by leaving those bits out — and nothing told extraction
+    ///     which bits those were. The flag round-tripped through the inspector and a saved scene the
+    ///     whole time, and the object cast a shadow regardless.
+    /// </remarks>
+    [Fact]
+    public void ADrawableThatCastsNoShadowIsLeftOutOfTheCasterStage() {
+        var shadow = system.AddStage(new("Shadow"));
+
+        extraction.Meshes = new OneMesh();
+        extraction.Stages = opaque.Mask | shadow.Mask;
+        extraction.CasterStages = shadow.Mask;
+
+        using var world = new World();
+        var casting = Meshed(world, casts: true, Vector3.Zero);
+        var quiet = Meshed(world, casts: false, Vector3.UnitX);
+
+        extraction.Extract(world);
+
+        Assert.Equal(opaque.Mask | shadow.Mask, system.Objects[world.Read<RenderHandle>(casting).Object].Stages);
+        Assert.Equal(opaque.Mask, system.Objects[world.Read<RenderHandle>(quiet).Object].Stages);
+    }
+
+    /// <summary>A static caster that casts no shadow is in neither caster stage.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The interaction, and the one that is easy to get wrong in the direction that hides
+    ///     itself.</b> The two questions are independent — the tag chooses <em>which</em> caster stages,
+    ///     the flag chooses whether any — so the flag has to be applied to whichever set the tag picked.
+    ///     Testing it against the movers' mask alone would leave this wall in the *cached* atlas, where
+    ///     its shadow then survives every frame that does not bump <c>StaticVersion</c>: a shadow with
+    ///     no object, permanently, from a checkbox that says it should not be there.
+    /// </remarks>
+    [Fact]
+    public void AStaticCasterThatCastsNoShadowIsInNeitherCasterStage() {
+        var shadow = system.AddStage(new("Shadow"));
+        var still = system.AddStage(new("ShadowStatic"));
+
+        extraction.Meshes = new OneMesh();
+        extraction.Stages = opaque.Mask | shadow.Mask;
+        extraction.StaticStages = opaque.Mask | still.Mask;
+        extraction.CasterStages = shadow.Mask | still.Mask;
+
+        using var world = new World();
+        var wall = Meshed(world, casts: false, Vector3.Zero);
+        var pillar = Meshed(world, casts: true, Vector3.UnitX);
+
+        world.Add<StaticShadowCaster>(wall);
+        world.Add<StaticShadowCaster>(pillar);
+        extraction.Extract(world);
+
+        Assert.Equal(opaque.Mask, system.Objects[world.Read<RenderHandle>(wall).Object].Stages);
+        Assert.Equal(opaque.Mask | still.Mask, system.Objects[world.Read<RenderHandle>(pillar).Object].Stages);
+    }
+
+    /// <summary>With no caster mask the flag is ignored, rather than obeyed with a mask of none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The difference between the two is every shadow in the scene.</b> A zeroed
+    ///     <c>MeshRenderable</c> has the flag clear and a scene file that omits the field deserialises to
+    ///     exactly that, so a host that has not named its caster stages must go on drawing what it drew
+    ///     yesterday — the opt-in is what keeps the fix from being a silent regression everywhere.
+    /// </remarks>
+    [Fact]
+    public void WithNoCasterMaskTheFlagIsIgnored() {
+        var shadow = system.AddStage(new("Shadow"));
+
+        extraction.Meshes = new OneMesh();
+        extraction.Stages = opaque.Mask | shadow.Mask;
+
+        using var world = new World();
+        var quiet = Meshed(world, casts: false, Vector3.Zero);
+
+        extraction.Extract(world);
+
+        Assert.Equal(opaque.Mask | shadow.Mask, system.Objects[world.Read<RenderHandle>(quiet).Object].Stages);
+    }
+
+    /// <summary>A primitive has no flag and is drawn into the caster stages regardless.</summary>
+    /// <remarks>
+    ///     <c>PrimitiveShape</c> carries no such field, and giving it one would change a component's
+    ///     layout — which every saved scene is a copy of. Asserted rather than left implied, because
+    ///     "the flag is honoured" and "primitives are exempt" are two claims and only one of them is
+    ///     obvious from the code.
+    /// </remarks>
+    [Fact]
+    public void APrimitiveIsAlwaysACaster() {
+        var shadow = system.AddStage(new("Shadow"));
+
+        extraction.Stages = opaque.Mask | shadow.Mask;
+        extraction.CasterStages = shadow.Mask;
+
+        using var world = new World();
+        var cube = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
+
+        extraction.Extract(world);
+
+        Assert.Equal(opaque.Mask | shadow.Mask, system.Objects[world.Read<RenderHandle>(cube).Object].Stages);
+    }
+
+    // ------------------------------------------------------ re-stamping a settled entity
+
+    /// <summary>A flag toggled after extraction takes effect once the entity is unsettled.</summary>
+    /// <remarks>
+    ///     <b>Both halves of the contract, in one test, because each is meaningless without the
+    ///     other.</b> The mask is stamped when the object is created and a settled entity is never
+    ///     re-extracted, so the first assertion is the documented limitation rather than a bug; the
+    ///     second is the verb that answers it. Asserting only the second would let the flag quietly
+    ///     become live and nobody would notice — and live is the wrong answer here, because a static
+    ///     caster's shadow is already in a cache that a re-stamp does not redraw.
+    /// </remarks>
+    [Fact]
+    public void AToggledFlagReachesTheFrameOnlyAfterResettle() {
+        var shadow = system.AddStage(new("Shadow"));
+
+        extraction.Meshes = new OneMesh();
+        extraction.Stages = opaque.Mask | shadow.Mask;
+        extraction.CasterStages = shadow.Mask;
+
+        using var world = new World();
+        var entity = Meshed(world, casts: true, Vector3.Zero);
+
+        extraction.Extract(world);
+        Assert.Equal(opaque.Mask | shadow.Mask, system.Objects[world.Read<RenderHandle>(entity).Object].Stages);
+
+        world.Get<MeshRenderable>(entity).CastsShadows = false;
+        extraction.Extract(world);
+
+        // Still settled, so still stamped with what it was created with.
+        Assert.Equal(opaque.Mask | shadow.Mask, system.Objects[world.Read<RenderHandle>(entity).Object].Stages);
+
+        extraction.Resettle(world);
+
+        Assert.False(world.Has<RenderHandle>(entity));
+        Assert.Equal(0, system.Objects.LiveCount);
+
+        extraction.Extract(world);
+
+        Assert.Equal(opaque.Mask, system.Objects[world.Read<RenderHandle>(entity).Object].Stages);
+    }
+
+    /// <summary>Resettling releases the claim it held rather than leaking one per entity.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The reason this is a verb on the system and not <c>world.Remove&lt;RenderHandle&gt;</c>
+    ///     at the call site.</b> Removing the component alone unsettles the entity and strands both the
+    ///     render object and the residency claim — a leak per entity per call, and a stale handle into a
+    ///     slot something else takes next.
+    /// </remarks>
+    [Fact]
+    public void ResettleReleasesWhatItUnsettles() {
+        using var world = new World();
+        var cube = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
+
+        extraction.Extract(world);
+
+        Assert.Equal(1, residency.ClaimsOn(GeometryKey.Of(PrimitiveKind.Cube)));
+        Assert.Equal(1, system.Objects.LiveCount);
+
+        extraction.Resettle(world);
+
+        Assert.Equal(0, residency.ClaimsOn(GeometryKey.Of(PrimitiveKind.Cube)));
+        Assert.Equal(0, system.Objects.LiveCount);
+
+        // And it is genuinely re-extractable, not merely emptied.
+        extraction.Extract(world);
+
+        Assert.Equal(1, system.Objects.LiveCount);
+        Assert.Equal(1, residency.ClaimsOn(GeometryKey.Of(PrimitiveKind.Cube)));
+        Assert.True(world.Has<RenderHandle>(cube));
+    }
 }
