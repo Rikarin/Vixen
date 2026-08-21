@@ -18,7 +18,33 @@ network panel, which is a reader for two diagnostics models `Vixen.Net` already 
 | `DeviceManager`, `IDeviceProvider` | What a build can be deployed to. |
 | `NetworkTable`, `NetworkReport` | The panel-side model over `BandwidthLedger` — internal: scalars in one, columns in five. |
 | `NetworkTrend`, `NetworkLink` | The panel-side model of the link — internal: a ring of samples in one, the reading of a session in the other. |
-| `FrameDebuggerView`, `RemoteInspectorView`, `DeviceManagerView`, `NetworkView` | The panels. |
+| `FrameDebuggerView`, `RemoteInspectorView`, `DeviceManagerView`, `NetworkView` | The panels. Three of the four are `.vxml`; `RemoteInspectorView` is the one still in C#. |
+
+### The three markup panels, and what each one had to answer
+
+`NetworkView.vxml` was the first and is the *live* one — see [the network panel](#the-network-panel)
+below. The other two arrived with doc 36 § F7's later waves and neither is a translation.
+
+⚠ **`FrameDebuggerView.vxml` was blocked on `ref` and on nothing else.** Its tree is a `TreeView`
+filled by adding `TreeNode`s, which has no tag to write, so the panel needs the object back —
+`ref="@Tree"` is that. What did change is the state pane: `KeyValueList.Row`/`Trim` pooling is now a
+keyed `@for` over an immutable snapshot, which is the same reuse expressed as data. And `Source` and
+`Unavailable` are signal-backed, which **fixed a bug rather than moving one**: both are assigned by
+`DiagnosticsModule` after `panel.Add<T>()` returns, and the C# computed `CaptureButton.Disabled` once
+in `OnCreated` — so a host that could take a capture got a permanently greyed Capture button.
+
+⚠ **`DeviceManagerView.vxml` split a `Restate` that was doing three unrelated things.** It refilled
+the grid, set two `Disabled` flags and wrote the status line, and it ran on every selection change —
+so clicking a device called `DataGrid.SetItems`, which clears the selection, and the row lost its
+highlight in the same frame the buttons lit up for it. Measured before the port: `Select(0)` left
+`Devices.Selection.Count == 0` with `manager.Selected` set; after, both agree. The grid now follows
+`DeviceManager.Changed`, which a selection has never raised, and the buttons follow signals.
+
+⚠ **`DeviceManager` is signal-backed *additively*, which is the shape a live model takes here.** Three
+`CollectionSignal`s and a `Signal` behind the four properties, which are unchanged because a
+`CollectionSignal<T>` already is an `IReadOnlyList<T>` — and `Changed` is still raised by every path
+that raised it, because the grid's `SetItems` is a method no attribute can bind and every imperative
+caller has to go on working.
 
 ## Stepping
 

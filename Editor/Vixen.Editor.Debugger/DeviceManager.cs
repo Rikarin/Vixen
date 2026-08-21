@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Reactive;
+
 namespace Vixen.Editor.Debugger;
 
 /// <summary>What kind of thing a build can be deployed to.</summary>
@@ -117,9 +119,26 @@ public sealed class LocalDeviceProvider : IDeviceProvider {
 ///     </para>
 /// </remarks>
 public sealed class DeviceManager {
-    readonly List<IDeviceProvider> providers = [];
-    readonly List<DeviceEntry> devices = [];
-    readonly List<string> problems = [];
+    // ⚠ Three `CollectionSignal`s and a `Signal` rather than three `List`s and a field, and the four
+    // properties below are unchanged because a `CollectionSignal<T>` already *is* an
+    // `IReadOnlyList<T>`. Counting one or indexing it inside a binding subscribes, so
+    // `DeviceManagerView.vxml` re-reads what it says when a provider is added, a discovery finishes
+    // or the selection moves — rather than when somebody remembers to call `Restate`.
+    //
+    // ⚠ **Additive: `Changed` is still raised by every path that raised it before.** The panel's grid
+    // is fed by `SetItems`, which is a method and not a property, so no markup attribute can bind it
+    // — that half stays on the event, and every imperative caller (`DiagnosticsModule`,
+    // `BuildSettingsTests`) is undisturbed. What the signals buy is the half that *is* expressible:
+    // the status line and the two greyed buttons.
+    //
+    // ⚠ And deliberately not one `Signal<int>` that everything reads to force a re-evaluation. Each
+    // of these is a value that genuinely changes, so a counter would be standing in for four
+    // notifications that are all perfectly expressible — and it would defeat the equality check that
+    // makes an unchanged selection cost nothing.
+    readonly CollectionSignal<IDeviceProvider> providers = new();
+    readonly CollectionSignal<DeviceEntry> devices = new();
+    readonly CollectionSignal<string> problems = new();
+    readonly Signal<DeviceEntry?> selected = new(null);
 
     /// <summary>Raised when the list changed.</summary>
     public event Action<DeviceManager>? Changed;
@@ -134,7 +153,16 @@ public sealed class DeviceManager {
     public IReadOnlyList<string> Problems => problems;
 
     /// <summary>Which device is selected, or <see langword="null" />.</summary>
-    public DeviceEntry? Selected { get; set; }
+    /// <remarks>
+    ///     ⚠ <b>Signal-backed, and deliberately still not a thing that raises <see cref="Changed" />.</b>
+    ///     The event means "the list changed" and a selection is not the list; the panel used to
+    ///     rebuild its grid on every selection anyway, which is what cost the row its highlight. See
+    ///     <c>DeviceManagerView.vxml</c>.
+    /// </remarks>
+    public DeviceEntry? Selected {
+        get => selected.Value;
+        set => selected.Value = value;
+    }
 
     /// <summary>Adds a provider.</summary>
     /// <param name="provider">The provider.</param>
@@ -158,7 +186,7 @@ public sealed class DeviceManager {
     ///     is a promise the panel breaks the first time somebody deploys and the row says Available.
     /// </remarks>
     public bool Mark(string id, DeviceStatus status) {
-        var index = devices.FindIndex(device => string.Equals(device.Id, id, StringComparison.Ordinal));
+        var index = IndexOf(id);
 
         if (index < 0) {
             return false;
@@ -179,14 +207,16 @@ public sealed class DeviceManager {
 
     /// <summary>Asks every provider what it can see.</summary>
     public void Discover() {
-        var previous = devices.ToArray();
+        var previous = devices.Peek().ToArray();
 
         devices.Clear();
         problems.Clear();
 
         foreach (var provider in providers) {
             try {
-                devices.AddRange(provider.Discover());
+                foreach (var found in provider.Discover()) {
+                    devices.Add(found);
+                }
             } catch (Exception exception) when (exception
                 is IOException
                 or InvalidOperationException
@@ -197,17 +227,36 @@ public sealed class DeviceManager {
         }
 
         foreach (var gone in previous) {
-            if (!devices.Any(device => string.Equals(device.Id, gone.Id, StringComparison.Ordinal))) {
+            if (IndexOf(gone.Id) < 0) {
                 devices.Add(gone with { Status = DeviceStatus.Unreachable, Endpoint = null });
             }
         }
 
         // The selection follows the identity rather than the object, so a rediscovery that reports
         // the same phone with a new status does not silently deselect it.
-        if (Selected is { } selected) {
-            Selected = devices.FirstOrDefault(device => string.Equals(device.Id, selected.Id, StringComparison.Ordinal));
+        if (Selected is { } chosen) {
+            var index = IndexOf(chosen.Id);
+            Selected = index < 0 ? null : devices[index];
         }
 
         Changed?.Invoke(this);
+    }
+
+    /// <summary>Where a device with an id is, or -1.</summary>
+    /// <remarks>
+    ///     A loop rather than <c>List.FindIndex</c>, because the store is a <c>CollectionSignal</c>
+    ///     now and its surface is <c>IReadOnlyList</c>. Reading it here subscribes nothing: these are
+    ///     the write paths, and there is no ambient consumer on one.
+    /// </remarks>
+    int IndexOf(string id) {
+        var items = devices.Peek();
+
+        for (var index = 0; index < items.Length; index++) {
+            if (string.Equals(items[index].Id, id, StringComparison.Ordinal)) {
+                return index;
+            }
+        }
+
+        return -1;
     }
 }

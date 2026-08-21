@@ -1,20 +1,18 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Editor.Plugin;
-using Vixen.Editor.Ui;
-using Vixen.Ui;
-using Vixen.Ui.Controls;
-using Vixen.Ui.Controls.Advanced;
-
 namespace Vixen.Editor.App;
 
 /// <summary>The plugin manager doc 11 calls "a view and nothing more", plus the three verbs.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A grid over <see cref="PluginHost.Plugins" />, which has held everything this needs
-///         since it was written.</b> A <see cref="LoadedPlugin" /> carries the manifest, the state,
-///         the failure and the registration count, and <see cref="PluginDescriptor" /> is
+///         The panel is <c>PluginManagerView.vxml</c>; this file is the record its strip and its
+///         detail line are made of, and the type declaration the emitter's partial pairs with.
+///     </para>
+///     <para>
+///         <b>A grid over <c>PluginHost.Plugins</c>, which has held everything this needs
+///         since it was written.</b> A <c>LoadedPlugin</c> carries the manifest, the state,
+///         the failure and the registration count, and <c>PluginDescriptor</c> is
 ///         deliberately "the result of reading, not of loading" — so a plugin that is disabled,
 ///         incompatible or broken is an ordinary row rather than an absence.
 ///     </para>
@@ -32,237 +30,22 @@ namespace Vixen.Editor.App;
 ///         one failure the runtime reports by saying nothing at all.
 ///     </para>
 /// </remarks>
-sealed partial class PluginManagerView : Control {
-    readonly List<LoadedPlugin> rows = [];
+sealed partial class PluginManagerView;
 
-    PluginHost? host;
-    string? filter;
-
-    /// <inheritdoc />
-    protected override string TagName => "plugin-manager";
-
-    /// <inheritdoc />
-    protected override bool AcceptsFocus => false;
-
-    /// <summary>The strip along the top.</summary>
-    public UiElement Toolbar { get; private set; } = null!;
-
-    /// <summary>The filter box.</summary>
-    public SearchBox Search { get; private set; } = null!;
-
-    /// <summary>Switches the selected plugin on or off.</summary>
-    public Button Toggle { get; private set; } = null!;
-
-    /// <summary>Unloads it and loads it again from disk.</summary>
-    public Button Reload { get; private set; } = null!;
-
-    /// <summary>The grid.</summary>
-    public DataGrid Grid { get; private set; } = null!;
-
-    /// <summary>The line under it saying what the selected plugin is, or why it did not start.</summary>
-    public UiElement Detail { get; private set; } = null!;
-
-    /// <summary>Raised after a plugin is switched on or off, so the choice can be persisted.</summary>
-    public event Action<PluginManagerView>? Toggled;
-
-    /// <summary>Which plugin the grid has selected, or <see langword="null" />.</summary>
-    public LoadedPlugin? Selected =>
-        Grid.Selection.Count == 1 && Grid.Items.ElementAtOrDefault(Grid.Selection.First()) is LoadedPlugin plugin
-            ? plugin
-            : null;
-
-    /// <summary>Points the panel at a host.</summary>
-    /// <param name="plugins">The host.</param>
-    public void Show(PluginHost plugins) {
-        ArgumentNullException.ThrowIfNull(plugins);
-
-        Detach();
-
-        host = plugins;
-        plugins.Changed += Changed;
-
-        Rebuild();
-    }
-
-    /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        Toolbar = Part("plugin-toolbar");
-
-        Search = Toolbar.Add<SearchBox>();
-        Search.Placeholder = EditorStrings.PluginsFilter.Text;
-
-        Search.ValueChanged += (_, value) => {
-            filter = string.IsNullOrWhiteSpace(value) ? null : value;
-            Rebuild();
-        };
-
-        Toggle = Command(EditorStrings.PluginsDisable, Switch);
-        Reload = Command(EditorStrings.PluginsReload, Restart);
-
-        Grid = Part<DataGrid>();
-        Grid.MultiSelect = false;
-
-        Column(EditorStrings.PluginsColumnName.Text, 190f, plugin => plugin.Manifest.Name);
-        Column(EditorStrings.PluginsColumnId.Text, 190f, plugin => plugin.Id);
-        Column(EditorStrings.PluginsColumnVersion.Text, 80f, plugin => plugin.Manifest.Version.ToString(3));
-        Column(EditorStrings.PluginsColumnState.Text, 90f, StateOf);
-        Column(EditorStrings.PluginsColumnAuthor.Text, 140f, plugin => plugin.Manifest.Author);
-
-        Grid.SelectionChanged += _ => Restate();
-
-        Detail = Part("plugin-detail");
-        Restate();
-    }
-
-    /// <inheritdoc />
-    protected override void OnRemoved() {
-        Detach();
-        base.OnRemoved();
-    }
-
-    /// <summary>Rebuilds the list from the host, honouring the filter.</summary>
-    public void Rebuild() {
-        var chosen = Selected?.Id;
-
-        rows.Clear();
-
-        if (host is { } plugins) {
-            foreach (var plugin in plugins.Plugins) {
-                if (Matches(plugin)) {
-                    rows.Add(plugin);
-                }
-            }
-        }
-
-        rows.Sort(static (left, right) => string.CompareOrdinal(left.Manifest.Name, right.Manifest.Name));
-        Grid.SetItems(rows);
-
-        if (chosen is not null) {
-            // ⚠ By id rather than by reference. `Reload` builds a *new* `LoadedPlugin` for the same
-            // plugin — the old one is removed from the host's list — so a selection kept by identity
-            // would empty itself every time somebody pressed Reload, which is the one button they
-            // press repeatedly.
-            var index = rows.FindIndex(plugin => string.Equals(plugin.Id, chosen, StringComparison.Ordinal));
-
-            if (index >= 0) {
-                Grid.Select(index);
-            }
-        }
-
-        Restate();
-    }
-
-    void Switch() {
-        if (host is not { } plugins || Selected is not { } plugin) {
-            return;
-        }
-
-        if (plugins.IsSuppressed(plugin.Id)) {
-            plugins.Enable(plugin.Id);
-        } else {
-            plugins.Disable(plugin.Id);
-        }
-
-        Rebuild();
-        Toggled?.Invoke(this);
-    }
-
-    void Restart() {
-        if (host is { } plugins && Selected is { } plugin) {
-            plugins.Reload(plugin.Id);
-            Rebuild();
-        }
-    }
-
-    Button Command(StringId label, Action run) {
-        var button = Toolbar.Add<Button>();
-
-        button.Label = label.Text;
-        button.Variant = ControlVariant.Subtle;
-        button.Size = ControlSize.Small;
-        button.Clicked += _ => run();
-
-        return button;
-    }
-
-    void Column(string header, float width, Func<LoadedPlugin, string> value) {
-        var column = Grid.AddColumn(header, item => item is LoadedPlugin plugin ? value(plugin) : string.Empty);
-
-        column.Width = width;
-    }
-
-    static string StateOf(LoadedPlugin plugin) =>
-        plugin.State switch {
-            PluginState.Active => EditorStrings.PluginsStateActive.Text,
-            PluginState.Failed => EditorStrings.PluginsStateFailed.Text,
-            PluginState.Unloaded => EditorStrings.PluginsStateUnloaded.Text,
-            _ => EditorStrings.PluginsStateDisabled.Text
-        };
-
-    bool Matches(LoadedPlugin plugin) =>
-        filter is null
-        || plugin.Id.Contains(filter, StringComparison.OrdinalIgnoreCase)
-        || plugin.Manifest.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
-        || plugin.Manifest.Author.Contains(filter, StringComparison.OrdinalIgnoreCase);
-
-    void Restate() {
-        var plugin = Selected;
-
-        Toggle.Disabled = plugin is null;
-        Reload.Disabled = plugin is null;
-
-        Toggle.Label = plugin is not null && host?.IsSuppressed(plugin.Id) == true
-            ? EditorStrings.PluginsEnable.Text
-            : EditorStrings.PluginsDisable.Text;
-
-        Detail.RemoveClass("failed");
-
-        if (plugin is null) {
-            // ⚠ Installed ones, not every row. The editor's own features are listed here too — a
-            // manager showing only the third-party half would be one where "what is running in my
-            // editor" has two answers — but "no plugins are installed" is still the honest thing to
-            // say to somebody looking at a list of nothing but the editor's own modules.
-            Detail.Text = host is null || !host.Plugins.Any(static entry => !entry.IsBuiltIn)
-                ? EditorStrings.PluginsNone.Text
-                : EditorStrings.PluginsPickRow.Text;
-
-            return;
-        }
-
-        if (plugin.Failure is { } failure) {
-            Detail.AddClass("failed");
-            Detail.Text = failure.Message;
-
-            return;
-        }
-
-        // ⚠ A plugin whose manifest says `enabled: false` and one the user switched off read the
-        // same in the State column and are not the same thing: one is the author's decision in a
-        // file the whole team shares, and the other is this user's. Only the second can be undone
-        // from here, so only the second is worth a sentence.
-        if (host?.Suppressed.Contains(plugin.Id) == true) {
-            Detail.Text = EditorStrings.PluginsSwitchedOff.Text;
-            return;
-        }
-
-        if (!plugin.Manifest.Enabled) {
-            Detail.Text = EditorStrings.PluginsManifestOff.Text;
-            return;
-        }
-
-        Detail.Text = plugin.Manifest.Description is { Length: > 0 } description
-            ? description
-            : plugin.Descriptor.Directory;
-    }
-
-    /// <inheritdoc cref="MessageLogView.Detach" />
-    void Detach() {
-        if (host is not null) {
-            host.Changed -= Changed;
-        }
-    }
-
-    void Changed(LoadedPlugin _) => Rebuild();
+/// <summary>Everything the panel says about the plugin it has selected, as one reading.</summary>
+/// <param name="HasSelection">Whether a plugin is chosen, which is what greys the two verbs.</param>
+/// <param name="Toggle">What the switch button is called — "Disable", or "Enable" for a suppressed one.</param>
+/// <param name="Sentence">The line under the grid.</param>
+/// <param name="Failed">Whether that line is a failure, which is a class rather than a colour.</param>
+/// <remarks>
+///     ⚠ <b>A snapshot rather than four signals or a counter</b>, and <c>PrefabBanner</c>'s argument
+///     applies unchanged. All four fields come from one reading of the host and the selection
+///     together, so the value is what changes and assigning it is the notification — and a
+///     <c>Signal&lt;int&gt;</c> bumped to force a re-read would be standing in for a value change
+///     that is perfectly expressible, and would throw away the equality that keeps an unchanged
+///     reading from repainting three elements.
+/// </remarks>
+readonly record struct PluginNote(bool HasSelection, string Toggle, string Sentence, bool Failed) {
+    /// <summary>Before the panel has been pointed at a host.</summary>
+    public static PluginNote Empty { get; } = new(false, string.Empty, string.Empty, false);
 }
