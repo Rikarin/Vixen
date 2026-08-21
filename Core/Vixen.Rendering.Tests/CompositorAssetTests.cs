@@ -1837,9 +1837,12 @@ public class CompositorAssetTests : IDisposable {
         h.Builder.Device = device;
         h.Builder.Descriptors = allocator;
 
-        var compositor = h.Builder.Build(asset);
+        using var compositor = h.Builder.Build(asset);
 
-        using var block = h.Builder.ViewBlock;
+        // ⚠ Not `using`, and it used to be. The block is per-build state the compositor owns — it
+        // holds a uniform buffer and a set layout, and nothing disposed either until the compositor
+        // did — so releasing it here would be releasing it out from under the tree above.
+        var block = h.Builder.ViewBlock;
 
         Assert.NotNull(block);
         Assert.True(block.IsConfigured);

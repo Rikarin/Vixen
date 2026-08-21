@@ -414,6 +414,76 @@ public sealed class EditorWorldRendererTests : IDisposable {
         Assert.NotEqual(first, frame.View.ViewProjection);
     }
 
+    /// <summary>Reloading the viewport's frame releases the tree it replaced.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The path where a leaked compositor node costs the most.</b> <c>ExternalEdits</c>
+    ///         routes a change to <c>Frame.vxcompositor</c> here, so this runs whenever somebody saves
+    ///         the document they are authoring — and a compositor node may own device memory a frame
+    ///         cannot, because a cached shadow atlas has to outlive the frame and every
+    ///         <c>!Resource</c> in a document is transient. Sample 13's two are 94 MiB together, and
+    ///         every reload used to abandon them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Built and adopted first, released second</b>, which is what <see cref="EditorWorldRenderer.Reload" />
+    ///         does and why: a document that fails to bind has to leave the working frame whole, and a
+    ///         frame whose nodes were freed first is not whole. That ordering is asserted here only in
+    ///         the sense that the probe is disposed by the <em>second</em> reload rather than the
+    ///         first.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Reloading_the_frame_disposes_the_tree_it_replaced() {
+        using var device2 = new NullDevice();
+        var project = new Editor.Core.EditorProject(new Editor.Core.ProjectPaths(Temporary()));
+
+        using var effects = new EditorEffects(device2, project);
+        using var frame = new EditorWorldRenderer(device2, effects.System);
+        using var world = new Ecs.World();
+
+        var probe = new DisposeProbe();
+
+        frame.Renderer.Host.Builder.Factories.Add(new ProbeFactory(probe));
+
+        var editors = frame.Compositor;
+
+        frame.Reload(new() { Game = new ProbeAsset { Name = "Probe" } }, world);
+
+        Assert.NotSame(editors, frame.Compositor);
+        Assert.Equal(0, probe.Disposals);
+
+        // And back to the editor's own document, which is what closing a `StandardFrameDocument` does.
+        frame.Reload(null, world);
+
+        Assert.Equal(1, probe.Disposals);
+    }
+
+    /// <summary>A node that counts how many times it was told to release.</summary>
+    sealed class DisposeProbe : Rendering.Compositor.SceneRenderer, IDisposable {
+        public int Disposals { get; private set; }
+
+        /// <inheritdoc />
+        public void Dispose() => Disposals++;
+    }
+
+    /// <summary>A node kind the builder's switch does not know, so the extension arm builds it.</summary>
+    sealed record ProbeAsset : Rendering.Compositor.ISceneRendererAsset {
+        /// <inheritdoc />
+        public string Name { get; init; } = string.Empty;
+
+        /// <inheritdoc />
+        public bool Enabled { get; init; } = true;
+    }
+
+    sealed class ProbeFactory(DisposeProbe probe) : Rendering.Compositor.ISceneRendererFactory {
+        /// <inheritdoc />
+        public Rendering.Compositor.SceneRenderer? Create(
+            Rendering.Compositor.ISceneRendererAsset declared,
+            Rendering.Compositor.CompositorBuilder builder
+        ) =>
+            declared is ProbeAsset ? probe : null;
+    }
+
     // ------------------------------------------------------------------ helpers
 
     static bool Near(Vector3 left, Vector3 right) => (left - right).Length() < 0.25f;

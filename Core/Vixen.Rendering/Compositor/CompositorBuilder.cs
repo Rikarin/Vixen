@@ -390,10 +390,23 @@ public sealed class CompositorBuilder(RenderSystem system) {
     ///     The per-view block this build created, if the document declared one.
     /// </summary>
     /// <remarks>
-    ///     <strong>The caller owns it.</strong> It holds a descriptor set layout and a buffer per view,
-    ///     which is the only device state a build produces — created here because the document is what
-    ///     describes the block, and disposed by whoever asked for the build, because a builder does not
-    ///     outlive anything.
+    ///     <para>
+    ///         It holds a descriptor set layout and a buffer per view — the only device state a build
+    ///         produces that is not a node's — created here because the document is what describes
+    ///         the block.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The compositor this build returns owns it, and that sentence used to say "the
+    ///         caller does".</b> Which was true and never happened: no caller disposed one, so every
+    ///         reload left behind a uniform buffer and a set layout, beside the far larger leak of the
+    ///         nodes themselves. It is per-build state on exactly the terms <see cref="Nodes" /> is,
+    ///         so it is released on exactly the same event — see <see cref="GraphicsCompositor.Own" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which means the value here is stale the moment a later build replaces it</b>, the
+    ///         same way a node reference taken before a reload is. Read it after the build that made
+    ///         it, and do not keep it.
+    ///     </para>
     /// </remarks>
     public ViewConstants? ViewBlock { get; private set; }
 
@@ -417,12 +430,68 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// </remarks>
     public IList<ISceneRendererFactory> Factories { get; } = [];
 
+    /// <summary>
+    ///     What this build has made that somebody has to free, until the compositor takes it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Held here for the length of one <see cref="Build(GraphicsCompositorAsset)" /> and nowhere else.</b> The tree
+    ///         is made before the <see cref="GraphicsCompositor" /> exists — it is that object's
+    ///         <c>Game</c> — so there is a window in which the nodes are built and nothing owns them,
+    ///         and a document that fails to bind halfway through is exactly the case that falls into
+    ///         it. An editor opens broken documents routinely.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not a field a second build may inherit.</b> Cleared at the top of every build and
+    ///         emptied into the compositor at the bottom, so what is in it is only ever this build's.
+    ///         A builder is long-lived — <c>SceneRenderHost</c> has one for the life of the host — and
+    ///         a list that accumulated across builds would be a compositor freeing the previous
+    ///         document's nodes, which are the ones the frame on screen is still drawing.
+    ///     </para>
+    /// </remarks>
+    readonly List<IDisposable> owned = [];
+
     /// <summary>Builds the compositor an asset describes.</summary>
     /// <exception cref="CompositorBindingException">A name was not bound.</exception>
     /// <exception cref="NotSupportedException">The document is a version this cannot read.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The compositor that comes back owns every node this made</b>, and disposing it is
+    ///         what frees the device memory those nodes hold — see
+    ///         <see cref="GraphicsCompositor.Own" />. A caller that drops one without disposing it
+    ///         leaks a cached shadow atlas per reload.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A build that throws leaves nothing behind.</b> Half a tree is still a device
+    ///         texture or two, and the caller's response to a binding exception is to keep drawing the
+    ///         frame it already had — so the partial build is released here rather than surviving as a
+    ///         leak nobody has a reference to. This is why an editor can reload a document that does
+    ///         not bind, repeatedly, while somebody fixes it in another window.
+    ///     </para>
+    /// </remarks>
     public GraphicsCompositor Build(GraphicsCompositorAsset asset) {
         ArgumentNullException.ThrowIfNull(asset);
 
+        // Anything left here is a previous build that threw after this method's own catch had run —
+        // which cannot happen — or a caller that reached in. Cleared rather than trusted, because the
+        // cost of being wrong is freeing the running frame's nodes.
+        owned.Clear();
+
+        try {
+            return Compose(asset);
+        } catch {
+            for (var index = owned.Count - 1; index >= 0; index--) {
+                owned[index].Dispose();
+            }
+
+            owned.Clear();
+
+            throw;
+        }
+    }
+
+    /// <summary>The build itself, wrapped by <see cref="Build(GraphicsCompositorAsset)" />'s release-on-failure.</summary>
+    GraphicsCompositor Compose(GraphicsCompositorAsset asset) {
         if (asset.Version != SupportedVersion) {
             throw new NotSupportedException(
                 $"This compositor asset is version {asset.Version} and this build reads version "
@@ -483,6 +552,23 @@ public sealed class CompositorBuilder(RenderSystem system) {
         foreach (var buffer in asset.Buffers) {
             compositor.BufferResources.Add(buffer);
         }
+
+        // ⚠ The handover, and the reason `owned` exists: from here on the tree's lifetime is the
+        // compositor's, which is the object a reload replaces. Every node kind passed through `Node`
+        // to get here, including the ones a factory in another assembly made, so this covers the node
+        // type that does not exist yet as completely as it covers the two shadow caches it was
+        // written for.
+        //
+        // ⚠ And last, not beside the `new` above. Everything between the two can still throw — a
+        // permutation a shading pass does not declare, a light budget a feature refuses — and until
+        // this line the release-on-failure in `Build` is what frees the tree. Handing ownership to a
+        // compositor that is then never returned would put the leak somewhere with no reference to it
+        // at all.
+        foreach (var resource in owned) {
+            compositor.Own(resource);
+        }
+
+        owned.Clear();
 
         return compositor;
     }
@@ -623,8 +709,30 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// </remarks>
     public Dictionary<string, SceneRenderer> Nodes { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Builds one node and claims it, which is the whole of the ownership rule.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Every node a document produces passes through here — that is what makes the claim
+    ///         enforced rather than remembered.</b> The switch below is private and this is its only
+    ///         caller; a sequence's children and a pass's children come back through it; and a node
+    ///         kind this assembly has never heard of arrives through <see cref="Extension" />, which
+    ///         returns through here too. So the author of the next node type that owns a texture
+    ///         writes a <c>Dispose</c> and nothing else, and cannot forget the half that calls it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The claim is on being built here, not on being reachable from the tree.</b> A node
+    ///         a transformer expanded and then left out of the tree is still this build's to free, and
+    ///         a node a <em>host</em> appends to the finished tree — <c>SceneRenderHost.Debug</c> — is
+    ///         still the host's. See <see cref="GraphicsCompositor.Own" /> for why the second half
+    ///         matters more than it sounds.
+    ///     </para>
+    /// </remarks>
     SceneRenderer Node(ISceneRendererAsset declared) {
         var node = Build(declared);
+
+        if (node is IDisposable disposable) {
+            owned.Add(disposable);
+        }
 
         if (declared.Name is { Length: > 0 } name) {
             Nodes[name] = node;
@@ -783,6 +891,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
     ///     from the block a shader reads without the build saying so. An empty list takes
     ///     <see cref="ViewConstants" />'s own default, which is the view-projection and the view
     ///     position — what it writes for every view whether or not anything asked.
+    ///
+    ///     ⚠ <b>Both halves are this build's, and both were leaking on the reload path the nodes
+    ///     were.</b> The block holds a uniform buffer per view and the layout is a device object of
+    ///     its own that nothing else destroys — <see cref="ViewConstants.Dispose" /> frees the
+    ///     buffers and not the layout it was handed — so the compositor takes the two together.
     /// </remarks>
     ViewConstants Block(ViewBlockAsset declared) {
         // Touched so that the standard keys are interned before anything looks one up by name.
@@ -792,6 +905,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             new(declared.Set, [new(declared.Binding, DescriptorKind.UniformBuffer, declared.Stages)], "View")
         );
 
+        owned.Add(new SetLayoutOwner(Device, layout));
+
         var block = new ViewConstants(Device) {
             Descriptors = Descriptors,
             Layout = layout,
@@ -799,6 +914,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Binding = declared.Binding,
             Size = declared.Size
         };
+
+        // Claimed before the member loop below, which throws on a name nothing interned — a mistake
+        // an author makes while typing, and the one place a `viewBlock:` section can fail after its
+        // buffer exists.
+        owned.Add(block);
 
         if (declared.Members.Length == 0) {
             return block;
@@ -1480,6 +1600,24 @@ public sealed class CompositorBuilder(RenderSystem system) {
         bindings.TryGetValue(name, out var value)
             ? value
             : throw new CompositorBindingException(node, kind, name);
+
+    /// <summary>A device handle this build made, as something a compositor can own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The engine's device handles are deliberately not <c>IDisposable</c> — see
+    ///         <c>IGraphicsDevice</c>, whose whole argument is that a GPU object's lifetime belongs to
+    ///         the renderer rather than to a collector. That leaves one seam missing when the owner is
+    ///         a list of things to release, so this is it, and it is four lines rather than a
+    ///         mechanism because there is exactly one such handle in a build.
+    ///     </para>
+    ///     <para>
+    ///         The destroy is the device's deferred one, so this is as safe with a frame in flight as
+    ///         a node's own release is. See <see cref="GraphicsCompositor.Dispose" />.
+    ///     </para>
+    /// </remarks>
+    sealed class SetLayoutOwner(IGraphicsDevice device, DescriptorSetLayoutHandle layout) : IDisposable {
+        public void Dispose() => device.Destroy(layout);
+    }
 }
 
 /// <summary>What a build's GPU-driven request actually turned on.</summary>

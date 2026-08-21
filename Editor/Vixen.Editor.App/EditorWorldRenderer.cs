@@ -762,7 +762,20 @@ sealed class EditorWorldRenderer : IDisposable {
         // ⚠ Built and adopted before anything is assigned, so a document that would leave the pane
         // unable to draw — no stage at all — throws with the frame that works still installed. A
         // half-swapped renderer is a viewport whose failure outlives the edit that caused it.
+        var previous = Compositor;
+
         Compositor = Adopt(Renderer.Host.Builder.Build(asset ?? Document()));
+
+        // ⚠ And the old tree is released rather than dropped, *after* the new one is installed. This
+        // is the editor's own reload — `ExternalEdits` routes a file change here — so it is the path
+        // where a leaked node costs the most: a compositor node may own device memory a frame cannot
+        // (a cached shadow atlas is the case that forced it), and every reload used to leak the lot.
+        // Ordered after `Adopt` for the reason above: a document that throws must leave the working
+        // frame whole, and a frame whose nodes were freed first is not whole.
+        //
+        // ⚠ Safe with frames in flight without an idle — see `GraphicsCompositor.Dispose`. What is
+        // *not* safe is doing this from inside `Draw`, and a reload is not.
+        previous.Dispose();
 
         Resettle(world);
 
@@ -1120,6 +1133,13 @@ sealed class EditorWorldRenderer : IDisposable {
         // ⚠ The claims before the renderer, because a claim is a slice of the geometry buffer the
         // renderer owns and releasing one afterwards would be a release against a disposed pool.
         Meshes.Clear();
+
+        // ⚠ And the frame's own tree before the renderer too, for the mirror reason: a node releases
+        // its textures through the device, which is fine at any point, but it may also have read a
+        // resource out of the host's graph pool — and `WorldRenderer.Dispose` returns that pool. This
+        // compositor is not `Host.Compositor` (see `Reload` for why the editor builds its own), so
+        // nothing else disposes it.
+        Compositor.Dispose();
         Renderer.Dispose();
 
         // ⚠ And the sky after it. `WorldRenderer.Environment` is a reference the renderer uploads

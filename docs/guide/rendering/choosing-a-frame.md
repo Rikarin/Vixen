@@ -106,6 +106,39 @@ kept authored *because* it is the showcase and the test bed, and its eleven hund
 honest price of that position. If you are not trying to hold that position, the explode output is
 the same document with the guardrails already applied.
 
+### A frame you replace has to be released
+
+Loading a document builds a tree of nodes, and **some of those nodes own device memory**. A cached
+shadow atlas is the clearest case: a cache has to survive the frame, every `!Resource` in a document
+is transient by definition, and the graph's pool exists to recycle precisely the memory a cache must
+keep — so the node holds its own texture instead. Sample 13's two shadow caches are 94 MiB together.
+
+So a `GraphicsCompositor` owns what was built for it, and disposing it is what gives that memory
+back. If you use `SceneRenderHost`, this is already done for you: `Load` releases the tree it
+replaces and `Dispose` releases the one still installed. If you build a compositor yourself —
+`CompositorBuilder.Build` directly, which is what the editor's viewport does — then it is yours:
+
+```csharp no-compile="a fragment of a host's reload, against a builder and a document it already has"
+var built = builder.Build(document);   // build first: a document that fails to bind throws here
+
+previous?.Dispose();                   // and only then release the frame it replaces
+previous = built;
+```
+
+⚠ **In that order.** A document that does not bind throws out of `Build`, and the correct response
+is to go on drawing the frame you already had — which is only possible if nothing was freed before
+the new tree existed. (A build that throws releases its own half-finished tree, so nothing is
+stranded either way.)
+
+⚠ **No idle is needed, and none should be added.** Every `IGraphicsDevice.Destroy` is deferred by
+the backend until the frames that could still reference the object have retired, which is the same
+path a node uses to release a texture. What is not safe is disposing a compositor *from inside* a
+frame it is building — but a reload happens between frames anyway.
+
+⚠ **A node you appended yourself stays yours.** `SceneRenderHost.Debug` is put into every tree the
+host builds and is meant to outlive each of them, so ownership follows *who built the node*, not
+what the tree can reach. Build a node in your own code and you dispose it in your own code.
+
 ## Examples
 
 The whole of a new project's frame authoring, before and after the day the knobs stopped being

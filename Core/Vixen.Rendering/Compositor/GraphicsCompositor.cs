@@ -34,14 +34,111 @@ namespace Vixen.Rendering.Compositor;
 ///         shape of this tree.
 ///     </para>
 /// </remarks>
-public sealed class GraphicsCompositor(RenderSystem system) {
+public sealed class GraphicsCompositor(RenderSystem system) : IDisposable {
     readonly List<RenderView> views = [];
+    readonly List<IDisposable> owned = [];
+    bool disposed;
 
     /// <summary>The render system this composes a frame for.</summary>
     public RenderSystem System { get; } = system;
 
     /// <summary>The root of the graph — the whole frame.</summary>
     public SceneRenderer? Game { get; set; }
+
+    /// <summary>Takes over something that lives exactly as long as this frame's tree does.</summary>
+    /// <param name="resource">The node, block or handle wrapper to release on <see cref="Dispose" />.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="resource" /> is null.</exception>
+    /// <exception cref="ObjectDisposedException">This compositor has already been disposed.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The answer to "who frees a node's device memory", and it is deliberately not the
+    ///         node's author's problem.</b> A compositor node may own device memory — a cached shadow
+    ///         atlas has to, because every <c>!Resource</c> in a document is transient and the graph's
+    ///         pool exists to recycle precisely the memory a cache must keep — and a document reload
+    ///         builds a whole new tree and drops the old one. Every such node's <c>Dispose</c> existed
+    ///         and nothing called it, which is a leak of the atlas itself: about 95 MB of it in
+    ///         sample 13, on a reload the editor performs whenever the file changes on disk.
+    ///     </para>
+    ///     <para>
+    ///         So a compositor owns what was made <em>for</em> it. <see cref="CompositorBuilder" />
+    ///         calls this for every node it builds, at the one place every node kind passes through —
+    ///         including the ones a factory in another assembly makes, which is what stops the next
+    ///         node type from having to remember anything. It also calls it for the view block and its
+    ///         set layout, which are per-build for the same reason and were leaking on the same path.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What a host built itself is the host's, and must not be handed over here.</b>
+    ///         <c>SceneRenderHost.Debug</c> is the case that proves it: that node is appended to every
+    ///         tree the host builds and is meant to survive the reload, so a compositor that disposed
+    ///         everything it could reach through <see cref="SceneRenderer.Nested" /> would hand the
+    ///         next frame a dead node. Reachability is not ownership; being built for this tree is.
+    ///     </para>
+    ///     <para>
+    ///         Idempotent in the only sense that matters: <see cref="Dispose" /> disposes each entry
+    ///         once, and a resource handed over twice is disposed twice — which every
+    ///         <c>Dispose</c> in this tree is written to tolerate, but which nothing here does on
+    ///         purpose.
+    ///     </para>
+    /// </remarks>
+    public void Own(IDisposable resource) {
+        ArgumentNullException.ThrowIfNull(resource);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        owned.Add(resource);
+    }
+
+    /// <summary>How many things this frame will release when it is disposed.</summary>
+    /// <remarks>
+    ///     A counter rather than a list, on <see cref="Degradations" />' terms: what a host or a test
+    ///     wants to know is whether the ownership arrived at all, and the answer to "which ones" is
+    ///     the tree itself. A leak test asserts a device's live resource count returns to where it
+    ///     started; this is what says the count returning to zero was not simply nothing happening.
+    /// </remarks>
+    public int OwnedCount => owned.Count;
+
+    /// <summary>Releases every node and block this frame owns.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Called by whoever replaces or drops this compositor</b> — <c>SceneRenderHost.Load</c>
+    ///         before it installs the next document's tree, <c>SceneRenderHost.Dispose</c> at
+    ///         shutdown, and the editor's own reload, which does not go through <c>Load</c>. Those are
+    ///         the two ends of a compositor's life and there is no third.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Safe with frames in flight, and it does not idle the device.</b> Every
+    ///         <c>IGraphicsDevice.Destroy</c> is deferred by the backend until the frames that could
+    ///         still reference the object have retired — <c>VulkanDevice.Retire</c> runs the queued
+    ///         actions from <c>BeginFrame</c>, which has just waited on the fence of frame
+    ///         <em>n</em> − <c>FramesInFlight</c> — so a node that releases its texture through the
+    ///         device is already using the deferred path. That is why this differs from
+    ///         <see cref="Resize" />, which takes an idle: a resize hands the same textures back and
+    ///         then <em>reuses the node</em>, where this ends the node.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not from inside a frame.</b> A tree being built has already imported its owned
+    ///         textures into the graph, and freeing one there is the use-after-free the deferral
+    ///         cannot help with — the handle is invalid to the caller the moment it is returned.
+    ///         Between frames is the only moment, which is where a reload happens anyway.
+    ///     </para>
+    ///     <para>
+    ///         In reverse order of acquisition, so a node built after the block it reads is released
+    ///         before it; and idempotent, because a host that disposes a compositor it has also
+    ///         replaced should not have to remember which.
+    ///     </para>
+    /// </remarks>
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+
+        for (var index = owned.Count - 1; index >= 0; index--) {
+            owned[index].Dispose();
+        }
+
+        owned.Clear();
+    }
 
     /// <summary>Lays a frame's post-process overlay over every node that takes one.</summary>
     /// <param name="overlay">

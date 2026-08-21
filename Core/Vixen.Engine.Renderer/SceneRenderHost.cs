@@ -146,15 +146,40 @@ public sealed class SceneRenderHost : IDisposable {
     /// <param name="asset">The document.</param>
     /// <exception cref="ArgumentNullException"><paramref name="asset" /> is null.</exception>
     /// <remarks>
-    ///     Callable again — a project that swapped its quality preset swapped its compositor — and the
-    ///     imports do not survive it, because they were bound to the resource names of the document that
-    ///     is being replaced.
+    ///     <para>
+    ///         Callable again — a project that swapped its quality preset swapped its compositor — and the
+    ///         imports do not survive it, because they were bound to the resource names of the document that
+    ///         is being replaced.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither does the tree, and that is a release rather than a drop.</b> A compositor
+    ///         node may own device memory a frame cannot — a cached shadow atlas is the case that
+    ///         forced it — so the replaced compositor is disposed here. Without this line a reload
+    ///         leaks every such node: about 95 MB of shadow atlas in sample 13, per reload, forever.
+    ///         <see cref="GraphicsCompositor.Dispose" /> says why no idle is needed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Built first, released second.</b> A document that fails to bind throws out of the
+    ///         build, and the frame that was already loaded goes on drawing — with its nodes intact,
+    ///         which is only true because nothing was freed before the new tree existed.
+    ///         <c>CompositorBuilder.Build</c> releases its own half-built tree on the way out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Debug" /> survives, because the host owns it and the compositor does
+    ///         not.</b> It is appended to each tree rather than built into one — see
+    ///         <see cref="Append" /> — so it is still the same live node after the swap. That
+    ///         distinction is the whole of the ownership rule; <see cref="GraphicsCompositor.Own" />
+    ///         states it.
+    ///     </para>
     /// </remarks>
     public void Load(GraphicsCompositorAsset asset) {
         ArgumentNullException.ThrowIfNull(asset);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        Compositor = Builder.Build(asset);
+        var built = Builder.Build(asset);
+
+        Compositor?.Dispose();
+        Compositor = built;
         Append(Compositor, Debug);
     }
 
@@ -285,6 +310,13 @@ public sealed class SceneRenderHost : IDisposable {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The compositor first, and the graph's pool after it.</b> A node's release is a
+    ///     <c>Destroy</c> on the device, not on the pool — the whole reason those nodes own their
+    ///     textures is that a pooled one may be handed to something else the moment a frame ends — but
+    ///     a node that read a pooled resource is entitled to expect the pool to outlive it. The
+    ///     render system is last for its own reason: a feature's tear-down gives table slots back.
+    /// </remarks>
     public void Dispose() {
         if (disposed) {
             return;
@@ -292,6 +324,7 @@ public sealed class SceneRenderHost : IDisposable {
 
         disposed = true;
 
+        Compositor?.Dispose();
         Graph.DisposePool();
         System.Dispose();
     }

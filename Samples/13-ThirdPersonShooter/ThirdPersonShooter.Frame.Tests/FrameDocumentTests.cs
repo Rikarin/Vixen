@@ -597,8 +597,18 @@ public sealed class FrameDocumentTests : IDisposable {
         return new(system, builder, builder.Build(asset));
     }
 
+    /// <summary>One build of the document, and the three things that have to be given back.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The compositor before the render system.</b> A compositor owns the nodes the builder
+    ///     made for it — a cached shadow atlas is device memory a frame cannot lend, so the node holds
+    ///     it — and this document has two such nodes. The render system last, because a feature's
+    ///     tear-down gives table slots back.
+    /// </remarks>
     sealed record Built(RenderSystem System, CompositorBuilder Builder, GraphicsCompositor Compositor) : IDisposable {
-        public void Dispose() => System.Dispose();
+        public void Dispose() {
+            Compositor.Dispose();
+            System.Dispose();
+        }
     }
 
     /// <inheritdoc />
