@@ -160,11 +160,18 @@ jobs:
           & "$($sdk.FullName)\Bin\spirv-val.exe" --version
 
           # The SDK carries glslc.exe as well, which is why this leg is the only one where the
-          # differential oracle has ever run — by accident rather than by decision. Asserted here so
-          # that stays a fact rather than an assumption: the other two legs now install shaderc
-          # deliberately, and a Windows SDK that stopped shipping glslc would otherwise take the
-          # oracle back out on one leg in silence.
-          & "$($sdk.FullName)\Bin\glslc.exe" --version
+          # differential oracle has ever run — by accident rather than by decision. Reported here so
+          # that stays a fact rather than an assumption; the other two legs now install shaderc
+          # deliberately.
+          #
+          # Reported and not asserted: a missing glslc must not take the whole leg down before a
+          # single test runs. SpirvDifferentialTests.The_oracle_is_installed_so_this_file_means_something
+          # is the hard failure, and it says which tool and what to install.
+          if (Test-Path "$($sdk.FullName)\Bin\glslc.exe") {
+            & "$($sdk.FullName)\Bin\glslc.exe" --version
+          } else {
+            Write-Host "::warning::The Vulkan SDK did not ship glslc.exe; Raven's differential oracle will fail on this leg."
+          }
 
       # Keyed on the manifest, because that is the only thing that changes what would be downloaded.
       # A version bump is a new key and a fresh fetch; anything else is a hit.
