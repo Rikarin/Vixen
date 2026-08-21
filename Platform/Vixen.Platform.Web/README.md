@@ -367,6 +367,6 @@ isolated. It would cut that backend's 40 ms queue to a couple of milliseconds.
 CI matrix has the leg; it does not exist yet. ⚠ When it is written it must drive a real browser over
 CDP: `chrome-headless-shell --dump-dom` never fires `requestAnimationFrame` — measured, with and
 without `--virtual-time-budget`, `--screenshot` and SwiftShader — so a leg built on it would report a
-live frame loop as dead. `docs/plan/spikes/web-head/drive.mjs` is the shape that works.
+live frame loop as dead. `Tools/Vixen.WebProbe/drive.mjs` is the shape that works.
 
 Licensed under Apache-2.0.

@@ -28,7 +28,7 @@ Versions verified against `api.nuget.org` at plan time. These go verbatim into
 | `Silk.NET.Maths` | 2.23.0 | interop shim only | **Not** the engine math type. See ADR-003. |
 | `Silk.NET.Assimp` | 2.23.0 | `Vixen.Editor.Assets` (import-time only) | Model import. Never referenced by runtime assemblies. |
 | `JoltPhysicsSharp` | 2.22.0 | `Vixen.Physics` | As specified. Modern, actively maintained, deterministic-capable, native binaries for all six targets. |
-| ~~`SixLabors.ImageSharp`~~ → `StbImageSharp` | 2.30.15 | **`Vixen.Editor.Assets` only** | **Changed when it was built.** ImageSharp 4.0.0 *fails the build* without a purchased licence key — an error out of its own targets file, not a warning. An Apache-2.0 engine cannot require a contributor to buy a key to compile the editor, and pinning to the 3.1.x line to dodge it means sitting on a branch that gets no further security fixes. Took mitigation 2 below: StbImageSharp is public domain and reads PNG/JPEG/BMP/TGA/PSD/GIF **and Radiance HDR**, which is more of doc 08's table than ImageSharp reached. Still editor-only, behind `IImageDecoder`. **Owed:** `.exr`, `.tif`, `.webp`, `.dds` — doc 01 names Pfim (MIT) for the last of those. |
+| ~~`SixLabors.ImageSharp`~~ → `StbImageSharp` | 2.30.15 | **`Vixen.Editor.Assets` only** | **Changed when it was built.** ImageSharp 4.0.0 *fails the build* without a purchased licence key — an error out of its own targets file, not a warning. An Apache-2.0 engine cannot require a contributor to buy a key to compile the editor, and pinning to the 3.1.x line to dodge it means sitting on a branch that gets no further security fixes. Took mitigation 2 below: StbImageSharp is public domain and reads PNG/JPEG/BMP/TGA/PSD/GIF **and Radiance HDR**, which is more of doc 08's table than ImageSharp reached. Still editor-only, behind `IImageDecoder`. **Owed:** `.exr`, `.tif`, `.webp`. ~~`.dds` — doc 01 names Pfim (MIT) for the last of those.~~ **`.dds` landed without a package**: it is a container over BCn, which `Vixen.Core.Imaging` already speaks, so `DdsDecoder` is a header parser and a format table. See the Pfim note below. |
 | `ExCSS` | 4.3.2 | `Vixen.Ui.Styling` | As specified, and **verified** — see [the spike](spikes/vcss-excss/RESULT.md). The selector tree is fully typed and reachable, specificity is computed, `var()` and unknown properties survive verbatim. **It does not parse `@layer`**, which arrives as an `UnknownRule` carrying its text; Vixen reads the prelude and re-parses the body. |
 | `HarfBuzzSharp` | 14.2.1.1 | `Vixen.Ui.Text` | Text shaping. Non-negotiable for correct Arabic/Indic/emoji/ligatures, and **verified** — see [the spike](spikes/text-harfbuzz/RESULT.md). ⚠ **It exposes no glyph outlines** — `TryGetGlyphExtents` is a bounding box and there is no draw, paint or outline surface — so the MSDF atlas reads them itself, from the raw tables `Face.ReferenceTable` hands out. [That parser is spiked](spikes/text-glyph-outlines/RESULT.md) rather than assumed: neither FreeType nor SkiaSharp is taken as a second native dependency. |
 | `K4os.Compression.LZ4` | 1.3.8 | `Vixen.Core.Serialization` | Bundle chunk compression, fast path (Stride uses LZ4 for the same reason). |
@@ -520,8 +520,9 @@ Applied to Vixen:
    links ImageSharp**, so the licence question does not reach the runtime at all.
 2. **Import-time decoding sits behind `IImageDecoder`** in `Vixen.Editor.Assets`, with ImageSharp as
    one implementation. If the split licence ever becomes uncomfortable, the zero-ambiguity swap is
-   `StbImageSharp` (public domain, covers PNG/JPG/TGA/BMP/HDR/PSD) plus `Pfim` (MIT, DDS/TGA) — lower
-   fidelity on EXR/TIFF/PSD, and a day of work behind the interface rather than a refactor.
+   `StbImageSharp` (public domain, covers PNG/JPG/TGA/BMP/HDR/PSD) plus ~~`Pfim` (MIT, DDS/TGA)~~ —
+   lower fidelity on EXR/TIFF/PSD, and a day of work behind the interface rather than a refactor.
+   (Pfim turned out not to be needed for either format; see the note below.)
 
 > ✅ **Mitigation 2 was taken, and sooner than this expected.** ImageSharp 4.0.0 does not merely have
 > an uncomfortable licence: it refuses to build without a purchased key, failing in
@@ -532,6 +533,19 @@ Applied to Vixen:
 > pipeline or the tests changed. Coverage moved rather than shrank: Radiance HDR arrived, which is
 > the format an environment map actually ships in and which the BC6H encoder and the IBL prefilter
 > were waiting for; `.exr`, `.tif` and `.webp` left, and `.dds` was never there.
+>
+> ✂️ **The other half of mitigation 2 — Pfim — is struck, and no package replaced it.** This table
+> carried a `Pfim` (MIT, DDS/TGA) row from the first draft, and `docs/overview.md` carried it as a
+> planned dependency blocking `.dds` import. Neither half of the row survived being looked at. TGA
+> was already being read, by `StbImageDecoder`, from the day the ImageSharp swap landed — the row
+> named a format that had a decoder. And DDS is a **container**, not a codec: what a game ships in
+> one is BCn, and `Vixen.Core.Imaging` has understood BC1 through BC7 and BC6H for as long as
+> `Ktx2` has. What was actually missing was header parsing and a DXGI-to-`PixelFormat` table, which
+> is `DdsDecoder` — no package, no licence line, no change to the restore graph.
+>
+> The general lesson is worth more than the row: **a planned dependency is a claim about a
+> capability, and this repository's own imaging stack kept overtaking the plan.** Before adding a
+> decode library, check what the payload actually is.
 >
 > **`CheckArchitecture`'s ADR-015 rule stays; the package it names does not.** This paragraph used to
 > read "the rule guards against a future mistake rather than a present one", keeping

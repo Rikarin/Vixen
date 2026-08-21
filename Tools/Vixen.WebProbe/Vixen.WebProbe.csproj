@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+    <!--
+        The browser head this repository owns, and the subject of `nuke PublishWeb`.
+
+        ⚠ Deliberately outside Vixen.slnx, exactly as Tools/Vixen.AotProbe.iOS is and for the same
+        reason: net10.0-browser cannot be *evaluated* without the wasm-tools workload, so its
+        presence in the solution would break `dotnet build` for everyone who has not installed it.
+        The cost is the one that project's target already names — CheckFormat, CheckApi and Pack do
+        not see it, and CheckArchitecture does, because that gate globs Tools/**/*.csproj rather
+        than reading the solution.
+
+        The props/targets imports are what make this a head rather than a library. A library never
+        evaluates them, so the emcc relink, the WebGL2 minimum, the trimming profile and the
+        static-web-asset layout apply only here — which is the gap all three defects in
+        docs/plan/spikes/web-head/RESULT.md live in.
+    -->
+    <Import Project="..\..\Platform\Vixen.Platform.Web\build\Vixen.Platform.Web.props" />
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-browser</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.WebProbe</RootNamespace>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <!--
+            ⚠ Load-bearing, and defect 3. WasmMainJSPath at the project root is not a static web
+            asset: it is not published to wwwroot/, so the page 404s on its own entry point and
+            nothing happens, with no build error. PublishWeb asserts the published result.
+        -->
+        <WasmMainJSPath>wwwroot\main.js</WasmMainJSPath>
+        <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+
+        <!-- A head ships to a browser, not to a feed. -->
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Web\Vixen.Platform.Web.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.WebGPU.Browser\Vixen.Graphics.WebGPU.Browser.csproj" />
+    </ItemGroup>
+
+    <Import Project="..\..\Platform\Vixen.Platform.Web\build\Vixen.Platform.Web.targets" />
+
+</Project>
