@@ -37,16 +37,22 @@ namespace Vixen.Ui;
 ///         and "a longer list" different events, which is what they are.
 ///     </para>
 ///     <para>
-///         <b>One drain, and <c>LayoutStyleBuilder.Diagnostics</c> is the second producer it is
-///         shaped for.</b> That list is the same <c>IReadOnlyList&lt;SelectorDiagnostic&gt;</c> for the
-///         same reason — see the remark on it — and is equally unread; wiring it is issue #56 and is
-///         deliberately not done here, because it is produced inside the per-element style pass
-///         rather than at load and so needs a drain point in <see cref="UiDocument.Update()" />
-///         rather than in <see cref="UiDocument.Load" />. The line that closes it is one call:
-///         <c>Drain("The layout bridge", Builder, Builder.Diagnostics, ref drainedBuilder, ref
-///         drainedBuilderCount)</c> at the end of the pass. Nothing else has to change — the builder
-///         already deduplicates by text, so a bad declaration matched by five hundred elements is one
-///         entry and therefore one log line.
+///         <b>One drain, and <c>LayoutStyleBuilder.Diagnostics</c> is the second producer it takes.</b>
+///         That list is the same <c>IReadOnlyList&lt;SelectorDiagnostic&gt;</c> for the same reason —
+///         see the remark on it — and was equally unread. It is drained by
+///         <see cref="DrainBuilderDiagnostics" /> rather than by <see cref="DrainStyleDiagnostics" />,
+///         because it is produced inside the per-element style pass rather than at load: its drain
+///         point is the end of <see cref="Update" /> and not <see cref="Load" />. Nothing else had to
+///         change — the builder already deduplicates by text, so a bad declaration matched by five
+///         hundred elements is one entry and therefore one log line.
+///     </para>
+///     <para>
+///         ⚠ <b>It matters more since grid landed than it would have before.</b> The bridge's other
+///         refusals are mostly a keyword it does not know, which leaves a property at its initial
+///         value; a track list is a grammar. A <c>grid-template-rows</c> the parser stops halfway
+///         through is a one-row grid, which reads as a layout bug in a panel rather than as a
+///         declaration the engine refused — and outside this assembly's tests, nothing could tell a
+///         track list that was accepted from one that was not.
 ///     </para>
 /// </remarks>
 public sealed partial class UiDocument {
@@ -59,12 +65,15 @@ public sealed partial class UiDocument {
     object? drainedCompiler;
     int drainedCompilerCount;
 
+    object? drainedBuilder;
+    int drainedBuilderCount;
+
     /// <summary>Logs every refusal the cascade has recorded since the last time this ran.</summary>
     /// <remarks>
     ///     Called after anything that can add to either list: a <see cref="Load" />, a
     ///     <see cref="ReloadStyles" />, and the reload a resize can trigger. Not called per frame,
-    ///     because neither producer runs per frame — the one that does is the builder, and that is
-    ///     #56.
+    ///     because neither producer runs per frame — the one that does is the builder, and it has
+    ///     <see cref="DrainBuilderDiagnostics" /> of its own.
     /// </remarks>
     void DrainStyleDiagnostics() {
         Drain(
@@ -83,6 +92,33 @@ public sealed partial class UiDocument {
             ref drainedCompilerCount
         );
     }
+
+    /// <summary>Logs every declaration the layout bridge refused during the pass that just ran.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>After the pass rather than inside it, and once rather than per element.</b> The
+    ///         builder is the one producer that runs per frame: it is called from <c>Apply</c> for
+    ///         every element the updater restyled, so a drain woven into
+    ///         that loop would test the list's length a thousand times a frame to log nothing. The
+    ///         list deduplicates by text, so the whole of a pass's news is its tail and reading it
+    ///         once at the end is the same news.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not in the <c>finally</c> that clears <see cref="updating" />.</b> A pass that
+    ///         threw is a pass whose element walk did not finish, and the refusals it did record are
+    ///         reported by the next one — the watermark is a position in a list that nothing truncates,
+    ///         not a per-pass buffer. Draining from the <c>finally</c> would put a log write on the
+    ///         way out of an exception, where the exception is the news.
+    ///     </para>
+    /// </remarks>
+    void DrainBuilderDiagnostics() =>
+        Drain(
+            "The layout bridge",
+            Builder,
+            Builder.Diagnostics,
+            ref drainedBuilder,
+            ref drainedBuilderCount
+        );
 
     /// <summary>Logs the tail of one producer's list and remembers how far it got.</summary>
     /// <param name="source">What to call the producer in the message.</param>

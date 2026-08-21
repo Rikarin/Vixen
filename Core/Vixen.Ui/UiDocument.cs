@@ -852,6 +852,12 @@ public sealed partial class UiDocument : IDisposable {
             updating = false;
         }
 
+        // ⚠ After the settle rather than after the restyle, because a settle pass restyles too — a
+        // handler that assigns a class runs the bridge again, and a drain placed above `Settle` would
+        // report the refusals of the first pass and hold the rest until the next frame. See
+        // `DrainBuilderDiagnostics`, and note that it is outside the `finally` on purpose.
+        DrainBuilderDiagnostics();
+
         return true;
     }
 

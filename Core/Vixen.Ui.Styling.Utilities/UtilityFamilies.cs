@@ -206,15 +206,90 @@ public static class UtilityFamilies {
         // from wherever auto-placement puts it. Emitting exactly what Tailwind does keeps a
         // stylesheet copied from its documentation working, and the store resolves it identically.
         CountTemplate("col-span", "span {0} / span {0}", "grid-column");
+        CountTemplate("row-span", "span {0} / span {0}", "grid-row");
 
-        // ⚠ <b>`grid-rows-*`, `row-span-*` and the four `col-`/`row-start`/`-end` families are still
-        // absent, and the bridge is no longer the reason.</b> `LayoutStyleBuilder` reads all six
-        // properties now — registering the families is one line each. What stops it is
-        // `UtilityConsumptionProbe`: every one of its seven scenes makes `#probe` a *flex* container
-        // whose parent is also flex, so a row template or a placement longhand injected onto it
-        // moves nothing, and the gate would classify six live properties as inert. The gate's own
-        // rule for that is explicit — the fix is a scene that observes them, not an allow-list line
-        // — and a grid scene is a bigger change than the families are. Doc 43 § B2 owes it.
+        // ⚠ <b>`full` is a line pair and not a span, so it cannot be the template with a count in
+        // it.</b> `1 / -1` names the first line of the explicit grid and its last, which is a
+        // different thing from spanning every track: an item spanning `N` from wherever
+        // auto-placement dropped it would run off the end. Tailwind emits the line pair, `§8.3`
+        // resolves `-1` against the explicit grid, and `GridPlacement.TryParseShorthand` reads both
+        // edges — so the keyword rides on the same family rather than needing one of its own.
+        Keywords("col-span", "grid-column", new() { ["full"] = "1 / -1" });
+        Keywords("row-span", "grid-row", new() { ["full"] = "1 / -1" });
+
+        CountTemplate("grid-rows", "repeat({0}, minmax(0, 1fr))", "grid-template-rows");
+
+        // ⚠ <b>`none` is the initial value written out, and it is not the same as an empty
+        // declaration.</b> `GridTrackList` refuses the token — correctly, since §7.2's
+        // `<auto-track-list>` has no `none` — so `TrackListProperty` reads it for the two explicit
+        // properties only and resets the node. `grid-rows-subgrid` is deliberately absent: there is
+        // no subgrid in `Vixen.Ui.Layout`, and a class that resolved to a declaration the bridge
+        // then refused would look like it worked.
+        Keywords("grid-cols", "grid-template-columns", new() { ["none"] = "none" });
+        Keywords("grid-rows", "grid-template-rows", new() { ["none"] = "none" });
+
+        // The implicit tracks. `Spacing` because v4's numeric form is `calc(var(--spacing) * N)` and
+        // this system's spacing scale is the same idea with the multiplication already done; the four
+        // keywords are what the family is actually written with.
+        //
+        // ⚠ `fr` is `minmax(0, 1fr)` rather than `1fr`, for the reason `grid-cols` is: a bare `1fr`
+        // floors at min-content, so a cycle of `auto-cols-fr` tracks holding one wide item would stop
+        // being an even cycle.
+        Spacing("auto-cols", "grid-auto-columns");
+        Spacing("auto-rows", "grid-auto-rows");
+
+        Keywords("auto-cols", "grid-auto-columns", new() {
+            ["auto"] = "auto", ["min"] = "min-content", ["max"] = "max-content", ["fr"] = "minmax(0, 1fr)"
+        });
+
+        Keywords("auto-rows", "grid-auto-rows", new() {
+            ["auto"] = "auto", ["min"] = "min-content", ["max"] = "max-content", ["fr"] = "minmax(0, 1fr)"
+        });
+
+        // ⚠ <b>`grid-flow-col` is `column`, and the family is `grid-flow` rather than `grid`.</b>
+        // Tailwind abbreviates in the class name and CSS does not in the value — the same trade
+        // `flex-col` already makes here. The prefix has to be the whole of `grid-flow` because
+        // `SplitName` takes the longest registered name and `grid` is one: without the longer entry,
+        // `grid-flow-col` would split as the display family `grid` with the value `flow-col`, which is
+        // not a keyword it has, and the class would be reported as a typo.
+        Keywords("grid-flow", "grid-auto-flow", new() {
+            ["row"] = "row", ["col"] = "column", ["dense"] = "dense",
+            ["row-dense"] = "row dense", ["col-dense"] = "column dense"
+        });
+
+        // The four placement longhands. `Number` rather than `CountTemplate` because the value is
+        // emitted as written — a line number is a line number — and because that is what makes
+        // `-col-start-1` work: `TryNegate` flips the sign of a resolved number, and §8.3 counts a
+        // negative line back from the end edge of the explicit grid.
+        Number("col-start", "grid-column-start");
+        Number("col-end", "grid-column-end");
+        Number("row-start", "grid-row-start");
+        Number("row-end", "grid-row-end");
+
+        Keywords("col-start", "grid-column-start", new() { ["auto"] = "auto" });
+        Keywords("col-end", "grid-column-end", new() { ["auto"] = "auto" });
+        Keywords("row-start", "grid-row-start", new() { ["auto"] = "auto" });
+        Keywords("row-end", "grid-row-end", new() { ["auto"] = "auto" });
+
+        // ⚠ <b>`start` and `end` rather than `flex-start` and `flex-end`, which is the opposite of
+        // what `items-*` above emits.</b> Both spellings reach `Align.FlexStart` through the bridge's
+        // one alignment table, so the choice is about what a generated sheet reads like next to
+        // Tailwind's documentation — and `justify-items: flex-start` is not a value CSS Box Alignment
+        // gives that property, so a browser would drop the very declaration this engine honours.
+        //
+        // ⚠ <b>`normal` and the two `-safe` values are missing on purpose.</b> `justify-items: safe
+        // center` is two tokens and the cascade hands the bridge one interned keyword, so it would
+        // fall out of the alignment table and leave the property at its initial value with nothing
+        // said — an inert class that looks like it works. They belong here the day
+        // `LayoutStyleBuilder.Keywords.Alignments` has a reading of them.
+        Keywords("justify-items", "justify-items", new() {
+            ["start"] = "start", ["end"] = "end", ["center"] = "center", ["stretch"] = "stretch"
+        });
+
+        Keywords("justify-self", "justify-self", new() {
+            ["auto"] = "auto", ["start"] = "start", ["end"] = "end",
+            ["center"] = "center", ["stretch"] = "stretch"
+        });
 
         // ── Gap and spacing ─────────────────────────────────────────────────────────────────
         Spacing("gap", "gap");
