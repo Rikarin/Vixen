@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using System.Text;
 using Vixen.Live.Cluster;
 using Vixen.Net.Sessions;
@@ -167,25 +168,76 @@ public sealed class RealmClusterTests : IDisposable {
 
     // ── The rule the whole design rests on ──────────────────────────────────────────────────────
 
+    /// <summary>How long the slow cluster takes to answer, and the margin allowed for it.</summary>
+    static readonly TimeSpan Answer = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>How many frames one measured run pumps. Doc 27 § Slice two's twenty.</summary>
+    const int Frames = 20;
+
+    /// <summary>How many times the pair is measured. The first pass is thrown away.</summary>
+    const int Passes = 4;
+
     [Fact]
     public void ASlowClusterDoesNotSlowTheRealmDown() {
         // ⚠ Doc 27 M1: a grain call reaching the frame path is the single way this design fails, and
         // it will not look like a bug — it will look like occasional stutter. Every call here goes
         // through RealmDirectory, so a cluster taking a quarter of a second to answer costs the realm
         // nothing at all.
-        cluster.Latency = TimeSpan.FromMilliseconds(250);
+        //
+        // ⚠ The measurement is against this machine, not against a number of milliseconds. Pump is a
+        // simulated clock with no sleeps in it: twenty frames cost two or three milliseconds when the
+        // process is being scheduled and two hundred when a parallel `dotnet test` is using all ten
+        // cores. An absolute budget small enough to look strict is therefore a reading of the build
+        // agent — it fails a healthy realm under load, and it would still pass the regression it
+        // exists to catch, because a frame path that waits on this cluster costs *seconds*. So the
+        // same twenty frames are run twice, against a cluster answering instantly and against one
+        // taking a quarter of a second, and the two are compared to each other.
+        //
+        // Set before the map comes up so the realm's `Ready` is one of the calls that has to wait,
+        // which is what the last line of this test then watches arrive.
+        cluster.Latency = Answer;
 
         MapIsUp();
 
-        var started = DateTime.UtcNow;
+        var slow = TimeSpan.MaxValue;
+        var free = TimeSpan.MaxValue;
 
-        Pump(20);
+        for (var pass = 0; pass < Passes; pass++) {
+            // Interleaved, so both figures see the same machine at the same moment — a baseline taken
+            // before the load arrives is worth no more than an absolute budget. Slow first within
+            // each pass, so that whatever a warmed path is worth is worth it to the *baseline*: an
+            // ordering that can only make this assertion harder to pass, never easier.
+            cluster.Latency = Answer;
 
-        var spent = DateTime.UtcNow - started;
+            var waited = TwentyFrames();
 
+            cluster.Latency = TimeSpan.Zero;
+
+            var instant = TwentyFrames();
+
+            // The first pass pays for the JIT of everything below Pump, on whichever of the two runs
+            // happened to go first. Reduced by minimum after that, because the smallest of several
+            // samples is the one that was preempted least, and preemption is exactly the noise the
+            // old budget was measuring.
+            if (pass == 0) {
+                continue;
+            }
+
+            slow = waited < slow ? waited : slow;
+            free = instant < free ? instant : free;
+        }
+
+        // ⚠ The margin is one whole cluster answer — generous, and still an order of magnitude
+        // tighter than the regression it guards. A frame path that awaits its grain calls blocks on
+        // every one of them, and twenty frames at this heartbeat cadence make about ten calls, so
+        // breaking M1 reads as two and a half seconds rather than as 250 milliseconds. What the
+        // margin buys is that the baseline does the arguing about the machine.
         Assert.True(
-            spent < TimeSpan.FromMilliseconds(200),
-            $"twenty frames took {spent.TotalMilliseconds:0} ms against a cluster answering in 250 ms."
+            slow <= free + Answer,
+            $"twenty frames cost {slow.TotalMilliseconds:0.0} ms against a cluster answering in "
+            + $"{Answer.TotalMilliseconds:0} ms, and {free.TotalMilliseconds:0.0} ms against one "
+            + "answering instantly — measured on the same machine at the same moment, so the "
+            + "difference is the realm waiting."
         );
 
         // And the answers do arrive, on the realm's own thread, once they are ready.
@@ -249,6 +301,20 @@ public sealed class RealmClusterTests : IDisposable {
         session.StartClient();
 
         return session;
+    }
+
+    /// <summary>Pumps <see cref="Frames" /> frames and says what they cost in wall-clock time.</summary>
+    /// <returns>How long they took.</returns>
+    /// <remarks>
+    ///     <see cref="Stopwatch" /> rather than <see cref="DateTime.UtcNow" />: this is a duration on
+    ///     one machine, and the wall clock is allowed to step sideways underneath one.
+    /// </remarks>
+    TimeSpan TwentyFrames() {
+        var started = Stopwatch.GetTimestamp();
+
+        Pump(Frames);
+
+        return Stopwatch.GetElapsedTime(started);
     }
 
     void Pump(int rounds) {

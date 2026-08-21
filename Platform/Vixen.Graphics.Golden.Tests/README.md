@@ -439,6 +439,28 @@ description, compared over all 3456 clusters. Two guards keep it honest: a shade
 would agree with an oracle that expected nothing, so the fixture also asserts that *some* cluster
 holds a light and that *not every* cluster does.
 
+`VirtualShadowLookupDeviceTests` is the same shape for a different reason: not a shader nobody had
+run, but a shader **nothing on any gate composed**. `ShadowMode.Virtual` appears in no fixture here
+and in no other device test, so the only thing in the tree that reached `VirtualShadowLookup` was
+sample 13's frame — and no gate renders a sample. `VirtualShadowLevel` grew from eighty bytes to
+ninety-six when toroidal page addressing landed, and what asserted the device's reading of those
+ninety-six was a program nobody runs.
+
+It follows `WaterSurfaceSeamDeviceTests`' arrangement rather than drawing anything:
+`Shaders/VirtualShadowProbe.rvn` composes the shipped lookup and does nothing else, the host builds
+the level records, the page table and the atlas's stored depths through `VirtualShadowMap`'s own
+arithmetic, and the answers come back as `visibility` and `found` — so the assertions are equalities
+rather than tolerances on a rendering. ⚠ Two things make the question sharp and both are asserted
+without a device first, in `The_fixture_is_asking_a_question_that_can_fail`: the answer comes from
+level **two**, so a record read at the wrong stride lands in the middle of level one, and the fitted
+origin is **not** `(0, 0)`, for which `Vsm.Toroidal` is the identity and `Origin` could be transposed
+with the tail padding beside it unnoticed. Transposing those two fields today fails the fixture with
+"the point over the occluding page came back unfound" and leaves
+`VirtualShadowMapTests.The_level_record_is_the_stride_the_device_reads` green, which is the gap it
+was written to close. Its host-side twin,
+`VirtualShadowRendererTests.The_shader_and_the_host_agree_about_every_field_of_a_level`, catches the
+same transposition from the compiled reflection and needs no driver at all.
+
 Its other half *is* a picture. `ClusteredShadingDeviceTests` renders one composed Forward+ frame —
 the culler as a `ComputeRenderer` node, the shading pass reading what it wrote — and asserts a quad
 comes back red from the light two units in front of it while the corner it does not cover stays the

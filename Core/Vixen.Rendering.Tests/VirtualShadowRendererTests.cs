@@ -630,6 +630,124 @@ public class VirtualShadowRendererTests : IDisposable {
         Assert.Equal(VirtualShadowMap.MarkBlock, int.Parse(declared.Groups[1].Value));
     }
 
+    /// <summary>
+    ///     ⚠ Every field of <see cref="VirtualShadowLevel" /> is where the device expects it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>VirtualShadowMapTests.The_level_record_is_the_stride_the_device_reads</c>'s
+    ///         missing half.</b> That one pins the record at ninety-six bytes, which is the failure
+    ///         that renames every page of every level — but it is blind to the layout <em>inside</em>
+    ///         those ninety-six. Two fields transposed, or one grown while another shrank, keeps the
+    ///         size and moves the meaning, and nothing on either side is a compile error.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="VirtualShadowLevel.Origin" /> is the one that matters and it arrived
+    ///         late.</b> The record was eighty bytes until toroidal page addressing landed (task
+    ///         #317), and what grew it was an <c>Int2</c> inserted at offset 80 <em>ahead of the tail
+    ///         padding</em>. Transposing those two is a page address computed from
+    ///         <c>Vsm.Toroidal(0, cell)</c> — the identity — which is right for a level that has never
+    ///         moved and wrong for every level that has, so it reads as a map that goes stale when the
+    ///         camera walks rather than as a layout mistake.
+    ///     </para>
+    ///     <para>
+    ///         Against the compiled reflection rather than against the <c>.rvn</c> text: the offsets
+    ///         are what the Raven compiler decided, and the reflection is what the pipeline binds
+    ///         from. A member added to the shader's struct without a field beside it here fails this
+    ///         with a name in the message.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_shader_and_the_host_agree_about_every_field_of_a_level() {
+        var source = Path.Combine(LibraryPath(), "Pipeline", "VirtualShadowMark.reflect.json");
+
+        Assert.True(File.Exists(source), $"the compiled reflection was not found at '{source}'");
+
+        var declared = LevelMembers(source);
+
+        // What the host lays out, in the order the shader declares it. `padding0` and `padding1` are
+        // one Int2 here and two ints there — deliberately, because what has to agree is the bytes.
+        (string Name, int Offset, int Size)[] host = [
+            ("viewProjection", OffsetOf(nameof(VirtualShadowLevel.ViewProjection)), 64),
+            ("first", OffsetOf(nameof(VirtualShadowLevel.First)), 4),
+            ("kind", OffsetOf(nameof(VirtualShadowLevel.Kind)), 4),
+            ("texelWorldSize", OffsetOf(nameof(VirtualShadowLevel.TexelWorldSize)), 4),
+            ("light", OffsetOf(nameof(VirtualShadowLevel.Light)), 4),
+            ("origin", OffsetOf(nameof(VirtualShadowLevel.Origin)), 8),
+            ("padding0", OffsetOf(nameof(VirtualShadowLevel.Padding)), 4),
+            ("padding1", OffsetOf(nameof(VirtualShadowLevel.Padding)) + 4, 4)
+        ];
+
+        Assert.Equal(
+            host.Select(field => field.Name).Order(StringComparer.Ordinal),
+            declared.Keys.Order(StringComparer.Ordinal)
+        );
+
+        foreach (var (name, offset, size) in host) {
+            Assert.True(
+                declared[name] == (offset, size),
+                $"'{name}' is at {offset} for {size} bytes on the host and at {declared[name].Offset} "
+                + $"for {declared[name].Size} on the device. A record the two sides lay out differently "
+                + "is not a compile error on either: it is every page of every level addressed into "
+                + "another level's world, which renders and renders plausibly."
+            );
+        }
+
+        Assert.Equal(
+            System.Runtime.InteropServices.Marshal.SizeOf<VirtualShadowLevel>(),
+            host.Max(field => field.Offset + field.Size)
+        );
+    }
+
+    /// <summary>Where a field of <see cref="VirtualShadowLevel" /> starts.</summary>
+    static int OffsetOf(string field) =>
+        System.Runtime.InteropServices.Marshal.OffsetOf<VirtualShadowLevel>(field).ToInt32();
+
+    /// <summary>The <c>levels</c> buffer's members, as the compiled reflection describes them.</summary>
+    /// <remarks>
+    ///     Walked rather than addressed by a path, because where a binding lands in the document is a
+    ///     property of the shader's descriptor sets and not of the struct — and a test that hard-coded
+    ///     the route would start failing when a set was added.
+    /// </remarks>
+    static Dictionary<string, (int Offset, int Size)> LevelMembers(string path) {
+        var found = new Dictionary<string, (int Offset, int Size)>(StringComparer.Ordinal);
+
+        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+
+        Walk(document.RootElement);
+
+        Assert.NotEmpty(found);
+
+        return found;
+
+        void Walk(System.Text.Json.JsonElement element) {
+            switch (element.ValueKind) {
+                case System.Text.Json.JsonValueKind.Object:
+                    if (element.TryGetProperty("Name", out var name)
+                        && name.ValueKind == System.Text.Json.JsonValueKind.String
+                        && name.GetString() is { } text
+                        && text.StartsWith("levels.", StringComparison.Ordinal)
+                        && element.TryGetProperty("Offset", out var offset)
+                        && element.TryGetProperty("Size", out var size)) {
+                        found[text["levels.".Length..]] = (offset.GetInt32(), size.GetInt32());
+                    }
+
+                    foreach (var property in element.EnumerateObject()) {
+                        Walk(property.Value);
+                    }
+
+                    break;
+
+                case System.Text.Json.JsonValueKind.Array:
+                    foreach (var item in element.EnumerateArray()) {
+                        Walk(item);
+                    }
+
+                    break;
+            }
+        }
+    }
+
     /// <summary>An effect standing in for the compiled marking pass, so <c>Mark</c> records.</summary>
     EffectSystem Marking() {
         var system = new EffectSystem();

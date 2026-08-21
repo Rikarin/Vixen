@@ -435,10 +435,9 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("flattened inheritance", Inheritance)]
     [InlineData("cutout by discard", Cutout)]
     public void The_two_paths_agree_on_the_interface(string what, string source) {
-        if (!ReferenceCompiler.Available) {
-            output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");
-            return;
-        }
+        // Skipped, not passed. A green result from a case that never ran is the one report this
+        // file must never produce — see The_oracle_is_installed_so_this_file_means_something below.
+        Assert.SkipUnless(ReferenceCompiler.Available, $"{what}: {ReferenceCompiler.HowToInstall}");
 
         var glsl = CodeGenTestBase.GenerateClean(source, "glsl");
         var spirv = CodeGenTestBase.GenerateClean(source, "spirv");
@@ -473,10 +472,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     /// </summary>
     [Fact]
     public void The_two_paths_agree_on_every_member_offset_and_stride() {
-        if (!ReferenceCompiler.Available) {
-            output.WriteLine(ReferenceCompiler.HowToInstall);
-            return;
-        }
+        Assert.SkipUnless(ReferenceCompiler.Available, ReferenceCompiler.HowToInstall);
 
         var mine = Assert.Single(CodeGenTestBase.GenerateClean(Packing, "spirv"));
         var theirs = Assert.Single(CodeGenTestBase.GenerateClean(Packing, "glsl"));
@@ -518,10 +514,9 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("flattened inheritance", Inheritance)]
     [InlineData("cutout by discard", Cutout)]
     public void A_reference_compiler_accepts_Ravens_GLSL(string what, string source) {
-        if (ReferenceCompiler.Glslc is null) {
-            output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");
-            return;
-        }
+        // Only glslc: this half never disassembles anything, so spirv-dis being absent must not
+        // take it out too.
+        Assert.SkipUnless(ReferenceCompiler.Glslc is not null, $"{what}: {ReferenceCompiler.HowToInstall}");
 
         foreach (var unit in CodeGenTestBase.GenerateClean(source, "glsl")) {
             var module = ReferenceCompiler.GlslToSpirv(unit.Code, unit.Stage);
@@ -529,5 +524,36 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
             // A SPIR-V magic word, so a zero-length output cannot pass for success.
             Assert.Equal<byte[]>([0x03, 0x02, 0x23, 0x07], module[..4]);
         }
+    }
+
+    /// <summary>
+    ///     The oracle's absence is itself a failure, exactly as
+    ///     <c>SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something</c> makes
+    ///     <c>spirv-val</c>'s absence one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Everything above skips without the tools, which is the right report for a developer
+    ///         and the wrong one for a build: a suite of skips reads as "nothing to say here", and
+    ///         this is the only file in the tree that compares Raven's SPIR-V emitter against a
+    ///         second implementation. Between the tools being optional and this assertion existing,
+    ///         the differential oracle ran on the Windows leg only — because the Vulkan SDK happens
+    ///         to carry <c>glslc.exe</c> — and neither of the other two installed shaderc at all.
+    ///     </para>
+    ///     <para>
+    ///         <c>ci.yml</c> installs both on all three legs now, which is what makes this
+    ///         assertion affordable rather than merely correct.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_oracle_is_installed_so_this_file_means_something() {
+        Assert.True(
+            ReferenceCompiler.Available,
+            "The differential oracle's tools were not found: "
+            + $"glslc {(ReferenceCompiler.Glslc is null ? "MISSING" : "found")}, "
+            + $"spirv-dis {(ReferenceCompiler.SpirvDis is null ? "MISSING" : "found")}. "
+            + "Install them (brew install shaderc spirv-tools; apt-get install glslc spirv-tools) — "
+            + "without them Raven's SPIR-V emitter is checked against nothing but itself."
+        );
     }
 }

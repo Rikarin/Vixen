@@ -194,9 +194,7 @@ public class OperatorOverloadTests {
 
         Assert.NotEmpty(SpirvTestBase.One(source).Code);
 
-        if (ReferenceCompiler.Glslc is null) {
-            return;
-        }
+        Assert.SkipUnless(ReferenceCompiler.Glslc is not null, ReferenceCompiler.HowToInstall);
 
         var unit = Assert.Single(GenerateClean(source));
         Assert.NotEmpty(ReferenceCompiler.GlslToSpirv(unit.Code, unit.Stage));

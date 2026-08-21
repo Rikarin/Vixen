@@ -246,6 +246,55 @@ mean absolute channel of 0.002/255, which is what makes an A/B against another c
 mistaken for a broken one. [The guide](../../docs/guide/rendering/capturing-a-frame.md) says what else
 a headless picture is and is not.
 
+⚠ **`--vixen-capture` is not optional, and it is not about the picture.** Every recipe below carries
+it, including the ones whose evidence is a CSV nobody looks at a PNG for, and that is deliberate:
+`--vixen-headless` alone gives a window whose surface is `SurfaceKind.None`, `GraphicsHost` makes
+Vulkan **decline** a surface it cannot present to, and the run falls through to the Null device. That
+refusal is load-bearing rather than a bug — without it a dedicated server would silently stop running
+on the device that draws nothing and start needing a driver — and asking for a picture is the one
+statement specific enough to overrule it. So the flag buys a **real GPU device with no window**, and
+the PNG is the receipt.
+
+⚠ **Forgetting it does not fail, and it does not look like a failure either.** The half of
+`Arena.ReportFrame` that counts what the *CPU* recorded is unaffected and reports a healthy frame —
+so the run reads as fine at a glance. It is only the counters that read a result back off the device
+that collapse. The same four frames, with the flag and without:
+
+| From `Arena.ReportFrame` after four frames | With `--vixen-capture` | Without |
+|---|---|---|
+| Objects drawn / shader variants / misses | 67 / 58 / 0 | **67 / 58 / 0** |
+| Render objects held | 85 | **85** |
+| GI frame: irradiance bricks filled | 16 | **16** |
+| Draws recorded | 11 675 | 9 062 |
+| GI screen: screen probes placed | 4 544 | **0** |
+| VSM: marked / drawn / resident | 41 / 16 / 32 | **0 / 0 / 0** |
+
+Read the top three rows and the run is healthy. The draw count does not even read as suspicious — it
+is a large plausible number that happens to be missing the shadow-page draws, which is the whole
+difference.
+
+`VIXEN_VSMTRACE` writes its row a frame either way; without the flag every one of them is zero, for
+however many frames you asked for. **A branch that changed nothing and a branch that broke everything
+measure identically**, and both exit zero. An A/B taken that way has already caught this repository out once: the toroidal table below was
+reported as impossible-to-measure-headless on that evidence. Two lines of the start-up log are the
+check, and they are worth reading before believing any number:
+
+```
+warn  Nothing will be presented: vulkan is drawing offscreen, because a capture was asked for
+      and there is nothing to present to.
+info  Graphics on Apple M1 Max (Integrated), 1600×900.
+```
+
+If the second line names a software device, every read-back counter from that run is a zero about your
+instrument and not about your code — **except the GPU profiler, which does not read zero.**
+`--vixen-gpu-profile` on the Null device gets synthetic monotonic timings out of
+`NullDevice.TryResolveQueries` rather than zeros, on purpose, so the pass timeline comes back full of
+plausible invented milliseconds. That is the one counter here that lies convincingly rather than
+obviously.
+
+There is currently **no way to ask for a capture-free headless GPU device** — `--vixen-backend vulkan`
+under `--vixen-headless` throws rather than falling back — so pay the PNG.
+
 ### Walking, because a still frame cannot show a temporal defect
 
 `VIXEN_SPAWN` places the camera and nothing moves it afterwards — the pawn falls the twenty
@@ -520,19 +569,27 @@ walking, against a level's thousand and twenty-four. The other half of the schem
 `VirtualShadowMap.GridOf`, which the *draw* needs — a page owed a draw is known by its address, and the
 window is what says which rectangle of the level to draw it from.
 
-⚠ **Measured windowed on an Apple M1 Max at 3200×1800, not headless.** On this Mac
-`--vixen-headless` selects the **Null device** — "Graphics on Vixen Null Device (Software)" in the
-start-up log — so no compute runs, the marking pass fills nothing, and every VSM counter reads zero
-for 2 400 frames on master and on the fix alike. The table below is therefore *not* comparable to the
-8.8 % above, which was measured at 1600×900: this frame marks 90 pages against that run's smaller
-demand. It is a same-machine, same-binary-shape A/B — the route is the closed circle above and both
-runs report the player covering 21.624828 m — and the demand column is what makes it one.
+⚠ **Measured windowed on an Apple M1 Max at 3200×1800, so the table below is *not* comparable to
+the 8.8 % above**, which was measured at 1600×900: this frame marks 90 pages against that run's
+smaller demand. It is a same-machine, same-binary-shape A/B — the route is the closed circle above and
+both runs report the player covering 21.624828 m — and the demand column is what makes it one.
 
 ```
 VIXEN_SPAWN=-3,0.2,24,180 VIXEN_WALK="40:1:0:9" VIXEN_VSMTRACE=./vsm.csv \
 dotnet bin/Release/net10.0/ThirdPersonShooter.dll \
     --vixen-frames 2400 --vixen-variant Development --vixen-capture ./shots
 ```
+
+⚠ **This paragraph used to say that headless *cannot* measure any of it on a Mac, and that was
+wrong.** It read: "on this Mac `--vixen-headless` selects the Null device … so no compute runs, the
+marking pass fills nothing, and every VSM counter reads zero for 2 400 frames on master and on the fix
+alike". What actually selects the Null device is `--vixen-headless` **without `--vixen-capture`**, on
+every platform alike and by design — see the trap under [Looking at it](#looking-at-it). The recipe
+this document has given all along carries `--vixen-capture`, and it works here: run headless with it
+and the start-up log says `Graphics on Apple M1 Max (Integrated)`, `VIXEN_VSMTRACE` fills, and 238 of
+240 rows carry a non-zero `marked`. Drop the flag and the same run says `Graphics on Vixen Null
+Device (Software)` and writes 240 rows of zero. The windowed measurement above stands as taken; it did
+not have to be windowed, and the table can be re-run headless at 1600×900 against the 8.8 % figure.
 
 | Per frame over 2 400 frames | Before | After |
 |---|---|---|
