@@ -71,7 +71,7 @@ flipped albedo and a flipped normal map both render *plausibly*.
 
 Nothing to call. Drop the file in; the `.meta` beside it carries the settings.
 
-```csharp
+```csharp no-compile="a fragment; the settings object is what the .meta deserialises into"
 new TextureImportSettings {
     Content = TextureContent.NormalMap,     // ⇒ linear, unit-length mips, BC5
     Compression = TextureCompression.Automatic,
