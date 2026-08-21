@@ -302,15 +302,25 @@ and report their absence through the test output rather than failing or silently
 | Tool | Install | What it unlocks |
 |---|---|---|
 | `spirv-val`, `spirv-dis` | `brew install spirv-tools` | validation of every emitted SPIR-V module, and the disassembly the differential oracle reads |
-| `glslc` (shaderc) | `brew install shaderc` | compiles Raven's GLSL back to SPIR-V for the differential oracle ([07 § C](07-raven-shader-pipeline.md)) |
+| `glslc` (shaderc) | `brew install shaderc`, `apt-get install glslc` | compiles Raven's GLSL back to SPIR-V for the differential oracle ([07 § C](07-raven-shader-pipeline.md)) |
 
 The command-line tools rather than their NuGet bindings, deliberately: an oracle is a test-time
 thing, and a native package would put shaderc's binaries in the restore graph of projects that must
 never ship them.
 
-**`ci.yml` must install both**, so these are optional locally and mandatory on a PR — a green local
+**`ci.yml` installs both**, so these are optional locally and mandatory on a PR — a green local
 run with the tools missing is a weaker signal than a green CI run, and the test output says which one
-you got. That is a requirement on the workflow when it is written; nothing enforces it today.
+you got.
+
+⚠ **It did not, for `glslc`, for as long as the differential oracle existed.** All three legs
+installed `spirv-tools`; none installed shaderc, and the oracle ran on Windows only, by accident,
+because LunarG's Vulkan SDK happens to carry `glslc.exe`. On the other two `SpirvDifferentialTests`
+returned early and reported thirteen *passes*, which is the failure mode this section exists to
+prevent — an optional check whose absence looks like a green one. Two things close it: the tests
+now `Assert.Skip` rather than return, so a missing tool reads as a skip, and
+`The_oracle_is_installed_so_this_file_means_something` **fails** when either tool is absent, exactly
+as `SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something` already did for
+`spirv-val`. A guard is what "must install" means; a sentence in a plan document is not.
 
 ### What is explicitly *not* tested
 

@@ -260,9 +260,7 @@ public class SwitchTests {
         // `One` puts the module through spirv-val.
         Assert.NotEmpty(SpirvTestBase.One(Source).Code);
 
-        if (ReferenceCompiler.Glslc is null) {
-            return;
-        }
+        Assert.SkipUnless(ReferenceCompiler.Glslc is not null, ReferenceCompiler.HowToInstall);
 
         var unit = Assert.Single(GenerateClean(Source));
         Assert.NotEmpty(ReferenceCompiler.GlslToSpirv(unit.Code, unit.Stage));

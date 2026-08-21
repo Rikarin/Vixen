@@ -86,8 +86,16 @@ jobs:
         run: |
           # spirv-tools carries spirv-val, which Raven's golden SPIR-V tests require and which
           # they fail rather than skip without — the same guard as VIXEN_REQUIRE_VULKAN below.
-          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools spirv-tools
+          #
+          # glslc is the differential oracle's other half (docs/plan/07 § C, docs/plan/12): it
+          # compiles Raven's GLSL back to SPIR-V so the two emitters' interfaces can be diffed.
+          # Ubuntu ships it in universe as `glslc`, out of the shaderc source package — the CLI
+          # tool rather than `Silk.NET.Shaderc`, so shaderc's binaries never enter the restore
+          # graph. Without it SpirvDifferentialTests has nothing to compare against, and doc 12
+          # has required this install since it was written.
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools spirv-tools glslc
           vulkaninfo --summary | grep -E 'deviceName|apiVersion|driverName'
+          glslc --version
 
       # spirv-tools for the same reason the Linux step above gives, and it belongs on both legs
       # rather than one: `SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something`
@@ -95,9 +103,15 @@ jobs:
       # quietly missing makes every other SPIR-V assertion in that file check the listing and not the
       # module. Installing it only on Linux meant the macOS leg failed that test on every run and the
       # rest of the file proved less than it looked like it did.
-      - name: Install SDL2 and spirv-tools (macOS)
+      #
+      # shaderc for glslc, the differential oracle's other half — see the Linux step's note. This
+      # leg had never installed it, so SpirvDifferentialTests reported thirteen silent passes here
+      # on every run.
+      - name: Install SDL2, spirv-tools and shaderc (macOS)
         if: matrix.os == 'macos-14'
-        run: brew install sdl2 spirv-tools
+        run: |
+          brew install sdl2 spirv-tools shaderc
+          glslc --version
 
       # The third leg, for the third time, and the argument does not change with the operating
       # system: three tests fail rather than skip when spirv-val is absent, and the Windows leg has
@@ -144,6 +158,13 @@ jobs:
           if (-not $sdk) { throw "The Vulkan SDK installed nothing under C:\VulkanSDK." }
           "$($sdk.FullName)\Bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & "$($sdk.FullName)\Bin\spirv-val.exe" --version
+
+          # The SDK carries glslc.exe as well, which is why this leg is the only one where the
+          # differential oracle has ever run — by accident rather than by decision. Asserted here so
+          # that stays a fact rather than an assumption: the other two legs now install shaderc
+          # deliberately, and a Windows SDK that stopped shipping glslc would otherwise take the
+          # oracle back out on one leg in silence.
+          & "$($sdk.FullName)\Bin\glslc.exe" --version
 
       # Keyed on the manifest, because that is the only thing that changes what would be downloaded.
       # A version bump is a new key and a fresh fetch; anything else is a hit.
