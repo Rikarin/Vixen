@@ -326,7 +326,8 @@ jobs:
         shell: bash
 
       # The published head, so a failure downstream of here can be loaded in a real browser by hand.
-      # It is a probe and draws nothing; see docs/plan/spikes/web-head/RESULT.md.
+      # It is Tools/Vixen.WebProbe, which draws nothing and says so; the findings it was promoted
+      # out of are docs/plan/spikes/web-head/RESULT.md.
       - name: Upload the published head
         if: always()
         uses: actions/upload-artifact@v4
@@ -346,7 +347,7 @@ jobs:
       # or without --virtual-time-budget, --screenshot or SwiftShader, while the same page over CDP
       # counted 120/s. A leg built on --dump-dom would report a live frame loop as dead, which is the
       # most expensive shape a red build can have. It has to drive a real browser over CDP, as
-      # docs/plan/spikes/web-head/drive.mjs does.
+      # Tools/Vixen.WebProbe/drive.mjs does.
       #
       # And it needs a WebGPU adapter to be worth more than a load test, which no headless Chromium
       # on macOS would give the spike at any flag combination. That is a Linux job with
