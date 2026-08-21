@@ -1157,10 +1157,38 @@ that makes elastic scaling possible. A realm that *is* orchestrated references i
 which is ADR-018's design rather than a concession.
 
 **M1 is now asserted rather than only ruled.** Every call in `RealmCluster` is posted through
-`RealmDirectory`, and the test that matters runs twenty frames against a cluster answering in 250 ms
-and requires the twenty frames to take under 200 ms in total. The rule was always going to be obeyed
-on the day it was written; what this buys is that breaking it later fails a test rather than producing
-occasional stutter nobody can attribute.
+`RealmDirectory`, and the test that matters runs twenty frames against a cluster answering in 250 ms.
+The rule was always going to be obeyed on the day it was written; what this buys is that breaking it
+later fails a test rather than producing occasional stutter nobody can attribute.
+
+**That test measures itself against the machine, not against a number of milliseconds**, and the
+first version of it did not. `Pump` is a simulated clock with no sleeps in it, so twenty frames cost
+a fraction of a millisecond when the process is being scheduled and *two hundred* when a hundred and
+eighty other test projects are using every core — which is what the original "under 200 ms in total"
+was reading. It failed a healthy realm roughly one run in three under a parallel `dotnet test`, and
+it went unseen for a fortnight because a per-merge targeted run executes that suite alone. It was
+also loose in the other direction: a frame path that actually awaited its grain calls would block on
+each of them, about ten in twenty frames, and read as *two and a half seconds* — so any budget in the
+low hundreds is far too coarse to be the thing catching it.
+
+So the twenty frames are timed twice, interleaved, against a cluster answering instantly and against
+one taking a quarter of a second, and the assertion is that the slow run costs no more than the
+instant one plus a single cluster answer. Both figures see the same cores at the same moment, the
+first pass is discarded so neither pays for JIT, and the remaining passes are reduced by minimum
+because the smallest sample is the least preempted one. Under load heavy enough to fail the old
+budget three runs in five, both figures read 0.0–0.1 ms.
+
+**It is the third answer this repository has given to the same question, and the first that keeps a
+timing assertion.** `GoapExitCriteriaTests` widened a 250 ms bound to an absurd thirty seconds and
+leaned on a deterministic node count — "a hang detector, not a performance bound";
+`PerceptionExitCriteriaTests` stopped comparing two stopwatch readings at all and compared the work
+counts instead, having watched the coin toss fail on CI and never locally. Both are right where a
+deterministic counter says the same thing. Here none does: a realm that waited and a realm that did
+not run the same number of frames and post the same number of calls, and the only difference between
+them *is* the time. So the rule this adds, for the cases where that is true, is **time the null case
+beside the measurement** — the same work against an instant cluster, on the same cores, in the same
+second — because a bare millisecond count in a parallel suite is a reading of the build agent rather
+than of the code.
 
 **The heartbeat's reply removed a subsystem.** § Health describes the heartbeat as a report and §
 Drain describes the orchestrator moving players out — which reads as the control plane calling *into*
