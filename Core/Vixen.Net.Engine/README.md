@@ -99,10 +99,18 @@ top of the priority list. That is the whole design, and everything else follows 
 so both peers compute it from content neither had to send. `NetworkPrefabRegistry` refuses two
 addresses that hash alike, which is the one place both names are still in hand.
 
-**Only the parts of a prefab that asked for an id get one.** A template node carrying a `NetworkId`
-opts in; a hundred-entity set piece where one turret rotates costs one id and one record, not a
-hundred of each. The instance's ids are one reserved run — root first, then the marked nodes in
-capture order — so a spawn is a fixed twelve bytes however large the prefab is.
+**Only the parts of a prefab that asked for an id get one.** A template node carrying a
+`NetworkObject` opts in; a hundred-entity set piece where one turret rotates costs one id and one
+record, not a hundred of each. The instance's ids are one reserved run — root first, then the marked
+nodes in capture order — so a spawn is a fixed twelve bytes however large the prefab is.
+
+⚠ **The marker is `NetworkObject` and deliberately not `NetworkId`.** A `NetworkId` is a number the
+server allocated; `NetworkObject` is a designer's claim about content, which is the only one of the
+two an asset can hold — it is `[Component]` **and** `[DataContract]`, and a compiled scene may name
+nothing else. Marking with the handle meant the marker did not survive a content build at all, and
+letting the handle into a scene file would let a play-mode save write live ids into content.
+`NetworkPrefabRegistry` still counts a node carrying a `NetworkId`, because `Prefab.CaptureFrom`
+takes live subtrees and a live networked subtree carries them.
 
 **The receiver builds the instance *over* whatever was already standing there.** A snapshot names
 entities by id, so a record whose spawn is a few ticks behind makes a bare stand-in that is already
@@ -144,10 +152,12 @@ the join between the two on each peer.
   *is* rather than something a start-up path remembers to say. It is a separate assembly for the
   reason the comment in this one's `.csproj` gives: a game that spawns from templates it built in
   code should not link the addressables runtime for a path it does not take.
-  ⚠ **What is still owed with it** is the marker: a prefab that arrives through a content build has
-  exactly one networked node whatever its author marked, because `NetworkId` is `[Component]` and not
-  `[DataContract]` and so cannot appear in a compiled scene at all. That README's § What is owed
-  carries the argument.
+- ~~**The marker a compiled prefab can carry.**~~ **Built** — `NetworkObject`, a `[Component]`
+  `[DataContract]` tag, is what a designer puts on the nodes that should get an id. It replaces
+  `NetworkId` in that role, which could never work: a `NetworkId` is a handle the server allocated,
+  it is not `[DataContract]`, and `SceneContent.Capture` dropped it without a word, so a prefab out
+  of a content build had exactly one networked node whatever its author said. The registry still
+  counts a `NetworkId` on a node, because `Prefab.CaptureFrom` takes live subtrees that carry them.
 - **A scene format to derive indices from.** `NetworkSceneId.BakedId(index)` is the rule, and the index
   is whatever the game passes because scenes are built in code and not yet serialised. The moment a
   scene is an asset, the index is its position in that asset's list of networked objects and nobody
@@ -187,7 +197,11 @@ spawn.
 
 **A client is never told which entity is its pawn.** An entity carrying `PlayerPawn` — a tag that
 rides on the prefab and therefore costs no wire bytes — owned by this connection and possessed by
-nothing *is* the pawn. A message saying "you are pawn 47" can arrive before the spawn it names, after
+nothing *is* the pawn. ⚠ **That only became true of a prefab out of a content build when this
+assembly's generators were wired**: `PlayerPawn` carries `[Component]` and `[DataContract]`, which
+is what a compiled scene needs, but nothing declared it to `SceneComponentRegistry` because analyzers
+do not flow through a `ProjectReference` — the same defect `NetworkObject` was created to fix, one
+attribute further along. A message saying "you are pawn 47" can arrive before the spawn it names, after
 the pawn has died, or twice; a query over already-replicated state has none of those cases and is
 right whenever it runs.
 

@@ -25,4 +25,37 @@
         <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <!--
+            ⚠ Named here because analyzers do not flow through a ProjectReference, and because this
+            is the lowest assembly where they can both run at all. `Vixen.Net` may not reference
+            `Vixen.Engine` (doc 16), so `ComponentRegistrationGenerator` is a deliberate no-op there
+            — it emits nothing for an assembly that cannot see `SceneComponentRegistry`. This one
+            references both, so a `[Component]` `[DataContract]` type declared here is a component a
+            compiled scene may actually name.
+
+            Without these two, such a type compiles, reads as authorable, and is dropped by
+            `SceneContent.Capture` without a word — which is exactly what happened to `NetworkObject`
+            before it existed and to `PlayerPawn` for as long as it has.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            Type descriptors, which is what makes `!NetworkObject` in a .vxprefab resolve to a type
+            and what an inspector draws a component from. Without it the YAML binder's answer is
+            "nothing in this build claims the name", which is a confusing way to be told that an
+            analyzer is missing from a .csproj.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!-- Declares this assembly's [Component] [DataContract] types to SceneComponentRegistry. -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
 </Project>

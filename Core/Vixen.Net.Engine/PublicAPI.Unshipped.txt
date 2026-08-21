@@ -41,6 +41,9 @@ Vixen.Net.Engine.NetworkModule.Nest<TModule>(TModule module, string name) -> TMo
 Vixen.Net.Engine.NetworkModule.NetworkModule() -> void
 Vixen.Net.Engine.NetworkModule.Seal(string path = "") -> void
 Vixen.Net.Engine.NetworkModule.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Engine.NetworkObject -> struct
+Vixen.Net.Engine.NetworkObject : Vixen.Ecs.ITagComponent
+Vixen.Net.Engine.NetworkObject.NetworkObject() -> void
 Vixen.Net.Engine.NetworkPrefab -> sealed record
 Vixen.Net.Engine.NetworkPrefab : System.IEquatable<Vixen.Net.Engine.NetworkPrefab>
 Vixen.Net.Engine.NetworkPrefab.Address.get -> string

@@ -77,18 +77,32 @@ re-read. A content update replaces the registry wholesale, the way `DefinitionRe
 and each registered one costs a template world held for the process, so the label says *"this may
 arrive over the wire"* rather than *"this is a prefab"*.
 
+## The marker a compiled prefab can carry
+
+A prefab's networked nodes are the ones carrying **`NetworkObject`**
+(`Core/Vixen.Net.Engine/NetworkObject.cs`) — a `[Component]` `[DataContract]` tag, and therefore
+something a compiled scene may name.
+
+⚠ **It used to be `NetworkId`, and that meant a prefab out of a content build had exactly one
+networked node whatever its author marked.** `NetworkId` is `[Component]` and not `[DataContract]` —
+a handle the server allocates rather than a fact about content — so `SceneContent.Capture` dropped it
+silently, and the failure was invisible: the prefab loaded, spawned, and the turret's barrel never
+replicated. It could not be fixed in place either, because `Vixen.Net` runs neither the serialization
+nor the engine's component generator and may not reference `Vixen.Engine` (doc 16). So the marker
+lives in `Vixen.Net.Engine`, which references both — beside `PlayerPawn`, which is an authored fact
+about a prefab for the same reason and which was silently unregistered until the same commit wired
+that assembly's generators.
+
+`ANetworkedMarkerSurvivesTheContentBuild` is the A/B, and it is the test that used to assert the
+defect under the name `ANetworkIdMarkerCannotSurviveTheContentBuildYet`: the same three entities
+registered twice, once captured out of a live world and once through a chunk, a bundle, a catalog and
+an `AssetManager`, agreeing about which two of them want ids. `NetworkPrefabRegistry` still counts a
+node carrying a `NetworkId`, which is the `Prefab.CaptureFrom` direction rather than the authoring
+one — a live subtree that has been in a session carries allocated ids, and capturing it as a template
+should not quietly drop every node in it.
+
 ## What is owed
 
-- ⚠ **A prefab out of a content build can only ever have one networked node, and the loader cannot
-  fix it.** `NetworkPrefabRegistry` decides which nodes get an id by asking whether the template node
-  carries `NetworkId` — *"so a designer opts an entity into being addressable by putting the component
-  on it"*. A designer cannot: what a compiled scene may name is a component that is `[Component]`
-  **and** `[DataContract]`, and `NetworkId` (`Core/Vixen.Net/Replication/NetworkId.cs`) is only the
-  first, so `SceneContent.Capture` drops the marker silently. `ANetworkIdMarkerCannotSurviveTheContentBuildYet`
-  asserts the A/B: the same three entities captured in code have two ids and through the build have
-  one. The fix is not local — `Vixen.Net` runs neither the serialization nor the engine's component
-  generator and must not reference `Vixen.Engine` — so it wants either a binder registered from this
-  tier or an authorable marker of its own, and that is a decision with an owner.
 - **No shipped program fills a registry this way yet**, because no sample has a `.vxprefab` in a
   wired content build: `Samples/08-Multiplayer` and `Samples/09-NetworkSoak` build their arenas in
   code, and the two samples with a content build (`03-PbrShowcase`, `13-ThirdPersonShooter`) are not
