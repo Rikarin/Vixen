@@ -1,0 +1,290 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § F7 wave 1b.
+
+    ⚠ **`@inherits`, because `EditorSettingsPanels` writes `panel.Add<PluginManagerView>()` and
+    `MilestoneE3Tests` reaches it with `session.Control<PluginManagerView>("plugins")`.** Neither
+    can see a `Component`.
+
+    ⚠ **`PluginHost` is left alone, and that is a finding rather than a shortcut.** The brief for
+    this wave said each wave-1b model needed signal-backing; for this one it does not, and the
+    evidence is that `PluginHost.Changed` is already raised by every path that changes anything the
+    panel reads — `Disable`, `Enable`, `Reload`, `Load`, `Unload`, `Activate`. What the panel binds
+    is not the list: the grid is fed by `SetItems`, which no attribute can bind, and everything else
+    on screen is a *derived sentence about the one selected plugin*. So the reactive model here is a
+    snapshot, exactly `PrefabView`'s `PrefabBanner`: `Restate` reads the host once and assigns one
+    `PluginNote`, and assigning it is the notification. Making `plugins` a `CollectionSignal` would
+    have bought nothing on screen and would have put `ReactiveGraph.AssertOwningThread` in front of
+    every plugin load in a runtime that is not the panel's.
+
+    ⚠ **And emphatically not a revision counter.** Every field of `PluginNote` is a value that
+    genuinely changes when the answer changes, so the record's own equality is what stops an
+    unchanged reading from repainting three elements.
+
+    ⚠ **`SearchBox` is wired through `ref` rather than `on:input`.** `input` is a name the *binder*
+    accepts and the *runtime* does not — `BuildContext.Subscriptions` holds the pointer gestures
+    plus what `Vixen.Ui.Controls` registers, which is `click` and `dblclick` — so `on:input` binds
+    and then throws when the element is built. `TextField.ValueChanged` also carries the text, where
+    a routed handler would be given an event and have to go and read the box.
+-->
+@component PluginManagerView
+@namespace Vixen.Editor.App
+@inherits Vixen.Ui.Controls.Control
+@tag plugin-manager
+@using Vixen.Editor.Plugin
+@using Vixen.Editor.Ui
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+
+<plugin-toolbar ref="@Toolbar">
+    <SearchBox ref="@Search" Placeholder="@EditorStrings.PluginsFilter.Text" />
+
+    <Button ref="@Toggle"
+            Size="Small"
+            Variant="Subtle"
+            Label="@Note.Toggle"
+            Disabled="@(!Note.HasSelection)"
+            on:click="@Switch" />
+
+    <Button ref="@Reload"
+            Size="Small"
+            Variant="Subtle"
+            Label="@EditorStrings.PluginsReload.Text"
+            Disabled="@(!Note.HasSelection)"
+            on:click="@Restart" />
+</plugin-toolbar>
+
+<DataGrid ref="@Grid" MultiSelect="false" />
+
+<plugin-detail ref="@Detail" class='@(Note.Failed ? "failed" : "")'>@Note.Sentence</plugin-detail>
+
+@code {
+    readonly List<LoadedPlugin> rows = [];
+
+    /// <summary>What the strip and the line under the grid say, as one value.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One snapshot rather than four signals, and <see cref="PrefabView" />'s argument
+    ///     applies unchanged.</b> Every field of it comes from one reading of the host and the
+    ///     selection together — whether a plugin is chosen, whether the user switched it off, whether
+    ///     it failed — so splitting them would mean reading the host four times, or writing them in
+    ///     an order the reader has to know about.
+    /// </remarks>
+    readonly Signal<PluginNote> note = new(PluginNote.Empty);
+
+    PluginHost? host;
+    string? filter;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The strip along the top.</summary>
+    public UiElement Toolbar { get; private set; } = null!;
+
+    /// <summary>The filter box.</summary>
+    public SearchBox Search { get; private set; } = null!;
+
+    /// <summary>Switches the selected plugin on or off.</summary>
+    public Button Toggle { get; private set; } = null!;
+
+    /// <summary>Unloads it and loads it again from disk.</summary>
+    public Button Reload { get; private set; } = null!;
+
+    /// <summary>The grid.</summary>
+    public DataGrid Grid { get; private set; } = null!;
+
+    /// <summary>The line under it saying what the selected plugin is, or why it did not start.</summary>
+    public UiElement Detail { get; private set; } = null!;
+
+    /// <summary>Raised after a plugin is switched on or off, so the choice can be persisted.</summary>
+    public event Action<PluginManagerView>? Toggled;
+
+    /// <summary>Which plugin the grid has selected, or <see langword="null" />.</summary>
+    public LoadedPlugin? Selected =>
+        Grid.Selection.Count == 1 && Grid.Items.ElementAtOrDefault(Grid.Selection.First()) is LoadedPlugin plugin
+            ? plugin
+            : null;
+
+    /// <summary>Points the panel at a host.</summary>
+    /// <param name="plugins">The host.</param>
+    public void Show(PluginHost plugins) {
+        ArgumentNullException.ThrowIfNull(plugins);
+
+        Detach();
+
+        host = plugins;
+        plugins.Changed += Changed;
+
+        Rebuild();
+    }
+
+    /// <summary>Rebuilds the list from the host, honouring the filter.</summary>
+    public void Rebuild() {
+        var chosen = Selected?.Id;
+
+        rows.Clear();
+
+        if (host is { } plugins) {
+            foreach (var plugin in plugins.Plugins) {
+                if (Matches(plugin)) {
+                    rows.Add(plugin);
+                }
+            }
+        }
+
+        rows.Sort(static (left, right) => string.CompareOrdinal(left.Manifest.Name, right.Manifest.Name));
+        Grid.SetItems(rows);
+
+        if (chosen is not null) {
+            // ⚠ By id rather than by reference. `Reload` builds a *new* `LoadedPlugin` for the same
+            // plugin — the old one is removed from the host's list — so a selection kept by identity
+            // would empty itself every time somebody pressed Reload, which is the one button they
+            // press repeatedly.
+            var index = rows.FindIndex(plugin => string.Equals(plugin.Id, chosen, StringComparison.Ordinal));
+
+            if (index >= 0) {
+                Grid.Select(index);
+            }
+        }
+
+        Restate();
+    }
+
+    /// <summary>What the markup reads.</summary>
+    PluginNote Note => note.Value;
+
+    void Switch() {
+        if (host is not { } plugins || Selected is not { } plugin) {
+            return;
+        }
+
+        if (plugins.IsSuppressed(plugin.Id)) {
+            plugins.Enable(plugin.Id);
+        } else {
+            plugins.Disable(plugin.Id);
+        }
+
+        Rebuild();
+        Toggled?.Invoke(this);
+    }
+
+    void Restart() {
+        if (host is { } plugins && Selected is { } plugin) {
+            plugins.Reload(plugin.Id);
+            Rebuild();
+        }
+    }
+
+    static string StateOf(LoadedPlugin plugin) =>
+        plugin.State switch {
+            PluginState.Active => EditorStrings.PluginsStateActive.Text,
+            PluginState.Failed => EditorStrings.PluginsStateFailed.Text,
+            PluginState.Unloaded => EditorStrings.PluginsStateUnloaded.Text,
+            _ => EditorStrings.PluginsStateDisabled.Text
+        };
+
+    bool Matches(LoadedPlugin plugin) =>
+        filter is null
+        || plugin.Id.Contains(filter, StringComparison.OrdinalIgnoreCase)
+        || plugin.Manifest.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+        || plugin.Manifest.Author.Contains(filter, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Reads the host and the selection once, and writes what the panel says about them.</summary>
+    void Restate() => note.Value = Read();
+
+    PluginNote Read() {
+        if (Selected is not { } plugin) {
+            // ⚠ Installed ones, not every row. The editor's own features are listed here too — a
+            // manager showing only the third-party half would be one where "what is running in my
+            // editor" has two answers — but "no plugins are installed" is still the honest thing to
+            // say to somebody looking at a list of nothing but the editor's own modules.
+            var empty = host is null || !host.Plugins.Any(static entry => !entry.IsBuiltIn)
+                ? EditorStrings.PluginsNone.Text
+                : EditorStrings.PluginsPickRow.Text;
+
+            return new PluginNote(false, EditorStrings.PluginsDisable.Text, empty, Failed: false);
+        }
+
+        var suppressed = host?.IsSuppressed(plugin.Id) == true;
+        var toggle = suppressed ? EditorStrings.PluginsEnable.Text : EditorStrings.PluginsDisable.Text;
+
+        if (plugin.Failure is { } failure) {
+            return new PluginNote(true, toggle, failure.Message, Failed: true);
+        }
+
+        // ⚠ A plugin whose manifest says `enabled: false` and one the user switched off read the
+        // same in the State column and are not the same thing: one is the author's decision in a
+        // file the whole team shares, and the other is this user's. Only the second can be undone
+        // from here, so only the second is worth a sentence.
+        if (host?.Suppressed.Contains(plugin.Id) == true) {
+            return new PluginNote(true, toggle, EditorStrings.PluginsSwitchedOff.Text, Failed: false);
+        }
+
+        if (!plugin.Manifest.Enabled) {
+            return new PluginNote(true, toggle, EditorStrings.PluginsManifestOff.Text, Failed: false);
+        }
+
+        return new PluginNote(
+            true,
+            toggle,
+            plugin.Manifest.Description is { Length: > 0 } description ? description : plugin.Descriptor.Directory,
+            Failed: false
+        );
+    }
+
+    /// <summary>
+    ///     The grid's columns, the filter box's subscription and the selection handler, once the
+    ///     <c>ref</c>s exist.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Idempotent by construction, because <c>OnComposed</c> is emitted inside the build and
+    ///     a hot reload re-enters it.</b> Every <c>ref</c> then points at a new element, so the grid
+    ///     it adds columns to is a fresh one; what is <i>not</i> new is the host, which is why
+    ///     <c>Detach</c> runs first.
+    /// </remarks>
+    partial void OnComposed() {
+        Search.ValueChanged += Filtered;
+
+        Column(EditorStrings.PluginsColumnName.Text, 190f, plugin => plugin.Manifest.Name);
+        Column(EditorStrings.PluginsColumnId.Text, 190f, plugin => plugin.Id);
+        Column(EditorStrings.PluginsColumnVersion.Text, 80f, plugin => plugin.Manifest.Version.ToString(3));
+        Column(EditorStrings.PluginsColumnState.Text, 90f, StateOf);
+        Column(EditorStrings.PluginsColumnAuthor.Text, 140f, plugin => plugin.Manifest.Author);
+
+        Grid.SelectionChanged += Chose;
+
+        // A rebuild keeps the host and has to refill the new grid from it.
+        if (host is not null) {
+            Rebuild();
+        }
+    }
+
+    partial void OnUnmounted() {
+        Detach();
+    }
+
+    void Filtered(TextField _, string? value) {
+        filter = string.IsNullOrWhiteSpace(value) ? null : value;
+        Rebuild();
+    }
+
+    void Chose(DataGrid _) => Restate();
+
+    void Column(string header, float width, Func<LoadedPlugin, string> value) {
+        var column = Grid.AddColumn(header, item => item is LoadedPlugin plugin ? value(plugin) : string.Empty);
+
+        column.Width = width;
+    }
+
+    /// <inheritdoc cref="MessageLogView.Detach" />
+    void Detach() {
+        if (host is not null) {
+            host.Changed -= Changed;
+        }
+    }
+
+    void Changed(LoadedPlugin _) => Rebuild();
+}

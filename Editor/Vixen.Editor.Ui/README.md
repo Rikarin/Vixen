@@ -100,6 +100,23 @@ global reset, and import/export raised as events for whoever has a file picker. 
 rather than a modal**, so the harness can drive it; the consequence is that Escape is the one chord it
 will not bind.
 
+`KeyBindingsView.vxml` since doc 36 § F7 wave 1b, and two things about that port are worth keeping.
+
+⚠ **`KeyMap` and `CommandRegistry` needed no signals.** The wave's brief was that every panel ported
+needed its model made signal-backed; these two did not, and the reason is *where their values are
+read*. Every chord and every source on screen is read by a `DataGrid` column projection —
+`Func<object, object?>`, evaluated by `Grid.Refresh()` — and no markup attribute can bind a column.
+Nothing the file binds reads the map at all: the strip and the status line are functions of the
+panel's own state, which is the selection, the capture mode, the refused chord and the complaint
+about a preset. Those are five signals, granular rather than one snapshot, because they are five
+independent facts written from five different places.
+
+⚠ **Two things stayed imperative on purpose.** `Record.State |= Checked` is a *flag set* that also
+holds Hovered, Focused and Pressed, so a binding assigning it whole would undo whatever the pointer
+had just put there — `Capture` is the one place the mode changes and is where the bit is set. And the
+unknown-preset complaint used to be written straight into `Status.Text`, which a bound line paints
+over on the next flush; it is a signal now, cleared by every path that used to run `Restate`.
+
 Conflicts are **detected, not resolved**: a chord belongs to one command *per context*, and binding
 an occupied chord fails and says who has it. Across contexts, sharing a chord is the point rather
 than the hazard — `KeyMap.ContextOf` asks the registry which context a command belongs to, and a

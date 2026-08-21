@@ -36,6 +36,7 @@ call site.
 | `EditorBuilds.cs` | the Build Settings panel, Build and Run, and what Deploy means for a device |
 | `BuildSettingsView.cs` | doc 20's B7 window: target, configuration, scenes-in-build, output path |
 | `UndoHistory.vxml` | the undo history panel — the first of this assembly's panels written in markup |
+| `PluginManagerView.vxml` | the plugin manager — doc 36 § F7 wave 1b, and the second of them |
 | `SearchSources.cs` | what `Ctrl+Shift+F` looks in that is not a command |
 | `SceneEntity.cs` | the join: one entity as a row of editors and as something a gizmo can drag |
 | `EditorAnimation.cs` | the one thing doc 34's four documents will not do for themselves: reach another asset |
@@ -530,8 +531,21 @@ warning would toast, log, toast, log.
   the way back. `DockingWorkspace.Resolve` asks, `ReopenDocument` answers by opening the asset, and
   `EditorPreferences.RestoreOpenDocuments` is how somebody asks for a clean start instead.
 - ~~**No plugin-management panel.**~~ `PluginManagerView` is a grid over `PluginHost.Plugins` with
-  enable, disable and reload. ⚠ What is still owed is a plugin *browser*: this lists what is
-  installed, and installing one is still copying a folder.
+  enable, disable and reload, and it is `.vxml` since doc 36 § F7 wave 1b. ⚠ What is still owed is a
+  plugin *browser*: this lists what is installed, and installing one is still copying a folder.
+
+  ⚠ **`PluginHost` needed no signals, and that is a finding rather than a shortcut.** The wave's
+  brief was that every panel ported needed its model made signal-backed; this one did not, because
+  `PluginHost.Changed` is already raised by every path that changes what the panel reads, the grid is
+  filled by `SetItems` which no attribute can bind, and what is left on screen is a *derived sentence
+  about the one selected plugin*. So the reactive model is a snapshot — `PluginNote`, the same shape
+  as `PrefabBanner` — written by one reading. Making `plugins` a `CollectionSignal` would have changed
+  no pixel and would have put `ReactiveGraph.AssertOwningThread` in front of every plugin load.
+
+  ⚠ **One assertion moved, and the reason is general to markup panels.** An interpolation emits a
+  `text` child rather than setting the parent's own string, so `view.Detail.Text` is null on a line
+  that is showing a sentence; `MilestoneE3Tests` reads through the children now, as
+  `NetworkViewTests` already did.
 - ~~**No "open project…".**~~ It opens the project browser, and choosing one closes this editor and
   reopens it over the new root — see above. ~~**New Project makes four directories rather than
   instantiating a template.**~~ It writes the `game` template, through the same `ProjectScaffold`

@@ -128,6 +128,14 @@ public class MilestoneE3Tests {
     ///     business — what this asserts is that the manager is reachable, is a view over the host,
     ///     and offers the three verbs disabled rather than absent when there is nothing to act on.
     ///     The enable/disable path itself is asserted against a real plugin in that suite.
+    ///     <para>
+    ///         ⚠ <b>The detail line is read through its children rather than off its own
+    ///         <c>Text</c>.</b> Doc 36 § F7 wave 1b moved this panel into <c>.vxml</c>, and a markup
+    ///         interpolation emits a <c>text</c> child rather than setting the parent's string — so
+    ///         <c>Detail.Text</c> is null on a line that is showing a sentence. Every markup panel in
+    ///         the tree behaves this way and <c>NetworkViewTests</c> has the same walker for the same
+    ///         reason; this is the first place it reached an assertion.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_plugin_manager_is_a_panel_with_the_three_verbs_on_it() {
@@ -140,7 +148,18 @@ public class MilestoneE3Tests {
         Assert.Null(view.Selected);
         Assert.True(view.Toggle.Disabled);
         Assert.True(view.Reload.Disabled);
-        Assert.Equal(EditorStrings.PluginsNone.Text, view.Detail.Text);
+        Assert.Equal(EditorStrings.PluginsNone.Text, Shown(view.Detail));
+    }
+
+    /// <summary>What an element is showing, its markup <c>text</c> children included.</summary>
+    static string Shown(UiElement element) {
+        var text = element.Text ?? string.Empty;
+
+        foreach (var child in element.Children) {
+            text += Shown(child);
+        }
+
+        return text;
     }
 
     /// <summary>Every E3 line of Part C runs, rather than being greyed with a milestone on it.</summary>
