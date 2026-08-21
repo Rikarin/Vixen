@@ -430,6 +430,15 @@ public sealed class AssetDatabaseTests {
     ///     <see cref="ScanReport.Rescanned" /> and not <see cref="ScanReport.Elapsed" />: how many
     ///     sidecars a scan opened is a property of the algorithm and is the same on every machine,
     ///     where the ten seconds is a smoke alarm with the batteries deliberately half out.
+    ///     <para>
+    ///         ⚠ And ten seconds turned out not to be half out far enough. This is a real filesystem
+    ///         walk over ten thousand files, and ten test hosts sharing one disk is the normal way
+    ///         this suite runs — so the old ceiling was reachable by a scan doing nothing wrong,
+    ///         which is the defect the remark above describes and then committed anyway. It is now
+    ///         an absurd number, and it is a hang detector rather than a budget: what it catches is
+    ///         a scan that is not returning, and the algorithmic regression it reads as guarding is
+    ///         caught by <c>Rescanned</c> below, exactly and on any machine.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void TenThousandAssetsScanWellInsideTheBudget() {
@@ -450,10 +459,19 @@ public sealed class AssetDatabaseTests {
 
         Assert.Equal(10_101, report.Assets);
         Assert.Empty(report.Issues);
-        Assert.InRange(report.Elapsed, TimeSpan.Zero, TimeSpan.FromSeconds(10));
 
-        // Not one sidecar was opened, because not one of them moved.
+        // Not one sidecar was opened, because not one of them moved. This is the assertion that
+        // fails when someone makes the scan read whole documents again, and it is the same number
+        // on a laptop and on a runner with nine other jobs on it.
         Assert.Equal(0, report.Rescanned);
+
+        // ⚠ A hang detector, not a budget — see the remarks. Two minutes for a walk that takes
+        // well under a second, because the only thing worth reporting from a clock here is a scan
+        // that has stopped rather than one that is sharing a disk.
+        Assert.True(
+            report.Elapsed < TimeSpan.FromMinutes(2),
+            $"a ten thousand asset scan took {report.Elapsed.TotalSeconds:0.0} s, which is not slow but stuck"
+        );
     }
 
     /// <summary>
