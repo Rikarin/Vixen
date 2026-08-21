@@ -220,7 +220,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         foreach (var family in plan.DistinctFamilies()) {
             Queue handle;
             api.GetDeviceQueue(device, family, 0, &handle);
-            byFamily[family] = new(this, api, device, handle, family, FramesInFlight);
+            byFamily[family] = new(this, api, device, handle, family, FramesInFlight, adapter.Features.HasTimelineSemaphores);
         }
 
         graphics = byFamily[plan.Graphics];
@@ -622,7 +622,37 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         }
     }
 
-    internal void SubmitTo(VulkanQueue queue, CommandBuffer* buffers, int count) {
+    /// <summary>Submits to one queue, optionally waiting for points on others and signalling its own.</summary>
+    /// <param name="queue">The queue to submit to.</param>
+    /// <param name="buffers">The recorded buffers.</param>
+    /// <param name="count">How many of them.</param>
+    /// <param name="waitFor">
+    ///     Points that must have been reached first. Empty for an ordinary submission, which is
+    ///     every submission the engine made before cross-queue scheduling existed.
+    /// </param>
+    /// <param name="produce">
+    ///     Whether to signal this queue's counter and hand the value back. ⚠ <b>Not inferred from
+    ///     <paramref name="waitFor" /> being non-empty.</b> The first segment of a frame waits for
+    ///     nothing and is the one every later segment waits on, so a submission with no waits is
+    ///     exactly the one whose point matters most.
+    /// </param>
+    /// <returns>
+    ///     The point this submission reaches, or <see cref="TimelinePoint.None" /> where
+    ///     <paramref name="produce" /> is false or the queue has no timeline.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>The value is allocated inside the lock that submits.</b> Taking a value and then
+    ///     submitting would let two threads submit in the opposite order to the one they numbered
+    ///     themselves in, which signals the counter backwards — invalid usage the layers report
+    ///     against the *wait*, a submission away from the cause.
+    /// </remarks>
+    internal TimelinePoint SubmitTo(
+        VulkanQueue queue,
+        CommandBuffer* buffers,
+        int count,
+        ReadOnlySpan<TimelinePoint> waitFor,
+        bool produce = false
+    ) {
         lock (gate) {
             ThrowIfDisposed();
 
@@ -632,18 +662,70 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             // exactly once. A signalled semaphore nobody waits on stays signalled forever, and
             // signalling it again next frame is invalid usage the layers report as a complaint about
             // the *second* signal, a frame away from the submission that actually leaked it.
+            //
+            // ⚠ This chain is a second serialiser, and it outranks the timeline waits below.
+            // In a frame that presents, every submission waits for the previous one at
+            // AllCommandsBit whatever queue either was on — so a two-queue frame that carefully
+            // waits by value is still ordered end to end by this. It costs nothing today because no
+            // device the engine runs on has a second queue family, so a presenting frame is never
+            // more than one segment; on hardware that does, this is the next thing that has to go.
+            // The shape that replaces it: signal a binary semaphore per submission as now, drop the
+            // chaining, and have the present wait on *all* of the frame's unwaited signals at once
+            // — vkQueuePresentKHR takes an array, and presentation is the only thing that cannot
+            // wait on a timeline.
             if (lastSignalled.Handle != 0) {
                 pendingWaits.Add((lastSignalled, PipelineStageFlags.AllCommandsBit));
                 lastSignalled = default;
             }
 
-            var waitCount = pendingWaits.Count;
+            // The timeline waits, appended to the binary ones. A point on a queue that resolves to
+            // *this* queue is dropped rather than waited on: it is already ordered by submission
+            // order, and asking a queue to wait for itself at a value it has not signalled yet is
+            // the one way to spell a deadlock here.
+            //
+            // ⚠ Resolved through QueueFor, so two QueueKinds that landed on one family resolve to
+            // one object and one counter. That is why an async-scheduled frame on a device with a
+            // single universal family submits exactly what a single-queue frame does.
+            var timelineWaits = 0;
+            var timelineSemaphores = stackalloc VkSemaphore[Math.Max(1, waitFor.Length)];
+            var timelineValues = stackalloc ulong[Math.Max(1, waitFor.Length)];
+
+            foreach (var point in waitFor) {
+                if (point.IsNone) {
+                    continue;
+                }
+
+                var producer = QueueFor(point.Queue);
+
+                if (producer == queue || !producer.HasTimeline) {
+                    continue;
+                }
+
+                timelineSemaphores[timelineWaits] = producer.Timeline;
+                timelineValues[timelineWaits] = point.Value;
+                timelineWaits++;
+            }
+
+            var waitCount = pendingWaits.Count + timelineWaits;
             var waitSemaphores = stackalloc VkSemaphore[Math.Max(1, waitCount)];
             var waitStages = stackalloc PipelineStageFlags[Math.Max(1, waitCount)];
 
-            for (var index = 0; index < waitCount; index++) {
+            // Parallel to pWaitSemaphores and required to be the same length once any of them is a
+            // timeline: the entries facing a binary semaphore are ignored, and zero is what the
+            // specification asks for there.
+            var waitValues = stackalloc ulong[Math.Max(1, waitCount)];
+
+            for (var index = 0; index < pendingWaits.Count; index++) {
                 waitSemaphores[index] = pendingWaits[index].Semaphore;
                 waitStages[index] = pendingWaits[index].Stage;
+                waitValues[index] = 0;
+            }
+
+            for (var index = 0; index < timelineWaits; index++) {
+                var at = pendingWaits.Count + index;
+                waitSemaphores[at] = timelineSemaphores[index];
+                waitStages[at] = PipelineStageFlags.AllCommandsBit;
+                waitValues[at] = timelineValues[index];
             }
 
             pendingWaits.Clear();
@@ -653,19 +735,63 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             // other half of the same bug.
             var signal = presentExpected ? NextSemaphore() : default;
 
+            // The timeline signal, which unlike the binary one is safe to leave unwaited: a counter
+            // that reached a value nobody asked about is a counter, not a leak. Allocated only for a
+            // submission that was asked to produce a point, so an ordinary frame's submissions do
+            // not advance a counter nothing reads.
+            var wantsPoint = produce && queue.HasTimeline;
+            var reached = wantsPoint ? queue.Issued + 1 : 0;
+
+            var signalSemaphores = stackalloc VkSemaphore[2];
+            var signalValues = stackalloc ulong[2];
+            var signalCount = 0;
+
+            if (signal.Handle != 0) {
+                signalSemaphores[signalCount] = signal;
+                signalValues[signalCount] = 0;
+                signalCount++;
+            }
+
+            if (wantsPoint) {
+                signalSemaphores[signalCount] = queue.Timeline;
+                signalValues[signalCount] = reached;
+                signalCount++;
+            }
+
+            var values = new TimelineSemaphoreSubmitInfo {
+                SType = StructureType.TimelineSemaphoreSubmitInfo,
+                WaitSemaphoreValueCount = (uint)waitCount,
+                PWaitSemaphoreValues = waitCount > 0 ? waitValues : null,
+                SignalSemaphoreValueCount = (uint)signalCount,
+                PSignalSemaphoreValues = signalCount > 0 ? signalValues : null
+            };
+
+            // Chained only when a timeline is involved. An ordinary submission therefore builds the
+            // byte-identical VkSubmitInfo it always did, which is what makes "the frame is the same
+            // frame" a property of the structure rather than of a reviewer's attention.
+            var chained = timelineWaits > 0 || wantsPoint;
+
             var info = new SubmitInfo {
                 SType = StructureType.SubmitInfo,
+                PNext = chained ? &values : null,
                 CommandBufferCount = (uint)count,
                 PCommandBuffers = buffers,
                 WaitSemaphoreCount = (uint)waitCount,
                 PWaitSemaphores = waitCount > 0 ? waitSemaphores : null,
                 PWaitDstStageMask = waitCount > 0 ? waitStages : null,
-                SignalSemaphoreCount = signal.Handle != 0 ? 1u : 0u,
-                PSignalSemaphores = signal.Handle != 0 ? &signal : null
+                SignalSemaphoreCount = (uint)signalCount,
+                PSignalSemaphores = signalCount > 0 ? signalSemaphores : null
             };
 
             Check(Api.QueueSubmit(queue.Handle, 1, &info, default), "vkQueueSubmit");
             lastSignalled = signal;
+
+            if (!wantsPoint) {
+                return TimelinePoint.None;
+            }
+
+            queue.Issued = reached;
+            return new(queue.Kind, reached);
         }
     }
 
@@ -894,6 +1020,20 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             extensions.Add(VulkanFeatures.ShaderAtomicInt64);
         }
 
+        // Timeline semaphores, which the render graph's cross-queue waits are the only consumer of.
+        // The *feature bit* carries the permission at every version — the ShaderAtomicInt64 stance,
+        // not the DrawIndirectCount one — so it is chained below whether or not the extension is in
+        // this list, and named here only on a device below 1.2.
+        //
+        // ⚠ This is the line whose absence made the capability a lie. Everything above it was
+        // written, translated and asserted; nothing ever enabled the feature, so a device reporting
+        // HasTimelineSemaphores would have been refused at the first vkCreateSemaphore.
+        var wantsTimeline = adapter.Features.HasTimelineSemaphores;
+
+        if (wantsTimeline && adapter.UsableApiVersion < VulkanFeatures.Version12) {
+            extensions.Add(VulkanFeatures.TimelineSemaphore);
+        }
+
         var missing = extensions.Where(name => !adapter.Extensions.Contains(name)).ToArray();
 
         if (missing.Length > 0) {
@@ -993,6 +1133,14 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             ShaderBufferInt64Atomics = true
         };
 
+        // Read back from what the adapter recorded rather than written as `true` — the
+        // accelerationFeatures stance. Under wantsTimeline this is true by construction, since the
+        // capability was computed from it, and reading it keeps the enable and the report one fact.
+        var timelineFeatures = new PhysicalDeviceTimelineSemaphoreFeatures {
+            SType = StructureType.PhysicalDeviceTimelineSemaphoreFeatures,
+            TimelineSemaphore = adapter.Timeline.TimelineSemaphore
+        };
+
         // A chain rather than a choice. It used to be one structure or none, and adding a second the
         // same way would have silently dropped whichever was not asked for last — which for
         // descriptor indexing is a device that reports bindless, is created without it, and fails at
@@ -1019,6 +1167,11 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         if (wantsAtomicInt64) {
             atomicInt64.PNext = chain;
             chain = &atomicInt64;
+        }
+
+        if (wantsTimeline) {
+            timelineFeatures.PNext = chain;
+            chain = &timelineFeatures;
         }
 
         var names = SilkMarshal.StringArrayToPtr(extensions);

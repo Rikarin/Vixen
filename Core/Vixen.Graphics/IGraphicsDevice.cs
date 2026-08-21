@@ -44,6 +44,52 @@ public interface IGraphicsAdapter {
     GraphicsDeviceFeatures Features { get; }
 }
 
+/// <summary>A point in one queue's submission history, which another submission may wait for.</summary>
+/// <param name="Queue">Whose history it is a point in.</param>
+/// <param name="Value">
+///     How many submissions that queue has to have finished to have reached it. Counted from 1;
+///     <c>0</c> is <see cref="None" />, the point every queue has already passed.
+/// </param>
+/// <remarks>
+///     <para>
+///         <b>The unit of cross-queue synchronisation, and deliberately not a handle.</b> A caller
+///         waits for <em>a submission it made</em> rather than for a semaphore it allocated, which is
+///         the difference between "the compute segment's dispatches have finished" and "somebody
+///         signalled something". Submitting is how one is obtained — <see
+///         cref="ICommandSubmitter.Submit(ReadOnlySpan{ICommandList}, ReadOnlySpan{TimelinePoint})" />
+///         returns the point its own work reaches — so the natural way to use this is also the
+///         correct one.
+///     </para>
+///     <para>
+///         ⚠ <b>It is a plain record and one can be built by hand, which nothing should do.</b> A
+///         value beyond what will ever be signalled is a device-side hang with no validation message
+///         and no stack. The type cannot prevent it — the constructor is what deserialisation, the
+///         debugger and a test all need — so the check lives where it is cheap instead:
+///         <c>NullDevice</c> refuses a point its queues never issued.
+///     </para>
+///     <para>
+///         ⚠ <b>One counter per queue, never one per device.</b> A single counter shared across
+///         queues would have to be signalled with increasing values by submissions that finish in an
+///         order nobody controls, and a timeline semaphore signalled backwards is invalid usage. Per
+///         queue, submissions finish in the order they were made and the counter only climbs.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Queue" /> is which submitter, not which hardware queue.</b> On a device
+///         whose graphics and compute kinds land on one family they share a counter, so a
+///         <see cref="QueueKind.Compute" /> point and a <see cref="QueueKind.Graphics" /> point are
+///         two values on the same timeline — and waiting for one from the other is satisfied by
+///         submission order alone. That is exactly what makes a one-queue device produce the same
+///         frame as a two-queue one.
+///     </para>
+/// </remarks>
+public readonly record struct TimelinePoint(QueueKind Queue, ulong Value) {
+    /// <summary>The point every queue has already reached, which waiting for costs nothing.</summary>
+    public static TimelinePoint None => default;
+
+    /// <summary>Whether it is <see cref="None" />.</summary>
+    public bool IsNone => Value == 0;
+}
+
 /// <summary>A queue work is submitted to.</summary>
 /// <remarks>
 ///     Named a submitter rather than a queue because the analyzers reserve the <c>Queue</c> suffix
@@ -52,6 +98,55 @@ public interface IGraphicsAdapter {
 public interface ICommandSubmitter {
     /// <summary>What kind of work it takes.</summary>
     QueueKind Kind { get; }
+
+    /// <summary>
+    ///     Whether a submission here can wait for a <see cref="TimelinePoint" /> and hand one back.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Exactly <c>GraphicsDeviceFeatures.HasTimelineSemaphores</c>, seen from the queue
+    ///         that has to act on it.</b> The feature flag says the device could; this says this
+    ///         submitter does, which is what a caller about to submit actually needs to know.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>False is an ordinary answer, not a degraded one.</b> OpenGL has one queue,
+    ///         WebGPU has one, and neither has anything to synchronise against anything. A caller
+    ///         that finds this false has a correct alternative — order the submissions and drain the
+    ///         producer — and the frame it produces is the same frame.
+    ///     </para>
+    /// </remarks>
+    bool HasTimeline => false;
+
+    /// <summary>Submits, after everything named has finished, and says where that leaves this queue.</summary>
+    /// <param name="lists">The lists. Each must have been ended.</param>
+    /// <param name="waitFor">
+    ///     Points on other queues this work must not start before. Points on this queue, and
+    ///     <see cref="TimelinePoint.None" />, are permitted and do nothing — a queue is already
+    ///     ordered against itself.
+    /// </param>
+    /// <returns>The point this submission reaches when its work has finished.</returns>
+    /// <exception cref="NotSupportedException"><see cref="HasTimeline" /> is false.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole of the fast path.</b> The wait is on the device, not on the host: this
+    ///         returns as soon as the work is queued, and the queue itself stalls until the points
+    ///         are reached. That is the difference from the alternative — <see cref="WaitIdle" /> on
+    ///         the producing queue — which blocks the calling thread, drains work that had nothing to
+    ///         do with the dependency, and makes a second queue cost more than it saves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The returned point is the only safe thing to wait on.</b> Values are this queue's
+    ///         to allocate and a caller must not construct one — a <see cref="TimelinePoint" /> whose
+    ///         value is beyond what will ever be signalled is a device-side hang, and one below is a
+    ///         wait that returns before the work it named finished.
+    ///     </para>
+    /// </remarks>
+    TimelinePoint Submit(ReadOnlySpan<ICommandList> lists, ReadOnlySpan<TimelinePoint> waitFor) =>
+        throw new NotSupportedException(
+            $"The {Kind} queue cannot submit with a wait value: this device has no timeline "
+            + "semaphores. Check HasTimeline before calling, and order the submissions and drain the "
+            + "producing queue where it is false."
+        );
 
     /// <summary>Submits recorded command lists, in order.</summary>
     /// <param name="lists">The lists. Each must have been ended.</param>

@@ -64,7 +64,8 @@ public sealed class VulkanFeatureTests {
         PhysicalDeviceAccelerationStructureFeaturesKHR acceleration = default,
         PhysicalDeviceRayQueryFeaturesKHR rayQuery = default,
         PhysicalDeviceBufferDeviceAddressFeatures addressing = default,
-        PhysicalDeviceShaderAtomicInt64Features atomics = default
+        PhysicalDeviceShaderAtomicInt64Features atomics = default,
+        PhysicalDeviceTimelineSemaphoreFeatures timeline = default
     ) =>
         VulkanFeatures.Translate(
             features,
@@ -79,8 +80,12 @@ public sealed class VulkanFeatureTests {
             acceleration,
             rayQuery,
             addressing,
-            atomics
+            atomics,
+            timeline
         );
+
+    /// <summary>A device that grants the timeline-semaphore bit.</summary>
+    static PhysicalDeviceTimelineSemaphoreFeatures Granted() => new() { TimelineSemaphore = true };
 
     /// <summary>The four bits an unbounded texture array needs, all on.</summary>
     static PhysicalDeviceDescriptorIndexingFeatures Indexing() => new() {
@@ -240,15 +245,45 @@ public sealed class VulkanFeatureTests {
         VulkanFeatures.DepthStencilResolve
     ];
 
+    /// <summary>Reachable *and* granted, never either on its own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This used to be the version test alone, and that was a claim no device had ever
+    ///         been asked to keep.</b> Vulkan 1.2 makes
+    ///         <c>VkPhysicalDeviceTimelineSemaphoreFeatures::timelineSemaphore</c> <em>exist</em> and
+    ///         leaves it optional, exactly as it does every other 1.2 feature bit — so "the device is
+    ///         1.2" answers a different question from "the device will create a timeline semaphore",
+    ///         and a semaphore created from a bit the device declined is invalid usage.
+    ///     </para>
+    ///     <para>
+    ///         The <c>HasBindless</c> and <c>HasRayTracing</c> stance, arrived at the same way: the
+    ///         extension or the version says the question exists, the bit says the answer is yes.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void TimelineSemaphoresComeFromTheExtensionOrFromVersion12() {
+    public void TimelineSemaphoresNeedBothTheVersionAndTheBit() {
         Assert.False(Translate().HasTimelineSemaphores);
 
-        Assert.True(
+        // Reachable, declined. A 1.2 driver is allowed to say no, and this is the case the old
+        // version-only test could not express.
+        Assert.False(Translate(apiVersion: VulkanFeatures.Version12).HasTimelineSemaphores);
+
+        Assert.False(
             Translate(extensions: new HashSet<string> { "VK_KHR_timeline_semaphore" }).HasTimelineSemaphores
         );
 
-        Assert.True(Translate(apiVersion: VulkanFeatures.Version12).HasTimelineSemaphores);
+        // Granted, unreachable — an all-zero structure from a device that was never asked looks the
+        // same as a no, so the structure alone may not decide it either.
+        Assert.False(Translate(timeline: Granted()).HasTimelineSemaphores);
+
+        Assert.True(Translate(apiVersion: VulkanFeatures.Version12, timeline: Granted()).HasTimelineSemaphores);
+
+        Assert.True(
+            Translate(
+                extensions: new HashSet<string> { "VK_KHR_timeline_semaphore" },
+                timeline: Granted()
+            ).HasTimelineSemaphores
+        );
     }
 
     /// <summary>

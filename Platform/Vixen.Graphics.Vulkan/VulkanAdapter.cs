@@ -83,6 +83,13 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
     /// <summary>What it said about buffer device addresses, likewise.</summary>
     internal required PhysicalDeviceBufferDeviceAddressFeatures Addressing { get; init; }
 
+    /// <summary>What <c>VkPhysicalDeviceTimelineSemaphoreFeatures</c> said about it.</summary>
+    /// <remarks>
+    ///     Kept so device creation can enable exactly the bit the report was made from, rather than
+    ///     asking a second time and hoping the two answers agree.
+    /// </remarks>
+    internal required PhysicalDeviceTimelineSemaphoreFeatures Timeline { get; init; }
+
     internal required HashSet<string> Extensions { get; init; }
 
     internal required QueueFamilyPlan Queues { get; init; }
@@ -178,6 +185,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         var (indexing, indexingLimits) = DescriptorIndexing(api, device, extensions, usable);
         var (acceleration, rayQuery, addressing) = RayTracing(api, device, extensions, usable);
         var atomics = AtomicInt64(api, device, extensions, usable);
+        var timeline = TimelineSemaphores(api, device, extensions, usable);
 
         return new(device, properties, name) {
             UsableApiVersion = usable,
@@ -185,6 +193,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
             Acceleration = acceleration,
             RayQuery = rayQuery,
             Addressing = addressing,
+            Timeline = timeline,
             DriverVersion = AdapterSelection.Describe(properties.DriverVersion),
             DeviceMemory = LocalMemory(memory),
             Memory = memory,
@@ -213,7 +222,8 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
                 acceleration,
                 rayQuery,
                 addressing,
-                atomics
+                atomics,
+                timeline
             )
         };
     }
@@ -254,6 +264,46 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         atomics.PNext = null;
 
         return atomics;
+    }
+
+    /// <summary>What the device says about timeline semaphores, where there is anything to say.</summary>
+    /// <param name="api">The Vulkan entry points.</param>
+    /// <param name="device">The physical device.</param>
+    /// <param name="extensions">Its device extensions.</param>
+    /// <param name="usable">The version actually reachable through this instance.</param>
+    /// <remarks>
+    ///     One call and no limits, the <see cref="AtomicInt64" /> shape. ⚠ <b>1.2 is not the
+    ///     answer.</b> Timeline semaphores went core in 1.2, which makes the structure exist and
+    ///     leaves the bit optional — and reading the version instead of the bit is what made
+    ///     <c>HasTimelineSemaphores</c> a claim no device had ever been asked to keep.
+    /// </remarks>
+    static PhysicalDeviceTimelineSemaphoreFeatures TimelineSemaphores(
+        Vk api,
+        PhysicalDevice device,
+        IReadOnlySet<string> extensions,
+        uint usable
+    ) {
+        if (usable < AdapterSelection.MinimumApiVersion
+            || !VulkanFeatures.HasTimelineSemaphores(extensions, usable)) {
+            return default;
+        }
+
+        var timeline = new PhysicalDeviceTimelineSemaphoreFeatures {
+            SType = StructureType.PhysicalDeviceTimelineSemaphoreFeatures
+        };
+
+        var features = new PhysicalDeviceFeatures2 {
+            SType = StructureType.PhysicalDeviceFeatures2,
+            PNext = &timeline
+        };
+
+        api.GetPhysicalDeviceFeatures2(device, &features);
+
+        // The chain pointer is a stack address that does not outlive this method — see the same line in
+        // DescriptorIndexing, for the same reason.
+        timeline.PNext = null;
+
+        return timeline;
     }
 
     /// <summary>What the device says about descriptor indexing, where there is anything to say.</summary>

@@ -113,12 +113,15 @@ Vixen.Graphics.Null.RecordedCommandKind.InsertDebugMarker = 24 -> Vixen.Graphics
 Vixen.Graphics.Null.RecordedCommandKind.PopDebugGroup = 23 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.PushConstants = 8 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.PushDebugGroup = 22 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.QueueWaitIdle = 30 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.RecordedCommandKind() -> void
 Vixen.Graphics.Null.RecordedCommandKind.ResetQueries = 25 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.SetBlendConstant = 4 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.SetScissor = 3 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.SetStencilReference = 5 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.SetViewport = 2 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.Submit = 28 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.WaitForPoint = 29 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.WriteTimestamp = 26 -> Vixen.Graphics.Null.RecordedCommandKind
 override Vixen.Graphics.Null.CommandRecorder.ToString() -> string
 override Vixen.Graphics.Null.RecordedCommand.ToString() -> string

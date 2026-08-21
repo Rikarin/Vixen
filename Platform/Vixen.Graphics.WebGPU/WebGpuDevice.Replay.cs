@@ -19,7 +19,8 @@ public sealed partial class WebGpuDevice {
     ///     One encoder for the whole batch rather than one per list. A submission is the expensive
     ///     part on every API and a browser turns each into an interop crossing, so four lists
     ///     together cost roughly what one does — which is exactly why
-    ///     <see cref="ICommandSubmitter.Submit" /> takes a span in the first place.
+    ///     <see cref="ICommandSubmitter.Submit(ReadOnlySpan{ICommandList})" /> takes a span in the first
+    ///     place.
     /// </remarks>
     internal void Replay(ReadOnlySpan<ICommandList> lists) {
         lock (gate) {
