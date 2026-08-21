@@ -13,6 +13,21 @@ sealed class GraphPass {
 
     public PassKind Kind { get; set; } = PassKind.Graphics;
 
+    /// <summary>Which queue scheduling put it on. Decided by <c>RenderGraph.Compile</c>.</summary>
+    public QueueKind Queue { get; set; } = QueueKind.Graphics;
+
+    /// <summary>Which segment it belongs to, as an index into the schedule.</summary>
+    public int Segment { get; set; }
+
+    /// <summary>The transitions it needs before it runs, worked out once at compile time.</summary>
+    /// <remarks>
+    ///     Planned rather than derived while recording, because a cross-queue handover is two
+    ///     barriers and the first of them belongs at the end of a segment that is already closed by
+    ///     the time the pass needing it is reached. One walk decides both halves; recording replays
+    ///     what the walk decided.
+    /// </remarks>
+    public List<PlannedBarrier> Barriers { get; } = [];
+
     public List<ResourceUse> Uses { get; } = [];
 
     public List<GraphAttachment> Attachments { get; } = [];
@@ -220,13 +235,27 @@ public sealed class RenderGraphPassBuilder {
 public sealed class RenderGraphContext {
     readonly RenderGraph graph;
 
-    internal RenderGraphContext(RenderGraph graph, ICommandList commandList) {
+    ICommandList? commandList;
+
+    internal RenderGraphContext(RenderGraph graph, ICommandList? commandList) {
         this.graph = graph;
-        CommandList = commandList;
+        this.commandList = commandList;
     }
 
     /// <summary>The list to record into.</summary>
-    public ICommandList CommandList { get; }
+    /// <remarks>
+    ///     ⚠ <b>Not the same list for the whole frame once the graph schedules onto more than one
+    ///     queue.</b> A pass body that captured this and recorded into it later would be recording
+    ///     into a list that has been submitted — read it inside the body, every time, which is what
+    ///     every pass in the tree already does.
+    /// </remarks>
+    public ICommandList CommandList =>
+        commandList ?? throw new InvalidOperationException(
+            "A render-graph context was read outside a pass. The list belongs to the segment being "
+            + "recorded, and there is none between segments."
+        );
+
+    internal void Retarget(ICommandList list) => commandList = list;
 
     /// <summary>The size of the pass's attachments, in pixels.</summary>
     /// <remarks><see cref="Int2.Zero" /> for a pass with no attachments.</remarks>

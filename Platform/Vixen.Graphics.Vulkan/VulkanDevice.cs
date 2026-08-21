@@ -146,7 +146,13 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
     readonly Lock gate = new();
     readonly List<Action>[] retiring;
-    readonly ConcurrentDictionary<(int Thread, int Frame), CommandPool> commandPools = [];
+    // ⚠ Keyed by *family* as well as thread and frame. A VkCommandPool is created against one queue
+    // family and a buffer allocated from it may only be submitted to that family — so keying on the
+    // thread alone handed the first list of the frame its family and every later list on that thread
+    // the same one, whatever queue it asked for. That is not a validation error on a device where
+    // the three kinds share a family, which is every device this backend has been developed on; it
+    // is undefined behaviour on the first one that does not.
+    readonly ConcurrentDictionary<(int Thread, int Frame, uint Family), CommandPool> commandPools = [];
     readonly List<DescriptorPool> descriptorPools = [];
     readonly RenderPassCache renderPasses;
 
@@ -523,8 +529,8 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         var queue = QueueFor(kind);
 
         var pool = commandPools.GetOrAdd(
-            (Environment.CurrentManagedThreadId, slot),
-            key => CreatePool(queue.Family, key.Thread)
+            (Environment.CurrentManagedThreadId, slot, queue.Family),
+            key => CreatePool(key.Family, key.Thread)
         );
 
         var allocate = new CommandBufferAllocateInfo {
@@ -705,6 +711,28 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         QueueKind.Transfer => transfer,
         _ => graphics
     };
+
+    /// <summary>The queue-family indices a barrier's two <see cref="QueueKind" />s resolve to.</summary>
+    /// <param name="source">Which queue owns the resource now.</param>
+    /// <param name="destination">Which queue is to own it next.</param>
+    /// <returns>
+    ///     The pair to put in a memory barrier, both <see cref="Vk.QueueFamilyIgnored" /> when there
+    ///     is nothing to transfer.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>Same family means <see cref="Vk.QueueFamilyIgnored" />, not "the same index twice".</b>
+    ///     Vulkan reads equal non-ignored indices as an ownership transfer to oneself, which is
+    ///     legal, pointless, and — on MoltenVK, where all three <see cref="QueueKind" />s land on the
+    ///     one universal family — would make every scheduled frame differ from the unscheduled one
+    ///     for no reason. Collapsing here is what makes the two frames byte-identical on a device
+    ///     with one queue, which is the property the async scheduler is only safe under.
+    /// </remarks>
+    internal (uint Source, uint Destination) FamiliesFor(QueueKind source, QueueKind destination) {
+        var from = QueueFor(source).Family;
+        var to = QueueFor(destination).Family;
+
+        return from == to ? (Vk.QueueFamilyIgnored, Vk.QueueFamilyIgnored) : (from, to);
+    }
 
     internal KhrSwapchain? Swapchains => khrSwapchain;
 

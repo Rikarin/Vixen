@@ -317,7 +317,34 @@ sealed class NullCommandList(
             return;
         }
 
+        foreach (var barrier in barriers.Buffers) {
+            CheckOwnership(barrier.SourceQueue, barrier.DestinationQueue);
+        }
+
+        foreach (var barrier in barriers.Textures) {
+            CheckOwnership(barrier.SourceQueue, barrier.DestinationQueue);
+        }
+
         Add(new(RecordedCommandKind.Barrier, 0, barriers.Buffers.Length, barriers.Textures.Length));
+    }
+
+    /// <summary>Refuses an ownership transfer recorded on a list at neither end of it.</summary>
+    /// <remarks>
+    ///     An ownership transfer is the release on the source queue's list and the acquire on the
+    ///     destination's. A third queue records neither half, the destination reads memory nobody
+    ///     handed it, and no API reports it — so the check is here, where it costs no GPU. Whether
+    ///     this backend's three submitters are really one queue is beside the point: what is being
+    ///     checked is the *caller's* pairing, and a caller that gets it wrong here gets it wrong on
+    ///     the discrete card too.
+    /// </remarks>
+    void CheckOwnership(QueueKind source, QueueKind destination) {
+        if (source != destination && kind != source && kind != destination) {
+            throw new InvalidOperationException(
+                $"A {kind} list recorded an ownership transfer from {source} to {destination}. A "
+                + "transfer is two barriers — the release on the source queue's list and the acquire "
+                + "on the destination's — and a list at neither end records neither half."
+            );
+        }
     }
 
     public void CopyBuffer(

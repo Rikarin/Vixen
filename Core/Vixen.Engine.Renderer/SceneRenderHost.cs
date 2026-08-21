@@ -134,7 +134,7 @@ public sealed class SceneRenderHost : IDisposable {
         }
     }
 
-    /// <summary>How many frames <see cref="Draw" /> has recorded.</summary>
+    /// <summary>How many frames <see cref="Draw(ICommandList)" /> has recorded.</summary>
     /// <remarks>
     ///     A counter rather than a log, and it is what a headless run asserts against: "the stack starts,
     ///     runs N frames and stops" is the whole claim a sample makes, and something has to be able to
@@ -245,6 +245,39 @@ public sealed class SceneRenderHost : IDisposable {
         Graph.Reset();
         compositor.Build(Graph, Effects, device);
         Graph.Execute(list);
+
+        FrameCount++;
+
+        return true;
+    }
+
+    /// <summary>Records one frame onto the device's queues, one command list per segment.</summary>
+    /// <param name="queues">Where the lists come from and where they go.</param>
+    /// <returns>Whether a frame was recorded.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queues" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         The overload a host needs once it sets <c>Graph.Scheduling</c> to
+    ///         <c>QueueScheduling.Async</c>: a frame on two queues is more than one command list, so
+    ///         the graph has to decide how many there are and hand each one back as it fills. Unlike
+    ///         <see cref="Draw(ICommandList)" />, this submits.
+    ///     </para>
+    ///     <para>
+    ///         Valid whatever the scheduling says — a single-queue frame is one segment — so a host
+    ///         that always draws this way is not choosing async compute by doing so.
+    ///     </para>
+    /// </remarks>
+    public bool Draw(IRenderGraphQueues queues) {
+        ArgumentNullException.ThrowIfNull(queues);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (Compositor is not { } compositor) {
+            return false;
+        }
+
+        Graph.Reset();
+        compositor.Build(Graph, Effects, device);
+        Graph.Execute(queues);
 
         FrameCount++;
 

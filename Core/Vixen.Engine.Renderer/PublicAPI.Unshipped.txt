@@ -157,6 +157,7 @@ Vixen.Engine.Renderer.SceneRenderHost.Debug.get -> Vixen.Engine.Renderer.DebugOv
 Vixen.Engine.Renderer.SceneRenderHost.Debug.set -> Vixen.Engine.Renderer.DebugOverlayRenderer?
 Vixen.Engine.Renderer.SceneRenderHost.Dispose() -> void
 Vixen.Engine.Renderer.SceneRenderHost.Draw(Vixen.Graphics.ICommandList list) -> bool
+Vixen.Engine.Renderer.SceneRenderHost.Draw(Vixen.Graphics.RenderGraph.IRenderGraphQueues queues) -> bool
 Vixen.Engine.Renderer.SceneRenderHost.Effects.get -> Vixen.Shaders.EffectSystem
 Vixen.Engine.Renderer.SceneRenderHost.FrameCount.get -> int
 Vixen.Engine.Renderer.SceneRenderHost.FrameSize.get -> Vixen.Core.Mathematics.Int2

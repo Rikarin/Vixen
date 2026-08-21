@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.Compositor.TextureCopyAsset, T:Vixen.Rendering.Composito
 tags: [rendering, compositor, render-graph, water]
 since: 0.1
 status: stable
-related: [rendering/post-processing, rendering/post-process-volumes, rendering/capturing-a-frame]
+related: [rendering/post-processing, rendering/post-process-volumes, rendering/capturing-a-frame, rendering/async-compute]
 ---
 
 ## What it is

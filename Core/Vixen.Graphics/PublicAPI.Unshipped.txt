@@ -173,7 +173,12 @@ Vixen.Graphics.BufferBarrier.Before.init -> Vixen.Graphics.ResourceState
 Vixen.Graphics.BufferBarrier.Buffer.get -> Vixen.Graphics.BufferHandle
 Vixen.Graphics.BufferBarrier.Buffer.init -> Vixen.Graphics.BufferHandle
 Vixen.Graphics.BufferBarrier.BufferBarrier() -> void
-Vixen.Graphics.BufferBarrier.BufferBarrier(Vixen.Graphics.BufferHandle Buffer, Vixen.Graphics.ResourceState Before, Vixen.Graphics.ResourceState After) -> void
+Vixen.Graphics.BufferBarrier.BufferBarrier(Vixen.Graphics.BufferHandle Buffer, Vixen.Graphics.ResourceState Before, Vixen.Graphics.ResourceState After, Vixen.Graphics.QueueKind SourceQueue = Vixen.Graphics.QueueKind.Graphics, Vixen.Graphics.QueueKind DestinationQueue = Vixen.Graphics.QueueKind.Graphics) -> void
+Vixen.Graphics.BufferBarrier.DestinationQueue.get -> Vixen.Graphics.QueueKind
+Vixen.Graphics.BufferBarrier.DestinationQueue.init -> Vixen.Graphics.QueueKind
+Vixen.Graphics.BufferBarrier.SourceQueue.get -> Vixen.Graphics.QueueKind
+Vixen.Graphics.BufferBarrier.SourceQueue.init -> Vixen.Graphics.QueueKind
+Vixen.Graphics.BufferBarrier.TransfersOwnership.get -> bool
 Vixen.Graphics.BufferDescription -> readonly struct
 Vixen.Graphics.BufferDescription : System.IEquatable<Vixen.Graphics.BufferDescription>
 Vixen.Graphics.BufferDescription.Access.get -> Vixen.Graphics.MemoryAccess
@@ -983,12 +988,17 @@ Vixen.Graphics.TextureBarrier.BaseMipLevel.get -> int
 Vixen.Graphics.TextureBarrier.BaseMipLevel.init -> int
 Vixen.Graphics.TextureBarrier.Before.get -> Vixen.Graphics.ResourceState
 Vixen.Graphics.TextureBarrier.Before.init -> Vixen.Graphics.ResourceState
+Vixen.Graphics.TextureBarrier.DestinationQueue.get -> Vixen.Graphics.QueueKind
+Vixen.Graphics.TextureBarrier.DestinationQueue.init -> Vixen.Graphics.QueueKind
 Vixen.Graphics.TextureBarrier.MipLevelCount.get -> int
 Vixen.Graphics.TextureBarrier.MipLevelCount.init -> int
+Vixen.Graphics.TextureBarrier.SourceQueue.get -> Vixen.Graphics.QueueKind
+Vixen.Graphics.TextureBarrier.SourceQueue.init -> Vixen.Graphics.QueueKind
 Vixen.Graphics.TextureBarrier.Texture.get -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.TextureBarrier.Texture.init -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.TextureBarrier.TextureBarrier() -> void
-Vixen.Graphics.TextureBarrier.TextureBarrier(Vixen.Graphics.TextureHandle Texture, Vixen.Graphics.ResourceState Before, Vixen.Graphics.ResourceState After, int BaseMipLevel = 0, int MipLevelCount = 0, int BaseArrayLayer = 0, int ArrayLayerCount = 0) -> void
+Vixen.Graphics.TextureBarrier.TextureBarrier(Vixen.Graphics.TextureHandle Texture, Vixen.Graphics.ResourceState Before, Vixen.Graphics.ResourceState After, int BaseMipLevel = 0, int MipLevelCount = 0, int BaseArrayLayer = 0, int ArrayLayerCount = 0, Vixen.Graphics.QueueKind SourceQueue = Vixen.Graphics.QueueKind.Graphics, Vixen.Graphics.QueueKind DestinationQueue = Vixen.Graphics.QueueKind.Graphics) -> void
+Vixen.Graphics.TextureBarrier.TransfersOwnership.get -> bool
 Vixen.Graphics.TextureDescription -> readonly struct
 Vixen.Graphics.TextureDescription : System.IEquatable<Vixen.Graphics.TextureDescription>
 Vixen.Graphics.TextureDescription.ArrayLayers.get -> int

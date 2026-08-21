@@ -17,6 +17,9 @@ Vixen.Graphics.RenderGraph.GraphTexture.GraphTexture(int Index, int Generation) 
 Vixen.Graphics.RenderGraph.GraphTexture.Index.get -> int
 Vixen.Graphics.RenderGraph.GraphTexture.Index.init -> int
 Vixen.Graphics.RenderGraph.GraphTexture.IsValid.get -> bool
+Vixen.Graphics.RenderGraph.IRenderGraphQueues -> interface
+Vixen.Graphics.RenderGraph.IRenderGraphQueues.Begin(Vixen.Graphics.RenderGraph.RenderGraphSegment segment) -> Vixen.Graphics.ICommandList
+Vixen.Graphics.RenderGraph.IRenderGraphQueues.Submit(Vixen.Graphics.RenderGraph.RenderGraphSegment segment, Vixen.Graphics.ICommandList list) -> void
 Vixen.Graphics.RenderGraph.PassKind -> enum : byte
 Vixen.Graphics.RenderGraph.PassKind.Compute = 1 -> Vixen.Graphics.RenderGraph.PassKind
 Vixen.Graphics.RenderGraph.PassKind.Graphics = 0 -> Vixen.Graphics.RenderGraph.PassKind
@@ -42,6 +45,10 @@ Vixen.Graphics.RenderGraph.PingPongTextures.PingPongTextures(Vixen.Graphics.IGra
 Vixen.Graphics.RenderGraph.PingPongTextures.ReadTexture.get -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.RenderGraph.PingPongTextures.StepCount.get -> long
 Vixen.Graphics.RenderGraph.PingPongTextures.WriteTexture.get -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.RenderGraph.QueueScheduling -> enum : byte
+Vixen.Graphics.RenderGraph.QueueScheduling.Async = 1 -> Vixen.Graphics.RenderGraph.QueueScheduling
+Vixen.Graphics.RenderGraph.QueueScheduling.QueueScheduling() -> void
+Vixen.Graphics.RenderGraph.QueueScheduling.Single = 0 -> Vixen.Graphics.RenderGraph.QueueScheduling
 Vixen.Graphics.RenderGraph.RenderGraph -> sealed class
 Vixen.Graphics.RenderGraph.RenderGraph.AddPass(string name, System.Action<Vixen.Graphics.RenderGraph.RenderGraphPassBuilder> setup) -> void
 Vixen.Graphics.RenderGraph.RenderGraph.BarrierCount.get -> int
@@ -52,6 +59,7 @@ Vixen.Graphics.RenderGraph.RenderGraph.CreateTexture(in Vixen.Graphics.TextureDe
 Vixen.Graphics.RenderGraph.RenderGraph.DescribeTexture(Vixen.Graphics.RenderGraph.GraphTexture texture) -> Vixen.Graphics.TextureDescription
 Vixen.Graphics.RenderGraph.RenderGraph.DisposePool() -> void
 Vixen.Graphics.RenderGraph.RenderGraph.Execute(Vixen.Graphics.ICommandList commandList) -> void
+Vixen.Graphics.RenderGraph.RenderGraph.Execute(Vixen.Graphics.RenderGraph.IRenderGraphQueues queues) -> void
 Vixen.Graphics.RenderGraph.RenderGraph.ImportBuffer(Vixen.Graphics.BufferHandle handle, in Vixen.Graphics.BufferDescription description, Vixen.Graphics.ResourceState entryState = Vixen.Graphics.ResourceState.Undefined, Vixen.Graphics.ResourceState exitState = Vixen.Graphics.ResourceState.Undefined) -> Vixen.Graphics.RenderGraph.GraphBuffer
 Vixen.Graphics.RenderGraph.RenderGraph.ImportTexture(Vixen.Graphics.TextureHandle handle, Vixen.Graphics.TextureViewHandle view, in Vixen.Graphics.TextureDescription description, Vixen.Graphics.ResourceState entryState = Vixen.Graphics.ResourceState.Undefined, Vixen.Graphics.ResourceState exitState = Vixen.Graphics.ResourceState.Undefined) -> Vixen.Graphics.RenderGraph.GraphTexture
 Vixen.Graphics.RenderGraph.RenderGraph.PassCount.get -> int
@@ -62,6 +70,9 @@ Vixen.Graphics.RenderGraph.RenderGraph.RenderGraph(Vixen.Graphics.IGraphicsDevic
 Vixen.Graphics.RenderGraph.RenderGraph.RenderGraph(Vixen.Graphics.IGraphicsDevice device, Vixen.Graphics.RenderGraph.TransientResourcePool pool) -> void
 Vixen.Graphics.RenderGraph.RenderGraph.Reset() -> void
 Vixen.Graphics.RenderGraph.RenderGraph.ResourceCount.get -> int
+Vixen.Graphics.RenderGraph.RenderGraph.Schedule.get -> Vixen.Graphics.RenderGraph.RenderGraphSchedule?
+Vixen.Graphics.RenderGraph.RenderGraph.Scheduling.get -> Vixen.Graphics.RenderGraph.QueueScheduling
+Vixen.Graphics.RenderGraph.RenderGraph.Scheduling.set -> Vixen.Graphics.RenderGraph.QueueScheduling
 Vixen.Graphics.RenderGraph.RenderGraph.SurvivingPassCount.get -> int
 Vixen.Graphics.RenderGraph.RenderGraph.TextureOf(Vixen.Graphics.RenderGraph.GraphTexture texture) -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.RenderGraph.RenderGraph.ToGraphviz() -> string
@@ -91,6 +102,25 @@ Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Reads(Vixen.Graphics.RenderGra
 Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.SideEffect() -> void
 Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Writes(Vixen.Graphics.RenderGraph.GraphBuffer buffer, Vixen.Graphics.ResourceState state = Vixen.Graphics.ResourceState.ShaderWrite) -> void
 Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Writes(Vixen.Graphics.RenderGraph.GraphTexture texture, Vixen.Graphics.ResourceState state = Vixen.Graphics.ResourceState.ShaderWrite) -> void
+Vixen.Graphics.RenderGraph.RenderGraphSchedule -> sealed class
+Vixen.Graphics.RenderGraph.RenderGraphSchedule.IsMultiQueue.get -> bool
+Vixen.Graphics.RenderGraph.RenderGraphSchedule.OwnershipTransferCount.get -> int
+Vixen.Graphics.RenderGraph.RenderGraphSchedule.QueueOf(int passIndex) -> Vixen.Graphics.QueueKind
+Vixen.Graphics.RenderGraph.RenderGraphSchedule.Segments.get -> System.Collections.Generic.IReadOnlyList<Vixen.Graphics.RenderGraph.RenderGraphSegment>
+Vixen.Graphics.RenderGraph.RenderGraphSegment -> sealed class
+Vixen.Graphics.RenderGraph.RenderGraphSegment.FirstPass.get -> int
+Vixen.Graphics.RenderGraph.RenderGraphSegment.Index.get -> int
+Vixen.Graphics.RenderGraph.RenderGraphSegment.IsEmpty.get -> bool
+Vixen.Graphics.RenderGraph.RenderGraphSegment.LastPass.get -> int
+Vixen.Graphics.RenderGraph.RenderGraphSegment.Name.get -> string
+Vixen.Graphics.RenderGraph.RenderGraphSegment.Queue.get -> Vixen.Graphics.QueueKind
+Vixen.Graphics.RenderGraph.RenderGraphSegment.WaitsOn.get -> System.Collections.Generic.IReadOnlyList<Vixen.Graphics.RenderGraph.RenderGraphSegment>
+Vixen.Graphics.RenderGraph.SerialisedQueues -> sealed class
+Vixen.Graphics.RenderGraph.SerialisedQueues : Vixen.Graphics.RenderGraph.IRenderGraphQueues
+Vixen.Graphics.RenderGraph.SerialisedQueues.Begin(Vixen.Graphics.RenderGraph.RenderGraphSegment segment) -> Vixen.Graphics.ICommandList
+Vixen.Graphics.RenderGraph.SerialisedQueues.Reset() -> void
+Vixen.Graphics.RenderGraph.SerialisedQueues.SerialisedQueues(Vixen.Graphics.IGraphicsDevice device) -> void
+Vixen.Graphics.RenderGraph.SerialisedQueues.Submit(Vixen.Graphics.RenderGraph.RenderGraphSegment segment, Vixen.Graphics.ICommandList list) -> void
 Vixen.Graphics.RenderGraph.TransientResourcePool -> sealed class
 Vixen.Graphics.RenderGraph.TransientResourcePool : System.IDisposable
 Vixen.Graphics.RenderGraph.TransientResourcePool.AcquireBuffer(in Vixen.Graphics.BufferDescription description) -> int

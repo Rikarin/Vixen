@@ -458,12 +458,14 @@ sealed unsafe class VulkanCommandList : ICommandList {
             source |= VulkanBarriers.ToStage(barrier.Before);
             destination |= VulkanBarriers.ToStage(barrier.After);
 
+            var families = Ownership(barrier.SourceQueue, barrier.DestinationQueue, buffer.Description.Name);
+
             bufferBarriers[index] = new() {
                 SType = StructureType.BufferMemoryBarrier,
                 SrcAccessMask = VulkanBarriers.ToAccess(barrier.Before),
                 DstAccessMask = VulkanBarriers.ToAccess(barrier.After),
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                SrcQueueFamilyIndex = families.Source,
+                DstQueueFamilyIndex = families.Destination,
                 Buffer = buffer.Handle,
                 Offset = 0,
                 Size = Vk.WholeSize
@@ -484,14 +486,16 @@ sealed unsafe class VulkanCommandList : ICommandList {
                 ? (uint)barrier.ArrayLayerCount
                 : Vk.RemainingArrayLayers;
 
+            var families = Ownership(barrier.SourceQueue, barrier.DestinationQueue, texture.Description.Name);
+
             imageBarriers[index] = new() {
                 SType = StructureType.ImageMemoryBarrier,
                 SrcAccessMask = VulkanBarriers.ToAccess(barrier.Before),
                 DstAccessMask = VulkanBarriers.ToAccess(barrier.After),
                 OldLayout = VulkanBarriers.ToLayout(barrier.Before),
                 NewLayout = VulkanBarriers.ToLayout(barrier.After),
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                SrcQueueFamilyIndex = families.Source,
+                DstQueueFamilyIndex = families.Destination,
                 Image = texture.Handle,
                 SubresourceRange = new() {
                     AspectMask = VulkanFormats.AspectOf(texture.Description.Format),
@@ -515,6 +519,35 @@ sealed unsafe class VulkanCommandList : ICommandList {
             (uint)textureCount,
             textureCount > 0 ? imageBarriers : null
         );
+    }
+
+    /// <summary>The family pair a barrier's two queues resolve to, refusing a list at neither end.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         An ownership transfer is a <em>pair</em> of identical barriers, the release recorded on
+    ///         the source queue and the acquire on the destination. Recording one on a third queue is
+    ///         not an error Vulkan reports: the release never happens, the acquire waits for a handover
+    ///         nobody made, and the destination reads whatever the memory held. Refusing it here is the
+    ///         only place the mistake is still attached to the list that made it.
+    ///     </para>
+    ///     <para>
+    ///         Checked before the collapse rather than after, so the diagnostic is the same on a
+    ///         device where the two kinds share a family as on one where they do not — otherwise the
+    ///         bug is invisible on every machine anyone develops on and appears on the discrete card
+    ///         in CI.
+    ///     </para>
+    /// </remarks>
+    (uint Source, uint Destination) Ownership(QueueKind source, QueueKind destination, string resource) {
+        if (source != destination && Kind != source && Kind != destination) {
+            throw new InvalidOperationException(
+                $"'{Name}' is a {Kind} list and recorded an ownership transfer of "
+                + $"'{resource}' from {source} to {destination}. A transfer is two barriers — the "
+                + "release on the source queue's list and the acquire on the destination's — and a "
+                + "list at neither end records neither half."
+            );
+        }
+
+        return device.FamiliesFor(source, destination);
     }
 
     /// <inheritdoc />
