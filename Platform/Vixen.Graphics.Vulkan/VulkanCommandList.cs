@@ -462,7 +462,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
             var half = HalfOf(families, barrier.SourceQueue);
 
             if (half != Handover.Acquire) {
-                source |= VulkanBarriers.ToStage(barrier.Before) & stages;
+                source |= VulkanBarriers.SourceStage(barrier.Before) & stages;
             }
 
             if (half != Handover.Release) {
@@ -473,7 +473,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
                 SType = StructureType.BufferMemoryBarrier,
                 SrcAccessMask = half == Handover.Acquire
                     ? AccessFlags.None
-                    : VulkanBarriers.ToAccess(barrier.Before) & accesses,
+                    : VulkanBarriers.SourceAccess(barrier.Before) & accesses,
                 DstAccessMask = half == Handover.Release
                     ? AccessFlags.None
                     : VulkanBarriers.ToAccess(barrier.After) & accesses,
@@ -492,7 +492,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
             var half = HalfOf(families, barrier.SourceQueue);
 
             if (half != Handover.Acquire) {
-                source |= VulkanBarriers.ToStage(barrier.Before) & stages;
+                source |= VulkanBarriers.SourceStage(barrier.Before) & stages;
             }
 
             if (half != Handover.Release) {
@@ -511,7 +511,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
                 SType = StructureType.ImageMemoryBarrier,
                 SrcAccessMask = half == Handover.Acquire
                     ? AccessFlags.None
-                    : VulkanBarriers.ToAccess(barrier.Before) & accesses,
+                    : VulkanBarriers.SourceAccess(barrier.Before) & accesses,
                 DstAccessMask = half == Handover.Release
                     ? AccessFlags.None
                     : VulkanBarriers.ToAccess(barrier.After) & accesses,

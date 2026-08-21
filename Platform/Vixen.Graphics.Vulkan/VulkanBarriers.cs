@@ -37,9 +37,15 @@ static class VulkanBarriers {
     /// <summary>Which pipeline stages touch a resource in this state.</summary>
     /// <param name="state">What it is being used for.</param>
     /// <remarks>
-    ///     <see cref="ResourceState.Undefined" /> becomes <c>TopOfPipe</c> as a source and is only
-    ///     ever a source: it means "whatever was there before does not matter", so there is nothing to
-    ///     wait for.
+    ///     <para>
+    ///         ⚠ <b><see cref="ResourceState.Undefined" /> is only ever a source, and a source half
+    ///         goes through <see cref="SourceStage" /> rather than through here.</b> This returns
+    ///         <c>TopOfPipe</c> for it, which is what "no stage of this queue is using it" means and
+    ///         is the right answer to the question <em>this</em> function asks. It is the wrong answer
+    ///         to "what must the barrier wait for", because the memory has a previous tenant whose
+    ///         write is still in flight — see <see cref="SourceStage" />, which is where that
+    ///         distinction lives.
+    ///     </para>
     /// </remarks>
     public static PipelineStageFlags ToStage(ResourceState state) {
         if (state == ResourceState.Undefined) {
@@ -91,6 +97,62 @@ static class VulkanBarriers {
 
         return stages == PipelineStageFlags.None ? PipelineStageFlags.TopOfPipeBit : stages;
     }
+
+    /// <summary>Which stages a barrier's <em>source</em> half has to order after.</summary>
+    /// <param name="state">What the resource was being used for.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same as <see cref="ToStage" /> everywhere except
+    ///         <see cref="ResourceState.Undefined" />, and that exception is the whole reason this
+    ///         exists.</b> "The contents may be discarded" and "there is nothing to wait for" are not
+    ///         the same statement, and reading the first as the second is a race on every aliased
+    ///         resource in the frame — on the <em>single-queue</em> path, which is the one every real
+    ///         device here runs.
+    ///     </para>
+    ///     <para>
+    ///         <c>TransientResourcePool</c> hands one physical texture to two virtual resources whose
+    ///         lifetimes do not overlap, and the graph tracks state per virtual resource — so the
+    ///         second one's first transition honestly says it comes from <c>Undefined</c>. The hazard
+    ///         it has to order after is not the contents. It is the <em>previous tenant's last write
+    ///         to that same image</em>, which is still in flight: <c>TopOfPipe</c> as a source waits
+    ///         for nothing at all, so the take-over's layout transition and the new tenant's first
+    ///         write may both begin while the old tenant's colour writes are still landing.
+    ///     </para>
+    ///     <para>
+    ///         <b>And it is not only about aliasing within one frame.</b> The pool outlives the
+    ///         frame, so every transient after the first frame is a physical resource the previous
+    ///         frame was using; with two frames in flight that write is genuinely outstanding when
+    ///         this barrier is recorded.
+    ///     </para>
+    ///     <para>
+    ///         <b>Conservative on purpose, and the narrow alternative was considered and rejected.</b>
+    ///         The precise source is the previous tenant's stages, which the backend cannot know — the
+    ///         RHI states one resource's use, not the memory's history — and which the graph cannot
+    ///         supply either, because <c>PlanBarriers</c> runs in <c>Compile</c> and pool slots are
+    ///         not handed out until <c>Realise</c>. The only case this over-waits for is a physical
+    ///         resource that has never been touched at all, which happens once in its life.
+    ///     </para>
+    ///     <para>
+    ///         <c>AllCommands</c> rather than <c>BottomOfPipe</c>: the two are equivalent as an
+    ///         execution dependency, but <c>BottomOfPipe</c> performs no access, and this half needs
+    ///         a non-empty <see cref="SourceAccess" /> to make the previous write available rather
+    ///         than merely finished.
+    ///     </para>
+    /// </remarks>
+    public static PipelineStageFlags SourceStage(ResourceState state) =>
+        state == ResourceState.Undefined ? PipelineStageFlags.AllCommandsBit : ToStage(state);
+
+    /// <summary>Which accesses a barrier's <em>source</em> half has to make available.</summary>
+    /// <param name="state">What the resource was being used for.</param>
+    /// <remarks>
+    ///     The other half of <see cref="SourceStage" />. An execution dependency alone would order the
+    ///     previous tenant's write before the new one and still leave it sitting in a cache the new
+    ///     write does not go through, so the two could land in either order. <c>MemoryWrite</c> is
+    ///     the only honest answer available — which write it was is exactly what this cannot know —
+    ///     and it is supported by every queue family's clamp.
+    /// </remarks>
+    public static AccessFlags SourceAccess(ResourceState state) =>
+        state == ResourceState.Undefined ? AccessFlags.MemoryWriteBit : ToAccess(state);
 
     /// <summary>Which accesses a resource in this state is subject to.</summary>
     /// <param name="state">What it is being used for.</param>

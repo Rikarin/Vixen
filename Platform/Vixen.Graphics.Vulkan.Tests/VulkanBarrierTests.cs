@@ -12,11 +12,90 @@ namespace Vixen.Graphics.Vulkan.Tests;
 ///     picture. Neither is visible without asserting it.
 /// </summary>
 public sealed class VulkanBarrierTests {
+    /// <summary>
+    ///     ⚠ <b>What <c>Undefined</c> means as a <em>use</em>, which is not what it means as a
+    ///     barrier's source half.</b> No stage of this queue is using the resource and no access is
+    ///     being performed on it — see
+    ///     <see cref="AnUndefinedSourceOrdersAfterEverythingBecauseTheMemoryHadATenant" /> for the
+    ///     question this one is not the answer to.
+    /// </summary>
     [Fact]
-    public void UndefinedIsATopOfPipeSourceWithNoAccess() {
+    public void UndefinedNamesNoUseOfItsOwn() {
         Assert.Equal(PipelineStageFlags.TopOfPipeBit, VulkanBarriers.ToStage(ResourceState.Undefined));
         Assert.Equal(AccessFlags.None, VulkanBarriers.ToAccess(ResourceState.Undefined));
         Assert.Equal(ImageLayout.Undefined, VulkanBarriers.ToLayout(ResourceState.Undefined));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An <c>Undefined</c> source waits for everything, because the memory has a previous
+    ///     tenant.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         "The contents may be discarded" and "there is nothing to wait for" are not the same
+    ///         statement, and reading the first as the second is the single-queue aliasing bug.
+    ///         <c>TransientResourcePool</c> hands one physical texture to two virtual resources whose
+    ///         lifetimes do not overlap, and the second one's first transition says it comes from
+    ///         <see cref="ResourceState.Undefined" /> — see
+    ///         <c>RenderGraphTests.AResourceTakingOverAliasedMemoryDiscardsWhatWasThere</c>. The
+    ///         hazard is not the contents: it is the <em>previous</em> resource's last write to that
+    ///         same image, which is still in flight. <c>TopOfPipe</c> as a source orders against
+    ///         nothing at all, so the take-over's layout transition and the new tenant's first write
+    ///         may both begin while the old tenant's colour writes are still landing.
+    ///     </para>
+    ///     <para>
+    ///         The pool outlives the frame, so this is not only about aliasing within one frame:
+    ///         every transient in every frame after the first is a physical resource the previous
+    ///         frame was still using, and with two frames in flight that write is genuinely
+    ///         outstanding.
+    ///     </para>
+    ///     <para>
+    ///         <b>The layout stays <see cref="ImageLayout.Undefined" />.</b> Discarding the contents
+    ///         is right and is what avoids a decompress for garbage; what changes is only which work
+    ///         the barrier waits for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnUndefinedSourceOrdersAfterEverythingBecauseTheMemoryHadATenant() {
+        Assert.Equal(PipelineStageFlags.AllCommandsBit, VulkanBarriers.SourceStage(ResourceState.Undefined));
+        Assert.Equal(AccessFlags.MemoryWriteBit, VulkanBarriers.SourceAccess(ResourceState.Undefined));
+
+        // Still a discard. Waiting for the previous tenant is not the same as preserving what it left.
+        Assert.Equal(ImageLayout.Undefined, VulkanBarriers.ToLayout(ResourceState.Undefined));
+    }
+
+    /// <summary>
+    ///     ⚠ Every other state's source half is its ordinary translation. The widening is for
+    ///     <c>Undefined</c> alone — a barrier whose source is a real state names that state's stages,
+    ///     and widening those would be the stall nobody can find.
+    /// </summary>
+    [Fact]
+    public void OnlyUndefinedWidensItsSourceHalf() {
+        foreach (var state in Enum.GetValues<ResourceState>()) {
+            if (state == ResourceState.Undefined) {
+                continue;
+            }
+
+            Assert.Equal(VulkanBarriers.ToStage(state), VulkanBarriers.SourceStage(state));
+            Assert.Equal(VulkanBarriers.ToAccess(state), VulkanBarriers.SourceAccess(state));
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ The widened source has to survive the queue clamp, or a transfer or compute list would
+    ///     record an aliasing barrier whose source mask clamped away to nothing — which
+    ///     <c>VulkanCommandList</c> then substitutes <c>TopOfPipe</c> for, restoring the very bug.
+    /// </summary>
+    [Theory]
+    [InlineData(QueueKind.Graphics)]
+    [InlineData(QueueKind.Compute)]
+    [InlineData(QueueKind.Transfer)]
+    public void TheWidenedUndefinedSourceSurvivesEveryQueueClamp(QueueKind kind) {
+        var stages = VulkanBarriers.SourceStage(ResourceState.Undefined) & VulkanBarriers.SupportedStages(kind);
+        var access = VulkanBarriers.SourceAccess(ResourceState.Undefined) & VulkanBarriers.SupportedAccess(kind);
+
+        Assert.Equal(PipelineStageFlags.AllCommandsBit, stages);
+        Assert.Equal(AccessFlags.MemoryWriteBit, access);
     }
 
     /// <summary>
