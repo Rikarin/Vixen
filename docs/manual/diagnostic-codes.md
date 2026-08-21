@@ -11,7 +11,7 @@ step. Where to look:
 | Prefix | Producer |
 |---|---|
 | `RVN` | Raven — the compiler's own diagnostics ([07](../plan/07-raven-shader-pipeline.md)) |
-| `VXS` | `Vixen.Core.Serialization.Generator`, `Vixen.Core.Reflection.Generator`, `Vixen.Ui.Generators` |
+| `VXS` | `Vixen.Core.Serialization.Generator`, `Vixen.Core.Reflection.Generator`, `Vixen.Ui.Generators`, `Vixen.Engine.Generators` (`04xx`) |
 | `VXML` | `Vixen.Ui.Markup.Generators` — `1xxx` means the tree is a guess made during recovery, `2xxx` that the tree is right and its meaning is wrong |
 | `VXNET` | `Vixen.Net.Generators` — replicators and RPC senders |
 | `VXSH` | `Vixen.Shaders.Generators` |

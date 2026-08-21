@@ -317,17 +317,20 @@ every other system in the tree is added by hand against a host service:
 | `AppGraphics` | `CameraExtractionSystem`, `WaterZoneSystem`, `WaterClockSystem`, `PostProcessVolumeSystem`, and `WorldRenderer.Register`'s four extractions | a `RenderView`, a device-backed `WorldRenderer`, stage masks that only exist after a compositor document is loaded |
 | the game | `AddPhysics`'s five, `AudioSystem`, `TerrainColliderSystem`, `WaterImmersionSystem`, `BuoyancySystem`, `NavigationSystem`, the AI and virtual-camera sets | a `PhysicsScene`, an `AudioEngine`, a navmesh `Crowd`, a `DebugDraw` |
 
-There is **no** `AddStandardSystems` and nothing in a project says which of its systems a scene wants.
-So an in-editor session cannot reproduce a game's frame by scheduling harder; it would have to run the
-game's boot path, which is what the out-of-process topology already is.
+There is **no** `AddStandardSystems`. Until 2026-08-21 there was also nothing in a project that said
+which of its systems a scene wants, so an in-editor session could not reproduce a game's frame by
+scheduling harder; it would have had to run the game's boot path, which is what the out-of-process
+topology already is. `[GameSystem]` is the declaration that closes that — see below — and it closes
+the game's row of the table, not `AppBuilder`'s or `AppGraphics`'.
 
-⚠ **Half of that table has since been reached, and it is worth being exact about which half.** A
-system whose service the *editor* can own — a `PhysicsScene`, and on the same terms an `AudioEngine`
-or a navmesh `Crowd` — is added by an `IPlaySystems` contribution, which is how the shipped editor now
-runs physics and terrain collision. A system whose service is the *project's* is still out of reach,
-because constructing it means running the project's `OnInitialise`. The row that moved is the game's,
-for the entries an editor can honestly supply; the rows that did not are `AppBuilder`'s and
-`AppGraphics`', where the editor already has a second, differently-aimed one of each.
+⚠ **The table has since been reached from both directions, and it is worth being exact about
+which.** A system whose service the *editor* can own — a `PhysicsScene`, and on the same terms an
+`AudioEngine` or a navmesh `Crowd` — is added by an `IPlaySystems` contribution, which is how the
+shipped editor runs physics and terrain collision. A system the *project* owns is declared with
+`[GameSystem]` and built by the editor out of whatever those contributions provided, which is owed
+item 1 below. What is still hand-registered is `AppBuilder`'s row and `AppGraphics`', where the
+editor already has a second, differently-aimed one of each and reproducing the game's would be wrong
+rather than merely hard.
 
 ⚠ **Which makes the rule for this feature: run a whole graph of a named set, and name what is
 missing.** A Play button that runs most of a frame and says nothing makes the missing part read as a
@@ -352,13 +355,48 @@ instead of a fixed sentence that would now be false; a contribution whose `Attac
 — a system that runs inside a session and not before it, an owned resource disposed while the world
 is still there, a second Play that attaches again.
 
+Built since (2026-08-21, later the same day): `[GameSystem]`, so the *project* side of the same seam
+is declarative too — `PlayModeController.Declared` holds what a project's own systems did, `Contribute`
+resolves them last so a contribution's service is already provided, and `ProjectAssemblies.Unload`
+evicts the declarations along with the four registries that already needed it. `PlayDeclaredSystemsTests`
+asserts a project system that ran a frame, one whose service was absent and was named, and that the
+session offers its loop and world as services.
+
 Owed, in the order that unblocks the most:
 
-1. **A project declares its frame.** The one thing that would turn this from "behaviours run" into
-   "the game runs". Some form a project can carry — a systems manifest, or an attribute a generator
-   collects the way `[Component]` and `[Node]` already are — plus a way for a system to name the
-   service it needs so a host can refuse rather than crash. Until it exists, every row of the table
-   above is a hand-registration an editor cannot repeat.
+1. ✅ **A project declares its frame** — closed 2026-08-21, and it went in as the attribute rather
+   than the manifest. `[GameSystem]` on a concrete `ISystem` is collected by `GameSystemGenerator` in
+   `Vixen.Engine.Generators`, which emits one `[ModuleInitializer]` per assembly calling
+   `GameSystemRegistry.Declare` — the same shape `[Component]` and `[DataContract]` already use, and
+   the reason a declaration is readable without running any of the project's code.
+
+   ⚠ **A system names the service it needs with its constructor, and there is deliberately no second
+   list.** `GameSystemDeclaration.Requires` *is* the parameter types, and the key is the static one —
+   so `ColliderSystem(PhysicsScene, ITerrainScene)`, the hard case this section named, is not a
+   special case at all. `ServiceRegistry.Add<T>`, `PlaySession.Provide<T>` and a constructor
+   parameter already agree on that key without any of them being told about the others, which is why
+   `PlaySession` only had to become an `IServiceProvider` for the two halves to meet.
+
+   ⚠ **The factory is emitted, not reflected.** `ConstructorInfo.Invoke` would have made this a small
+   DI container, which is the thing `ServiceRegistry`'s own remarks refuse on NativeAOT grounds. The
+   generator knows every parameter's type, so it writes the `new` with the casts in it.
+
+   ⚠ **An absent service is named, not skipped**, which is this section's rule applied one level in.
+   `EngineLoop.AddDeclaredSystems` returns a `FrameActivation` — what ran, and a readable line per
+   declared system that could not be built, including one whose constructor threw.
+   `PlayModeController.Declared` is where the editor reads it, after every contribution has attached
+   so that a system wanting physics is resolved against the `PhysicsScene` one of them provided.
+   `EnterPlay`'s report subtracts what ran from the reflected list, so what is left is the set whose
+   author has not opted in yet rather than the whole assembly.
+
+   ⚠ **It is additive and nothing dedupes.** A project may go on constructing its systems by hand; a
+   declared system and a hand-constructed one are the same thing to `SystemGraph`. Doing both for one
+   system runs it twice. See `docs/guide/engine/declaring-a-frame.md`.
+
+   Owed from it: the engine's own systems carry no attribute, by design — `AppBuilder`'s and
+   `AppGraphics`' rows are still hand-registrations, and the editor's answer for those stays
+   `IPlaySystems`. A system whose service is a *value* rather than a class — `IntruderSystem(Entity)`
+   in `Samples/15` — is not declarable, because `ServiceRegistry` keys on reference types.
 2. ✅ **A `PhysicsScene` in the editor** — [31 § D10](31-terrain-grass-and-trees.md)'s blocker,
    closed 2026-08-21. `Vixen.Editor.App` references `Vixen.Physics` and contributes a `PlayPhysics`
    that builds a scene over the world being edited on Play and disposes it on Stop; `AddPhysics` puts

@@ -1150,22 +1150,27 @@ Three things that are easy to get wrong and are not:
   `World.Clear` has no entity to walk, so nothing gets `OnDisable`/`OnDestroy` — and `Leaks` would then
   report every handle they held as a leak this controller caused.
 - ⚠ **A behaviour the session could not take over is left alone and *named* in `Unsupported`.**
-  `AllOn` reads the entity's link, which is one component however many stores share the world, so a
-  teardown that destroyed everything it found would queue a behaviour belonging to the document's
-  store — and `BehaviorStore.Destroy`, unlike `Remove`, does not check: the drain then indexes a
-  bucket this store has never had.
+  `AllOn` reads the entity's link, which is one component however many stores share the world, so the
+  teardown is handed the document's own behaviours and any additively-opened scene's as well. It
+  destroys everything it finds and the *store* refuses what is not its own — `Destroy` checks
+  ownership exactly as `Remove` does, and returns `false`. It did not until 2026-08-21, and the
+  workaround was a set of the refused behaviours kept here so the walk could skip them by hand.
 
 ⚠ **A caller that ticks must not also run its own `TransformSystem` that frame.** The graph runs one
 in `PreRender`, and two instances over one world keep separate "what have I already seen" versions, so
 each answers the other's writes with "nothing changed". `EditorApplication` skips `ResolveTransforms`
 on a frame that ticked for exactly this reason.
 
-⚠ **What a session runs is small, and is stated rather than implied.** An `EngineLoop`'s default graph
-is behaviours, coroutines and transforms. Physics, audio, input, navigation and the render extractions
-are registered by a game's own `Game.OnInitialise` against host services an editor does not have —
-there is no `AddStandardSystems` and no way for a project to declare its frame — so the editor names
-what it is not running, including the project's own `ISystem` types, on the way in. See
-[docs/plan/11 § Play mode runs a system graph](../../docs/plan/11-editor.md#play-mode-runs-a-system-graph).
+⚠ **What a session runs is stated rather than implied, and it is assembled from two directions.** An
+`EngineLoop`'s default graph is behaviours, coroutines and transforms. On top of that: an
+`IPlaySystems` contribution adds the systems whose service the *editor* owns and `Provide`s it, and
+then `Contribute` builds the project's own `[GameSystem]` declarations out of whatever those
+contributions provided — `PlaySession` is an `IServiceProvider`, which is the only thing the two
+halves share. What could not be built is named in `PlayModeController.Declared.Missing`, beside
+`Refused` and `Unsupported`, because there is still no `AddStandardSystems` and `AppBuilder`'s and
+`AppGraphics`' registrations remain the editor's own. See
+[docs/plan/11 § Play mode runs a system graph](../../docs/plan/11-editor.md#play-mode-runs-a-system-graph)
+and [the guide](../../docs/guide/engine/declaring-a-frame.md).
 
 **Out-of-process** is `PlayerSessions`. Networking is what requires it — testing a server-authoritative
 game needs a server and several clients — and it doubles as the way to check release-configuration

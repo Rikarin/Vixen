@@ -36,6 +36,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            And `ProjectSystem` below is a [GameSystem], which is the declaration a play session
+            reads a project's frame out of. It has to be collected by the generator here rather than
+            declared by hand, because what these tests are about is whether a project's *compiled*
+            declaration reaches the editor at all.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
 </Project>

@@ -203,7 +203,13 @@ public class PlayGraphTests {
         // a session that has no way to give it back.
         Assert.Same(stranded, Assert.Single(scene.Behaviors.AllOn(entity).ToArray()));
 
+        // ⚠ And the stop leaves it alone too. `Teardown` walks the entity's `BehaviorRef`, which is
+        // one component however many stores share the world, so it is handed this behaviour — and
+        // the session's store refuses it because it is not the session's. Before the store checked,
+        // that was a `KeyNotFoundException` out of the middle of Stop.
         play.Stop();
+
+        Assert.False(stranded.IsDestroyed);
     }
 
     static int Ticks(PlayModeController play, Entity entity) =>

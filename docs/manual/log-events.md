@@ -183,6 +183,8 @@ started" rather than "just now".
 | 13028 | Information | `Captured the frame to {Path}.` — `--vixen-capture`; a picture nobody was told about is one its operator cannot tell from a capture that failed | 0.1.0 |
 | 13029 | Warning | `--vixen-capture was given without --vixen-frames, so there is no last frame to capture and nothing will be written to {Path}.` — the one way to ask for a picture and correctly get none, said at startup while somebody is still watching | 0.1.0 |
 | 13030 | Information | `The clock is fixed at {Milliseconds} ms a frame, so frame N is the same instant on every run and no wall time reaches the simulation.` — `--vixen-fixed-step`, or a capture implying it; a frame handed a constant delta is measuring nothing about this machine, and a reader who does not know that will quote a frame time from a run that had none | 0.1.0 |
+| 13031 | Information | `Declared systems: {Count} added — {Systems}.` — what the project's `[GameSystem]` declarations put in the frame; a frame's contents should be readable from a log rather than only from the source | 0.1.0 |
+| 13032 | Warning | `Declared systems not running: {Systems}. Register the service before OnInitialise returns.` — a declared system whose service nothing registered does not run, and nothing else in the log would say so; the symptom is a game rule that silently never happens, which reads as the system being broken | 0.1.0 |
 
 Every other range is still reserved rather than allocated: the subsystems that will log have not been
 written, and the ranges exist so that when they are, nobody has to invent a numbering scheme under

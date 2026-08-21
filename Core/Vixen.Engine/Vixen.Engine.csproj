@@ -10,7 +10,38 @@
         </Description>
         <PackageTags>game-engine;ecs;scene;behaviour;transform;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackEngineGenerators
+        </TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
+
+    <!--
+        ⚠ The generators travel with the package, which until now they did not — and the gap was
+        silent in exactly the way that costs a day. Analyzers do not flow through a ProjectReference,
+        so every in-tree consumer names `Vixen.Engine.Generators` itself and everything worked; a
+        project created from the `vixen-game` template references the *package*, got no generator, and
+        its `[Component]`, its scene `Behavior` and its `[GameSystem]` were collected by nothing. The
+        symptom is not an error: a component a scene cannot name, and a declared system that never
+        joins the frame.
+
+        GetTargetPath, not Build — see the identical note in Vixen.Core.Reflection.csproj. The
+        generator is already built by the ProjectReference below; asking for Build here fails a
+        no-build `dotnet pack` with NETSDK1085, because NoBuild=true is a global property and the
+        MSBuild task hands global properties to the project it invokes.
+    -->
+    <Target Name="PackEngineGenerators">
+        <MSBuild Projects="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="EngineGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(EngineGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />

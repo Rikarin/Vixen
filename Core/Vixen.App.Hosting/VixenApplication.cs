@@ -8,6 +8,7 @@ using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
 using Vixen.Engine.Diagnostics.Overlays;
+using Vixen.Engine.Frames;
 using Vixen.Engine.Scenes;
 using Vixen.Platform;
 
@@ -239,6 +240,13 @@ public sealed class VixenApplication : IDisposable {
 
         game.OnInitialise();
 
+        // ⚠ After OnInitialise, because that is where a game registers the services its own systems
+        // ask for, and before the first frame, because a system added later would miss it. This is
+        // what makes `[GameSystem]` mean the same thing in a shipped game as it does in the editor's
+        // play mode: a declaration that ran in the editor and quietly did not run in the game would
+        // be a worse trap than having no declaration at all.
+        AddDeclaredSystems();
+
         // ⚠ After OnInitialise, and found by name in the registry the overlay system was handed
         // rather than kept beside it. That is the point: what this drives has to be the same object
         // the frame draws, and asking the registry is the only way to be sure of it — the editor's
@@ -376,6 +384,51 @@ public sealed class VixenApplication : IDisposable {
     ///         scene runs on with an empty world and one line saying which of those it was.
     ///     </para>
     /// </remarks>
+    /// <summary>Adds the systems this project declared, and says what it could not add.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The host's half of <c>[GameSystem]</c>.</b> A project marks a system, the generator
+    ///         declares it, and this is what puts it in the frame — so the attribute means the same
+    ///         thing in a shipped game as it does in the editor's play mode, which is the only reason
+    ///         a declaration is worth anything. It is a no-op for a project that declares nothing,
+    ///         which is every project that has not opted in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Do not also call <c>AddDeclaredSystems</c> from <c>OnInitialise</c>.</b> Nothing
+    ///         dedupes: a system added here and again by hand runs twice a frame. The imperative
+    ///         `loop.Add(new MySystem(…))` path is untouched and remains the right answer for a
+    ///         system whose service is not in the registry.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unregistered service is a warning, not an exception.</b> One system that
+    ///         cannot be built must not stop the game from starting — the same trade the catalog, the
+    ///         shader bundle and the startup scene each make — but it must be *said*, because a game
+    ///         rule that silently never happens is indistinguishable from a broken system.
+    ///     </para>
+    /// </remarks>
+    void AddDeclaredSystems() {
+        if (Services.Engine is not { } loop) {
+            return;
+        }
+
+        var frame = loop.AddDeclaredSystems(Services.Registry);
+
+        // Joined into locals rather than inside the calls, which is `RemoteContent`'s note: this
+        // happens once at boot over a handful of names either way, and an argument built inside a
+        // generated log method is work done whether or not anybody is listening.
+        if (frame.Running.Count > 0) {
+            var names = string.Join(", ", frame.Running);
+
+            HostLog.DeclaredSystems(logger, frame.Running.Count, names);
+        }
+
+        if (frame.Missing.Count > 0) {
+            var absent = string.Join("; ", frame.Missing);
+
+            HostLog.UndeclaredServices(logger, absent);
+        }
+    }
+
     void LoadStartupScene() {
         if (Services.Config.StartupScene is not { Length: > 0 } address) {
             // Not even information. A sample, a batch tool and a test each open no scene, and a line

@@ -2100,24 +2100,40 @@ sealed partial class EditorApplication {
 
         log.Write(
             LogLevel.Information,
-            $"Play mode runs behaviours, coroutines and transforms{Also(added)}. Everything else a "
-            + "game registers in its own OnInitialise — audio, input, navigation, the render "
-            + "extractions — takes a host service the editor does not have, so an in-editor session "
-            + "does not run it."
+            $"Play mode runs behaviours, coroutines and transforms{Also(added)}. Anything else a game "
+            + "registers imperatively in its own OnInitialise — rather than declaring with "
+            + "[GameSystem] — takes a host service the editor was never handed, so an in-editor "
+            + "session does not run it."
         );
 
-        var systems = ProjectSystems();
+        // ⚠ The project's systems minus the ones that just ran, and the subtraction is the whole
+        // point of #320. This list used to be every `ISystem` the project's assembly declared,
+        // because none of them could run; a system that carries `[GameSystem]` and found its
+        // services is now in the frame, and naming it as missing would be a report that lies.
+        var systems = ProjectSystems().Except(play.Declared.Running, StringComparer.Ordinal).ToArray();
+        var unsatisfied = play.Declared.Missing;
         var behaviors = play.Unsupported;
         var refused = play.Refused;
 
-        if (systems.Count == 0 && behaviors.Count == 0 && refused.Count == 0) {
+        if (systems.Length == 0 && unsatisfied.Count == 0 && behaviors.Count == 0 && refused.Count == 0) {
             return;
         }
 
         List<string> lines = [];
 
-        if (systems.Count > 0) {
-            lines.Add($"{systems.Count} system(s) this project declares: {string.Join(", ", systems)}.");
+        // ⚠ Two different failures, said differently. An undeclared system is one nobody asked the
+        // editor to run — the fix is `[GameSystem]`, and saying so is worth more than the list. An
+        // unsatisfied one *was* declared and could not be built, which is a service the editor does
+        // not have and a much narrower thing to go and look at.
+        if (systems.Length > 0) {
+            lines.Add(
+                $"{systems.Length} system(s) this project declares but does not mark [GameSystem]: "
+                + $"{string.Join(", ", systems)}."
+            );
+        }
+
+        if (unsatisfied.Count > 0) {
+            lines.Add($"{unsatisfied.Count} declared system(s) whose services are not here: {string.Join("; ", unsatisfied)}.");
         }
 
         if (behaviors.Count > 0) {
@@ -2150,11 +2166,12 @@ sealed partial class EditorApplication {
 
     /// <summary>The <c>ISystem</c> types the project's own assembly declares.</summary>
     /// <remarks>
-    ///     ⚠ <b>Declared, not registered — and that is the honest reading.</b> Nothing in a project
-    ///     says which of its systems a scene wants; a game registers them imperatively in its
-    ///     <c>Game.OnInitialise</c>, which is code no editor runs. So every one of them is a system
-    ///     an in-editor session is not running, and listing the declarations is the closest true
-    ///     statement available until a project can declare its frame.
+    ///     ⚠ <b>Every <c>ISystem</c> in the assembly, including the ones that just ran.</b> The
+    ///     caller subtracts <c>PlayModeController.Declared.Running</c>, so what is left is the set a
+    ///     project still registers by hand in its <c>Game.OnInitialise</c> — code no editor runs.
+    ///     Until <c>[GameSystem]</c> that was all of them, and this list was the closest true
+    ///     statement available; it is now a list of systems whose author has not opted in yet, which
+    ///     is a thing they can act on.
     /// </remarks>
     IReadOnlyList<string> ProjectSystems() {
         List<string> found = [];

@@ -13,10 +13,11 @@ namespace Vixen.Editor.SceneView;
 ///         open.</b> An <see cref="EngineLoop" />'s default registration is behaviours, coroutines
 ///         and transforms; every other system a game runs — physics, audio, navigation, the render
 ///         extractions — is added by that game's own <c>OnInitialise</c> against a host service.
-///         There is no <c>AddStandardSystems</c> and nothing in a project says which of its systems a
-///         scene wants, so the editor cannot reproduce a game's frame by scheduling harder. What it
-///         *can* do is let whoever owns a service add the systems that need it, which is what an
-///         <see cref="IPlaySystems" /> contribution is.
+///         There is no <c>AddStandardSystems</c>, so the editor cannot reproduce a game's frame by
+///         scheduling harder. What it *can* do is let whoever owns a service add the systems that
+///         need it, which is what an <see cref="IPlaySystems" /> contribution is — and then let a
+///         project's own <c>[GameSystem]</c> declarations be built out of what those contributions
+///         provided, which is what <see cref="IServiceProvider" /> on this class is for.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Per session, and that is the whole reason this object exists rather than a service in
@@ -35,7 +36,7 @@ namespace Vixen.Editor.SceneView;
 ///         yet.
 ///     </para>
 /// </remarks>
-public sealed class PlaySession {
+public sealed class PlaySession : IServiceProvider {
     readonly List<Action> undo = [];
     readonly List<string> running = [];
     readonly Dictionary<Type, object> provided = [];
@@ -70,6 +71,33 @@ public sealed class PlaySession {
 
         Loop = loop;
         World = world;
+
+        // ⚠ Seeded, so that a project system taking one of them is satisfiable. A game gets these
+        // from `AppServices.Registry`, which registers the loop and its world for the same reason;
+        // a session whose declared systems could not ask for the world would be a different frame
+        // from the game's for a reason that has nothing to do with the editor.
+        Provide(loop);
+        Provide(world);
+    }
+
+    /// <summary>
+    ///     <see cref="IServiceProvider" /> support, so a declared system's constructor parameters can
+    ///     be resolved out of a session exactly as they are out of a game's
+    ///     <c>ServiceRegistry</c>.
+    /// </summary>
+    /// <param name="serviceType">The contract.</param>
+    /// <returns>What was provided under it, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This is what closes the other half of the seam.</b> A contribution provides a service
+    ///     the editor owns; <c>GameSystemRegistry</c> holds the systems the project declared. Neither
+    ///     knows about the other, and the only thing they have to agree on is that a service is keyed
+    ///     on the static type — which <see cref="Provide{T}" /> and <c>ServiceRegistry.Add&lt;T&gt;</c>
+    ///     already both do.
+    /// </remarks>
+    object? IServiceProvider.GetService(Type serviceType) {
+        ArgumentNullException.ThrowIfNull(serviceType);
+
+        return provided.GetValueOrDefault(serviceType);
     }
 
     /// <summary>Says what was added, for the report the session opens with.</summary>
@@ -188,12 +216,12 @@ public sealed class PlaySession {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>This is the general mechanism, and it is deliberately not "a project declares its
-///         frame".</b> A project's own systems are constructed by that project's <c>OnInitialise</c>
-///         against services it builds — the editor can list them by reflection and does, but it
-///         cannot instantiate one without running the game's boot path, which is what the
-///         out-of-process topology already is. What this closes is the *other* half of that gap: a
-///         system whose service the <em>editor</em> can own — a <c>PhysicsScene</c>, an audio engine,
-///         a navmesh — no longer needs an embedding host to add it by hand.
+///         frame".</b> What this closes is the half of that gap where the <em>editor</em> owns the
+///         service: a <c>PhysicsScene</c>, an audio engine, a navmesh no longer needs an embedding
+///         host to add it by hand. The project's half is <c>[GameSystem]</c> — a declaration the
+///         generator collects, resolved against what these contributions <see cref="PlaySession.Provide{T}" />
+///         after every one of them has attached. The two never refer to each other; they meet
+///         because a service is keyed on its static type in both.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>An <see cref="Attach" /> that throws does not stop the session.</b> The contribution
