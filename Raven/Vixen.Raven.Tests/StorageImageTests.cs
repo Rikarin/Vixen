@@ -87,9 +87,7 @@ public class StorageImageTests {
 
     [Fact]
     public void SPIR_V_declares_a_storage_image_rather_than_a_sampled_one() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(Assert.Single(GenerateClean(Post, "spirv")).Binary!);
 

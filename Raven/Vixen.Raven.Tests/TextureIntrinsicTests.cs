@@ -97,9 +97,7 @@ public class TextureIntrinsicTests {
 
     [Fact]
     public void An_explicit_level_reaches_SPIR_V_as_an_explicit_lod_sample() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(SpirvTestBase.One(Vertex).Binary!);
 
@@ -111,9 +109,7 @@ public class TextureIntrinsicTests {
 
     [Fact]
     public void A_size_query_reaches_SPIR_V_as_a_declared_image_query() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(SpirvTestBase.One(Size).Binary!);
 
@@ -125,9 +121,7 @@ public class TextureIntrinsicTests {
 
     [Fact]
     public void A_shader_with_no_query_does_not_declare_the_capability() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(SpirvTestBase.One(Vertex).Binary!);
         Assert.DoesNotContain("OpCapability ImageQuery", listing, StringComparison.Ordinal);

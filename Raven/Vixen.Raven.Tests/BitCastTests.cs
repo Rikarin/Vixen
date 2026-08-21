@@ -139,9 +139,7 @@ public class BitCastTests {
 
     [Fact]
     public void A_round_trip_through_SPIR_V_validates() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(
             SpirvTestBase.One(

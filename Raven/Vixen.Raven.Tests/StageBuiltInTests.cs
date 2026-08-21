@@ -89,9 +89,7 @@ public class StageBuiltInTests {
 
     [Fact]
     public void SPIR_V_decorates_it_BuiltIn_rather_than_Location() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(
             Assert.Single(GenerateClean(Fullscreen, "spirv"), u => u.Name.EndsWith(".vert", StringComparison.Ordinal))
@@ -295,9 +293,7 @@ public class StageBuiltInTests {
     /// </summary>
     [Fact]
     public void SPIR_V_decorates_the_boolean_BuiltIn_FrontFacing() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(
             Assert.Single(GenerateClean(TwoSided, "spirv"), u => u.Name.EndsWith(".frag", StringComparison.Ordinal))
@@ -410,9 +406,7 @@ public class StageBuiltInTests {
 
     [Fact]
     public void SPIR_V_decorates_the_fragment_position_BuiltIn_FragCoord() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(
             Assert.Single(GenerateClean(Stippled, "spirv"), u => u.Name.EndsWith(".frag", StringComparison.Ordinal))

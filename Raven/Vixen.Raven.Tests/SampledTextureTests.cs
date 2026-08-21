@@ -75,9 +75,7 @@ public class SampledTextureTests {
 
     [Fact]
     public void SPIR_V_declares_a_uint_sampled_image_and_fetches_from_it() {
-        if (!SpirvTestBase.ValidatorAvailable) {
-            return;
-        }
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(Assert.Single(GenerateClean(Bin, "spirv")).Binary!);
 
