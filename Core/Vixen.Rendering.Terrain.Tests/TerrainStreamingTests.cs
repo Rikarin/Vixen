@@ -417,6 +417,126 @@ public sealed class TerrainStreamingTests : IDisposable {
         Assert.Equal(1, handed);
     }
 
+    /// <summary>The streamer asks for a refused tile again by itself, and the tile ends up with the stroke.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Refusing an arrival is only half a fix, and the other half is nobody's job in
+    ///         particular.</b> <see cref="TerrainTilePages.Place" /> can say no; what makes the tile
+    ///         arrive anyway is <see cref="PageResidency" /> having taken the key out of
+    ///         <c>loading</c> before it placed, so the grid's next request is allowed to start a
+    ///         second load. Nothing in the pool expresses that, and a refusal that left the key
+    ///         parked would trade a frame of pre-stroke ground for a tile that is never fine again —
+    ///         the worse failure of the two, and the quieter one, because every counter still reads
+    ///         healthy.
+    ///     </para>
+    ///     <para>
+    ///         <b>Driven through <see cref="TerrainStreamer.Update" /> rather than by placing pages by
+    ///         hand</b>, which is the difference between this test and the one above it. That one
+    ///         proves the pool refuses and that a second read would be taken; this one proves the
+    ///         second read is actually asked for, by the code that would have to ask.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing here waits on a duration and no step of it is a race.</b> The read is
+    ///         released and then <em>waited for</em>, so its bytes are built before the frame that
+    ///         recomposites rather than possibly during it — which is what lets the arrival be named
+    ///         as the ground from before the stroke instead of merely "not current". The frames
+    ///         afterwards are a settle with a deadline, and the deadline is the failure message
+    ///         rather than the assertion: a build that re-requests reaches the state in two or three
+    ///         of them, and one that does not would not reach it in any number.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task ARefusedTileIsAskedForAgainByTheStreamerAndArrivesWithTheStroke() {
+        var description = Shape(tiles: 4);
+        var terrain = new TerrainMap(description);
+
+        // A hill over the tile the source stands in, switched off to begin with, so that the terrain
+        // before the stroke and after it differ over exactly this tile.
+        var layer = terrain.AddLayer("hill");
+
+        foreach (var (x, z) in Samples(description, tileX: 0, tileZ: 0)) {
+            layer.AddDelta(x, z, 4000);
+        }
+
+        layer.HeightAlpha = 0f;
+        terrain.InvalidateAll();
+        terrain.Resolve();
+
+        var flat = Chain(terrain, 0, 0);
+
+        var gated = new GatedSource(new TerrainTileSource(terrain), only: (0, 0));
+        using var streamer = new TerrainStreamer(in description, gated);
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+
+        // Frames until the load for the tile under test has taken its revision and parked. Drained as
+        // a renderer would, so the other tiles arriving alongside it cannot fill the hand-over and
+        // turn a refusal into a full pool — two different reasons to say no, and only one is the one
+        // under test.
+        while (!gated.Entered.Task.IsCompleted && DateTime.UtcNow < deadline) {
+            streamer.Update([new(new(16f, 0f, 16f), 40f)]);
+            streamer.Pages.Drain((_, _, _) => { });
+
+            await Task.Delay(2, TestContext.Current.CancellationToken);
+        }
+
+        Assert.True(gated.Entered.Task.IsCompleted, "the tile under test was never loaded, so nothing is proved.");
+        Assert.Equal(0, streamer.Pages.StaleArrivals);
+
+        // The frame thread's half, in the gap: the stroke lands on the tile being read. Left dirty
+        // rather than resolved here, because the resolve the streamer does in `Prepare` is the one
+        // whose ordering against `Place` the whole arrangement rests on.
+        layer.HeightAlpha = 1f;
+        terrain.Invalidate(description.SamplesOf(0, 0));
+
+        gated.Resume.SetResult();
+
+        // Waited for rather than raced, so the bytes now on their way are the ground before the
+        // stroke and nothing else. The recomposite has not run — `Prepare` is the only caller and it
+        // is on this thread, below — so what the pool is holding is provably the old terrain, and a
+        // build that keeps it puts the stroke back in the ground it came from.
+        var finished = await Task.WhenAny(
+            gated.Left.Task,
+            Task.Delay(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)
+        );
+
+        Assert.True(finished == gated.Left.Task, "the parked read never finished.");
+
+        byte[]? arrived = null;
+
+        while (arrived is null && DateTime.UtcNow < deadline) {
+            streamer.Update([new(new(16f, 0f, 16f), 40f)]);
+
+            streamer.Pages.Drain(
+                (tileX, tileZ, chain) => {
+                    if ((tileX, tileZ) == (0, 0)) {
+                        arrived = chain.ToArray();
+                    }
+                }
+            );
+
+            await Task.Delay(2, TestContext.Current.CancellationToken);
+        }
+
+        Assert.True(
+            arrived is not null,
+            $"the refused tile was never asked for again — {streamer.Pages.StaleArrivals} arrivals thrown away and "
+            + "nothing loaded in their place, so the tile is coarse for ever."
+        );
+
+        var raised = Chain(terrain, 0, 0);
+
+        Assert.False(flat.AsSpan().SequenceEqual(raised), "the two terrains are identical, so nothing is proved.");
+        Assert.False(arrived.AsSpan().SequenceEqual(flat), "the tile that arrived is the ground from before the stroke.");
+        Assert.True(arrived.AsSpan().SequenceEqual(raised), "the tile that arrived is neither terrain, so it is a blend.");
+        Assert.True(streamer.IsResident(0, 0), "the tile was handed over and still counts as not loaded.");
+
+        // Last, because it is the one that says the tile got here the hard way. Without it every
+        // assertion above passes on a build that never refuses anything, and the test would be about
+        // loading a tile rather than about re-loading one.
+        Assert.True(streamer.Pages.StaleArrivals > 0, "nothing was refused, so the re-request is not what was tested.");
+    }
+
     /// <summary>A chain that reaches the atlas is one terrain or the other, never a blend of the two.</summary>
     /// <remarks>
     ///     <para>
@@ -525,14 +645,34 @@ public sealed class TerrainStreamingTests : IDisposable {
 
     /// <summary>A tile source that can be held still between taking its revision and reading a sample.</summary>
     /// <remarks>
-    ///     The gap a real load spends on the thread pool, made long enough to put a whole stroke in.
+    ///     <para>
+    ///         The gap a real load spends on the thread pool, made long enough to put a whole stroke in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One tile rather than all of them, when a caller says which.</b> A gate over every
+    ///         read is fine for a test that places one page by hand and useless for one that runs
+    ///         frames: <see cref="Entered" /> would be completed by whichever tile the pool got to
+    ///         first, and the stroke would then land against a load that may not have taken its
+    ///         revision yet — which is a test that passes for the wrong reason on a busy machine.
+    ///     </para>
     /// </remarks>
-    sealed class GatedSource(ITerrainTileSource inner) : ITerrainTileSource {
+    sealed class GatedSource(ITerrainTileSource inner, (int X, int Z)? only = null) : ITerrainTileSource {
         /// <summary>Completed once a read has started.</summary>
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         /// <summary>Completed by the test to let that read go on.</summary>
         public TaskCompletionSource Resume { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Completed once a released read has built its bytes.</summary>
+        /// <remarks>
+        ///     ⚠ <b>What makes "the chain describes the terrain from before the stroke" a fact rather
+        ///     than a likelihood.</b> Releasing the gate starts a race between the pool thread's read
+        ///     and the frame's next recomposite, and either order is refused — so a test that only
+        ///     wants the refusal need not care. One that also wants to say <em>which</em> terrain the
+        ///     refused bytes were does, because a read that woke up after the resolve came back
+        ///     current and would have been fine to keep.
+        /// </remarks>
+        public TaskCompletionSource Left { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public int TileSamples => inner.TileSamples;
 
@@ -548,9 +688,17 @@ public sealed class TerrainStreamingTests : IDisposable {
             Memory<byte> destination,
             CancellationToken cancellation
         ) {
-            Entered.TrySetResult();
+            if (only is null || only == (tileX, tileZ)) {
+                Entered.TrySetResult();
 
-            await Resume.Task;
+                await Resume.Task;
+
+                var read = await inner.ReadAsync(tileX, tileZ, destination, cancellation);
+
+                Left.TrySetResult();
+
+                return read;
+            }
 
             return await inner.ReadAsync(tileX, tileZ, destination, cancellation);
         }
