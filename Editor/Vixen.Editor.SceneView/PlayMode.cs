@@ -83,18 +83,6 @@ public sealed class PlayModeController : IDisposable {
     Dictionary<string, int> before = [];
     List<Authored> saved = [];
 
-    /// <summary>The behaviours the session did not take over, so the teardown can leave them.</summary>
-    /// <remarks>
-    ///     ⚠ <b>By reference, and it is the exact answer rather than a heuristic.</b> Everything on
-    ///     the world at <see cref="Play" /> was either detached into <see cref="saved" /> or left
-    ///     here; everything attached afterwards is therefore the session's, including whatever a
-    ///     script spawned. There is no public way to ask a <see cref="BehaviorStore" /> which
-    ///     behaviours are its own — <c>AllOn</c> reads the entity's link, which is one component
-    ///     however many stores share the world — so the set that was not taken is what identifies
-    ///     the set that was.
-    /// </remarks>
-    readonly HashSet<Behavior> stranded = [];
-
     bool disposed;
 
     /// <summary>What the editor is doing.</summary>
@@ -457,8 +445,6 @@ public sealed class PlayModeController : IDisposable {
         List<Authored> taken = [];
         List<string> refused = [];
 
-        stranded.Clear();
-
         if (authored is not { } store) {
             unsupported = refused;
             return taken;
@@ -474,7 +460,6 @@ public sealed class PlayModeController : IDisposable {
                     continue;
                 }
 
-                stranded.Add(behavior);
                 refused.Add(behavior.GetType().Name);
             }
         }
@@ -504,24 +489,24 @@ public sealed class PlayModeController : IDisposable {
         }
 
         saved = [];
-        stranded.Clear();
     }
 
     /// <summary>Destroys the session's behaviours and drains the callbacks that go with it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Only the session's, and <c>BehaviorStore.Destroy</c> will not stop you getting that
-    ///     wrong.</b> <c>Remove</c> checks that the behaviour is this store's and answers false;
-    ///     <c>Destroy</c> queues whatever it is handed, and the drain then indexes a bucket this
-    ///     store has never had — a <c>KeyNotFoundException</c> out of the middle of Stop, for a
-    ///     behaviour that belonged to the document all along. <see cref="stranded" /> is what makes
-    ///     the distinction available.
+    ///     ⚠ <b>Only the session's, and it is <c>BehaviorStore.Destroy</c> that decides which those
+    ///     are.</b> <c>AllOn</c> answers from the entity's <c>BehaviorRef</c>, which is one component
+    ///     however many stores share the world — so this walk is handed the document's own stranded
+    ///     behaviours and any additively-opened scene's as well. The store refuses a behaviour that
+    ///     is not its own and says so, exactly as <c>Remove</c> does. Until 2026-08-21 it did not,
+    ///     and this method carried a set of the behaviours <see cref="Detach" /> had refused so that
+    ///     it could skip them by hand — an approximation, because it only knew about what was on the
+    ///     world when Play was pressed. Ownership is the exact question, and the store is where it
+    ///     is answerable.
     /// </remarks>
-    void Teardown(BehaviorStore store) {
+    static void Teardown(BehaviorStore store) {
         foreach (var entity in Carriers(store.World)) {
             foreach (var behavior in store.AllOn(entity).ToArray()) {
-                if (!stranded.Contains(behavior)) {
-                    store.Destroy(behavior);
-                }
+                store.Destroy(behavior);
             }
         }
 

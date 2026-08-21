@@ -154,15 +154,30 @@ public sealed class BehaviorStore {
 
     /// <summary>Queues a behaviour for destruction at the next lifecycle drain.</summary>
     /// <param name="behavior">The behaviour.</param>
-    public void Destroy(Behavior behavior) {
+    /// <returns>Whether this store took it; <see langword="false" /> if it was never this store's.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Ownership is checked here for the same reason <see cref="Remove" /> checks it, and
+    ///     the callers that need it cannot tell on their own.</b> <see cref="AllOn" /> answers from
+    ///     the entity's <c>BehaviorRef</c>, which is one component however many stores share the
+    ///     world — so everything that walks an entity's behaviours and destroys them, a scene unload
+    ///     and play mode's teardown among them, is handed the other stores' behaviours as well. A
+    ///     store that queued whatever it was given would then index a bucket it has never had at the
+    ///     next drain, and the <c>KeyNotFoundException</c> surfaces out of the middle of the unload
+    ///     rather than at the call that was wrong. Worse when the type does happen to be bucketed
+    ///     here: the foreign behaviour's <see cref="Behavior.Slot" /> indexes a stranger's array and
+    ///     the removal corrupts it silently.
+    /// </remarks>
+    public bool Destroy(Behavior behavior) {
         ArgumentNullException.ThrowIfNull(behavior);
 
-        if (behavior.IsDestroyed) {
-            return;
+        if (behavior.IsDestroyed || !Owns(behavior)) {
+            return false;
         }
 
         behavior.IsDestroyed = true;
         pendingDestroy.Add(behavior);
+
+        return true;
     }
 
     /// <summary>Takes a behaviour off its entity now, running none of its callbacks.</summary>
@@ -198,7 +213,7 @@ public sealed class BehaviorStore {
 
         // ⚠ Attachment is `Store`, not `IsDestroyed`. A second remove of the same instance has
         // nothing to detach it from, and a bucket keyed off a stale `BucketKey` would throw.
-        if (behavior.IsDestroyed || !ReferenceEquals(behavior.Store, this)) {
+        if (behavior.IsDestroyed || !Owns(behavior)) {
             return false;
         }
 
@@ -207,6 +222,17 @@ public sealed class BehaviorStore {
 
         return true;
     }
+
+    /// <summary>Whether this store is the one the behaviour is attached to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked everywhere a queued behaviour is about to be acted on, not only where it is
+    ///     enqueued.</b> A queue entry is a claim made in the past, and two things can have falsified
+    ///     it since: <see cref="Remove" /> nulls <see cref="Behavior.Store" />, and a behaviour that
+    ///     was never this store's can only have arrived by way of the entity's shared
+    ///     <c>BehaviorRef</c>. Either way the bucket lookups below would index an array that does not
+    ///     hold it — so the predicate is one place and every drain consults it.
+    /// </remarks>
+    bool Owns(Behavior behavior) => ReferenceEquals(behavior.Store, this);
 
     internal void QueueEnabledChange(Behavior behavior, bool enabled) =>
         (enabled ? pendingEnable : pendingDisable).Add(behavior);
@@ -243,14 +269,23 @@ public sealed class BehaviorStore {
         awakening.AddRange(pendingAwake);
         pendingAwake.Clear();
 
+        // ⚠ `Owns`, not just `IsDestroyed`, and the queues are the reason. A behaviour queued by
+        // `Add` and taken off again by `Remove` before the first drain is still sitting here — the
+        // editor's authored store does exactly that, on every detach — and it is neither destroyed
+        // nor this store's any more. Waking it would `Activate` a slot in a bucket that no longer
+        // holds it, which raises `enabled` past `Count` and makes the next `Update` walk a null.
         foreach (var behavior in awakening) {
-            if (!behavior.IsDestroyed) {
+            if (!behavior.IsDestroyed && Owns(behavior)) {
                 behavior.InvokeAwake();
                 behavior.IsAwake = true;
             }
         }
 
         foreach (var behavior in awakening) {
+            if (!Owns(behavior)) {
+                continue;
+            }
+
             if (behavior is { IsDestroyed: false, Enabled: true }) {
                 Activate(behavior);
                 behavior.InvokeOnEnable();
@@ -262,7 +297,7 @@ public sealed class BehaviorStore {
         }
 
         Flush(pendingEnable, behavior => {
-                if (behavior is { IsDestroyed: false, Enabled: true, IsAwake: true }) {
+                if (behavior is { IsDestroyed: false, Enabled: true, IsAwake: true } && Owns(behavior)) {
                     Activate(behavior);
                     behavior.InvokeOnEnable();
                 }
@@ -270,7 +305,7 @@ public sealed class BehaviorStore {
         );
 
         Flush(pendingDisable, behavior => {
-                if (behavior is { IsDestroyed: false, Enabled: false, IsAwake: true }) {
+                if (behavior is { IsDestroyed: false, Enabled: false, IsAwake: true } && Owns(behavior)) {
                     Deactivate(behavior);
                     behavior.InvokeOnDisable();
                 }
@@ -280,7 +315,7 @@ public sealed class BehaviorStore {
         for (var index = 0; index < startReady.Count; index++) {
             var behavior = startReady[index];
 
-            if (behavior.IsDestroyed) {
+            if (behavior.IsDestroyed || !Owns(behavior)) {
                 startReady.RemoveAt(index--);
                 continue;
             }

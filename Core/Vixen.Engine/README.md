@@ -85,6 +85,14 @@ loop.Behaviors.Add(entity, new PlayerController());
 constructed before anything looks up a sibling. Enabling, disabling and destroying are all queued
 and applied at the drain, so a behaviour cannot re-enter the loop that is walking it.
 
+**A store only acts on behaviours that are its own.** `Add` sets the behaviour's store; `Remove`
+clears it; `Destroy` and every lifecycle drain check it and return `false` or skip rather than
+throwing. That matters because `AllOn` answers from the entity's `BehaviorRef`, which is *one*
+component however many stores share the world — so a scene unload, or the editor's play-mode
+teardown, walks an entity and is handed the other stores' behaviours as well. A store that acted on
+them would index a bucket it has never had, and the `KeyNotFoundException` would surface out of the
+middle of the unload rather than at the call that was wrong.
+
 **Behaviours are bucketed by concrete type** in contiguous `T[]`s, with the enabled ones in a prefix,
 so the update loop is monomorphic and stops at the boundary — a thousand disabled behaviours cost
 nothing.

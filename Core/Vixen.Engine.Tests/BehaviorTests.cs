@@ -122,6 +122,59 @@ public sealed class BehaviorTests {
     }
 
     /// <summary>
+    ///     <c>AllOn</c> reads the entity's <c>BehaviorRef</c>, which is one component however many
+    ///     stores share the world — so anything that walks an entity's behaviours and destroys them
+    ///     (a scene unload, play mode's teardown) is handed the other stores' behaviours too. Before
+    ///     this, <c>Destroy</c> queued whatever it was given and the next drain indexed a bucket the
+    ///     store had never had: a <c>KeyNotFoundException</c> out of the middle of an unrelated call.
+    /// </summary>
+    [Fact]
+    public void DestroyingABehaviourFromAnotherStoreIsRefused() {
+        var log = new List<string>();
+        using var loop = new EngineLoop();
+        var elsewhere = new BehaviorStore(loop.World);
+        var entity = loop.World.Create();
+        var theirs = elsewhere.Add(entity, new Recorder("theirs", log));
+
+        Assert.False(loop.Behaviors.Destroy(theirs));
+
+        // The drain that used to throw.
+        loop.Frame(TimeSpan.FromMilliseconds(16));
+
+        // And it is still whole: not marked, not detached, still its own store's to destroy.
+        Assert.False(theirs.IsDestroyed);
+        Assert.DoesNotContain("theirs.OnDestroy", log);
+        Assert.Same(theirs, elsewhere.Get<Recorder>(entity));
+
+        elsewhere.RunLifecycle();
+        Assert.True(elsewhere.Destroy(theirs));
+        elsewhere.RunLifecycle();
+
+        Assert.Contains("theirs.OnDestroy", log);
+        Assert.Equal(0, elsewhere.Count);
+    }
+
+    /// <summary>
+    ///     A behaviour taken off with <c>Remove</c> belongs to nobody, and a later <c>Destroy</c>
+    ///     from the store that used to hold it would otherwise detach it a second time — off a
+    ///     bucket that no longer has it.
+    /// </summary>
+    [Fact]
+    public void DestroyingADetachedBehaviourIsRefused() {
+        var log = new List<string>();
+        using var loop = new EngineLoop();
+        var behavior = loop.Behaviors.Add(loop.World.Create(), new Recorder("a", log));
+
+        Assert.True(loop.Behaviors.Remove(behavior));
+        Assert.False(loop.Behaviors.Destroy(behavior));
+
+        loop.Frame(TimeSpan.FromMilliseconds(16));
+
+        Assert.False(behavior.IsDestroyed);
+        Assert.DoesNotContain("a.OnDestroy", log);
+    }
+
+    /// <summary>
     ///     Nothing tells the store when an entity dies — the ECS has no destruction event that is on
     ///     by default. The store notices on its own, or a behaviour outlives its entity and its next
     ///     <c>Update</c> throws on a stale handle.

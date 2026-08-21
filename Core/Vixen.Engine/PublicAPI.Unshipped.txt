@@ -50,7 +50,7 @@ Vixen.Engine.Behaviors.BehaviorStore.AllOn(Vixen.Core.Entity entity) -> System.R
 Vixen.Engine.Behaviors.BehaviorStore.BehaviorStore(Vixen.Ecs.World world, Vixen.Engine.Coroutines.CoroutineScheduler? coroutines = null) -> void
 Vixen.Engine.Behaviors.BehaviorStore.Coroutines.get -> Vixen.Engine.Coroutines.CoroutineScheduler
 Vixen.Engine.Behaviors.BehaviorStore.Count.get -> int
-Vixen.Engine.Behaviors.BehaviorStore.Destroy(Vixen.Engine.Behaviors.Behavior behavior) -> void
+Vixen.Engine.Behaviors.BehaviorStore.Destroy(Vixen.Engine.Behaviors.Behavior behavior) -> bool
 Vixen.Engine.Behaviors.BehaviorStore.Get<T>(Vixen.Core.Entity entity) -> T?
 Vixen.Engine.Behaviors.BehaviorStore.Remove(Vixen.Engine.Behaviors.Behavior behavior) -> bool
 Vixen.Engine.Behaviors.BehaviorStore.RunLateUpdate() -> void
